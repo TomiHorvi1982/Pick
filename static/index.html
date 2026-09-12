@@ -1242,6 +1242,8 @@ const Player = (() => {
   const muteBtn = el("pb-mute");
   let current = null;
   let seeking = false;
+  let playQueueList = [];  // only non-empty during a playLocalQueue() "Přehrát vše"
+  let playQueueIdx = -1;
 
   // volume persists across sessions
   try{
@@ -1272,6 +1274,8 @@ const Player = (() => {
   }
 
   async function play(track){
+    playQueueList = [track];
+    playQueueIdx = 0;
     current = track;
     setMeta(`⏳ ${track.title || ""}`, "Hledám…", track.thumbnail);
     let videoId = track.videoId;
@@ -1296,6 +1300,27 @@ const Player = (() => {
     pushHistory({...track, videoId});
   }
 
+  function playLocal(track){
+    playQueueList = [track];
+    return playLocalAt(0);
+  }
+
+  function playLocalQueue(tracks){
+    if(!tracks.length) return;
+    playQueueList = tracks;
+    return playLocalAt(0);
+  }
+
+  function playLocalAt(idx){
+    const track = playQueueList[idx];
+    playQueueIdx = idx;
+    current = track;
+    audio.src = `/api/library/stream?rel=${encodeURIComponent(track.relPath)}`;
+    audio.play().catch(()=>{});
+    setMeta(track.title || track.relPath, track.artists || "", null);
+    pushHistory({...track, source: "local", key: "local:"+track.relPath});
+  }
+
   audio.addEventListener("error", () => {
     if(current) setMeta("⚠ Přehrání selhalo", current.title || "", current.thumbnail);
   });
@@ -1305,7 +1330,13 @@ const Player = (() => {
   playBtn.onclick = () => { if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); };
   audio.addEventListener("play", () => playBtn.textContent = "⏸");
   audio.addEventListener("pause", () => playBtn.textContent = "▶");
-  audio.addEventListener("ended", () => playBtn.textContent = "▶");
+  audio.addEventListener("ended", () => {
+    if(playQueueIdx > -1 && playQueueIdx + 1 < playQueueList.length){
+      playLocalAt(playQueueIdx + 1);
+    } else {
+      playBtn.textContent = "▶";
+    }
+  });
 
   // seekable progress bar
   function updateProgress(){
@@ -1372,7 +1403,7 @@ const Player = (() => {
         </div>
         <button class="mini-btn play" title="Přehrát znovu">▶</button>
       `;
-      row.querySelector(".play").onclick = () => play(h);
+      row.querySelector(".play").onclick = () => h.source === "local" ? playLocal(h) : play(h);
       box.appendChild(row);
     });
   }
@@ -1386,7 +1417,7 @@ const Player = (() => {
   };
 
   renderHistory();
-  return { play };
+  return { play, playLocal, playLocalQueue };
 })();
 
 // ======================================================================
