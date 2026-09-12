@@ -865,6 +865,7 @@ function setMode(mode){
   el("tab-songs").classList.toggle("active", mode==="songs");
   el("tab-library").classList.toggle("active", mode==="library");
   el("search-input").disabled = mode === "library";
+  el("search-btn").disabled = mode === "library";
   el("search-input").placeholder = mode==="playlists"
     ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
     : mode==="songs" ? "Hledej píseň nebo interpreta…" : "";
@@ -995,6 +996,7 @@ async function runSearch(more=false){
   if(!more) lastLimit = 40; else lastLimit += 24;
 
   browseSection.hidden = true;
+  el("library-section").hidden = true;
   resultsTitle.hidden = false;
   resultsTitle.textContent = `Hledám „${q}“…`;
   el("load-more-btn").disabled = true;
