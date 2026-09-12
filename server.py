@@ -423,7 +423,8 @@ def _resolve_audio(video_id: str):
     every single preview click made yt-dlp decrypt Chrome's cookies (via macOS
     Keychain) on every play — which is what caused the repeated Keychain popups.
     """
-    cached = _STREAM_CACHE.get(video_id)
+    cache_key = ("audio", video_id)
+    cached = _STREAM_CACHE.get(cache_key)
     if cached and cached["expires"] > time.time():
         return cached
 
@@ -441,13 +442,42 @@ def _resolve_audio(video_id: str):
         "headers": info.get("http_headers") or {},
         "expires": time.time() + _STREAM_CACHE_TTL,
     }
-    _STREAM_CACHE[video_id] = result
+    _STREAM_CACHE[cache_key] = result
     return result
 
 
-async def _proxy_audio_response(request: Request, video_id: str):
+def _resolve_video(video_id: str):
+    """Progressive (single file, video+audio combined) stream — good enough
+    for the in-app video toggle, not used for downloads. Combined
+    progressive formats top out well below 1080p on YouTube these days;
+    that's fine here.
+    """
+    cache_key = ("video", video_id)
+    cached = _STREAM_CACHE.get(cache_key)
+    if cached and cached["expires"] > time.time():
+        return cached
+
+    import yt_dlp
+
+    ydl_opts = {
+        "quiet": True, "no_warnings": True, "noplaylist": True,
+        "format": "best[ext=mp4]/best",
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+
+    result = {
+        "url": info["url"],
+        "headers": info.get("http_headers") or {},
+        "expires": time.time() + _STREAM_CACHE_TTL,
+    }
+    _STREAM_CACHE[cache_key] = result
+    return result
+
+
+async def _proxy_media_response(request: Request, video_id: str, resolve, cache_key, default_content_type: str):
     try:
-        info = await asyncio.to_thread(_resolve_audio, video_id)
+        info = await asyncio.to_thread(resolve, video_id)
     except Exception as e:
         return JSONResponse({"error": f"Náhled se nepodařilo najít ({e})"}, status_code=502)
 
@@ -467,7 +497,7 @@ async def _proxy_audio_response(request: Request, video_id: str):
     if upstream.status_code >= 400:
         await upstream.aclose()
         await client.aclose()
-        _STREAM_CACHE.pop(video_id, None)  # link may have expired — drop it so the next click re-resolves
+        _STREAM_CACHE.pop(cache_key, None)  # link may have expired — drop it so the next click re-resolves
         return JSONResponse({"error": "YouTube odmítlo přehrání (zkus to znovu)"}, status_code=upstream.status_code)
 
     async def body():
@@ -482,14 +512,27 @@ async def _proxy_audio_response(request: Request, video_id: str):
     for h in ("content-length", "content-range", "content-type"):
         if h in upstream.headers:
             out_headers[h] = upstream.headers[h]
-    out_headers.setdefault("content-type", "audio/mp4")
+    out_headers.setdefault("content-type", default_content_type)
 
     return StreamingResponse(body(), status_code=upstream.status_code, headers=out_headers)
+
+
+async def _proxy_audio_response(request: Request, video_id: str):
+    return await _proxy_media_response(request, video_id, _resolve_audio, ("audio", video_id), "audio/mp4")
+
+
+async def _proxy_video_response(request: Request, video_id: str):
+    return await _proxy_media_response(request, video_id, _resolve_video, ("video", video_id), "video/mp4")
 
 
 @app.get("/api/stream/{video_id}")
 async def stream(video_id: str, request: Request):
     return await _proxy_audio_response(request, video_id)
+
+
+@app.get("/api/stream-video/{video_id}")
+async def stream_video(video_id: str, request: Request):
+    return await _proxy_video_response(request, video_id)
 
 
 # --------------------------------------------------------------- download
