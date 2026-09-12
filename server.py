@@ -10,6 +10,8 @@ Běží jen na 127.0.0.1 — není dostupný ze sítě.
 
 import asyncio
 import json
+import mimetypes
+import os
 import subprocess
 import time
 import uuid
@@ -22,10 +24,29 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 HOME = Path.home()
-MUSIC_ROOT = HOME / "Music" / "spotdl"
 APP_DIR = Path(__file__).parent
 SPOTDL_BIN = str(HOME / ".local" / "bin" / "spotdl")
 AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav"}
+CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
+DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
+
+
+def _load_music_root() -> Path:
+    """Reads the configured download folder from CONFIG_PATH, falling back
+    to the original hardcoded default when there's no config yet (first
+    run) or it's unreadable.
+    """
+    try:
+        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        raw = data.get("music_root")
+        if raw:
+            return Path(raw).expanduser()
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return DEFAULT_MUSIC_ROOT
+
+
+MUSIC_ROOT = _load_music_root()
 
 app = FastAPI(title="spotdl GUI")
 
@@ -469,3 +490,51 @@ def reveal(req: RevealRequest):
     Path(req.path).mkdir(parents=True, exist_ok=True)
     subprocess.run(["open", req.path], check=False)
     return {"ok": True}
+
+
+# --------------------------------------------------------------- settings
+
+
+class SettingsRequest(BaseModel):
+    music_root: str
+
+
+@app.get("/api/settings")
+def get_settings():
+    return {"music_root": str(MUSIC_ROOT)}
+
+
+@app.post("/api/settings")
+def update_settings(req: SettingsRequest):
+    global MUSIC_ROOT
+    path = Path(req.music_root).expanduser()
+    if not path.is_absolute():
+        return JSONResponse({"error": "Cesta musí být absolutní."}, status_code=400)
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return JSONResponse({"error": f"Složku nejde vytvořit ({e})."}, status_code=400)
+    if not os.access(path, os.W_OK):
+        return JSONResponse({"error": "Do složky se nedá zapisovat."}, status_code=400)
+
+    MUSIC_ROOT = path
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps({"music_root": str(path)}), encoding="utf-8")
+    return {"music_root": str(MUSIC_ROOT)}
+
+
+@app.post("/api/settings/pick-folder")
+def pick_folder():
+    """Native macOS folder picker via AppleScript — the browser sandbox
+    can't hand back an absolute filesystem path itself.
+    """
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", "POSIX path of (choose folder)"],
+            capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return {"path": None}
+    if result.returncode != 0:
+        return {"path": None}  # user cancelled the dialog
+    return {"path": result.stdout.strip()}
