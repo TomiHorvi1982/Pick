@@ -42,3 +42,25 @@ def test_stream_rejects_path_traversal(client, tmp_music_root):
 def test_stream_missing_file_returns_404(client, tmp_music_root):
     res = client.get("/api/library/stream", params={"rel": "nope.mp3"})
     assert res.status_code == 404
+
+
+def test_stream_malformed_range_header_returns_416(client, tmp_music_root):
+    (tmp_music_root / "song.mp3").write_bytes(b"0123456789")
+
+    res = client.get(
+        "/api/library/stream", params={"rel": "song.mp3"}, headers={"Range": "bytes=abc-def"}
+    )
+
+    assert res.status_code == 416
+    assert res.json() == {"error": "Neplatný Range požadavek."}
+
+
+def test_stream_inverted_range_returns_416(client, tmp_music_root):
+    (tmp_music_root / "song.mp3").write_bytes(b"0123456789")
+
+    res = client.get(
+        "/api/library/stream", params={"rel": "song.mp3"}, headers={"Range": "bytes=5-2"}
+    )
+
+    assert res.status_code == 416
+    assert res.json() == {"error": "Neplatný Range požadavek."}

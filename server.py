@@ -348,10 +348,13 @@ def _range_file_response(path: Path, range_header: Optional[str]):
     status_code = 200
     if range_header and range_header.startswith("bytes="):
         start_s, _, end_s = range_header.removeprefix("bytes=").partition("-")
-        if start_s:
-            start = int(start_s)
-        if end_s:
-            end = int(end_s)
+        try:
+            if start_s:
+                start = int(start_s)
+            if end_s:
+                end = int(end_s)
+        except ValueError:
+            return JSONResponse({"error": "Neplatný Range požadavek."}, status_code=416)
         end = min(end, size - 1)
         if start > end:
             return JSONResponse({"error": "Neplatný Range požadavek."}, status_code=416)
