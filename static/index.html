@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spotifylisty</title>
+<style>
+  :root{
+    --bg:#12141a; --bg2:#1a1d26; --card:#1e222d; --card-hi:#262b38;
+    --text:#eef0f4; --sub:#9aa3b5; --accent:#2dd4bf; --accent-dim:#1b8f80;
+    --danger:#f16565; --ok:#54d17a; --gold:#e8b93f; --border:#2a2f3d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  header{position:sticky;top:0;z-index:20;background:rgba(18,20,26,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--border);
+    padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  header h1{font-size:17px;margin:0;white-space:nowrap;display:flex;gap:8px;align-items:center}
+  header h1 .logo{font-size:20px}
+  .tabs{display:flex;background:var(--bg2);border-radius:10px;padding:3px;gap:2px}
+  .tabs button{border:none;background:transparent;color:var(--sub);padding:7px 14px;
+    border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}
+  .tabs button.active{background:var(--accent);color:#04211d}
+  .search-wrap{flex:1;min-width:220px;display:flex;gap:8px}
+  input[type=text]{flex:1;background:var(--bg2);border:1px solid var(--border);
+    color:var(--text);padding:9px 12px;border-radius:9px;font-size:14px;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  input[type=number]{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+    padding:9px 10px;border-radius:9px;font-size:13px;width:100px;outline:none}
+  select{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+    padding:8px 10px;border-radius:9px;font-size:13px}
+  button.btn{background:var(--accent);color:#04211d;border:none;border-radius:9px;
+    padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+  button.btn:hover{background:#3fe0ca}
+  button.btn.secondary{background:var(--bg2);color:var(--text);border:1px solid var(--border)}
+  button.btn.secondary:hover{border-color:var(--accent)}
+  button.btn.danger{background:var(--bg2);color:var(--danger);border:1px solid var(--border)}
+  button.btn.danger:hover{border-color:var(--danger)}
+  button.btn:disabled{opacity:.45;cursor:default}
+  .icon-btn-flat{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+    width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:15px}
+  .icon-btn-flat:hover{border-color:var(--accent)}
+
+  main{padding:20px;max-width:1200px;margin:0 auto;padding-bottom:130px}
+
+  .region-toggle{display:flex;gap:10px;margin-bottom:20px}
+  .region-toggle button{flex:1;background:var(--card);border:1px solid var(--border);
+    color:var(--sub);padding:16px;border-radius:14px;font-size:15px;font-weight:800;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .region-toggle button.active{border-color:var(--accent);color:var(--accent);
+    background:linear-gradient(180deg,rgba(45,212,191,.14),transparent)}
+
+  .section-title{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--sub);margin:20px 0 10px;display:flex;align-items:center;gap:10px}
+  .add-link{font-size:11.5px;text-transform:none;letter-spacing:0;color:var(--accent);
+    cursor:pointer;font-weight:700}
+  .add-link:hover{text-decoration:underline}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--card);border:1px solid var(--border);color:var(--text);
+    padding:7px 13px;border-radius:999px;font-size:13px;cursor:pointer;display:flex;
+    align-items:center;gap:6px}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip.active{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .chip .x{opacity:.6;font-size:11px;padding:0 1px}
+  .chip .x:hover{opacity:1;color:var(--danger)}
+  .chip.empty-hint{background:transparent;border-style:dashed;color:var(--sub);cursor:default}
+
+  .artist-suggest{position:sticky;top:64px;z-index:19;padding:9px 20px;display:flex;
+    gap:8px;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border)}
+  .artist-suggest[hidden]{display:none}
+  .artist-suggest-label{font-size:11.5px;color:var(--sub);font-weight:700;margin-right:2px;
+    white-space:nowrap;flex:none}
+  .artist-suggest-scroll{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:thin;padding-bottom:2px}
+  .artist-suggest-scroll::-webkit-scrollbar{height:6px}
+  .artist-suggest-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .artist-suggest .chip{flex:none;white-space:nowrap}
+  .artist-suggest-loading{font-size:12px;color:var(--sub);padding:0 10px;flex:none;white-space:nowrap}
+
+  .topn-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .topn-custom{display:flex;gap:6px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+    gap:16px;margin-top:6px}
+  .card{background:var(--card);border-radius:12px;overflow:hidden;cursor:pointer;
+    border:1px solid var(--border);transition:transform .12s, border-color .12s;position:relative}
+  .card:hover{transform:translateY(-3px);border-color:var(--accent)}
+  .card .art{width:100%;aspect-ratio:1/1;background:var(--bg2) center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--sub)}
+  .card .meta{padding:10px 12px}
+  .card .title{font-size:13px;font-weight:600;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card .sub{font-size:12px;color:var(--sub);margin-top:4px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .card .card-fabs{position:absolute;top:8px;right:8px;display:flex;gap:6px}
+  .card .fab-btn{width:30px;height:30px;border-radius:50%;
+    background:rgba(10,12,16,.75);border:1px solid rgba(255,255,255,.15);color:#fff;
+    font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    backdrop-filter:blur(3px)}
+  .card .fab-btn:hover{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .card .owned-badge{position:absolute;top:8px;left:8px;background:rgba(10,20,16,.85);
+    color:var(--ok);border:1px solid var(--ok);font-size:10.5px;font-weight:700;
+    padding:3px 7px;border-radius:999px}
+
+  .load-more-wrap{display:flex;justify-content:center;margin:22px 0}
+
+  .track-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:9px}
+  .track-row:hover{background:var(--card-hi)}
+  .track-row .thumb{width:42px;height:42px;border-radius:6px;background:var(--bg2) center/cover no-repeat;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--sub)}
+  .track-row .info{flex:1;min-width:0}
+  .track-row .t-title{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track-row .t-sub{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    display:flex;align-items:center;gap:6px}
+  .owned-tag{color:var(--ok);font-weight:700;font-size:11px}
+  .track-row .dur{font-size:12px;color:var(--sub);width:42px;text-align:right;flex-shrink:0}
+  .icon-btn{background:none;border:1px solid var(--border);color:var(--sub);
+    width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .icon-btn.add:hover{border-color:var(--gold);color:var(--gold)}
+  .icon-btn.play:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ================================================================
+     Central player — fixed bar at the bottom, the only place audio
+     plays. Custom-built controls (no native browser widget) so it
+     actually matches the rest of the app.
+     ================================================================ */
+  .player-bar{position:fixed;left:0;right:0;bottom:0;z-index:55;
+    display:flex;align-items:center;gap:18px;
+    background:linear-gradient(180deg,rgba(26,29,38,.9),rgba(14,16,21,.98));
+    backdrop-filter:blur(14px);border-top:1px solid var(--border);
+    padding:10px 20px;box-shadow:0 -12px 32px rgba(0,0,0,.45)}
+
+  .pb-track{display:flex;align-items:center;gap:11px;min-width:0;flex:0 1 230px}
+  .pb-art{width:46px;height:46px;border-radius:9px;background:var(--bg2) center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--sub);
+    flex-shrink:0;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .pb-meta{min-width:0}
+  .pb-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pb-artist{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;margin-top:2px}
+
+  .pb-center{flex:1;min-width:0;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px}
+  .pb-play{width:36px;height:36px;border-radius:50%;flex-shrink:0;border:none;cursor:pointer;
+    background:var(--accent);color:#04211d;font-size:13px;display:flex;align-items:center;
+    justify-content:center;box-shadow:0 4px 14px rgba(45,212,191,.35);transition:transform .12s}
+  .pb-play:hover{transform:scale(1.07)}
+  .pb-progress-row{flex:1;display:flex;align-items:center;gap:9px;min-width:0}
+  .pb-time{font-size:10.5px;color:var(--sub);width:34px;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .pb-time-dur{text-align:right}
+  .pb-progress{flex:1;height:4px;border-radius:999px;background:var(--border);position:relative;
+    cursor:pointer;touch-action:none}
+  .pb-progress-fill{position:absolute;inset:0;width:0%;border-radius:999px;
+    background:linear-gradient(90deg,var(--accent-dim),var(--accent))}
+  .pb-progress-handle{position:absolute;top:50%;left:0%;width:11px;height:11px;border-radius:50%;
+    background:var(--text);transform:translate(-50%,-50%);opacity:0;transition:opacity .12s;
+    box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  .pb-progress:hover .pb-progress-handle{opacity:1}
+
+  .pb-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+  .pb-volume{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;cursor:default}
+  .pb-volume input[type=range]{width:72px;accent-color:var(--accent)}
+  .pb-badge{background:var(--gold);color:#241b00;border-radius:999px;font-size:10px;
+    font-weight:800;padding:0 5px;margin-left:3px}
+
+  @media (max-width:760px){
+    .pb-track{flex-basis:0;flex-grow:1;max-width:150px}
+    .pb-volume{display:none}
+    .player-bar{gap:10px;padding:8px 12px}
+  }
+
+  .overlay{position:fixed;inset:0;background:rgba(6,7,10,.7);z-index:50;
+    display:flex;justify-content:flex-end}
+  .overlay[hidden]{display:none}
+  .panel{width:min(560px,100%);height:100%;background:var(--bg);border-left:1px solid var(--border);
+    overflow-y:auto;padding:0 0 30px}
+  .panel-head{position:relative;padding:22px 22px 16px;background:linear-gradient(180deg,var(--card),var(--bg))}
+  .close-btn{position:absolute;top:16px;right:16px;background:var(--bg2);border:1px solid var(--border);
+    color:var(--text);width:30px;height:30px;border-radius:50%;cursor:pointer}
+  .pl-art{width:120px;height:120px;border-radius:12px;background:var(--bg2) center/cover no-repeat;
+    box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .pl-title{font-size:19px;font-weight:800;margin:14px 0 4px;line-height:1.25}
+  .pl-author{color:var(--sub);font-size:13px}
+  .pl-desc{color:var(--sub);font-size:12.5px;margin-top:8px;line-height:1.5;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .badge{background:var(--bg2);border:1px solid var(--border);border-radius:999px;
+    padding:5px 11px;font-size:12px;color:var(--sub)}
+  .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .track-list{padding:6px 14px}
+  .track-list-head{display:flex;justify-content:space-between;align-items:center;
+    padding:10px 8px 4px;font-size:12px;color:var(--sub)}
+  .track-list-head a{color:var(--accent);cursor:pointer;text-decoration:none}
+  .checkbox{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0}
+
+  .drawer{position:fixed;width:340px;max-width:calc(100vw - 40px);
+    background:var(--card);border:1px solid var(--border);border-radius:12px;z-index:60;
+    box-shadow:0 12px 32px rgba(0,0,0,.5)}
+  .drawer[hidden]{display:none}
+  #dl-drawer{left:20px;bottom:84px}
+  #queue-drawer{right:20px;bottom:84px}
+  #history-panel{right:20px;bottom:84px}
+  .dl-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;
+    border-bottom:1px solid var(--border);font-size:13px;font-weight:700}
+  .dl-head .status{font-weight:400;color:var(--sub)}
+  .dl-log{max-height:220px;overflow-y:auto;padding:10px 14px;font-size:11.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--sub);line-height:1.5}
+  .dl-log div{white-space:pre-wrap;word-break:break-word}
+  .dl-foot{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border)}
+  .dl-foot button{flex:1}
+
+  .cart-items{max-height:320px;overflow-y:auto;padding:6px 10px}
+  .cart-item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border)}
+  .cart-item:last-child{border-bottom:none}
+  .cart-item .info{flex:1;min-width:0}
+  .cart-item .t-title{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cart-item .t-sub{font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    display:flex;align-items:center;gap:5px}
+  .cart-item .mini-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;flex-shrink:0}
+  .cart-item .mini-btn:hover{color:var(--accent)}
+  .cart-item .mini-btn.rm:hover{color:var(--danger)}
+  .cart-summary{padding:8px 14px;font-size:11.5px;color:var(--sub);border-top:1px solid var(--border)}
+
+  .empty{color:var(--sub);text-align:center;padding:50px 10px;font-size:14px}
+  .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);
+    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:80;
+    display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{background:var(--card-hi);border:1px solid var(--border);color:var(--text);
+    padding:9px 16px;border-radius:999px;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,.4);
+    animation:toast-in .18s ease-out}
+  @keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="logo">🎧</span> Spotifylisty</h1>
+  <div class="tabs">
+    <button id="tab-playlists" class="active">Playlisty</button>
+    <button id="tab-songs">Písně</button>
+  </div>
+  <div class="search-wrap">
+    <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
+    <button class="icon-btn-flat" id="surprise-btn" title="Překvap mě">🎲</button>
+    <button class="btn secondary" id="search-btn">Hledat</button>
+  </div>
+  <select id="bitrate">
+    <option value="128k">128 kbps</option>
+    <option value="192k" selected>192 kbps</option>
+    <option value="320k">320 kbps</option>
+  </select>
+  <button class="icon-btn-flat" id="settings-btn" title="Nastavení stahování">⚙️</button>
+</header>
+
+<!-- Artist hints for the Songs tab — shown under the search box whenever a
+     decade/genre chip (or free text) matches known artists, so you can pick
+     one instead of typing it out. Infinite-scrolls horizontally: most famous
+     artists first, more (progressively less-known) ones loaded in as you
+     scroll right. -->
+<div class="artist-suggest" id="artist-suggest" hidden></div>
+
+<div class="overlay" id="settings-overlay" hidden>
+  <div class="panel" style="width:min(420px,100%)">
+    <div class="panel-head">
+      <button class="close-btn" id="settings-close">✕</button>
+      <div class="pl-title" style="margin-top:0">⚙️ Nastavení stahování</div>
+      <div style="color:var(--sub);font-size:12.5px;line-height:1.6;margin-top:8px">
+        Když stahování selže s hláškou „Sign in to confirm you're not a bot“,
+        YouTube po tobě chce ověření. Nejjednodušší oprava: nech spotdl použít
+        přihlašovací cookies z prohlížeče, kde jsi na YouTube přihlášený/á.
+        <br><br><b>Prohlížeč musí být před stahováním úplně zavřený</b>
+        (ne jen okno — celá appka), jinak je jeho soubor s cookies zamčený.
+      </div>
+      <div class="section-title" style="margin-top:18px">Číst cookies z prohlížeče</div>
+      <select id="cookies-browser" style="width:100%;padding:10px">
+        <option value="">Nepoužívat (výchozí)</option>
+        <option value="chrome">Google Chrome</option>
+        <option value="safari">Safari</option>
+        <option value="brave">Brave</option>
+        <option value="firefox">Firefox</option>
+        <option value="edge">Microsoft Edge</option>
+      </select>
+      <div class="section-title">…nebo cesta k exportovanému cookies.txt</div>
+      <input type="text" id="cookie-file" placeholder="/Users/.../cookies.txt" style="width:100%">
+      <div class="actions">
+        <button class="btn" id="settings-save">Uložit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div id="browse-section">
+    <div class="region-toggle" id="region-toggle">
+      <button data-region="intl" class="active">🌍 Zahraniční Playlisty</button>
+      <button data-region="cz">🇨🇿 České Playlisty</button>
+    </div>
+
+    <div id="fav-playlists-section" hidden>
+      <div class="section-title">⭐ Oblíbené playlisty</div>
+      <div class="grid" id="fav-playlists-grid"></div>
+    </div>
+
+    <div class="section-title">🕒 Dekády</div>
+    <div class="chips" id="chips-decades"></div>
+
+    <div class="section-title">🏆 Žebříček (Top N)</div>
+    <div class="topn-row">
+      <div class="chips" id="chips-topn"></div>
+      <div class="topn-custom">
+        <input type="number" id="topn-custom" min="1" max="500" placeholder="vlastní č.">
+        <button class="btn secondary" id="topn-insert">➕ Vložit</button>
+      </div>
+    </div>
+
+    <div class="section-title">🎸 Rock &amp; Metal žánry</div>
+    <div class="chips" id="chips-genres"></div>
+
+    <div class="section-title">🔥 Nejhledanější</div>
+    <div class="chips" id="chips-popular"></div>
+
+    <div class="section-title">🤖 AI hudba</div>
+    <div class="chips" id="chips-ai"></div>
+
+    <div class="section-title">🌐 Další žánry a nálady <span style="text-transform:none;font-weight:400">(YouTube Music)</span></div>
+    <div class="chips" id="chips-more"></div>
+
+    <div class="section-title">
+      ⭐ Moje kategorie
+      <a class="add-link" id="add-custom">+ přidat vlastní</a>
+    </div>
+    <div class="chips" id="chips-custom"></div>
+  </div>
+
+  <div class="section-title" id="results-title" hidden>Výsledky</div>
+  <div class="grid" id="results-grid"></div>
+  <div class="load-more-wrap" id="load-more-wrap" hidden>
+    <button class="btn secondary" id="load-more-btn">Načíst další výsledky</button>
+  </div>
+</main>
+
+<!-- Central player — a fixed bar at the bottom, the only place audio plays.
+     Starting a new track always stops whatever was playing before, and the
+     playlist/search panel stays open no matter what you do here (it sits
+     above the overlay's dim backdrop). Fully custom controls — no native
+     browser widget — so it actually matches the rest of the app. -->
+<div class="player-bar" id="player-bar">
+  <div class="pb-track">
+    <div class="pb-art" id="pb-art">🎵</div>
+    <div class="pb-meta">
+      <div class="pb-title" id="pb-title">Nic nehraje</div>
+      <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
+    </div>
+  </div>
+  <div class="pb-center">
+    <button class="pb-play" id="pb-play" title="Přehrát / Pauza">▶</button>
+    <div class="pb-progress-row">
+      <span class="pb-time" id="pb-time-cur">0:00</span>
+      <div class="pb-progress" id="pb-progress">
+        <div class="pb-progress-fill" id="pb-progress-fill"></div>
+        <div class="pb-progress-handle" id="pb-progress-handle"></div>
+      </div>
+      <span class="pb-time pb-time-dur" id="pb-time-dur">0:00</span>
+    </div>
+  </div>
+  <div class="pb-right">
+    <div class="pb-volume">
+      <span id="pb-mute" title="Ztlumit">🔊</span>
+      <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
+    </div>
+    <button class="icon-btn-flat" id="pb-history-btn" title="Historie přehrávání">🕘</button>
+    <button class="icon-btn-flat" id="pb-queue-btn" title="Playlist k přehrávači">📃<span class="pb-badge" id="pb-queue-count">0</span></button>
+  </div>
+  <audio id="pb-audio" hidden></audio>
+</div>
+
+<!-- Playlist / track detail panel -->
+<div class="overlay" id="overlay" hidden>
+  <div class="panel" id="panel"></div>
+</div>
+
+<!-- Player playlist (queue) — songs added via ➕, played from the central
+     player, downloaded together. -->
+<div class="drawer" id="queue-drawer" hidden>
+  <div class="dl-head">
+    <span>📃 Playlist</span>
+    <button class="close-btn" id="queue-close" style="position:static;width:24px;height:24px;font-size:11px">✕</button>
+  </div>
+  <div class="cart-items" id="queue-items"></div>
+  <div class="cart-summary" id="queue-summary"></div>
+  <div class="dl-foot">
+    <button class="btn danger" id="queue-clear">🗑 Vyprázdnit</button>
+    <button class="btn" id="queue-download">⬇️ Stáhnout playlist</button>
+  </div>
+</div>
+
+<!-- Playback history -->
+<div class="drawer" id="history-panel" hidden>
+  <div class="dl-head">
+    <span>🕘 Historie přehrávání</span>
+    <a id="history-clear" style="cursor:pointer;color:var(--accent);font-size:11.5px;font-weight:600">vymazat</a>
+  </div>
+  <div class="cart-items" id="history-list"></div>
+</div>
+
+<!-- Download progress drawer -->
+<div class="drawer" id="dl-drawer" hidden>
+  <div class="dl-head">
+    <span id="dl-title">Stahování</span>
+    <span class="status" id="dl-status"><span class="spinner"></span> běží…</span>
+  </div>
+  <div class="dl-log" id="dl-log"></div>
+  <div class="dl-foot">
+    <button class="btn secondary" id="dl-reveal" disabled>📁 Otevřít složku</button>
+    <button class="btn secondary" id="dl-close">Zavřít</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ======================================================================
+// Curated categories
+// ======================================================================
+const DECADES = [
+  {label:"60. léta", value:"60s"}, {label:"70. léta", value:"70s"},
+  {label:"80. léta", value:"80s"}, {label:"90. léta", value:"90s"},
+  {label:"2000s", value:"2000s"}, {label:"2010s", value:"2010s"},
+  {label:"2020s", value:"2020s"}, {label:"Nejnovější", value:"2025 2026"},
+];
+const TOPN_PRESETS = [10, 20, 25, 30, 50, 100];
+const ROCK_METAL_GENRES = [
+  "Heavy Metal","Thrash Metal","Death Metal","Black Metal","Doom Metal","Power Metal",
+  "Speed Metal","Groove Metal","Nu Metal","Metalcore","Deathcore","Progressive Metal",
+  "Symphonic Metal","Gothic Metal","Folk Metal","Industrial Metal","Sludge Metal",
+  "Stoner Rock","Glam Metal","Classic Rock","Hard Rock","Punk Rock","Post-Rock",
+  "Alternative Rock","Grunge","Progressive Rock","Southern Rock","Female Fronted Metal",
+  "Melodic Death Metal","Rock Ballads",
+];
+const POPULAR_TERMS = [
+  "Best Rock Songs Of All Time","Best Metal Songs Of All Time","Gym Metal Motivation",
+  "Workout Rock Mix","Road Trip Rock Classics","Metal Essentials","One Hour Metal Mix",
+  "Headbanging Metal Mix","Chill Acoustic Rock","New Metal Releases","Underground Metal Gems",
+  "Guitar Solos Rock Metal","Driving Rock Anthems","Summer Rock Hits",
+];
+const AI_TERMS = [
+  "AI Generated Music","Suno AI Songs","AI Music Mix","AI Cover Songs",
+  "AI Metal Music","AI Rock Music","Best AI Songs","AI Music Compilation",
+];
+
+// ======================================================================
+// State & small utilities
+// ======================================================================
+const state = { mode: "playlists", region: "intl", libraryStems: null };
+const el = (id) => document.getElementById(id);
+const grid = el("results-grid");
+const resultsTitle = el("results-title");
+const browseSection = el("browse-section");
+const regionToggle = el("region-toggle");
+
+function fmtDur(sec){
+  sec = Math.round(sec||0);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if(h) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+function fmtSize(bytes){
+  const mb = bytes/1024/1024;
+  if(mb > 1024) return (mb/1024).toFixed(2) + " GB";
+  return mb.toFixed(1) + " MB";
+}
+function estBytes(totalSec, bitrateStr){
+  const kbps = parseInt(bitrateStr) || 192;
+  return totalSec * kbps * 1000 / 8;
+}
+function bitrate(){ return el("bitrate").value; }
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); }
+
+function showToast(msg){
+  const wrap = el("toast-wrap");
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity .3s"; setTimeout(()=>t.remove(), 300); }, 1800);
+}
+
+// ======================================================================
+// Library (dedup hints)
+// ======================================================================
+async function loadLibrary(){
+  try{
+    const res = await fetch("/api/library");
+    const data = await res.json();
+    state.libraryStems = data.stems || [];
+  }catch(e){ state.libraryStems = []; }
+}
+function isOwned(title, artists){
+  if(!state.libraryStems || !state.libraryStems.length) return false;
+  const t = norm(title);
+  if(t.length < 3) return false;
+  return state.libraryStems.some(stem => stem.includes(t));
+}
+
+// ======================================================================
+// Chip groups (click = toggle token in the search box)
+// ======================================================================
+function toggleInSearch(value){
+  const input = el("search-input");
+  const current = input.value;
+  const re = new RegExp(`(^|\\s)${escapeRegex(value)}(?=\\s|$)`, "i");
+  if(re.test(current)){
+    input.value = current.replace(re, "$1").replace(/\s+/g," ").trim();
+  } else {
+    input.value = (current.trim() ? current.trim() + " " : "") + value;
+  }
+  syncChipActiveStates();
+  updateArtistSuggestions();
+  input.focus();
+}
+
+function renderChipGroup(containerId, items, opts={}){
+  const c = el(containerId);
+  c.innerHTML = "";
+  if(!items.length && opts.emptyHint){
+    const hint = document.createElement("span");
+    hint.className = "chip empty-hint";
+    hint.textContent = opts.emptyHint;
+    c.appendChild(hint);
+    return;
+  }
+  items.forEach(item=>{
+    const label = typeof item === "string" ? item : item.label;
+    const value = typeof item === "string" ? item : item.value;
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.dataset.value = value;
+    chip.innerHTML = `<span>${escapeHtml(label)}</span>`;
+    if(opts.deletable){
+      const x = document.createElement("span");
+      x.className = "x";
+      x.textContent = "✕";
+      x.onclick = (e) => { e.stopPropagation(); opts.onDelete(value); };
+      chip.appendChild(x);
+    }
+    chip.addEventListener("click", (e)=>{
+      if(e.target.classList.contains("x")) return;
+      toggleInSearch(value);
+    });
+    c.appendChild(chip);
+  });
+}
+
+function syncChipActiveStates(){
+  const current = el("search-input").value;
+  document.querySelectorAll(".chip[data-value]").forEach(chip=>{
+    const value = chip.dataset.value;
+    const re = new RegExp(`(^|\\s)${escapeRegex(value)}(?=\\s|$)`, "i");
+    chip.classList.toggle("active", re.test(current));
+  });
+}
+el("search-input").addEventListener("input", () => {
+  syncChipActiveStates();
+  scheduleArtistSuggestions();
+});
+
+// ----- custom (user-added) chips, persisted per mode -----
+function customKey(){ return `spotdl-gui-custom-${state.mode}`; }
+function loadCustomChips(){
+  try{ return JSON.parse(localStorage.getItem(customKey()) || "[]"); }catch(e){ return []; }
+}
+function saveCustomChips(list){
+  try{ localStorage.setItem(customKey(), JSON.stringify(list)); }catch(e){}
+}
+function renderCustomChips(){
+  const list = loadCustomChips();
+  renderChipGroup("chips-custom", list, {
+    deletable: true,
+    emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře ↑",
+    onDelete: (value) => {
+      const filtered = loadCustomChips().filter(v => v !== value);
+      saveCustomChips(filtered);
+      renderCustomChips();
+      showToast("Kategorie odebrána");
+    },
+  });
+}
+el("add-custom").onclick = () => {
+  const val = prompt("Zadej vlastní vyhledávací výraz (žánr, interpret, cokoliv):");
+  if(!val || !val.trim()) return;
+  const list = loadCustomChips();
+  if(list.some(v => v.toLowerCase() === val.trim().toLowerCase())){
+    showToast("Tuhle kategorii už máš");
+    return;
+  }
+  list.push(val.trim());
+  saveCustomChips(list);
+  renderCustomChips();
+  showToast("✓ Kategorie přidána a je hned použitelná");
+};
+
+function renderStaticChips(){
+  renderChipGroup("chips-decades", DECADES);
+  renderChipGroup("chips-topn", TOPN_PRESETS.map(n => ({label:`Top ${n}`, value:`Top ${n}`})));
+  renderChipGroup("chips-genres", ROCK_METAL_GENRES);
+  renderChipGroup("chips-popular", POPULAR_TERMS);
+  renderChipGroup("chips-ai", AI_TERMS);
+  renderCustomChips();
+}
+
+el("topn-insert").onclick = () => {
+  const n = parseInt(el("topn-custom").value, 10);
+  if(!n || n < 1){ showToast("Zadej platné číslo"); return; }
+  toggleInSearch(`Top ${n}`);
+};
+
+async function loadDynamicCategories(){
+  try{
+    const res = await fetch("/api/categories");
+    const data = await res.json();
+    renderChipGroup("chips-more", [...data.genres, ...data.moods]);
+  }catch(e){
+    el("chips-more").innerHTML = "<span class='empty' style='padding:6px'>Nepodařilo se načíst.</span>";
+  }
+}
+
+// ======================================================================
+// Artist hints (Songs tab) — whenever the search box has text (typed, or
+// filled in by clicking a decade/genre chip), suggest matching artists
+// underneath so you can pick one instead of typing it out.
+//
+// Infinite scroll: the strip shows the most famous artists for the query
+// first (that's just YT Music's own relevance ranking) and keeps loading
+// more, progressively less-known ones, as you scroll right — instead of
+// stopping at a fixed handful.
+// ======================================================================
+let artistSuggestTimer = null;
+let artistSuggestReqId = 0;
+let artistSuggestState = { q: "", offset: 0, hasMore: true, loading: false };
+const ARTIST_PAGE_SIZE = 15;
+
+function scheduleArtistSuggestions(){
+  clearTimeout(artistSuggestTimer);
+  artistSuggestTimer = setTimeout(updateArtistSuggestions, 300);
+}
+
+async function updateArtistSuggestions(){
+  const box = el("artist-suggest");
+  const q = el("search-input").value.trim();
+  if(state.mode !== "songs" || q.length < 2){
+    box.hidden = true;
+    box.innerHTML = "";
+    artistSuggestState = { q: "", offset: 0, hasMore: true, loading: false };
+    return;
+  }
+  if(q === artistSuggestState.q) return; // already showing hints for this query
+
+  const myReq = ++artistSuggestReqId;
+  artistSuggestState = { q, offset: 0, hasMore: true, loading: false };
+  box.hidden = true;
+  box.innerHTML = `<span class="artist-suggest-label">🎤 Interpreti:</span>` +
+    `<div class="artist-suggest-scroll" id="artist-suggest-scroll"></div>`;
+  el("artist-suggest-scroll").addEventListener("scroll", () => maybeLoadMoreArtists(myReq));
+  await loadMoreArtists(myReq);
+}
+
+function renderArtistChip(a){
+  const chip = document.createElement("span");
+  chip.className = "chip artist-chip";
+  chip.textContent = a.name;
+  chip.onclick = () => {
+    el("search-input").value = a.name;
+    el("artist-suggest").hidden = true;
+    syncChipActiveStates();
+    runSearch();
+  };
+  return chip;
+}
+
+async function loadMoreArtists(myReq){
+  const st = artistSuggestState;
+  if(st.loading || !st.hasMore || myReq !== artistSuggestReqId) return;
+  st.loading = true;
+
+  const scroll = el("artist-suggest-scroll");
+  const loadingEl = document.createElement("span");
+  loadingEl.className = "artist-suggest-loading";
+  loadingEl.textContent = "Načítám další…";
+  if(scroll) scroll.appendChild(loadingEl);
+
+  let data;
+  try{
+    const res = await fetch(`/api/artists?q=${encodeURIComponent(st.q)}&offset=${st.offset}&limit=${ARTIST_PAGE_SIZE}`);
+    data = await res.json();
+  }catch(e){
+    data = { artists: [], hasMore: false };
+  }
+  loadingEl.remove();
+  if(myReq !== artistSuggestReqId) return; // query changed while we were fetching — drop it
+
+  const artists = data.artists || [];
+  const box = el("artist-suggest");
+  if(st.offset === 0 && !artists.length){
+    box.hidden = true;
+    st.hasMore = false;
+    st.loading = false;
+    return;
+  }
+  box.hidden = false;
+  const scroll2 = el("artist-suggest-scroll");
+  artists.forEach(a => scroll2.appendChild(renderArtistChip(a)));
+  st.offset += artists.length;
+  st.hasMore = !!data.hasMore && artists.length > 0;
+  st.loading = false;
+
+  // strip doesn't overflow its width yet, so there's no scrollbar to nudge
+  // the next page in — top it up eagerly so there's always more to find
+  if(st.hasMore && scroll2.scrollWidth <= scroll2.clientWidth + 4){
+    loadMoreArtists(myReq);
+  }
+}
+
+function maybeLoadMoreArtists(myReq){
+  const scroll = el("artist-suggest-scroll");
+  if(!scroll) return;
+  if(scroll.scrollWidth - scroll.scrollLeft - scroll.clientWidth < 150){
+    loadMoreArtists(myReq);
+  }
+}
+
+// ======================================================================
+// Favorite playlists — star a playlist from its detail panel, browse them
+// on the home screen (any region) without having to search for them again.
+// ======================================================================
+const FAV_PLAYLISTS_KEY = "spotdl-gui-fav-playlists";
+function loadFavPlaylists(){
+  try{ return JSON.parse(localStorage.getItem(FAV_PLAYLISTS_KEY) || "[]"); }catch(e){ return []; }
+}
+function saveFavPlaylists(list){
+  try{ localStorage.setItem(FAV_PLAYLISTS_KEY, JSON.stringify(list)); }catch(e){}
+}
+function isFavPlaylist(browseId){
+  return loadFavPlaylists().some(p => p.browseId === browseId);
+}
+function toggleFavPlaylist(playlist){
+  const list = loadFavPlaylists();
+  const idx = list.findIndex(p => p.browseId === playlist.browseId);
+  let added;
+  if(idx >= 0){ list.splice(idx, 1); added = false; }
+  else { list.unshift(playlist); added = true; }
+  saveFavPlaylists(list);
+  renderFavPlaylists();
+  return added;
+}
+function renderFavPlaylists(){
+  const section = el("fav-playlists-section");
+  const list = loadFavPlaylists();
+  const shouldShow = list.length > 0 && state.mode === "playlists";
+  section.hidden = !shouldShow;
+  if(!shouldShow) return;
+  const grid = el("fav-playlists-grid");
+  grid.innerHTML = "";
+  list.forEach(p=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-fabs"><div class="fab-btn" title="Odebrat z oblíbených">✕</div></div>
+      <div class="art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}">${p.thumbnail?'':'🎵'}</div>
+      <div class="meta">
+        <div class="title">${escapeHtml(p.title||'')}</div>
+        <div class="sub">${escapeHtml(p.author||'')}</div>
+      </div>`;
+    card.querySelector(".fab-btn").onclick = (e) => {
+      e.stopPropagation();
+      toggleFavPlaylist(p);
+      showToast("Odebráno z oblíbených");
+    };
+    card.onclick = () => openPlaylist(p.browseId);
+    grid.appendChild(card);
+  });
+}
+
+// ======================================================================
+// Region toggle (Playlisty only)
+// ======================================================================
+regionToggle.querySelectorAll("button").forEach(btn=>{
+  btn.onclick = () => {
+    // Just switch region — no auto-search. Both regions show the same
+    // browse chips until you actually pick something or hit Hledat.
+    state.region = btn.dataset.region;
+    regionToggle.querySelectorAll("button").forEach(b => b.classList.toggle("active", b===btn));
+  };
+});
+
+// ======================================================================
+// Surprise me 🎲
+// ======================================================================
+el("surprise-btn").onclick = () => {
+  const genre = ROCK_METAL_GENRES[Math.floor(Math.random()*ROCK_METAL_GENRES.length)];
+  const decade = DECADES[Math.floor(Math.random()*DECADES.length)].value;
+  let query = `${genre} ${decade}`;
+  if(Math.random() < 0.35){
+    const n = TOPN_PRESETS[Math.floor(Math.random()*TOPN_PRESETS.length)];
+    query = `Top ${n} ${query}`;
+  }
+  el("search-input").value = query;
+  syncChipActiveStates();
+  updateArtistSuggestions();
+  runSearch();
+  showToast(`🎲 ${query}`);
+};
+
+// ======================================================================
+// Tabs & mode switching
+// ======================================================================
+el("tab-playlists").onclick = () => setMode("playlists");
+el("tab-songs").onclick = () => setMode("songs");
+
+function setMode(mode){
+  state.mode = mode;
+  el("tab-playlists").classList.toggle("active", mode==="playlists");
+  el("tab-songs").classList.toggle("active", mode==="songs");
+  el("search-input").placeholder = mode==="playlists"
+    ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
+    : "Hledej píseň nebo interpreta…";
+  regionToggle.style.display = mode === "playlists" ? "flex" : "none";
+  grid.innerHTML = "";
+  resultsTitle.hidden = true;
+  el("load-more-wrap").hidden = true;
+  browseSection.hidden = false;
+  renderCustomChips();
+  renderFavPlaylists();
+  updateArtistSuggestions();
+}
+
+// ======================================================================
+// Search + render results (+ load more)
+// ======================================================================
+let lastLimit = 40;
+
+el("search-btn").onclick = () => runSearch();
+el("search-input").addEventListener("keydown", e => { if(e.key==="Enter") runSearch(); });
+el("load-more-btn").onclick = () => runSearch(true);
+
+async function runSearch(more=false){
+  const q = el("search-input").value.trim();
+  if(!q) return;
+  if(!more) lastLimit = 40; else lastLimit += 24;
+
+  browseSection.hidden = true;
+  resultsTitle.hidden = false;
+  resultsTitle.textContent = `Hledám „${q}“…`;
+  el("load-more-btn").disabled = true;
+  el("load-more-btn").textContent = "Načítám…";
+
+  if(state.mode === "playlists"){
+    const res = await fetch(`/api/playlists?q=${encodeURIComponent(q)}&limit=${lastLimit}&region=${state.region}`);
+    const items = await res.json();
+    resultsTitle.textContent = `Playlisty — „${q}“ (${items.length})`;
+    if(!items.length){ grid.innerHTML = "<div class='empty'>Nic jsem nenašel. Zkus jiný dotaz.</div>"; el("load-more-wrap").hidden = true; return; }
+    grid.innerHTML = "";
+    items.forEach(p=>{
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}">${p.thumbnail?'':'🎵'}</div>
+        <div class="meta">
+          <div class="title">${escapeHtml(p.title||'')}</div>
+          <div class="sub">${escapeHtml(p.author||'')}</div>
+        </div>`;
+      card.onclick = () => openPlaylist(p.browseId);
+      grid.appendChild(card);
+    });
+  } else {
+    if(!state.libraryStems) await loadLibrary();
+    const res = await fetch(`/api/tracks?q=${encodeURIComponent(q)}&limit=${lastLimit}`);
+    const items = await res.json();
+    resultsTitle.textContent = `Písně — „${q}“ (${items.length})`;
+    if(!items.length){ grid.innerHTML = "<div class='empty'>Nic jsem nenašel. Zkus jiný dotaz.</div>"; el("load-more-wrap").hidden = true; return; }
+    grid.innerHTML = "";
+    items.forEach(t=>{
+      const owned = isOwned(t.title, t.artists);
+      const card = document.createElement("div");
+      card.className = "card song-card";
+      card.dataset.title = t.title || "";
+      card.dataset.artists = t.artists || "";
+      card.innerHTML = `
+        ${owned?'<div class="owned-badge">✓ máš</div>':''}
+        <div class="card-fabs">
+          <div class="fab-btn play-fab" title="Přehrát">▶</div>
+          <div class="fab-btn add-fab" title="Přidat do playlistu">➕</div>
+        </div>
+        <div class="art" style="${t.image?`background-image:url('${t.image}')`:''}">${t.image?'':'🎵'}</div>
+        <div class="meta">
+          <div class="title">${escapeHtml(t.title||'')}</div>
+          <div class="sub">${escapeHtml(t.artists||'')} · ${fmtDur(t.duration_seconds)}</div>
+        </div>`;
+      card.querySelector(".play-fab").onclick = (e) => {
+        e.stopPropagation();
+        Player.play({
+          key: "sp:"+t.id, title: t.title, artists: t.artists,
+          thumbnail: t.image, spotifyQuery: `${t.artists} ${t.title}`,
+        });
+      };
+      card.querySelector(".add-fab").onclick = (e) => {
+        e.stopPropagation();
+        addToQueue({
+          key: "sp:"+t.id, title: t.title, artists: t.artists,
+          duration_seconds: t.duration_seconds, url: t.spotify_url,
+          thumbnail: t.image, source: "spotify",
+        });
+      };
+      card.onclick = () => openSongDetail(t);
+      grid.appendChild(card);
+    });
+  }
+  el("load-more-wrap").hidden = false;
+  el("load-more-btn").disabled = false;
+  el("load-more-btn").textContent = "Načíst další výsledky";
+}
+
+// ======================================================================
+// Playlist detail
+// ======================================================================
+const overlay = el("overlay");
+const panel = el("panel");
+
+function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; }
+overlay.addEventListener("click", e => { if(e.target === overlay) closeOverlay(); });
+
+async function openPlaylist(browseId){
+  overlay.hidden = false;
+  panel.innerHTML = `<div class="empty" style="padding-top:80px"><span class="spinner"></span> Načítám playlist…</div>`;
+  if(!state.libraryStems) await loadLibrary();
+  const res = await fetch(`/api/playlist/${encodeURIComponent(browseId)}`);
+  const p = await res.json();
+  renderPlaylistPanel(p);
+}
+
+function renderPlaylistPanel(p){
+  const estBytesTotal = estBytes(p.estimated_total_duration_sec, bitrate());
+  const estBytesShown = estBytes(p.total_duration_shown_sec, bitrate());
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <button class="close-btn" id="close-panel">✕</button>
+      <div class="pl-art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}"></div>
+      <div class="pl-title">${escapeHtml(p.title||'')}</div>
+      <div class="pl-author">${escapeHtml(p.author||'')}</div>
+      ${p.description?`<div class="pl-desc">${escapeHtml(p.description)}</div>`:''}
+      <div class="badges">
+        <span class="badge">🎵 ${p.track_count} skladeb</span>
+        <span class="badge">⏱ ~${fmtDur(p.estimated_total_duration_sec)} celkem</span>
+        <span class="badge" id="size-badge">💾 ~${fmtSize(estBytesTotal)} při ${bitrate()}</span>
+      </div>
+      <div class="actions">
+        <button class="btn" id="dl-all">⬇️ Stáhnout celý playlist</button>
+        <button class="btn secondary" id="dl-selected">⬇️ Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
+        <button class="btn secondary" id="add-all-cart">➕ Přidat vše do playlistu</button>
+        <button class="btn secondary" id="fav-toggle">${isFavPlaylist(p.browseId) ? "★ V oblíbených" : "☆ Přidat do oblíbených"}</button>
+      </div>
+    </div>
+    <div class="track-list">
+      <div class="track-list-head">
+        <span>Zobrazeno ${p.tracks_shown} z ${p.track_count} · ~${fmtSize(estBytesShown)}</span>
+        <a id="toggle-all">zrušit vše</a>
+      </div>
+      <div id="tracks-container"></div>
+    </div>
+  `;
+  el("close-panel").onclick = closeOverlay;
+  el("fav-toggle").onclick = () => {
+    const added = toggleFavPlaylist({
+      browseId: p.browseId, title: p.title, author: p.author, thumbnail: p.thumbnail,
+    });
+    el("fav-toggle").textContent = added ? "★ V oblíbených" : "☆ Přidat do oblíbených";
+    showToast(added ? "✓ Přidáno do oblíbených" : "Odebráno z oblíbených");
+  };
+
+  const container = el("tracks-container");
+  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i)));
+
+  function updateSelCount(){
+    const n = container.querySelectorAll("input.checkbox:checked").length;
+    el("sel-count").textContent = n;
+  }
+  container.addEventListener("change", e=>{
+    if(e.target.classList.contains("checkbox")) updateSelCount();
+  });
+
+  let allChecked = true;
+  el("toggle-all").onclick = () => {
+    allChecked = !allChecked;
+    container.querySelectorAll("input.checkbox").forEach(cb => cb.checked = allChecked);
+    el("toggle-all").textContent = allChecked ? "zrušit vše" : "vybrat vše";
+    updateSelCount();
+  };
+
+  el("bitrate").onchange = () => {
+    const newEstTotal = estBytes(p.estimated_total_duration_sec, bitrate());
+    const newEstShown = estBytes(p.total_duration_shown_sec, bitrate());
+    el("size-badge").textContent = `💾 ~${fmtSize(newEstTotal)} při ${bitrate()}`;
+    panel.querySelector(".track-list-head span").textContent =
+      `Zobrazeno ${p.tracks_shown} z ${p.track_count} · ~${fmtSize(newEstShown)}`;
+  };
+
+  el("dl-all").onclick = () => {
+    startDownload({
+      urls: [`https://www.youtube.com/browse/${p.browseId}`],
+      output_name: p.title,
+      kind: "playlist",
+      bitrate: bitrate(),
+    }, p.title);
+  };
+  el("dl-selected").onclick = () => {
+    const ids = [...container.querySelectorAll("input.checkbox:checked")].map(cb=>cb.dataset.videoId);
+    if(!ids.length) return;
+    startDownload({
+      urls: ids.map(id => `https://music.youtube.com/watch?v=${id}`),
+      output_name: p.title,
+      kind: "playlist",
+      bitrate: bitrate(),
+    }, `${p.title} (výběr)`);
+  };
+  el("add-all-cart").onclick = () => {
+    let n = 0;
+    p.tracks.forEach(t => {
+      if(addToQueue({
+        key: "yt:"+t.videoId, title: t.title, artists: t.artists,
+        duration_seconds: t.duration_seconds, url: `https://music.youtube.com/watch?v=${t.videoId}`,
+        thumbnail: t.thumbnail, source: "youtube",
+      }, true)) n++;
+    });
+    showToast(n ? `✓ Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
+    renderQueueBadge();
+  };
+}
+
+function trackRow(t, idx){
+  const owned = isOwned(t.title, t.artists);
+  const row = document.createElement("div");
+  row.innerHTML = `
+    <div class="track-row" data-idx="${idx}">
+      <input type="checkbox" class="checkbox" ${owned?'':'checked'} data-video-id="${t.videoId}">
+      <div class="thumb" style="${t.thumbnail?`background-image:url('${t.thumbnail}')`:''}">${t.thumbnail?'':'♪'}</div>
+      <div class="info">
+        <div class="t-title">${escapeHtml(t.title||'')}</div>
+        <div class="t-sub">${owned?'<span class="owned-tag">✓ máš</span>':''}${escapeHtml(t.artists||'')}${t.album?' · '+escapeHtml(t.album):''}</div>
+      </div>
+      <div class="dur">${t.duration||fmtDur(t.duration_seconds)}</div>
+      <button class="icon-btn add" title="Přidat do playlistu">➕</button>
+      <button class="icon-btn play" title="Přehrát">▶</button>
+    </div>
+  `;
+  const inner = row.querySelector(".track-row");
+  inner.dataset.title = t.title || "";
+  inner.dataset.artists = t.artists || "";
+  const [addBtn, playBtn] = row.querySelectorAll(".icon-btn");
+  addBtn.onclick = () => addToQueue({
+    key: "yt:"+t.videoId, title: t.title, artists: t.artists,
+    duration_seconds: t.duration_seconds, url: `https://music.youtube.com/watch?v=${t.videoId}`,
+    thumbnail: t.thumbnail, source: "youtube",
+  });
+  playBtn.onclick = () => Player.play({
+    key: "yt:"+t.videoId, title: t.title, artists: t.artists,
+    thumbnail: t.thumbnail, videoId: t.videoId,
+  });
+  return row;
+}
+
+// ======================================================================
+// Song detail
+// ======================================================================
+async function openSongDetail(t){
+  overlay.hidden = false;
+  panel.innerHTML = `
+    <div class="panel-head">
+      <button class="close-btn" id="close-panel">✕</button>
+      <div class="pl-art" style="${t.image?`background-image:url('${t.image}')`:''}"></div>
+      <div class="pl-title">${escapeHtml(t.title||'')}</div>
+      <div class="pl-author">${escapeHtml(t.artists||'')}${t.album?' · '+escapeHtml(t.album):''}</div>
+      <div class="badges">
+        <span class="badge">⏱ ${fmtDur(t.duration_seconds)}</span>
+        <span class="badge">💾 ~${fmtSize(estBytes(t.duration_seconds, bitrate()))} při ${bitrate()}</span>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" id="preview-song">▶ Přehrát</button>
+        <button class="btn secondary" id="add-song-cart">➕ Do playlistu</button>
+        <button class="btn" id="dl-song">⬇️ Stáhnout hned</button>
+      </div>
+    </div>
+  `;
+  el("close-panel").onclick = closeOverlay;
+  el("dl-song").onclick = () => startDownload({
+    urls: [t.spotify_url],
+    output_name: "Songs",
+    kind: "songs",
+    bitrate: bitrate(),
+  }, `${t.title} — ${t.artists}`);
+
+  el("add-song-cart").onclick = () => addToQueue({
+    key: "sp:"+t.id, title: t.title, artists: t.artists,
+    duration_seconds: t.duration_seconds, url: t.spotify_url,
+    thumbnail: t.image, source: "spotify",
+  });
+
+  el("preview-song").onclick = () => Player.play({
+    key: "sp:"+t.id, title: t.title, artists: t.artists,
+    thumbnail: t.image, spotifyQuery: `${t.artists} ${t.title}`,
+  });
+}
+
+// ======================================================================
+// Playlist (queue) — collect songs across playlists/searches via ➕,
+// play any of them from the central player, download them all together.
+// ======================================================================
+const QUEUE_KEY = "spotdl-gui-queue";
+function loadQueue(){
+  try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){ return []; }
+}
+function saveQueue(queue){
+  try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); }catch(e){}
+}
+function addToQueue(item, silent=false){
+  const queue = loadQueue();
+  if(queue.some(c => c.key === item.key)){
+    if(!silent) showToast("Už je v playlistu");
+    return false;
+  }
+  queue.push(item);
+  saveQueue(queue);
+  renderQueueBadge();
+  if(!silent) showToast("✓ Přidáno do playlistu");
+  return true;
+}
+function removeFromQueue(key){
+  saveQueue(loadQueue().filter(c => c.key !== key));
+  renderQueueBadge();
+  renderQueueDrawer();
+}
+function renderQueueBadge(){
+  el("pb-queue-count").textContent = loadQueue().length;
+}
+function renderQueueDrawer(){
+  const queue = loadQueue();
+  const items = el("queue-items");
+  if(!queue.length){
+    items.innerHTML = `<div class="empty" style="padding:24px 10px">Playlist je prázdný.<br>Přidávej skladby přes ➕ u playlistů nebo písní.</div>`;
+  } else {
+    items.innerHTML = "";
+    queue.forEach(c=>{
+      const owned = isOwned(c.title, c.artists);
+      const row = document.createElement("div");
+      row.className = "cart-item";
+      row.innerHTML = `
+        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${c.thumbnail?`background-image:url('${c.thumbnail}')`:''}"></div>
+        <div class="info">
+          <div class="t-title">${escapeHtml(c.title||'')}</div>
+          <div class="t-sub">${owned?'<span class="owned-tag">✓ máš</span>':''}${escapeHtml(c.artists||'')}</div>
+        </div>
+        <button class="mini-btn play" title="Přehrát">▶</button>
+        <button class="mini-btn rm" title="Odebrat">✕</button>
+      `;
+      row.querySelector(".play").onclick = () => Player.play(c);
+      row.querySelector(".rm").onclick = () => removeFromQueue(c.key);
+      items.appendChild(row);
+    });
+  }
+  const totalSec = queue.reduce((s,c)=>s+(c.duration_seconds||0),0);
+  el("queue-summary").textContent = queue.length
+    ? `${queue.length} skladeb · ~${fmtDur(totalSec)} · ~${fmtSize(estBytes(totalSec, bitrate()))} při ${bitrate()}`
+    : "";
+  el("queue-download").disabled = queue.length === 0;
+}
+
+el("pb-queue-btn").onclick = () => {
+  el("history-panel").hidden = true;
+  renderQueueDrawer();
+  el("queue-drawer").hidden = false;
+};
+el("queue-close").onclick = () => el("queue-drawer").hidden = true;
+el("queue-clear").onclick = () => {
+  if(!loadQueue().length) return;
+  if(!confirm("Opravdu vyprázdnit playlist?")) return;
+  saveQueue([]);
+  renderQueueBadge();
+  renderQueueDrawer();
+};
+el("queue-download").onclick = () => {
+  const queue = loadQueue();
+  if(!queue.length) return;
+  startDownload({
+    urls: queue.map(c => c.url),
+    output_name: "Playlist",
+    kind: "queue",
+    bitrate: bitrate(),
+  }, `Playlist (${queue.length} skladeb)`);
+  saveQueue([]);
+  renderQueueBadge();
+  el("queue-drawer").hidden = true;
+};
+
+// ======================================================================
+// Central player — one shared <audio> element for the whole app, driven by
+// fully custom controls (art, play/pause, seekable progress, volume) styled
+// to match the rest of the app. Playing a track always stops whatever was
+// playing before (new src = old one stops). Keeps a small playback history.
+// ======================================================================
+const HISTORY_KEY = "spotdl-gui-history";
+const HISTORY_MAX = 30;
+const VOLUME_KEY = "spotdl-gui-volume";
+
+const Player = (() => {
+  const audio = el("pb-audio");
+  const artEl = el("pb-art");
+  const titleEl = el("pb-title");
+  const artistEl = el("pb-artist");
+  const playBtn = el("pb-play");
+  const progress = el("pb-progress");
+  const progressFill = el("pb-progress-fill");
+  const progressHandle = el("pb-progress-handle");
+  const timeCur = el("pb-time-cur");
+  const timeDur = el("pb-time-dur");
+  const volumeSlider = el("pb-volume");
+  const muteBtn = el("pb-mute");
+  let current = null;
+  let seeking = false;
+
+  // volume persists across sessions
+  try{
+    const savedVol = parseFloat(localStorage.getItem(VOLUME_KEY));
+    if(!isNaN(savedVol)) audio.volume = savedVol;
+  }catch(e){}
+  volumeSlider.value = audio.volume;
+
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){ return []; }
+  }
+  function saveHistory(list){
+    try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function pushHistory(track){
+    const list = loadHistory().filter(h => h.key !== track.key);
+    list.unshift({...track, playedAt: Date.now()});
+    saveHistory(list.slice(0, HISTORY_MAX));
+    renderHistory();
+  }
+
+  function setMeta(title, artist, art){
+    titleEl.textContent = title;
+    titleEl.title = title;
+    artistEl.textContent = artist || "";
+    artEl.style.backgroundImage = art ? `url('${art}')` : "";
+    artEl.textContent = art ? "" : "🎵";
+  }
+
+  async function play(track){
+    current = track;
+    setMeta(`⏳ ${track.title || ""}`, "Hledám…", track.thumbnail);
+    let videoId = track.videoId;
+    if(!videoId && track.spotifyQuery){
+      try{
+        const res = await fetch(`/api/preview?q=${encodeURIComponent(track.spotifyQuery)}`);
+        const data = await res.json();
+        videoId = data.videoId;
+      }catch(e){ videoId = null; }
+    }
+    if(current !== track) return; // a newer play() call already took over
+    if(!videoId){
+      setMeta("⚠ Náhled nenalezen", track.title || "", track.thumbnail);
+      return;
+    }
+    // Deliberately not sending the browser-cookies setting here — that's only
+    // for downloads that hit YouTube's bot-check; forwarding it to every
+    // preview made yt-dlp decrypt Chrome's cookies via Keychain on every play.
+    audio.src = `/api/stream/${encodeURIComponent(videoId)}`;
+    audio.play().catch(()=>{});
+    setMeta(track.title || "", track.artists || "", track.thumbnail);
+    pushHistory({...track, videoId});
+  }
+
+  audio.addEventListener("error", () => {
+    if(current) setMeta("⚠ Přehrání selhalo", current.title || "", current.thumbnail);
+  });
+
+  // play/pause button, kept in sync with the audio element's real state
+  // (autoplay, errors, etc. can change it without going through the button)
+  playBtn.onclick = () => { if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); };
+  audio.addEventListener("play", () => playBtn.textContent = "⏸");
+  audio.addEventListener("pause", () => playBtn.textContent = "▶");
+  audio.addEventListener("ended", () => playBtn.textContent = "▶");
+
+  // seekable progress bar
+  function updateProgress(){
+    if(seeking || !audio.duration) return;
+    const pct = (audio.currentTime / audio.duration) * 100;
+    progressFill.style.width = pct + "%";
+    progressHandle.style.left = pct + "%";
+    timeCur.textContent = fmtDur(audio.currentTime);
+  }
+  audio.addEventListener("timeupdate", updateProgress);
+  audio.addEventListener("loadedmetadata", () => { timeDur.textContent = fmtDur(audio.duration); });
+  audio.addEventListener("durationchange", () => { timeDur.textContent = fmtDur(audio.duration); });
+
+  function seekFromEvent(e){
+    if(!audio.duration) return;
+    const rect = progress.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    audio.currentTime = pct * audio.duration;
+    progressFill.style.width = (pct*100) + "%";
+    progressHandle.style.left = (pct*100) + "%";
+    timeCur.textContent = fmtDur(audio.currentTime);
+  }
+  progress.addEventListener("pointerdown", (e) => {
+    seeking = true;
+    seekFromEvent(e);
+    const onMove = (ev) => seekFromEvent(ev);
+    const onUp = () => {
+      seeking = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  });
+
+  // volume
+  volumeSlider.addEventListener("input", () => {
+    audio.volume = parseFloat(volumeSlider.value);
+    audio.muted = false;
+    try{ localStorage.setItem(VOLUME_KEY, audio.volume); }catch(e){}
+    muteBtn.textContent = audio.volume === 0 ? "🔇" : "🔊";
+  });
+  muteBtn.onclick = () => {
+    audio.muted = !audio.muted;
+    muteBtn.textContent = audio.muted ? "🔇" : "🔊";
+  };
+
+  function renderHistory(){
+    const list = loadHistory();
+    const box = el("history-list");
+    if(!list.length){
+      box.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím jsi nic nepustil/a.</div>`;
+      return;
+    }
+    box.innerHTML = "";
+    list.forEach(h=>{
+      const row = document.createElement("div");
+      row.className = "cart-item";
+      row.innerHTML = `
+        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${h.thumbnail?`background-image:url('${h.thumbnail}')`:''}"></div>
+        <div class="info">
+          <div class="t-title">${escapeHtml(h.title||'')}</div>
+          <div class="t-sub">${escapeHtml(h.artists||'')}</div>
+        </div>
+        <button class="mini-btn play" title="Přehrát znovu">▶</button>
+      `;
+      row.querySelector(".play").onclick = () => play(h);
+      box.appendChild(row);
+    });
+  }
+
+  el("history-clear").onclick = () => { saveHistory([]); renderHistory(); };
+  el("pb-history-btn").onclick = () => {
+    el("queue-drawer").hidden = true;
+    const panel = el("history-panel");
+    panel.hidden = !panel.hidden;
+    if(!panel.hidden) renderHistory();
+  };
+
+  renderHistory();
+  return { play };
+})();
+
+// ======================================================================
+// Download (SSE progress)
+// ======================================================================
+const drawer = el("dl-drawer");
+let currentEventSource = null;
+
+function startDownload(payload, label){
+  const s = loadSettings();
+  if(s.cookies_browser) payload.cookies_browser = s.cookies_browser;
+  if(s.cookie_file) payload.cookie_file = s.cookie_file;
+
+  fetch("/api/download", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    drawer.hidden = false;
+    el("dl-title").textContent = `⬇️ ${label}`;
+    el("dl-status").innerHTML = `<span class="spinner"></span> běží…`;
+    el("dl-log").innerHTML = "";
+    el("dl-reveal").disabled = true;
+
+    if(currentEventSource) currentEventSource.close();
+    const es = new EventSource(`/api/jobs/${data.job_id}/events`);
+    currentEventSource = es;
+    es.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if(msg.line){
+        const log = el("dl-log");
+        const line = document.createElement("div");
+        line.textContent = msg.line;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+      }
+      if(msg.done){
+        es.close();
+        const ok = (msg.returncode === 0) || msg.status === "done";
+        el("dl-status").textContent = ok ? "✅ hotovo" : "❌ chyba";
+        el("dl-reveal").disabled = false;
+        el("dl-reveal").onclick = () => fetch("/api/reveal", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({path: data.output_dir})
+        });
+        loadLibrary().then(refreshOwnedIndicators); // "✓ máš" now shows on the songs just downloaded
+      }
+    };
+  });
+}
+
+// Update "✓ máš" badges on cards/rows already on screen, without a full
+// re-render (which would lose scroll position and checkbox selections).
+function refreshOwnedIndicators(){
+  document.querySelectorAll(".song-card[data-title]").forEach(card=>{
+    const owned = isOwned(card.dataset.title, card.dataset.artists);
+    let badge = card.querySelector(".owned-badge");
+    if(owned && !badge){
+      badge = document.createElement("div");
+      badge.className = "owned-badge";
+      badge.textContent = "✓ máš";
+      card.prepend(badge);
+    } else if(!owned && badge){
+      badge.remove();
+    }
+  });
+  document.querySelectorAll(".track-row[data-title]").forEach(row=>{
+    const owned = isOwned(row.dataset.title, row.dataset.artists);
+    const tSub = row.querySelector(".t-sub");
+    if(!tSub) return;
+    let tag = tSub.querySelector(".owned-tag");
+    if(owned && !tag){
+      tag = document.createElement("span");
+      tag.className = "owned-tag";
+      tag.textContent = "✓ máš";
+      tSub.prepend(tag);
+    } else if(!owned && tag){
+      tag.remove();
+    }
+  });
+}
+
+el("dl-close").onclick = () => {
+  drawer.hidden = true;
+  if(currentEventSource) currentEventSource.close();
+};
+
+// ======================================================================
+// Settings
+// ======================================================================
+function loadSettings(){
+  try{ return JSON.parse(localStorage.getItem("spotdl-gui-settings") || "{}"); }catch(e){ return {}; }
+}
+function saveSettingsToStorage(s){
+  try{ localStorage.setItem("spotdl-gui-settings", JSON.stringify(s)); }catch(e){}
+}
+const settingsOverlay = el("settings-overlay");
+el("settings-btn").onclick = () => {
+  const s = loadSettings();
+  el("cookies-browser").value = s.cookies_browser || "";
+  el("cookie-file").value = s.cookie_file || "";
+  settingsOverlay.hidden = false;
+};
+el("settings-close").onclick = () => settingsOverlay.hidden = true;
+settingsOverlay.addEventListener("click", e => { if(e.target === settingsOverlay) settingsOverlay.hidden = true; });
+el("settings-save").onclick = () => {
+  saveSettingsToStorage({
+    cookies_browser: el("cookies-browser").value || null,
+    cookie_file: el("cookie-file").value.trim() || null,
+  });
+  settingsOverlay.hidden = true;
+  showToast("Nastavení uloženo");
+};
+
+// ======================================================================
+// Keyboard shortcuts
+// ======================================================================
+document.addEventListener("keydown", (e)=>{
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  if(e.key === "/" && tag !== "INPUT"){
+    e.preventDefault();
+    el("search-input").focus();
+  } else if(e.key === "Escape"){
+    if(!overlay.hidden) closeOverlay();
+    if(!el("queue-drawer").hidden) el("queue-drawer").hidden = true;
+    if(!el("history-panel").hidden) el("history-panel").hidden = true;
+    if(!settingsOverlay.hidden) settingsOverlay.hidden = true;
+  }
+});
+
+// ======================================================================
+// Init
+// ======================================================================
+renderStaticChips();
+loadDynamicCategories();
+renderQueueBadge();
+renderFavPlaylists();
+loadLibrary();
+</script>
+</body>
+</html>
