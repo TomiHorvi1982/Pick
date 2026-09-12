@@ -336,6 +336,61 @@ def library_browse(rel: str = ""):
     return {"rel": "/".join(parts), "breadcrumb": breadcrumb, "entries": dirs + files}
 
 
+def _range_file_response(path: Path, range_header: Optional[str]):
+    """Serves a local file with byte-range support so <audio>/<video> can
+    seek. Starlette 0.27.0 (pinned in this venv) doesn't implement Range on
+    its own FileResponse, so this fills that gap by hand — same idea as the
+    existing Range-forwarding in _proxy_audio_response, just reading from
+    disk instead of an upstream response.
+    """
+    size = path.stat().st_size
+    start, end = 0, size - 1
+    status_code = 200
+    if range_header and range_header.startswith("bytes="):
+        start_s, _, end_s = range_header.removeprefix("bytes=").partition("-")
+        if start_s:
+            start = int(start_s)
+        if end_s:
+            end = int(end_s)
+        end = min(end, size - 1)
+        if start > end:
+            return JSONResponse({"error": "Neplatný Range požadavek."}, status_code=416)
+        status_code = 206
+
+    length = end - start + 1
+    content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+
+    def body():
+        with path.open("rb") as f:
+            f.seek(start)
+            remaining = length
+            while remaining > 0:
+                chunk = f.read(min(65536, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+
+    headers = {
+        "accept-ranges": "bytes",
+        "content-length": str(length),
+        "cache-control": "no-store",
+        "content-type": content_type,
+    }
+    if status_code == 206:
+        headers["content-range"] = f"bytes {start}-{end}/{size}"
+
+    return StreamingResponse(body(), status_code=status_code, headers=headers)
+
+
+@app.get("/api/library/stream")
+def library_stream(rel: str, request: Request):
+    target = _resolve_under_music_root(rel)
+    if target is None or not target.is_file():
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return _range_file_response(target, request.headers.get("range"))
+
+
 @app.get("/api/preview")
 def preview(q: str):
     """Najde nejbližší YouTube video pro náhled (u výsledků hledání písní,
