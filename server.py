@@ -296,7 +296,12 @@ def _resolve_under_music_root(rel: str) -> Optional[Path]:
         return MUSIC_ROOT.resolve()
     if Path(rel).is_absolute():
         return None
-    candidate = (MUSIC_ROOT / rel).resolve()
+    try:
+        candidate = (MUSIC_ROOT / rel).resolve()
+    except (ValueError, OSError):
+        # ValueError: embedded null character in path
+        # OSError: other filesystem-related errors during resolve
+        return None
     root = MUSIC_ROOT.resolve()
     if candidate != root and root not in candidate.parents:
         return None

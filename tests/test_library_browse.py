@@ -43,3 +43,18 @@ def test_browse_rejects_absolute_path_injection(client, tmp_music_root):
 def test_browse_missing_folder_returns_404(client, tmp_music_root):
     res = client.get("/api/library/browse", params={"rel": "does-not-exist"})
     assert res.status_code == 404
+
+
+def test_browse_null_byte_in_rel(client, tmp_music_root):
+    # Null byte in rel should return 404, not 500
+    # Path.resolve() raises ValueError on embedded null character
+    res = client.get("/api/library/browse", params={"rel": "foo\x00bar"})
+    assert res.status_code == 404
+
+
+def test_browse_rejects_symlink_escape(client, tmp_music_root, tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_music_root / "escape").symlink_to(outside)
+    res = client.get("/api/library/browse", params={"rel": "escape"})
+    assert res.status_code == 404
