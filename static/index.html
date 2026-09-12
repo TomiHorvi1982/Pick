@@ -287,6 +287,14 @@
       </select>
       <div class="section-title">…nebo cesta k exportovanému cookies.txt</div>
       <input type="text" id="cookie-file" placeholder="/Users/.../cookies.txt" style="width:100%">
+
+      <div class="section-title" style="margin-top:18px">📁 Kam se stahují songy</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
+        <button class="btn secondary" id="music-root-pick" style="white-space:nowrap">📂 Vybrat</button>
+      </div>
+      <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
+
       <div class="actions">
         <button class="btn" id="settings-save">Uložit</button>
       </div>
@@ -1478,19 +1486,53 @@ function saveSettingsToStorage(s){
   try{ localStorage.setItem("spotdl-gui-settings", JSON.stringify(s)); }catch(e){}
 }
 const settingsOverlay = el("settings-overlay");
-el("settings-btn").onclick = () => {
+el("settings-btn").onclick = async () => {
   const s = loadSettings();
   el("cookies-browser").value = s.cookies_browser || "";
   el("cookie-file").value = s.cookie_file || "";
+  el("music-root-error").textContent = "";
+  try{
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+    el("music-root-input").value = data.music_root || "";
+  }catch(e){}
   settingsOverlay.hidden = false;
 };
 el("settings-close").onclick = () => settingsOverlay.hidden = true;
 settingsOverlay.addEventListener("click", e => { if(e.target === settingsOverlay) settingsOverlay.hidden = true; });
-el("settings-save").onclick = () => {
+
+el("music-root-pick").onclick = async () => {
+  const res = await fetch("/api/settings/pick-folder", { method: "POST" });
+  const data = await res.json();
+  if(data.path) el("music-root-input").value = data.path;
+};
+
+el("settings-save").onclick = async () => {
   saveSettingsToStorage({
     cookies_browser: el("cookies-browser").value || null,
     cookie_file: el("cookie-file").value.trim() || null,
   });
+
+  const musicRoot = el("music-root-input").value.trim();
+  el("music-root-error").textContent = "";
+  if(musicRoot){
+    try{
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ music_root: musicRoot }),
+      });
+      const data = await res.json();
+      if(!res.ok){
+        el("music-root-error").textContent = data.error || "Nastavení cesty selhalo.";
+        return; // keep the overlay open so the user can fix it
+      }
+    }catch(e){
+      el("music-root-error").textContent = "Nastavení cesty selhalo (appka neběží?).";
+      return;
+    }
+  }
+
   settingsOverlay.hidden = true;
   showToast("Nastavení uloženo");
 };
