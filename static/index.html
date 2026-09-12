@@ -1582,13 +1582,15 @@ const Player = (() => {
   const videoEl = el("pb-video");
 
   async function resolveCurrentVideoId(){
-    if(!current) return null;
-    if(current.videoId) return current.videoId;
-    const query = current.spotifyQuery || `${current.artists||""} ${current.title||""}`.trim();
+    const trackAtStart = current;
+    if(!trackAtStart) return null;
+    if(trackAtStart.videoId) return trackAtStart.videoId;
+    const query = trackAtStart.spotifyQuery || `${trackAtStart.artists||""} ${trackAtStart.title||""}`.trim();
     if(!query) return null;
     try{
       const res = await fetch(`/api/preview?q=${encodeURIComponent(query)}`);
       const data = await res.json();
+      if(current !== trackAtStart) return null; // staleness guard: user switched playback mid-resolution
       if(data.videoId) current.videoId = data.videoId; // cache on the track
       return data.videoId || null;
     }catch(e){ return null; }
