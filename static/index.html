@@ -156,6 +156,8 @@
   .pb-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pb-artist{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
+  .pb-playlist{font-size:11px;color:var(--sub);opacity:.75;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 
   .pb-center{flex:1;min-width:0;max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px}
   .pb-play{width:36px;height:36px;border-radius:50%;flex-shrink:0;border:none;cursor:pointer;
@@ -388,6 +390,7 @@
     <div class="pb-meta">
       <div class="pb-title" id="pb-title">Nic nehraje</div>
       <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
+      <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
   </div>
   <div class="pb-center">
@@ -406,6 +409,7 @@
       <span id="pb-mute" title="Ztlumit">🔊</span>
       <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
     </div>
+    <button class="icon-btn-flat" id="pb-video-btn" title="Zobrazit video">🎬</button>
     <button class="icon-btn-flat" id="pb-history-btn" title="Historie přehrávání">🕘</button>
     <button class="icon-btn-flat" id="pb-queue-btn" title="Playlist k přehrávači">📃<span class="pb-badge" id="pb-queue-count">0</span></button>
   </div>
@@ -439,6 +443,17 @@
     <a id="history-clear" style="cursor:pointer;color:var(--accent);font-size:11.5px;font-weight:600">vymazat</a>
   </div>
   <div class="cart-items" id="history-list"></div>
+</div>
+
+<!-- In-app video for whatever's currently playing — works for both remote
+     previews/history (which already carry a videoId) and local library
+     tracks (resolved on demand, same trick as the audio preview). -->
+<div class="drawer" id="video-drawer" hidden>
+  <div class="dl-head">
+    <span>🎬 Video</span>
+    <button class="close-btn" id="video-close" style="position:static;width:24px;height:24px;font-size:11px">✕</button>
+  </div>
+  <video id="pb-video" controls style="width:100%;border-radius:8px;background:#000"></video>
 </div>
 
 <!-- Download progress drawer -->
@@ -1127,7 +1142,7 @@ function renderPlaylistPanel(p){
   };
 
   const container = el("tracks-container");
-  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i)));
+  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title)));
 
   function updateSelCount(){
     const n = container.querySelectorAll("input.checkbox:checked").length;
@@ -1185,7 +1200,7 @@ function renderPlaylistPanel(p){
   };
 }
 
-function trackRow(t, idx){
+function trackRow(t, idx, sourcePlaylist){
   const owned = isOwned(t.title, t.artists);
   const row = document.createElement("div");
   row.innerHTML = `
@@ -1212,7 +1227,7 @@ function trackRow(t, idx){
   });
   playBtn.onclick = () => Player.play({
     key: "yt:"+t.videoId, title: t.title, artists: t.artists,
-    thumbnail: t.thumbnail, videoId: t.videoId,
+    thumbnail: t.thumbnail, videoId: t.videoId, sourcePlaylist,
   });
   return row;
 }
@@ -1398,12 +1413,15 @@ const Player = (() => {
     renderHistory();
   }
 
-  function setMeta(title, artist, art){
+  function setMeta(title, artist, art, sourcePlaylist){
     titleEl.textContent = title;
     titleEl.title = title;
     artistEl.textContent = artist || "";
     artEl.style.backgroundImage = art ? `url('${art}')` : "";
     artEl.textContent = art ? "" : "🎵";
+    const plEl = el("pb-playlist");
+    plEl.textContent = sourcePlaylist ? `z playlistu: ${sourcePlaylist}` : "";
+    plEl.hidden = !sourcePlaylist;
   }
 
   async function play(track){
@@ -1411,7 +1429,7 @@ const Player = (() => {
     playQueueList = [track];
     playQueueIdx = 0;
     current = track;
-    setMeta(`⏳ ${track.title || ""}`, "Hledám…", track.thumbnail);
+    setMeta(`⏳ ${track.title || ""}`, "Hledám…", track.thumbnail, track.sourcePlaylist);
     let videoId = track.videoId;
     if(!videoId && track.spotifyQuery){
       try{
@@ -1423,7 +1441,7 @@ const Player = (() => {
     if(current !== track) return; // a newer play() call already took over
     if(myToken !== playToken) return; // a local playback or newer play() has superseded this attempt
     if(!videoId){
-      setMeta("⚠ Náhled nenalezen", track.title || "", track.thumbnail);
+      setMeta("⚠ Náhled nenalezen", track.title || "", track.thumbnail, track.sourcePlaylist);
       return;
     }
     // Deliberately not sending the browser-cookies setting here — that's only
@@ -1431,7 +1449,8 @@ const Player = (() => {
     // preview made yt-dlp decrypt Chrome's cookies via Keychain on every play.
     audio.src = `/api/stream/${encodeURIComponent(videoId)}`;
     audio.play().catch(()=>{});
-    setMeta(track.title || "", track.artists || "", track.thumbnail);
+    track.videoId = videoId; // so the 🎬 video button doesn't have to re-resolve it
+    setMeta(track.title || "", track.artists || "", track.thumbnail, track.sourcePlaylist);
     pushHistory({...track, videoId});
   }
 
@@ -1453,7 +1472,7 @@ const Player = (() => {
     current = track;
     audio.src = `/api/library/stream?rel=${encodeURIComponent(track.relPath)}`;
     audio.play().catch(()=>{});
-    setMeta(track.title || track.relPath, track.artists || "", null);
+    setMeta(track.title || track.relPath, track.artists || "", null, track.sourcePlaylist);
     pushHistory({...track, source: "local", key: "local:"+track.relPath});
   }
 
@@ -1553,6 +1572,45 @@ const Player = (() => {
   };
 
   renderHistory();
+
+  // "🎬 Video" — resolves (and caches on the track) the same video the
+  // audio came from, then plays it in a slide-up panel. Opening it pauses
+  // the audio (the video stream carries its own audio track); closing it
+  // just stops the video — the audio does NOT auto-resume, by design.
+  const videoBtn = el("pb-video-btn");
+  const videoDrawer = el("video-drawer");
+  const videoEl = el("pb-video");
+
+  async function resolveCurrentVideoId(){
+    if(!current) return null;
+    if(current.videoId) return current.videoId;
+    const query = current.spotifyQuery || `${current.artists||""} ${current.title||""}`.trim();
+    if(!query) return null;
+    try{
+      const res = await fetch(`/api/preview?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if(data.videoId) current.videoId = data.videoId; // cache on the track
+      return data.videoId || null;
+    }catch(e){ return null; }
+  }
+
+  videoBtn.onclick = async () => {
+    if(!current){ showToast("Nic nehraje"); return; }
+    videoBtn.disabled = true;
+    const videoId = await resolveCurrentVideoId();
+    videoBtn.disabled = false;
+    if(!videoId){ showToast("Video se nepodařilo najít"); return; }
+    audio.pause();
+    videoEl.src = `/api/stream-video/${encodeURIComponent(videoId)}`;
+    videoDrawer.hidden = false;
+    videoEl.play().catch(()=>{});
+  };
+  el("video-close").onclick = () => {
+    videoEl.pause();
+    videoEl.src = "";
+    videoDrawer.hidden = true;
+  };
+
   return { play, playLocal, playLocalQueue };
 })();
 
