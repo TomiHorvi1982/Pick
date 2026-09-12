@@ -1244,6 +1244,7 @@ const Player = (() => {
   let seeking = false;
   let playQueueList = [];  // only non-empty during a playLocalQueue() "Přehrát vše"
   let playQueueIdx = -1;
+  let playToken = 0;  // generation token to prevent race between async play() and sync playLocal*()
 
   // volume persists across sessions
   try{
@@ -1274,6 +1275,7 @@ const Player = (() => {
   }
 
   async function play(track){
+    const myToken = ++playToken;
     playQueueList = [track];
     playQueueIdx = 0;
     current = track;
@@ -1287,6 +1289,7 @@ const Player = (() => {
       }catch(e){ videoId = null; }
     }
     if(current !== track) return; // a newer play() call already took over
+    if(myToken !== playToken) return; // a local playback or newer play() has superseded this attempt
     if(!videoId){
       setMeta("⚠ Náhled nenalezen", track.title || "", track.thumbnail);
       return;
@@ -1312,6 +1315,7 @@ const Player = (() => {
   }
 
   function playLocalAt(idx){
+    ++playToken;
     const track = playQueueList[idx];
     playQueueIdx = idx;
     current = track;
