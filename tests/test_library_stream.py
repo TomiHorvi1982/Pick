@@ -64,3 +64,23 @@ def test_stream_inverted_range_returns_416(client, tmp_music_root):
 
     assert res.status_code == 416
     assert res.json() == {"error": "Neplatný Range požadavek."}
+
+
+def test_stream_suffix_range_returns_last_n_bytes(client, tmp_music_root):
+    (tmp_music_root / "song.mp3").write_bytes(b"0123456789")
+
+    res = client.get(
+        "/api/library/stream", params={"rel": "song.mp3"}, headers={"Range": "bytes=-5"}
+    )
+
+    assert res.status_code == 206
+    assert res.content == b"56789"
+    assert res.headers["content-range"] == "bytes 5-9/10"
+
+
+def test_stream_non_audio_extension_returns_404(client, tmp_music_root):
+    (tmp_music_root / "notes.txt").write_bytes(b"not audio")
+
+    res = client.get("/api/library/stream", params={"rel": "notes.txt"})
+
+    assert res.status_code == 404

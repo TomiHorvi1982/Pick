@@ -11,6 +11,12 @@ def test_get_settings_returns_current_music_root(client, tmp_music_root):
 
 def test_update_settings_persists_and_updates_music_root(client, tmp_path, monkeypatch):
     monkeypatch.setattr(server, "CONFIG_PATH", tmp_path / "config.json")
+    # Endpoint reassigns the module-level MUSIC_ROOT global; setting it to
+    # its own current value here just registers it with monkeypatch so the
+    # original is restored after the test, regardless of what the endpoint
+    # sets it to — otherwise MUSIC_ROOT is left pointing at a tmp_path
+    # directory that gets deleted, a landmine for later tests that read it.
+    monkeypatch.setattr(server, "MUSIC_ROOT", server.MUSIC_ROOT)
     new_root = tmp_path / "new-music-folder"
 
     res = client.post("/api/settings", json={"music_root": str(new_root)})
