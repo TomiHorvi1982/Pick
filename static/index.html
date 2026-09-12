@@ -66,6 +66,21 @@
   .chip .x:hover{opacity:1;color:var(--danger)}
   .chip.empty-hint{background:transparent;border-style:dashed;color:var(--sub);cursor:default}
 
+  .breadcrumb{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:13px;
+    color:var(--sub);margin:6px 0 14px}
+  .breadcrumb a{color:var(--sub);cursor:pointer}
+  .breadcrumb a:hover{color:var(--accent)}
+  .breadcrumb .sep{opacity:.5}
+  .breadcrumb .current{color:var(--text);font-weight:600}
+  .library-play-all{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .library-play-all span{font-size:12.5px;color:var(--sub)}
+  .fs-list{display:flex;flex-direction:column;gap:2px}
+  .fs-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:9px;cursor:pointer}
+  .fs-row:hover{background:var(--card-hi)}
+  .fs-row .fs-icon{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+  .fs-row .fs-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}
+  .fs-row .fs-size{font-size:12px;color:var(--sub);flex-shrink:0}
+
   .artist-suggest{position:sticky;top:64px;z-index:19;padding:9px 20px;display:flex;
     gap:8px;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border)}
   .artist-suggest[hidden]{display:none}
@@ -243,6 +258,7 @@
   <div class="tabs">
     <button id="tab-playlists" class="active">Playlisty</button>
     <button id="tab-songs">Písně</button>
+    <button id="tab-library">📁 Knihovna</button>
   </div>
   <div class="search-wrap">
     <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
@@ -343,6 +359,15 @@
       <a class="add-link" id="add-custom">+ přidat vlastní</a>
     </div>
     <div class="chips" id="chips-custom"></div>
+  </div>
+
+  <div id="library-section" hidden>
+    <div class="breadcrumb" id="library-breadcrumb"></div>
+    <div id="library-play-all" class="library-play-all" hidden>
+      <button class="btn secondary" id="library-play-all-btn">▶ Přehrát vše</button>
+      <span id="library-play-all-summary"></span>
+    </div>
+    <div id="library-list" class="fs-list"></div>
   </div>
 
   <div class="section-title" id="results-title" hidden>Výsledky</div>
@@ -832,22 +857,127 @@ el("surprise-btn").onclick = () => {
 // ======================================================================
 el("tab-playlists").onclick = () => setMode("playlists");
 el("tab-songs").onclick = () => setMode("songs");
+el("tab-library").onclick = () => setMode("library");
 
 function setMode(mode){
   state.mode = mode;
   el("tab-playlists").classList.toggle("active", mode==="playlists");
   el("tab-songs").classList.toggle("active", mode==="songs");
+  el("tab-library").classList.toggle("active", mode==="library");
+  el("search-input").disabled = mode === "library";
   el("search-input").placeholder = mode==="playlists"
     ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
-    : "Hledej píseň nebo interpreta…";
+    : mode==="songs" ? "Hledej píseň nebo interpreta…" : "";
   regionToggle.style.display = mode === "playlists" ? "flex" : "none";
   grid.innerHTML = "";
   resultsTitle.hidden = true;
   el("load-more-wrap").hidden = true;
-  browseSection.hidden = false;
-  renderCustomChips();
-  renderFavPlaylists();
+  browseSection.hidden = mode === "library";
+  el("library-section").hidden = mode !== "library";
+  if(mode === "library"){
+    loadLibraryFolder("");
+  } else {
+    renderCustomChips();
+    renderFavPlaylists();
+  }
   updateArtistSuggestions();
+}
+
+// ======================================================================
+// Knihovna — file-manager style browser over MUSIC_ROOT, plus "Přehrát
+// vše" for whatever folder you're looking at (its own throwaway play
+// queue — see Player.playLocalQueue — separate from the 📃 download
+// playlist).
+// ======================================================================
+function fsIcon(entry){ return entry.type === "dir" ? "📁" : "🎵"; }
+
+function libraryTrackMeta(name){
+  // spotdl's own naming templates are "{artist} - {title}.ext" for
+  // playlists/queue, and "{artist}/{title}.ext" (artist already in the
+  // path) for the Songs folder — fall back to the bare filename when
+  // neither pattern matches.
+  const stem = name.replace(/\.[^.]+$/, "");
+  const idx = stem.indexOf(" - ");
+  if(idx > 0) return { artists: stem.slice(0, idx), title: stem.slice(idx + 3) };
+  return { artists: "", title: stem };
+}
+
+async function loadLibraryFolder(rel){
+  const list = el("library-list");
+  list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
+  el("library-play-all").hidden = true;
+
+  let data;
+  try{
+    const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(rel)}`);
+    data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Chyba");
+  }catch(e){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Složku se nepodařilo načíst.</div>`;
+    return;
+  }
+
+  renderLibraryBreadcrumb(data.breadcrumb);
+  renderLibraryList(data.entries);
+}
+
+function renderLibraryBreadcrumb(breadcrumb){
+  const box = el("library-breadcrumb");
+  box.innerHTML = "";
+  breadcrumb.forEach((b, i) => {
+    if(i > 0){
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "›";
+      box.appendChild(sep);
+    }
+    const isLast = i === breadcrumb.length - 1;
+    const node = document.createElement(isLast ? "span" : "a");
+    node.textContent = b.name;
+    if(isLast) node.className = "current";
+    else node.onclick = () => loadLibraryFolder(b.rel);
+    box.appendChild(node);
+  });
+}
+
+function renderLibraryList(entries){
+  const list = el("library-list");
+  list.innerHTML = "";
+  if(!entries.length){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Prázdná složka.</div>`;
+    return;
+  }
+
+  const tracks = entries.filter(e => e.type === "file");
+  if(tracks.length){
+    el("library-play-all").hidden = false;
+    const totalBytes = tracks.reduce((s,t) => s + (t.size_bytes||0), 0);
+    el("library-play-all-summary").textContent = `${tracks.length} skladeb · ~${fmtSize(totalBytes)}`;
+    el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
+      relPath: t.rel, ...libraryTrackMeta(t.name),
+    })));
+  }
+
+  entries.forEach(entry => {
+    const row = document.createElement("div");
+    row.className = "fs-row";
+    const sizeLabel = entry.type === "file" ? fmtSize(entry.size_bytes || 0) : "";
+    row.innerHTML = `
+      <span class="fs-icon">${fsIcon(entry)}</span>
+      <span class="fs-name">${escapeHtml(entry.name)}</span>
+      <span class="fs-size">${sizeLabel}</span>
+      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button>' : ''}
+    `;
+    if(entry.type === "dir"){
+      row.onclick = () => loadLibraryFolder(entry.rel);
+    } else {
+      const meta = libraryTrackMeta(entry.name);
+      const playIt = () => Player.playLocal({ relPath: entry.rel, ...meta });
+      row.querySelector(".fs-play").onclick = (e) => { e.stopPropagation(); playIt(); };
+      row.onclick = playIt;
+    }
+    list.appendChild(row);
+  });
 }
 
 // ======================================================================
