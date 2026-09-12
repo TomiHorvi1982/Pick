@@ -283,6 +283,54 @@ def library():
     return {"stems": stems}
 
 
+# ----------------------------------------------------------------- browse (local files)
+
+
+def _resolve_under_music_root(rel: str) -> Optional[Path]:
+    """Resolves `rel` under MUSIC_ROOT, refusing anything that would escape
+    it — a leading '/' (pathlib silently drops the left side when you `/`
+    it with an absolute path, so this has to be checked explicitly), '..'
+    segments, or a symlink pointing outside. Returns None on any violation.
+    """
+    if not rel:
+        return MUSIC_ROOT.resolve()
+    if Path(rel).is_absolute():
+        return None
+    candidate = (MUSIC_ROOT / rel).resolve()
+    root = MUSIC_ROOT.resolve()
+    if candidate != root and root not in candidate.parents:
+        return None
+    return candidate
+
+
+@app.get("/api/library/browse")
+def library_browse(rel: str = ""):
+    target = _resolve_under_music_root(rel)
+    if target is None or not target.is_dir():
+        return JSONResponse({"error": "Složka nenalezena."}, status_code=404)
+
+    root = MUSIC_ROOT.resolve()
+    parts = target.relative_to(root).parts
+    breadcrumb = [{"name": root.name or str(root), "rel": ""}]
+    acc = []
+    for part in parts:
+        acc.append(part)
+        breadcrumb.append({"name": part, "rel": "/".join(acc)})
+
+    dirs, files = [], []
+    for p in sorted(target.iterdir(), key=lambda p: p.name.lower()):
+        entry_rel = "/".join((*parts, p.name))
+        if p.is_dir():
+            dirs.append({"name": p.name, "type": "dir", "rel": entry_rel})
+        elif p.is_file() and p.suffix.lower() in AUDIO_EXTS:
+            files.append({
+                "name": p.name, "type": "file", "rel": entry_rel,
+                "size_bytes": p.stat().st_size,
+            })
+
+    return {"rel": "/".join(parts), "breadcrumb": breadcrumb, "entries": dirs + files}
+
+
 @app.get("/api/preview")
 def preview(q: str):
     """Najde nejbližší YouTube video pro náhled (u výsledků hledání písní,
