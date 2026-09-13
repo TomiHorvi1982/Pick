@@ -461,6 +461,10 @@ def _resolve_video(video_id: str):
     for the in-app video toggle, not used for downloads. Combined
     progressive formats top out well below 1080p on YouTube these days;
     that's fine here.
+
+    Uses 'best' (progressive) instead of 'best[ext=mp4]/best' because the
+    latter fails on many videos where no single-file mp4 progressive format
+    is available (YouTube serves many formats as video-only/audio-only DASH).
     """
     cache_key = ("video", video_id)
     cached = _STREAM_CACHE.get(cache_key)
@@ -471,7 +475,7 @@ def _resolve_video(video_id: str):
 
     ydl_opts = {
         "quiet": True, "no_warnings": True, "noplaylist": True,
-        "format": "best[ext=mp4]/best",
+        "format": "best",
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)

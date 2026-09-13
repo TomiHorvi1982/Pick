@@ -1,0 +1,3 @@
+[submodule "vendor/stemdeck"]
+	path = vendor/stemdeck
+	url = https://github.com/stemdeckapp/stemdeck.git
