@@ -1525,8 +1525,17 @@ async function loadSteemsList(){
 }
 
 function loadMixerSong(name){
-  const song = steemsSongs.find(s => s.name === name);
-  if(!song){ showToast("Píseň nenalezena — zkus přepnout na Steems znovu"); return; }
+  // Ensure song has stems array
+  let song = steemsSongs.find(s => s.name === name);
+  if(!song){ 
+    // Fallback: create song from server data
+    song = { name, stems: ["vocals","drums","bass","guitar","piano","other"] };
+  }
+  // Ensure stems have proper format
+  if(song.stems && !Array.isArray(song.stems[0]) && typeof song.stems[0] !== 'object'){
+    // Convert string array to object array
+    song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}.wav`}));
+  }
   Mixer.load(song);
 }
 
@@ -1982,7 +1991,8 @@ const Mixer = (() => {
     const saved = loadSession(song.name);
     const loaded = [];
     for(const stem of song.stems){
-      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${stem}.wav`);
+      const stemName = typeof stem === 'string' ? stem : (stem.name || stem);
+      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${encodeURIComponent(stemName)}.wav`);
       const arrayBuf = await res.arrayBuffer();
       if(myToken !== loadToken) return;
       const audioBuf = await ctx().decodeAudioData(arrayBuf);
@@ -1994,9 +2004,9 @@ const Mixer = (() => {
       gainNode.connect(analyser);
       analyser.connect(panner);
       panner.connect(ctx().destination);
-      const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stem) : null;
+      const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
       loaded.push({
-        stem, buffer: audioBuf, gainNode, analyser, panner,
+        stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
         muted: savedCh ? savedCh.muted : false,
         solo: savedCh ? savedCh.solo : false,
         faderValue: savedCh ? savedCh.faderValue : 1,
