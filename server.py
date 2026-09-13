@@ -30,6 +30,7 @@ SPOTDL_BIN = str(HOME / ".local" / "bin" / "spotdl")
 AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav"}
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
+LIBRARY_PATH = HOME / "Music" / "spotdl" / "library.json"
 
 
 def _load_music_root() -> Path:
@@ -282,6 +283,232 @@ def library():
     _library_cache["ts"] = now
     _library_cache["stems"] = stems
     return {"stems": stems}
+
+
+# ----------------------------------------------------------------- video mode
+
+@app.get("/api/video/mode")
+def get_video_mode():
+    """Get the current video display mode (hidden/mini/full).
+    Persisted in ~/Music/spotdl/config.json under 'video_mode'."""
+    try:
+        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = {}
+    return {"mode": data.get("video_mode", "full")}
+
+
+class VideoModeRequest(BaseModel):
+    mode: str  # "hidden" | "mini" | "full"
+
+
+@app.post("/api/video/mode")
+def set_video_mode(req: VideoModeRequest):
+    """Persist video display mode preference."""
+    if req.mode not in ("hidden", "mini", "full"):
+        return JSONResponse({"error": "mode must be hidden, mini, or full"}, status_code=400)
+    try:
+        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = {}
+    data["video_mode"] = req.mode
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return {"mode": req.mode}
+
+
+# ----------------------------------------------------------------- library management (Kaset-style)
+
+def _load_library_db() -> dict:
+    """Load the library database from ~/Music/spotdl/library.json.
+    
+    Schema: { "playlists": [...], "albums": [...], "artists": [...] }
+    Each item: { "id", "title", "author", "thumbnail", "addedAt" }
+    """
+    if not LIBRARY_PATH.exists():
+        return {"playlists": [], "albums": [], "artists": []}
+    try:
+        data = json.loads(LIBRARY_PATH.read_text(encoding="utf-8"))
+        for k in ("playlists", "albums", "artists"):
+            if k not in data:
+                data[k] = []
+        return data
+    except (json.JSONDecodeError, OSError):
+        return {"playlists": [], "albums": [], "artists": []}
+
+
+def _save_library_db(data: dict):
+    """Persist the library database."""
+    LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LIBRARY_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+class LibraryItem(BaseModel):
+    kind: str  # "playlist" | "album" | "artist"
+    id: str
+    title: str
+    author: Optional[str] = None
+    thumbnail: Optional[str] = None
+
+
+@app.get("/api/library/list")
+def library_list():
+    """List all saved library items (playlists, albums, artists)."""
+    db = _load_library_db()
+    items = []
+    for kind in ("playlists", "albums", "artists"):
+        for item in db.get(kind, []):
+            items.append({"kind": kind[:-1], **item})
+    return {"items": items}
+
+
+@app.post("/api/library/add")
+def library_add(item: LibraryItem):
+    """Add an item to the library. Returns {ok: true, added: bool}."""
+    if item.kind not in ("playlist", "album", "artist"):
+        return JSONResponse({"error": "kind must be playlist, album, or artist"}, status_code=400)
+    db = _load_library_db()
+    kind_key = item.kind + "s"
+    existing = db.get(kind_key, [])
+    if any(e.get("id") == item.id for e in existing):
+        return {"ok": True, "added": False}
+    entry = {
+        "id": item.id,
+        "title": item.title,
+        "author": item.author,
+        "thumbnail": item.thumbnail,
+        "addedAt": int(time.time()),
+    }
+    existing.append(entry)
+    db[kind_key] = existing
+    _save_library_db(db)
+    return {"ok": True, "added": True}
+
+
+class LibraryRemoveRequest(BaseModel):
+    kind: str
+    id: str
+
+
+@app.post("/api/library/remove")
+def library_remove(req: LibraryRemoveRequest):
+    """Remove an item from the library. Returns {ok: true, removed: bool}."""
+    if req.kind not in ("playlist", "album", "artist"):
+        return JSONResponse({"error": "kind must be playlist, album, or artist"}, status_code=400)
+    db = _load_library_db()
+    kind_key = req.kind + "s"
+    existing = db.get(kind_key, [])
+    before = len(existing)
+    db[kind_key] = [e for e in existing if e.get("id") != req.id]
+    removed = len(db[kind_key]) < before
+    if removed:
+        _save_library_db(db)
+    return {"ok": True, "removed": removed}
+
+
+@app.get("/api/library/check")
+def library_check(kind: str, id: str):
+    """Check if an item is in the library. Returns {inLibrary: bool}."""
+    if kind not in ("playlist", "album", "artist"):
+        return JSONResponse({"error": "kind must be playlist, album, or artist"}, status_code=400)
+    db = _load_library_db()
+    kind_key = kind + "s"
+    return {"inLibrary": any(e.get("id") == id for e in db.get(kind_key, []))}
+
+
+# ----------------------------------------------------------------- search top results (Kaset-style)
+
+@app.get("/api/search/top")
+def search_top(q: str, limit: int = 8):
+    """Return the top/featured result plus suggestions for a query.
+    
+    The top result is what YT Music's own ranking considers most relevant
+    (typically the most popular/most-viewed match). Suggestions are the
+    remaining search results that might also interest the user.
+    
+    Inspired by Kaset's search_top_result_watch_endpoints fixture — the
+    same idea that a search response often has one clear "best" match.
+    """
+    if not q.strip():
+        return {"top": None, "suggestions": []}
+    
+    client = yt()
+    song_results = client.search(q, filter="songs", limit=1)
+    top_song = None
+    if song_results:
+        r = song_results[0]
+        top_song = {
+            "kind": "song",
+            "videoId": r.get("videoId"),
+            "title": r.get("title"),
+            "artists": ", ".join(a["name"] for a in (r.get("artists") or []) if a.get("name")),
+            "album": (r.get("album") or {}).get("name") if isinstance(r.get("album"), dict) else None,
+            "duration": r.get("duration"),
+            "duration_seconds": r.get("duration_seconds"),
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+        }
+    
+    playlist_results = client.search(q, filter="playlists", limit=3)
+    playlists = []
+    for r in playlist_results:
+        bid = r.get("browseId")
+        if not bid:
+            continue
+        playlists.append({
+            "kind": "playlist",
+            "browseId": bid,
+            "title": r.get("title"),
+            "author": r.get("author"),
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+        })
+    
+    video_results = client.search(q, filter="videos", limit=3)
+    videos = []
+    for r in video_results:
+        vid = r.get("videoId")
+        if not vid:
+            continue
+        videos.append({
+            "kind": "video",
+            "videoId": vid,
+            "title": r.get("title"),
+            "artists": r.get("author") or "",
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+        })
+    
+    all_suggestions = []
+    for r in client.search(q, filter="songs", limit=limit + 1)[1:]:
+        if not r.get("videoId"):
+            continue
+        artists = ", ".join(a["name"] for a in (r.get("artists") or []) if a.get("name"))
+        all_suggestions.append({
+            "kind": "song",
+            "videoId": r["videoId"],
+            "title": r.get("title"),
+            "artists": artists,
+            "duration": r.get("duration"),
+            "duration_seconds": r.get("duration_seconds"),
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+        })
+    
+    for p in playlists:
+        all_suggestions.append(p)
+    
+    return {
+        "top": top_song,
+        "suggestions": all_suggestions[:limit],
+        "related": {"playlists": playlists, "videos": videos},
+    }
+
+
+# ----------------------------------------------------------------- browse (Kaset-style enhanced)
+
+@app.get("/api/video/blackout")
+def video_blackout():
+    """Returns a CSS snippet that can be injected to black out the video
+    area during mode transitions. Inspired by Kaset's approach of hiding
+    the player WebView during mode switches to prevent visual artifacts."""
+    return {"css": "body.video-mode-transition #video-section, body.video-mode-transition .video-player-wrap { opacity: 0 !important; transition: opacity 0.15s ease-out !important; }"}
 
 
 # ----------------------------------------------------------------- browse (local files)
@@ -890,3 +1117,262 @@ def stream_stem(name: str, stem: str, request: Request):
     if target is None or not target.is_file():
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
     return _range_file_response(target, request.headers.get("range"))
+
+
+# ----------------------------------------------------------------- lyrics
+
+import re as _re  # for LRC parsing (lyrics feature)
+
+
+def _parse_lrc_cents_to_ms(cc: str) -> int:
+    """Convert LRC centiseconds string to milliseconds.
+    ".1" -> 100, ".12" -> 120, ".123" -> 123
+    """
+    s = cc
+    while len(s) < 3:
+        s += "0"
+    if len(s) > 3:
+        s = s[:3]
+    return int(s) if s.isdigit() else 0
+
+
+def _parse_lrc(raw: str) -> Optional[list]:
+    """Parse LRC format text into structured synced lyrics lines.
+
+    Returns a list of dicts with keys: timeInMs, duration, text, id
+    or None if parsing yields no valid lines.
+    """
+    lines = raw.split("\n")
+    time_pattern = _re.compile(r"\[(\d{2,}):(\d{2})\.(\d{2,3})\]")
+    metadata_pattern = _re.compile(r"\[([a-z]+):([^\]]+)\]")
+
+    unmerged = []
+    offset_ms = 0
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Check for metadata tags like [offset:100]
+        meta_match = metadata_pattern.search(line)
+        if meta_match:
+            key = meta_match.group(1).lower()
+            value = meta_match.group(2).strip()
+            if key == "offset":
+                try:
+                    offset_ms = int(value)
+                except ValueError:
+                    pass
+            # Skip pure metadata lines (no timestamp)
+            if not time_pattern.search(line):
+                continue
+
+        time_matches = time_pattern.findall(line)
+        if not time_matches:
+            continue
+
+        # Extract text (remove all timestamp tags)
+        text = time_pattern.sub("", line).strip()
+
+        for mm_str, ss_str, ms_str in time_matches:
+            mm = int(mm_str)
+            ss = int(ss_str)
+            ms = _parse_lrc_cents_to_ms(ms_str)
+            time_ms = (mm * 60 * 1000) + (ss * 1000) + ms - offset_ms
+            unmerged.append({
+                "timeInMs": max(0, time_ms),
+                "text": text,
+            })
+
+    if not unmerged:
+        return None
+
+    # Sort by time
+    unmerged.sort(key=lambda x: x["timeInMs"])
+
+    result = []
+    # Insert empty line at 0ms if first line is > 300ms
+    if unmerged[0]["timeInMs"] > 300:
+        result.append({
+            "timeInMs": 0,
+            "duration": unmerged[0]["timeInMs"],
+            "text": "",
+            "id": "line-0",
+        })
+
+    for i, entry in enumerate(unmerged):
+        if i < len(unmerged) - 1:
+            duration = unmerged[i + 1]["timeInMs"] - entry["timeInMs"]
+        else:
+            duration = 5000  # default 5s for last line
+        result.append({
+            "timeInMs": entry["timeInMs"],
+            "duration": duration,
+            "text": entry["text"],
+            "id": f"line-{len(result)}",
+        })
+
+    return result
+
+
+_LYRICS_CACHE: dict = {}
+_LYRICS_CACHE_TTL = 30 * 60  # 30 minutes
+
+
+def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, duration: float = None) -> Optional[dict]:
+    """Fetch synced lyrics from LRCLib API.
+
+    Returns dict with keys: synced (bool), lines (list or None), plain (str or None), source (str)
+    """
+    cache_key = f"{track_name.lower()}|{artist_name.lower()}"
+    cached = _LYRICS_CACHE.get(cache_key)
+    if cached and cached["expires"] > time.time():
+        return cached["data"]
+
+    try:
+        params = {
+            "track_name": track_name,
+            "artist_name": artist_name,
+        }
+        if album_name:
+            params["album_name"] = album_name
+
+        req = httpx.get("https://lrclib.net/api/search", params=params, headers={"User-Agent": "Spotifylisty/1.0"}, timeout=15.0)
+        if req.status_code != 200:
+            return None
+
+        results = req.json()
+        if not results or not isinstance(results, list):
+            return None
+
+        # Filter valid results
+        valid = [
+            r for r in results
+            if (r.get("syncedLyrics") or r.get("plainLyrics"))
+            and not r.get("instrumental")
+        ]
+        if not valid:
+            return None
+
+        # Find best match by duration
+        best = valid[0]
+        if duration and any(r.get("duration") for r in valid):
+            target_dur = duration
+            best = min(valid, key=lambda r: abs((r.get("duration") or 0) - target_dur))
+
+        data = {
+            "synced": False,
+            "lines": None,
+            "plain": best.get("plainLyrics"),
+            "source": "LRCLib",
+        }
+
+        if best.get("syncedLyrics"):
+            parsed = _parse_lrc(best["syncedLyrics"])
+            if parsed:
+                data["synced"] = True
+                data["lines"] = parsed
+
+        _LYRICS_CACHE[cache_key] = {"data": data, "expires": time.time() + _LYRICS_CACHE_TTL}
+        return data
+    except Exception:
+        return None
+
+
+@app.get("/api/lyrics/search")
+def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: float = None):
+    """Search for lyrics via LRCLib.
+
+    If q is provided but artist is not, q is treated as "artist - title" or just title.
+    """
+    title = q
+    if not artist and " - " in q:
+        parts = q.split(" - ", 1)
+        artist = parts[0].strip()
+        title = parts[1].strip()
+
+    if not title:
+        return {"synced": False, "lines": None, "plain": None, "source": None}
+
+    result = _fetch_lrclib(title, artist, album, duration)
+    return result or {"synced": False, "lines": None, "plain": None, "source": None}
+
+
+# ----------------------------------------------------------------- podcasts
+
+@app.get("/api/podcasts")
+def search_podcasts(q: str = "podcast", limit: int = 40):
+    """Search for podcasts via YouTube Music (which indexes podcast shows).
+
+    Returns a list of podcast show metadata. Episode fetching is
+    deferred to /api/podcasts/{show_id} for the selected show.
+    """
+    client = yt()
+    results = client.search(q, filter="podcasts", limit=limit)
+    out = []
+    for r in results:
+        bid = r.get("browseId")
+        if not bid:
+            continue
+        out.append({
+            "id": bid,
+            "title": r.get("title"),
+            "author": r.get("author"),
+            "publisher": r.get("author"),
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+            "type": "podcast",
+        })
+    return out
+
+
+@app.get("/api/podcasts/{show_id}")
+def podcast_episodes(show_id: str):
+    """Fetch episodes for a podcast show.
+
+    YouTube Music's get_playlist returns podcast episodes as tracks when
+    the show_id is a podcast browse ID.
+    """
+    try:
+        pl = yt().get_playlist(show_id, limit=50)
+    except Exception:
+        return {"id": show_id, "title": "", "episodes": []}
+
+    episodes = []
+    for t in pl.get("tracks", []):
+        if not t.get("videoId"):
+            continue
+        dur = t.get("duration_seconds") or 0
+        episodes.append({
+            "id": t["videoId"],
+            "title": t.get("title"),
+            "duration": dur,
+            "durationFormatted": t.get("duration") or _fmt_dur(dur),
+            "thumbnail": _best_thumb(t.get("thumbnails")),
+            "audioUrl": None,  # would need yt-dlp resolve for direct audio
+            "videoId": t["videoId"],
+        })
+
+    return {
+        "id": show_id,
+        "title": pl.get("title"),
+        "author": pl.get("author", {}).get("name") if isinstance(pl.get("author"), dict) else pl.get("author"),
+        "thumbnail": _best_thumb(pl.get("thumbnails")),
+        "episodes": episodes,
+    }
+
+
+@app.get("/api/lyrics/{video_id}")
+def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str = "", duration: float = None):
+    """Get lyrics for a video ID. Uses LRCLib with metadata from the caller."""
+    title = q
+    if not artist and " - " in q:
+        parts = q.split(" - ", 1)
+        artist = parts[0].strip()
+        title = parts[1].strip()
+
+    if not title:
+        return {"synced": False, "lines": None, "plain": None, "source": None}
+
+    result = _fetch_lrclib(title, artist, album, duration)
+    return result or {"synced": False, "lines": None, "plain": None, "source": None}

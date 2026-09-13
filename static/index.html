@@ -287,6 +287,71 @@
   .video-player-wrap{margin-bottom:12px}
   .video-player-wrap video{width:100%;border-radius:8px;background:#000;max-height:300px}
 
+  /* Blackout CSS during video mode transitions (Kaset-inspired) */
+  body.video-mode-transition { transition: opacity 0.15s ease-out; }
+  body.video-mode-transition #video-section,
+  body.video-mode-transition .video-player-wrap,
+  body.video-mode-transition .pb-mini-video { opacity: 0 !important; }
+
+  /* Video mode: hidden = no video shown */
+  body.video-mode-hidden .video-section,
+  body.video-mode-hidden .video-player-wrap { display: none !important; }
+
+  /* Video mode: mini = compact thumbnail in player bar */
+  body.video-mode-mini .video-section,
+  body.video-mode-mini .video-player-wrap { display: none !important; }
+  .pb-mini-video{width:160px;height:90px;border-radius:8px;background:#000;
+    overflow:hidden;flex-shrink:0;position:relative;cursor:pointer;
+    border:1px solid var(--border)}
+  .pb-mini-video video{width:100%;height:100%;object-fit:cover}
+  .pb-mini-video-placeholder{width:160px;height:90px;border-radius:8px;
+    background:var(--bg2);display:flex;align-items:center;justify-content:center;
+    font-size:28px;color:var(--sub);flex-shrink:0;border:1px solid var(--border)}
+
+  /* Video mode toggle */
+  .video-mode-toggle{display:flex;gap:2px;background:var(--bg2);border-radius:8px;
+    padding:2px;border:1px solid var(--border)}
+  .video-mode-toggle button{background:none;border:none;color:var(--sub);
+    padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;
+    font-weight:600;white-space:nowrap}
+  .video-mode-toggle button.active{background:var(--accent);color:#04211d}
+  .video-mode-toggle button:hover:not(.active){color:var(--text)}
+
+  /* Top search result */
+  .top-result-card{background:var(--card);border:1px solid var(--border);
+    border-radius:14px;overflow:hidden;margin-bottom:20px;
+    display:flex;gap:16px;padding:16px;align-items:center}
+  .top-result-card .top-art{width:120px;height:120px;border-radius:10px;
+    background:var(--bg2) center/cover no-repeat;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--sub)}
+  .top-result-card .top-info{flex:1;min-width:0}
+  .top-result-card .top-label{font-size:11px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--gold);font-weight:700;margin-bottom:6px}
+  .top-result-card .top-title{font-size:17px;font-weight:700;margin-bottom:4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top-result-card .top-sub{font-size:13px;color:var(--sub);margin-bottom:8px}
+  .top-result-card .top-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* Library section */
+  .library-section{padding:20px;max-width:1200px;margin:0 auto;padding-bottom:130px}
+  .library-section[hidden]{display:none}
+  .library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+    gap:16px;margin-top:6px}
+  .library-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .library-tab{background:var(--card);border:1px solid var(--border);color:var(--sub);
+    padding:8px 16px;border-radius:999px;font-size:13px;cursor:pointer;font-weight:600}
+  .library-tab.active{background:var(--accent);color:#04211d;border-color:var(--accent)}
+
+  /* Search history */
+  .search-history{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .search-history-item{background:var(--bg2);border:1px solid var(--border);
+    color:var(--sub);padding:5px 10px;border-radius:999px;font-size:12px;
+    cursor:pointer;display:flex;align-items:center;gap:6px}
+  .search-history-item:hover{border-color:var(--accent);color:var(--accent)}
+  .search-history-clear{font-size:11px;color:var(--sub);cursor:pointer;
+    padding:5px 8px;border-radius:999px;border:1px solid var(--border);
+    background:var(--bg2)}
+
   .mixer{margin-top:18px}
   .mixer[hidden]{display:none}
   .mixer-transport{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
@@ -311,7 +376,144 @@
     font-size:10px;font-weight:700;cursor:pointer}
   .channel-mute.active{background:var(--danger);color:#fff;border-color:var(--danger)}
   .channel-solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
-</style>
+
+  /* ================================================================
+     Synced lyrics overlay — karaoke-style scrolling lyrics synced to
+     playback time. Inspired by Kaset's SyncedLyricsDisplayView.
+     ================================================================ */
+  .lyrics-overlay{position:fixed;inset:0;background:rgba(6,7,10,.78);z-index:52;
+    display:flex;justify-content:center;align-items:center}
+  .lyrics-overlay[hidden]{display:none}
+  .lyrics-panel{width:min(640px,94vw);height:min(560px,84vh);
+    background:linear-gradient(180deg,var(--card),var(--bg));
+    border:1px solid var(--border);border-radius:18px;
+    display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  .lyrics-header{display:flex;align-items:center;gap:10px;
+    padding:16px 20px;border-bottom:1px solid var(--border)}
+  .lyrics-header .lh-title{flex:1;font-size:14px;font-weight:700;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lyrics-header .lh-sub{font-size:12px;color:var(--sub)}
+  .lyrics-header .lh-source{font-size:10.5px;color:var(--sub);
+    background:var(--bg2);border:1px solid var(--border);border-radius:999px;
+    padding:2px 8px;white-space:nowrap}
+  .lyrics-scroll{flex:1;overflow-y:auto;padding:40px 0;scroll-behavior:auto}
+  .lyrics-scroll::-webkit-scrollbar{width:4px}
+  .lyrics-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .lyric-line{padding:10px 32px;text-align:center;cursor:pointer;
+    transition:opacity .25s,transform .25s,filter .25s;
+    font-size:18px;font-weight:500;color:var(--sub);opacity:.45;
+    filter:blur(.4px);transform:scale(.96);line-height:1.5}
+  .lyric-line:hover{background:rgba(255,255,255,.02)}
+  .lyric-line.prev{opacity:.55;transform:scale(.98);filter:blur(.2px)}
+  .lyric-line.current{font-size:24px;font-weight:800;color:var(--text);
+    opacity:1;filter:blur(0);transform:scale(1.04)}
+  .lyric-line.upcoming{opacity:.35;transform:scale(.94);filter:blur(.6px)}
+  .lyric-line.empty-line{padding:6px}
+  .lyrics-source{padding:10px 20px;font-size:11px;color:var(--sub);
+    border-top:1px solid var(--border);text-align:center}
+  .lyrics-source a{color:var(--accent);cursor:pointer}
+  .lyrics-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100%;padding:40px;text-align:center;color:var(--sub)}
+  .lyrics-empty .big{font-size:42px;margin-bottom:16px;opacity:.5}
+  .lyrics-empty .msg{font-size:15px;margin-bottom:6px;color:var(--text);font-weight:600}
+  .lyrics-empty .hint{font-size:13px;line-height:1.5}
+  .lyrics-btn-active{color:var(--accent) !important;border-color:var(--accent) !important}
+  .pb-lyrics-btn{position:relative}
+
+  /* ================================================================
+     Kaset-inspired player bar improvements
+     ================================================================ */
+
+  /* Artwork glow — radial gradient behind the album art */
+  .pb-art-glow{
+    position:absolute;inset:-8px;border-radius:12px;
+    background:radial-gradient(ellipse at center,rgba(45,212,191,.35) 0%,transparent 70%);
+    filter:blur(8px);opacity:0;transition:opacity .25s ease-out;
+    pointer-events:none;z-index:-1}
+  .pb-art:hover .pb-art-glow{opacity:1}
+  .pb-art{position:relative}
+
+  /* Metadata link styling — hover underline navigation */
+  .pb-meta a,.nav-link{color:var(--accent);text-decoration:none;
+    transition:color .15s ease-out,border-color .15s ease-out;
+    border-bottom:1px solid transparent}
+  .pb-meta a:hover,.nav-link:hover{border-bottom-color:var(--accent)}
+  .pb-meta a:focus-visible,.nav-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+  /* Player bar icon menus — CSS-only dropdown */
+  .pb-icon-menu{position:absolute;bottom:100%;right:0;margin-bottom:8px;
+    background:var(--card-hi);border:1px solid var(--border);border-radius:10px;
+    padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    transform-origin:bottom right;animation:pop-in .12s ease-out}
+  .pb-icon-menu button{display:flex;align-items:center;gap:8px;width:100%;
+    padding:9px 12px;border:none;background:transparent;color:var(--text);
+    font-size:13px;text-align:left;cursor:pointer;border-radius:6px}
+  .pb-icon-menu button:hover{background:var(--bg2)}
+  .pb-icon-menu button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .pb-icon-menu button[disabled]{opacity:.4;cursor:default}
+  .pb-icon-menu button[disabled]:hover{background:transparent}
+
+  /* Top-fade gradient on scrollable content */
+  .top-fade{position:relative}
+  .top-fade::before{content:'';position:sticky;top:0;left:0;right:0;height:12px;
+    background:linear-gradient(to bottom,var(--bg),transparent);z-index:10;
+    pointer-events:none;display:block;margin-bottom:-12px}
+
+  /* Cassette icon for library items */
+  .cassette-icon{display:inline-flex;align-items:center;justify-content:center;
+    width:18px;height:18px;font-size:14px;opacity:.7}
+
+  /* Quick transitions — AppAnimation.quick equivalent */
+  .quick-transition{transition:all .15s ease-out}
+  .smooth-transition{transition:all .25s ease-in-out}
+
+  /* macOS-feel: hide native scroll indicators */
+  .native-scroll-hidden{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  .native-scroll-hidden::-webkit-scrollbar{width:6px;height:6px}
+  .native-scroll-hidden::-webkit-scrollbar-track{background:transparent}
+  .native-scroll-hidden::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .native-scroll-hidden::-webkit-scrollbar-thumb:hover{background:var(--sub)}
+
+  /* Improved focus styles for accessibility */
+  *:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Player bar hover effects */
+  .pb-track:hover .pb-art{transform:scale(1.03)}
+  .pb-art{transition:transform .15s ease-out}
+  .pb-track .pb-meta{cursor:default}
+  .pb-track .pb-meta:hover .pb-title{color:var(--accent)}
+  .pb-title{transition:color .15s ease-out}
+
+  /* Podcast card styles */
+  .podcast-card{background:var(--card);border-radius:12px;overflow:hidden;cursor:pointer;
+    border:1px solid var(--border);transition:transform .15s ease-out,border-color .15s ease-out}
+  .podcast-card:hover{transform:translateY(-3px);border-color:var(--accent)}
+  .podcast-card .art{width:100%;aspect-ratio:1/1;background:var(--bg2) center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--sub)}
+  .podcast-card .meta{padding:10px 12px}
+  .podcast-card .title{font-size:13px;font-weight:600;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .podcast-card .sub{font-size:12px;color:var(--sub);margin-top:4px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .podcast-episode{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:9px;
+    cursor:pointer;transition:background .15s ease-out}
+  .podcast-episode:hover{background:var(--card-hi)}
+  .podcast-episode .epi-thumb{width:48px;height:48px;border-radius:8px;background:var(--bg2) center/cover no-repeat;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--sub)}
+  .podcast-episode .epi-info{flex:1;min-width:0}
+  .podcast-episode .epi-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .podcast-episode .epi-sub{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .podcast-episode .epi-dur{font-size:11px;color:var(--sub);flex-shrink:0}
+
+  /* Icon button hover scale effect */
+  .icon-btn-flat{transition:transform .12s ease-out,border-color .12s ease-out}
+  .icon-btn-flat:hover{transform:scale(1.05)}
+  .icon-btn-flat:active{transform:scale(0.95)}
+
+  /* Smooth player bar appearance */
+  .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
+  .player-bar[hidden]{transform:translateY(100%);opacity:0}</style>
 </head>
 <body>
 
@@ -322,6 +524,7 @@
     <button id="tab-songs">Písně</button>
     <button id="tab-library">📁 Knihovna</button>
     <button id="tab-steems">🎚️ Steems</button>
+    <button id="tab-podcasts">🎙️ Podcasty</button>
   </div>
   <div class="search-wrap">
     <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
@@ -433,6 +636,17 @@
     <div id="library-list" class="fs-list"></div>
   </div>
 
+  <div id="my-library-section" class="library-section" hidden>
+    <div class="section-title">⭐ Moje knihovna</div>
+    <div class="library-tabs" id="library-tabs">
+      <button class="library-tab active" data-libtab="all">Vše</button>
+      <button class="library-tab" data-libtab="playlist">Playlisty</button>
+      <button class="library-tab" data-libtab="album">Alba</button>
+      <button class="library-tab" data-libtab="artist">Interpreti</button>
+    </div>
+    <div id="my-library-grid" class="library-grid"></div>
+  </div>
+
   <div id="steems-section" hidden>
     <div class="section-title">🎚️ Rozseparované písně</div>
     <div id="steems-list" class="fs-list"></div>
@@ -451,7 +665,15 @@
     </div>
   </div>
 
+  <div id="podcasts-section" hidden>
+    <div class="section-title">🎙️ Podcasty</div>
+    <div id="podcasts-list" class="grid"></div>
+    <div id="podcast-detail" hidden></div>
+  </div>
+
   <div class="section-title" id="results-title" hidden>Výsledky</div>
+  <div class="search-history" id="search-history"></div>
+  <div id="top-result-container"></div>
   <div class="grid" id="results-grid"></div>
   <div class="load-more-wrap" id="load-more-wrap" hidden>
     <button class="btn secondary" id="load-more-btn">Načíst další výsledky</button>
@@ -465,9 +687,12 @@
      browser widget — so it actually matches the rest of the app. -->
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
-    <div class="pb-art" id="pb-art">🎵</div>
+    <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
+      <div class="pb-art-glow" id="pb-art-glow"></div>
+      🎵
+    </div>
     <div class="pb-meta">
-      <div class="pb-title" id="pb-title">Nic nehraje</div>
+      <div class="pb-title" id="pb-title" role="heading" aria-level="2">Nic nehraje</div>
       <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
       <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
@@ -489,7 +714,13 @@
       <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
     </div>
     <button class="icon-btn-flat" id="pb-video-btn" title="Zobrazit video">🎬</button>
+    <div class="video-mode-toggle" id="video-mode-toggle" title="Video mód">
+      <button data-mode="hidden" id="vm-hidden">skrytý</button>
+      <button data-mode="mini" id="vm-mini">mini</button>
+      <button data-mode="full" id="vm-full">plný</button>
+    </div>
     <button class="icon-btn-flat" id="pb-history-btn" title="Historie přehrávání">🕘</button>
+    <button class="icon-btn-flat pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně (synced lyrics)">📜</button>
     <button class="icon-btn-flat" id="pb-queue-btn" title="Playlist k přehrávači">📃<span class="pb-badge" id="pb-queue-count">0</span></button>
     <div style="position:relative">
       <button class="icon-btn-flat" id="pb-download-btn" title="Stáhnout">⬇️</button>
@@ -552,6 +783,19 @@
   <div class="dl-foot">
     <button class="btn secondary" id="dl-reveal" disabled>📁 Otevřít složku</button>
     <button class="btn secondary" id="dl-close">Zavřít</button>
+  </div>
+</div>
+
+<div class="lyrics-overlay" id="lyrics-overlay" hidden>
+  <div class="lyrics-panel">
+    <div class="lyrics-header">
+      <div class="lh-title" id="lyrics-title">📜 Text písně</div>
+      <div class="lh-sub" id="lyrics-sub"></div>
+      <span class="lh-source" id="lyrics-source"></span>
+      <button class="close-btn" id="lyrics-close">✕</button>
+    </div>
+    <div class="lyrics-scroll" id="lyrics-scroll"></div>
+    <div class="lyrics-source" id="lyrics-source-footer" hidden></div>
   </div>
 </div>
 
@@ -972,6 +1216,7 @@ el("tab-playlists").onclick = () => setMode("playlists");
 el("tab-songs").onclick = () => setMode("songs");
 el("tab-library").onclick = () => setMode("library");
 el("tab-steems").onclick = () => setMode("steems");
+el("tab-podcasts").onclick = () => setMode("podcasts");
 
 function setMode(mode){
   state.mode = mode;
@@ -979,8 +1224,9 @@ function setMode(mode){
   el("tab-songs").classList.toggle("active", mode==="songs");
   el("tab-library").classList.toggle("active", mode==="library");
   el("tab-steems").classList.toggle("active", mode==="steems");
-  el("search-input").disabled = mode === "library" || mode === "steems";
-  el("search-btn").disabled = mode === "library" || mode === "steems";
+  el("tab-podcasts").classList.toggle("active", mode==="podcasts");
+  el("search-input").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
+  el("search-btn").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
   el("search-input").placeholder = mode==="playlists"
     ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
     : mode==="songs" ? "Hledej píseň nebo interpreta…" : "";
@@ -991,10 +1237,15 @@ function setMode(mode){
   browseSection.hidden = mode === "library" || mode === "steems";
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
+  el("podcasts-section").hidden = mode !== "podcasts";
+  el("my-library-section").hidden = mode !== "library";
   if(mode === "library"){
     loadLibraryFolder("");
+    renderMyLibrary();
   } else if(mode === "steems"){
     loadSteemsList();
+  } else if(mode === "podcasts"){
+    loadPodcastsList();
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -1008,7 +1259,7 @@ function setMode(mode){
 // queue — see Player.playLocalQueue — separate from the 📃 download
 // playlist).
 // ======================================================================
-function fsIcon(entry){ return entry.type === "dir" ? "📁" : "🎵"; }
+function fsIcon(entry){ return entry.type === "dir" ? "📁" : "📼"; }
 
 function libraryTrackMeta(name){
   // spotdl's own naming templates are "{artist} - {title}.ext" for
@@ -2266,7 +2517,216 @@ const Player = (() => {
     startStemsSeparation(rel);
   };
 
-  return { play, playLocal, playLocalQueue };
+  // Play a podcast episode directly from its audio URL
+  function playPodcastEpisode(track, audioUrl){
+    playQueueList = [track];
+    playQueueIdx = 0;
+    current = track;
+    setMeta(`🎙️ ${track.title || ""}`, track.artists || "Podcast", track.thumbnail, track.sourcePlaylist);
+    audio.src = audioUrl;
+    audio.play().catch(()=>{});
+    pushHistory({...track, source: "podcast", key: "podcast:" + audioUrl});
+  }
+
+  return { play, playLocal, playLocalQueue, playPodcastEpisode, getCurrent: () => current };
+})();
+
+// ======================================================================
+// Synced lyrics — LRCLib provider, karaoke-style scrolling display
+// with line highlighting, auto-scroll, and click-to-seek.
+//
+// Inspired by Kaset (https://github.com/kaset-apps/kaset):
+// LRCLibProvider fetches synced lyrics from https://lrclib.net/api/search,
+// LRCParser parses [mm:ss.xx] timestamps, and SyncedLyricsDisplayView
+// renders lines with .current/.previous/.upcoming status, auto-centers
+// the active line, and supports tap-to-seek.
+// ======================================================================
+const LyricsView = (() => {
+  const overlay = el("lyrics-overlay");
+  const scroll = el("lyrics-scroll");
+  const titleEl = el("lyrics-title");
+  const subEl = el("lyrics-sub");
+  const sourceEl = el("lyrics-source");
+  const sourceFooter = el("lyrics-source-footer");
+  const closeBtn = el("lyrics-close");
+  const btn = el("pb-lyrics-btn");
+
+  let currentLyrics = null; // { synced, lines, plain, source }
+  let currentLineIdx = -1;
+  let lastVideoId = null;
+  let rafId = null;
+
+  function isOpen(){ return !overlay.hidden; }
+
+  function close(){
+    overlay.hidden = true;
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+    btn.classList.remove("lyrics-btn-active");
+  }
+
+  function open(){
+    overlay.hidden = true; // will be set visible after fetch
+  }
+
+  function toggle(){
+    if(isOpen()){ close(); return; }
+    const track = Player.getCurrent();
+    if(!track){ showToast("Nic nehraje — nejdřív přehrávej píseň"); return; }
+    showForTrack(track);
+  }
+
+  async function showForTrack(track){
+    const videoId = track.videoId || "";
+    const title = track.title || "";
+    const artist = track.artists || "";
+
+    titleEl.textContent = `📜 ${title || "Text písně"}`;
+    subEl.textContent = artist || "";
+    sourceEl.textContent = "";
+    sourceFooter.hidden = true;
+    scroll.innerHTML = `<div class="lyrics-empty"><div class="big"><span class="spinner"></span></div><div class="msg">Hledám text…</div></div>`;
+    overlay.hidden = false;
+    btn.classList.add("lyrics-btn-active");
+
+    let data;
+    try{
+      const res = await fetch(`/api/lyrics/${encodeURIComponent(videoId)}?q=${encodeURIComponent(artist + " - " + title)}&artist=${encodeURIComponent(artist)}`);
+      data = await res.json();
+    }catch(e){
+      data = { synced: false, lines: null, plain: null, source: null };
+    }
+
+    if(!isOpen()) return; // user closed while fetching
+
+    currentLyrics = data;
+    lastVideoId = videoId;
+    currentLineIdx = -1;
+
+    if(data.synced && data.lines && data.lines.length){
+      renderSynced(data);
+    } else if(data.plain){
+      renderPlain(data);
+    } else {
+      renderEmpty();
+    }
+    startPolling();
+  }
+
+  function renderSynced(data){
+    sourceEl.textContent = data.source || "LRCLib";
+    scroll.innerHTML = "";
+    data.lines.forEach((line, i) => {
+      const div = document.createElement("div");
+      div.className = "lyric-line" + (line.text === "" ? " empty-line" : "");
+      div.dataset.idx = i;
+      div.textContent = line.text || "♪";
+      div.onclick = () => {
+        // Click-to-seek: seek to this line's timestamp
+        const audio = el("pb-audio");
+        if(audio && audio.duration){
+          audio.currentTime = line.timeInMs / 1000;
+        }
+      };
+      scroll.appendChild(div);
+    });
+    if(data.source){
+      sourceFooter.hidden = false;
+      sourceFooter.textContent = `Zdroj: ${data.source} · `;
+      const link = document.createElement("a");
+      link.textContent = "lrclib.net";
+      link.onclick = () => window.open("https://lrclib.net", "_blank");
+      sourceFooter.appendChild(link);
+    }
+  }
+
+  function renderPlain(data){
+    sourceEl.textContent = data.source || "";
+    scroll.innerHTML = "";
+    const text = data.plain || "";
+    text.split("\n").forEach(line => {
+      const div = document.createElement("div");
+      div.className = "lyric-line";
+      div.textContent = line || " ";
+      div.style.cursor = "default";
+      scroll.appendChild(div);
+    });
+    sourceFooter.hidden = false;
+    sourceFooter.textContent = `Zdroj: ${data.source || "neznámý"} (nepřeřazený text)`;
+  }
+
+  function renderEmpty(){
+    sourceEl.textContent = "";
+    scroll.innerHTML = `
+      <div class="lyrics-empty">
+        <div class="big">📭</div>
+        <div class="msg">Text nenalezen</div>
+        <div class="hint">LRCLib nemá text pro tuto píseň. Zkus ji přidat na<br>
+          <a href="https://lrclib.net" target="_blank" style="color:var(--accent)">lrclib.net</a>
+        </div>
+      </div>`;
+  }
+
+  function startPolling(){
+    if(rafId) cancelAnimationFrame(rafId);
+    const tick = () => {
+      if(!isOpen()){ rafId = null; return; }
+      updateCurrentLine();
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function updateCurrentLine(){
+    if(!currentLyrics || !currentLyrics.synced || !currentLyrics.lines) return;
+    const audio = el("pb-audio");
+    if(!audio || !audio.duration) return;
+    const timeMs = Math.floor((audio.currentTime || 0) * 1000);
+    const lines = currentLyrics.lines;
+
+    // Find current line: last line whose timeInMs <= timeMs
+    let idx = -1;
+    for(let i = 0; i < lines.length; i++){
+      if(lines[i].timeInMs <= timeMs) idx = i;
+      else break;
+    }
+
+    if(idx === currentLineIdx) return;
+    currentLineIdx = idx;
+
+    // Update line classes
+    const lineEls = scroll.querySelectorAll(".lyric-line");
+    lineEls.forEach((el, i) => {
+      el.classList.remove("current", "prev", "upcoming");
+      if(i === idx) el.classList.add("current");
+      else if(i < idx) el.classList.add("prev");
+      else el.classList.add("upcoming");
+    });
+
+    // Auto-scroll to center current line
+    if(idx >= 0 && lineEls[idx]){
+      const lineEl = lineEls[idx];
+      const scrollRect = scroll.getBoundingClientRect();
+      const lineRect = lineEl.getBoundingClientRect();
+      const targetScroll = scroll.scrollTop + (lineRect.top - scrollRect.top) - (scrollRect.height / 2) + (lineRect.height / 2);
+      scroll.scrollTo({ top: targetScroll, behavior: "smooth" });
+    }
+  }
+
+  // Wire up button + close
+  if(btn) btn.onclick = toggle;
+  closeBtn.onclick = close;
+  overlay.addEventListener("click", e => { if(e.target === overlay) close(); });
+
+  // Keyboard: 'L' toggles lyrics
+  document.addEventListener("keydown", (e) => {
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if(e.key === "l" && tag !== "INPUT" && !e.metaKey && !e.ctrlKey){
+      e.preventDefault();
+      toggle();
+    }
+  });
+
+  return { open, close, toggle, showForTrack, isOpen };
 })();
 
 // ======================================================================
@@ -2418,6 +2878,149 @@ el("settings-save").onclick = async () => {
 };
 
 // ======================================================================
+// Podcasts — discovery and episode playback
+// ======================================================================
+const PODCASTS_STATE = { shows: [], query: "", loading: false };
+
+async function loadPodcastsList(){
+  const list = el("podcasts-list");
+  const detail = el("podcast-detail");
+  detail.hidden = true;
+  list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám podcasty…</div>`;
+  PODCASTS_STATE.loading = true;
+  try{
+    const res = await fetch("/api/podcasts?q=podcast&limit=40");
+    PODCASTS_STATE.shows = await res.json();
+  }catch(e){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Nepodařilo se načíst podcasty.</div>`;
+    PODCASTS_STATE.loading = false;
+    return;
+  }
+  PODCASTS_STATE.loading = false;
+  renderPodcastsGrid();
+}
+
+function renderPodcastsGrid(){
+  const list = el("podcasts-list");
+  const shows = PODCASTS_STATE.shows;
+  if(!shows.length){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Žádné podcasty nenalezeny.</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  shows.forEach(show => {
+    const card = document.createElement("div");
+    card.className = "podcast-card";
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", show.title || "Podcast");
+    card.innerHTML = `
+      <div class="art" style="${show.thumbnail ? `background-image:url('${show.thumbnail}')` : ""}">
+        ${show.thumbnail ? "" : "🎙️"}
+      </div>
+      <div class="meta">
+        <div class="title">${escapeHtml(show.title || "")}</div>
+        <div class="sub">${escapeHtml(show.author || show.publisher || "")}</div>
+      </div>`;
+    card.onclick = () => openPodcastShow(show);
+    card.addEventListener("keydown", (e) => { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); openPodcastShow(show); } });
+    list.appendChild(card);
+  });
+}
+
+async function openPodcastShow(show){
+  const list = el("podcasts-list");
+  const detail = el("podcast-detail");
+  list.hidden = true;
+  detail.hidden = false;
+  detail.innerHTML = `<div class="empty" style="padding:40px 10px"><span class="spinner"></span> Načítám epizody…</div>`;
+
+  let episodes = show.episodes || [];
+  // Fetch episodes if we only have show metadata
+  if(!episodes.length && show.id){
+    try{
+      const res = await fetch(`/api/podcasts/${encodeURIComponent(show.id)}`);
+      const data = await res.json();
+      episodes = data.episodes || [];
+    }catch(e){}
+  }
+
+  if(!episodes.length){
+    detail.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <button class="btn secondary" id="podcast-back">← Zpět</button>
+      </div>
+      <div class="empty" style="padding:40px 10px">Žádné epizody nenalezeny.</div>`;
+    el("podcast-back").onclick = closePodcastShow;
+    return;
+  }
+
+  detail.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+      <button class="btn secondary" id="podcast-back">← Zpět</button>
+      <div style="width:80px;height:80px;border-radius:12px;background:var(--bg2) center/cover no-repeat;${show.thumbnail ? `background-image:url('${show.thumbnail}')` : ""}display:flex;align-items:center;justify-content:center;font-size:28px">${show.thumbnail ? "" : "🎙️"}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700">${escapeHtml(show.title || "")}</div>
+        <div style="font-size:13px;color:var(--sub);margin-top:4px">${escapeHtml(show.author || show.publisher || "")}</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:2px">${episodes.length} epizod</div>
+      </div>
+    </div>
+    <div id="podcast-episodes"></div>`;
+  el("podcast-back").onclick = closePodcastShow;
+
+  const container = el("podcast-episodes");
+  episodes.forEach((ep, i) => {
+    const row = document.createElement("div");
+    row.className = "podcast-episode";
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-label", ep.title || `Epizoda ${i+1}`);
+    const thumbArt = ep.thumbnail || show.thumbnail;
+    row.innerHTML = `
+      <div class="epi-thumb" style="${thumbArt ? `background-image:url('${thumbArt}')` : ""}">
+        ${thumbArt ? "" : "🎧"}
+      </div>
+      <div class="epi-info">
+        <div class="epi-title">${escapeHtml(ep.title || `Epizoda ${i+1}`)}</div>
+        <div class="epi-sub">${escapeHtml(show.title || "")}${ep.duration ? " · " + fmtDur(ep.duration) : ""}</div>
+      </div>
+      <span class="epi-dur">${ep.duration ? fmtDur(ep.duration) : ""}</span>`;
+    row.onclick = () => playPodcastEpisode(ep, show);
+    row.addEventListener("keydown", (e) => { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); playPodcastEpisode(ep, show); } });
+    container.appendChild(row);
+  });
+}
+
+function closePodcastShow(){
+  el("podcast-detail").hidden = true;
+  el("podcasts-list").hidden = false;
+}
+
+function playPodcastEpisode(episode, show){
+  // Create a synthetic track that uses the episode audio URL directly
+  // or falls back to a search query for the title
+  const track = {
+    key: "podcast:" + (episode.id || episode.url || episode.title + show.title),
+    title: episode.title || "Podcast epizoda",
+    artists: show.title || show.author || "Podcast",
+    thumbnail: episode.thumbnail || show.thumbnail,
+    videoId: episode.videoId || null,
+    spotifyQuery: `${show.title} ${episode.title}`,
+    sourcePlaylist: show.title,
+    isPodcast: true,
+  };
+
+  // If the episode has a direct audio URL, use it
+  if(episode.audioUrl || episode.enclosureUrl){
+    Player.playPodcastEpisode(track, episode.audioUrl || episode.enclosureUrl);
+  } else {
+    // Fallback: try to find it via YouTube search
+    Player.play(track);
+  }
+  showToast(`🎙️ ${episode.title}`);
+}
+
+// ======================================================================
 // Keyboard shortcuts
 // ======================================================================
 document.addEventListener("keydown", (e)=>{
@@ -2430,8 +3033,363 @@ document.addEventListener("keydown", (e)=>{
     if(!el("queue-drawer").hidden) el("queue-drawer").hidden = true;
     if(!el("history-panel").hidden) el("history-panel").hidden = true;
     if(!settingsOverlay.hidden) settingsOverlay.hidden = true;
+    if(!el("podcast-detail").hidden) closePodcastShow();
   }
 });
+
+// ======================================================================
+// Video mode toggle (Kaset-inspired: hidden/mini/full)
+// ======================================================================
+const VIDEO_MODE_KEY = "spotdl-gui-video-mode";
+
+function getVideoMode() {
+  return localStorage.getItem(VIDEO_MODE_KEY) || "full";
+}
+
+function setVideoMode(mode) {
+  const body = document.body;
+  // Blackout during transition (Kaset-inspired)
+  body.classList.add("video-mode-transition");
+  
+  setTimeout(() => {
+    body.classList.remove("video-mode-hidden", "video-mode-mini", "video-mode-full");
+    body.classList.add("video-mode-" + mode);
+    
+    // Update toggle buttons
+    document.querySelectorAll(".video-mode-toggle button").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+    
+    // Handle video section visibility
+    const videoSection = el("video-section");
+    if (videoSection) {
+      if (mode === "hidden") {
+        videoSection.hidden = true;
+      } else if (mode === "full") {
+        if (videoPlaylistTracks.length > 0) {
+          videoSection.hidden = false;
+        }
+      }
+    }
+    
+    // Handle mini video in player bar
+    const miniVideo = el("pb-mini-video");
+    if (mode === "mini" && state.currentVideoId) {
+      if (!miniVideo) {
+        const pbTrack = document.querySelector(".pb-track");
+        if (pbTrack) {
+          const mv = document.createElement("div");
+          mv.id = "pb-mini-video";
+          mv.className = "pb-mini-video";
+          mv.innerHTML = `<video id="pb-mini-video-el" autoplay muted playsinline></video>`;
+          pbTrack.parentNode.insertBefore(mv, pbTrack.nextSibling);
+        }
+      }
+    } else if (miniVideo) {
+      miniVideo.remove();
+    }
+    
+    // Remove blackout after transition
+    setTimeout(() => body.classList.remove("video-mode-transition"), 150);
+  }, 150);
+  
+  localStorage.setItem(VIDEO_MODE_KEY, mode);
+  fetch("/api/video/mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  }).catch(() => {});
+}
+
+function applyVideoMode(mode) {
+  const body = document.body;
+  body.classList.remove("video-mode-hidden", "video-mode-mini", "video-mode-full");
+  body.classList.add("video-mode-" + mode);
+  
+  // Update toggle buttons
+  document.querySelectorAll(".video-mode-toggle button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  
+  // Handle video section visibility
+  const videoSection = el("video-section");
+  if (videoSection) {
+    if (mode === "hidden") {
+      videoSection.hidden = true;
+    } else if (mode === "full") {
+      // Show full video section if we have tracks
+      if (videoPlaylistTracks.length > 0) {
+        videoSection.hidden = false;
+      }
+    }
+  }
+  
+  // Handle mini video in player bar
+  const miniVideo = el("pb-mini-video");
+  if (mode === "mini" && state.currentVideoId) {
+    if (!miniVideo) {
+      const pbTrack = document.querySelector(".pb-track");
+      if (pbTrack) {
+        const mv = document.createElement("div");
+        mv.id = "pb-mini-video";
+        mv.className = "pb-mini-video";
+        mv.innerHTML = `<video id="pb-mini-video-el" autoplay muted playsinline></video>`;
+        pbTrack.parentNode.insertBefore(mv, pbTrack.nextSibling);
+      }
+    }
+  } else if (miniVideo) {
+    miniVideo.remove();
+  }
+}
+
+// Video mode toggle click handlers
+document.querySelectorAll(".video-mode-toggle button").forEach(btn => {
+  btn.onclick = () => setVideoMode(btn.dataset.mode);
+});
+
+// ======================================================================
+// Library management (Kaset-inspired: persistent saved items)
+// ======================================================================
+const MY_LIBRARY_KEY = "spotdl-gui-my-library";
+
+function loadMyLibrary() {
+  try { return JSON.parse(localStorage.getItem(MY_LIBRARY_KEY) || '{"playlists":[],"albums":[],"artists":[]}'); }
+  catch(e) { return {"playlists":[],"albums":[],"artists":[]}; }
+}
+
+function saveMyLibrary(lib) {
+  localStorage.setItem(MY_LIBRARY_KEY, JSON.stringify(lib));
+}
+
+function addToMyLibrary(kind, item) {
+  const lib = loadMyLibrary();
+  const key = kind + "s";
+  if (!lib[key]) lib[key] = [];
+  if (!lib[key].some(i => i.id === item.id)) {
+    lib[key].push({ ...item, addedAt: Date.now() });
+    saveMyLibrary(lib);
+    renderMyLibrary();
+    // Also sync to server
+    fetch("/api/library/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, ...item }),
+    }).catch(() => {});
+    return true;
+  }
+  return false;
+}
+
+function removeFromMyLibrary(kind, id) {
+  const lib = loadMyLibrary();
+  const key = kind + "s";
+  if (!lib[key]) return;
+  lib[key] = lib[key].filter(i => i.id !== id);
+  saveMyLibrary(lib);
+  renderMyLibrary();
+  // Also sync to server
+  fetch("/api/library/remove", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, id }),
+  }).catch(() => {});
+}
+
+function isInMyLibrary(kind, id) {
+  const lib = loadMyLibrary();
+  const key = kind + "s";
+  return (lib[key] || []).some(i => i.id === id);
+}
+
+function renderMyLibrary() {
+  const grid = el("my-library-grid");
+  if (!grid) return;
+  const lib = loadMyLibrary();
+  const tab = el("library-tabs");
+  const activeTab = tab ? tab.querySelector(".library-tab.active") : null;
+  const filter = activeTab ? activeTab.dataset.libtab : "all";
+  
+  let items = [];
+  if (filter === "all" || filter === "playlist") {
+    items = items.concat((lib.playlists || []).map(i => ({ ...i, kind: "playlist" })));
+  }
+  if (filter === "all" || filter === "album") {
+    items = items.concat((lib.albums || []).map(i => ({ ...i, kind: "album" })));
+  }
+  if (filter === "all" || filter === "artist") {
+    items = items.concat((lib.artists || []).map(i => ({ ...i, kind: "artist" })));
+  }
+  
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty" style="padding:40px 10px">Zatím nemáš nic uloženého. Přidej playlist, album nebo interpreta z detailů.</div>`;
+    return;
+  }
+  
+  grid.innerHTML = "";
+  items.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const thumb = item.thumbnail || "";
+    const icon = item.kind === "playlist" ? "🎵" : item.kind === "album" ? "💿" : "🎤";
+    card.innerHTML = `
+      <div class="card-fabs"><div class="fab-btn lib-remove" title="Odebrat z knihovny">✕</div></div>
+      <div class="art" style="${thumb ? `background-image:url('${thumb}')` : ""}">${thumb ? "" : icon}</div>
+      <div class="meta">
+        <div class="title">${escapeHtml(item.title || "")}</div>
+        <div class="sub">${escapeHtml(item.author || "")}</div>
+      </div>`;
+    card.querySelector(".lib-remove").onclick = (e) => {
+      e.stopPropagation();
+      removeFromMyLibrary(item.kind, item.id);
+      showToast("Odebráno z knihovny");
+    };
+    card.onclick = () => {
+      if (item.kind === "playlist" && item.id) {
+        openPlaylist(item.id);
+      } else {
+        el("search-input").value = item.title;
+        runSearch();
+      }
+    };
+    grid.appendChild(card);
+  });
+}
+
+// Library tab switching
+document.querySelectorAll(".library-tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".library-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    renderMyLibrary();
+  };
+});
+
+// ======================================================================
+// Search history
+// ======================================================================
+const SEARCH_HISTORY_KEY = "spotdl-gui-search-history";
+const SEARCH_HISTORY_MAX = 10;
+
+function loadSearchHistory() {
+  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || "[]"); }
+  catch(e) { return []; }
+}
+
+function saveSearchHistoryItem(q) {
+  let hist = loadSearchHistory().filter(h => h !== q);
+  hist.unshift(q);
+  hist = hist.slice(0, SEARCH_HISTORY_MAX);
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(hist));
+  renderSearchHistory();
+}
+
+function renderSearchHistory() {
+  const box = el("search-history");
+  if (!box) return;
+  const hist = loadSearchHistory();
+  if (!hist.length) { box.innerHTML = ""; return; }
+  box.innerHTML = "";
+  hist.forEach(q => {
+    const item = document.createElement("span");
+    item.className = "search-history-item";
+    item.textContent = q;
+    item.onclick = () => {
+      el("search-input").value = q;
+      runSearch();
+    };
+    box.appendChild(item);
+  });
+  const clear = document.createElement("span");
+  clear.className = "search-history-clear";
+  clear.textContent = "vymazat";
+  clear.onclick = () => {
+    localStorage.setItem(SEARCH_HISTORY_KEY, "[]");
+    renderSearchHistory();
+  };
+  box.appendChild(clear);
+}
+
+// ======================================================================
+// Top search result (Kaset-inspired: prominent best match)
+// ======================================================================
+async function fetchTopResult(q) {
+  try {
+    const res = await fetch(`/api/search/top?q=${encodeURIComponent(q)}&limit=6`);
+    return await res.json();
+  } catch(e) {
+    return { top: null, suggestions: [] };
+  }
+}
+
+function renderTopResult(data) {
+  const container = el("top-result-container");
+  if (!container) return;
+  if (!data || !data.top) { container.innerHTML = ""; return; }
+  
+  const top = data.top;
+  const thumb = top.thumbnail || "";
+  container.innerHTML = `
+    <div class="top-result-card">
+      <div class="top-art" style="${thumb ? `background-image:url('${thumb}')` : ""}">${thumb ? "" : "🎵"}</div>
+      <div class="top-info">
+        <div class="top-label">🏆 Nejlepší výsledek</div>
+        <div class="top-title">${escapeHtml(top.title || "")}</div>
+        <div class="top-sub">${escapeHtml(top.artists || "")}${top.album ? " · " + escapeHtml(top.album) : ""}</div>
+        <div class="top-actions">
+          <button class="btn" id="top-play">▶ Přehrát</button>
+          <button class="btn secondary" id="top-add">➕ Do playlistu</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  el("top-play").onclick = () => {
+    Player.play({
+      key: "top:" + top.videoId,
+      title: top.title,
+      artists: top.artists,
+      thumbnail: top.thumbnail,
+      videoId: top.videoId,
+    });
+  };
+  el("top-add").onclick = () => {
+    addToQueue({
+      key: "top:" + top.videoId,
+      title: top.title,
+      artists: top.artists,
+      duration_seconds: top.duration_seconds,
+      thumbnail: top.thumbnail,
+      source: "youtube",
+    });
+  };
+}
+
+// ======================================================================
+// Enhanced runSearch with top result + history
+// ======================================================================
+const _originalRunSearch = runSearch;
+runSearch = async function(more = false) {
+  const q = el("search-input").value.trim();
+  if (!q) return;
+  
+  // Save to search history
+  if (!more) {
+    saveSearchHistoryItem(q);
+    renderSearchHistory();
+  }
+  
+  // Fetch top result in parallel
+  const topPromise = fetchTopResult(q);
+  
+  // Call original search
+  await _originalRunSearch(more);
+  
+  // Render top result if not loading more
+  if (!more) {
+    const topData = await topPromise;
+    renderTopResult(topData);
+  }
+};
 
 // ======================================================================
 // Init
@@ -2441,6 +3399,7 @@ loadDynamicCategories();
 renderQueueBadge();
 renderFavPlaylists();
 loadLibrary();
-</script>
+renderSearchHistory();
+setVideoMode(getVideoMode());
 </body>
 </html>
