@@ -12,6 +12,7 @@ import asyncio
 import json
 import mimetypes
 import os
+import shutil
 import subprocess
 import time
 import uuid
@@ -635,6 +636,13 @@ async def job_events(job_id: str):
                 yield f"data: {json.dumps({'line': text})}\n\n"
             rc = await proc.wait()
             job["status"] = "done" if rc == 0 else "error"
+            if job["status"] == "done" and job.get("kind") == "stems":
+                try:
+                    _finalize_stems_job(job)
+                except Exception as e:
+                    job["status"] = "error"
+                    job["lines"].append(f"Přesun stop selhal: {e}")
+                    yield f"data: {json.dumps({'line': f'Přesun stop selhal: {e}'})}\n\n"
             yield f"data: {json.dumps({'done': True, 'returncode': rc})}\n\n"
         else:
             for text in job["lines"]:
@@ -701,3 +709,113 @@ def pick_folder():
     if result.returncode != 0:
         return {"path": None}  # user cancelled the dialog
     return {"path": result.stdout.strip()}
+
+
+# ------------------------------------------------------------------- stems
+
+DEMUCS_BIN = str(HOME / ".local" / "bin" / "demucs")
+STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"]
+
+
+def _demucs_device() -> Optional[str]:
+    """Prefer Apple Silicon (MPS) acceleration when available — Demucs'
+    own default is 'cuda if available else cpu', which would silently run
+    on CPU (much slower, not broken) on a Mac with no explicit -d flag.
+    Returns None (let Demucs pick its own default) if torch/MPS aren't
+    available, so this never hard-fails on non-Apple-Silicon hardware.
+    """
+    try:
+        import torch
+
+        if torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return None
+
+
+def _stems_dir_for(safe_name: str) -> Path:
+    return MUSIC_ROOT / "Stems" / safe_name
+
+
+def _stems_ready(safe_name: str) -> bool:
+    d = _stems_dir_for(safe_name)
+    return d.is_dir() and all((d / f"{s}.wav").is_file() for s in STEM_NAMES)
+
+
+def _finalize_stems_job(job: dict) -> None:
+    """Moves Demucs' own output layout (<raw>/htdemucs_6s/<track>/<stem>.wav)
+    into our MUSIC_ROOT/Stems/<safe-name>/<stem>.wav — called once a "stems"
+    job's subprocess exits successfully. Demucs always nests its output one
+    level deeper under a model-name folder ("-o OUT ... creates a subfolder
+    with the model name") regardless of --filename, which is why this reaches
+    into "htdemucs_6s" explicitly rather than just <raw>/<track>.
+    """
+    source = Path(job["stems_source"])
+    safe_name = job["stems_name"]
+    raw_track_dir = MUSIC_ROOT / "Stems" / ".raw" / "htdemucs_6s" / source.stem
+    dest_dir = _stems_dir_for(safe_name)
+    if not raw_track_dir.is_dir():
+        raise FileNotFoundError(f"Demucs nevytvořil očekávaný výstup ({raw_track_dir})")
+    dest_dir.parent.mkdir(parents=True, exist_ok=True)
+    if dest_dir.exists():
+        shutil.rmtree(dest_dir)
+    shutil.move(str(raw_track_dir), str(dest_dir))
+
+
+class StemsSeparateRequest(BaseModel):
+    rel: str
+
+
+@app.post("/api/stems/separate")
+def separate_stems(req: StemsSeparateRequest):
+    source = _resolve_under_music_root(req.rel)
+    if source is None or not source.is_file():
+        return JSONResponse({"error": "Zdrojový soubor nenalezen."}, status_code=404)
+
+    safe_name = _safe_name(source.stem)
+    if _stems_ready(safe_name):
+        return {"job_id": None, "ready": True, "name": safe_name}
+
+    job_id = uuid.uuid4().hex[:12]
+    raw_dir = MUSIC_ROOT / "Stems" / ".raw"
+    cmd = [DEMUCS_BIN, "-n", "htdemucs_6s", "-o", str(raw_dir), "--filename", "{track}/{stem}.{ext}"]
+    device = _demucs_device()
+    if device:
+        cmd += ["-d", device]
+    cmd.append(str(source))
+
+    JOBS[job_id] = {
+        "cmd": cmd,
+        "status": "queued",
+        "lines": [],
+        "kind": "stems",
+        "stems_source": str(source),
+        "stems_name": safe_name,
+    }
+    return {"job_id": job_id, "ready": False, "name": safe_name}
+
+
+@app.get("/api/stems")
+def list_stems():
+    stems_root = MUSIC_ROOT / "Stems"
+    if not stems_root.is_dir():
+        return []
+    out = []
+    for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
+        if not d.is_dir():
+            continue
+        present = [s for s in STEM_NAMES if (d / f"{s}.wav").is_file()]
+        if present:
+            out.append({"name": d.name, "stems": present})
+    return out
+
+
+@app.get("/api/stems/{name}/{stem}.wav")
+def stream_stem(name: str, stem: str, request: Request):
+    if stem not in STEM_NAMES:
+        return JSONResponse({"error": "Neplatná stopa."}, status_code=404)
+    target = _resolve_under_music_root(f"Stems/{name}/{stem}.wav")
+    if target is None or not target.is_file():
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return _range_file_response(target, request.headers.get("range"))

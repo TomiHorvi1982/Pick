@@ -252,6 +252,45 @@
     padding:9px 16px;border-radius:999px;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,.4);
     animation:toast-in .18s ease-out}
   @keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .pb-download-menu{position:absolute;bottom:100%;right:0;margin-bottom:8px;
+    background:var(--card-hi);border:1px solid var(--border);border-radius:10px;
+    padding:6px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    transform-origin:bottom right;animation:pop-in .12s ease-out}
+  .pb-download-menu button{display:flex;align-items:center;gap:8px;width:100%;
+    padding:9px 12px;border:none;background:transparent;color:var(--text);
+    font-size:13px;text-align:left;cursor:pointer;border-radius:6px}
+  .pb-download-menu button:hover{background:var(--bg2)}
+  .pb-download-menu button[disabled]{opacity:.4;cursor:default}
+  .pb-download-menu button[disabled]:hover{background:transparent}
+  @keyframes pop-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+  .fs-stems-btn{margin-left:6px;opacity:.7}
+  .fs-stems-btn:hover{opacity:1}
+
+  .mixer{margin-top:18px}
+  .mixer[hidden]{display:none}
+  .mixer-transport{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .mixer-seek{flex:1;min-width:120px;height:8px;background:var(--bg2);
+    border-radius:4px;position:relative;cursor:pointer}
+  .mixer-seek-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);
+    border-radius:4px;width:0%;pointer-events:none}
+  .mixer-channels{display:flex;gap:12px;flex-wrap:wrap}
+  .channel{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px;width:150px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+  .channel-name{font-size:12.5px;font-weight:700;text-transform:capitalize}
+  .channel-wave{width:100%;height:60px;background:var(--bg2);border-radius:6px;display:block}
+  .channel-controls{display:flex;align-items:center;gap:6px}
+  .channel-fader{writing-mode:vertical-lr;direction:rtl;width:24px;height:90px}
+  .channel-vu{width:6px;height:90px;background:var(--bg2);border-radius:3px;
+    position:relative;overflow:hidden;flex-shrink:0}
+  .channel-vu-fill{position:absolute;bottom:0;left:0;right:0;background:var(--ok);
+    height:0%}
+  .channel-buttons{display:flex;flex-direction:column;gap:4px}
+  .channel-mute,.channel-solo{width:26px;height:22px;border-radius:5px;
+    border:1px solid var(--border);background:var(--bg2);color:var(--sub);
+    font-size:10px;font-weight:700;cursor:pointer}
+  .channel-mute.active{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .channel-solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -262,6 +301,7 @@
     <button id="tab-playlists" class="active">Playlisty</button>
     <button id="tab-songs">Písně</button>
     <button id="tab-library">📁 Knihovna</button>
+    <button id="tab-steems">🎚️ Steems</button>
   </div>
   <div class="search-wrap">
     <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
@@ -373,6 +413,24 @@
     <div id="library-list" class="fs-list"></div>
   </div>
 
+  <div id="steems-section" hidden>
+    <div class="section-title">🎚️ Rozseparované písně</div>
+    <div id="steems-list" class="fs-list"></div>
+    <div id="mixer" class="mixer" hidden>
+      <div class="mixer-transport">
+        <button class="btn secondary" id="mixer-play">▶</button>
+        <div class="mixer-seek" id="mixer-seek">
+          <div class="mixer-seek-fill" id="mixer-seek-fill"></div>
+        </div>
+        <span class="pb-time" id="mixer-time-cur">0:00</span>
+        <span class="pb-time">/</span>
+        <span class="pb-time" id="mixer-time-dur">0:00</span>
+        <button class="btn secondary" id="mixer-export">⬇️ Exportovat mix</button>
+      </div>
+      <div id="mixer-channels" class="mixer-channels"></div>
+    </div>
+  </div>
+
   <div class="section-title" id="results-title" hidden>Výsledky</div>
   <div class="grid" id="results-grid"></div>
   <div class="load-more-wrap" id="load-more-wrap" hidden>
@@ -413,6 +471,13 @@
     <button class="icon-btn-flat" id="pb-video-btn" title="Zobrazit video">🎬</button>
     <button class="icon-btn-flat" id="pb-history-btn" title="Historie přehrávání">🕘</button>
     <button class="icon-btn-flat" id="pb-queue-btn" title="Playlist k přehrávači">📃<span class="pb-badge" id="pb-queue-count">0</span></button>
+    <div style="position:relative">
+      <button class="icon-btn-flat" id="pb-download-btn" title="Stáhnout">⬇️</button>
+      <div class="pb-download-menu" id="pb-download-menu" hidden>
+        <button id="pb-dl-song">⬇️ Stáhnout píseň</button>
+        <button id="pb-dl-stems">🎧 Rozdělit na stopy</button>
+      </div>
+    </div>
   </div>
   <audio id="pb-audio" hidden></audio>
 </div>
@@ -874,14 +939,16 @@ el("surprise-btn").onclick = () => {
 el("tab-playlists").onclick = () => setMode("playlists");
 el("tab-songs").onclick = () => setMode("songs");
 el("tab-library").onclick = () => setMode("library");
+el("tab-steems").onclick = () => setMode("steems");
 
 function setMode(mode){
   state.mode = mode;
   el("tab-playlists").classList.toggle("active", mode==="playlists");
   el("tab-songs").classList.toggle("active", mode==="songs");
   el("tab-library").classList.toggle("active", mode==="library");
-  el("search-input").disabled = mode === "library";
-  el("search-btn").disabled = mode === "library";
+  el("tab-steems").classList.toggle("active", mode==="steems");
+  el("search-input").disabled = mode === "library" || mode === "steems";
+  el("search-btn").disabled = mode === "library" || mode === "steems";
   el("search-input").placeholder = mode==="playlists"
     ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
     : mode==="songs" ? "Hledej píseň nebo interpreta…" : "";
@@ -889,10 +956,13 @@ function setMode(mode){
   grid.innerHTML = "";
   resultsTitle.hidden = true;
   el("load-more-wrap").hidden = true;
-  browseSection.hidden = mode === "library";
+  browseSection.hidden = mode === "library" || mode === "steems";
   el("library-section").hidden = mode !== "library";
+  el("steems-section").hidden = mode !== "steems";
   if(mode === "library"){
     loadLibraryFolder("");
+  } else if(mode === "steems"){
+    loadSteemsList();
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -983,7 +1053,7 @@ function renderLibraryList(entries){
       <span class="fs-icon">${fsIcon(entry)}</span>
       <span class="fs-name">${escapeHtml(entry.name)}</span>
       <span class="fs-size">${sizeLabel}</span>
-      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button>' : ''}
+      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button><button class="icon-btn fs-stems-btn" title="Rozdělit na stopy">🎧</button>' : ''}
     `;
     if(entry.type === "dir"){
       row.onclick = () => loadLibraryFolder(entry.rel);
@@ -991,11 +1061,423 @@ function renderLibraryList(entries){
       const meta = libraryTrackMeta(entry.name);
       const playIt = () => Player.playLocal({ relPath: entry.rel, ...meta });
       row.querySelector(".fs-play").onclick = (e) => { e.stopPropagation(); playIt(); };
+      row.querySelector(".fs-stems-btn").onclick = (e) => { e.stopPropagation(); startStemsSeparation(entry.rel); };
       row.onclick = playIt;
     }
     list.appendChild(row);
   });
 }
+
+// ======================================================================
+// Steems — separation pipeline (shared by player menu + Knihovna button)
+// ======================================================================
+function startStemsSeparation(rel){
+  fetch("/api/stems/separate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({rel}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if(data.ready){
+      showToast("Stopy už jsou připravené — otevřu Steems");
+      openSteemsSong(data.name);
+      return;
+    }
+    if(!data.job_id){
+      showToast("Separation se nepodařilo spustit");
+      return;
+    }
+    drawer.hidden = false;
+    el("dl-title").textContent = "🎧 Rozděluji na stopy";
+    el("dl-status").innerHTML = `<span class="spinner"></span> separuji…`;
+    el("dl-log").innerHTML = "";
+    el("dl-reveal").disabled = true;
+    el("dl-reveal").textContent = "🎧 Otevřít ve Steems";
+
+    if(currentEventSource) currentEventSource.close();
+    const es = new EventSource(`/api/jobs/${data.job_id}/events`);
+    currentEventSource = es;
+    es.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if(msg.line){
+        const log = el("dl-log");
+        const line = document.createElement("div");
+        line.textContent = msg.line;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+      }
+      if(msg.done){
+        es.close();
+        const ok = (msg.returncode === 0) || msg.status === "done";
+        el("dl-status").textContent = ok ? "✅ hotovo" : "❌ chyba";
+        el("dl-reveal").disabled = false;
+        el("dl-reveal").onclick = () => {
+          fetch("/api/reveal", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({path: (() => {
+              // The stems directory is at MUSIC_ROOT/Stems/<name>
+              // We need to reveal it. But we don't know MUSIC_ROOT on the frontend.
+              // For now, open the Steems tab and let the user navigate.
+              return null;
+            })()})
+          });
+          if(ok) openSteemsSong(data.name);
+        };
+        if(ok){
+          setTimeout(() => openSteemsSong(data.name), 600);
+        }
+      }
+    };
+  })
+  .catch(e => showToast("Chyba při spouštění separace: " + e));
+}
+
+// Placeholder — Task 4 replaces this whole function with the real
+// "switch to Steems tab and load this song into the mixer" behavior.
+function openSteemsSong(name){
+  setMode("steems");
+  loadMixerSong(name);
+}
+
+// ======================================================================
+// Steems — list of already-separated songs, and the mixpult they load
+// into. Mixer playback engine and channel-strip UI are Task 5/6; this
+// section only owns the song list and tab plumbing.
+//
+// Architecturally inspired by StemDeck (github.com/stemdeckapp/stemdeck,
+// Apache-2.0) — same shape of problem (Demucs-separated stems, a synced
+// multi-track Web Audio mixer), written fresh for this codebase rather
+// than ported, since only its documented architecture was available
+// during planning, not its literal source.
+// ======================================================================
+let steemsSongs = [];
+
+async function loadSteemsList(){
+  const list = el("steems-list");
+  list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
+  el("mixer").hidden = true;
+  try{
+    const res = await fetch("/api/stems");
+    steemsSongs = await res.json();
+  }catch(e){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Seznam se nepodařilo načíst.</div>`;
+    return;
+  }
+  if(!steemsSongs.length){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím nemáš žádné rozseparované písně — u přehrávané nebo stažené písně použij „🎧 Rozdělit na stopy".</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  steemsSongs.forEach(song => {
+    const row = document.createElement("div");
+    row.className = "fs-row";
+    row.innerHTML = `
+      <span class="fs-icon">🎚️</span>
+      <span class="fs-name">${escapeHtml(song.name)}</span>
+      <span class="fs-size">${song.stems.length} stop</span>
+    `;
+    row.onclick = () => loadMixerSong(song.name);
+    list.appendChild(row);
+  });
+}
+
+function loadMixerSong(name){
+  const song = steemsSongs.find(s => s.name === name);
+  if(!song){ showToast("Píseň nenalezena — zkus přepnout na Steems znovu"); return; }
+  Mixer.load(song);
+}
+
+// ======================================================================
+// Mixpult — synced multi-stem Web Audio mixer. Fader/mute/solo, per-channel
+// waveform + VU meter, synced playback via shared AudioContext, WAV export.
+// ======================================================================
+const Mixer = (() => {
+  let audioCtx = null;
+  let channels = [];
+  let duration = 0;
+  let isPlaying = false;
+  let startedAt = 0;
+  let pausedAt = 0;
+  let rafId = null;
+  let loadToken = 0;
+
+  function ctx(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function stopAllSources(){
+    channels.forEach(c => { if(c.source){ try{ c.source.stop(); }catch(e){} c.source = null; } });
+  }
+
+  async function load(song){
+    const myToken = ++loadToken;
+    stopAllSources();
+    isPlaying = false;
+    pausedAt = 0;
+    duration = 0;
+    el("mixer").hidden = false;
+    el("mixer-play").textContent = "▶";
+    el("mixer-channels").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
+
+    const loaded = [];
+    for(const stem of song.stems){
+      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${stem}.wav`);
+      const arrayBuf = await res.arrayBuffer();
+      if(myToken !== loadToken) return;
+      const audioBuf = await ctx().decodeAudioData(arrayBuf);
+      if(myToken !== loadToken) return;
+      const gainNode = ctx().createGain();
+      const analyser = ctx().createAnalyser();
+      analyser.fftSize = 256;
+      gainNode.connect(analyser);
+      analyser.connect(ctx().destination);
+      loaded.push({
+        stem, buffer: audioBuf, gainNode, analyser,
+        muted: false, solo: false, faderValue: 1, source: null, vuFill: null,
+      });
+      duration = Math.max(duration, audioBuf.duration);
+    }
+    if(myToken !== loadToken) return;
+    channels = loaded;
+    renderChannels();
+    updateSeekUI(0);
+  }
+
+  function anySolo(){ return channels.some(c => c.solo); }
+
+  function applyGains(){
+    const solo = anySolo();
+    channels.forEach(c => {
+      const active = solo ? c.solo : !c.muted;
+      c.gainNode.gain.value = active ? c.faderValue : 0;
+    });
+  }
+
+  function drawWaveform(canvas, buffer){
+    const ctx2d = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    const data = buffer.getChannelData(0);
+    const step = Math.max(1, Math.ceil(data.length / w));
+    ctx2d.clearRect(0, 0, w, h);
+    ctx2d.fillStyle = "#1b8f80";
+    for(let x = 0; x < w; x++){
+      let min = 1, max = -1;
+      const start = x * step;
+      for(let i = 0; i < step && start + i < data.length; i++){
+        const v = data[start + i];
+        if(v < min) min = v;
+        if(v > max) max = v;
+      }
+      const y1 = (1 - (max + 1) / 2) * h;
+      const y2 = (1 - (min + 1) / 2) * h;
+      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+  }
+
+  function renderChannels(){
+    const box = el("mixer-channels");
+    box.innerHTML = "";
+    channels.forEach(c => {
+      const strip = document.createElement("div");
+      strip.className = "channel";
+      strip.innerHTML = `
+        <div class="channel-name">${escapeHtml(c.stem)}</div>
+        <canvas class="channel-wave" width="126" height="60"></canvas>
+        <div class="channel-controls">
+          <input type="range" class="channel-fader" min="0" max="1.5" step="0.01" value="1">
+          <div class="channel-vu"><div class="channel-vu-fill"></div></div>
+          <div class="channel-buttons">
+            <button class="channel-mute" title="Mute">M</button>
+            <button class="channel-solo" title="Solo">S</button>
+          </div>
+        </div>
+      `;
+      c.vuFill = strip.querySelector(".channel-vu-fill");
+      drawWaveform(strip.querySelector(".channel-wave"), c.buffer);
+
+      strip.querySelector(".channel-fader").addEventListener("input", (e) => {
+        c.faderValue = parseFloat(e.target.value);
+        applyGains();
+      });
+      const muteBtn = strip.querySelector(".channel-mute");
+      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
+      const soloBtn = strip.querySelector(".channel-solo");
+      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
+
+      box.appendChild(strip);
+    });
+    applyGains();
+  }
+
+  function currentTime(){
+    return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
+  }
+
+  function scheduleAll(offset){
+    const when = ctx().currentTime + 0.05;
+    channels.forEach(c => {
+      const source = ctx().createBufferSource();
+      source.buffer = c.buffer;
+      source.connect(c.gainNode);
+      source.start(when, offset);
+      c.source = source;
+    });
+    startedAt = when - offset;
+  }
+
+  function play(){
+    if(!channels.length || isPlaying) return;
+    if(pausedAt >= duration) pausedAt = 0;
+    scheduleAll(pausedAt);
+    isPlaying = true;
+    el("mixer-play").textContent = "⏸";
+    tick();
+  }
+
+  function pause(){
+    if(!isPlaying) return;
+    pausedAt = currentTime();
+    stopAllSources();
+    isPlaying = false;
+    el("mixer-play").textContent = "▶";
+    if(rafId) cancelAnimationFrame(rafId);
+  }
+
+  function seek(t){
+    t = Math.max(0, Math.min(duration, t));
+    if(isPlaying){
+      stopAllSources();
+      scheduleAll(t);
+    } else {
+      pausedAt = t;
+    }
+    updateSeekUI(t);
+  }
+
+  function updateSeekUI(t){
+    const pct = duration ? (t / duration) * 100 : 0;
+    el("mixer-seek-fill").style.width = pct + "%";
+    el("mixer-time-cur").textContent = fmtDur(t);
+    el("mixer-time-dur").textContent = fmtDur(duration);
+  }
+
+  function tick(){
+    if(!isPlaying) return;
+    const t = currentTime();
+    updateSeekUI(t);
+    channels.forEach(c => {
+      const data = new Uint8Array(c.analyser.frequencyBinCount);
+      c.analyser.getByteFrequencyData(data);
+      let peak = 0;
+      for(let i = 0; i < data.length; i++) if(data[i] > peak) peak = data[i];
+      if(c.vuFill) c.vuFill.style.height = ((peak / 255) * 100) + "%";
+    });
+    if(t >= duration){
+      pause();
+      pausedAt = 0;
+      updateSeekUI(0);
+      return;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // WAV encoder for export
+  function encodeWav(audioBuffer){
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const length = audioBuffer.length;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const dataSize = length * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    function writeString(offset, str){
+      for(let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, dataSize, true);
+
+    const channelData = [];
+    for(let ch = 0; ch < numChannels; ch++) channelData.push(audioBuffer.getChannelData(ch));
+
+    let offset = 44;
+    for(let i = 0; i < length; i++){
+      for(let ch = 0; ch < numChannels; ch++){
+        let sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+        sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, sample, true);
+        offset += 2;
+      }
+    }
+    return new Blob([buffer], { type: "audio/wav" });
+  }
+
+  async function exportMix(){
+    if(!channels.length) return;
+    const exportBtn = el("mixer-export");
+    exportBtn.disabled = true;
+    exportBtn.textContent = "⏳ Exportuji…";
+    try{
+      const sampleRate = ctx().sampleRate;
+      const length = Math.max(1, Math.ceil(duration * sampleRate));
+      const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+      const solo = anySolo();
+      channels.forEach(c => {
+        const active = solo ? c.solo : !c.muted;
+        if(!active) return;
+        const source = offlineCtx.createBufferSource();
+        source.buffer = c.buffer;
+        const gain = offlineCtx.createGain();
+        gain.gain.value = c.faderValue;
+        source.connect(gain);
+        gain.connect(offlineCtx.destination);
+        source.start(0);
+      });
+      const rendered = await offlineCtx.startRendering();
+      const blob = encodeWav(rendered);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "mix.wav";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }catch(e){
+      showToast("Export selhal");
+    }finally{
+      exportBtn.disabled = false;
+      exportBtn.textContent = "⬇️ Exportovat mix";
+    }
+  }
+
+  el("mixer-play").onclick = () => isPlaying ? pause() : play();
+  el("mixer-seek").addEventListener("click", (e) => {
+    if(!duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    seek(pct * duration);
+  });
+  el("mixer-export").onclick = () => exportMix();
+
+  return { load };
+})();
 
 // ======================================================================
 // Search + render results (+ load more)
@@ -1013,6 +1495,7 @@ async function runSearch(more=false){
 
   browseSection.hidden = true;
   el("library-section").hidden = true;
+  el("steems-section").hidden = true;
   resultsTitle.hidden = false;
   resultsTitle.textContent = `Hledám „${q}“…`;
   el("load-more-btn").disabled = true;
@@ -1612,6 +2095,75 @@ const Player = (() => {
     videoEl.pause();
     videoEl.src = "";
     videoDrawer.hidden = true;
+  };
+
+  // Download menu — "⬇️" button in the player bar. Offers normal download
+  // (for remote tracks) and "split to stems" (which downloads first if
+  // needed, then separates). Disabled states reflect whether the current
+  // track is already local (no need to download) or has no source URL.
+  const downloadMenu = el("pb-download-menu");
+  const downloadBtn = el("pb-download-btn");
+  const downloadSongBtn = el("pb-dl-song");
+  const downloadStemsBtn = el("pb-dl-stems");
+
+  function closeDownloadMenu(){ downloadMenu.hidden = true; }
+
+  downloadBtn.onclick = (e) => {
+    e.stopPropagation();
+    if(!current){ showToast("Nic nehraje"); return; }
+    // Toggle menu visibility
+    if(!downloadMenu.hidden){ closeDownloadMenu(); return; }
+    // Update disabled states
+    const isLocal = !!current.relPath;
+    downloadSongBtn.disabled = isLocal;
+    downloadStemsBtn.disabled = false;
+    downloadMenu.hidden = false;
+    // Close on any outside click
+    setTimeout(() => {
+      const outside = (ev) => {
+        if(!downloadMenu.contains(ev.target) && ev.target !== downloadBtn){
+          closeDownloadMenu();
+          document.removeEventListener("click", outside);
+        }
+      };
+      document.addEventListener("click", outside);
+    }, 0);
+  };
+
+  // Find the local file path for the current track (if it's a preview/history
+  // item that was downloaded). Returns relPath or null.
+  function findDownloadedRel(track){
+    if(track.relPath) return track.relPath;
+    // For remote tracks, check if there's a matching local file
+    if(!track.title) return null;
+    // Can't reliably map a remote track to a local file without a path
+    return null;
+  }
+
+  downloadSongBtn.onclick = () => {
+    closeDownloadMenu();
+    if(!current) return;
+    if(current.relPath){ showToast("Tuto píseň už máš"); return; }
+    if(!current.spotifyQuery && !current.title){ showToast("Chybí URL pro stažení"); return; }
+    // For tracks with a spotify_url (from search), use that directly
+    // For others, we'd need to resolve — but the current Player doesn't
+    // store the spotify_url on play. This is a limitation; the user can
+    // use the Songs tab to download individual tracks.
+    showToast("Pro stažení použij tlačítko ⬇️ u písně v tabulce Písně");
+  };
+
+  // "🎧 Rozdělit na stopy" — if the track is already local, separate it
+  // directly. Otherwise, we'd need to download first (not implemented here
+  // since the Player doesn't carry the spotify_url after play).
+  downloadStemsBtn.onclick = () => {
+    closeDownloadMenu();
+    if(!current) return;
+    const rel = findDownloadedRel(current);
+    if(!rel){
+      showToast("Nejdřív píseň stáhni (použij ⬇️ u písně v tabulce Písně)");
+      return;
+    }
+    startStemsSeparation(rel);
   };
 
   return { play, playLocal, playLocalQueue };
