@@ -462,9 +462,11 @@ def _resolve_video(video_id: str):
     progressive formats top out well below 1080p on YouTube these days;
     that's fine here.
 
-    Uses 'best' (progressive) instead of 'best[ext=mp4]/best' because the
-    latter fails on many videos where no single-file mp4 progressive format
-    is available (YouTube serves many formats as video-only/audio-only DASH).
+    Tries format selectors in order: progressive mp4 first (widely
+    supported, single file), then best progressive (any container).
+    Some videos only offer DASH (separate video+audio streams) which
+    can't be directly streamed in <video> without a DASH player, so
+    those will return None.
     """
     cache_key = ("video", video_id)
     cached = _STREAM_CACHE.get(cache_key)
@@ -473,12 +475,29 @@ def _resolve_video(video_id: str):
 
     import yt_dlp
 
-    ydl_opts = {
-        "quiet": True, "no_warnings": True, "noplaylist": True,
-        "format": "best",
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+    # Progressive format preference: mp4 first (broad browser support),
+    # then any container as fallback
+    format_selectors = [
+        "best[ext=mp4]/best[ext=m4a]/best",
+        "best",
+    ]
+    info = None
+    for fmt in format_selectors:
+        ydl_opts = {
+            "quiet": True, "no_warnings": True, "noplaylist": True,
+            "format": fmt,
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            if info and info.get("url"):
+                break
+        except Exception:
+            info = None
+
+    if not info or not info.get("url"):
+        # No progressive format available (DASH-only video)
+        return None
 
     result = {
         "url": info["url"],
@@ -495,12 +514,15 @@ async def _proxy_media_response(request: Request, video_id: str, resolve, cache_
     except Exception as e:
         return JSONResponse({"error": f"Náhled se nepodařilo najít ({e})"}, status_code=502)
 
+    if info is None:
+        return JSONResponse({"error": "Video nemá dostupný progresivní stream — je možné ho přehrát jen jako zvuk"}, status_code=404)
+
     upstream_headers = dict(info["headers"])
     range_header = request.headers.get("range")
     if range_header:
         upstream_headers["Range"] = range_header
 
-    client = httpx.AsyncClient(timeout=30.0)
+    client = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
     try:
         req = client.build_request("GET", info["url"], headers=upstream_headers)
         upstream = await client.send(req, stream=True)
