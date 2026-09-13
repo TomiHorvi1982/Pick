@@ -378,6 +378,51 @@
   .channel-solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
 
   /* ================================================================
+     DAW-style vertical track layout with timeline, ruler, clips
+     ================================================================ */
+  .mixer-timeline-wrap{display:flex;flex-direction:column;gap:0;margin-top:8px}
+  .mixer-ruler-area{display:flex;align-items:stretch;height:28px;margin-bottom:4px;position:relative}
+  .mixer-ruler-spacer{flex:0 0 150px;background:var(--bg2);border:1px solid var(--border);border-right:none;border-radius:6px 0 0 6px}
+  .mixer-ruler{flex:1;background:var(--bg2);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;position:relative;overflow:hidden;cursor:crosshair}
+  .mixer-ruler-tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(154,163,181,.25)}
+  .mixer-ruler-tick.major{background:rgba(154,163,181,.5)}
+  .mixer-ruler-label{position:absolute;top:2px;font-size:9px;color:var(--sub);font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
+  .mixer-ruler-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);z-index:5;pointer-events:none}
+  .mixer-loop-region{position:absolute;top:0;bottom:0;background:rgba(45,212,191,.12);border-left:1px solid var(--accent);border-right:1px solid var(--accent);z-index:3;pointer-events:none}
+  .mixer-tracks{display:flex;flex-direction:column;gap:4px;overflow-x:auto}
+  .mixer-tracks::-webkit-scrollbar{height:8px}
+  .mixer-tracks::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  .mixer-track{display:flex;align-items:stretch;gap:0;min-height:72px}
+  .mixer-track-header{flex:0 0 150px;background:var(--card);border:1px solid var(--border);border-radius:6px 0 0 6px;padding:8px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+  .mixer-track-header .stem-name{font-size:12px;font-weight:700;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis}
+  .mixer-track-header .track-mini-controls{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+  .mixer-track-header .mini-btn{width:22px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--sub);font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+  .mixer-track-header .mini-btn.active{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .mixer-track-header .mini-btn.solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+  .mixer-track-header .pitch-slider,.mixer-track-header .pan-slider{width:100%;height:4px;accent-color:var(--accent)}
+  .mixer-track-header label{font-size:9.5px;color:var(--sub);display:flex;justify-content:space-between;align-items:center;margin:0}
+  .mixer-track-header input[type=range]{width:100%}
+  .mixer-track-lane{flex:1;background:var(--bg2);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;position:relative;overflow:hidden;min-height:72px}
+  .mixer-clip{position:absolute;top:6px;bottom:6px;border-radius:6px;border:1px solid var(--border);cursor:grab;overflow:hidden;display:flex;align-items:center;min-width:20px;user-select:none;z-index:2}
+  .mixer-clip:active{cursor:grabbing}
+  .mixer-clip-wave{position:absolute;inset:0;opacity:.7;pointer-events:none}
+  .mixer-clip-label{position:relative;z-index:1;padding:0 6px;font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .mixer-clip.vocals{background:linear-gradient(180deg,#3b1f5e,#2a1545)}
+  .mixer-clip.drums{background:linear-gradient(180deg,#5e1f1f,#451515)}
+  .mixer-clip.bass{background:linear-gradient(180deg,#1f3b5e,#152a45)}
+  .mixer-clip.guitar{background:linear-gradient(180deg,#5e4a1f,#453715)}
+  .mixer-clip.piano{background:linear-gradient(180deg,#1f5e3b,#15452a)}
+  .mixer-clip.other{background:linear-gradient(180deg,#3d3d3d,#2a2a2a)}
+  .mixer-zoom-bar{display:flex;align-items:center;gap:8px;margin-top:10px;padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap}
+  .mixer-zoom-bar label{font-size:11px;color:var(--sub);white-space:nowrap}
+  .mixer-zoom-bar input[type=range]{flex:1;min-width:80px;accent-color:var(--accent)}
+  .mixer-zoom-bar .zoom-val{font-size:11px;color:var(--sub);width:44px;text-align:right;font-variant-numeric:tabular-nums}
+  .mixer-zoom-bar .btn-row{display:flex;gap:4px;align-items:center}
+  .metronome-btn.active{background:var(--accent)!important;color:#04211d!important;border-color:var(--accent)!important}
+  .stem-export-btn{font-size:11px!important;padding:2px 6px!important;height:20px!important}
+  .tempo-display{font-size:11px;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* ================================================================
      Synced lyrics overlay — karaoke-style scrolling lyrics synced to
      playback time. Inspired by Kaset's SyncedLyricsDisplayView.
      ================================================================ */
@@ -659,9 +704,32 @@
         <span class="pb-time" id="mixer-time-cur">0:00</span>
         <span class="pb-time">/</span>
         <span class="pb-time" id="mixer-time-dur">0:00</span>
-        <button class="btn secondary" id="mixer-export">⬇️ Exportovat mix</button>
+        <button class="btn secondary" id="mixer-metro" title="Metronome click track">🔔 Metro</button>
+        <button class="btn secondary" id="mixer-loop" title="Toggle loop region">🔁 Loop</button>
+        <span class="tempo-display" id="mixer-tempo">-- BPM</span>
+        <button class="btn secondary" id="mixer-export">⬇️ Export</button>
+        <button class="btn secondary" id="mixer-export-stem" title="Export individual stem">⬇️ Stem</button>
       </div>
-      <div id="mixer-channels" class="mixer-channels"></div>
+      <div class="mixer-timeline-wrap">
+        <div class="mixer-ruler-area">
+          <div class="mixer-ruler-spacer"></div>
+          <div class="mixer-ruler" id="mixer-ruler">
+            <div class="mixer-loop-region" id="mixer-loop-region" hidden></div>
+            <div class="mixer-ruler-playhead" id="mixer-ruler-playhead"></div>
+          </div>
+        </div>
+        <div class="mixer-tracks" id="mixer-tracks"></div>
+      </div>
+      <div class="mixer-zoom-bar">
+        <label>Zoom</label>
+        <input type="range" id="mixer-zoom" min="80" max="600" value="200" step="20">
+        <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
+        <div class="btn-row">
+          <button class="btn secondary" id="mixer-save-session" title="Save mix session">💾 Save</button>
+          <button class="btn secondary" id="mixer-load-session" title="Load mix session">📂 Load</button>
+        </div>
+      </div>
+      <div id="mixer-channels" class="mixer-channels" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -1466,15 +1534,37 @@ function loadMixerSong(name){
 // Mixpult — synced multi-stem Web Audio mixer. Fader/mute/solo, per-channel
 // waveform + VU meter, synced playback via shared AudioContext, WAV export.
 // ======================================================================
+// ======================================================================
+// DAW Mixpult — synced multi-stem Web Audio mixer with full DAW features:
+// pitch/pan per track, vertical track layout with timeline/zoom, drag-to-move
+// clips, time ruler with beat grid, tempo detection, metronome, loop region,
+// save/load sessions, and stem export.
+// ======================================================================
 const Mixer = (() => {
   let audioCtx = null;
-  let channels = [];
+  let channels = [];   // [{stem, buffer, gainNode, analyser, panner, muted, solo, faderValue, source, vuFill, pitchRate, panValue, clipOffset}]
   let duration = 0;
   let isPlaying = false;
   let startedAt = 0;
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
+  let pixelsPerSecond = 200;
+  let tempoBPM = null;
+  let beatInterval = 0;
+  let metronomeOn = false;
+  let metronomeOsc = null;
+  let metronomeGain = null;
+  let loopEnabled = false;
+  let loopStart = 0;
+  let loopEnd = 0;
+  let loopDragStart = null;
+  let loopDragCurrent = null;
+  let dragChannelIdx = -1;
+  let dragStartX = 0;
+  let dragStartOffset = 0;
+  let sessionId = null;
+  let currentSongName = null;
 
   function ctx(){
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1485,108 +1575,76 @@ const Mixer = (() => {
     channels.forEach(c => { if(c.source){ try{ c.source.stop(); }catch(e){} c.source = null; } });
   }
 
-  async function load(song){
-    const myToken = ++loadToken;
-    stopAllSources();
-    isPlaying = false;
-    pausedAt = 0;
-    duration = 0;
-    el("mixer").hidden = false;
-    el("mixer-play").textContent = "▶";
-    el("mixer-channels").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
-
-    const loaded = [];
-    for(const stem of song.stems){
-      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${stem}.wav`);
-      const arrayBuf = await res.arrayBuffer();
-      if(myToken !== loadToken) return;
-      const audioBuf = await ctx().decodeAudioData(arrayBuf);
-      if(myToken !== loadToken) return;
-      const gainNode = ctx().createGain();
-      const analyser = ctx().createAnalyser();
-      analyser.fftSize = 256;
-      gainNode.connect(analyser);
-      analyser.connect(ctx().destination);
-      loaded.push({
-        stem, buffer: audioBuf, gainNode, analyser,
-        muted: false, solo: false, faderValue: 1, source: null, vuFill: null,
-      });
-      duration = Math.max(duration, audioBuf.duration);
+  // ---- Tempo detection via autocorrelation on downsampled peaks ----
+  function detectTempo(audioBuf){
+    const data = audioBuf.getChannelData(0);
+    const sr = audioBuf.sampleRate;
+    // Downsample to ~1000 Hz for analysis
+    const targetSr = 1000;
+    const step = Math.floor(sr / targetSr);
+    const peaks = [];
+    const blockSize = 512;
+    const energyHistory = [];
+    // Compute energy per block
+    for(let i = 0; i < data.length; i += step){
+      let sum = 0;
+      const end = Math.min(i + blockSize, data.length);
+      for(let j = i; j < end; j++){
+        sum += data[j] * data[j];
+      }
+      energyHistory.push(sum / blockSize);
     }
-    if(myToken !== loadToken) return;
-    channels = loaded;
-    renderChannels();
-    updateSeekUI(0);
+    // Find peaks (local maxima above mean)
+    const avgEnergy = energyHistory.reduce((a,b)=>a+b,0) / energyHistory.length;
+    const threshold = avgEnergy * 1.5;
+    const minPeakDist = 3; // ~30ms apart
+    let lastPeak = -minPeakDist;
+    for(let i = 1; i < energyHistory.length - 1; i++){
+      if(energyHistory[i] > threshold && energyHistory[i] > energyHistory[i-1] && energyHistory[i] > energyHistory[i+1] && i - lastPeak >= minPeakDist){
+        peaks.push(i);
+        lastPeak = i;
+      }
+    }
+    if(peaks.length < 2) return null;
+    // Autocorrelation on peak intervals
+    const intervals = {};
+    for(let i = 0; i < peaks.length; i++){
+      for(let j = i+1; j < peaks.length && j < i + 30; j++){
+        const interval = peaks[j] - peaks[i];
+        const ms = (interval / targetSr) * 1000;
+        // Quantize to ~1ms
+        const q = Math.round(ms);
+        intervals[q] = (intervals[q] || 0) + 1;
+      }
+    }
+    // Find the interval that corresponds to beat duration (60000/BPM)
+    // BPM range 60-180 => beat interval 333-1000ms
+    let bestBPM = null;
+    let bestCount = 0;
+    for(let bpm = 60; bpm <= 180; bpm++){
+      const beatMs = 60000 / bpm;
+      let count = 0;
+      for(let delta = -2; delta <= 2; delta++){
+        count += intervals[Math.round(beatMs) + delta] || 0;
+        // Also consider half and double tempo
+        count += (intervals[Math.round(beatMs/2) + delta] || 0) * 0.5;
+        count += (intervals[Math.round(beatMs*2) + delta] || 0) * 0.5;
+      }
+      if(count > bestCount){
+        bestCount = count;
+        bestBPM = bpm;
+      }
+    }
+    return bestBPM && bestCount >= 3 ? bestBPM : null;
   }
 
-  function anySolo(){ return channels.some(c => c.solo); }
-
   function applyGains(){
-    const solo = anySolo();
+    const solo = channels.some(c => c.solo);
     channels.forEach(c => {
       const active = solo ? c.solo : !c.muted;
       c.gainNode.gain.value = active ? c.faderValue : 0;
+      if(c.panner) c.panner.pan.value = c.panValue || 0;
     });
-  }
-
-  function drawWaveform(canvas, buffer){
-    const ctx2d = canvas.getContext("2d");
-    const w = canvas.width, h = canvas.height;
-    const data = buffer.getChannelData(0);
-    const step = Math.max(1, Math.ceil(data.length / w));
-    ctx2d.clearRect(0, 0, w, h);
-    ctx2d.fillStyle = "#1b8f80";
-    for(let x = 0; x < w; x++){
-      let min = 1, max = -1;
-      const start = x * step;
-      for(let i = 0; i < step && start + i < data.length; i++){
-        const v = data[start + i];
-        if(v < min) min = v;
-        if(v > max) max = v;
-      }
-      const y1 = (1 - (max + 1) / 2) * h;
-      const y2 = (1 - (min + 1) / 2) * h;
-      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
-    }
-  }
-
-  function renderChannels(){
-    const box = el("mixer-channels");
-    box.innerHTML = "";
-    channels.forEach(c => {
-      const strip = document.createElement("div");
-      strip.className = "channel";
-      strip.innerHTML = `
-        <div class="channel-name">${escapeHtml(c.stem)}</div>
-        <canvas class="channel-wave" width="126" height="60"></canvas>
-        <div class="channel-controls">
-          <input type="range" class="channel-fader" min="0" max="1.5" step="0.01" value="1">
-          <div class="channel-vu"><div class="channel-vu-fill"></div></div>
-          <div class="channel-buttons">
-            <button class="channel-mute" title="Mute">M</button>
-            <button class="channel-solo" title="Solo">S</button>
-          </div>
-        </div>
-      `;
-      c.vuFill = strip.querySelector(".channel-vu-fill");
-      drawWaveform(strip.querySelector(".channel-wave"), c.buffer);
-
-      strip.querySelector(".channel-fader").addEventListener("input", (e) => {
-        c.faderValue = parseFloat(e.target.value);
-        applyGains();
-      });
-      const muteBtn = strip.querySelector(".channel-mute");
-      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
-      const soloBtn = strip.querySelector(".channel-solo");
-      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
-
-      box.appendChild(strip);
-    });
-    applyGains();
-  }
-
-  function currentTime(){
-    return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
   }
 
   function scheduleAll(offset){
@@ -1594,7 +1652,9 @@ const Mixer = (() => {
     channels.forEach(c => {
       const source = ctx().createBufferSource();
       source.buffer = c.buffer;
+      source.playbackRate.value = c.pitchRate || 1;
       source.connect(c.gainNode);
+      source.connect(c.panner);
       source.start(when, offset);
       c.source = source;
     });
@@ -1628,6 +1688,11 @@ const Mixer = (() => {
       pausedAt = t;
     }
     updateSeekUI(t);
+    updateRulerPlayhead(t);
+  }
+
+  function currentTime(){
+    return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
   }
 
   function updateSeekUI(t){
@@ -1637,10 +1702,251 @@ const Mixer = (() => {
     el("mixer-time-dur").textContent = fmtDur(duration);
   }
 
+  // ---- Rendering ----
+  function drawWaveform(canvas, buffer){
+    const ctx2d = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    const data = buffer.getChannelData(0);
+    const step = Math.max(1, Math.ceil(data.length / w));
+    ctx2d.clearRect(0, 0, w, h);
+    ctx2d.fillStyle = "#1b8f80";
+    for(let x = 0; x < w; x++){
+      let min = 1, max = -1;
+      const start = x * step;
+      for(let i = 0; i < step && start + i < data.length; i++){
+        const v = data[start + i];
+        if(v < min) min = v;
+        if(v > max) max = v;
+      }
+      const y1 = (1 - (max + 1) / 2) * h;
+      const y2 = (1 - (min + 1) / 2) * h;
+      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+  }
+
+  function drawClipWave(canvas, buffer, clipW){
+    // Draw a portion of the buffer waveform within clip width
+    const ctx2d = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    const data = buffer.getChannelData(0);
+    const step = Math.max(1, Math.ceil(data.length / Math.max(w, 1)));
+    ctx2d.clearRect(0, 0, w, h);
+    ctx2d.fillStyle = "rgba(45,212,191,.5)";
+    for(let x = 0; x < w; x++){
+      let min = 1, max = -1;
+      const srcIdx = x * step;
+      for(let i = 0; i < step && srcIdx + i < data.length; i++){
+        const v = data[srcIdx + i];
+        if(v < min) min = v;
+        if(v > max) max = v;
+      }
+      const y1 = (1 - (max + 1) / 2) * h;
+      const y2 = (1 - (min + 1) / 2) * h;
+      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+  }
+
+  function renderTimeline(){
+    const ruler = el("mixer-ruler");
+    // Clear old ticks
+    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label").forEach(n => n.remove());
+    const totalPx = duration * pixelsPerSecond;
+    ruler.style.minWidth = totalPx + "px";
+    el("mixer-tracks").style.minWidth = totalPx + "px";
+    // Determine tick spacing
+    const targetTickSpacing = 60; // pixels
+    const secPerTick = targetTickSpacing / pixelsPerSecond;
+    let tickSec;
+    if(secPerTick < 0.25) tickSec = 0.25;
+    else if(secPerTick < 0.5) tickSec = 0.5;
+    else if(secPerTick < 1) tickSec = 1;
+    else if(secPerTick < 2) tickSec = 2;
+    else if(secPerTick < 4) tickSec = 4;
+    else if(secPerTick < 8) tickSec = 8;
+    else tickSec = 16;
+    for(let t = 0; t <= duration; t += tickSec){
+      const px = t * pixelsPerSecond;
+      const tick = document.createElement("div");
+      tick.className = "mixer-ruler-tick";
+      tick.style.left = px + "px";
+      // Label for major ticks
+      if(t % (tickSec * 4) === 0 || tickSec >= 4){
+        const label = document.createElement("div");
+        label.className = "mixer-ruler-label";
+        label.style.left = (px + 2) + "px";
+        label.textContent = fmtDur(t);
+        ruler.appendChild(label);
+        tick.classList.add("major");
+      }
+      ruler.appendChild(tick);
+    }
+    // Update loop region visual
+    const loopRegion = el("mixer-loop-region");
+    if(loopEnabled){
+      loopRegion.hidden = false;
+      loopRegion.style.left = (loopStart * pixelsPerSecond) + "px";
+      loopRegion.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px";
+    } else {
+      loopRegion.hidden = true;
+    }
+    renderTrackLanes();
+    updateRulerPlayhead(currentTime());
+  }
+
+  function renderTrackLanes(){
+    const tracks = el("mixer-tracks");
+    tracks.innerHTML = "";
+    const totalPx = duration * pixelsPerSecond;
+    channels.forEach((c, idx) => {
+      const track = document.createElement("div");
+      track.className = "mixer-track";
+      track.dataset.idx = idx;
+      // Header
+      const header = document.createElement("div");
+      header.className = "mixer-track-header";
+      header.innerHTML = `
+        <span class="stem-name">${escapeHtml(c.stem)}</span>
+        <div class="track-mini-controls">
+          <button class="mini-btn mute-btn ${c.muted?'active':''}" title="Mute">M</button>
+          <button class="mini-btn solo-btn ${c.solo?'active':''}" title="Solo">S</button>
+          <button class="mini-btn stem-export-btn" title="Export ${escapeHtml(c.stem)} stem">⬇</button>
+        </div>
+        <label>Pitch <span class="pitch-val">${(c.pitchRate||1).toFixed(2)}</span></label>
+        <input type="range" class="pitch-slider" min="0.5" max="2.0" step="0.01" value="${c.pitchRate||1}">
+        <label>Pan <span class="pan-val">${c.panValue>0?"R":c.panValue<0?"L":"C"}</span></label>
+        <input type="range" class="pan-slider" min="-1" max="1" step="0.01" value="${c.panValue||0}">
+      `;
+      // Event handlers
+      const muteBtn = header.querySelector(".mute-btn");
+      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
+      const soloBtn = header.querySelector(".solo-btn");
+      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
+      const exportBtn = header.querySelector(".stem-export-btn");
+      exportBtn.onclick = () => exportStem(idx);
+      const pitchSlider = header.querySelector(".pitch-slider");
+      pitchSlider.oninput = () => {
+        c.pitchRate = parseFloat(pitchSlider.value);
+        header.querySelector(".pitch-val").textContent = c.pitchRate.toFixed(2);
+      };
+      const panSlider = header.querySelector(".pan-slider");
+      panSlider.oninput = () => {
+        c.panValue = parseFloat(panSlider.value);
+        const v = c.panValue;
+        header.querySelector(".pan-val").textContent = v > 0.05 ? "R" + Math.round(v*100) : v < -0.05 ? "L" + Math.round(-v*100) : "C";
+        if(c.panner) c.panner.pan.value = v;
+      };
+      track.appendChild(header);
+      // Lane
+      const lane = document.createElement("div");
+      lane.className = "mixer-track-lane";
+      lane.style.width = totalPx + "px";
+      lane.style.position = "relative";
+      // Clip
+      const clipW = c.buffer.duration * pixelsPerSecond;
+      const clipOffset = c.clipOffset || 0;
+      const clip = document.createElement("div");
+      clip.className = "mixer-clip " + c.stem;
+      clip.style.left = (clipOffset * pixelsPerSecond) + "px";
+      clip.style.width = clipW + "px";
+      clip.dataset.idx = idx;
+      // Mini waveform in clip
+      const clipWave = document.createElement("canvas");
+      clipWave.className = "mixer-clip-wave";
+      clipWave.width = Math.max(20, Math.floor(clipW));
+      clipWave.height = 50;
+      drawClipWave(clipWave, c.buffer, clipW);
+      clip.appendChild(clipWave);
+      const clipLabel = document.createElement("span");
+      clipLabel.className = "mixer-clip-label";
+      clipLabel.textContent = c.stem;
+      clip.appendChild(clipLabel);
+      // Drag handler
+      clip.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        if(isPlaying) pause();
+        dragChannelIdx = idx;
+        dragStartX = ev.clientX;
+        dragStartOffset = c.clipOffset || 0;
+        clip.setPointerCapture(ev.pointerId);
+      });
+      clip.addEventListener("pointermove", (ev) => {
+        if(dragChannelIdx !== idx) return;
+        const dx = ev.clientX - dragStartX;
+        const dt = dx / pixelsPerSecond;
+        let newOffset = dragStartOffset + dt;
+        newOffset = Math.max(0, newOffset);
+        c.clipOffset = newOffset;
+        clip.style.left = (newOffset * pixelsPerSecond) + "px";
+      });
+      clip.addEventListener("pointerup", (ev) => {
+        if(dragChannelIdx === idx){
+          clip.releasePointerCapture(ev.pointerId);
+          dragChannelIdx = -1;
+        }
+      });
+      lane.appendChild(clip);
+      track.appendChild(lane);
+      tracks.appendChild(track);
+    });
+  }
+
+  function updateRulerPlayhead(t){
+    const playhead = el("mixer-ruler-playhead");
+    playhead.style.left = (t * pixelsPerSecond) + "px";
+    // Auto-scroll tracks if playhead visible
+    const tracks = el("mixer-tracks");
+    const px = t * pixelsPerSecond;
+    const viewLeft = tracks.scrollLeft;
+    const viewRight = viewLeft + tracks.clientWidth;
+    if(px < viewLeft || px > viewRight - 50){
+      tracks.scrollLeft = px - 100;
+    }
+  }
+
+  function renderChannels(){
+    const box = el("mixer-channels");
+    box.innerHTML = "";
+    channels.forEach(c => {
+      const strip = document.createElement("div");
+      strip.className = "channel";
+      strip.innerHTML = `
+        <div class="channel-name">${escapeHtml(c.stem)}</div>
+        <canvas class="channel-wave" width="126" height="60"></canvas>
+        <div class="channel-controls">
+          <input type="range" class="channel-fader" min="0" max="1.5" step="0.01" value="${c.faderValue}">
+          <div class="channel-vu"><div class="channel-vu-fill"></div></div>
+          <div class="channel-buttons">
+            <button class="channel-mute" title="Mute">M</button>
+            <button class="channel-solo" title="Solo">S</button>
+          </div>
+        </div>
+      `;
+      c.vuFill = strip.querySelector(".channel-vu-fill");
+      drawWaveform(strip.querySelector(".channel-wave"), c.buffer);
+      strip.querySelector(".channel-fader").addEventListener("input", (e) => {
+        c.faderValue = parseFloat(e.target.value);
+        applyGains();
+      });
+      const muteBtn = strip.querySelector(".channel-mute");
+      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
+      const soloBtn = strip.querySelector(".channel-solo");
+      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
+      box.appendChild(strip);
+    });
+    applyGains();
+  }
+
   function tick(){
     if(!isPlaying) return;
-    const t = currentTime();
+    let t = currentTime();
+    // Loop check
+    if(loopEnabled && t >= loopEnd && loopEnd > loopStart){
+      t = loopStart;
+      stopAllSources();
+      scheduleAll(t);
+    }
     updateSeekUI(t);
+    updateRulerPlayhead(t);
     channels.forEach(c => {
       const data = new Uint8Array(c.analyser.frequencyBinCount);
       c.analyser.getByteFrequencyData(data);
@@ -1652,12 +1958,79 @@ const Mixer = (() => {
       pause();
       pausedAt = 0;
       updateSeekUI(0);
+      updateRulerPlayhead(0);
       return;
     }
     rafId = requestAnimationFrame(tick);
   }
 
-  // WAV encoder for export
+  async function load(song){
+    const myToken = ++loadToken;
+    stopAllSources();
+    isPlaying = false;
+    pausedAt = 0;
+    duration = 0;
+    tempoBPM = null;
+    el("mixer").hidden = false;
+    el("mixer-play").textContent = "▶";
+    el("mixer-tracks").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
+    el("mixer-channels").innerHTML = "";
+    el("mixer-tempo").textContent = "-- BPM";
+    currentSongName = song.name;
+
+    // Restore session if exists
+    const saved = loadSession(song.name);
+    const loaded = [];
+    for(const stem of song.stems){
+      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${stem}.wav`);
+      const arrayBuf = await res.arrayBuffer();
+      if(myToken !== loadToken) return;
+      const audioBuf = await ctx().decodeAudioData(arrayBuf);
+      if(myToken !== loadToken) return;
+      const gainNode = ctx().createGain();
+      const analyser = ctx().createAnalyser();
+      analyser.fftSize = 256;
+      const panner = ctx().createStereoPanner();
+      gainNode.connect(analyser);
+      analyser.connect(panner);
+      panner.connect(ctx().destination);
+      const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stem) : null;
+      loaded.push({
+        stem, buffer: audioBuf, gainNode, analyser, panner,
+        muted: savedCh ? savedCh.muted : false,
+        solo: savedCh ? savedCh.solo : false,
+        faderValue: savedCh ? savedCh.faderValue : 1,
+        pitchRate: savedCh ? savedCh.pitchRate : 1,
+        panValue: savedCh ? savedCh.panValue : 0,
+        clipOffset: savedCh ? savedCh.clipOffset : 0,
+        source: null, vuFill: null,
+      });
+      duration = Math.max(duration, audioBuf.duration);
+    }
+    if(myToken !== loadToken) return;
+    channels = loaded;
+    // Detect tempo on the first stem (vocals preferred)
+    try{
+      const refCh = channels.find(c => c.stem === "vocals") || channels[0];
+      tempoBPM = detectTempo(refCh.buffer);
+      if(tempoBPM){
+        beatInterval = 60 / tempoBPM;
+        el("mixer-tempo").textContent = tempoBPM + " BPM";
+      }
+    }catch(e){}
+    // Restore loop
+    if(saved && saved.loop){
+      loopEnabled = true;
+      loopStart = saved.loop.start;
+      loopEnd = saved.loop.end;
+      el("mixer-loop").classList.add("active");
+    }
+    renderChannels();
+    renderTimeline();
+    updateSeekUI(0);
+  }
+
+  // ---- Export ----
   function encodeWav(audioBuffer){
     const numChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
@@ -1667,11 +2040,9 @@ const Mixer = (() => {
     const dataSize = length * blockAlign;
     const buffer = new ArrayBuffer(44 + dataSize);
     const view = new DataView(buffer);
-
     function writeString(offset, str){
       for(let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
     }
-
     writeString(0, "RIFF");
     view.setUint32(4, 36 + dataSize, true);
     writeString(8, "WAVE");
@@ -1685,10 +2056,8 @@ const Mixer = (() => {
     view.setUint16(34, 16, true);
     writeString(36, "data");
     view.setUint32(40, dataSize, true);
-
     const channelData = [];
     for(let ch = 0; ch < numChannels; ch++) channelData.push(audioBuffer.getChannelData(ch));
-
     let offset = 44;
     for(let i = 0; i < length; i++){
       for(let ch = 0; ch < numChannels; ch++){
@@ -1710,17 +2079,22 @@ const Mixer = (() => {
       const sampleRate = ctx().sampleRate;
       const length = Math.max(1, Math.ceil(duration * sampleRate));
       const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
-      const solo = anySolo();
+      const solo = channels.some(c => c.solo);
       channels.forEach(c => {
         const active = solo ? c.solo : !c.muted;
         if(!active) return;
         const source = offlineCtx.createBufferSource();
         source.buffer = c.buffer;
+        source.playbackRate.value = c.pitchRate || 1;
+        source.connect(c.gainNode);
         const gain = offlineCtx.createGain();
         gain.gain.value = c.faderValue;
+        const panner = offlineCtx.createStereoPanner();
+        panner.pan.value = c.panValue || 0;
         source.connect(gain);
-        gain.connect(offlineCtx.destination);
-        source.start(0);
+        gain.connect(panner);
+        panner.connect(offlineCtx.destination);
+        source.start(c.clipOffset || 0);
       });
       const rendered = await offlineCtx.startRendering();
       const blob = encodeWav(rendered);
@@ -1736,10 +2110,106 @@ const Mixer = (() => {
       showToast("Export selhal");
     }finally{
       exportBtn.disabled = false;
-      exportBtn.textContent = "⬇️ Exportovat mix";
+      exportBtn.textContent = "⬇️ Export";
     }
   }
 
+  function exportStem(idx){
+    const c = channels[idx];
+    if(!c) return;
+    const blob = encodeWav(c.buffer);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${c.stem}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`⬇️ ${c.stem}.wav`);
+  }
+
+  // ---- Metronome ----
+  function toggleMetronome(){
+    metronomeOn = !metronomeOn;
+    el("mixer-metro").classList.toggle("active", metronomeOn);
+    if(metronomeOn && tempoBPM){
+      scheduleMetronomeClicks();
+    }
+  }
+
+  function scheduleMetronomeClicks(){
+    if(!metronomeOn || !isPlaying || !beatInterval) return;
+    const now = ctx().currentTime;
+    const currentSec = currentTime();
+    // Schedule clicks for the next few beats
+    const lookahead = 2; // seconds
+    const startBeat = Math.floor(currentSec / beatInterval) + 1;
+    const endSec = currentSec + lookahead;
+    let beat = startBeat;
+    while(beat * beatInterval < endSec){
+      const clickTime = now + (beat * beatInterval - currentSec);
+      playClick(beat % 4 === 0, clickTime);
+      beat++;
+    }
+    // Reschedule
+    setTimeout(scheduleMetronomeClicks, 200);
+  }
+
+  function playClick(accent, when){
+    const clickCtx = ctx();
+    const osc = clickCtx.createOscillator();
+    const gain = clickCtx.createGain();
+    osc.frequency.value = accent ? 1200 : 800;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0, when);
+    gain.gain.linearRampToValueAtTime(accent ? 0.3 : 0.15, when + 0.001);
+    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.06);
+    osc.connect(gain);
+    gain.connect(clickCtx.destination);
+    osc.start(when);
+    osc.stop(when + 0.07);
+  }
+
+  // ---- Loop ----
+  function toggleLoop(){
+    loopEnabled = !loopEnabled;
+    el("mixer-loop").classList.toggle("active", loopEnabled);
+    if(loopEnabled && loopEnd <= loopStart){
+      // Default loop: first 4 bars if tempo known, else first 8 seconds
+      loopStart = 0;
+      loopEnd = tempoBPM ? (60 / tempoBPM) * 4 : Math.min(8, duration);
+    }
+    renderTimeline();
+  }
+
+  // ---- Save / Load Session ----
+  function saveSession(songName){
+    const data = {
+      tempo: tempoBPM,
+      loop: loopEnabled ? { start: loopStart, end: loopEnd } : null,
+      channels: channels.map(c => ({
+        stem: c.stem, muted: c.muted, solo: c.solo,
+        faderValue: c.faderValue, pitchRate: c.pitchRate,
+        panValue: c.panValue, clipOffset: c.clipOffset || 0,
+      })),
+      pixelsPerSecond,
+    };
+    try{
+      localStorage.setItem("steems-session-" + songName, JSON.stringify(data));
+      showToast("💾 Session uložena");
+    }catch(e){ showToast("Uložení selhalo"); }
+  }
+
+  function loadSession(songName){
+    try{
+      const raw = localStorage.getItem("steems-session-" + songName);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
+
+  // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
   el("mixer-seek").addEventListener("click", (e) => {
     if(!duration) return;
@@ -1748,8 +2218,90 @@ const Mixer = (() => {
     seek(pct * duration);
   });
   el("mixer-export").onclick = () => exportMix();
+  el("mixer-export-stem").onclick = () => {
+    // Quick export: open stem menu
+    const idx = prompt("Export stem (0=vocals, 1=drums, 2=bass, 3=guitar, 4=piano, 5):");
+    if(idx !== null && channels[parseInt(idx)] !== undefined) exportStem(parseInt(idx));
+  };
+  el("mixer-metro").onclick = () => toggleMetronome();
+  el("mixer-loop").onclick = () => toggleLoop();
+  el("mixer-save-session").onclick = () => {
+    const name = currentSongName || prompt("Název songu pro uložení:");
+    if(name) saveSession(name);
+  };
+  el("mixer-load-session").onclick = () => {
+    const name = currentSongName || prompt("Název session k načtení:");
+    if(name){
+      const data = loadSession(name);
+      if(data && data.channels){
+        data.channels.forEach((sc, i) => {
+          if(channels[i]){
+            Object.assign(channels[i], sc);
+          }
+        });
+        if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60/data.tempo; el("mixer-tempo").textContent = tempoBPM + " BPM"; }
+        if(data.loop){ loopEnabled = true; loopStart = data.loop.start; loopEnd = data.loop.end; el("mixer-loop").classList.add("active"); }
+        if(data.pixelsPerSecond){ pixelsPerSecond = data.pixelsPerSecond; el("mixer-zoom").value = pixelsPerSecond; el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s"; }
+        renderChannels();
+        renderTimeline();
+        applyGains();
+        showToast("📂 Session načtena");
+      } else {
+        showToast("Session nenalezena");
+      }
+    }
+  };
 
-  return { load };
+  // Zoom
+  el("mixer-zoom").addEventListener("input", (e) => {
+    pixelsPerSecond = parseInt(e.target.value);
+    el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s";
+    renderTimeline();
+  });
+
+  // Ruler click to seek
+  el("mixer-ruler").addEventListener("click", (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left + el("mixer-ruler").scrollLeft;
+    const t = x / pixelsPerSecond;
+    seek(Math.max(0, Math.min(duration, t)));
+  });
+
+  // Ruler drag for loop region
+  const ruler = el("mixer-ruler");
+  ruler.addEventListener("pointerdown", (ev) => {
+    if(!duration) return;
+    const rect = ruler.getBoundingClientRect();
+    const x = ev.clientX - rect.left + ruler.scrollLeft;
+    loopDragStart = x / pixelsPerSecond;
+    loopDragCurrent = loopDragStart;
+    ruler.setPointerCapture(ev.pointerId);
+    loopEnabled = true;
+    el("mixer-loop").classList.add("active");
+  });
+  ruler.addEventListener("pointermove", (ev) => {
+    if(loopDragStart === null) return;
+    const rect = ruler.getBoundingClientRect();
+    const x = ev.clientX - rect.left + ruler.scrollLeft;
+    loopDragCurrent = Math.max(0, Math.min(duration, x / pixelsPerSecond));
+    loopStart = Math.min(loopDragStart, loopDragCurrent);
+    loopEnd = Math.max(loopDragStart, loopDragCurrent);
+    renderTimeline();
+  });
+  ruler.addEventListener("pointerup", (ev) => {
+    if(loopDragStart !== null){
+      ruler.releasePointerCapture(ev.pointerId);
+      loopDragStart = null;
+      if(loopEnd - loopStart < 0.1){
+        // Too small, reset
+        loopStart = 0;
+        loopEnd = tempoBPM ? (60/tempoBPM)*4 : Math.min(8, duration);
+      }
+      renderTimeline();
+    }
+  });
+
+  return { load, saveSession, loadSession };
 })();
 
 // ======================================================================
@@ -3401,5 +3953,6 @@ renderFavPlaylists();
 loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
+</script>
 </body>
 </html>
