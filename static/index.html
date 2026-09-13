@@ -1113,16 +1113,6 @@ function startStemsSeparation(rel){
         el("dl-status").textContent = ok ? "✅ hotovo" : "❌ chyba";
         el("dl-reveal").disabled = false;
         el("dl-reveal").onclick = () => {
-          fetch("/api/reveal", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({path: (() => {
-              // The stems directory is at MUSIC_ROOT/Stems/<name>
-              // We need to reveal it. But we don't know MUSIC_ROOT on the frontend.
-              // For now, open the Steems tab and let the user navigate.
-              return null;
-            })()})
-          });
           if(ok) openSteemsSong(data.name);
         };
         if(ok){
