@@ -458,15 +458,11 @@ def _resolve_audio(video_id: str):
 
 def _resolve_video(video_id: str):
     """Progressive (single file, video+audio combined) stream — good enough
-    for the in-app video toggle, not used for downloads. Combined
-    progressive formats top out well below 1080p on YouTube these days;
-    that's fine here.
+    for the in-app video toggle, not used for downloads.
 
-    Tries format selectors in order: progressive mp4 first (widely
-    supported, single file), then best progressive (any container).
-    Some videos only offer DASH (separate video+audio streams) which
-    can't be directly streamed in <video> without a DASH player, so
-    those will return None.
+    For progressive videos, returns direct stream URL.
+    For DASH-only videos (no progressive format), downloads and merges
+    to a temp file using yt-dlp + ffmpeg, then serves that.
     """
     cache_key = ("video", video_id)
     cached = _STREAM_CACHE.get(cache_key)
@@ -474,15 +470,10 @@ def _resolve_video(video_id: str):
         return cached
 
     import yt_dlp
+    import tempfile
 
-    # Progressive format preference: mp4 first (broad browser support),
-    # then any container as fallback
-    format_selectors = [
-        "best[ext=mp4]/best[ext=m4a]/best",
-        "best",
-    ]
-    info = None
-    for fmt in format_selectors:
+    # Try progressive formats first (single file, direct stream - no download needed)
+    for fmt in ["best[ext=mp4]/best", "best"]:
         ydl_opts = {
             "quiet": True, "no_warnings": True, "noplaylist": True,
             "format": fmt,
@@ -491,21 +482,63 @@ def _resolve_video(video_id: str):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
             if info and info.get("url"):
-                break
+                result = {
+                    "url": info["url"],
+                    "headers": info.get("http_headers") or {},
+                    "expires": time.time() + _STREAM_CACHE_TTL,
+                }
+                _STREAM_CACHE[cache_key] = result
+                return result
         except Exception:
-            info = None
+            continue
 
-    if not info or not info.get("url"):
-        # No progressive format available (DASH-only video)
-        return None
+    # No progressive format available - download and merge to temp file
+    # This handles DASH-only videos and region-restricted content
+    try:
+        tmpdir = tempfile.mkdtemp()
+        tmp_path = os.path.join(tmpdir, "video.mp4")
+        
+        ffmpeg_path = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+        
+        # Try specific format combinations that work for most videos
+        format_combos = [
+            "399+251",  # 1080p AV1 + Opus (YouTube default)
+            "137+251",  # 1080p H264 + Opus
+            "398+251",  # 720p AV1 + Opus
+            "136+251",  # 720p H264 + Opus
+            "397+251",  # 480p AV1 + Opus
+            "135+251",  # 480p H264 + Opus
+            "bestvideo+bestaudio/best",  # Fallback
+        ]
+        
+        for fmt in format_combos:
+            ydl_opts = {
+                "quiet": True, "no_warnings": True, "noplaylist": True,
+                "format": fmt,
+                "outtmpl": tmp_path,
+                "merge_output_format": "mp4",
+                "ffmpeg_location": ffmpeg_path,
+            }
+            
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+                
+                if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
+                    result = {
+                        "url": f"file://{tmp_path}",
+                        "headers": {},
+                        "expires": time.time() + _STREAM_CACHE_TTL,
+                        "is_file": True,
+                    }
+                    _STREAM_CACHE[cache_key] = result
+                    return result
+            except Exception:
+                continue
+    except Exception:
+        pass
 
-    result = {
-        "url": info["url"],
-        "headers": info.get("http_headers") or {},
-        "expires": time.time() + _STREAM_CACHE_TTL,
-    }
-    _STREAM_CACHE[cache_key] = result
-    return result
+    return None
 
 
 async def _proxy_media_response(request: Request, video_id: str, resolve, cache_key, default_content_type: str):
@@ -516,6 +549,14 @@ async def _proxy_media_response(request: Request, video_id: str, resolve, cache_
 
     if info is None:
         return JSONResponse({"error": "Video nemá dostupný progresivní stream — je možné ho přehrát jen jako zvuk"}, status_code=404)
+
+    # Handle local file (DASH-only videos downloaded to temp)
+    if info.get("is_file"):
+        file_path = info["url"].replace("file://", "")
+        path = Path(file_path)
+        if not path.exists():
+            return JSONResponse({"error": "Video soubor nenalezen"}, status_code=404)
+        return _range_file_response(path, request.headers.get("range"))
 
     upstream_headers = dict(info["headers"])
     range_header = request.headers.get("range")
@@ -609,8 +650,12 @@ def start_download(req: DownloadRequest):
         out_dir = MUSIC_ROOT
         out_template = str(out_dir / "{artist}" / "{album}" / "{title}.{output-ext}")
 
+    # Find ffmpeg
+    ffmpeg_path = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    
     cmd = [
         SPOTDL_BIN,
+        "--ffmpeg", ffmpeg_path,
         "download",
         *req.urls,
         "--output",

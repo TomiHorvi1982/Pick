@@ -1,3 +1,6 @@
 [submodule "vendor/stemdeck"]
 	path = vendor/stemdeck
 	url = https://github.com/stemdeckapp/stemdeck.git
+[submodule "vendor/kaset"]
+	path = vendor/kaset
+	url = https://github.com/sozercan/kaset.git
