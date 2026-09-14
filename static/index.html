@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Spotifylisty</title>
 <style>
+
   :root{
     --bg:#12141a; --bg2:#1a1d26; --card:#1e222d; --card-hi:#262b38;
     --text:#eef0f4; --sub:#9aa3b5; --accent:#2dd4bf; --accent-dim:#1b8f80;
@@ -720,9 +721,75 @@
 
   /* Hide old header tabs but keep functional */
   .tabs{visibility:hidden;width:0;padding:0;margin:0;overflow:hidden;border:none;background:transparent}
-  .tabs button{visibility:hidden}</style>
+  .tabs button{visibility:hidden}
+
+/* Right sidebar for playlist content */
+.right-sidebar{position:fixed;right:0;top:0;bottom:0;width:280px;background:var(--bg2);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:90}
+.right-sidebar-header{padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.right-sidebar-header h3{font-size:14px;font-weight:700;color:var(--text);margin:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.right-sidebar-close{background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;
+  padding:4px;border-radius:4px}
+.right-sidebar-close:hover{color:var(--text);background:var(--card)}
+.right-sidebar-content{flex:1;overflow-y:auto;padding:12px}
+.right-sidebar-track{display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-radius:6px;cursor:pointer;transition:background .15s}
+.right-sidebar-track:hover{background:var(--card)}
+.right-sidebar-track.active{background:var(--card-hi);border-left:2px solid var(--accent)}
+.right-sidebar-track .track-num{font-size:11px;color:var(--sub);width:20px;text-align:center;flex-shrink:0}
+.right-sidebar-track .track-info{flex:1;min-width:0}
+.right-sidebar-track .track-title{font-size:12px;font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.right-sidebar-track .track-artist{font-size:10.5px;color:var(--sub);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.right-sidebar-track .track-duration{font-size:10.5px;color:var(--sub);flex-shrink:0}
+.right-sidebar-track .track-source{font-size:9px;padding:2px 6px;border-radius:4px;
+  background:var(--bg3);color:var(--sub);flex-shrink:0}
+.right-sidebar-track .track-source.playlist{background:rgba(45,212,191,.15);color:var(--accent)}
+.right-sidebar-track .track-source.steams{background:rgba(168,85,247,.15);color:#a855f7}
+.right-sidebar-track .track-source.library{background:rgba(59,130,246,.15);color:#3b82f6}
+.right-sidebar-track .track-source.video{background:rgba(245,158,11,.15);color:#f59e0b}
+
+/* Adjust main content for right sidebar */
+.main-content{margin-left:220px;margin-right:280px;min-height:calc(100vh - 90px);padding-bottom:90px}
+main{margin-left:0;max-width:none}
+
+/* Player bar adjustments */
+.player-bar{left:220px;right:280px}
+
+/* Mixer improvements */
+.mixer-timeline-wrap{position:relative}
+.mixer-loop-handle{position:absolute;top:-2px;width:12px;height:20px;background:var(--accent);
+  border-radius:3px;cursor:ew-resize;z-index:10;transform:translateX(-50%)}
+.mixer-loop-handle:hover{background:#1ed760;transform:translateX(-50%) scale(1.1)}
+.mixer-loop-handle.start{left:0}
+.mixer-loop-handle.end{right:0}
+.mixer-loop-region{position:absolute;top:0;bottom:0;background:rgba(45,212,191,.15);
+  border-left:2px solid var(--accent);border-right:2px solid var(--accent);pointer-events:none}
+
+/* Beat grid lines */
+.mixer-ruler-tick.beat{background:rgba(45,212,191,.4)}
+.mixer-ruler-tick.downbeat{background:rgba(45,212,191,.7);width:2px}
+
+/* Clickable ruler */
+.mixer-ruler{cursor:crosshair}
+.mixer-track-lane{cursor:pointer}
+
+/* Fader at minimum = mute */
+.fl-channel.muted .fl-fader-handle{background:linear-gradient(180deg,#ff6b6b,#c0c0c0,#909090)}
+.fl-channel.muted .fl-db-label{color:var(--danger)}
+
+/* Metronome indicator */
+.metro-indicator{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;
+  background:var(--sub);opacity:.5;transition:all .05s}
+.metro-indicator.active{background:var(--accent);opacity:1;box-shadow:0 0 8px var(--accent)}
+
+</style>
 </head>
 <body>
+
 
 <!-- Spotify-style sidebar navigation -->
 <nav class="sidebar" id="sidebar">
@@ -1117,7 +1184,186 @@
 
 <div class="toast-wrap" id="toast-wrap"></div>
 
+
+
+<!-- Right sidebar for playlist/track content -->
+<div class="right-sidebar" id="right-sidebar" hidden>
+  <div class="right-sidebar-header">
+    <h3 id="right-sidebar-title">Playlist</h3>
+    <button class="right-sidebar-close" id="right-sidebar-close">✕</button>
+  </div>
+  <div class="right-sidebar-content" id="right-sidebar-content">
+    <!-- Tracks populated dynamically -->
+  </div>
+</div>
+
 <script>
+
+// ============================================================
+// Spotifylisty — Right Sidebar + Player Bar Bridge
+// ============================================================
+
+// Right sidebar state
+var rightSidebarVisible = false;
+var rightSidebarTracks = [];
+var rightSidebarSource = ''; // 'playlist', 'steems', 'library', 'video'
+
+function showRightSidebar(title, tracks, source) {
+  rightSidebarTracks = tracks;
+  rightSidebarSource = source;
+  var sidebar = document.getElementById('right-sidebar');
+  var content = document.getElementById('right-sidebar-content');
+  var titleEl = document.getElementById('right-sidebar-title');
+  if (!sidebar || !content) return;
+  
+  sidebar.hidden = false;
+  rightSidebarVisible = true;
+  if (titleEl) titleEl.textContent = title || 'Obsah';
+  
+  content.innerHTML = '';
+  tracks.forEach(function(track, idx) {
+    var el = document.createElement('div');
+    el.className = 'right-sidebar-track' + (idx === 0 ? ' active' : '');
+    var duration = track.duration ? fmtDur(track.duration) : '';
+    var sourceLabel = '';
+    if (source === 'playlist') sourceLabel = '🎵 Playlist';
+    else if (source === 'steems') sourceLabel = '🎚️ Steems';
+    else if (source === 'library') sourceLabel = '📁 Knihovna';
+    else if (source === 'video') sourceLabel = '🎬 Video';
+    
+    el.innerHTML = '<span class="track-num">' + (idx + 1) + '</span>' +
+      '<div class="track-info">' +
+        '<div class="track-title">' + esc(track.title || track.name || 'Neznámá') + '</div>' +
+        '<div class="track-artist">' + esc(track.artist || track.artists || '') + '</div>' +
+      '</div>' +
+      (sourceLabel ? '<span class="track-source ' + source + '">' + sourceLabel + '</span>' : '') +
+      (duration ? '<span class="track-duration">' + duration + '</span>' : '');
+    
+    el.onclick = function() {
+      content.querySelectorAll('.right-sidebar-track').forEach(function(t) { t.classList.remove('active'); });
+      el.classList.add('active');
+      if (track.onclick) track.onclick();
+    };
+    content.appendChild(el);
+  });
+  
+  // Adjust layout
+  document.body.classList.add('has-right-sidebar');
+}
+
+function hideRightSidebar() {
+  var sidebar = document.getElementById('right-sidebar');
+  if (sidebar) sidebar.hidden = true;
+  rightSidebarVisible = false;
+  document.body.classList.remove('has-right-sidebar');
+}
+
+// Player bar bridge - sync with mixer
+function syncPlayerBarWithMixer(songName) {
+  var title = document.getElementById('pb-title');
+  var artist = document.getElementById('pb-artist');
+  var playlist = document.getElementById('pb-playlist');
+  if (title) title.textContent = songName || 'Mixér';
+  if (artist) artist.textContent = 'Přehrávání z mixéru';
+  if (playlist) { playlist.textContent = '🎚️ Steems'; playlist.hidden = false; }
+  // Show player bar
+  var bar = document.getElementById('player-bar');
+  if (bar) bar.hidden = false;
+}
+
+// Override loadMixerSong to sync player bar
+var _origLoadMixerSong = loadMixerSong;
+loadMixerSong = function(name) {
+  _origLoadMixerSong(name);
+  syncPlayerBarWithMixer(name);
+  // Show steems in right sidebar
+  if (typeof steemsSongs !== 'undefined' && steemsSongs.length > 0) {
+    var tracks = steemsSongs.map(function(s) {
+      return { name: s.name, artist: 'Steems', duration: 0 };
+    });
+    showRightSidebar('Steems', tracks, 'steems');
+  }
+};
+
+// Override setMode to handle new modes
+var _origSetMode = setMode;
+setMode = function(mode) {
+  _origSetMode(mode);
+  // Update sidebar active state
+  document.querySelectorAll('.sidebar-nav button').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  // Show/hide right sidebar based on mode
+  if (mode === 'steems') {
+    if (typeof steemsSongs !== 'undefined' && steemsSongs.length > 0) {
+      var tracks = steemsSongs.map(function(s) {
+        return { name: s.name, artist: 'Steems', duration: 0 };
+      });
+      showRightSidebar('Steems', tracks, 'steems');
+    }
+  } else if (mode === 'library') {
+    hideRightSidebar();
+  } else if (mode === 'video') {
+    hideRightSidebar();
+  } else if (mode === 'playlists') {
+    hideRightSidebar();
+  }
+};
+
+// Right sidebar close button
+document.addEventListener('DOMContentLoaded', function() {
+  var closeBtn = document.getElementById('right-sidebar-close');
+  if (closeBtn) closeBtn.onclick = hideRightSidebar;
+  
+  // Player bar download button fix
+  var dlBtn = document.getElementById('pb-download-btn');
+  if (dlBtn) {
+    dlBtn.onclick = function(e) {
+      e.stopPropagation();
+      var menu = document.getElementById('pb-download-menu');
+      if (!menu) return;
+      if (!menu.hidden) { menu.hidden = true; return; }
+      // Check if something is playing (either audio or mixer)
+      var hasAudio = (typeof pbAudio !== 'undefined' && pbAudio && !pbAudio.paused) ||
+                     (typeof isPlaying !== 'undefined' && isPlaying);
+      if (!hasAudio) {
+        showToast('Nic nehraje — přehrajte píseň nebo načtěte stopy');
+        return;
+      }
+      menu.hidden = false;
+      setTimeout(function() {
+        var outside = function(ev) {
+          if (!menu.contains(ev.target) && ev.target !== dlBtn) {
+            menu.hidden = true;
+            document.removeEventListener('click', outside);
+          }
+        };
+        document.addEventListener('click', outside);
+      }, 0);
+    };
+  }
+  
+  // Player bar click on artwork - show source info
+  var pbArt = document.getElementById('pb-art');
+  if (pbArt) {
+    pbArt.onclick = function() {
+      var title = document.getElementById('pb-title');
+      var playlist = document.getElementById('pb-playlist');
+      if (title && title.textContent !== 'Nic nehraje') {
+        var source = playlist && !playlist.hidden ? playlist.textContent : 'Audio přehravač';
+        showToast('Zdroj: ' + source);
+      }
+    };
+  }
+});
+
+// Global data stores
+var steemsSongs = [];
+var playlistsCache = [];
+var songsCache = [];
+
+
+
 // ======================================================================
 // Curated categories
 // ======================================================================
@@ -4667,6 +4913,7 @@ renderFavPlaylists();
 loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
+
 </script>
 </body>
 </html>
