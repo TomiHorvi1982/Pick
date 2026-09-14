@@ -107,6 +107,8 @@ input:focus,select:focus{border-color:#fff}
       <div class="nav-item active" data-nav="home"><span class="nav-icon">🏠</span> Domů</div>
       <div class="nav-item" data-nav="search"><span class="nav-icon">🔍</span> Hledat</div>
       <div class="nav-item" data-nav="library"><span class="nav-icon">📁</span> Knihovna</div>
+      <div class="nav-item" data-nav="liked"><span class="nav-icon">❤️</span> Oblíbené</div>
+      <div class="nav-item" data-nav="artists"><span class="nav-icon">🎤</span> Interpreti</div>
       <div class="lib-section">
         <div class="lib-title">Playlisty <button id="add-custom" title="Přidat playlist">+</button></div>
         <div class="lib-list" id="sidebar-playlists"></div>
@@ -197,171 +199,8 @@ input:focus,select:focus{border-color:#fff}
 
 <script>
 
-// ============================================================
-// Spotifylisty — Spotify-style navigation
-// ============================================================
-let currentView = 'home';
-const viewHistory = [];
-let viewHistoryIdx = -1;
-
-function navigate(view, pushHistory) {
-  if (pushHistory !== false) {
-    viewHistory.length = viewHistoryIdx + 1;
-    viewHistory.push(view);
-    viewHistoryIdx++;
-  }
-  currentView = view;
-  renderView();
-  updateNavState();
-}
-
-function navBack() { if (viewHistoryIdx > 0) { viewHistoryIdx--; currentView = viewHistory[viewHistoryIdx]; renderView(); updateNavState(); } }
-function navFwd() { if (viewHistoryIdx < viewHistory.length - 1) { viewHistoryIdx++; currentView = viewHistory[viewHistoryIdx]; renderView(); updateNavState(); } }
-
-function updateNavState() {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.nav === currentView));
-  const b = document.getElementById('nav-back'); if (b) b.disabled = viewHistoryIdx <= 0;
-  const f = document.getElementById('nav-fwd'); if (f) f.disabled = viewHistoryIdx >= viewHistory.length - 1;
-}
-
-function renderView() {
-  const s = document.getElementById('content-scroll'); if (!s) return;
-  if (currentView === 'home') renderHome(s);
-  else if (currentView === 'search') renderSearch(s);
-  else if (currentView === 'library') renderLibrary(s);
-  else if (currentView === 'steems') renderSteems(s);
-  else if (currentView === 'podcasts') renderPodcasts(s);
-  else if (currentView === 'video') renderVideo(s);
-  else if (currentView === 'playlists') renderPlaylists(s);
-  else if (currentView === 'songs') renderSongs(s);
-  else renderHome(s);
-}
-
-function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function renderHome(c) {
-  c.innerHTML = '<div class="home-section"><h2>Vítejte zpět</h2><div class="quick-grid" id="quick-grid"></div></div><div class="home-section"><h2>Vaše playlisty</h2><div class="horizontal-scroll" id="home-playlists"><div style="color:var(--sub);padding:12px">Načítám...</div></div></div><div class="home-section"><h2>Poslední přehrávání</h2><div class="horizontal-scroll" id="home-recent"><div style="color:var(--sub);padding:12px">Načítám...</div></div></div><div class="home-section"><h2>Steems</h2><div class="horizontal-scroll" id="home-steems"><div style="color:var(--sub);padding:12px">Načítám...</div></div></div>';
-  const g = document.getElementById('quick-grid');
-  if (g) {
-    [{i:'🎵',l:'Písně',v:'songs'},{i:'🎚️',l:'Steems',v:'steems'},{i:'🎙️',l:'Podcasty',v:'podcasts'},{i:'🎬',l:'Video',v:'video'}].forEach(it => {
-      const e = document.createElement('div'); e.className = 'quick-item';
-      e.innerHTML = '<span style="font-size:20px;margin:0 12px">' + it.i + '</span><span>' + it.l + '</span>';
-      e.onclick = () => navigate(it.v); g.appendChild(e);
-    });
-  }
-  populateHomeData();
-}
-
-function populateHomeData() {
-  const pl = document.getElementById('home-playlists');
-  if (pl && typeof playlistsCache !== 'undefined') {
-    pl.innerHTML = '';
-    playlistsCache.slice(0,8).forEach(p => {
-      const e = document.createElement('div'); e.className = 'playlist-card';
-      e.innerHTML = '<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' fill=\'%23333\'%3E%3Crect width=\'100\' height=\'100\'/%3E%3Ctext x=\'50\' y=\'55\' text-anchor=\'middle\' fill=\'%23666\' font-size=\'30\'%3E%E2%99%AA%3C/text%3E%3C/svg%3E" alt=""/><h3>' + esc(p.name) + '</h3>';
-      e.onclick = () => navigate('playlists'); pl.appendChild(e);
-    });
-    if (playlistsCache.length === 0) pl.innerHTML = '<div style="color:var(--sub);padding:12px">Žádné playlisty</div>';
-  }
-  const st = document.getElementById('home-steems');
-  if (st && typeof steemsSongs !== 'undefined' && steemsSongs.length > 0) {
-    st.innerHTML = '';
-    steemsSongs.slice(0,6).forEach(s => {
-      const e = document.createElement('div'); e.className = 'playlist-card';
-      e.innerHTML = '<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\' fill=\'%23333\'%3E%3Crect width=\'100\' height=\'100\'/%3E%3Ctext x=\'50\' y=\'55\' text-anchor=\'middle\' fill=\'%23666\' font-size=\'30\'%3E%E2%99%AA%3C/text%3E%3C/svg%3E" alt=""/><h3>' + esc(s.name) + '</h3>';
-      e.onclick = () => { loadMixerSong(s.name); navigate('steems'); }; st.appendChild(e);
-    });
-  } else if (st) {
-    st.innerHTML = '<div style="color:var(--sub);padding:12px">Žádné rozseparované stopy</div>';
-  }
-  const recent = document.getElementById('home-recent');
-  if (recent) recent.innerHTML = '<div style="color:var(--sub);padding:12px">Zatím nic jste neposlouchali</div>';
-}
-
-function renderSearch(c) {
-  c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Hledat</h2><div id="search-results"></div><div id="browse-section"><div class="region-toggle" id="region-toggle"><button data-region="intl" class="active">Zahraniční Playlisty</button><button data-region="cz">České Playlisty</button></div><div id="fav-playlists-section" hidden></div></div>';
-  loadPlaylists();
-}
-
-function renderLibrary(c) {
-  c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Knihovna</h2><div class="chips" id="library-tabs"><button class="chip active" data-lib="playlists">Playlisty</button><button class="chip" data-lib="songs">Písně</button><button class="chip" data-lib="podcasts">Podcasty</button><button class="chip" data-lib="steems">Steems</button></div><div id="library-content" style="margin-top:24px"><div class="fs-list" id="library-list"></div></div>';
-  renderLibContent('playlists');
-  c.querySelectorAll('#library-tabs .chip').forEach(ch => { ch.onclick = () => { c.querySelectorAll('#library-tabs .chip').forEach(x => x.classList.remove('active')); ch.classList.add('active'); renderLibContent(ch.dataset.lib); }; });
-}
-
-function renderLibContent(type) {
-  const l = document.getElementById('library-list'); if (!l) return; l.innerHTML = '';
-  if (type === 'playlists') (playlistsCache || []).forEach(p => { const r = document.createElement('div'); r.className = 'fs-row'; r.innerHTML = '<span class="fs-icon">🎵</span>' + esc(p.name); r.onclick = () => navigate('playlists'); l.appendChild(r); });
-  else if (type === 'songs') (songsCache || []).forEach(s => { const r = document.createElement('div'); r.className = 'fs-row'; r.innerHTML = '<span class="fs-icon">🎵</span>' + esc(s.title || s.name); l.appendChild(r); });
-  else if (type === 'steems') (steemsSongs || []).forEach(s => { const r = document.createElement('div'); r.className = 'fs-row'; r.innerHTML = '<span class="fs-icon">🎚️</span>' + esc(s.name); r.onclick = () => { loadMixerSong(s.name); navigate('steems'); }; l.appendChild(r); });
-}
-
-function renderSteems(c) { c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Steems</h2><div id="steems-list" class="fs-list"></div><div id="mixer" class="fl-mixer" hidden></div>'; loadSteems(); }
-function renderPodcasts(c) { c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Podcasty</h2><div id="podcasts-list" class="fs-list"></div>'; loadPodcasts(); }
-function renderVideo(c) { c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Video</h2><div id="video-section"></div>'; loadVideoSection(); }
-function renderPlaylists(c) { c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Playlisty</h2><div id="browse-section"><div class="region-toggle" id="region-toggle"><button data-region="intl" class="active">Zahraniční</button><button data-region="cz">České</button></div><div id="fav-playlists-section" hidden></div></div>'; loadPlaylists(); }
-function renderSongs(c) { c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Písně</h2><div id="tracks-container"></div>'; loadSongs(); }
-
-function renderSidebarPlaylists() {
-  const list = document.getElementById('sidebar-playlists'); if (!list) return; list.innerHTML = '';
-  (playlistsCache || []).slice(0, 15).forEach(p => {
-    const e = document.createElement('div'); e.className = 'lib-item';
-    e.innerHTML = '<span class="lib-item-icon">🎵</span>' + esc(p.name);
-    e.onclick = () => { currentPlaylist = p; navigate('playlists'); };
-    list.appendChild(e);
-  });
-}
-
-function showPlayerBar(meta) {
-  const bar = document.getElementById('player-bar');
-  if (!bar) return;
-  bar.hidden = false;
-  if (meta) {
-    const art = document.getElementById('pb-art');
-    const title = document.getElementById('pb-title');
-    const artist = document.getElementById('pb-artist');
-    if (art && meta.art) art.src = meta.art;
-    if (title && meta.title) title.textContent = meta.title;
-    if (artist && meta.artist) artist.textContent = meta.artist;
-  }
-}
-function hidePlayerBar() { const bar = document.getElementById('player-bar'); if (bar) bar.hidden = true; }
-
-// Navigation init
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.nav-item').forEach(el => { el.onclick = () => navigate(el.dataset.nav); });
-  const logo = document.getElementById('logo'); if (logo) logo.onclick = () => navigate('home');
-  const backBtn = document.getElementById('nav-back'); if (backBtn) backBtn.onclick = navBack;
-  const fwdBtn = document.getElementById('nav-fwd'); if (fwdBtn) fwdBtn.onclick = navFwd;
-  const si = document.getElementById('search-input');
-  if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) navigate('search'); });
-  const sb = document.getElementById('settings-btn');
-  if (sb) sb.onclick = () => { const o = document.getElementById('settings-overlay'); if (o) o.hidden = !o.hidden; };
-  const sc = document.getElementById('settings-close');
-  if (sc) sc.onclick = () => { const o = document.getElementById('settings-overlay'); if (o) o.hidden = true; };
-  const pbPlay = document.getElementById('pb-play');
-  if (pbPlay) pbPlay.onclick = () => { const audio = document.getElementById('pb-audio'); if (audio) { if (audio.paused) { audio.play(); pbPlay.textContent = '⏸'; } else { audio.pause(); pbPlay.textContent = '▶'; } } };
-  const pbMute = document.getElementById('pb-mute');
-  if (pbMute) pbMute.onclick = () => { const audio = document.getElementById('pb-audio'); if (audio) { audio.muted = !audio.muted; pbMute.textContent = audio.muted ? '🔇' : '🔊'; } };
-  renderSidebarPlaylists();
-  loadPlaylists();
-  loadSteemsList();
-  navigate('home');
-});
-
-// Hook loadPlaylists to update sidebar and home
-const _origLoadPlaylists = loadPlaylists;
-loadPlaylists = function() {
-  const result = _origLoadPlaylists.apply(this, arguments);
-  if (currentView === 'home' && typeof populateHomeData === 'function') populateHomeData();
-  renderSidebarPlaylists();
-  return result;
-};
 
 // Global data stores
-var steemsSongs = [];
-var playlistsCache = [];
-var songsCache = [];
 
 
 
@@ -374,6 +213,11 @@ let currentView = 'home';
 const viewHistory = [];
 let viewHistoryIdx = -1;
 
+// Global data stores
+let steemsSongs = [];
+let playlistsCache = [];
+let songsCache = [];
+
 function navigate(view, pushHistory) {
   if (pushHistory !== false) {
     viewHistory.length = viewHistoryIdx + 1;
@@ -403,7 +247,10 @@ function renderView() {
   else if (currentView === 'podcasts') renderPodcasts(s);
   else if (currentView === 'video') renderVideo(s);
   else if (currentView === 'playlists') renderPlaylists(s);
+  else if (currentView === 'playlist-detail') renderPlaylistDetail(s);
   else if (currentView === 'songs') renderSongs(s);
+  else if (currentView === 'liked') renderLikedSongs(s);
+  else if (currentView === 'artists') renderArtists(s);
   else renderHome(s);
 }
 
@@ -1115,8 +962,6 @@ function openSteemsSong(name){
 // than ported, since only its documented architecture was available
 // during planning, not its literal source.
 // ======================================================================
-let steemsSongs = [];
-
 async function loadSteemsList(){
   const list = el("steems-list");
   list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
@@ -3859,6 +3704,263 @@ loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
 
+
+
+
+// ============================================================
+// FEATURE: Recently Played Tracking (via Player.getHistory)
+// Already built into Player — adds getHistory method
+// ============================================================
+
+// Add getHistory to Player
+const _origPlayerReturn = Player;
+Player.getHistory = function() {
+  try { return JSON.parse(localStorage.getItem('spotdl-gui-history') || '[]'); } catch(e) { return []; }
+};
+
+// ============================================================
+// FEATURE: Liked Songs (free, local)
+// ============================================================
+const LIKED_SONGS_KEY = "spotdl-gui-liked-songs";
+
+function loadLikedSongs() {
+  try { return JSON.parse(localStorage.getItem(LIKED_SONGS_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function saveLikedSongs(list) {
+  localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(list));
+}
+
+function isLiked(key) {
+  return loadLikedSongs().some(s => s.key === key);
+}
+
+function toggleLiked(track) {
+  const list = loadLikedSongs();
+  const idx = list.findIndex(s => s.key === track.key);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+    saveLikedSongs(list);
+    showToast("💔 Odebráno z oblíbených");
+    return false;
+  } else {
+    list.unshift({ ...track, likedAt: Date.now() });
+    saveLikedSongs(list);
+    showToast("❤️ Přidáno do oblíbených");
+    return true;
+  }
+}
+
+function renderLikedSongs(c) {
+  const liked = loadLikedSongs();
+  c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">❤️ Oblíbené písně</h2><div id="liked-songs-list"></div>';
+  const list = document.getElementById('liked-songs-list');
+  if (!liked.length) {
+    list.innerHTML = '<div class="empty" style="padding:40px 10px">Zatím žádné oblíbené písně. Přidej nějaké srdíčkem ❤️ u písně.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  liked.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'fs-row';
+    row.innerHTML = `
+      <span class="fs-icon">❤️</span>
+      <span class="fs-name" style="flex:1">${esc(t.title || 'Neznámá')}</span>
+      <span style="font-size:12px;color:var(--sub);margin-right:12px">${esc(t.artists || '')}</span>
+      <button class="icon-btn-flat liked-play" title="Přehrát">▶</button>
+      <button class="icon-btn-flat liked-remove" title="Odebrat">✕</button>
+    `;
+    row.querySelector('.liked-play').onclick = () => Player.play(t);
+    row.querySelector('.liked-remove').onclick = () => { toggleLiked(t); renderLikedSongs(c); };
+    list.appendChild(row);
+  });
+}
+
+// ============================================================
+// FEATURE: Playlist Detail View showing tracks
+// ============================================================
+function renderPlaylistDetail(c) {
+  const pl = (typeof currentPlaylist !== 'undefined' && currentPlaylist) ? currentPlaylist : { name: 'Playlist', tracks: [] };
+  c.innerHTML = `<h2 style="font-size:28px;font-weight:700;margin-bottom:8px">${esc(pl.name || 'Playlist')}</h2>
+    <div class="breadcrumb"><a onclick="navigate('playlists')">Playlisty</a> › <span class="current">${esc(pl.name || '')}</span></div>
+    <div id="playlist-detail-tracks"></div>`;
+  const container = document.getElementById('playlist-detail-tracks');
+  if (!pl.tracks || !pl.tracks.length) {
+    container.innerHTML = '<div class="empty" style="padding:40px 10px">Načítám skladby...</div>';
+    fetch(`/api/playlist/${encodeURIComponent(pl.browseId || pl.id || '')}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.tracks && data.tracks.length) {
+          pl.tracks = data.tracks;
+          renderPlaylistTracks(c, pl);
+        } else {
+          container.innerHTML = '<div class="empty" style="padding:40px 10px">Žádné skladby v playlistu.</div>';
+        }
+      })
+      .catch(() => { container.innerHTML = '<div class="empty" style="padding:40px 10px">Nepodařilo se načíst skladby.</div>'; });
+  } else {
+    renderPlaylistTracks(c, pl);
+  }
+}
+
+function renderPlaylistTracks(c, pl) {
+  const container = document.getElementById('playlist-detail-tracks');
+  if (!container) return;
+  container.innerHTML = '';
+  pl.tracks.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'fs-row';
+    row.innerHTML = `
+      <span class="fs-icon">${i+1}</span>
+      <span class="fs-name" style="flex:1">${esc(t.title || 'Neznámá')}</span>
+      <span style="font-size:12px;color:var(--sub);margin-right:12px">${esc(t.artists || '')}</span>
+      <span style="font-size:11px;color:var(--sub);min-width:40px;text-align:right;margin-right:12px">${t.duration || ''}</span>
+      <button class="icon-btn-flat" title="Přehrát" data-action="play">▶</button>
+      <button class="icon-btn-flat" title="Oblíbené" data-action="like">${isLiked('yt:'+t.videoId) ? '❤️' : '🤍'}</button>
+    `;
+    row.querySelector('[data-action="play"]').onclick = () => {
+      Player.play({
+        key: 'yt:'+t.videoId, title: t.title, artists: t.artists,
+        thumbnail: t.thumbnail, videoId: t.videoId, sourcePlaylist: pl.name,
+      });
+    };
+    row.querySelector('[data-action="like"]').onclick = () => {
+      const track = { key: 'yt:'+t.videoId, title: t.title, artists: t.artists, thumbnail: t.thumbnail, videoId: t.videoId };
+      toggleLiked(track);
+      renderPlaylistTracks(c, pl);
+    };
+    container.appendChild(row);
+  });
+}
+
+// ============================================================
+// FEATURE: Artist Section from YouTube data
+// ============================================================
+function renderArtists(c) {
+  c.innerHTML = '<h2 style="font-size:28px;font-weight:700;margin-bottom:24px">Interpreti</h2><div class="chips" id="artist-chips"></div><div id="artists-grid" style="margin-top:24px"></div>';
+  const chips = document.getElementById('artist-chips');
+  const genres = ['Rock','Pop','Hip Hop','Electronic','Jazz','Classical','R&B','Country','Metal','Indie'];
+  genres.forEach(g => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = g;
+    chip.onclick = () => {
+      document.querySelectorAll('#artist-chips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      loadArtistsByGenre(g);
+    };
+    chips.appendChild(chip);
+  });
+  loadArtistsByGenre('Rock');
+}
+
+async function loadArtistsByGenre(genre) {
+  const grid = document.getElementById('artists-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="empty" style="padding:24px"><span class="spinner"></span> Načítám interprety...</div>';
+  try {
+    const res = await fetch(`/api/artists?q=${encodeURIComponent(genre)}&limit=24`);
+    const data = await res.json();
+    const artists = data.artists || [];
+    if (!artists.length) {
+      grid.innerHTML = '<div class="empty" style="padding:40px 10px">Žádní interpreti nenalezeni.</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    artists.forEach(a => {
+      const card = document.createElement('div');
+      card.className = 'playlist-card artist-card';
+      const thumb = a.thumbnail || a.image || '';
+      card.innerHTML = `<img src="${thumb || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23333'%3E%3Crect width='100' height='100'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%23666' font-size='30'%3E🎤%3C/text%3E%3C/svg%3E"}" alt=""/><h3>${esc(a.name || '')}</h3><p>${esc(a.subscribers || a.genre || '')}</p>`;
+      card.onclick = () => openArtistDetail(a);
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    grid.innerHTML = '<div class="empty" style="padding:40px 10px">Nepodařilo se načíst interprety.</div>';
+  }
+}
+
+async function openArtistDetail(artist) {
+  const overlay = document.getElementById('overlay');
+  const panel = document.getElementById('panel');
+  overlay.hidden = false;
+  panel.innerHTML = '<div class="empty" style="padding-top:80px"><span class="spinner"></span> Načítám interpreta...</div>';
+  try {
+    const res = await fetch(`/api/artist/${encodeURIComponent(artist.id || artist.name)}`);
+    const data = await res.json();
+    const tracks = data.tracks || data.songs || [];
+    panel.innerHTML = `
+      <div class="panel-head">
+        <button class="close-btn" id="close-panel">✕</button>
+        <div class="pl-art" style="border-radius:50%;${artist.thumbnail ? `background-image:url('${artist.thumbnail}')` : ''}">${artist.thumbnail ? '' : '🎤'}</div>
+        <div class="pl-title">${esc(artist.name || 'Interpret')}</div>
+        <div class="pl-author">${esc(artist.subscribers || data.subscribers || '')}</div>
+        <div class="actions">
+          <button class="btn" id="artist-play-all">▶ Přehrát vše</button>
+          <button class="btn secondary" id="artist-shuffle">🔀 Náhodně</button>
+        </div>
+      </div>
+      <div class="track-list"><div id="artist-tracks"></div></div>
+    `;
+    document.getElementById('close-panel').onclick = closeOverlay;
+    const container = document.getElementById('artist-tracks');
+    if (tracks.length) {
+      tracks.forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'fs-row';
+        row.innerHTML = `
+          <span class="fs-icon">${i+1}</span>
+          <span class="fs-name" style="flex:1">${esc(t.title || '')}</span>
+          <span style="font-size:12px;color:var(--sub);margin-right:12px">${esc(t.album || t.artists || '')}</span>
+          <span style="font-size:11px;color:var(--sub);min-width:40px;text-align:right;margin-right:12px">${t.duration || ''}</span>
+          <button class="icon-btn-flat" title="Přehrát">▶</button>
+          <button class="icon-btn-flat" title="Oblíbené">${isLiked('yt:'+t.videoId) ? '❤️' : '🤍'}</button>
+        `;
+        row.querySelectorAll('.icon-btn-flat')[0].onclick = () => Player.play({
+          key: 'yt:'+t.videoId, title: t.title, artists: artist.name,
+          thumbnail: t.thumbnail, videoId: t.videoId,
+        });
+        row.querySelectorAll('.icon-btn-flat')[1].onclick = () => toggleLiked({ key: 'yt:'+t.videoId, title: t.title, artists: artist.name, thumbnail: t.thumbnail, videoId: t.videoId });
+        container.appendChild(row);
+      });
+    } else {
+      container.innerHTML = '<div class="empty" style="padding:40px 10px">Žádné skladby nenalezeny.</div>';
+    }
+    document.getElementById('artist-play-all').onclick = () => {
+      if (tracks.length) Player.play({ key: 'yt:'+tracks[0].videoId, title: tracks[0].title, artists: artist.name, thumbnail: tracks[0].thumbnail, videoId: tracks[0].videoId });
+    };
+    document.getElementById('artist-shuffle').onclick = () => {
+      if (tracks.length) {
+        const t = tracks[Math.floor(Math.random()*tracks.length)];
+        Player.play({ key: 'yt:'+t.videoId, title: t.title, artists: artist.name, thumbnail: t.thumbnail, videoId: t.videoId });
+      }
+    };
+  } catch(e) {
+    panel.innerHTML = '<div class="empty" style="padding:40px 10px">Nepodařilo se načíst detail interpreta.</div>';
+  }
+}
+
+// ============================================================
+// Update Home to show recently played from history
+// ============================================================
+const _origRenderHome = renderHome;
+renderHome = function(c) {
+  _origRenderHome(c);
+  // Update recent section after home renders
+  const recent = document.getElementById('home-recent');
+  if (recent && typeof Player !== 'undefined' && Player.getHistory) {
+    const history = Player.getHistory();
+    if (history && history.length > 0) {
+      recent.innerHTML = '';
+      history.slice(0,8).forEach(h => {
+        const e = document.createElement('div'); e.className = 'playlist-card';
+        const thumb = h.thumbnail || '';
+        e.innerHTML = '<img src="' + (thumb || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%23333'%3E%3Crect width='100' height='100'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%23666' font-size='30'%3E🎵%3C/text%3E%3C/svg%3E") + '" alt=""/><h3>' + esc(h.title || 'Neznámá') + '</h3><p>' + esc(h.artists || '') + '</p>';
+        e.onclick = () => Player.play(h); recent.appendChild(e);
+      });
+    }
+  }
+};
 
 </script>
 </body>
