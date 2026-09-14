@@ -501,7 +501,7 @@
   /* ================================================================
      DAW-style vertical track layout with timeline, ruler, clips
      ================================================================ */
-  .mixer-timeline-wrap{display:flex;flex-direction:column;gap:0;margin-top:8px}
+  .mixer-timeline-wrap{display:flex;flex-direction:column;gap:0;margin-top:8px;overflow-x:auto !important}
   .mixer-ruler-area{display:flex;align-items:stretch;height:28px;margin-bottom:4px;position:relative}
   .mixer-ruler-spacer{flex:0 0 150px;background:var(--bg2);border:1px solid var(--border);border-right:none;border-radius:6px 0 0 6px}
   .mixer-ruler{flex:1;background:var(--bg2);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;position:relative;overflow:hidden;cursor:crosshair}
@@ -836,6 +836,7 @@
           </div>
           <button class="fl-btn" id="mixer-loop" title="Toggle loop region">🔁 Loop</button>
           <button class="fl-btn" id="mixer-metro" title="Metronome click track">🔔 Metro</button>
+          <span class="metro-indicator" id="metro-indicator"></span>
           <span class="tempo-display" id="mixer-tempo">-- BPM</span>
           <button class="fl-btn" id="mixer-export" title="Open export dialog">⬇️ Export</button>
           <button class="fl-btn" id="mixer-save-session" title="Save mix session">💾 Save</button>
@@ -853,7 +854,7 @@
         </div>
         <div class="mixer-zoom-bar">
           <label>Zoom</label>
-          <input type="range" id="mixer-zoom" min="80" max="600" value="200" step="20">
+          <input type="range" id="mixer-zoom" min="5" max="1000" value="10" step="20">
           <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
         </div>
         <div id="fl-channels" class="fl-channels"></div>
@@ -1735,7 +1736,7 @@ const Mixer = (() => {
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
-  let pixelsPerSecond = 200;
+  let pixelsPerSecond = 10;
   let tempoBPM = null;
   let beatInterval = 0;
   let metronomeOn = false;
@@ -1826,16 +1827,30 @@ const Mixer = (() => {
 
   function applyGains(){
     const solo = channels.some(c => c.solo);
-    channels.forEach(c => {
+    let anyActive = false;
+    channels.forEach((c, idx) => {
       const active = solo ? c.solo : !c.muted;
-      c.gainNode.gain.value = active ? c.faderValue : 0;
+      const gain = (!active || c.faderValue < 0.01) ? 0 : c.faderValue;
+      c.gainNode.gain.value = gain;
+      c.muted = gain < 0.01;
       if(c.panner) c.panner.pan.value = c.panValue || 0;
+      var strips = document.querySelectorAll('.fl-channel');
+      if(strips[idx]) strips[idx].classList.toggle('muted', c.muted);
+      if(!c.muted) anyActive = true;
     });
+    if(!anyActive && isPlaying){
+      channels.forEach(c => { if(c.source){ try{c.source.stop();c.source=null;}catch(e){} } });
+      isPlaying = false;
+      pausedAt = currentTime();
+      if(el("mixer-play")) el("mixer-play").textContent = "▶";
+      updateSeekUI(pausedAt);
+    }
   }
 
   function scheduleAll(offset){
     const when = ctx().currentTime + 0.05;
     channels.forEach(c => {
+      if(c.faderValue < 0.01 || c.muted){ c.source = null; return; }
       const source = ctx().createBufferSource();
       source.buffer = c.buffer;
       source.playbackRate.value = c.pitchRate || 1;
@@ -1875,6 +1890,11 @@ const Mixer = (() => {
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
+    var allMuted = channels.every(c => c.muted || c.faderValue < 0.01);
+    if(allMuted && isPlaying){
+      isPlaying = false;
+      if(el("mixer-play")) el("mixer-play").textContent = "▶";
+    }
   }
 
   function currentTime(){
@@ -1934,13 +1954,18 @@ const Mixer = (() => {
 
   function renderTimeline(){
     const ruler = el("mixer-ruler");
-    // Clear old ticks
-    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label").forEach(n => n.remove());
+    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label,.mixer-beat-tick").forEach(n => n.remove());
     const totalPx = duration * pixelsPerSecond;
     ruler.style.minWidth = totalPx + "px";
     el("mixer-tracks").style.minWidth = totalPx + "px";
+    ruler.onclick = (e) => {
+      const rect = ruler.getBoundingClientRect();
+      const x = e.clientX - rect.left + ruler.scrollLeft;
+      const t = Math.max(0, Math.min(duration, x / pixelsPerSecond));
+      seek(t);
+    };
     // Determine tick spacing
-    const targetTickSpacing = 60; // pixels
+    const targetTickSpacing = 60;
     const secPerTick = targetTickSpacing / pixelsPerSecond;
     let tickSec;
     if(secPerTick < 0.25) tickSec = 0.25;
@@ -1966,6 +1991,20 @@ const Mixer = (() => {
       }
       ruler.appendChild(tick);
     }
+    // Beat grid
+    if(tempoBPM && beatInterval){
+      const downbeatInterval = beatInterval * 4;
+      for(let t = 0; t <= duration; t += beatInterval){
+        const px = t * pixelsPerSecond;
+        const beatTick = document.createElement("div");
+        beatTick.className = "mixer-beat-tick";
+        if(Math.abs(t % downbeatInterval) < 0.01 || Math.abs((t % downbeatInterval) - downbeatInterval) < 0.01){
+          beatTick.classList.add("downbeat");
+        }
+        beatTick.style.left = px + "px";
+        ruler.appendChild(beatTick);
+      }
+    }
     // Update loop region visual
     const loopRegion = el("mixer-loop-region");
     if(loopEnabled){
@@ -1982,6 +2021,13 @@ const Mixer = (() => {
   function renderTrackLanes(){
     const tracks = el("mixer-tracks");
     tracks.innerHTML = "";
+    tracks.onclick = (e) => {
+      if(e.target.closest('.mixer-clip')) return;
+      const rect = tracks.getBoundingClientRect();
+      const x = e.clientX - rect.left + tracks.scrollLeft;
+      const t = Math.max(0, Math.min(duration, x / pixelsPerSecond));
+      seek(t);
+    };
     const totalPx = duration * pixelsPerSecond;
     channels.forEach((c, idx) => {
       const track = document.createElement("div");
