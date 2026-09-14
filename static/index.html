@@ -679,9 +679,34 @@
 
   /* Smooth player bar appearance */
   .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
-  .player-bar[hidden]{transform:translateY(100%);opacity:0}</style>
+  .player-bar[hidden]{transform:translateY(100%);opacity:0}
+/* Left sidebar */
+#sidebar-left{position:fixed;top:0;bottom:0;left:0;width:200px;background:#000;padding:16px 0;display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid #222;z-index:10}
+.sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
+.sb-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;background:none;border:none;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:color .15s;border-left:2px solid transparent}
+.sb-btn:hover{color:#fff}
+.sb-btn.active{color:#fff;border-left-color:var(--accent)}
+.sb-icon{font-size:14px;width:16px;text-align:center}
+.sb-divider{border:none;border-top:1px solid #222;margin:8px 0}
+/* Main content shift */
+.main-content{margin-left:200px}
+
+</style>
 </head>
 <body>
+<nav id="sidebar-left">
+  <div class="sb-logo" id="sb-logo" style="cursor:pointer"><span>🎧</span> Spotifylisty</div>
+  <button class="sb-btn active" data-mode="playlists"><span class="sb-icon">🏠</span> Playlisty</button>
+  <button class="sb-btn" data-mode="songs"><span class="sb-icon">💿</span> Písně</button>
+  <button class="sb-btn" data-mode="library"><span class="sb-icon">📁</span> Knihovna</button>
+  <button class="sb-btn" data-mode="steems"><span class="sb-icon">🎚️</span> Steems</button>
+  <button class="sb-btn" data-mode="podcasts"><span class="sb-icon">🎙️</span> Podcasty</button>
+  <hr class="sb-divider">
+  <button class="sb-btn" data-mode="video"><span class="sb-icon">🎬</span> Video</button>
+  <button class="sb-btn" id="sb-toggle-right"><span class="sb-icon">📃</span> Playlist</button>
+</nav>
+
+<div class="main-content">
 
 <header>
   <h1 class="logo" id="logo" style="cursor:pointer" title="Zpět na playlisty"><span>🎧</span> Spotifylisty</h1>
@@ -931,6 +956,7 @@
      playlist/search panel stays open no matter what you do here (it sits
      above the overlay's dim backdrop). Fully custom controls — no native
      browser widget — so it actually matches the rest of the app. -->
+</div>
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
@@ -4459,6 +4485,36 @@ renderFavPlaylists();
 loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
+
+// Sidebar navigation
+function updateSidebar(mode){
+  document.querySelectorAll('#sidebar-left .sb-btn[data-mode]').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('#sidebar-left .sb-btn[data-mode]').forEach(function(btn){
+    btn.onclick = function(){
+      setMode(btn.dataset.mode);
+      updateSidebar(btn.dataset.mode);
+    };
+  });
+  var logo = document.getElementById('sb-logo');
+  if(logo) logo.onclick = function(){ setMode('playlists'); updateSidebar('playlists'); };
+  var toggleRight = document.getElementById('sb-toggle-right');
+  if(toggleRight) toggleRight.onclick = function(){
+    var rs = document.getElementById('right-sidebar');
+    if(rs) rs.hidden = !rs.hidden;
+  };
+});
+
+var _origSetMode = window.setMode || setMode;
+window.setMode = function(mode){
+  if(_origSetMode) _origSetMode(mode);
+  updateSidebar(mode);
+};
+
 </script>
 </body>
 </html>
