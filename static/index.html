@@ -320,6 +320,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pbMute) pbMute.onclick = () => { const audio = document.getElementById('pb-audio'); if (audio) { audio.muted = !audio.muted; pbMute.textContent = audio.muted ? '🔇' : '🔊'; } };
   // Render sidebar
   renderSidebarPlaylists();
+  // Load initial data
+  loadPlaylists();
+  loadSteemsList();
   // Initial view
   navigate('home');
 });
