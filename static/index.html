@@ -352,30 +352,151 @@
     padding:5px 8px;border-radius:999px;border:1px solid var(--border);
     background:var(--bg2)}
 
-  .mixer{margin-top:18px}
-  .mixer[hidden]{display:none}
-  .mixer-transport{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-  .mixer-seek{flex:1;min-width:120px;height:8px;background:var(--bg2);
-    border-radius:4px;position:relative;cursor:pointer}
-  .mixer-seek-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);
-    border-radius:4px;width:0%;pointer-events:none}
-  .mixer-channels{display:flex;gap:12px;flex-wrap:wrap}
-  .channel{background:var(--card);border:1px solid var(--border);border-radius:12px;
-    padding:12px;width:150px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
-  .channel-name{font-size:12.5px;font-weight:700;text-transform:capitalize}
-  .channel-wave{width:100%;height:60px;background:var(--bg2);border-radius:6px;display:block}
-  .channel-controls{display:flex;align-items:center;gap:6px}
-  .channel-fader{writing-mode:vertical-lr;direction:rtl;width:24px;height:90px}
-  .channel-vu{width:6px;height:90px;background:var(--bg2);border-radius:3px;
-    position:relative;overflow:hidden;flex-shrink:0}
-  .channel-vu-fill{position:absolute;bottom:0;left:0;right:0;background:var(--ok);
-    height:0%}
-  .channel-buttons{display:flex;flex-direction:column;gap:4px}
-  .channel-mute,.channel-solo{width:26px;height:22px;border-radius:5px;
+  /* ================================================================
+     FL Studio-style Mixer — horizontal channel strips with LED meters,
+     3D vertical faders, pan knobs, M/S buttons, FX slots, color-coded
+     ================================================================ */
+  .fl-mixer{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .fl-mixer[hidden]{display:none}
+
+  /* ---- Transport Bar ---- */
+  .fl-transport{display:flex;align-items:center;gap:8px;padding:8px 12px;
+    background:var(--card);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap}
+  .fl-transport .fl-btn{padding:6px 10px;font-size:11px;border-radius:5px;
+    border:1px solid var(--border);background:var(--bg2);color:var(--text);
+    cursor:pointer;font-weight:600;white-space:nowrap;font-family:inherit}
+  .fl-transport .fl-btn:hover{border-color:var(--accent);background:var(--bg2)}
+  .fl-transport .fl-btn.active{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .fl-transport .fl-btn.danger.active{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .fl-seek{flex:1;min-width:120px;height:10px;background:var(--bg2);
+    border-radius:5px;position:relative;cursor:pointer;overflow:hidden}
+  .fl-seek-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);
+    border-radius:5px;width:0%;pointer-events:none}
+  .fl-time{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;
+    min-width:36px;text-align:center;user-select:none}
+  .fl-in-out{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub)}
+  .fl-in-out input{width:52px;background:var(--bg2);border:1px solid var(--border);
+    border-radius:4px;padding:3px 6px;font-size:10px;color:var(--text);
+    font-variant-numeric:tabular-nums;font-family:inherit;text-align:center}
+  .fl-in-out input:focus{border-color:var(--accent);outline:none}
+  .fl-marker-group{display:flex;align-items:center;gap:4px;padding:0 6px;
+    border-left:1px solid var(--border);border-right:1px solid var(--border)}
+  .fl-marker-group .fl-btn{padding:5px 9px;font-size:10px}
+
+  /* ---- Channel Strips Container ---- */
+  .fl-channels{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
+  .fl-channels::-webkit-scrollbar{height:8px}
+  .fl-channels::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+  /* ---- Individual Channel Strip ---- */
+  .fl-channel{background:var(--card);border:1px solid var(--border);border-radius:8px;
+    width:88px;display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:8px 5px 6px;flex-shrink:0;position:relative;overflow:hidden;
+    transition:border-color .15s}
+  .fl-channel:hover{border-color:var(--accent)}
+  .fl-channel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:var(--ch-color,var(--accent));box-shadow:0 0 8px var(--ch-color,var(--accent))}
+  .fl-channel.muted{opacity:.55}
+  .fl-channel.solo{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+
+  /* Channel Header */
+  .fl-ch-header{text-align:center;width:100%}
+  .fl-ch-name{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;color:var(--text)}
+  .fl-ch-tag{font-size:7.5px;color:var(--sub);margin-top:1px;font-weight:600}
+
+  /* LED Meter */
+  .fl-led-wrap{display:flex;gap:3px;align-items:flex-end;height:100px}
+  .fl-led-meter{display:flex;flex-direction:column-reverse;gap:1px;width:12px;height:100%;
+    background:#080808;border-radius:2px;padding:2px}
+  .fl-led-seg{flex:1;border-radius:1px;background:#1a1a1a;min-height:2px;transition:background .05s}
+  .fl-led-seg.on-l1{background:#22c55e}
+  .fl-led-seg.on-l2{background:#4ade80}
+  .fl-led-seg.on-l3{background:#86efac}
+  .fl-led-seg.on-l4{background:#fde047}
+  .fl-led-seg.on-l5{background:#facc15}
+  .fl-led-seg.on-l6{background:#fb923c}
+  .fl-led-seg.on-l7{background:#f97316}
+  .fl-led-seg.on-l8{background:#ef4444}
+  .fl-led-seg.on-l9{background:#dc2626}
+  .fl-led-seg.on-peak{background:#ff0000;box-shadow:0 0 4px #ff0000}
+
+  /* 3D Fader */
+  .fl-fader-wrap{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .fl-fader-area{display:flex;align-items:flex-end;gap:2px;height:100px}
+  .fl-fader-track{width:7px;height:100%;background:linear-gradient(180deg,#080808,#181818,#080808);
+    border-radius:3px;position:relative;cursor:pointer;border:1px solid #2a2a2a;
+    box-shadow:inset 0 1px 4px rgba(0,0,0,.7),inset 0 -1px 4px rgba(0,0,0,.7)}
+  .fl-fader-handle{position:absolute;left:50%;transform:translateX(-50%);
+    width:20px;height:9px;border-radius:2px;cursor:grab;
+    background:linear-gradient(180deg,#f0f0f0,#c0c0c0,#909090);
+    border:1px solid #707070;
+    box-shadow:0 2px 5px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.5)}
+  .fl-fader-handle:active{cursor:grabbing}
+  .fl-fader-handle::after{content:'';position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);width:13px;height:1.5px;background:#505050;border-radius:1px}
+  .fl-db-label{font-size:7.5px;color:var(--sub);text-align:center;font-variant-numeric:tabular-nums;
+    height:10px;user-select:none}
+
+  /* Pan Knob */
+  .fl-pan-wrap{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .fl-pan-knob{width:26px;height:26px;border-radius:50%;position:relative;cursor:pointer;
+    background:radial-gradient(circle at 35% 35%,#505050,#1a1a1a);
+    border:2px solid #404040;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+  .fl-pan-knob::before{content:'';position:absolute;left:50%;top:3px;
+    width:2px;height:9px;background:var(--accent);border-radius:1px;
+    transform-origin:bottom center;transform:translateX(-50%) rotate(0deg);
+    transition:transform .1s}
+  .fl-pan-knob.pan-l::before{transform:translateX(-50%) rotate(-50deg)}
+  .fl-pan-knob.pan-r::before{transform:translateX(-50%) rotate(50deg)}
+  .fl-pan-label{font-size:7.5px;color:var(--sub);user-select:none}
+
+  /* M/S Buttons */
+  .fl-ms-btns{display:flex;gap:2px;width:100%}
+  .fl-ms-btn{flex:1;height:17px;border-radius:3px;font-size:8.5px;font-weight:700;
     border:1px solid var(--border);background:var(--bg2);color:var(--sub);
-    font-size:10px;font-weight:700;cursor:pointer}
-  .channel-mute.active{background:var(--danger);color:#fff;border-color:var(--danger)}
-  .channel-solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-family:inherit}
+  .fl-ms-btn:hover{border-color:var(--accent)}
+  .fl-ms-btn.mute.active{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .fl-ms-btn.solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+
+  /* FX Slots */
+  .fl-fx-slots{display:flex;flex-direction:column;gap:2px;width:100%}
+  .fl-fx-slot{height:15px;background:var(--bg2);border:1px solid var(--border);
+    border-radius:3px;font-size:7.5px;color:var(--sub);display:flex;align-items:center;
+    justify-content:center;cursor:pointer;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;padding:0 3px;font-family:inherit}
+  .fl-fx-slot:hover{border-color:var(--accent);color:var(--accent)}
+  .fl-fx-slot.fx-active{background:rgba(45,212,191,.08);border-color:var(--accent);color:var(--accent)}
+
+  /* ---- Export Dialog ---- */
+  .fl-export-overlay{position:fixed;inset:0;background:rgba(6,7,10,.88);z-index:60;
+    display:flex;align-items:center;justify-content:center}
+  .fl-export-overlay[hidden]{display:none}
+  .fl-export-dialog{width:min(460px,94vw);background:linear-gradient(180deg,var(--card),var(--bg));
+    border:1px solid var(--border);border-radius:16px;padding:24px;
+    box-shadow:0 28px 80px rgba(0,0,0,.6)}
+  .fl-export-title{font-size:16px;font-weight:700;margin-bottom:18px;
+    display:flex;align-items:center;gap:8px}
+  .fl-export-row{display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;gap:12px}
+  .fl-export-row label{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap}
+  .fl-export-row select,.fl-export-row input[type=text]{flex:1;
+    background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+    padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit}
+  .fl-export-row select:focus,.fl-export-row input:focus{border-color:var(--accent);outline:none}
+  .fl-export-info{font-size:10.5px;color:var(--sub);margin-top:4px;text-align:right}
+  .fl-export-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+  /* Channel Color Coding */
+  .fl-channel.color-vocals{--ch-color:#a855f7}
+  .fl-channel.color-drums{--ch-color:#ef4444}
+  .fl-channel.color-bass{--ch-color:#3b82f6}
+  .fl-channel.color-guitar{--ch-color:#f59e0b}
+  .fl-channel.color-piano{--ch-color:#10b981}
+  .fl-channel.color-other{--ch-color:#6b7280}
 
   /* ================================================================
      DAW-style vertical track layout with timeline, ruler, clips
@@ -697,39 +818,95 @@
     <div id="steems-list" class="fs-list"></div>
     <div id="mixer" class="mixer" hidden>
       <div class="mixer-transport">
-        <button class="btn secondary" id="mixer-play">▶</button>
-        <div class="mixer-seek" id="mixer-seek">
-          <div class="mixer-seek-fill" id="mixer-seek-fill"></div>
+        <div class="fl-transport">
+          <button class="fl-btn" id="mixer-play" title="Play / Pause">▶</button>
+          <div class="fl-seek" id="mixer-seek">
+            <div class="fl-seek-fill" id="mixer-seek-fill"></div>
+          </div>
+          <span class="fl-time" id="mixer-time-cur">0:00</span>
+          <span style="color:var(--sub)">/</span>
+          <span class="fl-time" id="mixer-time-dur">0:00</span>
+          <div class="fl-in-out">
+            In <input type="text" id="fl-in-marker" value="0:00">
+            Out <input type="text" id="fl-out-marker" value="0:00">
+          </div>
+          <div class="fl-marker-group">
+            <button class="fl-btn" id="fl-marker-btn" title="Drop marker at playhead">🏷 Marker</button>
+            <button class="fl-btn" id="fl-set-btn" title="Set loop region from In/Out markers">⚙ Set</button>
+          </div>
+          <button class="fl-btn" id="mixer-loop" title="Toggle loop region">🔁 Loop</button>
+          <button class="fl-btn" id="mixer-metro" title="Metronome click track">🔔 Metro</button>
+          <span class="tempo-display" id="mixer-tempo">-- BPM</span>
+          <button class="fl-btn" id="mixer-export" title="Open export dialog">⬇️ Export</button>
+          <button class="fl-btn" id="mixer-save-session" title="Save mix session">💾 Save</button>
+          <button class="fl-btn" id="mixer-load-session" title="Load mix session">📂 Load</button>
         </div>
-        <span class="pb-time" id="mixer-time-cur">0:00</span>
-        <span class="pb-time">/</span>
-        <span class="pb-time" id="mixer-time-dur">0:00</span>
-        <button class="btn secondary" id="mixer-metro" title="Metronome click track">🔔 Metro</button>
-        <button class="btn secondary" id="mixer-loop" title="Toggle loop region">🔁 Loop</button>
-        <span class="tempo-display" id="mixer-tempo">-- BPM</span>
-        <button class="btn secondary" id="mixer-export">⬇️ Export</button>
-        <button class="btn secondary" id="mixer-export-stem" title="Export individual stem">⬇️ Stem</button>
+        <div class="mixer-timeline-wrap">
+          <div class="mixer-ruler-area">
+            <div class="mixer-ruler-spacer"></div>
+            <div class="mixer-ruler" id="mixer-ruler">
+              <div class="mixer-loop-region" id="mixer-loop-region" hidden></div>
+              <div class="mixer-ruler-playhead" id="mixer-ruler-playhead"></div>
+            </div>
+          </div>
+          <div class="mixer-tracks" id="mixer-tracks"></div>
+        </div>
+        <div class="mixer-zoom-bar">
+          <label>Zoom</label>
+          <input type="range" id="mixer-zoom" min="80" max="600" value="200" step="20">
+          <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
+        </div>
+        <div id="fl-channels" class="fl-channels"></div>
       </div>
-      <div class="mixer-timeline-wrap">
-        <div class="mixer-ruler-area">
-          <div class="mixer-ruler-spacer"></div>
-          <div class="mixer-ruler" id="mixer-ruler">
-            <div class="mixer-loop-region" id="mixer-loop-region" hidden></div>
-            <div class="mixer-ruler-playhead" id="mixer-ruler-playhead"></div>
+      <!-- Export Dialog -->
+      <div class="fl-export-overlay" id="fl-export-overlay" hidden>
+        <div class="fl-export-dialog">
+          <div class="fl-export-title">⬇️ Export Mix</div>
+          <div class="fl-export-row">
+            <label>Format</label>
+            <select id="fl-export-format">
+              <option value="wav">WAV</option>
+              <option value="mp3">MP3</option>
+              <option value="flac">FLAC</option>
+              <option value="ogg">OGG</option>
+            </select>
+          </div>
+          <div class="fl-export-row">
+            <label>Sample Rate</label>
+            <select id="fl-export-sample-rate">
+              <option value="44100">44.1 kHz</option>
+              <option value="48000">48 kHz</option>
+              <option value="96000">96 kHz</option>
+            </select>
+          </div>
+          <div class="fl-export-row">
+            <label>Bit Depth</label>
+            <select id="fl-export-bit-depth">
+              <option value="16">16-bit</option>
+              <option value="24">24-bit</option>
+              <option value="32">32-bit float</option>
+            </select>
+          </div>
+          <div class="fl-export-row">
+            <label>Scale</label>
+            <select id="fl-export-scale">
+              <option value="none">None</option>
+              <option value="normalize">Normalize</option>
+              <option value="limiter">Limiter (-0.1 dB)</option>
+              <option value="headroom">Headroom (-6 dB)</option>
+            </select>
+          </div>
+          <div class="fl-export-row">
+            <label>Filename Suffix</label>
+            <input type="text" id="fl-export-suffix" placeholder="_master" value="">
+          </div>
+          <div class="fl-export-info" id="fl-export-estimate">Est. size: —</div>
+          <div class="fl-export-btns">
+            <button class="fl-btn" id="fl-export-cancel">Cancel</button>
+            <button class="fl-btn" id="fl-export-confirm">⬇️ Export</button>
           </div>
         </div>
-        <div class="mixer-tracks" id="mixer-tracks"></div>
       </div>
-      <div class="mixer-zoom-bar">
-        <label>Zoom</label>
-        <input type="range" id="mixer-zoom" min="80" max="600" value="200" step="20">
-        <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
-        <div class="btn-row">
-          <button class="btn secondary" id="mixer-save-session" title="Save mix session">💾 Save</button>
-          <button class="btn secondary" id="mixer-load-session" title="Load mix session">📂 Load</button>
-        </div>
-      </div>
-      <div id="mixer-channels" class="mixer-channels" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -1913,33 +2090,141 @@ const Mixer = (() => {
   }
 
   function renderChannels(){
-    const box = el("mixer-channels");
+    const box = el("fl-channels");
     box.innerHTML = "";
-    channels.forEach(c => {
+    const stemColors = { vocals:"vocals", drums:"drums", bass:"bass", guitar:"guitar", piano:"piano", other:"other" };
+    channels.forEach((c, idx) => {
+      const colorClass = stemColors[c.stem.toLowerCase()] || "other";
       const strip = document.createElement("div");
-      strip.className = "channel";
+      strip.className = `fl-channel color-${colorClass}`;
+      if(c.muted) strip.classList.add("muted");
+      if(c.solo) strip.classList.add("solo");
       strip.innerHTML = `
-        <div class="channel-name">${escapeHtml(c.stem)}</div>
-        <canvas class="channel-wave" width="126" height="60"></canvas>
-        <div class="channel-controls">
-          <input type="range" class="channel-fader" min="0" max="1.5" step="0.01" value="${c.faderValue}">
-          <div class="channel-vu"><div class="channel-vu-fill"></div></div>
-          <div class="channel-buttons">
-            <button class="channel-mute" title="Mute">M</button>
-            <button class="channel-solo" title="Solo">S</button>
+        <div class="fl-ch-header">
+          <div class="fl-ch-name">${escapeHtml(c.stem)}</div>
+          <div class="fl-ch-tag">Ch ${idx+1}</div>
+        </div>
+        <div class="fl-led-wrap">
+          <div class="fl-led-meter" id="fl-led-${idx}"></div>
+          <div class="fl-fader-area">
+            <div class="fl-fader-track" id="fl-fader-${idx}">
+              <div class="fl-fader-handle" style="bottom:${Math.round(c.faderValue/1.5*90)+5}%"></div>
+            </div>
           </div>
+          <div class="fl-led-meter" id="fl-led-r-${idx}"></div>
+        </div>
+        <div class="fl-db-label">${c.faderValue >= 1 ? "0.0" : c.faderValue <= 0.01 ? "-∞" : (20*Math.log10(c.faderValue)).toFixed(1)} dB</div>
+        <div class="fl-pan-wrap">
+          <div class="fl-pan-knob ${c.panValue < -0.05 ? 'pan-l' : c.panValue > 0.05 ? 'pan-r' : ''}" id="fl-pan-${idx}"></div>
+          <div class="fl-pan-label">${c.panValue > 0.05 ? "R"+Math.round(c.panValue*100) : c.panValue < -0.05 ? "L"+Math.round(-c.panValue*100) : "C"}</div>
+        </div>
+        <div class="fl-ms-btns">
+          <button class="fl-ms-btn mute ${c.muted?'active':''}" id="fl-mute-${idx}" title="Mute">M</button>
+          <button class="fl-ms-btn solo ${c.solo?'active':''}" id="fl-solo-${idx}" title="Solo">S</button>
+        </div>
+        <div class="fl-fx-slots">
+          <div class="fl-fx-slot" id="fl-fx1-${idx}">FX 1</div>
+          <div class="fl-fx-slot" id="fl-fx2-${idx}">FX 2</div>
+          <div class="fl-fx-slot" id="fl-fx3-${idx}">FX 3</div>
         </div>
       `;
-      c.vuFill = strip.querySelector(".channel-vu-fill");
-      drawWaveform(strip.querySelector(".channel-wave"), c.buffer);
-      strip.querySelector(".channel-fader").addEventListener("input", (e) => {
-        c.faderValue = parseFloat(e.target.value);
+      // Initialize LED segments (10 per meter)
+      const ledEl = strip.querySelector(`#fl-led-${idx}`);
+      const ledREl = strip.querySelector(`#fl-led-r-${idx}`);
+      const segCount = 10;
+      for(let s = 0; s < segCount; s++){
+        const seg = document.createElement("div");
+        seg.className = "fl-led-seg";
+        ledEl.appendChild(seg);
+        const segR = seg.cloneNode();
+        ledREl.appendChild(segR);
+      }
+      c.vuFill = ledEl;
+      c.vuFillR = ledREl;
+
+      // Fader drag
+      const faderTrack = strip.querySelector(`#fl-fader-${idx}`);
+      const faderHandle = strip.querySelector(`#fl-fader-${idx} .fl-fader-handle`);
+      const dbLabel = strip.querySelector(".fl-db-label");
+      let faderDragging = false;
+      const faderDrag = (ev) => {
+        if(!faderDragging) return;
+        const rect = faderTrack.getBoundingClientRect();
+        let pct = 1 - (ev.clientY - rect.top) / rect.height;
+        pct = Math.max(0, Math.min(1, pct));
+        c.faderValue = pct * 1.5;
+        faderHandle.style.bottom = (Math.round(pct * 90) + 5) + "%";
+        if(c.faderValue >= 1) dbLabel.textContent = "0.0 dB";
+        else if(c.faderValue <= 0.01) dbLabel.textContent = "-∞";
+        else dbLabel.textContent = (20*Math.log10(c.faderValue)).toFixed(1) + " dB";
+        applyGains();
+      };
+      faderTrack.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        faderDragging = true;
+        const rect = faderTrack.getBoundingClientRect();
+        let pct = 1 - (ev.clientY - rect.top) / rect.height;
+        pct = Math.max(0, Math.min(1, pct));
+        c.faderValue = pct * 1.5;
+        faderHandle.style.bottom = (Math.round(pct * 90) + 5) + "%";
+        if(c.faderValue >= 1) dbLabel.textContent = "0.0 dB";
+        else if(c.faderValue <= 0.01) dbLabel.textContent = "-∞";
+        else dbLabel.textContent = (20*Math.log10(c.faderValue)).toFixed(1) + " dB";
+        faderTrack.setPointerCapture(ev.pointerId);
         applyGains();
       });
-      const muteBtn = strip.querySelector(".channel-mute");
-      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
-      const soloBtn = strip.querySelector(".channel-solo");
-      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
+      faderTrack.addEventListener("pointermove", faderDrag);
+      faderTrack.addEventListener("pointerup", () => { faderDragging = false; });
+
+      // Pan knob
+      const panKnob = strip.querySelector(`#fl-pan-${idx}`);
+      const panLabel = strip.querySelector(".fl-pan-label");
+      let panDragging = false;
+      let panStartY = 0;
+      let panStartVal = 0;
+      const panDrag = (ev) => {
+        if(!panDragging) return;
+        const dy = panStartY - ev.clientY;
+        let v = panStartVal + dy * 0.01;
+        v = Math.max(-1, Math.min(1, v));
+        c.panValue = v;
+        if(c.panValue < -0.05){ panKnob.classList.add("pan-l"); panKnob.classList.remove("pan-r"); }
+        else if(c.panValue > 0.05){ panKnob.classList.add("pan-r"); panKnob.classList.remove("pan-l"); }
+        else{ panKnob.classList.remove("pan-l","pan-r"); }
+        const lbl = v > 0.05 ? "R"+Math.round(v*100) : v < -0.05 ? "L"+Math.round(-v*100) : "C";
+        panLabel.textContent = lbl;
+        if(c.panner) c.panner.pan.value = v;
+      };
+      panKnob.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        panDragging = true;
+        panStartY = ev.clientY;
+        panStartVal = c.panValue;
+        panKnob.setPointerCapture(ev.pointerId);
+      });
+      panKnob.addEventListener("pointermove", panDrag);
+      panKnob.addEventListener("pointerup", () => { panDragging = false; });
+
+      // Mute/Solo
+      const muteBtn = strip.querySelector(`#fl-mute-${idx}`);
+      muteBtn.onclick = () => {
+        c.muted = !c.muted;
+        muteBtn.classList.toggle("active", c.muted);
+        strip.classList.toggle("muted", c.muted);
+        applyGains();
+      };
+      const soloBtn = strip.querySelector(`#fl-solo-${idx}`);
+      soloBtn.onclick = () => {
+        c.solo = !c.solo;
+        soloBtn.classList.toggle("active", c.solo);
+        strip.classList.toggle("solo", c.solo);
+        applyGains();
+      };
+      // FX slots
+      strip.querySelectorAll(".fl-fx-slot").forEach((slot) => {
+        slot.onclick = () => { slot.classList.toggle("fx-active"); };
+      });
+
       box.appendChild(strip);
     });
     applyGains();
@@ -1961,7 +2246,42 @@ const Mixer = (() => {
       c.analyser.getByteFrequencyData(data);
       let peak = 0;
       for(let i = 0; i < data.length; i++) if(data[i] > peak) peak = data[i];
-      if(c.vuFill) c.vuFill.style.height = ((peak / 255) * 100) + "%";
+      const level = peak / 255;
+      // Update LED segments
+      if(c.vuFill){
+        const segs = c.vuFill.querySelectorAll(".fl-led-seg");
+        const litCount = Math.round(level * segs.length);
+        segs.forEach((seg, i) => {
+          seg.className = "fl-led-seg";
+          if(i < litCount){
+            const li = segs.length - i;
+            if(li <= 3) seg.classList.add("on-peak");
+            else if(li <= 4) seg.classList.add("on-8");
+            else if(li <= 5) seg.classList.add("on-7");
+            else if(li <= 6) seg.classList.add("on-6");
+            else if(li <= 7) seg.classList.add("on-5");
+            else if(li <= 8) seg.classList.add("on-4");
+            else seg.classList.add("on-l1");
+          }
+        });
+      }
+      if(c.vuFillR){
+        const segs = c.vuFillR.querySelectorAll(".fl-led-seg");
+        const litCount = Math.round(level * segs.length);
+        segs.forEach((seg, i) => {
+          seg.className = "fl-led-seg";
+          if(i < litCount){
+            const li = segs.length - i;
+            if(li <= 3) seg.classList.add("on-peak");
+            else if(li <= 4) seg.classList.add("on-8");
+            else if(li <= 5) seg.classList.add("on-7");
+            else if(li <= 6) seg.classList.add("on-6");
+            else if(li <= 7) seg.classList.add("on-5");
+            else if(li <= 8) seg.classList.add("on-4");
+            else seg.classList.add("on-l1");
+          }
+        });
+      }
     });
     if(t >= duration){
       pause();
@@ -1981,10 +2301,13 @@ const Mixer = (() => {
     duration = 0;
     tempoBPM = null;
     el("mixer").hidden = false;
+    el("mixer").className = "fl-mixer";
     el("mixer-play").textContent = "▶";
     el("mixer-tracks").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
-    el("mixer-channels").innerHTML = "";
+    el("fl-channels").innerHTML = "";
     el("mixer-tempo").textContent = "-- BPM";
+    el("fl-in-marker").value = "0:00";
+    el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
 
     // Restore session if exists
@@ -2124,6 +2447,73 @@ const Mixer = (() => {
     }
   }
 
+  async function exportMixWithOptions(opts){
+    if(!channels.length) return;
+    const exportBtn = el("mixer-export");
+    exportBtn.disabled = true;
+    exportBtn.textContent = "⏳ Exportuji…";
+    try{
+      const sampleRate = ctx().sampleRate;
+      const length = Math.max(1, Math.ceil(duration * sampleRate));
+      const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+      const solo = channels.some(c => c.solo);
+      channels.forEach(c => {
+        const active = solo ? c.solo : !c.muted;
+        if(!active) return;
+        const source = offlineCtx.createBufferSource();
+        source.buffer = c.buffer;
+        source.playbackRate.value = c.pitchRate || 1;
+        const gain = offlineCtx.createGain();
+        gain.gain.value = c.faderValue;
+        const panner = offlineCtx.createStereoPanner();
+        panner.pan.value = c.panValue || 0;
+        source.connect(gain);
+        gain.connect(panner);
+        panner.connect(offlineCtx.destination);
+        source.start(c.clipOffset || 0);
+      });
+      const rendered = await offlineCtx.startRendering();
+      // Apply scale option
+      if(opts.scale === "normalize" || opts.scale === "limiter" || opts.scale === "headroom"){
+        const data = rendered.getChannelData(0);
+        let peak = 0;
+        for(let i = 0; i < data.length; i++){
+          const abs = Math.abs(data[i]);
+          if(abs > peak) peak = abs;
+        }
+        let target = 1.0;
+        if(opts.scale === "limiter") target = 0.988;
+        else if(opts.scale === "headroom") target = 0.501;
+        else target = 1.0;
+        if(peak > 0){
+          const gainAdjust = target / peak;
+          for(let ch = 0; ch < rendered.numberOfChannels; ch++){
+            const d = rendered.getChannelData(ch);
+            for(let i = 0; i < d.length; i++) d[i] *= gainAdjust;
+          }
+        }
+      }
+      const blob = encodeWav(rendered);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      let filename = (currentSongName || "mix").replace(/[^a-zA-Z0-9 _-]/g,"_");
+      if(opts.suffix) filename += opts.suffix;
+      filename += "." + opts.fmt;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("✅ Export hotov: " + filename);
+    }catch(e){
+      showToast("Export selhal");
+    }finally{
+      exportBtn.disabled = false;
+      exportBtn.textContent = "⬇️ Export";
+    }
+  }
+
   function exportStem(idx){
     const c = channels[idx];
     if(!c) return;
@@ -2227,12 +2617,72 @@ const Mixer = (() => {
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     seek(pct * duration);
   });
-  el("mixer-export").onclick = () => exportMix();
-  el("mixer-export-stem").onclick = () => {
-    // Quick export: open stem menu
-    const idx = prompt("Export stem (0=vocals, 1=drums, 2=bass, 3=guitar, 4=piano, 5):");
-    if(idx !== null && channels[parseInt(idx)] !== undefined) exportStem(parseInt(idx));
+
+  // ---- Export Dialog ----
+  function openExportDialog(){
+    if(!channels.length){ showToast("Žádné stopy k exportu"); return; }
+    el("fl-export-overlay").hidden = false;
+    updateExportEstimate();
+  }
+  function closeExportDialog(){ el("fl-export-overlay").hidden = true; }
+  function updateExportEstimate(){
+    if(!duration){ el("fl-export-estimate").textContent = "Est. size: —"; return; }
+    const fmt = el("fl-export-format").value;
+    const sr = parseInt(el("fl-export-sample-rate").value);
+    const bd = parseInt(el("fl-export-bit-depth").value);
+    let bytesPerSec = (sr * 2 * bd/8);
+    if(fmt === "mp3"){ bytesPerSec = 16000/8 * 2; }
+    if(fmt === "flac"){ bytesPerSec *= 0.6; }
+    const total = bytesPerSec * duration;
+    const mb = total / 1048576;
+    const suffix = el("fl-export-suffix").value.trim();
+    el("fl-export-estimate").textContent = `Est. size: ~${mb.toFixed(1)} MB · ${fmt.toUpperCase()} ${sr/1000}kHz ${bd > 16 ? bd + "-bit" : ""} ${suffix}`;
+  }
+  el("mixer-export").onclick = openExportDialog;
+  el("fl-export-cancel").onclick = closeExportDialog;
+  el("fl-export-format").addEventListener("change", updateExportEstimate);
+  el("fl-export-sample-rate").addEventListener("change", updateExportEstimate);
+  el("fl-export-bit-depth").addEventListener("change", updateExportEstimate);
+  el("fl-export-suffix").addEventListener("input", updateExportEstimate);
+  el("fl-export-overlay").addEventListener("click", (e) => { if(e.target === el("fl-export-overlay")) closeExportDialog(); });
+  el("fl-export-confirm").onclick = () => {
+    closeExportDialog();
+    const fmt = el("fl-export-format").value;
+    const scale = el("fl-export-scale").value;
+    const suffix = el("fl-export-suffix").value.trim();
+    exportMixWithOptions({ fmt, scale, suffix });
   };
+
+  // ---- Marker / Set / In/Out ----
+  el("fl-marker-btn").onclick = () => {
+    if(!currentSongName) return;
+    const t = currentTime();
+    const key = "steems-marker-" + currentSongName;
+    let markers = [];
+    try{ markers = JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){}
+    markers.push({ time: t, label: "M"+(markers.length+1) });
+    localStorage.setItem(key, JSON.stringify(markers));
+    showToast("🏷 Marker: " + fmtDur(t));
+  };
+  el("fl-set-btn").onclick = () => {
+    const inTxt = el("fl-in-marker").value;
+    const outTxt = el("fl-out-marker").value;
+    const parseTime = (s) => {
+      const parts = s.split(":");
+      if(parts.length===2) return parseFloat(parts[0])*60 + parseFloat(parts[1]);
+      return parseFloat(s);
+    };
+    loopStart = Math.max(0, parseTime(inTxt));
+    loopEnd = Math.min(duration, parseTime(outTxt));
+    if(loopEnd <= loopStart){ loopEnd = loopStart + 4; }
+    loopEnabled = true;
+    el("mixer-loop").classList.add("active");
+    renderTimeline();
+    showToast("⚙ Set: " + fmtDur(loopStart) + " → " + fmtDur(loopEnd));
+  };
+  el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
+  el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
+
   el("mixer-metro").onclick = () => toggleMetronome();
   el("mixer-loop").onclick = () => toggleLoop();
   el("mixer-save-session").onclick = () => {
