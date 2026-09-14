@@ -691,6 +691,140 @@
 /* Main content shift */
 .main-content{margin-left:200px}
 
+
+  /* ------------------------------------------------------------------
+     NeuralMix-style mixer — near-black stage, stem rail on the left and
+     one continuous bar-numbered timeline on the right. The rail and the
+     lanes scroll as one unit vertically; only the timeline scrolls
+     horizontally, so stem names stay put while you pan through the song.
+     ------------------------------------------------------------------ */
+  .nm{--nm-bg:#0b0b0d;--nm-panel:#141418;--nm-line:#232329;--nm-rail:150px;
+      --nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-gold:#e9b949;--nm-red:#ff3b30;
+      --nm-blue:#3d8bfd;--nm-bar:#c8791f;
+      background:var(--nm-bg);border:1px solid var(--nm-line);border-radius:12px;
+      overflow:hidden;margin-top:14px;font-variant-numeric:tabular-nums}
+  .nm[hidden]{display:none}
+
+  /* --- track header --- */
+  .nm-head{display:flex;align-items:center;gap:18px;padding:12px 16px;
+           border-bottom:1px solid var(--nm-line);background:var(--nm-panel)}
+  .nm-art{width:64px;height:64px;border-radius:6px;flex:0 0 64px;object-fit:cover;
+          background:linear-gradient(135deg,#2a2a33,#16161b);display:flex;
+          align-items:center;justify-content:center;font-size:26px;color:#4a4a55}
+  .nm-meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .nm-meta .lbl{font-size:9.5px;letter-spacing:.14em;color:var(--nm-sub);font-weight:600}
+  .nm-meta .val{font-size:16px;font-weight:600;color:var(--nm-txt);
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nm-stat{display:flex;flex-direction:column;gap:2px;text-align:left;flex:0 0 auto}
+  .nm-stat .lbl{font-size:9.5px;letter-spacing:.14em;color:var(--nm-sub);font-weight:600}
+  .nm-stat .val{font-size:15px;font-weight:600;color:var(--nm-txt)}
+  .nm-head .nm-btn{flex:0 0 auto}
+
+  .nm-btn{background:#1e1e25;border:1px solid #32323c;color:var(--nm-txt);
+          border-radius:7px;padding:7px 13px;font-size:12px;font-weight:600;
+          cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+          white-space:nowrap;transition:background .12s,border-color .12s}
+  .nm-btn:hover{background:#2a2a33}
+  .nm-btn.active{background:#12263f;border-color:var(--nm-blue);color:#8fbaff}
+  .nm-btn.round{border-radius:7px;padding:7px 10px}
+
+  /* --- overview strip (whole song at a glance) --- */
+  .nm-overview{display:flex;align-items:center;gap:14px;padding:9px 16px;
+               border-bottom:1px solid var(--nm-line)}
+  .nm-ov-time{font-size:11.5px;color:var(--nm-sub);flex:0 0 auto;min-width:42px}
+  .nm-ov-time.right{text-align:right}
+  .nm-ov-wrap{position:relative;flex:1;height:34px;cursor:pointer}
+  .nm-ov-wrap canvas{width:100%;height:100%;display:block}
+  .nm-ov-head{position:absolute;top:0;bottom:0;width:1px;background:var(--nm-red);
+              pointer-events:none;z-index:2}
+  .nm-ov-loop{position:absolute;top:0;bottom:0;background:rgba(61,139,253,.22);
+              pointer-events:none;z-index:1}
+
+  /* --- lanes --- */
+  .nm-body{display:flex;max-height:404px;overflow-y:auto;overflow-x:hidden;
+           background:var(--nm-bg)}
+  .nm-rail{flex:0 0 var(--nm-rail);border-right:1px solid var(--nm-line);
+           background:var(--nm-panel);position:sticky;left:0;z-index:4}
+  .nm-rail-pad{height:22px;border-bottom:1px solid var(--nm-line)}
+  .nm-strip{height:62px;padding:7px 10px;border-bottom:1px solid var(--nm-line);
+            display:flex;flex-direction:column;justify-content:center;gap:7px}
+  .nm-strip:last-child{border-bottom:none}
+  .nm-strip-top{display:flex;align-items:center;gap:7px}
+  .nm-strip-icon{font-size:13px;line-height:1;filter:grayscale(.35)}
+  .nm-strip-name{font-size:10.5px;font-weight:700;letter-spacing:.09em;
+                 text-transform:uppercase;color:var(--nm-txt);flex:1;
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nm-solo{width:19px;height:19px;border:none;background:transparent;padding:0;
+           cursor:pointer;font-size:11px;line-height:1;color:var(--nm-sub);
+           border-radius:4px;flex:0 0 auto}
+  .nm-solo:hover{color:var(--nm-txt);background:#24242c}
+  .nm-solo.active{color:var(--nm-gold)}
+  .nm-strip.muted .nm-strip-name,.nm-strip.muted .nm-strip-icon{opacity:.38}
+  /* Gold fader — flat track, round cap, matches the reference's channel look */
+  .nm-fader{-webkit-appearance:none;appearance:none;width:100%;height:12px;
+            background:transparent;cursor:pointer;margin:0}
+  .nm-fader::-webkit-slider-runnable-track{height:2px;border-radius:2px;
+            background:linear-gradient(90deg,var(--nm-gold) var(--fill,100%),#35353f var(--fill,100%))}
+  .nm-fader::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+            border-radius:50%;background:#f2f2f5;margin-top:-4.5px;
+            box-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .nm-fader::-moz-range-track{height:2px;border-radius:2px;background:#35353f}
+  .nm-fader::-moz-range-progress{height:2px;border-radius:2px;background:var(--nm-gold)}
+  .nm-fader::-moz-range-thumb{width:11px;height:11px;border:none;border-radius:50%;
+            background:#f2f2f5}
+
+  .nm-scroll{flex:1;overflow-x:auto;overflow-y:hidden;position:relative}
+  .nm-scroll::-webkit-scrollbar{height:9px}
+  .nm-scroll::-webkit-scrollbar-track{background:var(--nm-panel)}
+  .nm-scroll::-webkit-scrollbar-thumb{background:#33333d;border-radius:5px}
+  .nm-scroll::-webkit-scrollbar-thumb:hover{background:#43434f}
+  .nm-canvas{position:relative;min-width:100%}
+  .nm-ruler{height:22px;position:relative;border-bottom:1px solid var(--nm-line);
+            background:var(--nm-panel);cursor:crosshair;overflow:hidden}
+  .nm-bar-num{position:absolute;top:5px;font-size:9.5px;color:var(--nm-sub);
+              padding-left:4px;pointer-events:none;user-select:none}
+  .nm-lane{height:62px;border-bottom:1px solid var(--nm-line);position:relative;
+           cursor:crosshair;overflow:hidden}
+  .nm-lane:last-child{border-bottom:none}
+  .nm-lane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  /* One overlay for grid + playhead + loop, stretched over ruler *and* lanes */
+  .nm-grid{position:absolute;inset:0;pointer-events:none;z-index:2}
+  .nm-head-line{position:absolute;top:0;bottom:0;width:1px;background:var(--nm-red);
+                pointer-events:none;z-index:6;box-shadow:0 0 5px rgba(255,59,48,.55)}
+  .nm-loop{position:absolute;top:0;bottom:0;background:rgba(61,139,253,.16);
+           border-left:1px solid var(--nm-blue);border-right:1px solid var(--nm-blue);
+           z-index:3;pointer-events:none}
+  .nm-loop-grip{position:absolute;width:11px;height:9px;background:var(--nm-blue);
+                pointer-events:auto;cursor:ew-resize;z-index:7}
+  .nm-loop-grip.in{top:0;left:-1px;clip-path:polygon(0 0,100% 0,0 100%)}
+  .nm-loop-grip.out{top:0;right:-1px;clip-path:polygon(0 0,100% 0,100% 100%)}
+
+  /* --- transport --- */
+  .nm-transport{display:flex;align-items:center;gap:15px;padding:11px 16px;
+                border-top:1px solid var(--nm-line);background:var(--nm-panel);
+                flex-wrap:wrap}
+  .nm-tgroup{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .nm-tgroup .cap{font-size:9px;letter-spacing:.13em;color:var(--nm-sub);
+                  font-weight:600;display:flex;align-items:center;gap:4px}
+  .nm-tgroup .row{display:flex;align-items:center;gap:6px}
+  .nm-play{width:74px;height:34px;border-radius:7px;background:#1e1e25;
+           border:1px solid #32323c;color:var(--nm-txt);font-size:15px;
+           cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .nm-play:hover{background:#2a2a33}
+  .nm-play.playing{background:#12263f;border-color:var(--nm-blue);color:#8fbaff}
+  .nm-step{width:26px;height:28px;border-radius:6px;background:#1e1e25;
+           border:1px solid #32323c;color:var(--nm-sub);cursor:pointer;
+           font-size:12px;display:flex;align-items:center;justify-content:center}
+  .nm-step:hover{color:var(--nm-txt)}
+  .nm-num{width:52px;height:28px;background:#131318;border:1px solid #32323c;
+          border-radius:6px;color:var(--nm-txt);text-align:center;font-size:12px;
+          font-weight:600;font-variant-numeric:tabular-nums}
+  .nm-tempo{width:120px;accent-color:var(--nm-sub)}
+  .nm-spacer{flex:1 1 0;min-width:0}
+  @media(max-width:900px){
+    .nm-transport{gap:14px}
+    .nm-head{flex-wrap:wrap;gap:12px}
+  }
 </style>
 </head>
 <body>
@@ -842,48 +976,129 @@
     <div class="section-title">🎚️ Rozseparované písně</div>
     <div id="steems-list" class="fs-list"></div>
     <div id="mixer" class="mixer" hidden>
-      <div class="mixer-transport">
-        <div class="fl-transport">
-          <button class="fl-btn" id="mixer-play" title="Play / Pause">▶</button>
-          <div class="fl-seek" id="mixer-seek">
-            <div class="fl-seek-fill" id="mixer-seek-fill"></div>
+      <div class="nm">
+        <!-- Track header: what's loaded, at a glance -->
+        <div class="nm-head">
+          <div class="nm-art" id="nm-art">🎵</div>
+          <div class="nm-meta">
+            <span class="lbl">SKLADBA</span>
+            <span class="val" id="nm-title">—</span>
           </div>
-          <span class="fl-time" id="mixer-time-cur">0:00</span>
-          <span style="color:var(--sub)">/</span>
-          <span class="fl-time" id="mixer-time-dur">0:00</span>
-          <div class="fl-in-out">
-            In <input type="text" id="fl-in-marker" value="0:00">
-            Out <input type="text" id="fl-out-marker" value="0:00">
+          <div class="nm-stat">
+            <span class="lbl">STOPY</span>
+            <span class="val" id="nm-stemcount">—</span>
           </div>
-          <div class="fl-marker-group">
-            <button class="fl-btn" id="fl-marker-btn" title="Drop marker at playhead">🏷 Marker</button>
-            <button class="fl-btn" id="fl-set-btn" title="Set loop region from In/Out markers">⚙ Set</button>
+          <div class="nm-stat">
+            <span class="lbl">DÉLKA</span>
+            <span class="val" id="mixer-time-dur">0:00</span>
           </div>
-          <button class="fl-btn" id="mixer-loop" title="Toggle loop region">🔁 Loop</button>
-          <button class="fl-btn" id="mixer-metro" title="Metronome click track">🔔 Metro</button>
-          <span class="metro-indicator" id="metro-indicator"></span>
-          <span class="tempo-display" id="mixer-tempo">-- BPM</span>
-          <button class="fl-btn" id="mixer-export" title="Open export dialog">⬇️ Export</button>
-          <button class="fl-btn" id="mixer-save-session" title="Save mix session">💾 Save</button>
-          <button class="fl-btn" id="mixer-load-session" title="Load mix session">📂 Load</button>
+          <div class="nm-stat">
+            <span class="lbl">TÓNINA</span>
+            <span class="val" id="nm-key">—</span>
+          </div>
+          <div class="nm-stat">
+            <span class="lbl">BPM</span>
+            <span class="val" id="mixer-tempo">—</span>
+          </div>
+          <button class="nm-btn" id="nm-strips-toggle" title="Zobrazit kanálové stripy s VU metry">🎛 Kanály</button>
+          <button class="nm-btn" id="mixer-export" title="Export mixu">⬇ Export</button>
         </div>
-        <div class="mixer-timeline-wrap">
-          <div class="mixer-ruler-area">
-            <div class="mixer-ruler-spacer"></div>
-            <div class="mixer-ruler" id="mixer-ruler">
-              <div class="mixer-loop-region" id="mixer-loop-region" hidden></div>
-              <div class="mixer-ruler-playhead" id="mixer-ruler-playhead"></div>
+
+        <!-- Whole song at a glance: click or drag anywhere to seek -->
+        <div class="nm-overview">
+          <span class="nm-ov-time" id="mixer-time-cur">0:00</span>
+          <div class="nm-ov-wrap" id="nm-ov-wrap">
+            <canvas id="nm-ov-canvas"></canvas>
+            <div class="nm-ov-loop" id="nm-ov-loop" hidden></div>
+            <div class="nm-ov-head" id="nm-ov-head"></div>
+          </div>
+          <span class="nm-ov-time right" id="nm-ov-rem">-0:00</span>
+        </div>
+
+        <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
+        <div class="nm-body" id="nm-body">
+          <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
+          <div class="nm-scroll" id="nm-scroll">
+            <div class="nm-canvas" id="nm-canvas">
+              <div class="nm-ruler" id="mixer-ruler"></div>
+              <div id="mixer-tracks"></div>
+              <div class="nm-grid">
+                <div class="nm-loop" id="mixer-loop-region" hidden>
+                  <div class="nm-loop-grip in" data-edge="in"></div>
+                  <div class="nm-loop-grip out" data-edge="out"></div>
+                </div>
+                <div class="nm-head-line" id="mixer-ruler-playhead"></div>
+              </div>
             </div>
           </div>
-          <div class="mixer-tracks" id="mixer-tracks"></div>
         </div>
-        <div class="mixer-zoom-bar">
-          <label>Zoom</label>
-          <input type="range" id="mixer-zoom" min="5" max="1000" value="10" step="20">
-          <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
+
+        <div class="nm-transport">
+          <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)">▶</button>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="nm-rewind" title="Na začátek">⏮</button>
+              <button class="nm-btn" id="fl-set-btn" title="Nastavit smyčku z In/Out">Set</button>
+            </div>
+            <span class="cap">ZAČÁTEK</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <input type="text" class="nm-num" id="fl-in-marker" value="0:00" title="Začátek smyčky">
+              <input type="text" class="nm-num" id="fl-out-marker" value="0:00" title="Konec smyčky">
+              <button class="nm-btn round" id="fl-marker-btn" title="Nastavit In na pozici přehrávání">🏷</button>
+              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp">🔁</button>
+            </div>
+            <span class="cap">IN / OUT</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
+              <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
+              <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
+            </div>
+            <span class="cap">🎚 PITCH</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <input type="range" class="nm-tempo" id="nm-tempo-slider" min="-50" max="50" step="1" value="0">
+            </div>
+            <span class="cap">TEMPO <span id="nm-tempo-val">0 %</span></span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="mixer-metro" title="Metronom">🔔</button>
+              <span class="metro-indicator" id="metro-indicator"></span>
+            </div>
+            <span class="cap">METRO</span>
+          </div>
+
+          <div class="nm-spacer"></div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <input type="range" class="nm-tempo" id="mixer-zoom" min="5" max="400" step="5" value="30">
+            </div>
+            <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="mixer-save-session" title="Uložit relaci">💾</button>
+              <button class="nm-btn round" id="mixer-load-session" title="Načíst relaci">📂</button>
+            </div>
+            <span class="cap">RELACE</span>
+          </div>
         </div>
-        <div id="fl-channels" class="fl-channels"></div>
+
+        <div id="fl-channels" class="fl-channels" hidden></div>
       </div>
+
       <!-- Export Dialog -->
       <div class="fl-export-overlay" id="fl-export-overlay" hidden>
         <div class="fl-export-dialog">
@@ -1762,7 +1977,7 @@ const Mixer = (() => {
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
-  let pixelsPerSecond = 10;
+  let pixelsPerSecond = 30;
   let tempoBPM = null;
   let beatInterval = 0;
   let metronomeOn = false;
@@ -1851,6 +2066,83 @@ const Mixer = (() => {
     return bestBPM && bestCount >= 3 ? bestBPM : null;
   }
 
+  // ---- Musical key via chroma + Krumhansl-Schmuckler ----
+  // Energy is collected into 12 pitch classes with a Goertzel filter (cheaper
+  // than a full FFT when you only care about 48 exact frequencies), then the
+  // resulting chroma vector is correlated against the standard major/minor
+  // key profiles in all 12 rotations. Best correlation wins.
+  const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const KS_MAJOR = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+  const KS_MINOR = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+
+  function goertzel(data, from, n, freq, sr){
+    const k = Math.round((n * freq) / sr);
+    const w = (2 * Math.PI * k) / n;
+    const coeff = 2 * Math.cos(w);
+    let s0 = 0, s1 = 0, s2 = 0;
+    for(let i = 0; i < n; i++){
+      s0 = data[from + i] + coeff * s1 - s2;
+      s2 = s1; s1 = s0;
+    }
+    return s1 * s1 + s2 * s2 - coeff * s1 * s2;
+  }
+
+  function correlate(a, b){
+    const n = a.length;
+    const ma = a.reduce((x, y) => x + y, 0) / n;
+    const mb = b.reduce((x, y) => x + y, 0) / n;
+    let num = 0, da = 0, db = 0;
+    for(let i = 0; i < n; i++){
+      const x = a[i] - ma, y = b[i] - mb;
+      num += x * y; da += x * x; db += y * y;
+    }
+    return (da && db) ? num / Math.sqrt(da * db) : 0;
+  }
+
+  function detectKey(buffer){
+    const data = buffer.getChannelData(0);
+    const sr = buffer.sampleRate;
+    const N = 8192;
+    if(data.length < N * 2) return null;
+
+    // C3..B6 — low enough to catch the bass line, high enough to stay within
+    // the frequency resolution a window this size can actually separate.
+    const freqs = [];
+    for(let octave = 0; octave < 4; octave++){
+      for(let pc = 0; pc < 12; pc++){
+        freqs.push({pc, f: 130.81 * Math.pow(2, octave + pc / 12)});
+      }
+    }
+
+    const chroma = new Array(12).fill(0);
+    const windows = 24;
+    const stride = Math.floor((data.length - N) / windows);
+    if(stride <= 0) return null;
+
+    for(let wI = 0; wI < windows; wI++){
+      const from = wI * stride;
+      for(const {pc, f} of freqs){
+        if(f > sr / 2) continue;
+        chroma[pc] += Math.sqrt(Math.max(0, goertzel(data, from, N, f, sr)));
+      }
+    }
+
+    const total = chroma.reduce((a, b) => a + b, 0);
+    if(!total) return null;
+
+    let best = null;
+    for(let tonic = 0; tonic < 12; tonic++){
+      const rotated = chroma.slice(tonic).concat(chroma.slice(0, tonic));
+      const maj = correlate(rotated, KS_MAJOR);
+      const min = correlate(rotated, KS_MINOR);
+      if(!best || maj > best.score) best = {score: maj, name: NOTE_NAMES[tonic]};
+      if(min > best.score) best = {score: min, name: NOTE_NAMES[tonic] + "m"};
+    }
+    // A flat chroma (noise, near-silence) produces only weak correlations —
+    // better to show nothing than to invent a key.
+    return best && best.score > 0.2 ? best.name : null;
+  }
+
   function applyGains(){
     const solo = channels.some(c => c.solo);
     let anyActive = false;
@@ -1858,11 +2150,16 @@ const Mixer = (() => {
       const active = solo ? c.solo : !c.muted;
       const gain = (!active || c.faderValue < 0.01) ? 0 : c.faderValue;
       c.gainNode.gain.value = gain;
-      c.muted = gain < 0.01;
+      // c.muted is the user's own mute switch — deriving it from the computed
+      // gain used to latch every non-soloed stem to muted, so turning solo
+      // back off left the rest of the mix permanently silent.
+      const silent = gain < 0.01;
       if(c.panner) c.panner.pan.value = c.panValue || 0;
       var strips = document.querySelectorAll('.fl-channel');
-      if(strips[idx]) strips[idx].classList.toggle('muted', c.muted);
-      if(!c.muted) anyActive = true;
+      if(strips[idx]) strips[idx].classList.toggle('muted', silent);
+      var railStrips = document.querySelectorAll('#nm-rail .nm-strip');
+      if(railStrips[idx]) railStrips[idx].classList.toggle('muted', silent);
+      if(!silent) anyActive = true;
     });
     if(!anyActive && isPlaying){
       channels.forEach(c => { if(c.source){ try{c.source.stop();c.source=null;}catch(e){} } });
@@ -1876,12 +2173,14 @@ const Mixer = (() => {
   function scheduleAll(offset){
     const when = ctx().currentTime + 0.05;
     channels.forEach(c => {
-      if(c.faderValue < 0.01 || c.muted){ c.source = null; return; }
       const source = ctx().createBufferSource();
       source.buffer = c.buffer;
       source.playbackRate.value = c.pitchRate || 1;
+      // Signal path is source -> gain -> analyser -> panner -> destination.
+      // Connecting the source straight to the panner as well (as this used to)
+      // bypassed the gain node entirely: faders, mute and solo were inaudible
+      // while a stem was playing.
       source.connect(c.gainNode);
-      source.connect(c.panner);
       source.start(when, offset);
       c.source = source;
     });
@@ -1929,235 +2228,271 @@ const Mixer = (() => {
 
   function updateSeekUI(t){
     const pct = duration ? (t / duration) * 100 : 0;
-    el("mixer-seek-fill").style.width = pct + "%";
     el("mixer-time-cur").textContent = fmtDur(t);
     el("mixer-time-dur").textContent = fmtDur(duration);
+    el("nm-ov-rem").textContent = "-" + fmtDur(Math.max(0, duration - t));
+    el("nm-ov-head").style.left = pct + "%";
   }
 
   // ---- Rendering ----
-  function drawWaveform(canvas, buffer){
-    const ctx2d = canvas.getContext("2d");
-    const w = canvas.width, h = canvas.height;
-    const data = buffer.getChannelData(0);
-    const step = Math.max(1, Math.ceil(data.length / w));
-    ctx2d.clearRect(0, 0, w, h);
-    ctx2d.fillStyle = "#1b8f80";
-    for(let x = 0; x < w; x++){
-      let min = 1, max = -1;
-      const start = x * step;
-      for(let i = 0; i < step && start + i < data.length; i++){
-        const v = data[start + i];
-        if(v < min) min = v;
-        if(v > max) max = v;
-      }
-      const y1 = (1 - (max + 1) / 2) * h;
-      const y2 = (1 - (min + 1) / 2) * h;
-      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
-    }
+  // ---------------------------------------------------------------- view
+  // Per-stem colours. Each lane is drawn in its own hue so a glance at the
+  // timeline tells you which layer you're looking at, the way the reference
+  // mixer does — rather than six identical grey waveforms.
+  const STEM_STYLE = {
+    vocals: {c:"#d8d4e8", icon:"\uD83C\uDFA4"},
+    drums:  {c:"#ff7a6b", icon:"\uD83E\uDD41"},
+    bass:   {c:"#4d8cff", icon:"\uD83C\uDFB8"},
+    guitar: {c:"#e9b949", icon:"\uD83C\uDFB8"},
+    piano:  {c:"#5fd39a", icon:"\uD83C\uDFB9"},
+    other:  {c:"#9aa3b5", icon:"\uD83C\uDF9B"},
+  };
+  function stemStyle(name){
+    return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
 
-  function drawClipWave(canvas, buffer, clipW){
-    // Draw a portion of the buffer waveform within clip width
-    const ctx2d = canvas.getContext("2d");
-    const w = canvas.width, h = canvas.height;
-    const data = buffer.getChannelData(0);
-    const step = Math.max(1, Math.ceil(data.length / Math.max(w, 1)));
-    ctx2d.clearRect(0, 0, w, h);
-    ctx2d.fillStyle = "rgba(45,212,191,.5)";
-    for(let x = 0; x < w; x++){
-      let min = 1, max = -1;
-      const srcIdx = x * step;
-      for(let i = 0; i < step && srcIdx + i < data.length; i++){
-        const v = data[srcIdx + i];
-        if(v < min) min = v;
-        if(v > max) max = v;
-      }
-      const y1 = (1 - (max + 1) / 2) * h;
-      const y2 = (1 - (min + 1) / 2) * h;
-      ctx2d.fillRect(x, y1, 1, Math.max(1, y2 - y1));
-    }
+  function totalWidthPx(){
+    return Math.max(1, duration * pixelsPerSecond);
+  }
+
+  // Bar length in seconds (4/4 assumed, like the tempo detector). Falls back
+  // to a 2 s grid when no tempo was found so the ruler is never empty.
+  function barSeconds(){
+    return (tempoBPM && beatInterval) ? beatInterval * 4 : 2;
+  }
+
+  // How many bars to skip between grid lines so they stay ~46px apart.
+  // Zoomed out, a 5-minute track at 180 BPM is 230 bars — drawing every one
+  // turns the timeline into a picket fence that hides the waveform.
+  function barStep(){
+    const barPx = barSeconds() * pixelsPerSecond;
+    let step = 1;
+    while(step * barPx < 46) step *= 2;
+    return step;
   }
 
   function renderTimeline(){
-    const ruler = el("mixer-ruler");
-    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label,.mixer-beat-tick").forEach(n => n.remove());
-    const totalPx = duration * pixelsPerSecond;
-    ruler.style.minWidth = totalPx + "px";
-    el("mixer-tracks").style.minWidth = totalPx + "px";
-    ruler.onclick = (e) => {
-      const rect = ruler.getBoundingClientRect();
-      const x = e.clientX - rect.left + ruler.scrollLeft;
-      const t = Math.max(0, Math.min(duration, x / pixelsPerSecond));
-      seek(t);
-    };
-    // Determine tick spacing
-    const targetTickSpacing = 60;
-    const secPerTick = targetTickSpacing / pixelsPerSecond;
-    let tickSec;
-    if(secPerTick < 0.25) tickSec = 0.25;
-    else if(secPerTick < 0.5) tickSec = 0.5;
-    else if(secPerTick < 1) tickSec = 1;
-    else if(secPerTick < 2) tickSec = 2;
-    else if(secPerTick < 4) tickSec = 4;
-    else if(secPerTick < 8) tickSec = 8;
-    else tickSec = 16;
-    for(let t = 0; t <= duration; t += tickSec){
-      const px = t * pixelsPerSecond;
-      const tick = document.createElement("div");
-      tick.className = "mixer-ruler-tick";
-      tick.style.left = px + "px";
-      // Label for major ticks
-      if(t % (tickSec * 4) === 0 || tickSec >= 4){
-        const label = document.createElement("div");
-        label.className = "mixer-ruler-label";
-        label.style.left = (px + 2) + "px";
-        label.textContent = fmtDur(t);
-        ruler.appendChild(label);
-        tick.classList.add("major");
-      }
-      ruler.appendChild(tick);
-    }
-    // Beat grid
-    if(tempoBPM && beatInterval){
-      const downbeatInterval = beatInterval * 4;
-      for(let t = 0; t <= duration; t += beatInterval){
-        const px = t * pixelsPerSecond;
-        const beatTick = document.createElement("div");
-        beatTick.className = "mixer-beat-tick";
-        if(Math.abs(t % downbeatInterval) < 0.01 || Math.abs((t % downbeatInterval) - downbeatInterval) < 0.01){
-          beatTick.classList.add("downbeat");
-        }
-        beatTick.style.left = px + "px";
-        ruler.appendChild(beatTick);
-      }
-    }
-    // Update loop region visual
-    const loopRegion = el("mixer-loop-region");
-    if(loopEnabled){
-      loopRegion.hidden = false;
-      loopRegion.style.left = (loopStart * pixelsPerSecond) + "px";
-      loopRegion.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px";
-    } else {
-      loopRegion.hidden = true;
-    }
+    const totalPx = totalWidthPx();
+    el("nm-canvas").style.width = totalPx + "px";
+    renderRuler(totalPx);
     renderTrackLanes();
+    renderOverview();
+    updateLoopVisual();
     updateRulerPlayhead(currentTime());
   }
 
+  function renderRuler(totalPx){
+    const ruler = el("mixer-ruler");
+    ruler.innerHTML = "";
+    ruler.style.width = totalPx + "px";
+
+    const bar = barSeconds();
+    const barPx = bar * pixelsPerSecond;
+    const step = barStep();
+    const bars = Math.ceil(duration / bar);
+    for(let i = 0; i <= bars; i += step){
+      const label = document.createElement("div");
+      label.className = "nm-bar-num";
+      label.style.left = (i * barPx) + "px";
+      label.textContent = i + 1;
+      ruler.appendChild(label);
+    }
+  }
+
+  // Grid lines are painted into each lane's canvas rather than stacked as
+  // hundreds of absolutely positioned divs — at 400 px/s a long track would
+  // otherwise put thousands of nodes in the document.
+  function paintGrid(g, w, h){
+    const barPx = barSeconds() * pixelsPerSecond;
+    if(barPx <= 0) return;
+    const beatPx = barPx / 4;
+
+    // Beat lines only once they're far enough apart to read as separate lines.
+    if(beatPx >= 11){
+      g.strokeStyle = "rgba(255,255,255,.05)";
+      g.lineWidth = 1;
+      g.beginPath();
+      for(let x = 0; x <= w; x += beatPx){
+        const px = Math.floor(x) + 0.5;
+        g.moveTo(px, 0); g.lineTo(px, h);
+      }
+      g.stroke();
+    }
+
+    // Bar lines follow the same step as the ruler's numbers, so every line
+    // on screen has a label above it.
+    const lineEvery = barPx * barStep();
+    g.strokeStyle = "rgba(200,121,31,.5)";
+    g.lineWidth = 1;
+    g.beginPath();
+    for(let x = 0; x <= w; x += lineEvery){
+      const px = Math.floor(x) + 0.5;
+      g.moveTo(px, 0); g.lineTo(px, h);
+    }
+    g.stroke();
+  }
+
+  // Min/max envelope per pixel column — the honest way to draw a waveform:
+  // it keeps transients visible instead of averaging them away.
+  function paintWave(g, buffer, w, h, color){
+    const data = buffer.getChannelData(0);
+    const mid = h / 2;
+    const perPx = data.length / w;
+    g.fillStyle = color;
+    for(let x = 0; x < w; x++){
+      const from = Math.floor(x * perPx);
+      const to = Math.min(data.length, Math.floor((x + 1) * perPx));
+      let min = 0, max = 0;
+      for(let i = from; i < to; i++){
+        const v = data[i];
+        if(v < min) min = v;
+        if(v > max) max = v;
+      }
+      const y1 = mid + min * mid * 0.92;
+      const y2 = mid + max * mid * 0.92;
+      g.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+  }
+
   function renderTrackLanes(){
-    const tracks = el("mixer-tracks");
-    tracks.innerHTML = "";
-    tracks.onclick = (e) => {
-      if(e.target.closest('.mixer-clip')) return;
-      const rect = tracks.getBoundingClientRect();
-      const x = e.clientX - rect.left + tracks.scrollLeft;
-      const t = Math.max(0, Math.min(duration, x / pixelsPerSecond));
-      seek(t);
-    };
-    const totalPx = duration * pixelsPerSecond;
+    const rail = el("nm-rail");
+    const lanes = el("mixer-tracks");
+    rail.innerHTML = '<div class="nm-rail-pad"></div>';
+    lanes.innerHTML = "";
+
+    const totalPx = totalWidthPx();
+    const laneH = 62;
+
     channels.forEach((c, idx) => {
-      const track = document.createElement("div");
-      track.className = "mixer-track";
-      track.dataset.idx = idx;
-      // Header
-      const header = document.createElement("div");
-      header.className = "mixer-track-header";
-      header.innerHTML = `
-        <span class="stem-name">${escapeHtml(c.stem)}</span>
-        <div class="track-mini-controls">
-          <button class="mini-btn mute-btn ${c.muted?'active':''}" title="Mute">M</button>
-          <button class="mini-btn solo-btn ${c.solo?'active':''}" title="Solo">S</button>
-          <button class="mini-btn stem-export-btn" title="Export ${escapeHtml(c.stem)} stem">⬇</button>
+      const style = stemStyle(c.stem);
+
+      // ---- left rail strip: name, gold fader, solo ----
+      const strip = document.createElement("div");
+      strip.className = "nm-strip" + (c.muted ? " muted" : "");
+      strip.innerHTML = `
+        <div class="nm-strip-top">
+          <span class="nm-strip-icon">${style.icon}</span>
+          <span class="nm-strip-name" title="${escapeHtml(c.stem)}">${escapeHtml(c.stem)}</span>
+          <button class="nm-solo ${c.solo ? "active" : ""}" title="Sólo">\u25C9</button>
         </div>
-        <label>Pitch <span class="pitch-val">${(c.pitchRate||1).toFixed(2)}</span></label>
-        <input type="range" class="pitch-slider" min="0.5" max="2.0" step="0.01" value="${c.pitchRate||1}">
-        <label>Pan <span class="pan-val">${c.panValue>0?"R":c.panValue<0?"L":"C"}</span></label>
-        <input type="range" class="pan-slider" min="-1" max="1" step="0.01" value="${c.panValue||0}">
+        <input type="range" class="nm-fader" min="0" max="1.4" step="0.01" value="${c.faderValue}">
       `;
-      // Event handlers
-      const muteBtn = header.querySelector(".mute-btn");
-      muteBtn.onclick = () => { c.muted = !c.muted; muteBtn.classList.toggle("active", c.muted); applyGains(); };
-      const soloBtn = header.querySelector(".solo-btn");
-      soloBtn.onclick = () => { c.solo = !c.solo; soloBtn.classList.toggle("active", c.solo); applyGains(); };
-      const exportBtn = header.querySelector(".stem-export-btn");
-      exportBtn.onclick = () => exportStem(idx);
-      const pitchSlider = header.querySelector(".pitch-slider");
-      pitchSlider.oninput = () => {
-        c.pitchRate = parseFloat(pitchSlider.value);
-        header.querySelector(".pitch-val").textContent = c.pitchRate.toFixed(2);
+
+      const fader = strip.querySelector(".nm-fader");
+      const paintFader = () => {
+        fader.style.setProperty("--fill", (fader.value / 1.4) * 100 + "%");
       };
-      const panSlider = header.querySelector(".pan-slider");
-      panSlider.oninput = () => {
-        c.panValue = parseFloat(panSlider.value);
-        const v = c.panValue;
-        header.querySelector(".pan-val").textContent = v > 0.05 ? "R" + Math.round(v*100) : v < -0.05 ? "L" + Math.round(-v*100) : "C";
-        if(c.panner) c.panner.pan.value = v;
+      paintFader();
+      fader.oninput = () => {
+        c.faderValue = parseFloat(fader.value);
+        // A fader pulled to zero is a mute, and the rail shows it as one.
+        c.muted = c.faderValue < 0.01;
+        strip.classList.toggle("muted", c.muted);
+        paintFader();
+        applyGains();
       };
-      track.appendChild(header);
-      // Lane
+
+      // Click the stem name to mute/unmute without losing the fader position.
+      const nameEl = strip.querySelector(".nm-strip-name");
+      nameEl.style.cursor = "pointer";
+      nameEl.onclick = () => {
+        c.muted = !c.muted;
+        strip.classList.toggle("muted", c.muted);
+        applyGains();
+      };
+
+      const soloBtn = strip.querySelector(".nm-solo");
+      soloBtn.onclick = () => {
+        c.solo = !c.solo;
+        soloBtn.classList.toggle("active", c.solo);
+        applyGains();
+      };
+      rail.appendChild(strip);
+
+      // ---- right lane: grid + waveform on one canvas ----
       const lane = document.createElement("div");
-      lane.className = "mixer-track-lane";
+      lane.className = "nm-lane";
       lane.style.width = totalPx + "px";
-      lane.style.position = "relative";
-      // Clip
-      const clipW = c.buffer.duration * pixelsPerSecond;
-      const clipOffset = c.clipOffset || 0;
-      const clip = document.createElement("div");
-      clip.className = "mixer-clip " + c.stem;
-      clip.style.left = (clipOffset * pixelsPerSecond) + "px";
-      clip.style.width = clipW + "px";
-      clip.dataset.idx = idx;
-      // Mini waveform in clip
-      const clipWave = document.createElement("canvas");
-      clipWave.className = "mixer-clip-wave";
-      clipWave.width = Math.max(20, Math.floor(clipW));
-      clipWave.height = 50;
-      drawClipWave(clipWave, c.buffer, clipW);
-      clip.appendChild(clipWave);
-      const clipLabel = document.createElement("span");
-      clipLabel.className = "mixer-clip-label";
-      clipLabel.textContent = c.stem;
-      clip.appendChild(clipLabel);
-      // Drag handler
-      clip.addEventListener("pointerdown", (ev) => {
-        ev.preventDefault();
-        if(isPlaying) pause();
-        dragChannelIdx = idx;
-        dragStartX = ev.clientX;
-        dragStartOffset = c.clipOffset || 0;
-        clip.setPointerCapture(ev.pointerId);
+
+      const cv = document.createElement("canvas");
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Canvas width is capped: browsers refuse to allocate very wide canvases,
+      // and a long track at high zoom would sail past the limit.
+      const cssW = Math.min(totalPx, 16000);
+      cv.width = Math.floor(cssW * dpr);
+      cv.height = Math.floor(laneH * dpr);
+      cv.style.width = totalPx + "px";
+      const g = cv.getContext("2d");
+      g.scale(dpr, dpr);
+      paintGrid(g, cssW, laneH);
+      paintWave(g, c.buffer, cssW, laneH, style.c);
+      lane.appendChild(cv);
+
+      lane.addEventListener("click", (e) => {
+        const rect = lane.getBoundingClientRect();
+        seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
       });
-      clip.addEventListener("pointermove", (ev) => {
-        if(dragChannelIdx !== idx) return;
-        const dx = ev.clientX - dragStartX;
-        const dt = dx / pixelsPerSecond;
-        let newOffset = dragStartOffset + dt;
-        newOffset = Math.max(0, newOffset);
-        c.clipOffset = newOffset;
-        clip.style.left = (newOffset * pixelsPerSecond) + "px";
-      });
-      clip.addEventListener("pointerup", (ev) => {
-        if(dragChannelIdx === idx){
-          clip.releasePointerCapture(ev.pointerId);
-          dragChannelIdx = -1;
-        }
-      });
-      lane.appendChild(clip);
-      track.appendChild(lane);
-      tracks.appendChild(track);
+
+      lanes.appendChild(lane);
     });
+
+    // Grid overlay (playhead + loop) has to span ruler and every lane.
+    el("nm-canvas").style.height = (22 + channels.length * laneH) + "px";
+  }
+
+  // ---- overview: the whole song, always fully visible ----
+  function renderOverview(){
+    const wrap = el("nm-ov-wrap");
+    const cv = el("nm-ov-canvas");
+    if(!channels.length || !wrap.clientWidth) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    cv.width = Math.floor(w * dpr);
+    cv.height = Math.floor(h * dpr);
+    const g = cv.getContext("2d");
+    g.scale(dpr, dpr);
+    g.clearRect(0, 0, w, h);
+
+    // Stems are drawn stacked with additive blending, so the overview shows
+    // the actual density of the mix rather than just the loudest stem.
+    g.globalCompositeOperation = "lighter";
+    channels.forEach(c => {
+      if(c.muted) return;
+      g.globalAlpha = 0.5;
+      paintWave(g, c.buffer, w, h, stemStyle(c.stem).c);
+    });
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+  }
+
+  function updateLoopVisual(){
+    const region = el("mixer-loop-region");
+    const ovLoop = el("nm-ov-loop");
+    if(loopEnabled && loopEnd > loopStart){
+      region.hidden = false;
+      region.style.left = (loopStart * pixelsPerSecond) + "px";
+      region.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px";
+      ovLoop.hidden = false;
+      ovLoop.style.left = (duration ? (loopStart / duration) * 100 : 0) + "%";
+      ovLoop.style.width = (duration ? ((loopEnd - loopStart) / duration) * 100 : 0) + "%";
+    } else {
+      region.hidden = true;
+      ovLoop.hidden = true;
+    }
   }
 
   function updateRulerPlayhead(t){
-    const playhead = el("mixer-ruler-playhead");
-    playhead.style.left = (t * pixelsPerSecond) + "px";
-    // Auto-scroll tracks if playhead visible
-    const tracks = el("mixer-tracks");
     const px = t * pixelsPerSecond;
-    const viewLeft = tracks.scrollLeft;
-    const viewRight = viewLeft + tracks.clientWidth;
-    if(px < viewLeft || px > viewRight - 50){
-      tracks.scrollLeft = px - 100;
+    el("mixer-ruler-playhead").style.left = px + "px";
+
+    // Keep the playhead in view, but only nudge the scroll when it actually
+    // leaves the window — following it every frame makes the waveform jitter.
+    const scroll = el("nm-scroll");
+    const viewLeft = scroll.scrollLeft;
+    const viewRight = viewLeft + scroll.clientWidth;
+    if(px < viewLeft || px > viewRight - 60){
+      scroll.scrollLeft = Math.max(0, px - scroll.clientWidth * 0.35);
     }
   }
 
@@ -2376,8 +2711,12 @@ const Mixer = (() => {
     el("mixer").className = "fl-mixer";
     el("mixer-play").textContent = "▶";
     el("mixer-tracks").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
+    el("nm-rail").innerHTML = '<div class="nm-rail-pad"></div>';
     el("fl-channels").innerHTML = "";
-    el("mixer-tempo").textContent = "-- BPM";
+    el("mixer-tempo").textContent = "—";
+    el("nm-title").textContent = song.name;
+    el("nm-stemcount").textContent = song.stems.length;
+    el("nm-key").textContent = "…";
     el("fl-in-marker").value = "0:00";
     el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
@@ -2420,9 +2759,15 @@ const Mixer = (() => {
       tempoBPM = detectTempo(refCh.buffer);
       if(tempoBPM){
         beatInterval = 60 / tempoBPM;
-        el("mixer-tempo").textContent = tempoBPM + " BPM";
+        el("mixer-tempo").textContent = tempoBPM;
       }
     }catch(e){}
+    // Key is read from a harmonic stem — drums would just smear the chroma.
+    try{
+      const keyCh = channels.find(c => ["other","piano","guitar","bass"].includes(c.stem))
+                 || channels[0];
+      el("nm-key").textContent = detectKey(keyCh.buffer) || "—";
+    }catch(e){ el("nm-key").textContent = "—"; }
     // Restore loop
     if(saved && saved.loop){
       loopEnabled = true;
@@ -2430,6 +2775,15 @@ const Mixer = (() => {
       loopEnd = saved.loop.end;
       el("mixer-loop").classList.add("active");
     }
+    // Open on a zoom that fits the whole song — landing mid-bar on a track
+    // you haven't heard yet tells you nothing about its shape.
+    const viewW = el("nm-scroll").clientWidth || 900;
+    if(duration){
+      pixelsPerSecond = Math.max(5, Math.min(400, Math.floor(viewW / duration)));
+      el("mixer-zoom").value = pixelsPerSecond;
+      el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s";
+    }
+
     renderChannels();
     renderTimeline();
     updateSeekUI(0);
@@ -2652,7 +3006,7 @@ const Mixer = (() => {
       loopStart = 0;
       loopEnd = tempoBPM ? (60 / tempoBPM) * 4 : Math.min(8, duration);
     }
-    renderTimeline();
+    updateLoopVisual();
   }
 
   // ---- Save / Load Session ----
@@ -2683,12 +3037,27 @@ const Mixer = (() => {
 
   // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
-  el("mixer-seek").addEventListener("click", (e) => {
-    if(!duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    seek(pct * duration);
-  });
+  // Overview strip: click to jump, drag to scrub.
+  (() => {
+    const wrap = el("nm-ov-wrap");
+    let scrubbing = false;
+    const seekFromEvent = (e) => {
+      if(!duration) return;
+      const rect = wrap.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      seek(pct * duration);
+    };
+    wrap.addEventListener("pointerdown", (e) => {
+      scrubbing = true;
+      wrap.setPointerCapture(e.pointerId);
+      seekFromEvent(e);
+    });
+    wrap.addEventListener("pointermove", (e) => { if(scrubbing) seekFromEvent(e); });
+    wrap.addEventListener("pointerup", (e) => {
+      scrubbing = false;
+      try{ wrap.releasePointerCapture(e.pointerId); }catch(err){}
+    });
+  })();
 
   // ---- Export Dialog ----
   function openExportDialog(){
@@ -2749,7 +3118,7 @@ const Mixer = (() => {
     if(loopEnd <= loopStart){ loopEnd = loopStart + 4; }
     loopEnabled = true;
     el("mixer-loop").classList.add("active");
-    renderTimeline();
+    updateLoopVisual();
     showToast("⚙ Set: " + fmtDur(loopStart) + " → " + fmtDur(loopEnd));
   };
   el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
@@ -2771,7 +3140,7 @@ const Mixer = (() => {
             Object.assign(channels[i], sc);
           }
         });
-        if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60/data.tempo; el("mixer-tempo").textContent = tempoBPM + " BPM"; }
+        if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60/data.tempo; el("mixer-tempo").textContent = tempoBPM; }
         if(data.loop){ loopEnabled = true; loopStart = data.loop.start; loopEnd = data.loop.end; el("mixer-loop").classList.add("active"); }
         if(data.pixelsPerSecond){ pixelsPerSecond = data.pixelsPerSecond; el("mixer-zoom").value = pixelsPerSecond; el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s"; }
         renderChannels();
@@ -2818,7 +3187,7 @@ const Mixer = (() => {
     loopDragCurrent = Math.max(0, Math.min(duration, x / pixelsPerSecond));
     loopStart = Math.min(loopDragStart, loopDragCurrent);
     loopEnd = Math.max(loopDragStart, loopDragCurrent);
-    renderTimeline();
+    updateLoopVisual();
   });
   ruler.addEventListener("pointerup", (ev) => {
     if(loopDragStart !== null){
@@ -2829,8 +3198,87 @@ const Mixer = (() => {
         loopStart = 0;
         loopEnd = tempoBPM ? (60/tempoBPM)*4 : Math.min(8, duration);
       }
-      renderTimeline();
+      updateLoopVisual();
+      el("fl-in-marker").value = fmtDur(loopStart);
+      el("fl-out-marker").value = fmtDur(loopEnd);
     }
+  });
+
+  // ---- transport extras ----
+  el("nm-rewind").onclick = () => seek(loopEnabled ? loopStart : 0);
+
+  // Pitch is in semitones and drives every stem's playbackRate together, so
+  // the mix stays in sync. Equal temperament: one semitone = 2^(1/12).
+  let pitchSemitones = 0;
+  let tempoScale = 1;
+  function applyPitch(){
+    el("nm-pitch").value = (pitchSemitones > 0 ? "+" : "") + pitchSemitones;
+    const rate = Math.pow(2, pitchSemitones / 12) * tempoScale;
+    channels.forEach(c => {
+      c.pitchRate = rate;
+      if(c.source) c.source.playbackRate.value = rate;
+    });
+  }
+  el("nm-pitch-dn").onclick = () => { pitchSemitones = Math.max(-12, pitchSemitones - 1); applyPitch(); };
+  el("nm-pitch-up").onclick = () => { pitchSemitones = Math.min(12, pitchSemitones + 1); applyPitch(); };
+
+  // Tempo trims playback rate as a percentage (pitch rides along — no
+  // time-stretching here, same as the reference's plain rate control).
+  el("nm-tempo-slider").addEventListener("input", (e) => {
+    const pct = parseInt(e.target.value, 10);
+    tempoScale = 1 + pct / 100;
+    el("nm-tempo-val").textContent = (pct > 0 ? "+" : "") + pct + " %";
+    applyPitch();
+  });
+
+  el("nm-strips-toggle").onclick = () => {
+    const box = el("fl-channels");
+    box.hidden = !box.hidden;
+    el("nm-strips-toggle").classList.toggle("active", !box.hidden);
+  };
+
+  // Loop handles: drag either edge of the blue region.
+  (() => {
+    const region = el("mixer-loop-region");
+    let edge = null;
+    region.querySelectorAll(".nm-loop-grip").forEach(grip => {
+      grip.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        edge = grip.dataset.edge;
+        grip.setPointerCapture(e.pointerId);
+      });
+      grip.addEventListener("pointermove", (e) => {
+        if(!edge) return;
+        const rect = el("mixer-ruler").getBoundingClientRect();
+        const t = Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond));
+        if(edge === "in") loopStart = Math.min(t, loopEnd - 0.1);
+        else loopEnd = Math.max(t, loopStart + 0.1);
+        updateLoopVisual();
+        el("fl-in-marker").value = fmtDur(loopStart);
+        el("fl-out-marker").value = fmtDur(loopEnd);
+      });
+      grip.addEventListener("pointerup", (e) => {
+        edge = null;
+        try{ grip.releasePointerCapture(e.pointerId); }catch(err){}
+      });
+    });
+  })();
+
+  // Spacebar transport, but never while typing into the In/Out fields.
+  document.addEventListener("keydown", (e) => {
+    if(e.code !== "Space" || el("mixer").hidden) return;
+    const tag = (e.target.tagName || "").toLowerCase();
+    if(tag === "input" || tag === "textarea" || tag === "select") return;
+    e.preventDefault();
+    isPlaying ? pause() : play();
+  });
+
+  // The overview is sized in CSS percentages, so it needs a repaint whenever
+  // the window changes width.
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if(channels.length) renderOverview(); }, 150);
   });
 
   return { load, saveSession, loadSession };
@@ -3612,7 +4060,13 @@ const Player = (() => {
     pushHistory({...track, source: "podcast", key: "podcast:" + audioUrl});
   }
 
-  return { play, playLocal, playLocalQueue, playPodcastEpisode, getCurrent: () => current };
+  return {
+    play, playLocal, playLocalQueue, playPodcastEpisode,
+    getCurrent: () => current,
+    // Exposed for the video-mode handlers below, which live outside this
+    // module and used to reach for the closure variable directly.
+    hasVideoPlaylist: () => videoPlaylistTracks.length > 0,
+  };
 })();
 
 // ======================================================================
@@ -4150,7 +4604,7 @@ function setVideoMode(mode) {
       if (mode === "hidden") {
         videoSection.hidden = true;
       } else if (mode === "full") {
-        if (videoPlaylistTracks.length > 0) {
+        if (Player.hasVideoPlaylist()) {
           videoSection.hidden = false;
         }
       }
@@ -4202,7 +4656,7 @@ function applyVideoMode(mode) {
       videoSection.hidden = true;
     } else if (mode === "full") {
       // Show full video section if we have tracks
-      if (videoPlaylistTracks.length > 0) {
+      if (Player.hasVideoPlaylist()) {
         videoSection.hidden = false;
       }
     }
