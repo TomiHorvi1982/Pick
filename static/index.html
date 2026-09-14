@@ -324,6 +324,11 @@ document.addEventListener('DOMContentLoaded', () => {
   navigate('home');
 });
 
+// Declare global data stores at the top to avoid temporal dead zone
+var steemsSongs = [];
+var playlistsCache = [];
+var songsCache = [];
+
 // Note: loadPlaylists is defined later in the file; hook applied after definition
 // Hook loadPlaylists to also update home view
 const _origLoadPlaylists = loadPlaylists;
@@ -936,7 +941,6 @@ function openSteemsSong(name){
 // than ported, since only its documented architecture was available
 // during planning, not its literal source.
 // ======================================================================
-let steemsSongs = [];
 
 async function loadSteemsList(){
   const list = el("steems-list");
