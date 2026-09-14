@@ -683,6 +683,38 @@ def _resolve_audio(video_id: str):
     return result
 
 
+class _QuietLogger:
+    """Swallows yt-dlp's own ERROR lines.
+
+    Probing several format selectors is normal control flow here — a selector
+    that doesn't match just means "try the next one" — but yt-dlp prints
+    "Requested format is not available" to stderr for each miss, which filled
+    the server log with dozens of scary non-errors.
+    """
+
+    def debug(self, msg): pass
+    def info(self, msg): pass
+    def warning(self, msg): pass
+    def error(self, msg): pass
+
+
+def _purge_expired_stream_files() -> None:
+    """Deletes temp dirs of merged videos whose cache entry has expired.
+
+    Merged DASH videos are written to a tempfile.mkdtemp() that nothing used
+    to remove, so every such playback leaked tens of MB into /var/folders for
+    the rest of the uptime.
+    """
+    now = time.time()
+    for key, entry in list(_STREAM_CACHE.items()):
+        if entry.get("expires", 0) > now or not entry.get("is_file"):
+            continue
+        tmpdir = entry.get("tmpdir")
+        if tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        _STREAM_CACHE.pop(key, None)
+
+
 def _resolve_video(video_id: str):
     """Progressive (single file, video+audio combined) stream — good enough
     for the in-app video toggle, not used for downloads.
@@ -699,14 +731,17 @@ def _resolve_video(video_id: str):
     import yt_dlp
     import tempfile
 
+    _purge_expired_stream_files()
+
+    base_opts = {
+        "quiet": True, "no_warnings": True, "noplaylist": True,
+        "logger": _QuietLogger(),
+    }
+
     # Try progressive formats first (single file, direct stream - no download needed)
     for fmt in ["best[ext=mp4]/best", "best"]:
-        ydl_opts = {
-            "quiet": True, "no_warnings": True, "noplaylist": True,
-            "format": fmt,
-        }
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL({**base_opts, "format": fmt}) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
             if info and info.get("url"):
                 result = {
@@ -719,44 +754,44 @@ def _resolve_video(video_id: str):
         except Exception:
             continue
 
-    # No progressive format available - download and merge to temp file
-    # This handles DASH-only videos and region-restricted content
+    # No progressive format available - download and merge to temp file.
+    # These are *selectors*, not the literal format IDs this used to hardcode
+    # ("399+251", "137+251", ...): those IDs only exist on some videos, so most
+    # DASH-only videos burned six failed probes before reaching the fallback.
+    format_combos = [
+        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]",
+        "bestvideo[height<=1080]+bestaudio",
+        "bestvideo+bestaudio",
+        "best",
+    ]
+
+    tmpdir = None
     try:
-        tmpdir = tempfile.mkdtemp()
+        tmpdir = tempfile.mkdtemp(prefix="spotdl-helper-video-")
         tmp_path = os.path.join(tmpdir, "video.mp4")
-        
+
         ffmpeg_path = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
-        
-        # Try specific format combinations that work for most videos
-        format_combos = [
-            "399+251",  # 1080p AV1 + Opus (YouTube default)
-            "137+251",  # 1080p H264 + Opus
-            "398+251",  # 720p AV1 + Opus
-            "136+251",  # 720p H264 + Opus
-            "397+251",  # 480p AV1 + Opus
-            "135+251",  # 480p H264 + Opus
-            "bestvideo+bestaudio/best",  # Fallback
-        ]
-        
+
         for fmt in format_combos:
             ydl_opts = {
-                "quiet": True, "no_warnings": True, "noplaylist": True,
+                **base_opts,
                 "format": fmt,
                 "outtmpl": tmp_path,
                 "merge_output_format": "mp4",
                 "ffmpeg_location": ffmpeg_path,
             }
-            
+
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
-                
+
                 if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
                     result = {
                         "url": f"file://{tmp_path}",
                         "headers": {},
                         "expires": time.time() + _STREAM_CACHE_TTL,
                         "is_file": True,
+                        "tmpdir": tmpdir,
                     }
                     _STREAM_CACHE[cache_key] = result
                     return result
@@ -765,6 +800,9 @@ def _resolve_video(video_id: str):
     except Exception:
         pass
 
+    # Nothing worked — don't leak the scratch dir we created for the attempt.
+    if tmpdir:
+        shutil.rmtree(tmpdir, ignore_errors=True)
     return None
 
 
@@ -871,7 +909,7 @@ def start_download(req: DownloadRequest):
         out_dir = MUSIC_ROOT / "Songs"
         out_template = str(out_dir / "{artist}" / "{title}.{output-ext}")
     elif req.kind == "queue":
-        out_dir = MUSIC_ROOT / "Playlist"
+        out_dir = MUSIC_ROOT / "Playlists" / safe
         out_template = str(out_dir / "{artist} - {title}.{output-ext}")
     else:
         out_dir = MUSIC_ROOT
@@ -1015,21 +1053,56 @@ DEMUCS_BIN = str(HOME / ".local" / "bin" / "demucs")
 STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"]
 
 
+_DEMUCS_DEVICE_CACHE: dict = {}
+
+
+def _demucs_interpreter() -> Optional[str]:
+    """The Python that actually runs Demucs, read from its shebang.
+
+    Demucs is installed as its own isolated tool (uv/pipx), so torch lives in
+    *that* interpreter — never in this server's venv.
+    """
+    try:
+        first = Path(DEMUCS_BIN).read_text(encoding="utf-8", errors="replace").splitlines()[0]
+    except (OSError, IndexError):
+        return None
+    if not first.startswith("#!"):
+        return None
+    return first[2:].strip() or None
+
+
 def _demucs_device() -> Optional[str]:
     """Prefer Apple Silicon (MPS) acceleration when available — Demucs'
     own default is 'cuda if available else cpu', which would silently run
     on CPU (much slower, not broken) on a Mac with no explicit -d flag.
     Returns None (let Demucs pick its own default) if torch/MPS aren't
     available, so this never hard-fails on non-Apple-Silicon hardware.
-    """
-    try:
-        import torch
 
-        if torch.backends.mps.is_available():
-            return "mps"
-    except Exception:
-        pass
-    return None
+    The probe deliberately runs in Demucs' *own* interpreter rather than
+    importing torch here: this server's venv has no torch at all, so the
+    old in-process `import torch` always raised and every separation
+    silently fell back to CPU. Cached — spawning a Python just to ask
+    about MPS costs ~1s and the answer can't change while we run.
+    """
+    if "device" in _DEMUCS_DEVICE_CACHE:
+        return _DEMUCS_DEVICE_CACHE["device"]
+
+    device = None
+    interpreter = _demucs_interpreter()
+    if interpreter:
+        try:
+            probe = subprocess.run(
+                [interpreter, "-c",
+                 "import torch;print('mps' if torch.backends.mps.is_available() else '')"],
+                capture_output=True, text=True, timeout=60,
+            )
+            if probe.returncode == 0 and probe.stdout.strip() == "mps":
+                device = "mps"
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    _DEMUCS_DEVICE_CACHE["device"] = device
+    return device
 
 
 def _stems_dir_for(safe_name: str) -> Path:
