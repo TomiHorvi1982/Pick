@@ -509,7 +509,12 @@
   .mixer-ruler-tick.major{background:rgba(154,163,181,.5)}
   .mixer-ruler-label{position:absolute;top:2px;font-size:9px;color:var(--sub);font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
   .mixer-ruler-playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);z-index:5;pointer-events:none}
-  .mixer-loop-region{position:absolute;top:0;bottom:0;background:rgba(45,212,191,.12);border-left:1px solid var(--accent);border-right:1px solid var(--accent);z-index:3;pointer-events:none}
+  .mixer-loop-region{position:absolute;top:0;bottom:0;background:rgba(45,212,191,.12);z-index:3;pointer-events:none}
+  .mixer-loop-handle{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:6;border-radius:2px}
+  .mixer-loop-handle-start{background:var(--accent);left:0;transform:translateX(-3px)}
+  .mixer-loop-handle-end{background:var(--accent);right:0;transform:translateX(3px)}
+  .mixer-beat-tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(45,212,191,.35);z-index:1;pointer-events:none}
+  .mixer-beat-tick.downbeat{background:rgba(45,212,191,.65)}
   .mixer-tracks{display:flex;flex-direction:column;gap:4px;overflow-x:auto}
   .mixer-tracks::-webkit-scrollbar{height:8px}
   .mixer-tracks::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
@@ -741,25 +746,31 @@
 </nav>
 
 <header>
-  <h1 class="logo" id="logo" style="cursor:pointer" title="Zpět na playlisty"><span>🎧</span> Spotifylisty</h1>
-  <div class="tabs">
-    <button id="tab-playlists" class="active">Playlisty</button>
-    <button id="tab-songs">Písně</button>
-    <button id="tab-library">📁 Knihovna</button>
-    <button id="tab-steems">🎚️ Steems</button>
-    <button id="tab-podcasts">🎙️ Podcasty</button>
+  <div class="header-left">
+    <h1 class="logo" id="logo" style="cursor:pointer" title="Zpět na playlisty"><span>🎧</span> Spotifylisty</h1>
+    <div class="tabs">
+      <button id="tab-playlists" class="active">Playlisty</button>
+      <button id="tab-songs">Písně</button>
+      <button id="tab-library">📁 Knihovna</button>
+      <button id="tab-steems">🎚️ Steems</button>
+      <button id="tab-podcasts">🎙️ Podcasty</button>
+    </div>
   </div>
-  <div class="search-wrap">
-    <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
-    <button class="icon-btn-flat" id="surprise-btn" title="Překvap mě">🎲</button>
-    <button class="btn secondary" id="search-btn">Hledat</button>
+  <div class="header-center">
+    <div class="search-wrap">
+      <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
+      <button class="icon-btn-flat" id="surprise-btn" title="Překvap mě">🎲</button>
+      <button class="btn secondary" id="search-btn">Hledat</button>
+    </div>
   </div>
-  <select id="bitrate">
-    <option value="128k">128 kbps</option>
-    <option value="192k" selected>192 kbps</option>
-    <option value="320k">320 kbps</option>
-  </select>
-  <button class="icon-btn-flat" id="settings-btn" title="Nastavení stahování">⚙️</button>
+  <div class="header-right">
+    <select id="bitrate">
+      <option value="128k">128 kbps</option>
+      <option value="192k" selected>192 kbps</option>
+      <option value="320k">320 kbps</option>
+    </select>
+    <button class="icon-btn-flat" id="settings-btn" title="Nastavení stahování">⚙️</button>
+  </div>
 </header>
 
 <!-- Artist hints for the Songs tab — shown under the search box whenever a
@@ -902,7 +913,10 @@
           <div class="mixer-ruler-area">
             <div class="mixer-ruler-spacer"></div>
             <div class="mixer-ruler" id="mixer-ruler">
-              <div class="mixer-loop-region" id="mixer-loop-region" hidden></div>
+              <div class="mixer-loop-region" id="mixer-loop-region" hidden>
+                <div class="mixer-loop-handle mixer-loop-handle-start" id="mixer-loop-handle-start"></div>
+                <div class="mixer-loop-handle mixer-loop-handle-end" id="mixer-loop-handle-end"></div>
+              </div>
               <div class="mixer-ruler-playhead" id="mixer-ruler-playhead"></div>
             </div>
           </div>
@@ -910,8 +924,8 @@
         </div>
         <div class="mixer-zoom-bar">
           <label>Zoom</label>
-          <input type="range" id="mixer-zoom" min="80" max="600" value="200" step="20">
-          <span class="zoom-val" id="mixer-zoom-val">200 px/s</span>
+          <input type="range" id="mixer-zoom" min="10" max="600" value="30" step="5">
+          <span class="zoom-val" id="mixer-zoom-val">30 px/s</span>
         </div>
         <div id="fl-channels" class="fl-channels"></div>
       </div>
@@ -1851,7 +1865,7 @@ const Mixer = (() => {
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
-  let pixelsPerSecond = 200;
+  let pixelsPerSecond = 30;
   let tempoBPM = null;
   let beatInterval = 0;
   let metronomeOn = false;
@@ -1942,9 +1956,28 @@ const Mixer = (() => {
 
   function applyGains(){
     const solo = channels.some(c => c.solo);
+    const wasPlaying = isPlaying;
     channels.forEach(c => {
       const active = solo ? c.solo : !c.muted;
-      c.gainNode.gain.value = active ? c.faderValue : 0;
+      // Fader at minimum (≤0.01) → disconnect source to silence completely
+      if(!active || c.faderValue <= 0.01){
+        c.gainNode.gain.value = 0;
+        if(c.source){ try{ c.source.stop(); }catch(e){} c.source = null; }
+      } else {
+        c.gainNode.gain.value = c.faderValue;
+        // If playing but source was stopped (e.g. fader was at 0), restart it
+        if(wasPlaying && !c.source){
+          const t = currentTime();
+          const when = ctx().currentTime + 0.02;
+          const source = ctx().createBufferSource();
+          source.buffer = c.buffer;
+          source.playbackRate.value = c.pitchRate || 1;
+          source.connect(c.gainNode);
+          source.connect(c.panner);
+          source.start(when, t);
+          c.source = source;
+        }
+      }
       if(c.panner) c.panner.pan.value = c.panValue || 0;
     });
   }
@@ -1969,6 +2002,10 @@ const Mixer = (() => {
     scheduleAll(pausedAt);
     isPlaying = true;
     el("mixer-play").textContent = "⏸";
+    // Start metronome if enabled
+    if(metronomeOn && tempoBPM){
+      scheduleMetronomeClicks();
+    }
     tick();
   }
 
@@ -2050,8 +2087,8 @@ const Mixer = (() => {
 
   function renderTimeline(){
     const ruler = el("mixer-ruler");
-    // Clear old ticks
-    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label").forEach(n => n.remove());
+    // Clear old ticks and beat lines
+    ruler.querySelectorAll(".mixer-ruler-tick,.mixer-ruler-label,.mixer-beat-tick").forEach(n => n.remove());
     const totalPx = duration * pixelsPerSecond;
     ruler.style.minWidth = totalPx + "px";
     el("mixer-tracks").style.minWidth = totalPx + "px";
@@ -2081,6 +2118,22 @@ const Mixer = (() => {
         tick.classList.add("major");
       }
       ruler.appendChild(tick);
+    }
+    // Beat grid lines when tempo is detected
+    if(tempoBPM && beatInterval){
+      const beatPx = beatInterval * pixelsPerSecond;
+      // Downbeat every 4 beats
+      const downbeatInterval = beatInterval * 4;
+      for(let t = 0; t <= duration; t += beatInterval){
+        const px = t * pixelsPerSecond;
+        const beatTick = document.createElement("div");
+        beatTick.className = "mixer-beat-tick";
+        if(Math.abs(t % downbeatInterval) < 0.01 || Math.abs((t % downbeatInterval) - downbeatInterval) < 0.01){
+          beatTick.classList.add("downbeat");
+        }
+        beatTick.style.left = px + "px";
+        ruler.appendChild(beatTick);
+      }
     }
     // Update loop region visual
     const loopRegion = el("mixer-loop-region");
@@ -2143,6 +2196,13 @@ const Mixer = (() => {
       lane.className = "mixer-track-lane";
       lane.style.width = totalPx + "px";
       lane.style.position = "relative";
+      // Click on lane seeks to that position
+      lane.addEventListener("click", (e) => {
+        const laneRect = lane.getBoundingClientRect();
+        const lx = e.clientX - laneRect.left;
+        const t = Math.max(0, Math.min(duration, lx / pixelsPerSecond + (c.clipOffset || 0)));
+        seek(t);
+      });
       // Clip
       const clipW = c.buffer.duration * pixelsPerSecond;
       const clipOffset = c.clipOffset || 0;
@@ -2649,27 +2709,31 @@ const Mixer = (() => {
   function toggleMetronome(){
     metronomeOn = !metronomeOn;
     el("mixer-metro").classList.toggle("active", metronomeOn);
-    if(metronomeOn && tempoBPM){
+    if(metronomeOn && tempoBPM && isPlaying){
       scheduleMetronomeClicks();
     }
   }
 
   function scheduleMetronomeClicks(){
     if(!metronomeOn || !isPlaying || !beatInterval) return;
-    const now = ctx().currentTime;
+    const clickCtx = ctx();
+    const now = clickCtx.currentTime;
     const currentSec = currentTime();
-    // Schedule clicks for the next few beats
-    const lookahead = 2; // seconds
+    // Schedule clicks for the next ~500ms
+    const lookahead = 0.5;
     const startBeat = Math.floor(currentSec / beatInterval) + 1;
     const endSec = currentSec + lookahead;
     let beat = startBeat;
     while(beat * beatInterval < endSec){
-      const clickTime = now + (beat * beatInterval - currentSec);
-      playClick(beat % 4 === 0, clickTime);
+      const beatTime = beat * beatInterval;
+      const clickTime = now + (beatTime - currentSec);
+      if(clickTime > now){
+        playClick(beat % 4 === 0, clickTime);
+      }
       beat++;
     }
-    // Reschedule
-    setTimeout(scheduleMetronomeClicks, 200);
+    // Reschedule via setTimeout (more reliable than RAF for audio scheduling)
+    setTimeout(scheduleMetronomeClicks, 150);
   }
 
   function playClick(accent, when){
@@ -2835,18 +2899,81 @@ const Mixer = (() => {
     renderTimeline();
   });
 
-  // Ruler click to seek
+  // Ruler click to seek (only if not clicking on loop handles)
   el("mixer-ruler").addEventListener("click", (e) => {
+    if(e.target.classList && e.target.classList.contains("mixer-loop-handle")) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left + el("mixer-ruler").scrollLeft;
     const t = x / pixelsPerSecond;
     seek(Math.max(0, Math.min(duration, t)));
   });
 
-  // Ruler drag for loop region
+  // Loop handle dragging
+  let loopHandleDragging = null; // 'start' or 'end'
+  let loopHandleStartX = 0;
+  let loopHandleStartVal = 0;
+  const loopHandleStart = el("mixer-loop-handle-start");
+  const loopHandleEnd = el("mixer-loop-handle-end");
+
+  loopHandleStart.addEventListener("pointerdown", (ev) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if(!duration) return;
+    loopHandleDragging = "start";
+    loopHandleStartX = ev.clientX;
+    loopHandleStartVal = loopStart;
+    loopEnabled = true;
+    el("mixer-loop").classList.add("active");
+    loopHandleStart.setPointerCapture(ev.pointerId);
+  });
+  loopHandleStart.addEventListener("pointermove", (ev) => {
+    if(loopHandleDragging !== "start") return;
+    const dx = ev.clientX - loopHandleStartX;
+    const dt = dx / pixelsPerSecond;
+    loopStart = Math.max(0, Math.min(loopEnd - 0.1, loopHandleStartVal + dt));
+    renderTimeline();
+  });
+  loopHandleStart.addEventListener("pointerup", (ev) => {
+    if(loopHandleDragging === "start"){
+      loopHandleStart.releasePointerCapture(ev.pointerId);
+      loopHandleDragging = null;
+      renderTimeline();
+    }
+  });
+
+  loopHandleEnd.addEventListener("pointerdown", (ev) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if(!duration) return;
+    loopHandleDragging = "end";
+    loopHandleStartX = ev.clientX;
+    loopHandleStartVal = loopEnd;
+    loopEnabled = true;
+    el("mixer-loop").classList.add("active");
+    loopHandleEnd.setPointerCapture(ev.pointerId);
+  });
+  loopHandleEnd.addEventListener("pointermove", (ev) => {
+    if(loopHandleDragging !== "end") return;
+    const dx = ev.clientX - loopHandleStartX;
+    const dt = dx / pixelsPerSecond;
+    loopEnd = Math.max(loopStart + 0.1, Math.min(duration, loopHandleStartVal + dt));
+    renderTimeline();
+  });
+  loopHandleEnd.addEventListener("pointerup", (ev) => {
+    if(loopHandleDragging === "end"){
+      loopHandleEnd.releasePointerCapture(ev.pointerId);
+      loopHandleDragging = null;
+      renderTimeline();
+    }
+  });
+
+  // Ruler drag for loop region (only when not on a handle)
   const ruler = el("mixer-ruler");
+  let rulerDragged = false;
   ruler.addEventListener("pointerdown", (ev) => {
     if(!duration) return;
+    if(ev.target.classList && ev.target.classList.contains("mixer-loop-handle")) return;
+    rulerDragged = false;
     const rect = ruler.getBoundingClientRect();
     const x = ev.clientX - rect.left + ruler.scrollLeft;
     loopDragStart = x / pixelsPerSecond;
@@ -2862,6 +2989,7 @@ const Mixer = (() => {
     loopDragCurrent = Math.max(0, Math.min(duration, x / pixelsPerSecond));
     loopStart = Math.min(loopDragStart, loopDragCurrent);
     loopEnd = Math.max(loopDragStart, loopDragCurrent);
+    rulerDragged = true;
     renderTimeline();
   });
   ruler.addEventListener("pointerup", (ev) => {
@@ -2875,6 +3003,16 @@ const Mixer = (() => {
       }
       renderTimeline();
     }
+  });
+
+  // Ruler click to seek (only if not dragging a loop)
+  el("mixer-ruler").addEventListener("click", (e) => {
+    if(rulerDragged){ rulerDragged = false; return; }
+    if(e.target.classList && e.target.classList.contains("mixer-loop-handle")) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left + el("mixer-ruler").scrollLeft;
+    const t = x / pixelsPerSecond;
+    seek(Math.max(0, Math.min(duration, t)));
   });
 
   return { load, saveSession, loadSession };
