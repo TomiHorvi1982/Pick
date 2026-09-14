@@ -679,76 +679,9 @@
 
   /* Smooth player bar appearance */
   .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
-  .player-bar[hidden]{transform:translateY(100%);opacity:0}
-/* Left sidebar */
-#sidebar{position:fixed;top:0;bottom:0;left:0;width:220px;background:#000;padding:20px 0;display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid #222;z-index:100}
-#sidebar .sb-logo{padding:0 24px 20px;font-size:16px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:16px;padding-bottom:16px}
-#sidebar .sb-nav{list-style:none;padding:0;margin:0}
-#sidebar .sb-nav li{margin:0}
-.sb-nav-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 24px;background:none;border:none;color:var(--sub);font-size:13px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:color .15s;border-left:3px solid transparent}
-.sb-nav-item:hover{color:#fff}
-.sb-nav-item.active{color:#fff;border-left-color:var(--accent)}
-.sb-icon{font-size:18px;width:20px;text-align:center}
-.sb-divider{border:none;border-top:1px solid #222;margin:12px 0}
-/* Right sidebar */
-.right-sidebar{position:fixed;top:0;bottom:0;right:0;width:280px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:90}
-.right-sidebar[hidden]{display:none}
-.rs-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.rs-header h3{font-size:14px;font-weight:700;color:var(--text);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
-.rs-close{background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:4px;border-radius:4px}
-.rs-close:hover{color:var(--text);background:var(--card)}
-.rs-content{flex:1;overflow-y:auto;padding:12px}
-.rs-track{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .15s}
-.rs-track:hover{background:var(--card)}
-.rs-track.active{background:var(--card-hi);border-left:2px solid var(--accent)}
-.rs-track .num{font-size:11px;color:var(--sub);width:20px;text-align:center;flex-shrink:0}
-.rs-track .info{flex:1;min-width:0}
-.rs-track .title{font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rs-track .artist{font-size:10.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Layout */
-.main-content{margin-left:220px;margin-right:280px}
-main{max-width:none}
-/* Loop handles */
-.mixer-loop-handle{position:absolute;top:-3px;width:10px;height:22px;background:var(--accent);border-radius:2px;cursor:ew-resize;z-index:10;border:1px solid rgba(0,0,0,.3);transform:translateX(-50%)}
-.mixer-loop-handle:hover{background:#1ed760;transform:translateX(-50%) scaleY(1.1)}
-/* Beat grid */
-.mixer-beat-tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(45,212,191,.3);pointer-events:none}
-.mixer-beat-tick.downbeat{background:rgba(45,212,191,.6);width:2px}
-/* Ruler */
-.mixer-ruler{cursor:crosshair}
-/* Metro */
-.metro-indicator{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--sub);opacity:.4;transition:all .05s}
-.metro-indicator.active{background:var(--accent);opacity:1;box-shadow:0 0 6px var(--accent)}
-/* Fader muted */
-.fl-channel.muted{opacity:.5}
-
-</style>
+  .player-bar[hidden]{transform:translateY(100%);opacity:0}</style>
 </head>
 <body>
-<nav id="sidebar">
-  <div class="sb-logo" id="sb-logo" style="cursor:pointer"><span>🎧</span> Spotifylisty</div>
-  <ul class="sb-nav">
-    <li><button class="sb-nav-item active" data-sb-mode="playlists"><span class="sb-icon">🏠</span> Domů</button></li>
-    <li><button class="sb-nav-item" data-sb-mode="songs"><span class="sb-icon">💿</span> Písně</button></li>
-    <li><button class="sb-nav-item" data-sb-mode="library"><span class="sb-icon">📁</span> Knihovna</button></li>
-    <li><button class="sb-nav-item" data-sb-mode="steems"><span class="sb-icon">🎚️</span> Steems</button></li>
-    <li><button class="sb-nav-item" data-sb-mode="podcasts"><span class="sb-icon">🎙️</span> Podcasty</button></li>
-  </ul>
-  <hr class="sb-divider">
-  <ul class="sb-nav">
-    <li><button class="sb-nav-item" id="sb-toggle-right"><span class="sb-icon">📃</span> Playlist</button></li>
-  </ul>
-</nav>
-
-<div class="right-sidebar" id="right-sidebar" hidden>
-  <div class="rs-header">
-    <h3 id="rs-title">Playlist</h3>
-    <button class="rs-close" id="rs-close">✕</button>
-  </div>
-  <div class="rs-content" id="rs-content"></div>
-</div>
-
-<div class="main-content">
 
 <header>
   <h1 class="logo" id="logo" style="cursor:pointer" title="Zpět na playlisty"><span>🎧</span> Spotifylisty</h1>
@@ -997,7 +930,6 @@ main{max-width:none}
      playlist/search panel stays open no matter what you do here (it sits
      above the overlay's dim backdrop). Fully custom controls — no native
      browser widget — so it actually matches the rest of the app. -->
-</div>
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
@@ -1533,13 +1465,11 @@ el("tab-podcasts").onclick = () => setMode("podcasts");
 
 function setMode(mode){
   state.mode = mode;
-  var tp = el("tab-playlists"), ts = el("tab-songs"), tl = el("tab-library"), tst = el("tab-steems"), tpc = el("tab-podcasts");
-  if(tp) tp.classList.toggle("active", mode==="playlists");
-  if(ts) ts.classList.toggle("active", mode==="songs");
-  if(tl) tl.classList.toggle("active", mode==="library");
-  if(tst) tst.classList.toggle("active", mode==="steems");
-  if(tpc) tpc.classList.toggle("active", mode==="podcasts");
-  updateSidebarState(mode);
+  el("tab-playlists").classList.toggle("active", mode==="playlists");
+  el("tab-songs").classList.toggle("active", mode==="songs");
+  el("tab-library").classList.toggle("active", mode==="library");
+  el("tab-steems").classList.toggle("active", mode==="steems");
+  el("tab-podcasts").classList.toggle("active", mode==="podcasts");
   el("search-input").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
   el("search-btn").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
   el("search-input").placeholder = mode==="playlists"
@@ -1805,7 +1735,7 @@ const Mixer = (() => {
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
-  let pixelsPerSecond = 30;
+  let pixelsPerSecond = 200;
   let tempoBPM = null;
   let beatInterval = 0;
   let metronomeOn = false;
@@ -1896,19 +1826,9 @@ const Mixer = (() => {
 
   function applyGains(){
     const solo = channels.some(c => c.solo);
-    channels.forEach((c, idx) => {
+    channels.forEach(c => {
       const active = solo ? c.solo : !c.muted;
-      if(!active || c.faderValue <= 0.01){
-        c.gainNode.gain.value = 0;
-        c.muted = true;
-        var strips = document.querySelectorAll('.fl-channel');
-        if(strips[idx]) strips[idx].classList.add('muted');
-      } else {
-        c.gainNode.gain.value = c.faderValue;
-        c.muted = false;
-        var strips = document.querySelectorAll('.fl-channel');
-        if(strips[idx]) strips[idx].classList.remove('muted');
-      }
+      c.gainNode.gain.value = active ? c.faderValue : 0;
       if(c.panner) c.panner.pan.value = c.panValue || 0;
     });
   }
@@ -4493,84 +4413,6 @@ renderFavPlaylists();
 loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
-
-// Spotifylisty — Sidebar Navigation
-function updateSidebarState(mode){
-  document.querySelectorAll('#sidebar .sb-nav-item[data-sb-mode]').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.sbMode === mode);
-  });
-}
-
-function showRightSidebar(title, tracks){
-  var sidebar = document.getElementById('right-sidebar');
-  var content = document.getElementById('rs-content');
-  var titleEl = document.getElementById('rs-title');
-  if(!sidebar || !content) return;
-  sidebar.hidden = false;
-  if(titleEl) titleEl.textContent = title || 'Obsah';
-  content.innerHTML = '';
-  tracks.forEach(function(track, idx){
-    var el = document.createElement('div');
-    el.className = 'rs-track' + (idx === 0 ? ' active' : '');
-    el.innerHTML = '<span class="num">' + (idx+1) + '</span><div class="info"><div class="title">' + (track.title || track.name || 'Neznámá') + '</div><div class="artist">' + (track.artist || '') + '</div></div>';
-    el.onclick = function(){
-      content.querySelectorAll('.rs-track').forEach(function(t){ t.classList.remove('active'); });
-      el.classList.add('active');
-      if(track.onclick) track.onclick();
-    };
-    content.appendChild(el);
-  });
-}
-
-function hideRightSidebar(){
-  var sidebar = document.getElementById('right-sidebar');
-  if(sidebar) sidebar.hidden = true;
-}
-
-function syncPlayerBarWithMixer(songName){
-  var title = document.getElementById('pb-title');
-  var artist = document.getElementById('pb-artist');
-  var bar = document.getElementById('player-bar');
-  if(title) title.textContent = songName || 'Mixér';
-  if(artist) artist.textContent = '🎚️ Steems Mixer';
-  if(bar) bar.hidden = false;
-}
-
-// Navigation init
-document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('#sidebar .sb-nav-item[data-sb-mode]').forEach(function(btn){
-    btn.onclick = function(){
-      var mode = btn.dataset.sbMode;
-      setMode(mode);
-      updateSidebarState(mode);
-    };
-  });
-  var logo = document.getElementById('sb-logo');
-  if(logo) logo.onclick = function(){ setMode('playlists'); updateSidebarState('playlists'); };
-  var closeBtn = document.getElementById('rs-close');
-  if(closeBtn) closeBtn.onclick = hideRightSidebar;
-  var toggleRight = document.getElementById('sb-toggle-right');
-  if(toggleRight) toggleRight.onclick = function(){
-    var rs = document.getElementById('right-sidebar');
-    if(rs) rs.hidden = !rs.hidden;
-  };
-});
-
-// Override loadMixerSong
-var _origLoadMixerSong = window.loadMixerSong;
-window.loadMixerSong = function(name){
-  if(_origLoadMixerSong) _origLoadMixerSong(name);
-  syncPlayerBarWithMixer(name);
-  if(typeof steemsSongs !== 'undefined' && steemsSongs.length > 0){
-    var tracks = steemsSongs.map(function(s){ return {name:s.name, artist:'Steems'}; });
-    showRightSidebar('Steems', tracks);
-  }
-};
-
-// Global data stores
-var playlistsCache = [];
-var songsCache = [];
-
 </script>
 </body>
 </html>
