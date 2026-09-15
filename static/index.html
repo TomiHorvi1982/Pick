@@ -1350,9 +1350,10 @@
      doesn't widen it, and only shows its grab line while pointed at. */
   .lib-resize{position:absolute;top:0;right:0;width:8px;height:100%;
     cursor:col-resize;z-index:8}
-  .lib-resize::after{content:"";position:absolute;top:0;bottom:0;right:2px;width:2px;
-    background:transparent;border-radius:1px;transition:background .15s}
-  .lib-resize:hover::after,body.lib-resizing .lib-resize::after{background:var(--accent)}
+  /* No visible rule: the col-resize cursor is enough of an affordance, and a
+     line running the height of the rail was distracting while dragging. */
+  .lib-resize::after{content:"";position:absolute;top:0;bottom:0;right:0;width:2px;
+    background:transparent}
   body.lib-resizing{cursor:col-resize;user-select:none}
   body.lib-resizing #sidebar-left{transition:none}
   body.lib-collapsed .lib-resize{display:none}
@@ -1487,6 +1488,17 @@
     padding:0 4px;cursor:pointer;outline:none;text-align:center}
   .nm-rate:hover{background:#1e1e25}
   .nm-rate:focus{border-color:var(--accent)}
+
+  /* Metronome channel: sits above the stems and shows every click. */
+  .nm-strip.metro-strip{gap:4px;border-bottom:1px solid #35353d}
+  .nm-strip.metro-strip .nm-strip-name{color:var(--accent)}
+  .metro-voice{width:100%;height:20px;background:#131318;border:1px solid #32323c;
+    border-radius:5px;color:var(--nm-txt);font-size:10.5px;font-family:inherit;
+    padding:0 4px;cursor:pointer;outline:none}
+  .metro-voice:hover{background:#1e1e25}
+  .metro-voice:focus{border-color:var(--accent)}
+  .nm-lane.metro-lane{background:rgba(30,215,96,.035);border-bottom:1px solid #35353d}
+  .metro-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -3209,6 +3221,14 @@ const Mixer = (() => {
   let metronomeOn = false;
   let metronomeOsc = null;
   let metronomeGain = null;
+  // The click is a channel now: its own gain and panner, so it mixes against
+  // the stems instead of going straight to the speakers at a fixed level.
+  let metroBus = null;         // {gain, panner}
+  let metroVolume = 0.6;
+  let metroPan = 0;
+  let metroMuted = false;
+  let metroVoice = "beep";
+  let noiseBuffer = null;
   let loopEnabled = false;
   let loopStart = 0;
   let loopEnd = 0;
@@ -3745,6 +3765,113 @@ const Mixer = (() => {
     }
   }
 
+  // The click as its own track at the top of the mixer: volume, pan, mute and
+  // a voice picker on the left, and every click drawn on the right. Having the
+  // clicks visible is what makes a loop region easy to place on a bar line.
+  function renderMetronomeLane(rail, lanes, totalPx, laneH){
+    const strip = document.createElement("div");
+    strip.className = "nm-strip metro-strip" + (metroMuted ? " muted" : "");
+    strip.innerHTML = `
+      <div class="nm-strip-top">
+        <span class="nm-strip-icon">\uD83D\uDD14</span>
+        <span class="nm-strip-name">Metronom</span>
+        <button class="nm-sm mute ${metroMuted ? "active" : ""}" title="Ztlumit klik">M</button>
+      </div>
+      <input type="range" class="nm-fader" min="0" max="1.4" step="0.01"
+             value="${metroVolume}" title="Hlasitost kliku">
+      <div class="nm-pitch-row">
+        <span class="lbl">PAN</span>
+        <input type="range" class="nm-pitch-slider metro-pan" min="-1" max="1" step="0.02"
+               value="${metroPan}" title="Panorama">
+        <span class="val">${metroPan === 0 ? "C" : (metroPan > 0 ? "R" : "L")}</span>
+      </div>
+      <select class="metro-voice" title="Zvuk kliku">
+        ${METRO_VOICES.map(v =>
+          `<option value="${v.id}"${v.id === metroVoice ? " selected" : ""}>${v.label}</option>`
+        ).join("")}
+      </select>
+    `;
+
+    const fader = strip.querySelector(".nm-fader");
+    const paint = () => fader.style.setProperty("--fill", (fader.value / 1.4) * 100 + "%");
+    paint();
+    fader.oninput = () => {
+      metroVolume = parseFloat(fader.value);
+      paint();
+      if(metroBus) metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
+    };
+
+    const pan = strip.querySelector(".metro-pan");
+    const panVal = strip.querySelector(".nm-pitch-row .val");
+    pan.oninput = () => {
+      metroPan = parseFloat(pan.value);
+      panVal.textContent = Math.abs(metroPan) < 0.03 ? "C"
+        : (metroPan > 0 ? "R" + Math.round(metroPan * 100) : "L" + Math.round(-metroPan * 100));
+      if(metroBus) metroBus.panner.pan.value = metroPan;
+    };
+
+    const muteBtn = strip.querySelector(".nm-sm.mute");
+    muteBtn.onclick = () => {
+      metroMuted = !metroMuted;
+      muteBtn.classList.toggle("active", metroMuted);
+      strip.classList.toggle("muted", metroMuted);
+      if(metroBus) metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
+    };
+
+    strip.querySelector(".metro-voice").onchange = (e) => {
+      metroVoice = e.target.value;
+      // Audible confirmation of the pick, without waiting for the next beat.
+      playClick(true, ctx().currentTime + 0.02);
+    };
+    rail.appendChild(strip);
+
+    const lane = document.createElement("div");
+    lane.className = "nm-lane metro-lane";
+    lane.style.width = totalPx + "px";
+    const cv = document.createElement("canvas");
+    cv.className = "metro-canvas";
+    lane.appendChild(cv);
+    lane.addEventListener("click", (e) => {
+      const rect = lane.getBoundingClientRect();
+      seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
+    });
+    lanes.appendChild(lane);
+    paintMetronomeLane(cv, totalPx, laneH);
+  }
+
+  function paintMetronomeLane(cv, totalPx, laneH){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cssW = Math.min(totalPx, 16000);
+    cv.width = Math.floor(cssW * dpr);
+    cv.height = Math.floor(laneH * dpr);
+    cv.style.width = totalPx + "px";
+    const g = cv.getContext("2d");
+    g.scale(dpr, dpr);
+    g.clearRect(0, 0, cssW, laneH);
+    paintGrid(g, cssW, laneH);
+
+    if(clickTimes.length < 2) return;
+    const mid = laneH / 2;
+
+    // Spacing between ordinary clicks at this zoom. Below a few pixels they
+    // merge into a solid block, so only the accents are drawn — the lane then
+    // reads as bar lines when zoomed out and as every click when zoomed in.
+    const spacingPx = (clickTimes[1] - clickTimes[0]) * pixelsPerSecond;
+    const showAll = spacingPx >= 6;
+
+    for(let i = 0; i < clickTimes.length; i++){
+      const x = clickTimes[i] * pixelsPerSecond;
+      if(x > cssW) break;
+      const accent = clickAccent[i];
+      if(!accent && !showAll) continue;
+      // Accents run tall so bar lines are findable at a glance; ordinary
+      // clicks are short ticks.
+      const half = accent ? laneH * 0.38 : laneH * 0.15;
+      g.fillStyle = accent ? "#1ed760" : "rgba(255,255,255,.34)";
+      g.fillRect(Math.floor(x), mid - half, accent ? 2 : 1, half * 2);
+    }
+  }
+
   function renderTrackLanes(){
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
@@ -3753,6 +3880,8 @@ const Mixer = (() => {
 
     const totalPx = totalWidthPx();
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
+
+    if(channels.length) renderMetronomeLane(rail, lanes, totalPx, laneH);
 
     channels.forEach((c, idx) => {
       const style = stemStyle(c.stem);
@@ -3845,7 +3974,8 @@ const Mixer = (() => {
     });
 
     // Grid overlay (playhead + loop) has to span ruler and every lane.
-    el("nm-canvas").style.height = (22 + channels.length * laneH) + "px";
+    el("nm-canvas").style.height =
+      (22 + (channels.length ? channels.length + 1 : 0) * laneH) + "px";
   }
 
   // ---- overview: the whole song, always fully visible ----
@@ -4452,6 +4582,8 @@ const Mixer = (() => {
     rebuildClickTrack();
     const sel = el("nm-metro-rate");
     if(sel) sel.value = String(rate);
+    const cv = document.querySelector(".metro-canvas");
+    if(cv) paintMetronomeLane(cv, totalWidthPx(), 86);
   }
 
   function toggleMetronome(){
@@ -4494,19 +4626,110 @@ const Mixer = (() => {
     setTimeout(scheduleMetronomeClicks, 200);
   }
 
+  // Ten click voices, all synthesised — no samples to ship or load. Each is
+  // {tone, noise} where tone is [freq, type, decay] and noise is a filtered
+  // burst; the accent variant is a fourth up and a touch longer.
+  const METRO_VOICES = [
+    {id: "beep",      label: "Pípnutí",     tone: [800, "sine", 0.06]},
+    {id: "woodblock", label: "Dřívko",      tone: [1400, "square", 0.03], filter: ["bandpass", 1400, 12]},
+    {id: "clave",     label: "Claves",      tone: [2200, "sine", 0.04]},
+    {id: "cowbell",   label: "Zvonec",      tone: [540, "square", 0.12], second: 800, filter: ["bandpass", 700, 6]},
+    {id: "rim",       label: "Rimshot",     tone: [1800, "triangle", 0.025], noise: [0.02, "highpass", 2000]},
+    {id: "hihat",     label: "Hi-hat",      noise: [0.05, "highpass", 7000]},
+    {id: "tick",      label: "Tik",         noise: [0.012, "bandpass", 3000]},
+    {id: "kick",      label: "Kopák",       tone: [120, "sine", 0.14], sweep: 45},
+    {id: "clap",      label: "Tlesknutí",   noise: [0.09, "bandpass", 1200]},
+    {id: "ping",      label: "Ping",        tone: [1600, "triangle", 0.22]},
+  ];
+
+  function getNoiseBuffer(){
+    if(noiseBuffer) return noiseBuffer;
+    const ac = ctx();
+    const len = Math.floor(ac.sampleRate * 0.4);
+    noiseBuffer = ac.createBuffer(1, len, ac.sampleRate);
+    const d = noiseBuffer.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return noiseBuffer;
+  }
+
+  function metroOut(){
+    const ac = ctx();
+    if(!metroBus){
+      const gain = ac.createGain();
+      const panner = ac.createStereoPanner();
+      gain.connect(panner);
+      panner.connect(ac.destination);
+      metroBus = {gain, panner};
+    }
+    metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
+    metroBus.panner.pan.value = metroPan;
+    return metroBus.gain;
+  }
+
   function playClick(accent, when){
-    const clickCtx = ctx();
-    const osc = clickCtx.createOscillator();
-    const gain = clickCtx.createGain();
-    osc.frequency.value = accent ? 1200 : 800;
-    osc.type = "sine";
-    gain.gain.setValueAtTime(0, when);
-    gain.gain.linearRampToValueAtTime(accent ? 0.3 : 0.15, when + 0.001);
-    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.06);
-    osc.connect(gain);
-    gain.connect(clickCtx.destination);
-    osc.start(when);
-    osc.stop(when + 0.07);
+    if(metroMuted) return;
+    const ac = ctx();
+    const voice = METRO_VOICES.find(v => v.id === metroVoice) || METRO_VOICES[0];
+    const out = metroOut();
+    const peak = accent ? 0.9 : 0.45;
+
+    if(voice.tone){
+      const [freq, type, decay] = voice.tone;
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = type;
+      // Accents sit a fourth above the beat so they read as the bar line.
+      const f = accent ? freq * 1.33 : freq;
+      osc.frequency.setValueAtTime(f, when);
+      if(voice.sweep) osc.frequency.exponentialRampToValueAtTime(voice.sweep, when + decay);
+
+      let node = osc;
+      if(voice.filter){
+        const [ftype, ffreq, q] = voice.filter;
+        const filt = ac.createBiquadFilter();
+        filt.type = ftype;
+        filt.frequency.value = ffreq;
+        filt.Q.value = q;
+        osc.connect(filt);
+        node = filt;
+      }
+      gain.gain.setValueAtTime(0, when);
+      gain.gain.linearRampToValueAtTime(peak, when + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+      node.connect(gain);
+      gain.connect(out);
+      osc.start(when);
+      osc.stop(when + decay + 0.02);
+
+      // A second partial is what separates a cowbell from a plain square.
+      if(voice.second){
+        const osc2 = ac.createOscillator();
+        osc2.type = type;
+        osc2.frequency.value = accent ? voice.second * 1.33 : voice.second;
+        osc2.connect(gain);
+        osc2.start(when);
+        osc2.stop(when + decay + 0.02);
+      }
+    }
+
+    if(voice.noise){
+      const [decay, ftype, ffreq] = voice.noise;
+      const src = ac.createBufferSource();
+      src.buffer = getNoiseBuffer();
+      const filt = ac.createBiquadFilter();
+      filt.type = ftype;
+      filt.frequency.value = accent ? ffreq * 1.2 : ffreq;
+      filt.Q.value = 1.2;
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0, when);
+      gain.gain.linearRampToValueAtTime(peak * 0.8, when + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+      src.connect(filt);
+      filt.connect(gain);
+      gain.connect(out);
+      src.start(when);
+      src.stop(when + decay + 0.02);
+    }
   }
 
   // ---- Loop ----
