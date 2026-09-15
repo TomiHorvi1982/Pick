@@ -825,44 +825,552 @@
     .nm-transport{gap:14px}
     .nm-head{flex-wrap:wrap;gap:12px}
   }
+
+  /* ==================================================================
+     SPOTIFY SKIN
+     Black page, content in separated rounded cards, floating top bar,
+     library rail on the left, now-playing on the right, player docked
+     at the bottom. Tokens are redefined here so every existing
+     component inherits the new palette instead of being restyled twice.
+     ================================================================== */
+  :root{
+    --bg:#000; --bg2:#121212; --card:#181818; --card-hi:#282828;
+    --text:#fff; --sub:#b3b3b3; --accent:#1ed760; --accent-dim:#1db954;
+    --danger:#f15e6c; --ok:#1ed760; --gold:#e9b949; --border:#282828;
+    --sp-gap:8px; --sp-topbar:64px; --sp-player:80px;
+    --sp-lib:280px; --sp-np:0px;
+    --sp-radius:8px;
+    --sp-hover:rgba(255,255,255,.1);
+    --sp-font:"Helvetica Neue",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  }
+  html,body{height:100%}
+  body{background:var(--bg);font-family:var(--sp-font);overflow:hidden}
+  ::selection{background:rgba(30,215,96,.3)}
+
+  /* Scrollbars: Spotify's are invisible until the area is hovered. */
+  .sp-scroll{overflow-y:auto;scrollbar-gutter:stable}
+  .sp-scroll::-webkit-scrollbar{width:12px}
+  .sp-scroll::-webkit-scrollbar-track{background:transparent}
+  .sp-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:6px;
+    border:3px solid transparent;background-clip:content-box}
+  .sp-scroll:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);background-clip:content-box}
+  .sp-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.5);background-clip:content-box}
+
+  /* ---------------------------------------------------------- topbar */
+  .sp-topbar{position:fixed;top:0;left:0;right:0;height:var(--sp-topbar);z-index:60;
+    display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg)}
+  .sp-nav-btns{display:flex;gap:8px;flex:0 0 auto}
+  .sp-round{width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,.7);
+    color:var(--sub);font-size:15px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;flex:0 0 auto;transition:color .15s,transform .15s}
+  .sp-round:hover{color:#fff}
+  .sp-round:disabled{color:#5a5a5a;cursor:default}
+  .sp-center{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;min-width:0}
+  .sp-home{width:48px;height:48px;border-radius:50%;background:var(--card);border:none;
+    color:var(--text);font-size:19px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;flex:0 0 auto;transition:background .15s,transform .15s}
+  .sp-home:hover{background:var(--card-hi);transform:scale(1.04)}
+  .sp-searchbox{display:flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid transparent;border-radius:500px;height:48px;padding:0 12px 0 14px;
+    width:min(480px,46vw);transition:background .15s,border-color .15s}
+  .sp-searchbox:hover{background:var(--card-hi)}
+  .sp-searchbox:focus-within{background:var(--card-hi);border-color:#fff}
+  .sp-searchbox .ic{font-size:15px;color:var(--sub);flex:0 0 auto}
+  .sp-searchbox:focus-within .ic{color:#fff}
+  .sp-searchbox input{flex:1;min-width:0;background:none;border:none;outline:none;
+    color:var(--text);font-size:14px;font-family:inherit}
+  .sp-searchbox input::placeholder{color:var(--sub)}
+  .sp-searchbox .divider{width:1px;height:24px;background:#7c7c7c;flex:0 0 auto}
+  .sp-topbar-right{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .sp-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-dim);
+    color:#000;font-weight:700;font-size:13px;display:flex;align-items:center;
+    justify-content:center;border:none;cursor:pointer;flex:0 0 auto}
+  .sp-avatar:hover{filter:brightness(1.1)}
+
+  /* ----------------------------------------------------------- shell */
+  .sp-shell{position:fixed;top:var(--sp-topbar);left:0;right:0;bottom:var(--sp-player);
+    display:flex;gap:var(--sp-gap);padding:0 var(--sp-gap) var(--sp-gap);min-height:0}
+  .sp-shell > *{border-radius:var(--sp-radius);background:var(--bg2);min-height:0}
+
+  /* ------------------------------------------------- library sidebar */
+  #sidebar-left{flex:0 0 var(--sp-lib);display:flex;flex-direction:column;
+    overflow:hidden;position:relative;transition:flex-basis .2s ease}
+  body.lib-collapsed{--sp-lib:76px}
+  .lib-head{display:flex;align-items:center;gap:8px;padding:16px 8px 8px 16px;flex:0 0 auto}
+  .lib-title{display:flex;align-items:center;gap:12px;background:none;border:none;
+    color:var(--sub);font-size:15px;font-weight:700;cursor:pointer;padding:4px;
+    font-family:inherit;flex:1;min-width:0;transition:color .15s}
+  .lib-title:hover{color:#fff}
+  .lib-title .ic{font-size:19px;flex:0 0 auto}
+  .lib-title .tx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.lib-collapsed .lib-title .tx{display:none}
+  .lib-create{display:flex;align-items:center;gap:6px;background:var(--card-hi);
+    border:none;border-radius:500px;color:var(--sub);font-size:13px;font-weight:700;
+    padding:8px 14px;cursor:pointer;font-family:inherit;white-space:nowrap;
+    transition:background .15s,color .15s,transform .15s}
+  .lib-create:hover{background:#3e3e3e;color:#fff;transform:scale(1.03)}
+  body.lib-collapsed .lib-create .tx,body.lib-collapsed .lib-expand{display:none}
+  .lib-expand{background:none;border:none;color:var(--sub);font-size:15px;cursor:pointer;
+    padding:6px;transition:color .15s}
+  .lib-expand:hover{color:#fff}
+
+  .lib-chips{display:flex;gap:8px;padding:4px 16px 8px;overflow-x:auto;flex:0 0 auto;
+    scrollbar-width:none}
+  .lib-chips::-webkit-scrollbar{display:none}
+  body.lib-collapsed .lib-chips,body.lib-collapsed .lib-tools{display:none}
+  .lib-chips button{background:var(--card-hi);border:none;border-radius:500px;
+    color:var(--text);font-size:13px;padding:6px 12px;cursor:pointer;font-family:inherit;
+    white-space:nowrap;transition:background .15s}
+  .lib-chips button:hover{background:#3e3e3e}
+  .lib-chips button.active{background:#fff;color:#000}
+
+  .lib-tools{display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px 4px;flex:0 0 auto}
+  .lib-tools button{background:none;border:none;color:var(--sub);font-size:13px;
+    cursor:pointer;font-family:inherit;padding:6px;display:flex;align-items:center;
+    gap:6px;transition:color .15s}
+  .lib-tools button:hover{color:#fff}
+
+  .lib-list{flex:1;overflow-y:auto;padding:0 8px 8px;min-height:0}
+  .lib-row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
+    cursor:pointer;transition:background .15s}
+  .lib-row:hover{background:var(--card-hi)}
+  .lib-row.active{background:var(--card-hi)}
+  .lib-art{width:48px;height:48px;border-radius:6px;flex:0 0 48px;object-fit:cover;
+    background:var(--card-hi);display:flex;align-items:center;justify-content:center;
+    font-size:20px;color:var(--sub);overflow:hidden;background-size:cover;
+    background-position:center}
+  .lib-art.round{border-radius:50%}
+  .lib-meta{min-width:0;flex:1}
+  body.lib-collapsed .lib-meta{display:none}
+  .lib-name{font-size:15px;color:var(--text);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;font-weight:400}
+  .lib-row.active .lib-name,.lib-row.playing .lib-name{color:var(--accent)}
+  .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;margin-top:2px}
+  .lib-empty{padding:20px 12px;color:var(--sub);font-size:13px;line-height:1.6}
+
+  /* ------------------------------------------------------ main stage */
+  .main-content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;
+    position:relative;background:var(--bg2)}
+  main{flex:1;overflow-y:auto;padding:0 0 32px;min-height:0;max-width:none;margin:0}
+
+  /* Hero header — gradient wash behind a huge title, as on a playlist page. */
+  .sp-hero{position:relative;padding:24px 32px 24px;display:flex;align-items:flex-end;
+    gap:24px;min-height:220px;
+    background:linear-gradient(180deg,var(--hero,#333) 0%,color-mix(in srgb,var(--hero,#333) 55%, #121212) 100%)}
+  .sp-hero-art{width:180px;height:180px;flex:0 0 180px;border-radius:6px;
+    box-shadow:0 4px 60px rgba(0,0,0,.5);background:var(--card-hi) center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:60px}
+  .sp-hero-txt{min-width:0;flex:1;display:flex;flex-direction:column;gap:8px;
+    padding-bottom:4px}
+  .sp-hero-kind{font-size:12px;font-weight:700;color:#fff}
+  .sp-hero-title{font-size:clamp(32px,5.2vw,88px);line-height:1.04;font-weight:900;
+    letter-spacing:-.04em;color:#fff;margin:0;word-break:break-word}
+  .sp-hero-desc{font-size:14px;color:rgba(255,255,255,.72);margin:0}
+  .sp-hero-stats{font-size:14px;color:#fff;display:flex;align-items:center;gap:6px;
+    flex-wrap:wrap}
+  .sp-hero-stats b{font-weight:700}
+  .sp-hero-stats .dot{color:rgba(255,255,255,.7)}
+
+  /* Action row under the hero, over a fading continuation of the wash. */
+  .sp-actions{display:flex;align-items:center;gap:24px;padding:24px 32px;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--hero,#333) 28%, #121212) 0%,#121212 140px)}
+  .sp-fab{width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;
+    color:#000;font-size:22px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;flex:0 0 auto;transition:transform .12s,background .15s}
+  .sp-fab:hover{transform:scale(1.05);background:#3be477}
+  .sp-iconbtn{background:none;border:none;color:var(--sub);font-size:21px;cursor:pointer;
+    padding:4px;transition:color .15s,transform .12s;line-height:1}
+  .sp-iconbtn:hover{color:#fff;transform:scale(1.05)}
+  .sp-iconbtn.on{color:var(--accent)}
+  .sp-actions-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+
+  /* --------------------------------------------------- track listing */
+  .sp-table{padding:0 16px}
+  .sp-thead,.sp-trow{display:grid;grid-template-columns:var(--sp-cols,16px 4fr 3fr 2fr minmax(72px,1fr));
+    align-items:center;gap:16px;padding:0 16px;height:36px;border-radius:4px}
+  .sp-thead{color:var(--sub);font-size:13px;border-bottom:1px solid rgba(255,255,255,.1);
+    margin-bottom:8px;position:sticky;top:0;background:var(--bg2);z-index:2}
+  .sp-trow{height:56px;cursor:pointer;color:var(--sub);font-size:14px}
+  .sp-trow:hover{background:var(--sp-hover)}
+  .sp-trow.playing .sp-t-title{color:var(--accent)}
+  .sp-t-idx{text-align:right;font-variant-numeric:tabular-nums;color:var(--sub)}
+  .sp-trow:hover .sp-t-idx .num{display:none}
+  .sp-t-idx .play{display:none;color:#fff}
+  .sp-trow:hover .sp-t-idx .play{display:inline}
+  .sp-t-main{display:flex;align-items:center;gap:14px;min-width:0}
+  .sp-t-art{width:40px;height:40px;border-radius:4px;flex:0 0 40px;background:var(--card-hi)
+    center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .sp-t-names{min-width:0}
+  .sp-t-title{color:var(--text);font-size:16px;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .sp-t-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;margin-top:2px}
+  .sp-t-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sp-t-dur{text-align:right;font-variant-numeric:tabular-nums}
+  .sp-trow:hover .sp-t-cell{color:#fff}
+
+  /* ------------------------------------------------ now playing rail */
+  #right-sidebar{flex:0 0 var(--sp-np);width:var(--sp-np);overflow:hidden;
+    display:flex;flex-direction:column;transition:flex-basis .2s ease,width .2s ease}
+  body.np-open{--sp-np:340px}
+  #right-sidebar[hidden]{display:none}
+  .np-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;flex:0 0 auto}
+  .np-head .tt{flex:1;min-width:0;font-size:15px;font-weight:700;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np-body{flex:1;overflow-y:auto;padding:0 16px 16px;min-height:0}
+  .np-stage{width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--card-hi);
+    display:flex;align-items:center;justify-content:center;font-size:56px;color:var(--sub);
+    background-size:cover;background-position:center;position:relative}
+  .np-stage video{width:100%;height:100%;object-fit:cover;display:block}
+  .np-video-btn{display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.7);
+    border:none;border-radius:500px;color:#fff;font-size:13px;font-weight:700;
+    padding:8px 14px;cursor:pointer;font-family:inherit;margin-top:-44px;margin-left:8px;
+    position:relative;z-index:2;transition:background .15s}
+  .np-video-btn:hover{background:rgba(0,0,0,.85)}
+  .np-title-row{display:flex;align-items:flex-start;gap:10px;margin-top:16px}
+  .np-title{font-size:24px;font-weight:700;color:var(--text);line-height:1.2;
+    letter-spacing:-.02em;min-width:0;flex:1}
+  .np-artist{font-size:14px;color:var(--sub);margin-top:4px}
+  .np-sect{font-size:16px;font-weight:700;color:var(--text);margin:22px 0 10px}
+  .np-queue-row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
+    cursor:pointer;transition:background .15s}
+  .np-queue-row:hover{background:var(--card-hi)}
+  .np-queue-row .lib-art{width:40px;height:40px;flex-basis:40px;font-size:16px}
+
+  /* ------------------------------------------------------ player bar */
+  .player-bar{position:fixed;left:0;right:0;bottom:0;height:var(--sp-player);z-index:55;
+    background:var(--bg);border-top:none;display:flex;align-items:center;
+    gap:16px;padding:0 16px}
+  .pb-track{display:flex;align-items:center;gap:14px;width:30%;min-width:180px;flex:0 0 auto}
+  .pb-art{width:56px;height:56px;border-radius:4px;flex:0 0 56px;font-size:22px}
+  .pb-title{font-size:14px;font-weight:400;color:var(--text)}
+  .pb-artist{font-size:12px;color:var(--sub)}
+  .pb-center{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;
+    max-width:722px;margin:0 auto;min-width:0}
+  .pb-controls{display:flex;align-items:center;gap:18px}
+  .pb-ctl{background:none;border:none;color:var(--sub);font-size:16px;cursor:pointer;
+    padding:2px;transition:color .15s,transform .12s;line-height:1}
+  .pb-ctl:hover{color:#fff;transform:scale(1.06)}
+  .pb-ctl.on{color:var(--accent)}
+  .pb-play{width:32px;height:32px;border-radius:50%;background:#fff;color:#000;border:none;
+    font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    flex:0 0 auto;transition:transform .12s}
+  .pb-play:hover{transform:scale(1.06)}
+  .pb-progress-row{display:flex;align-items:center;gap:8px;width:100%}
+  .pb-time{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;
+    flex:0 0 auto;min-width:36px}
+  .pb-progress{flex:1;height:4px;border-radius:2px;background:#4d4d4d;position:relative;
+    cursor:pointer}
+  .pb-progress-fill{height:100%;border-radius:2px;background:#fff}
+  .pb-progress:hover .pb-progress-fill{background:var(--accent)}
+  .pb-progress-handle{opacity:0;width:12px;height:12px;border-radius:50%;background:#fff;
+    position:absolute;top:50%;transform:translate(-50%,-50%);transition:opacity .12s}
+  .pb-progress:hover .pb-progress-handle{opacity:1}
+  .pb-right{display:flex;align-items:center;gap:12px;width:30%;min-width:160px;
+    justify-content:flex-end;flex:0 0 auto}
+
+  /* ------------------------------------------------------ responsive */
+  @media(max-width:1100px){
+    body.np-open{--sp-np:0px}
+    #right-sidebar{display:none}
+  }
+  @media(max-width:860px){
+    :root{--sp-lib:72px}
+    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-tools,.lib-meta{display:none}
+    .sp-hero{padding:16px;min-height:auto;flex-direction:column;align-items:flex-start}
+    .sp-hero-art{width:120px;height:120px;flex-basis:120px}
+    .sp-actions{padding:16px}
+    .pb-track,.pb-right{width:auto;min-width:0}
+  }
+
+  /* ---- component pass: pull the pre-existing widgets onto the palette ---- */
+
+  /* Sections carry the page gutter; heroes bleed back out to the card edge. */
+  #browse-section,#library-section,#my-library-section,#podcasts-section,
+  #steems-section,#results-title,.search-history,#top-result-container,
+  #results-grid,.load-more-wrap,.artist-suggest{padding-left:32px;padding-right:32px}
+  #browse-section{padding-top:24px}
+  #steems-section,#library-section,#podcasts-section,#my-library-section{padding-top:24px}
+  .sp-hero,.sp-actions{margin-left:-32px;margin-right:-32px}
+  main{padding-bottom:32px}
+
+  .section-title{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.01em;
+    margin:24px 0 14px;text-transform:none}
+
+  /* Pills — chips, region switch and the library-tab row all share the look. */
+  .chips button,.region-toggle button,.library-tab,.topn-custom button{
+    background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
+    font-size:13px;font-weight:500;padding:8px 14px;cursor:pointer;font-family:inherit;
+    transition:background .15s,color .15s;box-shadow:none}
+  .chips button:hover,.region-toggle button:hover,.library-tab:hover{background:#3e3e3e}
+  .chips button.active,.region-toggle button.active,.library-tab.active{
+    background:#fff;color:#000;border-color:#fff}
+  .region-toggle{gap:8px;margin-bottom:22px}
+  .region-toggle button{flex:0 0 auto}
+  .topn-custom input,.topn-custom{gap:8px}
+
+  /* Grid cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:20px}
+  .card{background:transparent;border:none;border-radius:8px;padding:12px;cursor:pointer;
+    transition:background .2s;position:relative}
+  .card:hover{background:var(--card)}
+  .card .art{border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);aspect-ratio:1;
+    width:100%;background-size:cover;background-position:center}
+  .card .meta{padding:12px 0 0}
+  .card .title{font-size:15px;font-weight:600;color:var(--text);line-height:1.35}
+  .card .sub{font-size:13px;color:var(--sub);margin-top:4px;line-height:1.4}
+
+  /* File / stem rows read as track rows. */
+  .fs-list{display:flex;flex-direction:column;gap:0}
+  .fs-row{display:flex;align-items:center;gap:14px;padding:8px 12px;border-radius:6px;
+    background:transparent;border:none;cursor:pointer;transition:background .15s}
+  .fs-row:hover{background:var(--sp-hover)}
+  .fs-icon{font-size:18px;flex:0 0 auto;opacity:.85}
+  .fs-name{font-size:15px;color:var(--text);flex:1;min-width:0;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .fs-size{font-size:13px;color:var(--sub);flex:0 0 auto}
+
+  /* Player bar leftovers from the old teal theme. */
+  .pb-play{background:#fff !important;color:#000 !important;box-shadow:none !important;
+    width:32px;height:32px;font-size:13px}
+  .pb-play:hover{background:#fff !important;transform:scale(1.06)}
+  .pb-art{box-shadow:none;border:none}
+  .pb-art-glow{display:none}
+  .pb-badge{background:var(--accent);color:#000}
+  .pb-volume{display:flex;align-items:center;gap:6px}
+  .pb-volume input[type=range]{width:92px;accent-color:#fff;height:4px}
+  .pb-volume:hover input[type=range]{accent-color:var(--accent)}
+  .video-mode-toggle{display:flex;gap:2px;background:var(--card);border-radius:500px;padding:2px}
+  .video-mode-toggle button{background:none;border:none;color:var(--sub);font-size:11px;
+    padding:4px 9px;border-radius:500px;cursor:pointer;font-family:inherit}
+  .video-mode-toggle button.active{background:#fff;color:#000}
+
+  /* Top bar bits that came from the old header. */
+  #bitrate{background:var(--card);color:var(--text);border:1px solid var(--border);
+    border-radius:500px;padding:7px 12px;font-size:12px;font-family:inherit;cursor:pointer;
+    outline:none}
+  #bitrate:hover{background:var(--card-hi)}
+
+  /* Buttons elsewhere in the app (detail panels, dialogs). */
+  .btn{background:var(--accent);color:#000;border:none;border-radius:500px;
+    padding:10px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;
+    transition:transform .12s,background .15s}
+  .btn:hover{transform:scale(1.03);background:#3be477}
+  .btn.secondary{background:transparent;color:var(--text);border:1px solid #7c7c7c}
+  .btn.secondary:hover{border-color:#fff;background:transparent}
+  .icon-btn-flat{background:none;border:none;color:var(--sub);cursor:pointer;
+    transition:color .15s}
+  .icon-btn-flat:hover{color:#fff}
+
+  /* Overlay panels */
+  .overlay{background:rgba(0,0,0,.72);backdrop-filter:blur(2px)}
+  .panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+
+  /* Empty states */
+  .empty{color:var(--sub);font-size:14px}
+
+  /* ---- layout corrections ---- */
+
+  /* Several components set display:flex/grid, which outranks the UA's
+     [hidden]{display:none} and left hidden panels on screen. */
+  [hidden]{display:none !important}
+
+  /* True optical centering for the search pill: the left and right clusters
+     are different widths, so centering by flex alone pushed it off-axis. */
+  .sp-topbar{position:fixed;display:grid;
+    grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr);align-items:center}
+  .sp-center{justify-self:center}
+  .sp-topbar-right{justify-self:end}
+
+  /* Library header: the create button was squeezing the title to an ellipsis. */
+  .lib-head{padding:16px 12px 8px 16px;gap:6px}
+  .lib-title{font-size:14px;gap:10px}
+  .lib-create{padding:7px 12px;font-size:12.5px}
+  .lib-chips{padding:4px 12px 8px 16px}
+  .lib-chips button{font-size:12.5px;padding:6px 11px}
+  .lib-tools{padding:0 16px 6px}
+  .lib-tools button{font-size:12.5px}
+  .lib-name{font-size:14.5px}
+  .lib-sub{font-size:12.5px}
+
+  /* Player bar: give the transport room and stop the right cluster crowding. */
+  .player-bar{gap:12px}
+  .pb-track{width:28%;min-width:160px}
+  .pb-right{gap:10px;width:32%;min-width:200px}
+  .pb-ctl{font-size:15px}
+  .pb-controls{gap:16px}
+  .pb-badge{position:absolute;transform:translate(6px,-8px);font-size:9px;
+    padding:1px 4px;border-radius:8px;font-weight:700}
+  #pb-queue-btn{position:relative}
+
+  /* Mixer inherits the page palette instead of its own near-black. */
+  .nm{--nm-bg:#0d0d0f;--nm-panel:#181818;--nm-line:#2a2a2a;--nm-gold:var(--accent);
+      border-color:#2a2a2a;margin:0 0 8px}
+  .nm-fader::-webkit-slider-runnable-track{
+    background:linear-gradient(90deg,var(--accent) var(--fill,100%),#4d4d4d var(--fill,100%))}
+  .nm-fader::-moz-range-progress{background:var(--accent)}
+  .nm-solo.active{color:var(--accent)}
+  .nm-btn.active,.nm-play.playing{background:rgba(30,215,96,.15);
+    border-color:var(--accent);color:var(--accent)}
+
+  /* The stem list sits under the hero when no mix is open. */
+  #steems-list{gap:2px}
+
+  /* ---- final polish ---- */
+  /* The hero must start flush with the card's top edge; the section's own
+     top padding was leaving a dead band above the gradient. */
+  #steems-section:has(> #steems-hero:not([hidden])){padding-top:0}
+  .sp-hero{margin-top:0}
+
+  /* "Tvoje knihovna" was still clipping at 280px once the create pill and
+     the expand arrow took their share. */
+  :root{--sp-lib:296px}
+  .lib-title .tx{font-size:14px}
+  .lib-expand{padding:4px}
+
+  /* Player bar right cluster: badge was sitting on top of the next icon. */
+  .pb-right{gap:12px}
+  .pb-badge{transform:translate(4px,-9px)}
+  .video-mode-toggle button{padding:4px 8px;font-size:10.5px}
+
+  /* Scroll the stage, not the page, and round the card's inner corners. */
+  .main-content{border-radius:var(--sp-radius)}
+  main{border-radius:var(--sp-radius)}
+
+  /* ==================================================================
+     Detail pages (playlist / song / artist). Same DOM as the old modal,
+     re-presented as a page that fills the stage — rails stay visible,
+     exactly as a playlist opens in the reference.
+     ================================================================== */
+  .overlay{position:fixed;inset:auto;top:var(--sp-topbar);bottom:calc(var(--sp-player) + var(--sp-gap));
+    left:calc(var(--sp-lib) + var(--sp-gap) * 2);
+    right:calc(var(--sp-np) + var(--sp-gap) * 2);
+    background:transparent;backdrop-filter:none;z-index:40;display:block;
+    transition:left .2s ease,right .2s ease}
+  .panel{width:100%;height:100%;max-width:none;background:var(--bg2);border:none;
+    border-left:none;border-radius:var(--sp-radius);overflow-y:auto;overflow-x:hidden;
+    box-shadow:none;position:relative}
+  .panel::-webkit-scrollbar{width:12px}
+  .panel::-webkit-scrollbar-track{background:transparent}
+  .panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:6px;
+    border:3px solid transparent;background-clip:content-box}
+
+  /* Hero: artwork left, kind + huge title + stats right. */
+  .panel-head{position:relative;padding:72px 32px 24px;display:grid;
+    grid-template-columns:192px 1fr;grid-template-rows:auto auto;gap:0 24px;
+    align-items:end;
+    background:linear-gradient(180deg,#3a3a3a 0%,#1f1f1f 60%,#121212 100%)}
+  .panel-head .close-btn{position:absolute;top:16px;right:16px;width:32px;height:32px;
+    border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:13px;
+    cursor:pointer;z-index:3}
+  .panel-head .close-btn:hover{background:rgba(0,0,0,.85)}
+  .pl-art{grid-row:1 / span 3;width:192px;height:192px;border-radius:6px;
+    box-shadow:0 4px 60px rgba(0,0,0,.6);align-self:end}
+  .pl-title{grid-column:2;font-size:clamp(30px,4.6vw,76px);font-weight:900;
+    letter-spacing:-.04em;line-height:1.04;margin:0 0 12px;word-break:break-word}
+  .pl-author{grid-column:2;font-size:14px;color:#fff;font-weight:700;margin:0}
+  .pl-desc{grid-column:2;font-size:14px;color:rgba(255,255,255,.7);margin:6px 0 0;
+    line-height:1.5}
+  .panel-head .badges{grid-column:2;display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;
+    align-items:center}
+  .panel-head .badge{background:none;border:none;padding:0;font-size:14px;color:#fff}
+  .panel-head .badge + .badge::before{content:"•";color:rgba(255,255,255,.6);margin-right:6px}
+
+  /* Action row sits below the wash, like the reference's play/shuffle strip. */
+  .panel-head .actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:12px;
+    margin:28px 0 0;align-items:center}
+  .panel-head .actions .btn{font-size:13px;padding:9px 18px}
+
+  .track-list{padding:8px 16px 32px}
+  .track-list-head{display:flex;justify-content:space-between;align-items:center;
+    padding:10px 16px;color:var(--sub);font-size:13px;
+    border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px}
+  .track-list-head a{color:var(--sub);cursor:pointer;text-decoration:none}
+  .track-list-head a:hover{color:#fff;text-decoration:underline}
+  .track-row{gap:14px;padding:8px 16px;border-radius:4px}
+  .track-row:hover{background:var(--sp-hover)}
+  .track-row .thumb{width:40px;height:40px;border-radius:4px}
+  .track-row .t-title{font-size:15px;font-weight:400;color:var(--text)}
+  .track-row .t-sub{font-size:13px;color:var(--sub);margin-top:2px}
+  .track-row .dur{font-size:13px;width:44px}
+  .icon-btn{border:none;background:transparent;color:var(--sub);width:32px;height:32px;
+    font-size:15px}
+  .icon-btn:hover{color:#fff;background:transparent;border:none}
+  .icon-btn.play:hover,.icon-btn.add:hover{color:var(--accent);border:none}
+
+  @media(max-width:860px){
+    .overlay{left:var(--sp-gap);right:var(--sp-gap)}
+    .panel-head{grid-template-columns:1fr;padding:24px 16px}
+    .pl-art{width:140px;height:140px;grid-row:auto}
+    .pl-title,.pl-author,.pl-desc,.panel-head .badges{grid-column:1}
+  }
+
+  .pl-kind{grid-column:2;font-size:12px;font-weight:700;color:#fff;margin-bottom:6px}
+  .panel-head .actions .sp-fab{margin-right:4px}
 </style>
 </head>
 <body>
+<!-- Floating top bar: history nav, home + search pill, account cluster. -->
+<div class="sp-topbar">
+  <div class="sp-nav-btns">
+    <button class="sp-round" id="nav-back" title="Zpět">‹</button>
+    <button class="sp-round" id="nav-fwd" title="Vpřed">›</button>
+  </div>
+  <div class="sp-center">
+    <button class="sp-home" id="sp-home" title="Domů">⌂</button>
+    <div class="sp-searchbox">
+      <span class="ic">🔍</span>
+      <input id="search-input" type="text" placeholder="Co chceš přehrát?" autocomplete="off">
+      <span class="divider"></span>
+      <button class="sp-iconbtn" id="surprise-btn" title="Překvap mě" style="font-size:16px">🎲</button>
+      <button class="sp-iconbtn" id="search-btn" title="Hledat" style="font-size:16px">➤</button>
+    </div>
+  </div>
+  <div class="sp-topbar-right">
+    <select id="bitrate" title="Kvalita stahování">
+      <option value="128k">128 kbps</option>
+      <option value="192k" selected>192 kbps</option>
+      <option value="320k">320 kbps</option>
+    </select>
+    <button class="sp-round" id="settings-btn" title="Nastavení stahování">⚙</button>
+    <button class="sp-avatar" id="sp-avatar" title="Spotifylisty">S</button>
+  </div>
+</div>
+
+<div class="sp-shell">
+
+<!-- Library rail. The chips pick what the list below shows; clicking a row
+     opens it in the main stage. Collapses to an icon-only rail. -->
 <nav id="sidebar-left">
-  <div class="sb-logo" id="sb-logo" style="cursor:pointer"><span>🎧</span> Spotifylisty</div>
-  <button class="sb-btn active" data-mode="playlists"><span class="sb-icon">🏠</span> Playlisty</button>
-  <button class="sb-btn" data-mode="songs"><span class="sb-icon">💿</span> Písně</button>
-  <button class="sb-btn" data-mode="library"><span class="sb-icon">📁</span> Knihovna</button>
-  <button class="sb-btn" data-mode="steems"><span class="sb-icon">🎚️</span> Steems</button>
-  <button class="sb-btn" data-mode="podcasts"><span class="sb-icon">🎙️</span> Podcasty</button>
-  <hr class="sb-divider">
-  <button class="sb-btn" data-mode="video"><span class="sb-icon">🎬</span> Video</button>
-  <button class="sb-btn" id="sb-toggle-right"><span class="sb-icon">📃</span> Playlist</button>
+  <div class="lib-head">
+    <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit knihovnu">
+      <span class="ic">☰</span><span class="tx">Tvoje knihovna</span>
+    </button>
+    <button class="lib-create" id="lib-create" title="Stáhnout novou hudbu">
+      <span>＋</span><span class="tx">Vytvořit</span>
+    </button>
+    <button class="lib-expand" id="lib-expand" title="Skrýt / zobrazit panel vpravo">⤢</button>
+  </div>
+
+  <div class="lib-chips" id="lib-chips">
+    <button data-mode="playlists" class="active">Playlisty</button>
+    <button data-mode="songs">Písně</button>
+    <button data-mode="steems">Steems</button>
+    <button data-mode="library">Složky</button>
+    <button data-mode="podcasts">Podcasty</button>
+  </div>
+
+  <div class="lib-tools">
+    <button id="lib-filter-btn" title="Filtrovat v knihovně">🔍</button>
+    <button id="lib-sort-btn" title="Řazení">Nedávné ☰</button>
+  </div>
+
+  <div class="lib-list sp-scroll" id="lib-list"></div>
 </nav>
 
 <div class="main-content">
-
-<header>
-  <h1 class="logo" id="logo" style="cursor:pointer" title="Zpět na playlisty"><span>🎧</span> Spotifylisty</h1>
-  <div class="tabs">
-    <button id="tab-playlists" class="active">Playlisty</button>
-    <button id="tab-songs">Písně</button>
-    <button id="tab-library">📁 Knihovna</button>
-    <button id="tab-steems">🎚️ Steems</button>
-    <button id="tab-podcasts">🎙️ Podcasty</button>
-  </div>
-  <div class="search-wrap">
-    <input id="search-input" type="text" placeholder="Hledej žánr, náladu, éru nebo píseň…" />
-    <button class="icon-btn-flat" id="surprise-btn" title="Překvap mě">🎲</button>
-    <button class="btn secondary" id="search-btn">Hledat</button>
-  </div>
-  <select id="bitrate">
-    <option value="128k">128 kbps</option>
-    <option value="192k" selected>192 kbps</option>
-    <option value="320k">320 kbps</option>
-  </select>
-  <button class="icon-btn-flat" id="settings-btn" title="Nastavení stahování">⚙️</button>
-</header>
 
 <!-- Artist hints for the Songs tab — shown under the search box whenever a
      decade/genre chip (or free text) matches known artists, so you can pick
@@ -973,12 +1481,33 @@
   </div>
 
   <div id="steems-section" hidden>
-    <div class="section-title">🎚️ Rozseparované písně</div>
+    <!-- Hero for the open stem set; hidden until one is loaded. -->
+    <div id="steems-hero" hidden>
+      <div class="sp-hero" id="steems-hero-wash">
+        <div class="sp-hero-art">🎚</div>
+        <div class="sp-hero-txt">
+          <span class="sp-hero-kind">Rozseparovaná píseň</span>
+          <h1 class="sp-hero-title" id="steems-hero-title">—</h1>
+          <div class="sp-hero-stats" id="steems-hero-stats"></div>
+        </div>
+      </div>
+      <div class="sp-actions" id="steems-hero-actions">
+        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix">▶</button>
+        <button class="sp-iconbtn" id="steems-hero-loop" title="Smyčka">🔁</button>
+        <button class="sp-iconbtn" id="steems-hero-metro" title="Metronom">🔔</button>
+        <button class="sp-iconbtn" id="steems-hero-strips" title="Kanálové stripy">🎛</button>
+        <button class="sp-iconbtn" id="steems-hero-export" title="Export mixu">⬇</button>
+        <div class="sp-actions-right">
+          <button class="sp-iconbtn" id="steems-hero-close" title="Zpět na seznam" style="font-size:16px">✕</button>
+        </div>
+      </div>
+    </div>
+    <div class="section-title" id="steems-list-title">Rozseparované písně</div>
     <div id="steems-list" class="fs-list"></div>
     <div id="mixer" class="mixer" hidden>
       <div class="nm">
-        <!-- Track header: what's loaded, at a glance -->
-        <div class="nm-head">
+        <!-- Track header: superseded by the page hero, kept for its ids -->
+        <div class="nm-head" hidden>
           <div class="nm-art" id="nm-art">🎵</div>
           <div class="nm-meta">
             <span class="lbl">SKLADBA</span>
@@ -1172,6 +1701,30 @@
      above the overlay's dim backdrop). Fully custom controls — no native
      browser widget — so it actually matches the rest of the app. -->
 </div>
+
+<!-- Now playing: stage (art or video), track, then the queue. -->
+<aside id="right-sidebar" hidden>
+  <div class="np-head">
+    <span class="tt" id="np-context">Právě hraje</span>
+    <button class="sp-iconbtn" id="np-close" title="Zavřít panel" style="font-size:16px">✕</button>
+  </div>
+  <div class="np-body sp-scroll">
+    <div class="np-stage" id="np-stage">🎵</div>
+    <button class="np-video-btn" id="np-video-btn" hidden>▶ Přepnout na video</button>
+    <div class="np-title-row">
+      <div style="min-width:0;flex:1">
+        <div class="np-title" id="np-title">Nic nehraje</div>
+        <div class="np-artist" id="np-artist">Vyber píseň a stiskni ▶</div>
+      </div>
+      <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
+    </div>
+    <div class="np-sect">Na řadě</div>
+    <div id="np-queue"></div>
+  </div>
+</aside>
+
+</div><!-- /sp-shell -->
+
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
@@ -1185,7 +1738,13 @@
     </div>
   </div>
   <div class="pb-center">
-    <button class="pb-play" id="pb-play" title="Přehrát / Pauza">▶</button>
+    <div class="pb-controls">
+      <button class="pb-ctl" id="pb-shuffle" title="Náhodně">🔀</button>
+      <button class="pb-ctl" id="pb-prev" title="Předchozí">⏮</button>
+      <button class="pb-play" id="pb-play" title="Přehrát / Pauza">▶</button>
+      <button class="pb-ctl" id="pb-next" title="Další">⏭</button>
+      <button class="pb-ctl" id="pb-repeat" title="Opakovat">🔁</button>
+    </div>
     <div class="pb-progress-row">
       <span class="pb-time" id="pb-time-cur">0:00</span>
       <div class="pb-progress" id="pb-progress">
@@ -1196,23 +1755,24 @@
     </div>
   </div>
   <div class="pb-right">
-    <div class="pb-volume">
-      <span id="pb-mute" title="Ztlumit">🔊</span>
-      <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
-    </div>
-    <button class="icon-btn-flat" id="pb-video-btn" title="Zobrazit video">🎬</button>
+    <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně">📜</button>
+    <button class="pb-ctl" id="pb-queue-btn" title="Fronta">☰<span class="pb-badge" id="pb-queue-count">0</span></button>
+    <button class="pb-ctl" id="pb-video-btn" title="Video">🎬</button>
     <div class="video-mode-toggle" id="video-mode-toggle" title="Video mód">
       <button data-mode="hidden" id="vm-hidden">skrytý</button>
       <button data-mode="mini" id="vm-mini">mini</button>
       <button data-mode="full" id="vm-full">plný</button>
     </div>
-    <button class="icon-btn-flat" id="pb-history-btn" title="Historie přehrávání">🕘</button>
-    <button class="icon-btn-flat pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně (synced lyrics)">📜</button>
-    <button class="icon-btn-flat" id="pb-queue-btn" title="Playlist k přehrávači">📃<span class="pb-badge" id="pb-queue-count">0</span></button>
+    <button class="pb-ctl" id="pb-history-btn" title="Historie">🕐</button>
+    <div class="pb-volume">
+      <span id="pb-mute" title="Ztlumit">🔊</span>
+      <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
+    </div>
+    <button class="pb-ctl" id="pb-np-btn" title="Právě hraje">◳</button>
     <div style="position:relative">
-      <button class="icon-btn-flat" id="pb-download-btn" title="Stáhnout">⬇️</button>
+      <button class="pb-ctl" id="pb-download-btn" title="Stáhnout">⬇</button>
       <div class="pb-download-menu" id="pb-download-menu" hidden>
-        <button id="pb-dl-song">⬇️ Stáhnout píseň</button>
+        <button id="pb-dl-song">⬇ Stáhnout píseň</button>
         <button id="pb-dl-stems">🎧 Rozdělit na stopy</button>
       </div>
     </div>
@@ -1324,8 +1884,8 @@ const AI_TERMS = [
 const state = { mode: "playlists", region: "intl", libraryStems: null, currentPlaylist: null, currentVideoId: null };
 const el = (id) => document.getElementById(id);
 
-// Logo click — return to playlists and open the sidebar
-el("logo").onclick = () => {
+// Home button — return to playlists
+el("sp-home").onclick = () => {
   setMode("playlists");
   // If there's a current playlist, re-open it
   if (state.currentPlaylist) {
@@ -1699,24 +2259,18 @@ el("surprise-btn").onclick = () => {
 // ======================================================================
 // Tabs & mode switching
 // ======================================================================
-el("tab-playlists").onclick = () => setMode("playlists");
-el("tab-songs").onclick = () => setMode("songs");
-el("tab-library").onclick = () => setMode("library");
-el("tab-steems").onclick = () => setMode("steems");
-el("tab-podcasts").onclick = () => setMode("podcasts");
+document.querySelectorAll("#lib-chips button").forEach(btn => {
+  btn.onclick = () => setMode(btn.dataset.mode);
+});
 
 function setMode(mode){
   state.mode = mode;
-  el("tab-playlists").classList.toggle("active", mode==="playlists");
-  el("tab-songs").classList.toggle("active", mode==="songs");
-  el("tab-library").classList.toggle("active", mode==="library");
-  el("tab-steems").classList.toggle("active", mode==="steems");
-  el("tab-podcasts").classList.toggle("active", mode==="podcasts");
-  el("search-input").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
-  el("search-btn").disabled = mode === "library" || mode === "steems" || mode === "podcasts";
-  el("search-input").placeholder = mode==="playlists"
-    ? "Hledej žánr, náladu, éru… (např. '90s hip hop')"
-    : mode==="songs" ? "Hledej píseň nebo interpreta…" : "";
+  document.querySelectorAll("#lib-chips button").forEach(b =>
+    b.classList.toggle("active", b.dataset.mode === mode));
+  // Search stays live in every mode — it's the top bar's only job.
+  el("search-input").placeholder = mode === "playlists"
+    ? "Hledej žánr, náladu, éru…"
+    : mode === "songs" ? "Hledej píseň nebo interpreta…" : "Co chceš přehrát?";
   regionToggle.style.display = mode === "playlists" ? "flex" : "none";
   grid.innerHTML = "";
   resultsTitle.hidden = true;
@@ -1738,6 +2292,162 @@ function setMode(mode){
     renderFavPlaylists();
   }
   updateArtistSuggestions();
+  renderLibraryRail(mode);
+}
+
+// ======================================================================
+// Library rail — the left column. The active chip decides what it lists;
+// a row opens that thing in the main stage. Everything it shows already
+// exists elsewhere in the app, so this is a view, never a second store.
+// ======================================================================
+function libRow({art, artIsUrl, name, sub, round, onClick, active}){
+  const row = document.createElement("div");
+  row.className = "lib-row" + (active ? " active" : "");
+  const style = artIsUrl ? `background-image:url('${art}')` : "";
+  row.innerHTML = `
+    <div class="lib-art${round ? " round" : ""}" style="${style}">${artIsUrl ? "" : art}</div>
+    <div class="lib-meta">
+      <div class="lib-name">${escapeHtml(name)}</div>
+      <div class="lib-sub">${escapeHtml(sub)}</div>
+    </div>`;
+  row.title = name;
+  row.onclick = onClick;
+  return row;
+}
+
+function libEmpty(text){
+  const d = document.createElement("div");
+  d.className = "lib-empty";
+  d.textContent = text;
+  return d;
+}
+
+function renderLibraryRail(mode){
+  const list = el("lib-list");
+  if(!list) return;
+  list.innerHTML = "";
+
+  if(mode === "steems"){
+    if(!steemsSongs.length){
+      list.appendChild(libEmpty("Zatím žádné rozseparované písně. U stažené písně použij „Rozdělit na stopy\"."));
+      return;
+    }
+    steemsSongs.forEach(song => {
+      list.appendChild(libRow({
+        art: "\uD83C\uDF9A", name: song.name, sub: `Stopy • ${song.stems.length} stop`,
+        active: currentSteemsName === song.name,
+        onClick: () => { loadMixerSong(song.name); renderLibraryRail("steems"); },
+      }));
+    });
+    return;
+  }
+
+  if(mode === "podcasts"){
+    const shows = PODCASTS_STATE.shows || [];
+    if(!shows.length){ list.appendChild(libEmpty("Načítám podcasty…")); return; }
+    shows.forEach(show => {
+      list.appendChild(libRow({
+        art: show.thumbnail || "\uD83C\uDF99", artIsUrl: !!show.thumbnail,
+        name: show.title || "", sub: "Podcast • " + (show.author || show.publisher || ""),
+        onClick: () => openPodcastShow(show),
+      }));
+    });
+    return;
+  }
+
+  if(mode === "library"){
+    const entries = libraryRailEntries;
+    if(!entries.length){ list.appendChild(libEmpty("Složka s hudbou je prázdná.")); return; }
+    entries.forEach(e => {
+      list.appendChild(libRow({
+        art: e.type === "dir" ? "\uD83D\uDCC1" : "\uD83C\uDFB5",
+        name: e.name, sub: e.type === "dir" ? "Složka" : "Soubor",
+        onClick: () => { setMode("library"); loadLibraryFolder(e.rel); },
+      }));
+    });
+    return;
+  }
+
+  // playlists / songs — whatever the user has saved
+  const lib = loadMyLibrary();
+  const saved = []
+    .concat((loadFavPlaylists() || []).map(i => ({...i, kind: "playlist"})))
+    .concat((lib.playlists || []).map(i => ({...i, kind: "playlist"})))
+    .concat((lib.albums || []).map(i => ({...i, kind: "album"})))
+    .concat((lib.artists || []).map(i => ({...i, kind: "artist"})));
+
+  // Same playlist can sit in both favourites and the library store.
+  const seen = new Set();
+  const unique = saved.filter(i => {
+    const k = (i.kind || "") + ":" + (i.id || i.browseId || i.title);
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  if(!unique.length){
+    list.appendChild(libEmpty("Knihovna je prázdná. Ulož si playlist nebo interpreta srdíčkem z detailu."));
+    return;
+  }
+  unique.forEach(item => {
+    const kindLabel = item.kind === "playlist" ? "Playlist" : item.kind === "album" ? "Album" : "Umělec";
+    list.appendChild(libRow({
+      art: item.thumbnail || (item.kind === "artist" ? "\uD83C\uDFA4" : "\uD83C\uDFB5"),
+      artIsUrl: !!item.thumbnail,
+      round: item.kind === "artist",
+      name: item.title || item.name || "",
+      sub: kindLabel + (item.author ? " • " + item.author : ""),
+      onClick: () => {
+        const id = item.browseId || item.id;
+        if(item.kind === "playlist" && id) openPlaylist(id);
+      },
+    }));
+  });
+}
+
+// ======================================================================
+// Now playing rail — mirrors the player's state, plus the queue.
+// ======================================================================
+function renderNowPlaying(){
+  if(!document.body.classList.contains("np-open")) return;
+  const t = Player.getCurrent();
+  const stage = el("np-stage");
+  const vbtn = el("np-video-btn");
+
+  if(!t){
+    el("np-title").textContent = "Nic nehraje";
+    el("np-artist").textContent = "Vyber píseň a stiskni ▶";
+    el("np-context").textContent = "Právě hraje";
+    stage.style.backgroundImage = "";
+    stage.textContent = "\uD83C\uDFB5";
+    vbtn.hidden = true;
+  } else {
+    el("np-title").textContent = t.title || "";
+    el("np-artist").textContent = t.artists || "";
+    el("np-context").textContent = t.sourcePlaylist || "Právě hraje";
+    const img = t.image || t.thumbnail || "";
+    stage.textContent = img ? "" : "\uD83C\uDFB5";
+    stage.style.backgroundImage = img ? `url('${img}')` : "";
+    vbtn.hidden = !t.videoId;
+    vbtn.onclick = () => { setVideoMode("full"); el("pb-video-btn").click(); };
+  }
+
+  const box = el("np-queue");
+  box.innerHTML = "";
+  const queue = loadQueue();
+  if(!queue.length){
+    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem ＋."));
+    return;
+  }
+  queue.slice(0, 30).forEach(item => {
+    const row = libRow({
+      art: item.image || item.thumbnail || "\uD83C\uDFB5",
+      artIsUrl: !!(item.image || item.thumbnail),
+      name: item.title || "", sub: item.artists || "",
+      onClick: () => Player.play(item),
+    });
+    row.classList.add("np-queue-row");
+    box.appendChild(row);
+  });
 }
 
 // ======================================================================
@@ -1774,8 +2484,10 @@ async function loadLibraryFolder(rel){
     return;
   }
 
+  libraryRailEntries = data.entries || [];
   renderLibraryBreadcrumb(data.breadcrumb);
   renderLibraryList(data.entries);
+  if(state.mode === "library") renderLibraryRail("library");
 }
 
 function renderLibraryBreadcrumb(breadcrumb){
@@ -1913,6 +2625,8 @@ function openSteemsSong(name){
 // during planning, not its literal source.
 // ======================================================================
 let steemsSongs = [];
+let currentSteemsName = null;   // which stem set the mixer has open
+let libraryRailEntries = [];    // last folder listing, mirrored into the rail
 
 async function loadSteemsList(){
   const list = el("steems-list");
@@ -1930,6 +2644,7 @@ async function loadSteemsList(){
     return;
   }
   list.innerHTML = "";
+  if(state.mode === "steems") renderLibraryRail("steems");
   steemsSongs.forEach(song => {
     const row = document.createElement("div");
     row.className = "fs-row";
@@ -1943,7 +2658,53 @@ async function loadSteemsList(){
   });
 }
 
+// Stems have no artwork, so the hero wash is a stable colour derived from
+// the name — the same song always opens the same colour.
+function heroHue(text){
+  let h = 0;
+  for(let i = 0; i < (text || "").length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
+  return `hsl(${h} 42% 32%)`;
+}
+
+function showSteemsHero(name){
+  el("steems-hero").hidden = false;
+  el("steems-section").style.paddingTop = "0";
+  el("steems-list-title").hidden = true;
+  el("steems-list").hidden = true;
+  el("steems-hero-title").textContent = name;
+  el("steems-hero-wash").style.setProperty("--hero", heroHue(name));
+  el("steems-hero-actions").style.setProperty("--hero", heroHue(name));
+  el("steems-hero-stats").innerHTML = '<span class="dot">Načítám stopy…</span>';
+}
+
+function hideSteemsHero(){
+  el("steems-hero").hidden = true;
+  el("steems-section").style.paddingTop = "";
+  el("steems-list-title").hidden = false;
+  el("steems-list").hidden = false;
+  el("mixer").hidden = true;
+  currentSteemsName = null;
+  renderLibraryRail("steems");
+}
+
+// Mirror what the mixer detected into the hero's stat line.
+function refreshSteemsHeroStats(){
+  const stats = el("steems-hero-stats");
+  if(!stats || el("steems-hero").hidden) return;
+  const parts = [
+    `<b>${el("nm-stemcount").textContent}</b> stop`,
+    el("mixer-time-dur").textContent,
+  ];
+  const key = el("nm-key").textContent;
+  if(key && key !== "…" && key !== "—") parts.push("tónina " + key);
+  const bpm = el("mixer-tempo").textContent;
+  if(bpm && bpm !== "—") parts.push(bpm + " BPM");
+  stats.innerHTML = parts.join(' <span class="dot">•</span> ');
+}
+
 function loadMixerSong(name){
+  currentSteemsName = name;
+  showSteemsHero(name);
   // Ensure song has stems array
   let song = steemsSongs.find(s => s.name === name);
   if(!song){ 
@@ -1955,8 +2716,24 @@ function loadMixerSong(name){
     // Convert string array to object array
     song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}.wav`}));
   }
-  Mixer.load(song);
+  Promise.resolve(Mixer.load(song)).then(refreshSteemsHeroStats).catch(() => {
+    el("steems-hero-stats").textContent = "Stopy se nepodařilo načíst.";
+  });
 }
+
+// ---- hero actions drive the mixer's own controls ----
+el("steems-hero-close").onclick = hideSteemsHero;
+el("steems-hero-play").onclick = () => el("mixer-play").click();
+el("steems-hero-loop").onclick = () => {
+  el("mixer-loop").click();
+  el("steems-hero-loop").classList.toggle("on", el("mixer-loop").classList.contains("active"));
+};
+el("steems-hero-metro").onclick = () => {
+  el("mixer-metro").click();
+  el("steems-hero-metro").classList.toggle("on", el("mixer-metro").classList.contains("active"));
+};
+el("steems-hero-strips").onclick = () => el("nm-strips-toggle").click();
+el("steems-hero-export").onclick = () => el("mixer-export").click();
 
 // ======================================================================
 // Mixpult — synced multi-stem Web Audio mixer. Fader/mute/solo, per-channel
@@ -1993,6 +2770,12 @@ const Mixer = (() => {
   let dragStartOffset = 0;
   let sessionId = null;
   let currentSongName = null;
+
+  // The page hero has its own play button; keep its glyph with the mixer's.
+  function setHeroPlayGlyph(glyph){
+    const b = el("steems-hero-play");
+    if(b) b.textContent = glyph;
+  }
 
   function ctx(){
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2166,6 +2949,7 @@ const Mixer = (() => {
       isPlaying = false;
       pausedAt = currentTime();
       if(el("mixer-play")) el("mixer-play").textContent = "▶";
+      setHeroPlayGlyph("▶");
       updateSeekUI(pausedAt);
     }
   }
@@ -2193,6 +2977,7 @@ const Mixer = (() => {
     scheduleAll(pausedAt);
     isPlaying = true;
     el("mixer-play").textContent = "⏸";
+    setHeroPlayGlyph("⏸");
     tick();
   }
 
@@ -2202,6 +2987,7 @@ const Mixer = (() => {
     stopAllSources();
     isPlaying = false;
     el("mixer-play").textContent = "▶";
+    setHeroPlayGlyph("▶");
     if(rafId) cancelAnimationFrame(rafId);
   }
 
@@ -2219,6 +3005,7 @@ const Mixer = (() => {
     if(allMuted && isPlaying){
       isPlaying = false;
       if(el("mixer-play")) el("mixer-play").textContent = "▶";
+      setHeroPlayGlyph("▶");
     }
   }
 
@@ -3207,6 +3994,7 @@ const Mixer = (() => {
   // ---- transport extras ----
   el("nm-rewind").onclick = () => seek(loopEnabled ? loopStart : 0);
 
+
   // Pitch is in semitones and drives every stem's playbackRate together, so
   // the mix stays in sync. Equal temperament: one semitone = 2^(1/12).
   let pitchSemitones = 0;
@@ -3390,6 +4178,67 @@ async function openPlaylist(browseId){
   renderPlaylistPanel(p);
 }
 
+// Spotify tints a playlist header with a colour pulled from its artwork.
+// Cross-origin thumbnails can taint the canvas, so a deterministic hue from
+// the title is the fallback — every playlist still gets its own colour.
+function hashHue(text){
+  let h = 0;
+  for(let i = 0; i < (text || "").length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
+  return `hsl(${h} 38% 30%)`;
+}
+
+function clampTint(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l0 = (max + min) / 2;
+  let h = 0, sat = 0;
+  if(max !== min){
+    const d = max - min;
+    sat = l0 > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if(max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if(max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  const s2 = Math.min(0.62, Math.max(0.30, sat));
+  const l2 = Math.min(0.40, Math.max(0.24, l0));
+  return `hsl(${Math.round(h)} ${Math.round(s2 * 100)}% ${Math.round(l2 * 100)}%)`;
+}
+
+function applyHeroTint(head, thumbnail, fallbackText){
+  const paint = (c) => {
+    head.style.background =
+      `linear-gradient(180deg, ${c} 0%, color-mix(in srgb, ${c} 45%, #121212) 58%, #121212 100%)`;
+  };
+  paint(hashHue(fallbackText));
+  if(!thumbnail) return;
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try{
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 24;
+      const g = cv.getContext("2d");
+      g.drawImage(img, 0, 0, 24, 24);
+      const d = g.getImageData(0, 0, 24, 24).data;
+      let r = 0, gr = 0, b = 0, n = 0;
+      for(let i = 0; i < d.length; i += 4){
+        // Skip near-black and near-white pixels: they drag every cover
+        // towards the same muddy grey.
+        const lum = (d[i] + d[i+1] + d[i+2]) / 3;
+        if(lum < 28 || lum > 228) continue;
+        r += d[i]; gr += d[i+1]; b += d[i+2]; n++;
+      }
+      if(!n) return;
+      // Averaging covers gives a washed-out pastel that white text can't sit
+      // on. Clamp it into the deep, saturated band the reference uses.
+      paint(clampTint(r / n, gr / n, b / n));
+    }catch(e){ /* tainted canvas — the hashed hue already painted */ }
+  };
+  img.src = thumbnail;
+}
+
 function renderPlaylistPanel(p){
   const estBytesTotal = estBytes(p.estimated_total_duration_sec, bitrate());
   const estBytesShown = estBytes(p.total_duration_shown_sec, bitrate());
@@ -3398,6 +4247,7 @@ function renderPlaylistPanel(p){
     <div class="panel-head">
       <button class="close-btn" id="close-panel">✕</button>
       <div class="pl-art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}"></div>
+      <div class="pl-kind">Veřejný playlist</div>
       <div class="pl-title">${escapeHtml(p.title||'')}</div>
       <div class="pl-author">${escapeHtml(p.author||'')}</div>
       ${p.description?`<div class="pl-desc">${escapeHtml(p.description)}</div>`:''}
@@ -3407,6 +4257,7 @@ function renderPlaylistPanel(p){
         <span class="badge" id="size-badge">💾 ~${fmtSize(estBytesTotal)} při ${bitrate()}</span>
       </div>
       <div class="actions">
+        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">▶</button>
         <button class="btn" id="dl-all">⬇️ Stáhnout celý playlist</button>
         <button class="btn secondary" id="dl-selected">⬇️ Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
         <button class="btn secondary" id="watch-videos">🎬 Přehrát videa</button>
@@ -3457,6 +4308,12 @@ function renderPlaylistPanel(p){
     panel.querySelector(".track-list-head span").textContent =
       `Zobrazeno ${p.tracks_shown} z ${p.track_count} · ~${fmtSize(newEstShown)}`;
   };
+
+  applyHeroTint(panel.querySelector(".panel-head"), p.thumbnail, p.title || p.browseId);
+
+  // Green FAB = play, as everywhere in the reference. The playlist's own
+  // "play" is the video player, which is what this app already had.
+  el("pl-play-all").onclick = () => el("watch-videos").click();
 
   el("dl-all").onclick = () => {
     startDownload({
@@ -3784,13 +4641,54 @@ const Player = (() => {
   playBtn.onclick = () => { if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); };
   audio.addEventListener("play", () => playBtn.textContent = "⏸");
   audio.addEventListener("pause", () => playBtn.textContent = "▶");
-  audio.addEventListener("ended", () => {
-    if(playQueueIdx > -1 && playQueueIdx + 1 < playQueueList.length){
-      playLocalAt(playQueueIdx + 1);
-    } else {
-      playBtn.textContent = "▶";
+  // ---- shuffle / repeat / skip ----
+  let shuffleOn = false;
+  let repeatMode = "off";   // off | all | one
+
+  function queueNext(){
+    if(playQueueIdx < 0 || !playQueueList.length) return -1;
+    if(shuffleOn && playQueueList.length > 1){
+      let i = playQueueIdx;
+      while(i === playQueueIdx) i = Math.floor(Math.random() * playQueueList.length);
+      return i;
     }
+    if(playQueueIdx + 1 < playQueueList.length) return playQueueIdx + 1;
+    return repeatMode === "all" ? 0 : -1;
+  }
+
+  function skip(delta){
+    if(playQueueIdx < 0 || !playQueueList.length) return;
+    const next = delta > 0 ? queueNext()
+      : (playQueueIdx > 0 ? playQueueIdx - 1 : (repeatMode === "all" ? playQueueList.length - 1 : 0));
+    if(next >= 0) playLocalAt(next);
+  }
+
+  audio.addEventListener("ended", () => {
+    // Repeat-one restarts the same file rather than walking the queue.
+    if(repeatMode === "one"){ audio.currentTime = 0; audio.play().catch(()=>{}); return; }
+    const next = queueNext();
+    if(next >= 0) playLocalAt(next);
+    else playBtn.textContent = "▶";
   });
+
+  el("pb-prev").onclick = () => {
+    // Match every player: mid-track, "previous" means "back to the start".
+    if(audio.currentTime > 3){ audio.currentTime = 0; return; }
+    skip(-1);
+  };
+  el("pb-next").onclick = () => skip(1);
+  el("pb-shuffle").onclick = () => {
+    shuffleOn = !shuffleOn;
+    el("pb-shuffle").classList.toggle("on", shuffleOn);
+  };
+  el("pb-repeat").onclick = () => {
+    repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+    const btn = el("pb-repeat");
+    btn.classList.toggle("on", repeatMode !== "off");
+    btn.textContent = repeatMode === "one" ? "\uD83D\uDD02" : "\uD83D\uDD01";
+    btn.title = repeatMode === "off" ? "Opakovat"
+      : repeatMode === "all" ? "Opakovat frontu" : "Opakovat skladbu";
+  };
 
   // seekable progress bar
   function updateProgress(){
@@ -4059,6 +4957,10 @@ const Player = (() => {
     audio.play().catch(()=>{});
     pushHistory({...track, source: "podcast", key: "podcast:" + audioUrl});
   }
+
+  // Keep the now-playing rail in step with the player.
+  ["play", "pause", "loadedmetadata"].forEach(ev =>
+    audio.addEventListener(ev, () => { try{ renderNowPlaying(); }catch(e){} }));
 
   return {
     play, playLocal, playLocalQueue, playPodcastEpisode,
@@ -4436,6 +5338,7 @@ async function loadPodcastsList(){
   }
   PODCASTS_STATE.loading = false;
   renderPodcastsGrid();
+  if(state.mode === "podcasts") renderLibraryRail("podcasts");
 }
 
 function renderPodcastsGrid(){
@@ -4940,34 +5843,50 @@ loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
 
-// Sidebar navigation
-function updateSidebar(mode){
-  document.querySelectorAll('#sidebar-left .sb-btn[data-mode]').forEach(function(btn){
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
+// ---- shell chrome: collapse the rail, toggle the now-playing panel ----
+el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
+el("lib-expand").onclick = () => toggleNowPlaying();
+el("pb-np-btn").onclick = () => toggleNowPlaying();
+el("np-close").onclick = () => toggleNowPlaying(false);
+el("lib-create").onclick = () => { setMode("playlists"); el("search-input").focus(); };
+el("sp-avatar").onclick = () => el("settings-btn").click();
+
+function toggleNowPlaying(force){
+  const open = force === undefined ? !document.body.classList.contains("np-open") : force;
+  document.body.classList.toggle("np-open", open);
+  el("right-sidebar").hidden = !open;
+  if(open) renderNowPlaying();
 }
 
-document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('#sidebar-left .sb-btn[data-mode]').forEach(function(btn){
-    btn.onclick = function(){
-      setMode(btn.dataset.mode);
-      updateSidebar(btn.dataset.mode);
-    };
-  });
-  var logo = document.getElementById('sb-logo');
-  if(logo) logo.onclick = function(){ setMode('playlists'); updateSidebar('playlists'); };
-  var toggleRight = document.getElementById('sb-toggle-right');
-  if(toggleRight) toggleRight.onclick = function(){
-    var rs = document.getElementById('right-sidebar');
-    if(rs) rs.hidden = !rs.hidden;
-  };
-});
+// Back / forward walk the modes visited in this session.
+const navHistory = [];
+let navPos = -1;
+let navSuppress = false;
+function pushNav(mode){
+  if(navSuppress) return;
+  navHistory.splice(navPos + 1);
+  navHistory.push(mode);
+  navPos = navHistory.length - 1;
+  paintNavButtons();
+}
+function paintNavButtons(){
+  el("nav-back").disabled = navPos <= 0;
+  el("nav-fwd").disabled = navPos >= navHistory.length - 1;
+}
+function navGo(delta){
+  const next = navPos + delta;
+  if(next < 0 || next >= navHistory.length) return;
+  navPos = next;
+  navSuppress = true;
+  setMode(navHistory[navPos]);
+  navSuppress = false;
+  paintNavButtons();
+}
+el("nav-back").onclick = () => navGo(-1);
+el("nav-fwd").onclick = () => navGo(1);
+paintNavButtons();
 
-var _origSetMode = window.setMode || setMode;
-window.setMode = function(mode){
-  if(_origSetMode) _origSetMode(mode);
-  updateSidebar(mode);
-};
+renderLibraryRail(state.mode);
 
 </script>
 </body>
