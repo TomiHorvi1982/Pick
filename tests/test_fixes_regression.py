@@ -382,7 +382,10 @@ def test_chip_thumbs_caches_misses_too(client, monkeypatch):
     client.get("/api/chip-thumbs", params={"terms": "Nothing"})
 
     assert calls == ["Nothing"]
-    assert server._thumb_cache["Nothing"] is None
+    # Entries carry a timestamp so stale signed URLs can age out.
+    entry = server._thumb_cache["Nothing"]
+    assert entry["url"] is None
+    assert entry["at"] > 0
 
 
 def test_chip_thumbs_caps_the_batch(client, monkeypatch):
@@ -602,3 +605,97 @@ def test_lyrics_return_empty_when_neither_source_has_it(client, monkeypatch):
 
     assert data["plain"] is None
     assert data["lines"] is None
+
+
+def test_thumb_cache_entries_expire(monkeypatch):
+    """Some YouTube thumbnail URLs are signed and stop resolving after a few
+    weeks; a permanent cache eventually serves nothing but 404s."""
+    import server
+
+    cache = {}
+    server._thumb_put(cache, "Rock", "https://i.ytimg.com/x.jpg")
+
+    hit, url = server._thumb_get(cache, "Rock")
+    assert hit and url.endswith("x.jpg")
+
+    cache["Rock"]["at"] -= server.THUMB_CACHE_TTL + 1
+    hit, _ = server._thumb_get(cache, "Rock")
+    assert hit is False        # aged out, so it gets re-resolved
+
+
+def test_thumb_cache_reads_pre_ttl_entries(monkeypatch):
+    """Caches written before entries were stamped are bare strings."""
+    import server
+
+    hit, url = server._thumb_get({"Old": "https://i.ytimg.com/old.jpg"}, "Old")
+
+    assert hit is True
+    assert url.endswith("old.jpg")
+
+
+def test_art_lookup_prefers_the_artist_before_the_dash(client, monkeypatch):
+    """Stem folders are named "Artist - Title", so the part before the dash is
+    a real artist far more often than not."""
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    seen = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            seen.append((q, filter))
+            return [{"thumbnails": [{"url": "https://i.ytimg.com/a.jpg", "width": 100}]}]
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/art", params={"q": "Sylosis - Erased"}).json()
+
+    assert data["url"].endswith("a.jpg")
+    assert seen[0] == ("Sylosis", "artists")
+
+
+def test_art_lookup_falls_back_for_a_bare_name(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    seen = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            seen.append(filter)
+            return [] if filter == "artists" else [
+                {"thumbnails": [{"url": "https://i.ytimg.com/s.jpg", "width": 60}]}]
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/art", params={"q": "Cerberus"}).json()
+
+    assert data["url"].endswith("s.jpg")
+    assert "songs" in seen
+
+
+def test_art_lookup_caches_a_miss(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    calls = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            calls.append(q)
+            return []
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    client.get("/api/art", params={"q": "Nic"})
+    before = len(calls)
+    client.get("/api/art", params={"q": "Nic"})
+
+    assert len(calls) == before
+
+
+def test_art_lookup_rejects_an_empty_query(client):
+    assert client.get("/api/art", params={"q": "  "}).json() == {"url": None}

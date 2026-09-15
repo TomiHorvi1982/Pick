@@ -512,6 +512,28 @@ def search_top(q: str, limit: int = 8):
 THUMB_CACHE_PATH = HOME / ".local" / "share" / "spotdl-helper" / "chip-thumbs.json"
 _thumb_cache: Optional[dict] = None
 
+# Some of YouTube's thumbnail URLs are signed and stop resolving after a few
+# weeks, so a permanent cache eventually serves nothing but 404s. Entries are
+# stamped and re-resolved once they age out.
+THUMB_CACHE_TTL = 21 * 24 * 3600
+
+
+def _thumb_get(cache: dict, key: str):
+    """(hit, url). Old entries were bare strings; treat those as fresh once
+    and let them be re-stamped on the next write."""
+    entry = cache.get(key)
+    if entry is None:
+        return False, None
+    if isinstance(entry, dict):
+        if time.time() - entry.get("at", 0) > THUMB_CACHE_TTL:
+            return False, None
+        return True, entry.get("url")
+    return True, entry
+
+
+def _thumb_put(cache: dict, key: str, url):
+    cache[key] = {"url": url, "at": time.time()}
+
 
 def _load_thumb_cache() -> dict:
     global _thumb_cache
@@ -586,6 +608,50 @@ async def proxy_thumb(url: str = ""):
     )
 
 
+@app.get("/api/art")
+def art_lookup(q: str = "", kind: str = "auto"):
+    """Artwork for a name — an artist photo, or a cover for a song or album.
+
+    Shares the chip-thumbnail disk cache (under its own key prefix) so a name
+    is resolved once, ever. Separated songs are folders like
+    "Sylosis - Erased" or plain "Cerberus", so both shapes have to work.
+    """
+    term = q.strip()
+    if not term:
+        return {"url": None}
+
+    cache = _load_thumb_cache()
+    key = f"art:{kind}:{term}"
+    hit, cached_url = _thumb_get(cache, key)
+    if hit:
+        return {"url": cached_url}
+
+    # "Artist - Title" is spotdl's own naming, so the part before the dash is
+    # a real artist far more often than not; fall back to the whole string.
+    artist = term.split(" - ", 1)[0].strip() if " - " in term else term
+    attempts = []
+    if kind in ("auto", "artist"):
+        attempts.append((artist, "artists"))
+    attempts += [(term, "songs"), (term, "albums"), (artist, "artists")]
+
+    url = None
+    for query, filt in attempts:
+        if not query:
+            continue
+        try:
+            hits = yt().search(query, filter=filt, limit=1)
+        except Exception:
+            continue
+        if hits:
+            url = _best_thumb(hits[0].get("thumbnails"))
+            if url:
+                break
+
+    _thumb_put(cache, key, url)
+    _save_thumb_cache()
+    return {"url": url}
+
+
 @app.get("/api/chip-thumbs")
 def chip_thumbs(terms: str = ""):
     """Thumbnails for up to 12 comma-separated terms.
@@ -599,11 +665,12 @@ def chip_thumbs(terms: str = ""):
     out = {}
     dirty = False
     for term in wanted:
-        if term in cache:
-            out[term] = cache[term]
+        hit, cached_url = _thumb_get(cache, term)
+        if hit:
+            out[term] = cached_url
             continue
         thumb = _resolve_chip_thumb(term)
-        cache[term] = thumb
+        _thumb_put(cache, term, thumb)
         out[term] = thumb
         dirty = True
     if dirty:

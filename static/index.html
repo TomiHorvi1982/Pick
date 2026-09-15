@@ -1502,6 +1502,34 @@
   .metro-voice:focus{border-color:var(--accent)}
   .nm-lane.metro-lane{background:rgba(30,215,96,.035);border-bottom:1px solid #35353d}
   .metro-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  /* ---- collapsed rail: controls stack, artwork centres ----
+     At 76px the header's row layout crammed the library toggle, the create
+     button and the expand arrow into each other. Collapsed they stack, as in
+     the reference, and the rows become a column of artwork tiles. */
+  body.lib-collapsed .lib-head{flex-direction:column;align-items:center;
+    gap:8px;padding:14px 0 10px}
+  body.lib-collapsed .lib-title{flex:0 0 auto;width:40px;height:40px;padding:0;
+    justify-content:center;border-radius:50%}
+  body.lib-collapsed .lib-title:hover{background:var(--card-hi)}
+  body.lib-collapsed .lib-title .ic{font-size:18px}
+  body.lib-collapsed .lib-create{width:36px;height:36px;padding:0;border-radius:50%;
+    justify-content:center;font-size:17px}
+  body.lib-collapsed .lib-list{padding:0 0 8px;display:flex;flex-direction:column;
+    align-items:center;gap:6px}
+  body.lib-collapsed .lib-row{padding:0;width:48px;justify-content:center;
+    background:none}
+  body.lib-collapsed .lib-row:hover{background:none}
+  body.lib-collapsed .lib-row .lib-art{box-shadow:0 2px 10px rgba(0,0,0,.5);
+    transition:transform .12s}
+  body.lib-collapsed .lib-row:hover .lib-art{transform:scale(1.05)}
+  body.lib-collapsed .lib-row.active .lib-art{box-shadow:0 0 0 2px var(--accent)}
+  body.lib-collapsed .lib-empty{display:none}
+
+  /* An element that resolved its artwork drops the placeholder glyph. */
+  .lib-art.has-art,.stem-card-art.has-art,.sp-hero-art.has-art{
+    background-size:cover;background-position:center;font-size:0}
+  .stem-card-art{background-size:cover;background-position:center}
 </style>
 </head>
 <body>
@@ -2598,6 +2626,56 @@ function paintNowPlayingSource(data, track){
 }
 
 // ======================================================================
+// Artwork for separated songs. Stem folders are just names on disk, so the
+// picture has to be looked up — an artist photo where the name carries one
+// ("Sylosis - Erased"), a cover otherwise. Resolved once per name and cached
+// on the server, so this is a single fast request after the first time.
+// ======================================================================
+const Artwork = (() => {
+  const known = new Map();
+  const inFlight = new Map();
+
+  async function urlFor(name){
+    if(known.has(name)) return known.get(name);
+    if(inFlight.has(name)) return inFlight.get(name);
+
+    const request = fetch("/api/art?q=" + encodeURIComponent(name))
+      .then(r => r.json())
+      .then(d => {
+        const url = d.url || null;
+        known.set(name, url);
+        inFlight.delete(name);
+        return url;
+      })
+      .catch(() => { inFlight.delete(name); return null; });
+
+    inFlight.set(name, request);
+    return request;
+  }
+
+  // Paints into an element that already shows a placeholder, so the list is
+  // usable before the pictures arrive. The image is loaded first and only
+  // swapped in on success — some of YouTube's thumbnail URLs are signed and
+  // 404 once they go stale, and clearing the glyph for one leaves an empty
+  // box instead of an icon.
+  async function paint(elm, name){
+    const url = await urlFor(name);
+    if(!url || !elm.isConnected) return;
+    const src = thumbUrl(url);
+    const probe = new Image();
+    probe.onload = () => {
+      if(!elm.isConnected) return;
+      elm.style.backgroundImage = `url('${src}')`;
+      elm.textContent = "";
+      elm.classList.add("has-art");
+    };
+    probe.src = src;
+  }
+
+  return { urlFor, paint };
+})();
+
+// ======================================================================
 // Chip thumbnails — every browse term gets a cover. Resolving one costs a
 // YouTube search, so they're fetched lazily as chips scroll into view, in
 // small batches, and the server caches each term to disk forever.
@@ -2623,8 +2701,17 @@ const ChipThumbs = (() => {
     if(url){
       // Served through our own origin: Chrome blocks some of these hosts
       // with ERR_BLOCKED_BY_ORB when loaded cross-origin as a background.
-      slot.style.backgroundImage = `url('${thumbUrl(url)}')`;
-      elm.classList.add("has-thumb");
+      // Verified first, because a cached signed URL can have gone stale —
+      // collapsing the slot beats leaving an empty square.
+      const src = thumbUrl(url);
+      const probe = new Image();
+      probe.onload = () => {
+        if(!slot.isConnected) return;
+        slot.style.backgroundImage = `url('${src}')`;
+        elm.classList.add("has-thumb");
+      };
+      probe.onerror = () => { if(slot.isConnected) slot.remove(); };
+      probe.src = src;
     } else {
       // No cover for this term — collapse the slot rather than leave a hole.
       slot.remove();
@@ -2715,11 +2802,13 @@ function renderLibraryRail(mode){
       return;
     }
     steemsSongs.forEach(song => {
-      list.appendChild(libRow({
+      const row = libRow({
         art: "\uD83C\uDF9A", name: song.name, sub: `Stopy • ${song.stems.length} stop`,
         active: currentSteemsName === song.name,
         onClick: () => { loadMixerSong(song.name); renderLibraryRail("steems"); },
-      }));
+      });
+      Artwork.paint(row.querySelector(".lib-art"), song.name);
+      list.appendChild(row);
     });
     return;
   }
@@ -3108,6 +3197,7 @@ async function loadSteemsList(){
         <div class="sub">${song.size_bytes ? fmtSize(song.size_bytes) : ""}</div>
       </div>`;
     row.onclick = () => loadMixerSong(song.name);
+    Artwork.paint(row.querySelector(".stem-card-art"), song.name);
     list.appendChild(row);
   });
 }
@@ -3126,6 +3216,10 @@ function showSteemsHero(name){
   el("steems-list-title").hidden = true;
   el("steems-list").hidden = true;
   el("steems-hero-title").textContent = name;
+  const heroArt = el("steems-hero").querySelector(".sp-hero-art");
+  heroArt.style.backgroundImage = "";
+  heroArt.textContent = "\uD83C\uDF9A";
+  Artwork.paint(heroArt, name);
   el("steems-hero-wash").style.setProperty("--hero", heroHue(name));
   el("steems-hero-actions").style.setProperty("--hero", heroHue(name));
   el("steems-hero-stats").innerHTML = '<span class="dot">Načítám stopy…</span>';
