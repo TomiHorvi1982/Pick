@@ -1361,6 +1361,63 @@ def list_stems():
     return out
 
 
+@app.get("/api/stems/{name}/beats")
+def stems_beatgrid(name: str, refresh: bool = False):
+    """Beat and downbeat grid for a separated song.
+
+    Tracking runs on the isolated drums stem — by far the cleanest onset
+    signal available, and the reason this waits for separation instead of
+    analysing the mix. Falls back through the other stems for drumless
+    material. The result is cached next to the stems, because inference
+    costs a few seconds and the grid never changes for a given file.
+    """
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    cache = stems_dir / "beats.json"
+    if cache.is_file() and not refresh:
+        try:
+            return json.loads(cache.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass  # unreadable cache is just a cache miss
+
+    interpreter = _demucs_interpreter()
+    if interpreter is None:
+        return JSONResponse({"error": "Detektor beatů není dostupný."}, status_code=503)
+
+    for stem in ("drums", "other", "bass", "guitar", "piano", "vocals"):
+        source = stems_dir / f"{stem}.wav"
+        if not source.is_file():
+            continue
+        try:
+            proc = subprocess.run(
+                [interpreter, str(APP_DIR / "beatgrid.py"), str(source)],
+                capture_output=True, text=True, timeout=300,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return JSONResponse({"error": f"Detekce selhala: {exc}"}, status_code=500)
+
+        line = (proc.stdout or "").strip().splitlines()
+        if not line:
+            continue
+        try:
+            data = json.loads(line[-1])
+        except json.JSONDecodeError:
+            continue
+        if "error" in data:
+            continue  # this stem had nothing trackable; try the next one
+
+        data["source_stem"] = stem
+        try:
+            cache.write_text(json.dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+        return data
+
+    return JSONResponse({"error": "Beaty se nepodařilo detekovat."}, status_code=422)
+
+
 @app.get("/api/stems/{name}/{stem}.wav")
 def stream_stem(name: str, stem: str, request: Request):
     if stem not in STEM_NAMES:

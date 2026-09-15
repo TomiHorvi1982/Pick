@@ -53,6 +53,7 @@ Mimo venv jsou potřeba ještě externí nástroje:
 |----------|--------------------------|-------------------------------------|
 | `spotdl` | `~/.local/bin/spotdl`    | stahování                           |
 | `demucs` | `~/.local/bin/demucs`    | separace stemů (vlastní venv/torch) |
+| `beat_this` | v demucs venv         | detekce beatů a downbeatů           |
 | `ffmpeg` | `/opt/homebrew/bin/ffmpeg` | převody, slučování DASH videa     |
 
 Demucs má **vlastní** izolovaný interpret (uv/pipx) s torchem — server si
@@ -79,3 +80,12 @@ cd ~/.local/share/spotdl-helper/app
   Videa bez progresivního formátu (jen DASH) se stáhnou a slijí do dočasného
   souboru; ten se uklidí po vypršení cache (45 min).
 - **Texty**: LRCLib, synced i plain.
+- **Beat grid**: `beatgrid.py` běží pod interpretem Demucsu (ten má torch) a
+  trackuje beaty na **izolované stopě bicích** — nejčistší onset signál, jaký
+  je k dispozici, a důvod, proč se to dělá až po separaci. `beat_this` je
+  transformer, který vrací i *downbeaty*, takže mřížka kreslí skutečné taktové
+  čáry místo počítání po čtyřech od začátku. Librosa se použít nedá: její
+  tempo prior je centrovaný na 120 BPM, takže 180 BPM skladbu vyhodnotí jako
+  90 a klik jde v půlce — a žádná metrika kvality to nepozná, protože
+  půltaktová mřížka má pod každou dobou reálný úder bicích. Výsledek se
+  cachuje do `Stems/<název>/beats.json`.

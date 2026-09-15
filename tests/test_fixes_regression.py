@@ -396,3 +396,95 @@ def test_chip_thumbs_caps_the_batch(client, monkeypatch):
     data = client.get("/api/chip-thumbs", params={"terms": terms}).json()
 
     assert len(data) == 12
+
+
+# ------------------------------------------------------------ beat grid
+
+def test_beats_endpoint_serves_the_cache_without_reinvoking(client, tmp_music_root, monkeypatch):
+    """Inference costs seconds and the grid never changes for a given file."""
+    import json as _json
+    import server
+
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "drums.wav").write_bytes(b"x")
+    (stems / "beats.json").write_text(_json.dumps({"bpm": 120, "beats": [0.5, 1.0]}))
+
+    def boom(*a, **kw):
+        raise AssertionError("must not run the detector when a cache exists")
+
+    monkeypatch.setattr(server.subprocess, "run", boom)
+
+    data = client.get("/api/stems/Song/beats").json()
+
+    assert data["bpm"] == 120
+
+
+def test_beats_endpoint_falls_through_to_another_stem(client, tmp_music_root, monkeypatch):
+    """Drumless material has to fall back rather than report no grid."""
+    import subprocess as _sp
+    import server
+
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "drums.wav").write_bytes(b"x")
+    (stems / "other.wav").write_bytes(b"x")
+
+    monkeypatch.setattr(server, "_demucs_interpreter", lambda: "/fake/python")
+    seen = []
+
+    def fake_run(cmd, **kw):
+        seen.append(cmd[-1])
+        if cmd[-1].endswith("drums.wav"):
+            return _sp.CompletedProcess(cmd, 1, stdout='{"error": "only 0 beats detected"}', stderr="")
+        return _sp.CompletedProcess(
+            cmd, 0, stdout='{"bpm": 90.0, "beats": [1.0, 2.0], "downbeats": [1.0], "beats_per_bar": 4}',
+            stderr="")
+
+    monkeypatch.setattr(server.subprocess, "run", fake_run)
+
+    data = client.get("/api/stems/Song/beats").json()
+
+    assert data["source_stem"] == "other"
+    assert data["bpm"] == 90.0
+    assert [s.rsplit("/", 1)[-1] for s in seen] == ["drums.wav", "other.wav"]
+    assert (stems / "beats.json").is_file()   # written through
+
+
+def test_beats_endpoint_422_when_nothing_is_trackable(client, tmp_music_root, monkeypatch):
+    import subprocess as _sp
+    import server
+
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "drums.wav").write_bytes(b"x")
+
+    monkeypatch.setattr(server, "_demucs_interpreter", lambda: "/fake/python")
+    monkeypatch.setattr(server.subprocess, "run",
+                        lambda cmd, **kw: _sp.CompletedProcess(cmd, 1, stdout='{"error":"no"}', stderr=""))
+
+    assert client.get("/api/stems/Song/beats").status_code == 422
+
+
+def test_beats_endpoint_404_for_unknown_song(client, tmp_music_root):
+    assert client.get("/api/stems/Nope/beats").status_code == 404
+
+
+def test_beatgrid_bpm_uses_the_median_interval():
+    """A mean would be dragged off by a single dropped beat; the median isn't."""
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "beatgrid", Path(__file__).resolve().parents[1] / "beatgrid.py")
+    beatgrid = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(beatgrid)
+
+    steady = [i * 0.5 for i in range(20)]            # 120 BPM
+    assert round(beatgrid._bpm_from(steady)) == 120
+
+    dropped = steady[:10] + [t + 0.5 for t in steady[10:]]   # one beat missed
+    assert round(beatgrid._bpm_from(dropped)) == 120
+
+    assert beatgrid._bpm_from([0.0]) is None
+    assert beatgrid._bpm_from([0.0, 10.0]) is None   # 6 BPM — out of range

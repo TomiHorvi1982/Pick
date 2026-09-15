@@ -689,7 +689,7 @@
 .sb-icon{font-size:14px;width:16px;text-align:center}
 .sb-divider{border:none;border-top:1px solid #222;margin:8px 0}
 /* Main content shift */
-.main-content{margin-left:200px}
+/* (the old fixed-rail offset lived here; the shell is flex now) */
 
 
   /* ------------------------------------------------------------------
@@ -1409,6 +1409,77 @@
     background:var(--card-hi) center/cover no-repeat;
     transition:width .18s ease;overflow:hidden}
   .chip.has-thumb .chip-thumb{width:26px}
+
+  /* Rail strips carry S/M and a per-stem pitch now, so they're taller —
+     the lanes must match or the two columns drift apart. */
+  .nm-strip{height:86px;gap:5px}
+  .nm-lane{height:86px}
+  .nm-sm{width:19px;height:19px;border-radius:4px;border:1px solid #3a3a42;
+    background:#1e1e25;color:var(--nm-sub);font-size:10px;font-weight:700;
+    cursor:pointer;flex:0 0 auto;padding:0;line-height:1;font-family:inherit}
+  .nm-sm:hover{color:#fff;border-color:#55555f}
+  .nm-sm.solo.active{background:var(--accent);border-color:var(--accent);color:#000}
+  .nm-sm.mute.active{background:#e0564f;border-color:#e0564f;color:#fff}
+  .nm-pitch-row{display:flex;align-items:center;gap:6px}
+  .nm-pitch-row .lbl{font-size:8px;letter-spacing:.09em;color:var(--nm-sub);
+    font-weight:700;flex:0 0 auto}
+  .nm-pitch-row .val{font-size:10px;color:var(--nm-sub);width:20px;text-align:right;
+    font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .nm-pitch-slider{-webkit-appearance:none;appearance:none;flex:1;min-width:0;
+    height:10px;background:transparent;cursor:pointer;margin:0}
+  .nm-pitch-slider::-webkit-slider-runnable-track{height:2px;border-radius:2px;
+    background:#3a3a42}
+  .nm-pitch-slider::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;
+    border-radius:50%;background:#b9b9c4;margin-top:-3.5px}
+  .nm-pitch-slider::-moz-range-track{height:2px;background:#3a3a42;border-radius:2px}
+  .nm-pitch-slider::-moz-range-thumb{width:9px;height:9px;border:none;border-radius:50%;
+    background:#b9b9c4}
+
+  /* ---- floating windows (video, lyrics) ---- */
+  .float-win{position:fixed;z-index:80;display:flex;flex-direction:column;
+    background:#101013;border:1px solid #303038;border-radius:10px;
+    box-shadow:0 18px 60px rgba(0,0,0,.6);overflow:hidden;
+    min-width:240px;min-height:160px}
+  .float-win[hidden]{display:none}
+  .float-head{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 12px;
+    background:#17171c;border-bottom:1px solid #26262d;cursor:grab;flex:0 0 auto;
+    user-select:none}
+  .float-head:active{cursor:grabbing}
+  .float-title{flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .float-btn{width:22px;height:22px;border-radius:5px;border:none;background:transparent;
+    color:var(--sub);font-size:11px;cursor:pointer;flex:0 0 auto;line-height:1}
+  .float-btn:hover{background:#2a2a33;color:#fff}
+  .float-body{flex:1;min-height:0;overflow:hidden;position:relative;background:#000}
+  .float-body iframe,.float-body video{width:100%;height:100%;border:none;display:block}
+  .float-grip{position:absolute;right:0;bottom:0;width:16px;height:16px;
+    cursor:nwse-resize;z-index:2}
+  .float-grip::after{content:"";position:absolute;right:3px;bottom:3px;width:7px;height:7px;
+    border-right:2px solid #55555f;border-bottom:2px solid #55555f}
+  body.float-dragging{user-select:none;cursor:grabbing}
+  body.float-dragging iframe{pointer-events:none}
+
+  /* Lyrics inside the floating window */
+  #float-lyrics .float-body{background:#101013;overflow-y:auto;padding:16px 0}
+  #float-lyrics .lyric-line{padding:7px 18px;font-size:15px}
+  #float-lyrics .lyric-line.current{font-size:18px}
+
+  /* The lyrics panel is a floating window: no dimming backdrop, and the
+     page stays usable while it's open. */
+  .lyrics-overlay{position:fixed;inset:0;background:none;backdrop-filter:none;
+    pointer-events:none;z-index:80;display:block}
+  .lyrics-panel{position:fixed;pointer-events:auto;width:380px;height:460px;
+    display:flex;flex-direction:column;background:#101013;border:1px solid #303038;
+    border-radius:10px;box-shadow:0 18px 60px rgba(0,0,0,.6);overflow:hidden;
+    min-width:260px;min-height:200px}
+  .lyrics-header{cursor:grab;user-select:none;background:#17171c;
+    border-bottom:1px solid #26262d;padding:8px 8px 8px 14px;flex:0 0 auto}
+  .lyrics-header:active{cursor:grabbing}
+  .lyrics-header .close-btn{position:static;width:22px;height:22px;border-radius:5px;
+    background:transparent;border:none;color:var(--sub);font-size:11px;cursor:pointer}
+  .lyrics-header .close-btn:hover{background:#2a2a33;color:#fff}
+  .lyrics-panel .lyric-line{padding:8px 20px;font-size:16px}
+  .lyrics-panel .lyric-line.current{font-size:19px}
 </style>
 </head>
 <body>
@@ -1866,20 +1937,23 @@
   <div class="pb-right">
     <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně">📜</button>
     <button class="pb-ctl" id="pb-queue-btn" title="Fronta">☰<span class="pb-badge" id="pb-queue-count">0</span></button>
-    <button class="pb-ctl" id="pb-video-btn" title="Video">🎬</button>
-    <div class="video-mode-toggle" id="video-mode-toggle" title="Video mód">
+    <button class="pb-ctl" id="pb-video-btn" title="Video v plovoucím okně">🎬</button>
+    <button class="pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň">⬇</button>
+    <button class="pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy">🎚</button>
+    <button class="pb-ctl" id="pb-history-btn" title="Historie">🕐</button>
+    <!-- Kept for the video-mode logic, which other code still drives. -->
+    <div class="video-mode-toggle" id="video-mode-toggle" hidden>
       <button data-mode="hidden" id="vm-hidden">skrytý</button>
       <button data-mode="mini" id="vm-mini">mini</button>
       <button data-mode="full" id="vm-full">plný</button>
     </div>
-    <button class="pb-ctl" id="pb-history-btn" title="Historie">🕐</button>
     <div class="pb-volume">
       <span id="pb-mute" title="Ztlumit">🔊</span>
       <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
     </div>
     <button class="pb-ctl" id="pb-np-btn" title="Právě hraje">◳</button>
-    <div style="position:relative">
-      <button class="pb-ctl" id="pb-download-btn" title="Stáhnout">⬇</button>
+    <div style="position:relative;display:none">
+      <button class="pb-ctl" id="pb-download-btn">⬇</button>
       <div class="pb-download-menu" id="pb-download-menu" hidden>
         <button id="pb-dl-song">⬇ Stáhnout píseň</button>
         <button id="pb-dl-stems">🎧 Rozdělit na stopy</button>
@@ -1943,8 +2017,8 @@
 </div>
 
 <div class="lyrics-overlay" id="lyrics-overlay" hidden>
-  <div class="lyrics-panel">
-    <div class="lyrics-header">
+  <div class="lyrics-panel" id="lyrics-panel">
+    <div class="lyrics-header" id="lyrics-panel-head">
       <div class="lh-title" id="lyrics-title">📜 Text písně</div>
       <div class="lh-sub" id="lyrics-sub"></div>
       <span class="lh-source" id="lyrics-source"></span>
@@ -1952,7 +2026,19 @@
     </div>
     <div class="lyrics-scroll" id="lyrics-scroll"></div>
     <div class="lyrics-source" id="lyrics-source-footer" hidden></div>
+    <div class="float-grip" id="lyrics-panel-grip" title="Táhnutím změníš velikost"></div>
   </div>
+</div>
+
+<!-- Floating video window: draggable, resizable, stays above everything. -->
+<div class="float-win" id="float-video" hidden>
+  <div class="float-head" id="float-video-head">
+    <span class="float-title" id="float-video-title">Video</span>
+    <button class="float-btn" id="float-video-pop" title="Otevřít na YouTube">↗</button>
+    <button class="float-btn" id="float-video-close" title="Zavřít">✕</button>
+  </div>
+  <div class="float-body" id="float-video-body"></div>
+  <div class="float-grip" id="float-video-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -3085,6 +3171,14 @@ const Mixer = (() => {
   let pixelsPerSecond = 30;
   let tempoBPM = null;
   let beatInterval = 0;
+  // Detected grid: real beat/downbeat times from the drums stem. When these
+  // are present the ruler, the lane grid and the click all follow them, so a
+  // track that drifts or changes tempo stays aligned for its whole length —
+  // a single extrapolated period cannot do that.
+  let beatTimes = [];
+  let downbeatTimes = [];
+  let beatsPerBar = 4;
+  let beatSetIndex = new Set();   // downbeat lookup for accenting the click
   let metronomeOn = false;
   let metronomeOsc = null;
   let metronomeGain = null;
@@ -3254,6 +3348,97 @@ const Mixer = (() => {
     return best && best.score > 0.2 ? best.name : null;
   }
 
+  // ---------------------------------------------------------------- FX
+  // Three inserts per channel, in a fixed chain between the gain node and the
+  // analyser. Nodes are created on first enable and then bypassed rather than
+  // rebuilt, so toggling one mid-playback doesn't interrupt the audio.
+  const FX_LABELS = ["LO-PASS", "REVERB", "DELAY"];
+  const FX_TITLES = [
+    "Dolní propust — ubere výšky",
+    "Dozvuk",
+    "Echo v rytmu skladby",
+  ];
+
+  function buildImpulse(seconds, decay){
+    const rate = ctx().sampleRate;
+    const len = Math.max(1, Math.floor(rate * seconds));
+    const buf = ctx().createBuffer(2, len, rate);
+    for(let ch = 0; ch < 2; ch++){
+      const data = buf.getChannelData(ch);
+      for(let i = 0; i < len; i++){
+        // Noise burst with an exponential tail — a cheap, plausible room.
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+    }
+    return buf;
+  }
+
+  function ensureFxChain(c){
+    if(c.fxNodes) return c.fxNodes;
+    const ac = ctx();
+
+    const filter = ac.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 900;
+
+    const reverb = ac.createConvolver();
+    reverb.buffer = buildImpulse(1.8, 2.6);
+    const reverbWet = ac.createGain();
+    reverbWet.gain.value = 0;
+
+    const delay = ac.createDelay(2.0);
+    // An eighth note at the detected tempo, so the echo lands in time.
+    delay.delayTime.value = beatInterval ? beatInterval / 2 : 0.25;
+    const feedback = ac.createGain();
+    feedback.gain.value = 0.35;
+    const delayWet = ac.createGain();
+    delayWet.gain.value = 0;
+
+    const dry = ac.createGain();
+    const out = ac.createGain();
+
+    // gain -> [filter or dry] -> out, with reverb/delay as parallel sends.
+    filter.connect(out);
+    dry.connect(out);
+    delay.connect(feedback);
+    feedback.connect(delay);
+    delay.connect(delayWet);
+    delayWet.connect(out);
+    reverb.connect(reverbWet);
+    reverbWet.connect(out);
+
+    c.fxNodes = {filter, dry, reverb, reverbWet, delay, delayWet, out};
+    c.fx = c.fx || [false, false, false];
+    rewireChannel(c);
+    return c.fxNodes;
+  }
+
+  function rewireChannel(c){
+    const nodes = c.fxNodes;
+    if(!nodes) return;
+    try{ c.gainNode.disconnect(); }catch(e){}
+    try{ nodes.out.disconnect(); }catch(e){}
+
+    // Filter is an insert; reverb and delay are sends fed from the same point.
+    const head = c.fx[0] ? nodes.filter : nodes.dry;
+    c.gainNode.connect(head);
+    c.gainNode.connect(nodes.reverb);
+    c.gainNode.connect(nodes.delay);
+    nodes.reverbWet.gain.value = c.fx[1] ? 0.5 : 0;
+    nodes.delayWet.gain.value = c.fx[2] ? 0.4 : 0;
+    nodes.out.connect(c.analyser);
+  }
+
+  function toggleChannelFx(c, fxIdx){
+    ensureFxChain(c);
+    c.fx[fxIdx] = !c.fx[fxIdx];
+    if(fxIdx === 2 && beatInterval){
+      c.fxNodes.delay.delayTime.value = beatInterval / 2;
+    }
+    rewireChannel(c);
+    return c.fx[fxIdx];
+  }
+
   function applyGains(){
     const solo = channels.some(c => c.solo);
     let anyActive = false;
@@ -3366,6 +3551,13 @@ const Mixer = (() => {
     return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
 
+  // Equal temperament both ways, so a stem's stored rate round-trips to the
+  // semitone number the slider shows.
+  function semitonesToRate(st){ return Math.pow(2, st / 12); }
+  function rateToSemitones(rate){
+    return Math.round(12 * Math.log2(Math.max(0.01, rate || 1)));
+  }
+
   function totalWidthPx(){
     return Math.max(1, duration * pixelsPerSecond);
   }
@@ -3401,6 +3593,24 @@ const Mixer = (() => {
     ruler.innerHTML = "";
     ruler.style.width = totalPx + "px";
 
+    // Real downbeats when we have them: bar 1 then lands on the actual first
+    // downbeat rather than at 0:00, which is almost never a bar line.
+    if(downbeatTimes.length){
+      const spacingPx = (downbeatTimes.length > 1
+        ? (downbeatTimes[1] - downbeatTimes[0]) : 2) * pixelsPerSecond;
+      let step = 1;
+      while(step * spacingPx < 46) step *= 2;
+      downbeatTimes.forEach((t, i) => {
+        if(i % step) return;
+        const label = document.createElement("div");
+        label.className = "nm-bar-num";
+        label.style.left = (t * pixelsPerSecond) + "px";
+        label.textContent = i + 1;
+        ruler.appendChild(label);
+      });
+      return;
+    }
+
     const bar = barSeconds();
     const barPx = bar * pixelsPerSecond;
     const step = barStep();
@@ -3418,6 +3628,10 @@ const Mixer = (() => {
   // hundreds of absolutely positioned divs — at 400 px/s a long track would
   // otherwise put thousands of nodes in the document.
   function paintGrid(g, w, h){
+    if(beatTimes.length && downbeatTimes.length){
+      paintDetectedGrid(g, w, h);
+      return;
+    }
     const barPx = barSeconds() * pixelsPerSecond;
     if(barPx <= 0) return;
     const beatPx = barPx / 4;
@@ -3444,6 +3658,40 @@ const Mixer = (() => {
       const px = Math.floor(x) + 0.5;
       g.moveTo(px, 0); g.lineTo(px, h);
     }
+    g.stroke();
+  }
+
+  // Grid lines at the tracker's own beat and downbeat times.
+  function paintDetectedGrid(g, w, h){
+    const spacing = (downbeatTimes.length > 1
+      ? (downbeatTimes[1] - downbeatTimes[0]) : 2) * pixelsPerSecond;
+    let step = 1;
+    while(step * spacing < 46) step *= 2;
+
+    const beatSpacing = spacing / Math.max(1, beatsPerBar);
+    if(beatSpacing >= 11){
+      g.strokeStyle = "rgba(255,255,255,.05)";
+      g.lineWidth = 1;
+      g.beginPath();
+      for(const t of beatTimes){
+        const x = t * pixelsPerSecond;
+        if(x > w) break;
+        const px = Math.floor(x) + 0.5;
+        g.moveTo(px, 0); g.lineTo(px, h);
+      }
+      g.stroke();
+    }
+
+    g.strokeStyle = "rgba(200,121,31,.5)";
+    g.lineWidth = 1;
+    g.beginPath();
+    downbeatTimes.forEach((t, i) => {
+      if(i % step) return;
+      const x = t * pixelsPerSecond;
+      if(x > w) return;
+      const px = Math.floor(x) + 0.5;
+      g.moveTo(px, 0); g.lineTo(px, h);
+    });
     g.stroke();
   }
 
@@ -3476,21 +3724,30 @@ const Mixer = (() => {
     lanes.innerHTML = "";
 
     const totalPx = totalWidthPx();
-    const laneH = 62;
+    const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
 
     channels.forEach((c, idx) => {
       const style = stemStyle(c.stem);
 
-      // ---- left rail strip: name, gold fader, solo ----
+      // ---- left rail strip: name, S/M, volume fader, pitch ----
       const strip = document.createElement("div");
       strip.className = "nm-strip" + (c.muted ? " muted" : "");
+      const semis = rateToSemitones(c.pitchRate || 1);
       strip.innerHTML = `
         <div class="nm-strip-top">
           <span class="nm-strip-icon">${style.icon}</span>
           <span class="nm-strip-name" title="${escapeHtml(c.stem)}">${escapeHtml(c.stem)}</span>
-          <button class="nm-solo ${c.solo ? "active" : ""}" title="Sólo">\u25C9</button>
+          <button class="nm-sm solo ${c.solo ? "active" : ""}" title="Sólo">S</button>
+          <button class="nm-sm mute ${c.muted ? "active" : ""}" title="Ztlumit">M</button>
         </div>
-        <input type="range" class="nm-fader" min="0" max="1.4" step="0.01" value="${c.faderValue}">
+        <input type="range" class="nm-fader" min="0" max="1.4" step="0.01" value="${c.faderValue}"
+               title="Hlasitost">
+        <div class="nm-pitch-row">
+          <span class="lbl">PITCH</span>
+          <input type="range" class="nm-pitch-slider" min="-12" max="12" step="1" value="${semis}"
+                 title="Pitch této stopy v půltónech">
+          <span class="val">${semis > 0 ? "+" : ""}${semis}</span>
+        </div>
       `;
 
       const fader = strip.querySelector(".nm-fader");
@@ -3500,27 +3757,35 @@ const Mixer = (() => {
       paintFader();
       fader.oninput = () => {
         c.faderValue = parseFloat(fader.value);
-        // A fader pulled to zero is a mute, and the rail shows it as one.
-        c.muted = c.faderValue < 0.01;
-        strip.classList.toggle("muted", c.muted);
         paintFader();
         applyGains();
       };
 
-      // Click the stem name to mute/unmute without losing the fader position.
-      const nameEl = strip.querySelector(".nm-strip-name");
-      nameEl.style.cursor = "pointer";
-      nameEl.onclick = () => {
+      const muteBtn = strip.querySelector(".nm-sm.mute");
+      muteBtn.onclick = () => {
         c.muted = !c.muted;
+        muteBtn.classList.toggle("active", c.muted);
         strip.classList.toggle("muted", c.muted);
         applyGains();
       };
 
-      const soloBtn = strip.querySelector(".nm-solo");
+      const soloBtn = strip.querySelector(".nm-sm.solo");
       soloBtn.onclick = () => {
         c.solo = !c.solo;
         soloBtn.classList.toggle("active", c.solo);
         applyGains();
+      };
+
+      // Per-stem pitch. playbackRate moves pitch and speed together, so this
+      // is a turntable-style shift, not a formant-preserving one — but it
+      // applies live, to one stem at a time.
+      const pitchSlider = strip.querySelector(".nm-pitch-slider");
+      const pitchVal = strip.querySelector(".nm-pitch-row .val");
+      pitchSlider.oninput = () => {
+        const st = parseInt(pitchSlider.value, 10);
+        pitchVal.textContent = (st > 0 ? "+" : "") + st;
+        c.pitchRate = semitonesToRate(st);
+        if(c.source) c.source.playbackRate.value = c.pitchRate;
       };
       rail.appendChild(strip);
 
@@ -3742,9 +4007,16 @@ const Mixer = (() => {
         strip.classList.toggle("solo", c.solo);
         applyGains();
       };
-      // FX slots
-      strip.querySelectorAll(".fl-fx-slot").forEach((slot) => {
-        slot.onclick = () => { slot.classList.toggle("fx-active"); };
+      // FX slots. These used to toggle a class and nothing else; each one is
+      // now a real insert on that channel, built lazily on first use.
+      strip.querySelectorAll(".fl-fx-slot").forEach((slot, fxIdx) => {
+        slot.textContent = FX_LABELS[fxIdx] || slot.textContent;
+        slot.title = FX_TITLES[fxIdx] || "";
+        slot.classList.toggle("fx-active", !!(c.fx && c.fx[fxIdx]));
+        slot.onclick = () => {
+          const on = toggleChannelFx(c, fxIdx);
+          slot.classList.toggle("fx-active", on);
+        };
       });
 
       box.appendChild(strip);
@@ -3868,15 +4140,25 @@ const Mixer = (() => {
     }
     if(myToken !== loadToken) return;
     channels = loaded;
-    // Detect tempo on the first stem (vocals preferred)
+    // Tempo: the server's tracker runs on the isolated drums stem and returns
+    // real beat *times*, so the grid follows tempo drift instead of
+    // extrapolating one period from the top. The in-browser autocorrelation
+    // stays as an instant first guess while that request is in flight, and as
+    // the fallback if it fails.
+    beatTimes = [];
+    downbeatTimes = [];
+    beatSetIndex = new Set();
+    beatsPerBar = 4;
     try{
-      const refCh = channels.find(c => c.stem === "vocals") || channels[0];
+      const refCh = channels.find(c => c.stem === "drums") || channels[0];
       tempoBPM = detectTempo(refCh.buffer);
       if(tempoBPM){
         beatInterval = 60 / tempoBPM;
         el("mixer-tempo").textContent = tempoBPM;
       }
     }catch(e){}
+
+    fetchBeatGrid(song.name, myToken);
     // Key is read from a harmonic stem — drums would just smear the chroma.
     try{
       const keyCh = channels.find(c => ["other","piano","guitar","bass"].includes(c.stem))
@@ -3902,6 +4184,26 @@ const Mixer = (() => {
     renderChannels();
     renderTimeline();
     updateSeekUI(0);
+  }
+
+  async function fetchBeatGrid(name, token){
+    try{
+      const res = await fetch(`/api/stems/${encodeURIComponent(name)}/beats`);
+      if(!res.ok) return;
+      const data = await res.json();
+      // A different song may have been loaded while this was in flight.
+      if(token !== loadToken || !data.beats || !data.beats.length) return;
+
+      beatTimes = data.beats;
+      downbeatTimes = data.downbeats || [];
+      beatsPerBar = data.beats_per_bar || 4;
+      beatSetIndex = new Set(downbeatTimes);
+      tempoBPM = Math.round(data.bpm);
+      beatInterval = 60 / data.bpm;
+      el("mixer-tempo").textContent = tempoBPM;
+      renderTimeline();
+      refreshSteemsHeroStats();
+    }catch(e){ /* keep the autocorrelation estimate */ }
   }
 
   // ---- Export ----
@@ -4080,20 +4382,30 @@ const Mixer = (() => {
   }
 
   function scheduleMetronomeClicks(){
-    if(!metronomeOn || !isPlaying || !beatInterval) return;
+    if(!metronomeOn || !isPlaying) return;
     const now = ctx().currentTime;
     const currentSec = currentTime();
-    // Schedule clicks for the next few beats
-    const lookahead = 2; // seconds
-    const startBeat = Math.floor(currentSec / beatInterval) + 1;
+    const lookahead = 2;                       // seconds of clicks to queue
     const endSec = currentSec + lookahead;
-    let beat = startBeat;
-    while(beat * beatInterval < endSec){
-      const clickTime = now + (beat * beatInterval - currentSec);
-      playClick(beat % 4 === 0, clickTime);
-      beat++;
+
+    if(beatTimes.length){
+      // Click the times the tracker actually found, so the click sits on the
+      // snare instead of drifting away from it over a few minutes.
+      for(const t of beatTimes){
+        if(t <= currentSec) continue;
+        if(t >= endSec) break;
+        playClick(beatSetIndex.has(t), now + (t - currentSec));
+      }
+    } else if(beatInterval){
+      // No detected grid — fall back to a fixed period from the top.
+      let beat = Math.floor(currentSec / beatInterval) + 1;
+      while(beat * beatInterval < endSec){
+        playClick(beat % 4 === 0, now + (beat * beatInterval - currentSec));
+        beat++;
+      }
+    } else {
+      return;
     }
-    // Reschedule
     setTimeout(scheduleMetronomeClicks, 200);
   }
 
@@ -5244,6 +5556,9 @@ const Player = (() => {
 
   // Find the local file path for the current track (if it's a preview/history
   // item that was downloaded). Returns relPath or null.
+  el("pb-dl-song-btn").onclick = () => downloadSongBtn.onclick();
+  el("pb-stems-btn").onclick = () => downloadStemsBtn.onclick();
+
   downloadSongBtn.onclick = () => {
     closeDownloadMenu();
     if(!current) return;
@@ -6213,6 +6528,149 @@ renderFavPlaylists();
 loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
+
+// ======================================================================
+// Floating windows — drag by the title bar, resize from the corner, and
+// the position is remembered. Used for the video and the lyrics, so both
+// can sit wherever you want instead of being pinned to a panel.
+// ======================================================================
+function makeFloating(id, opts){
+  const win = el(id);
+  const head = el(id + "-head");
+  const grip = el(id + "-grip");
+  const KEY = "spotdl-gui-float-" + id;
+  const MIN_W = 240, MIN_H = 160;
+
+  function clampIntoView(){
+    const r = win.getBoundingClientRect();
+    // Keep at least a strip of the title bar reachable after a window resize.
+    const maxLeft = Math.max(0, window.innerWidth - 80);
+    const maxTop = Math.max(0, window.innerHeight - 40);
+    win.style.left = Math.min(Math.max(0, r.left), maxLeft) + "px";
+    win.style.top = Math.min(Math.max(0, r.top), maxTop) + "px";
+  }
+
+  function save(){
+    const r = win.getBoundingClientRect();
+    try{
+      localStorage.setItem(KEY, JSON.stringify({
+        left: Math.round(r.left), top: Math.round(r.top),
+        width: Math.round(r.width), height: Math.round(r.height),
+      }));
+    }catch(e){}
+  }
+
+  function restore(){
+    let box = null;
+    try{ box = JSON.parse(localStorage.getItem(KEY) || "null"); }catch(e){}
+    const d = opts.defaults;
+    win.style.width = (box?.width || d.width) + "px";
+    win.style.height = (box?.height || d.height) + "px";
+    win.style.left = (box?.left ?? (window.innerWidth - (box?.width || d.width) - 24)) + "px";
+    win.style.top = (box?.top ?? 96) + "px";
+    clampIntoView();
+  }
+
+  // ---- drag ----
+  let dragging = false, dx = 0, dy = 0;
+  head.addEventListener("pointerdown", (e) => {
+    if(e.target.closest(".float-btn")) return;   // buttons aren't a drag handle
+    dragging = true;
+    const r = win.getBoundingClientRect();
+    dx = e.clientX - r.left;
+    dy = e.clientY - r.top;
+    document.body.classList.add("float-dragging");
+    try{ head.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  });
+  head.addEventListener("pointermove", (e) => {
+    if(!dragging) return;
+    win.style.left = Math.max(0, Math.min(window.innerWidth - 80, e.clientX - dx)) + "px";
+    win.style.top = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - dy)) + "px";
+  });
+  const endDrag = (e) => {
+    if(!dragging) return;
+    dragging = false;
+    document.body.classList.remove("float-dragging");
+    try{ head.releasePointerCapture(e.pointerId); }catch(err){}
+    save();
+  };
+  head.addEventListener("pointerup", endDrag);
+  head.addEventListener("pointercancel", endDrag);
+
+  // ---- resize ----
+  let sizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
+  grip.addEventListener("pointerdown", (e) => {
+    sizing = true;
+    const r = win.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; sw = r.width; sh = r.height;
+    document.body.classList.add("float-dragging");
+    try{ grip.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  grip.addEventListener("pointermove", (e) => {
+    if(!sizing) return;
+    win.style.width = Math.max(MIN_W, sw + (e.clientX - sx)) + "px";
+    win.style.height = Math.max(MIN_H, sh + (e.clientY - sy)) + "px";
+  });
+  const endSize = (e) => {
+    if(!sizing) return;
+    sizing = false;
+    document.body.classList.remove("float-dragging");
+    try{ grip.releasePointerCapture(e.pointerId); }catch(err){}
+    save();
+  };
+  grip.addEventListener("pointerup", endSize);
+  grip.addEventListener("pointercancel", endSize);
+
+  window.addEventListener("resize", () => { if(!win.hidden) clampIntoView(); });
+
+  return {
+    open(){ win.hidden = false; restore(); },
+    close(){ win.hidden = true; },
+    isOpen(){ return !win.hidden; },
+    toggle(){ win.hidden ? this.open() : this.close(); },
+  };
+}
+
+const FloatVideo = makeFloating("float-video", {defaults: {width: 420, height: 280}});
+// The lyrics panel already existed with all its rendering; it just becomes
+// draggable rather than being replaced by a second window.
+const FloatLyrics = makeFloating("lyrics-panel", {defaults: {width: 380, height: 460}});
+
+// ---- video in a floating window ----
+el("float-video-close").onclick = () => {
+  el("float-video-body").innerHTML = "";   // stop playback with the window
+  FloatVideo.close();
+};
+
+function openFloatingVideo(){
+  const t = Player.getCurrent();
+  if(!t || !t.videoId){ showToast("K téhle skladbě není video"); return; }
+  el("float-video-title").textContent = t.title || "Video";
+  el("float-video-pop").onclick = () =>
+    window.open(`https://www.youtube.com/watch?v=${t.videoId}`, "_blank");
+  // Proxied through the app's own stream endpoint, the same way previews are:
+  // YouTube blocks embedding for a lot of official music videos.
+  el("float-video-body").innerHTML =
+    `<video src="/api/stream-video/${encodeURIComponent(t.videoId)}" controls autoplay
+            playsinline style="background:#000"></video>`;
+  FloatVideo.open();
+}
+
+el("pb-video-btn").onclick = openFloatingVideo;
+
+// LyricsView owns showing/hiding; this only restores the saved geometry the
+// first time the panel appears in a session.
+let lyricsGeometryApplied = false;
+new MutationObserver(() => {
+  const open = !el("lyrics-overlay").hidden;
+  if(open && !lyricsGeometryApplied){
+    lyricsGeometryApplied = true;
+    FloatLyrics.open();
+  }
+}).observe(el("lyrics-overlay"), {attributes: true, attributeFilter: ["hidden"]});
 
 // ---- draggable rail width, remembered across sessions ----
 const LIB_WIDTH_KEY = "spotdl-gui-lib-width";
