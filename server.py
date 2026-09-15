@@ -503,6 +503,114 @@ def search_top(q: str, limit: int = 8):
 
 # ----------------------------------------------------------------- browse (Kaset-style enhanced)
 
+# ------------------------------------------------------- chip thumbnails
+
+# Every browse chip ("Thrash Metal", "80. léta", "Top 50") gets a cover so the
+# search page reads as pictures rather than a wall of pills. Resolving one
+# costs a YouTube Music search, so results are cached on disk and survive
+# restarts — a term is looked up once, ever.
+THUMB_CACHE_PATH = HOME / ".local" / "share" / "spotdl-helper" / "chip-thumbs.json"
+_thumb_cache: Optional[dict] = None
+
+
+def _load_thumb_cache() -> dict:
+    global _thumb_cache
+    if _thumb_cache is None:
+        try:
+            _thumb_cache = json.loads(THUMB_CACHE_PATH.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            _thumb_cache = {}
+    return _thumb_cache
+
+
+def _save_thumb_cache() -> None:
+    try:
+        THUMB_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        THUMB_CACHE_PATH.write_text(json.dumps(_load_thumb_cache()), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _resolve_chip_thumb(term: str) -> Optional[str]:
+    """Cover art for a search term, from the first playlist that matches it."""
+    for filt in ("playlists", "albums"):
+        try:
+            res = yt().search(term, filter=filt, limit=1)
+        except Exception:
+            continue
+        if res:
+            thumb = _best_thumb(res[0].get("thumbnails"))
+            if thumb:
+                return thumb
+    return None
+
+
+# Chrome refuses some googleusercontent/ggpht images with ERR_BLOCKED_BY_ORB
+# when they're loaded cross-origin as CSS backgrounds, even though the bytes
+# are a perfectly good JPEG. Serving them from our own origin sidesteps that
+# entirely, and lets us cache them in memory for the session.
+_THUMB_HOSTS = ("googleusercontent.com", "ggpht.com", "ytimg.com", "ytimg.googleusercontent.com")
+_THUMB_BYTES: dict = {}
+_THUMB_BYTES_MAX = 400
+
+
+@app.get("/api/thumb")
+async def proxy_thumb(url: str = ""):
+    if not url.startswith("https://"):
+        return JSONResponse({"error": "Neplatná adresa."}, status_code=400)
+    host = url.split("/", 3)[2].split(":")[0]
+    # Never let this become an open proxy.
+    if not any(host == h or host.endswith("." + h) for h in _THUMB_HOSTS):
+        return JSONResponse({"error": "Nepovolený zdroj."}, status_code=403)
+
+    cached = _THUMB_BYTES.get(url)
+    if cached is None:
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                r = await client.get(url)
+            if r.status_code != 200:
+                return JSONResponse({"error": "Náhled nenalezen."}, status_code=404)
+            cached = (r.content, r.headers.get("content-type", "image/jpeg"))
+        except httpx.HTTPError:
+            return JSONResponse({"error": "Náhled se nepodařilo načíst."}, status_code=502)
+        if len(_THUMB_BYTES) >= _THUMB_BYTES_MAX:
+            _THUMB_BYTES.clear()   # simple bound; these are re-fetchable
+        _THUMB_BYTES[url] = cached
+
+    body, content_type = cached
+    from fastapi.responses import Response
+    return Response(
+        content=body,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+@app.get("/api/chip-thumbs")
+def chip_thumbs(terms: str = ""):
+    """Thumbnails for up to 12 comma-separated terms.
+
+    Cached terms come back immediately; uncached ones are resolved now and
+    written through. A term that resolves to nothing is cached as null so it
+    isn't retried on every page load.
+    """
+    wanted = [t.strip() for t in terms.split(",") if t.strip()][:12]
+    cache = _load_thumb_cache()
+    out = {}
+    dirty = False
+    for term in wanted:
+        if term in cache:
+            out[term] = cache[term]
+            continue
+        thumb = _resolve_chip_thumb(term)
+        cache[term] = thumb
+        out[term] = thumb
+        dirty = True
+    if dirty:
+        _save_thumb_cache()
+    return out
+
+
 @app.get("/api/video/blackout")
 def video_blackout():
     """Returns a CSS snippet that can be injected to black out the video
@@ -536,6 +644,38 @@ def _resolve_under_music_root(rel: str) -> Optional[Path]:
     return candidate
 
 
+def _folder_stats(folder: Path, _depth: int = 0):
+    """(audio files, total bytes, subfolders) beneath `folder`.
+
+    Walks the whole subtree so a top-level folder reports what's actually in
+    it, with a depth cap so a stray deep or symlinked tree can't stall the
+    listing. Only the immediate subfolder count is reported.
+    """
+    tracks = 0
+    size = 0
+    folders = 0
+    if _depth > 6:
+        return tracks, size, folders
+    try:
+        children = list(folder.iterdir())
+    except OSError:
+        return tracks, size, folders
+    for child in children:
+        try:
+            if child.is_dir():
+                if _depth == 0:
+                    folders += 1
+                t, sz, _ = _folder_stats(child, _depth + 1)
+                tracks += t
+                size += sz
+            elif child.is_file() and child.suffix.lower() in AUDIO_EXTS:
+                tracks += 1
+                size += child.stat().st_size
+        except OSError:
+            continue
+    return tracks, size, folders
+
+
 @app.get("/api/library/browse")
 def library_browse(rel: str = ""):
     target = _resolve_under_music_root(rel)
@@ -554,14 +694,28 @@ def library_browse(rel: str = ""):
     for p in sorted(target.iterdir(), key=lambda p: p.name.lower()):
         entry_rel = "/".join((*parts, p.name))
         if p.is_dir():
-            dirs.append({"name": p.name, "type": "dir", "rel": entry_rel})
+            tracks, size, folders = _folder_stats(p)
+            dirs.append({
+                "name": p.name, "type": "dir", "rel": entry_rel,
+                # Counts and size let the browser show the shape of a folder
+                # without making you open it.
+                "track_count": tracks, "folder_count": folders, "size_bytes": size,
+            })
         elif p.is_file() and p.suffix.lower() in AUDIO_EXTS:
             files.append({
                 "name": p.name, "type": "file", "rel": entry_rel,
                 "size_bytes": p.stat().st_size,
             })
 
-    return {"rel": "/".join(parts), "breadcrumb": breadcrumb, "entries": dirs + files}
+    total_size = sum(f["size_bytes"] for f in files) + sum(d["size_bytes"] for d in dirs)
+    total_tracks = len(files) + sum(d["track_count"] for d in dirs)
+    return {
+        "rel": "/".join(parts), "breadcrumb": breadcrumb, "entries": dirs + files,
+        "summary": {
+            "folders": len(dirs), "files": len(files),
+            "total_tracks": total_tracks, "total_size_bytes": total_size,
+        },
+    }
 
 
 def _range_file_response(path: Path, range_header: Optional[str]):
@@ -1174,11 +1328,36 @@ def list_stems():
         return []
     out = []
     for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
-        if not d.is_dir():
+        if not d.is_dir() or d.name.startswith("."):
+            continue  # ".raw" is Demucs' scratch area, not a stem set
+        present, missing, total_bytes = [], [], 0
+        for stem in STEM_NAMES:
+            f = d / f"{stem}.wav"
+            if f.is_file():
+                present.append(stem)
+                try:
+                    total_bytes += f.stat().st_size
+                except OSError:
+                    pass
+            else:
+                missing.append(stem)
+        if not present:
             continue
-        present = [s for s in STEM_NAMES if (d / f"{s}.wav").is_file()]
-        if present:
-            out.append({"name": d.name, "stems": present})
+        try:
+            mtime = d.stat().st_mtime
+        except OSError:
+            mtime = 0
+        out.append({
+            "name": d.name,
+            "stems": present,
+            # A set missing a stem still loads, but the mixer is incomplete —
+            # the library should say so rather than look identical to a full one.
+            "missing": missing,
+            "complete": not missing,
+            "size_bytes": total_bytes,
+            "modified": mtime,
+            "rel": f"Stems/{d.name}",
+        })
     return out
 
 
@@ -1399,38 +1578,92 @@ def search_podcasts(q: str = "podcast", limit: int = 40):
     return out
 
 
+# "1 hr 4 min", "23 min", "45 sec" — the shapes get_podcast returns.
+_re_dur = __import__("re").compile(r"(\d+)\s*(hr|hour|h|min|m|sec|s)\b", __import__("re").I)
+
+
+def _episode_seconds(text) -> int:
+    """Seconds from get_podcast's human duration ("23 min", "1 hr 4 min",
+    "12:34"). Returns 0 when it can't be read, which the caller renders as
+    the original text.
+    """
+    if not text:
+        return 0
+    text = str(text).strip()
+    if ":" in text:
+        parts = text.split(":")
+        try:
+            nums = [int(x) for x in parts]
+        except ValueError:
+            return 0
+        seconds = 0
+        for n in nums:
+            seconds = seconds * 60 + n
+        return seconds
+    total = 0
+    for value, unit in _re_dur.findall(text):
+        n = int(value)
+        if unit.startswith("h"):
+            total += n * 3600
+        elif unit.startswith("m"):
+            total += n * 60
+        else:
+            total += n
+    return total
+
+
 @app.get("/api/podcasts/{show_id}")
-def podcast_episodes(show_id: str):
+def podcast_episodes(show_id: str, limit: int = 50):
     """Fetch episodes for a podcast show.
 
     YouTube Music's get_playlist returns podcast episodes as tracks when
     the show_id is a podcast browse ID.
     """
+    # A podcast browse id is not a playlist id: get_playlist raises a
+    # KeyError on the response shape YouTube returns for shows. get_podcast
+    # is the right call; get_playlist stays as a fallback for anything that
+    # is actually a playlist of episodes.
+    show = None
+    raw_episodes = []
     try:
-        pl = yt().get_playlist(show_id, limit=50)
+        show = yt().get_podcast(show_id, limit=limit)
+        raw_episodes = show.get("episodes") or []
     except Exception:
-        return {"id": show_id, "title": "", "episodes": []}
+        try:
+            show = yt().get_playlist(show_id, limit=limit)
+            raw_episodes = show.get("tracks") or []
+        except Exception:
+            return {"id": show_id, "title": "", "episodes": []}
 
     episodes = []
-    for t in pl.get("tracks", []):
-        if not t.get("videoId"):
+    for t in raw_episodes:
+        video_id = t.get("videoId")
+        if not video_id:
             continue
-        dur = t.get("duration_seconds") or 0
+        seconds = t.get("duration_seconds") or _episode_seconds(t.get("duration"))
         episodes.append({
-            "id": t["videoId"],
+            "id": video_id,
             "title": t.get("title"),
-            "duration": dur,
-            "durationFormatted": t.get("duration") or _fmt_dur(dur),
+            "description": t.get("description"),
+            "date": (t.get("date") or {}).get("text") if isinstance(t.get("date"), dict) else t.get("date"),
+            "duration": seconds,
+            "durationFormatted": _fmt_dur(seconds) if seconds else (t.get("duration") or ""),
             "thumbnail": _best_thumb(t.get("thumbnails")),
-            "audioUrl": None,  # would need yt-dlp resolve for direct audio
-            "videoId": t["videoId"],
+            # Episodes stream through the same audio proxy as everything else.
+            "audioUrl": f"/api/stream/{video_id}",
+            "videoId": video_id,
         })
+
+    author = show.get("author")
+    if isinstance(author, dict):
+        author = author.get("name")
 
     return {
         "id": show_id,
-        "title": pl.get("title"),
-        "author": pl.get("author", {}).get("name") if isinstance(pl.get("author"), dict) else pl.get("author"),
-        "thumbnail": _best_thumb(pl.get("thumbnails")),
+        "title": show.get("title"),
+        "author": author,
+        "description": show.get("description"),
+        "thumbnail": _best_thumb(show.get("thumbnails")),
         "episodes": episodes,
     }
 

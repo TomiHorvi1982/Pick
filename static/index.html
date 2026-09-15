@@ -681,7 +681,7 @@
   .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
   .player-bar[hidden]{transform:translateY(100%);opacity:0}
 /* Left sidebar */
-#sidebar-left{position:fixed;top:0;bottom:0;left:0;width:200px;background:#000;padding:16px 0;display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid #222;z-index:10}
+/* (the old fixed 200px rail lives on only in .sb-* leftovers below) */
 .sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
 .sb-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;background:none;border:none;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:color .15s;border-left:2px solid transparent}
 .sb-btn:hover{color:#fff}
@@ -893,9 +893,10 @@
   .sp-shell > *{border-radius:var(--sp-radius);background:var(--bg2);min-height:0}
 
   /* ------------------------------------------------- library sidebar */
-  #sidebar-left{flex:0 0 var(--sp-lib);display:flex;flex-direction:column;
+  #sidebar-left{flex:0 0 auto;width:var(--sp-lib);display:flex;flex-direction:column;
     overflow:hidden;position:relative;transition:flex-basis .2s ease}
   body.lib-collapsed{--sp-lib:76px}
+  body.lib-collapsed #sidebar-left{width:76px}
   .lib-head{display:flex;align-items:center;gap:8px;padding:16px 8px 8px 16px;flex:0 0 auto}
   .lib-title{display:flex;align-items:center;gap:12px;background:none;border:none;
     color:var(--sub);font-size:15px;font-weight:700;cursor:pointer;padding:4px;
@@ -1244,44 +1245,44 @@
      re-presented as a page that fills the stage — rails stay visible,
      exactly as a playlist opens in the reference.
      ================================================================== */
-  .overlay{position:fixed;inset:auto;top:var(--sp-topbar);bottom:calc(var(--sp-player) + var(--sp-gap));
+  #overlay{position:fixed;inset:auto;top:var(--sp-topbar);bottom:calc(var(--sp-player) + var(--sp-gap));
     left:calc(var(--sp-lib) + var(--sp-gap) * 2);
     right:calc(var(--sp-np) + var(--sp-gap) * 2);
     background:transparent;backdrop-filter:none;z-index:40;display:block;
     transition:left .2s ease,right .2s ease}
-  .panel{width:100%;height:100%;max-width:none;background:var(--bg2);border:none;
+  #overlay .panel{width:100%;height:100%;max-width:none;background:var(--bg2);border:none;
     border-left:none;border-radius:var(--sp-radius);overflow-y:auto;overflow-x:hidden;
     box-shadow:none;position:relative}
-  .panel::-webkit-scrollbar{width:12px}
-  .panel::-webkit-scrollbar-track{background:transparent}
-  .panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:6px;
+  #overlay .panel::-webkit-scrollbar{width:12px}
+  #overlay .panel::-webkit-scrollbar-track{background:transparent}
+  #overlay .panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:6px;
     border:3px solid transparent;background-clip:content-box}
 
   /* Hero: artwork left, kind + huge title + stats right. */
-  .panel-head{position:relative;padding:72px 32px 24px;display:grid;
+  #overlay .panel-head{position:relative;padding:72px 32px 24px;display:grid;
     grid-template-columns:192px 1fr;grid-template-rows:auto auto;gap:0 24px;
     align-items:end;
     background:linear-gradient(180deg,#3a3a3a 0%,#1f1f1f 60%,#121212 100%)}
-  .panel-head .close-btn{position:absolute;top:16px;right:16px;width:32px;height:32px;
+  #overlay .panel-head .close-btn{position:absolute;top:16px;right:16px;width:32px;height:32px;
     border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:13px;
     cursor:pointer;z-index:3}
-  .panel-head .close-btn:hover{background:rgba(0,0,0,.85)}
-  .pl-art{grid-row:1 / span 3;width:192px;height:192px;border-radius:6px;
+  #overlay .panel-head .close-btn:hover{background:rgba(0,0,0,.85)}
+  #overlay .pl-art{grid-row:1 / span 3;width:192px;height:192px;border-radius:6px;
     box-shadow:0 4px 60px rgba(0,0,0,.6);align-self:end}
-  .pl-title{grid-column:2;font-size:clamp(30px,4.6vw,76px);font-weight:900;
+  #overlay .pl-title{grid-column:2;font-size:clamp(30px,4.6vw,76px);font-weight:900;
     letter-spacing:-.04em;line-height:1.04;margin:0 0 12px;word-break:break-word}
-  .pl-author{grid-column:2;font-size:14px;color:#fff;font-weight:700;margin:0}
-  .pl-desc{grid-column:2;font-size:14px;color:rgba(255,255,255,.7);margin:6px 0 0;
+  #overlay .pl-author{grid-column:2;font-size:14px;color:#fff;font-weight:700;margin:0}
+  #overlay .pl-desc{grid-column:2;font-size:14px;color:rgba(255,255,255,.7);margin:6px 0 0;
     line-height:1.5}
-  .panel-head .badges{grid-column:2;display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;
+  #overlay .panel-head .badges{grid-column:2;display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;
     align-items:center}
-  .panel-head .badge{background:none;border:none;padding:0;font-size:14px;color:#fff}
-  .panel-head .badge + .badge::before{content:"•";color:rgba(255,255,255,.6);margin-right:6px}
+  #overlay .panel-head .badge{background:none;border:none;padding:0;font-size:14px;color:#fff}
+  #overlay .panel-head .badge + .badge::before{content:"•";color:rgba(255,255,255,.6);margin-right:6px}
 
   /* Action row sits below the wash, like the reference's play/shuffle strip. */
-  .panel-head .actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:12px;
+  #overlay .panel-head .actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:12px;
     margin:28px 0 0;align-items:center}
-  .panel-head .actions .btn{font-size:13px;padding:9px 18px}
+  #overlay .panel-head .actions .btn{font-size:13px;padding:9px 18px}
 
   .track-list{padding:8px 16px 32px}
   .track-list-head{display:flex;justify-content:space-between;align-items:center;
@@ -1301,14 +1302,113 @@
   .icon-btn.play:hover,.icon-btn.add:hover{color:var(--accent);border:none}
 
   @media(max-width:860px){
-    .overlay{left:var(--sp-gap);right:var(--sp-gap)}
-    .panel-head{grid-template-columns:1fr;padding:24px 16px}
-    .pl-art{width:140px;height:140px;grid-row:auto}
-    .pl-title,.pl-author,.pl-desc,.panel-head .badges{grid-column:1}
+    #overlay{left:var(--sp-gap);right:var(--sp-gap)}
+    #overlay .panel-head{grid-template-columns:1fr;padding:24px 16px}
+    #overlay .pl-art{width:140px;height:140px;grid-row:auto}
+    #overlay .pl-title,#overlay .pl-author,#overlay .pl-desc,#overlay .panel-head .badges{grid-column:1}
   }
 
-  .pl-kind{grid-column:2;font-size:12px;font-weight:700;color:#fff;margin-bottom:6px}
-  .panel-head .actions .sp-fab{margin-right:4px}
+  #overlay .pl-kind{grid-column:2;font-size:12px;font-weight:700;color:#fff;margin-bottom:6px}
+  #overlay .panel-head .actions .sp-fab{margin-right:4px}
+
+  /* Every overlay that isn't the detail page stays a centred modal. The
+     playlist-page rules above are scoped to #overlay for exactly this
+     reason: unscoped, they turned the settings title into a giant
+     one-word column and clipped the rest of the dialog off-screen. */
+  .overlay:not(#overlay){position:fixed;inset:0;z-index:70;display:flex;
+    align-items:center;justify-content:center;padding:24px;
+    background:rgba(0,0,0,.72);backdrop-filter:blur(2px)}
+  .overlay:not(#overlay) .panel{width:min(480px,100%);max-height:min(82vh,760px);
+    height:auto;background:#181818;border:1px solid var(--border);border-radius:12px;
+    overflow-y:auto;overflow-x:hidden;box-shadow:0 16px 60px rgba(0,0,0,.6);
+    padding-bottom:8px}
+  .overlay:not(#overlay) .panel::-webkit-scrollbar{width:10px}
+  .overlay:not(#overlay) .panel::-webkit-scrollbar-thumb{
+    background:rgba(255,255,255,.25);border-radius:5px;
+    border:3px solid transparent;background-clip:content-box}
+  .overlay:not(#overlay) .panel-head{position:relative;padding:20px 22px 8px;
+    background:none;display:block}
+  .overlay:not(#overlay) .pl-title{font-size:20px;font-weight:700;letter-spacing:-.01em;
+    line-height:1.3;margin:0 0 6px}
+  .overlay:not(#overlay) .close-btn{position:absolute;top:14px;right:14px;
+    width:30px;height:30px;border-radius:50%;background:var(--card-hi);border:none;
+    color:var(--text);font-size:12px;cursor:pointer;z-index:2}
+  .overlay:not(#overlay) .close-btn:hover{background:#3e3e3e}
+  .overlay:not(#overlay) .section-title{font-size:13px;font-weight:700;
+    color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px}
+  .overlay:not(#overlay) .panel input[type=text],
+  .overlay:not(#overlay) .panel select{width:100%;background:#2a2a2a;border:1px solid #3e3e3e;
+    border-radius:6px;color:var(--text);padding:10px 12px;font-size:13px;
+    font-family:inherit;outline:none}
+  .overlay:not(#overlay) .panel input[type=text]:focus,
+  .overlay:not(#overlay) .panel select:focus{border-color:var(--accent)}
+  .overlay:not(#overlay) .actions{display:flex;gap:10px;justify-content:flex-end;
+    margin:22px 0 14px;padding:0 22px 0 0}
+  .overlay:not(#overlay) .panel > .panel-head > div:not(.section-title){padding-right:4px}
+
+  /* Drag handle on the rail's trailing edge. Sits inside the card so it
+     doesn't widen it, and only shows its grab line while pointed at. */
+  .lib-resize{position:absolute;top:0;right:0;width:8px;height:100%;
+    cursor:col-resize;z-index:8}
+  .lib-resize::after{content:"";position:absolute;top:0;bottom:0;right:2px;width:2px;
+    background:transparent;border-radius:1px;transition:background .15s}
+  .lib-resize:hover::after,body.lib-resizing .lib-resize::after{background:var(--accent)}
+  body.lib-resizing{cursor:col-resize;user-select:none}
+  body.lib-resizing #sidebar-left{transition:none}
+  body.lib-collapsed .lib-resize{display:none}
+
+  .np-sect-row{display:flex;align-items:center;gap:8px}
+  .np-sect-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .np-queue-row.playing .lib-name{color:var(--accent)}
+
+  /* ---- Stems library: structure at a glance ---- */
+  .stems-summary{display:flex;align-items:center;gap:8px;color:var(--sub);
+    font-size:13px;padding:0 4px 14px}
+  .stems-summary b{color:var(--text)}
+  .stems-summary .dot{opacity:.5}
+  .stems-summary .warn{color:var(--gold)}
+
+  .stem-card{display:flex;align-items:center;gap:14px;padding:10px 12px;
+    border-radius:8px;cursor:pointer;transition:background .15s}
+  .stem-card:hover{background:var(--sp-hover)}
+  .stem-card-art{width:48px;height:48px;border-radius:6px;flex:0 0 48px;
+    background:var(--card-hi);display:flex;align-items:center;justify-content:center;
+    font-size:20px}
+  .stem-card.incomplete .stem-card-art{box-shadow:inset 0 0 0 1px var(--gold)}
+  .stem-card-body{flex:1;min-width:0}
+  .stem-card-title{font-size:15px;color:var(--text);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .stem-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .stem-chip{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    padding:2px 7px;border-radius:500px;background:#2a2a2a;color:var(--sub)}
+  .stem-chip.vocals{background:rgba(216,212,232,.16);color:#d8d4e8}
+  .stem-chip.drums{background:rgba(255,122,107,.16);color:#ff7a6b}
+  .stem-chip.bass{background:rgba(77,140,255,.16);color:#7fa9ff}
+  .stem-chip.guitar{background:rgba(233,185,73,.16);color:#e9b949}
+  .stem-chip.piano{background:rgba(95,211,154,.16);color:#5fd39a}
+  .stem-chip.other{background:rgba(154,163,181,.16);color:#9aa3b5}
+  .stem-chip.missing{background:transparent;color:#6a6a6a;
+    box-shadow:inset 0 0 0 1px #3a3a3a;text-decoration:line-through}
+  .stem-card-meta{flex:0 0 auto;text-align:right;font-size:13px;color:var(--sub)}
+  .stem-card-meta .sub{font-size:12px;opacity:.75;margin-top:2px}
+
+  .fs-names{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .fs-names .fs-name{flex:none}
+  .fs-sub{font-size:12.5px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .fs-chevron{color:var(--sub);font-size:17px;flex:0 0 auto;padding:0 6px;opacity:.6}
+  .fs-row:hover .fs-chevron{opacity:1;color:var(--text)}
+
+  /* Chips carry a cover, which turns the browse page from a wall of pills
+     into something you can scan by picture. */
+  .chip{display:inline-flex;align-items:center;gap:0;padding:6px 14px 6px 14px;
+    transition:background .15s,padding .15s}
+  .chip.has-thumb{padding-left:6px;gap:9px}
+  .chip-thumb{width:0;height:26px;border-radius:5px;flex:0 0 auto;
+    background:var(--card-hi) center/cover no-repeat;
+    transition:width .18s ease;overflow:hidden}
+  .chip.has-thumb .chip-thumb{width:26px}
 </style>
 </head>
 <body>
@@ -1368,6 +1468,7 @@
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
+  <div class="lib-resize" id="lib-resize" title="Táhnutím změníš šířku"></div>
 </nav>
 
 <div class="main-content">
@@ -1718,6 +1819,14 @@
       </div>
       <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
     </div>
+    <div id="np-source" hidden>
+      <div class="np-sect np-sect-row">
+        <span id="np-source-title">Playlist</span>
+        <button class="sp-iconbtn" id="np-source-open" title="Otevřít playlist"
+                style="font-size:14px">↗</button>
+      </div>
+      <div id="np-source-list"></div>
+    </div>
     <div class="np-sect">Na řadě</div>
     <div id="np-queue"></div>
   </div>
@@ -1886,14 +1995,14 @@ const el = (id) => document.getElementById(id);
 
 // Home button — return to playlists
 el("sp-home").onclick = () => {
+  // Home goes home. It used to re-open the last playlist, which meant the
+  // button couldn't get you out of a playlist at all.
+  closeOverlay();
   setMode("playlists");
-  // If there's a current playlist, re-open it
-  if (state.currentPlaylist) {
-    openPlaylist(state.currentPlaylist.browseId);
-  } else {
-    renderCustomChips();
-    renderFavPlaylists();
-  }
+  renderCustomChips();
+  renderFavPlaylists();
+  const m = el("main-scroll") || document.querySelector("main");
+  if(m) m.scrollTo({top: 0, behavior: "smooth"});
 };
 const grid = el("results-grid");
 const resultsTitle = el("results-title");
@@ -1921,6 +2030,16 @@ function escapeHtml(s){
 }
 function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); }
+
+// Chrome blocks some of YouTube's image hosts with ERR_BLOCKED_BY_ORB when
+// they're loaded cross-origin as CSS backgrounds — the request succeeds but
+// the bytes are discarded, leaving blank artwork. Routing them through our
+// own origin makes every cover load, and the server caches them.
+const THUMB_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent|ggpht|ytimg)\.com\//i;
+function thumbUrl(u){
+  if(!u || !THUMB_HOSTS.test(u)) return u || "";
+  return "/api/thumb?url=" + encodeURIComponent(u);
+}
 
 function showToast(msg){
   const wrap = el("toast-wrap");
@@ -1981,7 +2100,9 @@ function renderChipGroup(containerId, items, opts={}){
     const chip = document.createElement("div");
     chip.className = "chip";
     chip.dataset.value = value;
-    chip.innerHTML = `<span>${escapeHtml(label)}</span>`;
+    chip.innerHTML = `<span class="chip-thumb" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+    // The cover is fetched only once the chip is actually on screen.
+    ChipThumbs.observe(chip, value);
     if(opts.deletable){
       const x = document.createElement("span");
       x.className = "x";
@@ -2211,7 +2332,7 @@ function renderFavPlaylists(){
     card.className = "card";
     card.innerHTML = `
       <div class="card-fabs"><div class="fab-btn" title="Odebrat z oblíbených">✕</div></div>
-      <div class="art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}">${p.thumbnail?'':'🎵'}</div>
+      <div class="art" style="${p.thumbnail?`background-image:url('${thumbUrl(p.thumbnail)}')`:''}">${p.thumbnail?'':'🎵'}</div>
       <div class="meta">
         <div class="title">${escapeHtml(p.title||'')}</div>
         <div class="sub">${escapeHtml(p.author||'')}</div>
@@ -2275,7 +2396,8 @@ function setMode(mode){
   grid.innerHTML = "";
   resultsTitle.hidden = true;
   el("load-more-wrap").hidden = true;
-  browseSection.hidden = mode === "library" || mode === "steems";
+  // Browse chips belong to the two search modes only.
+  browseSection.hidden = mode !== "playlists" && mode !== "songs";
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
@@ -2293,7 +2415,141 @@ function setMode(mode){
   }
   updateArtistSuggestions();
   renderLibraryRail(mode);
+  pushNav({type: "mode", mode});
 }
+
+// Tracks of the playlist the current song came from, listed in the
+// now-playing rail. Cached per playlist so re-opening is instant.
+const NP_SOURCE_CACHE = new Map();
+
+async function renderNowPlayingSource(track){
+  const box = el("np-source-list");
+  const id = track.sourcePlaylistId;
+  if(!id){
+    box.innerHTML = '<div class="lib-empty">Tahle skladba nehraje z playlistu.</div>';
+    return;
+  }
+  if(NP_SOURCE_CACHE.has(id)){
+    paintNowPlayingSource(NP_SOURCE_CACHE.get(id), track);
+    return;
+  }
+  box.innerHTML = '<div class="lib-empty">Načítám playlist…</div>';
+  try{
+    const res = await fetch(`/api/playlist/${encodeURIComponent(id)}`);
+    const data = await res.json();
+    NP_SOURCE_CACHE.set(id, data);
+    // The user may have moved on while this was in flight.
+    const now = Player.getCurrent();
+    if(!now || now.sourcePlaylistId !== id) return;
+    paintNowPlayingSource(data, track);
+  }catch(e){
+    box.innerHTML = '<div class="lib-empty">Playlist se nepodařilo načíst.</div>';
+  }
+}
+
+function paintNowPlayingSource(data, track){
+  const box = el("np-source-list");
+  box.innerHTML = "";
+  const tracks = (data && data.tracks) || [];
+  if(!tracks.length){
+    box.innerHTML = '<div class="lib-empty">Playlist je prázdný.</div>';
+    return;
+  }
+  tracks.forEach(t => {
+    const row = libRow({
+      art: t.thumbnail || "\uD83C\uDFB5", artIsUrl: !!t.thumbnail,
+      name: t.title || "", sub: t.artists || "",
+      onClick: () => Player.play({
+        key: "yt:" + t.videoId, title: t.title, artists: t.artists,
+        thumbnail: t.thumbnail, videoId: t.videoId,
+        sourcePlaylist: data.title, sourcePlaylistId: data.browseId,
+      }),
+    });
+    row.classList.add("np-queue-row");
+    if(track && t.videoId && t.videoId === track.videoId) row.classList.add("playing");
+    box.appendChild(row);
+  });
+}
+
+// ======================================================================
+// Chip thumbnails — every browse term gets a cover. Resolving one costs a
+// YouTube search, so they're fetched lazily as chips scroll into view, in
+// small batches, and the server caches each term to disk forever.
+// ======================================================================
+const ChipThumbs = (() => {
+  const known = new Map();      // term -> url | null
+  const pending = new Map();    // term -> [elements waiting for it]
+  let flushTimer = null;
+
+  const io = ("IntersectionObserver" in window)
+    ? new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if(!entry.isIntersecting) return;
+          io.unobserve(entry.target);
+          request(entry.target, entry.target.dataset.thumbTerm);
+        });
+      }, {rootMargin: "200px"})
+    : null;
+
+  function paint(elm, url){
+    const slot = elm.querySelector(".chip-thumb");
+    if(!slot) return;
+    if(url){
+      // Served through our own origin: Chrome blocks some of these hosts
+      // with ERR_BLOCKED_BY_ORB when loaded cross-origin as a background.
+      slot.style.backgroundImage = `url('${thumbUrl(url)}')`;
+      elm.classList.add("has-thumb");
+    } else {
+      // No cover for this term — collapse the slot rather than leave a hole.
+      slot.remove();
+    }
+  }
+
+  function request(elm, term){
+    if(!term) return;
+    if(known.has(term)){ paint(elm, known.get(term)); return; }
+    if(!pending.has(term)) pending.set(term, []);
+    pending.get(term).push(elm);
+    schedule();
+  }
+
+  function schedule(){
+    if(flushTimer) return;
+    // Coalesce the burst of chips that appear together into one request.
+    flushTimer = setTimeout(flush, 80);
+  }
+
+  async function flush(){
+    flushTimer = null;
+    const terms = [...pending.keys()].slice(0, 12);
+    if(!terms.length) return;
+
+    try{
+      const res = await fetch("/api/chip-thumbs?terms=" +
+        encodeURIComponent(terms.join(",")));
+      const data = await res.json();
+      terms.forEach(term => {
+        const url = data[term] || null;
+        known.set(term, url);
+        (pending.get(term) || []).forEach(elm => paint(elm, url));
+        pending.delete(term);
+      });
+    }catch(e){
+      // Leave the terms pending-free so a later scroll can retry.
+      terms.forEach(t => pending.delete(t));
+    }
+    if(pending.size) schedule();
+  }
+
+  function observe(elm, term){
+    elm.dataset.thumbTerm = term;
+    if(known.has(term)){ paint(elm, known.get(term)); return; }
+    if(io) io.observe(elm);
+    else request(elm, term);
+  }
+
+  return { observe };
+})();
 
 // ======================================================================
 // Library rail — the left column. The active chip decides what it lists;
@@ -2303,7 +2559,7 @@ function setMode(mode){
 function libRow({art, artIsUrl, name, sub, round, onClick, active}){
   const row = document.createElement("div");
   row.className = "lib-row" + (active ? " active" : "");
-  const style = artIsUrl ? `background-image:url('${art}')` : "";
+  const style = artIsUrl ? `background-image:url('${thumbUrl(art)}')` : "";
   row.innerHTML = `
     <div class="lib-art${round ? " round" : ""}" style="${style}">${artIsUrl ? "" : art}</div>
     <div class="lib-meta">
@@ -2426,9 +2682,22 @@ function renderNowPlaying(){
     el("np-context").textContent = t.sourcePlaylist || "Právě hraje";
     const img = t.image || t.thumbnail || "";
     stage.textContent = img ? "" : "\uD83C\uDFB5";
-    stage.style.backgroundImage = img ? `url('${img}')` : "";
+    stage.style.backgroundImage = img ? `url('${thumbUrl(img)}')` : "";
     vbtn.hidden = !t.videoId;
     vbtn.onclick = () => { setVideoMode("full"); el("pb-video-btn").click(); };
+  }
+
+  // The source playlist, when the track came from one. Clicking the player's
+  // artwork opens this; clicking the header opens the full playlist page.
+  const srcBox = el("np-source");
+  if(t && t.sourcePlaylist){
+    srcBox.hidden = false;
+    el("np-source-title").textContent = t.sourcePlaylist;
+    el("np-source-open").hidden = !t.sourcePlaylistId;
+    el("np-source-open").onclick = () => openPlaylist(t.sourcePlaylistId);
+    renderNowPlayingSource(t);
+  } else {
+    srcBox.hidden = true;
   }
 
   const box = el("np-queue");
@@ -2458,7 +2727,7 @@ function renderNowPlaying(){
 // ======================================================================
 function fsIcon(entry){ return entry.type === "dir" ? "📁" : "📼"; }
 
-function libraryTrackMeta(name){
+function libraryTrackMeta(name, rel){
   // spotdl's own naming templates are "{artist} - {title}.ext" for
   // playlists/queue, and "{artist}/{title}.ext" (artist already in the
   // path) for the Songs folder — fall back to the bare filename when
@@ -2466,6 +2735,18 @@ function libraryTrackMeta(name){
   const stem = name.replace(/\.[^.]+$/, "");
   const idx = stem.indexOf(" - ");
   if(idx > 0) return { artists: stem.slice(0, idx), title: stem.slice(idx + 3) };
+
+  // "Songs/<artist>/<title>.mp3" — the artist is the parent folder. Without
+  // this the player showed no artist and lyrics lookups had nothing to match.
+  if(rel){
+    const parts = rel.split("/");
+    if(parts.length >= 2){
+      const parent = parts[parts.length - 2];
+      if(parent && parent !== "Songs" && parent !== "Playlists") {
+        return { artists: parent, title: stem };
+      }
+    }
+  }
   return { artists: "", title: stem };
 }
 
@@ -2486,7 +2767,7 @@ async function loadLibraryFolder(rel){
 
   libraryRailEntries = data.entries || [];
   renderLibraryBreadcrumb(data.breadcrumb);
-  renderLibraryList(data.entries);
+  renderLibraryList(data.entries, data.summary);
   if(state.mode === "library") renderLibraryRail("library");
 }
 
@@ -2509,11 +2790,24 @@ function renderLibraryBreadcrumb(breadcrumb){
   });
 }
 
-function renderLibraryList(entries){
+function renderLibraryList(entries, summary){
   const list = el("library-list");
   list.innerHTML = "";
+
+  if(summary){
+    const bar = document.createElement("div");
+    bar.className = "stems-summary";
+    const bits = [];
+    if(summary.folders) bits.push(`<span><b>${summary.folders}</b> ${summary.folders === 1 ? "složka" : "složek"}</span>`);
+    if(summary.total_tracks) bits.push(`<span><b>${summary.total_tracks}</b> ${summary.total_tracks === 1 ? "skladba" : "skladeb"}</span>`);
+    if(summary.total_size_bytes) bits.push(`<span>${fmtSize(summary.total_size_bytes)}</span>`);
+    bar.innerHTML = bits.join('<span class="dot">•</span>');
+    if(bits.length) list.appendChild(bar);
+  }
+
   if(!entries.length){
-    list.innerHTML = `<div class="empty" style="padding:24px 10px">Prázdná složka.</div>`;
+    list.insertAdjacentHTML("beforeend",
+      `<div class="empty" style="padding:24px 10px">Prázdná složka.</div>`);
     return;
   }
 
@@ -2523,24 +2817,36 @@ function renderLibraryList(entries){
     const totalBytes = tracks.reduce((s,t) => s + (t.size_bytes||0), 0);
     el("library-play-all-summary").textContent = `${tracks.length} skladeb · ~${fmtSize(totalBytes)}`;
     el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
-      relPath: t.rel, ...libraryTrackMeta(t.name),
+      relPath: t.rel, ...libraryTrackMeta(t.name, t.rel),
     })));
   }
 
   entries.forEach(entry => {
     const row = document.createElement("div");
     row.className = "fs-row";
-    const sizeLabel = entry.type === "file" ? fmtSize(entry.size_bytes || 0) : "";
+    let sub = "";
+    if(entry.type === "dir"){
+      const bits = [];
+      if(entry.folder_count) bits.push(`${entry.folder_count} ${entry.folder_count === 1 ? "složka" : "složek"}`);
+      if(entry.track_count) bits.push(`${entry.track_count} ${entry.track_count === 1 ? "skladba" : "skladeb"}`);
+      sub = bits.join(" · ") || "prázdná";
+    } else {
+      sub = libraryTrackMeta(entry.name, entry.rel).artists || "";
+    }
+    const sizeLabel = fmtSize(entry.size_bytes || 0);
     row.innerHTML = `
       <span class="fs-icon">${fsIcon(entry)}</span>
-      <span class="fs-name">${escapeHtml(entry.name)}</span>
-      <span class="fs-size">${sizeLabel}</span>
-      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button><button class="icon-btn fs-stems-btn" title="Rozdělit na stopy">🎧</button>' : ''}
+      <span class="fs-names">
+        <span class="fs-name">${escapeHtml(entry.type === "file" ? libraryTrackMeta(entry.name, entry.rel).title : entry.name)}</span>
+        <span class="fs-sub">${escapeHtml(sub)}</span>
+      </span>
+      <span class="fs-size">${entry.size_bytes ? sizeLabel : ""}</span>
+      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button><button class="icon-btn fs-stems-btn" title="Rozdělit na stopy">🎧</button>' : '<span class="fs-chevron">›</span>'}
     `;
     if(entry.type === "dir"){
       row.onclick = () => loadLibraryFolder(entry.rel);
     } else {
-      const meta = libraryTrackMeta(entry.name);
+      const meta = libraryTrackMeta(entry.name, entry.rel);
       const playIt = () => Player.playLocal({ relPath: entry.rel, ...meta });
       row.querySelector(".fs-play").onclick = (e) => { e.stopPropagation(); playIt(); };
       row.querySelector(".fs-stems-btn").onclick = (e) => { e.stopPropagation(); startStemsSeparation(entry.rel); };
@@ -2645,14 +2951,36 @@ async function loadSteemsList(){
   }
   list.innerHTML = "";
   if(state.mode === "steems") renderLibraryRail("steems");
+
+  const totalBytes = steemsSongs.reduce((a, x) => a + (x.size_bytes || 0), 0);
+  const incomplete = steemsSongs.filter(x => x.complete === false).length;
+  const summary = document.createElement("div");
+  summary.className = "stems-summary";
+  summary.innerHTML = `
+    <span><b>${steemsSongs.length}</b> ${steemsSongs.length === 1 ? "píseň" : "písní"}</span>
+    <span class="dot">•</span>
+    <span>${fmtSize(totalBytes)} na disku</span>
+    ${incomplete ? `<span class="dot">•</span><span class="warn">${incomplete} nekompletní</span>` : ""}`;
+  list.appendChild(summary);
+
   steemsSongs.forEach(song => {
     const row = document.createElement("div");
-    row.className = "fs-row";
+    row.className = "stem-card" + (song.complete === false ? " incomplete" : "");
+    // Show which stems exist, so a partial set is obvious before you open it.
+    const chips = (song.stems || []).map(st =>
+      `<span class="stem-chip ${st}">${escapeHtml(st)}</span>`).join("");
+    const gone = (song.missing || []).map(st =>
+      `<span class="stem-chip missing" title="chybí">${escapeHtml(st)}</span>`).join("");
     row.innerHTML = `
-      <span class="fs-icon">🎚️</span>
-      <span class="fs-name">${escapeHtml(song.name)}</span>
-      <span class="fs-size">${song.stems.length} stop</span>
-    `;
+      <div class="stem-card-art">\uD83C\uDF9A</div>
+      <div class="stem-card-body">
+        <div class="stem-card-title">${escapeHtml(song.name)}</div>
+        <div class="stem-chips">${chips}${gone}</div>
+      </div>
+      <div class="stem-card-meta">
+        <div>${song.stems.length}/6 stop</div>
+        <div class="sub">${song.size_bytes ? fmtSize(song.size_bytes) : ""}</div>
+      </div>`;
     row.onclick = () => loadMixerSong(song.name);
     list.appendChild(row);
   });
@@ -4104,7 +4432,7 @@ async function runSearch(more=false){
       const card = document.createElement("div");
       card.className = "card";
       card.innerHTML = `
-        <div class="art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}">${p.thumbnail?'':'🎵'}</div>
+        <div class="art" style="${p.thumbnail?`background-image:url('${thumbUrl(p.thumbnail)}')`:''}">${p.thumbnail?'':'🎵'}</div>
         <div class="meta">
           <div class="title">${escapeHtml(p.title||'')}</div>
           <div class="sub">${escapeHtml(p.author||'')}</div>
@@ -4131,7 +4459,7 @@ async function runSearch(more=false){
           <div class="fab-btn play-fab" title="Přehrát">▶</div>
           <div class="fab-btn add-fab" title="Přidat do playlistu">➕</div>
         </div>
-        <div class="art" style="${t.image?`background-image:url('${t.image}')`:''}">${t.image?'':'🎵'}</div>
+        <div class="art" style="${t.image?`background-image:url('${thumbUrl(t.image)}')`:''}">${t.image?'':'🎵'}</div>
         <div class="meta">
           <div class="title">${escapeHtml(t.title||'')}</div>
           <div class="sub">${escapeHtml(t.artists||'')} · ${fmtDur(t.duration_seconds)}</div>
@@ -4170,6 +4498,7 @@ function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; }
 overlay.addEventListener("click", e => { if(e.target === overlay) closeOverlay(); });
 
 async function openPlaylist(browseId){
+  pushNav({type: "playlist", id: browseId});
   overlay.hidden = false;
   panel.innerHTML = `<div class="empty" style="padding-top:80px"><span class="spinner"></span> Načítám playlist…</div>`;
   if(!state.libraryStems) await loadLibrary();
@@ -4214,6 +4543,8 @@ function applyHeroTint(head, thumbnail, fallbackText){
   if(!thumbnail) return;
 
   const img = new Image();
+  // Through the proxy the cover is same-origin, so the canvas is never
+  // tainted and the colour read always succeeds.
   img.crossOrigin = "anonymous";
   img.onload = () => {
     try{
@@ -4236,7 +4567,7 @@ function applyHeroTint(head, thumbnail, fallbackText){
       paint(clampTint(r / n, gr / n, b / n));
     }catch(e){ /* tainted canvas — the hashed hue already painted */ }
   };
-  img.src = thumbnail;
+  img.src = thumbUrl(thumbnail);
 }
 
 function renderPlaylistPanel(p){
@@ -4246,7 +4577,7 @@ function renderPlaylistPanel(p){
   panel.innerHTML = `
     <div class="panel-head">
       <button class="close-btn" id="close-panel">✕</button>
-      <div class="pl-art" style="${p.thumbnail?`background-image:url('${p.thumbnail}')`:''}"></div>
+      <div class="pl-art" style="${p.thumbnail?`background-image:url('${thumbUrl(p.thumbnail)}')`:''}"></div>
       <div class="pl-kind">Veřejný playlist</div>
       <div class="pl-title">${escapeHtml(p.title||'')}</div>
       <div class="pl-author">${escapeHtml(p.author||'')}</div>
@@ -4283,7 +4614,7 @@ function renderPlaylistPanel(p){
   };
 
   const container = el("tracks-container");
-  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title)));
+  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title, p.browseId)));
 
   function updateSelCount(){
     const n = container.querySelectorAll("input.checkbox:checked").length;
@@ -4356,13 +4687,13 @@ function renderPlaylistPanel(p){
   };
 }
 
-function trackRow(t, idx, sourcePlaylist){
+function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
   const owned = isOwned(t.title, t.artists);
   const row = document.createElement("div");
   row.innerHTML = `
     <div class="track-row" data-idx="${idx}">
       <input type="checkbox" class="checkbox" ${owned?'':'checked'} data-video-id="${t.videoId}">
-      <div class="thumb" style="${t.thumbnail?`background-image:url('${t.thumbnail}')`:''}">${t.thumbnail?'':'♪'}</div>
+      <div class="thumb" style="${t.thumbnail?`background-image:url('${thumbUrl(t.thumbnail)}')`:''}">${t.thumbnail?'':'♪'}</div>
       <div class="info">
         <div class="t-title">${escapeHtml(t.title||'')}</div>
         <div class="t-sub">${owned?'<span class="owned-tag">✓ máš</span>':''}${escapeHtml(t.artists||'')}${t.album?' · '+escapeHtml(t.album):''}</div>
@@ -4383,7 +4714,7 @@ function trackRow(t, idx, sourcePlaylist){
   });
   playBtn.onclick = () => Player.play({
     key: "yt:"+t.videoId, title: t.title, artists: t.artists,
-    thumbnail: t.thumbnail, videoId: t.videoId, sourcePlaylist,
+    thumbnail: t.thumbnail, videoId: t.videoId, sourcePlaylist, sourcePlaylistId,
   });
   return row;
 }
@@ -4396,7 +4727,7 @@ async function openSongDetail(t){
   panel.innerHTML = `
     <div class="panel-head">
       <button class="close-btn" id="close-panel">✕</button>
-      <div class="pl-art" style="${t.image?`background-image:url('${t.image}')`:''}"></div>
+      <div class="pl-art" style="${t.image?`background-image:url('${thumbUrl(t.image)}')`:''}"></div>
       <div class="pl-title">${escapeHtml(t.title||'')}</div>
       <div class="pl-author">${escapeHtml(t.artists||'')}${t.album?' · '+escapeHtml(t.album):''}</div>
       <div class="badges">
@@ -4473,7 +4804,7 @@ function renderQueueDrawer(){
       const row = document.createElement("div");
       row.className = "cart-item";
       row.innerHTML = `
-        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${c.thumbnail?`background-image:url('${c.thumbnail}')`:''}"></div>
+        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${c.thumbnail?`background-image:url('${thumbUrl(c.thumbnail)}')`:''}"></div>
         <div class="info">
           <div class="t-title">${escapeHtml(c.title||'')}</div>
           <div class="t-sub">${owned?'<span class="owned-tag">✓ máš</span>':''}${escapeHtml(c.artists||'')}</div>
@@ -4748,7 +5079,7 @@ const Player = (() => {
       const row = document.createElement("div");
       row.className = "cart-item";
       row.innerHTML = `
-        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${h.thumbnail?`background-image:url('${h.thumbnail}')`:''}"></div>
+        <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${h.thumbnail?`background-image:url('${thumbUrl(h.thumbnail)}')`:''}"></div>
         <div class="info">
           <div class="t-title">${escapeHtml(h.title||'')}</div>
           <div class="t-sub">${escapeHtml(h.artists||'')}</div>
@@ -4791,7 +5122,7 @@ const Player = (() => {
       const active = i === videoPlayingIdx ? ' active' : '';
       html += `
         <div class="video-playlist-item${active}" data-idx="${i}">
-          <div class="vthumb" style="background-image:url('${t.thumbnail || ''}')"></div>
+          <div class="vthumb" style="background-image:url('${thumbUrl(t.thumbnail || '')}')"></div>
           <div class="vinfo">
             <div class="vtitle">${escapeHtml(t.title || '')}</div>
             <div class="vartist">${escapeHtml(t.artists || '')}</div>
@@ -4947,10 +5278,25 @@ const Player = (() => {
   // Keep the now-playing rail in step with the player.
   ["play", "pause", "loadedmetadata"].forEach(ev =>
     audio.addEventListener(ev, () => { try{ renderNowPlaying(); }catch(e){} }));
+  // Reload the lyrics panel when the track changes underneath it.
+  audio.addEventListener("loadedmetadata", () => {
+    try{
+      if(typeof LyricsView !== "undefined" && LyricsView.isOpen() && current){
+        LyricsView.showForTrack(current);
+      }
+    }catch(e){}
+  });
 
   return {
     play, playLocal, playLocalQueue, playPodcastEpisode,
     getCurrent: () => current,
+    // Lyrics needs the transport clock and a way to jump to a line.
+    currentTimeMs: () => (audio.currentTime || 0) * 1000,
+    seekTo: (sec) => {
+      if(!isFinite(sec)) return;
+      audio.currentTime = Math.max(0, sec);
+      if(audio.paused) audio.play().catch(() => {});
+    },
     // Exposed for the video-mode handlers below, which live outside this
     // module and used to reach for the closure variable directly.
     hasVideoPlaylist: () => videoPlaylistTracks.length > 0,
@@ -5016,7 +5362,14 @@ const LyricsView = (() => {
 
     let data;
     try{
-      const res = await fetch(`/api/lyrics/${encodeURIComponent(videoId)}?q=${encodeURIComponent(artist + " - " + title)}&artist=${encodeURIComponent(artist)}`);
+      // The endpoint matches on the query string; the id is only a path slot.
+      // Local files have no videoId, and an empty segment made this 404 —
+      // which is why lyrics never worked for anything from the library.
+      const idSlot = encodeURIComponent(videoId || "local");
+      const params = new URLSearchParams({ q: `${artist} - ${title}`.trim(), artist });
+      if(track.album) params.set("album", track.album);
+      if(track.duration_seconds) params.set("duration", track.duration_seconds);
+      const res = await fetch(`/api/lyrics/${idSlot}?${params}`);
       data = await res.json();
     }catch(e){
       data = { synced: false, lines: null, plain: null, source: null };
@@ -5374,7 +5727,7 @@ function renderPodcastsGrid(){
     card.setAttribute("role", "button");
     card.setAttribute("aria-label", show.title || "Podcast");
     card.innerHTML = `
-      <div class="art" style="${show.thumbnail ? `background-image:url('${show.thumbnail}')` : ""}">
+      <div class="art" style="${show.thumbnail ? `background-image:url('${thumbUrl(show.thumbnail)}')` : ""}">
         ${show.thumbnail ? "" : "🎙️"}
       </div>
       <div class="meta">
@@ -5417,7 +5770,7 @@ async function openPodcastShow(show){
   detail.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
       <button class="btn secondary" id="podcast-back">← Zpět</button>
-      <div style="width:80px;height:80px;border-radius:12px;background:var(--bg2) center/cover no-repeat;${show.thumbnail ? `background-image:url('${show.thumbnail}')` : ""}display:flex;align-items:center;justify-content:center;font-size:28px">${show.thumbnail ? "" : "🎙️"}</div>
+      <div style="width:80px;height:80px;border-radius:12px;background:var(--bg2) center/cover no-repeat;${show.thumbnail ? `background-image:url('${thumbUrl(show.thumbnail)}')` : ""}display:flex;align-items:center;justify-content:center;font-size:28px">${show.thumbnail ? "" : "🎙️"}</div>
       <div>
         <div style="font-size:18px;font-weight:700">${escapeHtml(show.title || "")}</div>
         <div style="font-size:13px;color:var(--sub);margin-top:4px">${escapeHtml(show.author || show.publisher || "")}</div>
@@ -5436,7 +5789,7 @@ async function openPodcastShow(show){
     row.setAttribute("aria-label", ep.title || `Epizoda ${i+1}`);
     const thumbArt = ep.thumbnail || show.thumbnail;
     row.innerHTML = `
-      <div class="epi-thumb" style="${thumbArt ? `background-image:url('${thumbArt}')` : ""}">
+      <div class="epi-thumb" style="${thumbArt ? `background-image:url('${thumbUrl(thumbArt)}')` : ""}">
         ${thumbArt ? "" : "🎧"}
       </div>
       <div class="epi-info">
@@ -5692,7 +6045,7 @@ function renderMyLibrary() {
     const icon = item.kind === "playlist" ? "🎵" : item.kind === "album" ? "💿" : "🎤";
     card.innerHTML = `
       <div class="card-fabs"><div class="fab-btn lib-remove" title="Odebrat z knihovny">✕</div></div>
-      <div class="art" style="${thumb ? `background-image:url('${thumb}')` : ""}">${thumb ? "" : icon}</div>
+      <div class="art" style="${thumb ? `background-image:url('${thumbUrl(thumb)}')` : ""}">${thumb ? "" : icon}</div>
       <div class="meta">
         <div class="title">${escapeHtml(item.title || "")}</div>
         <div class="sub">${escapeHtml(item.author || "")}</div>
@@ -5789,7 +6142,7 @@ function renderTopResult(data) {
   const thumb = top.thumbnail || "";
   container.innerHTML = `
     <div class="top-result-card">
-      <div class="top-art" style="${thumb ? `background-image:url('${thumb}')` : ""}">${thumb ? "" : "🎵"}</div>
+      <div class="top-art" style="${thumb ? `background-image:url('${thumbUrl(thumb)}')` : ""}">${thumb ? "" : "🎵"}</div>
       <div class="top-info">
         <div class="top-label">🏆 Nejlepší výsledek</div>
         <div class="top-title">${escapeHtml(top.title || "")}</div>
@@ -5861,6 +6214,75 @@ loadLibrary();
 renderSearchHistory();
 setVideoMode(getVideoMode());
 
+// ---- draggable rail width, remembered across sessions ----
+const LIB_WIDTH_KEY = "spotdl-gui-lib-width";
+const LIB_MIN = 190, LIB_MAX = 520;
+
+function applyLibWidth(px){
+  const w = Math.max(LIB_MIN, Math.min(LIB_MAX, Math.round(px)));
+  document.documentElement.style.setProperty("--sp-lib", w + "px");
+  return w;
+}
+
+(function initLibResize(){
+  try{
+    const saved = parseInt(localStorage.getItem(LIB_WIDTH_KEY), 10);
+    if(saved) applyLibWidth(saved);
+  }catch(e){}
+
+  const handle = el("lib-resize");
+  let startX = 0, startW = 0, dragging = false;
+
+  handle.addEventListener("pointerdown", (e) => {
+    // A collapsed rail has a fixed width; dragging it would fight the toggle.
+    if(document.body.classList.contains("lib-collapsed")) return;
+    dragging = true;
+    startX = e.clientX;
+    startW = el("sidebar-left").getBoundingClientRect().width;
+    document.body.classList.add("lib-resizing");
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  });
+
+  handle.addEventListener("pointermove", (e) => {
+    if(!dragging) return;
+    applyLibWidth(startW + (e.clientX - startX));
+  });
+
+  const end = (e) => {
+    if(!dragging) return;
+    dragging = false;
+    document.body.classList.remove("lib-resizing");
+    try{ handle.releasePointerCapture(e.pointerId); }catch(err){}
+    const w = el("sidebar-left").getBoundingClientRect().width;
+    try{ localStorage.setItem(LIB_WIDTH_KEY, String(Math.round(w))); }catch(err){}
+  };
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+
+  // Double-click resets to the default width.
+  handle.addEventListener("dblclick", () => {
+    document.documentElement.style.removeProperty("--sp-lib");
+    try{ localStorage.removeItem(LIB_WIDTH_KEY); }catch(e){}
+  });
+})();
+
+// Clicking the player's artwork opens the now-playing rail on the playlist
+// the track is coming from.
+el("pb-art").style.cursor = "pointer";
+el("pb-art").title = "Zobrazit, odkud to hraje";
+el("pb-art").onclick = () => {
+  toggleNowPlaying(true);
+  const t = Player.getCurrent();
+  if(t && t.sourcePlaylist){
+    // Bring the source section into view rather than making the user hunt.
+    setTimeout(() => {
+      const src = el("np-source");
+      if(src && !src.hidden) src.scrollIntoView({behavior: "smooth", block: "start"});
+    }, 120);
+  }
+};
+
 // ---- shell chrome: collapse the rail, toggle the now-playing panel ----
 el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
 el("lib-expand").onclick = () => toggleNowPlaying();
@@ -5876,35 +6298,64 @@ function toggleNowPlaying(force){
   if(open) renderNowPlaying();
 }
 
-// Back / forward walk the modes visited in this session.
+// ======================================================================
+// View history — the ‹ › buttons behave like a browser's. Entries are
+// whole views, not just modes, so opening a playlist and going back lands
+// where you were instead of only flipping the library chip.
+// ======================================================================
 const navHistory = [];
 let navPos = -1;
-let navSuppress = false;
-function pushNav(mode){
+let navSuppress = false;   // set while *applying* an entry, so it isn't re-pushed
+
+function sameView(a, b){
+  if(!a || !b || a.type !== b.type) return false;
+  return a.type === "mode" ? a.mode === b.mode : a.id === b.id;
+}
+
+function pushNav(entry){
   if(navSuppress) return;
-  navHistory.splice(navPos + 1);
-  navHistory.push(mode);
+  if(sameView(navHistory[navPos], entry)) return;   // no self-entries
+  navHistory.splice(navPos + 1);                    // a new move truncates "forward"
+  navHistory.push(entry);
   navPos = navHistory.length - 1;
   paintNavButtons();
 }
+
 function paintNavButtons(){
   el("nav-back").disabled = navPos <= 0;
   el("nav-fwd").disabled = navPos >= navHistory.length - 1;
 }
+
+function applyNav(entry){
+  navSuppress = true;
+  try{
+    if(entry.type === "mode"){
+      closeOverlay();
+      setMode(entry.mode);
+    } else if(entry.type === "playlist"){
+      openPlaylist(entry.id);
+    }
+  } finally {
+    navSuppress = false;
+  }
+}
+
 function navGo(delta){
   const next = navPos + delta;
   if(next < 0 || next >= navHistory.length) return;
   navPos = next;
-  navSuppress = true;
-  setMode(navHistory[navPos]);
-  navSuppress = false;
+  applyNav(navHistory[navPos]);
   paintNavButtons();
 }
+
 el("nav-back").onclick = () => navGo(-1);
 el("nav-fwd").onclick = () => navGo(1);
 paintNavButtons();
 
 renderLibraryRail(state.mode);
+// The app renders its first view without going through setMode, so seed the
+// history here — otherwise "back" stays dead until the second navigation.
+pushNav({type: "mode", mode: state.mode});
 
 </script>
 </body>

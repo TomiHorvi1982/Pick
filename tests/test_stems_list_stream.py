@@ -22,9 +22,30 @@ def test_list_stems_reports_present_stems_per_song(client, tmp_music_root):
 
     assert res.status_code == 200
     data = res.json()
-    assert {"name": "Song A", "stems": server.STEM_NAMES} in data
+    a_entry = next(d for d in data if d["name"] == "Song A")
+    assert a_entry["stems"] == server.STEM_NAMES
+    assert a_entry["missing"] == []
+    assert a_entry["complete"] is True
+
     b_entry = next(d for d in data if d["name"] == "Song B (partial)")
     assert set(b_entry["stems"]) == {"vocals", "drums"}
+    # A partial set has to be flagged: it loads, but the mix is incomplete,
+    # and the library shouldn't render it the same as a full one.
+    assert b_entry["complete"] is False
+    assert set(b_entry["missing"]) == {"bass", "guitar", "piano", "other"}
+
+
+def test_list_stems_reports_size_and_rel_path(client, tmp_music_root):
+    d = tmp_music_root / "Stems" / "Sized"
+    d.mkdir(parents=True)
+    for stem in server.STEM_NAMES:
+        (d / f"{stem}.wav").write_bytes(b"x" * 100)
+
+    entry = next(e for e in client.get("/api/stems").json() if e["name"] == "Sized")
+
+    assert entry["size_bytes"] == 600
+    assert entry["rel"] == "Stems/Sized"
+    assert entry["modified"] > 0
 
 
 def test_list_stems_skips_the_raw_staging_dir(client, tmp_music_root):

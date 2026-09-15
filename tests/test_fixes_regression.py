@@ -208,3 +208,191 @@ def test_quiet_logger_swallows_yt_dlp_errors():
     logger.warning("w")
     logger.info("i")
     logger.debug("d")
+
+
+# ------------------------------------------------------- thumbnail proxy
+
+def test_thumb_proxy_rejects_foreign_hosts(client):
+    """It must never become an open proxy."""
+    res = client.get("/api/thumb", params={"url": "https://example.com/x.jpg"})
+    assert res.status_code == 403
+
+
+def test_thumb_proxy_rejects_non_https(client):
+    res = client.get("/api/thumb", params={"url": "http://ytimg.com/x.jpg"})
+    assert res.status_code == 400
+
+
+def test_thumb_proxy_rejects_lookalike_host(client):
+    """"ytimg.com.evil.test" must not pass the suffix check."""
+    res = client.get("/api/thumb", params={"url": "https://ytimg.com.evil.test/x.jpg"})
+    assert res.status_code == 403
+
+
+def test_thumb_proxy_accepts_allowed_host(client, monkeypatch):
+    import server
+
+    url = "https://i.ytimg.com/vi/abc/hq720.jpg"
+    monkeypatch.setitem(server._THUMB_BYTES, url, (b"\xff\xd8jpeg", "image/jpeg"))
+
+    res = client.get("/api/thumb", params={"url": url})
+
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("image/jpeg")
+    assert res.content == b"\xff\xd8jpeg"
+
+
+# --------------------------------------------------- podcast episodes
+
+def test_episode_seconds_parses_the_shapes_get_podcast_returns():
+    import server
+
+    assert server._episode_seconds("23 min") == 1380
+    assert server._episode_seconds("1 hr 4 min") == 3840
+    assert server._episode_seconds("45 sec") == 45
+    assert server._episode_seconds("12:34") == 754
+    assert server._episode_seconds("1:02:03") == 3723
+    assert server._episode_seconds("") == 0
+    assert server._episode_seconds(None) == 0
+    assert server._episode_seconds("nonsense") == 0
+
+
+def test_podcast_episodes_uses_get_podcast_not_get_playlist(client, monkeypatch):
+    """get_playlist raises on a podcast browse id — that's why episode lists
+    came back empty. get_podcast is the right call."""
+    import server
+
+    class FakeYT:
+        def get_podcast(self, show_id, limit=50):
+            return {
+                "title": "Show", "author": {"name": "Author"},
+                "thumbnails": [{"url": "https://i.ytimg.com/x.jpg", "width": 100}],
+                "episodes": [{"videoId": "v1", "title": "Ep 1", "duration": "23 min"}],
+            }
+
+        def get_playlist(self, *a, **kw):
+            raise AssertionError("get_playlist must not be used for podcasts")
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/podcasts/SHOW").json()
+
+    assert data["title"] == "Show"
+    assert data["author"] == "Author"
+    assert len(data["episodes"]) == 1
+    ep = data["episodes"][0]
+    assert ep["duration"] == 1380
+    assert ep["durationFormatted"] == "23:00"
+    # Episodes stream through the same proxy as everything else.
+    assert ep["audioUrl"] == "/api/stream/v1"
+
+
+def test_podcast_episodes_falls_back_to_playlist(client, monkeypatch):
+    import server
+
+    class FakeYT:
+        def get_podcast(self, *a, **kw):
+            raise RuntimeError("not a podcast")
+
+        def get_playlist(self, show_id, limit=50):
+            return {"title": "P", "tracks": [{"videoId": "v2", "title": "T", "duration_seconds": 60}]}
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/podcasts/SHOW").json()
+
+    assert [e["id"] for e in data["episodes"]] == ["v2"]
+
+
+def test_podcast_episodes_empty_when_both_calls_fail(client, monkeypatch):
+    import server
+
+    class FakeYT:
+        def get_podcast(self, *a, **kw):
+            raise RuntimeError("no")
+
+        def get_playlist(self, *a, **kw):
+            raise RuntimeError("no")
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    assert client.get("/api/podcasts/SHOW").json()["episodes"] == []
+
+
+# ------------------------------------------------- library folder stats
+
+def test_browse_reports_folder_counts_and_size(client, tmp_music_root):
+    songs = tmp_music_root / "Songs" / "Artist"
+    songs.mkdir(parents=True)
+    (songs / "a.mp3").write_bytes(b"x" * 10)
+    (songs / "b.mp3").write_bytes(b"x" * 20)
+    (tmp_music_root / "Songs" / "notes.txt").write_bytes(b"ignored")
+
+    data = client.get("/api/library/browse").json()
+    entry = next(e for e in data["entries"] if e["name"] == "Songs")
+
+    assert entry["track_count"] == 2
+    assert entry["size_bytes"] == 30
+    assert entry["folder_count"] == 1
+    assert data["summary"]["total_tracks"] == 2
+
+
+def test_browse_summary_counts_files_in_the_current_folder(client, tmp_music_root):
+    (tmp_music_root / "x.mp3").write_bytes(b"x" * 5)
+
+    summary = client.get("/api/library/browse").json()["summary"]
+
+    assert summary["files"] == 1
+    assert summary["total_size_bytes"] == 5
+
+
+# --------------------------------------------------------- chip thumbs
+
+def test_chip_thumbs_caches_and_does_not_refetch(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    calls = []
+
+    def fake_resolve(term):
+        calls.append(term)
+        return f"https://i.ytimg.com/{term}.jpg"
+
+    monkeypatch.setattr(server, "_resolve_chip_thumb", fake_resolve)
+
+    first = client.get("/api/chip-thumbs", params={"terms": "Rock,Metal"}).json()
+    second = client.get("/api/chip-thumbs", params={"terms": "Rock,Metal"}).json()
+
+    assert first == second
+    assert calls == ["Rock", "Metal"]   # resolved once each, then served from cache
+
+
+def test_chip_thumbs_caches_misses_too(client, monkeypatch):
+    """A term with no cover must not be retried on every page load."""
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    calls = []
+    monkeypatch.setattr(server, "_resolve_chip_thumb",
+                        lambda term: calls.append(term) or None)
+
+    client.get("/api/chip-thumbs", params={"terms": "Nothing"})
+    client.get("/api/chip-thumbs", params={"terms": "Nothing"})
+
+    assert calls == ["Nothing"]
+    assert server._thumb_cache["Nothing"] is None
+
+
+def test_chip_thumbs_caps_the_batch(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_thumb_cache", {})
+    monkeypatch.setattr(server, "_save_thumb_cache", lambda: None)
+    monkeypatch.setattr(server, "_resolve_chip_thumb", lambda t: None)
+
+    terms = ",".join(f"t{i}" for i in range(30))
+    data = client.get("/api/chip-thumbs", params={"terms": terms}).json()
+
+    assert len(data) == 12
