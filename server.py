@@ -711,6 +711,52 @@ def _resolve_under_music_root(rel: str) -> Optional[Path]:
     return candidate
 
 
+# Reading tags costs a file open each, and a playlist folder holds dozens.
+# Keyed on (mtime, size) so an edited file is re-read but an unchanged one
+# never is.
+_TAG_CACHE: dict = {}
+
+
+def _audio_tags(path: Path) -> dict:
+    """title / artist / album / duration from the file's own tags.
+
+    spotdl writes all of these, so the library can show what a track actually
+    is rather than guessing from the filename.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        return {}
+    key = str(path)
+    cached = _TAG_CACHE.get(key)
+    if cached and cached["sig"] == (st.st_mtime, st.st_size):
+        return cached["tags"]
+
+    tags = {}
+    try:
+        from mutagen import File as MutagenFile
+
+        audio = MutagenFile(str(path), easy=True)
+        if audio is not None:
+            def first(name):
+                value = audio.get(name)
+                return value[0] if value else None
+
+            tags = {
+                "title": first("title"),
+                "artist": first("artist"),
+                "album": first("album"),
+                "duration": round(audio.info.length, 1) if getattr(audio, "info", None) else None,
+            }
+    except Exception:
+        tags = {}
+
+    if len(_TAG_CACHE) > 4000:
+        _TAG_CACHE.clear()
+    _TAG_CACHE[key] = {"sig": (st.st_mtime, st.st_size), "tags": tags}
+    return tags
+
+
 def _folder_stats(folder: Path, _depth: int = 0):
     """(audio files, total bytes, subfolders) beneath `folder`.
 
@@ -772,6 +818,7 @@ def library_browse(rel: str = ""):
             files.append({
                 "name": p.name, "type": "file", "rel": entry_rel,
                 "size_bytes": p.stat().st_size,
+                **_audio_tags(p),
             })
 
     total_size = sum(f["size_bytes"] for f in files) + sum(d["size_bytes"] for d in dirs)

@@ -1530,6 +1530,73 @@
   .lib-art.has-art,.stem-card-art.has-art,.sp-hero-art.has-art{
     background-size:cover;background-position:center;font-size:0}
   .stem-card-art{background-size:cover;background-position:center}
+
+  /* ==================================================================
+     Library: a folder tree in the rail, a track table in the stage —
+     the two-pane file browser from the reference.
+     ================================================================== */
+  .lib-head-bar{display:flex;align-items:center;gap:14px;margin-bottom:6px;
+    flex-wrap:wrap}
+  .lib-head-left{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+  .lib-folder-name{font-size:20px;font-weight:700;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lib-folder-count{font-size:13px;color:var(--sub);flex:0 0 auto}
+  .lib-search{display:flex;align-items:center;gap:7px;background:var(--card);
+    border:1px solid var(--border);border-radius:500px;padding:6px 12px;
+    flex:0 0 auto}
+  .lib-search:focus-within{border-color:#fff}
+  .lib-search span{font-size:12px;color:var(--sub)}
+  .lib-search input{background:none;border:none;outline:none;color:var(--text);
+    font-size:13px;font-family:inherit;width:170px}
+
+  .lib-table{margin-top:10px}
+  .lib-thead,.lib-trow{display:grid;
+    grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 76px;
+    align-items:center;gap:12px;padding:0 10px}
+  .lib-thead{height:34px;color:var(--sub);font-size:12px;font-weight:500;
+    border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px;
+    position:sticky;top:0;background:var(--bg2);z-index:2}
+  .lib-thead .c-idx,.lib-thead .c-time{text-align:right}
+  .lib-trow{height:46px;border-radius:5px;cursor:pointer;font-size:13.5px;
+    color:var(--sub)}
+  .lib-trow:hover{background:var(--sp-hover)}
+  .lib-trow.playing{background:rgba(30,215,96,.12)}
+  .lib-trow.playing .c-title{color:var(--accent)}
+  .c-idx{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
+  .c-title{display:flex;align-items:center;gap:10px;min-width:0;color:var(--text)}
+  .c-title .art{width:32px;height:32px;border-radius:3px;flex:0 0 32px;
+    background:var(--card-hi) center/cover no-repeat;display:flex;
+    align-items:center;justify-content:center;font-size:13px}
+  .c-title .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c-artist,.c-album{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c-time{text-align:right;font-variant-numeric:tabular-nums}
+  .c-act{display:flex;gap:4px;justify-content:flex-end;opacity:0;
+    transition:opacity .12s}
+  .lib-trow:hover .c-act{opacity:1}
+  .c-act button{background:none;border:none;color:var(--sub);font-size:14px;
+    cursor:pointer;padding:3px}
+  .c-act button:hover{color:#fff}
+  .lib-folder-row{grid-column:1 / -1;display:flex;align-items:center;gap:10px;
+    height:42px;padding:0 6px;border-radius:5px;cursor:pointer;color:var(--text);
+    font-size:14px}
+  .lib-folder-row:hover{background:var(--sp-hover)}
+  .lib-folder-row .sub{margin-left:auto;color:var(--sub);font-size:12.5px}
+
+  /* ---- folder tree in the rail ---- */
+  .tree-node{user-select:none}
+  .tree-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:5px;
+    cursor:pointer;font-size:13.5px;color:var(--text);white-space:nowrap}
+  .tree-row:hover{background:var(--card-hi)}
+  .tree-row.active{background:var(--card-hi)}
+  .tree-row.active .tree-name{color:var(--accent)}
+  .tree-twisty{width:14px;flex:0 0 14px;text-align:center;color:var(--sub);
+    font-size:10px;transition:transform .12s}
+  .tree-node.open > .tree-row .tree-twisty{transform:rotate(90deg)}
+  .tree-icon{font-size:13px;flex:0 0 auto;opacity:.85}
+  .tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .tree-children{margin-left:14px;border-left:1px solid rgba(255,255,255,.07)}
+  body.lib-collapsed .tree-row{justify-content:center;padding:6px 0}
+  body.lib-collapsed .tree-twisty,body.lib-collapsed .tree-name{display:none}
 </style>
 </head>
 <body>
@@ -1579,7 +1646,7 @@
     <button data-mode="playlists" class="active">Playlisty</button>
     <button data-mode="songs">Písně</button>
     <button data-mode="steems">Steems</button>
-    <button data-mode="library">Složky</button>
+    <button data-mode="library">Knihovna</button>
     <button data-mode="podcasts">Podcasty</button>
   </div>
 
@@ -1683,12 +1750,33 @@
   </div>
 
   <div id="library-section" hidden>
-    <div class="breadcrumb" id="library-breadcrumb"></div>
-    <div id="library-play-all" class="library-play-all" hidden>
+    <div class="lib-head-bar">
+      <div class="lib-head-left">
+        <span class="lib-folder-name" id="library-folder-name">Knihovna</span>
+        <span class="lib-folder-count" id="library-folder-count"></span>
+      </div>
       <button class="btn secondary" id="library-play-all-btn">▶ Přehrát vše</button>
-      <span id="library-play-all-summary"></span>
+      <div class="lib-search">
+        <span>🔍</span>
+        <input type="text" id="library-filter" placeholder="Hledat v knihovně" autocomplete="off">
+      </div>
     </div>
-    <div id="library-list" class="fs-list"></div>
+    <div class="breadcrumb" id="library-breadcrumb"></div>
+
+    <div class="lib-table" id="library-table">
+      <div class="lib-thead">
+        <span class="c-idx">#</span>
+        <span class="c-title">Název</span>
+        <span class="c-artist">Interpret</span>
+        <span class="c-album">Album</span>
+        <span class="c-time">⏱</span>
+        <span class="c-act"></span>
+      </div>
+      <div id="library-list"></div>
+    </div>
+
+    <!-- kept: other code reads these -->
+    <div id="library-play-all" hidden><span id="library-play-all-summary"></span></div>
   </div>
 
   <div id="my-library-section" class="library-section" hidden>
@@ -2555,7 +2643,7 @@ function setMode(mode){
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
-  el("my-library-section").hidden = mode !== "library";
+  el("my-library-section").hidden = true;
   if(mode === "library"){
     loadLibraryFolder("");
     renderMyLibrary();
@@ -2827,15 +2915,7 @@ function renderLibraryRail(mode){
   }
 
   if(mode === "library"){
-    const entries = libraryRailEntries;
-    if(!entries.length){ list.appendChild(libEmpty("Složka s hudbou je prázdná.")); return; }
-    entries.forEach(e => {
-      list.appendChild(libRow({
-        art: e.type === "dir" ? "\uD83D\uDCC1" : "\uD83C\uDFB5",
-        name: e.name, sub: e.type === "dir" ? "Složka" : "Soubor",
-        onClick: () => { setMode("library"); loadLibraryFolder(e.rel); },
-      }));
-    });
+    renderFolderTree(list);
     return;
   }
 
@@ -2873,6 +2953,99 @@ function renderLibraryRail(mode){
       },
     }));
   });
+}
+
+// ======================================================================
+// Folder tree — the rail in library mode. Children are fetched the first
+// time a node is opened rather than walking the whole library up front,
+// and the open set survives navigation so the tree doesn't collapse under
+// you when you click through to a folder.
+// ======================================================================
+const treeOpen = new Set([""]);
+const treeCache = new Map();     // rel -> subfolder entries
+
+async function treeChildren(rel){
+  if(treeCache.has(rel)) return treeCache.get(rel);
+  try{
+    const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(rel)}`);
+    if(!res.ok) throw new Error("browse failed");
+    const data = await res.json();
+    const dirs = (data.entries || []).filter(e => e.type === "dir");
+    treeCache.set(rel, dirs);
+    return dirs;
+  }catch(e){
+    treeCache.set(rel, []);
+    return [];
+  }
+}
+
+function treeNode(entry, depth){
+  const node = document.createElement("div");
+  node.className = "tree-node" + (treeOpen.has(entry.rel) ? " open" : "");
+
+  const row = document.createElement("div");
+  row.className = "tree-row" + (libraryCurrentRel === entry.rel ? " active" : "");
+  row.innerHTML = `
+    <span class="tree-twisty">${entry.folder_count ? "▸" : ""}</span>
+    <span class="tree-icon">\uD83D\uDCC1</span>
+    <span class="tree-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span>`;
+
+  const children = document.createElement("div");
+  children.className = "tree-children";
+  children.hidden = !treeOpen.has(entry.rel);
+
+  // The twisty expands; the name opens the folder. Both are useful and they
+  // shouldn't fight over the same click.
+  row.querySelector(".tree-twisty").onclick = async (e) => {
+    e.stopPropagation();
+    if(!entry.folder_count) return;
+    const open = !treeOpen.has(entry.rel);
+    open ? treeOpen.add(entry.rel) : treeOpen.delete(entry.rel);
+    node.classList.toggle("open", open);
+    children.hidden = !open;
+    if(open && !children.childElementCount) await fillTree(children, entry.rel, depth + 1);
+  };
+  row.onclick = () => {
+    treeOpen.add(entry.rel);
+    loadLibraryFolder(entry.rel);
+  };
+
+  node.appendChild(row);
+  node.appendChild(children);
+  if(treeOpen.has(entry.rel)) fillTree(children, entry.rel, depth + 1);
+  return node;
+}
+
+async function fillTree(container, rel, depth){
+  if(depth > 8) return;          // guard against a pathological tree
+  const dirs = await treeChildren(rel);
+  container.innerHTML = "";
+  dirs.forEach(d => container.appendChild(treeNode(d, depth)));
+}
+
+async function renderFolderTree(list){
+  list.innerHTML = "";
+  const root = document.createElement("div");
+  root.className = "tree-node open";
+  const row = document.createElement("div");
+  row.className = "tree-row" + (libraryCurrentRel === "" ? " active" : "");
+  row.innerHTML = `
+    <span class="tree-twisty">▸</span>
+    <span class="tree-icon">\uD83C\uDFB5</span>
+    <span class="tree-name">Hudba</span>`;
+  const children = document.createElement("div");
+  children.className = "tree-children";
+  row.querySelector(".tree-twisty").onclick = (e) => {
+    e.stopPropagation();
+    const open = !root.classList.contains("open");
+    root.classList.toggle("open", open);
+    children.hidden = !open;
+  };
+  row.onclick = () => loadLibraryFolder("");
+  root.appendChild(row);
+  root.appendChild(children);
+  list.appendChild(root);
+  await fillTree(children, "", 0);
 }
 
 // ======================================================================
@@ -2981,10 +3154,18 @@ async function loadLibraryFolder(rel){
   }
 
   libraryRailEntries = data.entries || [];
+  libraryCurrentRel = rel;
+  el("library-folder-name").textContent =
+    (data.breadcrumb && data.breadcrumb.length)
+      ? data.breadcrumb[data.breadcrumb.length - 1].name
+      : "Knihovna";
+  el("library-filter").value = "";
   renderLibraryBreadcrumb(data.breadcrumb);
   renderLibraryList(data.entries, data.summary);
   if(state.mode === "library") renderLibraryRail("library");
 }
+
+el("library-filter").addEventListener("input", () => paintLibraryTable());
 
 function renderLibraryBreadcrumb(breadcrumb){
   const box = el("library-breadcrumb");
@@ -3005,69 +3186,134 @@ function renderLibraryBreadcrumb(breadcrumb){
   });
 }
 
+// Current folder's entries, kept so the search box can filter without
+// re-fetching.
+let libraryEntries = [];
+let librarySummary = null;
+
 function renderLibraryList(entries, summary){
+  libraryEntries = entries || [];
+  librarySummary = summary || null;
+  paintLibraryTable();
+}
+
+function libDurationText(entry){
+  if(entry.duration) return fmtDur(entry.duration);
+  return "";
+}
+
+function paintLibraryTable(){
   const list = el("library-list");
+  const filter = norm(el("library-filter").value || "");
   list.innerHTML = "";
 
-  if(summary){
-    const bar = document.createElement("div");
-    bar.className = "stems-summary";
-    const bits = [];
-    if(summary.folders) bits.push(`<span><b>${summary.folders}</b> ${summary.folders === 1 ? "složka" : "složek"}</span>`);
-    if(summary.total_tracks) bits.push(`<span><b>${summary.total_tracks}</b> ${summary.total_tracks === 1 ? "skladba" : "skladeb"}</span>`);
-    if(summary.total_size_bytes) bits.push(`<span>${fmtSize(summary.total_size_bytes)}</span>`);
-    bar.innerHTML = bits.join('<span class="dot">•</span>');
-    if(bits.length) list.appendChild(bar);
-  }
+  const entries = libraryEntries.filter(e => {
+    if(!filter) return true;
+    return [e.title, e.artist, e.album, e.name]
+      .some(v => v && norm(v).includes(filter));
+  });
+
+  const tracks = entries.filter(e => e.type === "file");
+  const folders = entries.filter(e => e.type === "dir");
+
+  el("library-play-all-btn").hidden = !tracks.length;
+  el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
+    relPath: t.rel, title: t.title || libraryTrackMeta(t.name, t.rel).title,
+    artists: t.artist || libraryTrackMeta(t.name, t.rel).artists,
+  })));
+
+  const count = librarySummary
+    ? [
+        librarySummary.folders ? `${librarySummary.folders} ${librarySummary.folders === 1 ? "složka" : "složek"}` : "",
+        librarySummary.total_tracks ? `${librarySummary.total_tracks} ${librarySummary.total_tracks === 1 ? "skladba" : "skladeb"}` : "",
+        librarySummary.total_size_bytes ? fmtSize(librarySummary.total_size_bytes) : "",
+      ].filter(Boolean).join(" · ")
+    : "";
+  el("library-folder-count").textContent = count;
 
   if(!entries.length){
-    list.insertAdjacentHTML("beforeend",
-      `<div class="empty" style="padding:24px 10px">Prázdná složka.</div>`);
+    list.innerHTML = `<div class="empty" style="padding:28px 10px">${
+      filter ? "Nic neodpovídá hledání." : "Prázdná složka."}</div>`;
     return;
   }
 
-  const tracks = entries.filter(e => e.type === "file");
-  if(tracks.length){
-    el("library-play-all").hidden = false;
-    const totalBytes = tracks.reduce((s,t) => s + (t.size_bytes||0), 0);
-    el("library-play-all-summary").textContent = `${tracks.length} skladeb · ~${fmtSize(totalBytes)}`;
-    el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
-      relPath: t.rel, ...libraryTrackMeta(t.name, t.rel),
-    })));
-  }
-
-  entries.forEach(entry => {
+  // Folders first, as one wide row each — they have no artist or album.
+  folders.forEach(entry => {
     const row = document.createElement("div");
-    row.className = "fs-row";
-    let sub = "";
-    if(entry.type === "dir"){
-      const bits = [];
-      if(entry.folder_count) bits.push(`${entry.folder_count} ${entry.folder_count === 1 ? "složka" : "složek"}`);
-      if(entry.track_count) bits.push(`${entry.track_count} ${entry.track_count === 1 ? "skladba" : "skladeb"}`);
-      sub = bits.join(" · ") || "prázdná";
-    } else {
-      sub = libraryTrackMeta(entry.name, entry.rel).artists || "";
-    }
-    const sizeLabel = fmtSize(entry.size_bytes || 0);
+    row.className = "lib-folder-row";
+    const bits = [];
+    if(entry.folder_count) bits.push(`${entry.folder_count} ${entry.folder_count === 1 ? "složka" : "složek"}`);
+    if(entry.track_count) bits.push(`${entry.track_count} ${entry.track_count === 1 ? "skladba" : "skladeb"}`);
     row.innerHTML = `
-      <span class="fs-icon">${fsIcon(entry)}</span>
-      <span class="fs-names">
-        <span class="fs-name">${escapeHtml(entry.type === "file" ? libraryTrackMeta(entry.name, entry.rel).title : entry.name)}</span>
-        <span class="fs-sub">${escapeHtml(sub)}</span>
+      <span class="tree-icon">\uD83D\uDCC1</span>
+      <span class="tx">${escapeHtml(entry.name)}</span>
+      <span class="sub">${escapeHtml(bits.join(" · ") || "prázdná")}</span>`;
+    row.onclick = () => loadLibraryFolder(entry.rel);
+    list.appendChild(row);
+  });
+
+  const current = Player.getCurrent();
+  tracks.forEach((entry, i) => {
+    const fallback = libraryTrackMeta(entry.name, entry.rel);
+    const title = entry.title || fallback.title;
+    const artist = entry.artist || fallback.artists || "";
+    const row = document.createElement("div");
+    row.className = "lib-trow" + (current && current.relPath === entry.rel ? " playing" : "");
+    row.innerHTML = `
+      <span class="c-idx">${i + 1}</span>
+      <span class="c-title">
+        <span class="art">\u266A</span>
+        <span class="tx">${escapeHtml(title)}</span>
       </span>
-      <span class="fs-size">${entry.size_bytes ? sizeLabel : ""}</span>
-      ${entry.type === "file" ? '<button class="icon-btn fs-play" title="Přehrát">▶</button><button class="icon-btn fs-stems-btn" title="Rozdělit na stopy">🎧</button>' : '<span class="fs-chevron">›</span>'}
-    `;
-    if(entry.type === "dir"){
-      row.onclick = () => loadLibraryFolder(entry.rel);
-    } else {
-      const meta = libraryTrackMeta(entry.name, entry.rel);
-      const playIt = () => Player.playLocal({ relPath: entry.rel, ...meta });
-      row.querySelector(".fs-play").onclick = (e) => { e.stopPropagation(); playIt(); };
-      row.querySelector(".fs-stems-btn").onclick = (e) => { e.stopPropagation(); startStemsSeparation(entry.rel); };
-      row.onclick = playIt;
+      <span class="c-artist">${escapeHtml(artist)}</span>
+      <span class="c-album">${escapeHtml(entry.album || "")}</span>
+      <span class="c-time">${libDurationText(entry)}</span>
+      <span class="c-act">
+        <button class="act-stems" title="Rozdělit na stopy">\uD83C\uDF9A</button>
+        <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+      </span>`;
+
+    const play = () => {
+      Player.playLocal({relPath: entry.rel, title, artists: artist, album: entry.album});
+      paintLibraryTable();
+    };
+    row.onclick = play;
+    row.querySelector(".act-stems").onclick = (e) => {
+      e.stopPropagation();
+      startStemsSeparation(entry.rel);
+    };
+    row.querySelector(".act-reveal").onclick = (e) => {
+      e.stopPropagation();
+      fetch("/api/reveal", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path: entry.rel}),
+      });
+    };
+    // Album art, resolved from the tags rather than the folder name.
+    if(artist || entry.album){
+      Artwork.paint(row.querySelector(".c-title .art"),
+                    `${artist} ${entry.album || title}`.trim());
     }
     list.appendChild(row);
+  });
+}
+
+function renderLibraryBreadcrumb(breadcrumb){
+  const box = el("library-breadcrumb");
+  box.innerHTML = "";
+  breadcrumb.forEach((b, i) => {
+    if(i > 0){
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "›";
+      box.appendChild(sep);
+    }
+    const isLast = i === breadcrumb.length - 1;
+    const node = document.createElement(isLast ? "span" : "a");
+    node.textContent = b.name;
+    if(isLast) node.className = "current";
+    else node.onclick = () => loadLibraryFolder(b.rel);
+    box.appendChild(node);
   });
 }
 
@@ -3148,6 +3394,7 @@ function openSteemsSong(name){
 let steemsSongs = [];
 let currentSteemsName = null;   // which stem set the mixer has open
 let libraryRailEntries = [];    // last folder listing, mirrored into the rail
+let libraryCurrentRel = "";     // folder the stage is showing, for tree highlight
 
 async function loadSteemsList(){
   const list = el("steems-list");

@@ -699,3 +699,74 @@ def test_art_lookup_caches_a_miss(client, monkeypatch):
 
 def test_art_lookup_rejects_an_empty_query(client):
     assert client.get("/api/art", params={"q": "  "}).json() == {"url": None}
+
+
+# ------------------------------------------------------- library tags
+
+def test_browse_reads_real_tags_from_files(client, tmp_music_root, monkeypatch):
+    """The table shows what a track actually is; spotdl writes proper tags, so
+    guessing from the filename is unnecessary and often wrong."""
+    import server
+
+    songs = tmp_music_root / "Songs" / "Artist"
+    songs.mkdir(parents=True)
+    (songs / "track.mp3").write_bytes(b"x" * 10)
+
+    monkeypatch.setattr(server, "_TAG_CACHE", {})
+    monkeypatch.setattr(server, "_audio_tags", lambda p: {
+        "title": "Real Title", "artist": "Real Artist",
+        "album": "Real Album", "duration": 213.1,
+    })
+
+    entry = next(e for e in
+                 client.get("/api/library/browse", params={"rel": "Songs/Artist"}).json()["entries"]
+                 if e["type"] == "file")
+
+    assert entry["title"] == "Real Title"
+    assert entry["artist"] == "Real Artist"
+    assert entry["album"] == "Real Album"
+    assert entry["duration"] == 213.1
+
+
+def test_audio_tags_cache_keyed_on_mtime_and_size(tmp_path, monkeypatch):
+    """A folder holds dozens of tracks and each read is a file open; an
+    unchanged file must never be read twice."""
+    import server
+
+    f = tmp_path / "a.mp3"
+    f.write_bytes(b"x" * 10)
+    monkeypatch.setattr(server, "_TAG_CACHE", {})
+
+    calls = []
+
+    class FakeAudio:
+        info = type("I", (), {"length": 12.0})()
+
+        def get(self, name):
+            calls.append(name)
+            return ["v"]
+
+    import sys
+    import types
+    fake = types.ModuleType("mutagen")
+    fake.File = lambda path, easy=False: FakeAudio()
+    monkeypatch.setitem(sys.modules, "mutagen", fake)
+
+    server._audio_tags(f)
+    after_first = len(calls)
+    server._audio_tags(f)
+
+    assert len(calls) == after_first      # served from cache
+
+    f.write_bytes(b"x" * 20)              # changed on disk
+    server._audio_tags(f)
+    assert len(calls) > after_first
+
+
+def test_audio_tags_survive_an_unreadable_file(tmp_path, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_TAG_CACHE", {})
+    missing = tmp_path / "gone.mp3"
+
+    assert server._audio_tags(missing) == {}

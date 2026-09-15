@@ -83,6 +83,10 @@ cd ~/.local/share/spotdl-helper/app
   repertoáru bývá skoro vždy — spadne to na YouTube Music přes `ytmusicapi`,
   který texty nese pro většinu toho, co streamuje. Ty jsou bez časování, takže
   se jen rolují.
+- **Knihovna**: dvoupanelový prohlížeč — strom složek v levém railu (děti se
+  načítají až při rozbalení), tabulka stop v hlavní ploše. Sloupce Název /
+  Interpret / Album / čas se čtou ze skutečných tagů přes `mutagen`, ne
+  hádají z názvu souboru; výsledky se cachují podle mtime a velikosti.
 - **Podcasty**: `region=cz` je výchozí. Jedno hledání „podcast" na YouTube
   Music vrátí prakticky nic českého (řadí podle globální popularity), takže se
   pouští sada českých dotazů a výsledky se slučují.
