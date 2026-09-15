@@ -4913,38 +4913,24 @@ const Player = (() => {
 
   // Find the local file path for the current track (if it's a preview/history
   // item that was downloaded). Returns relPath or null.
-  function findDownloadedRel(track){
-    if(track.relPath) return track.relPath;
-    // For remote tracks, check if there's a matching local file
-    if(!track.title) return null;
-    // Can't reliably map a remote track to a local file without a path
-    return null;
-  }
-
   downloadSongBtn.onclick = () => {
     closeDownloadMenu();
     if(!current) return;
     if(current.relPath){ showToast("Tuto píseň už máš"); return; }
-    if(!current.spotifyQuery && !current.title){ showToast("Chybí URL pro stažení"); return; }
-    // For tracks with a spotify_url (from search), use that directly
-    // For others, we'd need to resolve — but the current Player doesn't
-    // store the spotify_url on play. This is a limitation; the user can
-    // use the Songs tab to download individual tracks.
-    showToast("Pro stažení použij tlačítko ⬇️ u písně v tabulce Písně");
+    if(!current.url){ showToast("U téhle položky není URL ke stažení"); return; }
+    startDownload({
+      urls: [current.url], output_name: "Songs", kind: "songs", bitrate: bitrate(),
+    }, `${current.title} — ${current.artists}`);
   };
 
-  // "🎧 Rozdělit na stopy" — if the track is already local, separate it
-  // directly. Otherwise, we'd need to download first (not implemented here
-  // since the Player doesn't carry the spotify_url after play).
+  // "🎧 Rozdělit na stopy" — separate a local file straight away, otherwise
+  // download it first and separate what lands.
   downloadStemsBtn.onclick = () => {
     closeDownloadMenu();
     if(!current) return;
-    const rel = findDownloadedRel(current);
-    if(!rel){
-      showToast("Nejdřív píseň stáhni (použij ⬇️ u písně v tabulce Písně)");
-      return;
-    }
-    startStemsSeparation(rel);
+    if(current.relPath){ startStemsSeparation(current.relPath); return; }
+    if(!current.url){ showToast("U téhle položky není URL ke stažení"); return; }
+    downloadThenSeparate(current);
   };
 
   // Play a podcast episode directly from its audio URL
@@ -5175,18 +5161,21 @@ const LyricsView = (() => {
 const drawer = el("dl-drawer");
 let currentEventSource = null;
 
+// Resolves true when the job finishes successfully, false otherwise, so a
+// caller can chain work onto a finished download (separation, for one).
+// Existing call sites ignore the return value and are unaffected.
 function startDownload(payload, label){
   const s = loadSettings();
   if(s.cookies_browser) payload.cookies_browser = s.cookies_browser;
   if(s.cookie_file) payload.cookie_file = s.cookie_file;
 
-  fetch("/api/download", {
+  return fetch("/api/download", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(payload),
   })
   .then(r => r.json())
-  .then(data => {
+  .then(data => new Promise(resolve => {
     drawer.hidden = false;
     el("dl-title").textContent = `⬇️ ${label}`;
     el("dl-status").innerHTML = `<span class="spinner"></span> běží…`;
@@ -5215,9 +5204,38 @@ function startDownload(payload, label){
           body: JSON.stringify({path: data.output_dir})
         });
         loadLibrary().then(refreshOwnedIndicators); // "✓ máš" now shows on the songs just downloaded
+        resolve(ok);
       }
     };
-  });
+    es.onerror = () => { es.close(); resolve(false); };
+  }))
+  .catch(() => false);
+}
+
+// Locate a just-downloaded song under Songs/<artist>/ so it can be fed to
+// Demucs. spotdl's own naming template puts the artist in the path, which is
+// why this browses by artist rather than scanning the whole library.
+async function findDownloadedRel(artists, title){
+  try{
+    const res = await fetch(`/api/library/browse?rel=${encodeURIComponent("Songs/" + (artists || ""))}`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const t = norm(title);
+    const match = (data.entries || []).find(e => e.type === "file" && norm(e.name).includes(t));
+    return match ? match.rel : null;
+  }catch(e){ return null; }
+}
+
+// "Download, then split into stems" for a track that isn't local yet.
+async function downloadThenSeparate(track){
+  showToast("Nejdřív stahuju píseň…");
+  const ok = await startDownload({
+    urls: [track.url], output_name: "Songs", kind: "songs", bitrate: bitrate(),
+  }, `${track.title} — ${track.artists}`);
+  if(!ok){ showToast("Stažení selhalo, rozdělení na stopy se nespustí."); return; }
+  const rel = await findDownloadedRel(track.artists, track.title);
+  if(!rel){ showToast("Píseň se stáhla, ale nepodařilo se ji najít pro rozdělení."); return; }
+  startStemsSeparation(rel);
 }
 
 // Update "✓ máš" badges on cards/rows already on screen, without a full

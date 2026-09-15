@@ -1,3 +1,4 @@
+import pytest
 import server
 
 
@@ -70,6 +71,30 @@ def test_stream_stem_rejects_unknown_stem_name(client, tmp_music_root):
 
 
 def test_stream_stem_rejects_path_traversal_in_name(client, tmp_music_root):
+    # The test client normalises ".." out of the URL path before it reaches
+    # the app, so a literal "../.." only proves a missing file 404s. The guard
+    # that actually matters is _resolve_under_music_root refusing a symlink
+    # whose target escapes MUSIC_ROOT — exercise that instead.
+    import os
+
+    outside_file = tmp_music_root.parent / "outside.wav"
+    outside_file.write_bytes(b"should-not-reach")
+
+    symlink_dir = tmp_music_root / "Stems" / "Song With Symlink"
+    symlink_dir.mkdir(parents=True)
+    symlink_file = symlink_dir / "vocals.wav"
+    try:
+        os.symlink(outside_file, symlink_file)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this filesystem")
+
+    res = client.get("/api/stems/Song With Symlink/vocals.wav")
+
+    assert res.status_code == 404
+    assert b"should-not-reach" not in res.content
+
+
+def test_stream_stem_rejects_dotdot_in_url(client, tmp_music_root):
     res = client.get("/api/stems/../../etc/vocals.wav")
     assert res.status_code == 404
 

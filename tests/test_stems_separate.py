@@ -1,6 +1,35 @@
 import server
 
 
+def test_separate_returns_ready_when_all_six_stems_already_exist(client, tmp_music_root):
+    """Separation is expensive; a complete stem set must short-circuit rather
+    than re-run Demucs."""
+    (tmp_music_root / "song.mp3").write_bytes(b"x")
+    dest = tmp_music_root / "Stems" / "song"
+    dest.mkdir(parents=True)
+    for stem in server.STEM_NAMES:
+        (dest / f"{stem}.wav").write_bytes(b"fake")
+
+    res = client.post("/api/stems/separate", json={"rel": "song.mp3"})
+
+    assert res.status_code == 200
+    assert res.json() == {"job_id": None, "ready": True, "name": "song"}
+
+
+def test_separate_starts_job_when_one_stem_is_missing(client, tmp_music_root):
+    """A partial stem set is not a usable mix — it has to re-separate."""
+    (tmp_music_root / "song.mp3").write_bytes(b"x")
+    dest = tmp_music_root / "Stems" / "song"
+    dest.mkdir(parents=True)
+    for stem in server.STEM_NAMES[:-1]:
+        (dest / f"{stem}.wav").write_bytes(b"fake")
+
+    res = client.post("/api/stems/separate", json={"rel": "song.mp3"})
+
+    assert res.json()["ready"] is False
+    assert res.json()["job_id"] in server.JOBS
+
+
 def test_separate_returns_ready_using_source_stem_as_safe_name(client, tmp_music_root):
     (tmp_music_root / "My Song.mp3").write_bytes(b"x")
     dest = tmp_music_root / "Stems" / "My Song"
