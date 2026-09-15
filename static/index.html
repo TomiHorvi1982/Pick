@@ -1480,6 +1480,13 @@
   .lyrics-header .close-btn:hover{background:#2a2a33;color:#fff}
   .lyrics-panel .lyric-line{padding:8px 20px;font-size:16px}
   .lyrics-panel .lyric-line.current{font-size:19px}
+
+  /* Click-rate selector next to the metronome. */
+  .nm-rate{height:28px;background:#131318;border:1px solid #32323c;border-radius:6px;
+    color:var(--nm-txt);font-size:11px;font-weight:600;font-family:inherit;
+    padding:0 4px;cursor:pointer;outline:none;text-align:center}
+  .nm-rate:hover{background:#1e1e25}
+  .nm-rate:focus{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -1774,6 +1781,13 @@
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-btn round" id="mixer-metro" title="Metronom">🔔</button>
+              <select class="nm-rate" id="nm-metro-rate" title="Jak často klikat vůči době">
+                <option value="0.25">÷4</option>
+                <option value="0.5">÷2</option>
+                <option value="1" selected>×1</option>
+                <option value="2">×2</option>
+                <option value="4">×4</option>
+              </select>
               <span class="metro-indicator" id="metro-indicator"></span>
             </div>
             <span class="cap">METRO</span>
@@ -3184,6 +3198,14 @@ const Mixer = (() => {
   // are measured and which are inferred.
   let detectedFrom = 0;
   let detectedTo = Infinity;
+
+  // Click rate relative to the detected beat: 1 = on the beat, 2 = eighths,
+  // 4 = sixteenths, 0.5 = every other beat, 0.25 = every fourth. The grid
+  // itself is untouched — this only decides which of its positions click, so
+  // extrapolated bars keep clicking exactly like measured ones.
+  let metronomeRate = 1;
+  let clickTimes = [];
+  let clickAccent = [];
   let metronomeOn = false;
   let metronomeOsc = null;
   let metronomeGain = null;
@@ -4157,6 +4179,8 @@ const Mixer = (() => {
     beatsPerBar = 4;
     detectedFrom = 0;
     detectedTo = Infinity;
+    clickTimes = [];
+    clickAccent = [];
     try{
       const refCh = channels.find(c => c.stem === "drums") || channels[0];
       tempoBPM = detectTempo(refCh.buffer);
@@ -4208,6 +4232,7 @@ const Mixer = (() => {
       beatSetIndex = new Set(downbeatTimes);
       detectedFrom = data.detected_from ?? 0;
       detectedTo = data.detected_to ?? Infinity;
+      rebuildClickTrack();
       tempoBPM = Math.round(data.bpm);
       beatInterval = 60 / data.bpm;
       el("mixer-tempo").textContent = tempoBPM;
@@ -4383,6 +4408,52 @@ const Mixer = (() => {
   }
 
   // ---- Metronome ----
+  // Precomputed once per grid/rate change rather than per scheduling tick —
+  // the scheduler runs five times a second and a long track has thousands of
+  // positions.
+  function rebuildClickTrack(){
+    clickTimes = [];
+    clickAccent = [];
+    if(!beatTimes.length) return;
+
+    if(metronomeRate >= 1){
+      const sub = Math.round(metronomeRate);
+      for(let i = 0; i < beatTimes.length; i++){
+        const t0 = beatTimes[i];
+        clickTimes.push(t0);
+        clickAccent.push(beatSetIndex.has(t0));
+        // Subdivisions sit between this beat and the next, so they follow the
+        // real spacing instead of a fixed period, and never land past the end.
+        const t1 = beatTimes[i + 1];
+        if(sub > 1 && t1 !== undefined){
+          const step = (t1 - t0) / sub;
+          for(let k = 1; k < sub; k++){
+            clickTimes.push(t0 + k * step);
+            clickAccent.push(false);
+          }
+        }
+      }
+      return;
+    }
+
+    // Slower than the beat: keep every Nth, phased so the kept beats land on
+    // bar starts rather than wherever the track happened to begin.
+    const n = Math.max(1, Math.round(1 / metronomeRate));
+    let anchor = beatTimes.findIndex(t => beatSetIndex.has(t));
+    if(anchor < 0) anchor = 0;
+    for(let i = anchor % n; i < beatTimes.length; i += n){
+      clickTimes.push(beatTimes[i]);
+      clickAccent.push(beatSetIndex.has(beatTimes[i]));
+    }
+  }
+
+  function setMetronomeRate(rate){
+    metronomeRate = rate;
+    rebuildClickTrack();
+    const sel = el("nm-metro-rate");
+    if(sel) sel.value = String(rate);
+  }
+
   function toggleMetronome(){
     metronomeOn = !metronomeOn;
     el("mixer-metro").classList.toggle("active", metronomeOn);
@@ -4398,19 +4469,23 @@ const Mixer = (() => {
     const lookahead = 2;                       // seconds of clicks to queue
     const endSec = currentSec + lookahead;
 
-    if(beatTimes.length){
-      // Click the times the tracker actually found, so the click sits on the
-      // snare instead of drifting away from it over a few minutes.
-      for(const t of beatTimes){
+    if(clickTimes.length){
+      // Click the times the tracker actually found (optionally subdivided or
+      // thinned), so the click sits on the snare instead of drifting away
+      // from it over a few minutes.
+      for(let i = 0; i < clickTimes.length; i++){
+        const t = clickTimes[i];
         if(t <= currentSec) continue;
         if(t >= endSec) break;
-        playClick(beatSetIndex.has(t), now + (t - currentSec));
+        playClick(clickAccent[i], now + (t - currentSec));
       }
     } else if(beatInterval){
       // No detected grid — fall back to a fixed period from the top.
-      let beat = Math.floor(currentSec / beatInterval) + 1;
-      while(beat * beatInterval < endSec){
-        playClick(beat % 4 === 0, now + (beat * beatInterval - currentSec));
+      const step = beatInterval / metronomeRate;
+      const perBar = Math.max(1, Math.round(4 * metronomeRate));
+      let beat = Math.floor(currentSec / step) + 1;
+      while(beat * step < endSec){
+        playClick(beat % perBar === 0, now + (beat * step - currentSec));
         beat++;
       }
     } else {
@@ -4562,6 +4637,9 @@ const Mixer = (() => {
   el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
 
   el("mixer-metro").onclick = () => toggleMetronome();
+  el("nm-metro-rate").addEventListener("change", (e) => {
+    setMetronomeRate(parseFloat(e.target.value));
+  });
   el("mixer-loop").onclick = () => toggleLoop();
   el("mixer-save-session").onclick = () => {
     const name = currentSongName || prompt("Název songu pro uložení:");
@@ -4719,7 +4797,20 @@ const Mixer = (() => {
     resizeTimer = setTimeout(() => { if(channels.length) renderOverview(); }, 150);
   });
 
-  return { load, saveSession, loadSession };
+  return {
+    load, saveSession, loadSession,
+    // Read-only view of the generated click track, for diagnostics.
+    getClickTrack: () => ({
+      rate: metronomeRate,
+      count: clickTimes.length,
+      beats: beatTimes.length,
+      first: clickTimes[0],
+      last: clickTimes[clickTimes.length - 1],
+      accents: clickAccent.filter(Boolean).length,
+      firstAccents: clickAccent.slice(0, 4),
+      detectedFrom,
+    }),
+  };
 })();
 
 // ======================================================================
