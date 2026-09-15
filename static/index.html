@@ -3210,6 +3210,7 @@ const Mixer = (() => {
   // are measured and which are inferred.
   let detectedFrom = 0;
   let detectedTo = Infinity;
+  let tempoSegments = [];   // [{from, to, bpm}] — one entry per fitted tempo
 
   // Click rate relative to the detected beat: 1 = on the beat, 2 = eighths,
   // 4 = sixteenths, 0.5 = every other beat, 0.25 = every fourth. The grid
@@ -3850,6 +3851,8 @@ const Mixer = (() => {
     g.clearRect(0, 0, cssW, laneH);
     paintGrid(g, cssW, laneH);
 
+    paintTempoCurve(g, cssW, laneH);
+
     if(clickTimes.length < 2) return;
     const mid = laneH / 2;
 
@@ -3870,6 +3873,49 @@ const Mixer = (() => {
       g.fillStyle = accent ? "#1ed760" : "rgba(255,255,255,.34)";
       g.fillRect(Math.floor(x), mid - half, accent ? 2 : 1, half * 2);
     }
+  }
+
+  // Tempo as a stepped line across the lane, with the BPM written at every
+  // change. Most tracks fit one tempo, so this is usually a single flat line
+  // and one number — which is itself the useful answer.
+  function paintTempoCurve(g, w, laneH){
+    if(!tempoSegments.length) return;
+
+    const bpms = tempoSegments.map(s => s.bpm);
+    const lo = Math.min(...bpms), hi = Math.max(...bpms);
+    // A flat tempo sits mid-lane; a varying one spreads across the middle
+    // half so a change is visible without the line touching the edges.
+    const span = Math.max(hi - lo, 1);
+    const yFor = (bpm) => laneH * 0.72 - ((bpm - lo) / span) * (laneH * 0.44);
+
+    g.save();
+    g.strokeStyle = "rgba(233,185,73,.55)";
+    g.lineWidth = 1.5;
+    g.setLineDash([]);
+    g.beginPath();
+    let started = false;
+    tempoSegments.forEach(seg => {
+      const x0 = seg.from * pixelsPerSecond;
+      const x1 = seg.to * pixelsPerSecond;
+      const y = yFor(seg.bpm);
+      if(!started){ g.moveTo(x0, y); started = true; }
+      else g.lineTo(x0, y);     // vertical step at the change
+      g.lineTo(Math.min(x1, w), y);
+    });
+    g.stroke();
+
+    g.fillStyle = "rgba(233,185,73,.95)";
+    g.font = "600 10px -apple-system, system-ui, sans-serif";
+    g.textBaseline = "bottom";
+    tempoSegments.forEach((seg, i) => {
+      const x = seg.from * pixelsPerSecond;
+      if(x > w) return;
+      // Labelling every segment would overlap when changes are close; keep
+      // the first and any that has room after the previous one.
+      if(i > 0 && x - tempoSegments[i - 1].from * pixelsPerSecond < 54) return;
+      g.fillText(`${seg.bpm.toFixed(1)} BPM`, Math.max(2, x + 3), yFor(seg.bpm) - 3);
+    });
+    g.restore();
   }
 
   function renderTrackLanes(){
@@ -4309,6 +4355,7 @@ const Mixer = (() => {
     beatsPerBar = 4;
     detectedFrom = 0;
     detectedTo = Infinity;
+    tempoSegments = [];
     clickTimes = [];
     clickAccent = [];
     try{
@@ -4362,6 +4409,7 @@ const Mixer = (() => {
       beatSetIndex = new Set(downbeatTimes);
       detectedFrom = data.detected_from ?? 0;
       detectedTo = data.detected_to ?? Infinity;
+      tempoSegments = data.tempo_segments || [];
       rebuildClickTrack();
       tempoBPM = Math.round(data.bpm);
       beatInterval = 60 / data.bpm;

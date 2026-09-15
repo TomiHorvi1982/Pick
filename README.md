@@ -96,3 +96,12 @@ cd ~/.local/share/spotdl-helper/app
   mřížku k nule i na konec skladby a taktové čáry přepočítá na pravidelné,
   fázově zarovnané s detekovanými downbeaty. Vrací i `detected_from/to`, takže
   UI kreslí dopočítané takty slaběji než změřené.
+- **Fit tempa skenem**: detekované časy jsou *důkaz* pro mřížku, ne mřížka
+  sama. Medián rozestupů tempo neurčí — `beat_this` kvantuje výstup na svůj
+  frame grid, takže rozestupy jsou násobky 20 ms a jejich medián je vychýlený
+  (na jedné skladbě medián 115,38 BPM trefil 100 ze 399 dob, sken 113,68 BPM
+  trefil všech 399). Regrese přes index doby má zase past celočíselného
+  přiřazení: přes díru vyjdou indexy špatně a sklon je následuje. Proto se
+  perioda skenuje a boduje podle toho, kolik dob na ni skutečně padne; fáze je
+  cirkulární průměr. Úsek, kde se tracker chytil na 1,5× puls, se tak stane
+  odlehlou hodnotou místo aby mřížku strhl.

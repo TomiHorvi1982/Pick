@@ -7,6 +7,7 @@ grid that covers the whole track at one tempo.
 """
 
 import importlib.util
+import statistics
 from pathlib import Path
 
 import pytest
@@ -63,77 +64,100 @@ def test_drop_subdivisions_leaves_a_clean_grid_alone(bg):
     assert kept == beats
 
 
-# --------------------------------------------------------- gap filling
+# ------------------------------------------------------------ tempo fit
 
-def test_fill_interior_gaps_bridges_a_drumless_section(bg):
-    beats = grid(0.0, 10, 0.5) + grid(8.5, 10, 0.5)   # 4s hole
+def test_score_interval_finds_the_true_period(bg):
+    """The median of the detected gaps is not the tempo: beat_this quantises
+    its output to its own frame grid, so the gaps are multiples of 20ms and
+    their median is biased. On a real track the median said 115.38 BPM and
+    matched 100 of 399 beats; the scan found 113.68 and matched all 399."""
+    true_interval = 0.5278
+    beats = [round(i * true_interval, 4) for i in range(80)]
 
-    filled_beats, added = bg._fill_interior_gaps(beats, 0.5)
+    exact, _ = bg._score_interval(beats, true_interval)
+    off, _ = bg._score_interval(beats, true_interval * 1.015)
 
-    assert len(added) == 7
-    gaps = [round(b - a, 3) for a, b in zip(filled_beats, filled_beats[1:])]
-    assert max(gaps) == pytest.approx(0.5, abs=0.01)
-
-
-def test_fill_interior_gaps_refuses_a_non_integer_gap(bg):
-    """A gap of 1.5 beats is not two beats — splitting it manufactures beats
-    at the wrong tempo, which is worse than a short hole."""
-    beats = [0.0, 0.5, 1.0, 1.75, 2.25]
-
-    _, added = bg._fill_interior_gaps(beats, 0.5)
-
-    assert added == []
+    assert exact == len(beats)
+    assert off < exact
 
 
-def test_fill_interior_gaps_ignores_an_enormous_gap(bg):
-    beats = [0.0, 0.5, 1.0, 400.0]
+def test_best_grid_recovers_a_period_the_median_would_miss(bg):
+    """Quantise a clean grid to 20ms frames — what the tracker actually
+    emits — and the scan must still recover the underlying period."""
+    true_interval = 0.5278
+    beats = [round(round(i * true_interval / 0.02) * 0.02, 4) for i in range(120)]
 
-    _, added = bg._fill_interior_gaps(beats, 0.5, max_gap_beats=64)
+    interval, _phase, hits = bg._best_grid(beats, 0.52)
 
-    assert added == []
-
-
-# --------------------------------------------------------- edge extension
-
-def test_extend_to_edges_fills_the_intro_and_outro(bg):
-    beats = grid(25.0, 20, 0.5)
-
-    full, head, tail = bg._extend_to_edges(beats, duration=60.0, interval=0.5)
-
-    assert head and tail
-    assert full[0] <= 0.5                     # reaches the top of the track
-    assert full[-1] > 59.0                    # and the end
-    assert all(t > 0 for t in full)           # never negative
-    assert full == sorted(full)
+    assert interval == pytest.approx(true_interval, abs=0.004)
+    assert hits > len(beats) * 0.9
 
 
-def test_extend_to_edges_is_a_noop_when_already_covered(bg):
-    beats = grid(0.2, 20, 0.5)
+def test_best_grid_ignores_a_misTracked_stretch(bg):
+    """Twenty beats at 1.5x the real period — the failure that put every bar
+    after them out of phase — must not move the fit."""
+    interval = 0.54
+    good = [round(i * interval, 4) for i in range(60)]
+    bad = [round(good[-1] + i * interval * 1.5, 4) for i in range(1, 21)]
+    tail = [round(bad[-1] + i * interval, 4) for i in range(1, 61)]
 
-    full, head, tail = bg._extend_to_edges(beats, duration=10.2, interval=0.5)
+    fitted, _phase, _ = bg._best_grid(good + bad + tail, interval)
 
-    assert head == []
-    assert full[-1] <= 10.2
-
-
-def test_dominant_interval_survives_a_closing_fill(bg):
-    """The last few beats are often a fill. Extrapolating the outro from those
-    produced a grid at twice the real tempo, so the period has to come from
-    the track as a whole, not from either edge."""
-    beats = grid(0.0, 30, 0.5) + [15.2, 15.4, 15.6, 15.8, 16.0]
-
-    assert bg._dominant_interval(sorted(set(beats))) == pytest.approx(0.5, abs=0.05)
+    assert fitted == pytest.approx(interval, abs=0.01)
 
 
-def test_extend_to_edges_uses_the_period_it_is_given(bg):
-    """Edge extrapolation takes the track's period as an argument precisely so
-    a local fill can't set the tempo for a whole outro."""
-    beats = grid(10.0, 10, 0.5)
+def test_best_grid_handles_too_few_beats(bg):
+    interval, phase, hits = bg._best_grid([1.0, 2.0], 0.5)
+    assert interval == 0.5
+    assert hits == 0
 
-    full, head, tail = bg._extend_to_edges(beats, duration=30.0, interval=0.5)
 
-    head_gaps = [round(b - a, 3) for a, b in zip(full, full[1:])]
-    assert set(head_gaps) == {0.5}
+# ----------------------------------------------------- grid construction
+
+def test_build_regular_grid_covers_the_whole_track(bg):
+    """Detection starts at the first drum hit, so an intro has no beats of its
+    own; the grid still has to reach the top and the end of the file."""
+    segments = [(25.0, 200.0, 0.5, 25.0)]
+
+    grid = bg._build_regular_grid(segments, duration=240.0)
+
+    assert grid[0] <= 0.5
+    assert grid[-1] > 239.0
+    assert all(t > 0 for t in grid)
+    gaps = [round(b - a, 4) for a, b in zip(grid, grid[1:])]
+    assert set(gaps) == {0.5}          # perfectly regular
+
+
+def test_build_regular_grid_follows_a_tempo_change(bg):
+    segments = [(0.0, 60.0, 0.5, 0.0), (62.0, 120.0, 0.4, 62.0)]
+
+    grid = bg._build_regular_grid(segments, duration=120.0)
+
+    early = [b - a for a, b in zip(grid, grid[1:]) if b < 55]
+    late = [b - a for a, b in zip(grid, grid[1:]) if a > 70]
+    assert statistics.median(early) == pytest.approx(0.5, abs=0.01)
+    assert statistics.median(late) == pytest.approx(0.4, abs=0.01)
+    # No doubled beat at the seam.
+    assert min(b - a for a, b in zip(grid, grid[1:])) > 0.19
+
+
+def test_merge_segments_joins_identical_tempos(bg):
+    """Splitting is driven by fit quality, so one badly-tracked bar ends a
+    segment. Unmerged, a track here came out as eight segments spanning
+    0.18 BPM — a tempo "curve" drawn out of nothing."""
+    beats = [round(i * 0.5, 4) for i in range(200)]
+    segments = [(0.0, 40.0, 0.5, 0.0), (41.0, 99.5, 0.5008, 41.0)]
+
+    merged = bg._merge_segments(segments, beats)
+
+    assert len(merged) == 1
+
+
+def test_merge_segments_keeps_a_real_change(bg):
+    beats = [round(i * 0.5, 4) for i in range(200)]
+    segments = [(0.0, 40.0, 0.5, 0.0), (41.0, 99.5, 0.42, 41.0)]
+
+    assert len(bg._merge_segments(segments, beats)) == 2
 
 
 # -------------------------------------------------------------- bar lines

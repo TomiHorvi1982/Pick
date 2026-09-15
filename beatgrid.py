@@ -18,6 +18,7 @@ Prints: {"beats": [...], "downbeats": [...], "bpm": float, "detector": str}
 """
 
 import json
+import math
 import statistics
 import sys
 
@@ -111,60 +112,177 @@ def _drop_subdivisions(beats, interval, floor=0.72):
     return kept, dropped
 
 
-def _fill_interior_gaps(beats, interval, max_gap_beats=64):
-    """Insert beats across stretches the tracker skipped.
+def _score_interval(beats, interval, tol_frac=0.12):
+    """How many beats land on a grid of this period, and at what phase.
 
-    A drum-free bridge leaves a hole in the grid and the click simply stops for
-    its duration, which reads as a bug rather than as musical silence. The
-    track's own period is used rather than a local estimate, because a local
-    estimate taken *at* a hole is measured from the very beats that are
-    missing.
+    The phase is the circular mean of the beat positions folded into one
+    period — the offset that best centres them — so no search over phase is
+    needed. A beat counts as a hit when it is within tol_frac of a period of
+    the nearest grid line.
     """
-    if len(beats) < 2 or not interval or interval <= 0:
-        return beats, []
+    if interval <= 0:
+        return 0, 0.0
+    two_pi = 2.0 * math.pi
+    sx = sy = 0.0
+    for t in beats:
+        ang = two_pi * (t / interval)
+        sx += math.cos(ang)
+        sy += math.sin(ang)
+    phase = (math.atan2(sy, sx) / two_pi) * interval
 
-    out = [beats[0]]
-    filled = []
-    for prev, nxt in zip(beats, beats[1:]):
-        gap = nxt - prev
-        steps = int(round(gap / interval))
-        # A gap of 1.5 beats is not two beats. Splitting it anyway was
-        # manufacturing beats at 0.41 s inside a 0.54 s track; leaving a short
-        # hole is better than inventing a beat that isn't there.
-        if 2 <= steps <= max_gap_beats and abs(gap / interval - steps) < 0.18:
-            step = gap / steps       # spread evenly so the far edge stays put
-            for k in range(1, steps):
-                t = round(prev + k * step, 4)
-                out.append(t)
-                filled.append(t)
-        out.append(nxt)
-    return out, filled
+    tol = interval * tol_frac
+    half = interval * 0.5
+    hits = 0
+    for t in beats:
+        off = ((t - phase) % interval + interval * 1.5) % interval - half
+        if abs(off) <= tol:
+            hits += 1
+    return hits, phase
 
 
-def _extend_to_edges(beats, duration, interval):
-    """Extrapolate the grid back to 0 and forward to the end of the track.
+def _best_grid(beats, seed_interval, span=0.22, steps=2400):
+    """Tempo and phase of the grid that best explains these beats.
 
-    Detection starts at the first drum hit, so an intro — often the first
-    20-30 seconds — has no grid at all, and bar 1 lands wherever the drums
-    came in rather than at the start of the music.
+    Fitting by regression on beat index looks equivalent and is not: across a
+    gap the assigned indices come out wrong and the fitted slope follows them.
+    Worse, the median of the detected gaps isn't the tempo either — beat_this
+    quantises its output to its own frame grid, so the gaps are multiples of
+    20 ms and their median is biased. On one track the median said 115.38 BPM
+    and matched 100 of 399 beats, while the scan found 113.68 and matched all
+    399. So: scan the period and score by how many beats actually land on it.
     """
-    head, tail = [], []
-    if not interval or interval <= 0:
-        return beats, head, tail
+    if len(beats) < 4 or seed_interval <= 0:
+        return seed_interval, beats[0] if beats else 0.0, 0
 
-    t = beats[0] - interval
-    while t > 0.0005:                 # a beat at t<=0 has nowhere to be drawn
-        head.append(round(t, 4))
-        t -= interval
-    head.reverse()
+    lo = seed_interval * (1 - span)
+    hi = seed_interval * (1 + span)
+    best = (0, seed_interval, beats[0])
+    for i in range(steps + 1):
+        iv = lo + (hi - lo) * i / steps
+        hits, phase = _score_interval(beats, iv)
+        if hits > best[0]:
+            best = (hits, iv, phase)
+    return best[1], best[2], best[0]
 
-    if duration:
-        t = beats[-1] + interval
-        while t < duration:
-            tail.append(round(t, 4))
-            t += interval
 
-    return head + beats + tail, head, tail
+def _inlier_mask(beats, interval, phase, tol_frac=0.12):
+    tol = interval * tol_frac
+    half = interval * 0.5
+    out = []
+    for t in beats:
+        off = ((t - phase) % interval + interval * 1.5) % interval - half
+        out.append(abs(off) <= tol)
+    return out
+
+
+def _tempo_segments(beats, interval, min_beats=40, max_segments=8):
+    """Split the track where one regular grid stops explaining the beats.
+
+    A tempo change shows up as a stretch the fitted grid cannot cover. So does
+    a tracking artefact — the detector following a 1.5x pulse for twenty bars —
+    so a candidate whose period is a simple ratio of the track's own is skipped
+    and the original grid carries through it. Real tempo changes are rarely
+    exactly 1.5x.
+    """
+    segments = []
+    remaining = list(beats)
+    while remaining and len(segments) < max_segments:
+        a, b, _hits = _best_grid(remaining, interval)
+        mask = _inlier_mask(remaining, a, b)
+
+        window = 16
+        cut = len(remaining)
+        for i in range(len(remaining) - window):
+            if sum(mask[i:i + window]) / window < 0.45:
+                cut = i
+                break
+
+        if cut >= len(remaining) - min_beats:
+            segments.append((remaining[0], remaining[-1], a, b))
+            break
+
+        head = remaining[:cut]
+        if len(head) >= min_beats:
+            a_h, b_h, _ = _best_grid(head, interval)
+            segments.append((head[0], head[-1], a_h, b_h))
+
+        # Always consume something, or the loop can sit on cut == 0 forever.
+        remaining = remaining[max(cut, 8):]
+
+        guard = 0
+        while len(remaining) > min_beats and guard < 40:
+            guard += 1
+            a_t, _b_t, _ = _best_grid(remaining[:min_beats], interval)
+            ratio = a_t / interval
+            if not any(abs(ratio - r) < 0.06 for r in (0.5, 0.667, 0.75, 1.333, 1.5, 2.0)):
+                break
+            remaining = remaining[8:]
+
+    if not segments:
+        a, b, _ = _best_grid(beats, interval)
+        segments = [(beats[0], beats[-1], a, b)]
+    return _merge_segments(segments, beats)
+
+
+def _merge_segments(segments, beats, tol=0.015):
+    """Join neighbours that are at the same tempo.
+
+    The split is driven by how well one grid explains the beats, and a single
+    badly-tracked bar is enough to end a segment. Left alone, one track here
+    came out as eight segments spanning 0.18 BPM — which would draw a tempo
+    "curve" out of nothing. Neighbours within 1.5% are the same tempo, and the
+    merged span is refitted over all of its beats.
+    """
+    if len(segments) < 2:
+        return segments
+
+    merged = [segments[0]]
+    for seg in segments[1:]:
+        prev = merged[-1]
+        if abs(seg[2] - prev[2]) / prev[2] < tol:
+            span = [t for t in beats if prev[0] <= t <= seg[1]]
+            if len(span) >= 4:
+                a, b, _ = _best_grid(span, prev[2], span=0.04, steps=600)
+            else:
+                a, b = prev[2], prev[3]
+            merged[-1] = (prev[0], seg[1], a, b)
+        else:
+            merged.append(seg)
+    return merged
+
+
+def _build_regular_grid(segments, duration):
+    """Emit a regular grid covering the whole track from the fitted segments.
+
+    Segment boundaries sit midway between the last beat of one and the first of
+    the next, and each segment is generated from its own period and phase, so a
+    real tempo change is followed without a gap or a doubled beat at the seam.
+    """
+    bounds = []
+    for i, (t_from, t_to, a, b) in enumerate(segments):
+        lo = 0.0 if i == 0 else (segments[i - 1][1] + t_from) / 2.0
+        hi = duration if i == len(segments) - 1 else (t_to + segments[i + 1][0]) / 2.0
+        bounds.append((lo, hi, a, b))
+
+    grid = []
+    for lo, hi, a, b in bounds:
+        if a <= 0:
+            continue
+        k = math.ceil((lo - b) / a)
+        t = b + k * a
+        while t < hi:
+            if t > 0.0005:
+                grid.append(round(t, 4))
+            t += a
+    grid = sorted(set(grid))
+
+    smallest = min((s[2] for s in bounds), default=0.5)
+    cleaned = []
+    for t in grid:
+        if cleaned and t - cleaned[-1] < smallest * 0.5:
+            continue   # never two beats within half a period at a seam
+        cleaned.append(t)
+    return cleaned
 
 
 def _rebuild_downbeats(all_beats, detected, beats_per_bar):
@@ -235,16 +353,31 @@ def main(path):
     # bounds so the UI can draw the extrapolated bars more faintly.
     detected_from, detected_to = beats[0], beats[-1]
 
-    # One stable period first: collapse double-time stretches onto it, then
-    # fill and extend using that single number, so the finished grid is
-    # regular instead of inheriting the tracker's mode switches.
+    # The detected times are evidence for a grid, not the grid itself. Keeping
+    # them verbatim inherits every tracking error: on one track here the
+    # detector followed a dotted pulse for twenty bars, and because those beats
+    # sit *between* the real ones, every bar after them was out of phase.
     interval = _dominant_interval(beats) or (60.0 / bpm)
-    beats, dropped = _drop_subdivisions(beats, interval)
-    downbeats = [t for t in downbeats if t in set(beats)]
-    beats, filled = _fill_interior_gaps(beats, interval)
-    beats, head, tail = _extend_to_edges(beats, duration, interval)
-    downbeats = _rebuild_downbeats(beats, downbeats, beats_per_bar)
-    bpm = 60.0 / interval
+    detected_beats, dropped = _drop_subdivisions(beats, interval)
+
+    segments = _tempo_segments(detected_beats, interval)
+    grid = _build_regular_grid(segments, duration)
+    if len(grid) < MIN_BEATS:
+        return {"error": "grid fit produced too few beats"}
+
+    downbeats = _rebuild_downbeats(grid, downbeats, beats_per_bar)
+    beats = grid
+    bpm = 60.0 / statistics.median([s[2] for s in segments])
+
+    tempo_segments = [
+        {"from": round(max(0.0, lo), 3), "to": round(hi, 3), "bpm": round(60.0 / a, 2)}
+        for lo, hi, a, _b in (
+            (0.0 if i == 0 else (segments[i - 1][1] + seg[0]) / 2.0,
+             duration if i == len(segments) - 1 else (seg[1] + segments[i + 1][0]) / 2.0,
+             seg[2], seg[3])
+            for i, seg in enumerate(segments)
+        )
+    ]
 
     return {
         "beats": beats,
@@ -257,10 +390,8 @@ def main(path):
         # extrapolated from the tempo at the nearest edge.
         "detected_from": detected_from,
         "detected_to": detected_to,
-        "extrapolated": {
-            "head": len(head), "tail": len(tail),
-            "filled": len(filled), "dropped": dropped,
-        },
+        "tempo_segments": tempo_segments,
+        "extrapolated": {"dropped": dropped, "segments": len(segments)},
     }
 
 
