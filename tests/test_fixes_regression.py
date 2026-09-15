@@ -488,3 +488,117 @@ def test_beatgrid_bpm_uses_the_median_interval():
 
     assert beatgrid._bpm_from([0.0]) is None
     assert beatgrid._bpm_from([0.0, 10.0]) is None   # 6 BPM — out of range
+
+
+# ------------------------------------------------------ Czech podcasts
+
+def test_podcast_search_uses_czech_queries_by_default(client, monkeypatch):
+    """A bare "podcast" search on YouTube Music returns essentially nothing
+    Czech, because it ranks by global popularity."""
+    import server
+
+    seen = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            seen.append(q)
+            return [{"browseId": "id-" + q[:4], "title": q, "thumbnails": []}]
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    client.get("/api/podcasts", params={"region": "cz", "limit": 40})
+
+    assert any("česk" in q or "Český" in q for q in seen)
+
+
+def test_podcast_search_honours_an_explicit_query(client, monkeypatch):
+    import server
+
+    seen = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            seen.append(q)
+            return []
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    client.get("/api/podcasts", params={"q": "true crime"})
+
+    assert seen == ["true crime"]
+
+
+def test_podcast_search_deduplicates_across_queries(client, monkeypatch):
+    """The Czech queries overlap heavily; the same show must appear once."""
+    import server
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            return [{"browseId": "same", "title": "Show", "thumbnails": []}]
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    rows = client.get("/api/podcasts", params={"region": "cz"}).json()
+
+    assert len(rows) == 1
+
+
+# -------------------------------------------------- lyrics fallback
+
+def test_lyrics_fall_back_to_youtube_music(client, monkeypatch):
+    """LRCLib knows almost no Czech repertoire, so an empty result there has
+    to try YouTube Music rather than report "not found"."""
+    import server
+
+    monkeypatch.setattr(server, "_fetch_lrclib", lambda *a, **kw: None)
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            return [{"videoId": "abcdefghijk"}]
+
+        def get_watch_playlist(self, videoId=None):
+            return {"lyrics": "LYRICS_ID"}
+
+        def get_lyrics(self, lid):
+            return {"lyrics": "Vezmu tě má milá", "source": "Zdroj"}
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/lyrics/x", params={"q": "Kabát - Pohoda", "artist": "Kabát"}).json()
+
+    assert data["plain"].startswith("Vezmu")
+    assert data["synced"] is False
+
+
+def test_lyrics_prefer_lrclib_when_it_has_synced_words(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_fetch_lrclib",
+                        lambda *a, **kw: {"synced": True, "lines": [{"timeInMs": 0, "text": "hi"}],
+                                          "plain": None, "source": "LRCLib"})
+
+    def boom():
+        raise AssertionError("must not reach YouTube Music when LRCLib answered")
+
+    monkeypatch.setattr(server, "yt", boom)
+
+    data = client.get("/api/lyrics/x", params={"q": "a - b", "artist": "a"}).json()
+
+    assert data["source"] == "LRCLib"
+
+
+def test_lyrics_return_empty_when_neither_source_has_it(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_fetch_lrclib", lambda *a, **kw: None)
+
+    class FakeYT:
+        def search(self, *a, **kw):
+            return []
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/lyrics/x", params={"q": "nic - nic", "artist": "nic"}).json()
+
+    assert data["plain"] is None
+    assert data["lines"] is None

@@ -860,9 +860,12 @@
   .sp-topbar{position:fixed;top:0;left:0;right:0;height:var(--sp-topbar);z-index:60;
     display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg)}
   .sp-nav-btns{display:flex;gap:8px;flex:0 0 auto}
-  .sp-round{width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,.7);
-    color:var(--sub);font-size:15px;cursor:pointer;display:flex;align-items:center;
-    justify-content:center;flex:0 0 auto;transition:color .15s,transform .15s}
+  .sp-round{width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,0,.7);
+    color:var(--sub);font-size:22px;line-height:1;cursor:pointer;display:flex;
+    align-items:center;justify-content:center;flex:0 0 auto;
+    transition:color .15s,transform .15s}
+  .sp-nav-btns .sp-round{background:rgba(0,0,0,.55)}
+  .sp-nav-btns .sp-round:not(:disabled):hover{background:rgba(255,255,255,.08)}
   .sp-round:hover{color:#fff}
   .sp-round:disabled{color:#5a5a5a;cursor:default}
   .sp-center{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;min-width:0}
@@ -1809,7 +1812,11 @@
 
           <div class="nm-tgroup">
             <div class="row">
-              <input type="range" class="nm-tempo" id="mixer-zoom" min="5" max="400" step="5" value="30">
+              <button class="nm-step" id="zoom-out" title="Oddálit">−</button>
+              <button class="nm-btn" id="zoom-fit" title="Celá skladba">Fit</button>
+              <button class="nm-step" id="zoom-in" title="Přiblížit">+</button>
+              <input type="range" class="nm-tempo" id="mixer-zoom" min="1" max="400" step="1"
+                     value="30" hidden>
             </div>
             <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
           </div>
@@ -1879,7 +1886,11 @@
   </div>
 
   <div id="podcasts-section" hidden>
-    <div class="section-title">🎙️ Podcasty</div>
+    <div class="section-title">Podcasty</div>
+    <div class="region-toggle" id="podcast-region">
+      <button data-region="cz" class="active">🇨🇿 České podcasty</button>
+      <button data-region="intl">🌍 Zahraniční</button>
+    </div>
     <div id="podcasts-list" class="grid"></div>
     <div id="podcast-detail" hidden></div>
   </div>
@@ -2497,6 +2508,9 @@ document.querySelectorAll("#lib-chips button").forEach(btn => {
 });
 
 function setMode(mode){
+  // A playlist page is stacked over the stage, so switching sections left it
+  // covering whatever the new section rendered underneath.
+  if(state.mode !== mode) closeOverlay();
   state.mode = mode;
   document.querySelectorAll("#lib-chips button").forEach(b =>
     b.classList.toggle("active", b.dataset.mode === mode));
@@ -3607,7 +3621,10 @@ const Mixer = (() => {
   }
 
   function totalWidthPx(){
-    return Math.max(1, duration * pixelsPerSecond);
+    // Never narrower than the viewport: a grid that stops mid-window leaves a
+    // dead strip beside the lanes.
+    const view = el("nm-scroll") ? el("nm-scroll").clientWidth : 0;
+    return Math.max(1, view, duration * pixelsPerSecond);
   }
 
   // Bar length in seconds (4/4 assumed, like the tempo detector). Falls back
@@ -4070,14 +4087,20 @@ const Mixer = (() => {
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
 
-    // Keep the playhead in view, but only nudge the scroll when it actually
-    // leaves the window — following it every frame makes the waveform jitter.
     const scroll = el("nm-scroll");
-    const viewLeft = scroll.scrollLeft;
-    const viewRight = viewLeft + scroll.clientWidth;
-    if(px < viewLeft || px > viewRight - 60){
-      scroll.scrollLeft = Math.max(0, px - scroll.clientWidth * 0.35);
-    }
+    const view = scroll.clientWidth;
+    const total = totalWidthPx();
+    if(total <= view) return;          // whole track fits; nothing to scroll
+
+    // The playhead runs out to the middle of the window, and from there the
+    // tracks move under it instead — the way a DAW scrolls. Near the end of
+    // the track it comes off centre again rather than leaving blank space.
+    const centre = view / 2;
+    const target = Math.max(0, Math.min(total - view, px - centre));
+    // Snap when the jump is large (a seek); glide for ordinary playback.
+    scroll.scrollLeft = Math.abs(scroll.scrollLeft - target) > view * 0.5
+      ? target
+      : scroll.scrollLeft + (target - scroll.scrollLeft) * 0.35;
   }
 
   function renderChannels(){
@@ -4385,14 +4408,18 @@ const Mixer = (() => {
     // you haven't heard yet tells you nothing about its shape.
     const viewW = el("nm-scroll").clientWidth || 900;
     if(duration){
-      pixelsPerSecond = Math.max(5, Math.min(400, Math.floor(viewW / duration)));
+      pixelsPerSecond = Math.max(1, Math.min(400, viewW / duration));
       el("mixer-zoom").value = pixelsPerSecond;
-      el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s";
+      el("mixer-zoom-val").textContent = pixelsPerSecond.toFixed(1) + " px/s";
     }
+    el("nm-scroll").scrollLeft = 0;
 
     renderChannels();
     renderTimeline();
     updateSeekUI(0);
+    // The stage was hidden a moment ago, so its width wasn't settled when the
+    // zoom above was computed. Re-fit once layout has run.
+    requestAnimationFrame(() => { if(myToken === loadToken) zoomToFit(); });
   }
 
   async function fetchBeatGrid(name, token){
@@ -4940,11 +4967,31 @@ const Mixer = (() => {
   };
 
   // Zoom
-  el("mixer-zoom").addEventListener("input", (e) => {
-    pixelsPerSecond = parseInt(e.target.value);
-    el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s";
+  // Zoom keeps whatever is under the playhead where it is, so stepping in
+  // and out doesn't lose your place in the track.
+  function setZoom(px){
+    const scroll = el("nm-scroll");
+    const anchorTime = currentTime();
+    const anchorOffset = anchorTime * pixelsPerSecond - scroll.scrollLeft;
+
+    pixelsPerSecond = Math.max(1, Math.min(400, Math.round(px * 100) / 100));
+    el("mixer-zoom").value = pixelsPerSecond;
+    el("mixer-zoom-val").textContent =
+      (pixelsPerSecond < 10 ? pixelsPerSecond.toFixed(1) : Math.round(pixelsPerSecond)) + " px/s";
     renderTimeline();
-  });
+    scroll.scrollLeft = Math.max(0, anchorTime * pixelsPerSecond - anchorOffset);
+  }
+
+  function zoomToFit(){
+    const w = el("nm-scroll").clientWidth || 900;
+    if(duration) setZoom(w / duration);
+    el("nm-scroll").scrollLeft = 0;
+  }
+
+  el("zoom-in").onclick = () => setZoom(pixelsPerSecond * 1.5);
+  el("zoom-out").onclick = () => setZoom(pixelsPerSecond / 1.5);
+  el("zoom-fit").onclick = () => zoomToFit();
+  el("mixer-zoom").addEventListener("input", (e) => setZoom(parseInt(e.target.value)));
 
   // Ruler click to seek
   el("mixer-ruler").addEventListener("click", (e) => {
@@ -5977,6 +6024,28 @@ const Player = (() => {
   return {
     play, playLocal, playLocalQueue, playPodcastEpisode,
     getCurrent: () => current,
+    // Fade the song out as another element takes over playback, and stop it
+    // only once that element is really running.
+    handOffTo: (element) => {
+      if(!element || audio.paused) return;
+      const from = audio.volume;
+      const started = () => {
+        const steps = 14;
+        let i = 0;
+        const tick = setInterval(() => {
+          i++;
+          audio.volume = Math.max(0, from * (1 - i / steps));
+          if(i >= steps){
+            clearInterval(tick);
+            audio.pause();
+            audio.volume = from;    // restore for the next track
+          }
+        }, 40);
+      };
+      element.addEventListener("playing", started, {once: true});
+      // If it never starts (dead stream), don't leave the song muted.
+      setTimeout(() => element.removeEventListener("playing", started), 30000);
+    },
     // Lyrics needs the transport clock and a way to jump to a line.
     currentTimeMs: () => (audio.currentTime || 0) * 1000,
     seekTo: (sec) => {
@@ -6378,7 +6447,7 @@ el("settings-save").onclick = async () => {
 // ======================================================================
 // Podcasts — discovery and episode playback
 // ======================================================================
-const PODCASTS_STATE = { shows: [], query: "", loading: false };
+const PODCASTS_STATE = { shows: [], query: "", loading: false, region: "cz" };
 
 async function loadPodcastsList(){
   const list = el("podcasts-list");
@@ -6387,7 +6456,7 @@ async function loadPodcastsList(){
   list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám podcasty…</div>`;
   PODCASTS_STATE.loading = true;
   try{
-    const res = await fetch("/api/podcasts?q=podcast&limit=40");
+    const res = await fetch(`/api/podcasts?region=${encodeURIComponent(PODCASTS_STATE.region || "cz")}&limit=40`);
     PODCASTS_STATE.shows = await res.json();
   }catch(e){
     list.innerHTML = `<div class="empty" style="padding:24px 10px">Nepodařilo se načíst podcasty.</div>`;
@@ -6398,6 +6467,17 @@ async function loadPodcastsList(){
   renderPodcastsGrid();
   if(state.mode === "podcasts") renderLibraryRail("podcasts");
 }
+
+// Czech is the default: a bare "podcast" search on YouTube Music returns
+// essentially nothing Czech, so the backend runs a curated set of queries.
+document.querySelectorAll("#podcast-region button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#podcast-region button")
+      .forEach(b => b.classList.toggle("active", b === btn));
+    PODCASTS_STATE.region = btn.dataset.region;
+    loadPodcastsList();
+  };
+});
 
 function renderPodcastsGrid(){
   const list = el("podcasts-list");
@@ -6946,7 +7026,9 @@ function makeFloating(id, opts){
   // ---- drag ----
   let dragging = false, dx = 0, dy = 0;
   head.addEventListener("pointerdown", (e) => {
-    if(e.target.closest(".float-btn")) return;   // buttons aren't a drag handle
+    // Any button in the title bar is a control, not a drag handle. Missing
+    // .close-btn here is what stopped the lyrics panel from closing.
+    if(e.target.closest("button")) return;
     dragging = true;
     const r = win.getBoundingClientRect();
     dx = e.clientX - r.left;
@@ -7023,12 +7105,19 @@ function openFloatingVideo(){
   el("float-video-title").textContent = t.title || "Video";
   el("float-video-pop").onclick = () =>
     window.open(`https://www.youtube.com/watch?v=${t.videoId}`, "_blank");
+
   // Proxied through the app's own stream endpoint, the same way previews are:
   // YouTube blocks embedding for a lot of official music videos.
   el("float-video-body").innerHTML =
     `<video src="/api/stream-video/${encodeURIComponent(t.videoId)}" controls autoplay
             playsinline style="background:#000"></video>`;
   FloatVideo.open();
+
+  // Hand over rather than cut: the audio fades while the video buffers, and
+  // only stops once the video is actually playing. A hard stop leaves silence
+  // for however long the stream takes to start.
+  const video = el("float-video-body").querySelector("video");
+  if(video) Player.handOffTo(video);
 }
 
 el("pb-video-btn").onclick = openFloatingVideo;

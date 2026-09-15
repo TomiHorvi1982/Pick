@@ -1529,6 +1529,48 @@ _LYRICS_CACHE: dict = {}
 _LYRICS_CACHE_TTL = 30 * 60  # 30 minutes
 
 
+def _fetch_ytmusic_lyrics(title: str, artist: str, video_id: str = "") -> Optional[dict]:
+    """Lyrics from YouTube Music, as a fallback when LRCLib has nothing.
+
+    LRCLib's catalogue is thin outside English-language pop — it knows almost
+    no Czech repertoire — while YouTube Music carries lyrics for most of what
+    it streams. These are plain text, not timed, so the panel scrolls them
+    without highlighting; that's still better than an empty panel.
+    """
+    try:
+        client = yt()
+        vid = video_id
+        if not vid or len(vid) != 11:
+            query = f"{artist} {title}".strip()
+            if not query:
+                return None
+            hits = client.search(query, filter="songs", limit=1)
+            if not hits:
+                return None
+            vid = hits[0].get("videoId")
+        if not vid:
+            return None
+
+        watch = client.get_watch_playlist(videoId=vid)
+        lyrics_id = watch.get("lyrics")
+        if not lyrics_id:
+            return None
+
+        payload = client.get_lyrics(lyrics_id)
+    except Exception:
+        return None
+
+    text = (payload or {}).get("lyrics")
+    if not text or not text.strip():
+        return None
+    return {
+        "synced": False,
+        "lines": None,
+        "plain": text,
+        "source": (payload or {}).get("source") or "YouTube Music",
+    }
+
+
 def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, duration: float = None) -> Optional[dict]:
     """Fetch synced lyrics from LRCLib API.
 
@@ -1590,7 +1632,8 @@ def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, dur
 
 
 @app.get("/api/lyrics/search")
-def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: float = None):
+def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: float = None,
+                  video_id: str = ""):
     """Search for lyrics via LRCLib.
 
     If q is provided but artist is not, q is treated as "artist - title" or just title.
@@ -1605,26 +1648,43 @@ def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: floa
         return {"synced": False, "lines": None, "plain": None, "source": None}
 
     result = _fetch_lrclib(title, artist, album, duration)
+    if not result or not (result.get("lines") or result.get("plain")):
+        result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
     return result or {"synced": False, "lines": None, "plain": None, "source": None}
 
 
 # ----------------------------------------------------------------- podcasts
 
-@app.get("/api/podcasts")
-def search_podcasts(q: str = "podcast", limit: int = 40):
-    """Search for podcasts via YouTube Music (which indexes podcast shows).
+# A single "podcast" query returns almost nothing Czech, because YouTube Music
+# ranks by global popularity. Searching a handful of Czech-language terms and
+# merging the results is what actually surfaces Czech shows.
+CZ_PODCAST_QUERIES = [
+    "český podcast",
+    "podcast česky",
+    "rozhovor podcast cz",
+    "Český rozhlas podcast",
+    "Seznam Zprávy podcast",
+    "Aktuálně podcast",
+    "kriminální podcast česky",
+    "historie podcast česky",
+    "věda podcast česky",
+    "komedie podcast česky",
+]
 
-    Returns a list of podcast show metadata. Episode fetching is
-    deferred to /api/podcasts/{show_id} for the selected show.
-    """
-    client = yt()
-    results = client.search(q, filter="podcasts", limit=limit)
-    out = []
+INTL_PODCAST_QUERIES = ["podcast"]
+
+
+def _podcast_rows(client, query, limit):
+    try:
+        results = client.search(query, filter="podcasts", limit=limit)
+    except Exception:
+        return []
+    rows = []
     for r in results:
         bid = r.get("browseId")
         if not bid:
             continue
-        out.append({
+        rows.append({
             "id": bid,
             "title": r.get("title"),
             "author": r.get("author"),
@@ -1632,6 +1692,34 @@ def search_podcasts(q: str = "podcast", limit: int = 40):
             "thumbnail": _best_thumb(r.get("thumbnails")),
             "type": "podcast",
         })
+    return rows
+
+
+@app.get("/api/podcasts")
+def search_podcasts(q: str = "", region: str = "cz", limit: int = 40):
+    """Search for podcasts via YouTube Music (which indexes podcast shows).
+
+    With no query, `region` picks a curated set of searches; Czech is the
+    default because a bare "podcast" search returns essentially no Czech
+    shows. Episode fetching is deferred to /api/podcasts/{show_id}.
+    """
+    client = yt()
+
+    if q.strip():
+        return _podcast_rows(client, q.strip(), limit)
+
+    queries = CZ_PODCAST_QUERIES if region == "cz" else INTL_PODCAST_QUERIES
+    per_query = max(4, limit // max(1, len(queries)) + 2)
+
+    out, seen = [], set()
+    for query in queries:
+        for row in _podcast_rows(client, query, per_query):
+            if row["id"] in seen:
+                continue
+            seen.add(row["id"])
+            out.append(row)
+            if len(out) >= limit:
+                return out
     return out
 
 
@@ -1738,4 +1826,6 @@ def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str
         return {"synced": False, "lines": None, "plain": None, "source": None}
 
     result = _fetch_lrclib(title, artist, album, duration)
+    if not result or not (result.get("lines") or result.get("plain")):
+        result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
     return result or {"synced": False, "lines": None, "plain": None, "source": None}

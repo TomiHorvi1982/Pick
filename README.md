@@ -79,7 +79,13 @@ cd ~/.local/share/spotdl-helper/app
   přímá media URL řeší přes yt-dlp a bajty se proxují do `<audio>`/`<video>`.
   Videa bez progresivního formátu (jen DASH) se stáhnou a slijí do dočasného
   souboru; ten se uklidí po vypršení cache (45 min).
-- **Texty**: LRCLib, synced i plain.
+- **Texty**: nejdřív LRCLib (synchronizované), a když nemá — což u českého
+  repertoáru bývá skoro vždy — spadne to na YouTube Music přes `ytmusicapi`,
+  který texty nese pro většinu toho, co streamuje. Ty jsou bez časování, takže
+  se jen rolují.
+- **Podcasty**: `region=cz` je výchozí. Jedno hledání „podcast" na YouTube
+  Music vrátí prakticky nic českého (řadí podle globální popularity), takže se
+  pouští sada českých dotazů a výsledky se slučují.
 - **Beat grid**: `beatgrid.py` běží pod interpretem Demucsu (ten má torch) a
   trackuje beaty na **izolované stopě bicích** — nejčistší onset signál, jaký
   je k dispozici, a důvod, proč se to dělá až po separaci. `beat_this` je
