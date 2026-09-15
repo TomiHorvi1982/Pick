@@ -68,10 +68,135 @@ def _load_mono(path, sr=22050):
     return np.frombuffer(proc.stdout, dtype="<f4").copy(), sr
 
 
+def _global_interval(beats):
+    """Median beat interval over the whole grid."""
+    gaps = [b - a for a, b in zip(beats, beats[1:]) if b > a]
+    return statistics.median(gaps) if gaps else None
+
+
+def _dominant_interval(beats):
+    """The one beat period the track is actually at.
+
+    beat_this switches into double time through busy sections, so the raw gap
+    distribution is bimodal — on one metal track here, 312 gaps near 0.52 s
+    against 192 near 0.27 s. The median lands on the dominant mode, and a
+    second pass over only the gaps close to it removes the rest, which is what
+    makes the number stable enough to extrapolate a whole intro from.
+    """
+    gaps = [b - a for a, b in zip(beats, beats[1:]) if b > a]
+    if not gaps:
+        return None
+    median = statistics.median(gaps)
+    near = [g for g in gaps if 0.75 * median <= g <= 1.33 * median]
+    return statistics.median(near) if near else median
+
+
+def _drop_subdivisions(beats, interval, floor=0.72):
+    """Remove the extra beats a double-time stretch contributed.
+
+    Left in, they make the lane grid twice as dense in exactly the loudest
+    sections and put the click on eighth notes there. Measured against the
+    beat that was *kept*, so a run of subdivisions collapses rather than
+    alternating.
+    """
+    if not beats or not interval:
+        return beats, 0
+    kept = [beats[0]]
+    dropped = 0
+    for t in beats[1:]:
+        if t - kept[-1] < interval * floor:
+            dropped += 1
+            continue
+        kept.append(t)
+    return kept, dropped
+
+
+def _fill_interior_gaps(beats, interval, max_gap_beats=64):
+    """Insert beats across stretches the tracker skipped.
+
+    A drum-free bridge leaves a hole in the grid and the click simply stops for
+    its duration, which reads as a bug rather than as musical silence. The
+    track's own period is used rather than a local estimate, because a local
+    estimate taken *at* a hole is measured from the very beats that are
+    missing.
+    """
+    if len(beats) < 2 or not interval or interval <= 0:
+        return beats, []
+
+    out = [beats[0]]
+    filled = []
+    for prev, nxt in zip(beats, beats[1:]):
+        gap = nxt - prev
+        steps = int(round(gap / interval))
+        # A gap of 1.5 beats is not two beats. Splitting it anyway was
+        # manufacturing beats at 0.41 s inside a 0.54 s track; leaving a short
+        # hole is better than inventing a beat that isn't there.
+        if 2 <= steps <= max_gap_beats and abs(gap / interval - steps) < 0.18:
+            step = gap / steps       # spread evenly so the far edge stays put
+            for k in range(1, steps):
+                t = round(prev + k * step, 4)
+                out.append(t)
+                filled.append(t)
+        out.append(nxt)
+    return out, filled
+
+
+def _extend_to_edges(beats, duration, interval):
+    """Extrapolate the grid back to 0 and forward to the end of the track.
+
+    Detection starts at the first drum hit, so an intro — often the first
+    20-30 seconds — has no grid at all, and bar 1 lands wherever the drums
+    came in rather than at the start of the music.
+    """
+    head, tail = [], []
+    if not interval or interval <= 0:
+        return beats, head, tail
+
+    t = beats[0] - interval
+    while t > 0.0005:                 # a beat at t<=0 has nowhere to be drawn
+        head.append(round(t, 4))
+        t -= interval
+    head.reverse()
+
+    if duration:
+        t = beats[-1] + interval
+        while t < duration:
+            tail.append(round(t, 4))
+            t += interval
+
+    return head + beats + tail, head, tail
+
+
+def _rebuild_downbeats(all_beats, detected, beats_per_bar):
+    """Regular bar lines, phase-fitted to the downbeats that were detected.
+
+    Keeping the raw downbeats sounds more faithful but isn't usable: on real
+    material they arrive irregularly enough that consecutive "bars" differ by
+    a whole beat, and a ruler numbered from them is wrong more often than it
+    is right. Instead every beats_per_bar-th beat becomes a bar line, at
+    whichever of the possible offsets agrees with the detected downbeats most
+    often — so the bars are even *and* start where the tracker heard them.
+    """
+    if not all_beats:
+        return []
+    if not detected or beats_per_bar < 2:
+        return all_beats[::max(1, beats_per_bar)]
+
+    detected_set = set(detected)
+    best_phase, best_score = 0, -1
+    for phase in range(beats_per_bar):
+        score = sum(1 for i in range(phase, len(all_beats), beats_per_bar)
+                    if all_beats[i] in detected_set)
+        if score > best_score:
+            best_phase, best_score = phase, score
+    return [all_beats[i] for i in range(best_phase, len(all_beats), beats_per_bar)]
+
+
 def main(path):
     from beat_this.inference import Audio2Beats
 
     signal, sr = _load_mono(path)
+    duration = len(signal) / float(sr) if sr else 0.0
 
     # dbn=False keeps this dependency-free: the DBN post-processor needs a git
     # install of madmom with an undeclared Cython build step.
@@ -106,12 +231,36 @@ def main(path):
             if abs(nearest - ratio) < 0.35:
                 beats_per_bar = nearest
 
+    # Everything above this point is what the tracker actually heard; keep its
+    # bounds so the UI can draw the extrapolated bars more faintly.
+    detected_from, detected_to = beats[0], beats[-1]
+
+    # One stable period first: collapse double-time stretches onto it, then
+    # fill and extend using that single number, so the finished grid is
+    # regular instead of inheriting the tracker's mode switches.
+    interval = _dominant_interval(beats) or (60.0 / bpm)
+    beats, dropped = _drop_subdivisions(beats, interval)
+    downbeats = [t for t in downbeats if t in set(beats)]
+    beats, filled = _fill_interior_gaps(beats, interval)
+    beats, head, tail = _extend_to_edges(beats, duration, interval)
+    downbeats = _rebuild_downbeats(beats, downbeats, beats_per_bar)
+    bpm = 60.0 / interval
+
     return {
         "beats": beats,
         "downbeats": downbeats,
         "bpm": round(bpm, 2),
         "beats_per_bar": beats_per_bar,
         "detector": "beat_this",
+        "duration": round(duration, 3),
+        # The span the tracker was confident about; outside it the grid is
+        # extrapolated from the tempo at the nearest edge.
+        "detected_from": detected_from,
+        "detected_to": detected_to,
+        "extrapolated": {
+            "head": len(head), "tail": len(tail),
+            "filled": len(filled), "dropped": dropped,
+        },
     }
 
 

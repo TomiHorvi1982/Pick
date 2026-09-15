@@ -89,3 +89,10 @@ cd ~/.local/share/spotdl-helper/app
   90 a klik jde v půlce — a žádná metrika kvality to nepozná, protože
   půltaktová mřížka má pod každou dobou reálný úder bicích. Výsledek se
   cachuje do `Stems/<název>/beats.json`.
+- **Dopočítávání mřížky**: tracker začíná až u prvního úderu bicích, takže
+  intro (často 20–30 s) by zůstalo bez mřížky a takt 1 by padl tam, kde
+  nastoupí bicí. `beatgrid.py` proto surový výstup ještě zpracuje: sjednotí
+  dvojité tempo na jedno období, doplní doby přes pasáže bez bicích, natáhne
+  mřížku k nule i na konec skladby a taktové čáry přepočítá na pravidelné,
+  fázově zarovnané s detekovanými downbeaty. Vrací i `detected_from/to`, takže
+  UI kreslí dopočítané takty slaběji než změřené.

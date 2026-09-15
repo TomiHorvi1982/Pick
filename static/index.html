@@ -3179,6 +3179,11 @@ const Mixer = (() => {
   let downbeatTimes = [];
   let beatsPerBar = 4;
   let beatSetIndex = new Set();   // downbeat lookup for accenting the click
+  // The span the tracker actually heard. Outside it the grid is extrapolated
+  // from the track's own period, and drawn fainter so it's clear which bars
+  // are measured and which are inferred.
+  let detectedFrom = 0;
+  let detectedTo = Infinity;
   let metronomeOn = false;
   let metronomeOsc = null;
   let metronomeGain = null;
@@ -3668,31 +3673,32 @@ const Mixer = (() => {
     let step = 1;
     while(step * spacing < 46) step *= 2;
 
-    const beatSpacing = spacing / Math.max(1, beatsPerBar);
-    if(beatSpacing >= 11){
-      g.strokeStyle = "rgba(255,255,255,.05)";
+    const measured = (t) => t >= detectedFrom && t <= detectedTo;
+
+    const strokeLines = (times, filter, colour) => {
+      g.strokeStyle = colour;
       g.lineWidth = 1;
       g.beginPath();
-      for(const t of beatTimes){
+      let drew = false;
+      times.forEach((t, i) => {
+        if(!filter(t, i)) return;
         const x = t * pixelsPerSecond;
-        if(x > w) break;
+        if(x > w) return;
         const px = Math.floor(x) + 0.5;
         g.moveTo(px, 0); g.lineTo(px, h);
-      }
-      g.stroke();
+        drew = true;
+      });
+      if(drew) g.stroke();
+    };
+
+    const beatSpacing = spacing / Math.max(1, beatsPerBar);
+    if(beatSpacing >= 11){
+      strokeLines(beatTimes, (t) => measured(t), "rgba(255,255,255,.05)");
+      strokeLines(beatTimes, (t) => !measured(t), "rgba(255,255,255,.025)");
     }
 
-    g.strokeStyle = "rgba(200,121,31,.5)";
-    g.lineWidth = 1;
-    g.beginPath();
-    downbeatTimes.forEach((t, i) => {
-      if(i % step) return;
-      const x = t * pixelsPerSecond;
-      if(x > w) return;
-      const px = Math.floor(x) + 0.5;
-      g.moveTo(px, 0); g.lineTo(px, h);
-    });
-    g.stroke();
+    strokeLines(downbeatTimes, (t, i) => !(i % step) && measured(t), "rgba(200,121,31,.5)");
+    strokeLines(downbeatTimes, (t, i) => !(i % step) && !measured(t), "rgba(200,121,31,.22)");
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -4149,6 +4155,8 @@ const Mixer = (() => {
     downbeatTimes = [];
     beatSetIndex = new Set();
     beatsPerBar = 4;
+    detectedFrom = 0;
+    detectedTo = Infinity;
     try{
       const refCh = channels.find(c => c.stem === "drums") || channels[0];
       tempoBPM = detectTempo(refCh.buffer);
@@ -4198,6 +4206,8 @@ const Mixer = (() => {
       downbeatTimes = data.downbeats || [];
       beatsPerBar = data.beats_per_bar || 4;
       beatSetIndex = new Set(downbeatTimes);
+      detectedFrom = data.detected_from ?? 0;
+      detectedTo = data.detected_to ?? Infinity;
       tempoBPM = Math.round(data.bpm);
       beatInterval = 60 / data.bpm;
       el("mixer-tempo").textContent = tempoBPM;
