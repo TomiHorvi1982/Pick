@@ -1597,6 +1597,64 @@
   .tree-children{margin-left:14px;border-left:1px solid rgba(255,255,255,.07)}
   body.lib-collapsed .tree-row{justify-content:center;padding:6px 0}
   body.lib-collapsed .tree-twisty,body.lib-collapsed .tree-name{display:none}
+
+  /* ---- search bar, per the reference ---- */
+  .sp-home{width:48px;height:48px;border-radius:14px;background:var(--card);
+    color:var(--text)}
+  .sp-home:hover{background:var(--card-hi);transform:none}
+  .sp-home svg{display:block}
+  .sp-searchbox{height:48px;padding:0 6px 0 16px;gap:12px;
+    width:min(474px,44vw)}
+  .sp-searchbox .ic{display:flex;align-items:center;color:var(--sub)}
+  .sp-searchbox:focus-within .ic{color:#fff}
+  .sp-searchbox .divider{height:26px;background:rgba(255,255,255,.28)}
+  .sp-browse{width:36px;height:36px;border-radius:50%;border:none;
+    background:transparent;color:var(--sub);cursor:pointer;display:flex;
+    align-items:center;justify-content:center;flex:0 0 auto;
+    transition:color .15s,background .15s}
+  .sp-browse:hover{color:#fff;background:rgba(255,255,255,.08)}
+
+  /* ==================================================================
+     Preview tiles, sized from the reference: a square cover that fills
+     the tile, then title and subtitle under it. Artists are circles.
+     ================================================================== */
+  .grid{grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:24px 20px}
+  .card{padding:12px;border-radius:8px;background:transparent}
+  .card:hover{background:#1a1a1a}
+  .card .art{width:100%;aspect-ratio:1;border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);background-size:cover;
+    background-position:center;display:flex;align-items:center;
+    justify-content:center;font-size:34px;color:var(--sub)}
+  .card .meta{padding:14px 2px 2px}
+  .card .title{font-size:15px;font-weight:600;color:var(--text);line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden}
+  .card .sub{font-size:13px;color:var(--sub);margin-top:5px;line-height:1.4;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden}
+
+  /* An artist is a person, not a record — the reference draws them round. */
+  .card-artist .art{border-radius:50%;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .card-artist .title,.card-artist .sub{text-align:left}
+
+  /* ---- shelves: a titled row that scrolls sideways ---- */
+  .shelf{margin:28px 0 8px}
+  .shelf-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+  .shelf-head .h{font-size:22px;font-weight:700;color:var(--text);
+    letter-spacing:-.01em;margin:0}
+  .shelf-head .all{margin-left:auto;font-size:13px;font-weight:600;
+    color:var(--sub);cursor:pointer;background:none;border:none;
+    font-family:inherit}
+  .shelf-head .all:hover{color:#fff;text-decoration:underline}
+  .shelf-row{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x proximity;
+    padding-bottom:6px;scrollbar-width:none}
+  .shelf-row::-webkit-scrollbar{display:none}
+  .shelf-row > .card{flex:0 0 176px;scroll-snap-align:start}
+
+  @media(max-width:900px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:20px 16px}
+    .shelf-row > .card{flex-basis:146px}
+  }
 </style>
 </head>
 <body>
@@ -1607,13 +1665,26 @@
     <button class="sp-round" id="nav-fwd" title="Vpřed">›</button>
   </div>
   <div class="sp-center">
-    <button class="sp-home" id="sp-home" title="Domů">⌂</button>
+    <button class="sp-home" id="sp-home" title="Domů" aria-label="Domů">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+        <path d="M12.5 3.2a1 1 0 0 0-1 0l-8 5.2a1 1 0 0 0-.5.9V20a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-5h3v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V9.3a1 1 0 0 0-.5-.9l-8-5.2Z"
+              opacity=".18"/>
+        <path d="M12.55 2.37a1 1 0 0 0-1.1 0l-8.5 5.6A1 1 0 0 0 2.5 8.8V20a1.5 1.5 0 0 0 1.5 1.5h4.5a1 1 0 0 0 1-1V15.5h5V20.5a1 1 0 0 0 1 1H20a1.5 1.5 0 0 0 1.5-1.5V8.8a1 1 0 0 0-.45-.83l-8.5-5.6ZM4.5 19.5V9.34L12 4.4l7.5 4.94V19.5h-3.5V14.5a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v5H4.5Z"/>
+      </svg>
+    </button>
     <div class="sp-searchbox">
-      <span class="ic">🔍</span>
+      <span class="ic" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+          <path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25a1 1 0 0 0 1.42-1.42l-4.25-4.24A7.5 7.5 0 0 0 10.5 3Zm-5.5 7.5a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0Z"/>
+        </svg>
+      </span>
       <input id="search-input" type="text" placeholder="Co chceš přehrát?" autocomplete="off">
       <span class="divider"></span>
-      <button class="sp-iconbtn" id="surprise-btn" title="Překvap mě" style="font-size:16px">🎲</button>
-      <button class="sp-iconbtn" id="search-btn" title="Hledat" style="font-size:16px">➤</button>
+      <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
+          <path d="M4 4h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 6.5h14V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19v-8.5Zm4 2.5a.9.9 0 0 0 0 1.8h6a.9.9 0 0 0 0-1.8H9Z"/>
+        </svg>
+      </button>
     </div>
   </div>
   <div class="sp-topbar-right">
@@ -1713,9 +1784,20 @@
       <button data-region="cz">🇨🇿 České Playlisty</button>
     </div>
 
-    <div id="fav-playlists-section" hidden>
-      <div class="section-title">⭐ Oblíbené playlisty</div>
-      <div class="grid" id="fav-playlists-grid"></div>
+    <div class="shelf" id="fav-playlists-section" hidden>
+      <div class="shelf-head">
+        <h2 class="h">Oblíbené playlisty</h2>
+        <button class="all" id="fav-playlists-all">Zobrazit vše</button>
+      </div>
+      <div class="shelf-row" id="fav-playlists-grid"></div>
+    </div>
+
+    <div class="shelf" id="fav-artists-section" hidden>
+      <div class="shelf-head">
+        <h2 class="h">Tví oblíbení umělci</h2>
+        <button class="all" id="fav-artists-all">Zobrazit vše</button>
+      </div>
+      <div class="shelf-row" id="fav-artists-grid"></div>
     </div>
 
     <div class="section-title">🕒 Dekády</div>
@@ -2558,7 +2640,47 @@ function toggleFavPlaylist(playlist){
   renderFavPlaylists();
   return added;
 }
+// "Zobrazit vše" turns a shelf into a wrapping grid, and back.
+function toggleShelf(sectionId, gridId, btnId){
+  const grid = el(gridId);
+  const expanded = grid.classList.toggle("grid");
+  grid.classList.toggle("shelf-row", !expanded);
+  el(btnId).textContent = expanded ? "Zobrazit méně" : "Zobrazit vše";
+}
+el("fav-playlists-all").onclick = () =>
+  toggleShelf("fav-playlists-section", "fav-playlists-grid", "fav-playlists-all");
+el("fav-artists-all").onclick = () =>
+  toggleShelf("fav-artists-section", "fav-artists-grid", "fav-artists-all");
+
+// Saved artists, as the round tiles the reference uses.
+function renderFavArtists(){
+  const section = el("fav-artists-section");
+  const artists = (loadMyLibrary().artists || []);
+  const shouldShow = artists.length > 0 && state.mode === "playlists";
+  section.hidden = !shouldShow;
+  if(!shouldShow) return;
+
+  const grid = el("fav-artists-grid");
+  grid.innerHTML = "";
+  artists.forEach(a => {
+    const card = document.createElement("div");
+    card.className = "card card-artist";
+    card.innerHTML = `
+      <div class="art" style="${a.thumbnail ? `background-image:url('${thumbUrl(a.thumbnail)}')` : ""}">${a.thumbnail ? "" : "\uD83C\uDFA4"}</div>
+      <div class="meta">
+        <div class="title">${escapeHtml(a.title || a.name || "")}</div>
+        <div class="sub">Umělec</div>
+      </div>`;
+    card.onclick = () => {
+      el("search-input").value = a.title || a.name || "";
+      runSearch();
+    };
+    grid.appendChild(card);
+  });
+}
+
 function renderFavPlaylists(){
+  renderFavArtists();
   const section = el("fav-playlists-section");
   const list = loadFavPlaylists();
   const shouldShow = list.length > 0 && state.mode === "playlists";
@@ -2597,24 +2719,6 @@ regionToggle.querySelectorAll("button").forEach(btn=>{
     regionToggle.querySelectorAll("button").forEach(b => b.classList.toggle("active", b===btn));
   };
 });
-
-// ======================================================================
-// Surprise me 🎲
-// ======================================================================
-el("surprise-btn").onclick = () => {
-  const genre = ROCK_METAL_GENRES[Math.floor(Math.random()*ROCK_METAL_GENRES.length)];
-  const decade = DECADES[Math.floor(Math.random()*DECADES.length)].value;
-  let query = `${genre} ${decade}`;
-  if(Math.random() < 0.35){
-    const n = TOPN_PRESETS[Math.floor(Math.random()*TOPN_PRESETS.length)];
-    query = `Top ${n} ${query}`;
-  }
-  el("search-input").value = query;
-  syncChipActiveStates();
-  updateArtistSuggestions();
-  runSearch();
-  showToast(`🎲 ${query}`);
-};
 
 // ======================================================================
 // Tabs & mode switching
@@ -7148,7 +7252,7 @@ function renderMyLibrary() {
   grid.innerHTML = "";
   items.forEach(item => {
     const card = document.createElement("div");
-    card.className = "card";
+    card.className = "card card-" + item.kind;
     const thumb = item.thumbnail || "";
     const icon = item.kind === "playlist" ? "🎵" : item.kind === "album" ? "💿" : "🎤";
     card.innerHTML = `
@@ -7156,7 +7260,8 @@ function renderMyLibrary() {
       <div class="art" style="${thumb ? `background-image:url('${thumbUrl(thumb)}')` : ""}">${thumb ? "" : icon}</div>
       <div class="meta">
         <div class="title">${escapeHtml(item.title || "")}</div>
-        <div class="sub">${escapeHtml(item.author || "")}</div>
+        <div class="sub">${escapeHtml(item.author
+          || (item.kind === "artist" ? "Umělec" : item.kind === "album" ? "Album" : "Playlist"))}</div>
       </div>`;
     card.querySelector(".lib-remove").onclick = (e) => {
       e.stopPropagation();
