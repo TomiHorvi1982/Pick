@@ -2,6 +2,8 @@
 Demucs device selection and merged-video temp cleanup.
 """
 
+import pytest
+
 import subprocess
 import time
 
@@ -770,3 +772,136 @@ def test_audio_tags_survive_an_unreadable_file(tmp_path, monkeypatch):
     missing = tmp_path / "gone.mp3"
 
     assert server._audio_tags(missing) == {}
+
+
+# --------------------------------------------------- stems as 320k mp3
+
+def test_separate_writes_320k_mp3(client, tmp_music_root, monkeypatch):
+    """Six lossless stems of a five-minute track run past 300MB; these get
+    remixed, not mastered."""
+    import server
+
+    src = tmp_music_root / "Songs" / "song.mp3"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"x")
+    monkeypatch.setattr(server, "_DEMUCS_DEVICE_CACHE", {"device": None})
+
+    job = server.JOBS[client.post("/api/stems/separate",
+                                  json={"rel": "Songs/song.mp3"}).json()["job_id"]]
+
+    assert "--mp3" in job["cmd"]
+    assert job["cmd"][job["cmd"].index("--mp3-bitrate") + 1] == "320"
+
+
+def test_stem_file_prefers_mp3_but_reads_wav(tmp_music_root):
+    """Sets separated before the switch are WAV and must keep working."""
+    import server
+
+    # Must sit under MUSIC_ROOT: the lookup runs the containment check that
+    # stops a symlink pointing out of the library from being served.
+    d = tmp_music_root / "Stems" / "Song"
+    d.mkdir(parents=True)
+    (d / "drums.wav").write_bytes(b"x")
+
+    assert server._stem_file(d, "drums").suffix == ".wav"
+
+    (d / "drums.mp3").write_bytes(b"x")
+    assert server._stem_file(d, "drums").suffix == ".mp3"
+
+    assert server._stem_file(d, "vocals") is None
+
+
+def test_stream_stem_serves_either_format(client, tmp_music_root):
+    d = tmp_music_root / "Stems" / "Song"
+    d.mkdir(parents=True)
+    (d / "drums.mp3").write_bytes(b"\xff\xfbmp3data")
+
+    # The extension in the URL is optional and ignored — old clients sent .wav.
+    for path in ("/api/stems/Song/drums", "/api/stems/Song/drums.wav"):
+        res = client.get(path)
+        assert res.status_code == 200, path
+        assert res.headers["content-type"].startswith("audio/")
+
+
+def test_stems_ready_accepts_mp3(client, tmp_music_root):
+    src = tmp_music_root / "song.mp3"
+    src.write_bytes(b"x")
+    d = tmp_music_root / "Stems" / "song"
+    d.mkdir(parents=True)
+    for stem in server.STEM_NAMES:
+        (d / f"{stem}.mp3").write_bytes(b"x")
+
+    assert client.post("/api/stems/separate",
+                       json={"rel": "song.mp3"}).json()["ready"] is True
+
+
+def test_convert_dry_run_touches_nothing(client, tmp_music_root):
+    d = tmp_music_root / "Stems" / "Song"
+    d.mkdir(parents=True)
+    (d / "drums.wav").write_bytes(b"x" * 5000)
+
+    data = client.post("/api/stems/convert", params={"dry_run": True}).json()
+
+    assert data["converted"] == 1
+    assert data["freed_bytes"] == 5000
+    assert (d / "drums.wav").is_file()      # still there
+    assert not (d / "drums.mp3").exists()
+
+
+def test_convert_keeps_the_wav_when_encoding_fails(client, tmp_music_root, monkeypatch):
+    """A failed encode must never cost the only copy of a stem."""
+    import subprocess as _sp
+    import server
+
+    d = tmp_music_root / "Stems" / "Song"
+    d.mkdir(parents=True)
+    (d / "drums.wav").write_bytes(b"x" * 5000)
+
+    monkeypatch.setattr(server.subprocess, "run",
+                        lambda cmd, **kw: _sp.CompletedProcess(cmd, 1, stderr=b"boom"))
+
+    data = client.post("/api/stems/convert").json()
+
+    assert data["converted"] == 0
+    assert data["failed"]
+    assert (d / "drums.wav").is_file()
+
+
+def test_convert_rejects_a_suspiciously_small_encode(client, tmp_music_root, monkeypatch):
+    """ffmpeg can exit 0 having written a stub; that isn't a stem."""
+    import subprocess as _sp
+    import server
+
+    d = tmp_music_root / "Stems" / "Song"
+    d.mkdir(parents=True)
+    (d / "drums.wav").write_bytes(b"x" * 5000)
+
+    def fake_run(cmd, **kw):
+        pathlib.Path(cmd[-1]).write_bytes(b"tiny")
+        return _sp.CompletedProcess(cmd, 0)
+
+    import pathlib
+    monkeypatch.setattr(server.subprocess, "run", fake_run)
+
+    data = client.post("/api/stems/convert").json()
+
+    assert data["converted"] == 0
+    assert (d / "drums.wav").is_file()
+    assert not (d / "drums.mp3").exists()    # the stub is cleaned up
+
+
+def test_stem_file_refuses_a_symlink_out_of_the_library(tmp_music_root):
+    """The format-flexible lookup must not become a way around the root check."""
+    import os
+    import server
+
+    outside = tmp_music_root.parent / "outside.wav"
+    outside.write_bytes(b"should-not-reach")
+    d = tmp_music_root / "Stems" / "Escape"
+    d.mkdir(parents=True)
+    try:
+        os.symlink(outside, d / "drums.wav")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks not supported on this filesystem")
+
+    assert server._stem_file(d, "drums") is None

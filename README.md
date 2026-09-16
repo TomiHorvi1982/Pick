@@ -26,7 +26,7 @@ app/
 | Konfigurace   | `~/.local/share/spotdl-helper/config.json`            |
 | Log serveru   | `~/.local/share/spotdl-helper/server.log`             |
 | Hudba         | `~/Music/spotdl/` (`Songs/`, `Stems/`, `Playlists/`)  |
-| Stemy         | `~/Music/spotdl/Stems/{skladba}/{stem}.wav`           |
+| Stemy         | `~/Music/spotdl/Stems/{skladba}/{stem}.mp3`           |
 
 Kořen hudby lze změnit v Nastavení; uloží se do `config.json`.
 
@@ -73,7 +73,10 @@ cd ~/.local/share/spotdl-helper/app
 ## Poznámky
 
 - **Stemy**: model `htdemucs_6s`, 6 stop (vocals, drums, bass, guitar, piano,
-  other). Demucs ukládá do `Stems/.raw/htdemucs_6s/<track>/`, server výsledek
+  other), ukládané jako **320k MP3** — šest bezeztrátových stop pětiminutové
+  skladby zabere přes 300 MB a knihovna takových sad zaplní disk. Čtení
+  přijímá i WAV a FLAC, takže starší sady fungují dál; `POST /api/stems/convert`
+  je převede (původní WAV maže až po ověření, že MP3 vzniklo). Demucs ukládá do `Stems/.raw/htdemucs_6s/<track>/`, server výsledek
   přesune do `Stems/<název>/`.
 - **Streamování**: YouTube blokuje iframe embed u spousty klipů, proto se
   přímá media URL řeší přes yt-dlp a bajty se proxují do `<audio>`/`<video>`.

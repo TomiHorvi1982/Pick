@@ -1320,6 +1320,30 @@ def pick_folder():
 DEMUCS_BIN = str(HOME / ".local" / "bin" / "demucs")
 STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"]
 
+# Stems are written as 320k MP3: six lossless stems of a five-minute track run
+# to well over 300 MB, and a library of them fills a disk fast. Reading still
+# accepts WAV so sets separated before this keep working.
+STEM_EXT = ".mp3"
+STEM_READ_EXTS = (".mp3", ".wav", ".flac")
+
+
+def _stem_file(stems_dir: Path, stem: str) -> Optional[Path]:
+    """The file for one stem, whatever format it was written in.
+
+    Resolved through the same containment check as everything else: a plain
+    is_file() here would happily follow a symlink out of the library, which is
+    precisely what _resolve_under_music_root exists to stop.
+    """
+    try:
+        rel_dir = stems_dir.resolve().relative_to(MUSIC_ROOT.resolve())
+    except (ValueError, OSError):
+        return None
+    for ext in STEM_READ_EXTS:
+        candidate = _resolve_under_music_root(f"{rel_dir}/{stem}{ext}")
+        if candidate is not None and candidate.is_file():
+            return candidate
+    return None
+
 
 _DEMUCS_DEVICE_CACHE: dict = {}
 
@@ -1379,7 +1403,7 @@ def _stems_dir_for(safe_name: str) -> Path:
 
 def _stems_ready(safe_name: str) -> bool:
     d = _stems_dir_for(safe_name)
-    return d.is_dir() and all((d / f"{s}.wav").is_file() for s in STEM_NAMES)
+    return d.is_dir() and all(_stem_file(d, s) is not None for s in STEM_NAMES)
 
 
 def _finalize_stems_job(job: dict) -> None:
@@ -1418,7 +1442,13 @@ def separate_stems(req: StemsSeparateRequest):
 
     job_id = uuid.uuid4().hex[:12]
     raw_dir = MUSIC_ROOT / "Stems" / ".raw"
-    cmd = [DEMUCS_BIN, "-n", "htdemucs_6s", "-o", str(raw_dir), "--filename", "{track}/{stem}.{ext}"]
+    cmd = [
+        DEMUCS_BIN, "-n", "htdemucs_6s", "-o", str(raw_dir),
+        "--filename", "{track}/{stem}.{ext}",
+        # 320k MP3 rather than WAV: a six-stem set of one five-minute track is
+        # over 300 MB lossless, and these get remixed, not mastered.
+        "--mp3", "--mp3-bitrate", "320", "--mp3-preset", "2",
+    ]
     device = _demucs_device()
     if device:
         cmd += ["-d", device]
@@ -1446,8 +1476,8 @@ def list_stems():
             continue  # ".raw" is Demucs' scratch area, not a stem set
         present, missing, total_bytes = [], [], 0
         for stem in STEM_NAMES:
-            f = d / f"{stem}.wav"
-            if f.is_file():
+            f = _stem_file(d, stem)
+            if f is not None:
                 present.append(stem)
                 try:
                     total_bytes += f.stat().st_size
@@ -1473,6 +1503,73 @@ def list_stems():
             "rel": f"Stems/{d.name}",
         })
     return out
+
+
+@app.post("/api/stems/convert")
+def convert_stems_to_mp3(dry_run: bool = False):
+    """Re-encode already-separated WAV stems to 320k MP3.
+
+    New separations are written as MP3, but sets made before that are still
+    lossless and are what actually fills the disk. Each WAV is encoded, the
+    result verified, and only then is the original removed — a failed encode
+    leaves the WAV exactly where it was.
+    """
+    stems_root = MUSIC_ROOT / "Stems"
+    if not stems_root.is_dir():
+        return {"converted": 0, "freed_bytes": 0, "songs": []}
+
+    ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    converted = 0
+    failed = []
+    freed = 0
+    songs = []
+
+    for d in sorted(stems_root.glob("*")):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        wavs = [d / f"{stem}.wav" for stem in STEM_NAMES if (d / f"{stem}.wav").is_file()]
+        if not wavs:
+            continue
+        song_freed = 0
+
+        for wav in wavs:
+            mp3 = wav.with_suffix(".mp3")
+            try:
+                before = wav.stat().st_size
+            except OSError:
+                continue
+            if dry_run:
+                song_freed += before
+                converted += 1
+                continue
+            try:
+                proc = subprocess.run(
+                    [ffmpeg, "-v", "error", "-y", "-i", str(wav),
+                     "-codec:a", "libmp3lame", "-b:a", "320k", str(mp3)],
+                    capture_output=True, timeout=600,
+                )
+            except (OSError, subprocess.SubprocessError):
+                failed.append(wav.name)
+                continue
+
+            # Only drop the original once there's a plausible encode in place.
+            if proc.returncode != 0 or not mp3.is_file() or mp3.stat().st_size < 10_000:
+                failed.append(str(wav.relative_to(stems_root)))
+                mp3.unlink(missing_ok=True)
+                continue
+
+            song_freed += before - mp3.stat().st_size
+            wav.unlink(missing_ok=True)
+            converted += 1
+
+        if song_freed:
+            songs.append({"name": d.name, "freed_bytes": song_freed})
+            freed += song_freed
+
+    return {
+        "converted": converted, "freed_bytes": freed,
+        "songs": songs, "failed": failed, "dry_run": dry_run,
+    }
 
 
 @app.get("/api/stems/{name}/beats")
@@ -1501,8 +1598,8 @@ def stems_beatgrid(name: str, refresh: bool = False):
         return JSONResponse({"error": "Detektor beatů není dostupný."}, status_code=503)
 
     for stem in ("drums", "other", "bass", "guitar", "piano", "vocals"):
-        source = stems_dir / f"{stem}.wav"
-        if not source.is_file():
+        source = _stem_file(stems_dir, stem)
+        if source is None:
             continue
         try:
             proc = subprocess.run(
@@ -1532,13 +1629,25 @@ def stems_beatgrid(name: str, refresh: bool = False):
     return JSONResponse({"error": "Beaty se nepodařilo detekovat."}, status_code=422)
 
 
-@app.get("/api/stems/{name}/{stem}.wav")
+@app.get("/api/stems/{name}/{stem}")
 def stream_stem(name: str, stem: str, request: Request):
+    """Serves one stem, whatever format it was written in.
+
+    The extension is optional and ignored — older builds requested
+    "<stem>.wav" and those URLs still resolve.
+    """
+    stem = stem.rsplit(".", 1)[0] if "." in stem else stem
     if stem not in STEM_NAMES:
         return JSONResponse({"error": "Neplatná stopa."}, status_code=404)
-    target = _resolve_under_music_root(f"Stems/{name}/{stem}.wav")
-    if target is None or not target.is_file():
+
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+
+    target = _stem_file(stems_dir, stem)
+    if target is None:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    # _range_file_response derives the content type from the extension.
     return _range_file_response(target, request.headers.get("range"))
 
 

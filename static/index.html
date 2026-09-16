@@ -1655,6 +1655,10 @@
     .grid{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:20px 16px}
     .shelf-row > .card{flex-basis:146px}
   }
+
+  .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .stems-head .section-title{margin:24px 0 14px;flex:1}
+  #stems-convert{font-size:13px;padding:8px 16px;flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -1894,7 +1898,10 @@
         </div>
       </div>
     </div>
-    <div class="section-title" id="steems-list-title">Rozseparované písně</div>
+    <div class="stems-head">
+      <span class="section-title" id="steems-list-title">Rozseparované písně</span>
+      <button class="btn secondary" id="stems-convert" hidden></button>
+    </div>
     <div id="steems-list" class="fs-list"></div>
     <div id="mixer" class="mixer" hidden>
       <div class="nm">
@@ -3518,6 +3525,7 @@ async function loadSteemsList(){
   list.innerHTML = "";
   if(state.mode === "steems") renderLibraryRail("steems");
 
+  checkStemsConversion();
   const totalBytes = steemsSongs.reduce((a, x) => a + (x.size_bytes || 0), 0);
   const incomplete = steemsSongs.filter(x => x.complete === false).length;
   const summary = document.createElement("div");
@@ -3601,6 +3609,45 @@ function refreshSteemsHeroStats(){
   stats.innerHTML = parts.join(' <span class="dot">•</span> ');
 }
 
+// New separations are written as 320k MP3; sets made before that are still
+// lossless WAV and are what fills the disk. Offer to re-encode them.
+async function checkStemsConversion(){
+  const btn = el("stems-convert");
+  try{
+    const res = await fetch("/api/stems/convert?dry_run=true", {method: "POST"});
+    const data = await res.json();
+    if(!data.converted){ btn.hidden = true; return; }
+    btn.hidden = false;
+    btn.textContent = `Převést na MP3 320 — ušetří ~${fmtSize(data.freed_bytes * 0.77)}`;
+    btn.onclick = () => runStemsConversion(data);
+  }catch(e){ btn.hidden = true; }
+}
+
+async function runStemsConversion(preview){
+  const ok = confirm(
+    `Převést ${preview.converted} stop na MP3 320 kbps?\n\n` +
+    `Zabírají ${fmtSize(preview.freed_bytes)}. Původní WAV soubory se po ` +
+    `úspěšném převodu smažou — každý až potom, co se ověří, že MP3 vzniklo.`
+  );
+  if(!ok) return;
+
+  const btn = el("stems-convert");
+  btn.disabled = true;
+  btn.textContent = "Převádím…";
+  try{
+    const res = await fetch("/api/stems/convert", {method: "POST"});
+    const data = await res.json();
+    showToast(`Převedeno ${data.converted} stop, uvolněno ${fmtSize(data.freed_bytes)}`);
+    if(data.failed && data.failed.length){
+      showToast(`${data.failed.length} se nepodařilo převést — WAV zůstal`);
+    }
+    loadSteemsList();
+  }catch(e){
+    showToast("Převod se nezdařil");
+  }
+  btn.disabled = false;
+}
+
 function loadMixerSong(name){
   currentSteemsName = name;
   showSteemsHero(name);
@@ -3613,7 +3660,7 @@ function loadMixerSong(name){
   // Ensure stems have proper format
   if(song.stems && !Array.isArray(song.stems[0]) && typeof song.stems[0] !== 'object'){
     // Convert string array to object array
-    song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}.wav`}));
+    song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}`}));
   }
   Promise.resolve(Mixer.load(song)).then(refreshSteemsHeroStats).catch(() => {
     el("steems-hero-stats").textContent = "Stopy se nepodařilo načíst.";
@@ -4785,7 +4832,7 @@ const Mixer = (() => {
     const loaded = [];
     for(const stem of song.stems){
       const stemName = typeof stem === 'string' ? stem : (stem.name || stem);
-      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${encodeURIComponent(stemName)}.wav`);
+      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${encodeURIComponent(stemName)}`);
       const arrayBuf = await res.arrayBuffer();
       if(myToken !== loadToken) return;
       const audioBuf = await ctx().decodeAudioData(arrayBuf);
