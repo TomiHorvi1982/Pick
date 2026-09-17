@@ -149,10 +149,59 @@ def search_playlists(q: str, limit: int = 40, region: str = "intl"):
     return out
 
 
+def _album_as_playlist(client, browse_id: str):
+    """get_album's result reshaped to look like a playlist.
+
+    The detail page renders one shape; albums arrive in another, with the
+    artist at the top level rather than per track.
+    """
+    try:
+        album = client.get_album(browse_id)
+    except Exception:
+        return None
+
+    artists = album.get("artists") or []
+    album_artist = ", ".join(a["name"] for a in artists if a.get("name"))
+    tracks = []
+    for t in album.get("tracks") or []:
+        t = dict(t)
+        # Album tracks often omit both, inheriting them from the release.
+        if not t.get("artists") and artists:
+            t["artists"] = artists
+        if not t.get("album"):
+            t["album"] = {"name": album.get("title")}
+        if not t.get("thumbnails"):
+            t["thumbnails"] = album.get("thumbnails")
+        tracks.append(t)
+
+    return {
+        "title": album.get("title"),
+        "author": album_artist,
+        "description": album.get("description"),
+        "thumbnails": album.get("thumbnails"),
+        "trackCount": album.get("trackCount") or len(tracks),
+        "tracks": tracks,
+    }
+
+
 @app.get("/api/playlist/{browse_id}")
 def playlist_detail(browse_id: str, track_limit: int = 100):
     pid = browse_id[2:] if browse_id.startswith("VL") else browse_id
-    pl = yt().get_playlist(pid, limit=track_limit)
+    client = yt()
+
+    # An album is not a playlist: get_playlist raises on the response shape
+    # YouTube returns for one, which is what made an album card from the
+    # artist panel 500. "MPREb_" ids are albums; anything else that fails as
+    # a playlist gets the same second chance.
+    if pid.startswith("MPREb"):
+        pl = _album_as_playlist(client, pid)
+    else:
+        try:
+            pl = client.get_playlist(pid, limit=track_limit)
+        except Exception:
+            pl = _album_as_playlist(client, pid)
+    if pl is None:
+        return JSONResponse({"error": "Playlist nenalezen."}, status_code=404)
 
     tracks = []
     total_shown_sec = 0
@@ -606,6 +655,81 @@ async def proxy_thumb(url: str = ""):
         media_type=content_type,
         headers={"Cache-Control": "public, max-age=604800"},
     )
+
+
+# An artist page costs a search plus a browse, and the answer doesn't change
+# between songs, so it's cached for the session.
+_ARTIST_CACHE: dict = {}
+
+
+def _artist_release_rows(section) -> list:
+    """Normalise one of get_artist's release sections into flat rows."""
+    if not isinstance(section, dict):
+        return []
+    rows = []
+    for r in section.get("results") or []:
+        rows.append({
+            "title": r.get("title"),
+            "year": r.get("year"),
+            "browseId": r.get("browseId"),
+            "playlistId": r.get("audioPlaylistId") or r.get("playlistId"),
+            "thumbnail": _best_thumb(r.get("thumbnails")),
+            "type": r.get("type"),
+        })
+    return rows
+
+
+@app.get("/api/artist")
+def artist_info(name: str = "", channel_id: str = ""):
+    """Everything the now-playing rail shows about an artist.
+
+    Takes a name (what a playing track actually carries) or a channel id.
+    Returns the profile plus their albums and singles.
+    """
+    key = channel_id or name.strip().lower()
+    if not key:
+        return JSONResponse({"error": "Chybí jméno interpreta."}, status_code=400)
+    if key in _ARTIST_CACHE:
+        return _ARTIST_CACHE[key]
+
+    client = yt()
+    cid = channel_id
+    if not cid:
+        try:
+            hits = client.search(name, filter="artists", limit=1)
+        except Exception:
+            hits = []
+        if not hits:
+            return JSONResponse({"error": "Interpret nenalezen."}, status_code=404)
+        cid = hits[0].get("browseId")
+    if not cid:
+        return JSONResponse({"error": "Interpret nenalezen."}, status_code=404)
+
+    try:
+        a = client.get_artist(cid)
+    except Exception:
+        return JSONResponse({"error": "Profil se nepodařilo načíst."}, status_code=502)
+
+    out = {
+        "name": a.get("name"),
+        "channelId": cid,
+        "thumbnail": _best_thumb(a.get("thumbnails")),
+        "description": a.get("description"),
+        "subscribers": a.get("subscribers"),
+        "monthlyListeners": a.get("monthlyListeners"),
+        "views": a.get("views"),
+        "albums": _artist_release_rows(a.get("albums")),
+        "singles": _artist_release_rows(a.get("singles")),
+        "related": [
+            {"name": r.get("title"), "browseId": r.get("browseId"),
+             "thumbnail": _best_thumb(r.get("thumbnails"))}
+            for r in ((a.get("related") or {}).get("results") or [])
+        ],
+    }
+    if len(_ARTIST_CACHE) > 200:
+        _ARTIST_CACHE.clear()
+    _ARTIST_CACHE[key] = out
+    return out
 
 
 @app.get("/api/art")

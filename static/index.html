@@ -1674,6 +1674,72 @@
   .pb-track .pb-ctl{margin-left:6px}
   /* The lyrics button had its own active colouring from the old theme. */
   .lyrics-btn-active{color:var(--accent) !important;border-color:transparent !important}
+
+  /* ---- artist profile in the now-playing rail ---- */
+  .np-artist-card{border-radius:8px;overflow:hidden;background:var(--card)}
+  .np-artist-photo{width:100%;aspect-ratio:16/10;background:var(--card-hi)
+    center/cover no-repeat;display:flex;align-items:center;justify-content:center;
+    font-size:34px;color:var(--sub)}
+  .np-artist-body{padding:14px}
+  .np-artist-name{font-size:16px;font-weight:700;color:var(--text);
+    display:flex;align-items:center;gap:6px}
+  .np-artist-stats{font-size:13px;color:var(--sub);margin-top:6px}
+  .np-artist-desc{font-size:13px;color:var(--sub);line-height:1.5;margin-top:10px;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
+    overflow:hidden;white-space:pre-line}
+  .np-count{font-size:12.5px;color:var(--sub);font-weight:500}
+  .np-albums{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 12px}
+  .np-album{cursor:pointer}
+  .np-album .cover{width:100%;aspect-ratio:1;border-radius:5px;
+    background:var(--card-hi) center/cover no-repeat;
+    box-shadow:0 5px 16px rgba(0,0,0,.45);display:flex;align-items:center;
+    justify-content:center;font-size:22px;color:var(--sub)}
+  .np-album .t{font-size:13px;color:var(--text);margin-top:8px;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden}
+  .np-album .y{font-size:12px;color:var(--sub);margin-top:2px}
+  .np-album:hover .cover{transform:scale(1.02)}
+  .np-album .cover{transition:transform .12s}
+
+  /* ---- bigger preview tiles in the stage ---- */
+  .grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:28px 22px}
+  .shelf-row > .card{flex-basis:210px}
+  .card .meta{padding:16px 2px 2px}
+  .card .title{font-size:16px}
+  .card .sub{font-size:13.5px}
+  .shelf-head .h{font-size:24px}
+
+  /* The rail is wider now that it carries an artist profile and a grid of
+     releases; below this the stage would be squeezed instead. */
+  body.np-open{--sp-np:376px}
+
+  /* Only step the tiles down once the stage is genuinely narrow — at 1500
+     this was firing on an ordinary 1280 window and undoing the larger size. */
+  @media(max-width:1250px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:24px 20px}
+    .shelf-row > .card{flex-basis:184px}
+  }
+  @media(max-width:1100px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:20px 16px}
+    .shelf-row > .card{flex-basis:160px}
+    .card .title{font-size:15px}
+  }
+
+  /* ---- browse categories as the reference's coloured cards ---- */
+  .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:22px}
+  .cat{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;
+    cursor:pointer;padding:16px;display:flex;transition:transform .12s}
+  .cat:hover{transform:scale(1.02)}
+  .cat .label{font-size:21px;font-weight:700;color:#fff;letter-spacing:-.01em;
+    line-height:1.2;position:relative;z-index:2;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;text-shadow:0 1px 6px rgba(0,0,0,.35)}
+  /* The tilted cover in the corner is what makes these read as Spotify's
+     category cards rather than plain coloured boxes. */
+  .cat .shot{position:absolute;right:-16px;bottom:-6px;width:92px;height:92px;
+    border-radius:3px;background:rgba(0,0,0,.25) center/cover no-repeat;
+    transform:rotate(25deg);box-shadow:0 4px 18px rgba(0,0,0,.45);z-index:1}
 </style>
 </head>
 <body>
@@ -2147,6 +2213,24 @@
       </div>
       <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
     </div>
+    <!-- Artist profile and their releases, per the reference's "O umělci". -->
+    <div id="np-artist-panel" hidden>
+      <div class="np-sect">O umělci</div>
+      <div class="np-artist-card">
+        <div class="np-artist-photo" id="np-artist-photo"></div>
+        <div class="np-artist-body">
+          <div class="np-artist-name" id="np-artist-name"></div>
+          <div class="np-artist-stats" id="np-artist-stats"></div>
+          <div class="np-artist-desc" id="np-artist-desc"></div>
+        </div>
+      </div>
+      <div class="np-sect np-sect-row">
+        <span>Alba</span>
+        <span class="np-count" id="np-albums-count"></span>
+      </div>
+      <div class="np-albums" id="np-albums"></div>
+    </div>
+
     <div id="np-source" hidden>
       <div class="np-sect np-sect-row">
         <span id="np-source-title">Playlist</span>
@@ -2455,6 +2539,38 @@ function renderChipGroup(containerId, items, opts={}){
   });
 }
 
+// The long browse lists read better as the reference's coloured category
+// cards than as a wall of pills — the colour and the tilted cover give each
+// one something to aim at. Colours cycle through a fixed palette rather than
+// being derived from the label, so neighbours never land on near-identical
+// hues the way a hash would.
+const CAT_COLOURS = [
+  "#e8115b", "#1e3264", "#148a08", "#7d4b32", "#8d67ab", "#b95d06",
+  "#e13300", "#0d73ec", "#af2896", "#477d95", "#503750", "#a56752",
+  "#8c1932", "#dc148c", "#006450", "#537aa1",
+];
+
+function renderCategoryCards(containerId, items){
+  const c = el(containerId);
+  if(!c) return;
+  c.className = "cat-grid";
+  c.innerHTML = "";
+  items.forEach((item, i) => {
+    const label = typeof item === "string" ? item : item.label;
+    const value = typeof item === "string" ? item : item.value;
+    const card = document.createElement("div");
+    card.className = "cat";
+    card.dataset.value = value;
+    card.style.background = CAT_COLOURS[i % CAT_COLOURS.length];
+    card.innerHTML = `<span class="label">${escapeHtml(label)}</span>
+                      <span class="shot" aria-hidden="true"></span>`;
+    card.onclick = () => toggleInSearch(value);
+    // Same lazy, server-cached lookup the chips use.
+    ChipThumbs.observe(card, value, ".shot");
+    c.appendChild(card);
+  });
+}
+
 function syncChipActiveStates(){
   const current = el("search-input").value;
   document.querySelectorAll(".chip[data-value]").forEach(chip=>{
@@ -2506,8 +2622,8 @@ el("add-custom").onclick = () => {
 function renderStaticChips(){
   renderChipGroup("chips-decades", DECADES);
   renderChipGroup("chips-topn", TOPN_PRESETS.map(n => ({label:`Top ${n}`, value:`Top ${n}`})));
-  renderChipGroup("chips-genres", ROCK_METAL_GENRES);
-  renderChipGroup("chips-popular", POPULAR_TERMS);
+  renderCategoryCards("chips-genres", ROCK_METAL_GENRES);
+  renderCategoryCards("chips-popular", POPULAR_TERMS);
   renderChipGroup("chips-ai", AI_TERMS);
   renderCustomChips();
 }
@@ -2780,6 +2896,86 @@ function setMode(mode){
   pushNav({type: "mode", mode});
 }
 
+// Artist profile and releases for whatever is playing. Cached per name so
+// flipping between tracks by the same artist costs nothing.
+const NP_ARTIST_CACHE = new Map();
+
+async function renderNowPlayingArtist(track){
+  const section = el("np-artist-panel");
+  // Tracks carry "A, B" or "A & B"; the first name is the one to profile.
+  const name = ((track && track.artists) || "").split(/[,&]|\sfeat\.?\s/i)[0].trim();
+  if(!name){ section.hidden = true; return; }
+
+  if(NP_ARTIST_CACHE.has(name)){
+    paintArtist(NP_ARTIST_CACHE.get(name));
+    return;
+  }
+
+  section.hidden = false;
+  el("np-artist-name").textContent = name;
+  el("np-artist-stats").textContent = "Načítám…";
+  el("np-artist-desc").textContent = "";
+  el("np-albums").innerHTML = "";
+  el("np-artist-photo").style.backgroundImage = "";
+
+  try{
+    const res = await fetch("/api/artist?name=" + encodeURIComponent(name));
+    if(!res.ok) throw new Error("no artist");
+    const data = await res.json();
+    NP_ARTIST_CACHE.set(name, data);
+    // The track may have changed while this was in flight.
+    const now = Player.getCurrent();
+    const stillCurrent = now && ((now.artists || "").split(/[,&]/)[0].trim() === name);
+    if(stillCurrent) paintArtist(data);
+  }catch(e){
+    NP_ARTIST_CACHE.set(name, null);
+    section.hidden = true;
+  }
+}
+
+function paintArtist(data){
+  const section = el("np-artist-panel");
+  if(!data){ section.hidden = true; return; }
+  section.hidden = false;
+
+  el("np-artist-name").textContent = data.name || "";
+  const photo = el("np-artist-photo");
+  if(data.thumbnail){
+    photo.style.backgroundImage = `url('${thumbUrl(data.thumbnail)}')`;
+    photo.textContent = "";
+  } else {
+    photo.style.backgroundImage = "";
+    photo.textContent = "\uD83C\uDFA4";
+  }
+
+  const stats = [];
+  if(data.monthlyListeners) stats.push(`${data.monthlyListeners} posluchačů měsíčně`);
+  if(data.subscribers) stats.push(`${data.subscribers} odběratelů`);
+  el("np-artist-stats").textContent = stats.join(" • ");
+  el("np-artist-desc").textContent = data.description || "";
+
+  const releases = (data.albums || []).concat(data.singles || []);
+  el("np-albums-count").textContent = releases.length ? `${releases.length}` : "";
+
+  const box = el("np-albums");
+  box.innerHTML = "";
+  releases.forEach(r => {
+    const card = document.createElement("div");
+    card.className = "np-album";
+    card.title = r.title || "";
+    card.innerHTML = `
+      <div class="cover" style="${r.thumbnail ? `background-image:url('${thumbUrl(r.thumbnail)}')` : ""}">${r.thumbnail ? "" : "\uD83D\uDCBF"}</div>
+      <div class="t">${escapeHtml(r.title || "")}</div>
+      <div class="y">${escapeHtml([r.type, r.year].filter(Boolean).join(" • "))}</div>`;
+    card.onclick = () => {
+      // An album browse id opens like any other playlist page.
+      if(r.browseId) openPlaylist(r.browseId);
+      else { el("search-input").value = `${data.name} ${r.title}`; runSearch(); }
+    };
+    box.appendChild(card);
+  });
+}
+
 // Tracks of the playlist the current song came from, listed in the
 // now-playing rail. Cached per playlist so re-opening is instant.
 const NP_SOURCE_CACHE = new Map();
@@ -3020,7 +3216,7 @@ const ChipThumbs = (() => {
     : null;
 
   function paint(elm, url){
-    const slot = elm.querySelector(".chip-thumb");
+    const slot = elm.querySelector(elm.dataset.thumbSlot || ".chip-thumb");
     if(!slot) return;
     if(url){
       // Served through our own origin: Chrome blocks some of these hosts
@@ -3034,7 +3230,10 @@ const ChipThumbs = (() => {
         slot.style.backgroundImage = `url('${src}')`;
         elm.classList.add("has-thumb");
       };
-      probe.onerror = () => { if(slot.isConnected) slot.remove(); };
+      probe.onerror = () => {
+        // A chip's slot collapses; a category card keeps its colour.
+        if(slot.isConnected && slot.classList.contains("chip-thumb")) slot.remove();
+      };
       probe.src = src;
     } else {
       // No cover for this term — collapse the slot rather than leave a hole.
@@ -3078,8 +3277,9 @@ const ChipThumbs = (() => {
     if(pending.size) schedule();
   }
 
-  function observe(elm, term){
+  function observe(elm, term, slotSelector){
     elm.dataset.thumbTerm = term;
+    if(slotSelector) elm.dataset.thumbSlot = slotSelector;
     if(known.has(term)){ paint(elm, known.get(term)); return; }
     if(io) io.observe(elm);
     else request(elm, term);
@@ -3323,6 +3523,8 @@ function renderNowPlaying(){
   } else {
     srcBox.hidden = true;
   }
+
+  renderNowPlayingArtist(t);
 
   const box = el("np-queue");
   box.innerHTML = "";
@@ -7793,14 +7995,16 @@ function applyLibWidth(px){
 el("pb-art").style.cursor = "pointer";
 el("pb-art").title = "Zobrazit, odkud to hraje";
 el("pb-art").onclick = () => {
-  toggleNowPlaying(true);
   const t = Player.getCurrent();
-  if(t && t.sourcePlaylist){
-    // Bring the source section into view rather than making the user hunt.
-    setTimeout(() => {
-      const src = el("np-source");
-      if(src && !src.hidden) src.scrollIntoView({behavior: "smooth", block: "start"});
-    }, 120);
+  // The artwork is the way back to context: the playlist it's playing from
+  // fills the stage, and the artist's profile and releases fill the rail.
+  toggleNowPlaying(true);
+  syncPlayerToggles();
+  if(t && t.sourcePlaylistId){
+    openPlaylist(t.sourcePlaylistId);
+  } else if(t && t.artists){
+    el("search-input").value = t.artists;
+    runSearch();
   }
 };
 

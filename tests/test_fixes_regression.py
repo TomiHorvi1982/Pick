@@ -905,3 +905,143 @@ def test_stem_file_refuses_a_symlink_out_of_the_library(tmp_music_root):
         pytest.skip("symlinks not supported on this filesystem")
 
     assert server._stem_file(d, "drums") is None
+
+
+# ------------------------------------------------------- artist profile
+
+def test_artist_lookup_by_name(client, monkeypatch):
+    """A playing track carries an artist name, not a channel id."""
+    import server
+
+    monkeypatch.setattr(server, "_ARTIST_CACHE", {})
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            return [{"browseId": "UC123"}]
+
+        def get_artist(self, cid):
+            return {
+                "name": "Bleed From Within", "description": "PURE SCOTTISH METAL",
+                "subscribers": "76.2K", "monthlyListeners": "185K",
+                "thumbnails": [{"url": "https://i.ytimg.com/a.jpg", "width": 500}],
+                "albums": {"results": [
+                    {"title": "Zenith", "year": "2025", "browseId": "MPREb_x",
+                     "thumbnails": [{"url": "https://i.ytimg.com/z.jpg", "width": 200}]},
+                ]},
+                "singles": {"results": []},
+                "related": {"results": [{"title": "Malevolence", "browseId": "UC9"}]},
+            }
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/artist", params={"name": "Bleed From Within"}).json()
+
+    assert data["name"] == "Bleed From Within"
+    assert data["monthlyListeners"] == "185K"
+    assert data["albums"][0]["title"] == "Zenith"
+    assert data["albums"][0]["browseId"] == "MPREb_x"
+    assert data["related"][0]["name"] == "Malevolence"
+
+
+def test_artist_lookup_is_cached(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_ARTIST_CACHE", {})
+    calls = []
+
+    class FakeYT:
+        def search(self, q, filter=None, limit=0):
+            calls.append(q)
+            return [{"browseId": "UC1"}]
+
+        def get_artist(self, cid):
+            return {"name": "A", "albums": {}, "singles": {}, "related": {}}
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    client.get("/api/artist", params={"name": "A"})
+    client.get("/api/artist", params={"name": "A"})
+
+    assert len(calls) == 1
+
+
+def test_artist_lookup_404s_for_an_unknown_name(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "_ARTIST_CACHE", {})
+
+    class FakeYT:
+        def search(self, *a, **kw):
+            return []
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    assert client.get("/api/artist", params={"name": "nikdo"}).status_code == 404
+
+
+def test_artist_lookup_needs_a_name(client):
+    assert client.get("/api/artist").status_code == 400
+
+
+# ------------------------------------------- albums open like playlists
+
+def test_album_browse_id_falls_back_to_get_album(client, monkeypatch):
+    """An album is not a playlist: get_playlist raises on the shape YouTube
+    returns for one, which made an album card from the artist panel 500."""
+    import server
+
+    class FakeYT:
+        def get_playlist(self, *a, **kw):
+            raise AssertionError("must not be used for an MPREb id")
+
+        def get_album(self, bid):
+            return {
+                "title": "Zenith", "trackCount": 2,
+                "artists": [{"name": "Bleed From Within"}],
+                "thumbnails": [{"url": "https://i.ytimg.com/z.jpg", "width": 300}],
+                "tracks": [
+                    {"videoId": "v1", "title": "Violent Nature", "duration_seconds": 236},
+                    {"videoId": "v2", "title": "Zenith", "duration_seconds": 259},
+                ],
+            }
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    data = client.get("/api/playlist/MPREb_abc").json()
+
+    assert data["title"] == "Zenith"
+    assert data["author"] == "Bleed From Within"
+    assert len(data["tracks"]) == 2
+    # Album tracks omit the artist, inheriting it from the release.
+    assert data["tracks"][0]["artists"] == "Bleed From Within"
+    assert data["tracks"][0]["album"] == "Zenith"
+
+
+def test_playlist_still_uses_get_playlist(client, monkeypatch):
+    import server
+
+    class FakeYT:
+        def get_playlist(self, pid, limit=0):
+            return {"title": "P", "tracks": [{"videoId": "v", "title": "T"}]}
+
+        def get_album(self, *a, **kw):
+            raise AssertionError("must not fall back when the playlist works")
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    assert client.get("/api/playlist/VLabc").json()["title"] == "P"
+
+
+def test_playlist_404s_when_neither_call_works(client, monkeypatch):
+    import server
+
+    class FakeYT:
+        def get_playlist(self, *a, **kw):
+            raise RuntimeError("no")
+
+        def get_album(self, *a, **kw):
+            raise RuntimeError("no")
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+
+    assert client.get("/api/playlist/XYZ").status_code == 404
