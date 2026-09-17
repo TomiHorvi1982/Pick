@@ -272,3 +272,106 @@ def test_analysis_reports_a_missing_analyser_rather_than_crashing(
 
     res = client.get("/api/stems/Song/analysis")
     assert res.status_code == 503
+
+
+# ------------------------------------------------- sections the listener owns
+
+def test_sections_fall_back_to_what_the_detector_found(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "analysis.json").write_text(json.dumps({"sections": [
+        {"start": 0, "end": 20, "name": "Intro", "kind": "intro", "color": "#4a7fff"}]}))
+
+    data = client.get("/api/stems/Song/sections").json()
+    assert data["edited"] is False
+    assert data["sections"][0]["name"] == "Intro"
+    assert [p["name"] for p in data["presets"]][:2] == ["Intro", "Sloka"]
+
+
+def test_edited_sections_win_over_the_detector(client, tmp_music_root):
+    """Stored beside the stems rather than in analysis.json, so re-running the
+    detector never overwrites hand-made edits."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "analysis.json").write_text(json.dumps({"sections": [
+        {"start": 0, "end": 20, "name": "Intro", "kind": "intro", "color": "#4a7fff"}]}))
+    (stems / "sections.json").write_text(json.dumps({"sections": [
+        {"start": 0, "end": 33, "name": "Moje intro", "kind": "intro", "color": "#fff"}],
+        "presets": [{"kind": "verse", "name": "Sloka", "color": "#0f0"}]}))
+
+    data = client.get("/api/stems/Song/sections").json()
+    assert data["edited"] is True
+    assert data["sections"][0]["name"] == "Moje intro"
+    assert [p["name"] for p in data["presets"]] == ["Sloka"]
+
+
+def test_saving_sections_round_trips(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    res = client.put("/api/stems/Song/sections", json={
+        "sections": [{"start": 5.0, "end": 25.0, "name": "Sloka 1",
+                      "kind": "verse", "color": "#00c8a0"}],
+        "presets": [{"kind": "verse", "name": "Sloka", "color": "#00c8a0"}],
+    })
+
+    assert res.status_code == 200
+    assert (stems / "sections.json").is_file()
+    again = client.get("/api/stems/Song/sections").json()
+    assert again["sections"][0]["start"] == 5.0
+    assert again["edited"] is True
+
+
+def test_malformed_spans_are_dropped_not_stored(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    kept = client.put("/api/stems/Song/sections", json={"sections": [
+        {"start": 10, "end": 5, "name": "zpět"},        # ends before it starts
+        {"start": -3, "end": 4, "name": "před nulou"},
+        {"start": 1, "end": 1.05, "name": "mžik"},      # shorter than a blink
+        {"start": 2, "end": 9, "name": "dobrá"},
+        {"start": "x", "end": 9, "name": "nečíslo"},
+    ]}).json()
+
+    assert [s["name"] for s in kept["sections"]] == ["dobrá"]
+
+
+def test_sections_come_back_in_order(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    got = client.put("/api/stems/Song/sections", json={"sections": [
+        {"start": 30, "end": 40, "name": "c"},
+        {"start": 0, "end": 10, "name": "a"},
+        {"start": 10, "end": 30, "name": "b"},
+    ]}).json()
+    assert [s["name"] for s in got["sections"]] == ["a", "b", "c"]
+
+
+def test_an_empty_preset_list_falls_back_to_the_defaults(client, tmp_music_root):
+    """A song with no names to choose from would make the menu useless."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    got = client.put("/api/stems/Song/sections",
+                     json={"sections": [], "presets": []}).json()
+    assert len(got["presets"]) == len(server.DEFAULT_SECTION_PRESETS)
+
+
+def test_deleting_edits_restores_the_detected_sections(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "analysis.json").write_text(json.dumps({"sections": [
+        {"start": 0, "end": 20, "name": "Intro", "kind": "intro", "color": "#4a7fff"}]}))
+    client.put("/api/stems/Song/sections", json={"sections": [
+        {"start": 0, "end": 99, "name": "Moje"}]})
+
+    back = client.request("DELETE", "/api/stems/Song/sections").json()
+    assert back["edited"] is False
+    assert back["sections"][0]["name"] == "Intro"
+    assert not (stems / "sections.json").exists()
+
+
+def test_sections_refuse_a_path_outside_the_music_root(client, tmp_music_root):
+    assert client.get("/api/stems/..%2F..%2Fetc/sections").status_code == 404
+    assert client.put("/api/stems/..%2F..%2Fetc/sections",
+                      json={"sections": []}).status_code == 404

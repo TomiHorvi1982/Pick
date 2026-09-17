@@ -150,12 +150,14 @@ def _sections(stems_dir: Path, work: Path, beats_path):
     return out, None
 
 
-def _absorb_edge_slivers(sections, limit=6.0):
+def _absorb_edge_slivers(sections, limit=9.0):
     """Fold the model's start/end markers into the music they touch.
 
     The first and last predictions are sentinels for the edges of the track,
     not sections; left alone they show up as a two-second "Část" before the
-    intro, which is a row in the lane that means nothing.
+    intro, which is a row in the lane that means nothing. The limit is generous
+    because a fade-out sentinel can run several seconds — the shortest real
+    section anyone names is still longer than this.
     """
     while len(sections) > 1 and sections[0].get("_sentinel") \
             and sections[0]["end"] - sections[0]["start"] < limit:

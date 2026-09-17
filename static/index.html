@@ -731,8 +731,23 @@
               pointer-events:none;z-index:1}
 
   /* --- lanes --- */
-  .nm-body{display:flex;max-height:404px;overflow-y:auto;overflow-x:hidden;
-           background:var(--nm-bg)}
+  /* This was a fixed 404px, which fits the four analysis lanes and about two
+     and a half stems: the rest were below the fold of a scrollbar inside a
+     page that also scrolls, and read as missing stops rather than as
+     something to scroll to. It takes what the window can give it now. */
+  .nm-body{display:flex;max-height:min(78vh, 980px);overflow-y:auto;
+           overflow-x:hidden;background:var(--nm-bg);position:relative}
+  /* A scrollbar wide enough to notice, since noticing it is the point. */
+  .nm-body::-webkit-scrollbar{width:11px}
+  .nm-body::-webkit-scrollbar-track{background:var(--nm-panel)}
+  .nm-body::-webkit-scrollbar-thumb{background:#3b3b46;border-radius:6px;
+    border:2px solid var(--nm-panel)}
+  .nm-body::-webkit-scrollbar-thumb:hover{background:#4c4c59}
+  /* And a fade at the bottom edge while there is more below it. */
+  .nm-body-wrap{position:relative}
+  .nm-body-wrap.has-more::after{content:"";position:absolute;left:0;right:11px;
+    bottom:0;height:26px;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(12,12,14,.92))}
   .nm-rail{flex:0 0 var(--nm-rail);border-right:1px solid var(--nm-line);
            background:var(--nm-panel);position:sticky;left:0;z-index:4}
   .nm-rail-pad{height:22px;border-bottom:1px solid var(--nm-line)}
@@ -1428,10 +1443,40 @@
   .nm-lane.thin{overflow:hidden}
 
   .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
-    display:flex;align-items:center;padding:0 7px;cursor:pointer;
+    display:flex;align-items:center;padding:0 7px;cursor:grab;
     border-left:3px solid currentColor;overflow:hidden;
     font-size:10.5px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
   .sect-block:hover{filter:brightness(1.35)}
+  .sect-block.dragging{cursor:grabbing;filter:brightness(1.5);z-index:3}
+  .sect-block.selected{outline:1.5px solid #fff;outline-offset:-1.5px}
+  /* Grips wide enough to hit without being wide enough to swallow the block. */
+  .sect-grip{position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;z-index:2}
+  .sect-grip.s{left:0}
+  .sect-grip.e{right:0}
+  .sect-block:hover .sect-grip{background:rgba(255,255,255,.28)}
+
+  /* The bar the drag is snapping to, drawn while it snaps. */
+  .sect-snapline{position:absolute;top:0;bottom:0;width:1px;
+    background:rgba(255,255,255,.75);pointer-events:none;z-index:4}
+
+  .sect-add{margin-left:auto;width:19px;height:19px;border:none;padding:0;
+    border-radius:4px;background:transparent;color:var(--nm-sub);cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .sect-add:hover{background:#24242c;color:var(--nm-txt)}
+
+  /* Naming menu: the presets, plus the housekeeping for the span itself. */
+  .sect-menu{position:fixed;z-index:5000;min-width:186px;padding:6px;
+    background:#1c1c22;border:1px solid #33333d;border-radius:9px;
+    box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .sect-menu button{display:flex;align-items:center;gap:9px;width:100%;
+    border:none;background:none;color:var(--nm-txt);font-size:12.5px;
+    padding:7px 9px;border-radius:5px;cursor:pointer;text-align:left}
+  .sect-menu button:hover{background:#2a2a33}
+  .sect-menu .swatch{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+  .sect-menu hr{border:none;border-top:1px solid #33333d;margin:5px 2px}
+  .sect-menu .danger{color:#ff6b6b}
+  .sect-menu .hint{font-size:10.5px;color:var(--nm-sub);padding:3px 9px 6px;
+    line-height:1.45}
   .sect-block .nm{opacity:.95;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;will-change:transform}
 
@@ -2213,6 +2258,7 @@
         </div>
 
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
+        <div class="nm-body-wrap" id="nm-body-wrap">
         <div class="nm-body" id="nm-body">
           <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
           <div class="nm-scroll" id="nm-scroll">
@@ -2229,9 +2275,10 @@
             </div>
           </div>
         </div>
+        </div><!-- /nm-body-wrap -->
 
         <div class="nm-transport">
-          <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)">▶</button>
+          <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)"></button>
 
           <div class="nm-tgroup">
             <div class="row">
@@ -5474,38 +5521,363 @@ const Mixer = (() => {
     return "—";
   }
 
+  // ---- sections: detected, then owned by the listener ----
+  //
+  // The detector's guess is a starting point. Anything here can be dragged,
+  // resized, renamed from the song's own preset list, added or removed, and
+  // whatever comes out is stored beside the stems — so re-running the
+  // detector never overwrites hand-made edits.
+
+  let sectionPresets = [];
+  let sectionsEdited = false;
+  let selectedSection = -1;
+  let sectionSaveTimer = null;
+
   function renderSectionsLane(rail, lanes, totalPx){
     const lane = thinLane(rail, lanes, totalPx, "Sekce", 30, "sect-lane");
+    const strip = rail.lastElementChild;
+    if(strip){
+      const add = document.createElement("button");
+      add.className = "sect-add";
+      add.type = "button";
+      add.title = "Přidat sekci na pozici přehrávání";
+      add.innerHTML = icon("plus", 13);
+      add.onclick = (e) => { e.stopPropagation(); addSectionAtPlayhead(); };
+      strip.querySelector(".nm-strip-top").appendChild(add);
+    }
+
     if(!sections.length){ laneNote(lane, analysisNote()); return; }
 
-    sections.forEach(sec => {
+    sections.forEach((sec, idx) => {
       const x = sec.start * pixelsPerSecond;
       const w = Math.max(3, (sec.end - sec.start) * pixelsPerSecond);
       const block = document.createElement("div");
-      block.className = "sect-block";
+      block.className = "sect-block" + (idx === selectedSection ? " selected" : "");
+      block.dataset.idx = String(idx);
       block.style.left = x + "px";
       block.style.width = (w - 2) + "px";
       block.style.color = sec.color;
       block.style.background = sec.color + "2e";
-      block.title = `${sec.name} — ${fmtDur(sec.start)}–${fmtDur(sec.end)}`;
+      block.title = `${sec.name} — ${fmtDur(sec.start)}–${fmtDur(sec.end)}`
+        + "\n Táhni za okraj = délka · táhni uvnitř = posun · pravé tlačítko = název";
       // Below about fifty pixels the name can't be read anyway, and a
       // clipped word reads worse than the colour alone.
       block.innerHTML = w >= 46 ? `<span class="nm">${escapeHtml(sec.name)}</span>` : "";
-      block.onclick = (e) => { e.stopPropagation(); seek(sec.start); };
-      // The label is placed after layout, once the block has a real width.
-      // A section is the obvious thing to loop, so double-click does that.
-      block.ondblclick = (e) => {
-        e.stopPropagation();
-        loopStart = sec.start;
-        loopEnd = sec.end;
-        loopEnabled = true;
-        el("mixer-loop").classList.add("active");
-        renderTimeline();
-        showToast(`Smyčka: ${sec.name}`);
-      };
+      block.appendChild(gripEl("s"));
+      block.appendChild(gripEl("e"));
+      wireSectionBlock(block, idx);
       lane.appendChild(block);
     });
     requestAnimationFrame(positionSectionLabels);
+  }
+
+  function gripEl(edge){
+    const g = document.createElement("div");
+    g.className = "sect-grip " + edge;
+    g.dataset.edge = edge;
+    return g;
+  }
+
+  // Nearest bar line to a time, when one is near enough to have been meant.
+  // Bars first, then beats: a section almost always starts on a downbeat, and
+  // snapping to any beat would make that harder to hit rather than easier.
+  function snapTime(t, tolerancePx = 9){
+    const tol = tolerancePx / Math.max(1, pixelsPerSecond);
+    for(const grid of [downbeatTimes, beatTimes]){
+      if(!grid || !grid.length) continue;
+      let best = grid[0], bestD = Math.abs(grid[0] - t);
+      for(const g of grid){
+        const d = Math.abs(g - t);
+        if(d < bestD){ best = g; bestD = d; }
+        else if(g > t + tol) break;
+      }
+      if(bestD <= tol) return {t: best, snapped: true};
+    }
+    return {t, snapped: false};
+  }
+
+  function showSnapLine(lane, t){
+    let line = lane.querySelector(".sect-snapline");
+    if(t === null){ if(line) line.remove(); return; }
+    if(!line){
+      line = document.createElement("div");
+      line.className = "sect-snapline";
+      lane.appendChild(line);
+    }
+    line.style.left = (t * pixelsPerSecond) + "px";
+  }
+
+  function wireSectionBlock(block, idx){
+    const lane = block.parentElement || el("mixer-tracks");
+
+    block.addEventListener("pointerdown", (e) => {
+      if(e.button !== 0) return;
+      const edge = e.target.classList.contains("sect-grip") ? e.target.dataset.edge : null;
+      const startX = e.clientX;
+      const sec = sections[idx];
+      const from = {start: sec.start, end: sec.end};
+      const prev = sections[idx - 1], next = sections[idx + 1];
+      let moved = false;
+
+      selectedSection = idx;
+      block.classList.add("dragging");
+      try{ block.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+      e.stopPropagation();
+
+      const onMove = (ev) => {
+        const dt = (ev.clientX - startX) / pixelsPerSecond;
+        if(!moved && Math.abs(ev.clientX - startX) < 3) return;
+        moved = true;
+        // Alt is the usual escape hatch from a grid.
+        const snap = (t) => ev.altKey ? {t, snapped: false} : snapTime(t);
+
+        const MIN = 0.4;
+        if(edge === "s"){
+          // The start of this section is the end of the one before it: one
+          // boundary, not two, or a drag would tear a hole in the map.
+          const lo = prev ? prev.start + MIN : 0;
+          const s2 = snap(Math.max(lo, Math.min(sec.end - MIN, from.start + dt)));
+          sec.start = s2.t;
+          if(prev) prev.end = s2.t;
+          showSnapLine(block.parentElement, s2.snapped ? s2.t : null);
+        } else if(edge === "e"){
+          const hi = next ? next.end - MIN : duration;
+          const e2 = snap(Math.min(hi, Math.max(sec.start + MIN, from.end + dt)));
+          sec.end = e2.t;
+          if(next) next.start = e2.t;
+          showSnapLine(block.parentElement, e2.snapped ? e2.t : null);
+        } else {
+          // Moving the whole span takes room from one neighbour and gives it
+          // to the other; without that a section between two others could not
+          // move at all, which is what a contiguous map means.
+          const span = from.end - from.start;
+          const lo = prev ? prev.start + MIN : 0;
+          const hi = (next ? next.end - MIN : duration) - span;
+          const s2 = snap(Math.max(lo, Math.min(hi, from.start + dt)));
+          sec.start = s2.t;
+          sec.end = s2.t + span;
+          if(prev) prev.end = sec.start;
+          if(next) next.start = sec.end;
+          showSnapLine(block.parentElement, s2.snapped ? s2.t : null);
+        }
+        // The neighbours moved too, so repaint the row rather than one block.
+        [idx - 1, idx, idx + 1].forEach(i => {
+          const b = document.querySelector(`.sect-block[data-idx="${i}"]`);
+          if(b && sections[i]) paintSectionBlock(b, sections[i]);
+        });
+      };
+
+      const onUp = (ev) => {
+        block.classList.remove("dragging");
+        showSnapLine(block.parentElement, null);
+        try{ block.releasePointerCapture(ev.pointerId); }catch(err){}
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        if(moved){
+          sectionsEdited = true;
+          queueSectionSave();
+          renderTrackLanes();
+        } else {
+          // A click that never moved is still a click: go there.
+          seek(sections[idx].start);
+        }
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+
+    block.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openSectionMenu(idx, e.clientX, e.clientY);
+    });
+
+    // A section is the obvious thing to loop.
+    block.ondblclick = (e) => {
+      e.stopPropagation();
+      const sec = sections[idx];
+      loopStart = sec.start;
+      loopEnd = sec.end;
+      loopEnabled = true;
+      el("mixer-loop").classList.add("active");
+      renderTimeline();
+      showToast(`Smyčka: ${sec.name}`);
+    };
+  }
+
+  function paintSectionBlock(block, sec){
+    block.style.left = (sec.start * pixelsPerSecond) + "px";
+    block.style.width = Math.max(3, (sec.end - sec.start) * pixelsPerSecond - 2) + "px";
+  }
+
+  function addSectionAtPlayhead(){
+    const t = snapTime(currentTime()).t;
+    // Two bars, or to the next section if that comes sooner.
+    const nextStart = sections.find(s => s.start > t);
+    const defaultLen = (beatInterval || 0.5) * beatsPerBar * 2;
+    const end = Math.min(nextStart ? nextStart.start : duration, t + defaultLen);
+    if(end - t < 0.4){ showToast("Tady už na sekci není místo"); return; }
+
+    // Whatever span it lands in has to make room for it.
+    const host = sections.findIndex(s => s.start <= t && s.end > t);
+    if(host >= 0){
+      if(sections[host].end - end < 0.4) sections[host].end = t;
+      else sections.splice(host + 1, 0,
+        {...sections[host], start: end});
+      sections[host].end = t;
+      if(sections[host].end - sections[host].start < 0.4) sections.splice(host, 1);
+    }
+
+    const preset = sectionPresets[0] || {kind: "part", name: "Část", color: "#8391a5"};
+    sections.push({start: t, end, kind: preset.kind, name: preset.name,
+                   color: preset.color});
+    sections.sort((a, b) => a.start - b.start);
+    selectedSection = sections.findIndex(s => s.start === t);
+    sectionsEdited = true;
+    queueSectionSave();
+    renderTrackLanes();
+    showToast("Sekce přidána — pravým tlačítkem ji pojmenuj");
+  }
+
+  function openSectionMenu(idx, x, y){
+    closeSectionMenu();
+    const sec = sections[idx];
+    const menu = document.createElement("div");
+    menu.className = "sect-menu";
+    menu.id = "sect-menu";
+
+    sectionPresets.forEach(pre => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = `<span class="swatch" style="background:${pre.color}"></span>`
+        + escapeHtml(pre.name);
+      b.onclick = () => {
+        // The number is re-derived on every render, so only the kind and the
+        // colour are stored; "Sloka 2" would go stale the moment another
+        // verse is inserted before it.
+        sec.kind = pre.kind;
+        sec.name = pre.name;
+        sec.color = pre.color;
+        sectionsEdited = true;
+        queueSectionSave();
+        closeSectionMenu();
+        renderTrackLanes();
+      };
+      menu.appendChild(b);
+    });
+
+    menu.appendChild(document.createElement("hr"));
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.innerHTML = `${icon("tag", 12)}Vlastní název…`;
+    rename.onclick = () => {
+      const val = prompt("Název sekce:", sec.name);
+      closeSectionMenu();
+      if(val && val.trim()){
+        sec.name = val.trim().slice(0, 40);
+        sectionsEdited = true;
+        queueSectionSave();
+        renderTrackLanes();
+      }
+    };
+    menu.appendChild(rename);
+
+    const presetsBtn = document.createElement("button");
+    presetsBtn.type = "button";
+    presetsBtn.innerHTML = `${icon("sliders", 12)}Upravit nabídku názvů…`;
+    presetsBtn.onclick = () => { closeSectionMenu(); editSectionPresets(); };
+    menu.appendChild(presetsBtn);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "danger";
+    del.innerHTML = `${icon("trash", 12)}Odstranit sekci`;
+    del.onclick = () => {
+      sections.splice(idx, 1);
+      selectedSection = -1;
+      sectionsEdited = true;
+      queueSectionSave();
+      closeSectionMenu();
+      renderTrackLanes();
+    };
+    menu.appendChild(del);
+
+    if(sectionsEdited){
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.innerHTML = `${icon("history", 12)}Zpět na detekované`;
+      reset.onclick = () => { closeSectionMenu(); resetSections(); };
+      menu.appendChild(reset);
+    }
+
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.textContent = "Táhni za okraj = délka, uvnitř = posun. Alt vypne přichytávání na takty.";
+    menu.appendChild(hint);
+
+    document.body.appendChild(menu);
+    // Keep it on screen when the click was near an edge.
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+    setTimeout(() => document.addEventListener("pointerdown", closeSectionMenu,
+      {once: true}), 0);
+  }
+
+  function closeSectionMenu(){
+    const m = el("sect-menu");
+    if(m) m.remove();
+  }
+
+  function editSectionPresets(){
+    const current = sectionPresets.map(p => p.name).join("\n");
+    const val = prompt(
+      "Nabídka názvů sekcí pro tuhle píseň — jeden na řádek:", current);
+    if(val === null) return;
+    const names = val.split("\n").map(x => x.trim()).filter(Boolean).slice(0, 40);
+    if(!names.length) return;
+    // Keep the colour a name already had, so renaming the list doesn't
+    // recolour the sections that use it.
+    const byName = new Map(sectionPresets.map(p => [p.name, p]));
+    sectionPresets = names.map((name, i) => byName.get(name)
+      || {kind: "part", name, color: SECTION_FALLBACK_COLORS[i % SECTION_FALLBACK_COLORS.length]});
+    sectionsEdited = true;
+    queueSectionSave();
+    showToast("Nabídka názvů uložena");
+  }
+
+  const SECTION_FALLBACK_COLORS = ["#4a7fff", "#00c8a0", "#9a4aff", "#ff8a20",
+    "#e8c840", "#ff4a90", "#2ab8e8", "#00d4d4", "#8391a5"];
+
+  // Saving is debounced: a drag produces one write, not one per frame.
+  function queueSectionSave(){
+    clearTimeout(sectionSaveTimer);
+    const song = currentSongName;
+    sectionSaveTimer = setTimeout(() => {
+      if(!song) return;
+      fetch(`/api/stems/${encodeURIComponent(song)}/sections`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({sections, presets: sectionPresets}),
+      }).catch(() => showToast("Sekce se nepodařilo uložit"));
+    }, 600);
+  }
+
+  async function resetSections(){
+    if(!currentSongName) return;
+    try{
+      const res = await fetch(
+        `/api/stems/${encodeURIComponent(currentSongName)}/sections`,
+        {method: "DELETE"});
+      const data = await res.json();
+      sections = data.sections || [];
+      sectionPresets = data.presets || [];
+      sectionsEdited = false;
+      selectedSection = -1;
+      renderTrackLanes();
+      showToast("Zpět na detekované sekce");
+    }catch(e){ showToast("Nepodařilo se obnovit"); }
   }
 
   // Keep each section's name inside the visible part of its own block, so a
@@ -5658,12 +6030,25 @@ const Mixer = (() => {
     const sc = el("nm-scroll");
     if(!sc) return;
     sectionLabelsBound = true;
+    const body = el("nm-body");
+    if(body) body.addEventListener("scroll", updateLaneOverflowHint, {passive: true});
+    window.addEventListener("resize", updateLaneOverflowHint);
     let queued = false;
     sc.addEventListener("scroll", () => {
       if(queued) return;
       queued = true;
       requestAnimationFrame(() => { queued = false; positionSectionLabels(); });
     }, {passive: true});
+  }
+
+  // The fade at the bottom edge is the only hint that the lane list is
+  // taller than its window, so it has to follow both the content and the
+  // scroll position.
+  function updateLaneOverflowHint(){
+    const body = el("nm-body"), wrap = el("nm-body-wrap");
+    if(!body || !wrap) return;
+    const more = body.scrollHeight - body.clientHeight - body.scrollTop > 8;
+    wrap.classList.toggle("has-more", more);
   }
 
   function renderTrackLanes(){
@@ -5683,6 +6068,7 @@ const Mixer = (() => {
       renderMetronomeLane(rail, lanes, totalPx, laneH);
       bindSectionLabels();
     }
+    requestAnimationFrame(updateLaneOverflowHint);
 
     channels.forEach((c, idx) => {
       const style = stemStyle(c.stem);
@@ -6115,6 +6501,9 @@ const Mixer = (() => {
     tempoCurve = [];
     sections = [];
     chords = [];
+    sectionPresets = [];
+    sectionsEdited = false;
+    selectedSection = -1;
     analysisState = "idle";
     beatSetIndex = new Set();
     beatsPerBar = 4;
@@ -6175,8 +6564,16 @@ const Mixer = (() => {
       if(!res.ok) throw new Error("analysis failed");
       const data = await res.json();
       if(token !== loadToken) return;      // another song was loaded meanwhile
-      sections = data.sections || [];
       chords = data.chords || [];
+      // Sections come from their own endpoint, which hands back the
+      // listener's edits when there are any and the detector's guess when
+      // there aren't.
+      const own = await (await fetch(
+        `/api/stems/${encodeURIComponent(name)}/sections`)).json();
+      if(token !== loadToken) return;
+      sections = own.sections || data.sections || [];
+      sectionPresets = own.presets || [];
+      sectionsEdited = !!own.edited;
       analysisState = "ready";
       renderTrackLanes();
     }catch(e){

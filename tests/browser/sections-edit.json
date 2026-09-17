@@ -1,0 +1,98 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1500
+  },
+  {
+   "action": "eval",
+   "label": "load",
+   "script": "(()=>{[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Stovky let/.test(x.textContent)).click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "sections-present",
+   "script": "document.querySelectorAll('.sect-block').length>=4",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "grips-exist",
+   "script": "document.querySelectorAll('.sect-block .sect-grip').length===document.querySelectorAll('.sect-block').length*2",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "add-button-in-the-rail",
+   "script": "!!document.querySelector('.sect-add')",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "drag-moves-a-section",
+   "script": "(()=>{const b=document.querySelector('.sect-block[data-idx=\"1\"]');const before=parseFloat(b.style.left);const r=b.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:7,clientX:x,clientY:y,button:0}));window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:7,clientX:x+60,clientY:y,altKey:true}));const during=parseFloat(document.querySelector('.sect-block[data-idx=\"1\"]').style.left);window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:7,clientX:x+60,clientY:y,altKey:true}));return during>before+40})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1200
+  },
+  {
+   "action": "eval",
+   "label": "saved-to-the-server",
+   "script": "(async()=>{const d=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/sections')).json();return d.edited===true&&d.sections.length>=4&&d.presets.length>=8})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "context-menu-lists-the-presets",
+   "script": "(()=>{const b=document.querySelectorAll('.sect-block')[0];b.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:300,clientY:300}));const m=document.getElementById('sect-menu');if(!m)return 'no menu';const names=[...m.querySelectorAll('button')].map(x=>x.textContent.trim());return names.includes('Refrén')&&names.includes('Odstranit sekci')&&names.includes('Vlastní název…')})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "section-menu"
+  },
+  {
+   "action": "eval",
+   "label": "rename-from-a-preset",
+   "script": "(()=>{const m=document.getElementById('sect-menu');const btn=[...m.querySelectorAll('button')].find(b=>b.textContent.trim()==='Refrén');btn.click();return document.querySelectorAll('.sect-block')[0].title.split(' — ')[0]==='Refrén'})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "reset-to-detected",
+   "script": "(async()=>{const r=await fetch('/api/stems/Calin%20-%20Stovky%20let/sections',{method:'DELETE'});const d=await r.json();return d.edited===false&&d.sections.length>0})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "a-resize-grip-moves-the-shared-boundary",
+   "script": "(()=>{const b=document.querySelector('.sect-block[data-idx=\"1\"]');const g=b.querySelector('.sect-grip.s');const r=g.getBoundingClientRect();const x=r.left+3,y=r.top+r.height/2;const prevW=parseFloat(document.querySelector('.sect-block[data-idx=\"0\"]').style.width);g.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:9,clientX:x,clientY:y,button:0}));window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:9,clientX:x+40,clientY:y,altKey:true}));const nowW=parseFloat(document.querySelector('.sect-block[data-idx=\"0\"]').style.width);window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:9,clientX:x+40,clientY:y,altKey:true}));return nowW>prevW+30})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "snapping-lands-on-a-bar-line",
+   "script": "(async()=>{const grid=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/beats')).json();const bars=grid.downbeats||[];if(!bars.length)return 'no bars';const b=document.querySelector('.sect-block[data-idx=\"2\"]');const r=b.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:11,clientX:x,clientY:y,button:0}));window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:11,clientX:x+37,clientY:y}));window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:11,clientX:x+37,clientY:y}));const d=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/sections')).json();await new Promise(r2=>setTimeout(r2,900));const d2=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/sections')).json();const start=d2.sections[2].start;return bars.some(bar=>Math.abs(bar-start)<0.06)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "cleanup",
+   "script": "(async()=>{await fetch('/api/stems/Calin%20-%20Stovky%20let/sections',{method:'DELETE'});return true})()",
+   "expect": true
+  }
+ ]
+}

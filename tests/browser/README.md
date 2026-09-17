@@ -18,3 +18,5 @@ Exit 0 is a pass. Drop `--headless` to watch it happen.
 | `playlist-video.json` | playlist detail and the video list |
 | `analysis-lanes.json` | sections, chords and the tempo curve above the metronome |
 | `metronome-gaps.json` | the grid and the click run through silent passages |
+| `new-song.json` | a freshly separated track: MP3 stems, grid, sections, chords |
+| `sections-edit.json` | dragging, resizing, snapping, naming and deleting sections |

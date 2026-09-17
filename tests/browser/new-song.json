@@ -1,0 +1,80 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 2000
+  },
+  {
+   "action": "eval",
+   "label": "the-new-song-is-listed",
+   "script": "[...document.querySelectorAll('#lib-list .lib-row')].some(x=>/PARALLEL REALITIES/.test(x.textContent))",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "open-it",
+   "script": "(()=>{[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/PARALLEL REALITIES/.test(x.textContent)).click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 18000
+  },
+  {
+   "action": "eval",
+   "label": "all-six-stems-loaded",
+   "script": "[...document.querySelectorAll('.nm-strip .nm-strip-name')].slice(4).map(e=>e.textContent).join(',')",
+   "expect": "vocals,drums,bass,guitar,piano,other"
+  },
+  {
+   "action": "eval",
+   "label": "header-shows-tempo-and-key",
+   "script": "(()=>{const t=document.querySelector('.main-content').textContent;return /BPM/.test(t)&&/tónina/i.test(t)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "its-own-stems-are-already-mp3",
+   "script": "(async()=>{const r=await fetch('/api/stems/Space%20Of%20Variations%20-%20PARALLEL%20REALITIES/drums');return r.ok && (r.headers.get('content-type')||'').includes('mpeg')})()",
+   "expect": true
+  },
+  {
+   "action": "assertSelectorCount",
+   "selector": ".sect-block",
+   "min": 5
+  },
+  {
+   "action": "assertSelectorCount",
+   "selector": ".chord-block",
+   "min": 40
+  },
+  {
+   "action": "eval",
+   "label": "tempo-lane-drawn",
+   "script": "(()=>{const c=document.querySelector('.tempo-canvas');const g=c.getContext('2d');const d=g.getImageData(0,0,c.width,c.height).data;let n=0;for(let i=3;i<d.length;i+=4) if(d[i]>10) n++;return n>1500})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "metronome-clicks-across-the-whole-track",
+   "script": "(()=>{const cv=document.querySelector('.metro-canvas');const g=cv.getContext('2d');const w=Math.floor(cv.width*0.1);let lit=0;const d=g.getImageData(0,0,w,cv.height).data;for(let i=3;i<d.length;i+=4) if(d[i]>10) lit++;return lit>200})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "section-names",
+   "script": "(()=>{const t=[...document.querySelectorAll('.sect-block')].map(b=>b.title.split(' — ')[0]);return t.includes('Intro') && t.some(x=>/Refrén/.test(x))})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "new-song"
+  }
+ ]
+}

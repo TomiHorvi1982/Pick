@@ -145,6 +145,14 @@ cd ~/.local/share/spotdl-helper/app
   chroma rozmažou). Baskytara hlasuje zvlášť o basovém tónu, což je to, co
   udělá obrat viditelným. Slovník: dur, moll, 7, maj7, m7, sus2/4, dim, aug a
   **power chord** — bez něj by metal vycházel celý jako maj7.
+- **Vlastní sekce**: detekce je výchozí bod, ne verdikt. Sekce jde v mixpultu
+  táhnout, měnit jim délku, přidávat a mazat a pojmenovat z nabídky názvů,
+  která se dá na každé písni upravit. Hranice jsou **sdílené** — posun jedné
+  sekce bere místo jednomu sousedovi a dává druhému, jinak by sekce mezi
+  dvěma jinými nešla pohnout vůbec. Přichytávání jde na taktové čáry (a když
+  není žádná blízko, tak na doby); Alt ho vypne. Ukládá se do
+  `Stems/<název>/sections.json`, tedy **vedle** `analysis.json` — nové
+  spuštění detektoru ruční úpravy nepřepíše.
 - **Fit tempa skenem**: detekované časy jsou *důkaz* pro mřížku, ne mřížka
   sama. Medián rozestupů tempo neurčí — `beat_this` kvantuje výstup na svůj
   frame grid, takže rozestupy jsou násobky 20 ms a jejich medián je vychýlený

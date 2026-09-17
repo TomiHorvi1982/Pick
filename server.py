@@ -2297,6 +2297,127 @@ def stems_analysis(name: str, refresh: bool = False):
         return data
 
 
+# What a section can be called. The detector only ever produces the first
+# eight; the rest are here because a listener naming their own parts wants
+# them, and the list is editable per song anyway.
+DEFAULT_SECTION_PRESETS = [
+    {"kind": "intro", "name": "Intro", "color": "#4a7fff"},
+    {"kind": "verse", "name": "Sloka", "color": "#00c8a0"},
+    {"kind": "prechorus", "name": "Předrefrén", "color": "#2ab8e8"},
+    {"kind": "chorus", "name": "Refrén", "color": "#9a4aff"},
+    {"kind": "bridge", "name": "Bridge", "color": "#ff8a20"},
+    {"kind": "inst", "name": "Instrumentál", "color": "#e8c840"},
+    {"kind": "solo", "name": "Sólo", "color": "#ff4a90"},
+    {"kind": "break", "name": "Break", "color": "#2ab8e8"},
+    {"kind": "outro", "name": "Outro", "color": "#00d4d4"},
+    {"kind": "part", "name": "Část", "color": "#8391a5"},
+]
+
+
+def _clean_sections(raw) -> list:
+    """Only well-formed, ordered, non-overlapping spans get stored."""
+    out = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start = float(item.get("start"))
+            end = float(item.get("end"))
+        except (TypeError, ValueError):
+            continue
+        if not (end > start >= 0) or end - start < 0.2:
+            continue
+        name = str(item.get("name") or "Část")[:40]
+        kind = str(item.get("kind") or "part")[:24]
+        color = str(item.get("color") or "#8391a5")[:9]
+        out.append({"start": round(start, 3), "end": round(end, 3),
+                    "name": name, "kind": kind, "color": color})
+    out.sort(key=lambda x: x["start"])
+    return out[:200]
+
+
+def _clean_presets(raw) -> list:
+    out = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        out.append({
+            "kind": str(item.get("kind") or "part")[:24],
+            "name": str(item["name"])[:40],
+            "color": str(item.get("color") or "#8391a5")[:9],
+        })
+    return out[:40] or list(DEFAULT_SECTION_PRESETS)
+
+
+@app.get("/api/stems/{name}/sections")
+def get_sections(name: str):
+    """The song's sections — the listener's own if they have edited any,
+    otherwise whatever the analysis found."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    edited = stems_dir / "sections.json"
+    if edited.is_file():
+        try:
+            data = json.loads(edited.read_text(encoding="utf-8"))
+            return {"sections": _clean_sections(data.get("sections")),
+                    "presets": _clean_presets(data.get("presets")),
+                    "edited": True}
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    analysis = stems_dir / "analysis.json"
+    sections = []
+    if analysis.is_file():
+        try:
+            sections = _clean_sections(
+                json.loads(analysis.read_text(encoding="utf-8")).get("sections"))
+        except (json.JSONDecodeError, OSError):
+            sections = []
+    return {"sections": sections,
+            "presets": list(DEFAULT_SECTION_PRESETS), "edited": False}
+
+
+class SectionsIn(BaseModel):
+    sections: List[dict] = []
+    presets: Optional[List[dict]] = None
+
+
+@app.put("/api/stems/{name}/sections")
+def put_sections(name: str, body: SectionsIn):
+    """Store the listener's own sections.
+
+    Written beside the stems rather than into analysis.json, so re-running the
+    detector never overwrites hand-made edits.
+    """
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    data = {"sections": _clean_sections(body.sections),
+            "presets": _clean_presets(body.presets)}
+    try:
+        (stems_dir / "sections.json").write_text(
+            json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {**data, "edited": True}
+
+
+@app.delete("/api/stems/{name}/sections")
+def reset_sections(name: str):
+    """Throw the edits away and fall back to what the detector found."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        (stems_dir / "sections.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+    return get_sections(name)
+
+
 @app.get("/api/stems/{name}/{stem}")
 def stream_stem(name: str, stem: str, request: Request):
     """Serves one stem, whatever format it was written in.
