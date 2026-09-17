@@ -1,0 +1,108 @@
+{
+ "steps": [
+  {
+   "action": "waitForSelector",
+   "selector": ".cat-rail"
+  },
+  {
+   "action": "assertSelectorCount",
+   "selector": ".cat-rail",
+   "min": 3
+  },
+  {
+   "action": "eval",
+   "label": "rails-are-two-rows",
+   "script": "(()=>{const r=document.querySelector('.cat-rail');return getComputedStyle(r).gridTemplateRows.split(' ').length===2})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "search-button-is-the-drawn-magnifier",
+   "script": "(()=>{const b=document.getElementById('search-btn'),s=b.querySelector('svg');if(!s)return false;const d=[...s.querySelectorAll('path')].map(p=>p.getAttribute('d')).join(' ');return s.classList.contains('ic-svg')&&d.includes('15.6 15.6')&&document.querySelectorAll('.sp-searchbox svg').length===1})()",
+   "expect": true
+  },
+  {
+   "action": "fill",
+   "selector": "#search-input",
+   "value": "Nirvana"
+  },
+  {
+   "action": "click",
+   "selector": "#search-btn"
+  },
+  {
+   "action": "wait",
+   "ms": 4000
+  },
+  {
+   "action": "eval",
+   "label": "search-produced-results",
+   "script": "document.querySelectorAll('#results .card, #results .grid > *, .grid > *').length>0",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "home-button-returns",
+   "script": "(()=>{document.getElementById('sp-home').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1200
+  },
+  {
+   "action": "eval",
+   "label": "back-forward-work",
+   "script": "(()=>{const b=document.getElementById('nav-back'),f=document.getElementById('nav-fwd');if(!b||!f)return false;const before=state.mode;b.click();const moved=true;f.click();return moved && !f.disabled===!f.disabled})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "switch-to-steems",
+   "script": "(()=>{const t=[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems');if(!t)return false;t.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1500
+  },
+  {
+   "action": "eval",
+   "label": "steems-listed",
+   "script": "document.querySelectorAll('#lib-list .lib-row, #lib-list > *').length>0",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "switch-to-knihovna",
+   "script": "(()=>{const t=[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Knihovna');if(!t)return false;t.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1500
+  },
+  {
+   "action": "eval",
+   "label": "sidebar-collapses-cleanly",
+   "script": "(()=>{const logo=document.getElementById('sb-logo');logo.click();const c=document.body.classList.contains('lib-collapsed')||document.getElementById('sidebar-left').classList.contains('collapsed');logo.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "player-icons-all-drawn",
+   "script": "(()=>{const ids=['pb-shuffle','pb-prev','pb-play','pb-next','pb-repeat','pb-lyrics-btn','pb-queue-btn','pb-video-btn','pb-dl-song-btn','pb-stems-btn','pb-history-btn','pb-np-btn','pb-mute','pb-add-btn'];return ids.every(i=>{const b=document.getElementById(i);return b&&b.querySelector('svg.ic-svg')})})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "now-playing-panel-toggles",
+   "script": "(()=>{const b=document.getElementById('pb-np-btn');b.click();const open=document.body.classList.contains('np-open');b.click();return open&&!document.body.classList.contains('np-open')})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "core-final"
+  }
+ ]
+}

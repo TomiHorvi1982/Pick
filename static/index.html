@@ -1593,7 +1593,7 @@
     color:var(--text)}
   .sp-home:hover{background:var(--card-hi);transform:none}
   .sp-home svg{display:block}
-  .sp-searchbox{height:48px;padding:0 6px 0 16px;gap:12px;
+  .sp-searchbox{height:48px;padding:0 6px 0 18px;gap:12px;
     width:min(474px,44vw)}
   .sp-searchbox .ic{display:flex;align-items:center;color:var(--sub)}
   .sp-searchbox:focus-within .ic{color:#fff}
@@ -1701,6 +1701,86 @@
   .np-album:hover .cover{transform:scale(1.02)}
   .np-album .cover{transition:transform .12s}
 
+  /* ---- the rest of what's known about an artist ---- */
+  /* Formed / origin / genre, as chips, so the facts read at a glance
+     instead of as another paragraph. */
+  .np-facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .np-fact{font-size:11.5px;color:var(--text);background:rgba(255,255,255,.09);
+    border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .np-fact.accent{background:rgba(30,215,96,.16);color:var(--accent)}
+
+  /* The biography is clamped only when it is long enough to bury the albums;
+     the toggle always reveals the whole thing. */
+  .np-artist-desc.clamped{display:-webkit-box;-webkit-line-clamp:8;
+    -webkit-box-orient:vertical;overflow:hidden}
+  .np-more{display:inline-block;margin-top:8px;background:none;border:none;
+    padding:0;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;
+    letter-spacing:.02em}
+  .np-more:hover{color:var(--text);text-decoration:underline}
+  .np-wiki{display:inline-block;margin-top:10px;font-size:12px;color:var(--sub);
+    text-decoration:none}
+  .np-wiki:hover{color:var(--accent);text-decoration:underline}
+
+  .np-members{margin-top:12px;font-size:12.5px;color:var(--sub);line-height:1.6}
+  .np-members b{color:var(--text);font-weight:600;font-size:12px;
+    display:block;margin-bottom:2px}
+  .np-member-past{opacity:.62}
+
+  /* Photos scroll sideways so a gallery never pushes the albums off-screen. */
+  .np-photos{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;
+    scrollbar-width:thin}
+  .np-photos::-webkit-scrollbar{height:6px}
+  .np-photos::-webkit-scrollbar-thumb{background:#4a4a4a;border-radius:3px}
+  .np-photo{flex:0 0 auto;width:148px;height:100px;border-radius:6px;
+    background:var(--card-hi) center/cover no-repeat;cursor:zoom-in;
+    border:none;padding:0;transition:transform .12s}
+  .np-photo:hover{transform:scale(1.03)}
+
+  .np-events{display:flex;flex-direction:column;gap:2px}
+  .np-event{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
+    text-decoration:none;color:inherit}
+  .np-event:hover{background:var(--card-hi)}
+  .np-ev-date{flex:0 0 46px;text-align:center;line-height:1.1}
+  .np-ev-day{font-size:16px;font-weight:700;color:var(--text)}
+  .np-ev-mon{font-size:10.5px;color:var(--sub);text-transform:uppercase;
+    letter-spacing:.06em}
+  .np-ev-body{flex:1;min-width:0}
+  .np-ev-city{font-size:13.5px;color:var(--text);font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np-ev-venue{font-size:12px;color:var(--sub);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  /* A date within reach of home is worth spotting in a list of 24. */
+  .np-event.near .np-ev-day{color:var(--accent)}
+  .np-ev-tag{flex:0 0 auto;font-size:10.5px;padding:2px 7px;border-radius:999px;
+    background:rgba(30,215,96,.16);color:var(--accent);font-weight:700}
+  .np-ev-tag.sold{background:rgba(255,255,255,.1);color:var(--sub)}
+
+  .np-videos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 10px}
+  .np-video{cursor:pointer;text-align:left;background:none;border:none;padding:0;
+    color:inherit}
+  .np-video .vthumb{width:100%;aspect-ratio:16/9;border-radius:6px;
+    background:var(--card-hi) center/cover no-repeat;position:relative;
+    transition:transform .12s;display:flex;align-items:center;
+    justify-content:center}
+  .np-video .vplay{width:34px;height:34px;border-radius:50%;
+    background:rgba(0,0,0,.62);display:flex;align-items:center;
+    justify-content:center;color:#fff;opacity:0;transition:opacity .12s}
+  .np-video:hover .vthumb{transform:scale(1.02)}
+  .np-video:hover .vplay{opacity:1}
+  .np-video .vt{font-size:12.5px;color:var(--text);margin-top:6px;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden}
+  .np-video .vv{font-size:11.5px;color:var(--sub);margin-top:2px}
+
+  /* A photo opened full size. Its own layer so nothing else has to move. */
+  .np-lightbox{position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.86);
+    display:flex;align-items:center;justify-content:center;padding:40px;
+    cursor:zoom-out}
+  .np-lightbox img{max-width:100%;max-height:100%;border-radius:8px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .np-lightbox .cap{position:absolute;left:0;right:0;bottom:20px;text-align:center;
+    color:#c8c8c8;font-size:12.5px;padding:0 40px}
+
   /* ---- bigger preview tiles in the stage ---- */
   .grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:28px 22px}
   .shelf-row > .card{flex-basis:210px}
@@ -1795,18 +1875,9 @@
       </svg>
     </button>
     <div class="sp-searchbox">
-      <span class="ic" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
-          <path d="M10.5 3a7.5 7.5 0 1 0 4.55 13.46l4.24 4.25a1 1 0 0 0 1.42-1.42l-4.25-4.24A7.5 7.5 0 0 0 10.5 3Zm-5.5 7.5a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0Z"/>
-        </svg>
-      </span>
       <input id="search-input" type="text" placeholder="Co chceš přehrát?" autocomplete="off">
       <span class="divider"></span>
-      <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
-          <path d="M4 4h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 6.5h14V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19v-8.5Zm4 2.5a.9.9 0 0 0 0 1.8h6a.9.9 0 0 0 0-1.8H9Z"/>
-        </svg>
-      </button>
+      <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat"></button>
     </div>
   </div>
   <div class="sp-topbar-right">
@@ -2250,7 +2321,10 @@
       </div>
       <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
     </div>
-    <!-- Artist profile and their releases, per the reference's "O umělci". -->
+    <!-- Artist profile and their releases, per the reference's "O umělci".
+         The card and the releases come from YouTube Music and paint at once;
+         the biography, line-up, photos and tour dates come from three outside
+         services and fill in underneath when they land. -->
     <div id="np-artist-panel" hidden>
       <div class="np-sect">O umělci</div>
       <div class="np-artist-card">
@@ -2258,9 +2332,39 @@
         <div class="np-artist-body">
           <div class="np-artist-name" id="np-artist-name"></div>
           <div class="np-artist-stats" id="np-artist-stats"></div>
+          <div class="np-facts" id="np-artist-facts" hidden></div>
           <div class="np-artist-desc" id="np-artist-desc"></div>
+          <button class="np-more" id="np-artist-more" hidden>Zobrazit celý text</button>
+          <div class="np-members" id="np-artist-members" hidden></div>
+          <a class="np-wiki" id="np-artist-wiki" target="_blank" rel="noopener" hidden></a>
         </div>
       </div>
+
+      <div id="np-photos-sect" hidden>
+        <div class="np-sect np-sect-row">
+          <span>Fotky</span>
+          <span class="np-count" id="np-photos-count"></span>
+        </div>
+        <div class="np-photos" id="np-photos"></div>
+      </div>
+
+      <div id="np-events-sect" hidden>
+        <div class="np-sect np-sect-row">
+          <span>Nejbližší koncerty</span>
+          <span class="np-count" id="np-events-count"></span>
+        </div>
+        <div class="np-events" id="np-events"></div>
+        <button class="np-more" id="np-events-more" hidden></button>
+      </div>
+
+      <div id="np-videos-sect" hidden>
+        <div class="np-sect np-sect-row">
+          <span>Videoklipy</span>
+          <span class="np-count" id="np-videos-count"></span>
+        </div>
+        <div class="np-videos" id="np-videos"></div>
+      </div>
+
       <div class="np-sect np-sect-row">
         <span>Alba</span>
         <span class="np-count" id="np-albums-count"></span>
@@ -2493,7 +2597,10 @@ function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()
 // they're loaded cross-origin as CSS backgrounds — the request succeeds but
 // the bytes are discarded, leaving blank artwork. Routing them through our
 // own origin makes every cover load, and the server caches them.
-const THUMB_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent|ggpht|ytimg)\.com\//i;
+// Artist photos come from Wikimedia and Bandsintown, and go the same way:
+// through our origin, where they're cached.
+const THUMB_HOSTS =
+  /^https:\/\/([a-z0-9-]+\.)*((googleusercontent|ggpht|ytimg|bandsintown)\.com|wikimedia\.org)\//i;
 function thumbUrl(u){
   if(!u || !THUMB_HOSTS.test(u)) return u || "";
   return "/api/thumb?url=" + encodeURIComponent(u);
@@ -3004,6 +3111,7 @@ async function renderNowPlayingArtist(track){
 
   if(NP_ARTIST_CACHE.has(name)){
     paintArtist(NP_ARTIST_CACHE.get(name));
+    loadArtistAbout(name);
     return;
   }
 
@@ -3013,6 +3121,8 @@ async function renderNowPlayingArtist(track){
   el("np-artist-desc").textContent = "";
   el("np-albums").innerHTML = "";
   el("np-artist-photo").style.backgroundImage = "";
+  el("np-videos-sect").hidden = true;
+  clearArtistAbout();
 
   try{
     const res = await fetch("/api/artist?name=" + encodeURIComponent(name));
@@ -3022,7 +3132,10 @@ async function renderNowPlayingArtist(track){
     // The track may have changed while this was in flight.
     const now = Player.getCurrent();
     const stillCurrent = now && ((now.artists || "").split(/[,&]/)[0].trim() === name);
-    if(stillCurrent) paintArtist(data);
+    if(stillCurrent){
+      paintArtist(data);
+      loadArtistAbout(name);
+    }
   }catch(e){
     NP_ARTIST_CACHE.set(name, null);
     section.hidden = true;
@@ -3041,14 +3154,14 @@ function paintArtist(data){
     photo.textContent = "";
   } else {
     photo.style.backgroundImage = "";
-    photo.textContent = "\uD83C\uDFA4";
+    photo.textContent = "🎤";
   }
 
   const stats = [];
   if(data.monthlyListeners) stats.push(`${data.monthlyListeners} posluchačů měsíčně`);
   if(data.subscribers) stats.push(`${data.subscribers} odběratelů`);
   el("np-artist-stats").textContent = stats.join(" • ");
-  el("np-artist-desc").textContent = data.description || "";
+  setArtistBio(data.description || "", null);
 
   const releases = (data.albums || []).concat(data.singles || []);
   el("np-albums-count").textContent = releases.length ? `${releases.length}` : "";
@@ -3060,16 +3173,277 @@ function paintArtist(data){
     card.className = "np-album";
     card.title = r.title || "";
     card.innerHTML = `
-      <div class="cover" style="${r.thumbnail ? `background-image:url('${thumbUrl(r.thumbnail)}')` : ""}">${r.thumbnail ? "" : "\uD83D\uDCBF"}</div>
+      <div class="cover" style="${r.thumbnail ? `background-image:url('${thumbUrl(r.thumbnail)}')` : ""}">${r.thumbnail ? "" : "💿"}</div>
       <div class="t">${escapeHtml(r.title || "")}</div>
       <div class="y">${escapeHtml([r.type, r.year].filter(Boolean).join(" • "))}</div>`;
     card.onclick = () => {
-      // An album browse id opens like any other playlist page.
+      // An album browse id opens like any other playlist page — in the stage,
+      // with the whole tracklist.
       if(r.browseId) openPlaylist(r.browseId);
+      else if(r.playlistId) openPlaylist(r.playlistId);
       else { el("search-input").value = `${data.name} ${r.title}`; runSearch(); }
     };
     box.appendChild(card);
   });
+
+  paintArtistVideos(data.videos || [], data.name || "");
+}
+
+// The biography, with the toggle wired to it. `wiki` is the Wikipedia link
+// when the text came from there.
+function setArtistBio(text, wiki){
+  const desc = el("np-artist-desc");
+  const more = el("np-artist-more");
+  const link = el("np-artist-wiki");
+
+  desc.textContent = text || "";
+  // Short enough to simply read: no toggle, no clamp.
+  const long = (text || "").length > 420;
+  desc.classList.toggle("clamped", long);
+  more.hidden = !long;
+  if(long){
+    more.textContent = "Zobrazit celý text";
+    more.onclick = () => {
+      const open = desc.classList.toggle("clamped");
+      more.textContent = open ? "Zobrazit celý text" : "Zobrazit méně";
+    };
+  }
+
+  if(wiki && wiki.url){
+    link.hidden = false;
+    link.href = wiki.url;
+    link.textContent = `Zdroj: Wikipedie (${wiki.lang})`;
+  } else {
+    link.hidden = true;
+  }
+}
+
+function paintArtistVideos(videos, artistName){
+  const sect = el("np-videos-sect");
+  const box = el("np-videos");
+  if(!videos.length){ sect.hidden = true; box.innerHTML = ""; return; }
+
+  sect.hidden = false;
+  el("np-videos-count").textContent = `${videos.length}`;
+  box.innerHTML = "";
+  videos.forEach(v => {
+    const card = document.createElement("button");
+    card.className = "np-video";
+    card.type = "button";
+    card.title = v.title || "";
+    card.innerHTML = `
+      <div class="vthumb" style="${v.thumbnail ? `background-image:url('${thumbUrl(v.thumbnail)}')` : ""}">
+        <span class="vplay">${icon("play", 13)}</span>
+      </div>
+      <div class="vt">${escapeHtml(v.title || "")}</div>
+      <div class="vv">${escapeHtml(v.views || "")}</div>`;
+    card.onclick = () => openFloatingVideo({
+      videoId: v.videoId, title: v.title, artists: artistName,
+    });
+    box.appendChild(card);
+  });
+}
+
+// ---- biography, line-up, photos and tour dates ----
+//
+// These come from Wikipedia, MusicBrainz and Bandsintown rather than from
+// YouTube Music, so they arrive a beat later and are cached per artist.
+const NP_ABOUT_CACHE = new Map();
+
+const MONTHS_CZ = ["led","úno","bře","dub","kvě","čvn","čvc","srp","zář","říj","lis","pro"];
+// Home turf — worth picking out of a list of two dozen dates abroad.
+const NEAR_COUNTRIES = {"Czech Republic": "ČR", "Czechia": "ČR", "Slovakia": "SK"};
+
+// MusicBrainz and Bandsintown both name countries in English. The rest of the
+// app speaks Czech, so the common ones get translated on the way to the screen.
+const COUNTRIES_CZ = {
+  "Czechia": "Česko", "Czech Republic": "Česko", "Slovakia": "Slovensko",
+  "United Kingdom": "Velká Británie", "United States": "USA",
+  "Germany": "Německo", "Austria": "Rakousko", "Poland": "Polsko",
+  "France": "Francie", "Italy": "Itálie", "Spain": "Španělsko",
+  "Netherlands": "Nizozemsko", "Belgium": "Belgie", "Switzerland": "Švýcarsko",
+  "Sweden": "Švédsko", "Norway": "Norsko", "Finland": "Finsko",
+  "Denmark": "Dánsko", "Ireland": "Irsko", "Hungary": "Maďarsko",
+  "Portugal": "Portugalsko", "Greece": "Řecko", "Ukraine": "Ukrajina",
+  "Russia": "Rusko", "Canada": "Kanada", "Australia": "Austrálie",
+  "New Zealand": "Nový Zéland", "Japan": "Japonsko", "Brazil": "Brazílie",
+  "Mexico": "Mexiko", "Argentina": "Argentina", "Chile": "Chile",
+  "Romania": "Rumunsko", "Bulgaria": "Bulharsko", "Croatia": "Chorvatsko",
+  "Slovenia": "Slovinsko", "Serbia": "Srbsko", "Turkey": "Turecko",
+  "Estonia": "Estonsko", "Latvia": "Lotyšsko", "Lithuania": "Litva",
+  "Luxembourg": "Lucembursko", "Iceland": "Island", "Israel": "Izrael",
+};
+function czCountry(name){ return COUNTRIES_CZ[name] || name || ""; }
+// Origins arrive as "Teplice, Czechia" — only the country part is translated.
+function czPlace(place){
+  return (place || "").split(", ").map(czCountry).join(", ");
+}
+
+async function loadArtistAbout(name){
+  if(NP_ABOUT_CACHE.has(name)){
+    paintArtistAbout(NP_ABOUT_CACHE.get(name), name);
+    return;
+  }
+  clearArtistAbout();
+  try{
+    const res = await fetch("/api/artist/about?name=" + encodeURIComponent(name));
+    if(!res.ok) throw new Error("no about");
+    const data = await res.json();
+    NP_ABOUT_CACHE.set(name, data);
+    if(currentArtistName() === name) paintArtistAbout(data, name);
+  }catch(e){
+    NP_ABOUT_CACHE.set(name, null);
+  }
+}
+
+// Which artist the rail is showing — the guard for every late arrival.
+function currentArtistName(){
+  const now = Player.getCurrent();
+  return ((now && now.artists) || "").split(/[,&]|\sfeat\.?\s/i)[0].trim();
+}
+
+function clearArtistAbout(){
+  el("np-photos-sect").hidden = true;
+  el("np-events-sect").hidden = true;
+  el("np-artist-facts").hidden = true;
+  el("np-artist-members").hidden = true;
+  el("np-artist-wiki").hidden = true;
+}
+
+function paintArtistAbout(data, name){
+  if(!data){ clearArtistAbout(); return; }
+
+  // ---- facts ----
+  const f = data.facts || {};
+  const chips = [];
+  // A person has a birth year, a band a founding year; the same field, two
+  // different words for it.
+  if(f.formed){
+    const person = f.kind === "Person";
+    chips.push({text: `${person ? "Narození" : "Založení"} ${f.formed}`});
+  }
+  if(f.ended) chips.push({text: `Konec ${f.ended}`});
+  if(f.origin) chips.push({text: czPlace(f.origin)});
+  (f.genres || []).forEach(g => chips.push({text: g, accent: true}));
+
+  const factBox = el("np-artist-facts");
+  factBox.innerHTML = "";
+  factBox.hidden = !chips.length;
+  chips.forEach(c => {
+    const span = document.createElement("span");
+    span.className = "np-fact" + (c.accent ? " accent" : "");
+    span.textContent = c.text;
+    factBox.appendChild(span);
+  });
+
+  // ---- biography ----
+  // The Wikipedia lead is the better read when there is one; YouTube Music's
+  // blurb is promotional copy and stays as the fallback.
+  if(data.bio && data.bio.text){
+    const ytDesc = (NP_ARTIST_CACHE.get(name) || {}).description || "";
+    const both = ytDesc && !ytDesc.startsWith(data.bio.text.slice(0, 60))
+      ? `${data.bio.text}\n\n${ytDesc}`
+      : data.bio.text;
+    setArtistBio(both, data.bio);
+  }
+
+  // ---- line-up ----
+  const members = data.members || [];
+  const memBox = el("np-artist-members");
+  memBox.hidden = !members.length;
+  if(members.length){
+    const fmt = m => {
+      const roles = (m.roles || []).length ? ` (${m.roles.join(", ")})` : "";
+      return `<span class="${m.current ? "" : "np-member-past"}">${escapeHtml(m.name + roles)}</span>`;
+    };
+    const now = members.filter(m => m.current);
+    const past = members.filter(m => !m.current);
+    let html = "";
+    if(now.length) html += `<b>Sestava</b>${now.map(fmt).join(", ")}`;
+    if(past.length) html += `<b style="margin-top:8px">Dříve</b>${past.map(fmt).join(", ")}`;
+    memBox.innerHTML = html;
+  }
+
+  paintArtistPhotos(data.photos || []);
+  paintArtistEvents(data.events || []);
+}
+
+function paintArtistPhotos(photos){
+  const sect = el("np-photos-sect");
+  const box = el("np-photos");
+  if(!photos.length){ sect.hidden = true; box.innerHTML = ""; return; }
+
+  sect.hidden = false;
+  el("np-photos-count").textContent = `${photos.length}`;
+  box.innerHTML = "";
+  photos.forEach(ph => {
+    const b = document.createElement("button");
+    b.className = "np-photo";
+    b.type = "button";
+    b.title = ph.title || "";
+    b.style.backgroundImage = `url('${thumbUrl(ph.url)}')`;
+    b.onclick = () => openPhotoLightbox(ph);
+    box.appendChild(b);
+  });
+}
+
+function openPhotoLightbox(photo){
+  const box = document.createElement("div");
+  box.className = "np-lightbox";
+  box.innerHTML = `<img src="${thumbUrl(photo.url)}" alt="">
+    <div class="cap">${escapeHtml(photo.title || "")}</div>`;
+  const close = () => {
+    box.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => { if(e.key === "Escape") close(); };
+  box.onclick = close;
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(box);
+}
+
+function paintArtistEvents(events){
+  const sect = el("np-events-sect");
+  const box = el("np-events");
+  const more = el("np-events-more");
+  if(!events.length){ sect.hidden = true; box.innerHTML = ""; more.hidden = true; return; }
+
+  sect.hidden = false;
+  el("np-events-count").textContent = `${events.length}`;
+
+  const SHOWN = 6;
+  let expanded = false;
+  const paint = () => {
+    box.innerHTML = "";
+    (expanded ? events : events.slice(0, SHOWN)).forEach(ev => {
+      const d = new Date(ev.datetime);
+      const valid = !isNaN(d.getTime());
+      const tag = NEAR_COUNTRIES[ev.country];
+      const a = document.createElement("a");
+      a.className = "np-event" + (tag ? " near" : "");
+      a.href = ev.url || "#";
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.title = [ev.title, (ev.lineup || []).join(", ")].filter(Boolean).join(" — ");
+      const where = [ev.city, czCountry(ev.country)].filter(Boolean).join(", ");
+      a.innerHTML = `
+        <div class="np-ev-date">
+          <div class="np-ev-day">${valid ? d.getDate() : "?"}</div>
+          <div class="np-ev-mon">${valid ? MONTHS_CZ[d.getMonth()] + " " + String(d.getFullYear()).slice(2) : ""}</div>
+        </div>
+        <div class="np-ev-body">
+          <div class="np-ev-city">${escapeHtml(where)}</div>
+          <div class="np-ev-venue">${escapeHtml(ev.venue || "")}</div>
+        </div>
+        ${ev.soldOut ? '<span class="np-ev-tag sold">Vyprodáno</span>'
+                     : (tag ? `<span class="np-ev-tag">${tag}</span>` : "")}`;
+      box.appendChild(a);
+    });
+    more.hidden = events.length <= SHOWN;
+    more.textContent = expanded ? "Zobrazit méně" : `Zobrazit všech ${events.length}`;
+  };
+  more.onclick = () => { expanded = !expanded; paint(); };
+  paint();
 }
 
 // Tracks of the playlist the current song came from, listed in the
@@ -3197,6 +3571,9 @@ const ICONS = (() => {
     add:
       line("M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 0 0 0-17.2Z") +
       line("M12 8.2v7.6M8.2 12h7.6"),
+    search:
+      line("M10.6 3.6a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z") +
+      line("M15.6 15.6 20.6 20.6"),
   };
 })();
 
@@ -3230,6 +3607,7 @@ function paintPlayerIcons(){
   put("pb-np-btn", "nowPlaying", 17);
   put("pb-mute", "volume", 17);
   put("pb-add-btn", "add", 17);
+  put("search-btn", "search", 19);
   setPlayIcon(false);
 }
 
@@ -6328,7 +6706,7 @@ function renderPlaylistPanel(p){
     if (p.tracks && p.tracks.length) {
       state.currentPlaylist = { browseId: p.browseId, title: p.title };
       overlay.hidden = true;  // Close playlist panel
-      openVideoPlaylist(p.tracks);
+      Player.openVideos(p.tracks);
     }
   };
 }
@@ -6774,7 +7152,7 @@ const Player = (() => {
     let html = '<div class="video-player-wrap"><video id="video-player" controls style="width:100%;border-radius:8px;background:#000;max-height:280px"></video></div>';
     html += '<div style="font-size:12px;color:var(--sub);padding:4px 6px">' + videoPlaylistTracks.length + ' videí</div>';
     
-    tracks.forEach((t, i) => {
+    videoPlaylistTracks.forEach((t, i) => {
       const active = i === videoPlayingIdx ? ' active' : '';
       html += `
         <div class="video-playlist-item${active}" data-idx="${i}">
@@ -6859,12 +7237,6 @@ const Player = (() => {
   // Auto-show video section when track changes and has video
   // (no longer a manual button)
 
-  el("video-section-close").onclick = () => {
-    hideVideoSection();
-    // Resume audio after closing video
-    audio.play().catch(()=>{});
-  };
-
   // Download and split-to-stems are single buttons on the bar now; the old
   // dropdown they used to hang off is gone.
   function downloadCurrentSong(){
@@ -6946,6 +7318,10 @@ const Player = (() => {
     // Exposed for the video-mode handlers below, which live outside this
     // module and used to reach for the closure variable directly.
     hasVideoPlaylist: () => videoPlaylistTracks.length > 0,
+    // The playlist panel's "watch the videos" button lives outside this
+    // module too, and was calling the closure by name — a ReferenceError
+    // every time it was pressed.
+    openVideos: (tracks, startIdx = 0) => openVideoPlaylist(tracks, startIdx),
   };
 })();
 
@@ -7990,8 +8366,10 @@ el("float-video-close").onclick = () => {
   FloatVideo.close();
 };
 
-function openFloatingVideo(){
-  const t = Player.getCurrent();
+function openFloatingVideo(track){
+  // No argument means "the song that's playing"; the artist rail passes one
+  // of the artist's music videos instead.
+  const t = track || Player.getCurrent();
   if(!t || !t.videoId){ showToast("K téhle skladbě není video"); return; }
   el("float-video-title").textContent = t.title || "Video";
   el("float-video-pop").onclick = () =>

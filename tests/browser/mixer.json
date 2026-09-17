@@ -1,0 +1,70 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{const t=[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems');if(!t)return false;t.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1800
+  },
+  {
+   "action": "eval",
+   "label": "stems-listed",
+   "script": "document.querySelectorAll('#lib-list .lib-row').length>0",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "open-first-stem",
+   "script": "(()=>{const r=document.querySelector('#lib-list .lib-row');if(!r)return false;r.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "channels-loaded",
+   "script": "document.querySelectorAll('.fl-channel').length>=6",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "waveforms-drawn",
+   "script": "[...document.querySelectorAll('canvas')].filter(c=>c.width>100&&c.height>10).length>=6",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "metronome-is-the-first-lane",
+   "script": "(()=>{const l=document.querySelectorAll('.nm-lane');return l.length>0 && !!l[0].querySelector('.metro-canvas, .metro-lane') || !!document.querySelector('.metro-lane')})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "metronome-has-fader-pan-and-voices",
+   "script": "(()=>{const s=document.querySelector('.metro-strip');if(!s)return false;return !!s.querySelector('input[type=range]') && !!document.querySelector('.metro-pan') && document.querySelectorAll('.metro-voice option').length>=10})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "tempo-and-key-in-header",
+   "script": "(()=>{const t=document.querySelector('.main-content').textContent;return /BPM/.test(t) && /tónina/i.test(t)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "artist-photo-in-the-hero",
+   "script": "(()=>{const a=document.querySelector('#steems-hero .sp-hero-art');return !!a && a.classList.contains('has-art') && /url\\(/.test(a.style.backgroundImage)})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "mixer"
+  }
+ ]
+}

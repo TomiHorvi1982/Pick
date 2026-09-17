@@ -18,6 +18,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote, unquote
 
 import httpx
 from fastapi import FastAPI, Request
@@ -620,7 +621,14 @@ def _resolve_chip_thumb(term: str) -> Optional[str]:
 # when they're loaded cross-origin as CSS backgrounds, even though the bytes
 # are a perfectly good JPEG. Serving them from our own origin sidesteps that
 # entirely, and lets us cache them in memory for the session.
-_THUMB_HOSTS = ("googleusercontent.com", "ggpht.com", "ytimg.com", "ytimg.googleusercontent.com")
+# Several of these hosts turn away clients that don't say who they are.
+APP_UA = "Spotifylisty/1.0 (local music app)"
+
+_THUMB_HOSTS = ("googleusercontent.com", "ggpht.com", "ytimg.com",
+                "ytimg.googleusercontent.com",
+                # artist photos: Wikimedia for the press shots, Bandsintown
+                # for the tour images that come with an event.
+                "wikimedia.org", "bandsintown.com")
 _THUMB_BYTES: dict = {}
 _THUMB_BYTES_MAX = 400
 
@@ -638,10 +646,15 @@ async def proxy_thumb(url: str = ""):
     if cached is None:
         try:
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                r = await client.get(url)
+                # Wikimedia refuses requests that don't identify themselves,
+                # and the refusal arrives as a 404, not a 403.
+                r = await client.get(url, headers={"User-Agent": APP_UA})
             if r.status_code != 200:
                 return JSONResponse({"error": "Náhled nenalezen."}, status_code=404)
-            cached = (r.content, r.headers.get("content-type", "image/jpeg"))
+            ctype = r.headers.get("content-type", "image/jpeg")
+            if not ctype.split(";")[0].strip().startswith("image/"):
+                return JSONResponse({"error": "Není obrázek."}, status_code=415)
+            cached = (r.content, ctype)
         except httpx.HTTPError:
             return JSONResponse({"error": "Náhled se nepodařilo načíst."}, status_code=502)
         if len(_THUMB_BYTES) >= _THUMB_BYTES_MAX:
@@ -725,11 +738,419 @@ def artist_info(name: str = "", channel_id: str = ""):
              "thumbnail": _best_thumb(r.get("thumbnails"))}
             for r in ((a.get("related") or {}).get("results") or [])
         ],
+        # Music videos. These are real videoIds, so the rail can hand one
+        # straight to the video player rather than searching for it again.
+        "videos": [
+            {"title": v.get("title"), "videoId": v.get("videoId"),
+             "views": v.get("views"), "playlistId": v.get("playlistId"),
+             "thumbnail": _best_thumb(v.get("thumbnails"))}
+            for v in ((a.get("videos") or {}).get("results") or [])
+            if v.get("videoId")
+        ][:12],
     }
     if len(_ARTIST_CACHE) > 200:
         _ARTIST_CACHE.clear()
     _ARTIST_CACHE[key] = out
     return out
+
+
+# ---------------------------------------------- everything else about an artist
+#
+# YouTube Music knows the discography and a promo blurb; it knows nothing about
+# where a band came from, who is in it, what they look like or where they play
+# next. Those three answers come from three open sources, fetched in parallel
+# and cached on disk for a day:
+#
+#   Wikipedia     the lead section, plus the photos on the page
+#   MusicBrainz   formed / origin / genres / line-up
+#   Bandsintown   upcoming tour dates
+#
+# All three are best-effort: any of them can be down or simply have nothing on
+# the artist, and the panel just shows less.
+
+ABOUT_CACHE_PATH = HOME / ".local" / "share" / "spotdl-helper" / "artist-about.json"
+ABOUT_TTL = 24 * 3600
+ABOUT_MISS_TTL = 20 * 60
+_about_cache: Optional[dict] = None
+
+WIKI_UA = APP_UA
+MB_UA = APP_UA
+# Bandsintown's JS widget authenticates as "js_" plus the host it is embedded
+# in; this app is served from 127.0.0.1, so that is the honest id for it.
+BIT_APP_ID = "js_127.0.0.1"
+
+# A bare name is ambiguous — "Kabát" is a coat, "Chinaski" is a character. The
+# lead section of the right page nearly always says what kind of act it is, so
+# a page that says none of this is the wrong page. Matching is on the stem and
+# without diacritics, because Czech inflects: "zpěvák", "zpěvačky", "zpěvem"
+# are all one word to this check.
+_MUSIC_WORDS = (
+    "kapela", "skupina", "zpev", "hudb", "hudebn", "pisnic", "pisnick",
+    "rapper", "raper", "muzikant", "kytarist", "bubenik", "klavirist",
+    "houslist", "skladatel", "interpret", "album", "band", "singer",
+    "musician", "songwriter", "composer", "rapper", "duo", "trio",
+    "orchestr", "sbor", "dj",
+)
+
+
+_NOT_GENRES = {
+    "czech", "american", "british", "english", "german", "swedish", "finnish",
+    "norwegian", "danish", "french", "italian", "spanish", "polish", "slovak",
+    "dutch", "canadian", "australian", "japanese", "russian", "irish",
+    "usa", "uk", "seen live", "male vocalists", "female vocalists",
+}
+
+
+def _commons_key(url: str) -> str:
+    """The Commons file a Wikimedia URL points at.
+
+    A thumbnail lives under .../thumb/<dir>/<File.jpg>/640px-<File.jpg>, so the
+    file name is the second-to-last segment there and the last one otherwise.
+    """
+    parts = (url or "").split("?")[0].rstrip("/").split("/")
+    if not parts:
+        return url or ""
+    name = parts[-2] if "/thumb/" in (url or "") and len(parts) >= 2 else parts[-1]
+    return unquote(name).lower()
+
+
+def _deaccent(text: str) -> str:
+    """Lowercased and stripped of diacritics, for matching Czech text."""
+    import unicodedata
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", (text or "").lower())
+        if unicodedata.category(ch) != "Mn"
+    )
+
+
+def _load_about_cache() -> dict:
+    global _about_cache
+    if _about_cache is None:
+        try:
+            _about_cache = json.loads(ABOUT_CACHE_PATH.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            _about_cache = {}
+    return _about_cache
+
+
+def _save_about_cache() -> None:
+    try:
+        ABOUT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ABOUT_CACHE_PATH.write_text(
+            json.dumps(_load_about_cache(), ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+async def _wiki_api(client: httpx.AsyncClient, lang: str, params: dict):
+    """One MediaWiki API call, with a single retry when we're being throttled.
+
+    Wikipedia answers 429 to bursts, and a burst is exactly what a cold cache
+    looks like. One short back-off turns that into an answer instead of an
+    artist with no biography.
+    """
+    url = f"https://{lang}.wikipedia.org/w/api.php"
+    body = {**params, "format": "json", "formatversion": "2"}
+    for attempt in (0, 1):
+        r = await client.get(url, params=body, headers={"User-Agent": WIKI_UA})
+        if r.status_code == 429 and attempt == 0:
+            await asyncio.sleep(1.2)
+            continue
+        r.raise_for_status()
+        return r.json()
+    r.raise_for_status()
+    return r.json()
+
+
+async def _wiki_search_titles(client, lang: str, name: str) -> list:
+    """Disambiguated titles for a name that isn't a page by itself —
+    "Kabát (hudební skupina)" rather than the garment."""
+    hint = "hudební skupina" if lang == "cs" else "band"
+    try:
+        d = await _wiki_api(client, lang, {
+            "action": "query", "list": "search",
+            "srsearch": f"{name} {hint}", "srlimit": 3,
+        })
+    except (httpx.HTTPError, ValueError):
+        return []
+    seen, out = {name.lower()}, []
+    for h in ((d.get("query") or {}).get("search") or []):
+        t = h.get("title")
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out[:3]
+
+
+async def _wiki_photos(client, lang: str, title: str) -> list:
+    """The photographs on a page — not its icons, logos or maintenance glyphs."""
+    try:
+        d = await _wiki_api(client, lang, {
+            "action": "query", "generator": "images", "titles": title,
+            "gimlimit": 24, "prop": "imageinfo", "iiprop": "url|mime",
+            "iiurlwidth": 640, "redirects": 1,
+        })
+    except (httpx.HTTPError, ValueError):
+        return []
+
+    junk = ("logo", "icon", "commons-", "edit-", "question", "ambox",
+            "symbol", "flag of", "wiki", "sound", "speaker", "disambig")
+    out = []
+    for p in (d.get("query") or {}).get("pages") or []:
+        info = (p.get("imageinfo") or [{}])[0]
+        mime = str(info.get("mime") or "")
+        if not mime.startswith("image/") or mime == "image/svg+xml":
+            continue
+        name = str(p.get("title") or "")
+        if any(w in name.lower() for w in junk):
+            continue
+        url = info.get("thumburl") or info.get("url")
+        if not url:
+            continue
+        label = name.split(":", 1)[-1].rsplit(".", 1)[0].replace("_", " ")
+        out.append({"url": url, "title": label})
+    return out[:8]
+
+
+async def _wiki_try_title(client, lang: str, name: str, title: str) -> Optional[dict]:
+    """The page under `title`, if it really is this artist's page."""
+    try:
+        d = await _wiki_api(client, lang, {
+            "action": "query", "prop": "extracts|pageimages",
+            "titles": title, "explaintext": 1, "exintro": 1,
+            "redirects": 1, "piprop": "original",
+        })
+    except (httpx.HTTPError, ValueError):
+        return None
+
+    pages = (d.get("query") or {}).get("pages") or []
+    if not pages or pages[0].get("missing"):
+        return None
+    page = pages[0]
+    text = (page.get("extract") or "").strip()
+    if len(text) < 80:
+        return None
+
+    low = _deaccent(text)
+    real_title = page.get("title") or title
+    # Right name, and an act of some kind — otherwise it's a homonym.
+    flat_name = _deaccent(name)
+    if flat_name not in low[:600] and flat_name not in _deaccent(real_title):
+        return None
+    if not any(w in low for w in _MUSIC_WORDS):
+        return None
+
+    return {
+        "text": text,
+        "title": real_title,
+        "lang": lang,
+        "url": f"https://{lang}.wikipedia.org/wiki/{quote(real_title.replace(' ', '_'))}",
+        "image": (page.get("original") or {}).get("source"),
+        "photos": await _wiki_photos(client, lang, real_title),
+    }
+
+
+async def _wiki_about(client, name: str) -> Optional[dict]:
+    """Lead section and photos, from the Czech Wikipedia where it has the
+    artist and the English one otherwise.
+
+    The plain name is tried first and is usually the page; search is only
+    consulted when it isn't, which keeps the common case to one request.
+    """
+    for lang in ("cs", "en"):
+        hit = await _wiki_try_title(client, lang, name, name)
+        if hit:
+            return hit
+        for title in await _wiki_search_titles(client, lang, name):
+            hit = await _wiki_try_title(client, lang, name, title)
+            if hit:
+                return hit
+    return None
+
+
+async def _mb_get(client, url: str, params: dict) -> Optional[dict]:
+    """One MusicBrainz call. They ask for a request a second and answer 503
+    when the server is busy, so a throttled call is retried once."""
+    for attempt in (0, 1):
+        try:
+            r = await client.get(url, params=params, headers={"User-Agent": MB_UA})
+        except httpx.HTTPError:
+            return None
+        if r.status_code in (429, 503) and attempt == 0:
+            await asyncio.sleep(1.1)
+            continue
+        if r.status_code != 200:
+            return None
+        try:
+            return r.json()
+        except ValueError:
+            return None
+    return None
+
+
+async def _mb_about(client, name: str) -> dict:
+    """Formed / origin / genres / line-up from MusicBrainz."""
+    found = await _mb_get(client, "https://musicbrainz.org/ws/2/artist/",
+                          {"query": f'artist:"{name}"', "fmt": "json", "limit": 3})
+    hits = (found or {}).get("artists") or []
+
+    match = None
+    for h in hits:
+        if (h.get("name") or "").strip().lower() == name.strip().lower():
+            match = h
+            break
+    if match is None and hits and hits[0].get("score", 0) >= 90:
+        match = hits[0]
+    if match is None:
+        return {}
+
+    span = match.get("life-span") or {}
+    out = {
+        "mbid": match.get("id"),
+        "kind": match.get("type"),
+        "formed": (span.get("begin") or "")[:4] or None,
+        "ended": (span.get("end") or "")[:4] or None,
+        "origin": ", ".join(x for x in [
+            (match.get("begin-area") or {}).get("name"),
+            (match.get("area") or {}).get("name"),
+        ] if x) or None,
+        # MusicBrainz tags mix genres with nationalities — "czech" and
+        # "american" say nothing about how a band sounds.
+        "genres": [t["name"] for t in (match.get("tags") or [])
+                   if t.get("name") and (t.get("count") or 0) > 0
+                   and t["name"].lower() not in _NOT_GENRES][:5],
+        "members": [],
+    }
+
+    # The line-up is a second lookup; without it a band is just a name.
+    # MusicBrainz asks for no more than a request a second, and this follows
+    # the search immediately.
+    await asyncio.sleep(1.05)
+    detail = await _mb_get(client, f"https://musicbrainz.org/ws/2/artist/{out['mbid']}",
+                           {"inc": "artist-rels", "fmt": "json"})
+    rels = (detail or {}).get("relations") or []
+
+    # One person can hold several relations (guitar and vocals are separate
+    # rows), so collect by name and merge the roles rather than listing them
+    # twice.
+    by_name: dict = {}
+    for rel in rels:
+        if rel.get("type") != "member of band" or rel.get("direction") != "backward":
+            continue
+        who = (rel.get("artist") or {}).get("name")
+        if not who:
+            continue
+        m = by_name.setdefault(who, {"name": who, "roles": [], "current": False})
+        for role in (rel.get("attributes") or []):
+            if role and role not in m["roles"]:
+                m["roles"].append(role)
+        m["current"] = m["current"] or not rel.get("ended")
+    for m in by_name.values():
+        m["roles"] = m["roles"][:3]
+        out["members"].append(m)
+    # Current members first, then the alumni, each keeping MusicBrainz's order.
+    out["members"] = ([m for m in out["members"] if m["current"]] +
+                      [m for m in out["members"] if not m["current"]])[:14]
+    return out
+
+
+async def _bit_events(client, name: str) -> list:
+    """Upcoming tour dates from Bandsintown."""
+    try:
+        r = await client.get(
+            f"https://rest.bandsintown.com/v3/artists/{quote(name, safe='')}/events/",
+            params={"app_id": BIT_APP_ID, "date": "upcoming"},
+        )
+        r.raise_for_status()
+        raw = r.json()
+    except (httpx.HTTPError, ValueError):
+        return []
+    if not isinstance(raw, list):
+        return []
+
+    out = []
+    for e in raw[:24]:
+        venue = e.get("venue") or {}
+        tickets = next((o.get("url") for o in (e.get("offers") or [])
+                        if o.get("type") == "Tickets" and o.get("url")), None)
+        out.append({
+            "datetime": e.get("datetime"),
+            "venue": venue.get("name"),
+            "city": venue.get("city"),
+            "region": venue.get("region"),
+            "country": venue.get("country"),
+            "lineup": [a for a in (e.get("lineup") or []) if a][:4],
+            "url": tickets or e.get("url"),
+            "soldOut": bool(e.get("sold_out")),
+            "title": e.get("title") or "",
+        })
+    return out
+
+
+@app.get("/api/artist/about")
+async def artist_about(name: str = ""):
+    """Biography, line-up, photos and tour dates for an artist.
+
+    Split out of /api/artist deliberately: that one answers from a single
+    YouTube Music call and the rail needs it immediately, while this one talks
+    to three outside services and can take a second or two. The panel paints
+    first and fills in when this lands.
+    """
+    term = name.strip()
+    if not term:
+        return JSONResponse({"error": "Chybí jméno interpreta."}, status_code=400)
+
+    cache = _load_about_cache()
+    key = term.lower()
+    entry = cache.get(key)
+    if isinstance(entry, dict) and time.time() - entry.get("at", 0) < entry.get("ttl", ABOUT_TTL):
+        return entry.get("data") or {}
+
+    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+        wiki, mb, events = await asyncio.gather(
+            _wiki_about(client, term),
+            _mb_about(client, term),
+            _bit_events(client, term),
+            return_exceptions=True,
+        )
+    wiki = wiki if isinstance(wiki, dict) else None
+    mb = mb if isinstance(mb, dict) else {}
+    events = events if isinstance(events, list) else []
+
+    # The lead image is usually also one of the page images, once as the full
+    # original and once as a 640px thumbnail — the same photograph twice. Key
+    # them by the Commons file they point at rather than by URL.
+    photos = list((wiki or {}).get("photos") or [])
+    lead = (wiki or {}).get("image")
+    if lead and not any(_commons_key(p["url"]) == _commons_key(lead) for p in photos):
+        photos.insert(0, {"url": lead, "title": (wiki or {}).get("title") or term})
+
+    data = {
+        "name": term,
+        "bio": ({"text": wiki["text"], "url": wiki["url"], "lang": wiki["lang"]}
+                if wiki else None),
+        "facts": {
+            "kind": mb.get("kind"),
+            "formed": mb.get("formed"),
+            "ended": mb.get("ended"),
+            "origin": mb.get("origin"),
+            "genres": mb.get("genres") or [],
+        },
+        "members": mb.get("members") or [],
+        "photos": photos,
+        "events": events,
+    }
+
+    if len(cache) > 300:
+        cache.clear()
+    # A thin answer usually means an outside service was throttling us, not
+    # that there is nothing to say — don't let one bad minute stick for a day.
+    thin = not data["bio"] and not data["photos"] and not data["events"] \
+        and not data["facts"]["formed"]
+    cache[key] = {"at": time.time(), "data": data,
+                  "ttl": ABOUT_MISS_TTL if thin else ABOUT_TTL}
+    _save_about_cache()
+    return data
 
 
 @app.get("/api/art")
