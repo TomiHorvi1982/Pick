@@ -188,3 +188,46 @@ def test_rebuild_downbeats_without_any_detected(bg):
 
     assert bars[0] == 0.0
     assert len(bars) == 4
+
+
+# --------------------------------------------------------------- tempo curve
+
+def test_tempo_curve_follows_the_beats_as_heard(bg):
+    """The grid that ships to the player is regular by construction, so a
+    curve drawn from it is a flat line. This one comes from the raw
+    detections, where a drummer speeding up is actually visible."""
+    beats = [i * 0.5 for i in range(20)]                    # 120 BPM
+    beats += [beats[-1] + 0.4 * (i + 1) for i in range(20)]  # then 150
+
+    curve = bg._tempo_curve(beats, duration=beats[-1] + 1)
+
+    assert curve, "a curve was expected"
+    assert all(len(p) == 2 for p in curve)
+    assert curve[0][1] == pytest.approx(120, abs=1)
+    assert curve[-1][1] == pytest.approx(150, abs=1)
+    assert all(0 <= t <= beats[-1] + 1 for t, _ in curve)
+
+
+def test_one_missed_beat_does_not_dent_the_curve(bg):
+    """A dropped detection doubles one gap. A running mean smears that spike
+    across the window; the median ignores it, which is why it's a median."""
+    beats = [i * 0.5 for i in range(30)]
+    del beats[15]
+
+    curve = bg._tempo_curve(beats, duration=20)
+    bpms = [b for _t, b in curve]
+
+    assert max(bpms) == pytest.approx(120, abs=2)
+    assert min(bpms) == pytest.approx(120, abs=2)
+
+
+def test_tempo_curve_is_thinned_for_a_long_track(bg):
+    beats = [i * 0.25 for i in range(6000)]
+    curve = bg._tempo_curve(beats, duration=1500, max_points=400)
+    # Two points per bucket keep a spike alive through decimation.
+    assert 400 <= len(curve) <= 800
+    assert curve == sorted(curve)
+
+
+def test_too_few_beats_produce_no_curve(bg):
+    assert bg._tempo_curve([0.0, 0.5], duration=10) == []

@@ -285,6 +285,55 @@ def _build_regular_grid(segments, duration):
     return cleaned
 
 
+def _tempo_curve(beats, duration, smooth=5, max_points=900):
+    """Instantaneous tempo along the track, from the beats as they were heard.
+
+    The grid that ships to the player is regular by construction — one fitted
+    period per segment — so a curve drawn from it is a flat line and says
+    nothing. This is drawn from the raw detections instead, where a drummer
+    pushing into a chorus or dragging through a breakdown is actually visible.
+
+    A running median, not a mean: a single missed beat doubles one gap, and a
+    mean smears that spike across the whole window while a median ignores it.
+    """
+    if len(beats) < 4:
+        return []
+
+    raw = []
+    for i in range(len(beats) - 1):
+        gap = beats[i + 1] - beats[i]
+        if gap <= 0.05:
+            continue
+        raw.append((beats[i], 60.0 / gap))
+    if len(raw) < 4:
+        return []
+
+    half = max(1, smooth // 2)
+    points = []
+    for i, (t, _bpm) in enumerate(raw):
+        lo, hi = max(0, i - half), min(len(raw), i + half + 1)
+        window = sorted(v for _t, v in raw[lo:hi])
+        points.append((t, statistics.median(window)))
+
+    # A five-minute track at 200 BPM is a thousand beats; the lane is a few
+    # hundred pixels wide. Thin by keeping the extremes of each bucket, so a
+    # brief spike survives decimation instead of being averaged away.
+    if len(points) > max_points:
+        step = len(points) / max_points
+        thinned = []
+        for k in range(max_points):
+            lo = int(k * step)
+            hi = max(lo + 1, int((k + 1) * step))
+            bucket = points[lo:hi]
+            lowest = min(bucket, key=lambda p: p[1])
+            highest = max(bucket, key=lambda p: p[1])
+            for p in sorted({lowest, highest}, key=lambda p: p[0]):
+                thinned.append(p)
+        points = thinned
+
+    return [[round(t, 3), round(v, 2)] for t, v in points if 0 <= t <= duration]
+
+
 def _rebuild_downbeats(all_beats, detected, beats_per_bar):
     """Regular bar lines, phase-fitted to the downbeats that were detected.
 
@@ -381,6 +430,7 @@ def main(path):
 
     return {
         "beats": beats,
+        "tempo_curve": _tempo_curve(detected_beats, duration),
         "downbeats": downbeats,
         "bpm": round(bpm, 2),
         "beats_per_bar": beats_per_bar,

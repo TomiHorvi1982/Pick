@@ -405,6 +405,31 @@ def test_chip_thumbs_caps_the_batch(client, monkeypatch):
 
 # ------------------------------------------------------------ beat grid
 
+def test_a_grid_cached_before_the_tempo_curve_is_recomputed(client, tmp_music_root, monkeypatch):
+    """The player draws a field that older caches don't carry. Serving them
+    would mean a tempo lane that stays empty forever on every song already
+    analysed."""
+    import json as _json
+    import server
+
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "drums.wav").write_bytes(b"x")
+    (stems / "beats.json").write_text(_json.dumps({"bpm": 120, "beats": [0.5, 1.0]}))
+
+    class Fresh:
+        returncode = 0
+        stdout = _json.dumps({"bpm": 100, "beats": [0.6], "tempo_curve": [[0.6, 100]]})
+        stderr = ""
+
+    monkeypatch.setattr(server, "_demucs_interpreter", lambda: "/usr/bin/python3")
+    monkeypatch.setattr(server.subprocess, "run", lambda *a, **kw: Fresh())
+
+    data = client.get("/api/stems/Song/beats").json()
+    assert data["tempo_curve"] == [[0.6, 100]]
+    assert data["grid_version"] == server.BEATGRID_VERSION
+
+
 def test_beats_endpoint_serves_the_cache_without_reinvoking(client, tmp_music_root, monkeypatch):
     """Inference costs seconds and the grid never changes for a given file."""
     import json as _json
@@ -413,7 +438,8 @@ def test_beats_endpoint_serves_the_cache_without_reinvoking(client, tmp_music_ro
     stems = tmp_music_root / "Stems" / "Song"
     stems.mkdir(parents=True)
     (stems / "drums.wav").write_bytes(b"x")
-    (stems / "beats.json").write_text(_json.dumps({"bpm": 120, "beats": [0.5, 1.0]}))
+    (stems / "beats.json").write_text(_json.dumps(
+        {"bpm": 120, "beats": [0.5, 1.0], "grid_version": server.BEATGRID_VERSION}))
 
     def boom(*a, **kw):
         raise AssertionError("must not run the detector when a cache exists")

@@ -1,0 +1,118 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1800
+  },
+  {
+   "action": "eval",
+   "label": "open-a-track-with-tempo-changes",
+   "script": "(()=>{const r=[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Master Of Pupp/.test(x.textContent));if(!r)return false;r.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 24000
+  },
+  {
+   "action": "eval",
+   "label": "lanes-are-in-order-above-the-metronome",
+   "script": "[...document.querySelectorAll('.nm-strip .nm-strip-name')].map(e=>e.textContent).slice(0,4).join('>')",
+   "expect": "Sekce>Akordy>Tempo>Metronom"
+  },
+  {
+   "action": "eval",
+   "label": "tempo-lane-shows-the-whole-track",
+   "script": "(()=>{const c=document.querySelector('.tempo-canvas');if(!c)return false;const g=c.getContext('2d');const d=g.getImageData(0,0,c.width,c.height).data;let lit=0;for(let i=3;i<d.length;i+=4) if(d[i]>10) lit++;return lit>2000})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "tempo-scale-is-on-the-sticky-rail",
+   "script": "(()=>{const e=document.querySelector('.nm-strip-sub');return !!e && /\\d+–\\d+ BPM/.test(e.textContent)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "the-tempo-curve-is-not-a-flat-line",
+   "script": "(async()=>{const r=await fetch('/api/stems/Metallica%20-%20Master%20Of%20Puppets/beats');const d=await r.json();const b=(d.tempo_curve||[]).map(p=>p[1]);return b.length>100 && (Math.max(...b)-Math.min(...b))>20})()",
+   "expect": true
+  },
+  {
+   "action": "assertSelectorCount",
+   "selector": ".sect-block",
+   "min": 8
+  },
+  {
+   "action": "eval",
+   "label": "sections-are-named-and-numbered",
+   "script": "(()=>{const t=[...document.querySelectorAll('.sect-block')].map(b=>b.title.split(' — ')[0]);return t.includes('Intro')&&t.some(x=>/^Sloka \\d/.test(x))&&t.some(x=>/^Refrén \\d/.test(x))})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "sections-cover-the-track-without-gaps",
+   "script": "(()=>{const b=[...document.querySelectorAll('.sect-block')].map(e=>parseFloat(e.style.left));return b.every((v,i)=>i===0||v>=b[i-1])})()",
+   "expect": true
+  },
+  {
+   "action": "assertSelectorCount",
+   "selector": ".chord-block",
+   "min": 50
+  },
+  {
+   "action": "eval",
+   "label": "chords-carry-a-name",
+   "script": "[...document.querySelectorAll('.chord-block')].filter(b=>/^[A-G]/.test(b.title)).length>40",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "clicking-a-section-seeks-to-it",
+   "script": "(()=>{const b=[...document.querySelectorAll('.sect-block')][3];const want=parseFloat(b.style.left)/(window.devicePixelRatio?1:1);b.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "double-click-loops-the-section",
+   "script": "(()=>{const b=[...document.querySelectorAll('.sect-block')][3];b.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return document.getElementById('mixer-loop').classList.contains('active')})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "zoom-in-first",
+   "script": "(()=>{const z=document.getElementById('mixer-zoom');z.value=60;z.dispatchEvent(new Event('input',{bubbles:true}));return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 900
+  },
+  {
+   "action": "eval",
+   "label": "scroll-into-a-long-section",
+   "script": "(()=>{const sc=document.getElementById('nm-scroll');sc.scrollLeft=2400;sc.dispatchEvent(new Event('scroll'));return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 500
+  },
+  {
+   "action": "eval",
+   "label": "section-names-follow-the-scroll",
+   "script": "(()=>{const sc=document.getElementById('nm-scroll');const r=sc.getBoundingClientRect();return [...document.querySelectorAll('.sect-block .nm')].some(n=>{const b=n.getBoundingClientRect();return b.width>10&&b.left>=r.left-1&&b.right<=r.right+1})})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "analysis-lanes"
+  }
+ ]
+}

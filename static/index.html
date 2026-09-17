@@ -1416,6 +1416,36 @@
      the lanes must match or the two columns drift apart. */
   .nm-strip{height:86px;gap:5px}
   .nm-lane{height:86px}
+
+  /* The three analysis lanes sit above the metronome and are deliberately
+     shallow: they are a map of the song, not something to mix. */
+  .nm-strip.thin,.nm-lane.thin{height:var(--h);padding:0 10px;gap:0;
+    justify-content:center}
+  .nm-strip.thin{display:flex}
+  .nm-strip.thin .nm-strip-name{font-size:9.5px}
+  .nm-strip-sub{font-size:9px;color:var(--nm-sub);letter-spacing:.03em;
+    font-variant-numeric:tabular-nums;margin-top:1px}
+  .nm-lane.thin{overflow:hidden}
+
+  .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
+    display:flex;align-items:center;padding:0 7px;cursor:pointer;
+    border-left:3px solid currentColor;overflow:hidden;
+    font-size:10.5px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+  .sect-block:hover{filter:brightness(1.35)}
+  .sect-block .nm{opacity:.95;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;will-change:transform}
+
+  .chord-block{position:absolute;top:2px;bottom:2px;border-radius:3px;
+    background:rgba(255,255,255,.055);border-left:1px solid rgba(255,255,255,.16);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-size:10.5px;font-weight:600;color:#dfe3ea;overflow:hidden;
+    font-variant-numeric:tabular-nums}
+  .chord-block:hover{background:rgba(255,255,255,.12)}
+  .chord-block.silent{background:transparent;border-left-color:transparent}
+  .chord-block sub{font-size:8.5px;opacity:.72;vertical-align:baseline}
+
+  .nm-lane-empty{position:absolute;left:8px;top:50%;transform:translateY(-50%);
+    font-size:10px;color:var(--nm-sub);letter-spacing:.04em}
   .nm-sm{width:19px;height:19px;border-radius:4px;border:1px solid #3a3a42;
     background:#1e1e25;color:var(--nm-sub);font-size:10px;font-weight:700;
     cursor:pointer;flex:0 0 auto;padding:0;line-height:1;font-family:inherit}
@@ -4552,6 +4582,15 @@ const Mixer = (() => {
   let detectedFrom = 0;
   let detectedTo = Infinity;
   let tempoSegments = [];   // [{from, to, bpm}] — one entry per fitted tempo
+  // The tempo as it was actually played, beat by beat. The grid above is
+  // regular by construction, so only this shows a push or a drag.
+  let tempoCurve = [];      // [[seconds, bpm], ...]
+  // Song map: functional sections from All-In-One, chords from the harmonic
+  // stems. Both arrive a minute after the stems do, so the lanes render empty
+  // and fill in.
+  let sections = [];
+  let chords = [];
+  let analysisState = "idle";   // idle | loading | ready | failed
 
   // Click rate relative to the detected beat: 1 = on the beat, 2 = eighths,
   // 4 = sixteenths, 0.5 = every other beat, 0.25 = every fourth. The grid
@@ -5195,8 +5234,6 @@ const Mixer = (() => {
     g.clearRect(0, 0, cssW, laneH);
     paintGrid(g, cssW, laneH);
 
-    paintTempoCurve(g, cssW, laneH);
-
     if(clickTimes.length < 2) return;
     const mid = laneH / 2;
 
@@ -5206,11 +5243,23 @@ const Mixer = (() => {
     const spacingPx = (clickTimes[1] - clickTimes[0]) * pixelsPerSecond;
     const showAll = spacingPx >= 6;
 
+    // On a long track zoomed right out the *bar lines* merge too — an eight
+    // minute song at 211 BPM puts them a pixel and a half apart, and the lane
+    // became one solid green block. Thin them to every second or fourth bar so
+    // it still reads as a grid.
+    let accentStep = 1;
+    if(!showAll){
+      const barPx = spacingPx * beatsPerBar;
+      while(barPx * accentStep < 4 && accentStep < 16) accentStep *= 2;
+    }
+    let accentSeen = 0;
+
     for(let i = 0; i < clickTimes.length; i++){
       const x = clickTimes[i] * pixelsPerSecond;
       if(x > cssW) break;
       const accent = clickAccent[i];
       if(!accent && !showAll) continue;
+      if(accent && accentStep > 1 && (accentSeen++ % accentStep)) continue;
       // Accents run tall so bar lines are findable at a glance; ordinary
       // clicks are short ticks.
       const half = accent ? laneH * 0.38 : laneH * 0.15;
@@ -5219,47 +5268,236 @@ const Mixer = (() => {
     }
   }
 
-  // Tempo as a stepped line across the lane, with the BPM written at every
-  // change. Most tracks fit one tempo, so this is usually a single flat line
-  // and one number — which is itself the useful answer.
-  function paintTempoCurve(g, w, laneH){
-    if(!tempoSegments.length) return;
+  // ---- the three analysis lanes, above the metronome ----
+  //
+  // A shallow strip each, because they are a map of the song rather than
+  // something to mix: where the sections are, what chord is playing, and what
+  // the tempo is doing.
 
-    const bpms = tempoSegments.map(s => s.bpm);
-    const lo = Math.min(...bpms), hi = Math.max(...bpms);
-    // A flat tempo sits mid-lane; a varying one spreads across the middle
-    // half so a change is visible without the line touching the edges.
-    const span = Math.max(hi - lo, 1);
-    const yFor = (bpm) => laneH * 0.72 - ((bpm - lo) / span) * (laneH * 0.44);
+  function thinLane(rail, lanes, totalPx, label, height, cls, sub){
+    const strip = document.createElement("div");
+    strip.className = "nm-strip thin";
+    strip.style.setProperty("--h", height + "px");
+    strip.innerHTML = `<div class="nm-strip-top">
+      <span class="nm-strip-name">${escapeHtml(label)}</span></div>` +
+      (sub ? `<div class="nm-strip-sub">${escapeHtml(sub)}</div>` : "");
+    rail.appendChild(strip);
 
-    g.save();
-    g.strokeStyle = "rgba(233,185,73,.55)";
-    g.lineWidth = 1.5;
-    g.setLineDash([]);
-    g.beginPath();
-    let started = false;
-    tempoSegments.forEach(seg => {
-      const x0 = seg.from * pixelsPerSecond;
-      const x1 = seg.to * pixelsPerSecond;
-      const y = yFor(seg.bpm);
-      if(!started){ g.moveTo(x0, y); started = true; }
-      else g.lineTo(x0, y);     // vertical step at the change
-      g.lineTo(Math.min(x1, w), y);
+    const lane = document.createElement("div");
+    lane.className = "nm-lane thin " + cls;
+    lane.style.setProperty("--h", height + "px");
+    lane.style.width = totalPx + "px";
+    lane.addEventListener("click", (e) => {
+      const rect = lane.getBoundingClientRect();
+      seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
     });
+    lanes.appendChild(lane);
+    return lane;
+  }
+
+  function laneNote(lane, text){
+    const note = document.createElement("div");
+    note.className = "nm-lane-empty";
+    note.textContent = text;
+    lane.appendChild(note);
+  }
+
+  function analysisNote(){
+    if(analysisState === "loading") return "analyzuji…";
+    if(analysisState === "failed") return "analýza se nezdařila";
+    return "—";
+  }
+
+  function renderSectionsLane(rail, lanes, totalPx){
+    const lane = thinLane(rail, lanes, totalPx, "Sekce", 30, "sect-lane");
+    if(!sections.length){ laneNote(lane, analysisNote()); return; }
+
+    sections.forEach(sec => {
+      const x = sec.start * pixelsPerSecond;
+      const w = Math.max(3, (sec.end - sec.start) * pixelsPerSecond);
+      const block = document.createElement("div");
+      block.className = "sect-block";
+      block.style.left = x + "px";
+      block.style.width = (w - 2) + "px";
+      block.style.color = sec.color;
+      block.style.background = sec.color + "2e";
+      block.title = `${sec.name} — ${fmtDur(sec.start)}–${fmtDur(sec.end)}`;
+      // Below about fifty pixels the name can't be read anyway, and a
+      // clipped word reads worse than the colour alone.
+      block.innerHTML = w >= 46 ? `<span class="nm">${escapeHtml(sec.name)}</span>` : "";
+      block.onclick = (e) => { e.stopPropagation(); seek(sec.start); };
+      // The label is placed after layout, once the block has a real width.
+      // A section is the obvious thing to loop, so double-click does that.
+      block.ondblclick = (e) => {
+        e.stopPropagation();
+        loopStart = sec.start;
+        loopEnd = sec.end;
+        loopEnabled = true;
+        el("mixer-loop").classList.add("active");
+        renderTimeline();
+        showToast(`Smyčka: ${sec.name}`);
+      };
+      lane.appendChild(block);
+    });
+    requestAnimationFrame(positionSectionLabels);
+  }
+
+  // Keep each section's name inside the visible part of its own block, so a
+  // section that runs off both edges of the window still says what it is.
+  //
+  // CSS sticky can't do this: the lane sets overflow:hidden to clip the
+  // blocks at its edges, and that makes it the sticky ancestor instead of the
+  // scroller, so the label sticks to a box that never moves.
+  function positionSectionLabels(){
+    const sc = el("nm-scroll");
+    const rail = el("nm-rail");
+    if(!sc || !rail) return;
+    const visLeft = sc.getBoundingClientRect().left + rail.offsetWidth;
+    document.querySelectorAll(".sect-block").forEach(block => {
+      const nm = block.querySelector(".nm");
+      if(!nm) return;
+      const r = block.getBoundingClientRect();
+      const room = r.width - nm.offsetWidth - 12;
+      if(room <= 0){ nm.style.transform = ""; return; }
+      nm.style.transform = `translateX(${Math.max(0, Math.min(visLeft - r.left + 6, room))}px)`;
+    });
+  }
+
+  function renderChordsLane(rail, lanes, totalPx){
+    const lane = thinLane(rail, lanes, totalPx, "Akordy", 26, "chord-lane");
+    if(!chords.length){ laneNote(lane, analysisNote()); return; }
+
+    chords.forEach(ch => {
+      const x = ch.start * pixelsPerSecond;
+      const w = Math.max(2, (ch.end - ch.start) * pixelsPerSecond);
+      const block = document.createElement("div");
+      block.className = "chord-block" + (ch.chord ? "" : " silent");
+      block.style.left = x + "px";
+      block.style.width = (w - 1) + "px";
+      const label = ch.chord ? (ch.bass ? `${ch.chord}/${ch.bass}` : ch.chord) : "";
+      block.title = label ? `${label} — ${fmtDur(ch.start)}` : "ticho";
+      if(label && w >= 26) block.textContent = label;
+      block.onclick = (e) => { e.stopPropagation(); seek(ch.start); };
+      lane.appendChild(block);
+    });
+  }
+
+  function renderTempoLane(rail, lanes, totalPx){
+    const range = tempoRange();
+    const sub = range ? `${range.lo.toFixed(0)}–${range.hi.toFixed(0)} BPM` : "";
+    const lane = thinLane(rail, lanes, totalPx, "Tempo", 38, "tempo-lane", sub);
+    const cv = document.createElement("canvas");
+    cv.className = "tempo-canvas";
+    lane.appendChild(cv);
+    if(!tempoCurve.length){ laneNote(lane, "—"); return; }
+    paintTempoLane(cv, totalPx, 38);
+  }
+
+  // The vertical scale of the tempo lane. A rock-steady track would otherwise
+  // be drawn as a wildly noisy line, because the range it is scaled to would
+  // be a fraction of a BPM.
+  function tempoRange(){
+    if(!tempoCurve.length) return null;
+    const bpms = tempoCurve.map(p => p[1]);
+    let lo = Math.min(...bpms), hi = Math.max(...bpms);
+    const centre = (lo + hi) / 2;
+    const minSpan = Math.max(6, centre * 0.06);
+    if(hi - lo < minSpan){ lo = centre - minSpan / 2; hi = centre + minSpan / 2; }
+    return {lo, hi};
+  }
+
+  // The tempo of the whole track, drawn from the beats as they were heard.
+  // It used to be a stepped line behind the metronome's clicks, where the
+  // clicks drew over it and one fitted segment made it a flat line saying
+  // nothing. On its own strip, and drawn from the raw detections, a chorus
+  // that pushes or a breakdown that drags is visible at a glance.
+  function paintTempoLane(cv, totalPx, laneH){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cssW = Math.min(totalPx, 16000);
+    cv.width = Math.floor(cssW * dpr);
+    cv.height = Math.floor(laneH * dpr);
+    cv.style.width = totalPx + "px";
+    cv.style.height = laneH + "px";
+    const g = cv.getContext("2d");
+    g.scale(dpr, dpr);
+    g.clearRect(0, 0, cssW, laneH);
+    if(!tempoCurve.length) return;
+
+    const {lo, hi} = tempoRange();
+    const pad = 6;
+    const yFor = (bpm) => laneH - pad - ((bpm - lo) / (hi - lo)) * (laneH - pad * 2);
+
+    // The fitted tempo, as a faint baseline to read the wobble against.
+    tempoSegments.forEach(seg => {
+      const y = yFor(seg.bpm);
+      g.strokeStyle = "rgba(255,255,255,.16)";
+      g.setLineDash([3, 3]);
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(seg.from * pixelsPerSecond, y);
+      g.lineTo(Math.min(seg.to * pixelsPerSecond, cssW), y);
+      g.stroke();
+      g.setLineDash([]);
+    });
+
+    const pts = [];
+    for(const [t, bpm] of tempoCurve){
+      const x = t * pixelsPerSecond;
+      if(x > cssW + 4) break;
+      pts.push([x, yFor(bpm)]);
+    }
+    if(pts.length < 2) return;
+
+    const grad = g.createLinearGradient(0, 0, 0, laneH);
+    grad.addColorStop(0, "rgba(233,185,73,.30)");
+    grad.addColorStop(1, "rgba(233,185,73,.02)");
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(pts[0][0], laneH);
+    pts.forEach(([x, y]) => g.lineTo(x, y));
+    g.lineTo(pts[pts.length - 1][0], laneH);
+    g.closePath();
+    g.fill();
+
+    g.strokeStyle = "rgba(233,185,73,.92)";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
     g.stroke();
 
-    g.fillStyle = "rgba(233,185,73,.95)";
-    g.font = "600 10px -apple-system, system-ui, sans-serif";
-    g.textBaseline = "bottom";
+    g.font = "600 9px -apple-system, system-ui, sans-serif";
+    // Where the fit says the tempo actually changed — the moment worth
+    // finding — labelled with the new BPM.
+    g.textBaseline = "top";
     tempoSegments.forEach((seg, i) => {
+      if(i === 0) return;
       const x = seg.from * pixelsPerSecond;
-      if(x > w) return;
-      // Labelling every segment would overlap when changes are close; keep
-      // the first and any that has room after the previous one.
-      if(i > 0 && x - tempoSegments[i - 1].from * pixelsPerSecond < 54) return;
-      g.fillText(`${seg.bpm.toFixed(1)} BPM`, Math.max(2, x + 3), yFor(seg.bpm) - 3);
+      if(x > cssW) return;
+      g.strokeStyle = "rgba(233,185,73,.55)";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, laneH);
+      g.stroke();
+      g.fillStyle = "rgba(233,185,73,.95)";
+      g.fillText(`${seg.bpm.toFixed(1)}`, x + 3, 2);
     });
-    g.restore();
+  }
+
+  // One listener for the life of the mixer; the lanes are rebuilt often and
+  // must not each add their own.
+  let sectionLabelsBound = false;
+  function bindSectionLabels(){
+    if(sectionLabelsBound) return;
+    const sc = el("nm-scroll");
+    if(!sc) return;
+    sectionLabelsBound = true;
+    let queued = false;
+    sc.addEventListener("scroll", () => {
+      if(queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; positionSectionLabels(); });
+    }, {passive: true});
   }
 
   function renderTrackLanes(){
@@ -5271,7 +5509,14 @@ const Mixer = (() => {
     const totalPx = totalWidthPx();
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
 
-    if(channels.length) renderMetronomeLane(rail, lanes, totalPx, laneH);
+    if(channels.length){
+      // The map of the song first, then the click, then the audio.
+      renderSectionsLane(rail, lanes, totalPx);
+      renderChordsLane(rail, lanes, totalPx);
+      renderTempoLane(rail, lanes, totalPx);
+      renderMetronomeLane(rail, lanes, totalPx, laneH);
+      bindSectionLabels();
+    }
 
     channels.forEach((c, idx) => {
       const style = stemStyle(c.stem);
@@ -5701,6 +5946,10 @@ const Mixer = (() => {
     // the fallback if it fails.
     beatTimes = [];
     downbeatTimes = [];
+    tempoCurve = [];
+    sections = [];
+    chords = [];
+    analysisState = "idle";
     beatSetIndex = new Set();
     beatsPerBar = 4;
     detectedFrom = 0;
@@ -5718,6 +5967,7 @@ const Mixer = (() => {
     }catch(e){}
 
     fetchBeatGrid(song.name, myToken);
+    fetchAnalysis(song.name, myToken);
     // Key is read from a harmonic stem — drums would just smear the chroma.
     try{
       const keyCh = channels.find(c => ["other","piano","guitar","bass"].includes(c.stem))
@@ -5749,6 +5999,27 @@ const Mixer = (() => {
     requestAnimationFrame(() => { if(myToken === loadToken) zoomToFit(); });
   }
 
+  // Sections and chords take the better part of a minute the first time, so
+  // this runs on its own and the lanes fill in when it lands.
+  async function fetchAnalysis(name, token){
+    analysisState = "loading";
+    renderTrackLanes();
+    try{
+      const res = await fetch(`/api/stems/${encodeURIComponent(name)}/analysis`);
+      if(!res.ok) throw new Error("analysis failed");
+      const data = await res.json();
+      if(token !== loadToken) return;      // another song was loaded meanwhile
+      sections = data.sections || [];
+      chords = data.chords || [];
+      analysisState = "ready";
+      renderTrackLanes();
+    }catch(e){
+      if(token !== loadToken) return;
+      analysisState = "failed";
+      renderTrackLanes();
+    }
+  }
+
   async function fetchBeatGrid(name, token){
     try{
       const res = await fetch(`/api/stems/${encodeURIComponent(name)}/beats`);
@@ -5764,6 +6035,7 @@ const Mixer = (() => {
       detectedFrom = data.detected_from ?? 0;
       detectedTo = data.detected_to ?? Infinity;
       tempoSegments = data.tempo_segments || [];
+      tempoCurve = data.tempo_curve || [];
       rebuildClickTrack();
       tempoBPM = Math.round(data.bpm);
       beatInterval = 60 / data.bpm;

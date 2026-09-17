@@ -1,0 +1,52 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1800
+  },
+  {
+   "action": "eval",
+   "label": "open-a-track-with-a-long-intro",
+   "script": "(()=>{const r=[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Stovky let/.test(x.textContent));if(!r)return false;r.click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "the-tracker-only-heard-the-middle",
+   "script": "(async()=>{const d=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/beats')).json();return d.detected_from>10 && d.detected_to<d.duration-2})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "but-the-grid-covers-the-whole-track",
+   "script": "(async()=>{const d=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/beats')).json();const b=d.beats;return b[0]<1.0 && b[b.length-1]>d.duration-2})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "with-no-gap-anywhere-in-it",
+   "script": "(async()=>{const d=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/beats')).json();const b=d.beats,beat=60/d.bpm;for(let i=1;i<b.length;i++) if(b[i]-b[i-1]>beat*1.6) return 'gap at '+b[i-1];return true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "and-the-lane-draws-clicks-in-the-silent-intro",
+   "script": "(()=>{const cv=document.querySelector('.metro-canvas');if(!cv)return 'no canvas';const g=cv.getContext('2d');const w=Math.floor(cv.width*0.12);const d=g.getImageData(0,0,w,cv.height).data;let lit=0;for(let i=3;i<d.length;i+=4) if(d[i]>10) lit++;return lit>200?true:'only '+lit})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "metronome-gaps"
+  }
+ ]
+}

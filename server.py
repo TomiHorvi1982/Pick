@@ -14,6 +14,7 @@ import mimetypes
 import os
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -2141,6 +2142,66 @@ def convert_stems_to_mp3(dry_run: bool = False):
     }
 
 
+# Bumped whenever beatgrid.py starts returning something the player needs;
+# a cache written before that is a miss rather than a stale answer.
+BEATGRID_VERSION = 2
+
+
+def _beat_grid_for(stems_dir: Path, refresh: bool = False):
+    """The cached grid, computing it first if there isn't one.
+
+    Returns the grid, or a string saying why there is none — the chord
+    analysis needs the same answer as the endpoint and must not have to go
+    through HTTP to get it.
+    """
+    cache = stems_dir / "beats.json"
+    if cache.is_file() and not refresh:
+        try:
+            cached = json.loads(cache.read_text(encoding="utf-8"))
+            # A grid written before the tempo curve existed is missing a field
+            # the player now draws; re-running costs a few seconds once.
+            if cached.get("grid_version") == BEATGRID_VERSION:
+                return cached
+        except (json.JSONDecodeError, OSError):
+            pass  # unreadable cache is just a cache miss
+
+    interpreter = _demucs_interpreter()
+    if interpreter is None:
+        return "Detektor beatů není dostupný."
+
+    for stem in ("drums", "other", "bass", "guitar", "piano", "vocals"):
+        source = _stem_file(stems_dir, stem)
+        if source is None:
+            continue
+        try:
+            proc = subprocess.run(
+                [interpreter, str(APP_DIR / "beatgrid.py"), str(source)],
+                capture_output=True, text=True, timeout=300,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"Detekce selhala: {exc}"
+
+        line = (proc.stdout or "").strip().splitlines()
+        if not line:
+            continue
+        try:
+            data = json.loads(line[-1])
+        except json.JSONDecodeError:
+            continue
+        if "error" in data:
+            continue  # this stem had nothing trackable; try the next one
+
+        data["source_stem"] = stem
+        data["grid_version"] = BEATGRID_VERSION
+        try:
+            cache.write_text(json.dumps(data), encoding="utf-8")
+        except OSError:
+            pass
+        return data
+
+    return "Beaty se nepodařilo detekovat."
+
+
 @app.get("/api/stems/{name}/beats")
 def stems_beatgrid(name: str, refresh: bool = False):
     """Beat and downbeat grid for a separated song.
@@ -2155,47 +2216,85 @@ def stems_beatgrid(name: str, refresh: bool = False):
     if stems_dir is None or not stems_dir.is_dir():
         return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
 
-    cache = stems_dir / "beats.json"
+    grid = _beat_grid_for(stems_dir, refresh)
+    if isinstance(grid, str):
+        code = 503 if "není dostupný" in grid else 422
+        return JSONResponse({"error": grid}, status_code=code)
+    return grid
+
+
+# The analysis interpreter carries torch, librosa and the All-In-One
+# checkpoints; the server's venv carries none of them.
+ANALYZE_PYTHON = HOME / ".local" / "venvs" / "spotdl-analyze" / "bin" / "python"
+# Sections take about half a minute and chords about ten seconds on a
+# five-minute track, so two requests for the same song must not both run it.
+_ANALYSIS_LOCKS: dict = {}
+
+
+@app.get("/api/stems/{name}/analysis")
+def stems_analysis(name: str, refresh: bool = False):
+    """Song sections and chords for a separated song.
+
+    Both come from the stems rather than the mix, which is the whole reason
+    this waits for separation: All-In-One is trained on four stem
+    spectrograms, and the chord chroma is far cleaner once the drums and
+    vocals are out of it. Cached next to the stems — it costs the better part
+    of a minute and never changes for a given file.
+    """
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    cache = stems_dir / "analysis.json"
     if cache.is_file() and not refresh:
         try:
             return json.loads(cache.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            pass  # unreadable cache is just a cache miss
+            pass
 
-    interpreter = _demucs_interpreter()
-    if interpreter is None:
-        return JSONResponse({"error": "Detektor beatů není dostupný."}, status_code=503)
+    if not ANALYZE_PYTHON.is_file():
+        return JSONResponse(
+            {"error": "Analyzátor není nainstalován."}, status_code=503)
 
-    for stem in ("drums", "other", "bass", "guitar", "piano", "vocals"):
-        source = _stem_file(stems_dir, stem)
-        if source is None:
-            continue
+    lock = _ANALYSIS_LOCKS.setdefault(str(stems_dir), threading.Lock())
+    with lock:
+        # Another request may have finished it while this one waited.
+        if cache.is_file() and not refresh:
+            try:
+                return json.loads(cache.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        # Chords are estimated once per beat, so the grid has to exist first.
+        # On a freshly separated song the player asks for both at once and
+        # this would otherwise race the beat endpoint and lose.
+        _beat_grid_for(stems_dir)
+
+        cmd = [str(ANALYZE_PYTHON), str(APP_DIR / "analyze.py"), str(stems_dir)]
+        beats = stems_dir / "beats.json"
+        if beats.is_file():
+            cmd += ["--beats", str(beats)]
         try:
-            proc = subprocess.run(
-                [interpreter, str(APP_DIR / "beatgrid.py"), str(source)],
-                capture_output=True, text=True, timeout=300,
-            )
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
         except (OSError, subprocess.SubprocessError) as exc:
-            return JSONResponse({"error": f"Detekce selhala: {exc}"}, status_code=500)
+            return JSONResponse({"error": f"Analýza selhala: {exc}"}, status_code=500)
 
-        line = (proc.stdout or "").strip().splitlines()
-        if not line:
-            continue
+        lines = (proc.stdout or "").strip().splitlines()
+        if not lines:
+            detail = (proc.stderr or "").strip().splitlines()[-1:] or ["bez výstupu"]
+            return JSONResponse({"error": f"Analýza selhala: {detail[0][:200]}"},
+                                status_code=500)
         try:
-            data = json.loads(line[-1])
+            data = json.loads(lines[-1])
         except json.JSONDecodeError:
-            continue
-        if "error" in data:
-            continue  # this stem had nothing trackable; try the next one
+            return JSONResponse({"error": "Analýza vrátila neplatný výstup."},
+                                status_code=500)
 
-        data["source_stem"] = stem
         try:
-            cache.write_text(json.dumps(data), encoding="utf-8")
+            cache.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         except OSError:
             pass
         return data
-
-    return JSONResponse({"error": "Beaty se nepodařilo detekovat."}, status_code=422)
 
 
 @app.get("/api/stems/{name}/{stem}")

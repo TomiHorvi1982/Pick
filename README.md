@@ -54,11 +54,25 @@ Mimo venv jsou potřeba ještě externí nástroje:
 | `spotdl` | `~/.local/bin/spotdl`    | stahování                           |
 | `demucs` | `~/.local/bin/demucs`    | separace stemů (vlastní venv/torch) |
 | `beat_this` | v demucs venv         | detekce beatů a downbeatů           |
+| `all-in-one-infer` | `~/.local/venvs/spotdl-analyze/` | sekce skladby (model `harmonix-all`) |
+| `librosa` | tamtéž                  | chroma pro detekci akordů           |
 | `ffmpeg` | `/opt/homebrew/bin/ffmpeg` | převody, slučování DASH videa     |
 
 Demucs má **vlastní** izolovaný interpret (uv/pipx) s torchem — server si
 z jeho shebangu přečte cestu a subprocessem ověří dostupnost MPS, aby
 separace běžela na GPU. Torch se do serverového venv neinstaluje.
+
+Analýza sekcí a akordů má **třetí** venv, protože potřebuje torch *a* librosa
+*a* checkpointy All-In-One:
+
+```bash
+uv venv --python 3.12 ~/.local/venvs/spotdl-analyze
+VIRTUAL_ENV=~/.local/venvs/spotdl-analyze uv pip install "all-in-one-infer>=3.1,<4"
+```
+
+Checkpoint (~10 MB) se stáhne z Hugging Face při prvním běhu. Server volá
+`analyze.py` pod tímhle interpretem; když venv chybí, endpoint vrátí 503 a
+zbytek mixpultu funguje dál.
 
 ## Testy
 
@@ -109,6 +123,28 @@ cd ~/.local/share/spotdl-helper/app
   mřížku k nule i na konec skladby a taktové čáry přepočítá na pravidelné,
   fázově zarovnané s detekovanými downbeaty. Vrací i `detected_from/to`, takže
   UI kreslí dopočítané takty slaběji než změřené.
+- **Tempo křivka**: mřížka, která jde do přehrávače, je z definice pravidelná
+  (jedno napasované období na segment), takže křivka z ní nakreslená je rovná
+  čára a neřekne nic. `_tempo_curve()` proto kreslí ze **syrových detekcí**,
+  kde je vidět, kde kapela zrychlí do refrénu nebo se zadrhne v breakdownu.
+  Klouzavý medián, ne průměr: jedna vynechaná detekce zdvojnásobí mezeru a
+  průměr ten špic rozmaže přes celé okno.
+- **Sekce skladby**: `analyze.py` pod analytickým venvem pouští **All-In-One**
+  (Kim & Nam, ISMIR 2023, checkpoint `harmonix-all`) — transformer nad
+  spektrogramy čtyř stop, který vrací hranice i funkční názvy (intro, sloka,
+  refrén, bridge, sólo, instrumentál, break, outro). Model chce přesně bass,
+  drums, other a vocals, takže se našich šest stop nejdřív smíchá na čtyři.
+  Hranice se pak přichytí na taktovou čáru, pokud je do jedné doby daleko;
+  dál už ne, aby se opravdu mimomřížkový předěl neposunul.
+- **Akordy**: žádný předtrénovaný model nešel použít — madmomu chybí v forku
+  `madmom-infer` chordový modul, chord-extractor chce Vamp binárku a autochord
+  táhne TensorFlow. Takže klasika: **beat-synchronní chroma proti šablonám
+  akordů, uhlazená Viterbim** — ale s výhodou, kterou mix nemá: chroma se
+  počítá jen z harmonických stop (other + guitar + piano), bez bicích
+  (širokopásmový šum přes všechny třídy) a bez zpěvu (portamento a vibrato
+  chroma rozmažou). Baskytara hlasuje zvlášť o basovém tónu, což je to, co
+  udělá obrat viditelným. Slovník: dur, moll, 7, maj7, m7, sus2/4, dim, aug a
+  **power chord** — bez něj by metal vycházel celý jako maj7.
 - **Fit tempa skenem**: detekované časy jsou *důkaz* pro mřížku, ne mřížka
   sama. Medián rozestupů tempo neurčí — `beat_this` kvantuje výstup na svůj
   frame grid, takže rozestupy jsou násobky 20 ms a jejich medián je vychýlený
