@@ -101,6 +101,30 @@
    "expect": true
   },
   {
+   "action": "eval",
+   "label": "every-browse-shelf-is-a-card-rail",
+   "script": "['chips-decades','chips-topn','chips-genres','chips-popular','chips-ai','chips-more-genres','chips-more-moods','chips-custom'].every(i=>{const e=document.getElementById(i);return e&&e.classList.contains('cat-rail')})",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "genres-and-moods-are-separate-shelves",
+   "script": "(()=>{const g=document.querySelectorAll('#chips-more-genres .cat').length,m=document.querySelectorAll('#chips-more-moods .cat').length;return g>10&&m>5})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "no-small-chips-remain",
+   "script": "document.querySelectorAll('#browse-section .chip:not(.empty-hint)').length",
+   "expect": 0
+  },
+  {
+   "action": "eval",
+   "label": "custom-categories-are-cards-with-a-delete",
+   "script": "(()=>{saveCustomChips(['QA jedna','QA dva']);renderCustomChips();const n=document.querySelectorAll('#chips-custom .cat').length,x=document.querySelectorAll('#chips-custom .cat .cat-x').length;document.querySelector('#chips-custom .cat .cat-x').click();const after=document.querySelectorAll('#chips-custom .cat').length;saveCustomChips([]);renderCustomChips();return n===2&&x===2&&after===1&&!!document.querySelector('#chips-custom .empty-hint')})()",
+   "expect": true
+  },
+  {
    "action": "screenshot",
    "label": "core-final"
   }

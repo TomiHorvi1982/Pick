@@ -778,6 +778,8 @@ MB_UA = APP_UA
 # Bandsintown's JS widget authenticates as "js_" plus the host it is embedded
 # in; this app is served from 127.0.0.1, so that is the honest id for it.
 BIT_APP_ID = "js_127.0.0.1"
+# Within reach without a flight.
+HOME_COUNTRIES = {"Czech Republic", "Czechia", "Slovakia"}
 
 # A bare name is ambiguous — "Kabát" is a coat, "Chinaski" is a character. The
 # lead section of the right page nearly always says what kind of act it is, so
@@ -1069,7 +1071,7 @@ async def _bit_events(client, name: str) -> list:
         return []
 
     out = []
-    for e in raw[:24]:
+    for e in raw:
         venue = e.get("venue") or {}
         tickets = next((o.get("url") for o in (e.get("offers") or [])
                         if o.get("type") == "Tickets" and o.get("url")), None)
@@ -1083,8 +1085,15 @@ async def _bit_events(client, name: str) -> list:
             "url": tickets or e.get("url"),
             "soldOut": bool(e.get("sold_out")),
             "title": e.get("title") or "",
+            "home": venue.get("country") in HOME_COUNTRIES,
         })
-    return out
+
+    # A world tour is listed by date, which for a Czech listener buries the one
+    # date they can actually get to under a month of Australia. Home dates come
+    # first, each group still in date order — and because the trim happens
+    # after this, a home date is never the one that falls off the end.
+    out.sort(key=lambda e: (not e["home"], e["datetime"] or ""))
+    return out[:24]
 
 
 @app.get("/api/artist/about")

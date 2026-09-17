@@ -4,6 +4,7 @@ Nothing here touches the network — the three outside services are stubbed, so
 these test the shaping and the guards rather than Wikipedia's current copy.
 """
 
+import asyncio
 import json
 import time
 
@@ -164,3 +165,46 @@ def test_proxy_still_refuses_unknown_hosts(client):
 def test_proxy_allows_the_artist_photo_hosts(client):
     for host in ("upload.wikimedia.org", "photos.bandsintown.com"):
         assert any(host == h or host.endswith("." + h) for h in server._THUMB_HOSTS), host
+
+
+# ---------------------------------------------------------- tour date ordering
+
+def test_home_dates_are_listed_first(monkeypatch):
+    """A world tour sorted by date buries the one date a Czech listener can
+    reach under a month of Australia. _bit_events reorders before it trims, so
+    a home date is never the one that falls off the end of the list."""
+    raw = [
+        {"datetime": f"2027-01-{d:02d}T20:00:00",
+         "venue": {"name": "V", "city": "C", "country": "Australia"}}
+        for d in range(1, 26)
+    ] + [
+        {"datetime": "2027-09-01T20:00:00",
+         "venue": {"name": "Roxy", "city": "Praha", "country": "Czech Republic"}},
+        {"datetime": "2027-08-01T20:00:00",
+         "venue": {"name": "Majestic", "city": "Bratislava", "country": "Slovakia"}},
+    ]
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return raw
+
+    class FakeClient:
+        async def get(self, url, **kw):
+            return FakeResponse()
+
+    got = asyncio.run(server._bit_events(FakeClient(), "Band"))
+
+    assert len(got) == 24
+    # Both home dates survived the trim, and lead the list in date order.
+    assert [e["city"] for e in got[:2]] == ["Bratislava", "Praha"]
+    assert all(e["home"] for e in got[:2])
+    assert not any(e["home"] for e in got[2:])
+
+
+def test_home_countries_cover_cz_and_sk():
+    assert {"Czechia", "Czech Republic", "Slovakia"} <= server.HOME_COUNTRIES

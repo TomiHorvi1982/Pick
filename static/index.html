@@ -1737,6 +1737,9 @@
   .np-photo:hover{transform:scale(1.03)}
 
   .np-events{display:flex;flex-direction:column;gap:2px}
+  .np-ev-group{font-size:11px;font-weight:700;color:var(--sub);
+    text-transform:uppercase;letter-spacing:.07em;margin:10px 0 2px;padding:0 8px}
+  .np-ev-group:first-child{margin-top:2px}
   .np-event{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
     text-decoration:none;color:inherit}
   .np-event:hover{background:var(--card-hi)}
@@ -1851,6 +1854,19 @@
   .cat .label{font-size:19px}
   .cat .shot{width:78px;height:78px;right:-12px;bottom:-4px}
   .cat.active{outline:2px solid #fff;outline-offset:-2px}
+
+  /* Only "Moje kategorie" is deletable, and only on hover — the ✕ has no
+     business sitting on every card in every shelf. */
+  .cat-x{position:absolute;top:8px;right:8px;width:22px;height:22px;
+    border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;
+    font-size:11px;line-height:1;cursor:pointer;opacity:0;
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity .12s,background .12s}
+  .cat:hover .cat-x{opacity:1}
+  .cat-x:hover{background:rgba(0,0,0,.8)}
+
+  /* An empty shelf keeps its hint on one line instead of two rows of nothing. */
+  .cat-rail-empty{grid-template-rows:auto;grid-auto-columns:max-content}
 
   @media(max-width:1250px){
     .cat-rail{grid-auto-columns:206px;gap:16px}
@@ -2014,8 +2030,11 @@
     <div class="section-title">🤖 AI hudba</div>
     <div class="chips" id="chips-ai"></div>
 
-    <div class="section-title">🌐 Další žánry a nálady <span style="text-transform:none;font-weight:400">(YouTube Music)</span></div>
-    <div class="chips" id="chips-more"></div>
+    <div class="section-title">🌐 Další žánry <span style="text-transform:none;font-weight:400">(YouTube Music)</span></div>
+    <div class="chips" id="chips-more-genres"></div>
+
+    <div class="section-title">🎭 Nálady <span style="text-transform:none;font-weight:400">(YouTube Music)</span></div>
+    <div class="chips" id="chips-more-moods"></div>
 
     <div class="section-title">
       ⭐ Moje kategorie
@@ -2649,40 +2668,6 @@ function toggleInSearch(value){
   input.focus();
 }
 
-function renderChipGroup(containerId, items, opts={}){
-  const c = el(containerId);
-  c.innerHTML = "";
-  if(!items.length && opts.emptyHint){
-    const hint = document.createElement("span");
-    hint.className = "chip empty-hint";
-    hint.textContent = opts.emptyHint;
-    c.appendChild(hint);
-    return;
-  }
-  items.forEach(item=>{
-    const label = typeof item === "string" ? item : item.label;
-    const value = typeof item === "string" ? item : item.value;
-    const chip = document.createElement("div");
-    chip.className = "chip";
-    chip.dataset.value = value;
-    chip.innerHTML = `<span class="chip-thumb" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
-    // The cover is fetched only once the chip is actually on screen.
-    ChipThumbs.observe(chip, value);
-    if(opts.deletable){
-      const x = document.createElement("span");
-      x.className = "x";
-      x.textContent = "✕";
-      x.onclick = (e) => { e.stopPropagation(); opts.onDelete(value); };
-      chip.appendChild(x);
-    }
-    chip.addEventListener("click", (e)=>{
-      if(e.target.classList.contains("x")) return;
-      toggleInSearch(value);
-    });
-    c.appendChild(chip);
-  });
-}
-
 // The long browse lists read better as the reference's coloured category
 // cards than as a wall of pills — the colour and the tilted cover give each
 // one something to aim at. Colours cycle through a fixed palette rather than
@@ -2738,12 +2723,23 @@ function railWrap(container){
   return wrap;
 }
 
-function renderCategoryCards(containerId, items){
+function renderCategoryCards(containerId, items, opts = {}){
   const c = el(containerId);
   if(!c) return;
   const wrap = railWrap(c);
   c.className = "cat-rail";
   c.innerHTML = "";
+
+  if(!items.length && opts.emptyHint){
+    // One row, no rail: an empty shelf shouldn't reserve two rows of height.
+    c.className = "cat-rail cat-rail-empty";
+    const hint = document.createElement("span");
+    hint.className = "chip empty-hint";
+    hint.textContent = opts.emptyHint;
+    c.appendChild(hint);
+    if(wrap._paintArrows) wrap._paintArrows();
+    return;
+  }
 
   // A two-row grid fills column-first, so a plain list would read
   // 60s / 80s / 2000s across the top — the sequence jumping a step each
@@ -2765,7 +2761,20 @@ function renderCategoryCards(containerId, items){
     card.style.background = CAT_COLOURS[i % CAT_COLOURS.length];
     card.innerHTML = `<span class="label">${escapeHtml(label)}</span>
                       <span class="shot" aria-hidden="true"></span>`;
-    card.onclick = () => toggleInSearch(value);
+    if(opts.deletable){
+      const x = document.createElement("button");
+      x.className = "cat-x";
+      x.type = "button";
+      x.title = "Odebrat kategorii";
+      x.setAttribute("aria-label", `Odebrat ${label}`);
+      x.textContent = "✕";
+      x.onclick = (e) => { e.stopPropagation(); opts.onDelete(value); };
+      card.appendChild(x);
+    }
+    card.onclick = (e) => {
+      if(e.target.classList.contains("cat-x")) return;
+      toggleInSearch(value);
+    };
     // Same lazy, server-cached lookup the chips use.
     ChipThumbs.observe(card, value, ".shot");
     c.appendChild(card);
@@ -2797,7 +2806,7 @@ function saveCustomChips(list){
 }
 function renderCustomChips(){
   const list = loadCustomChips();
-  renderChipGroup("chips-custom", list, {
+  renderCategoryCards("chips-custom", list, {
     deletable: true,
     emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře ↑",
     onDelete: (value) => {
@@ -2841,9 +2850,14 @@ async function loadDynamicCategories(){
   try{
     const res = await fetch("/api/categories");
     const data = await res.json();
-    renderChipGroup("chips-more", [...data.genres, ...data.moods]);
+    // Two lists, two shelves. Rolled into one they were 36 cards deep and
+    // you couldn't tell a genre from a mood halfway along.
+    renderCategoryCards("chips-more-genres", data.genres);
+    renderCategoryCards("chips-more-moods", data.moods);
   }catch(e){
-    el("chips-more").innerHTML = "<span class='empty' style='padding:6px'>Nepodařilo se načíst.</span>";
+    const oops = "<span class='empty' style='padding:6px'>Nepodařilo se načíst.</span>";
+    el("chips-more-genres").innerHTML = oops;
+    el("chips-more-moods").innerHTML = oops;
   }
 }
 
@@ -3415,7 +3429,18 @@ function paintArtistEvents(events){
   let expanded = false;
   const paint = () => {
     box.innerHTML = "";
+    let group = null;
     (expanded ? events : events.slice(0, SHOWN)).forEach(ev => {
+      // Home dates are listed first, so the list isn't purely chronological.
+      // Say so, rather than leaving it looking like a sorting bug.
+      const g = ev.home ? "home" : "away";
+      if(g !== group){
+        group = g;
+        const h = document.createElement("div");
+        h.className = "np-ev-group";
+        h.textContent = ev.home ? "V Česku a na Slovensku" : "Ostatní termíny";
+        box.appendChild(h);
+      }
       const d = new Date(ev.datetime);
       const valid = !isNaN(d.getTime());
       const tag = NEAR_COUNTRIES[ev.country];
