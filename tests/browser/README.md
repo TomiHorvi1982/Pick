@@ -13,3 +13,6 @@ Exit 0 is a pass. Drop `--headless` to watch it happen.
 |------|--------|
 | `core.json` | shell, search, sections, playlists, player bar |
 | `artist-panel.json` | the now-playing rail: profile, photos, concerts, videos, albums |
+| `panels.json` | both side rails: drag, clamp, remember, reset |
+| `mixer.json` | Steems: channels, waveforms, metronome lane, tempo and key |
+| `playlist-video.json` | playlist detail and the video list |

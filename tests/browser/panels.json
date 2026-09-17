@@ -1,0 +1,17 @@
+{"steps":[
+ {"action":"eval","label":"open-the-now-playing-rail","script":"(()=>{localStorage.removeItem('spotdl-gui-np-width');document.documentElement.style.removeProperty('--sp-np-open');document.getElementById('pb-np-btn').click();return document.body.classList.contains('np-open')})()","expect":true},
+ {"action":"wait","ms":600},
+ {"action":"eval","label":"opens-at-the-default-width","script":"Math.round(document.getElementById('right-sidebar').getBoundingClientRect().width)===376","expect":true},
+ {"action":"eval","label":"dragging-the-inner-edge-widens-it","script":"(()=>{const h=document.getElementById('np-resize'),r=h.getBoundingClientRect(),x=r.left+2,y=r.top+200;const ev=(t,cx)=>h.dispatchEvent(new PointerEvent(t,{bubbles:true,pointerId:1,clientX:cx,clientY:y}));ev('pointerdown',x);ev('pointermove',x-120);const w=Math.round(document.getElementById('right-sidebar').getBoundingClientRect().width);ev('pointerup',x-120);return w===496})()","expect":true},
+ {"action":"eval","label":"the-width-is-remembered","script":"parseInt(localStorage.getItem('spotdl-gui-np-width'),10)===496","expect":true},
+ {"action":"eval","label":"clamped-between-300-and-620","script":"(()=>{const a=applyNpWidth(9999),b=applyNpWidth(10);return a===620&&b===300})()","expect":true},
+ {"action":"eval","label":"closing-still-collapses-it","script":"(()=>{applyNpWidth(520);document.getElementById('pb-np-btn').click();return Math.round(document.getElementById('right-sidebar').getBoundingClientRect().width)<5})()","expect":true},
+ {"action":"eval","label":"reopen","script":"(()=>{document.getElementById('pb-np-btn').click();return true})()","expect":true},
+ {"action":"wait","ms":600},
+ {"action":"eval","label":"reopens-at-the-chosen-width","script":"Math.round(document.getElementById('right-sidebar').getBoundingClientRect().width)===520","expect":true},
+ {"action":"eval","label":"double-click-resets-it","script":"(()=>{document.getElementById('np-resize').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return getComputedStyle(document.documentElement).getPropertyValue('--sp-np-open').trim()==='376px'})()","expect":true},
+ {"action":"eval","label":"the-library-rail-still-drags","script":"(()=>{const h=document.getElementById('lib-resize'),r=h.getBoundingClientRect(),x=r.left+2,y=r.top+200;const before=Math.round(document.getElementById('sidebar-left').getBoundingClientRect().width);const ev=(t,cx)=>h.dispatchEvent(new PointerEvent(t,{bubbles:true,pointerId:2,clientX:cx,clientY:y}));ev('pointerdown',x);ev('pointermove',x+90);const after=Math.round(document.getElementById('sidebar-left').getBoundingClientRect().width);ev('pointerup',x+90);return after===before+90})()","expect":true},
+ {"action":"eval","label":"no-green-line-while-dragging","script":"(()=>{const s=[...document.styleSheets].flatMap(sh=>{try{return [...sh.cssRules]}catch(e){return []}}).map(r=>r.cssText).join(' ');return !/resizing[^{]*\\{[^}]*(1ed760|accent)/.test(s)})()","expect":true},
+ {"action":"eval","label":"cleanup","script":"(()=>{localStorage.removeItem('spotdl-gui-np-width');localStorage.removeItem('spotdl-gui-lib-width');document.documentElement.style.removeProperty('--sp-np-open');document.documentElement.style.removeProperty('--sp-lib');return true})()","expect":true},
+ {"action":"screenshot","label":"panels"}
+]}

@@ -828,7 +828,7 @@
     --text:#fff; --sub:#b3b3b3; --accent:#1ed760; --accent-dim:#1db954;
     --danger:#f15e6c; --ok:#1ed760; --gold:#e9b949; --border:#282828;
     --sp-gap:8px; --sp-topbar:64px; --sp-player:80px;
-    --sp-lib:280px; --sp-np:0px;
+    --sp-lib:280px; --sp-np:0px; --sp-np-open:376px;
     --sp-radius:8px;
     --sp-hover:rgba(255,255,255,.1);
     --sp-font:"Helvetica Neue",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
@@ -1006,9 +1006,10 @@
   .sp-trow:hover .sp-t-cell{color:#fff}
 
   /* ------------------------------------------------ now playing rail */
-  #right-sidebar{flex:0 0 var(--sp-np);width:var(--sp-np);overflow:hidden;
-    display:flex;flex-direction:column;transition:flex-basis .2s ease,width .2s ease}
-  body.np-open{--sp-np:340px}
+  #right-sidebar{position:relative;flex:0 0 var(--sp-np);width:var(--sp-np);
+    overflow:hidden;display:flex;flex-direction:column;
+    transition:flex-basis .2s ease,width .2s ease}
+  body.np-open{--sp-np:var(--sp-np-open)}
   #right-sidebar[hidden]{display:none}
   .np-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;flex:0 0 auto}
   .np-head .tt{flex:1;min-width:0;font-size:15px;font-weight:700;color:var(--text);
@@ -1350,6 +1351,13 @@
   body.lib-resizing{cursor:col-resize;user-select:none}
   body.lib-resizing #sidebar-left{transition:none}
   body.lib-collapsed .lib-resize{display:none}
+
+  /* The now-playing rail drags from its inner edge — the same handle as the
+     library rail, on the other side. */
+  .np-resize{position:absolute;top:0;left:0;width:8px;height:100%;
+    cursor:col-resize;z-index:8}
+  body.np-resizing{cursor:col-resize;user-select:none}
+  body.np-resizing #right-sidebar{transition:none}
 
   .np-sect-row{display:flex;align-items:center;gap:8px}
   .np-sect-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
@@ -1794,7 +1802,7 @@
 
   /* The rail is wider now that it carries an artist profile and a grid of
      releases; below this the stage would be squeezed instead. */
-  body.np-open{--sp-np:376px}
+  body.np-open{--sp-np:var(--sp-np-open)}
 
   /* Only step the tiles down once the stage is genuinely narrow — at 1500
      this was firing on an ordinary 1280 window and undoing the larger size. */
@@ -2326,6 +2334,7 @@
 
 <!-- Now playing: stage (art or video), track, then the queue. -->
 <aside id="right-sidebar" hidden>
+  <div class="np-resize" id="np-resize" title="Táhnutím změníš šířku"></div>
   <div class="np-head">
     <span class="tt" id="np-context">Právě hraje</span>
     <button class="sp-iconbtn" id="np-close" title="Zavřít panel" style="font-size:16px">✕</button>
@@ -8453,14 +8462,14 @@ function applyLibWidth(px){
   }catch(e){}
 
   const handle = el("lib-resize");
-  let startX = 0, startW = 0, dragging = false;
+  let startX = 0, startW = 0, applied = 0, dragging = false;
 
   handle.addEventListener("pointerdown", (e) => {
     // A collapsed rail has a fixed width; dragging it would fight the toggle.
     if(document.body.classList.contains("lib-collapsed")) return;
     dragging = true;
     startX = e.clientX;
-    startW = el("sidebar-left").getBoundingClientRect().width;
+    startW = applied = el("sidebar-left").getBoundingClientRect().width;
     document.body.classList.add("lib-resizing");
     try{ handle.setPointerCapture(e.pointerId); }catch(err){}
     e.preventDefault();
@@ -8468,7 +8477,7 @@ function applyLibWidth(px){
 
   handle.addEventListener("pointermove", (e) => {
     if(!dragging) return;
-    applyLibWidth(startW + (e.clientX - startX));
+    applied = applyLibWidth(startW + (e.clientX - startX));
   });
 
   const end = (e) => {
@@ -8476,8 +8485,7 @@ function applyLibWidth(px){
     dragging = false;
     document.body.classList.remove("lib-resizing");
     try{ handle.releasePointerCapture(e.pointerId); }catch(err){}
-    const w = el("sidebar-left").getBoundingClientRect().width;
-    try{ localStorage.setItem(LIB_WIDTH_KEY, String(Math.round(w))); }catch(err){}
+    try{ localStorage.setItem(LIB_WIDTH_KEY, String(applied)); }catch(err){}
   };
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
@@ -8486,6 +8494,57 @@ function applyLibWidth(px){
   handle.addEventListener("dblclick", () => {
     document.documentElement.style.removeProperty("--sp-lib");
     try{ localStorage.removeItem(LIB_WIDTH_KEY); }catch(e){}
+  });
+})();
+
+// ---- the now-playing rail drags the same way, from its inner edge ----
+const NP_WIDTH_KEY = "spotdl-gui-np-width";
+const NP_MIN = 300, NP_MAX = 620;
+
+function applyNpWidth(px){
+  const w = Math.max(NP_MIN, Math.min(NP_MAX, Math.round(px)));
+  // --sp-np-open, not --sp-np: body.np-open defines --sp-np on <body>, which
+  // would win over anything set inline on <html>.
+  document.documentElement.style.setProperty("--sp-np-open", w + "px");
+  return w;
+}
+
+(function initNpResize(){
+  try{
+    const saved = parseInt(localStorage.getItem(NP_WIDTH_KEY), 10);
+    if(saved) applyNpWidth(saved);
+  }catch(e){}
+
+  const handle = el("np-resize");
+  let startX = 0, startW = 0, applied = 0, dragging = false;
+
+  handle.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startW = applied = el("right-sidebar").getBoundingClientRect().width;
+    document.body.classList.add("np-resizing");
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  });
+
+  handle.addEventListener("pointermove", (e) => {
+    // This rail grows leftwards, so the delta is inverted.
+    if(dragging) applied = applyNpWidth(startW - (e.clientX - startX));
+  });
+
+  const end = (e) => {
+    if(!dragging) return;
+    dragging = false;
+    document.body.classList.remove("np-resizing");
+    try{ handle.releasePointerCapture(e.pointerId); }catch(err){}
+    try{ localStorage.setItem(NP_WIDTH_KEY, String(applied)); }catch(err){}
+  };
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+
+  handle.addEventListener("dblclick", () => {
+    document.documentElement.style.removeProperty("--sp-np-open");
+    try{ localStorage.removeItem(NP_WIDTH_KEY); }catch(e){}
   });
 })();
 

@@ -125,6 +125,12 @@
    "expect": true
   },
   {
+   "action": "eval",
+   "label": "moods-hold-the-seasonal-and-context-ones",
+   "script": "(async()=>{const c=await (await fetch('/api/categories')).json();return c.moods.includes('Autumn')&&c.moods.includes('Family')&&!c.genres.includes('Autumn')&&!c.genres.includes('Family')&&!c.genres.includes('Decades')})()",
+   "expect": true
+  },
+  {
    "action": "screenshot",
    "label": "core-final"
   }

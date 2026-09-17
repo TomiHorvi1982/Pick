@@ -120,14 +120,29 @@ def health():
 
 # ----------------------------------------------------------------- browse
 
+# YouTube Music's own split between a genre and a mood is not quite the one a
+# listener would make: "Autumn" and "Family" sit under Genres, where they read
+# as mistakes next to Jazz and Metal. "Decades" is neither — it is a browse
+# axis, and the page already has a Dekády shelf of its own.
+MOODS_NOT_GENRES = {"Autumn", "Family"}
+NOT_A_CATEGORY = {"Decades"}
+
+
 @app.get("/api/categories")
 def categories():
     """Žánry a nálady/období pro úvodní 'brouzdací' mřížku."""
     cats = yt().get_mood_categories()
-    return {
-        "genres": [c["title"] for c in cats.get("Genres", [])],
-        "moods": [c["title"] for c in cats.get("Moods & moments", [])],
-    }
+    genres, moods = [], []
+    for c in cats.get("Genres", []):
+        title = c.get("title")
+        if not title or title in NOT_A_CATEGORY:
+            continue
+        (moods if title in MOODS_NOT_GENRES else genres).append(title)
+    for c in cats.get("Moods & moments", []):
+        title = c.get("title")
+        if title and title not in NOT_A_CATEGORY:
+            moods.append(title)
+    return {"genres": genres, "moods": sorted(moods)}
 
 
 @app.get("/api/playlists")

@@ -1045,3 +1045,25 @@ def test_playlist_404s_when_neither_call_works(client, monkeypatch):
     monkeypatch.setattr(server, "yt", lambda: FakeYT())
 
     assert client.get("/api/playlist/XYZ").status_code == 404
+
+
+# --------------------------------------------- browse categories, reclassified
+
+def test_seasonal_and_context_categories_are_moods(client, monkeypatch):
+    """YouTube Music files "Autumn" and "Family" under Genres, where they read
+    as mistakes next to Jazz and Metal. "Decades" is neither — it's a browse
+    axis the page already has its own shelf for.
+    """
+    class FakeYT:
+        def get_mood_categories(self):
+            return {
+                "Genres": [{"title": t} for t in
+                           ("Jazz", "Autumn", "Family", "Decades", "Metal")],
+                "Moods & moments": [{"title": t} for t in ("Workout", "Chill")],
+            }
+
+    monkeypatch.setattr(server, "yt", lambda: FakeYT())
+    data = client.get("/api/categories").json()
+
+    assert data["genres"] == ["Jazz", "Metal"]
+    assert data["moods"] == ["Autumn", "Chill", "Family", "Workout"]
