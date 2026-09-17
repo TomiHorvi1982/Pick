@@ -131,6 +131,30 @@
    "expect": true
   },
   {
+   "action": "eval",
+   "label": "every-declared-icon-is-drawn",
+   "script": "(()=>{const bad=[...document.querySelectorAll('[data-icon]')].filter(e=>!e.querySelector('svg.ic-svg path'));return bad.length?bad.map(e=>e.dataset.icon).join(','):true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "no-icon-name-is-a-typo",
+   "script": "(()=>{const missing=[...document.querySelectorAll('[data-icon]')].map(e=>e.dataset.icon).filter(n=>!ICONS[n]);return missing.length?[...new Set(missing)].join(','):true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "no-emoji-left-in-the-chrome",
+   "script": "(()=>{const pat=/[\\u{1F000}-\\u{1FAFF}\\u{2190}-\\u{21FF}\\u{2300}-\\u{23FF}\\u{2600}-\\u{27BF}]/u;const bad=[];document.querySelectorAll('.section-title,.btn,.nm-btn,.sp-iconbtn,.close-btn,.fl-btn,.badge,.nm-strip-icon,.lib-expand,.sp-round').forEach(e=>{const t=(e.textContent||'').trim();if(pat.test(t))bad.push(t.slice(0,22))});return bad.length?bad.join(' | '):true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "labelled-buttons-keep-glyph-and-words-on-one-row",
+   "script": "(()=>{const b=[...document.querySelectorAll('.btn')].filter(e=>{const r=e.getBoundingClientRect();return r.height>0 && e.querySelector('.ic-svg') && e.textContent.trim();});if(!b.length) return 'nothing visible to check';return b.every(e=>{const s=e.querySelector('.ic-svg').getBoundingClientRect(),r=e.getBoundingClientRect();return s.top>=r.top-1 && s.bottom<=r.bottom+1 && s.height<r.height});})()",
+   "expect": true
+  },
+  {
    "action": "screenshot",
    "label": "core-final"
   }
