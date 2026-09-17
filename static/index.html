@@ -1740,6 +1740,43 @@
   .cat .shot{position:absolute;right:-16px;bottom:-6px;width:92px;height:92px;
     border-radius:3px;background:rgba(0,0,0,.25) center/cover no-repeat;
     transform:rotate(25deg);box-shadow:0 4px 18px rgba(0,0,0,.45);z-index:1}
+
+  /* ---- two-row category rail ---- */
+  .cat-rail-wrap{position:relative;margin-bottom:6px}
+  .cat-rail{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);
+    grid-auto-columns:236px;gap:18px;overflow-x:auto;overflow-y:hidden;
+    padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:none;
+    scroll-padding-left:2px}
+  .cat-rail::-webkit-scrollbar{display:none}
+  .cat-rail > .cat{scroll-snap-align:start}
+
+  /* Arrows sit over the fade at each edge and only appear when there's
+     somewhere to go; hovering the rail is what reveals them. */
+  .rail-arrow{position:absolute;top:50%;transform:translateY(-50%);
+    width:40px;height:40px;border-radius:50%;border:none;z-index:3;
+    background:rgba(12,12,14,.92);color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,.55);opacity:0;
+    transition:opacity .15s,transform .12s}
+  .cat-rail-wrap:hover .rail-arrow{opacity:1}
+  .rail-arrow:hover{transform:translateY(-50%) scale(1.07)}
+  .rail-arrow[hidden]{display:none !important}
+  .rail-arrow.left{left:-6px}
+  .rail-arrow.right{right:-6px}
+
+  /* A single row of cards shouldn't leave a gap where the second would be. */
+  .cat-rail:has(> .cat:nth-child(3)){grid-template-rows:repeat(2,auto)}
+
+  .cat{aspect-ratio:auto;height:120px;padding:14px}
+  .cat .label{font-size:19px}
+  .cat .shot{width:78px;height:78px;right:-12px;bottom:-4px}
+  .cat.active{outline:2px solid #fff;outline-offset:-2px}
+
+  @media(max-width:1250px){
+    .cat-rail{grid-auto-columns:206px;gap:16px}
+    .cat{height:108px}
+    .cat .label{font-size:17px}
+  }
 </style>
 </head>
 <body>
@@ -2550,12 +2587,69 @@ const CAT_COLOURS = [
   "#8c1932", "#dc148c", "#006450", "#537aa1",
 ];
 
+// Every browse list is a two-row rail that scrolls sideways, with arrows
+// that appear once there's something to scroll to. Two rows keeps a long
+// list from pushing everything below it off the page, while still showing
+// enough at a glance to be worth scanning.
+function railWrap(container){
+  if(container.parentElement.classList.contains("cat-rail-wrap")){
+    return container.parentElement;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "cat-rail-wrap";
+  container.parentElement.insertBefore(wrap, container);
+  wrap.appendChild(container);
+
+  const mk = (dir, glyph) => {
+    const b = document.createElement("button");
+    b.className = "rail-arrow " + dir;
+    b.type = "button";
+    b.setAttribute("aria-label", dir === "left" ? "Posunout vlevo" : "Posunout vpravo");
+    b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round"><path d="${glyph}"/></svg>`;
+    // Page by the visible width less one card, so the edge card stays in
+    // view as an anchor rather than jumping past it.
+    b.onclick = () => container.scrollBy({
+      left: (dir === "left" ? -1 : 1) * Math.max(240, container.clientWidth - 240),
+      behavior: "smooth",
+    });
+    wrap.appendChild(b);
+    return b;
+  };
+  const left = mk("left", "M15 5l-7 7 7 7");
+  const right = mk("right", "M9 5l7 7-7 7");
+
+  const paintArrows = () => {
+    const max = container.scrollWidth - container.clientWidth;
+    left.hidden = container.scrollLeft < 8;
+    right.hidden = container.scrollLeft > max - 8;
+  };
+  container.addEventListener("scroll", paintArrows, {passive: true});
+  window.addEventListener("resize", paintArrows);
+  wrap._paintArrows = paintArrows;
+  return wrap;
+}
+
 function renderCategoryCards(containerId, items){
   const c = el(containerId);
   if(!c) return;
-  c.className = "cat-grid";
+  const wrap = railWrap(c);
+  c.className = "cat-rail";
   c.innerHTML = "";
-  items.forEach((item, i) => {
+
+  // A two-row grid fills column-first, so a plain list would read
+  // 60s / 80s / 2000s across the top — the sequence jumping a step each
+  // time. Interleaving the halves puts the first half along the top row
+  // and the rest along the bottom, so each row reads straight through.
+  const half = Math.ceil(items.length / 2);
+  const ordered = [];
+  for(let i = 0; i < half; i++){
+    ordered.push(items[i]);
+    if(items[i + half] !== undefined) ordered.push(items[i + half]);
+  }
+
+  ordered.forEach((item, i) => {
     const label = typeof item === "string" ? item : item.label;
     const value = typeof item === "string" ? item : item.value;
     const card = document.createElement("div");
@@ -2569,11 +2663,13 @@ function renderCategoryCards(containerId, items){
     ChipThumbs.observe(card, value, ".shot");
     c.appendChild(card);
   });
+  // Arrow visibility depends on the rendered width, so measure after layout.
+  requestAnimationFrame(() => wrap._paintArrows && wrap._paintArrows());
 }
 
 function syncChipActiveStates(){
   const current = el("search-input").value;
-  document.querySelectorAll(".chip[data-value]").forEach(chip=>{
+  document.querySelectorAll("[data-value].chip, [data-value].cat").forEach(chip=>{
     const value = chip.dataset.value;
     const re = new RegExp(`(^|\\s)${escapeRegex(value)}(?=\\s|$)`, "i");
     chip.classList.toggle("active", re.test(current));
@@ -2620,11 +2716,11 @@ el("add-custom").onclick = () => {
 };
 
 function renderStaticChips(){
-  renderChipGroup("chips-decades", DECADES);
-  renderChipGroup("chips-topn", TOPN_PRESETS.map(n => ({label:`Top ${n}`, value:`Top ${n}`})));
+  renderCategoryCards("chips-decades", DECADES);
+  renderCategoryCards("chips-topn", TOPN_PRESETS.map(n => ({label:`Top ${n}`, value:`Top ${n}`})));
   renderCategoryCards("chips-genres", ROCK_METAL_GENRES);
   renderCategoryCards("chips-popular", POPULAR_TERMS);
-  renderChipGroup("chips-ai", AI_TERMS);
+  renderCategoryCards("chips-ai", AI_TERMS);
   renderCustomChips();
 }
 
