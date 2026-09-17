@@ -253,16 +253,6 @@
     animation:toast-in .18s ease-out}
   @keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-  .pb-download-menu{position:absolute;bottom:100%;right:0;margin-bottom:8px;
-    background:var(--card-hi);border:1px solid var(--border);border-radius:10px;
-    padding:6px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.5);
-    transform-origin:bottom right;animation:pop-in .12s ease-out}
-  .pb-download-menu button{display:flex;align-items:center;gap:8px;width:100%;
-    padding:9px 12px;border:none;background:transparent;color:var(--text);
-    font-size:13px;text-align:left;cursor:pointer;border-radius:6px}
-  .pb-download-menu button:hover{background:var(--bg2)}
-  .pb-download-menu button[disabled]{opacity:.4;cursor:default}
-  .pb-download-menu button[disabled]:hover{background:transparent}
   @keyframes pop-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
   .fs-stems-btn{margin-left:6px;opacity:.7}
   .fs-stems-btn:hover{opacity:1}
@@ -1659,6 +1649,31 @@
   .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .stems-head .section-title{margin:24px 0 14px;flex:1}
   #stems-convert{font-size:13px;padding:8px 16px;flex:0 0 auto}
+
+  /* ---- one icon language across the player bar ---- */
+  .ic-svg{display:block;pointer-events:none}
+  .pb-ctl{display:flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:50%;padding:0;color:var(--sub);
+    position:relative;transition:color .15s,background .15s,transform .12s}
+  .pb-ctl:hover{color:#fff;background:rgba(255,255,255,.08);transform:none}
+  .pb-ctl.on{color:var(--accent)}
+  /* Spotify marks an active toggle with a dot under the glyph. */
+  .pb-ctl.on::after{content:"";position:absolute;bottom:2px;left:50%;
+    width:4px;height:4px;margin-left:-2px;border-radius:50%;
+    background:var(--accent)}
+  .pb-play{display:flex;align-items:center;justify-content:center}
+  .pb-play .ic-svg{margin-left:1px}      /* optical centring of the triangle */
+  .pb-play.playing .ic-svg{margin-left:0}
+  .pb-controls{gap:14px}
+  .pb-right{gap:4px}
+  .pb-volume{gap:2px}
+  .pb-badge{position:absolute;top:2px;right:1px;transform:none;
+    min-width:14px;height:14px;display:flex;align-items:center;
+    justify-content:center;font-size:9px;font-weight:700;border-radius:7px;
+    background:var(--accent);color:#000;padding:0 3px;pointer-events:none}
+  .pb-track .pb-ctl{margin-left:6px}
+  /* The lyrics button had its own active colouring from the old theme. */
+  .lyrics-btn-active{color:var(--accent) !important;border-color:transparent !important}
 </style>
 </head>
 <body>
@@ -2158,14 +2173,15 @@
       <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
       <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
+    <button class="pb-ctl" id="pb-add-btn" title="Přidat do fronty" aria-label="Přidat do fronty"></button>
   </div>
   <div class="pb-center">
     <div class="pb-controls">
-      <button class="pb-ctl" id="pb-shuffle" title="Náhodně">🔀</button>
-      <button class="pb-ctl" id="pb-prev" title="Předchozí">⏮</button>
-      <button class="pb-play" id="pb-play" title="Přehrát / Pauza">▶</button>
-      <button class="pb-ctl" id="pb-next" title="Další">⏭</button>
-      <button class="pb-ctl" id="pb-repeat" title="Opakovat">🔁</button>
+      <button class="pb-ctl" id="pb-shuffle" title="Náhodně" aria-label="Náhodně"></button>
+      <button class="pb-ctl" id="pb-prev" title="Předchozí" aria-label="Předchozí"></button>
+      <button class="pb-play" id="pb-play" title="Přehrát / Pauza" aria-label="Přehrát"></button>
+      <button class="pb-ctl" id="pb-next" title="Další" aria-label="Další"></button>
+      <button class="pb-ctl" id="pb-repeat" title="Opakovat" aria-label="Opakovat"></button>
     </div>
     <div class="pb-progress-row">
       <span class="pb-time" id="pb-time-cur">0:00</span>
@@ -2177,12 +2193,12 @@
     </div>
   </div>
   <div class="pb-right">
-    <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně">📜</button>
-    <button class="pb-ctl" id="pb-queue-btn" title="Fronta">☰<span class="pb-badge" id="pb-queue-count">0</span></button>
-    <button class="pb-ctl" id="pb-video-btn" title="Video v plovoucím okně">🎬</button>
-    <button class="pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň">⬇</button>
-    <button class="pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy">🎚</button>
-    <button class="pb-ctl" id="pb-history-btn" title="Historie">🕐</button>
+    <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně" aria-label="Text písně"></button>
+    <button class="pb-ctl" id="pb-queue-btn" title="Fronta" aria-label="Fronta"><span class="pb-badge" id="pb-queue-count">0</span></button>
+    <button class="pb-ctl" id="pb-video-btn" title="Video v plovoucím okně" aria-label="Video"></button>
+    <button class="pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň" aria-label="Stáhnout"></button>
+    <button class="pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy" aria-label="Rozdělit na stopy"></button>
+    <button class="pb-ctl" id="pb-history-btn" title="Historie" aria-label="Historie"></button>
     <!-- Kept for the video-mode logic, which other code still drives. -->
     <div class="video-mode-toggle" id="video-mode-toggle" hidden>
       <button data-mode="hidden" id="vm-hidden">skrytý</button>
@@ -2190,17 +2206,10 @@
       <button data-mode="full" id="vm-full">plný</button>
     </div>
     <div class="pb-volume">
-      <span id="pb-mute" title="Ztlumit">🔊</span>
+      <button class="pb-ctl" id="pb-mute" title="Ztlumit" aria-label="Ztlumit"></button>
       <input type="range" id="pb-volume" min="0" max="1" step="0.01" value="1" title="Hlasitost">
     </div>
-    <button class="pb-ctl" id="pb-np-btn" title="Právě hraje">◳</button>
-    <div style="position:relative;display:none">
-      <button class="pb-ctl" id="pb-download-btn">⬇</button>
-      <div class="pb-download-menu" id="pb-download-menu" hidden>
-        <button id="pb-dl-song">⬇ Stáhnout píseň</button>
-        <button id="pb-dl-stems">🎧 Rozdělit na stopy</button>
-      </div>
-    </div>
+    <button class="pb-ctl" id="pb-np-btn" title="Právě hraje" aria-label="Právě hraje"></button>
   </div>
   <audio id="pb-audio" hidden></audio>
 </div>
@@ -2823,6 +2832,122 @@ function paintNowPlayingSource(data, track){
     box.appendChild(row);
   });
 }
+
+// ======================================================================
+// Player icon set.
+//
+// The bar had grown a mix of emoji, which render at whatever weight and
+// size each font decides — 🔀 next to ☰ next to 🎚 never sits on one
+// baseline or reads as one family. These are drawn instead, on one 24px
+// grid at one stroke weight, so they share a colour, an optical size and a
+// silhouette. The transport glyphs are solid because they're the primary
+// controls; everything else is a 1.8px round-capped line.
+// ======================================================================
+const ICONS = (() => {
+  const line = (d, extra = "") =>
+    `<path d="${d}" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
+  const solid = (d) => `<path d="${d}" fill="currentColor"/>`;
+
+  return {
+    // ---- transport: solid ----
+    shuffle:
+      solid("M15.6 4.3a.9.9 0 0 1 1.27 0l2.8 2.8a.9.9 0 0 1 0 1.27l-2.8 2.8a.9.9 0 1 1-1.27-1.27L16.83 8.8h-1.1a2.6 2.6 0 0 0-2.06 1l-.85 1.1-1.14-1.47.81-1.04A4.4 4.4 0 0 1 15.73 7h1.1l-1.23-1.43a.9.9 0 0 1 0-1.27Z") +
+      solid("M15.6 13.03a.9.9 0 0 1 1.27 0l2.8 2.8a.9.9 0 0 1 0 1.27l-2.8 2.8a.9.9 0 1 1-1.27-1.27l1.23-1.23h-1.1a4.4 4.4 0 0 1-3.48-1.7L8.2 10.9a2.6 2.6 0 0 0-2.06-1H4v-1.8h2.14a4.4 4.4 0 0 1 3.48 1.7l4.05 5.2a2.6 2.6 0 0 0 2.06 1h1.1l-1.23-1.23a.9.9 0 0 1 0-1.27Z") +
+      solid("M4 14.1h2.14a2.6 2.6 0 0 0 2.06-1l.62-.8 1.14 1.47-.35.44a4.4 4.4 0 0 1-3.47 1.69H4v-1.8Z"),
+    prev:
+      solid("M6.6 5h2.1v14H6.6z") +
+      solid("M19 6.4v11.2c0 .74-.85 1.16-1.44.71l-7.4-5.6a.9.9 0 0 1 0-1.42l7.4-5.6c.59-.45 1.44-.03 1.44.71Z"),
+    next:
+      solid("M15.3 5h2.1v14h-2.1z") +
+      solid("M5 6.4v11.2c0 .74.85 1.16 1.44.71l7.4-5.6a.9.9 0 0 0 0-1.42l-7.4-5.6C5.85 5.24 5 5.66 5 6.4Z"),
+    play:  solid("M7.4 4.9v14.2c0 .8.88 1.28 1.55.85l11.1-7.1a1 1 0 0 0 0-1.7L8.95 4.05A1 1 0 0 0 7.4 4.9Z"),
+    pause: solid("M7 4.6h3.4v14.8H7zM13.6 4.6H17v14.8h-3.4z"),
+    repeat:
+      solid("M7 6.4h10.2V4.2c0-.42.5-.64.8-.35l3.7 3.5a.48.48 0 0 1 0 .7l-3.7 3.5a.48.48 0 0 1-.8-.35V9H7a2.2 2.2 0 0 0-2.2 2.2v1a1 1 0 1 1-2 0v-1A4.2 4.2 0 0 1 7 6.4Z") +
+      solid("M17 17.6H6.8v2.2c0 .42-.5.64-.8.35l-3.7-3.5a.48.48 0 0 1 0-.7l3.7-3.5c.3-.29.8-.07.8.35V15H17a2.2 2.2 0 0 0 2.2-2.2v-1a1 1 0 1 1 2 0v1a4.2 4.2 0 0 1-4.2 4.2Z"),
+    repeatOne:
+      solid("M7 6.4h10.2V4.2c0-.42.5-.64.8-.35l3.7 3.5a.48.48 0 0 1 0 .7l-3.7 3.5a.48.48 0 0 1-.8-.35V9H7a2.2 2.2 0 0 0-2.2 2.2v1a1 1 0 1 1-2 0v-1A4.2 4.2 0 0 1 7 6.4Z") +
+      solid("M17 17.6H6.8v2.2c0 .42-.5.64-.8.35l-3.7-3.5a.48.48 0 0 1 0-.7l3.7-3.5c.3-.29.8-.07.8.35V15H17a2.2 2.2 0 0 0 2.2-2.2v-1a1 1 0 1 1 2 0v1a4.2 4.2 0 0 1-4.2 4.2Z") +
+      solid("M11.4 9.6h1.5v5h-1.5v-3.6l-1 .5-.5-1.2 1.5-.7Z"),
+
+    // ---- utilities: line ----
+    lyrics:
+      line("M12 3.6a2.7 2.7 0 0 0-2.7 2.7v5.1a2.7 2.7 0 0 0 5.4 0V6.3A2.7 2.7 0 0 0 12 3.6Z") +
+      line("M6.4 11.2v.9a5.6 5.6 0 0 0 11.2 0v-.9") +
+      line("M12 17.7v2.7M9.4 20.4h5.2"),
+    queue:
+      line("M4 6.6h11M4 11.2h11M4 15.8h6.6") +
+      solid("M14.4 14.6v6.1l5.1-3.05-5.1-3.05Z"),
+    video:
+      line("M3.2 5.6h17.6a1.2 1.2 0 0 1 1.2 1.2v10.4a1.2 1.2 0 0 1-1.2 1.2H3.2A1.2 1.2 0 0 1 2 17.2V6.8a1.2 1.2 0 0 1 1.2-1.2Z") +
+      solid("M10 9.4v5.2l4.4-2.6L10 9.4Z"),
+    download:
+      line("M12 3.4v10.2M8.4 10.2 12 13.8l3.6-3.6") +
+      line("M4 16.4v2.4a1.8 1.8 0 0 0 1.8 1.8h12.4a1.8 1.8 0 0 0 1.8-1.8v-2.4"),
+    stems:
+      line("M6.6 3.4v17.2M12 3.4v17.2M17.4 3.4v17.2") +
+      line("M4.4 8.2h4.4M9.8 14.6h4.4M15.2 6.8h4.4"),
+    history:
+      line("M3.4 6.4v4.4h4.4") +
+      line("M3.9 10.2A8.4 8.4 0 1 1 3.6 13.4") +
+      line("M12 7.6v4.8l3.3 1.9"),
+    volume:
+      solid("M11.8 4.6v14.8a.85.85 0 0 1-1.4.64L6.2 16.4H3.4A1.4 1.4 0 0 1 2 15V9a1.4 1.4 0 0 1 1.4-1.4h2.8l4.2-3.64a.85.85 0 0 1 1.4.64Z") +
+      line("M15.2 9.2a4 4 0 0 1 0 5.6") +
+      line("M18 6.6a7.8 7.8 0 0 1 0 10.8"),
+    volumeMuted:
+      solid("M11.8 4.6v14.8a.85.85 0 0 1-1.4.64L6.2 16.4H3.4A1.4 1.4 0 0 1 2 15V9a1.4 1.4 0 0 1 1.4-1.4h2.8l4.2-3.64a.85.85 0 0 1 1.4.64Z") +
+      line("M15.6 9.6l5.2 4.8M20.8 9.6l-5.2 4.8"),
+    nowPlaying:
+      line("M3.4 4.8h17.2a1.2 1.2 0 0 1 1.2 1.2v12a1.2 1.2 0 0 1-1.2 1.2H3.4a1.2 1.2 0 0 1-1.2-1.2V6a1.2 1.2 0 0 1 1.2-1.2Z") +
+      line("M15.4 5.2v13.6"),
+    add:
+      line("M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 0 0 0-17.2Z") +
+      line("M12 8.2v7.6M8.2 12h7.6"),
+  };
+})();
+
+// One wrapper for every glyph, so size and alignment are decided once.
+function icon(name, size = 18){
+  const body = ICONS[name] || "";
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}"
+    aria-hidden="true" focusable="false" class="ic-svg">${body}</svg>`;
+}
+
+// Fill the player bar's buttons. The badge on the queue button is kept — it
+// sits over the glyph rather than replacing it.
+function paintPlayerIcons(){
+  const put = (id, name, size) => {
+    const b = el(id);
+    if(!b) return;
+    const keep = b.querySelector(".pb-badge");
+    b.innerHTML = icon(name, size);
+    if(keep) b.appendChild(keep);
+  };
+  put("pb-shuffle", "shuffle", 17);
+  put("pb-prev", "prev", 17);
+  put("pb-next", "next", 17);
+  put("pb-repeat", "repeat", 17);
+  put("pb-lyrics-btn", "lyrics", 17);
+  put("pb-queue-btn", "queue", 17);
+  put("pb-video-btn", "video", 17);
+  put("pb-dl-song-btn", "download", 17);
+  put("pb-stems-btn", "stems", 17);
+  put("pb-history-btn", "history", 17);
+  put("pb-np-btn", "nowPlaying", 17);
+  put("pb-mute", "volume", 17);
+  put("pb-add-btn", "add", 17);
+  setPlayIcon(false);
+}
+
+function setPlayIcon(playing){
+  const b = el("pb-play");
+  if(b) b.innerHTML = icon(playing ? "pause" : "play", 15);
+}
+
+document.addEventListener("DOMContentLoaded", paintPlayerIcons);
+paintPlayerIcons();
 
 // ======================================================================
 // Artwork for separated songs. Stem folders are just names on disk, so the
@@ -6048,9 +6173,12 @@ function renderQueueDrawer(){
 }
 
 el("pb-queue-btn").onclick = () => {
+  const drawer = el("queue-drawer");
+  const open = drawer.hidden;
   el("history-panel").hidden = true;
-  renderQueueDrawer();
-  el("queue-drawer").hidden = false;
+  if(open) renderQueueDrawer();
+  drawer.hidden = !open;
+  syncPlayerToggles();
 };
 el("queue-close").onclick = () => el("queue-drawer").hidden = true;
 el("queue-clear").onclick = () => {
@@ -6193,8 +6321,8 @@ const Player = (() => {
   // play/pause button, kept in sync with the audio element's real state
   // (autoplay, errors, etc. can change it without going through the button)
   playBtn.onclick = () => { if(audio.paused) audio.play().catch(()=>{}); else audio.pause(); };
-  audio.addEventListener("play", () => playBtn.textContent = "⏸");
-  audio.addEventListener("pause", () => playBtn.textContent = "▶");
+  audio.addEventListener("play", () => { setPlayIcon(true); playBtn.classList.add("playing"); });
+  audio.addEventListener("pause", () => { setPlayIcon(false); playBtn.classList.remove("playing"); });
   // ---- shuffle / repeat / skip ----
   let shuffleOn = false;
   let repeatMode = "off";   // off | all | one
@@ -6222,7 +6350,7 @@ const Player = (() => {
     if(repeatMode === "one"){ audio.currentTime = 0; audio.play().catch(()=>{}); return; }
     const next = queueNext();
     if(next >= 0) playLocalAt(next);
-    else playBtn.textContent = "▶";
+    else { setPlayIcon(false); playBtn.classList.remove("playing"); }
   });
 
   el("pb-prev").onclick = () => {
@@ -6239,7 +6367,7 @@ const Player = (() => {
     repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
     const btn = el("pb-repeat");
     btn.classList.toggle("on", repeatMode !== "off");
-    btn.textContent = repeatMode === "one" ? "\uD83D\uDD02" : "\uD83D\uDD01";
+    btn.innerHTML = icon(repeatMode === "one" ? "repeatOne" : "repeat", 17);
     btn.title = repeatMode === "off" ? "Opakovat"
       : repeatMode === "all" ? "Opakovat frontu" : "Opakovat skladbu";
   };
@@ -6283,12 +6411,18 @@ const Player = (() => {
     audio.volume = parseFloat(volumeSlider.value);
     audio.muted = false;
     try{ localStorage.setItem(VOLUME_KEY, audio.volume); }catch(e){}
-    muteBtn.textContent = audio.volume === 0 ? "🔇" : "🔊";
+    paintMute();
   });
   muteBtn.onclick = () => {
     audio.muted = !audio.muted;
-    muteBtn.textContent = audio.muted ? "🔇" : "🔊";
+    paintMute();
   };
+  function paintMute(){
+    const silent = audio.muted || audio.volume === 0;
+    muteBtn.innerHTML = icon(silent ? "volumeMuted" : "volume", 17);
+    muteBtn.classList.toggle("on", false);
+    muteBtn.title = silent ? "Zapnout zvuk" : "Ztlumit";
+  }
 
   function renderHistory(){
     const list = loadHistory();
@@ -6320,6 +6454,7 @@ const Player = (() => {
     const panel = el("history-panel");
     panel.hidden = !panel.hidden;
     if(!panel.hidden) renderHistory();
+    syncPlayerToggles();
   };
 
   renderHistory();
@@ -6432,63 +6567,28 @@ const Player = (() => {
     audio.play().catch(()=>{});
   };
 
-  // Download menu — "⬇️" button in the player bar. Offers normal download
-  // (for remote tracks) and "split to stems" (which downloads first if
-  // needed, then separates). Disabled states reflect whether the current
-  // track is already local (no need to download) or has no source URL.
-  const downloadMenu = el("pb-download-menu");
-  const downloadBtn = el("pb-download-btn");
-  const downloadSongBtn = el("pb-dl-song");
-  const downloadStemsBtn = el("pb-dl-stems");
-
-  function closeDownloadMenu(){ downloadMenu.hidden = true; }
-
-  downloadBtn.onclick = (e) => {
-    e.stopPropagation();
+  // Download and split-to-stems are single buttons on the bar now; the old
+  // dropdown they used to hang off is gone.
+  function downloadCurrentSong(){
     if(!current){ showToast("Nic nehraje"); return; }
-    // Toggle menu visibility
-    if(!downloadMenu.hidden){ closeDownloadMenu(); return; }
-    // Update disabled states
-    const isLocal = !!current.relPath;
-    downloadSongBtn.disabled = isLocal;
-    downloadStemsBtn.disabled = false;
-    downloadMenu.hidden = false;
-    // Close on any outside click
-    setTimeout(() => {
-      const outside = (ev) => {
-        if(!downloadMenu.contains(ev.target) && ev.target !== downloadBtn){
-          closeDownloadMenu();
-          document.removeEventListener("click", outside);
-        }
-      };
-      document.addEventListener("click", outside);
-    }, 0);
-  };
-
-  // Find the local file path for the current track (if it's a preview/history
-  // item that was downloaded). Returns relPath or null.
-  el("pb-dl-song-btn").onclick = () => downloadSongBtn.onclick();
-  el("pb-stems-btn").onclick = () => downloadStemsBtn.onclick();
-
-  downloadSongBtn.onclick = () => {
-    closeDownloadMenu();
-    if(!current) return;
     if(current.relPath){ showToast("Tuto píseň už máš"); return; }
     if(!current.url){ showToast("U téhle položky není URL ke stažení"); return; }
     startDownload({
       urls: [current.url], output_name: "Songs", kind: "songs", bitrate: bitrate(),
     }, `${current.title} — ${current.artists}`);
-  };
+  }
 
-  // "🎧 Rozdělit na stopy" — separate a local file straight away, otherwise
-  // download it first and separate what lands.
-  downloadStemsBtn.onclick = () => {
-    closeDownloadMenu();
-    if(!current) return;
+  // Separate a local file straight away; otherwise download it first and
+  // separate whatever lands.
+  function separateCurrentSong(){
+    if(!current){ showToast("Nic nehraje"); return; }
     if(current.relPath){ startStemsSeparation(current.relPath); return; }
     if(!current.url){ showToast("U téhle položky není URL ke stažení"); return; }
     downloadThenSeparate(current);
-  };
+  }
+
+  el("pb-dl-song-btn").onclick = downloadCurrentSong;
+  el("pb-stems-btn").onclick = separateCurrentSong;
 
   // Play a podcast episode directly from its audio URL
   function playPodcastEpisode(track, audioUrl){
@@ -6740,7 +6840,7 @@ const LyricsView = (() => {
   }
 
   // Wire up button + close
-  if(btn) btn.onclick = toggle;
+  if(btn) btn.onclick = () => { toggle(); setTimeout(syncPlayerToggles, 0); };
   closeBtn.onclick = close;
   overlay.addEventListener("click", e => { if(e.target === overlay) close(); });
 
@@ -7613,7 +7713,16 @@ function openFloatingVideo(){
   if(video) Player.handOffTo(video);
 }
 
-el("pb-video-btn").onclick = openFloatingVideo;
+el("pb-video-btn").onclick = () => {
+  // Second press closes it, like every other panel on this bar.
+  if(FloatVideo.isOpen()){
+    el("float-video-body").innerHTML = "";
+    FloatVideo.close();
+  } else {
+    openFloatingVideo();
+  }
+  syncPlayerToggles();
+};
 
 // LyricsView owns showing/hiding; this only restores the saved geometry the
 // first time the panel appears in a session.
@@ -7698,7 +7807,39 @@ el("pb-art").onclick = () => {
 // ---- shell chrome: collapse the rail, toggle the now-playing panel ----
 el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
 el("lib-expand").onclick = () => toggleNowPlaying();
-el("pb-np-btn").onclick = () => toggleNowPlaying();
+el("pb-np-btn").onclick = () => { toggleNowPlaying(); syncPlayerToggles(); };
+
+el("pb-add-btn").onclick = () => {
+  const t = Player.getCurrent();
+  if(!t){ showToast("Nic nehraje"); return; }
+  addToQueue({
+    key: t.key || ("yt:" + (t.videoId || t.title)),
+    title: t.title, artists: t.artists, thumbnail: t.thumbnail || t.image,
+    videoId: t.videoId, url: t.url,
+    duration_seconds: t.duration_seconds, source: "player",
+  });
+};
+
+// One place that decides which toggles are lit, so the dots can't drift out
+// of step with what's actually on screen.
+function syncPlayerToggles(){
+  const state = {
+    "pb-queue-btn": !el("queue-drawer").hidden,
+    "pb-history-btn": !el("history-panel").hidden,
+    "pb-video-btn": FloatVideo.isOpen(),
+    "pb-np-btn": document.body.classList.contains("np-open"),
+    "pb-lyrics-btn": !el("lyrics-overlay").hidden,
+  };
+  Object.entries(state).forEach(([id, on]) => {
+    const b = el(id);
+    if(b) b.classList.toggle("on", !!on);
+  });
+}
+// The lyrics and video panels can also be closed from their own chrome.
+["queue-close", "lyrics-close", "float-video-close"].forEach(id => {
+  const b = el(id);
+  if(b) b.addEventListener("click", () => setTimeout(syncPlayerToggles, 0));
+});
 el("np-close").onclick = () => toggleNowPlaying(false);
 el("lib-create").onclick = () => { setMode("playlists"); el("search-input").focus(); };
 el("sp-avatar").onclick = () => el("settings-btn").click();
