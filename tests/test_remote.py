@@ -111,11 +111,22 @@ class _Label:
 
 
 class _Fake:
-    """Just enough of the app for refresh() to run against."""
+    """Just enough of the app for refresh() and on_open_app() to run against."""
     def __init__(self, mb):
         self.title = mb.IDLE_TITLE
         self.item_now = _Label()
         self.item_playpause = _Label()
+        self.window = None
+        self.mini_window = None
+        self.window_opened_at = 0.0
+        self.started = 0
+
+    def ensure_server(self):
+        self.started += 1
+
+    def app_window_open(self):
+        import menubar_under_test as mb
+        return mb.Spotifylisty.app_window_open(self)
 
 
 def _refresh_with(mb, app, state):
@@ -168,3 +179,65 @@ def test_a_server_that_is_not_answering_does_not_crash_the_menu():
     _refresh_with(mb, app, None)
 
     assert app.item_now.title == "Nic nehraje"
+
+
+def test_the_app_window_is_sized_to_the_screen():
+    """--start-fullscreen is ignored often enough in --app mode that the app
+    opened in a small default window, which is no way to look at a mixer."""
+    mb = _menubar()
+    w, h, x, y = mb._screen_area()
+
+    assert w >= 800 and h >= 400          # a real screen, not a fallback of zeros
+    # Whatever the screen is, the window is never smaller than the mixer needs.
+    assert max(w, mb.MIN_APP_SIZE[0]) >= mb.MIN_APP_SIZE[0]
+    assert max(h, mb.MIN_APP_SIZE[1]) >= mb.MIN_APP_SIZE[1]
+
+
+def test_an_open_window_is_raised_not_duplicated():
+    """Opening a second window on top of the first helps nobody."""
+    mb = _menubar()
+    app = _Fake(mb)
+    app.window = None
+    app.mini_window = None
+    app.window_opened_at = 0.0
+
+    opened = []
+    raised = []
+    original_window, original_raise, original_get = (
+        mb._chrome_window, mb._raise_chrome, mb._get)
+    mb._chrome_window = lambda *a, **kw: opened.append(a) or None
+    mb._raise_chrome = lambda: raised.append(True)
+    # A window that is publishing state is a window that is open.
+    mb._get = lambda *a, **kw: {"stale": False, "title": "Erased"}
+    try:
+        mb.Spotifylisty.on_open_app(app, None)
+    finally:
+        mb._chrome_window, mb._raise_chrome, mb._get = (
+            original_window, original_raise, original_get)
+
+    assert raised == [True]
+    assert opened == []
+
+
+def test_with_no_window_open_one_is_launched():
+    mb = _menubar()
+    app = _Fake(mb)
+    app.window = None
+    app.mini_window = None
+    app.window_opened_at = 0.0
+
+    opened = []
+    original_window, original_raise, original_get = (
+        mb._chrome_window, mb._raise_chrome, mb._get)
+    mb._chrome_window = lambda *a, **kw: opened.append(kw) or None
+    mb._raise_chrome = lambda: None
+    mb._get = lambda *a, **kw: {"stale": True}
+    try:
+        mb.Spotifylisty.on_open_app(app, None)
+    finally:
+        mb._chrome_window, mb._raise_chrome, mb._get = (
+            original_window, original_raise, original_get)
+
+    assert len(opened) == 1
+    assert opened[0]["size"][0] >= mb.MIN_APP_SIZE[0]
+    assert opened[0]["size"][1] >= mb.MIN_APP_SIZE[1]

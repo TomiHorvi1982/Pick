@@ -1,9 +1,48 @@
-{"steps":[
- {"action":"eval","label":"open-an-album-as-playlist","script":"(async()=>{await openPlaylist('MPREb_FjySPJWfT2N');return true})()","expect":true},
- {"action":"wait","ms":3500},
- {"action":"eval","label":"tracklist-rendered","script":"(!document.getElementById('overlay').hidden) && document.querySelectorAll('#panel .track-row, #panel .pl-row, #panel tr').length>3","expect":true},
- {"action":"eval","label":"watch-videos-calls-the-exposed-opener","script":"(()=>{const b=document.getElementById('watch-videos');return !!b && typeof Player.openVideos==='function' && b.onclick.toString().includes('Player.openVideos')})()","expect":true},
- {"action":"eval","label":"video-rows-render-without-a-stream","script":"(()=>{const rows=[...document.querySelectorAll('#panel .track-row')].slice(0,5).map((r,i)=>({videoId:'x'+i,title:'T'+i,artists:'A',thumbnail:''}));Player.openVideos(rows,-1);return document.querySelectorAll('#video-playlist-container .video-playlist-item').length===5})()","expect":true},
- {"action":"eval","label":"close-restores","script":"(()=>{document.getElementById('video-section-close').click();return document.getElementById('video-section').hidden})()","expect":true},
- {"action":"screenshot","label":"playlist-video"}
-]}
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-an-album-as-playlist",
+   "script": "(async()=>{await openPlaylist('MPREb_FjySPJWfT2N');return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 3500
+  },
+  {
+   "action": "eval",
+   "label": "tracklist-rendered",
+   "script": "(!document.getElementById('overlay').hidden) && document.querySelectorAll('#panel .track-row, #panel .pl-row, #panel tr').length>3",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "watch-videos-calls-the-exposed-opener",
+   "script": "(()=>{const b=document.getElementById('watch-videos');return !!b && typeof Player.openVideos==='function' && b.onclick.toString().includes('Player.openVideos')})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "video-rows-render-without-a-stream",
+   "script": "(()=>{const rows=[...document.querySelectorAll('#panel .track-row')].slice(0,5).map((r,i)=>({videoId:'x'+i,title:'T'+i,artists:'A',thumbnail:''}));Player.openVideos(rows,-1);return document.querySelectorAll('#video-playlist-container .video-playlist-item').length===5})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "close-restores",
+   "script": "(()=>{document.getElementById('video-section-close').click();return document.getElementById('video-section').hidden})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "opening-the-video-list-warms-the-first-streams",
+   "script": "(()=>{const rows=[{videoId:'dQw4w9WgXcQ',title:'A',artists:'x',thumbnail:''},{videoId:'eFpq1PIB0yk',title:'B',artists:'x',thumbnail:''},{videoId:'pTYIf2pkxzQ',title:'C',artists:'x',thumbnail:''}];const seen=[];const realFetch=window.fetch;window.fetch=(u,...r)=>{if(String(u).includes('/prepare'))seen.push(String(u));return realFetch(u,...r)};Player.openVideos(rows,-1);window.fetch=realFetch;return seen.length>=2})()",
+   "expect": true
+  },
+  {
+   "action": "screenshot",
+   "label": "playlist-video"
+  }
+ ]
+}

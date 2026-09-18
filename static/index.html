@@ -8366,6 +8366,10 @@ const Player = (() => {
 
   function openVideoPlaylist(tracks, startIdx = 0) {
     videoPlaylistTracks = tracks;
+    // The first two get their stream URLs resolved before anyone presses
+    // anything; without it the window opens onto a spinner for eight seconds.
+    tracks.slice(Math.max(0, startIdx), Math.max(0, startIdx) + 2)
+      .forEach(t => t.videoId && prewarmVideo(t.videoId));
     videoSection.hidden = false;
     renderVideoPlaylist();
     playVideoInPlaylist(startIdx);
@@ -8416,6 +8420,9 @@ const Player = (() => {
     audio.pause();
     videoEl.src = `/api/stream-video/${encodeURIComponent(track.videoId)}`;
     videoEl.play().catch(() => {});
+    // Warm the next one while this one plays, so skipping ahead is instant.
+    const next = videoPlaylistTracks[idx + 1];
+    if (next && next.videoId) prewarmVideo(next.videoId);
   }
 
   function closeVideoPlaylist() {

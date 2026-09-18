@@ -38,6 +38,9 @@ SERVER_PYTHON = Path(os.environ.get(
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 MINI_SIZE = (360, 300)
+# Nothing smaller than this shows the mixer's lanes and both side rails at
+# once, so a screen that can't give it that gets whatever it has.
+MIN_APP_SIZE = (1280, 820)
 
 # The icon is one glyph, not a word: a menu bar is short and every app in it
 # is competing for the same strip.
@@ -70,30 +73,55 @@ def _server_alive() -> bool:
     return _get("/api/remote/state", timeout=1.0) is not None
 
 
-def _chrome_window(url: str, size=None, fullscreen=False) -> bool:
+def _screen_area():
+    """The screen minus the menu bar and the Dock."""
+    try:
+        from AppKit import NSScreen
+        frame = NSScreen.mainScreen().visibleFrame()
+        return (int(frame.size.width), int(frame.size.height),
+                int(frame.origin.x), int(frame.origin.y))
+    except Exception:                                          # noqa: BLE001
+        return (1440, 860, 0, 0)
+
+
+def _chrome_window(url: str, size=None, position=None) -> subprocess.Popen | None:
     """Open a chromeless Chrome window — no tabs, no address bar.
 
     --app is what makes it look like an application rather than a browser
     pointed at a local port, which is the whole difference between this
     feeling like software and feeling like a bookmark.
+
+    Sized explicitly rather than with --start-fullscreen: in --app mode that
+    flag is ignored often enough that the app opened in a small default
+    window, which is no way to look at a mixer.
     """
     if not Path(CHROME).is_file():
         # Without Chrome the default browser still works, just with chrome.
         subprocess.Popen(["open", url])
-        return False
-    args = [CHROME, f"--app={url}", f"--user-data-dir={Path.home()}/.spotifylisty-chrome"]
+        return None
+    args = [CHROME, f"--app={url}",
+            f"--user-data-dir={Path.home()}/.spotifylisty-chrome"]
     if size:
         args += [f"--window-size={size[0]},{size[1]}"]
-    if fullscreen:
-        args += ["--start-fullscreen"]
-    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return True
+    if position:
+        args += [f"--window-position={position[0]},{position[1]}"]
+    return subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _raise_chrome() -> None:
+    """Bring the app's Chrome to the front instead of opening another one."""
+    subprocess.Popen(
+        ["osascript", "-e", 'tell application "Google Chrome" to activate'],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 class Spotifylisty(rumps.App):
     def __init__(self):
         super().__init__(IDLE_TITLE, quit_button=None)
         self.server: subprocess.Popen | None = None
+        self.window: subprocess.Popen | None = None
+        self.mini_window: subprocess.Popen | None = None
+        self.window_opened_at = 0.0
 
         self.item_now = rumps.MenuItem("Nic nehraje")
         self.item_now.set_callback(None)          # a label, not a button
@@ -152,11 +180,31 @@ class Spotifylisty(rumps.App):
 
     def on_open_app(self, _):
         self.ensure_server()
-        _chrome_window(BASE, fullscreen=True)
+        # A window that is already open says so twice a second through the
+        # remote state; opening a second one on top of it helps nobody.
+        if self.app_window_open():
+            _raise_chrome()
+            return
+        w, h, x, y = _screen_area()
+        size = (max(w, MIN_APP_SIZE[0]), max(h, MIN_APP_SIZE[1]))
+        self.window = _chrome_window(BASE, size=size, position=(x, y))
+        self.window_opened_at = time.time()
+
+    def app_window_open(self) -> bool:
+        state = _get("/api/remote/state", timeout=1.0)
+        if state and not state.get("stale"):
+            return True
+        # Freshly opened windows haven't published anything yet, so a process
+        # we started moments ago counts as open too.
+        return bool(self.window and self.window.poll() is None
+                    and time.time() - self.window_opened_at < 12)
 
     def on_open_mini(self, _):
         self.ensure_server()
-        _chrome_window(f"{BASE}/mini", size=MINI_SIZE)
+        if self.mini_window and self.mini_window.poll() is None:
+            _raise_chrome()
+            return
+        self.mini_window = _chrome_window(f"{BASE}/mini", size=MINI_SIZE)
 
     def on_playpause(self, _): _post("/api/remote/command", {"action": "playpause"})
     def on_prev(self, _): _post("/api/remote/command", {"action": "prev"})

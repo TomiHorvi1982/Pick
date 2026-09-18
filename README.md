@@ -81,8 +81,14 @@ open Spotifylisty.command          # nebo: ~/.local/venvs/spotdl/bin/python menu
 ```
 
 V liště se objeví ♪ (♫ když něco hraje) a v menu je aktuální skladba,
-**Otevřít aplikaci** (Chrome bez lišt, přes celou obrazovku), **Mini
+**Otevřít aplikaci** (Chrome bez lišt, na celou viditelnou plochu), **Mini
 přehrávač**, transport, hlasitost a **Ukončit** — to zastaví i server.
+
+Okno se zvětšuje explicitně přes `--window-size` podle `NSScreen.visibleFrame`,
+ne přes `--start-fullscreen`: ten se v režimu `--app` dost často ignoruje a
+aplikace se otevřela v malém výchozím okně. Když už okno běží, menu ho jen
+vytáhne dopředu — pozná to podle toho, že se hlásí přes stav dálkového
+ovládání.
 
 Lišta ani mini přehrávač **nic nepřehrávají**. Druhé okno se nedostane k
 `<audio>` elementu ani k Web Audio grafu toho prvního, takže by muselo pustit
