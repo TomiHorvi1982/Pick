@@ -24,3 +24,4 @@ Exit 0 is a pass. Drop `--headless` to watch it happen.
 | `audio-bus.json` | only one thing makes sound at a time |
 | `remote.json` | the menu bar and mini player's control channel |
 | `session.json` | the mix saves and restores itself per song |
+| `guitar.json` | the live input channel, the NAM amp, and recording a take |

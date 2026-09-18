@@ -14,6 +14,7 @@ import mimetypes
 import os
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import uuid
@@ -59,6 +60,13 @@ def _load_music_root() -> Path:
 
 
 MUSIC_ROOT = _load_music_root()
+
+# Only ever a plain file name from our own worklets folder.
+import re as _re_mod
+_re_worklet = _re_mod.compile(r"[a-z0-9_-]+\.js")
+# take-1, take-2, … and nothing else that could walk out of the folder.
+_re_take = _re_mod.compile(r"take-\d{1,4}")
+_re_nam_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|wasm)")
 
 app = FastAPI(title="spotdl GUI")
 
@@ -120,6 +128,129 @@ def _fmt_dur(total_seconds: int) -> str:
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (APP_DIR / "static" / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/nam/{name}")
+def nam_asset(name: str):
+    """The vendored NAM engine: its worklet, its glue and its wasm.
+
+    The worklet and the wasm both have to come from our own origin — a
+    worklet module cannot be loaded cross-origin, and the engine fetches the
+    binary itself from a path relative to the glue.
+    """
+    if not _re_nam_asset.fullmatch(name):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "nam" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    types = {".js": "text/javascript", ".wasm": "application/wasm"}
+    return Response(
+        path.read_bytes(),
+        media_type=types.get(path.suffix, "application/octet-stream"),
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
+# ------------------------------------------------------------- amp library
+#
+# Models and cabinet impulse responses the listener has collected, kept once
+# for the whole app rather than per song: an amp is a thing you own, not a
+# property of one track.
+
+AMPS_DIR = HOME / ".local" / "share" / "spotdl-helper" / "amps"
+AMP_EXTS = {".nam": "model", ".wav": "ir"}
+MAX_AMP_BYTES = 80 * 1024 * 1024
+
+
+@app.get("/api/amps")
+def list_amps():
+    AMPS_DIR.mkdir(parents=True, exist_ok=True)
+    out = []
+    for path in sorted(AMPS_DIR.glob("*")):
+        kind = AMP_EXTS.get(path.suffix.lower())
+        if not kind or not path.is_file():
+            continue
+        try:
+            size = path.stat().st_size
+        except OSError:
+            continue
+        out.append({"name": path.stem, "file": path.name, "kind": kind,
+                    "bytes": size})
+    return out
+
+
+@app.post("/api/amps")
+async def add_amp(request: Request, filename: str = ""):
+    """Store one .nam model or .wav impulse response."""
+    suffix = Path(filename).suffix.lower()
+    if suffix not in AMP_EXTS:
+        return JSONResponse(
+            {"error": "Podporované jsou jen .nam modely a .wav impulsy."},
+            status_code=400)
+    raw = await request.body()
+    if not raw:
+        return JSONResponse({"error": "Prázdný soubor."}, status_code=400)
+    if len(raw) > MAX_AMP_BYTES:
+        return JSONResponse({"error": "Soubor je příliš velký."}, status_code=413)
+
+    AMPS_DIR.mkdir(parents=True, exist_ok=True)
+    safe = _safe_name(Path(filename).stem) + suffix
+    target = AMPS_DIR / safe
+    # Never let a name walk out of the folder, whatever the browser sent.
+    if target.resolve().parent != AMPS_DIR.resolve():
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    try:
+        target.write_bytes(raw)
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {"name": target.stem, "file": target.name,
+            "kind": AMP_EXTS[suffix], "bytes": len(raw)}
+
+
+@app.get("/api/amps/{filename}")
+def get_amp(filename: str):
+    if Path(filename).suffix.lower() not in AMP_EXTS:
+        return JSONResponse({"error": "Neplatný soubor."}, status_code=400)
+    path = AMPS_DIR / Path(filename).name
+    if not path.is_file() or path.resolve().parent != AMPS_DIR.resolve():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    types = {".nam": "application/json", ".wav": "audio/wav"}
+    return Response(path.read_bytes(),
+                    media_type=types[path.suffix.lower()])
+
+
+@app.delete("/api/amps/{filename}")
+def delete_amp(filename: str):
+    path = AMPS_DIR / Path(filename).name
+    if (Path(filename).suffix.lower() not in AMP_EXTS or not path.is_file()
+            or path.resolve().parent != AMPS_DIR.resolve()):
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    try:
+        path.unlink()
+    except OSError as exc:
+        return JSONResponse({"error": f"Smazání selhalo: {exc}"}, status_code=500)
+    return {"ok": True}
+
+
+@app.get("/static/worklets/{name}")
+def audio_worklet(name: str):
+    """AudioWorklet modules.
+
+    Served from a route rather than a mounted directory because the rest of
+    the app is a single HTML file and there is nothing else static to serve —
+    and because a worklet has to come from our own origin to load at all.
+    """
+    if not _re_worklet.fullmatch(name):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "worklets" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(path.read_text(encoding="utf-8"),
+                    media_type="text/javascript",
+                    headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health")
@@ -2012,6 +2143,38 @@ def pick_folder():
 
 DEMUCS_BIN = str(HOME / ".local" / "bin" / "demucs")
 STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"]
+# Anything recorded into a song lands beside the separated stems and becomes a
+# track like any other — the point of recording a guitar part is that it is
+# still there after the guitar is unplugged.
+TAKE_PREFIX = "take-"
+
+
+def _takes_in(stems_dir: Path) -> list:
+    """Recorded takes in a stem folder, in the order they were made."""
+    found = []
+    for path in stems_dir.glob(f"{TAKE_PREFIX}*"):
+        if path.suffix.lower() not in STEM_READ_EXTS:
+            continue
+        name = path.stem
+        try:
+            index = int(name[len(TAKE_PREFIX):])
+        except ValueError:
+            continue
+        found.append((index, name))
+    return [name for _i, name in sorted(found)]
+
+
+def _next_take_name(stems_dir: Path) -> str:
+    used = set()
+    for name in _takes_in(stems_dir):
+        try:
+            used.add(int(name[len(TAKE_PREFIX):]))
+        except ValueError:
+            pass
+    n = 1
+    while n in used:
+        n += 1
+    return f"{TAKE_PREFIX}{n}"
 
 # Stems are written as 320k MP3: six lossless stems of a five-minute track run
 # to well over 300 MB, and a library of them fills a disk fast. Reading still
@@ -2168,7 +2331,7 @@ def list_stems():
         if not d.is_dir() or d.name.startswith("."):
             continue  # ".raw" is Demucs' scratch area, not a stem set
         present, missing, total_bytes = [], [], 0
-        for stem in STEM_NAMES:
+        for stem in STEM_NAMES + _takes_in(d):
             f = _stem_file(d, stem)
             if f is not None:
                 present.append(stem)
@@ -2176,7 +2339,7 @@ def list_stems():
                     total_bytes += f.stat().st_size
                 except OSError:
                     pass
-            else:
+            elif stem in STEM_NAMES:
                 missing.append(stem)
         if not present:
             continue
@@ -2559,6 +2722,17 @@ class MetronomeSettings(BaseModel):
     rate: float = 1.0
 
 
+class GuitarSettings(BaseModel):
+    volume: float = 0.9
+    pan: float = 0.0
+    muted: bool = False
+    solo: bool = False
+    threshold: float = -100.0
+    deviceId: Optional[str] = None
+    ampName: Optional[str] = None
+    cabName: Optional[str] = None
+
+
 class MixerSession(BaseModel):
     channels: List[MixerChannel] = []
     loop: Optional[dict] = None
@@ -2567,6 +2741,7 @@ class MixerSession(BaseModel):
     # The click is a channel like any other — its level, pan and sound are
     # part of the mix, and re-picking them on every open is a chore.
     metronome: Optional[MetronomeSettings] = None
+    guitar: Optional[GuitarSettings] = None
 
 
 @app.get("/api/stems/{name}/session")
@@ -2614,6 +2789,11 @@ def put_session(name: str, body: MixerSession):
         metro["volume"] = max(0.0, min(2.0, float(metro["volume"])))
         metro["pan"] = max(-1.0, min(1.0, float(metro["pan"])))
         metro["rate"] = max(0.25, min(4.0, float(metro["rate"])))
+    gtr = data.get("guitar")
+    if gtr:
+        gtr["volume"] = max(0.0, min(2.0, float(gtr["volume"])))
+        gtr["pan"] = max(-1.0, min(1.0, float(gtr["pan"])))
+        gtr["threshold"] = max(-100.0, min(0.0, float(gtr["threshold"])))
     try:
         (stems_dir / "session.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -2635,6 +2815,75 @@ def reset_session(name: str):
             "tempo": None, "saved": False}
 
 
+@app.post("/api/stems/{name}/record")
+async def save_take(name: str, request: Request):
+    """Store a recorded take as a track of this song.
+
+    The body is a WAV the browser encoded from what it captured; it is
+    re-encoded to 320k MP3 like every other stem, so a take costs about eight
+    megabytes rather than forty and sits in the folder as an ordinary track.
+    The whole point of recording a guitar part here is that it is still a
+    track after the guitar is unplugged.
+    """
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    raw = await request.body()
+    if len(raw) < 1024:
+        return JSONResponse({"error": "Nahrávka je prázdná."}, status_code=400)
+    if len(raw) > 600 * 1024 * 1024:
+        return JSONResponse({"error": "Nahrávka je příliš velká."}, status_code=413)
+
+    take = _next_take_name(stems_dir)
+    target = stems_dir / f"{take}.mp3"
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+
+    try:
+        proc = subprocess.run(
+            [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error",
+             "-i", str(tmp_path), "-codec:a", "libmp3lame", "-b:a", "320k",
+             str(target)],
+            capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        tmp_path.unlink(missing_ok=True)
+        return JSONResponse({"error": f"Převod selhal: {exc}"}, status_code=500)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if proc.returncode != 0 or not target.is_file() or target.stat().st_size < 1024:
+        target.unlink(missing_ok=True)
+        detail = (proc.stderr or "").strip().splitlines()[-1:] or ["neznámá chyba"]
+        return JSONResponse({"error": f"Převod selhal: {detail[0][:200]}"},
+                            status_code=500)
+
+    return {"stem": take, "bytes": target.stat().st_size,
+            "takes": _takes_in(stems_dir)}
+
+
+@app.delete("/api/stems/{name}/record/{take}")
+def delete_take(name: str, take: str):
+    """Remove one recorded take. Only takes — the separated stems are not
+    something an errant request should be able to delete."""
+    if not take.startswith(TAKE_PREFIX):
+        return JSONResponse({"error": "Smazat jde jen nahrávku."}, status_code=400)
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    path = _stem_file(stems_dir, take)
+    if path is None:
+        return JSONResponse({"error": "Nahrávka nenalezena."}, status_code=404)
+    try:
+        path.unlink()
+    except OSError as exc:
+        return JSONResponse({"error": f"Smazání selhalo: {exc}"}, status_code=500)
+    return {"takes": _takes_in(stems_dir)}
+
+
 @app.get("/api/stems/{name}/{stem}")
 def stream_stem(name: str, stem: str, request: Request):
     """Serves one stem, whatever format it was written in.
@@ -2643,7 +2892,9 @@ def stream_stem(name: str, stem: str, request: Request):
     "<stem>.wav" and those URLs still resolve.
     """
     stem = stem.rsplit(".", 1)[0] if "." in stem else stem
-    if stem not in STEM_NAMES:
+    # Separated stems, plus whatever was recorded into this song — a take is
+    # a track of the song and has to stream like one.
+    if stem not in STEM_NAMES and not _re_take.fullmatch(stem):
         return JSONResponse({"error": "Neplatná stopa."}, status_code=404)
 
     stems_dir = _resolve_under_music_root(f"Stems/{name}")

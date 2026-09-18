@@ -171,6 +171,23 @@ cd ~/.local/share/spotdl-helper/app
   chroma rozmažou). Baskytara hlasuje zvlášť o basovém tónu, což je to, co
   udělá obrat viditelným. Slovník: dur, moll, 7, maj7, m7, sus2/4, dim, aug a
   **power chord** — bez něj by metal vycházel celý jako maj7.
+- **Kytara naživo**: v mixpultu je nad vším kanál **Kytara** — výběr
+  zvukovky, noise gate, fader, pan, sólo, mute, metr a nahrávání. Vstup se
+  otevírá s **vypnutým** echo cancellation, noise suppression i AGC: to jsou
+  věci stavěné na řeč, na kytaře zabijí dynamiku. Gate je vlastní
+  AudioWorklet **bez lookaheadu** — lookahead by otevíral bránu před úderem,
+  ale každý jeho vzorek je latence navíc, a na nástroji, který zrovna hraješ,
+  stojí latence víc než měkčí náběh.
+- **Zesilovač**: NAM (Neural Amp Modeler) ve WebAssembly — stejná síť jako
+  desktopový plugin, běží v AudioWorkletu. Engine je vendorovaný z npm
+  balíčku `neural-amp-modeler-wasm` do `static/nam/` (415 kB wasm); repozitář
+  hotové artefakty neposílá a stavět ho Emscriptenem by dalo byte za byte to,
+  co npm už publikuje. Kabinet je obyčejný `ConvolverNode` — impuls **je**
+  konvoluce a prohlížeč ji umí nativně. Modely a impulsy se sbírají do
+  `~/.local/share/spotdl-helper/amps/` a patří appce, ne jedné písni.
+- **Nahrávka je stopa**: co nahraješ, projde přes ffmpeg do 320k MP3 a uloží
+  se jako `take-N.mp3` vedle rozseparovaných stop. Po odpojení kytary tam
+  zůstane jako normální stopa — s vlnou, mřížkou i faderem.
 - **Mix se ukládá sám**: každý fader, mute, sólo, pan, pitch, posun klipu,
   smyčka, zoom i nastavení metronomu (hlasitost, pan, zvuk kliku, rychlost) se
   po vteřině nečinnosti zapíšou do `Stems/<název>/session.json`. Dřív to bylo

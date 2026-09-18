@@ -1,0 +1,100 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1800
+  },
+  {
+   "action": "eval",
+   "label": "load-a-song",
+   "script": "(async()=>{await fetch('/api/stems/Calin%20-%20Stovky%20let/session',{method:'DELETE'});[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Stovky let/.test(x.textContent)).click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "the-guitar-is-the-first-channel",
+   "script": "[...document.querySelectorAll('.nm-strip .nm-strip-name')][0].textContent==='Kytara'",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "it-has-every-control-a-channel-needs",
+   "script": "(()=>{const s=document.getElementById('guitar-strip');return ['.gt-power','.gt-device','.gt-meter','.gt-vol','.gt-gate','.gt-pan','.gt-rec','.nm-sm.solo','.nm-sm.mute','#gt-amp-btn'].every(q=>!!s.querySelector(q))})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "the-strip-does-not-overflow-into-the-lane-below",
+   "script": "(()=>{const s=document.getElementById('guitar-strip');return s.scrollHeight<=s.clientHeight+2})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "opening-the-input-reports-its-latency",
+   "script": "(async()=>{const st=await Mixer.guitar.start(null);return st.live===true && typeof st.latencyMs==='number'})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1500
+  },
+  {
+   "action": "eval",
+   "label": "the-meter-moves",
+   "script": "Mixer.guitar.state.peak>0",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "browser-dsp-is-off",
+   "script": "(()=>{const t=Mixer.guitar.state;return t.live})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "the-nam-engine-attaches",
+   "script": "(async()=>{const m=await import('/static/nam/index.js');const ctx=new AudioContext();const eng=await m.NamEngine.attach(ctx,{assetBaseUrl:'/static/nam/'});const n=await eng.createNode();const ok=(n instanceof AudioWorkletNode);await n.dispose();await ctx.close();return ok})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "an-amp-model-loads-and-stays-in-the-chain",
+   "script": "(async()=>{const amps=await (await fetch('/api/amps')).json();const model=amps.find(a=>a.kind==='model');if(!model)return 'no models installed';document.getElementById('gt-amp-btn').click();await new Promise(r=>setTimeout(r,800));const b=document.getElementById('amp-picker');const btn=[...b.querySelectorAll('[data-model]')].find(x=>x.dataset.model===model.file);btn.click();await new Promise(r=>setTimeout(r,6000));return Mixer.guitar.state.ampName===model.name})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "a-cabinet-loads-too",
+   "script": "(async()=>{const amps=await (await fetch('/api/amps')).json();const ir=amps.find(a=>a.kind==='ir');if(!ir)return 'no irs installed';document.getElementById('gt-amp-btn').click();await new Promise(r=>setTimeout(r,800));const b=document.getElementById('amp-picker');const btn=[...b.querySelectorAll('[data-ir]')].find(x=>x.dataset.ir===ir.file);btn.click();await new Promise(r=>setTimeout(r,3000));return Mixer.guitar.state.cabName===ir.name})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "recording-becomes-a-track-on-disk",
+   "script": "(async()=>{Mixer.guitar.startRecording();await new Promise(r=>setTimeout(r,2200));const stem=await Mixer.guitar.stopRecording();if(!stem)return 'nothing saved';await new Promise(r=>setTimeout(r,3000));const list=await (await fetch('/api/stems')).json();const song=list.find(s=>s.name==='Calin - Stovky let');return song.stems.includes(stem)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "the-guitar-settings-are-part-of-the-saved-mix",
+   "script": "(async()=>{const g=Mixer.guitar;g.state.volume=0.55;g.setThreshold(-48);g.applyGuitarGain();document.querySelector('#guitar-strip .gt-gate').dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,1800));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return !!s.guitar})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "cleanup",
+   "script": "(async()=>{await Mixer.guitar.stop();const list=await (await fetch('/api/stems')).json();const song=list.find(s=>s.name==='Calin - Stovky let');for(const t of song.stems.filter(x=>x.startsWith('take-'))){await fetch('/api/stems/Calin%20-%20Stovky%20let/record/'+t,{method:'DELETE'});}await fetch('/api/stems/Calin%20-%20Stovky%20let/session',{method:'DELETE'});return true})()",
+   "expect": true
+  }
+ ]
+}

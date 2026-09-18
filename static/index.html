@@ -756,6 +756,55 @@
   .nm-strip:last-child{border-bottom:none}
   .nm-strip-top{display:flex;align-items:center;gap:7px}
   .nm-strip-icon{display:flex;align-items:center;color:var(--nm-sub)}
+
+  /* ---- the live guitar channel ---- */
+  /* Taller than a stem's strip because it carries what a stem never needs:
+     which socket the sound arrives on, how hard the gate bites, and a meter. */
+  .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:200px}
+  .nm-strip.guitar-strip{gap:5px;padding:8px 10px;overflow:hidden;
+    border-bottom:1px solid var(--nm-line)}
+  .guitar-strip .nm-strip-name{color:var(--nm-gold)}
+  .gt-row{display:flex;align-items:center;gap:6px}
+  .gt-cap{font-size:8.5px;font-weight:700;letter-spacing:.09em;color:var(--nm-sub);
+    flex:0 0 26px}
+  .gt-val{font-size:9px;color:var(--nm-sub);flex:0 0 34px;text-align:right;
+    font-variant-numeric:tabular-nums}
+  .gt-power{display:flex;align-items:center;gap:5px;border:none;cursor:pointer;
+    background:#2a2a33;color:var(--nm-txt);font-size:9.5px;font-weight:700;
+    padding:4px 8px;border-radius:5px;flex:0 0 auto}
+  .gt-power:hover{background:#35353f}
+  .gt-power.on{background:var(--nm-gold);color:#101014}
+  .gt-device{flex:1;min-width:0;background:#1c1c22;color:var(--nm-txt);
+    border:1px solid #33333d;border-radius:5px;font-size:9.5px;padding:3px 4px}
+
+  /* The meter reads the input *before* the gate: a gated signal looks like
+     silence and tells you nothing about whether you are clipping. */
+  .gt-meter{position:relative;height:7px;border-radius:4px;background:#1c1c22;
+    overflow:hidden}
+  .gt-meter-fill{position:absolute;left:0;top:0;bottom:0;width:0;
+    background:var(--nm-gold);transition:width .05s linear}
+  .gt-meter-fill.warm{background:#e8c840}
+  .gt-meter-fill.hot{background:#ff5f5f}
+  .gt-meter-gate{position:absolute;inset:0;background:rgba(0,0,0,.62);
+    pointer-events:none;transition:opacity .08s}
+  .gt-gate{flex:1;min-width:0;accent-color:var(--nm-gold)}
+  .gt-rec{width:22px;height:22px;border:none;border-radius:50%;cursor:pointer;
+    background:#2a2a33;color:#ff5f5f;font-size:11px;line-height:1;flex:0 0 auto}
+  .gt-rec:hover{background:#35353f}
+  .gt-rec.on{background:#ff3b3b;color:#fff;animation:gtpulse 1.1s infinite}
+  @keyframes gtpulse{50%{opacity:.55}}
+  .gt-chip{display:flex;align-items:center;gap:5px;width:100%;border:none;
+    cursor:pointer;background:#1c1c22;color:var(--nm-txt);font-size:9.5px;
+    padding:4px 7px;border-radius:5px;overflow:hidden}
+  .gt-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .gt-chip:hover{background:#2a2a33}
+  .amp-picker{min-width:236px;max-height:70vh;overflow-y:auto}
+  .amp-picker .ss-head{padding:6px 8px 3px}
+  .gt-lat{font-size:8.5px;color:var(--nm-sub);text-align:right;
+    font-variant-numeric:tabular-nums}
+  .guitar-lane{display:flex;align-items:center}
+  .gt-lane-note{position:sticky;left:12px;font-size:10.5px;color:var(--nm-sub);
+    padding-left:12px}
   .nm-strip-name{font-size:10.5px;font-weight:700;letter-spacing:.09em;
                  text-transform:uppercase;color:var(--nm-txt);flex:1;
                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -5346,6 +5395,7 @@ const Mixer = (() => {
 
   function applyGains(){
     queueSessionSave();
+    if(typeof Guitar !== "undefined") Guitar.applyGuitarGain();
     const solo = channels.some(c => c.solo);
     let anyActive = false;
     channels.forEach((c, idx) => {
@@ -6333,7 +6383,9 @@ const Mixer = (() => {
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
 
     if(channels.length){
-      // The map of the song first, then the click, then the audio.
+      // The guitar first — it is the one channel you are playing rather than
+      // listening to — then the map of the song, the click, and the audio.
+      renderGuitarLane(rail, lanes, totalPx);
       renderSectionsLane(rail, lanes, totalPx);
       renderChordsLane(rail, lanes, totalPx);
       renderTempoLane(rail, lanes, totalPx);
@@ -6744,6 +6796,21 @@ const Mixer = (() => {
     if(myToken !== loadToken) return;
     // The click is part of the mix: its level, pan, sound and rate come back
     // with everything else instead of being picked again on every open.
+    if(saved && saved.guitar){
+      const gt = saved.guitar;
+      Guitar.state.volume = gt.volume ?? Guitar.state.volume;
+      Guitar.state.pan = gt.pan ?? Guitar.state.pan;
+      Guitar.state.muted = !!gt.muted;
+      Guitar.state.solo = !!gt.solo;
+      Guitar.state.threshold = gt.threshold ?? Guitar.state.threshold;
+      // The device id is remembered but not opened: a live input has to be
+      // asked for, not resumed behind someone's back.
+      Guitar.state.deviceId = gt.deviceId || Guitar.state.deviceId;
+      // The amp and cabinet, though, cost nothing until something plays
+      // through them, and having to pick them again for every song is the
+      // sort of chore this whole file exists to remove.
+      restoreAmp(gt.ampName, gt.cabName);
+    }
     if(saved && saved.metronome){
       const m = saved.metronome;
       metroVolume = m.volume ?? metroVolume;
@@ -7299,6 +7366,13 @@ const Mixer = (() => {
         volume: metroVolume, pan: metroPan, muted: metroMuted,
         voice: metroVoice, rate: metronomeRate,
       },
+      guitar: {
+        volume: Guitar.state.volume, pan: Guitar.state.pan,
+        muted: Guitar.state.muted, solo: Guitar.state.solo,
+        threshold: Guitar.state.threshold,
+        deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
+        cabName: Guitar.state.cabName,
+      },
     };
   }
 
@@ -7623,8 +7697,611 @@ const Mixer = (() => {
     resizeTimer = setTimeout(() => { if(channels.length) renderOverview(); }, 150);
   });
 
+
+  // ======================================================================
+  // Live guitar channel.
+  //
+  // An input, a gate, an amp, and then the same fader, pan, solo and mute as
+  // every other channel — because once it is making sound it *is* a channel.
+  // What it is not is a stem: it disappears when the guitar is unplugged. So
+  // it records, and a take becomes a real track on disk next to the separated
+  // ones, which is the whole point.
+  //
+  // Signal:
+  //   getUserMedia(interface, all browser DSP off)
+  //     → gate + meter   (AudioWorklet, no lookahead — see worklets/guitar.js)
+  //     → amp            (NAM in WebAssembly, when a model is loaded)
+  //     → cabinet        (ConvolverNode with an impulse response)
+  //     → gain / pan     → monitor  and  → recorder
+  // ======================================================================
+  const Guitar = (() => {
+    let stream = null;
+    let source = null;
+    let gateNode = null;      // guitar-processor
+    let ampNode = null;       // NAM worklet, when a model is loaded
+    let cabNode = null;       // ConvolverNode
+    let recNode = null;       // take-recorder
+    let gainNode = null;
+    let pannerNode = null;
+    let analyser = null;
+    let workletsLoaded = false;
+    let recording = false;
+    let recordStartedAt = 0;
+
+    const state = {
+      deviceId: null, deviceLabel: null, live: false,
+      volume: 0.9, pan: 0, muted: false, solo: false,
+      threshold: -100,          // gate off until it is asked for
+      ampName: null, cabName: null,
+      peak: 0, gate: 0,
+      latencyMs: null,
+    };
+
+    function ctxRef(){ return ctx(); }
+
+    async function ensureWorklets(){
+      if(workletsLoaded) return;
+      await ctxRef().audioWorklet.addModule("/static/worklets/guitar.js");
+      workletsLoaded = true;
+    }
+
+    async function devices(){
+      // Labels are empty until permission has been given once, which is why
+      // the picker asks for the microphone before it can list anything useful.
+      const all = await navigator.mediaDevices.enumerateDevices();
+      return all.filter(d => d.kind === "audioinput");
+    }
+
+    async function start(deviceId){
+      await stop();
+      await ensureWorklets();
+      const audioCtx = ctxRef();
+      if(audioCtx.state === "suspended") await audioCtx.resume();
+
+      // Every one of these is off on purpose. Echo cancellation and noise
+      // suppression are built for speech: they duck, they gate, and they
+      // resample — on a guitar they destroy the dynamics that make it worth
+      // plugging in. Auto gain fights the volume knob.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: deviceId ? {exact: deviceId} : undefined,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: {ideal: 2},
+          latency: {ideal: 0},
+        },
+        video: false,
+      });
+
+      const track = stream.getAudioTracks()[0];
+      state.deviceId = track.getSettings().deviceId || deviceId || null;
+      state.deviceLabel = track.label || "Vstup";
+
+      source = audioCtx.createMediaStreamSource(stream);
+      gateNode = new AudioWorkletNode(audioCtx, "guitar-processor",
+        {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+      gateNode.parameters.get("threshold").value = state.threshold;
+      gateNode.port.onmessage = (e) => {
+        if(e.data && typeof e.data.peak === "number"){
+          state.peak = e.data.peak;
+          state.gate = e.data.gate;
+          paintGuitarMeter();
+        }
+      };
+
+      recNode = new AudioWorkletNode(audioCtx, "take-recorder",
+        {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+      recNode.port.onmessage = onRecorderMessage;
+
+      gainNode = audioCtx.createGain();
+      pannerNode = audioCtx.createStereoPanner();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+
+      rewire();
+      applyGuitarGain();
+      state.live = true;
+      state.latencyMs = latencyEstimate();
+      renderGuitarStrip();
+      return state;
+    }
+
+    // The chain is rebuilt rather than patched when the amp or cab changes:
+    // it is five nodes, and a rebuild can't leave a stale connection behind.
+    function rewire(){
+      const audioCtx = ctxRef();
+      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+        .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+
+      let node = source;
+      node.connect(gateNode); node = gateNode;
+      if(ampNode){ node.connect(ampNode); node = ampNode; }
+      if(cabNode){ node.connect(cabNode); node = cabNode; }
+      node.connect(recNode); node = recNode;
+      node.connect(gainNode);
+      gainNode.connect(analyser);
+      analyser.connect(pannerNode);
+      pannerNode.connect(audioCtx.destination);
+    }
+
+    // What the browser will admit to. The real round trip also includes the
+    // interface's own buffers, which nothing in a browser can see — so this
+    // is a floor, not a promise.
+    function latencyEstimate(){
+      const audioCtx = ctxRef();
+      const base = (audioCtx.baseLatency || 0) * 1000;
+      const out = (audioCtx.outputLatency || 0) * 1000;
+      return Math.round((base + out) * 10) / 10;
+    }
+
+    async function stop(){
+      if(recording) await stopRecording();
+      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+        .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+      if(gateNode) gateNode.port.postMessage("stop");
+      if(stream) stream.getTracks().forEach(t => t.stop());
+      stream = source = gateNode = ampNode = cabNode = recNode = null;
+      gainNode = pannerNode = analyser = null;
+      state.live = false;
+      state.peak = 0;
+      renderGuitarStrip();
+    }
+
+    function applyGuitarGain(){
+      if(!gainNode) return;
+      // The guitar obeys the mixer's solo the same way a stem does: soloing a
+      // stem has to silence it, or solo means nothing.
+      const stemSolo = channels.some(c => c.solo);
+      const silent = state.muted || (stemSolo && !state.solo);
+      gainNode.gain.value = silent ? 0 : state.volume;
+      if(pannerNode) pannerNode.pan.value = state.pan;
+    }
+
+    function setThreshold(db){
+      state.threshold = db;
+      if(gateNode) gateNode.parameters.get("threshold").value = db;
+    }
+
+    // ---- recording ----
+
+    function startRecording(){
+      if(!state.live || recording) return false;
+      recording = true;
+      recordStartedAt = ctxRef().currentTime;
+      recNode.port.postMessage("start");
+      renderGuitarStrip();
+      return true;
+    }
+
+    let recordResolve = null;
+    function stopRecording(){
+      if(!recording) return Promise.resolve(null);
+      recording = false;
+      return new Promise(resolve => {
+        recordResolve = resolve;
+        recNode.port.postMessage("stop");
+      });
+    }
+
+    async function onRecorderMessage(e){
+      if(!e.data || !e.data.done) return;
+      const {chunks, frames} = e.data;
+      renderGuitarStrip();
+      if(!frames || !chunks.length){
+        if(recordResolve) recordResolve(null);
+        showToast("Nahrávka je prázdná");
+        return;
+      }
+      const buffer = ctxRef().createBuffer(
+        chunks[0].length, frames, ctxRef().sampleRate);
+      for(let c = 0; c < buffer.numberOfChannels; c++){
+        const out = buffer.getChannelData(c);
+        let at = 0;
+        chunks.forEach(block => {
+          out.set(block[Math.min(c, block.length - 1)], at);
+          at += block[0].length;
+        });
+      }
+      const wav = encodeWav(buffer);
+      const saved = await uploadTake(wav);
+      if(recordResolve) recordResolve(saved);
+    }
+
+    async function uploadTake(wavBlob){
+      if(!currentSongName){ showToast("Nejdřív načti song"); return null; }
+      showToast("Ukládám nahrávku…");
+      try{
+        const res = await fetch(
+          `/api/stems/${encodeURIComponent(currentSongName)}/record`,
+          {method: "POST", headers: {"Content-Type": "audio/wav"}, body: wavBlob});
+        const data = await res.json();
+        if(!res.ok){ showToast(data.error || "Uložení selhalo"); return null; }
+        showToast(`Nahrávka uložena jako ${takeLabel(data.stem)}`);
+        // It is a track of this song now, so the mixer reloads to show it.
+        // If that fails the take is still saved — say so rather than
+        // reporting a failure that didn't happen.
+        try{ await reloadCurrentSong(); }
+        catch(e){ showToast("Nahrávka uložena, mixpult se nepřenačetl"); }
+        return data.stem;
+      }catch(e){
+        showToast("Uložení selhalo");
+        return null;
+      }
+    }
+
+    return {
+      state, devices, start, stop, rewire, applyGuitarGain, setThreshold,
+      startRecording, stopRecording,
+      isRecording: () => recording,
+      isLive: () => state.live,
+      recordedSeconds: () => recording ? ctxRef().currentTime - recordStartedAt : 0,
+      setAmp(node, name){ ampNode = node; state.ampName = name; if(state.live) rewire(); },
+      setCab(node, name){ cabNode = node; state.cabName = name; if(state.live) rewire(); },
+      analyserNode: () => analyser,
+    };
+  })();
+
+
+  // ---- the guitar's own strip, above the metronome ----
+  //
+  // Taller than a stem's strip because it carries the things a stem never
+  // needs: which socket the sound comes from, how hard the gate bites, and a
+  // meter — you cannot set the gain knob on an interface you cannot see.
+
+  function renderGuitarLane(rail, lanes, totalPx){
+    const g = Guitar.state;
+    const strip = document.createElement("div");
+    strip.className = "nm-strip guitar-strip" + (g.muted ? " muted" : "");
+    strip.id = "guitar-strip";
+    strip.innerHTML = `
+      <div class="nm-strip-top">
+        <span class="nm-strip-icon">${icon("guitar", 13)}</span>
+        <span class="nm-strip-name">Kytara</span>
+        <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
+        <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
+      </div>
+      <div class="gt-row">
+        <button class="gt-power ${g.live ? "on" : ""}" title="${g.live ? "Odpojit vstup" : "Připojit vstup"}">
+          ${icon(g.live ? "pause" : "play", 11)}
+          <span>${g.live ? "Živě" : "Připojit"}</span>
+        </button>
+        <select class="gt-device" title="Zvukové rozhraní"></select>
+      </div>
+      <div class="gt-meter" title="Špička vstupu — nastav podle ní gain na rozhraní">
+        <div class="gt-meter-fill" id="gt-meter-fill"></div>
+        <div class="gt-meter-gate" id="gt-meter-gate" title="Otevření brány"></div>
+      </div>
+      <input type="range" class="nm-fader gt-vol" min="0" max="1.4" step="0.01" value="${g.volume}">
+      <div class="gt-row">
+        <span class="gt-cap">GATE</span>
+        <input type="range" class="gt-gate" min="-100" max="-20" step="1" value="${g.threshold}">
+        <span class="gt-val" id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span>
+      </div>
+      <div class="gt-row">
+        <span class="gt-cap">PAN</span>
+        <input type="range" class="nm-tempo gt-pan" min="-1" max="1" step="0.02" value="${g.pan}">
+        <button class="gt-rec ${Guitar.isRecording() ? "on" : ""}" title="Nahrát na novou stopu">
+          ${Guitar.isRecording() ? "■" : "●"}
+        </button>
+      </div>
+      <div class="gt-row gt-amp">
+        <button class="gt-chip" id="gt-amp-btn" title="Zesilovač a kabinet">
+          ${icon("sliders", 11)}<span>${escapeHtml(
+            [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Bez zesilovače")}</span>
+        </button>
+      </div>
+      <div class="gt-lat" id="gt-lat">${g.latencyMs !== null ? `~${g.latencyMs} ms` : ""}</div>`;
+    rail.appendChild(strip);
+
+    const lane = document.createElement("div");
+    lane.className = "nm-lane guitar-lane";
+    lane.style.width = totalPx + "px";
+    lane.innerHTML = `<div class="gt-lane-note">${
+      g.live ? "Kytara hraje živě — nahrávka se uloží jako nová stopa"
+             : "Připoj vstup a hraj; nahrávka se uloží jako nová stopa"}</div>`;
+    lanes.appendChild(lane);
+
+    wireGuitarStrip(strip);
+    fillGuitarDevices(strip.querySelector(".gt-device"));
+  }
+
+  function wireGuitarStrip(strip){
+    const g = Guitar.state;
+
+    strip.querySelector(".gt-power").onclick = async () => {
+      if(Guitar.isLive()){ await Guitar.stop(); return; }
+      const sel = strip.querySelector(".gt-device");
+      try{
+        await Guitar.start(sel.value || null);
+        showToast(`Vstup: ${Guitar.state.deviceLabel}`);
+      }catch(e){
+        showToast(e && e.name === "NotAllowedError"
+          ? "Prohlížeč nepustil mikrofonní vstup"
+          : "Vstup se nepodařilo otevřít");
+      }
+    };
+
+    strip.querySelector(".gt-device").onchange = async (e) => {
+      if(Guitar.isLive()) await Guitar.start(e.target.value);
+    };
+
+    strip.querySelector(".gt-vol").oninput = (e) => {
+      g.volume = parseFloat(e.target.value);
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    };
+    strip.querySelector(".gt-pan").oninput = (e) => {
+      g.pan = parseFloat(e.target.value);
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    };
+    strip.querySelector(".gt-gate").oninput = (e) => {
+      const db = parseInt(e.target.value, 10);
+      Guitar.setThreshold(db);
+      el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
+      queueSessionSave();
+    };
+    strip.querySelector(".nm-sm.mute").onclick = (e) => {
+      g.muted = !g.muted;
+      e.currentTarget.classList.toggle("active", g.muted);
+      strip.classList.toggle("muted", g.muted);
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    };
+    strip.querySelector(".nm-sm.solo").onclick = (e) => {
+      g.solo = !g.solo;
+      e.currentTarget.classList.toggle("active", g.solo);
+      applyGains();               // solo is a property of the whole mixer
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    };
+    strip.querySelector(".gt-rec").onclick = async () => {
+      if(Guitar.isRecording()){ await Guitar.stopRecording(); return; }
+      if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup"); return; }
+      if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
+    };
+    strip.querySelector("#gt-amp-btn").onclick = () => openAmpPicker();
+  }
+
+  async function fillGuitarDevices(select){
+    if(!select) return;
+    let list = [];
+    try{ list = await Guitar.devices(); }catch(e){}
+    // Before permission is given the browser hands back entries with no
+    // label, which is useless for picking an interface — so say so.
+    const unnamed = list.length && list.every(d => !d.label);
+    select.innerHTML = list.map(d =>
+      `<option value="${d.deviceId}">${escapeHtml(d.label || "Vstup bez názvu")}</option>`
+    ).join("") || `<option value="">Žádný vstup</option>`;
+    if(unnamed){
+      select.insertAdjacentHTML("afterbegin",
+        `<option value="">Povol mikrofon a názvy se objeví</option>`);
+    }
+    if(Guitar.state.deviceId) select.value = Guitar.state.deviceId;
+  }
+
+  function paintGuitarMeter(){
+    const fill = el("gt-meter-fill");
+    if(!fill) return;
+    const g = Guitar.state;
+    // dBFS on a scale that spends its space where a guitar actually sits.
+    const db = g.peak > 0 ? 20 * Math.log10(g.peak) : -100;
+    const pct = Math.max(0, Math.min(1, (db + 60) / 60));
+    fill.style.width = (pct * 100) + "%";
+    fill.classList.toggle("hot", db > -3);
+    fill.classList.toggle("warm", db > -12 && db <= -3);
+    const gate = el("gt-meter-gate");
+    if(gate) gate.style.opacity = String(1 - g.gate);
+  }
+
+  function renderGuitarStrip(){
+    // Cheap enough to redraw the lanes; the strip's state is all in Guitar.
+    if(el("guitar-strip")) renderTrackLanes();
+  }
+
+
+  // ---- the amp: a NAM model, then a cabinet ----
+  //
+  // NAM runs the same neural network the desktop plugin does, compiled to
+  // WebAssembly and instantiated inside an AudioWorklet. The cabinet is an
+  // ordinary ConvolverNode — an impulse response is a convolution and the
+  // browser already does that in native code, so there is nothing to gain by
+  // reimplementing it.
+  //
+  // The model is mono in, mono out. The chain around it is stereo, so it sits
+  // between a merger and the rest; a guitar is a mono source anyway and
+  // pretending otherwise would just run the network twice for nothing.
+  const Amp = (() => {
+    let engine = null;
+    let node = null;
+    let loading = false;
+
+    async function ensureEngine(){
+      if(engine) return engine;
+      const mod = await import("/static/nam/index.js");
+      engine = await mod.NamEngine.attach(ctx(), {assetBaseUrl: "/static/nam/"});
+      return engine;
+    }
+
+    async function load(file){
+      if(loading) return null;
+      loading = true;
+      try{
+        const res = await fetch(`/api/amps/${encodeURIComponent(file)}`);
+        if(!res.ok) throw new Error("model se nepodařilo stáhnout");
+        const json = await res.text();
+        const eng = await ensureEngine();
+        if(!node) node = await eng.createNode();
+        // Parsing happens on the audio thread; the node fades back in by
+        // itself, so there is no click to hide here.
+        const info = await node.loadModel(json);
+        Guitar.setAmp(node, file.replace(/\.nam$/i, ""));
+        return info;
+      } finally {
+        loading = false;
+      }
+    }
+
+    async function unload(){
+      if(node){
+        try{ await node.unloadModel(); }catch(e){}
+      }
+      Guitar.setAmp(null, null);
+    }
+
+    // The cabinet. A ConvolverNode wants an AudioBuffer, so the IR is decoded
+    // once and kept.
+    async function loadCab(file){
+      const res = await fetch(`/api/amps/${encodeURIComponent(file)}`);
+      if(!res.ok) throw new Error("impuls se nepodařilo stáhnout");
+      const buf = await ctx().decodeAudioData(await res.arrayBuffer());
+      const conv = ctx().createConvolver();
+      conv.normalize = true;
+      conv.buffer = buf;
+      Guitar.setCab(conv, file.replace(/\.wav$/i, ""));
+      return buf.duration;
+    }
+
+    function unloadCab(){ Guitar.setCab(null, null); }
+
+    return {load, unload, loadCab, unloadCab, isLoading: () => loading,
+            hasEngine: () => !!engine};
+  })();
+
+  // ---- picking one ----
+
+  async function openAmpPicker(){
+    const existing = el("amp-picker");
+    if(existing) existing.remove();
+
+    let amps = [];
+    try{ amps = await (await fetch("/api/amps")).json(); }catch(e){}
+    const models = amps.filter(a => a.kind === "model");
+    const irs = amps.filter(a => a.kind === "ir");
+
+    const box = document.createElement("div");
+    box.className = "sect-menu amp-picker";
+    box.id = "amp-picker";
+    box.innerHTML = `
+      <div class="ss-head">Zesilovač (NAM)</div>
+      ${models.length ? "" : `<div class="hint">Zatím žádný model. Přetáhni sem .nam soubor
+        nebo ho přidej tlačítkem níž.</div>`}
+      ${models.map(m => `<button type="button" data-model="${escapeHtml(m.file)}">
+        ${icon("sliders", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      <button type="button" data-model="">${icon("close", 12)}Bez zesilovače</button>
+      <hr>
+      <div class="ss-head">Kabinet (IR)</div>
+      ${irs.map(m => `<button type="button" data-ir="${escapeHtml(m.file)}">
+        ${icon("volume", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      <button type="button" data-ir="">${icon("close", 12)}Bez kabinetu</button>
+      <hr>
+      <button type="button" id="amp-add">${icon("plus", 12)}Přidat .nam nebo .wav…</button>
+      <button type="button" id="amp-t3k">${icon("external", 12)}Katalog TONE3000…</button>
+      <div class="hint">Model se počítá na zvukovém vlákně; načtení trvá pár
+        set milisekund a zvuk se sám vrátí bez lupnutí.</div>`;
+
+    document.body.appendChild(box);
+    const anchor = el("gt-amp-btn").getBoundingClientRect();
+    const r = box.getBoundingClientRect();
+    box.style.left = Math.min(anchor.left, window.innerWidth - r.width - 8) + "px";
+    box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
+
+    box.querySelectorAll("[data-model]").forEach(b => {
+      b.onclick = async () => {
+        const file = b.dataset.model;
+        box.remove();
+        if(!file){ await Amp.unload(); showToast("Zesilovač vypnut"); renderGuitarStrip(); return; }
+        showToast("Načítám model…");
+        try{
+          await Amp.load(file);
+          showToast(`Zesilovač: ${file.replace(/\.nam$/i, "")}`);
+        }catch(e){ showToast("Model se nepodařilo načíst"); }
+        renderGuitarStrip();
+        queueSessionSave();
+      };
+    });
+    box.querySelectorAll("[data-ir]").forEach(b => {
+      b.onclick = async () => {
+        const file = b.dataset.ir;
+        box.remove();
+        if(!file){ Amp.unloadCab(); showToast("Kabinet vypnut"); renderGuitarStrip(); return; }
+        try{
+          await Amp.loadCab(file);
+          showToast(`Kabinet: ${file.replace(/\.wav$/i, "")}`);
+        }catch(e){ showToast("Impuls se nepodařilo načíst"); }
+        renderGuitarStrip();
+        queueSessionSave();
+      };
+    });
+    el("amp-add").onclick = () => { box.remove(); pickAmpFiles(); };
+    el("amp-t3k").onclick = () => { box.remove(); explainTone3000(); };
+
+    setTimeout(() => document.addEventListener("pointerdown", function once(e){
+      if(!e.target.closest("#amp-picker")){ box.remove(); }
+      else document.addEventListener("pointerdown", once, {once: true});
+    }, {once: true}), 0);
+  }
+
+  function pickAmpFiles(){
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".nam,.wav";
+    input.multiple = true;
+    input.onchange = async () => {
+      for(const file of input.files){
+        try{
+          const res = await fetch(
+            `/api/amps?filename=${encodeURIComponent(file.name)}`,
+            {method: "POST", body: await file.arrayBuffer()});
+          const data = await res.json();
+          showToast(res.ok ? `Přidáno: ${data.name}` : (data.error || "Nepodařilo se"));
+        }catch(e){ showToast("Nahrání selhalo"); }
+      }
+      openAmpPicker();
+    };
+    input.click();
+  }
+
+  function explainTone3000(){
+    // Honest about what it would take rather than opening a dialog that
+    // cannot work: their API has no anonymous access at all.
+    showToast("Katalog TONE3000 vyžaduje přihlášení — viz nápověda");
+    window.open("https://www.tone3000.com/", "_blank");
+  }
+
+  // Re-select the amp and cabinet a song was left with. Failures are quiet:
+  // a model that has since been deleted must not stop the song loading.
+  async function restoreAmp(ampName, cabName){
+    if(ampName && ampName !== Guitar.state.ampName){
+      try{ await Amp.load(`${ampName}.nam`); }catch(e){}
+    } else if(!ampName && Guitar.state.ampName){
+      try{ await Amp.unload(); }catch(e){}
+    }
+    if(cabName && cabName !== Guitar.state.cabName){
+      try{ await Amp.loadCab(`${cabName}.wav`); }catch(e){}
+    } else if(!cabName && Guitar.state.cabName){
+      Amp.unloadCab();
+    }
+    renderGuitarStrip();
+  }
+
+  function takeLabel(stem){
+    const n = stem.replace(/^take-/, "");
+    return `Nahrávka ${n}`;
+  }
+
+  async function reloadCurrentSong(){
+    if(!currentSongName) return;
+    const list = await (await fetch("/api/stems")).json();
+    const song = list.find(s => s.name === currentSongName);
+    if(song) await load(song);
+  }
+
   return {
     load, saveSession, loadSession, play, pause,
+    // The live input channel, so the page (and the tests) can reach it.
+    guitar: Guitar,
     // The remote control needs to know whether the mixer is the thing
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,

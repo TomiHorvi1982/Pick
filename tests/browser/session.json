@@ -29,7 +29,7 @@
   {
    "action": "eval",
    "label": "so-does-a-mute",
-   "script": "(async()=>{document.querySelectorAll('.nm-sm.mute')[1].click();await new Promise(r=>setTimeout(r,1600));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return s.channels.filter(c=>c.muted).length>=1})()",
+   "script": "(async()=>{[...document.querySelectorAll('.nm-strip')].find(st=>/drums/i.test(st.textContent)).querySelector('.nm-sm.mute').click();await new Promise(r=>setTimeout(r,1600));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return s.channels.filter(c=>c.muted).length>=1})()",
    "expect": true
   },
   {

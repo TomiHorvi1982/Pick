@@ -23,8 +23,8 @@
   {
    "action": "eval",
    "label": "lanes-are-in-order-above-the-metronome",
-   "script": "[...document.querySelectorAll('.nm-strip .nm-strip-name')].map(e=>e.textContent).slice(0,4).join('>')",
-   "expect": "Sekce>Akordy>Tempo>Metronom"
+   "script": "[...document.querySelectorAll('.nm-strip .nm-strip-name')].map(e=>e.textContent).slice(0,5).join('>')",
+   "expect": "Kytara>Sekce>Akordy>Tempo>Metronom"
   },
   {
    "action": "eval",
