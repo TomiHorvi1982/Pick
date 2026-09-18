@@ -375,3 +375,74 @@ def test_sections_refuse_a_path_outside_the_music_root(client, tmp_music_root):
     assert client.get("/api/stems/..%2F..%2Fetc/sections").status_code == 404
     assert client.put("/api/stems/..%2F..%2Fetc/sections",
                       json={"sections": []}).status_code == 404
+
+
+# ------------------------------------------------------- the mix, per song
+
+def test_a_song_with_no_saved_mix_says_so(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    data = client.get("/api/stems/Song/session").json()
+    assert data["saved"] is False
+    assert data["channels"] == []
+
+
+def test_the_mix_round_trips(client, tmp_music_root):
+    """It lives beside the stems, not in localStorage: localStorage is per
+    browser profile, and the menu bar opens the app in one of its own."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    client.put("/api/stems/Song/session", json={
+        "channels": [
+            {"stem": "vocals", "faderValue": 0.42, "muted": True, "solo": False,
+             "pitchRate": 1.0, "panValue": -0.3, "clipOffset": 0.0},
+            {"stem": "drums", "faderValue": 1.0, "muted": False, "solo": True,
+             "pitchRate": 1.5, "panValue": 0.0, "clipOffset": 2.5},
+        ],
+        "loop": {"start": 10.0, "end": 26.0},
+        "pixelsPerSecond": 44.0, "tempo": 125.0,
+    })
+
+    back = client.get("/api/stems/Song/session").json()
+    assert back["saved"] is True
+    assert back["channels"][0]["faderValue"] == 0.42
+    assert back["channels"][0]["muted"] is True
+    assert back["channels"][1]["solo"] is True
+    assert back["loop"]["end"] == 26.0
+    assert back["pixelsPerSecond"] == 44.0
+
+
+def test_a_fader_out_of_range_is_clamped_not_stored(client, tmp_music_root):
+    """A fader that came back as 14 instead of 1.4 would blow the ears off
+    whoever opened the song next."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    got = client.put("/api/stems/Song/session", json={"channels": [
+        {"stem": "vocals", "faderValue": 14.0, "pitchRate": 40.0,
+         "panValue": -9.0, "clipOffset": 99999.0},
+    ]}).json()
+
+    ch = got["channels"][0]
+    assert ch["faderValue"] == 2.0
+    assert ch["pitchRate"] == 4.0
+    assert ch["panValue"] == -1.0
+    assert ch["clipOffset"] == 600.0
+
+
+def test_deleting_the_mix_returns_an_empty_one(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    client.put("/api/stems/Song/session", json={"channels": [
+        {"stem": "vocals", "faderValue": 0.5}]})
+
+    back = client.request("DELETE", "/api/stems/Song/session").json()
+    assert back["saved"] is False
+    assert not (stems / "session.json").exists()
+
+
+def test_the_mix_refuses_a_path_outside_the_music_root(client, tmp_music_root):
+    assert client.get("/api/stems/..%2F..%2Fetc/session").status_code == 404
+    assert client.put("/api/stems/..%2F..%2Fetc/session",
+                      json={"channels": []}).status_code == 404

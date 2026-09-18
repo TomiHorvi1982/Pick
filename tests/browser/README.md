@@ -23,3 +23,4 @@ Exit 0 is a pass. Drop `--headless` to watch it happen.
 | `search.json` | one-letter hints, card-driven search, criteria you can remove |
 | `audio-bus.json` | only one thing makes sound at a time |
 | `remote.json` | the menu bar and mini player's control channel |
+| `session.json` | the mix saves and restores itself per song |

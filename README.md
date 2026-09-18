@@ -165,6 +165,12 @@ cd ~/.local/share/spotdl-helper/app
   chroma rozmažou). Baskytara hlasuje zvlášť o basovém tónu, což je to, co
   udělá obrat viditelným. Slovník: dur, moll, 7, maj7, m7, sus2/4, dim, aug a
   **power chord** — bez něj by metal vycházel celý jako maj7.
+- **Mix se ukládá sám**: každý fader, mute, sólo, pan, pitch, posun klipu,
+  smyčka, zoom i nastavení metronomu (hlasitost, pan, zvuk kliku, rychlost) se
+  po vteřině nečinnosti zapíšou do `Stems/<název>/session.json`. Dřív to bylo
+  tlačítko do `localStorage`, což znamenalo dvě věci: muselo se na něj myslet,
+  a mix žil v jednom profilu prohlížeče — lišta otevírá appku ve vlastním
+  profilu, takže mix nastavený v normálním okně tam prostě nebyl.
 - **Vlastní sekce**: detekce je výchozí bod, ne verdikt. Sekce jde v mixpultu
   táhnout, měnit jim délku, přidávat a mazat a pojmenovat z nabídky názvů,
   která se dá na každé písni upravit. Hranice jsou **sdílené** — posun jedné

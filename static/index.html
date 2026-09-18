@@ -2393,8 +2393,8 @@
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="mixer-save-session" title="Uložit relaci"><span data-icon="save" data-size="14"></span></button>
-              <button class="nm-btn round" id="mixer-load-session" title="Načíst relaci"><span data-icon="folderOpen" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-load-session" title="Obnovit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
             </div>
             <span class="cap">RELACE</span>
           </div>
@@ -5345,6 +5345,7 @@ const Mixer = (() => {
   }
 
   function applyGains(){
+    queueSessionSave();
     const solo = channels.some(c => c.solo);
     let anyActive = false;
     channels.forEach((c, idx) => {
@@ -5660,6 +5661,7 @@ const Mixer = (() => {
     paint();
     fader.oninput = () => {
       metroVolume = parseFloat(fader.value);
+      queueSessionSave();
       paint();
       if(metroBus) metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
     };
@@ -5668,6 +5670,7 @@ const Mixer = (() => {
     const panVal = strip.querySelector(".nm-pitch-row .val");
     pan.oninput = () => {
       metroPan = parseFloat(pan.value);
+      queueSessionSave();
       panVal.textContent = Math.abs(metroPan) < 0.03 ? "C"
         : (metroPan > 0 ? "R" + Math.round(metroPan * 100) : "L" + Math.round(-metroPan * 100));
       if(metroBus) metroBus.panner.pan.value = metroPan;
@@ -5676,6 +5679,7 @@ const Mixer = (() => {
     const muteBtn = strip.querySelector(".nm-sm.mute");
     muteBtn.onclick = () => {
       metroMuted = !metroMuted;
+      queueSessionSave();
       muteBtn.classList.toggle("active", metroMuted);
       strip.classList.toggle("muted", metroMuted);
       if(metroBus) metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
@@ -5683,6 +5687,7 @@ const Mixer = (() => {
 
     strip.querySelector(".metro-voice").onchange = (e) => {
       metroVoice = e.target.value;
+      queueSessionSave();
       // Audible confirmation of the pick, without waiting for the next beat.
       playClick(true, ctx().currentTime + 0.02);
     };
@@ -5967,6 +5972,7 @@ const Mixer = (() => {
       loopEnd = sec.end;
       loopEnabled = true;
       el("mixer-loop").classList.add("active");
+      queueSessionSave();
       renderTimeline();
       showToast(`Smyčka: ${sec.name}`);
     };
@@ -6367,6 +6373,7 @@ const Mixer = (() => {
       paintFader();
       fader.oninput = () => {
         c.faderValue = parseFloat(fader.value);
+        queueSessionSave();
         paintFader();
         applyGains();
       };
@@ -6374,6 +6381,7 @@ const Mixer = (() => {
       const muteBtn = strip.querySelector(".nm-sm.mute");
       muteBtn.onclick = () => {
         c.muted = !c.muted;
+        queueSessionSave();
         muteBtn.classList.toggle("active", c.muted);
         strip.classList.toggle("muted", c.muted);
         applyGains();
@@ -6382,6 +6390,7 @@ const Mixer = (() => {
       const soloBtn = strip.querySelector(".nm-sm.solo");
       soloBtn.onclick = () => {
         c.solo = !c.solo;
+        queueSessionSave();
         soloBtn.classList.toggle("active", c.solo);
         applyGains();
       };
@@ -6395,6 +6404,7 @@ const Mixer = (() => {
         const st = parseInt(pitchSlider.value, 10);
         pitchVal.textContent = (st > 0 ? "+" : "") + st;
         c.pitchRate = semitonesToRate(st);
+        queueSessionSave();
         if(c.source) c.source.playbackRate.value = c.pitchRate;
       };
       rail.appendChild(strip);
@@ -6592,6 +6602,7 @@ const Mixer = (() => {
         let v = panStartVal + dy * 0.01;
         v = Math.max(-1, Math.min(1, v));
         c.panValue = v;
+        queueSessionSave();
         if(c.panValue < -0.05){ panKnob.classList.add("pan-l"); panKnob.classList.remove("pan-r"); }
         else if(c.panValue > 0.05){ panKnob.classList.add("pan-r"); panKnob.classList.remove("pan-l"); }
         else{ panKnob.classList.remove("pan-l","pan-r"); }
@@ -6613,6 +6624,7 @@ const Mixer = (() => {
       const muteBtn = strip.querySelector(`#fl-mute-${idx}`);
       muteBtn.onclick = () => {
         c.muted = !c.muted;
+        queueSessionSave();
         muteBtn.classList.toggle("active", c.muted);
         strip.classList.toggle("muted", c.muted);
         applyGains();
@@ -6620,6 +6632,7 @@ const Mixer = (() => {
       const soloBtn = strip.querySelector(`#fl-solo-${idx}`);
       soloBtn.onclick = () => {
         c.solo = !c.solo;
+        queueSessionSave();
         soloBtn.classList.toggle("active", c.solo);
         strip.classList.toggle("solo", c.solo);
         applyGains();
@@ -6706,6 +6719,7 @@ const Mixer = (() => {
 
   async function load(song){
     const myToken = ++loadToken;
+    sessionReady = false;       // nothing saves while the mix is being set up
     stopAllSources();
     isPlaying = false;
     pausedAt = 0;
@@ -6726,7 +6740,18 @@ const Mixer = (() => {
     currentSongName = song.name;
 
     // Restore session if exists
-    const saved = loadSession(song.name);
+    const saved = await loadSession(song.name);
+    if(myToken !== loadToken) return;
+    // The click is part of the mix: its level, pan, sound and rate come back
+    // with everything else instead of being picked again on every open.
+    if(saved && saved.metronome){
+      const m = saved.metronome;
+      metroVolume = m.volume ?? metroVolume;
+      metroPan = m.pan ?? metroPan;
+      metroMuted = !!m.muted;
+      metroVoice = m.voice || metroVoice;
+      metronomeRate = m.rate || metronomeRate;
+    }
     const loaded = [];
     for(const stem of song.stems){
       const stemName = typeof stem === 'string' ? stem : (stem.name || stem);
@@ -6818,6 +6843,8 @@ const Mixer = (() => {
     // The stage was hidden a moment ago, so its width wasn't settled when the
     // zoom above was computed. Re-fit once layout has run.
     requestAnimationFrame(() => { if(myToken === loadToken) zoomToFit(); });
+    // The mix is set up; from here on every change writes itself.
+    sessionReady = true;
   }
 
   // Sections and chords take the better part of a minute the first time, so
@@ -7082,6 +7109,7 @@ const Mixer = (() => {
 
   function setMetronomeRate(rate){
     metronomeRate = rate;
+    queueSessionSave();
     rebuildClickTrack();
     const sel = el("nm-metro-rate");
     if(sel) sel.value = String(rate);
@@ -7239,6 +7267,7 @@ const Mixer = (() => {
   function toggleLoop(){
     loopEnabled = !loopEnabled;
     el("mixer-loop").classList.toggle("active", loopEnabled);
+    queueSessionSave();
     if(loopEnabled && loopEnd <= loopStart){
       // Default loop: first 4 bars if tempo known, else first 8 seconds
       loopStart = 0;
@@ -7248,28 +7277,69 @@ const Mixer = (() => {
   }
 
   // ---- Save / Load Session ----
-  function saveSession(songName){
-    const data = {
+  // ---- the mix, kept per song ----
+  //
+  // This used to be a button that wrote to localStorage, which meant two
+  // things: you had to remember to press it, and the mix lived in one
+  // browser profile. The menu bar opens the app in a profile of its own, so
+  // a mix set up in the normal window simply wasn't there in the app window.
+  // It saves itself now, next to the stems.
+
+  function sessionSnapshot(){
+    return {
       tempo: tempoBPM,
-      loop: loopEnabled ? { start: loopStart, end: loopEnd } : null,
+      loop: loopEnabled ? {start: loopStart, end: loopEnd} : null,
       channels: channels.map(c => ({
-        stem: c.stem, muted: c.muted, solo: c.solo,
-        faderValue: c.faderValue, pitchRate: c.pitchRate,
-        panValue: c.panValue, clipOffset: c.clipOffset || 0,
+        stem: c.stem, muted: !!c.muted, solo: !!c.solo,
+        faderValue: c.faderValue, pitchRate: c.pitchRate || 1,
+        panValue: c.panValue || 0, clipOffset: c.clipOffset || 0,
       })),
       pixelsPerSecond,
+      metronome: {
+        volume: metroVolume, pan: metroPan, muted: metroMuted,
+        voice: metroVoice, rate: metronomeRate,
+      },
     };
-    try{
-      localStorage.setItem("steems-session-" + songName, JSON.stringify(data));
-      showToast("💾 Session uložena");
-    }catch(e){ showToast("Uložení selhalo"); }
   }
 
-  function loadSession(songName){
+  let sessionSaveTimer = null;
+  let sessionReady = false;   // false while a song is loading
+  // Every fader move would otherwise be a request; one write after the hand
+  // stops is the same result.
+  function queueSessionSave(){
+    if(!sessionReady || !currentSongName || !channels.length) return;
+    clearTimeout(sessionSaveTimer);
+    const song = currentSongName;
+    sessionSaveTimer = setTimeout(() => {
+      fetch(`/api/stems/${encodeURIComponent(song)}/session`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(sessionSnapshot()),
+      }).catch(() => {});
+    }, 700);
+  }
+
+  function saveSession(songName){
+    if(!songName) return;
+    fetch(`/api/stems/${encodeURIComponent(songName)}/session`, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(sessionSnapshot()),
+    }).then(() => showToast("Mix uložen"))
+      .catch(() => showToast("Uložení selhalo"));
+  }
+
+  async function loadSession(songName){
+    try{
+      const res = await fetch(`/api/stems/${encodeURIComponent(songName)}/session`);
+      if(!res.ok) return null;
+      const data = await res.json();
+      if(data.saved) return data;
+    }catch(e){}
+    // A mix saved by the old button still deserves to be honoured once.
     try{
       const raw = localStorage.getItem("steems-session-" + songName);
-      if(!raw) return null;
-      return JSON.parse(raw);
+      return raw ? JSON.parse(raw) : null;
     }catch(e){ return null; }
   }
 
@@ -7368,30 +7438,39 @@ const Mixer = (() => {
   });
   el("mixer-loop").onclick = () => toggleLoop();
   el("mixer-save-session").onclick = () => {
-    const name = currentSongName || prompt("Název songu pro uložení:");
-    if(name) saveSession(name);
+    if(!currentSongName){ showToast("Nejdřív načti song"); return; }
+    saveSession(currentSongName);
   };
-  el("mixer-load-session").onclick = () => {
-    const name = currentSongName || prompt("Název session k načtení:");
-    if(name){
-      const data = loadSession(name);
-      if(data && data.channels){
-        data.channels.forEach((sc, i) => {
-          if(channels[i]){
-            Object.assign(channels[i], sc);
-          }
-        });
-        if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60/data.tempo; el("mixer-tempo").textContent = tempoBPM; }
-        if(data.loop){ loopEnabled = true; loopStart = data.loop.start; loopEnd = data.loop.end; el("mixer-loop").classList.add("active"); }
-        if(data.pixelsPerSecond){ pixelsPerSecond = data.pixelsPerSecond; el("mixer-zoom").value = pixelsPerSecond; el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s"; }
-        renderChannels();
-        renderTimeline();
-        applyGains();
-        showToast("📂 Session načtena");
-      } else {
-        showToast("Session nenalezena");
-      }
+  // The mix saves itself now, so this means "throw away what I've changed
+  // since and go back to the stored one". loadSession is a request, and this
+  // handler used to treat its promise as the data — so the button did
+  // nothing at all.
+  el("mixer-load-session").onclick = async () => {
+    const name = currentSongName;
+    if(!name){ showToast("Nejdřív načti song"); return; }
+    const data = await loadSession(name);
+    if(!data || !data.channels || !data.channels.length){
+      showToast("Pro tenhle song není uložený mix");
+      return;
     }
+    // Match by stem name: the channel order can differ from the stored one.
+    data.channels.forEach(sc => {
+      const c = channels.find(x => x.stem === sc.stem);
+      if(c) Object.assign(c, sc);
+    });
+    if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60 / data.tempo; el("mixer-tempo").textContent = tempoBPM; }
+    loopEnabled = !!data.loop;
+    if(data.loop){ loopStart = data.loop.start; loopEnd = data.loop.end; }
+    el("mixer-loop").classList.toggle("active", loopEnabled);
+    if(data.pixelsPerSecond){
+      pixelsPerSecond = data.pixelsPerSecond;
+      el("mixer-zoom").value = pixelsPerSecond;
+      el("mixer-zoom-val").textContent = pixelsPerSecond + " px/s";
+    }
+    renderChannels();
+    renderTimeline();
+    applyGains();
+    showToast("Uložený mix obnoven");
   };
 
   // Zoom
@@ -7403,6 +7482,7 @@ const Mixer = (() => {
     const anchorOffset = anchorTime * pixelsPerSecond - scroll.scrollLeft;
 
     pixelsPerSecond = Math.max(1, Math.min(400, Math.round(px * 100) / 100));
+    queueSessionSave();
     el("mixer-zoom").value = pixelsPerSecond;
     el("mixer-zoom-val").textContent =
       (pixelsPerSecond < 10 ? pixelsPerSecond.toFixed(1) : Math.round(pixelsPerSecond)) + " px/s";

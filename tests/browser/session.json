@@ -1,0 +1,86 @@
+{
+ "steps": [
+  {
+   "action": "eval",
+   "label": "open-steems",
+   "script": "(()=>{[...document.querySelectorAll('.lib-chip,.chip,button')].find(e=>e.textContent.trim()==='Steems').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1800
+  },
+  {
+   "action": "eval",
+   "label": "start-from-a-clean-mix",
+   "script": "(async()=>{await fetch('/api/stems/Calin%20-%20Stovky%20let/session',{method:'DELETE'});[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Stovky let/.test(x.textContent)).click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "moving-a-fader-saves-itself",
+   "script": "(async()=>{const f=[...document.querySelectorAll('.nm-strip')].find(st=>/vocals/i.test(st.textContent)).querySelector('.nm-fader');f.value='0.42';f.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,1600));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return s.saved===true && s.channels.some(c=>Math.abs(c.faderValue-0.42)<0.01)})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "so-does-a-mute",
+   "script": "(async()=>{document.querySelectorAll('.nm-sm.mute')[1].click();await new Promise(r=>setTimeout(r,1600));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return s.channels.filter(c=>c.muted).length>=1})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "close-the-song",
+   "script": "(()=>{document.getElementById('steems-hero-close').click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 1500
+  },
+  {
+   "action": "eval",
+   "label": "reopen-it",
+   "script": "(()=>{[...document.querySelectorAll('#lib-list .lib-row')].find(x=>/Stovky let/.test(x.textContent)).click();return true})()",
+   "expect": true
+  },
+  {
+   "action": "wait",
+   "ms": 20000
+  },
+  {
+   "action": "eval",
+   "label": "the-mix-came-back",
+   "script": "(()=>{const f=parseFloat([...document.querySelectorAll('.nm-strip')].find(st=>/vocals/i.test(st.textContent)).querySelector('.nm-fader').value);const muted=document.querySelectorAll('.nm-strip.muted').length;return Math.abs(f-0.42)<0.01 && muted>=1})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "restoring-the-saved-mix-works",
+   "script": "(async()=>{const f=[...document.querySelectorAll('.nm-strip')].find(st=>/vocals/i.test(st.textContent)).querySelector('.nm-fader');f.value='1.2';f.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,300));document.getElementById('mixer-load-session').click();await new Promise(r=>setTimeout(r,1200));return Math.abs(parseFloat([...document.querySelectorAll('.nm-strip')].find(st=>/vocals/i.test(st.textContent)).querySelector('.nm-fader').value)-0.42)<0.02})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "cleanup",
+   "script": "(async()=>{await fetch('/api/stems/Calin%20-%20Stovky%20let/session',{method:'DELETE'});return true})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "the-metronome-is-part-of-the-mix-too",
+   "script": "(async()=>{const strip=document.querySelector('.metro-strip');const vol=strip.querySelector('input[type=range]');vol.value='0.25';vol.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,1600));const s=await (await fetch('/api/stems/Calin%20-%20Stovky%20let/session')).json();return !!s.metronome && Math.abs(s.metronome.volume-0.25)<0.01})()",
+   "expect": true
+  },
+  {
+   "action": "eval",
+   "label": "cleanup2",
+   "script": "(async()=>{await fetch('/api/stems/Calin%20-%20Stovky%20let/session',{method:'DELETE'});return true})()",
+   "expect": true
+  }
+ ]
+}

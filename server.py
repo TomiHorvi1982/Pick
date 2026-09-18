@@ -2541,6 +2541,100 @@ def reset_sections(name: str):
     return get_sections(name)
 
 
+class MixerChannel(BaseModel):
+    stem: str
+    muted: bool = False
+    solo: bool = False
+    faderValue: float = 1.0
+    pitchRate: float = 1.0
+    panValue: float = 0.0
+    clipOffset: float = 0.0
+
+
+class MetronomeSettings(BaseModel):
+    volume: float = 0.6
+    pan: float = 0.0
+    muted: bool = False
+    voice: str = "beep"
+    rate: float = 1.0
+
+
+class MixerSession(BaseModel):
+    channels: List[MixerChannel] = []
+    loop: Optional[dict] = None
+    pixelsPerSecond: Optional[float] = None
+    tempo: Optional[float] = None
+    # The click is a channel like any other — its level, pan and sound are
+    # part of the mix, and re-picking them on every open is a chore.
+    metronome: Optional[MetronomeSettings] = None
+
+
+@app.get("/api/stems/{name}/session")
+def get_session(name: str):
+    """The mixer as it was left for this song.
+
+    Beside the stems rather than in the browser's localStorage, which was
+    where this used to live: localStorage is per browser profile, and the
+    menu bar opens the app in a profile of its own, so a mix set up in one
+    window was simply not there in the other.
+    """
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    path = stems_dir / "session.json"
+    if not path.is_file():
+        return {"channels": [], "loop": None, "pixelsPerSecond": None,
+                "tempo": None, "saved": False}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"channels": [], "loop": None, "pixelsPerSecond": None,
+                "tempo": None, "saved": False}
+    data["saved"] = True
+    return data
+
+
+@app.put("/api/stems/{name}/session")
+def put_session(name: str, body: MixerSession):
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    data = body.model_dump()
+    # A fader that came back as 14 instead of 1.4 would blow the ears off
+    # whoever opened the song next.
+    for ch in data["channels"]:
+        ch["faderValue"] = max(0.0, min(2.0, float(ch["faderValue"])))
+        ch["pitchRate"] = max(0.25, min(4.0, float(ch["pitchRate"])))
+        ch["panValue"] = max(-1.0, min(1.0, float(ch["panValue"])))
+        ch["clipOffset"] = max(-600.0, min(600.0, float(ch["clipOffset"])))
+    metro = data.get("metronome")
+    if metro:
+        metro["volume"] = max(0.0, min(2.0, float(metro["volume"])))
+        metro["pan"] = max(-1.0, min(1.0, float(metro["pan"])))
+        metro["rate"] = max(0.25, min(4.0, float(metro["rate"])))
+    try:
+        (stems_dir / "session.json").write_text(
+            json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {**data, "saved": True}
+
+
+@app.delete("/api/stems/{name}/session")
+def reset_session(name: str):
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        (stems_dir / "session.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+    return {"channels": [], "loop": None, "pixelsPerSecond": None,
+            "tempo": None, "saved": False}
+
+
 @app.get("/api/stems/{name}/{stem}")
 def stream_stem(name: str, stem: str, request: Request):
     """Serves one stem, whatever format it was written in.
