@@ -8,6 +8,8 @@ numpy==2.5.3
 pydantic==2.13.5
 pydantic_core==2.46.5
 pytest==9.1.1
+# menu bar app (NSStatusItem via PyObjC)
+rumps==0.4.0
 python-multipart==0.0.32
 spotdl==4.5.2
 spotipy==2.26.0

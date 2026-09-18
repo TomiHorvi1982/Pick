@@ -74,6 +74,26 @@ Checkpoint (~10 MB) se stáhne z Hugging Face při prvním běhu. Server volá
 `analyze.py` pod tímhle interpretem; když venv chybí, endpoint vrátí 503 a
 zbytek mixpultu funguje dál.
 
+## Lišta macOS
+
+```bash
+open Spotifylisty.command          # nebo: ~/.local/venvs/spotdl/bin/python menubar.py
+```
+
+V liště se objeví ♪ (♫ když něco hraje) a v menu je aktuální skladba,
+**Otevřít aplikaci** (Chrome bez lišt, přes celou obrazovku), **Mini
+přehrávač**, transport, hlasitost a **Ukončit** — to zastaví i server.
+
+Lišta ani mini přehrávač **nic nepřehrávají**. Druhé okno se nedostane k
+`<audio>` elementu ani k Web Audio grafu toho prvního, takže by muselo pustit
+vlastní zvuk a hrálo by se dvakrát. Místo toho okno, které hraje, publikuje
+svůj stav na `POST /api/remote/state` a vybírá si příkazy z
+`GET /api/remote/commands`; lišta a mini je tam ukládají přes
+`POST /api/remote/command`. Zvuk tak zůstává na jednom místě.
+
+Když by okno zmizelo bez rozloučení, stav po dvanácti vteřinách zestárne a
+lišta i mini přestanou tvrdit, že něco hraje.
+
 ## Testy
 
 ```bash

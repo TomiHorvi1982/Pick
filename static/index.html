@@ -7544,7 +7544,11 @@ const Mixer = (() => {
   });
 
   return {
-    load, saveSession, loadSession,
+    load, saveSession, loadSession, play, pause,
+    // The remote control needs to know whether the mixer is the thing
+    // currently making sound, and what it is playing.
+    isPlaying: () => isPlaying,
+    currentSong: () => currentSongName,
     // Read-only view of the generated click track, for diagnostics.
     getClickTrack: () => ({
       rate: metronomeRate,
@@ -9793,6 +9797,120 @@ renderLibraryRail(state.mode);
 // The app renders its first view without going through setMode, so seed the
 // history here — otherwise "back" stays dead until the second navigation.
 pushNav({type: "mode", mode: state.mode});
+
+// ======================================================================
+// Remote control agent.
+//
+// The menu bar icon and the mini player can't touch playback directly — a
+// second window has no access to this one's audio element or Web Audio graph.
+// So this window publishes what it is doing and carries out whatever they
+// leave for it. It is the only thing that ever makes sound.
+// ======================================================================
+const RemoteAgent = (() => {
+  let seq = 0;
+  let lastPushed = "";
+
+  // audio.duration is NaN until metadata loads, and JSON turns NaN into
+  // null — which the server then rejected, so the state never got through.
+  const num = (v) => Number.isFinite(v) ? v : 0;
+
+  function snapshot(){
+    const audio = el("pb-audio");
+    const track = (typeof Player !== "undefined" && Player.getCurrent) ? Player.getCurrent() : null;
+    const mixerOn = typeof Mixer !== "undefined" && Mixer.isPlaying && Mixer.isPlaying();
+    return {
+      title: mixerOn ? (Mixer.currentSong() || "Mixpult") : (track ? track.title || "" : null),
+      artists: mixerOn ? "Mixpult" : (track ? track.artists || "" : null),
+      thumbnail: track ? (track.image || track.thumbnail || null) : null,
+      playing: mixerOn || !!(audio && !audio.paused && audio.src),
+      volume: audio ? num(audio.muted ? 0 : audio.volume) : 1,
+      position: audio ? num(audio.currentTime) : 0,
+      duration: audio ? num(audio.duration) : 0,
+      source: mixerOn ? "mixer" : "player",
+    };
+  }
+
+  async function push(){
+    const state = snapshot();
+    const key = JSON.stringify(state);
+    // Position moves constantly; send it at most once a second anyway, but
+    // don't spam identical payloads when nothing is playing.
+    if(key === lastPushed && !state.playing) return;
+    lastPushed = key;
+    try{
+      await fetch("/api/remote/state", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: key,
+      });
+    }catch(e){}
+  }
+
+  function run(cmd){
+    const audio = el("pb-audio");
+    const mixerOn = typeof Mixer !== "undefined" && Mixer.isPlaying && Mixer.isPlaying();
+    switch(cmd.action){
+      case "playpause":
+        if(mixerOn){ Mixer.pause(); break; }
+        if(audio && audio.src){ audio.paused ? audio.play().catch(()=>{}) : audio.pause(); }
+        else if(typeof Mixer !== "undefined" && Mixer.play) Mixer.play();
+        break;
+      case "play":
+        if(audio && audio.src && audio.paused) audio.play().catch(()=>{});
+        break;
+      case "pause":
+        if(mixerOn) Mixer.pause();
+        else if(audio) audio.pause();
+        break;
+      case "next": el("pb-next") && el("pb-next").click(); break;
+      case "prev": el("pb-prev") && el("pb-prev").click(); break;
+      case "stop":
+        if(mixerOn) Mixer.pause();
+        if(audio){ audio.pause(); audio.currentTime = 0; }
+        break;
+      case "mute":
+        if(audio){ audio.muted = !audio.muted; }
+        break;
+      case "volume":
+        if(audio && cmd.value !== null && cmd.value !== undefined){
+          audio.muted = false;
+          audio.volume = Math.max(0, Math.min(1, cmd.value));
+          const slider = el("pb-volume");
+          if(slider) slider.value = String(audio.volume);
+        }
+        break;
+      case "seek":
+        if(audio && isFinite(cmd.value)) audio.currentTime = Math.max(0, cmd.value);
+        break;
+    }
+    push();
+  }
+
+  async function poll(){
+    try{
+      const res = await fetch(`/api/remote/commands?since=${seq}`);
+      const data = await res.json();
+      seq = data.seq || seq;
+      (data.commands || []).forEach(run);
+    }catch(e){}
+  }
+
+  // Only one window should answer the remote, or two tabs would both skip a
+  // track on one press. The most recently loaded one wins.
+  const CLAIM_KEY = "spotdl-remote-owner";
+  const myId = Math.random().toString(36).slice(2);
+  try{ localStorage.setItem(CLAIM_KEY, myId); }catch(e){}
+  function isOwner(){
+    try{ return localStorage.getItem(CLAIM_KEY) === myId; }catch(e){ return true; }
+  }
+
+  setInterval(() => { if(isOwner()){ push(); poll(); } }, 900);
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden){ try{ localStorage.setItem(CLAIM_KEY, myId); }catch(e){} }
+  });
+
+  return {push, isOwner};
+})();
 
 </script>
 </body>

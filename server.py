@@ -1741,6 +1741,103 @@ async def prepare_video(video_id: str):
     return {"ready": bool(info)}
 
 
+# ------------------------------------------------------------ remote control
+#
+# The menu bar icon and the mini player live outside the browser window that
+# actually owns playback — a second window can't share a Web Audio graph or an
+# <audio> element. So they don't try: the window that plays pushes what it is
+# doing here, and anything that wants to control it leaves a command for that
+# window to pick up. One tiny hop through the server, and the browser stays the
+# only thing that makes sound.
+
+_REMOTE_STATE: dict = {
+    "title": None, "artists": None, "thumbnail": None,
+    "playing": False, "volume": 1.0, "position": 0.0, "duration": 0.0,
+    "source": None,          # "player" | "mixer"
+    "at": 0.0,
+}
+_REMOTE_COMMANDS: list = []   # [(seq, {"action":..., "value":...})]
+_REMOTE_SEQ = 0
+_REMOTE_KEEP = 40
+
+
+class RemoteState(BaseModel):
+    """What the playing window says it is doing.
+
+    The numbers are optional because they aren't always numbers: an audio
+    element's duration is NaN until metadata arrives, JSON turns NaN into
+    null, and rejecting that meant the state never got through at all.
+    """
+    title: Optional[str] = None
+    artists: Optional[str] = None
+    thumbnail: Optional[str] = None
+    playing: bool = False
+    volume: Optional[float] = 1.0
+    position: Optional[float] = 0.0
+    duration: Optional[float] = 0.0
+    source: Optional[str] = None
+
+
+class RemoteCommand(BaseModel):
+    action: str
+    value: Optional[float] = None
+
+
+@app.get("/api/remote/state")
+def remote_state():
+    """What the playing window last said it was doing."""
+    out = dict(_REMOTE_STATE)
+    # A window that has gone away shouldn't leave the menu bar claiming a
+    # song is playing forever.
+    out["stale"] = (time.time() - out.get("at", 0)) > 12
+    return out
+
+
+@app.post("/api/remote/state")
+def push_remote_state(body: RemoteState):
+    data = body.model_dump()
+    for key in ("volume", "position", "duration"):
+        value = data.get(key)
+        data[key] = 0.0 if value is None or value != value else float(value)
+    _REMOTE_STATE.update(data)
+    _REMOTE_STATE["at"] = time.time()
+    return {"ok": True}
+
+
+@app.post("/api/remote/command")
+def push_remote_command(body: RemoteCommand):
+    """Queue something for the playing window to do."""
+    global _REMOTE_SEQ
+    if body.action not in REMOTE_ACTIONS:
+        return JSONResponse({"error": "Neznámý příkaz."}, status_code=400)
+    _REMOTE_SEQ += 1
+    _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": body.action, "value": body.value}))
+    del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
+    return {"seq": _REMOTE_SEQ}
+
+
+@app.get("/api/remote/commands")
+def remote_commands(since: int = 0):
+    """Everything queued after `since`, for the window that plays."""
+    pending = [cmd for seq, cmd in _REMOTE_COMMANDS if seq > since]
+    return {"seq": _REMOTE_SEQ, "commands": pending}
+
+
+REMOTE_ACTIONS = {
+    "playpause", "play", "pause", "next", "prev",
+    "volume", "seek", "stop", "mute",
+}
+
+
+@app.get("/mini")
+def mini_player():
+    """The mini player window — its own page, not the app in a small window."""
+    path = APP_DIR / "static" / "mini.html"
+    if not path.is_file():
+        return JSONResponse({"error": "Mini přehrávač chybí."}, status_code=404)
+    return HTMLResponse(path.read_text(encoding="utf-8"))
+
+
 # --------------------------------------------------------------- download
 
 JOBS: dict = {}

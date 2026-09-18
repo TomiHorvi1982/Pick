@@ -1,0 +1,8 @@
+{"steps":[
+ {"action":"wait","ms":2500},
+ {"action":"eval","label":"the-window-publishes-its-state","script":"(async()=>{await RemoteAgent.push();const s=await (await fetch('/api/remote/state')).json();return s.stale===false})()","expect":true},
+ {"action":"eval","label":"a-queued-command-is-carried-out","script":"(async()=>{const a=document.getElementById('pb-audio');a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';a.volume=1;await fetch('/api/remote/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'volume',value:0.25})});await new Promise(r=>setTimeout(r,2200));return Math.abs(a.volume-0.25)<0.01})()","expect":true},
+ {"action":"eval","label":"the-volume-slider-follows","script":"Math.abs(parseFloat(document.getElementById('pb-volume').value)-0.25)<0.01","expect":true},
+ {"action":"eval","label":"mute-goes-through-too","script":"(async()=>{const a=document.getElementById('pb-audio');const before=a.muted;await fetch('/api/remote/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mute'})});await new Promise(r=>setTimeout(r,2200));const after=a.muted;a.muted=false;a.volume=1;return after!==before})()","expect":true},
+ {"action":"eval","label":"only-one-window-answers-the-remote","script":"typeof RemoteAgent.isOwner==='function' && RemoteAgent.isOwner()===true","expect":true}
+]}

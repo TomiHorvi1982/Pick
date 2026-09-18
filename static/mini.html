@@ -1,0 +1,184 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Spotifylisty — mini</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  /* Deliberately its own page rather than the app squeezed into a small
+     window: everything here is a remote, so it needs none of the app's
+     layout, and it has to stay legible at 320px. */
+  :root{
+    --bg:#0b0b0e; --panel:#17171c; --line:#2a2a33;
+    --text:#f1f1f3; --sub:#9a9aa5; --accent:#1ed760;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    user-select:none;-webkit-user-select:none;overflow:hidden}
+  .wrap{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;
+    height:100vh}
+  .now{display:flex;align-items:center;gap:12px;min-width:0}
+  .art{width:54px;height:54px;border-radius:7px;flex:0 0 auto;
+    background:var(--panel) center/cover no-repeat;display:flex;
+    align-items:center;justify-content:center;color:var(--sub)}
+  .meta{min-width:0;flex:1}
+  .t{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .a{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;margin-top:2px}
+  .bar{display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
+  .bar .time{font-size:10.5px;color:var(--sub);flex:0 0 auto;min-width:32px}
+  .bar .time.right{text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;
+    border-radius:2px;background:#33333d;outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;
+    height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.6)}
+  input[type=range]:hover{background:#3d3d49}
+  input[type=range]:disabled{opacity:.45;cursor:default}
+  .controls{display:flex;align-items:center;justify-content:center;gap:6px}
+  button{border:none;background:none;color:var(--sub);cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;border-radius:50%;
+    width:32px;height:32px;transition:color .12s,background .12s}
+  button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .play{width:40px;height:40px;background:#fff;color:#000}
+  .play:hover{background:#fff;color:#000;transform:scale(1.05)}
+  .vol{display:flex;align-items:center;gap:9px}
+  .vol button{width:26px;height:26px}
+  .offline{font-size:11.5px;color:var(--sub);text-align:center;padding:6px 0}
+  .offline a{color:var(--accent)}
+</style>
+
+<div class="wrap">
+  <div class="now">
+    <div class="art" id="art"></div>
+    <div class="meta">
+      <div class="t" id="title">Nic nehraje</div>
+      <div class="a" id="artist">Spotifylisty</div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span class="time" id="pos">0:00</span>
+    <input type="range" id="seek" min="0" max="1000" value="0">
+    <span class="time right" id="dur">0:00</span>
+  </div>
+
+  <div class="controls">
+    <button id="prev" title="Předchozí"></button>
+    <button class="play" id="play" title="Přehrát / pauza"></button>
+    <button id="next" title="Další"></button>
+  </div>
+
+  <div class="vol">
+    <button id="mute" title="Ztlumit"></button>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
+  </div>
+
+  <div class="offline" id="offline" hidden>
+    Hlavní okno neběží — <a href="#" id="openMain">otevřít aplikaci</a>
+  </div>
+</div>
+
+<script>
+// The same drawn glyphs as the player bar, so the mini window is visibly the
+// same app rather than a second one that happens to control it.
+const line = (d) => `<path d="${d}" fill="none" stroke="currentColor"
+  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+const solid = (d) => `<path d="${d}" fill="currentColor"/>`;
+const ICONS = {
+  play:  solid("M7.4 4.9v14.2c0 .8.88 1.28 1.55.85l11.1-7.1a1 1 0 0 0 0-1.7L8.95 4.05A1 1 0 0 0 7.4 4.9Z"),
+  pause: solid("M7 4.6h3.4v14.8H7zM13.6 4.6H17v14.8h-3.4z"),
+  prev:  solid("M6.6 5h2.1v14H6.6z") + solid("M19 6.4v11.2c0 .74-.85 1.16-1.44.71l-7.4-5.6a.9.9 0 0 1 0-1.42l7.4-5.6c.59-.45 1.44-.03 1.44.71Z"),
+  next:  solid("M15.3 5h2.1v14h-2.1z") + solid("M5 6.4v11.2c0 .74.85 1.16 1.44.71l7.4-5.6a.9.9 0 0 0 0-1.42l-7.4-5.6C5.85 5.24 5 5.66 5 6.4Z"),
+  volume: solid("M11.8 4.6v14.8a.85.85 0 0 1-1.4.64L6.2 16.4H3.4A1.4 1.4 0 0 1 2 15V9a1.4 1.4 0 0 1 1.4-1.4h2.8l4.2-3.64a.85.85 0 0 1 1.4.64Z")
+    + line("M15.2 9.2a4 4 0 0 1 0 5.6") + line("M18 6.6a7.8 7.8 0 0 1 0 10.8"),
+  volumeMuted: solid("M11.8 4.6v14.8a.85.85 0 0 1-1.4.64L6.2 16.4H3.4A1.4 1.4 0 0 1 2 15V9a1.4 1.4 0 0 1 1.4-1.4h2.8l4.2-3.64a.85.85 0 0 1 1.4.64Z")
+    + line("M15.6 9.6l5.2 4.8M20.8 9.6l-5.2 4.8"),
+  note: line("M18.6 4.2v10.2") + line("M9 6.6v10.2") + line("M9 6.6 18.6 4.2")
+    + line("M6.6 20.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z")
+    + line("M16.2 18a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z"),
+};
+const icon = (n, s = 17) =>
+  `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">${ICONS[n] || ""}</svg>`;
+
+const el = (id) => document.getElementById(id);
+const fmt = (s) => {
+  s = Math.max(0, Math.round(s || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+const THUMB = /^https:\/\/([a-z0-9-]+\.)*((googleusercontent|ggpht|ytimg|bandsintown)\.com|wikimedia\.org)\//i;
+const thumbUrl = (u) => (u && THUMB.test(u)) ? "/api/thumb?url=" + encodeURIComponent(u) : (u || "");
+
+el("prev").innerHTML = icon("prev", 15);
+el("next").innerHTML = icon("next", 15);
+el("play").innerHTML = icon("play", 15);
+el("mute").innerHTML = icon("volume", 15);
+
+function send(action, value){
+  return fetch("/api/remote/command", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action, value: value === undefined ? null : value}),
+  }).catch(() => {});
+}
+
+el("play").onclick = () => send("playpause");
+el("prev").onclick = () => send("prev");
+el("next").onclick = () => send("next");
+el("mute").onclick = () => send("mute");
+el("volume").oninput = (e) => send("volume", parseFloat(e.target.value));
+el("openMain").onclick = (e) => { e.preventDefault(); window.open("/", "_blank"); };
+
+// While a slider is being dragged the incoming state must not fight it.
+let dragging = false;
+el("seek").addEventListener("pointerdown", () => { dragging = true; });
+el("seek").addEventListener("change", (e) => {
+  dragging = false;
+  if(lastDuration > 0) send("seek", (parseFloat(e.target.value) / 1000) * lastDuration);
+});
+
+let lastDuration = 0;
+async function refresh(){
+  let s;
+  try{
+    s = await (await fetch("/api/remote/state")).json();
+  }catch(e){
+    el("offline").hidden = false;
+    return;
+  }
+  // "Stale" means no window has said anything for a while — the app is
+  // probably closed, and pretending a song is playing would be a lie.
+  const live = !s.stale && (s.title || s.playing);
+  el("offline").hidden = live;
+
+  el("title").textContent = live ? (s.title || "Nic nehraje") : "Nic nehraje";
+  el("artist").textContent = live ? (s.artists || "") : "Spotifylisty";
+  const art = el("art");
+  if(live && s.thumbnail){
+    art.style.backgroundImage = `url('${thumbUrl(s.thumbnail)}')`;
+    art.innerHTML = "";
+  } else {
+    art.style.backgroundImage = "";
+    art.innerHTML = icon("note", 22);
+  }
+
+  el("play").innerHTML = icon(s.playing ? "pause" : "play", 15);
+  el("mute").innerHTML = icon(s.volume > 0 ? "volume" : "volumeMuted", 15);
+  if(document.activeElement !== el("volume")) el("volume").value = String(s.volume ?? 1);
+
+  // With no window to report, the clock and the bar have nothing to show —
+  // leaving the last values up claimed a song was two minutes in when
+  // nothing was playing at all.
+  lastDuration = live ? (s.duration || 0) : 0;
+  const pos = live ? (s.position || 0) : 0;
+  el("pos").textContent = fmt(pos);
+  el("dur").textContent = fmt(lastDuration);
+  if(!dragging){
+    el("seek").value = String(lastDuration > 0
+      ? Math.round((pos / lastDuration) * 1000) : 0);
+  }
+  el("seek").disabled = !live;
+}
+
+refresh();
+setInterval(refresh, 900);
+</script>
