@@ -1,0 +1,7 @@
+{"steps":[
+ {"action":"wait","ms":2000},
+ {"action":"eval","label":"the-bus-exists","script":"typeof AudioBus==='object' && typeof AudioBus.claimMixer==='function'","expect":true},
+ {"action":"eval","label":"starting-one-element-stops-the-others","script":"(async()=>{const a=document.getElementById('pb-audio');const v=document.createElement('video');v.muted=true;document.body.appendChild(v);a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';v.src=a.src;try{await a.play()}catch(e){}await new Promise(r=>setTimeout(r,200));const audioWasPlaying=!a.paused;try{await v.play()}catch(e){}await new Promise(r=>setTimeout(r,200));const res={audioWasPlaying, audioStoppedWhenVideoStarted:a.paused};v.pause();v.remove();return res.audioStoppedWhenVideoStarted})()","expect":true},
+ {"action":"eval","label":"the-mixer-registered-its-stop","script":"(()=>{let stopped=false;AudioBus.registerMixer(()=>{stopped=true});const a=document.getElementById('pb-audio');AudioBus.claimMixer();return true})()","expect":true},
+ {"action":"eval","label":"a-media-element-starting-stops-the-mixer","script":"(async()=>{let stopped=false;AudioBus.registerMixer(()=>{stopped=true});const a=document.getElementById('pb-audio');a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';try{await a.play()}catch(e){}await new Promise(r=>setTimeout(r,250));a.pause();return stopped})()","expect":true}
+]}

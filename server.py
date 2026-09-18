@@ -29,6 +29,14 @@ from pydantic import BaseModel
 HOME = Path.home()
 APP_DIR = Path(__file__).parent
 SPOTDL_BIN = str(HOME / ".local" / "bin" / "spotdl")
+
+
+def ffmpeg_bin() -> str:
+    """Where ffmpeg is. PATH first, then the environment override a packaged
+    build sets, then the Homebrew path this machine happens to use."""
+    return (os.environ.get("SPOTIFYLISTY_FFMPEG")
+            or shutil.which("ffmpeg")
+            or "/opt/homebrew/bin/ffmpeg")
 AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav"}
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
@@ -1608,7 +1616,7 @@ def _resolve_video(video_id: str):
         tmpdir = tempfile.mkdtemp(prefix="spotdl-helper-video-")
         tmp_path = os.path.join(tmpdir, "video.mp4")
 
-        ffmpeg_path = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+        ffmpeg_path = ffmpeg_bin()
 
         for fmt in format_combos:
             ydl_opts = {
@@ -1715,6 +1723,24 @@ async def stream_video(video_id: str, request: Request):
     return await _proxy_video_response(request, video_id)
 
 
+@app.get("/api/stream-video/{video_id}/prepare")
+async def prepare_video(video_id: str):
+    """Resolve a video's stream URL without streaming anything.
+
+    Resolution is a yt-dlp extraction and takes about eight seconds, and until
+    now every one of those was paid after the video button was pressed, with
+    the window already open and empty. The player calls this as soon as it
+    knows a track's video id, so by the time anyone presses the button the
+    answer is usually already in the cache and playback starts at once.
+    """
+    try:
+        info = await asyncio.to_thread(_resolve_video, video_id)
+    except Exception as exc:                                   # noqa: BLE001
+        return JSONResponse({"ready": False, "error": str(exc)[:200]},
+                            status_code=200)
+    return {"ready": bool(info)}
+
+
 # --------------------------------------------------------------- download
 
 JOBS: dict = {}
@@ -1754,7 +1780,7 @@ def start_download(req: DownloadRequest):
         out_template = str(out_dir / "{artist}" / "{album}" / "{title}.{output-ext}")
 
     # Find ffmpeg
-    ffmpeg_path = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    ffmpeg_path = ffmpeg_bin()
     
     cmd = [
         SPOTDL_BIN,
@@ -2088,7 +2114,7 @@ def convert_stems_to_mp3(dry_run: bool = False):
     if not stems_root.is_dir():
         return {"converted": 0, "freed_bytes": 0, "songs": []}
 
-    ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    ffmpeg = ffmpeg_bin()
     converted = 0
     failed = []
     freed = 0

@@ -1,0 +1,16 @@
+{"steps":[
+ {"action":"wait","ms":2500},
+ {"action":"eval","label":"one-letter-suggests-artists","script":"(async()=>{const i=document.getElementById('search-input');i.value='m';i.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,2500));const b=document.getElementById('search-suggest');return !b.hidden && b.querySelectorAll('.ss-row').length>=5})()","expect":true},
+ {"action":"eval","label":"arrow-keys-move-the-highlight","script":"(()=>{const i=document.getElementById('search-input');i.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));return !!document.querySelector('.ss-row.active')})()","expect":true},
+ {"action":"eval","label":"escape-closes-it","script":"(()=>{const i=document.getElementById('search-input');i.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return document.getElementById('search-suggest').hidden})()","expect":true},
+ {"action":"eval","label":"a-card-click-searches-on-its-own","script":"(()=>{setSearchTerms([]);const c=[...document.querySelectorAll('#chips-topn .cat')].find(x=>/Top 50/.test(x.textContent));c.click();return document.getElementById('search-input').value==='Top 50' && document.getElementById('browse-section').hidden})()","expect":true},
+ {"action":"wait","ms":5000},
+ {"action":"eval","label":"results-arrived","script":"document.querySelectorAll('#results-grid .card').length>5","expect":true},
+ {"action":"eval","label":"a-second-card-narrows-the-same-search","script":"(()=>{const c=[...document.querySelectorAll('#chips-genres .cat')].find(x=>/Thrash Metal/.test(x.textContent));if(!c)return 'not found';c.click();return document.getElementById('search-input').value==='Top 50 Thrash Metal'})()","expect":true},
+ {"action":"wait","ms":5000},
+ {"action":"eval","label":"criteria-are-whole-terms-not-words","script":"(()=>{const chips=[...document.querySelectorAll('#search-criteria .sc-chip')].map(c=>c.textContent.trim());return JSON.stringify(chips)==='[\"Top 50\",\"Thrash Metal\"]'})()","expect":true},
+ {"action":"eval","label":"removing-one-leaves-the-other-intact","script":"(()=>{document.querySelector('#search-criteria .sc-chip button').click();return document.getElementById('search-input').value==='Thrash Metal'})()","expect":true},
+ {"action":"wait","ms":4000},
+ {"action":"eval","label":"clearing-everything-returns-to-browse","script":"(()=>{setSearchTerms([]);showBrowse();return !document.getElementById('browse-section').hidden && document.getElementById('search-criteria').hidden})()","expect":true},
+ {"action":"screenshot","label":"search"}
+]}

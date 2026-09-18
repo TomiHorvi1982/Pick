@@ -1,0 +1,7 @@
+# Analytický venv (~/.local/venvs/spotdl-analyze) — sekce a akordy.
+#   uv venv --python 3.12 ~/.local/venvs/spotdl-analyze
+#   VIRTUAL_ENV=~/.local/venvs/spotdl-analyze uv pip install -r requirements-analyze.txt
+#
+# Jediná přímá závislost; táhne za sebou torch, librosa, scipy, soundfile,
+# demucs-infer a madmom-infer. Dohromady ~980 MB, z toho 543 MB je torch.
+all-in-one-infer>=3.1,<4

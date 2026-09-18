@@ -31,6 +31,7 @@ import contextlib
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -40,7 +41,12 @@ from pathlib import Path
 # on the filesystem underneath the cache.
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
 
-FFMPEG = "/opt/homebrew/bin/ffmpeg"
+# Wherever it happens to live. The rest of the app already looked it up on
+# PATH first and only fell back to the Homebrew path; this one didn't, so the
+# analysis was the single thing that broke on a machine laid out differently.
+FFMPEG = (os.environ.get("SPOTIFYLISTY_FFMPEG")
+          or shutil.which("ffmpeg")
+          or "/opt/homebrew/bin/ffmpeg")
 STEM_EXTS = (".mp3", ".wav", ".flac")
 
 # What All-In-One expects, and which of our six stems feed each one.

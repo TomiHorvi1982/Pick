@@ -873,7 +873,54 @@
   .sp-nav-btns .sp-round:not(:disabled):hover{background:rgba(255,255,255,.08)}
   .sp-round:hover{color:#fff}
   .sp-round:disabled{color:#5a5a5a;cursor:default}
-  .sp-center{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;min-width:0}
+  .sp-center{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;
+    min-width:0;position:relative}
+
+  /* ---- what you're typing, and what you've already picked ---- */
+  /* The hints hang under the box rather than in a strip below the topbar,
+     where they used to sit: a suggestion belongs next to the thing it is
+     suggesting for. */
+  .search-suggest{position:absolute;top:calc(100% + 8px);left:50%;
+    transform:translateX(-50%);width:min(520px, 92vw);z-index:60;
+    background:#1c1c22;border:1px solid #33333d;border-radius:10px;
+    box-shadow:0 18px 48px rgba(0,0,0,.62);padding:6px;max-height:60vh;
+    overflow-y:auto}
+  .search-suggest[hidden]{display:none}
+  .ss-row{display:flex;align-items:center;gap:11px;padding:7px 9px;
+    border-radius:7px;cursor:pointer;border:none;background:none;width:100%;
+    text-align:left;color:var(--text)}
+  .ss-row:hover,.ss-row.active{background:#2a2a33}
+  .ss-art{width:34px;height:34px;border-radius:50%;flex:0 0 auto;
+    background:var(--card-hi) center/cover no-repeat;display:flex;
+    align-items:center;justify-content:center;color:var(--sub)}
+  .ss-name{font-size:13.5px;font-weight:600;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+  .ss-kind{font-size:11px;color:var(--sub);flex:0 0 auto}
+  .ss-head{font-size:10.5px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--sub);padding:8px 10px 4px}
+  .ss-empty{font-size:12.5px;color:var(--sub);padding:10px}
+
+  /* The criteria you have stacked up, each removable. */
+  .search-criteria{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+    padding:12px 32px 0}
+  .search-criteria[hidden]{display:none}
+  .sc-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--sub)}
+  .sc-chip{display:inline-flex;align-items:center;gap:7px;height:30px;
+    padding:0 6px 0 13px;border-radius:999px;border:none;cursor:default;
+    background:var(--accent);color:#000;font-size:12.5px;font-weight:700}
+  .sc-chip button{width:19px;height:19px;border:none;border-radius:50%;
+    background:rgba(0,0,0,.18);color:#000;cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center}
+  .sc-chip button:hover{background:rgba(0,0,0,.34)}
+  .sc-clear{background:none;border:none;color:var(--sub);font-size:12px;
+    cursor:pointer;padding:4px 6px;border-radius:5px}
+  .sc-clear:hover{color:var(--text);text-decoration:underline}
+  /* Recent searches are history, not criteria — they must not read as the
+     green chips above them. */
+  .sh-label{display:inline-flex;align-items:center;gap:5px;font-size:11px;
+    font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--sub);margin-right:4px}
   .sp-home{width:48px;height:48px;border-radius:50%;background:var(--card);border:none;
     color:var(--text);font-size:19px;cursor:pointer;display:flex;align-items:center;
     justify-content:center;flex:0 0 auto;transition:background .15s,transform .15s}
@@ -2001,6 +2048,7 @@
       <span class="divider"></span>
       <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat"></button>
     </div>
+    <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
     <select id="bitrate" title="Kvalita stahování">
@@ -2052,6 +2100,7 @@
      one instead of typing it out. Infinite-scrolls horizontally: most famous
      artists first, more (progressively less-known) ones loaded in as you
      scroll right. -->
+<div class="search-criteria" id="search-criteria" hidden></div>
 <div class="artist-suggest" id="artist-suggest" hidden></div>
 
 <div class="overlay" id="settings-overlay" hidden>
@@ -2733,6 +2782,47 @@ function thumbUrl(u){
   return "/api/thumb?url=" + encodeURIComponent(u);
 }
 
+// ======================================================================
+// One sound at a time.
+//
+// The app has four independent ways to make noise — the player bar's audio
+// element, the mixer's Web Audio graph, the floating video window and the
+// playlist's video list — and nothing stopped two of them running together.
+// Starting the mixer while a song played left both going at once.
+//
+// Media elements are caught with a capturing "play" listener on the document,
+// which also picks up the video elements that are created on demand. The
+// mixer has no element, so it announces itself.
+// ======================================================================
+const AudioBus = (() => {
+  let mixerStop = null;
+  let owner = null;          // the HTMLMediaElement, or "mixer"
+
+  function silenceOthers(next){
+    document.querySelectorAll("audio, video").forEach(el => {
+      if(el !== next && !el.paused) el.pause();
+    });
+    if(next !== "mixer" && mixerStop){
+      try{ mixerStop(); }catch(e){}
+    }
+    owner = next;
+  }
+
+  document.addEventListener("play", (e) => {
+    const el = e.target;
+    if(el instanceof HTMLMediaElement) silenceOthers(el);
+  }, true);
+
+  return {
+    // The mixer hands over the way to stop it, once.
+    registerMixer(stop){ mixerStop = stop; },
+    // …and claims the bus when it starts.
+    claimMixer(){ silenceOthers("mixer"); },
+    release(who){ if(owner === who) owner = null; },
+    owner(){ return owner; },
+  };
+})();
+
 function showToast(msg){
   const wrap = el("toast-wrap");
   const t = document.createElement("div");
@@ -2762,18 +2852,51 @@ function isOwned(title, artists){
 // ======================================================================
 // Chip groups (click = toggle token in the search box)
 // ======================================================================
-function toggleInSearch(value){
-  const input = el("search-input");
-  const current = input.value;
-  const re = new RegExp(`(^|\\s)${escapeRegex(value)}(?=\\s|$)`, "i");
-  if(re.test(current)){
-    input.value = current.replace(re, "$1").replace(/\s+/g," ").trim();
-  } else {
-    input.value = (current.trim() ? current.trim() + " " : "") + value;
-  }
+// Clicking a card used to drop its words into the search box and stop there,
+// so every browse card needed a second click on the magnifier to do anything.
+// It searches now, and a second card narrows the same search rather than
+// starting a new one — which is what the criteria were for.
+// The criteria are a list, not a string to be split on spaces: "Top 50" and
+// "Thrash Metal" are two criteria of two words each, and splitting the box's
+// text gave four chips, of which removing one left "50 Thrash Metal".
+let searchTerms = [];
+
+function setSearchTerms(list){
+  searchTerms = list.filter(Boolean);
+  el("search-input").value = searchTerms.join(" ");
   syncChipActiveStates();
-  updateArtistSuggestions();
-  input.focus();
+  renderSearchCriteria();
+}
+
+// Whatever was typed by hand is one free-text criterion.
+function adoptTypedSearch(){
+  const typed = el("search-input").value.trim();
+  if(typed !== searchTerms.join(" ")) searchTerms = typed ? [typed] : [];
+}
+
+function toggleInSearch(value, opts = {}){
+  adoptTypedSearch();
+  const i = searchTerms.findIndex(t => t.toLowerCase() === value.toLowerCase());
+  if(i >= 0) searchTerms.splice(i, 1);
+  else searchTerms.push(value);
+  setSearchTerms(searchTerms);
+  hideSearchSuggest();
+
+  if(opts.search !== false){
+    if(searchTerms.length) runSearch();
+    else showBrowse();          // the last criterion was just removed
+  } else {
+    el("search-input").focus();
+  }
+}
+
+// Back to the browse page when the search box empties.
+function showBrowse(){
+  browseSection.hidden = false;
+  resultsTitle.hidden = true;
+  grid.innerHTML = "";
+  el("load-more-wrap").hidden = true;
+  renderSearchCriteria();
 }
 
 // The long browse lists read better as the reference's coloured category
@@ -2899,9 +3022,147 @@ function syncChipActiveStates(){
     chip.classList.toggle("active", re.test(current));
   });
 }
+// ======================================================================
+// Search box: hints while you type, criteria once you have picked some.
+//
+// The old hints only appeared in the Songs tab, only from two characters, and
+// only as a strip below the topbar. These come from YouTube Music's own
+// catalogue — which is also the answer to spelling: nothing here is a
+// hand-typed band name that could be wrong.
+// ======================================================================
+const SearchSuggest = (() => {
+  const box = () => el("search-suggest");
+  let items = [];
+  let active = -1;
+  let timer = null;
+  let reqId = 0;
+
+  function hide(){
+    box().hidden = true;
+    box().innerHTML = "";
+    items = [];
+    active = -1;
+  }
+
+  function paint(list, query){
+    const b = box();
+    items = list;
+    active = -1;
+    if(!list.length){
+      b.innerHTML = `<div class="ss-empty">Nic k „${escapeHtml(query)}“ — hledat se dá i tak.</div>`;
+      b.hidden = false;
+      return;
+    }
+    b.innerHTML = `<div class="ss-head">Interpreti a kapely</div>`;
+    list.forEach((a, i) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "ss-row";
+      row.dataset.i = String(i);
+      row.innerHTML =
+        `<span class="ss-art"${a.image ? ` style="background-image:url('${thumbUrl(a.image)}')"` : ""}>` +
+        `${a.image ? "" : icon("mic", 15)}</span>` +
+        `<span class="ss-name">${escapeHtml(a.name)}</span>` +
+        `<span class="ss-kind">interpret</span>`;
+      row.onclick = () => choose(i);
+      b.appendChild(row);
+    });
+    b.hidden = false;
+  }
+
+  function choose(i){
+    const a = items[i];
+    if(!a) return;
+    hide();
+    // A picked artist replaces whatever was half-typed, then searches.
+    setSearchTerms([a.name]);
+    runSearch();
+  }
+
+  function highlight(delta){
+    if(!items.length) return;
+    active = (active + delta + items.length) % items.length;
+    box().querySelectorAll(".ss-row").forEach((r, i) =>
+      r.classList.toggle("active", i === active));
+    const el2 = box().querySelector(".ss-row.active");
+    if(el2) el2.scrollIntoView({block: "nearest"});
+  }
+
+  async function query(q){
+    const mine = ++reqId;
+    try{
+      const res = await fetch(`/api/artists?q=${encodeURIComponent(q)}&limit=8`);
+      const data = await res.json();
+      if(mine !== reqId) return;               // a newer keystroke won
+      if(el("search-input").value.trim() !== q) return;
+      paint(data.artists || [], q);
+    }catch(e){ hide(); }
+  }
+
+  function schedule(){
+    clearTimeout(timer);
+    const q = el("search-input").value.trim();
+    // One character is enough to be useful, which is the whole point; the
+    // delay keeps it from firing on every keystroke of a long word.
+    if(q.length < 1){ hide(); return; }
+    timer = setTimeout(() => query(q), 180);
+  }
+
+  return {schedule, hide, highlight,
+    chooseActive(){ if(active >= 0){ choose(active); return true; } return false; },
+    isOpen(){ return !box().hidden; }};
+})();
+
+function hideSearchSuggest(){ SearchSuggest.hide(); }
+
+// The terms currently narrowing the search, each one removable. Without this
+// the box is a single string and there is no way to drop one criterion.
+function renderSearchCriteria(){
+  const bar = el("search-criteria");
+  const terms = searchTerms;
+  // One criterion isn't a set of criteria, it's a query.
+  if(terms.length < 2){ bar.hidden = true; bar.innerHTML = ""; return; }
+
+  bar.hidden = false;
+  bar.innerHTML = `<span class="sc-label">Kritéria</span>`;
+  terms.forEach(term => {
+    const chip = document.createElement("span");
+    chip.className = "sc-chip";
+    chip.innerHTML = `${escapeHtml(term)}<button type="button" title="Odebrat">${icon("close", 11)}</button>`;
+    chip.querySelector("button").onclick = () => toggleInSearch(term);
+    bar.appendChild(chip);
+  });
+  const clear = document.createElement("button");
+  clear.className = "sc-clear";
+  clear.type = "button";
+  clear.textContent = "Vymazat vše";
+  clear.onclick = () => {
+    setSearchTerms([]);
+    showBrowse();
+  };
+  bar.appendChild(clear);
+}
+
 el("search-input").addEventListener("input", () => {
+  adoptTypedSearch();
   syncChipActiveStates();
+  renderSearchCriteria();
+  SearchSuggest.schedule();
   scheduleArtistSuggestions();
+});
+
+el("search-input").addEventListener("keydown", (e) => {
+  if(e.key === "ArrowDown"){ e.preventDefault(); SearchSuggest.highlight(1); }
+  else if(e.key === "ArrowUp"){ e.preventDefault(); SearchSuggest.highlight(-1); }
+  else if(e.key === "Escape"){ SearchSuggest.hide(); }
+  else if(e.key === "Enter"){
+    if(SearchSuggest.chooseActive()) e.preventDefault();
+  }
+});
+
+el("search-input").addEventListener("focus", () => SearchSuggest.schedule());
+document.addEventListener("pointerdown", (e) => {
+  if(!e.target.closest(".sp-center")) SearchSuggest.hide();
 });
 
 // ----- custom (user-added) chips, persisted per mode -----
@@ -3014,9 +3275,8 @@ function renderArtistChip(a){
   chip.className = "chip artist-chip";
   chip.textContent = a.name;
   chip.onclick = () => {
-    el("search-input").value = a.name;
+    setSearchTerms([a.name]);
     el("artist-suggest").hidden = true;
-    syncChipActiveStates();
     runSearch();
   };
   return chip;
@@ -5130,6 +5390,8 @@ const Mixer = (() => {
 
   function play(){
     if(!channels.length || isPlaying) return;
+    // The mixer has no media element for the bus to notice, so it says so.
+    AudioBus.claimMixer();
     if(pausedAt >= duration) pausedAt = 0;
     scheduleAll(pausedAt);
     isPlaying = true;
@@ -5143,8 +5405,12 @@ const Mixer = (() => {
     stopAllSources();
     isPlaying = false;
     setMixerPlayGlyph(false);
+    AudioBus.release("mixer");
     if(rafId) cancelAnimationFrame(rafId);
   }
+
+  // Anything else that starts playing stops the mixer through this.
+  AudioBus.registerMixer(pause);
 
   function seek(t){
     t = Math.max(0, Math.min(duration, t));
@@ -7835,6 +8101,8 @@ const Player = (() => {
     audio.src = `/api/stream/${encodeURIComponent(videoId)}`;
     audio.play().catch(()=>{});
     track.videoId = videoId; // so the video button doesn't have to re-resolve it
+    // Warm the video stream while the song plays, not when the button is hit.
+    prewarmVideo(videoId);
     setMeta(track.title || "", track.artists || "", track.thumbnail, track.sourcePlaylist);
     pushHistory({...track, videoId});
   }
@@ -8088,6 +8356,18 @@ const Player = (() => {
     }
   };
 
+  // Resolving a stream URL is an eight-second yt-dlp extraction, and it used
+  // to happen after the video button was pressed, with the window already
+  // open and empty. Doing it while the song plays makes the button instant.
+  const prewarmed = new Set();
+  function prewarmVideo(videoId){
+    if(!videoId || prewarmed.has(videoId)) return;
+    prewarmed.add(videoId);
+    fetch(`/api/stream-video/${encodeURIComponent(videoId)}/prepare`).catch(() => {
+      prewarmed.delete(videoId);      // let a later press try again
+    });
+  }
+
   async function resolveCurrentVideoId(){
     const trackAtStart = current;
     if(!trackAtStart) return null;
@@ -8098,7 +8378,10 @@ const Player = (() => {
       const res = await fetch(`/api/preview?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if(current !== trackAtStart) return null; // staleness guard: user switched playback mid-resolution
-      if(data.videoId) current.videoId = data.videoId; // cache on the track
+      if(data.videoId){
+        current.videoId = data.videoId;   // cache on the track
+        prewarmVideo(data.videoId);
+      }
       return data.videoId || null;
     }catch(e){ return null; }
   }
@@ -9007,13 +9290,13 @@ function renderSearchHistory() {
   if (!box) return;
   const hist = loadSearchHistory();
   if (!hist.length) { box.innerHTML = ""; return; }
-  box.innerHTML = "";
+  box.innerHTML = `<span class="sh-label">${icon("history", 12)} Naposledy</span>`;
   hist.forEach(q => {
     const item = document.createElement("span");
     item.className = "search-history-item";
     item.textContent = q;
     item.onclick = () => {
-      el("search-input").value = q;
+      setSearchTerms([q]);
       runSearch();
     };
     box.appendChild(item);

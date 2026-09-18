@@ -19,6 +19,7 @@ Prints: {"beats": [...], "downbeats": [...], "bpm": float, "detector": str}
 
 import json
 import math
+import os
 import statistics
 import sys
 
@@ -57,7 +58,8 @@ def _load_mono(path, sr=22050):
 
     import numpy as np
 
-    ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
+    ffmpeg = (os.environ.get("SPOTIFYLISTY_FFMPEG")
+              or shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg")
     proc = subprocess.run(
         [ffmpeg, "-v", "error", "-i", path,
          "-f", "f32le", "-ac", "1", "-ar", str(sr), "-"],
