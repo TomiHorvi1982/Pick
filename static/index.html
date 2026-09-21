@@ -374,8 +374,11 @@
   .fl-marker-group .fl-btn{padding:5px 9px;font-size:10px}
 
   /* ---- Channel Strips Container ---- */
-  .fl-channels{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;
-    background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
+  /* The faders stay in view under the tracks, centred and given room. */
+  .fl-channels{display:flex;gap:20px;overflow-x:auto;padding:18px 16px;
+    background:var(--bg2);border-top:1px solid var(--border)}
+  .fl-channels > .fl-channel:first-child{margin-left:auto}
+  .fl-channels > .fl-channel:last-child{margin-right:auto}
   .fl-channels::-webkit-scrollbar{height:8px}
   .fl-channels::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 
@@ -452,14 +455,39 @@
   .fl-ms-btn.mute.active{background:var(--danger);color:#fff;border-color:var(--danger)}
   .fl-ms-btn.solo.active{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
 
-  /* FX Slots */
-  .fl-fx-slots{display:flex;flex-direction:column;gap:2px;width:100%}
-  .fl-fx-slot{height:15px;background:var(--bg2);border:1px solid var(--border);
-    border-radius:3px;font-size:7.5px;color:var(--sub);display:flex;align-items:center;
-    justify-content:center;cursor:pointer;overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap;padding:0 3px;font-family:inherit}
-  .fl-fx-slot:hover{border-color:var(--accent);color:var(--accent)}
-  .fl-fx-slot.fx-active{background:rgba(45,212,191,.08);border-color:var(--accent);color:var(--accent)}
+  /* EQ button on a strip: picks the channel the equaliser below is showing */
+  .fl-eq-btn{width:100%;height:20px;border-radius:4px;border:1px solid var(--border);
+    background:var(--bg2);color:var(--sub);font:700 9.5px/1 inherit;letter-spacing:.12em;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit}
+  .fl-eq-btn:hover{border-color:var(--accent);color:var(--text)}
+  .fl-eq-btn .dot{width:6px;height:6px;border-radius:50%;background:#33333d}
+  .fl-eq-btn.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
+  .fl-eq-btn.sel{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.08)}
+
+  /* ---- graphic equaliser ---- */
+  .eq-panel{background:linear-gradient(180deg,#101014,#0a0a0d);border-top:1px solid var(--border);
+    padding:12px 16px 16px}
+  .eq-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .eq-title{font-size:11px;font-weight:800;letter-spacing:.16em;color:#ffd166;white-space:nowrap}
+  .eq-readout{flex:1;min-width:0;font-size:12px;color:var(--sub);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  #eq-canvas{display:block;width:100%;height:250px;border-radius:8px;cursor:crosshair;
+    background:#08080b;border:1px solid #23232b;touch-action:none}
+  #eq-canvas.grab{cursor:grab}
+  #eq-canvas.grabbing{cursor:grabbing}
+
+  /* ---- loop markers on the timeline ---- */
+  .nm-mark{position:absolute;top:0;bottom:0;width:0;z-index:6}
+  .nm-mark::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;
+    background:var(--mk,#3ddc97);box-shadow:0 0 6px var(--mk,#3ddc97)}
+  .nm-mark.in{--mk:#3ddc97}
+  .nm-mark.out{--mk:#ff6b6b}
+  .nm-mark-grip{position:absolute;top:0;left:-8px;width:16px;height:100%;
+    pointer-events:auto;cursor:ew-resize}
+  .nm-mark-grip::before{content:"";position:absolute;top:0;left:1px;width:14px;height:12px;
+    background:var(--mk,#3ddc97)}
+  .nm-mark.in .nm-mark-grip::before{clip-path:polygon(0 0,100% 0,0 100%);left:8px;width:12px}
+  .nm-mark.out .nm-mark-grip::before{clip-path:polygon(0 0,100% 0,100% 100%);left:-4px;width:12px}
 
   /* ---- Export Dialog ---- */
   .fl-export-overlay{position:fixed;inset:0;background:rgba(6,7,10,.88);z-index:60;
@@ -2490,7 +2518,7 @@
             <div class="row">
               <input type="text" class="nm-num" id="fl-in-marker" value="0:00" title="Začátek smyčky">
               <input type="text" class="nm-num" id="fl-out-marker" value="0:00" title="Konec smyčky">
-              <button class="nm-btn round" id="fl-marker-btn" title="Nastavit In na pozici přehrávání"><span data-icon="tag" data-size="14"></span></button>
+              <button class="nm-btn round" id="fl-marker-btn" title="Přidat značku na pozici přehrávání: první je začátek smyčky, druhá konec"><span data-icon="tag" data-size="14"></span></button>
               <button class="nm-btn" id="fl-set-btn" title="Nastavit smyčku z In/Out">Set</button>
             </div>
             <span class="cap">SMYČKA IN / OUT</span>
@@ -2551,7 +2579,6 @@
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="nm-strips-toggle" title="Kanálové stripy s VU metry"><span data-icon="sliders" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
@@ -2602,6 +2629,8 @@
                   <div class="nm-loop-grip in" data-edge="in"></div>
                   <div class="nm-loop-grip out" data-edge="out"></div>
                 </div>
+                <div class="nm-mark in" id="mixer-mark-in" data-edge="in" hidden title="Začátek smyčky — táhni, dvojklik smaže"><span class="nm-mark-grip"></span></div>
+                <div class="nm-mark out" id="mixer-mark-out" data-edge="out" hidden title="Konec smyčky — táhni, dvojklik smaže"><span class="nm-mark-grip"></span></div>
                 <div class="nm-head-line" id="mixer-ruler-playhead"></div>
               </div>
             </div>
@@ -2609,7 +2638,17 @@
         </div>
         </div><!-- /nm-body-wrap -->
 
-        <div id="fl-channels" class="fl-channels" hidden></div>
+        <div id="fl-channels" class="fl-channels"></div>
+
+        <!-- One equaliser, for whichever channel is selected in the strips above. -->
+        <div class="eq-panel" id="eq-panel">
+          <div class="eq-head">
+            <span class="eq-title" id="eq-title">EQUALIZER</span>
+            <span class="eq-readout" id="eq-readout">Táhni body: vodorovně kmitočet, svisle zesílení. Kolečko myši mění šířku pásma.</span>
+            <button type="button" class="nm-btn" id="eq-reset" title="Vrátit všechna pásma na nulu">Reset</button>
+          </div>
+          <canvas id="eq-canvas"></canvas>
+        </div>
       </div>
 
       <!-- Export Dialog -->
@@ -6117,96 +6156,294 @@ const Mixer = (() => {
     return best && best.score > 0.2 ? best.name : null;
   }
 
-  // ---------------------------------------------------------------- FX
-  // Three inserts per channel, in a fixed chain between the gain node and the
-  // analyser. Nodes are created on first enable and then bypassed rather than
-  // rebuilt, so toggling one mid-playback doesn't interrupt the audio.
-  const FX_LABELS = ["LO-PASS", "REVERB", "DELAY"];
-  const FX_TITLES = [
-    "Dolní propust — ubere výšky",
-    "Dozvuk",
-    "Echo v rytmu skladby",
+  // ------------------------------------------------------------ equaliser
+  //
+  // Five bands per channel, in a chain between the fader and the meter: a low
+  // shelf, three bells and a high shelf. The curve on screen is not drawn from
+  // a formula of my own — it is the sum of what the real filter nodes report
+  // through getFrequencyResponse, so the picture cannot disagree with the
+  // sound. Bands at 0 dB are transparent.
+  const EQ_MAX_DB = 18;
+  const EQ_F_MIN = 20, EQ_F_MAX = 20000;
+  const EQ_DEFAULT = [
+    {type: "lowshelf",  freq: 80,    gain: 0, q: 0.7, color: "#ff5c8a"},
+    {type: "peaking",   freq: 250,   gain: 0, q: 1,   color: "#ffb020"},
+    {type: "peaking",   freq: 1000,  gain: 0, q: 1,   color: "#3ddc97"},
+    {type: "peaking",   freq: 4000,  gain: 0, q: 1,   color: "#38bdf8"},
+    {type: "highshelf", freq: 10000, gain: 0, q: 0.7, color: "#a78bfa"},
   ];
-
-  function buildImpulse(seconds, decay){
-    const rate = ctx().sampleRate;
-    const len = Math.max(1, Math.floor(rate * seconds));
-    const buf = ctx().createBuffer(2, len, rate);
-    for(let ch = 0; ch < 2; ch++){
-      const data = buf.getChannelData(ch);
-      for(let i = 0; i < len; i++){
-        // Noise burst with an exponential tail — a cheap, plausible room.
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
-      }
-    }
-    return buf;
+  const EQ_POINTS = 240;
+  const eqFreqs = new Float32Array(EQ_POINTS);
+  for(let i = 0; i < EQ_POINTS; i++){
+    eqFreqs[i] = EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, i / (EQ_POINTS - 1));
   }
+  let eqSel = 0;        // channel whose equaliser is shown
+  let eqBand = 0;       // band being edited / hovered
 
-  function ensureFxChain(c){
-    if(c.fxNodes) return c.fxNodes;
+  // gain -> band filters -> analyser, plus a finer analyser hung off the end
+  // for the spectrum drawn behind the curve.
+  function buildEq(c, saved){
     const ac = ctx();
-
-    const filter = ac.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = 900;
-
-    const reverb = ac.createConvolver();
-    reverb.buffer = buildImpulse(1.8, 2.6);
-    const reverbWet = ac.createGain();
-    reverbWet.gain.value = 0;
-
-    const delay = ac.createDelay(2.0);
-    // An eighth note at the detected tempo, so the echo lands in time.
-    delay.delayTime.value = beatInterval ? beatInterval / 2 : 0.25;
-    const feedback = ac.createGain();
-    feedback.gain.value = 0.35;
-    const delayWet = ac.createGain();
-    delayWet.gain.value = 0;
-
-    const dry = ac.createGain();
-    const out = ac.createGain();
-
-    // gain -> [filter or dry] -> out, with reverb/delay as parallel sends.
-    filter.connect(out);
-    dry.connect(out);
-    delay.connect(feedback);
-    feedback.connect(delay);
-    delay.connect(delayWet);
-    delayWet.connect(out);
-    reverb.connect(reverbWet);
-    reverbWet.connect(out);
-
-    c.fxNodes = {filter, dry, reverb, reverbWet, delay, delayWet, out};
-    c.fx = c.fx || [false, false, false];
-    rewireChannel(c);
-    return c.fxNodes;
+    c.eqBands = EQ_DEFAULT.map((b, i) => {
+      const s = saved && saved[i];
+      return {...b,
+        freq: s && isFinite(s.freq) ? s.freq : b.freq,
+        gain: s && isFinite(s.gain) ? s.gain : b.gain,
+        q: s && isFinite(s.q) ? s.q : b.q};
+    });
+    c.eqFilters = c.eqBands.map(b => {
+      const f = ac.createBiquadFilter();
+      f.type = b.type;
+      f.frequency.value = b.freq;
+      f.gain.value = b.gain;
+      f.Q.value = b.q;
+      return f;
+    });
+    let node = c.gainNode;
+    c.eqFilters.forEach(f => { node.connect(f); node = f; });
+    node.connect(c.analyser);
+    c.eqSpectrum = ac.createAnalyser();
+    c.eqSpectrum.fftSize = 4096;
+    c.eqSpectrum.smoothingTimeConstant = 0.82;
+    c.eqSpectrum.minDecibels = -100;
+    c.eqSpectrum.maxDecibels = -10;
+    node.connect(c.eqSpectrum);
   }
 
-  function rewireChannel(c){
-    const nodes = c.fxNodes;
-    if(!nodes) return;
-    try{ c.gainNode.disconnect(); }catch(e){}
-    try{ nodes.out.disconnect(); }catch(e){}
-
-    // Filter is an insert; reverb and delay are sends fed from the same point.
-    const head = c.fx[0] ? nodes.filter : nodes.dry;
-    c.gainNode.connect(head);
-    c.gainNode.connect(nodes.reverb);
-    c.gainNode.connect(nodes.delay);
-    nodes.reverbWet.gain.value = c.fx[1] ? 0.5 : 0;
-    nodes.delayWet.gain.value = c.fx[2] ? 0.4 : 0;
-    nodes.out.connect(c.analyser);
+  function setEqBand(c, i, patch){
+    const b = c.eqBands[i];
+    Object.assign(b, patch);
+    b.freq = Math.max(EQ_F_MIN, Math.min(EQ_F_MAX, b.freq));
+    b.gain = Math.max(-EQ_MAX_DB, Math.min(EQ_MAX_DB, b.gain));
+    const shelf = b.type !== "peaking";
+    b.q = Math.max(shelf ? 0.3 : 0.2, Math.min(shelf ? 2 : 12, b.q));
+    const now = ctx().currentTime;
+    const f = c.eqFilters[i];
+    f.frequency.setTargetAtTime(b.freq, now, 0.01);
+    f.gain.setTargetAtTime(b.gain, now, 0.01);
+    f.Q.setTargetAtTime(b.q, now, 0.01);
+    queueSessionSave();
   }
 
-  function toggleChannelFx(c, fxIdx){
-    ensureFxChain(c);
-    c.fx[fxIdx] = !c.fx[fxIdx];
-    if(fxIdx === 2 && beatInterval){
-      c.fxNodes.delay.delayTime.value = beatInterval / 2;
+  function eqIsFlat(c){ return !c.eqBands || c.eqBands.every(b => Math.abs(b.gain) < 0.05); }
+
+  function eqSnapshot(c){
+    return (c.eqBands || []).map(b => ({freq: b.freq, gain: b.gain, q: b.q}));
+  }
+
+  function restoreEq(c, saved){
+    if(!c.eqBands || !Array.isArray(saved)) return;
+    saved.forEach((s, i) => { if(c.eqBands[i] && s) setEqBand(c, i, {freq: s.freq, gain: s.gain, q: s.q}); });
+  }
+
+  // ---- drawing ----
+  const eqCanvas = () => el("eq-canvas");
+  const eqX = (f, w) => (Math.log(f / EQ_F_MIN) / Math.log(EQ_F_MAX / EQ_F_MIN)) * w;
+  const eqFreqAt = (x, w) => EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, Math.max(0, Math.min(1, x / w)));
+  const eqY = (db, h) => h / 2 - (db / EQ_MAX_DB) * (h / 2 - 14);
+  const eqDbAt = (y, h) => ((h / 2 - y) / (h / 2 - 14)) * EQ_MAX_DB;
+
+  function fmtHz(f){ return f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2).replace(/\.?0+$/, "").replace(".", ",") + " kHz" : Math.round(f) + " Hz"; }
+
+  function eqResponse(c){
+    const total = new Float32Array(EQ_POINTS);
+    const mag = new Float32Array(EQ_POINTS), ph = new Float32Array(EQ_POINTS);
+    c.eqFilters.forEach(f => {
+      f.getFrequencyResponse(eqFreqs, mag, ph);
+      for(let i = 0; i < EQ_POINTS; i++) total[i] += 20 * Math.log10(Math.max(mag[i], 1e-6));
+    });
+    return total;
+  }
+
+  function drawEq(){
+    const cv = eqCanvas();
+    const c = channels[eqSel];
+    if(!cv || !c || !c.eqBands || el("mixer").hidden) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if(!W || !H) return;
+    if(cv.width !== Math.floor(W * dpr) || cv.height !== Math.floor(H * dpr)){
+      cv.width = Math.floor(W * dpr); cv.height = Math.floor(H * dpr);
     }
-    rewireChannel(c);
-    return c.fx[fxIdx];
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+
+    // background
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#0d0d12"); bg.addColorStop(1, "#08080b");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+
+    // grid: decades and the usual landmarks, and 6 dB steps
+    g.lineWidth = 1;
+    g.font = "10px sans-serif";
+    g.textBaseline = "top";
+    [20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
+     2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 20000].forEach(f => {
+      const x = Math.round(eqX(f, W)) + 0.5;
+      const major = [100, 1000, 10000].includes(f);
+      g.strokeStyle = major ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.045)";
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+    });
+    g.fillStyle = "rgba(255,255,255,.38)";
+    g.textAlign = "center";
+    [[50, "50"], [100, "100"], [200, "200"], [500, "500"], [1000, "1k"], [2000, "2k"],
+     [5000, "5k"], [10000, "10k"]].forEach(([f, t]) => g.fillText(t, eqX(f, W), H - 14));
+    g.textAlign = "right";
+    for(let db = -EQ_MAX_DB; db <= EQ_MAX_DB; db += 6){
+      const y = Math.round(eqY(db, H)) + 0.5;
+      g.strokeStyle = db === 0 ? "rgba(255,255,255,.22)" : "rgba(255,255,255,.055)";
+      g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+      if(db !== 0) { g.fillStyle = "rgba(255,255,255,.34)"; g.fillText((db > 0 ? "+" : "") + db, W - 5, y - 11); }
+    }
+
+    // live spectrum behind the curve
+    const stemColor = c.color || "#4d9fff";
+    if(c.eqSpectrum && isPlaying){
+      const bins = c.eqSpectrum.frequencyBinCount;
+      const data = new Float32Array(bins);
+      c.eqSpectrum.getFloatFrequencyData(data);
+      const nyq = ctx().sampleRate / 2;
+      g.beginPath();
+      g.moveTo(0, H);
+      for(let x = 0; x <= W; x += 2){
+        const f = eqFreqAt(x, W);
+        const bin = Math.min(bins - 1, Math.max(1, Math.round(f / nyq * bins)));
+        // average a few neighbouring bins so the low end isn't a comb
+        let sum = 0, n = 0;
+        for(let k = -1; k <= 1; k++){ const v = data[Math.min(bins - 1, Math.max(0, bin + k))]; if(isFinite(v)){ sum += v; n++; } }
+        const db = n ? sum / n : -100;
+        const y = H - Math.max(0, Math.min(1, (db + 100) / 90)) * (H - 20) - 6;
+        g.lineTo(x, y);
+      }
+      g.lineTo(W, H); g.closePath();
+      const sg = g.createLinearGradient(0, 0, 0, H);
+      sg.addColorStop(0, "rgba(120,160,255,.45)"); sg.addColorStop(1, "rgba(120,160,255,.02)");
+      g.fillStyle = sg; g.fill();
+    }
+
+    // combined response
+    const resp = eqResponse(c);
+    const zero = eqY(0, H);
+    g.beginPath();
+    for(let i = 0; i < EQ_POINTS; i++){
+      const x = eqX(eqFreqs[i], W), y = eqY(Math.max(-EQ_MAX_DB - 6, Math.min(EQ_MAX_DB + 6, resp[i])), H);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.lineTo(W, zero); g.lineTo(0, zero); g.closePath();
+    const fg = g.createLinearGradient(0, 0, 0, H);
+    fg.addColorStop(0, "rgba(255,209,102,.30)"); fg.addColorStop(.5, "rgba(255,209,102,.08)"); fg.addColorStop(1, "rgba(255,209,102,.30)");
+    g.fillStyle = fg; g.fill();
+    g.beginPath();
+    for(let i = 0; i < EQ_POINTS; i++){
+      const x = eqX(eqFreqs[i], W), y = eqY(Math.max(-EQ_MAX_DB - 6, Math.min(EQ_MAX_DB + 6, resp[i])), H);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.lineWidth = 2.2; g.strokeStyle = "#ffd166"; g.shadowColor = "rgba(255,209,102,.6)"; g.shadowBlur = 8;
+    g.stroke(); g.shadowBlur = 0;
+
+    // band handles
+    c.eqBands.forEach((b, i) => {
+      const x = eqX(b.freq, W), y = eqY(b.gain, H);
+      const active = i === eqBand;
+      g.beginPath(); g.arc(x, y, active ? 11 : 8.5, 0, Math.PI * 2);
+      g.fillStyle = b.color; g.globalAlpha = active ? 1 : .88; g.fill(); g.globalAlpha = 1;
+      g.lineWidth = active ? 2.5 : 1.5; g.strokeStyle = active ? "#fff" : "rgba(0,0,0,.6)"; g.stroke();
+      g.fillStyle = "#101014"; g.font = "bold 10.5px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(String(i + 1), x, y + .5);
+    });
+    g.textBaseline = "top";
   }
+
+  function eqReadout(){
+    const c = channels[eqSel];
+    if(!c || !c.eqBands) return;
+    const b = c.eqBands[eqBand];
+    const kind = b.type === "peaking" ? "zvon" : b.type === "lowshelf" ? "hloubky" : "výšky";
+    el("eq-readout").textContent =
+      `Pásmo ${eqBand + 1} (${kind}):  ${fmtHz(b.freq)}   ${b.gain >= 0 ? "+" : "−"}${Math.abs(b.gain).toFixed(1).replace(".", ",")} dB   Q ${b.q.toFixed(2).replace(".", ",")}`;
+  }
+
+  function selectEqChannel(idx){
+    if(!channels[idx]) return;
+    eqSel = idx;
+    const c = channels[idx];
+    el("eq-title").textContent = "EQUALIZER — " + String(c.stem).toUpperCase();
+    document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
+    eqReadout();
+    drawEq();
+  }
+
+  function refreshEqButtons(){
+    document.querySelectorAll(".fl-eq-btn").forEach((b, i) => {
+      b.classList.toggle("on", !!channels[i] && !eqIsFlat(channels[i]));
+    });
+  }
+
+  // ---- interaction ----
+  (() => {
+    const cv = eqCanvas();
+    let drag = -1;
+    const pos = (e) => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height}; };
+    const hit = (p) => {
+      const c = channels[eqSel]; if(!c || !c.eqBands) return -1;
+      let best = -1, bd = 15 * 15;
+      c.eqBands.forEach((b, i) => {
+        const dx = eqX(b.freq, p.w) - p.x, dy = eqY(b.gain, p.h) - p.y;
+        const d = dx * dx + dy * dy;
+        if(d < bd){ bd = d; best = i; }
+      });
+      return best;
+    };
+    cv.addEventListener("pointerdown", (e) => {
+      const p = pos(e), i = hit(p);
+      if(i < 0) return;
+      drag = i; eqBand = i;
+      cv.setPointerCapture(e.pointerId);
+      cv.classList.add("grabbing");
+      eqReadout(); drawEq();
+    });
+    cv.addEventListener("pointermove", (e) => {
+      const p = pos(e), c = channels[eqSel];
+      if(!c || !c.eqBands) return;
+      if(drag >= 0){
+        setEqBand(c, drag, {freq: eqFreqAt(p.x, p.w), gain: eqDbAt(p.y, p.h)});
+        eqReadout(); refreshEqButtons(); drawEq();
+      } else {
+        const i = hit(p);
+        cv.classList.toggle("grab", i >= 0);
+        if(i >= 0 && i !== eqBand){ eqBand = i; eqReadout(); drawEq(); }
+      }
+    });
+    const end = (e) => {
+      if(drag < 0) return;
+      drag = -1;
+      cv.classList.remove("grabbing");
+      try{ cv.releasePointerCapture(e.pointerId); }catch(err){}
+    };
+    cv.addEventListener("pointerup", end);
+    cv.addEventListener("pointercancel", end);
+    cv.addEventListener("wheel", (e) => {
+      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      const i = hit(pos(e)); const band = i >= 0 ? i : eqBand;
+      e.preventDefault();
+      setEqBand(c, band, {q: c.eqBands[band].q * Math.exp(-e.deltaY * 0.0025)});
+      eqBand = band; eqReadout(); drawEq();
+    }, {passive: false});
+    cv.addEventListener("dblclick", (e) => {
+      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      const i = hit(pos(e)); if(i < 0) return;
+      const d = EQ_DEFAULT[i];
+      setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q});
+      eqBand = i; eqReadout(); refreshEqButtons(); drawEq();
+    });
+    el("eq-reset").onclick = () => {
+      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      EQ_DEFAULT.forEach((d, i) => setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q}));
+      eqReadout(); refreshEqButtons(); drawEq();
+    };
+    new ResizeObserver(() => drawEq()).observe(cv);
+  })();
 
   function applyGains(){
     queueSessionSave();
@@ -7651,9 +7888,27 @@ const Mixer = (() => {
     g.globalCompositeOperation = "source-over";
   }
 
+  // The two markers exist from the first press of the marker button, before
+  // there is a loop to play. Any loop that gets set some other way (the Set
+  // button, a section, a saved mix) shows them too.
+  let markIn = false, markOut = false;
+
+  function paintLoopFields(){
+    el("fl-in-marker").value = markIn ? fmtDur(loopStart) : "";
+    el("fl-out-marker").value = markOut ? fmtDur(loopEnd) : "";
+  }
+
   function updateLoopVisual(){
     const region = el("mixer-loop-region");
     const ovLoop = el("nm-ov-loop");
+    if(loopEnabled && loopEnd > loopStart){ markIn = markOut = true; }
+    const mi = el("mixer-mark-in"), mo = el("mixer-mark-out");
+    if(mi && mo){
+      mi.hidden = !markIn;
+      mo.hidden = !markOut;
+      mi.style.left = (loopStart * pixelsPerSecond) + "px";
+      mo.style.left = (loopEnd * pixelsPerSecond) + "px";
+    }
     if(loopEnabled && loopEnd > loopStart){
       region.hidden = false;
       region.style.left = (loopStart * pixelsPerSecond) + "px";
@@ -7772,11 +8027,7 @@ const Mixer = (() => {
           <button class="fl-ms-btn mute ${c.muted?'active':''}" id="fl-mute-${idx}" title="Mute">M</button>
           <button class="fl-ms-btn solo ${c.solo?'active':''}" id="fl-solo-${idx}" title="Solo">S</button>
         </div>
-        <div class="fl-fx-slots">
-          <div class="fl-fx-slot" id="fl-fx1-${idx}">FX 1</div>
-          <div class="fl-fx-slot" id="fl-fx2-${idx}">FX 2</div>
-          <div class="fl-fx-slot" id="fl-fx3-${idx}">FX 3</div>
-        </div>
+        <button type="button" class="fl-eq-btn" id="fl-eq-${idx}" title="Ekvalizér tohoto kanálu"><span class="dot"></span>EQ</button>
       `;
       // Initialize LED segments (10 per meter)
       const ledEl = strip.querySelector(`#fl-led-${idx}`);
@@ -7873,21 +8124,16 @@ const Mixer = (() => {
         strip.classList.toggle("solo", c.solo);
         applyGains();
       };
-      // FX slots. These used to toggle a class and nothing else; each one is
-      // now a real insert on that channel, built lazily on first use.
-      strip.querySelectorAll(".fl-fx-slot").forEach((slot, fxIdx) => {
-        slot.textContent = FX_LABELS[fxIdx] || slot.textContent;
-        slot.title = FX_TITLES[fxIdx] || "";
-        slot.classList.toggle("fx-active", !!(c.fx && c.fx[fxIdx]));
-        slot.onclick = () => {
-          const on = toggleChannelFx(c, fxIdx);
-          slot.classList.toggle("fx-active", on);
-        };
-      });
+      // EQ: selects this channel in the equaliser under the strips.
+      strip.querySelector(".fl-eq-btn").onclick = () => selectEqChannel(idx);
+      strip.querySelector(".fl-ch-name").onclick = () => selectEqChannel(idx);
 
       box.appendChild(strip);
     });
     applyGains();
+    if(eqSel >= channels.length) eqSel = 0;
+    refreshEqButtons();
+    selectEqChannel(eqSel);
   }
 
   function tick(){
@@ -7902,6 +8148,7 @@ const Mixer = (() => {
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
+    drawEq();
 
     // Virtual Guitar Guide
     if(guideEnabled && currentTab && currentTab.notes){
@@ -8005,6 +8252,9 @@ const Mixer = (() => {
     el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
     resetLyrics();
+    markIn = markOut = false;
+    loopEnabled = false; loopStart = 0; loopEnd = 0;
+    el("mixer-loop").classList.remove("active");
 
     // Restore session if exists
     const saved = await loadSession(song.name);
@@ -8046,11 +8296,10 @@ const Mixer = (() => {
       const analyser = ctx().createAnalyser();
       analyser.fftSize = 256;
       const panner = ctx().createStereoPanner();
-      gainNode.connect(analyser);
       analyser.connect(panner);
       panner.connect(masterOut());
       const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
-      loaded.push({
+      const chan = {
         stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
         muted: savedCh ? savedCh.muted : false,
         solo: savedCh ? savedCh.solo : false,
@@ -8059,7 +8308,9 @@ const Mixer = (() => {
         panValue: savedCh ? savedCh.panValue : 0,
         clipOffset: savedCh ? savedCh.clipOffset : 0,
         source: null, vuFill: null, pitchedBuffer: null,
-      });
+      };
+      buildEq(chan, savedCh && savedCh.eq);
+      loaded.push(chan);
 
       duration = Math.max(duration, audioBuf.duration);
     }
@@ -8108,8 +8359,10 @@ const Mixer = (() => {
       loopEnabled = true;
       loopStart = saved.loop.start;
       loopEnd = saved.loop.end;
+      markIn = markOut = true;
       el("mixer-loop").classList.add("active");
     }
+    paintLoopFields();
     // Open on a zoom that fits the whole song — landing mid-bar on a track
     // you haven't heard yet tells you nothing about its shape.
     const viewW = el("nm-scroll").clientWidth || 900;
@@ -8556,6 +8809,8 @@ const Mixer = (() => {
       // Default loop: first 4 bars if tempo known, else first 8 seconds
       loopStart = 0;
       loopEnd = tempoBPM ? (60 / tempoBPM) * 4 : Math.min(8, duration);
+      markIn = markOut = true;
+      paintLoopFields();
     }
     updateLoopVisual();
   }
@@ -8577,6 +8832,7 @@ const Mixer = (() => {
         stem: c.stem, muted: !!c.muted, solo: !!c.solo,
         faderValue: c.faderValue, pitchRate: c.pitchRate || 1,
         panValue: c.panValue || 0, clipOffset: c.clipOffset || 0,
+        eq: eqSnapshot(c),
       })),
       pixelsPerSecond,
       metronome: {
@@ -8700,16 +8956,69 @@ const Mixer = (() => {
   };
 
   // ---- Marker / Set / In/Out ----
+  // Click anywhere on a track to put the playhead there, then press this: the
+  // first press marks the start of the loop, the second its end (and starts
+  // the loop). A third press begins a new one. Either marker can be dragged.
   el("fl-marker-btn").onclick = () => {
     if(!currentSongName) return;
-    const t = currentTime();
-    const key = "steems-marker-" + currentSongName;
-    let markers = [];
-    try{ markers = JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){}
-    markers.push({ time: t, label: "M"+(markers.length+1) });
-    localStorage.setItem(key, JSON.stringify(markers));
-    showToast("Značka: " + fmtDur(t));
+    const t = Math.max(0, Math.min(duration, currentTime()));
+    if(!markIn || (markIn && markOut)){
+      loopStart = t; loopEnd = t;
+      markIn = true; markOut = false;
+      loopEnabled = false;
+      el("mixer-loop").classList.remove("active");
+      showToast("Začátek smyčky: " + fmtDur(t) + " — další značka nastaví konec");
+    } else if(t <= loopStart + 0.05){
+      loopStart = t;
+      showToast("Začátek smyčky posunut na " + fmtDur(t));
+    } else {
+      loopEnd = t;
+      markOut = true;
+      loopEnabled = true;
+      el("mixer-loop").classList.add("active");
+      showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(t));
+    }
+    paintLoopFields();
+    updateLoopVisual();
+    queueSessionSave();
   };
+
+  // Drag a marker; double-click removes the loop markers.
+  document.querySelectorAll(".nm-mark").forEach(mk => {
+    const grip = mk.querySelector(".nm-mark-grip");
+    let dragging = false;
+    grip.addEventListener("pointerdown", (e) => {
+      dragging = true; grip.setPointerCapture(e.pointerId); e.stopPropagation();
+    });
+    grip.addEventListener("pointermove", (e) => {
+      if(!dragging) return;
+      const rect = el("nm-canvas").getBoundingClientRect();
+      const t = Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond));
+      if(mk.dataset.edge === "in") loopStart = markOut ? Math.min(t, loopEnd - 0.1) : t;
+      else loopEnd = Math.max(t, loopStart + 0.1);
+      if(!markOut) loopEnd = loopStart;
+      paintLoopFields();
+      updateLoopVisual();
+    });
+    const up = (e) => {
+      if(!dragging) return;
+      dragging = false;
+      try{ grip.releasePointerCapture(e.pointerId); }catch(err){}
+      queueSessionSave();
+    };
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+    grip.addEventListener("dblclick", () => {
+      markIn = markOut = false;
+      loopEnabled = false;
+      loopStart = loopEnd = 0;
+      el("mixer-loop").classList.remove("active");
+      paintLoopFields();
+      updateLoopVisual();
+      queueSessionSave();
+      showToast("Značky smyčky smazány");
+    });
+  });
   el("fl-set-btn").onclick = () => {
     const inTxt = el("fl-in-marker").value;
     const outTxt = el("fl-out-marker").value;
@@ -8722,7 +9031,9 @@ const Mixer = (() => {
     loopEnd = Math.min(duration, parseTime(outTxt));
     if(loopEnd <= loopStart){ loopEnd = loopStart + 4; }
     loopEnabled = true;
+    markIn = markOut = true;
     el("mixer-loop").classList.add("active");
+    paintLoopFields();
     updateLoopVisual();
     showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(loopEnd));
   };
@@ -8753,7 +9064,7 @@ const Mixer = (() => {
     // Match by stem name: the channel order can differ from the stored one.
     data.channels.forEach(sc => {
       const c = channels.find(x => x.stem === sc.stem);
-      if(c) Object.assign(c, sc);
+      if(c){ const {eq, ...rest} = sc; Object.assign(c, rest); restoreEq(c, eq); }
     });
     if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60 / data.tempo; el("mixer-tempo").textContent = tempoBPM; }
     loopEnabled = !!data.loop;
@@ -8816,39 +9127,41 @@ const Mixer = (() => {
     seek(Math.max(0, Math.min(duration, t)));
   });
 
-  // Ruler drag for loop region
+  // Ruler drag for loop region. A plain click only moves the playhead — it
+  // used to turn on a default four-bar loop as well, which fought with
+  // setting the loop by markers.
   const ruler = el("mixer-ruler");
+  let rulerDragged = false;
   ruler.addEventListener("pointerdown", (ev) => {
     if(!duration) return;
     const rect = ruler.getBoundingClientRect();
     const x = ev.clientX - rect.left + ruler.scrollLeft;
     loopDragStart = x / pixelsPerSecond;
     loopDragCurrent = loopDragStart;
+    rulerDragged = false;
     ruler.setPointerCapture(ev.pointerId);
-    loopEnabled = true;
-    el("mixer-loop").classList.add("active");
   });
   ruler.addEventListener("pointermove", (ev) => {
     if(loopDragStart === null) return;
     const rect = ruler.getBoundingClientRect();
     const x = ev.clientX - rect.left + ruler.scrollLeft;
     loopDragCurrent = Math.max(0, Math.min(duration, x / pixelsPerSecond));
+    // Under a few pixels it is a click that wobbled, not a drag.
+    if(!rulerDragged && Math.abs(loopDragCurrent - loopDragStart) * pixelsPerSecond < 5) return;
+    rulerDragged = true;
     loopStart = Math.min(loopDragStart, loopDragCurrent);
     loopEnd = Math.max(loopDragStart, loopDragCurrent);
+    loopEnabled = true;
+    markIn = markOut = true;
+    el("mixer-loop").classList.add("active");
     updateLoopVisual();
+    paintLoopFields();
   });
   ruler.addEventListener("pointerup", (ev) => {
     if(loopDragStart !== null){
-      ruler.releasePointerCapture(ev.pointerId);
+      try{ ruler.releasePointerCapture(ev.pointerId); }catch(err){}
       loopDragStart = null;
-      if(loopEnd - loopStart < 0.1){
-        // Too small, reset
-        loopStart = 0;
-        loopEnd = tempoBPM ? (60/tempoBPM)*4 : Math.min(8, duration);
-      }
-      updateLoopVisual();
-      el("fl-in-marker").value = fmtDur(loopStart);
-      el("fl-out-marker").value = fmtDur(loopEnd);
+      if(rulerDragged){ queueSessionSave(); }
     }
   });
 
@@ -8879,12 +9192,6 @@ const Mixer = (() => {
     el("nm-tempo-val").textContent = (pct > 0 ? "+" : "") + pct + " %";
     applyPitch();
   });
-
-  el("nm-strips-toggle").onclick = () => {
-    const box = el("fl-channels");
-    box.hidden = !box.hidden;
-    el("nm-strips-toggle").classList.toggle("active", !box.hidden);
-  };
 
   // Loop handles: drag either edge of the blue region.
   (() => {
