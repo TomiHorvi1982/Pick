@@ -1313,7 +1313,10 @@
   .sp-topbar{position:fixed;display:grid;
     grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr);align-items:center}
   .sp-center{justify-self:center}
-  .sp-topbar-right{justify-self:end}
+  /* The settings cog is pinned above every card, drawer and dialog. It lives
+     outside the topbar's own stacking level so nothing can cover it. */
+  .sp-topbar-right{position:fixed;top:0;right:16px;height:var(--sp-topbar);z-index:6000}
+  #settings-overlay{z-index:6500}
 
   /* Library header: the create button was squeezing the title to an ellipsis. */
   .lib-head{padding:16px 12px 8px 16px;gap:6px}
@@ -3317,8 +3320,12 @@ function hideSearchSuggest(){ SearchSuggest.hide(); }
 function renderSearchCriteria(){
   const bar = el("search-criteria");
   const terms = searchTerms;
-  // One criterion isn't a set of criteria, it's a query.
-  if(terms.length < 2){ bar.hidden = true; bar.innerHTML = ""; return; }
+  // One criterion isn't a set of criteria, it's a query. And only the search
+  // sections have any use for them: under Steems or Knihovna they were just
+  // a leftover strip to dismiss by hand.
+  if(terms.length < 2 || !(state.mode === "playlists" || state.mode === "songs")){
+    bar.hidden = true; bar.innerHTML = ""; return;
+  }
 
   bar.hidden = false;
   bar.innerHTML = `<span class="sc-label">Kritéria</span>`;
@@ -3951,6 +3958,7 @@ function setMode(mode){
     renderFavPlaylists();
   }
   updateArtistSuggestions();
+  renderSearchCriteria();
   if(mode === "songs") Bands.show();
   renderLibraryRail(mode);
   pushNav({type: "mode", mode});
@@ -5839,6 +5847,9 @@ const Mixer = (() => {
   let audioCtx = null;
   let channels = [];   // [{stem, buffer, gainNode, analyser, panner, muted, solo, faderValue, source, vuFill, pitchRate, panValue, clipOffset}]
   let duration = 0;
+  // A song opens fitted to the window and stays fitted while the window's
+  // layout settles, until the listener zooms by hand.
+  let autoFit = true;
   let isPlaying = false;
   let startedAt = 0;
   let pausedAt = 0;
@@ -5920,6 +5931,25 @@ const Mixer = (() => {
   function ctx(){
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     return audioCtx;
+  }
+
+  // Everything the mixer plays — stems, click, the live guitar and the guide —
+  // ends here, so the player bar's volume and mute govern it like they govern
+  // a plain song.
+  let masterGain = null;
+  let masterLevel = 1;
+  function masterOut(){
+    const ac = ctx();
+    if(!masterGain){
+      masterGain = ac.createGain();
+      masterGain.gain.value = masterLevel;
+      masterGain.connect(ac.destination);
+    }
+    return masterGain;
+  }
+  function setMasterVolume(v){
+    masterLevel = Math.max(0, Math.min(1, v));
+    if(masterGain) masterGain.gain.value = masterLevel;
   }
 
   function stopAllSources(){
@@ -6326,6 +6356,9 @@ const Mixer = (() => {
   function totalWidthPx(){
     // Never narrower than the viewport: a grid that stops mid-window leaves a
     // dead strip beside the lanes.
+    // A fitted song is exactly as wide as the song: reading the window here
+    // as well let a width that was still settling widen the lanes.
+    if(autoFit && duration) return Math.max(1, duration * pixelsPerSecond);
     const view = el("nm-scroll") ? el("nm-scroll").clientWidth : 0;
     return Math.max(1, view, duration * pixelsPerSecond);
   }
@@ -6346,7 +6379,9 @@ const Mixer = (() => {
     return step;
   }
 
+  let renderedView = 0;   // the window width the lanes were last laid out for
   function renderTimeline(){
+    renderedView = el("nm-scroll") ? el("nm-scroll").clientWidth : 0;
     const totalPx = totalWidthPx();
     el("nm-canvas").style.width = totalPx + "px";
     renderRuler(totalPx);
@@ -6354,6 +6389,21 @@ const Mixer = (() => {
     renderOverview();
     updateLoopVisual();
     updateRulerPlayhead(currentTime());
+    settleFit();
+  }
+
+  // While a song is fitted to the window, the window's width can still move
+  // under the first renders (a scrollbar appears, a rail fills in) and leave
+  // the lanes a little wider than the view. Redraw a few times until they
+  // agree, instead of leaving a stray horizontal scrollbar.
+  let settleTries = 0;
+  function settleFit(){
+    if(!autoFit || !duration) return;
+    requestAnimationFrame(() => {
+      const s = el("nm-scroll");
+      if(!s || s.scrollWidth - s.clientWidth <= 2){ settleTries = 0; return; }
+      if(settleTries++ < 4) zoomToFit(); else settleTries = 0;
+    });
   }
 
   function renderRuler(totalPx){
@@ -7823,7 +7873,7 @@ const Mixer = (() => {
       const panner = ctx().createStereoPanner();
       gainNode.connect(analyser);
       analyser.connect(panner);
-      panner.connect(ctx().destination);
+      panner.connect(masterOut());
       const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
       loaded.push({
         stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
@@ -7894,6 +7944,7 @@ const Mixer = (() => {
       el("mixer-zoom-val").textContent = pixelsPerSecond.toFixed(1) + " px/s";
     }
     el("nm-scroll").scrollLeft = 0;
+    autoFit = true;
 
     renderChannels();
     renderTimeline();
@@ -8247,7 +8298,7 @@ const Mixer = (() => {
       const gain = ac.createGain();
       const panner = ac.createStereoPanner();
       gain.connect(panner);
-      panner.connect(ac.destination);
+      panner.connect(masterOut());
       metroBus = {gain, panner};
     }
     metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
@@ -8563,14 +8614,24 @@ const Mixer = (() => {
 
   function zoomToFit(){
     const w = el("nm-scroll").clientWidth || 900;
-    if(duration) setZoom(w / duration);
+    if(duration) setZoom(Math.floor((w / duration) * 100) / 100);
     el("nm-scroll").scrollLeft = 0;
   }
+  let fitRaf = 0;
+  new ResizeObserver(() => {
+    const cw = el("nm-scroll").clientWidth;
+    if(!duration || !cw || cw === renderedView) return;
+    cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(() => {
+      // The lanes were drawn for another width: refit, or at least redraw.
+      if(autoFit) zoomToFit(); else renderTimeline();
+    });
+  }).observe(el("nm-scroll"));
 
-  el("zoom-in").onclick = () => setZoom(pixelsPerSecond * 1.5);
-  el("zoom-out").onclick = () => setZoom(pixelsPerSecond / 1.5);
-  el("zoom-fit").onclick = () => zoomToFit();
-  el("mixer-zoom").addEventListener("input", (e) => setZoom(parseInt(e.target.value)));
+  el("zoom-in").onclick = () => { autoFit = false; setZoom(pixelsPerSecond * 1.5); };
+  el("zoom-out").onclick = () => { autoFit = false; setZoom(pixelsPerSecond / 1.5); };
+  el("zoom-fit").onclick = () => { autoFit = true; zoomToFit(); };
+  el("mixer-zoom").addEventListener("input", (e) => { autoFit = false; setZoom(parseInt(e.target.value)); });
 
   // Ruler click to seek
   el("mixer-ruler").addEventListener("click", (e) => {
@@ -8877,7 +8938,7 @@ const Mixer = (() => {
 
       gainNode.connect(analyser);
       analyser.connect(pannerNode);
-      pannerNode.connect(audioCtx.destination);
+      pannerNode.connect(masterOut());
     }
 
     // What the browser will admit to. The real round trip also includes the
@@ -9377,7 +9438,7 @@ const Mixer = (() => {
   }
 
   return {
-    load, saveSession, loadSession, play, pause, loadTab,
+    load, saveSession, loadSession, play, pause, loadTab, setMasterVolume,
     // The live input channel, so the page (and the tests) can reach it.
     guitar: Guitar,
     // The remote control needs to know whether the mixer is the thing
@@ -9892,6 +9953,23 @@ const Player = (() => {
     if(!isNaN(savedVol)) audio.volume = savedVol;
   }catch(e){}
   volumeSlider.value = audio.volume;
+  // The mixer has its own Web Audio output; keep it on the same volume.
+  function applyMasterVolume(){
+    Mixer.setMasterVolume(audio.muted ? 0 : audio.volume);
+    // Videos (the playlist player, floating windows) are separate media
+    // elements; the one volume control has to reach them too. The tiny
+    // preview in the player bar is muted on purpose.
+    document.querySelectorAll("video").forEach(v => {
+      if(v.id === "pb-mini-video-el") return;
+      v.volume = audio.volume;
+      v.muted = audio.muted;
+    });
+  }
+  applyMasterVolume();
+  // A video element created after the slider was set starts at full volume.
+  document.addEventListener("play", (e) => {
+    if(e.target && e.target.tagName === "VIDEO") applyMasterVolume();
+  }, true);
 
   function loadHistory(){
     try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){ return []; }
@@ -10069,11 +10147,14 @@ const Player = (() => {
     audio.muted = false;
     try{ localStorage.setItem(VOLUME_KEY, audio.volume); }catch(e){}
     paintMute();
+    applyMasterVolume();
   });
   muteBtn.onclick = () => {
     audio.muted = !audio.muted;
     paintMute();
+    applyMasterVolume();
   };
+  audio.addEventListener("volumechange", applyMasterVolume);
   function paintMute(){
     const silent = audio.muted || audio.volume === 0;
     muteBtn.innerHTML = icon(silent ? "volumeMuted" : "volume", 17);
@@ -10427,7 +10508,7 @@ const LyricsView = (() => {
       div.textContent = line.text || "♪";
       div.onclick = () => {
         // Click-to-seek: seek to this line's timestamp
-        const audio = el("pb-audio");
+        const audio = activeMedia();
         if(audio && audio.duration){
           audio.currentTime = line.timeInMs / 1000;
         }
@@ -10481,9 +10562,19 @@ const LyricsView = (() => {
     rafId = requestAnimationFrame(tick);
   }
 
+  // The song may be playing in the audio element or, when a video is open,
+  // in a video element; the lyrics follow whichever one is running.
+  function activeMedia(){
+    const a = el("pb-audio");
+    if(a && !a.paused) return a;
+    const v = [...document.querySelectorAll("video")].find(
+      x => x.id !== "pb-mini-video-el" && !x.paused && x.currentSrc);
+    return v || a;
+  }
+
   function updateCurrentLine(){
     if(!currentLyrics || !currentLyrics.synced || !currentLyrics.lines) return;
-    const audio = el("pb-audio");
+    const audio = activeMedia();
     if(!audio || !audio.duration) return;
     const timeMs = Math.floor((audio.currentTime || 0) * 1000);
     const lines = currentLyrics.lines;
