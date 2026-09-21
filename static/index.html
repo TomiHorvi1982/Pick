@@ -998,7 +998,8 @@
 
   /* ------------------------------------------------- library sidebar */
   #sidebar-left{flex:0 0 auto;width:var(--sp-lib);display:flex;flex-direction:column;
-    overflow:hidden;position:relative;transition:flex-basis .2s ease}
+    overflow:hidden;position:relative;transition:flex-basis .2s ease;
+    container:libr / inline-size}
   body.lib-collapsed{--sp-lib:76px}
   body.lib-collapsed #sidebar-left{width:76px}
   .lib-head{display:flex;align-items:center;gap:8px;padding:16px 8px 8px 16px;flex:0 0 auto}
@@ -1014,13 +1015,10 @@
     padding:8px 14px;cursor:pointer;font-family:inherit;white-space:nowrap;
     transition:background .15s,color .15s,transform .15s}
   .lib-create:hover{background:#3e3e3e;color:#fff;transform:scale(1.03)}
-  body.lib-collapsed .lib-create .tx,body.lib-collapsed .lib-expand{display:none}
-  .lib-expand{background:none;border:none;color:var(--sub);font-size:15px;cursor:pointer;
-    padding:6px;transition:color .15s}
-  .lib-expand:hover{color:#fff}
 
-  .lib-chips{display:flex;gap:8px;padding:4px 16px 8px;overflow-x:auto;flex:0 0 auto;
-    scrollbar-width:none}
+  /* The chips wrap instead of scrolling sideways, so every section is in
+     reach at any width. */
+  .lib-chips{display:flex;flex-wrap:wrap;gap:6px 8px;padding:4px 16px 8px;flex:0 0 auto}
   .lib-chips::-webkit-scrollbar{display:none}
   body.lib-collapsed .lib-chips,body.lib-collapsed .lib-tools{display:none}
   .lib-chips button{background:var(--card-hi);border:none;border-radius:500px;
@@ -1054,6 +1052,30 @@
   .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
   .lib-empty{padding:20px 12px;color:var(--sub);font-size:13px;line-height:1.6}
+
+  /* The rail re-lays itself out as it is dragged wider or narrower. */
+  @container libr (max-width: 250px){
+    .lib-head{padding:14px 8px 6px 12px}
+    .lib-chips{padding:4px 10px 6px;gap:5px}
+    .lib-chips button{font-size:12px;padding:5px 10px}
+    .lib-tools{padding:0 10px 2px}
+    #lib-sort-btn{font-size:0}
+    #lib-sort-btn .ic-svg{font-size:13px}
+    .lib-list{padding:0 4px 8px}
+    .lib-row{gap:9px;padding:6px}
+    .lib-art{width:38px;height:38px;flex-basis:38px}
+    .lib-name{font-size:13.5px}
+    .lib-sub{display:none}
+  }
+  @container libr (min-width: 380px){
+    .lib-art{width:56px;height:56px;flex-basis:56px}
+    .lib-name{font-size:15.5px}
+  }
+  /* Wide enough for two columns of rows. */
+  @container libr (min-width: 470px){
+    .lib-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      align-content:start;gap:2px 8px}
+  }
 
   /* ------------------------------------------------------ main stage */
   .main-content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;
@@ -1214,7 +1236,8 @@
   .chips button.active,.region-toggle button.active,.library-tab.active,.ab-tab.active{
     background:#fff;color:#000;border-color:#fff}
   .region-toggle{gap:8px;margin-bottom:22px}
-  .region-toggle button{flex:0 0 auto}
+  .region-toggle button{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px}
+  #ab-back{display:inline-flex;align-items:center;gap:8px}
   .topn-custom input,.topn-custom{gap:8px}
 
   /* Grid cards */
@@ -1825,7 +1848,7 @@
     .shelf-row > .card{flex-basis:146px}
   }
 
-  /* ---- Bands and Artists ---- */
+  /* ---- Kapely a umělci ---- */
   #ab-groups{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
   #ab-shelves .shelf-row > .card{flex:0 0 150px}
   #ab-shelves .shelf{margin:22px 0 4px}
@@ -1892,7 +1915,9 @@
   .pb-ctl .ic-svg,.sp-iconbtn .ic-svg,.nm-btn.round .ic-svg,.nm-step .ic-svg,
   .close-btn .ic-svg,.float-btn .ic-svg,.icon-btn .ic-svg,.mini-btn .ic-svg,
   .fab-btn .ic-svg,.cat-x .ic-svg,.sp-round .ic-svg,.sp-browse .ic-svg,
-  .lib-expand .ic-svg{display:block;vertical-align:baseline}
+  .sp-fab .ic-svg,.gt-rec .ic-svg,.ab-video i .ic-svg{display:block;vertical-align:baseline}
+  /* The play glyph is drawn with its weight to the left; nudge it to look centred. */
+  .sp-fab .ic-svg,.fab-btn.play-fab .ic-svg,.ab-video i .ic-svg{transform:translateX(1px)}
   .pb-ctl{display:flex;align-items:center;justify-content:center;
     width:32px;height:32px;border-radius:50%;padding:0;color:var(--sub);
     position:relative;transition:color .15s,background .15s,transform .12s}
@@ -2175,15 +2200,11 @@
     <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit knihovnu">
       <span class="ic" data-icon="menu" data-size="16"></span><span class="tx">Tvoje knihovna</span>
     </button>
-    <button class="lib-create" id="lib-create" title="Stáhnout novou hudbu">
-      <span>＋</span><span class="tx">Vytvořit</span>
-    </button>
-    <button class="lib-expand" id="lib-expand" title="Skrýt / zobrazit panel vpravo"><span data-icon="expand" data-size="14"></span></button>
   </div>
 
   <div class="lib-chips" id="lib-chips">
     <button data-mode="playlists" class="active">Playlisty</button>
-    <button data-mode="songs">Bands and Artists</button>
+    <button data-mode="songs">Kapely a umělci</button>
     <button data-mode="steems">Steems</button>
     <button data-mode="library">Knihovna</button>
     <button data-mode="podcasts">Podcasty</button>
@@ -2247,13 +2268,13 @@
 </div>
 
 <main>
-  <!-- Bands and Artists: artists by decade / style / mood / top, then one
+  <!-- Kapely a umělci: artists by decade / style / mood / top, then one
        artist's page in the middle, and an album's tracklist docked right. -->
   <div id="artists-section" hidden>
     <div id="ab-browse">
       <div class="region-toggle" id="ab-region">
-        <button data-r="intl" class="active">🌍 Zahraniční</button>
-        <button data-r="cz">🇨🇿 České</button>
+        <button data-r="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční</button>
+        <button data-r="cz"><span data-icon="flag" data-size="15"></span>České</button>
       </div>
       <div class="library-tabs" id="ab-groups">
         <button class="ab-tab active" data-g="dec">Dekády</button>
@@ -2264,7 +2285,7 @@
       <div id="ab-shelves"></div>
     </div>
     <div id="ab-page" hidden>
-      <button class="btn secondary" id="ab-back">← Zpět na interprety</button>
+      <button class="btn secondary" id="ab-back"><span data-icon="back" data-size="14"></span>Zpět na interprety</button>
       <div class="ab-hero">
         <div class="ab-photo" id="ab-photo"></div>
         <div class="ab-hero-body">
@@ -2285,8 +2306,8 @@
 
   <div id="browse-section">
     <div class="region-toggle" id="region-toggle">
-      <button data-region="intl" class="active">🌍 Zahraniční Playlisty</button>
-      <button data-region="cz">🇨🇿 České Playlisty</button>
+      <button data-region="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční playlisty</button>
+      <button data-region="cz"><span data-icon="flag" data-size="15"></span>České playlisty</button>
     </div>
 
     <div class="shelf" id="fav-playlists-section" hidden>
@@ -2392,7 +2413,7 @@
         </div>
       </div>
       <div class="sp-actions" id="steems-hero-actions">
-        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix">▶</button>
+        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix"><span data-icon="play" data-size="22"></span></button>
         <button class="sp-iconbtn" id="steems-hero-loop" title="Smyčka"><span data-icon="repeat" data-size="17"></span></button>
         <button class="sp-iconbtn" id="steems-hero-metro" title="Metronom"><span data-icon="bell" data-size="17"></span></button>
         <button class="sp-iconbtn" id="steems-hero-strips" title="Kanálové stripy"><span data-icon="sliders" data-size="17"></span></button>
@@ -2610,8 +2631,8 @@
   <div id="podcasts-section" hidden>
     <div class="section-title">Podcasty</div>
     <div class="region-toggle" id="podcast-region">
-      <button data-region="cz" class="active">🇨🇿 České podcasty</button>
-      <button data-region="intl">🌍 Zahraniční</button>
+      <button data-region="cz" class="active"><span data-icon="flag" data-size="15"></span>České podcasty</button>
+      <button data-region="intl"><span data-icon="globe" data-size="15"></span>Zahraniční</button>
     </div>
     <div id="podcasts-list" class="grid"></div>
     <div id="podcast-detail" hidden></div>
@@ -2646,9 +2667,9 @@
     <div class="np-title-row">
       <div style="min-width:0;flex:1">
         <div class="np-title" id="np-title">Nic nehraje</div>
-        <div class="np-artist" id="np-artist">Vyber píseň a stiskni ▶</div>
+        <div class="np-artist" id="np-artist">Vyber píseň k přehrání</div>
       </div>
-      <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
+      <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu"><span data-icon="add" data-size="20"></span></button>
     </div>
     <!-- Artist profile and their releases, per the reference's "O umělci".
          The card and the releases come from YouTube Music and paint at once;
@@ -2740,7 +2761,7 @@
     </div>
     <div class="pb-meta">
       <div class="pb-title" id="pb-title" role="heading" aria-level="2">Nic nehraje</div>
-      <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
+      <div class="pb-artist" id="pb-artist">Vyber píseň k přehrání</div>
       <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
     <button class="pb-ctl" id="pb-add-btn" title="Přidat do fronty" aria-label="Přidat do fronty"></button>
@@ -3347,7 +3368,7 @@ function renderCustomChips(){
   const list = loadCustomChips();
   renderCategoryCards("chips-custom", list, {
     deletable: true,
-    emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře ↑",
+    emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře",
     onDelete: (value) => {
       const filtered = loadCustomChips().filter(v => v !== value);
       saveCustomChips(filtered);
@@ -3367,7 +3388,7 @@ el("add-custom").onclick = () => {
   list.push(val.trim());
   saveCustomChips(list);
   renderCustomChips();
-  showToast("✓ Kategorie přidána a je hned použitelná");
+  showToast("Kategorie přidána a je hned použitelná");
 };
 
 function renderStaticChips(){
@@ -3504,7 +3525,7 @@ function maybeLoadMoreArtists(myReq){
 }
 
 // ======================================================================
-// Bands and Artists
+// Kapely a umělci
 //
 // Shelves of artists per criterion (never playlists), each scrolling sideways
 // and loading more as you reach the end. Picking an artist opens their page
@@ -3705,7 +3726,7 @@ const Bands = (() => {
       const b = document.createElement("button");
       b.className = "ab-video";
       b.type = "button";
-      b.innerHTML = `<div class="vt" style="${v.thumbnail ? `background-image:url('${thumbUrl(v.thumbnail)}')` : ""}"><i>▶</i></div>
+      b.innerHTML = `<div class="vt" style="${v.thumbnail ? `background-image:url('${thumbUrl(v.thumbnail)}')` : ""}"><i>${icon("play", 13)}</i></div>
         <div class="n">${escapeHtml(v.title || "")}</div><div class="v">${escapeHtml(v.views || "")}</div>`;
       b.onclick = () => openFloatingVideo({videoId: v.videoId, title: v.title, artists: d.name});
       vb.appendChild(b);
@@ -4600,6 +4621,10 @@ const ICONS = (() => {
       solid("M12 3.3l2.63 5.33 5.88.86-4.25 4.15 1 5.86L12 16.74l-5.26 2.76 1-5.86-4.25-4.15 5.88-.86Z"),
     back:
       line("M19.4 12H4.6M10.6 5.8 4.4 12l6.2 6.2"),
+    flag:
+      line("M5.4 21V4") + line("M5.4 4.8c3.4-1.9 5.6 1.6 9 0l3.8-1.2v8.6c-3.4 1.9-5.6-1.6-9 0l-3.8 1.2"),
+    rec:  solid("M12 5.4a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 0 0 0-13.2Z"),
+    stop: solid("M6.4 6.4h11.2v11.2H6.4z"),
     inbox:
       line("M20.4 12.6H15.6l-1.4 2.6H9.8l-1.4-2.6H3.6") +
       line("M6.7 5.4h10.6a1.6 1.6 0 0 1 1.45.92l2.65 5.6v5.68a1.8 1.8 0 0 1-1.8 1.8H4.4a1.8 1.8 0 0 1-1.8-1.8v-5.68l2.65-5.6a1.6 1.6 0 0 1 1.45-.92Z"),
@@ -5011,7 +5036,7 @@ function renderNowPlaying(){
 
   if(!t){
     el("np-title").textContent = "Nic nehraje";
-    el("np-artist").textContent = "Vyber píseň a stiskni ▶";
+    el("np-artist").textContent = "Vyber píseň k přehrání";
     el("np-context").textContent = "Právě hraje";
     stage.style.backgroundImage = "";
     stage.textContent = "\uD83C\uDFB5";
@@ -5046,7 +5071,7 @@ function renderNowPlaying(){
   box.innerHTML = "";
   const queue = loadQueue();
   if(!queue.length){
-    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem ＋."));
+    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem Přidat."));
     return;
   }
   queue.slice(0, 30).forEach(item => {
@@ -8087,7 +8112,7 @@ const Mixer = (() => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      showToast("✅ Export hotov: " + filename);
+      showToast("Export hotov: " + filename);
     }catch(e){
       showToast("Export selhal");
     }finally{
@@ -8108,7 +8133,7 @@ const Mixer = (() => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast(`⬇️ ${c.stem}.wav`);
+    showToast(`Staženo: ${c.stem}.wav`);
   }
 
   // ---- Metronome ----
@@ -8468,7 +8493,7 @@ const Mixer = (() => {
     try{ markers = JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){}
     markers.push({ time: t, label: "M"+(markers.length+1) });
     localStorage.setItem(key, JSON.stringify(markers));
-    showToast("🏷 Marker: " + fmtDur(t));
+    showToast("Značka: " + fmtDur(t));
   };
   el("fl-set-btn").onclick = () => {
     const inTxt = el("fl-in-marker").value;
@@ -8484,7 +8509,7 @@ const Mixer = (() => {
     loopEnabled = true;
     el("mixer-loop").classList.add("active");
     updateLoopVisual();
-    showToast("⚙ Set: " + fmtDur(loopStart) + " → " + fmtDur(loopEnd));
+    showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(loopEnd));
   };
   el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
   el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
@@ -9046,7 +9071,7 @@ const Mixer = (() => {
         <span class="gt-cap">PAN</span>
         <input type="range" class="nm-tempo gt-pan" min="-1" max="1" step="0.02" value="${g.pan}">
         <button class="gt-rec ${Guitar.isRecording() ? "on" : ""}" title="Nahrát na novou stopu">
-          ${Guitar.isRecording() ? "■" : "●"}
+          ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}
         </button>
       </div>
       <div class="gt-row gt-amp">
@@ -9442,7 +9467,7 @@ async function runSearch(more=false){
       card.innerHTML = `
         ${owned?`<div class="owned-badge">${icon("check", 11)} máš</div>`:''}
         <div class="card-fabs">
-          <div class="fab-btn play-fab" title="Přehrát">▶</div>
+          <div class="fab-btn play-fab" title="Přehrát">${icon("play", 13)}</div>
           <div class="fab-btn add-fab" title="Přidat do playlistu">${icon("add", 14)}</div>
         </div>
         <div class="art" style="${t.image?`background-image:url('${thumbUrl(t.image)}')`:''}">${t.image?'':icon("note", 22)}</div>
@@ -9574,7 +9599,7 @@ function renderPlaylistPanel(p){
         <span class="badge" id="size-badge">${icon("drive", 12)} ~${fmtSize(estBytesTotal)} při ${bitrate()}</span>
       </div>
       <div class="actions">
-        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">▶</button>
+        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">${icon("play", 22)}</button>
         <button class="btn" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
         <button class="btn secondary" id="dl-selected">${icon("download", 14)}Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
         <button class="btn secondary" id="watch-videos">${icon("video", 14)}Přehrát videa</button>
@@ -9598,7 +9623,7 @@ function renderPlaylistPanel(p){
     });
     el("fav-toggle").innerHTML = added
       ? `${icon("starFilled", 13)}V oblíbených` : `${icon("star", 13)}Přidat do oblíbených`;
-    showToast(added ? "✓ Přidáno do oblíbených" : "Odebráno z oblíbených");
+    showToast(added ? "Přidáno do oblíbených" : "Odebráno z oblíbených");
   };
 
   const container = el("tracks-container");
@@ -9661,7 +9686,7 @@ function renderPlaylistPanel(p){
         thumbnail: t.thumbnail, source: "youtube",
       }, true)) n++;
     });
-    showToast(n ? `✓ Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
+    showToast(n ? `Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
     renderQueueBadge();
   };
   
@@ -9688,7 +9713,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
       </div>
       <div class="dur">${t.duration||fmtDur(t.duration_seconds)}</div>
       <button class="icon-btn add" title="Přidat do playlistu">${icon("add", 14)}</button>
-      <button class="icon-btn play" title="Přehrát">▶</button>
+      <button class="icon-btn play" title="Přehrát">${icon("play", 13)}</button>
     </div>
   `;
   const inner = row.querySelector(".track-row");
@@ -9769,7 +9794,7 @@ function addToQueue(item, silent=false){
   queue.push(item);
   saveQueue(queue);
   renderQueueBadge();
-  if(!silent) showToast("✓ Přidáno do playlistu");
+  if(!silent) showToast("Přidáno do playlistu");
   return true;
 }
 function removeFromQueue(key){
@@ -9797,7 +9822,7 @@ function renderQueueDrawer(){
           <div class="t-title">${escapeHtml(c.title||'')}</div>
           <div class="t-sub">${owned?`<span class="owned-tag">${icon("check", 10)} máš</span>`:''}${escapeHtml(c.artists||'')}</div>
         </div>
-        <button class="mini-btn play" title="Přehrát">▶</button>
+        <button class="mini-btn play" title="Přehrát">${icon("play", 12)}</button>
         <button class="mini-btn rm" title="Odebrat">${icon("close", 11)}</button>
       `;
       row.querySelector(".play").onclick = () => Player.play(c);
@@ -10083,7 +10108,7 @@ const Player = (() => {
           <div class="t-title">${escapeHtml(h.title||'')}</div>
           <div class="t-sub">${escapeHtml(h.artists||'')}</div>
         </div>
-        <button class="mini-btn play" title="Přehrát znovu">▶</button>
+        <button class="mini-btn play" title="Přehrát znovu">${icon("play", 12)}</button>
       `;
       row.querySelector(".play").onclick = () => h.source === "local" ? playLocal(h) : play(h);
       box.appendChild(row);
@@ -10851,7 +10876,7 @@ function playPodcastEpisode(episode, show){
     // Fallback: try to find it via YouTube search
     Player.play(track);
   }
-  showToast(`🎙️ ${episode.title}`);
+  showToast(`Podcast: ${episode.title}`);
 }
 
 // ======================================================================
@@ -11524,7 +11549,6 @@ el("pb-art").onclick = () => {
 
 // ---- shell chrome: collapse the rail, toggle the now-playing panel ----
 el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
-el("lib-expand").onclick = () => toggleNowPlaying();
 el("pb-np-btn").onclick = () => { toggleNowPlaying(); syncPlayerToggles(); };
 
 el("pb-add-btn").onclick = () => {
@@ -11559,7 +11583,6 @@ function syncPlayerToggles(){
   if(b) b.addEventListener("click", () => setTimeout(syncPlayerToggles, 0));
 });
 el("np-close").onclick = () => toggleNowPlaying(false);
-el("lib-create").onclick = () => { setMode("playlists"); el("search-input").focus(); };
 el("sp-avatar").onclick = () => el("settings-btn").click();
 
 function toggleNowPlaying(force){
