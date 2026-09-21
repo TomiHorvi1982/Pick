@@ -855,18 +855,19 @@
   .nm-loop-grip.out{top:0;right:-1px;clip-path:polygon(0 0,100% 0,100% 100%)}
 
   /* --- transport --- */
-  .nm-transport{display:flex;align-items:center;gap:15px;padding:11px 16px;
-                border-top:1px solid var(--nm-line);background:var(--nm-panel);
+  .nm-transport{display:flex;align-items:center;gap:15px 20px;padding:12px 16px;
+                border-bottom:1px solid var(--nm-line);background:var(--nm-panel);
                 flex-wrap:wrap}
   .nm-tgroup{display:flex;flex-direction:column;align-items:center;gap:4px}
   .nm-tgroup .cap{font-size:9px;letter-spacing:.13em;color:var(--nm-sub);
                   font-weight:600;display:flex;align-items:center;gap:4px}
   .nm-tgroup .row{display:flex;align-items:center;gap:6px}
-  .nm-play{width:74px;height:34px;border-radius:7px;background:#1e1e25;
-           border:1px solid #32323c;color:var(--nm-txt);font-size:15px;
-           cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .nm-play:hover{background:#2a2a33}
-  .nm-play.playing{background:#12263f;border-color:var(--nm-blue);color:#8fbaff}
+  .nm-play{width:48px;height:48px;border-radius:50%;background:var(--accent);
+           border:none;color:#000;cursor:pointer;flex:0 0 auto;
+           display:flex;align-items:center;justify-content:center;
+           transition:transform .12s,background .15s}
+  .nm-play:hover{background:#3be477;transform:scale(1.05)}
+  .nm-play .ic-svg{display:block}
   .nm-step{width:26px;height:28px;border-radius:6px;background:#1e1e25;
            border:1px solid #32323c;color:var(--nm-sub);cursor:pointer;
            font-size:12px;display:flex;align-items:center;justify-content:center}
@@ -1218,9 +1219,9 @@
   /* Sections carry the page gutter; heroes bleed back out to the card edge. */
   #browse-section,#library-section,#my-library-section,#podcasts-section,
   #steems-section,#results-title,.search-history,#top-result-container,
-  #results-grid,.load-more-wrap,.artist-suggest{padding-left:32px;padding-right:32px}
+  #results-grid,.load-more-wrap,.artist-suggest,#artists-section{padding-left:32px;padding-right:32px}
   #browse-section{padding-top:24px}
-  #steems-section,#library-section,#podcasts-section,#my-library-section{padding-top:24px}
+  #steems-section,#library-section,#podcasts-section,#my-library-section,#artists-section{padding-top:24px}
   .sp-hero,.sp-actions{margin-left:-32px;margin-right:-32px}
   main{padding-bottom:32px}
 
@@ -1923,7 +1924,7 @@
   body.ab-dock #overlay{left:auto;width:min(480px,42vw)}
   body.ab-dock #overlay .pl-title{font-size:26px;line-height:1.15}
   body.ab-dock #overlay .pl-art{width:150px;height:150px}
-  body.ab-dock #artists-section{padding-right:min(496px,43vw)}
+  body.ab-dock #artists-section{padding-right:calc(min(480px,42vw) + 40px)}
 
   .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .stems-head .section-title{margin:24px 0 14px;flex:1}
@@ -2439,16 +2440,6 @@
           <div class="sp-hero-stats" id="steems-hero-stats"></div>
         </div>
       </div>
-      <div class="sp-actions" id="steems-hero-actions">
-        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix"><span data-icon="play" data-size="22"></span></button>
-        <button class="sp-iconbtn" id="steems-hero-loop" title="Smyčka"><span data-icon="repeat" data-size="17"></span></button>
-        <button class="sp-iconbtn" id="steems-hero-metro" title="Metronom"><span data-icon="bell" data-size="17"></span></button>
-        <button class="sp-iconbtn" id="steems-hero-strips" title="Kanálové stripy"><span data-icon="sliders" data-size="17"></span></button>
-        <button class="sp-iconbtn" id="steems-hero-export" title="Export mixu"><span data-icon="download" data-size="17"></span></button>
-        <div class="sp-actions-right">
-          <button class="sp-iconbtn" id="steems-hero-close" title="Zpět na seznam"><span data-icon="close" data-size="17"></span></button>
-        </div>
-      </div>
     </div>
     <div class="stems-head">
       <span class="section-title" id="steems-list-title">Rozseparované písně</span>
@@ -2480,8 +2471,94 @@
             <span class="lbl">BPM</span>
             <span class="val" id="mixer-tempo">—</span>
           </div>
-          <button class="nm-btn" id="nm-strips-toggle" title="Zobrazit kanálové stripy s VU metry"><span data-icon="sliders" data-size="14"></span>Kanály</button>
-          <button class="nm-btn" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span>Export</button>
+        </div>
+
+        <!-- The only control bar: transport, loop, learning aids, pitch, tempo,
+             click, zoom and the mix itself, in the order they are used. -->
+        <div class="nm-transport">
+          <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)"></button>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp"><span data-icon="repeat" data-size="14"></span></button>
+            </div>
+            <span class="cap">PŘEHRÁVÁNÍ</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <input type="text" class="nm-num" id="fl-in-marker" value="0:00" title="Začátek smyčky">
+              <input type="text" class="nm-num" id="fl-out-marker" value="0:00" title="Konec smyčky">
+              <button class="nm-btn round" id="fl-marker-btn" title="Nastavit In na pozici přehrávání"><span data-icon="tag" data-size="14"></span></button>
+              <button class="nm-btn" id="fl-set-btn" title="Nastavit smyčku z In/Out">Set</button>
+            </div>
+            <span class="cap">SMYČKA IN / OUT</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
+              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
+            </div>
+            <span class="cap">UČENÍ</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
+              <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
+              <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
+            </div>
+            <span class="cap">TÓNINA (půltóny)</span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <input type="range" class="nm-tempo" id="nm-tempo-slider" min="-50" max="50" step="1" value="0">
+            </div>
+            <span class="cap">TEMPO <span id="nm-tempo-val">0 %</span></span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="mixer-metro" title="Metronom"><span data-icon="bell" data-size="14"></span></button>
+              <select class="nm-rate" id="nm-metro-rate" title="Jak často klikat vůči době">
+                <option value="0.25">÷4</option>
+                <option value="0.5">÷2</option>
+                <option value="1" selected>×1</option>
+                <option value="2">×2</option>
+                <option value="4">×4</option>
+              </select>
+              <span class="metro-indicator" id="metro-indicator"></span>
+            </div>
+            <span class="cap">METRONOM</span>
+          </div>
+
+          <div class="nm-spacer"></div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-step" id="zoom-out" title="Oddálit"><span data-icon="minus" data-size="13"></span></button>
+              <button class="nm-btn" id="zoom-fit" title="Celá skladba">Fit</button>
+              <button class="nm-step" id="zoom-in" title="Přiblížit"><span data-icon="plus" data-size="13"></span></button>
+              <input type="range" class="nm-tempo" id="mixer-zoom" min="1" max="400" step="1"
+                     value="30" hidden>
+            </div>
+            <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
+          </div>
+
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="nm-strips-toggle" title="Kanálové stripy s VU metry"><span data-icon="sliders" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
+              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span></button>
+            </div>
+            <span class="cap">MIX</span>
+          </div>
         </div>
 
         <!-- Whole song at a glance: click or drag anywhere to seek -->
@@ -2531,89 +2608,6 @@
           </div>
         </div>
         </div><!-- /nm-body-wrap -->
-
-        <div class="nm-transport">
-          <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)"></button>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-btn round" id="nm-rewind" title="Na začátek"><span data-icon="prev" data-size="14"></span></button>
-              <button class="nm-btn" id="fl-set-btn" title="Nastavit smyčku z In/Out">Set</button>
-            </div>
-            <span class="cap">ZAČÁTEK</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <input type="text" class="nm-num" id="fl-in-marker" value="0:00" title="Začátek smyčky">
-              <input type="text" class="nm-num" id="fl-out-marker" value="0:00" title="Konec smyčky">
-              <button class="nm-btn round" id="fl-marker-btn" title="Nastavit In na pozici přehrávání"><span data-icon="tag" data-size="14"></span></button>
-              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp"><span data-icon="repeat" data-size="14"></span></button>
-            </div>
-            <span class="cap">IN / OUT</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
-              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
-              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
-            </div>
-            <span class="cap">LEARN</span>
-          </div>
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
-
-              <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
-              <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
-            </div>
-            <span class="cap"><span data-icon="fader" data-size="12"></span> PITCH</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <input type="range" class="nm-tempo" id="nm-tempo-slider" min="-50" max="50" step="1" value="0">
-            </div>
-            <span class="cap">TEMPO <span id="nm-tempo-val">0 %</span></span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-btn round" id="mixer-metro" title="Metronom"><span data-icon="bell" data-size="14"></span></button>
-              <select class="nm-rate" id="nm-metro-rate" title="Jak často klikat vůči době">
-                <option value="0.25">÷4</option>
-                <option value="0.5">÷2</option>
-                <option value="1" selected>×1</option>
-                <option value="2">×2</option>
-                <option value="4">×4</option>
-              </select>
-              <span class="metro-indicator" id="metro-indicator"></span>
-            </div>
-            <span class="cap">METRO</span>
-          </div>
-
-          <div class="nm-spacer"></div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-step" id="zoom-out" title="Oddálit"><span data-icon="minus" data-size="13"></span></button>
-              <button class="nm-btn" id="zoom-fit" title="Celá skladba">Fit</button>
-              <button class="nm-step" id="zoom-in" title="Přiblížit"><span data-icon="plus" data-size="13"></span></button>
-              <input type="range" class="nm-tempo" id="mixer-zoom" min="1" max="400" step="1"
-                     value="30" hidden>
-            </div>
-            <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
-              <button class="nm-btn round" id="mixer-load-session" title="Obnovit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
-            </div>
-            <span class="cap">RELACE</span>
-          </div>
-        </div>
 
         <div id="fl-channels" class="fl-channels" hidden></div>
       </div>
@@ -3992,6 +3986,7 @@ function setMode(mode){
   }
   updateArtistSuggestions();
   renderSearchCriteria();
+  renderSearchHistory();
   if(mode === "songs") Bands.show();
   renderLibraryRail(mode);
   pushNav({type: "mode", mode});
@@ -5479,7 +5474,6 @@ function showSteemsHero(name){
   heroArt.textContent = "\uD83C\uDF9A";
   Artwork.paint(heroArt, name);
   el("steems-hero-wash").style.setProperty("--hero", heroHue(name));
-  el("steems-hero-actions").style.setProperty("--hero", heroHue(name));
   el("steems-hero-stats").innerHTML = '<span class="dot">Načítám stopy…</span>';
 }
 
@@ -5566,19 +5560,9 @@ function loadMixerSong(name){
   });
 }
 
-// ---- hero actions drive the mixer's own controls ----
+// The hero is just the title and the numbers; every control lives in the
+// mixer's own bar. Only the way back to the list is wired here.
 el("steems-hero-close").onclick = hideSteemsHero;
-el("steems-hero-play").onclick = () => el("mixer-play").click();
-el("steems-hero-loop").onclick = () => {
-  el("mixer-loop").click();
-  el("steems-hero-loop").classList.toggle("on", el("mixer-loop").classList.contains("active"));
-};
-el("steems-hero-metro").onclick = () => {
-  el("mixer-metro").click();
-  el("steems-hero-metro").classList.toggle("on", el("mixer-metro").classList.contains("active"));
-};
-el("steems-hero-strips").onclick = () => el("nm-strips-toggle").click();
-el("steems-hero-export").onclick = () => el("mixer-export").click();
 
 // ======================================================================
 // Mixpult — synced multi-stem Web Audio mixer. Fader/mute/solo, per-channel
@@ -5947,18 +5931,9 @@ const Mixer = (() => {
   let tabNoteIdx = 0;
   let guideEnabled = false;
 
-  // The page hero has its own play button; keep its glyph with the mixer's.
-  // The hero's play button and the mixer's share the player bar's solid
-  // transport pair, so all three read as one control in three places.
-  function setHeroPlayGlyph(playing){
-    const b = el("steems-hero-play");
-    if(b) b.innerHTML = icon(playing ? "pause" : "play", 19);
-  }
-
   function setMixerPlayGlyph(playing){
     const b = el("mixer-play");
-    if(b) b.innerHTML = icon(playing ? "pause" : "play", 15);
-    setHeroPlayGlyph(playing);
+    if(b) b.innerHTML = icon(playing ? "pause" : "play", 20);
   }
 
   function ctx(){
@@ -11452,6 +11427,8 @@ function saveSearchHistoryItem(q) {
 function renderSearchHistory() {
   const box = el("search-history");
   if (!box) return;
+  // Under Steems, Knihovna or Podcasty a strip of old searches is just noise.
+  box.hidden = !(state.mode === "playlists" || state.mode === "songs");
   const hist = loadSearchHistory();
   if (!hist.length) { box.innerHTML = ""; return; }
   box.innerHTML = `<span class="sh-label">${icon("history", 12)} Naposledy</span>`;
