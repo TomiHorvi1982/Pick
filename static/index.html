@@ -761,6 +761,7 @@
   /* Taller than a stem's strip because it carries what a stem never needs:
      which socket the sound arrives on, how hard the gate bites, and a meter. */
   .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:200px}
+  #mixer-tab-lane{height:150px}
   .nm-strip.guitar-strip{gap:5px;padding:8px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
   .guitar-strip .nm-strip-name{color:var(--nm-gold)}
@@ -1564,6 +1565,23 @@
     font-variant-numeric:tabular-nums;margin-top:1px}
   .nm-lane.thin{overflow:hidden}
 
+  /* ---- lyrics: the readout bar and the lane ---- */
+  .nm-lyr-bar{display:flex;align-items:center;gap:16px;padding:8px 16px;
+    border-bottom:1px solid var(--nm-line);background:rgba(0,0,0,.18)}
+  .nm-lyr-lines{flex:1;min-width:0;text-align:center;line-height:1.35}
+  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:12.5px;color:var(--nm-sub);opacity:.7;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px}
+  .nm-lyr-lines .cur{font-size:21px;font-weight:800;color:#fff;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:29px}
+  .nm-lyr-tools{display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--nm-sub)}
+  .nm-lyr-tools button{background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
+    font:inherit;padding:4px 10px;cursor:pointer}
+  .nm-lyr-tools button:hover{background:#3e3e3e}
+  .lyr-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 6px;
+    font-size:11.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;cursor:pointer;border-left:1px solid var(--nm-line);box-sizing:border-box}
+  .lyr-block:hover{color:#fff}
+  .lyr-block.cur{color:#111;background:rgba(233,185,73,.92);font-weight:700}
   .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
     display:flex;align-items:center;padding:0 7px;cursor:grab;
     border-left:3px solid currentColor;overflow:hidden;
@@ -2478,6 +2496,20 @@
         </div>
 
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
+        <!-- The line being sung, big enough to read at any zoom. -->
+        <div class="nm-lyr-bar" id="mixer-lyrics-bar" hidden>
+          <div class="nm-lyr-lines">
+            <div class="prev" id="nm-lyr-prev"></div>
+            <div class="cur" id="nm-lyr-cur"></div>
+            <div class="next" id="nm-lyr-next"></div>
+          </div>
+          <div class="nm-lyr-tools">
+            <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
+            <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
+            <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
+            <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
+          </div>
+        </div>
         <div class="nm-body-wrap" id="nm-body-wrap">
         <div class="nm-body" id="nm-body">
           <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
@@ -2525,6 +2557,7 @@
             <div class="row">
               <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
               <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
+              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
             </div>
             <span class="cap">LEARN</span>
           </div>
@@ -6311,6 +6344,152 @@ const Mixer = (() => {
     return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
   }
 
+  // ---- lyrics: a lane that sits beside the vocal stem, and a readout bar ----
+  //
+  // LRCLib gives each line a start time. The lane places every line at that
+  // time, so it lines up with the singing on the waveform above and below it;
+  // the bar above shows the line being sung in a size that is readable
+  // whatever the zoom.
+  let lyrics = null;        // {lines: [{timeInMs, text}], source}
+  let lyricsOn = false;
+  let lyricsOffset = 0;     // seconds the text is shifted against the singing
+  let lyricsIdx = -2;
+
+  function lyricsOffsetKey(){ return "spotdl-gui-lyrics-offset:" + (currentSongName || ""); }
+
+  function lyricTime(i){ return lyrics.lines[i].timeInMs / 1000 + lyricsOffset; }
+
+  function lyricIndexAt(t){
+    if(!lyrics) return -1;
+    let lo = 0, hi = lyrics.lines.length;
+    while(lo < hi){
+      const mid = (lo + hi) >>> 1;
+      if(lyricTime(mid) <= t) lo = mid + 1; else hi = mid;
+    }
+    return lo - 1;
+  }
+
+  function paintOffset(){
+    el("nm-lyr-offset").textContent = (lyricsOffset >= 0 ? "+" : "−") +
+      Math.abs(lyricsOffset).toFixed(1).replace(".", ",") + " s";
+  }
+
+  // Follows the playhead; called with every position update.
+  function updateLyricsNow(t){
+    if(!lyricsOn || !lyrics) return;
+    const idx = lyricIndexAt(t);
+    if(idx === lyricsIdx) return;
+    lyricsIdx = idx;
+    const line = i => (i >= 0 && i < lyrics.lines.length) ? (lyrics.lines[i].text || "♪") : "";
+    el("nm-lyr-prev").textContent = line(idx - 1);
+    el("nm-lyr-cur").textContent = idx >= 0 ? line(idx) : "";
+    el("nm-lyr-next").textContent = line(idx + 1);
+    document.querySelectorAll("#mixer-tracks .lyr-block").forEach(b =>
+      b.classList.toggle("cur", Number(b.dataset.i) === idx));
+  }
+
+  function renderLyricsLane(rail, lanes, totalPx){
+    if(!lyricsOn || !lyrics) return;
+    const lane = thinLane(rail, lanes, totalPx, "Text", 34, "lyr-lane");
+    const n = lyrics.lines.length;
+    for(let i = 0; i < n; i++){
+      const text = lyrics.lines[i].text;
+      if(!text) continue;
+      const x = lyricTime(i) * pixelsPerSecond;
+      // Up to the next line, so a block never runs over its neighbour.
+      const next = i + 1 < n ? lyricTime(i + 1) : duration;
+      const w = Math.max(4, (next - lyricTime(i)) * pixelsPerSecond);
+      const b = document.createElement("div");
+      b.className = "lyr-block";
+      b.dataset.i = String(i);
+      b.style.left = x + "px";
+      b.style.width = w + "px";
+      b.title = text;
+      b.textContent = w >= 24 ? text : "";
+      b.onclick = (e) => { e.stopPropagation(); seek(Math.max(0, lyricTime(i))); };
+      lane.appendChild(b);
+    }
+    lyricsIdx = -2;
+  }
+
+  async function fetchLyrics(query){
+    const q = query || currentSongName || "";
+    let data = null;
+    try{
+      const params = new URLSearchParams({q});
+      if(duration) params.set("duration", String(Math.round(duration)));
+      const res = await fetch(`/api/lyrics/local?${params}`);
+      data = await res.json();
+    }catch(e){}
+    return data;
+  }
+
+  async function toggleLyrics(force){
+    if(lyricsOn && force !== true){
+      lyricsOn = false;
+      el("mixer-lyrics-bar").hidden = true;
+      el("mixer-lyrics-toggle").classList.remove("active");
+      renderTimeline();
+      return;
+    }
+    if(!currentSongName){ showToast("Nejdřív načti píseň"); return; }
+    if(!lyrics){
+      showToast("Hledám text…");
+      const data = await fetchLyrics();
+      if(!data || !(data.synced && data.lines && data.lines.length)){
+        showToast(data && data.plain
+          ? "K téhle písni je jen text bez časů — nedá se přiřadit ke zpěvu"
+          : "Text jsem nenašel — zkus tlačítko Hledat s interpretem a názvem");
+        el("mixer-lyrics-bar").hidden = false;
+        el("mixer-lyrics-toggle").classList.add("active");
+        lyricsOn = true;
+        lyrics = null;
+        el("nm-lyr-cur").textContent = "Text nenalezen";
+        return;
+      }
+      lyrics = data;
+      try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+    }
+    lyricsOn = true;
+    paintOffset();
+    el("mixer-lyrics-bar").hidden = false;
+    el("mixer-lyrics-toggle").classList.add("active");
+    renderTimeline();
+  }
+
+  function nudgeLyrics(delta){
+    lyricsOffset = Math.round((lyricsOffset + delta) * 10) / 10;
+    try{ localStorage.setItem(lyricsOffsetKey(), String(lyricsOffset)); }catch(e){}
+    paintOffset();
+    renderTimeline();
+  }
+
+  el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+  el("nm-lyr-earlier").onclick = () => nudgeLyrics(-0.5);
+  el("nm-lyr-later").onclick = () => nudgeLyrics(0.5);
+  el("nm-lyr-change").onclick = async () => {
+    const q = prompt("Interpret - název písně:", currentSongName || "");
+    if(!q || !q.trim()) return;
+    showToast("Hledám text…");
+    const data = await fetchLyrics(q.trim());
+    if(data && data.synced && data.lines && data.lines.length){
+      lyrics = data;
+      lyricsOn = true;
+      el("mixer-lyrics-bar").hidden = false;
+      el("mixer-lyrics-toggle").classList.add("active");
+      renderTimeline();
+    } else {
+      showToast("Pod tímhle názvem text s časy není");
+    }
+  };
+
+  // A different song has a different text.
+  function resetLyrics(){
+    lyrics = null; lyricsOn = false; lyricsIdx = -2; lyricsOffset = 0;
+    el("mixer-lyrics-bar").hidden = true;
+    el("mixer-lyrics-toggle").classList.remove("active");
+  }
+
   function loadTab(data){
     currentTab = data;
     tabNoteIdx = firstNoteIndexAt(currentTime());
@@ -7336,6 +7515,16 @@ const Mixer = (() => {
     const lanes = el("mixer-tracks");
     rail.innerHTML = '<div class="nm-rail-pad"></div>';
     lanes.innerHTML = "";
+    // The tab lane is a fixed row above the tracks. Without a matching row in
+    // the rail every label below it sat one tab-height too high.
+    if(currentTab && channels.length){
+      const tabStrip = document.createElement("div");
+      tabStrip.className = "nm-strip guitar-strip";
+      tabStrip.style.height = "150px";
+      tabStrip.innerHTML = `<div class="nm-strip-top"><span class="nm-strip-name">TABULATURA</span></div>
+        <div class="nm-strip-sub">${escapeHtml(currentTab.name || "")}</div>`;
+      rail.appendChild(tabStrip);
+    }
 
     const totalPx = totalWidthPx();
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
@@ -7349,6 +7538,8 @@ const Mixer = (() => {
       renderChordsLane(rail, lanes, totalPx);
       renderTempoLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
+      // Right above the vocal stem, so the words sit next to the singing.
+      renderLyricsLane(rail, lanes, totalPx);
       bindSectionLabels();
     }
     requestAnimationFrame(updateLaneOverflowHint);
@@ -7546,6 +7737,7 @@ const Mixer = (() => {
 
   function updateRulerPlayhead(t){
     updateTabHighlight(t);
+    updateLyricsNow(t);
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
 
@@ -7830,6 +8022,7 @@ const Mixer = (() => {
     el("fl-in-marker").value = "0:00";
     el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
+    resetLyrics();
 
     // Restore session if exists
     const saved = await loadSession(song.name);
