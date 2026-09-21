@@ -2259,7 +2259,7 @@
         <button class="ab-tab active" data-g="dec">Dekády</button>
         <button class="ab-tab" data-g="genre">Styly a žánry</button>
         <button class="ab-tab" data-g="mood">Nálady</button>
-        <button class="ab-tab" data-g="top">Top</button>
+        <button class="ab-tab" data-g="top">Top žebříčky</button>
       </div>
       <div id="ab-shelves"></div>
     </div>
@@ -3514,14 +3514,22 @@ function maybeLoadMoreArtists(myReq){
 const Bands = (() => {
   const PAGE = 15;
   const DEC = [
-    ["60. léta", "1960s hits", "60. léta"], ["70. léta", "1970s hits", "70. léta"],
-    ["80. léta", "1980s hits", "80. léta"], ["90. léta", "1990s hits", "90. léta"],
-    ["2000s", "2000s hits", "roky 2000"], ["2010s", "2010s hits", "roky 2010"],
-    ["2020s", "2020s hits", "roky 2020"], ["Nejnovější", "2025 new", "nové"],
+    ["Nejnovější", "2025 new", "nové"], ["2020s", "2020s hits", "roky 2020"],
+    ["2010s", "2010s hits", "roky 2010"], ["2000s", "2000s hits", "roky 2000"],
+    ["90. léta", "1990s hits", "90. léta"], ["80. léta", "1980s hits", "80. léta"],
+    ["70. léta", "1970s hits", "70. léta"], ["60. léta", "1960s hits", "60. léta"],
   ];
-  const TOP = [10, 20, 50, 100, 200];
+  // Styles that are not metal, shown after the metal ones.
+  const OTHER_STYLES = [
+    "Pop", "Indie Pop", "Synthpop", "Dance Pop", "K-Pop", "Hip Hop", "Rap", "Trap", "R&B", "Soul",
+    "Funk", "Disco", "House", "Techno", "Trance", "Drum and Bass", "Dubstep", "Ambient",
+    "Electronic", "Jazz", "Blues", "Country", "Folk", "Singer-Songwriter", "Reggae", "Ska",
+    "Latin", "Reggaeton", "Classical", "Opera", "Soundtrack", "Indie Rock", "Emo", "Pop Punk",
+    "Hardcore Punk", "Shoegaze", "New Wave", "Gospel", "World Music",
+  ];
   let region = "intl", group = "dec", gen = 0;
   let catalog = null;                 // {genres, moods} from /api/categories
+  let charts = null;                  // {intl, cz} from /api/charts/catalog
   let io = null;
 
   async function categories(){
@@ -3530,7 +3538,7 @@ const Bands = (() => {
     try{ data = await (await fetch("/api/categories")).json(); }catch(e){}
     const seen = new Set();
     const genres = [];
-    ROCK_METAL_GENRES.concat(data.genres || []).forEach(g => {
+    ROCK_METAL_GENRES.concat(OTHER_STYLES, data.genres || []).forEach(g => {
       const k = g.toLowerCase();
       if(!seen.has(k)){ seen.add(k); genres.push(g); }
     });
@@ -3540,9 +3548,14 @@ const Bands = (() => {
 
   async function criteria(){
     if(group === "dec") return DEC.map(([label, intl, cz]) => ({label, q: region === "cz" ? cz : intl}));
-    if(group === "top") return TOP.map(n => ({
-      label: `Top ${n}`, cap: n,
-      q: region === "cz" ? "nejposlouchanější" : "most popular"}));
+    if(group === "top"){
+      // Real charts — Billboard, UK Official, ČNS IFPI, Apple Music, YouTube
+      // Music — reduced to the artists in them, in chart order.
+      if(!charts){
+        try{ charts = await (await fetch("/api/charts/catalog")).json(); }catch(e){ charts = {intl: [], cz: []}; }
+      }
+      return (charts[region] || []).map(c => ({label: c.label, chart: c.id}));
+    }
     const c = await categories();
     return (group === "genre" ? c.genres : c.moods).map(x => ({label: x, q: x}));
   }
@@ -3579,8 +3592,10 @@ const Bands = (() => {
       row.appendChild(note);
       let data = {artists: [], hasMore: false};
       try{
-        const url = `/api/artists/browse?q=${encodeURIComponent(c.q)}&region=${region}` +
-          `&offset=${st.offset}&limit=${PAGE}${c.cap ? "&cap=" + c.cap : ""}`;
+        const url = c.chart
+          ? `/api/charts/artists?id=${encodeURIComponent(c.chart)}&offset=${st.offset}&limit=${PAGE}`
+          : `/api/artists/browse?q=${encodeURIComponent(c.q)}&region=${region}` +
+            `&offset=${st.offset}&limit=${PAGE}`;
         data = await (await fetch(url)).json();
       }catch(e){}
       note.remove();

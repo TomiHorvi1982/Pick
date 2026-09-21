@@ -23,6 +23,7 @@ from typing import List, Optional
 from urllib.parse import quote, unquote
 
 import httpx
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -547,6 +548,221 @@ def browse_artists(q: str, region: str = "intl", offset: int = 0, limit: int = 1
     more = offset + limit < len(items) or (
         st["variant"] < len(variants) and not (cap and len(items) >= cap))
     return {"artists": page, "hasMore": more}
+
+
+# ------------------------------------------------------- music charts → artists
+#
+# Charts are lists of songs or albums; the Top shelves want the artists behind
+# them, in chart order. Each source is scraped or fetched keylessly, reduced to
+# artist names, and the names of one page at a time are looked up on YouTube
+# Music (for a picture and a channel id) so a shelf costs ~15 searches, not 100.
+#
+# Not here, because they have no keyless public feed: Spotify charts, Shazam,
+# IFPI Global charts, Beatport (403 to scripts), and the magazine lists.
+# A full browser UA gets a 403 from officialcharts.com; the short one is let in.
+_CHART_UA = "Mozilla/5.0 Chrome/124"
+
+_BB = "https://www.billboard.com/charts/"
+_UK = "https://www.officialcharts.com/charts/"
+_APPLE = "https://rss.applemarketingtools.com/api/v2/{cc}/music/most-played/100/{kind}.json"
+
+# (id, label, group, source, arg)
+_CHARTS_INTL = [
+    ("bb-hot100", "Billboard Hot 100 (USA, singly)", "Billboard", "billboard", "hot-100"),
+    ("bb-200", "Billboard 200 (USA, alba)", "Billboard", "billboard", "billboard-200"),
+    ("bb-rock", "Billboard Rock & Alternative", "Rock / Metal", "billboard", "hot-rock-songs"),
+    ("bb-hardrock", "Billboard Hard Rock", "Rock / Metal", "billboard", "hot-hard-rock-songs"),
+    ("bb-hardrock-alb", "Billboard Hard Rock Albums", "Rock / Metal", "billboard", "hard-rock-albums"),
+    ("bb-rock-alb", "Billboard Rock Albums", "Rock / Metal", "billboard", "rock-albums"),
+    ("uk-rockmetal-alb", "Official UK Rock & Metal Albums", "Rock / Metal", "uk", "rock-and-metal-albums-chart"),
+    ("uk-rockmetal", "Official UK Rock & Metal Singles", "Rock / Metal", "uk", "rock-and-metal-singles-chart"),
+    ("bb-dance", "Billboard Dance / Electronic", "Elektronika", "billboard", "hot-dance-electronic-songs"),
+    ("uk-dance", "Official UK Dance", "Elektronika", "uk", "dance-singles-chart"),
+    ("bb-rap", "Billboard Hot Rap Songs", "Hip-hop / Rap", "billboard", "hot-rap-songs"),
+    ("bb-rap-alb", "Billboard Rap Albums", "Hip-hop / Rap", "billboard", "rap-albums"),
+    ("uk-hiphop", "Official UK Hip Hop / R&B", "Hip-hop / Rap", "uk", "hip-hop-and-r-and-b-singles-chart"),
+    ("bb-country", "Billboard Hot Country Songs", "Country", "billboard", "hot-country-songs"),
+    ("bb-country-alb", "Billboard Country Albums", "Country", "billboard", "country-albums"),
+    ("uk-singles", "UK Official Singles Chart", "Británie", "uk", "singles-chart"),
+    ("uk-albums", "UK Official Albums Chart", "Británie", "uk", "albums-chart"),
+    ("yt-ZZ", "YouTube Music — svět", "YouTube Music", "ytartists", "ZZ"),
+]
+for _cc, _nm in [("US", "USA"), ("GB", "Velká Británie"), ("DE", "Německo"), ("FR", "Francie"),
+                 ("ES", "Španělsko"), ("IT", "Itálie"), ("PL", "Polsko"), ("SE", "Švédsko"),
+                 ("CA", "Kanada"), ("AU", "Austrálie"), ("BR", "Brazílie"), ("MX", "Mexiko"),
+                 ("IN", "Indie"), ("JP", "Japonsko"), ("KR", "Jižní Korea")]:
+    _CHARTS_INTL.append((f"yt-{_cc}", f"YouTube Music — {_nm}", "YouTube Music", "ytartists", _cc))
+for _cc, _nm in [("us", "USA"), ("gb", "Velká Británie"), ("de", "Německo"), ("fr", "Francie"),
+                 ("jp", "Japonsko"), ("kr", "Jižní Korea"), ("br", "Brazílie"), ("mx", "Mexiko"),
+                 ("in", "Indie"), ("au", "Austrálie")]:
+    _CHARTS_INTL.append((f"am-{_cc}", f"Apple Music Top 100 — {_nm}", "Apple Music", "apple", (_cc, "songs")))
+_CHARTS_INTL.append(("am-us-alb", "Apple Music Top alba — USA", "Apple Music", "apple", ("us", "albums")))
+
+_CHARTS_CZ = [
+    ("cz-sing100", "CZ Singles Digital TOP 100", "ČNS IFPI", "ifpi", 30),
+    ("cz-sing50cz", "CZ Singles Digital TOP 50 CZ", "ČNS IFPI", "ifpi", 32),
+    ("cz-alb100", "CZ Albums TOP 100", "ČNS IFPI", "ifpi", 14),
+    ("cz-radio100", "CZ Radio TOP 100", "ČNS IFPI", "ifpi", 2),
+    ("cz-radio50cz", "CZ Radio TOP 50 CZ", "ČNS IFPI", "ifpi", 7),
+    ("cz-radio-rock", "CZ Radio TOP 20 Modern Rock", "ČNS IFPI", "ifpi", 21),
+    ("cz-classical", "CZ Albums Classical TOP 10", "ČNS IFPI", "ifpi", 25),
+    ("yt-CZ", "YouTube Music — Česko", "YouTube Music", "ytartists", "CZ"),
+    ("am-cz", "Apple Music Top 100 — Česko", "Apple Music", "apple", ("cz", "songs")),
+    ("am-cz-alb", "Apple Music Top alba — Česko", "Apple Music", "apple", ("cz", "albums")),
+]
+_CHART_INDEX = {c[0]: c for c in _CHARTS_INTL + _CHARTS_CZ}
+
+_CHART_CACHE: dict = {}          # id -> {"ts", "artists": [{"name", "browseId"?, "image"?}]}
+_CHART_TTL = 3600
+_ARTIST_LOOKUP: dict = {}        # lower name -> {"browseId", "image"} | None
+_CREDIT_SPLIT = _re_mod.compile(
+    r"\s+(?:feat\.?|featuring|ft\.?|with|x)\s+|\s*,\s*|\s*/\s*|\s+&\s+|\s+and\s+", _re_mod.I)
+# Acts whose name really contains one of those separators.
+_WHOLE_NAMES = ("earth, wind & fire", "simon & garfunkel", "florence & the machine",
+                "hall & oates", "mumford & sons", "brooks & dunn", "ac/dc", "tyler, the creator",
+                "crosby, stills & nash", "sly & the family stone", "bob marley & the wailers",
+                "prince & the revolution", "kool & the gang", "gladys knight & the pips",
+                "belle and sebastian", "up, bustle and out", "florida georgia line")
+
+
+def _credited_artists(raw: str) -> list:
+    raw = _re_mod.sub(r"\s+", " ", (raw or "").strip())
+    if not raw:
+        return []
+    keep = {}
+    for i, w in enumerate(_WHOLE_NAMES):
+        m = _re_mod.search(_re_mod.escape(w), raw, _re_mod.I)
+        if m:
+            token = f"\x00{i}\x00"
+            keep[token] = m.group(0)
+            raw = raw[:m.start()] + token + raw[m.end():]
+    out = []
+    for p in _CREDIT_SPLIT.split(raw):
+        p = (p or "").strip()
+        for t, whole in keep.items():
+            p = p.replace(t, whole)
+        if p:
+            out.append(p.title() if p.isupper() and len(p) > 4 else p)
+    return out
+
+
+def _chart_get(url: str) -> str:
+    r = httpx.get(url, headers={"User-Agent": _CHART_UA, "Accept-Language": "en"},
+                  timeout=20.0, follow_redirects=True)
+    r.raise_for_status()
+    return r.text
+
+
+def _chart_billboard(slug: str) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(_BB + slug + "/"), "html.parser")
+    out = []
+    for h3 in soup.select("h3#title-of-a-story"):
+        li = h3.find_parent("li")
+        if not li or "o-chart-results-list__item" not in (li.get("class") or []):
+            continue
+        sp = h3.find_next_sibling("span")
+        if sp:
+            out.extend(_credited_artists(sp.get_text(" ", strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_uk(slug: str) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(_UK + slug + "/"), "html.parser")
+    out = []
+    for item in soup.select(".chart-item"):
+        a = item.select_one(".description a.chart-artist")
+        if a:
+            out.extend(_credited_artists(a.get_text(strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_ifpi(chart_id: int) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(f"https://ifpicr.cz/hitparada/{chart_id}"), "html.parser")
+    out = []
+    for row in soup.select("#chartContainer .chart-full-row"):
+        a = row.select_one(".chart-full-row__interpreter a")
+        if a:
+            out.extend(_credited_artists(a.get_text(strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_apple(arg) -> list:
+    cc, kind = arg
+    data = httpx.get(_APPLE.format(cc=cc, kind=kind), headers={"User-Agent": _CHART_UA},
+                     timeout=20.0, follow_redirects=True).json()
+    out = []
+    for r in (data.get("feed") or {}).get("results") or []:
+        out.extend(_credited_artists(r.get("artistName") or ""))
+    return [{"name": n} for n in out]
+
+
+def _chart_ytartists(cc: str) -> list:
+    data = yt().get_charts(cc)
+    return [{"name": a.get("title"), "browseId": a.get("browseId"),
+             "image": _best_thumb(a.get("thumbnails"))}
+            for a in (data.get("artists") or []) if a.get("title")]
+
+
+_CHART_SOURCES = {"billboard": _chart_billboard, "uk": _chart_uk, "ifpi": _chart_ifpi,
+                  "apple": _chart_apple, "ytartists": _chart_ytartists}
+
+
+def _chart_artists(chart_id: str) -> list:
+    now = time.time()
+    hit = _CHART_CACHE.get(chart_id)
+    if hit and now - hit["ts"] < _CHART_TTL:
+        return hit["artists"]
+    _, _, _, source, arg = _CHART_INDEX[chart_id]
+    raw = _CHART_SOURCES[source](arg)
+    seen, artists = set(), []
+    for a in raw:
+        k = (a["name"] or "").strip().lower()
+        if k and k not in seen and k not in ("různí", "various", "various artists"):
+            seen.add(k)
+            artists.append(a)
+    if artists:                      # a failed scrape must not be cached as empty
+        _CHART_CACHE[chart_id] = {"ts": now, "artists": artists}
+    return artists
+
+
+def _resolve_artist(a: dict) -> dict:
+    """Fill in browseId + picture from YouTube Music where a chart gave only a name."""
+    if a.get("browseId"):
+        return a
+    k = a["name"].lower()
+    if k not in _ARTIST_LOOKUP:
+        try:
+            hits = yt().search(a["name"], filter="artists", limit=1)
+        except Exception:
+            hits = []
+        _ARTIST_LOOKUP[k] = ({"browseId": hits[0].get("browseId"),
+                              "image": _best_thumb(hits[0].get("thumbnails"))} if hits else None)
+    found = _ARTIST_LOOKUP[k]
+    return {"name": a["name"], **(found or {})}
+
+
+@app.get("/api/charts/catalog")
+def charts_catalog():
+    def rows(lst):
+        return [{"id": c[0], "label": c[1], "group": c[2]} for c in lst]
+    return {"intl": rows(_CHARTS_INTL), "cz": rows(_CHARTS_CZ)}
+
+
+@app.get("/api/charts/artists")
+def chart_artists(id: str, offset: int = 0, limit: int = 15):
+    if id not in _CHART_INDEX:
+        return JSONResponse({"error": "Neznámý žebříček."}, status_code=404)
+    try:
+        artists = _chart_artists(id)
+    except Exception:
+        return {"artists": [], "hasMore": False, "failed": True}
+    page = artists[offset: offset + limit]
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        resolved = list(pool.map(_resolve_artist, page))
+    return {"artists": resolved, "hasMore": offset + limit < len(artists)}
 
 
 _library_cache = {"ts": 0.0, "stems": []}
