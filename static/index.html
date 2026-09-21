@@ -1206,12 +1206,12 @@
     margin:24px 0 14px;text-transform:none}
 
   /* Pills — chips, region switch and the library-tab row all share the look. */
-  .chips button,.region-toggle button,.library-tab,.topn-custom button{
+  .chips button,.region-toggle button,.library-tab,.ab-tab,.topn-custom button{
     background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
     font-size:13px;font-weight:500;padding:8px 14px;cursor:pointer;font-family:inherit;
     transition:background .15s,color .15s;box-shadow:none}
-  .chips button:hover,.region-toggle button:hover,.library-tab:hover{background:#3e3e3e}
-  .chips button.active,.region-toggle button.active,.library-tab.active{
+  .chips button:hover,.region-toggle button:hover,.library-tab:hover,.ab-tab:hover{background:#3e3e3e}
+  .chips button.active,.region-toggle button.active,.library-tab.active,.ab-tab.active{
     background:#fff;color:#000;border-color:#fff}
   .region-toggle{gap:8px;margin-bottom:22px}
   .region-toggle button{flex:0 0 auto}
@@ -1825,6 +1825,62 @@
     .shelf-row > .card{flex-basis:146px}
   }
 
+  /* ---- Bands and Artists ---- */
+  #ab-groups{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  #ab-shelves .shelf-row > .card{flex:0 0 150px}
+  #ab-shelves .shelf{margin:22px 0 4px}
+  #ab-shelves .shelf-head .h{font-size:18px}
+  .ab-empty{color:var(--sub);font-size:13px;padding:24px 4px}
+  .ab-hero{display:flex;gap:22px;align-items:flex-end;margin:18px 0 14px}
+  .ab-photo{flex:0 0 168px;height:168px;border-radius:50%;background:#2a2a2a center/cover;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+  .ab-hero h1{font-size:44px;line-height:1.05;margin:0 0 8px;letter-spacing:-.02em}
+  .ab-stats{color:var(--sub);font-size:13px;margin-bottom:8px}
+  .ab-facts{display:flex;flex-wrap:wrap;gap:6px}
+  .ab-facts span{background:#2a2a2a;border-radius:999px;padding:3px 10px;font-size:12px}
+  .ab-facts span.accent{color:var(--accent)}
+  .ab-bio{font-size:13.5px;line-height:1.65;color:var(--sub);max-width:820px;white-space:pre-line}
+  .ab-bio.clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+  .ab-bio-more{background:none;border:none;color:var(--text);font:inherit;font-size:12.5px;
+    font-weight:600;cursor:pointer;padding:6px 0}
+  .ab-members{font-size:13px;color:var(--sub);line-height:1.6;margin-top:10px}
+  .ab-sect{margin-top:30px}
+  .ab-sect h2{font-size:20px;margin:0 0 12px}
+  .ab-strip{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px}
+  .ab-photo-tile{flex:0 0 170px;height:170px;border-radius:8px;border:none;cursor:pointer;
+    background:#2a2a2a center/cover}
+  .ab-video{flex:0 0 220px;background:none;border:none;color:inherit;text-align:left;cursor:pointer;
+    font:inherit;padding:0}
+  .ab-video .vt{height:124px;border-radius:8px;background:#2a2a2a center/cover;position:relative}
+  .ab-video .vt i{position:absolute;right:8px;bottom:8px;width:30px;height:30px;border-radius:50%;
+    background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-style:normal}
+  .ab-video .n{font-size:13px;margin-top:6px;font-weight:600}
+  .ab-video .v{font-size:12px;color:var(--sub)}
+  .ab-albums{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px 16px}
+  .ab-album{cursor:pointer;background:none;border:none;color:inherit;text-align:left;font:inherit;padding:0}
+  .ab-album .cv{aspect-ratio:1;border-radius:6px;background:#2a2a2a center/cover;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+  .ab-album.on .cv{outline:2px solid var(--accent)}
+  .ab-album .n{font-size:13.5px;font-weight:600;margin-top:8px}
+  .ab-album .y{font-size:12px;color:var(--sub)}
+  .ab-events{display:flex;flex-direction:column;gap:4px;max-width:760px}
+  .ab-ev-group{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:10px 0 2px}
+  .ab-event{display:flex;gap:14px;align-items:center;padding:8px 10px;border-radius:8px;
+    background:#1f1f1f;color:inherit;text-decoration:none}
+  .ab-event:hover{background:#2a2a2a}
+  .ab-event .d{flex:0 0 46px;text-align:center;line-height:1.1}
+  .ab-event .d b{display:block;font-size:20px}
+  .ab-event .d small{font-size:11px;color:var(--sub);text-transform:uppercase}
+  .ab-event .c{font-weight:600;font-size:13.5px}
+  .ab-event .vn{font-size:12px;color:var(--sub)}
+  .ab-event .tg{margin-left:auto;font-size:11px;color:var(--accent)}
+  /* The album's tracklist docks to the right of the artist page instead of
+     covering it. */
+  body.ab-dock #overlay{left:auto;width:min(480px,42vw)}
+  body.ab-dock #overlay .pl-title{font-size:26px;line-height:1.15}
+  body.ab-dock #overlay .pl-art{width:150px;height:150px}
+  body.ab-dock #artists-section{padding-right:min(496px,43vw)}
+
   .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .stems-head .section-title{margin:24px 0 14px;flex:1}
   #stems-convert{font-size:13px;padding:8px 16px;flex:0 0 auto}
@@ -2127,7 +2183,7 @@
 
   <div class="lib-chips" id="lib-chips">
     <button data-mode="playlists" class="active">Playlisty</button>
-    <button data-mode="songs">Písně</button>
+    <button data-mode="songs">Bands and Artists</button>
     <button data-mode="steems">Steems</button>
     <button data-mode="library">Knihovna</button>
     <button data-mode="podcasts">Podcasty</button>
@@ -2191,6 +2247,42 @@
 </div>
 
 <main>
+  <!-- Bands and Artists: artists by decade / style / mood / top, then one
+       artist's page in the middle, and an album's tracklist docked right. -->
+  <div id="artists-section" hidden>
+    <div id="ab-browse">
+      <div class="region-toggle" id="ab-region">
+        <button data-r="intl" class="active">🌍 Zahraniční</button>
+        <button data-r="cz">🇨🇿 České</button>
+      </div>
+      <div class="library-tabs" id="ab-groups">
+        <button class="ab-tab active" data-g="dec">Dekády</button>
+        <button class="ab-tab" data-g="genre">Styly a žánry</button>
+        <button class="ab-tab" data-g="mood">Nálady</button>
+        <button class="ab-tab" data-g="top">Top</button>
+      </div>
+      <div id="ab-shelves"></div>
+    </div>
+    <div id="ab-page" hidden>
+      <button class="btn secondary" id="ab-back">← Zpět na interprety</button>
+      <div class="ab-hero">
+        <div class="ab-photo" id="ab-photo"></div>
+        <div class="ab-hero-body">
+          <h1 id="ab-name"></h1>
+          <div class="ab-stats" id="ab-stats"></div>
+          <div class="ab-facts" id="ab-facts"></div>
+        </div>
+      </div>
+      <div class="ab-bio" id="ab-bio"></div>
+      <div class="ab-members" id="ab-members" hidden></div>
+      <div class="ab-sect" id="ab-events-sect" hidden><h2>Koncerty</h2><div class="ab-events" id="ab-events"></div>
+        <button class="np-more" id="ab-events-more" hidden></button></div>
+      <div class="ab-sect" id="ab-photos-sect" hidden><h2>Fotky</h2><div class="ab-strip" id="ab-photos"></div></div>
+      <div class="ab-sect" id="ab-videos-sect" hidden><h2>Videa</h2><div class="ab-strip" id="ab-videos"></div></div>
+      <div class="ab-sect" id="ab-albums-sect" hidden><h2>Alba a singly</h2><div class="ab-albums" id="ab-albums"></div></div>
+    </div>
+  </div>
+
   <div id="browse-section">
     <div class="region-toggle" id="region-toggle">
       <button data-region="intl" class="active">🌍 Zahraniční Playlisty</button>
@@ -3412,6 +3504,329 @@ function maybeLoadMoreArtists(myReq){
 }
 
 // ======================================================================
+// Bands and Artists
+//
+// Shelves of artists per criterion (never playlists), each scrolling sideways
+// and loading more as you reach the end. Picking an artist opens their page
+// in the middle; picking an album docks its tracklist — checkboxes, download,
+// add to playlist — on the right, using the ordinary playlist panel.
+// ======================================================================
+const Bands = (() => {
+  const PAGE = 15;
+  const DEC = [
+    ["60. léta", "1960s hits", "60. léta"], ["70. léta", "1970s hits", "70. léta"],
+    ["80. léta", "1980s hits", "80. léta"], ["90. léta", "1990s hits", "90. léta"],
+    ["2000s", "2000s hits", "roky 2000"], ["2010s", "2010s hits", "roky 2010"],
+    ["2020s", "2020s hits", "roky 2020"], ["Nejnovější", "2025 new", "nové"],
+  ];
+  const TOP = [10, 20, 50, 100, 200];
+  let region = "intl", group = "dec", gen = 0;
+  let catalog = null;                 // {genres, moods} from /api/categories
+  let io = null;
+
+  async function categories(){
+    if(catalog) return catalog;
+    let data = {};
+    try{ data = await (await fetch("/api/categories")).json(); }catch(e){}
+    const seen = new Set();
+    const genres = [];
+    ROCK_METAL_GENRES.concat(data.genres || []).forEach(g => {
+      const k = g.toLowerCase();
+      if(!seen.has(k)){ seen.add(k); genres.push(g); }
+    });
+    catalog = {genres, moods: data.moods || []};
+    return catalog;
+  }
+
+  async function criteria(){
+    if(group === "dec") return DEC.map(([label, intl, cz]) => ({label, q: region === "cz" ? cz : intl}));
+    if(group === "top") return TOP.map(n => ({
+      label: `Top ${n}`, cap: n,
+      q: region === "cz" ? "nejposlouchanější" : "most popular"}));
+    const c = await categories();
+    return (group === "genre" ? c.genres : c.moods).map(x => ({label: x, q: x}));
+  }
+
+  async function paint(){
+    const mine = ++gen;
+    const box = el("ab-shelves");
+    if(io) io.disconnect();
+    box.innerHTML = "";
+    const list = await criteria();
+    if(mine !== gen) return;
+    io = new IntersectionObserver(entries => entries.forEach(e => {
+      if(e.isIntersecting){ io.unobserve(e.target); e.target._start && e.target._start(); }
+    }), {root: null, rootMargin: "300px"});
+    list.forEach(c => box.appendChild(shelf(c, mine)));
+  }
+
+  // A shelf fetches nothing until it scrolls into view; then it keeps
+  // topping itself up as its row is scrolled to the right.
+  function shelf(c, mine){
+    const sec = document.createElement("div");
+    sec.className = "shelf";
+    sec.innerHTML = `<div class="shelf-head"><h2 class="h">${escapeHtml(c.label)}</h2></div>
+      <div class="shelf-row"></div>`;
+    const row = sec.querySelector(".shelf-row");
+    const st = {offset: 0, more: true, busy: false};
+
+    async function more(){
+      if(st.busy || !st.more || mine !== gen) return;
+      st.busy = true;
+      const note = document.createElement("span");
+      note.className = "artist-suggest-loading";
+      note.textContent = "Načítám…";
+      row.appendChild(note);
+      let data = {artists: [], hasMore: false};
+      try{
+        const url = `/api/artists/browse?q=${encodeURIComponent(c.q)}&region=${region}` +
+          `&offset=${st.offset}&limit=${PAGE}${c.cap ? "&cap=" + c.cap : ""}`;
+        data = await (await fetch(url)).json();
+      }catch(e){}
+      note.remove();
+      if(mine !== gen) return;
+      (data.artists || []).forEach(a => row.appendChild(tile(a)));
+      st.offset += (data.artists || []).length;
+      st.more = !!data.hasMore && (data.artists || []).length > 0;
+      st.busy = false;
+      if(!row.children.length){
+        sec.hidden = true;                   // nothing under this criterion
+      } else if(st.more && row.scrollWidth <= row.clientWidth + 4){
+        more();                               // not scrollable yet — fill it
+      }
+    }
+    row.addEventListener("scroll", () => {
+      if(row.scrollWidth - row.scrollLeft - row.clientWidth < 300) more();
+    });
+    sec._start = more;
+    if(io) io.observe(sec);
+    return sec;
+  }
+
+  function tile(a){
+    const card = document.createElement("div");
+    card.className = "card card-artist";
+    card.innerHTML = `
+      <div class="art" style="${a.image ? `background-image:url('${thumbUrl(a.image)}')` : ""}">${a.image ? "" : icon("mic", 30)}</div>
+      <div class="meta"><div class="title">${escapeHtml(a.name || "")}</div>
+      <div class="sub">Interpret</div></div>`;
+    card.onclick = () => open(a);
+    return card;
+  }
+
+  // ---- an artist's page ----
+  let pageToken = 0;
+
+  async function open(a){
+    const mine = ++pageToken;
+    document.body.classList.remove("ab-dock");
+    closeOverlay();
+    el("ab-browse").hidden = true;
+    el("ab-page").hidden = false;
+    el("ab-name").textContent = a.name || "";
+    const photo = el("ab-photo");
+    photo.style.backgroundImage = a.image ? `url('${thumbUrl(a.image)}')` : "";
+    photo.innerHTML = a.image ? "" : icon("mic", 44);
+    el("ab-stats").textContent = "Načítám…";
+    ["ab-facts", "ab-bio"].forEach(id => el(id).innerHTML = "");
+    ["ab-members", "ab-events-sect", "ab-photos-sect", "ab-videos-sect", "ab-albums-sect"]
+      .forEach(id => el(id).hidden = true);
+
+    let data = null;
+    try{
+      const q = a.browseId ? `channel_id=${encodeURIComponent(a.browseId)}` : `name=${encodeURIComponent(a.name)}`;
+      const res = await fetch(`/api/artist?${q}`);
+      if(res.ok) data = await res.json();
+    }catch(e){}
+    if(mine !== pageToken) return;
+    if(!data){ el("ab-stats").textContent = "Profil se nepodařilo načíst."; return; }
+    paintProfile(data);
+
+    // Wikipedia, MusicBrainz and Bandsintown answer a beat later.
+    try{
+      const res = await fetch("/api/artist/about?name=" + encodeURIComponent(data.name || a.name));
+      if(res.ok){
+        const about = await res.json();
+        if(mine === pageToken) paintAbout(about, data);
+      }
+    }catch(e){}
+  }
+
+  function bio(text){
+    const box = el("ab-bio");
+    box.textContent = text || "";
+    box.classList.toggle("clamped", (text || "").length > 520);
+    const old = el("ab-bio-more");
+    if(old) old.remove();
+    if((text || "").length > 520){
+      const b = document.createElement("button");
+      b.id = "ab-bio-more";
+      b.className = "ab-bio-more";
+      b.textContent = "Zobrazit celý text";
+      b.onclick = () => {
+        const c = box.classList.toggle("clamped");
+        b.textContent = c ? "Zobrazit celý text" : "Zobrazit méně";
+      };
+      box.after(b);
+    }
+  }
+
+  function paintProfile(d){
+    if(d.thumbnail){
+      el("ab-photo").style.backgroundImage = `url('${thumbUrl(d.thumbnail)}')`;
+      el("ab-photo").innerHTML = "";
+    }
+    const stats = [];
+    if(d.monthlyListeners) stats.push(`${d.monthlyListeners} posluchačů měsíčně`);
+    if(d.subscribers) stats.push(`${d.subscribers} odběratelů`);
+    el("ab-stats").textContent = stats.join(" • ");
+    bio(d.description || "");
+
+    const videos = d.videos || [];
+    el("ab-videos-sect").hidden = !videos.length;
+    const vb = el("ab-videos");
+    vb.innerHTML = "";
+    videos.forEach(v => {
+      const b = document.createElement("button");
+      b.className = "ab-video";
+      b.type = "button";
+      b.innerHTML = `<div class="vt" style="${v.thumbnail ? `background-image:url('${thumbUrl(v.thumbnail)}')` : ""}"><i>▶</i></div>
+        <div class="n">${escapeHtml(v.title || "")}</div><div class="v">${escapeHtml(v.views || "")}</div>`;
+      b.onclick = () => openFloatingVideo({videoId: v.videoId, title: v.title, artists: d.name});
+      vb.appendChild(b);
+    });
+
+    const rel = (d.albums || []).concat(d.singles || []);
+    el("ab-albums-sect").hidden = !rel.length;
+    const ab = el("ab-albums");
+    ab.innerHTML = "";
+    rel.forEach(r => {
+      const id = r.browseId || r.playlistId;
+      const b = document.createElement("button");
+      b.className = "ab-album";
+      b.type = "button";
+      b.innerHTML = `<div class="cv" style="${r.thumbnail ? `background-image:url('${thumbUrl(r.thumbnail)}')` : ""}">${r.thumbnail ? "" : icon("disc", 26)}</div>
+        <div class="n">${escapeHtml(r.title || "")}</div>
+        <div class="y">${escapeHtml([r.type, r.year].filter(Boolean).join(" • "))}</div>`;
+      b.onclick = () => {
+        if(!id) return;
+        ab.querySelectorAll(".ab-album.on").forEach(x => x.classList.remove("on"));
+        b.classList.add("on");
+        document.body.classList.add("ab-dock");
+        openPlaylist(id);
+      };
+      ab.appendChild(b);
+    });
+  }
+
+  function paintAbout(d, profile){
+    const f = d.facts || {};
+    const chips = [];
+    if(f.formed) chips.push({t: `${f.kind === "Person" ? "Narození" : "Založení"} ${f.formed}`});
+    if(f.ended) chips.push({t: `Konec ${f.ended}`});
+    if(f.origin) chips.push({t: czPlace(f.origin)});
+    (f.genres || []).forEach(g => chips.push({t: g, accent: true}));
+    el("ab-facts").innerHTML = chips.map(c =>
+      `<span class="${c.accent ? "accent" : ""}">${escapeHtml(c.t)}</span>`).join("");
+
+    if(d.bio && d.bio.text){
+      const yt = (profile && profile.description) || "";
+      bio(yt && !yt.startsWith(d.bio.text.slice(0, 60)) ? `${d.bio.text}\n\n${yt}` : d.bio.text);
+    }
+
+    const members = d.members || [];
+    const mb = el("ab-members");
+    mb.hidden = !members.length;
+    if(members.length){
+      const fmt = m => escapeHtml(m.name + ((m.roles || []).length ? ` (${m.roles.join(", ")})` : ""));
+      const now = members.filter(m => m.current), past = members.filter(m => !m.current);
+      mb.innerHTML = (now.length ? `<b>Sestava:</b> ${now.map(fmt).join(", ")}` : "") +
+        (past.length ? `<br><b>Dříve:</b> ${past.map(fmt).join(", ")}` : "");
+    }
+
+    const photos = d.photos || [];
+    el("ab-photos-sect").hidden = !photos.length;
+    const pb = el("ab-photos");
+    pb.innerHTML = "";
+    photos.forEach(ph => {
+      const b = document.createElement("button");
+      b.className = "ab-photo-tile";
+      b.type = "button";
+      b.title = ph.title || "";
+      b.style.backgroundImage = `url('${thumbUrl(ph.url)}')`;
+      b.onclick = () => openPhotoLightbox(ph);
+      pb.appendChild(b);
+    });
+
+    paintEvents(d.events || []);
+  }
+
+  function paintEvents(events){
+    const sect = el("ab-events-sect"), box = el("ab-events"), more = el("ab-events-more");
+    sect.hidden = !events.length;
+    if(!events.length) return;
+    const SHOWN = 6;
+    let all = false;
+    const draw = () => {
+      box.innerHTML = "";
+      let grp = null;
+      (all ? events : events.slice(0, SHOWN)).forEach(ev => {
+        const g = ev.home ? "home" : "away";
+        if(g !== grp){
+          grp = g;
+          box.insertAdjacentHTML("beforeend",
+            `<div class="ab-ev-group">${ev.home ? "V Česku a na Slovensku" : "Ostatní termíny"}</div>`);
+        }
+        const d = new Date(ev.datetime), ok = !isNaN(d.getTime());
+        const a = document.createElement("a");
+        a.className = "ab-event";
+        a.href = ev.url || "#";
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.innerHTML = `<div class="d"><b>${ok ? d.getDate() : "?"}</b><small>${ok ? MONTHS_CZ[d.getMonth()] + " " + String(d.getFullYear()).slice(2) : ""}</small></div>
+          <div><div class="c">${escapeHtml([ev.city, czCountry(ev.country)].filter(Boolean).join(", "))}</div>
+          <div class="vn">${escapeHtml(ev.venue || "")}</div></div>
+          ${ev.soldOut ? '<span class="tg">Vyprodáno</span>' : ""}`;
+        box.appendChild(a);
+      });
+      more.hidden = events.length <= SHOWN;
+      more.textContent = all ? "Zobrazit méně" : `Zobrazit všech ${events.length}`;
+    };
+    more.onclick = () => { all = !all; draw(); };
+    draw();
+  }
+
+  function back(){
+    pageToken++;
+    document.body.classList.remove("ab-dock");
+    closeOverlay();
+    el("ab-page").hidden = true;
+    el("ab-browse").hidden = false;
+  }
+
+  function show(){
+    el("ab-page").hidden = true;
+    el("ab-browse").hidden = false;
+    document.body.classList.remove("ab-dock");
+    paint();
+  }
+
+  el("ab-back").onclick = back;
+  el("ab-region").querySelectorAll("button").forEach(b => b.onclick = () => {
+    region = b.dataset.r;
+    el("ab-region").querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+    paint();
+  });
+  el("ab-groups").querySelectorAll("button").forEach(b => b.onclick = () => {
+    group = b.dataset.g;
+    el("ab-groups").querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+    paint();
+  });
+
+  return {show, open, back};
+})();
+
+// ======================================================================
 // Favorite playlists — star a playlist from its detail panel, browse them
 // on the home screen (any region) without having to search for them again.
 // ======================================================================
@@ -3538,7 +3953,8 @@ function setMode(mode){
   resultsTitle.hidden = true;
   el("load-more-wrap").hidden = true;
   // Browse chips belong to the two search modes only.
-  browseSection.hidden = mode !== "playlists" && mode !== "songs";
+  browseSection.hidden = mode !== "playlists";
+  el("artists-section").hidden = mode !== "songs";
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
@@ -3555,6 +3971,7 @@ function setMode(mode){
     renderFavPlaylists();
   }
   updateArtistSuggestions();
+  if(mode === "songs") Bands.show();
   renderLibraryRail(mode);
   pushNav({type: "mode", mode});
 }
@@ -8967,6 +9384,8 @@ async function runSearch(more=false){
   if(!more) lastLimit = 40; else lastLimit += 24;
 
   browseSection.hidden = true;
+  el("artists-section").hidden = true;
+  document.body.classList.remove("ab-dock");
   el("library-section").hidden = true;
   el("steems-section").hidden = true;
   resultsTitle.hidden = false;
@@ -9046,7 +9465,7 @@ async function runSearch(more=false){
 const overlay = el("overlay");
 const panel = el("panel");
 
-function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; }
+function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; document.body.classList.remove("ab-dock"); }
 overlay.addEventListener("click", e => { if(e.target === overlay) closeOverlay(); });
 
 async function openPlaylist(browseId){

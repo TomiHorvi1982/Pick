@@ -481,6 +481,74 @@ def search_artists(q: str, offset: int = 0, limit: int = 15):
     return {"artists": out, "hasMore": offset + limit < len(cached["items"])}
 
 
+# ------------------------------------------- bands & artists, by criterion
+#
+# One YouTube Music artist search only ever returns a couple of dozen names,
+# and a narrow query ("české death metal kapely") far fewer. To keep a shelf
+# scrollable, a criterion is asked in several phrasings, one after another as
+# the reader scrolls; each phrasing's hits are appended, duplicates dropped.
+# YT Music ranks by its own popularity, so within a phrasing the order is
+# already most-famous-first.
+_BROWSE_ARTISTS_CACHE: dict = {}
+_BROWSE_TTL = 3600
+# YT Music files playlists-as-channels ("90s Hits", "DJ Party Mix") under artists.
+_NOT_AN_ARTIST = _re_mod.compile(
+    r"\b(hits|mix|playlist|party|radio|music for|compilation|top \d+|best of|"
+    r"greatest|karaoke|instrumental versions?)\b", _re_mod.I)
+_BROWSE_INTL = ["{q}", "{q} bands", "best {q} artists", "{q} singers",
+                "{q} legends", "new {q} artists", "underground {q}"]
+_BROWSE_CZ = ["české {q} kapely", "česká {q} hudba interpreti", "czech {q} band",
+              "čeští {q} zpěváci", "{q} czech artists", "české {q} legendy",
+              "slovenské {q} kapely"]
+
+
+@app.get("/api/artists/browse")
+def browse_artists(q: str, region: str = "intl", offset: int = 0, limit: int = 15,
+                   cap: int = 0):
+    """Artists matching a decade / genre / mood, for the horizontal shelves.
+
+    `cap` limits the whole list (the "Top 20" shelf ends at twenty).
+    """
+    q = q.strip()
+    if not q:
+        return JSONResponse({"error": "Chybí kritérium."}, status_code=400)
+    region = "cz" if region == "cz" else "intl"
+    key = f"{region}|{q.lower()}"
+    now = time.time()
+    st = _BROWSE_ARTISTS_CACHE.get(key)
+    if not st or now - st["ts"] > _BROWSE_TTL:
+        st = {"ts": now, "items": [], "seen": set(), "variant": 0}
+        if len(_BROWSE_ARTISTS_CACHE) > 300:
+            _BROWSE_ARTISTS_CACHE.clear()
+        _BROWSE_ARTISTS_CACHE[key] = st
+
+    variants = _BROWSE_CZ if region == "cz" else _BROWSE_INTL
+    need = offset + limit
+    if cap:
+        need = min(need, cap)
+    # Keep asking new phrasings until the page is full or they run out.
+    while len(st["items"]) < need and st["variant"] < len(variants):
+        phrase = variants[st["variant"]].format(q=q)
+        st["variant"] += 1
+        try:
+            hits = yt().search(phrase, filter="artists", limit=30)
+        except Exception:
+            continue
+        for a in hits:
+            bid = a.get("browseId")
+            if not bid or bid in st["seen"] or _NOT_AN_ARTIST.search(a.get("artist") or ""):
+                continue
+            st["seen"].add(bid)
+            st["items"].append({"name": a.get("artist"), "browseId": bid,
+                                "image": _best_thumb(a.get("thumbnails"))})
+
+    items = st["items"][:cap] if cap else st["items"]
+    page = items[offset: offset + limit]
+    more = offset + limit < len(items) or (
+        st["variant"] < len(variants) and not (cap and len(items) >= cap))
+    return {"artists": page, "hasMore": more}
+
+
 _library_cache = {"ts": 0.0, "stems": []}
 
 
