@@ -2847,6 +2847,8 @@ def _finalize_stems_job(job: dict) -> None:
 
 class StemsSeparateRequest(BaseModel):
     rel: str
+    format: str = "mp3"       # "mp3" or "wav"
+    mp3_bitrate: int = 320    # 128 / 192 / 256 / 320, MP3 only
 
 
 @app.post("/api/stems/separate")
@@ -2864,10 +2866,15 @@ def separate_stems(req: StemsSeparateRequest):
     cmd = [
         DEMUCS_BIN, "-n", "htdemucs_6s", "-o", str(raw_dir),
         "--filename", "{track}/{stem}.{ext}",
-        # 320k MP3 rather than WAV: a six-stem set of one five-minute track is
-        # over 300 MB lossless, and these get remixed, not mastered.
-        "--mp3", "--mp3-bitrate", "320", "--mp3-preset", "2",
     ]
+    # MP3 by default: a six-stem set of one five-minute track is over 300 MB
+    # lossless, and these get remixed, not mastered. WAV is there for anyone
+    # who does want to master them.
+    if req.format == "wav":
+        pass                                   # Demucs' own default output
+    else:
+        kbps = req.mp3_bitrate if req.mp3_bitrate in (128, 192, 256, 320) else 320
+        cmd += ["--mp3", "--mp3-bitrate", str(kbps), "--mp3-preset", "2"]
     device = _demucs_device()
     if device:
         cmd += ["-d", device]

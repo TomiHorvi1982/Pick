@@ -1277,10 +1277,13 @@
   .video-mode-toggle button.active{background:#fff;color:#000}
 
   /* Top bar bits that came from the old header. */
-  #bitrate{background:var(--card);color:var(--text);border:1px solid var(--border);
-    border-radius:500px;padding:7px 12px;font-size:12px;font-family:inherit;cursor:pointer;
-    outline:none}
-  #bitrate:hover{background:var(--card-hi)}
+  .set-note{color:var(--sub);font-size:12.5px;line-height:1.55;margin:8px 0 10px}
+  .set-row{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .set-row[hidden]{display:none}
+  .set-row label{flex:0 0 110px;font-size:13px;color:var(--text)}
+  .set-row select{flex:1;padding:9px}
+  #settings-overlay select{background:#2a2a2a;border:1px solid #3e3e3e;border-radius:6px;
+    color:var(--text);font-family:inherit;font-size:13px}
 
   /* Buttons elsewhere in the app (detail panels, dialogs). */
   .btn{background:var(--accent);color:#000;border:none;border-radius:500px;
@@ -2181,13 +2184,7 @@
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
-    <select id="bitrate" title="Kvalita stahování">
-      <option value="128k">128 kbps</option>
-      <option value="192k" selected>192 kbps</option>
-      <option value="320k">320 kbps</option>
-    </select>
-    <button class="sp-round" id="settings-btn" title="Nastavení stahování"><span data-icon="settings" data-size="17"></span></button>
-    <button class="sp-avatar" id="sp-avatar" title="Spotifylisty">S</button>
+    <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
 </div>
 
@@ -2197,8 +2194,8 @@
      opens it in the main stage. Collapses to an icon-only rail. -->
 <nav id="sidebar-left">
   <div class="lib-head">
-    <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit knihovnu">
-      <span class="ic" data-icon="menu" data-size="16"></span><span class="tx">Tvoje knihovna</span>
+    <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit panel" aria-label="Sbalit / rozbalit panel">
+      <span class="ic" data-icon="menu" data-size="18"></span>
     </button>
   </div>
 
@@ -2230,19 +2227,59 @@
 <div class="artist-suggest" id="artist-suggest" hidden></div>
 
 <div class="overlay" id="settings-overlay" hidden>
-  <div class="panel" style="width:min(420px,100%)">
+  <div class="panel" style="width:min(460px,100%)">
     <div class="panel-head">
       <button class="close-btn" id="settings-close"><span data-icon="close" data-size="13"></span></button>
-      <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení stahování</div>
-      <div style="color:var(--sub);font-size:12.5px;line-height:1.6;margin-top:8px">
+      <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="download"></span>Kvalita stahovaných písní</div>
+      <select id="bitrate" style="width:100%;padding:10px">
+        <option value="128k">MP3 128 kbps — nejmenší soubory</option>
+        <option value="192k" selected>MP3 192 kbps — dobrý kompromis</option>
+        <option value="320k">MP3 320 kbps — nejlepší kvalita</option>
+      </select>
+      <div class="set-note" id="bitrate-note"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="stems"></span>Rozdělení písně na stopy (Steems)</div>
+      <div class="set-note" style="margin-top:0">
+        Když píseň rozdělíš na zpěv, bicí, baskytaru, kytaru, klavír a ostatní,
+        tady se určuje, do jakého souboru se každá stopa uloží. Platí pro
+        příští rozdělení, už hotové sady se nemění.
+      </div>
+      <div class="set-row">
+        <label for="stems-format">Formát</label>
+        <select id="stems-format">
+          <option value="mp3">MP3 — malé soubory</option>
+          <option value="wav">WAV — bezeztrátově</option>
+        </select>
+      </div>
+      <div class="set-row" id="stems-bitrate-row">
+        <label for="stems-bitrate">Kvalita MP3</label>
+        <select id="stems-bitrate">
+          <option value="128">128 kbps</option>
+          <option value="192">192 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="320" selected>320 kbps</option>
+        </select>
+      </div>
+      <div class="set-note" id="stems-note"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="folder"></span>Kam se stahují songy</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
+        <button class="btn secondary" id="music-root-pick" style="white-space:nowrap"><span data-icon="folderOpen" data-size="15"></span>Vybrat</button>
+      </div>
+      <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="headphones"></span>Přihlášení k YouTube (cookies)</div>
+      <div class="set-note" style="margin-top:0">
         Když stahování selže s hláškou „Sign in to confirm you're not a bot“,
         YouTube po tobě chce ověření. Nejjednodušší oprava: nech spotdl použít
         přihlašovací cookies z prohlížeče, kde jsi na YouTube přihlášený/á.
-        <br><br><b>Prohlížeč musí být před stahováním úplně zavřený</b>
+        <b>Prohlížeč musí být před stahováním úplně zavřený</b>
         (ne jen okno — celá appka), jinak je jeho soubor s cookies zamčený.
       </div>
-      <div class="section-title" style="margin-top:18px">Číst cookies z prohlížeče</div>
-      <select id="cookies-browser" style="width:100%;padding:10px">
+      <select id="cookies-browser" style="width:100%;padding:10px;margin-top:10px">
         <option value="">Nepoužívat (výchozí)</option>
         <option value="chrome">Google Chrome</option>
         <option value="safari">Safari</option>
@@ -2250,15 +2287,8 @@
         <option value="firefox">Firefox</option>
         <option value="edge">Microsoft Edge</option>
       </select>
-      <div class="section-title">…nebo cesta k exportovanému cookies.txt</div>
+      <div class="set-note">…nebo cesta k exportovanému cookies.txt</div>
       <input type="text" id="cookie-file" placeholder="/Users/.../cookies.txt" style="width:100%">
-
-      <div class="section-title" style="margin-top:18px"><span data-icon="folder"></span>Kam se stahují songy</div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
-        <button class="btn secondary" id="music-root-pick" style="white-space:nowrap"><span data-icon="folderOpen" data-size="15"></span>Vybrat</button>
-      </div>
-      <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
 
       <div class="actions">
         <button class="btn" id="settings-save">Uložit</button>
@@ -2658,8 +2688,8 @@
 <aside id="right-sidebar" hidden>
   <div class="np-resize" id="np-resize" title="Táhnutím změníš šířku"></div>
   <div class="np-head">
+    <button class="sp-iconbtn" id="np-close" title="Sbalit panel" aria-label="Sbalit panel"><span data-icon="menu" data-size="18"></span></button>
     <span class="tt" id="np-context">Právě hraje</span>
-    <button class="sp-iconbtn" id="np-close" title="Zavřít panel"><span data-icon="close" data-size="15"></span></button>
   </div>
   <div class="np-body sp-scroll">
     <div class="np-stage" id="np-stage"><span data-icon="note" data-size="46"></span></div>
@@ -5303,7 +5333,11 @@ function startStemsSeparation(rel){
   fetch("/api/stems/separate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({rel}),
+    body: JSON.stringify({
+      rel,
+      format: loadSettings().stems_format || "mp3",
+      mp3_bitrate: loadSettings().stems_bitrate || 320,
+    }),
   })
   .then(r => r.json())
   .then(data => {
@@ -10673,8 +10707,36 @@ function saveSettingsToStorage(s){
   try{ localStorage.setItem("spotdl-gui-settings", JSON.stringify(s)); }catch(e){}
 }
 const settingsOverlay = el("settings-overlay");
+// What the choices cost, said in numbers: 1 minute of MP3 is bitrate x 60 / 8.
+function mbPerMin(kbps){ return (kbps * 60 / 8 / 1000).toFixed(1).replace(".", ","); }
+function paintQualityNotes(){
+  const k = parseInt(el("bitrate").value, 10) || 192;
+  el("bitrate-note").textContent =
+    `Bitrate MP3 při stažení písně z YouTube Music. Vyšší = čistší zvuk, ale větší soubor: ` +
+    `přibližně ${mbPerMin(k)} MB na minutu, tedy asi ${(k * 60 * 4 / 8 / 1000).toFixed(0)} MB za čtyřminutovou píseň.`;
+  const wav = el("stems-format").value === "wav";
+  el("stems-bitrate-row").hidden = wav;
+  const kb = parseInt(el("stems-bitrate").value, 10) || 320;
+  // Six stems per song.
+  el("stems-note").textContent = wav
+    ? "WAV je bezeztrátový a hodí se, když stopy budeš dál zpracovávat. Sada šesti stop jedné čtyřminutové písně zabere zhruba 250 MB."
+    : `MP3 ${kb} kbps: sada šesti stop jedné čtyřminutové písně zabere zhruba ${(6 * kb * 60 * 4 / 8 / 1000).toFixed(0)} MB. ` +
+      "Na míchání a cvičení to bohatě stačí.";
+}
+["bitrate", "stems-format", "stems-bitrate"].forEach(id => el(id).addEventListener("change", () => {
+  paintQualityNotes();
+  if(id === "bitrate"){ try{ localStorage.setItem("spotdl-gui-bitrate", el("bitrate").value); }catch(e){} }
+}));
+try{
+  const savedBitrate = localStorage.getItem("spotdl-gui-bitrate");
+  if(savedBitrate) el("bitrate").value = savedBitrate;
+}catch(e){}
+
 el("settings-btn").onclick = async () => {
   const s = loadSettings();
+  el("stems-format").value = s.stems_format || "mp3";
+  el("stems-bitrate").value = String(s.stems_bitrate || 320);
+  paintQualityNotes();
   el("cookies-browser").value = s.cookies_browser || "";
   el("cookie-file").value = s.cookie_file || "";
   el("music-root-error").textContent = "";
@@ -10698,6 +10760,8 @@ el("settings-save").onclick = async () => {
   saveSettingsToStorage({
     cookies_browser: el("cookies-browser").value || null,
     cookie_file: el("cookie-file").value.trim() || null,
+    stems_format: el("stems-format").value,
+    stems_bitrate: parseInt(el("stems-bitrate").value, 10) || 320,
   });
 
   const musicRoot = el("music-root-input").value.trim();
@@ -11583,7 +11647,6 @@ function syncPlayerToggles(){
   if(b) b.addEventListener("click", () => setTimeout(syncPlayerToggles, 0));
 });
 el("np-close").onclick = () => toggleNowPlaying(false);
-el("sp-avatar").onclick = () => el("settings-btn").click();
 
 function toggleNowPlaying(force){
   const open = force === undefined ? !document.body.classList.contains("np-open") : force;
