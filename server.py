@@ -1020,22 +1020,35 @@ def search_top(q: str, limit: int = 8):
 #- track: {cdn}/{songId}/{revision}/{image}/{trackIdx}.json
 
 @app.get("/api/tabs/search")
-async def search_tabs(q: str):
-    """Search Songsterr for songs. Returns a list of matches with their songId."""
+async def search_tabs(q: str, size: int = 20):
+    """Search Songsterr for songs. Returns a list of matches with their songId.
+
+    The query goes in `pattern`: the older `/api/search?q=` ignores it and
+    answers every request with the same ten popular songs.
+    """
     if not q.strip():
-        return {"results": []}
+        return {"tabs": []}
     try:
         async with httpx.AsyncClient(follow_redirects=True) as client:
             r = await client.get(
-                f"https://www.songsterr.com/api/search?q={quote(q)}",
-                headers={"User-Agent": APP_UA}
+                "https://www.songsterr.com/api/songs",
+                params={"pattern": q.strip(), "size": max(1, min(size, 40))},
+                headers={"User-Agent": APP_UA},
             )
             r.raise_for_status()
             data = r.json()
-            # Songsterr returns a JSON with a 'records' list.
-            return {"tabs": data.get("records", []) if isinstance(data, dict) else []}
     except Exception as e:
         return JSONResponse({"error": f"Search failed: {e}"}, status_code=500)
+
+    records = data if isinstance(data, list) else (data.get("records", []) if isinstance(data, dict) else [])
+    seen, tabs = set(), []
+    for rec in records:
+        sid = rec.get("songId")
+        if sid is None or sid in seen or rec.get("isJunk"):
+            continue
+        seen.add(sid)
+        tabs.append(rec)
+    return {"tabs": tabs}
 
 
 @app.get("/api/tabs/meta/{song_id}")

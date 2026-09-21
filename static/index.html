@@ -5777,6 +5777,13 @@ const TabSearch = (() => {
     }
   }
 
+  // What a row can tell you before you click it: how many guitar parts the
+  // tab has (a bass solo or a vocal-only tab has none to learn from).
+  function guitarLabel(tab) {
+    const n = (tab.tracks || []).filter(t => /guitar/i.test(t.instrument || "")).length;
+    return n ? `${n} ${n === 1 ? "kytara" : n < 5 ? "kytary" : "kytar"}` : "bez kytary";
+  }
+
   function renderResults(tabs) {
     results.innerHTML = "";
 
@@ -5800,7 +5807,7 @@ const TabSearch = (() => {
             ${escapeHtml(tab.artist)}
           </div>
         </div>
-        <span class="fs-size">${tab.difficulty || "N/A"}</span>
+        <span class="fs-size">${guitarLabel(tab)}</span>
       `;
 
       row.onclick = () => loadTab(tab.songId);
