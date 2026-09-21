@@ -5109,62 +5109,113 @@ el("steems-hero-export").onclick = () => el("mixer-export").click();
 // Guitar Sampler (Virtual Guide)
 // ======================================================================
 const GuitarSampler = (() => {
-  const samples = {};
-  let loaded = false;
+  // The guide has no recorded guitar to play, and a bare oscillator is a poor
+  // thing to feed a neural amp: it has none of the noisy, decaying attack the
+  // model learned from real pickups. So each pitch is synthesised once as a
+  // plucked string (Karplus-Strong) and cached as a buffer. Pitch comes from
+  // the tab's own tuning, so drop-D and friends come out right.
+  const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];  // string 0 = high e
+  const BUFFER_SECONDS = 3;
+  const cache = new Map();                // "sampleRate:midi" -> AudioBuffer
+  const voices = new Array(8).fill(null); // one ringing voice per string
 
-  async function init() {
-    if(loaded) return;
-    const ctx = window.AudioContext ? new (window.AudioContext || window.webkitAudioContext)() : null;
-    if(!ctx) return;
+  function pluck(ctx, midi){
+    const key = ctx.sampleRate + ":" + midi;
+    if(cache.has(key)) return cache.get(key);
 
-    // Load root notes for each string (fret 0)
-    for(let s = 0; s < 6; s++) {
-      try {
-        const res = await fetch(`/static/samples/guitar/s${s}_f0.wav`);
-        if(!res.ok) throw new Error("missing");
-        samples[s] = await ctx.decodeAudioData(await res.arrayBuffer());
-      } catch(e) {
-        console.warn(`Guitar sample s${s}_f0.wav missing, using fallback.`);
-      }
+    const sr = ctx.sampleRate;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    // The two-point average adds half a sample of delay; take it off so the
+    // string is not flat, which matters most up the neck.
+    const period = sr / freq - 0.5;
+    const n = Math.max(3, Math.floor(period));
+    const frac = period - n;
+    const len = Math.floor(sr * BUFFER_SECONDS);
+    const out = new Float32Array(len);
+
+    // Deterministic noise burst, low-passed once so the pick is not a hiss.
+    let seed = 1234567 + midi * 7919;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
+    let prev = 0;
+    for(let i = 0; i < n + 2; i++){
+      prev = 0.55 * rnd() + 0.45 * prev;
+      out[i] = prev;
     }
-    loaded = true;
+    // Pick position: a comb notch, like plucking nearer the bridge.
+    const pos = Math.max(1, Math.floor(n * 0.17));
+    for(let i = n + 1; i >= pos; i--) out[i] -= out[i - pos];
+
+    // Low strings sustain longer than high ones.
+    const loss = 0.9985 - Math.min(0.002, Math.max(0, midi - 40) * 0.00004);
+    for(let i = n + 2; i < len; i++){
+      // Fractionally delayed tap, then a two-point average as the damping filter.
+      const d0 = out[i - n] * (1 - frac) + out[i - n - 1] * frac;
+      const d1 = out[i - n - 1] * (1 - frac) + out[i - n - 2] * frac;
+      out[i] = loss * 0.5 * (d0 + d1);
+    }
+
+    let peak = 0;
+    for(let i = 0; i < len; i++) if(Math.abs(out[i]) > peak) peak = Math.abs(out[i]);
+    const k = peak ? 0.6 / peak : 1;
+    for(let i = 0; i < len; i++) out[i] *= k;
+
+    const buf = ctx.createBuffer(1, len, sr);
+    buf.copyToChannel(out, 0);
+    cache.set(key, buf);
+    return buf;
   }
 
-  function playNote(ctx, output, string, fret, time = 0) {
-    const buf = samples[string];
-    if(!buf) {
-      // Fallback: Basic sine wave if sample is missing
-      const freq = [82.41, 110.00, 146.83, 196.00, 246.94, 329.63][string] * Math.pow(2, fret / 12);
-      const osc = ctx.createOscillator();
-      const env = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, time);
-      env.gain.setValueAtTime(0.2, time);
-      env.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
-      osc.connect(env);
-      env.connect(output);
-      osc.start(time);
-      osc.stop(time + 1.5);
-      return;
-    }
+  async function init(){ /* nothing to load — kept for callers */ }
 
-    const source = ctx.createBufferSource();
-    source.buffer = buf;
-    source.playbackRate.setValueAtTime(Math.pow(2, fret / 12), time);
+  function release(v, at, fade){
+    try{
+      v.env.gain.cancelScheduledValues(at);
+      v.env.gain.setValueAtTime(Math.max(v.env.gain.value, 0.0001), at);
+      v.env.gain.exponentialRampToValueAtTime(0.0001, at + fade);
+      v.src.stop(at + fade + 0.02);
+    }catch(e){}
+  }
 
+  // note: {duration, staccato, hammer, pull} as normalised by the server.
+  function playNote(ctx, output, string, fret, time = 0, tuning, note){
+    const open = (tuning && tuning[string] != null) ? tuning[string] : STANDARD_TUNING[string];
+    if(open == null) return;
+    const midi = open + fret;
+    if(midi < 20 || midi > 100) return;
+    const n = note || {};
+
+    // A string can only ring one note: the new one damps the old one.
+    const old = voices[string];
+    if(old) release(old, time, 0.03);
+
+    const src = ctx.createBufferSource();
+    src.buffer = pluck(ctx, midi);
+
+    // Legato notes are not picked, so they come in softer.
     const env = ctx.createGain();
-    env.gain.setValueAtTime(0.3, time);
-    env.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+    env.gain.setValueAtTime((n.hammer || n.pull) ? 0.55 : 1, time);
 
-    source.connect(env);
+    const dur = Math.max(0.05, Number(n.duration) || 0.5);
+    const held = n.staccato ? Math.min(dur, 0.12) : dur;
+    const v = {src, env};
+    src.connect(env);
     env.connect(output);
-    source.start(time);
+    src.start(time);
+    release(v, time + held, n.staccato ? 0.05 : 0.25);
+    src.onended = () => {
+      try{ env.disconnect(); }catch(e){}
+      if(voices[string] === v) voices[string] = null;
+    };
+    voices[string] = v;
   }
 
-  return {
-    init,
-    playNote
-  };
+  // Seek, loop and pause: nothing scheduled before now may keep ringing.
+  function stopAll(ctx){
+    const at = ctx.currentTime;
+    voices.forEach((v, i) => { if(v) release(v, at, 0.03); voices[i] = null; });
+  }
+
+  return { init, playNote, stopAll };
 })();
 
 // ======================================================================
@@ -5426,6 +5477,7 @@ const Mixer = (() => {
   }
 
   function stopAllSources(){
+    GuitarSampler.stopAll(ctx());
     channels.forEach(c => {
       if(c.source){
         try{ c.source.stop(); }catch(e){}
@@ -5729,6 +5781,7 @@ const Mixer = (() => {
     AudioBus.claimMixer();
     if(pausedAt >= duration) pausedAt = 0;
     scheduleAll(pausedAt);
+    tabNoteIdx = firstNoteIndexAt(pausedAt);
     isPlaying = true;
     setMixerPlayGlyph(true);
     tick();
@@ -5747,6 +5800,19 @@ const Mixer = (() => {
   // Anything else that starts playing stops the mixer through this.
   AudioBus.registerMixer(pause);
 
+  // Binary search for the first note at or after t.
+  function firstNoteIndexAt(t){
+    if(!currentTab || !currentTab.notes) return 0;
+    const notes = currentTab.notes;
+    let lo = 0, hi = notes.length;
+    while(lo < hi){
+      const mid = (lo + hi) >>> 1;
+      if(notes[mid].time < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
   function seek(t){
     t = Math.max(0, Math.min(duration, t));
     if(isPlaying){
@@ -5755,17 +5821,7 @@ const Mixer = (() => {
     } else {
       pausedAt = t;
     }
-    tabNoteIdx = 0;
-    // Binary search for the first note after t
-    if(currentTab && currentTab.notes){
-      let lo = 0, hi = currentTab.notes.length;
-      while(lo < hi){
-        let mid = (lo + hi) >>> 1;
-        if(currentTab.notes[mid].time < t) lo = mid + 1;
-        else hi = mid;
-      }
-      tabNoteIdx = lo;
-    }
+    tabNoteIdx = firstNoteIndexAt(t);
     updateSeekUI(t);
     updateRulerPlayhead(t);
     var allMuted = channels.every(c => c.muted || c.faderValue < 0.01);
@@ -5781,7 +5837,8 @@ const Mixer = (() => {
 
   function loadTab(data){
     currentTab = data;
-    tabNoteIdx = 0;
+    tabNoteIdx = firstNoteIndexAt(currentTime());
+    tabHiKey = "";
     const lane = el("mixer-tab-lane");
     if(lane) lane.hidden = false;
     renderTimeline();
@@ -6034,8 +6091,9 @@ const Mixer = (() => {
       const duration = Math.max(0.05, Number(n.duration) || 0.05);
       const noteW = Math.max(16, duration * pixelsPerSecond);
 
-      // Yellow note highlight.
-      g.fillStyle = "rgba(233,185,73,.88)";
+      // Resting note. Only the note being played turns yellow, and that is
+      // an overlay (updateTabHighlight), so the canvas is not redrawn per frame.
+      g.fillStyle = "rgba(255,255,255,.2)";
       g.fillRect(
         Math.floor(x),
         Math.floor(y - 8),
@@ -6044,7 +6102,7 @@ const Mixer = (() => {
       );
 
       // Fret number.
-      g.fillStyle = "#111";
+      g.fillStyle = "#ececec";
       g.font = "bold 11px sans-serif";
       g.textAlign = "center";
       g.textBaseline = "middle";
@@ -6940,7 +6998,58 @@ const Mixer = (() => {
     }
   }
 
+  // The note (or chord) sounding at t, as yellow boxes over the tab canvas.
+  // Geometry mirrors renderTabLane.
+  let tabHiKey = "";
+  function updateTabHighlight(t){
+    const lane = el("mixer-tab-lane");
+    if(!lane || lane.hidden || !currentTab || !currentTab.notes) return;
+    const notes = currentTab.notes;
+
+    let idx = firstNoteIndexAt(t + 1e-6) - 1;   // last note that has started
+    let start = -1, end = -1;
+    if(idx >= 0){
+      const n = notes[idx];
+      if(t < n.time + Math.max(Number(n.duration) || 0, 0.15)){
+        end = idx + 1;
+        start = idx;
+        while(start > 0 && notes[start - 1].time === n.time) start--;
+      }
+    }
+    const key = start + ":" + end + ":" + pixelsPerSecond;
+    if(key === tabHiKey) return;
+    tabHiKey = key;
+
+    let box = el("tab-hi");
+    if(!box){
+      box = document.createElement("div");
+      box.id = "tab-hi";
+      box.style.cssText = "position:absolute;left:0;top:0;height:0;pointer-events:none;";
+      if(getComputedStyle(lane).position === "static") lane.style.position = "relative";
+      lane.appendChild(box);
+    }
+    box.textContent = "";
+    if(start < 0) return;
+
+    const top = 18, stringH = (112 - 18) / 5;
+    for(let i = start; i < end; i++){
+      const n = notes[i];
+      const s = Number(n.string);
+      if(!Number.isInteger(s) || s < 0 || s > 5) continue;
+      const noteW = Math.max(16, (Math.max(0.05, Number(n.duration) || 0.05)) * pixelsPerSecond);
+      const d = document.createElement("div");
+      d.textContent = String(n.fret);
+      d.style.cssText = "position:absolute;background:rgba(233,185,73,.95);color:#111;" +
+        "font:bold 11px sans-serif;display:flex;align-items:center;justify-content:center;" +
+        "left:" + Math.floor(n.time * pixelsPerSecond) + "px;" +
+        "top:" + Math.floor(top + s * stringH - 8) + "px;" +
+        "width:" + Math.max(16, Math.floor(noteW)) + "px;height:16px;";
+      box.appendChild(d);
+    }
+  }
+
   function updateRulerPlayhead(t){
+    updateTabHighlight(t);
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
 
@@ -7119,7 +7228,7 @@ const Mixer = (() => {
       t = loopStart;
       stopAllSources();
       scheduleAll(t);
-      tabNoteIdx = 0; // reset notes on loop
+      tabNoteIdx = firstNoteIndexAt(t); // the guide restarts at loopStart, not at bar one
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
@@ -7142,7 +7251,8 @@ const Mixer = (() => {
           n.string,
           n.fret,
           Math.max(audioNow + scheduleAhead, noteTime),
-          currentTab.tuning
+          currentTab.tuning,
+          n
         );
 
         tabNoteIdx++;
@@ -8190,28 +8300,38 @@ const Mixer = (() => {
     function ensureVirtualSource(){
       const audioCtx = ctxRef();
 
+      let built = false;
       if(!virtualSource){
         virtualSource = audioCtx.createGain();
         virtualSource.gain.value = 0.7;
+        built = true;
       }
 
       // The virtual guide must have its own monitor chain even when
       // no physical guitar input is connected.
       if(!gainNode){
         gainNode = audioCtx.createGain();
+        built = true;
       }
 
       if(!pannerNode){
         pannerNode = audioCtx.createStereoPanner();
+        built = true;
       }
 
       if(!analyser){
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
+        built = true;
       }
 
-      rewire();
-      applyGuitarGain();
+      // The guide asks for this once per note. Rewiring disconnects every
+      // node in the chain — the amp included — and would cut off whatever
+      // is still ringing, so it only happens when something was just made.
+      if(built){
+        rewire();
+        applyGuitarGain();
+      }
 
       return virtualSource;
     }
@@ -8268,10 +8388,13 @@ const Mixer = (() => {
         {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
       recNode.port.onmessage = onRecorderMessage;
 
-      gainNode = audioCtx.createGain();
-      pannerNode = audioCtx.createStereoPanner();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
+      // Reuse the output nodes the guide may already be playing through.
+      if(!gainNode) gainNode = audioCtx.createGain();
+      if(!pannerNode) pannerNode = audioCtx.createStereoPanner();
+      if(!analyser){
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+      }
 
       rewire();
       applyGuitarGain();
@@ -8442,8 +8565,10 @@ const Mixer = (() => {
       isRecording: () => recording,
       isLive: () => state.live,
       recordedSeconds: () => recording ? ctxRef().currentTime - recordStartedAt : 0,
-      setAmp(node, name){ ampNode = node; state.ampName = name; if(state.live) rewire(); },
-      setCab(node, name){ cabNode = node; state.cabName = name; if(state.live) rewire(); },
+      // The guide shares the amp and cab, so rewire whenever the output stage
+      // exists — not only while a physical input is live.
+      setAmp(node, name){ ampNode = node; state.ampName = name; if(gainNode) rewire(); },
+      setCab(node, name){ cabNode = node; state.cabName = name; if(gainNode) rewire(); },
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
     };
