@@ -2332,14 +2332,6 @@
       <button data-region="cz"><span data-icon="flag" data-size="15"></span>České playlisty</button>
     </div>
 
-    <div class="shelf" id="fav-artists-section" hidden>
-      <div class="shelf-head">
-        <h2 class="h">Tví oblíbení umělci</h2>
-        <button class="all" id="fav-artists-all">Zobrazit vše</button>
-      </div>
-      <div class="shelf-row" id="fav-artists-grid"></div>
-    </div>
-
     <div class="section-title"><span data-icon="clock"></span>Dekády</div>
     <div class="chips" id="chips-decades"></div>
 
@@ -3900,47 +3892,9 @@ function toggleFavPlaylist(playlist){
   renderFavPlaylists();
   return added;
 }
-// "Zobrazit vše" turns a shelf into a wrapping grid, and back.
-function toggleShelf(sectionId, gridId, btnId){
-  const grid = el(gridId);
-  const expanded = grid.classList.toggle("grid");
-  grid.classList.toggle("shelf-row", !expanded);
-  el(btnId).textContent = expanded ? "Zobrazit méně" : "Zobrazit vše";
-}
-el("fav-artists-all").onclick = () =>
-  toggleShelf("fav-artists-section", "fav-artists-grid", "fav-artists-all");
-
-// Saved artists, as the round tiles the reference uses.
-function renderFavArtists(){
-  const section = el("fav-artists-section");
-  const artists = (loadMyLibrary().artists || []);
-  const shouldShow = artists.length > 0 && state.mode === "playlists";
-  section.hidden = !shouldShow;
-  if(!shouldShow) return;
-
-  const grid = el("fav-artists-grid");
-  grid.innerHTML = "";
-  artists.forEach(a => {
-    const card = document.createElement("div");
-    card.className = "card card-artist";
-    card.innerHTML = `
-      <div class="art" style="${a.thumbnail ? `background-image:url('${thumbUrl(a.thumbnail)}')` : ""}">${a.thumbnail ? "" : "\uD83C\uDFA4"}</div>
-      <div class="meta">
-        <div class="title">${escapeHtml(a.title || a.name || "")}</div>
-        <div class="sub">Umělec</div>
-      </div>`;
-    card.onclick = () => {
-      el("search-input").value = a.title || a.name || "";
-      runSearch();
-    };
-    grid.appendChild(card);
-  });
-}
-
-// Favourite playlists are listed in the library rail only (see
-// renderHomeRail); the stage keeps just the saved artists.
+// Favourites (playlists, albums, artists) are listed in the library rail only;
+// see renderHomeRail.
 function renderFavPlaylists(){
-  renderFavArtists();
   refreshHomeRail();
 }
 
