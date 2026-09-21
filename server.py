@@ -66,7 +66,7 @@ import re as _re_mod
 _re_worklet = _re_mod.compile(r"[a-z0-9_-]+\.js")
 # take-1, take-2, … and nothing else that could walk out of the folder.
 _re_take = _re_mod.compile(r"take-\d{1,4}")
-_re_nam_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|wasm)")
+_re_nam_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|mjs|wasm)")
 
 app = FastAPI(title="spotdl GUI")
 
@@ -128,6 +128,19 @@ def _fmt_dur(total_seconds: int) -> str:
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (APP_DIR / "static" / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/stretch/{name}")
+def stretch_asset(name: str):
+    """The vendored Signalsmith Stretch module — one file, wasm included."""
+    if not _re_nam_asset.fullmatch(name):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "stretch" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(path.read_bytes(), media_type="text/javascript",
+                    headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/static/nam/{name}")
@@ -705,6 +718,272 @@ def search_top(q: str, limit: int = 8):
         "related": {"playlists": playlists, "videos": videos},
     }
 
+
+# ----------------------------------------------------------------- songsterr tabs
+#
+# Songsterr serves tabs as a set of JSON files on a CDN. We proxy them to avoid
+# CORS issues and provide a simple API for the mixpult to fetch them.
+#
+# search -> meta -> track JSON
+#
+# The search endpoint is keyless and stable. Metadata provides the CDN path
+# (the 'image' hash) and revision ID needed to fetch the actual notes.
+#
+# Ref: https://github.com/6801318d8d/songsterr-dl
+#
+#- search: /a/ra/songs.json?pattern=...
+#- meta: /a/ra/song/{songId}.json
+#- track: {cdn}/{songId}/{revision}/{image}/{trackIdx}.json
+
+@app.get("/api/tabs/search")
+async def search_tabs(q: str):
+    """Search Songsterr for songs. Returns a list of matches with their songId."""
+    if not q.strip():
+        return {"results": []}
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(
+                f"https://www.songsterr.com/api/search?q={quote(q)}",
+                headers={"User-Agent": APP_UA}
+            )
+            r.raise_for_status()
+            data = r.json()
+            # Songsterr returns a JSON with a 'records' list.
+            return {"tabs": data.get("records", []) if isinstance(data, dict) else []}
+    except Exception as e:
+        return JSONResponse({"error": f"Search failed: {e}"}, status_code=500)
+
+
+@app.get("/api/tabs/meta/{song_id}")
+async def tab_meta(song_id: str):
+    """Get metadata for a song, including the CDN path hash ('image') and revision."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(
+                f"https://www.songsterr.com/api/meta/{song_id}",
+                headers={"User-Agent": APP_UA}
+            )
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Metadata fetch failed: {e}"}, status_code=500)
+
+
+
+def normalize_songsterr_track(data: dict) -> dict:
+    """Convert Songsterr measure/voice/beat data to a flat note timeline."""
+
+    measures = data.get("measures") or []
+    automations = data.get("automations") or {}
+    tempo_events = automations.get("tempo") or []
+
+    # Songsterr duration is expressed as a fraction of a whole note.
+    # We convert it to seconds using the active BPM.
+    def beat_seconds(bpm: float) -> float:
+        return 60.0 / bpm
+
+    def duration_seconds(duration, bpm: float) -> float:
+        if not isinstance(duration, (list, tuple)) or len(duration) != 2:
+            return beat_seconds(bpm)
+        numerator, denominator = duration
+        try:
+            return (float(numerator) / float(denominator)) * (60.0 / bpm) * 4.0
+        except (TypeError, ValueError, ZeroDivisionError):
+            return beat_seconds(bpm)
+
+    tempo_events = sorted(
+        [
+            event for event in tempo_events
+            if isinstance(event, dict) and "measure" in event and "bpm" in event
+        ],
+        key=lambda event: (int(event.get("measure", 0)), float(event.get("position", 0)))
+    )
+
+    def bpm_for_measure(measure_index: int) -> float:
+        bpm = 120.0
+        for event in tempo_events:
+            if int(event.get("measure", 0)) <= measure_index:
+                try:
+                    bpm = float(event["bpm"])
+                except (TypeError, ValueError):
+                    pass
+            else:
+                break
+        return bpm
+
+    notes = []
+    measure_start = 0.0
+    measure_times = []
+
+    for measure_index, measure in enumerate(measures):
+        measure_times.append(measure_start)
+
+        signature = measure.get("signature") or [4, 4]
+        try:
+            sig_num = float(signature[0])
+            sig_den = float(signature[1])
+        except (TypeError, ValueError, IndexError):
+            sig_num, sig_den = 4.0, 4.0
+
+        bpm = bpm_for_measure(measure_index)
+        beat_time = measure_start
+
+        voices = measure.get("voices") or []
+        voice = voices[0] if voices else {}
+        beats = voice.get("beats") or []
+
+        for beat in beats:
+            duration = beat.get("duration", [1, 4])
+            dur_seconds = duration_seconds(duration, bpm)
+
+            for note in beat.get("notes") or []:
+                if note.get("rest"):
+                    continue
+
+                if "fret" not in note or "string" not in note:
+                    continue
+
+                try:
+                    string_index = int(note["string"])
+                    fret = int(note["fret"])
+                except (TypeError, ValueError):
+                    continue
+
+                notes.append({
+                    "time": round(beat_time, 6),
+                    "duration": round(dur_seconds, 6),
+                    "string": string_index,
+                    "fret": fret,
+                    "staccato": bool(note.get("staccato", False)),
+                    "hammer": bool(note.get("hammer", False)),
+                    "pull": bool(note.get("pull", False)),
+                    "slide": bool(note.get("slide", False)),
+                    "bend": bool(note.get("bend", False)),
+                })
+
+            beat_time += dur_seconds
+
+        # Use the actual beat accumulation when possible.
+        measure_length = beat_time - measure_start
+
+        # Fallback for an empty/incomplete measure.
+        if measure_length <= 0:
+            measure_length = (sig_num * 4.0 / sig_den) * (60.0 / bpm)
+
+        measure_start += measure_length
+
+    return {
+        "name": data.get("name", ""),
+        "songId": data.get("songId"),
+        "revisionId": data.get("revisionId"),
+        "partId": data.get("partId"),
+        "instrument": data.get("instrument"),
+        "tuning": data.get("tuning") or [],
+        "strings": data.get("strings", 6),
+        "tempo": tempo_events,
+        "duration": round(measure_start, 6),
+        "notes": notes,
+    }
+
+@app.get("/api/tabs/proxy")
+async def tab_proxy(url: str):
+    """Proxy a Songsterr CDN JSON file to avoid CORS.
+
+    The 'url' should be the full CDN path to the .json file.
+    """
+    if not url.startswith("https://"):
+        return JSONResponse({"error": "Invalid URL."}, status_code=400)
+
+    # Basic safety: ensure it's actually from a known Songsterr CDN
+    # (Usually cloudfront or similar).
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(url, headers={"User-Agent": APP_UA})
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Proxy failed: {e}"}, status_code=500)
+
+@app.get("/api/tabs/track/{song_id}/{revision_id}/{part_id}")
+async def tab_track(song_id: int, revision_id: int, part_id: int):
+    """Fetch and normalize one Songsterr track."""
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            meta_response = await client.get(
+                f"https://www.songsterr.com/api/meta/{song_id}",
+                headers={"User-Agent": APP_UA},
+            )
+            meta_response.raise_for_status()
+            meta = meta_response.json()
+
+            image = meta.get("image")
+            if not image:
+                return JSONResponse(
+                    {"error": "Songsterr metadata does not contain an image hash."},
+                    status_code=502,
+                )
+
+            tracks = meta.get("tracks", [])
+
+            # Songsterr's CDN path uses the track's array index,
+            # while the metadata may expose a different partId.
+            track = None
+
+            if 0 <= part_id < len(tracks):
+                track = tracks[part_id]
+
+            if track is None:
+                track = next(
+                    (
+                        item for item in tracks
+                        if str(item.get("partId", "")) == str(part_id)
+                    ),
+                    None,
+                )
+
+            if track is None:
+                return JSONResponse(
+                    {"error": f"Track {part_id} was not found."},
+                    status_code=404,
+                )
+
+            cdns = [
+                "dqsljvtekg760",
+                "d34shlm8p2ums2",
+                "d3cqchs6g3b5ew",
+            ]
+
+            track_url = (
+                f"https://{cdns[0]}.cloudfront.net/"
+                f"{song_id}/{revision_id}/{image}/{part_id}.json"
+            )
+
+            track_response = await client.get(
+                track_url,
+                headers={"User-Agent": APP_UA},
+            )
+            track_response.raise_for_status()
+
+            import gzip
+
+            raw = track_response.content
+            if raw[:2] == b"\\x1f\\x8b":
+                raw = gzip.decompress(raw)
+
+            track_data = json.loads(raw.decode("utf-8"))
+
+            normalized = normalize_songsterr_track(track_data)
+            normalized["trackUrl"] = track_url
+            normalized["sourceTrack"] = track
+
+            return normalized
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"Track fetch failed: {e}"},
+            status_code=502,
+        )
 
 # ----------------------------------------------------------------- browse (Kaset-style enhanced)
 

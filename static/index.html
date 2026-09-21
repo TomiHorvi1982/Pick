@@ -2362,6 +2362,9 @@
           <div class="nm-scroll" id="nm-scroll">
             <div class="nm-canvas" id="nm-canvas">
               <div class="nm-ruler" id="mixer-ruler"></div>
+              <div class="nm-lane guitar-lane" id="mixer-tab-lane" hidden>
+                <canvas id="tab-canvas"></canvas>
+              </div>
               <div id="mixer-tracks"></div>
               <div class="nm-grid">
                 <div class="nm-loop" id="mixer-loop-region" hidden>
@@ -2398,7 +2401,15 @@
 
           <div class="nm-tgroup">
             <div class="row">
+              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
+            </div>
+            <span class="cap">LEARN</span>
+          </div>
+          <div class="nm-tgroup">
+            <div class="row">
               <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
+
               <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
               <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
             </div>
@@ -2612,6 +2623,23 @@
 
 </div><!-- /sp-shell -->
 
+<div class="overlay" id="tab-search-overlay" hidden>
+  <div class="panel" id="tab-search-panel">
+    <div class="panel-head">
+      <div class="pl-title">Hledat Tabulaturu</div>
+      <button class="close-btn" id="tab-search-close"><span data-icon="close" data-size="13"></span></button>
+    </div>
+    <div class="panel-body" style="padding:20px">
+      <div class="sp-searchbox" style="width:100%;margin-bottom:20px">
+        <span class="ic"><span data-icon="search" data-size="15"></span></span>
+        <input type="text" id="tab-search-input" placeholder="Název písně nebo interpret...">
+        <button class="btn" id="tab-search-btn" style="margin-left:10px">Hledat</button>
+      </div>
+      <div id="tab-search-results" class="fs-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
@@ -2745,6 +2773,7 @@
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
+
 // ======================================================================
 // Curated categories
 // ======================================================================
@@ -5074,7 +5103,242 @@ el("steems-hero-export").onclick = () => el("mixer-export").click();
 // clips, time ruler with beat grid, tempo detection, metronome, loop region,
 // save/load sessions, and stem export.
 // ======================================================================
+// ======================================================================
+// Songsterr Tab Integration
+// ======================================================================
+// Guitar Sampler (Virtual Guide)
+// ======================================================================
+const GuitarSampler = (() => {
+  const samples = {};
+  let loaded = false;
+
+  async function init() {
+    if(loaded) return;
+    const ctx = window.AudioContext ? new (window.AudioContext || window.webkitAudioContext)() : null;
+    if(!ctx) return;
+
+    // Load root notes for each string (fret 0)
+    for(let s = 0; s < 6; s++) {
+      try {
+        const res = await fetch(`/static/samples/guitar/s${s}_f0.wav`);
+        if(!res.ok) throw new Error("missing");
+        samples[s] = await ctx.decodeAudioData(await res.arrayBuffer());
+      } catch(e) {
+        console.warn(`Guitar sample s${s}_f0.wav missing, using fallback.`);
+      }
+    }
+    loaded = true;
+  }
+
+  function playNote(ctx, output, string, fret, time = 0) {
+    const buf = samples[string];
+    if(!buf) {
+      // Fallback: Basic sine wave if sample is missing
+      const freq = [82.41, 110.00, 146.83, 196.00, 246.94, 329.63][string] * Math.pow(2, fret / 12);
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, time);
+      env.gain.setValueAtTime(0.2, time);
+      env.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+      osc.connect(env);
+      env.connect(output);
+      osc.start(time);
+      osc.stop(time + 1.5);
+      return;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+    source.playbackRate.setValueAtTime(Math.pow(2, fret / 12), time);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.3, time);
+    env.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+
+    source.connect(env);
+    env.connect(output);
+    source.start(time);
+  }
+
+  return {
+    init,
+    playNote
+  };
+})();
+
+// ======================================================================
+const Songsterr = {
+
+  async search(q) {
+    const res = await fetch(`/api/tabs/search?q=${encodeURIComponent(q)}`);
+    if(!res.ok) throw new Error("Songsterr search failed");
+    return res.json();
+  },
+
+  async getMeta(songId) {
+    const res = await fetch(`/api/tabs/meta/${songId}`);
+    if(!res.ok) throw new Error("Songsterr metadata failed");
+    return res.json();
+  },
+
+  async getTrack(songId, revisionId, trackIndex) {
+    const res = await fetch(
+      `/api/tabs/track/${songId}/${revisionId}/${trackIndex}`
+    );
+    if(!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Songsterr track failed");
+    }
+    return res.json();
+  },
+
+  pickGuitarTrack(meta) {
+    const tracks = Array.isArray(meta.tracks) ? meta.tracks : [];
+
+    // Songsterr provides the preferred guitar track when available.
+    if(
+      Number.isInteger(meta.popularTrackGuitar) &&
+      meta.popularTrackGuitar >= 0 &&
+      meta.popularTrackGuitar < tracks.length
+    ) {
+      return meta.popularTrackGuitar;
+    }
+
+    // Otherwise find the first track whose instrument/name looks like guitar.
+    const guitarIndex = tracks.findIndex(track => {
+      const text = [
+        track.instrument,
+        track.name,
+        track.title,
+        track.type
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      return text.includes("guitar");
+    });
+
+    return guitarIndex >= 0 ? guitarIndex : null;
+  }
+
+};
+
+const TabSearch = (() => {
+
+  const overlay = el("tab-search-overlay");
+  const input = el("tab-search-input");
+  const btn = el("tab-search-btn");
+  const results = el("tab-search-results");
+
+  function show() {
+    overlay.hidden = false;
+    input.focus();
+  }
+
+  function hide() {
+    overlay.hidden = true;
+  }
+
+  async function runSearch() {
+    const q = input.value.trim();
+    if(!q) return;
+
+    results.innerHTML =
+      `<div class="empty" style="padding:20px">Hledám...</div>`;
+
+    try {
+      const data = await Songsterr.search(q);
+      renderResults(data.tabs || []);
+    } catch(e) {
+      console.error("Songsterr search:", e);
+      results.innerHTML =
+        `<div class="empty" style="padding:20px">Chyba při hledání.</div>`;
+    }
+  }
+
+  function renderResults(tabs) {
+    results.innerHTML = "";
+
+    if(!tabs.length) {
+      results.innerHTML =
+        `<div class="empty" style="padding:20px">Žádné taby nenalezeny.</div>`;
+      return;
+    }
+
+    tabs.forEach(tab => {
+      const row = document.createElement("div");
+      row.className = "fs-row";
+
+      row.innerHTML = `
+        <span class="fs-icon" data-icon="music" data-size="16"></span>
+        <div class="fs-name">
+          <div style="font-weight:700;color:var(--text)">
+            ${escapeHtml(tab.title)}
+          </div>
+          <div style="font-size:12px;color:var(--sub)">
+            ${escapeHtml(tab.artist)}
+          </div>
+        </div>
+        <span class="fs-size">${tab.difficulty || "N/A"}</span>
+      `;
+
+      row.onclick = () => loadTab(tab.songId);
+      results.appendChild(row);
+    });
+  }
+
+  async function loadTab(songId) {
+    try {
+      const meta = await Songsterr.getMeta(songId);
+
+      const trackIndex = Songsterr.pickGuitarTrack(meta);
+
+      if(trackIndex === null) {
+        throw new Error("V této skladbě nebyla nalezena kytarová stopa.");
+      }
+
+      const trackData = await Songsterr.getTrack(
+        songId,
+        meta.revisionId,
+        trackIndex
+      );
+
+      hide();
+
+      if(Mixer && Mixer.loadTab) {
+        Mixer.loadTab(trackData);
+      } else {
+        showToast("Tab načten, ale Mixer není připraven.");
+      }
+
+    } catch(e) {
+      console.error("Songsterr tab:", e);
+      showToast(
+        e.message || "Chyba při načítání tabulatury."
+      );
+    }
+  }
+
+  btn.onclick = runSearch;
+
+  input.onkeydown = (e) => {
+    if(e.key === "Enter") runSearch();
+  };
+
+  el("tab-search-close").onclick = hide;
+
+  return { show, hide };
+})();
+
+// ======================================================================
 const Mixer = (() => {
+  let stretchNodeFactory = null;
+
+  async function initStretch() {
+    if (stretchNodeFactory) return;
+    const module = await import('./stretch/SignalsmithStretch.mjs');
+    stretchNodeFactory = module.default;
+  }
+
   let audioCtx = null;
   let channels = [];   // [{stem, buffer, gainNode, analyser, panner, muted, solo, faderValue, source, vuFill, pitchRate, panValue, clipOffset}]
   let duration = 0;
@@ -5138,6 +5402,9 @@ const Mixer = (() => {
   let dragStartOffset = 0;
   let sessionId = null;
   let currentSongName = null;
+  let currentTab = null; // {track: JSON, laune: Canvas, ...}
+  let tabNoteIdx = 0;
+  let guideEnabled = false;
 
   // The page hero has its own play button; keep its glyph with the mixer's.
   // The hero's play button and the mixer's share the player bar's solid
@@ -5159,7 +5426,12 @@ const Mixer = (() => {
   }
 
   function stopAllSources(){
-    channels.forEach(c => { if(c.source){ try{ c.source.stop(); }catch(e){} c.source = null; } });
+    channels.forEach(c => {
+      if(c.source){
+        try{ c.source.stop(); }catch(e){}
+        c.source = null;
+      }
+    });
   }
 
   // ---- Tempo detection via autocorrelation on downsampled peaks ----
@@ -5422,12 +5694,24 @@ const Mixer = (() => {
     }
   }
 
+  async function renderPitchedBuffer(c, semitones){
+    await initStretch();
+    const sampleRate = ctx().sampleRate;
+    const offlineCtx = new OfflineAudioContext(2, c.buffer.length, sampleRate);
+    const stretchNode = await stretchNodeFactory(offlineCtx, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+    await stretchNode.addBuffers([c.buffer]);
+    stretchNode.setTransposeSemitones(semitones, 8000);
+    stretchNode.connect(offlineCtx.destination);
+    stretchNode.start(0, 0, c.buffer.duration, 1, semitones);
+    return await offlineCtx.startRendering();
+  }
+
   function scheduleAll(offset){
     const when = ctx().currentTime + 0.05;
     channels.forEach(c => {
       const source = ctx().createBufferSource();
-      source.buffer = c.buffer;
-      source.playbackRate.value = c.pitchRate || 1;
+      source.buffer = c.pitchedBuffer || c.buffer;
+      source.playbackRate.value = 1;
       // Signal path is source -> gain -> analyser -> panner -> destination.
       // Connecting the source straight to the panner as well (as this used to)
       // bypassed the gain node entirely: faders, mute and solo were inaudible
@@ -5471,6 +5755,17 @@ const Mixer = (() => {
     } else {
       pausedAt = t;
     }
+    tabNoteIdx = 0;
+    // Binary search for the first note after t
+    if(currentTab && currentTab.notes){
+      let lo = 0, hi = currentTab.notes.length;
+      while(lo < hi){
+        let mid = (lo + hi) >>> 1;
+        if(currentTab.notes[mid].time < t) lo = mid + 1;
+        else hi = mid;
+      }
+      tabNoteIdx = lo;
+    }
     updateSeekUI(t);
     updateRulerPlayhead(t);
     var allMuted = channels.every(c => c.muted || c.faderValue < 0.01);
@@ -5482,6 +5777,15 @@ const Mixer = (() => {
 
   function currentTime(){
     return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
+  }
+
+  function loadTab(data){
+    currentTab = data;
+    tabNoteIdx = 0;
+    const lane = el("mixer-tab-lane");
+    if(lane) lane.hidden = false;
+    renderTimeline();
+    showToast("Tabulatura načtena — hledejte v mixeru");
   }
 
   function updateSeekUI(t){
@@ -5622,7 +5926,7 @@ const Mixer = (() => {
     g.stroke();
   }
 
-  // Grid lines at the tracker's own beat and downbeat times.
+  // Grid lines from detected beat/downbeat timing.
   function paintDetectedGrid(g, w, h){
     const spacing = (downbeatTimes.length > 1
       ? (downbeatTimes[1] - downbeatTimes[0]) : 2) * pixelsPerSecond;
@@ -5641,7 +5945,8 @@ const Mixer = (() => {
         const x = t * pixelsPerSecond;
         if(x > w) return;
         const px = Math.floor(x) + 0.5;
-        g.moveTo(px, 0); g.lineTo(px, h);
+        g.moveTo(px, 0);
+        g.lineTo(px, h);
         drew = true;
       });
       if(drew) g.stroke();
@@ -5655,6 +5960,105 @@ const Mixer = (() => {
 
     strokeLines(downbeatTimes, (t, i) => !(i % step) && measured(t), "rgba(200,121,31,.5)");
     strokeLines(downbeatTimes, (t, i) => !(i % step) && !measured(t), "rgba(200,121,31,.22)");
+  }
+
+  // Grid lines at the tracker's own beat and downbeat times.
+  function renderTabLane(rail, lanes, totalPx){
+    const lane = el("mixer-tab-lane");
+    if(!lane || !currentTab) return;
+
+    const cv = el("tab-canvas");
+    if(!cv) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const tabH = 132;
+    const cssW = Math.min(totalPx, 16000);
+
+    cv.width = Math.floor(cssW * dpr);
+    cv.height = Math.floor(tabH * dpr);
+    cv.style.width = totalPx + "px";
+    cv.style.height = tabH + "px";
+
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, cssW, tabH);
+
+    const notes = currentTab.notes || [];
+
+    // Six guitar strings, high E at the top and low E at the bottom.
+    const stringCount = 6;
+    const top = 18;
+    const bottom = 112;
+    const stringH = (bottom - top) / (stringCount - 1);
+
+    // Background.
+    g.fillStyle = "rgba(0,0,0,.18)";
+    g.fillRect(0, 0, cssW, tabH);
+
+    // Tab staff.
+    g.strokeStyle = "rgba(255,255,255,.24)";
+    g.lineWidth = 1;
+
+    for(let stringIndex = 0; stringIndex < stringCount; stringIndex++){
+      const y = top + stringIndex * stringH;
+
+      g.beginPath();
+      g.moveTo(0, Math.floor(y) + 0.5);
+      g.lineTo(cssW, Math.floor(y) + 0.5);
+      g.stroke();
+    }
+
+    // String labels.
+    const labels = ["e", "B", "G", "D", "A", "E"];
+
+    g.font = "10px sans-serif";
+    g.textAlign = "right";
+    g.textBaseline = "middle";
+
+    labels.forEach((label, index) => {
+      const y = top + index * stringH;
+      g.fillStyle = "rgba(255,255,255,.55)";
+      g.fillText(label, 15, y);
+    });
+
+    // Notes.
+    notes.forEach(n => {
+      const stringIndex = Number(n.string);
+      if(!Number.isInteger(stringIndex)) return;
+      if(stringIndex < 0 || stringIndex >= stringCount) return;
+
+      const x = n.time * pixelsPerSecond;
+      if(x < -20 || x > cssW + 20) return;
+
+      const y = top + stringIndex * stringH;
+      const duration = Math.max(0.05, Number(n.duration) || 0.05);
+      const noteW = Math.max(16, duration * pixelsPerSecond);
+
+      // Yellow note highlight.
+      g.fillStyle = "rgba(233,185,73,.88)";
+      g.fillRect(
+        Math.floor(x),
+        Math.floor(y - 8),
+        Math.max(16, Math.floor(noteW)),
+        16
+      );
+
+      // Fret number.
+      g.fillStyle = "#111";
+      g.font = "bold 11px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+
+      g.fillText(
+        String(n.fret),
+        x + Math.min(noteW / 2, 12),
+        y
+      );
+    });
+
+    // Restore default text alignment.
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -6386,6 +6790,7 @@ const Mixer = (() => {
       // The guitar first — it is the one channel you are playing rather than
       // listening to — then the map of the song, the click, and the audio.
       renderGuitarLane(rail, lanes, totalPx);
+      renderTabLane(rail, lanes, totalPx);
       renderSectionsLane(rail, lanes, totalPx);
       renderChordsLane(rail, lanes, totalPx);
       renderTempoLane(rail, lanes, totalPx);
@@ -6714,9 +7119,36 @@ const Mixer = (() => {
       t = loopStart;
       stopAllSources();
       scheduleAll(t);
+      tabNoteIdx = 0; // reset notes on loop
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
+
+    // Virtual Guitar Guide
+    if(guideEnabled && currentTab && currentTab.notes){
+      const audioNow = ctx().currentTime;
+      const scheduleAhead = 0.015;
+
+      while(
+        tabNoteIdx < currentTab.notes.length &&
+        currentTab.notes[tabNoteIdx].time <= t
+      ){
+        const n = currentTab.notes[tabNoteIdx];
+        const noteTime = startedAt + n.time;
+
+        GuitarSampler.playNote(
+          ctx(),
+          Guitar.getVirtualSource(),
+          n.string,
+          n.fret,
+          Math.max(audioNow + scheduleAhead, noteTime),
+          currentTab.tuning
+        );
+
+        tabNoteIdx++;
+      }
+    }
+
     channels.forEach(c => {
       const data = new Uint8Array(c.analyser.frequencyBinCount);
       c.analyser.getByteFrequencyData(data);
@@ -6777,6 +7209,8 @@ const Mixer = (() => {
     pausedAt = 0;
     duration = 0;
     tempoBPM = null;
+    tabNoteIdx = 0;
+    currentTab = null;
     el("mixer").hidden = false;
     el("mixer").className = "fl-mixer";
     setMixerPlayGlyph(false);
@@ -6843,8 +7277,9 @@ const Mixer = (() => {
         pitchRate: savedCh ? savedCh.pitchRate : 1,
         panValue: savedCh ? savedCh.panValue : 0,
         clipOffset: savedCh ? savedCh.clipOffset : 0,
-        source: null, vuFill: null,
+        source: null, vuFill: null, pitchedBuffer: null,
       });
+
       duration = Math.max(duration, audioBuf.duration);
     }
     if(myToken !== loadToken) return;
@@ -7419,6 +7854,12 @@ const Mixer = (() => {
 
   // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
+  el("mixer-tab-search").onclick = () => TabSearch.show();
+  el("mixer-guide-toggle").onclick = (e) => {
+    guideEnabled = !guideEnabled;
+    e.currentTarget.classList.toggle("active", guideEnabled);
+    showToast(guideEnabled ? "Virtuální kytara zapnuta" : "Virtuální kytara vypnuta");
+  };
   // Overview strip: click to jump, drag to scrub.
   (() => {
     const wrap = el("nm-ov-wrap");
@@ -7725,6 +8166,7 @@ const Mixer = (() => {
     let pannerNode = null;
     let analyser = null;
     let workletsLoaded = false;
+    let virtualSource = null; // GainNode for the virtual guitar guide
     let recording = false;
     let recordStartedAt = 0;
 
@@ -7745,6 +8187,35 @@ const Mixer = (() => {
       workletsLoaded = true;
     }
 
+    function ensureVirtualSource(){
+      const audioCtx = ctxRef();
+
+      if(!virtualSource){
+        virtualSource = audioCtx.createGain();
+        virtualSource.gain.value = 0.7;
+      }
+
+      // The virtual guide must have its own monitor chain even when
+      // no physical guitar input is connected.
+      if(!gainNode){
+        gainNode = audioCtx.createGain();
+      }
+
+      if(!pannerNode){
+        pannerNode = audioCtx.createStereoPanner();
+      }
+
+      if(!analyser){
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+      }
+
+      rewire();
+      applyGuitarGain();
+
+      return virtualSource;
+    }
+
     async function devices(){
       // Labels are empty until permission has been given once, which is why
       // the picker asks for the microphone before it can list anything useful.
@@ -7757,6 +8228,9 @@ const Mixer = (() => {
       await ensureWorklets();
       const audioCtx = ctxRef();
       if(audioCtx.state === "suspended") await audioCtx.resume();
+
+      // Virtual guitar guide input
+      ensureVirtualSource();
 
       // Every one of these is off on purpose. Echo cancellation and noise
       // suppression are built for speech: they duck, they gate, and they
@@ -7811,15 +8285,27 @@ const Mixer = (() => {
     // it is five nodes, and a rebuild can't leave a stale connection behind.
     function rewire(){
       const audioCtx = ctxRef();
-      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
-      let node = source;
-      node.connect(gateNode); node = gateNode;
-      if(ampNode){ node.connect(ampNode); node = ampNode; }
-      if(cabNode){ node.connect(cabNode); node = cabNode; }
-      node.connect(recNode); node = recNode;
-      node.connect(gainNode);
+      // Live input chain
+      if(source){
+        let node = source;
+        node.connect(gateNode); node = gateNode;
+        if(ampNode){ node.connect(ampNode); node = ampNode; }
+        if(cabNode){ node.connect(cabNode); node = cabNode; }
+        node.connect(recNode); node = recNode;
+        node.connect(gainNode);
+      }
+
+      // Virtual guide chain
+      if(virtualSource){
+        let node = virtualSource;
+        if(ampNode){ node.connect(ampNode); node = ampNode; }
+        if(cabNode){ node.connect(cabNode); node = cabNode; }
+        node.connect(gainNode);
+      }
+
       gainNode.connect(analyser);
       analyser.connect(pannerNode);
       pannerNode.connect(audioCtx.destination);
@@ -7841,8 +8327,28 @@ const Mixer = (() => {
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
       if(gateNode) gateNode.port.postMessage("stop");
       if(stream) stream.getTracks().forEach(t => t.stop());
-      stream = source = gateNode = ampNode = cabNode = recNode = null;
-      gainNode = pannerNode = analyser = null;
+      stream = source = gateNode = recNode = null;
+
+      // Keep NAM and cabinet alive for the virtual guitar guide.
+      // They are shared by the live guitar and the guide.
+      if(virtualSource){
+        try{ virtualSource.disconnect(); }catch(e){}
+      }
+
+      if(gainNode){
+        try{ gainNode.disconnect(); }catch(e){}
+      }
+
+      if(pannerNode){
+        try{ pannerNode.disconnect(); }catch(e){}
+      }
+
+      if(analyser){
+        try{ analyser.disconnect(); }catch(e){}
+      }
+
+      rewire();
+
       state.live = false;
       state.peak = 0;
       renderGuitarStrip();
@@ -7939,6 +8445,7 @@ const Mixer = (() => {
       setAmp(node, name){ ampNode = node; state.ampName = name; if(state.live) rewire(); },
       setCab(node, name){ cabNode = node; state.cabName = name; if(state.live) rewire(); },
       analyserNode: () => analyser,
+      getVirtualSource: () => ensureVirtualSource(),
     };
   })();
 
@@ -8166,7 +8673,7 @@ const Mixer = (() => {
     function unloadCab(){ Guitar.setCab(null, null); }
 
     return {load, unload, loadCab, unloadCab, isLoading: () => loading,
-            hasEngine: () => !!engine};
+            hasEngine: () => !!engine, loadTab};
   })();
 
   // ---- picking one ----
@@ -8299,7 +8806,7 @@ const Mixer = (() => {
   }
 
   return {
-    load, saveSession, loadSession, play, pause,
+    load, saveSession, loadSession, play, pause, loadTab,
     // The live input channel, so the page (and the tests) can reach it.
     guitar: Guitar,
     // The remote control needs to know whether the mixer is the thing
@@ -10675,6 +11182,7 @@ const RemoteAgent = (() => {
 
   return {push, isOwner};
 })();
+
 
 </script>
 </body>
