@@ -1020,19 +1020,13 @@
      reach at any width. */
   .lib-chips{display:flex;flex-wrap:wrap;gap:6px 8px;padding:4px 16px 8px;flex:0 0 auto}
   .lib-chips::-webkit-scrollbar{display:none}
-  body.lib-collapsed .lib-chips,body.lib-collapsed .lib-tools{display:none}
+  body.lib-collapsed .lib-chips{display:none}
   .lib-chips button{background:var(--card-hi);border:none;border-radius:500px;
     color:var(--text);font-size:13px;padding:6px 12px;cursor:pointer;font-family:inherit;
     white-space:nowrap;transition:background .15s}
   .lib-chips button:hover{background:#3e3e3e}
   .lib-chips button.active{background:#fff;color:#000}
 
-  .lib-tools{display:flex;align-items:center;justify-content:space-between;
-    padding:0 16px 4px;flex:0 0 auto}
-  .lib-tools button{background:none;border:none;color:var(--sub);font-size:13px;
-    cursor:pointer;font-family:inherit;padding:6px;display:flex;align-items:center;
-    gap:6px;transition:color .15s}
-  .lib-tools button:hover{color:#fff}
 
   .lib-list{flex:1;overflow-y:auto;padding:0 8px 8px;min-height:0}
   .lib-row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
@@ -1051,16 +1045,21 @@
   .lib-row.active .lib-name,.lib-row.playing .lib-name{color:var(--accent)}
   .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
-  .lib-empty{padding:20px 12px;color:var(--sub);font-size:13px;line-height:1.6}
+  .lib-empty{padding:8px 12px 14px;color:var(--sub);font-size:13px;line-height:1.5}
+  .lib-sec{display:flex;align-items:baseline;gap:8px;padding:14px 8px 6px;
+    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
+  .lib-sec .n{font-weight:500;letter-spacing:0}
+  .lib-sec button{margin-left:auto;background:none;border:none;color:var(--sub);font:inherit;
+    text-transform:none;letter-spacing:0;cursor:pointer}
+  .lib-sec button:hover{color:#fff}
+  .lib-art .ic-svg{display:block}
+  .lib-sec,.lib-empty{grid-column:1/-1}
 
   /* The rail re-lays itself out as it is dragged wider or narrower. */
   @container libr (max-width: 250px){
     .lib-head{padding:14px 8px 6px 12px}
     .lib-chips{padding:4px 10px 6px;gap:5px}
     .lib-chips button{font-size:12px;padding:5px 10px}
-    .lib-tools{padding:0 10px 2px}
-    #lib-sort-btn{font-size:0}
-    #lib-sort-btn .ic-svg{font-size:13px}
     .lib-list{padding:0 4px 8px}
     .lib-row{gap:9px;padding:6px}
     .lib-art{width:38px;height:38px;flex-basis:38px}
@@ -1206,7 +1205,7 @@
   }
   @media(max-width:860px){
     :root{--sp-lib:72px}
-    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-tools,.lib-meta{display:none}
+    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-meta{display:none}
     .sp-hero{padding:16px;min-height:auto;flex-direction:column;align-items:flex-start}
     .sp-hero-art{width:120px;height:120px;flex-basis:120px}
     .sp-actions{padding:16px}
@@ -1322,8 +1321,6 @@
   .lib-create{padding:7px 12px;font-size:12.5px}
   .lib-chips{padding:4px 12px 8px 16px}
   .lib-chips button{font-size:12.5px;padding:6px 11px}
-  .lib-tools{padding:0 16px 6px}
-  .lib-tools button{font-size:12.5px}
   .lib-name{font-size:14.5px}
   .lib-sub{font-size:12.5px}
 
@@ -2207,11 +2204,6 @@
     <button data-mode="podcasts">Podcasty</button>
   </div>
 
-  <div class="lib-tools">
-    <button id="lib-filter-btn" title="Filtrovat v knihovně"><span data-icon="search" data-size="15"></span></button>
-    <button id="lib-sort-btn" title="Řazení">Nedávné <span data-icon="sliders" data-size="13"></span></button>
-  </div>
-
   <div class="lib-list sp-scroll" id="lib-list"></div>
   <div class="lib-resize" id="lib-resize" title="Táhnutím změníš šířku"></div>
 </nav>
@@ -2338,14 +2330,6 @@
     <div class="region-toggle" id="region-toggle">
       <button data-region="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční playlisty</button>
       <button data-region="cz"><span data-icon="flag" data-size="15"></span>České playlisty</button>
-    </div>
-
-    <div class="shelf" id="fav-playlists-section" hidden>
-      <div class="shelf-head">
-        <h2 class="h">Oblíbené playlisty</h2>
-        <button class="all" id="fav-playlists-all">Zobrazit vše</button>
-      </div>
-      <div class="shelf-row" id="fav-playlists-grid"></div>
     </div>
 
     <div class="shelf" id="fav-artists-section" hidden>
@@ -3923,8 +3907,6 @@ function toggleShelf(sectionId, gridId, btnId){
   grid.classList.toggle("shelf-row", !expanded);
   el(btnId).textContent = expanded ? "Zobrazit méně" : "Zobrazit vše";
 }
-el("fav-playlists-all").onclick = () =>
-  toggleShelf("fav-playlists-section", "fav-playlists-grid", "fav-playlists-all");
 el("fav-artists-all").onclick = () =>
   toggleShelf("fav-artists-section", "fav-artists-grid", "fav-artists-all");
 
@@ -3955,33 +3937,11 @@ function renderFavArtists(){
   });
 }
 
+// Favourite playlists are listed in the library rail only (see
+// renderHomeRail); the stage keeps just the saved artists.
 function renderFavPlaylists(){
   renderFavArtists();
-  const section = el("fav-playlists-section");
-  const list = loadFavPlaylists();
-  const shouldShow = list.length > 0 && state.mode === "playlists";
-  section.hidden = !shouldShow;
-  if(!shouldShow) return;
-  const grid = el("fav-playlists-grid");
-  grid.innerHTML = "";
-  list.forEach(p=>{
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="card-fabs"><div class="fab-btn" title="Odebrat z oblíbených">${icon("close", 12)}</div></div>
-      <div class="art" style="${p.thumbnail?`background-image:url('${thumbUrl(p.thumbnail)}')`:''}">${p.thumbnail?'':icon("note", 22)}</div>
-      <div class="meta">
-        <div class="title">${escapeHtml(p.title||'')}</div>
-        <div class="sub">${escapeHtml(p.author||'')}</div>
-      </div>`;
-    card.querySelector(".fab-btn").onclick = (e) => {
-      e.stopPropagation();
-      toggleFavPlaylist(p);
-      showToast("Odebráno z oblíbených");
-    };
-    card.onclick = () => openPlaylist(p.browseId);
-    grid.appendChild(card);
-  });
+  refreshHomeRail();
 }
 
 // ======================================================================
@@ -4926,15 +4886,55 @@ function renderLibraryRail(mode){
     return;
   }
 
-  // playlists / songs — whatever the user has saved
+  renderHomeRail(list);
+}
+
+// What the rail shows in the playlist / artist sections: the same three lists
+// the player's buttons open — queue, history — and the favourites.
+function refreshHomeRail(){
+  if(state.mode === "playlists" || state.mode === "songs") renderLibraryRail(state.mode);
+}
+
+function railSection(list, title, count, action){
+  const head = document.createElement("div");
+  head.className = "lib-sec";
+  head.innerHTML = `<span>${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
+  if(action){
+    const a = document.createElement("button");
+    a.type = "button";
+    a.textContent = action.label;
+    a.onclick = action.onClick;
+    head.appendChild(a);
+  }
+  list.appendChild(head);
+}
+
+function renderHomeRail(list){
+  let queue = [], history = [];
+  try{ queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){}
+  try{ history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){}
+
+  const trackRow = (t, onClick) => libRow({
+    art: t.thumbnail || icon("note", 18), artIsUrl: !!t.thumbnail,
+    name: t.title || "", sub: t.artists || "", onClick,
+  });
+
+  railSection(list, "Fronta", queue.length);
+  if(!queue.length) list.appendChild(libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat."));
+  queue.forEach(t => list.appendChild(trackRow(t, () => Player.play(t))));
+
+  railSection(list, "Historie", history.length);
+  if(!history.length) list.appendChild(libEmpty("Zatím jsi nic nepustil/a."));
+  history.forEach(t => list.appendChild(trackRow(t,
+    () => t.source === "local" ? Player.playLocal(t) : Player.play(t))));
+
   const lib = loadMyLibrary();
   const saved = []
     .concat((loadFavPlaylists() || []).map(i => ({...i, kind: "playlist"})))
     .concat((lib.playlists || []).map(i => ({...i, kind: "playlist"})))
     .concat((lib.albums || []).map(i => ({...i, kind: "album"})))
     .concat((lib.artists || []).map(i => ({...i, kind: "artist"})));
-
-  // Same playlist can sit in both favourites and the library store.
+  // The same playlist can sit in both the favourites and the library store.
   const seen = new Set();
   const unique = saved.filter(i => {
     const k = (i.kind || "") + ":" + (i.id || i.browseId || i.title);
@@ -4942,21 +4942,22 @@ function renderLibraryRail(mode){
     seen.add(k); return true;
   });
 
-  if(!unique.length){
-    list.appendChild(libEmpty("Knihovna je prázdná. Ulož si playlist nebo interpreta srdíčkem z detailu."));
-    return;
-  }
+  railSection(list, "Oblíbené", unique.length);
+  if(!unique.length) list.appendChild(libEmpty("Nic tu zatím není. Ulož si playlist nebo interpreta hvězdičkou z detailu."));
   unique.forEach(item => {
     const kindLabel = item.kind === "playlist" ? "Playlist" : item.kind === "album" ? "Album" : "Umělec";
     list.appendChild(libRow({
-      art: item.thumbnail || (item.kind === "artist" ? "\uD83C\uDFA4" : "\uD83C\uDFB5"),
+      art: item.thumbnail || icon(item.kind === "artist" ? "mic" : "note", 18),
       artIsUrl: !!item.thumbnail,
       round: item.kind === "artist",
       name: item.title || item.name || "",
       sub: kindLabel + (item.author ? " • " + item.author : ""),
       onClick: () => {
         const id = item.browseId || item.id;
-        if(item.kind === "playlist" && id) openPlaylist(id);
+        if(item.kind === "artist"){
+          setMode("songs");
+          Bands.open({name: item.title || item.name, browseId: item.browseId || item.channelId});
+        } else if(id) openPlaylist(id);
       },
     }));
   });
@@ -9838,6 +9839,7 @@ function removeFromQueue(key){
 }
 function renderQueueBadge(){
   el("pb-queue-count").textContent = loadQueue().length;
+  refreshHomeRail();
 }
 function renderQueueDrawer(){
   const queue = loadQueue();
@@ -10127,6 +10129,7 @@ const Player = (() => {
 
   function renderHistory(){
     const list = loadHistory();
+    refreshHomeRail();
     const box = el("history-list");
     if(!list.length){
       box.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím jsi nic nepustil/a.</div>`;
