@@ -23,6 +23,7 @@ from typing import List, Optional
 from urllib.parse import quote, unquote
 
 import httpx
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -66,7 +67,7 @@ import re as _re_mod
 _re_worklet = _re_mod.compile(r"[a-z0-9_-]+\.js")
 # take-1, take-2, … and nothing else that could walk out of the folder.
 _re_take = _re_mod.compile(r"take-\d{1,4}")
-_re_nam_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|wasm)")
+_re_nam_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|mjs|wasm)")
 
 app = FastAPI(title="spotdl GUI")
 
@@ -128,6 +129,19 @@ def _fmt_dur(total_seconds: int) -> str:
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (APP_DIR / "static" / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/stretch/{name}")
+def stretch_asset(name: str):
+    """The vendored Signalsmith Stretch module — one file, wasm included."""
+    if not _re_nam_asset.fullmatch(name):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "stretch" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(path.read_bytes(), media_type="text/javascript",
+                    headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/static/nam/{name}")
@@ -468,6 +482,289 @@ def search_artists(q: str, offset: int = 0, limit: int = 15):
     return {"artists": out, "hasMore": offset + limit < len(cached["items"])}
 
 
+# ------------------------------------------- bands & artists, by criterion
+#
+# One YouTube Music artist search only ever returns a couple of dozen names,
+# and a narrow query ("české death metal kapely") far fewer. To keep a shelf
+# scrollable, a criterion is asked in several phrasings, one after another as
+# the reader scrolls; each phrasing's hits are appended, duplicates dropped.
+# YT Music ranks by its own popularity, so within a phrasing the order is
+# already most-famous-first.
+_BROWSE_ARTISTS_CACHE: dict = {}
+_BROWSE_TTL = 3600
+# YT Music files playlists-as-channels ("90s Hits", "DJ Party Mix") under artists.
+_NOT_AN_ARTIST = _re_mod.compile(
+    r"\b(hits|mix|playlist|party|radio|music for|compilation|top \d+|best of|"
+    r"greatest|karaoke|instrumental versions?)\b", _re_mod.I)
+_BROWSE_INTL = ["{q}", "{q} bands", "best {q} artists", "{q} singers",
+                "{q} legends", "new {q} artists", "underground {q}"]
+_BROWSE_CZ = ["české {q} kapely", "česká {q} hudba interpreti", "czech {q} band",
+              "čeští {q} zpěváci", "{q} czech artists", "české {q} legendy",
+              "slovenské {q} kapely"]
+
+
+@app.get("/api/artists/browse")
+def browse_artists(q: str, region: str = "intl", offset: int = 0, limit: int = 15,
+                   cap: int = 0):
+    """Artists matching a decade / genre / mood, for the horizontal shelves.
+
+    `cap` limits the whole list (the "Top 20" shelf ends at twenty).
+    """
+    q = q.strip()
+    if not q:
+        return JSONResponse({"error": "Chybí kritérium."}, status_code=400)
+    region = "cz" if region == "cz" else "intl"
+    key = f"{region}|{q.lower()}"
+    now = time.time()
+    st = _BROWSE_ARTISTS_CACHE.get(key)
+    if not st or now - st["ts"] > _BROWSE_TTL:
+        st = {"ts": now, "items": [], "seen": set(), "variant": 0}
+        if len(_BROWSE_ARTISTS_CACHE) > 300:
+            _BROWSE_ARTISTS_CACHE.clear()
+        _BROWSE_ARTISTS_CACHE[key] = st
+
+    variants = _BROWSE_CZ if region == "cz" else _BROWSE_INTL
+    need = offset + limit
+    if cap:
+        need = min(need, cap)
+    # Keep asking new phrasings until the page is full or they run out.
+    while len(st["items"]) < need and st["variant"] < len(variants):
+        phrase = variants[st["variant"]].format(q=q)
+        st["variant"] += 1
+        try:
+            hits = yt().search(phrase, filter="artists", limit=30)
+        except Exception:
+            continue
+        for a in hits:
+            bid = a.get("browseId")
+            if not bid or bid in st["seen"] or _NOT_AN_ARTIST.search(a.get("artist") or ""):
+                continue
+            st["seen"].add(bid)
+            st["items"].append({"name": a.get("artist"), "browseId": bid,
+                                "image": _best_thumb(a.get("thumbnails"))})
+
+    items = st["items"][:cap] if cap else st["items"]
+    page = items[offset: offset + limit]
+    more = offset + limit < len(items) or (
+        st["variant"] < len(variants) and not (cap and len(items) >= cap))
+    return {"artists": page, "hasMore": more}
+
+
+# ------------------------------------------------------- music charts → artists
+#
+# Charts are lists of songs or albums; the Top shelves want the artists behind
+# them, in chart order. Each source is scraped or fetched keylessly, reduced to
+# artist names, and the names of one page at a time are looked up on YouTube
+# Music (for a picture and a channel id) so a shelf costs ~15 searches, not 100.
+#
+# Not here, because they have no keyless public feed: Spotify charts, Shazam,
+# IFPI Global charts, Beatport (403 to scripts), and the magazine lists.
+# A full browser UA gets a 403 from officialcharts.com; the short one is let in.
+_CHART_UA = "Mozilla/5.0 Chrome/124"
+
+_BB = "https://www.billboard.com/charts/"
+_UK = "https://www.officialcharts.com/charts/"
+_APPLE = "https://rss.applemarketingtools.com/api/v2/{cc}/music/most-played/100/{kind}.json"
+
+# (id, label, group, source, arg)
+_CHARTS_INTL = [
+    ("bb-hot100", "Billboard Hot 100 (USA, singly)", "Billboard", "billboard", "hot-100"),
+    ("bb-200", "Billboard 200 (USA, alba)", "Billboard", "billboard", "billboard-200"),
+    ("bb-rock", "Billboard Rock & Alternative", "Rock / Metal", "billboard", "hot-rock-songs"),
+    ("bb-hardrock", "Billboard Hard Rock", "Rock / Metal", "billboard", "hot-hard-rock-songs"),
+    ("bb-hardrock-alb", "Billboard Hard Rock Albums", "Rock / Metal", "billboard", "hard-rock-albums"),
+    ("bb-rock-alb", "Billboard Rock Albums", "Rock / Metal", "billboard", "rock-albums"),
+    ("uk-rockmetal-alb", "Official UK Rock & Metal Albums", "Rock / Metal", "uk", "rock-and-metal-albums-chart"),
+    ("uk-rockmetal", "Official UK Rock & Metal Singles", "Rock / Metal", "uk", "rock-and-metal-singles-chart"),
+    ("bb-dance", "Billboard Dance / Electronic", "Elektronika", "billboard", "hot-dance-electronic-songs"),
+    ("uk-dance", "Official UK Dance", "Elektronika", "uk", "dance-singles-chart"),
+    ("bb-rap", "Billboard Hot Rap Songs", "Hip-hop / Rap", "billboard", "hot-rap-songs"),
+    ("bb-rap-alb", "Billboard Rap Albums", "Hip-hop / Rap", "billboard", "rap-albums"),
+    ("uk-hiphop", "Official UK Hip Hop / R&B", "Hip-hop / Rap", "uk", "hip-hop-and-r-and-b-singles-chart"),
+    ("bb-country", "Billboard Hot Country Songs", "Country", "billboard", "hot-country-songs"),
+    ("bb-country-alb", "Billboard Country Albums", "Country", "billboard", "country-albums"),
+    ("uk-singles", "UK Official Singles Chart", "Británie", "uk", "singles-chart"),
+    ("uk-albums", "UK Official Albums Chart", "Británie", "uk", "albums-chart"),
+    ("yt-ZZ", "YouTube Music — svět", "YouTube Music", "ytartists", "ZZ"),
+]
+for _cc, _nm in [("US", "USA"), ("GB", "Velká Británie"), ("DE", "Německo"), ("FR", "Francie"),
+                 ("ES", "Španělsko"), ("IT", "Itálie"), ("PL", "Polsko"), ("SE", "Švédsko"),
+                 ("CA", "Kanada"), ("AU", "Austrálie"), ("BR", "Brazílie"), ("MX", "Mexiko"),
+                 ("IN", "Indie"), ("JP", "Japonsko"), ("KR", "Jižní Korea")]:
+    _CHARTS_INTL.append((f"yt-{_cc}", f"YouTube Music — {_nm}", "YouTube Music", "ytartists", _cc))
+for _cc, _nm in [("us", "USA"), ("gb", "Velká Británie"), ("de", "Německo"), ("fr", "Francie"),
+                 ("jp", "Japonsko"), ("kr", "Jižní Korea"), ("br", "Brazílie"), ("mx", "Mexiko"),
+                 ("in", "Indie"), ("au", "Austrálie")]:
+    _CHARTS_INTL.append((f"am-{_cc}", f"Apple Music Top 100 — {_nm}", "Apple Music", "apple", (_cc, "songs")))
+_CHARTS_INTL.append(("am-us-alb", "Apple Music Top alba — USA", "Apple Music", "apple", ("us", "albums")))
+
+_CHARTS_CZ = [
+    ("cz-sing100", "CZ Singles Digital TOP 100", "ČNS IFPI", "ifpi", 30),
+    ("cz-sing50cz", "CZ Singles Digital TOP 50 CZ", "ČNS IFPI", "ifpi", 32),
+    ("cz-alb100", "CZ Albums TOP 100", "ČNS IFPI", "ifpi", 14),
+    ("cz-radio100", "CZ Radio TOP 100", "ČNS IFPI", "ifpi", 2),
+    ("cz-radio50cz", "CZ Radio TOP 50 CZ", "ČNS IFPI", "ifpi", 7),
+    ("cz-radio-rock", "CZ Radio TOP 20 Modern Rock", "ČNS IFPI", "ifpi", 21),
+    ("cz-classical", "CZ Albums Classical TOP 10", "ČNS IFPI", "ifpi", 25),
+    ("yt-CZ", "YouTube Music — Česko", "YouTube Music", "ytartists", "CZ"),
+    ("am-cz", "Apple Music Top 100 — Česko", "Apple Music", "apple", ("cz", "songs")),
+    ("am-cz-alb", "Apple Music Top alba — Česko", "Apple Music", "apple", ("cz", "albums")),
+]
+_CHART_INDEX = {c[0]: c for c in _CHARTS_INTL + _CHARTS_CZ}
+
+_CHART_CACHE: dict = {}          # id -> {"ts", "artists": [{"name", "browseId"?, "image"?}]}
+_CHART_TTL = 3600
+_ARTIST_LOOKUP: dict = {}        # lower name -> {"browseId", "image"} | None
+_CREDIT_SPLIT = _re_mod.compile(
+    r"\s+(?:feat\.?|featuring|ft\.?|with|x)\s+|\s*,\s*|\s*/\s*|\s+&\s+|\s+and\s+", _re_mod.I)
+# Acts whose name really contains one of those separators.
+_WHOLE_NAMES = ("earth, wind & fire", "simon & garfunkel", "florence & the machine",
+                "hall & oates", "mumford & sons", "brooks & dunn", "ac/dc", "tyler, the creator",
+                "crosby, stills & nash", "sly & the family stone", "bob marley & the wailers",
+                "prince & the revolution", "kool & the gang", "gladys knight & the pips",
+                "belle and sebastian", "up, bustle and out", "florida georgia line")
+
+
+def _credited_artists(raw: str) -> list:
+    raw = _re_mod.sub(r"\s+", " ", (raw or "").strip())
+    if not raw:
+        return []
+    keep = {}
+    for i, w in enumerate(_WHOLE_NAMES):
+        m = _re_mod.search(_re_mod.escape(w), raw, _re_mod.I)
+        if m:
+            token = f"\x00{i}\x00"
+            keep[token] = m.group(0)
+            raw = raw[:m.start()] + token + raw[m.end():]
+    out = []
+    for p in _CREDIT_SPLIT.split(raw):
+        p = (p or "").strip()
+        for t, whole in keep.items():
+            p = p.replace(t, whole)
+        if p:
+            out.append(p.title() if p.isupper() and len(p) > 4 else p)
+    return out
+
+
+def _chart_get(url: str) -> str:
+    r = httpx.get(url, headers={"User-Agent": _CHART_UA, "Accept-Language": "en"},
+                  timeout=20.0, follow_redirects=True)
+    r.raise_for_status()
+    return r.text
+
+
+def _chart_billboard(slug: str) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(_BB + slug + "/"), "html.parser")
+    out = []
+    for h3 in soup.select("h3#title-of-a-story"):
+        li = h3.find_parent("li")
+        if not li or "o-chart-results-list__item" not in (li.get("class") or []):
+            continue
+        sp = h3.find_next_sibling("span")
+        if sp:
+            out.extend(_credited_artists(sp.get_text(" ", strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_uk(slug: str) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(_UK + slug + "/"), "html.parser")
+    out = []
+    for item in soup.select(".chart-item"):
+        a = item.select_one(".description a.chart-artist")
+        if a:
+            out.extend(_credited_artists(a.get_text(strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_ifpi(chart_id: int) -> list:
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(_chart_get(f"https://ifpicr.cz/hitparada/{chart_id}"), "html.parser")
+    out = []
+    for row in soup.select("#chartContainer .chart-full-row"):
+        a = row.select_one(".chart-full-row__interpreter a")
+        if a:
+            out.extend(_credited_artists(a.get_text(strip=True)))
+    return [{"name": n} for n in out]
+
+
+def _chart_apple(arg) -> list:
+    cc, kind = arg
+    data = httpx.get(_APPLE.format(cc=cc, kind=kind), headers={"User-Agent": _CHART_UA},
+                     timeout=20.0, follow_redirects=True).json()
+    out = []
+    for r in (data.get("feed") or {}).get("results") or []:
+        out.extend(_credited_artists(r.get("artistName") or ""))
+    return [{"name": n} for n in out]
+
+
+def _chart_ytartists(cc: str) -> list:
+    data = yt().get_charts(cc)
+    return [{"name": a.get("title"), "browseId": a.get("browseId"),
+             "image": _best_thumb(a.get("thumbnails"))}
+            for a in (data.get("artists") or []) if a.get("title")]
+
+
+_CHART_SOURCES = {"billboard": _chart_billboard, "uk": _chart_uk, "ifpi": _chart_ifpi,
+                  "apple": _chart_apple, "ytartists": _chart_ytartists}
+
+
+def _chart_artists(chart_id: str) -> list:
+    now = time.time()
+    hit = _CHART_CACHE.get(chart_id)
+    if hit and now - hit["ts"] < _CHART_TTL:
+        return hit["artists"]
+    _, _, _, source, arg = _CHART_INDEX[chart_id]
+    raw = _CHART_SOURCES[source](arg)
+    seen, artists = set(), []
+    for a in raw:
+        k = (a["name"] or "").strip().lower()
+        if k and k not in seen and k not in ("různí", "various", "various artists"):
+            seen.add(k)
+            artists.append(a)
+    if artists:                      # a failed scrape must not be cached as empty
+        _CHART_CACHE[chart_id] = {"ts": now, "artists": artists}
+    return artists
+
+
+def _resolve_artist(a: dict) -> dict:
+    """Fill in browseId + picture from YouTube Music where a chart gave only a name."""
+    if a.get("browseId"):
+        return a
+    k = a["name"].lower()
+    if k not in _ARTIST_LOOKUP:
+        try:
+            hits = yt().search(a["name"], filter="artists", limit=1)
+        except Exception:
+            hits = []
+        _ARTIST_LOOKUP[k] = ({"browseId": hits[0].get("browseId"),
+                              "image": _best_thumb(hits[0].get("thumbnails"))} if hits else None)
+    found = _ARTIST_LOOKUP[k]
+    return {"name": a["name"], **(found or {})}
+
+
+@app.get("/api/charts/catalog")
+def charts_catalog():
+    def rows(lst):
+        return [{"id": c[0], "label": c[1], "group": c[2]} for c in lst]
+    return {"intl": rows(_CHARTS_INTL), "cz": rows(_CHARTS_CZ)}
+
+
+@app.get("/api/charts/artists")
+def chart_artists(id: str, offset: int = 0, limit: int = 15):
+    if id not in _CHART_INDEX:
+        return JSONResponse({"error": "Neznámý žebříček."}, status_code=404)
+    try:
+        artists = _chart_artists(id)
+    except Exception:
+        return {"artists": [], "hasMore": False, "failed": True}
+    page = artists[offset: offset + limit]
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        resolved = list(pool.map(_resolve_artist, page))
+    return {"artists": resolved, "hasMore": offset + limit < len(artists)}
+
+
 _library_cache = {"ts": 0.0, "stems": []}
 
 
@@ -705,6 +1002,272 @@ def search_top(q: str, limit: int = 8):
         "related": {"playlists": playlists, "videos": videos},
     }
 
+
+# ----------------------------------------------------------------- songsterr tabs
+#
+# Songsterr serves tabs as a set of JSON files on a CDN. We proxy them to avoid
+# CORS issues and provide a simple API for the mixpult to fetch them.
+#
+# search -> meta -> track JSON
+#
+# The search endpoint is keyless and stable. Metadata provides the CDN path
+# (the 'image' hash) and revision ID needed to fetch the actual notes.
+#
+# Ref: https://github.com/6801318d8d/songsterr-dl
+#
+#- search: /a/ra/songs.json?pattern=...
+#- meta: /a/ra/song/{songId}.json
+#- track: {cdn}/{songId}/{revision}/{image}/{trackIdx}.json
+
+@app.get("/api/tabs/search")
+async def search_tabs(q: str):
+    """Search Songsterr for songs. Returns a list of matches with their songId."""
+    if not q.strip():
+        return {"results": []}
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(
+                f"https://www.songsterr.com/api/search?q={quote(q)}",
+                headers={"User-Agent": APP_UA}
+            )
+            r.raise_for_status()
+            data = r.json()
+            # Songsterr returns a JSON with a 'records' list.
+            return {"tabs": data.get("records", []) if isinstance(data, dict) else []}
+    except Exception as e:
+        return JSONResponse({"error": f"Search failed: {e}"}, status_code=500)
+
+
+@app.get("/api/tabs/meta/{song_id}")
+async def tab_meta(song_id: str):
+    """Get metadata for a song, including the CDN path hash ('image') and revision."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(
+                f"https://www.songsterr.com/api/meta/{song_id}",
+                headers={"User-Agent": APP_UA}
+            )
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Metadata fetch failed: {e}"}, status_code=500)
+
+
+
+def normalize_songsterr_track(data: dict) -> dict:
+    """Convert Songsterr measure/voice/beat data to a flat note timeline."""
+
+    measures = data.get("measures") or []
+    automations = data.get("automations") or {}
+    tempo_events = automations.get("tempo") or []
+
+    # Songsterr duration is expressed as a fraction of a whole note.
+    # We convert it to seconds using the active BPM.
+    def beat_seconds(bpm: float) -> float:
+        return 60.0 / bpm
+
+    def duration_seconds(duration, bpm: float) -> float:
+        if not isinstance(duration, (list, tuple)) or len(duration) != 2:
+            return beat_seconds(bpm)
+        numerator, denominator = duration
+        try:
+            return (float(numerator) / float(denominator)) * (60.0 / bpm) * 4.0
+        except (TypeError, ValueError, ZeroDivisionError):
+            return beat_seconds(bpm)
+
+    tempo_events = sorted(
+        [
+            event for event in tempo_events
+            if isinstance(event, dict) and "measure" in event and "bpm" in event
+        ],
+        key=lambda event: (int(event.get("measure", 0)), float(event.get("position", 0)))
+    )
+
+    def bpm_for_measure(measure_index: int) -> float:
+        bpm = 120.0
+        for event in tempo_events:
+            if int(event.get("measure", 0)) <= measure_index:
+                try:
+                    bpm = float(event["bpm"])
+                except (TypeError, ValueError):
+                    pass
+            else:
+                break
+        return bpm
+
+    notes = []
+    measure_start = 0.0
+    measure_times = []
+
+    for measure_index, measure in enumerate(measures):
+        measure_times.append(measure_start)
+
+        signature = measure.get("signature") or [4, 4]
+        try:
+            sig_num = float(signature[0])
+            sig_den = float(signature[1])
+        except (TypeError, ValueError, IndexError):
+            sig_num, sig_den = 4.0, 4.0
+
+        bpm = bpm_for_measure(measure_index)
+        beat_time = measure_start
+
+        voices = measure.get("voices") or []
+        voice = voices[0] if voices else {}
+        beats = voice.get("beats") or []
+
+        for beat in beats:
+            duration = beat.get("duration", [1, 4])
+            dur_seconds = duration_seconds(duration, bpm)
+
+            for note in beat.get("notes") or []:
+                if note.get("rest"):
+                    continue
+
+                if "fret" not in note or "string" not in note:
+                    continue
+
+                try:
+                    string_index = int(note["string"])
+                    fret = int(note["fret"])
+                except (TypeError, ValueError):
+                    continue
+
+                notes.append({
+                    "time": round(beat_time, 6),
+                    "duration": round(dur_seconds, 6),
+                    "string": string_index,
+                    "fret": fret,
+                    "staccato": bool(note.get("staccato", False)),
+                    "hammer": bool(note.get("hammer", False)),
+                    "pull": bool(note.get("pull", False)),
+                    "slide": bool(note.get("slide", False)),
+                    "bend": bool(note.get("bend", False)),
+                })
+
+            beat_time += dur_seconds
+
+        # Use the actual beat accumulation when possible.
+        measure_length = beat_time - measure_start
+
+        # Fallback for an empty/incomplete measure.
+        if measure_length <= 0:
+            measure_length = (sig_num * 4.0 / sig_den) * (60.0 / bpm)
+
+        measure_start += measure_length
+
+    return {
+        "name": data.get("name", ""),
+        "songId": data.get("songId"),
+        "revisionId": data.get("revisionId"),
+        "partId": data.get("partId"),
+        "instrument": data.get("instrument"),
+        "tuning": data.get("tuning") or [],
+        "strings": data.get("strings", 6),
+        "tempo": tempo_events,
+        "duration": round(measure_start, 6),
+        "notes": notes,
+    }
+
+@app.get("/api/tabs/proxy")
+async def tab_proxy(url: str):
+    """Proxy a Songsterr CDN JSON file to avoid CORS.
+
+    The 'url' should be the full CDN path to the .json file.
+    """
+    if not url.startswith("https://"):
+        return JSONResponse({"error": "Invalid URL."}, status_code=400)
+
+    # Basic safety: ensure it's actually from a known Songsterr CDN
+    # (Usually cloudfront or similar).
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(url, headers={"User-Agent": APP_UA})
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Proxy failed: {e}"}, status_code=500)
+
+@app.get("/api/tabs/track/{song_id}/{revision_id}/{part_id}")
+async def tab_track(song_id: int, revision_id: int, part_id: int):
+    """Fetch and normalize one Songsterr track."""
+
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            meta_response = await client.get(
+                f"https://www.songsterr.com/api/meta/{song_id}",
+                headers={"User-Agent": APP_UA},
+            )
+            meta_response.raise_for_status()
+            meta = meta_response.json()
+
+            image = meta.get("image")
+            if not image:
+                return JSONResponse(
+                    {"error": "Songsterr metadata does not contain an image hash."},
+                    status_code=502,
+                )
+
+            tracks = meta.get("tracks", [])
+
+            # Songsterr's CDN path uses the track's array index,
+            # while the metadata may expose a different partId.
+            track = None
+
+            if 0 <= part_id < len(tracks):
+                track = tracks[part_id]
+
+            if track is None:
+                track = next(
+                    (
+                        item for item in tracks
+                        if str(item.get("partId", "")) == str(part_id)
+                    ),
+                    None,
+                )
+
+            if track is None:
+                return JSONResponse(
+                    {"error": f"Track {part_id} was not found."},
+                    status_code=404,
+                )
+
+            cdns = [
+                "dqsljvtekg760",
+                "d34shlm8p2ums2",
+                "d3cqchs6g3b5ew",
+            ]
+
+            track_url = (
+                f"https://{cdns[0]}.cloudfront.net/"
+                f"{song_id}/{revision_id}/{image}/{part_id}.json"
+            )
+
+            track_response = await client.get(
+                track_url,
+                headers={"User-Agent": APP_UA},
+            )
+            track_response.raise_for_status()
+
+            import gzip
+
+            raw = track_response.content
+            if raw[:2] == b"\\x1f\\x8b":
+                raw = gzip.decompress(raw)
+
+            track_data = json.loads(raw.decode("utf-8"))
+
+            normalized = normalize_songsterr_track(track_data)
+            normalized["trackUrl"] = track_url
+            normalized["sourceTrack"] = track
+
+            return normalized
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"Track fetch failed: {e}"},
+            status_code=502,
+        )
 
 # ----------------------------------------------------------------- browse (Kaset-style enhanced)
 
@@ -2284,6 +2847,8 @@ def _finalize_stems_job(job: dict) -> None:
 
 class StemsSeparateRequest(BaseModel):
     rel: str
+    format: str = "mp3"       # "mp3" or "wav"
+    mp3_bitrate: int = 320    # 128 / 192 / 256 / 320, MP3 only
 
 
 @app.post("/api/stems/separate")
@@ -2301,10 +2866,15 @@ def separate_stems(req: StemsSeparateRequest):
     cmd = [
         DEMUCS_BIN, "-n", "htdemucs_6s", "-o", str(raw_dir),
         "--filename", "{track}/{stem}.{ext}",
-        # 320k MP3 rather than WAV: a six-stem set of one five-minute track is
-        # over 300 MB lossless, and these get remixed, not mastered.
-        "--mp3", "--mp3-bitrate", "320", "--mp3-preset", "2",
     ]
+    # MP3 by default: a six-stem set of one five-minute track is over 300 MB
+    # lossless, and these get remixed, not mastered. WAV is there for anyone
+    # who does want to master them.
+    if req.format == "wav":
+        pass                                   # Demucs' own default output
+    else:
+        kbps = req.mp3_bitrate if req.mp3_bitrate in (128, 192, 256, 320) else 320
+        cmd += ["--mp3", "--mp3-bitrate", str(kbps), "--mp3-preset", "2"]
     device = _demucs_device()
     if device:
         cmd += ["-d", device]

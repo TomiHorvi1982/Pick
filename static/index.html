@@ -761,6 +761,7 @@
   /* Taller than a stem's strip because it carries what a stem never needs:
      which socket the sound arrives on, how hard the gate bites, and a meter. */
   .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:200px}
+  #mixer-tab-lane{height:150px}
   .nm-strip.guitar-strip{gap:5px;padding:8px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
   .guitar-strip .nm-strip-name{color:var(--nm-gold)}
@@ -998,7 +999,8 @@
 
   /* ------------------------------------------------- library sidebar */
   #sidebar-left{flex:0 0 auto;width:var(--sp-lib);display:flex;flex-direction:column;
-    overflow:hidden;position:relative;transition:flex-basis .2s ease}
+    overflow:hidden;position:relative;transition:flex-basis .2s ease;
+    container:libr / inline-size}
   body.lib-collapsed{--sp-lib:76px}
   body.lib-collapsed #sidebar-left{width:76px}
   .lib-head{display:flex;align-items:center;gap:8px;padding:16px 8px 8px 16px;flex:0 0 auto}
@@ -1014,27 +1016,18 @@
     padding:8px 14px;cursor:pointer;font-family:inherit;white-space:nowrap;
     transition:background .15s,color .15s,transform .15s}
   .lib-create:hover{background:#3e3e3e;color:#fff;transform:scale(1.03)}
-  body.lib-collapsed .lib-create .tx,body.lib-collapsed .lib-expand{display:none}
-  .lib-expand{background:none;border:none;color:var(--sub);font-size:15px;cursor:pointer;
-    padding:6px;transition:color .15s}
-  .lib-expand:hover{color:#fff}
 
-  .lib-chips{display:flex;gap:8px;padding:4px 16px 8px;overflow-x:auto;flex:0 0 auto;
-    scrollbar-width:none}
+  /* The chips wrap instead of scrolling sideways, so every section is in
+     reach at any width. */
+  .lib-chips{display:flex;flex-wrap:wrap;gap:6px 8px;padding:4px 16px 8px;flex:0 0 auto}
   .lib-chips::-webkit-scrollbar{display:none}
-  body.lib-collapsed .lib-chips,body.lib-collapsed .lib-tools{display:none}
+  body.lib-collapsed .lib-chips{display:none}
   .lib-chips button{background:var(--card-hi);border:none;border-radius:500px;
     color:var(--text);font-size:13px;padding:6px 12px;cursor:pointer;font-family:inherit;
     white-space:nowrap;transition:background .15s}
   .lib-chips button:hover{background:#3e3e3e}
   .lib-chips button.active{background:#fff;color:#000}
 
-  .lib-tools{display:flex;align-items:center;justify-content:space-between;
-    padding:0 16px 4px;flex:0 0 auto}
-  .lib-tools button{background:none;border:none;color:var(--sub);font-size:13px;
-    cursor:pointer;font-family:inherit;padding:6px;display:flex;align-items:center;
-    gap:6px;transition:color .15s}
-  .lib-tools button:hover{color:#fff}
 
   .lib-list{flex:1;overflow-y:auto;padding:0 8px 8px;min-height:0}
   .lib-row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
@@ -1053,7 +1046,36 @@
   .lib-row.active .lib-name,.lib-row.playing .lib-name{color:var(--accent)}
   .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
-  .lib-empty{padding:20px 12px;color:var(--sub);font-size:13px;line-height:1.6}
+  .lib-empty{padding:8px 12px 14px;color:var(--sub);font-size:13px;line-height:1.5}
+  .lib-sec{display:flex;align-items:baseline;gap:8px;padding:14px 8px 6px;
+    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
+  .lib-sec .n{font-weight:500;letter-spacing:0}
+  .lib-sec button{margin-left:auto;background:none;border:none;color:var(--sub);font:inherit;
+    text-transform:none;letter-spacing:0;cursor:pointer}
+  .lib-sec button:hover{color:#fff}
+  .lib-art .ic-svg{display:block}
+  .lib-sec,.lib-empty{grid-column:1/-1}
+
+  /* The rail re-lays itself out as it is dragged wider or narrower. */
+  @container libr (max-width: 250px){
+    .lib-head{padding:14px 8px 6px 12px}
+    .lib-chips{padding:4px 10px 6px;gap:5px}
+    .lib-chips button{font-size:12px;padding:5px 10px}
+    .lib-list{padding:0 4px 8px}
+    .lib-row{gap:9px;padding:6px}
+    .lib-art{width:38px;height:38px;flex-basis:38px}
+    .lib-name{font-size:13.5px}
+    .lib-sub{display:none}
+  }
+  @container libr (min-width: 380px){
+    .lib-art{width:56px;height:56px;flex-basis:56px}
+    .lib-name{font-size:15.5px}
+  }
+  /* Wide enough for two columns of rows. */
+  @container libr (min-width: 470px){
+    .lib-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      align-content:start;gap:2px 8px}
+  }
 
   /* ------------------------------------------------------ main stage */
   .main-content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;
@@ -1184,7 +1206,7 @@
   }
   @media(max-width:860px){
     :root{--sp-lib:72px}
-    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-tools,.lib-meta{display:none}
+    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-meta{display:none}
     .sp-hero{padding:16px;min-height:auto;flex-direction:column;align-items:flex-start}
     .sp-hero-art{width:120px;height:120px;flex-basis:120px}
     .sp-actions{padding:16px}
@@ -1206,15 +1228,16 @@
     margin:24px 0 14px;text-transform:none}
 
   /* Pills — chips, region switch and the library-tab row all share the look. */
-  .chips button,.region-toggle button,.library-tab,.topn-custom button{
+  .chips button,.region-toggle button,.library-tab,.ab-tab,.topn-custom button{
     background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
     font-size:13px;font-weight:500;padding:8px 14px;cursor:pointer;font-family:inherit;
     transition:background .15s,color .15s;box-shadow:none}
-  .chips button:hover,.region-toggle button:hover,.library-tab:hover{background:#3e3e3e}
-  .chips button.active,.region-toggle button.active,.library-tab.active{
+  .chips button:hover,.region-toggle button:hover,.library-tab:hover,.ab-tab:hover{background:#3e3e3e}
+  .chips button.active,.region-toggle button.active,.library-tab.active,.ab-tab.active{
     background:#fff;color:#000;border-color:#fff}
   .region-toggle{gap:8px;margin-bottom:22px}
-  .region-toggle button{flex:0 0 auto}
+  .region-toggle button{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px}
+  #ab-back{display:inline-flex;align-items:center;gap:8px}
   .topn-custom input,.topn-custom{gap:8px}
 
   /* Grid cards */
@@ -1254,10 +1277,13 @@
   .video-mode-toggle button.active{background:#fff;color:#000}
 
   /* Top bar bits that came from the old header. */
-  #bitrate{background:var(--card);color:var(--text);border:1px solid var(--border);
-    border-radius:500px;padding:7px 12px;font-size:12px;font-family:inherit;cursor:pointer;
-    outline:none}
-  #bitrate:hover{background:var(--card-hi)}
+  .set-note{color:var(--sub);font-size:12.5px;line-height:1.55;margin:8px 0 10px}
+  .set-row{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .set-row[hidden]{display:none}
+  .set-row label{flex:0 0 110px;font-size:13px;color:var(--text)}
+  .set-row select{flex:1;padding:9px}
+  #settings-overlay select{background:#2a2a2a;border:1px solid #3e3e3e;border-radius:6px;
+    color:var(--text);font-family:inherit;font-size:13px}
 
   /* Buttons elsewhere in the app (detail panels, dialogs). */
   .btn{background:var(--accent);color:#000;border:none;border-radius:500px;
@@ -1288,7 +1314,10 @@
   .sp-topbar{position:fixed;display:grid;
     grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr);align-items:center}
   .sp-center{justify-self:center}
-  .sp-topbar-right{justify-self:end}
+  /* The settings cog is pinned above every card, drawer and dialog. It lives
+     outside the topbar's own stacking level so nothing can cover it. */
+  .sp-topbar-right{position:fixed;top:0;right:16px;height:var(--sp-topbar);z-index:6000}
+  #settings-overlay{z-index:6500}
 
   /* Library header: the create button was squeezing the title to an ellipsis. */
   .lib-head{padding:16px 12px 8px 16px;gap:6px}
@@ -1296,8 +1325,6 @@
   .lib-create{padding:7px 12px;font-size:12.5px}
   .lib-chips{padding:4px 12px 8px 16px}
   .lib-chips button{font-size:12.5px;padding:6px 11px}
-  .lib-tools{padding:0 16px 6px}
-  .lib-tools button{font-size:12.5px}
   .lib-name{font-size:14.5px}
   .lib-sub{font-size:12.5px}
 
@@ -1538,6 +1565,23 @@
     font-variant-numeric:tabular-nums;margin-top:1px}
   .nm-lane.thin{overflow:hidden}
 
+  /* ---- lyrics: the readout bar and the lane ---- */
+  .nm-lyr-bar{display:flex;align-items:center;gap:16px;padding:8px 16px;
+    border-bottom:1px solid var(--nm-line);background:rgba(0,0,0,.18)}
+  .nm-lyr-lines{flex:1;min-width:0;text-align:center;line-height:1.35}
+  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:12.5px;color:var(--nm-sub);opacity:.7;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px}
+  .nm-lyr-lines .cur{font-size:21px;font-weight:800;color:#fff;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:29px}
+  .nm-lyr-tools{display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--nm-sub)}
+  .nm-lyr-tools button{background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
+    font:inherit;padding:4px 10px;cursor:pointer}
+  .nm-lyr-tools button:hover{background:#3e3e3e}
+  .lyr-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 6px;
+    font-size:11.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;cursor:pointer;border-left:1px solid var(--nm-line);box-sizing:border-box}
+  .lyr-block:hover{color:#fff}
+  .lyr-block.cur{color:#111;background:rgba(233,185,73,.92);font-weight:700}
   .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
     display:flex;align-items:center;padding:0 7px;cursor:grab;
     border-left:3px solid currentColor;overflow:hidden;
@@ -1825,6 +1869,62 @@
     .shelf-row > .card{flex-basis:146px}
   }
 
+  /* ---- Kapely a umělci ---- */
+  #ab-groups{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  #ab-shelves .shelf-row > .card{flex:0 0 150px}
+  #ab-shelves .shelf{margin:22px 0 4px}
+  #ab-shelves .shelf-head .h{font-size:18px}
+  .ab-empty{color:var(--sub);font-size:13px;padding:24px 4px}
+  .ab-hero{display:flex;gap:22px;align-items:flex-end;margin:18px 0 14px}
+  .ab-photo{flex:0 0 168px;height:168px;border-radius:50%;background:#2a2a2a center/cover;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+  .ab-hero h1{font-size:44px;line-height:1.05;margin:0 0 8px;letter-spacing:-.02em}
+  .ab-stats{color:var(--sub);font-size:13px;margin-bottom:8px}
+  .ab-facts{display:flex;flex-wrap:wrap;gap:6px}
+  .ab-facts span{background:#2a2a2a;border-radius:999px;padding:3px 10px;font-size:12px}
+  .ab-facts span.accent{color:var(--accent)}
+  .ab-bio{font-size:13.5px;line-height:1.65;color:var(--sub);max-width:820px;white-space:pre-line}
+  .ab-bio.clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+  .ab-bio-more{background:none;border:none;color:var(--text);font:inherit;font-size:12.5px;
+    font-weight:600;cursor:pointer;padding:6px 0}
+  .ab-members{font-size:13px;color:var(--sub);line-height:1.6;margin-top:10px}
+  .ab-sect{margin-top:30px}
+  .ab-sect h2{font-size:20px;margin:0 0 12px}
+  .ab-strip{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px}
+  .ab-photo-tile{flex:0 0 170px;height:170px;border-radius:8px;border:none;cursor:pointer;
+    background:#2a2a2a center/cover}
+  .ab-video{flex:0 0 220px;background:none;border:none;color:inherit;text-align:left;cursor:pointer;
+    font:inherit;padding:0}
+  .ab-video .vt{height:124px;border-radius:8px;background:#2a2a2a center/cover;position:relative}
+  .ab-video .vt i{position:absolute;right:8px;bottom:8px;width:30px;height:30px;border-radius:50%;
+    background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-style:normal}
+  .ab-video .n{font-size:13px;margin-top:6px;font-weight:600}
+  .ab-video .v{font-size:12px;color:var(--sub)}
+  .ab-albums{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px 16px}
+  .ab-album{cursor:pointer;background:none;border:none;color:inherit;text-align:left;font:inherit;padding:0}
+  .ab-album .cv{aspect-ratio:1;border-radius:6px;background:#2a2a2a center/cover;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+  .ab-album.on .cv{outline:2px solid var(--accent)}
+  .ab-album .n{font-size:13.5px;font-weight:600;margin-top:8px}
+  .ab-album .y{font-size:12px;color:var(--sub)}
+  .ab-events{display:flex;flex-direction:column;gap:4px;max-width:760px}
+  .ab-ev-group{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:10px 0 2px}
+  .ab-event{display:flex;gap:14px;align-items:center;padding:8px 10px;border-radius:8px;
+    background:#1f1f1f;color:inherit;text-decoration:none}
+  .ab-event:hover{background:#2a2a2a}
+  .ab-event .d{flex:0 0 46px;text-align:center;line-height:1.1}
+  .ab-event .d b{display:block;font-size:20px}
+  .ab-event .d small{font-size:11px;color:var(--sub);text-transform:uppercase}
+  .ab-event .c{font-weight:600;font-size:13.5px}
+  .ab-event .vn{font-size:12px;color:var(--sub)}
+  .ab-event .tg{margin-left:auto;font-size:11px;color:var(--accent)}
+  /* The album's tracklist docks to the right of the artist page instead of
+     covering it. */
+  body.ab-dock #overlay{left:auto;width:min(480px,42vw)}
+  body.ab-dock #overlay .pl-title{font-size:26px;line-height:1.15}
+  body.ab-dock #overlay .pl-art{width:150px;height:150px}
+  body.ab-dock #artists-section{padding-right:min(496px,43vw)}
+
   .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .stems-head .section-title{margin:24px 0 14px;flex:1}
   #stems-convert{font-size:13px;padding:8px 16px;flex:0 0 auto}
@@ -1836,7 +1936,9 @@
   .pb-ctl .ic-svg,.sp-iconbtn .ic-svg,.nm-btn.round .ic-svg,.nm-step .ic-svg,
   .close-btn .ic-svg,.float-btn .ic-svg,.icon-btn .ic-svg,.mini-btn .ic-svg,
   .fab-btn .ic-svg,.cat-x .ic-svg,.sp-round .ic-svg,.sp-browse .ic-svg,
-  .lib-expand .ic-svg{display:block;vertical-align:baseline}
+  .sp-fab .ic-svg,.gt-rec .ic-svg,.ab-video i .ic-svg{display:block;vertical-align:baseline}
+  /* The play glyph is drawn with its weight to the left; nudge it to look centred. */
+  .sp-fab .ic-svg,.fab-btn.play-fab .ic-svg,.ab-video i .ic-svg{transform:translateX(1px)}
   .pb-ctl{display:flex;align-items:center;justify-content:center;
     width:32px;height:32px;border-radius:50%;padding:0;color:var(--sub);
     position:relative;transition:color .15s,background .15s,transform .12s}
@@ -2100,13 +2202,7 @@
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
-    <select id="bitrate" title="Kvalita stahování">
-      <option value="128k">128 kbps</option>
-      <option value="192k" selected>192 kbps</option>
-      <option value="320k">320 kbps</option>
-    </select>
-    <button class="sp-round" id="settings-btn" title="Nastavení stahování"><span data-icon="settings" data-size="17"></span></button>
-    <button class="sp-avatar" id="sp-avatar" title="Spotifylisty">S</button>
+    <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
 </div>
 
@@ -2116,26 +2212,17 @@
      opens it in the main stage. Collapses to an icon-only rail. -->
 <nav id="sidebar-left">
   <div class="lib-head">
-    <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit knihovnu">
-      <span class="ic" data-icon="menu" data-size="16"></span><span class="tx">Tvoje knihovna</span>
+    <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit panel" aria-label="Sbalit / rozbalit panel">
+      <span class="ic" data-icon="menu" data-size="18"></span>
     </button>
-    <button class="lib-create" id="lib-create" title="Stáhnout novou hudbu">
-      <span>＋</span><span class="tx">Vytvořit</span>
-    </button>
-    <button class="lib-expand" id="lib-expand" title="Skrýt / zobrazit panel vpravo"><span data-icon="expand" data-size="14"></span></button>
   </div>
 
   <div class="lib-chips" id="lib-chips">
     <button data-mode="playlists" class="active">Playlisty</button>
-    <button data-mode="songs">Písně</button>
+    <button data-mode="songs">Kapely a umělci</button>
     <button data-mode="steems">Steems</button>
     <button data-mode="library">Knihovna</button>
     <button data-mode="podcasts">Podcasty</button>
-  </div>
-
-  <div class="lib-tools">
-    <button id="lib-filter-btn" title="Filtrovat v knihovně"><span data-icon="search" data-size="15"></span></button>
-    <button id="lib-sort-btn" title="Řazení">Nedávné <span data-icon="sliders" data-size="13"></span></button>
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
@@ -2153,19 +2240,59 @@
 <div class="artist-suggest" id="artist-suggest" hidden></div>
 
 <div class="overlay" id="settings-overlay" hidden>
-  <div class="panel" style="width:min(420px,100%)">
+  <div class="panel" style="width:min(460px,100%)">
     <div class="panel-head">
       <button class="close-btn" id="settings-close"><span data-icon="close" data-size="13"></span></button>
-      <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení stahování</div>
-      <div style="color:var(--sub);font-size:12.5px;line-height:1.6;margin-top:8px">
+      <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="download"></span>Kvalita stahovaných písní</div>
+      <select id="bitrate" style="width:100%;padding:10px">
+        <option value="128k">MP3 128 kbps — nejmenší soubory</option>
+        <option value="192k" selected>MP3 192 kbps — dobrý kompromis</option>
+        <option value="320k">MP3 320 kbps — nejlepší kvalita</option>
+      </select>
+      <div class="set-note" id="bitrate-note"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="stems"></span>Rozdělení písně na stopy (Steems)</div>
+      <div class="set-note" style="margin-top:0">
+        Když píseň rozdělíš na zpěv, bicí, baskytaru, kytaru, klavír a ostatní,
+        tady se určuje, do jakého souboru se každá stopa uloží. Platí pro
+        příští rozdělení, už hotové sady se nemění.
+      </div>
+      <div class="set-row">
+        <label for="stems-format">Formát</label>
+        <select id="stems-format">
+          <option value="mp3">MP3 — malé soubory</option>
+          <option value="wav">WAV — bezeztrátově</option>
+        </select>
+      </div>
+      <div class="set-row" id="stems-bitrate-row">
+        <label for="stems-bitrate">Kvalita MP3</label>
+        <select id="stems-bitrate">
+          <option value="128">128 kbps</option>
+          <option value="192">192 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="320" selected>320 kbps</option>
+        </select>
+      </div>
+      <div class="set-note" id="stems-note"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="folder"></span>Kam se stahují songy</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
+        <button class="btn secondary" id="music-root-pick" style="white-space:nowrap"><span data-icon="folderOpen" data-size="15"></span>Vybrat</button>
+      </div>
+      <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="headphones"></span>Přihlášení k YouTube (cookies)</div>
+      <div class="set-note" style="margin-top:0">
         Když stahování selže s hláškou „Sign in to confirm you're not a bot“,
         YouTube po tobě chce ověření. Nejjednodušší oprava: nech spotdl použít
         přihlašovací cookies z prohlížeče, kde jsi na YouTube přihlášený/á.
-        <br><br><b>Prohlížeč musí být před stahováním úplně zavřený</b>
+        <b>Prohlížeč musí být před stahováním úplně zavřený</b>
         (ne jen okno — celá appka), jinak je jeho soubor s cookies zamčený.
       </div>
-      <div class="section-title" style="margin-top:18px">Číst cookies z prohlížeče</div>
-      <select id="cookies-browser" style="width:100%;padding:10px">
+      <select id="cookies-browser" style="width:100%;padding:10px;margin-top:10px">
         <option value="">Nepoužívat (výchozí)</option>
         <option value="chrome">Google Chrome</option>
         <option value="safari">Safari</option>
@@ -2173,15 +2300,8 @@
         <option value="firefox">Firefox</option>
         <option value="edge">Microsoft Edge</option>
       </select>
-      <div class="section-title">…nebo cesta k exportovanému cookies.txt</div>
+      <div class="set-note">…nebo cesta k exportovanému cookies.txt</div>
       <input type="text" id="cookie-file" placeholder="/Users/.../cookies.txt" style="width:100%">
-
-      <div class="section-title" style="margin-top:18px"><span data-icon="folder"></span>Kam se stahují songy</div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
-        <button class="btn secondary" id="music-root-pick" style="white-space:nowrap"><span data-icon="folderOpen" data-size="15"></span>Vybrat</button>
-      </div>
-      <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
 
       <div class="actions">
         <button class="btn" id="settings-save">Uložit</button>
@@ -2191,26 +2311,46 @@
 </div>
 
 <main>
+  <!-- Kapely a umělci: artists by decade / style / mood / top, then one
+       artist's page in the middle, and an album's tracklist docked right. -->
+  <div id="artists-section" hidden>
+    <div id="ab-browse">
+      <div class="region-toggle" id="ab-region">
+        <button data-r="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční</button>
+        <button data-r="cz"><span data-icon="flag" data-size="15"></span>České</button>
+      </div>
+      <div class="library-tabs" id="ab-groups">
+        <button class="ab-tab active" data-g="dec">Dekády</button>
+        <button class="ab-tab" data-g="genre">Styly a žánry</button>
+        <button class="ab-tab" data-g="mood">Nálady</button>
+        <button class="ab-tab" data-g="top">Top žebříčky</button>
+      </div>
+      <div id="ab-shelves"></div>
+    </div>
+    <div id="ab-page" hidden>
+      <button class="btn secondary" id="ab-back"><span data-icon="back" data-size="14"></span>Zpět na interprety</button>
+      <div class="ab-hero">
+        <div class="ab-photo" id="ab-photo"></div>
+        <div class="ab-hero-body">
+          <h1 id="ab-name"></h1>
+          <div class="ab-stats" id="ab-stats"></div>
+          <div class="ab-facts" id="ab-facts"></div>
+        </div>
+      </div>
+      <div class="ab-bio" id="ab-bio"></div>
+      <div class="ab-members" id="ab-members" hidden></div>
+      <div class="ab-sect" id="ab-events-sect" hidden><h2>Koncerty</h2><div class="ab-events" id="ab-events"></div>
+        <button class="np-more" id="ab-events-more" hidden></button></div>
+      <div class="ab-sect" id="ab-photos-sect" hidden><h2>Fotky</h2><div class="ab-strip" id="ab-photos"></div></div>
+      <div class="ab-sect" id="ab-videos-sect" hidden><h2>Videa</h2><div class="ab-strip" id="ab-videos"></div></div>
+      <div class="ab-sect" id="ab-albums-sect" hidden><h2>Alba a singly</h2><div class="ab-albums" id="ab-albums"></div></div>
+    </div>
+  </div>
+
   <div id="browse-section">
     <div class="region-toggle" id="region-toggle">
-      <button data-region="intl" class="active">🌍 Zahraniční Playlisty</button>
-      <button data-region="cz">🇨🇿 České Playlisty</button>
-    </div>
-
-    <div class="shelf" id="fav-playlists-section" hidden>
-      <div class="shelf-head">
-        <h2 class="h">Oblíbené playlisty</h2>
-        <button class="all" id="fav-playlists-all">Zobrazit vše</button>
-      </div>
-      <div class="shelf-row" id="fav-playlists-grid"></div>
-    </div>
-
-    <div class="shelf" id="fav-artists-section" hidden>
-      <div class="shelf-head">
-        <h2 class="h">Tví oblíbení umělci</h2>
-        <button class="all" id="fav-artists-all">Zobrazit vše</button>
-      </div>
-      <div class="shelf-row" id="fav-artists-grid"></div>
+      <button data-region="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční playlisty</button>
+      <button data-region="cz"><span data-icon="flag" data-size="15"></span>České playlisty</button>
     </div>
 
     <div class="section-title"><span data-icon="clock"></span>Dekády</div>
@@ -2300,7 +2440,7 @@
         </div>
       </div>
       <div class="sp-actions" id="steems-hero-actions">
-        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix">▶</button>
+        <button class="sp-fab" id="steems-hero-play" title="Přehrát mix"><span data-icon="play" data-size="22"></span></button>
         <button class="sp-iconbtn" id="steems-hero-loop" title="Smyčka"><span data-icon="repeat" data-size="17"></span></button>
         <button class="sp-iconbtn" id="steems-hero-metro" title="Metronom"><span data-icon="bell" data-size="17"></span></button>
         <button class="sp-iconbtn" id="steems-hero-strips" title="Kanálové stripy"><span data-icon="sliders" data-size="17"></span></button>
@@ -2356,12 +2496,29 @@
         </div>
 
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
+        <!-- The line being sung, big enough to read at any zoom. -->
+        <div class="nm-lyr-bar" id="mixer-lyrics-bar" hidden>
+          <div class="nm-lyr-lines">
+            <div class="prev" id="nm-lyr-prev"></div>
+            <div class="cur" id="nm-lyr-cur"></div>
+            <div class="next" id="nm-lyr-next"></div>
+          </div>
+          <div class="nm-lyr-tools">
+            <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
+            <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
+            <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
+            <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
+          </div>
+        </div>
         <div class="nm-body-wrap" id="nm-body-wrap">
         <div class="nm-body" id="nm-body">
           <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
           <div class="nm-scroll" id="nm-scroll">
             <div class="nm-canvas" id="nm-canvas">
               <div class="nm-ruler" id="mixer-ruler"></div>
+              <div class="nm-lane guitar-lane" id="mixer-tab-lane" hidden>
+                <canvas id="tab-canvas"></canvas>
+              </div>
               <div id="mixer-tracks"></div>
               <div class="nm-grid">
                 <div class="nm-loop" id="mixer-loop-region" hidden>
@@ -2398,7 +2555,16 @@
 
           <div class="nm-tgroup">
             <div class="row">
+              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
+              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
+            </div>
+            <span class="cap">LEARN</span>
+          </div>
+          <div class="nm-tgroup">
+            <div class="row">
               <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
+
               <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
               <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
             </div>
@@ -2507,8 +2673,8 @@
   <div id="podcasts-section" hidden>
     <div class="section-title">Podcasty</div>
     <div class="region-toggle" id="podcast-region">
-      <button data-region="cz" class="active">🇨🇿 České podcasty</button>
-      <button data-region="intl">🌍 Zahraniční</button>
+      <button data-region="cz" class="active"><span data-icon="flag" data-size="15"></span>České podcasty</button>
+      <button data-region="intl"><span data-icon="globe" data-size="15"></span>Zahraniční</button>
     </div>
     <div id="podcasts-list" class="grid"></div>
     <div id="podcast-detail" hidden></div>
@@ -2534,8 +2700,8 @@
 <aside id="right-sidebar" hidden>
   <div class="np-resize" id="np-resize" title="Táhnutím změníš šířku"></div>
   <div class="np-head">
+    <button class="sp-iconbtn" id="np-close" title="Sbalit panel" aria-label="Sbalit panel"><span data-icon="menu" data-size="18"></span></button>
     <span class="tt" id="np-context">Právě hraje</span>
-    <button class="sp-iconbtn" id="np-close" title="Zavřít panel"><span data-icon="close" data-size="15"></span></button>
   </div>
   <div class="np-body sp-scroll">
     <div class="np-stage" id="np-stage"><span data-icon="note" data-size="46"></span></div>
@@ -2543,9 +2709,9 @@
     <div class="np-title-row">
       <div style="min-width:0;flex:1">
         <div class="np-title" id="np-title">Nic nehraje</div>
-        <div class="np-artist" id="np-artist">Vyber píseň a stiskni ▶</div>
+        <div class="np-artist" id="np-artist">Vyber píseň k přehrání</div>
       </div>
-      <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu">＋</button>
+      <button class="sp-iconbtn" id="np-add" title="Přidat do playlistu"><span data-icon="add" data-size="20"></span></button>
     </div>
     <!-- Artist profile and their releases, per the reference's "O umělci".
          The card and the releases come from YouTube Music and paint at once;
@@ -2612,6 +2778,23 @@
 
 </div><!-- /sp-shell -->
 
+<div class="overlay" id="tab-search-overlay" hidden>
+  <div class="panel" id="tab-search-panel">
+    <div class="panel-head">
+      <div class="pl-title">Hledat Tabulaturu</div>
+      <button class="close-btn" id="tab-search-close"><span data-icon="close" data-size="13"></span></button>
+    </div>
+    <div class="panel-body" style="padding:20px">
+      <div class="sp-searchbox" style="width:100%;margin-bottom:20px">
+        <span class="ic"><span data-icon="search" data-size="15"></span></span>
+        <input type="text" id="tab-search-input" placeholder="Název písně nebo interpret...">
+        <button class="btn" id="tab-search-btn" style="margin-left:10px">Hledat</button>
+      </div>
+      <div id="tab-search-results" class="fs-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="player-bar" id="player-bar">
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
@@ -2620,7 +2803,7 @@
     </div>
     <div class="pb-meta">
       <div class="pb-title" id="pb-title" role="heading" aria-level="2">Nic nehraje</div>
-      <div class="pb-artist" id="pb-artist">Vyber píseň a stiskni ▶</div>
+      <div class="pb-artist" id="pb-artist">Vyber píseň k přehrání</div>
       <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
     <button class="pb-ctl" id="pb-add-btn" title="Přidat do fronty" aria-label="Přidat do fronty"></button>
@@ -2745,6 +2928,7 @@
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
+
 // ======================================================================
 // Curated categories
 // ======================================================================
@@ -3169,8 +3353,12 @@ function hideSearchSuggest(){ SearchSuggest.hide(); }
 function renderSearchCriteria(){
   const bar = el("search-criteria");
   const terms = searchTerms;
-  // One criterion isn't a set of criteria, it's a query.
-  if(terms.length < 2){ bar.hidden = true; bar.innerHTML = ""; return; }
+  // One criterion isn't a set of criteria, it's a query. And only the search
+  // sections have any use for them: under Steems or Knihovna they were just
+  // a leftover strip to dismiss by hand.
+  if(terms.length < 2 || !(state.mode === "playlists" || state.mode === "songs")){
+    bar.hidden = true; bar.innerHTML = ""; return;
+  }
 
   bar.hidden = false;
   bar.innerHTML = `<span class="sc-label">Kritéria</span>`;
@@ -3226,7 +3414,7 @@ function renderCustomChips(){
   const list = loadCustomChips();
   renderCategoryCards("chips-custom", list, {
     deletable: true,
-    emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře ↑",
+    emptyHint: "zatím žádné — přidej si vlastní vpravo nahoře",
     onDelete: (value) => {
       const filtered = loadCustomChips().filter(v => v !== value);
       saveCustomChips(filtered);
@@ -3246,7 +3434,7 @@ el("add-custom").onclick = () => {
   list.push(val.trim());
   saveCustomChips(list);
   renderCustomChips();
-  showToast("✓ Kategorie přidána a je hned použitelná");
+  showToast("Kategorie přidána a je hned použitelná");
 };
 
 function renderStaticChips(){
@@ -3383,6 +3571,344 @@ function maybeLoadMoreArtists(myReq){
 }
 
 // ======================================================================
+// Kapely a umělci
+//
+// Shelves of artists per criterion (never playlists), each scrolling sideways
+// and loading more as you reach the end. Picking an artist opens their page
+// in the middle; picking an album docks its tracklist — checkboxes, download,
+// add to playlist — on the right, using the ordinary playlist panel.
+// ======================================================================
+const Bands = (() => {
+  const PAGE = 15;
+  const DEC = [
+    ["Nejnovější", "2025 new", "nové"], ["2020s", "2020s hits", "roky 2020"],
+    ["2010s", "2010s hits", "roky 2010"], ["2000s", "2000s hits", "roky 2000"],
+    ["90. léta", "1990s hits", "90. léta"], ["80. léta", "1980s hits", "80. léta"],
+    ["70. léta", "1970s hits", "70. léta"], ["60. léta", "1960s hits", "60. léta"],
+  ];
+  // Styles that are not metal, shown after the metal ones.
+  const OTHER_STYLES = [
+    "Pop", "Indie Pop", "Synthpop", "Dance Pop", "K-Pop", "Hip Hop", "Rap", "Trap", "R&B", "Soul",
+    "Funk", "Disco", "House", "Techno", "Trance", "Drum and Bass", "Dubstep", "Ambient",
+    "Electronic", "Jazz", "Blues", "Country", "Folk", "Singer-Songwriter", "Reggae", "Ska",
+    "Latin", "Reggaeton", "Classical", "Opera", "Soundtrack", "Indie Rock", "Emo", "Pop Punk",
+    "Hardcore Punk", "Shoegaze", "New Wave", "Gospel", "World Music",
+  ];
+  let region = "intl", group = "dec", gen = 0;
+  let catalog = null;                 // {genres, moods} from /api/categories
+  let charts = null;                  // {intl, cz} from /api/charts/catalog
+  let io = null;
+
+  async function categories(){
+    if(catalog) return catalog;
+    let data = {};
+    try{ data = await (await fetch("/api/categories")).json(); }catch(e){}
+    const seen = new Set();
+    const genres = [];
+    ROCK_METAL_GENRES.concat(OTHER_STYLES, data.genres || []).forEach(g => {
+      const k = g.toLowerCase();
+      if(!seen.has(k)){ seen.add(k); genres.push(g); }
+    });
+    catalog = {genres, moods: data.moods || []};
+    return catalog;
+  }
+
+  async function criteria(){
+    if(group === "dec") return DEC.map(([label, intl, cz]) => ({label, q: region === "cz" ? cz : intl}));
+    if(group === "top"){
+      // Real charts — Billboard, UK Official, ČNS IFPI, Apple Music, YouTube
+      // Music — reduced to the artists in them, in chart order.
+      if(!charts){
+        try{ charts = await (await fetch("/api/charts/catalog")).json(); }catch(e){ charts = {intl: [], cz: []}; }
+      }
+      return (charts[region] || []).map(c => ({label: c.label, chart: c.id}));
+    }
+    const c = await categories();
+    return (group === "genre" ? c.genres : c.moods).map(x => ({label: x, q: x}));
+  }
+
+  async function paint(){
+    const mine = ++gen;
+    const box = el("ab-shelves");
+    if(io) io.disconnect();
+    box.innerHTML = "";
+    const list = await criteria();
+    if(mine !== gen) return;
+    io = new IntersectionObserver(entries => entries.forEach(e => {
+      if(e.isIntersecting){ io.unobserve(e.target); e.target._start && e.target._start(); }
+    }), {root: null, rootMargin: "300px"});
+    list.forEach(c => box.appendChild(shelf(c, mine)));
+  }
+
+  // A shelf fetches nothing until it scrolls into view; then it keeps
+  // topping itself up as its row is scrolled to the right.
+  function shelf(c, mine){
+    const sec = document.createElement("div");
+    sec.className = "shelf";
+    sec.innerHTML = `<div class="shelf-head"><h2 class="h">${escapeHtml(c.label)}</h2></div>
+      <div class="shelf-row"></div>`;
+    const row = sec.querySelector(".shelf-row");
+    const st = {offset: 0, more: true, busy: false};
+
+    async function more(){
+      if(st.busy || !st.more || mine !== gen) return;
+      st.busy = true;
+      const note = document.createElement("span");
+      note.className = "artist-suggest-loading";
+      note.textContent = "Načítám…";
+      row.appendChild(note);
+      let data = {artists: [], hasMore: false};
+      try{
+        const url = c.chart
+          ? `/api/charts/artists?id=${encodeURIComponent(c.chart)}&offset=${st.offset}&limit=${PAGE}`
+          : `/api/artists/browse?q=${encodeURIComponent(c.q)}&region=${region}` +
+            `&offset=${st.offset}&limit=${PAGE}`;
+        data = await (await fetch(url)).json();
+      }catch(e){}
+      note.remove();
+      if(mine !== gen) return;
+      (data.artists || []).forEach(a => row.appendChild(tile(a)));
+      st.offset += (data.artists || []).length;
+      st.more = !!data.hasMore && (data.artists || []).length > 0;
+      st.busy = false;
+      if(!row.children.length){
+        sec.hidden = true;                   // nothing under this criterion
+      } else if(st.more && row.scrollWidth <= row.clientWidth + 4){
+        more();                               // not scrollable yet — fill it
+      }
+    }
+    row.addEventListener("scroll", () => {
+      if(row.scrollWidth - row.scrollLeft - row.clientWidth < 300) more();
+    });
+    sec._start = more;
+    if(io) io.observe(sec);
+    return sec;
+  }
+
+  function tile(a){
+    const card = document.createElement("div");
+    card.className = "card card-artist";
+    card.innerHTML = `
+      <div class="art" style="${a.image ? `background-image:url('${thumbUrl(a.image)}')` : ""}">${a.image ? "" : icon("mic", 30)}</div>
+      <div class="meta"><div class="title">${escapeHtml(a.name || "")}</div>
+      <div class="sub">Interpret</div></div>`;
+    card.onclick = () => open(a);
+    return card;
+  }
+
+  // ---- an artist's page ----
+  let pageToken = 0;
+
+  async function open(a){
+    const mine = ++pageToken;
+    document.body.classList.remove("ab-dock");
+    closeOverlay();
+    el("ab-browse").hidden = true;
+    el("ab-page").hidden = false;
+    el("ab-name").textContent = a.name || "";
+    const photo = el("ab-photo");
+    photo.style.backgroundImage = a.image ? `url('${thumbUrl(a.image)}')` : "";
+    photo.innerHTML = a.image ? "" : icon("mic", 44);
+    el("ab-stats").textContent = "Načítám…";
+    ["ab-facts", "ab-bio"].forEach(id => el(id).innerHTML = "");
+    ["ab-members", "ab-events-sect", "ab-photos-sect", "ab-videos-sect", "ab-albums-sect"]
+      .forEach(id => el(id).hidden = true);
+
+    let data = null;
+    try{
+      const q = a.browseId ? `channel_id=${encodeURIComponent(a.browseId)}` : `name=${encodeURIComponent(a.name)}`;
+      const res = await fetch(`/api/artist?${q}`);
+      if(res.ok) data = await res.json();
+    }catch(e){}
+    if(mine !== pageToken) return;
+    if(!data){ el("ab-stats").textContent = "Profil se nepodařilo načíst."; return; }
+    paintProfile(data);
+
+    // Wikipedia, MusicBrainz and Bandsintown answer a beat later.
+    try{
+      const res = await fetch("/api/artist/about?name=" + encodeURIComponent(data.name || a.name));
+      if(res.ok){
+        const about = await res.json();
+        if(mine === pageToken) paintAbout(about, data);
+      }
+    }catch(e){}
+  }
+
+  function bio(text){
+    const box = el("ab-bio");
+    box.textContent = text || "";
+    box.classList.toggle("clamped", (text || "").length > 520);
+    const old = el("ab-bio-more");
+    if(old) old.remove();
+    if((text || "").length > 520){
+      const b = document.createElement("button");
+      b.id = "ab-bio-more";
+      b.className = "ab-bio-more";
+      b.textContent = "Zobrazit celý text";
+      b.onclick = () => {
+        const c = box.classList.toggle("clamped");
+        b.textContent = c ? "Zobrazit celý text" : "Zobrazit méně";
+      };
+      box.after(b);
+    }
+  }
+
+  function paintProfile(d){
+    if(d.thumbnail){
+      el("ab-photo").style.backgroundImage = `url('${thumbUrl(d.thumbnail)}')`;
+      el("ab-photo").innerHTML = "";
+    }
+    const stats = [];
+    if(d.monthlyListeners) stats.push(`${d.monthlyListeners} posluchačů měsíčně`);
+    if(d.subscribers) stats.push(`${d.subscribers} odběratelů`);
+    el("ab-stats").textContent = stats.join(" • ");
+    bio(d.description || "");
+
+    const videos = d.videos || [];
+    el("ab-videos-sect").hidden = !videos.length;
+    const vb = el("ab-videos");
+    vb.innerHTML = "";
+    videos.forEach(v => {
+      const b = document.createElement("button");
+      b.className = "ab-video";
+      b.type = "button";
+      b.innerHTML = `<div class="vt" style="${v.thumbnail ? `background-image:url('${thumbUrl(v.thumbnail)}')` : ""}"><i>${icon("play", 13)}</i></div>
+        <div class="n">${escapeHtml(v.title || "")}</div><div class="v">${escapeHtml(v.views || "")}</div>`;
+      b.onclick = () => openFloatingVideo({videoId: v.videoId, title: v.title, artists: d.name});
+      vb.appendChild(b);
+    });
+
+    const rel = (d.albums || []).concat(d.singles || []);
+    el("ab-albums-sect").hidden = !rel.length;
+    const ab = el("ab-albums");
+    ab.innerHTML = "";
+    rel.forEach(r => {
+      const id = r.browseId || r.playlistId;
+      const b = document.createElement("button");
+      b.className = "ab-album";
+      b.type = "button";
+      b.innerHTML = `<div class="cv" style="${r.thumbnail ? `background-image:url('${thumbUrl(r.thumbnail)}')` : ""}">${r.thumbnail ? "" : icon("disc", 26)}</div>
+        <div class="n">${escapeHtml(r.title || "")}</div>
+        <div class="y">${escapeHtml([r.type, r.year].filter(Boolean).join(" • "))}</div>`;
+      b.onclick = () => {
+        if(!id) return;
+        ab.querySelectorAll(".ab-album.on").forEach(x => x.classList.remove("on"));
+        b.classList.add("on");
+        document.body.classList.add("ab-dock");
+        openPlaylist(id);
+      };
+      ab.appendChild(b);
+    });
+  }
+
+  function paintAbout(d, profile){
+    const f = d.facts || {};
+    const chips = [];
+    if(f.formed) chips.push({t: `${f.kind === "Person" ? "Narození" : "Založení"} ${f.formed}`});
+    if(f.ended) chips.push({t: `Konec ${f.ended}`});
+    if(f.origin) chips.push({t: czPlace(f.origin)});
+    (f.genres || []).forEach(g => chips.push({t: g, accent: true}));
+    el("ab-facts").innerHTML = chips.map(c =>
+      `<span class="${c.accent ? "accent" : ""}">${escapeHtml(c.t)}</span>`).join("");
+
+    if(d.bio && d.bio.text){
+      const yt = (profile && profile.description) || "";
+      bio(yt && !yt.startsWith(d.bio.text.slice(0, 60)) ? `${d.bio.text}\n\n${yt}` : d.bio.text);
+    }
+
+    const members = d.members || [];
+    const mb = el("ab-members");
+    mb.hidden = !members.length;
+    if(members.length){
+      const fmt = m => escapeHtml(m.name + ((m.roles || []).length ? ` (${m.roles.join(", ")})` : ""));
+      const now = members.filter(m => m.current), past = members.filter(m => !m.current);
+      mb.innerHTML = (now.length ? `<b>Sestava:</b> ${now.map(fmt).join(", ")}` : "") +
+        (past.length ? `<br><b>Dříve:</b> ${past.map(fmt).join(", ")}` : "");
+    }
+
+    const photos = d.photos || [];
+    el("ab-photos-sect").hidden = !photos.length;
+    const pb = el("ab-photos");
+    pb.innerHTML = "";
+    photos.forEach(ph => {
+      const b = document.createElement("button");
+      b.className = "ab-photo-tile";
+      b.type = "button";
+      b.title = ph.title || "";
+      b.style.backgroundImage = `url('${thumbUrl(ph.url)}')`;
+      b.onclick = () => openPhotoLightbox(ph);
+      pb.appendChild(b);
+    });
+
+    paintEvents(d.events || []);
+  }
+
+  function paintEvents(events){
+    const sect = el("ab-events-sect"), box = el("ab-events"), more = el("ab-events-more");
+    sect.hidden = !events.length;
+    if(!events.length) return;
+    const SHOWN = 6;
+    let all = false;
+    const draw = () => {
+      box.innerHTML = "";
+      let grp = null;
+      (all ? events : events.slice(0, SHOWN)).forEach(ev => {
+        const g = ev.home ? "home" : "away";
+        if(g !== grp){
+          grp = g;
+          box.insertAdjacentHTML("beforeend",
+            `<div class="ab-ev-group">${ev.home ? "V Česku a na Slovensku" : "Ostatní termíny"}</div>`);
+        }
+        const d = new Date(ev.datetime), ok = !isNaN(d.getTime());
+        const a = document.createElement("a");
+        a.className = "ab-event";
+        a.href = ev.url || "#";
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.innerHTML = `<div class="d"><b>${ok ? d.getDate() : "?"}</b><small>${ok ? MONTHS_CZ[d.getMonth()] + " " + String(d.getFullYear()).slice(2) : ""}</small></div>
+          <div><div class="c">${escapeHtml([ev.city, czCountry(ev.country)].filter(Boolean).join(", "))}</div>
+          <div class="vn">${escapeHtml(ev.venue || "")}</div></div>
+          ${ev.soldOut ? '<span class="tg">Vyprodáno</span>' : ""}`;
+        box.appendChild(a);
+      });
+      more.hidden = events.length <= SHOWN;
+      more.textContent = all ? "Zobrazit méně" : `Zobrazit všech ${events.length}`;
+    };
+    more.onclick = () => { all = !all; draw(); };
+    draw();
+  }
+
+  function back(){
+    pageToken++;
+    document.body.classList.remove("ab-dock");
+    closeOverlay();
+    el("ab-page").hidden = true;
+    el("ab-browse").hidden = false;
+  }
+
+  function show(){
+    el("ab-page").hidden = true;
+    el("ab-browse").hidden = false;
+    document.body.classList.remove("ab-dock");
+    paint();
+  }
+
+  el("ab-back").onclick = back;
+  el("ab-region").querySelectorAll("button").forEach(b => b.onclick = () => {
+    region = b.dataset.r;
+    el("ab-region").querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+    paint();
+  });
+  el("ab-groups").querySelectorAll("button").forEach(b => b.onclick = () => {
+    group = b.dataset.g;
+    el("ab-groups").querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+    paint();
+  });
+
+  return {show, open, back};
+})();
+
+// ======================================================================
 // Favorite playlists — star a playlist from its detail panel, browse them
 // on the home screen (any region) without having to search for them again.
 // ======================================================================
@@ -3406,72 +3932,10 @@ function toggleFavPlaylist(playlist){
   renderFavPlaylists();
   return added;
 }
-// "Zobrazit vše" turns a shelf into a wrapping grid, and back.
-function toggleShelf(sectionId, gridId, btnId){
-  const grid = el(gridId);
-  const expanded = grid.classList.toggle("grid");
-  grid.classList.toggle("shelf-row", !expanded);
-  el(btnId).textContent = expanded ? "Zobrazit méně" : "Zobrazit vše";
-}
-el("fav-playlists-all").onclick = () =>
-  toggleShelf("fav-playlists-section", "fav-playlists-grid", "fav-playlists-all");
-el("fav-artists-all").onclick = () =>
-  toggleShelf("fav-artists-section", "fav-artists-grid", "fav-artists-all");
-
-// Saved artists, as the round tiles the reference uses.
-function renderFavArtists(){
-  const section = el("fav-artists-section");
-  const artists = (loadMyLibrary().artists || []);
-  const shouldShow = artists.length > 0 && state.mode === "playlists";
-  section.hidden = !shouldShow;
-  if(!shouldShow) return;
-
-  const grid = el("fav-artists-grid");
-  grid.innerHTML = "";
-  artists.forEach(a => {
-    const card = document.createElement("div");
-    card.className = "card card-artist";
-    card.innerHTML = `
-      <div class="art" style="${a.thumbnail ? `background-image:url('${thumbUrl(a.thumbnail)}')` : ""}">${a.thumbnail ? "" : "\uD83C\uDFA4"}</div>
-      <div class="meta">
-        <div class="title">${escapeHtml(a.title || a.name || "")}</div>
-        <div class="sub">Umělec</div>
-      </div>`;
-    card.onclick = () => {
-      el("search-input").value = a.title || a.name || "";
-      runSearch();
-    };
-    grid.appendChild(card);
-  });
-}
-
+// Favourites (playlists, albums, artists) are listed in the library rail only;
+// see renderHomeRail.
 function renderFavPlaylists(){
-  renderFavArtists();
-  const section = el("fav-playlists-section");
-  const list = loadFavPlaylists();
-  const shouldShow = list.length > 0 && state.mode === "playlists";
-  section.hidden = !shouldShow;
-  if(!shouldShow) return;
-  const grid = el("fav-playlists-grid");
-  grid.innerHTML = "";
-  list.forEach(p=>{
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="card-fabs"><div class="fab-btn" title="Odebrat z oblíbených">${icon("close", 12)}</div></div>
-      <div class="art" style="${p.thumbnail?`background-image:url('${thumbUrl(p.thumbnail)}')`:''}">${p.thumbnail?'':icon("note", 22)}</div>
-      <div class="meta">
-        <div class="title">${escapeHtml(p.title||'')}</div>
-        <div class="sub">${escapeHtml(p.author||'')}</div>
-      </div>`;
-    card.querySelector(".fab-btn").onclick = (e) => {
-      e.stopPropagation();
-      toggleFavPlaylist(p);
-      showToast("Odebráno z oblíbených");
-    };
-    card.onclick = () => openPlaylist(p.browseId);
-    grid.appendChild(card);
-  });
+  refreshHomeRail();
 }
 
 // ======================================================================
@@ -3509,7 +3973,8 @@ function setMode(mode){
   resultsTitle.hidden = true;
   el("load-more-wrap").hidden = true;
   // Browse chips belong to the two search modes only.
-  browseSection.hidden = mode !== "playlists" && mode !== "songs";
+  browseSection.hidden = mode !== "playlists";
+  el("artists-section").hidden = mode !== "songs";
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
@@ -3526,6 +3991,8 @@ function setMode(mode){
     renderFavPlaylists();
   }
   updateArtistSuggestions();
+  renderSearchCriteria();
+  if(mode === "songs") Bands.show();
   renderLibraryRail(mode);
   pushNav({type: "mode", mode});
 }
@@ -4139,6 +4606,10 @@ const ICONS = (() => {
       solid("M12 3.3l2.63 5.33 5.88.86-4.25 4.15 1 5.86L12 16.74l-5.26 2.76 1-5.86-4.25-4.15 5.88-.86Z"),
     back:
       line("M19.4 12H4.6M10.6 5.8 4.4 12l6.2 6.2"),
+    flag:
+      line("M5.4 21V4") + line("M5.4 4.8c3.4-1.9 5.6 1.6 9 0l3.8-1.2v8.6c-3.4 1.9-5.6-1.6-9 0l-3.8 1.2"),
+    rec:  solid("M12 5.4a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 0 0 0-13.2Z"),
+    stop: solid("M6.4 6.4h11.2v11.2H6.4z"),
     inbox:
       line("M20.4 12.6H15.6l-1.4 2.6H9.8l-1.4-2.6H3.6") +
       line("M6.7 5.4h10.6a1.6 1.6 0 0 1 1.45.92l2.65 5.6v5.68a1.8 1.8 0 0 1-1.8 1.8H4.4a1.8 1.8 0 0 1-1.8-1.8v-5.68l2.65-5.6a1.6 1.6 0 0 1 1.45-.92Z"),
@@ -4410,15 +4881,55 @@ function renderLibraryRail(mode){
     return;
   }
 
-  // playlists / songs — whatever the user has saved
+  renderHomeRail(list);
+}
+
+// What the rail shows in the playlist / artist sections: the same three lists
+// the player's buttons open — queue, history — and the favourites.
+function refreshHomeRail(){
+  if(state.mode === "playlists" || state.mode === "songs") renderLibraryRail(state.mode);
+}
+
+function railSection(list, title, count, action){
+  const head = document.createElement("div");
+  head.className = "lib-sec";
+  head.innerHTML = `<span>${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
+  if(action){
+    const a = document.createElement("button");
+    a.type = "button";
+    a.textContent = action.label;
+    a.onclick = action.onClick;
+    head.appendChild(a);
+  }
+  list.appendChild(head);
+}
+
+function renderHomeRail(list){
+  let queue = [], history = [];
+  try{ queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){}
+  try{ history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){}
+
+  const trackRow = (t, onClick) => libRow({
+    art: t.thumbnail || icon("note", 18), artIsUrl: !!t.thumbnail,
+    name: t.title || "", sub: t.artists || "", onClick,
+  });
+
+  railSection(list, "Fronta", queue.length);
+  if(!queue.length) list.appendChild(libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat."));
+  queue.forEach(t => list.appendChild(trackRow(t, () => Player.play(t))));
+
+  railSection(list, "Historie", history.length);
+  if(!history.length) list.appendChild(libEmpty("Zatím jsi nic nepustil/a."));
+  history.forEach(t => list.appendChild(trackRow(t,
+    () => t.source === "local" ? Player.playLocal(t) : Player.play(t))));
+
   const lib = loadMyLibrary();
   const saved = []
     .concat((loadFavPlaylists() || []).map(i => ({...i, kind: "playlist"})))
     .concat((lib.playlists || []).map(i => ({...i, kind: "playlist"})))
     .concat((lib.albums || []).map(i => ({...i, kind: "album"})))
     .concat((lib.artists || []).map(i => ({...i, kind: "artist"})));
-
-  // Same playlist can sit in both favourites and the library store.
+  // The same playlist can sit in both the favourites and the library store.
   const seen = new Set();
   const unique = saved.filter(i => {
     const k = (i.kind || "") + ":" + (i.id || i.browseId || i.title);
@@ -4426,21 +4937,22 @@ function renderLibraryRail(mode){
     seen.add(k); return true;
   });
 
-  if(!unique.length){
-    list.appendChild(libEmpty("Knihovna je prázdná. Ulož si playlist nebo interpreta srdíčkem z detailu."));
-    return;
-  }
+  railSection(list, "Oblíbené", unique.length);
+  if(!unique.length) list.appendChild(libEmpty("Nic tu zatím není. Ulož si playlist nebo interpreta hvězdičkou z detailu."));
   unique.forEach(item => {
     const kindLabel = item.kind === "playlist" ? "Playlist" : item.kind === "album" ? "Album" : "Umělec";
     list.appendChild(libRow({
-      art: item.thumbnail || (item.kind === "artist" ? "\uD83C\uDFA4" : "\uD83C\uDFB5"),
+      art: item.thumbnail || icon(item.kind === "artist" ? "mic" : "note", 18),
       artIsUrl: !!item.thumbnail,
       round: item.kind === "artist",
       name: item.title || item.name || "",
       sub: kindLabel + (item.author ? " • " + item.author : ""),
       onClick: () => {
         const id = item.browseId || item.id;
-        if(item.kind === "playlist" && id) openPlaylist(id);
+        if(item.kind === "artist"){
+          setMode("songs");
+          Bands.open({name: item.title || item.name, browseId: item.browseId || item.channelId});
+        } else if(id) openPlaylist(id);
       },
     }));
   });
@@ -4550,7 +5062,7 @@ function renderNowPlaying(){
 
   if(!t){
     el("np-title").textContent = "Nic nehraje";
-    el("np-artist").textContent = "Vyber píseň a stiskni ▶";
+    el("np-artist").textContent = "Vyber píseň k přehrání";
     el("np-context").textContent = "Právě hraje";
     stage.style.backgroundImage = "";
     stage.textContent = "\uD83C\uDFB5";
@@ -4585,7 +5097,7 @@ function renderNowPlaying(){
   box.innerHTML = "";
   const queue = loadQueue();
   if(!queue.length){
-    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem ＋."));
+    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem Přidat."));
     return;
   }
   queue.slice(0, 30).forEach(item => {
@@ -4817,7 +5329,11 @@ function startStemsSeparation(rel){
   fetch("/api/stems/separate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({rel}),
+    body: JSON.stringify({
+      rel,
+      format: loadSettings().stems_format || "mp3",
+      mp3_bitrate: loadSettings().stems_bitrate || 320,
+    }),
   })
   .then(r => r.json())
   .then(data => {
@@ -5074,10 +5590,299 @@ el("steems-hero-export").onclick = () => el("mixer-export").click();
 // clips, time ruler with beat grid, tempo detection, metronome, loop region,
 // save/load sessions, and stem export.
 // ======================================================================
+// ======================================================================
+// Songsterr Tab Integration
+// ======================================================================
+// Guitar Sampler (Virtual Guide)
+// ======================================================================
+const GuitarSampler = (() => {
+  // The guide has no recorded guitar to play, and a bare oscillator is a poor
+  // thing to feed a neural amp: it has none of the noisy, decaying attack the
+  // model learned from real pickups. So each pitch is synthesised once as a
+  // plucked string (Karplus-Strong) and cached as a buffer. Pitch comes from
+  // the tab's own tuning, so drop-D and friends come out right.
+  const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];  // string 0 = high e
+  const BUFFER_SECONDS = 3;
+  const cache = new Map();                // "sampleRate:midi" -> AudioBuffer
+  const voices = new Array(8).fill(null); // one ringing voice per string
+
+  function pluck(ctx, midi){
+    const key = ctx.sampleRate + ":" + midi;
+    if(cache.has(key)) return cache.get(key);
+
+    const sr = ctx.sampleRate;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    // The two-point average adds half a sample of delay; take it off so the
+    // string is not flat, which matters most up the neck.
+    const period = sr / freq - 0.5;
+    const n = Math.max(3, Math.floor(period));
+    const frac = period - n;
+    const len = Math.floor(sr * BUFFER_SECONDS);
+    const out = new Float32Array(len);
+
+    // Deterministic noise burst, low-passed once so the pick is not a hiss.
+    let seed = 1234567 + midi * 7919;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
+    let prev = 0;
+    for(let i = 0; i < n + 2; i++){
+      prev = 0.55 * rnd() + 0.45 * prev;
+      out[i] = prev;
+    }
+    // Pick position: a comb notch, like plucking nearer the bridge.
+    const pos = Math.max(1, Math.floor(n * 0.17));
+    for(let i = n + 1; i >= pos; i--) out[i] -= out[i - pos];
+
+    // Low strings sustain longer than high ones.
+    const loss = 0.9985 - Math.min(0.002, Math.max(0, midi - 40) * 0.00004);
+    for(let i = n + 2; i < len; i++){
+      // Fractionally delayed tap, then a two-point average as the damping filter.
+      const d0 = out[i - n] * (1 - frac) + out[i - n - 1] * frac;
+      const d1 = out[i - n - 1] * (1 - frac) + out[i - n - 2] * frac;
+      out[i] = loss * 0.5 * (d0 + d1);
+    }
+
+    let peak = 0;
+    for(let i = 0; i < len; i++) if(Math.abs(out[i]) > peak) peak = Math.abs(out[i]);
+    const k = peak ? 0.6 / peak : 1;
+    for(let i = 0; i < len; i++) out[i] *= k;
+
+    const buf = ctx.createBuffer(1, len, sr);
+    buf.copyToChannel(out, 0);
+    cache.set(key, buf);
+    return buf;
+  }
+
+  async function init(){ /* nothing to load — kept for callers */ }
+
+  function release(v, at, fade){
+    try{
+      v.env.gain.cancelScheduledValues(at);
+      v.env.gain.setValueAtTime(Math.max(v.env.gain.value, 0.0001), at);
+      v.env.gain.exponentialRampToValueAtTime(0.0001, at + fade);
+      v.src.stop(at + fade + 0.02);
+    }catch(e){}
+  }
+
+  // note: {duration, staccato, hammer, pull} as normalised by the server.
+  function playNote(ctx, output, string, fret, time = 0, tuning, note){
+    const open = (tuning && tuning[string] != null) ? tuning[string] : STANDARD_TUNING[string];
+    if(open == null) return;
+    const midi = open + fret;
+    if(midi < 20 || midi > 100) return;
+    const n = note || {};
+
+    // A string can only ring one note: the new one damps the old one.
+    const old = voices[string];
+    if(old) release(old, time, 0.03);
+
+    const src = ctx.createBufferSource();
+    src.buffer = pluck(ctx, midi);
+
+    // Legato notes are not picked, so they come in softer.
+    const env = ctx.createGain();
+    env.gain.setValueAtTime((n.hammer || n.pull) ? 0.55 : 1, time);
+
+    const dur = Math.max(0.05, Number(n.duration) || 0.5);
+    const held = n.staccato ? Math.min(dur, 0.12) : dur;
+    const v = {src, env};
+    src.connect(env);
+    env.connect(output);
+    src.start(time);
+    release(v, time + held, n.staccato ? 0.05 : 0.25);
+    src.onended = () => {
+      try{ env.disconnect(); }catch(e){}
+      if(voices[string] === v) voices[string] = null;
+    };
+    voices[string] = v;
+  }
+
+  // Seek, loop and pause: nothing scheduled before now may keep ringing.
+  function stopAll(ctx){
+    const at = ctx.currentTime;
+    voices.forEach((v, i) => { if(v) release(v, at, 0.03); voices[i] = null; });
+  }
+
+  return { init, playNote, stopAll };
+})();
+
+// ======================================================================
+const Songsterr = {
+
+  async search(q) {
+    const res = await fetch(`/api/tabs/search?q=${encodeURIComponent(q)}`);
+    if(!res.ok) throw new Error("Songsterr search failed");
+    return res.json();
+  },
+
+  async getMeta(songId) {
+    const res = await fetch(`/api/tabs/meta/${songId}`);
+    if(!res.ok) throw new Error("Songsterr metadata failed");
+    return res.json();
+  },
+
+  async getTrack(songId, revisionId, trackIndex) {
+    const res = await fetch(
+      `/api/tabs/track/${songId}/${revisionId}/${trackIndex}`
+    );
+    if(!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Songsterr track failed");
+    }
+    return res.json();
+  },
+
+  pickGuitarTrack(meta) {
+    const tracks = Array.isArray(meta.tracks) ? meta.tracks : [];
+
+    // Songsterr provides the preferred guitar track when available.
+    if(
+      Number.isInteger(meta.popularTrackGuitar) &&
+      meta.popularTrackGuitar >= 0 &&
+      meta.popularTrackGuitar < tracks.length
+    ) {
+      return meta.popularTrackGuitar;
+    }
+
+    // Otherwise find the first track whose instrument/name looks like guitar.
+    const guitarIndex = tracks.findIndex(track => {
+      const text = [
+        track.instrument,
+        track.name,
+        track.title,
+        track.type
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      return text.includes("guitar");
+    });
+
+    return guitarIndex >= 0 ? guitarIndex : null;
+  }
+
+};
+
+const TabSearch = (() => {
+
+  const overlay = el("tab-search-overlay");
+  const input = el("tab-search-input");
+  const btn = el("tab-search-btn");
+  const results = el("tab-search-results");
+
+  function show() {
+    overlay.hidden = false;
+    input.focus();
+  }
+
+  function hide() {
+    overlay.hidden = true;
+  }
+
+  async function runSearch() {
+    const q = input.value.trim();
+    if(!q) return;
+
+    results.innerHTML =
+      `<div class="empty" style="padding:20px">Hledám...</div>`;
+
+    try {
+      const data = await Songsterr.search(q);
+      renderResults(data.tabs || []);
+    } catch(e) {
+      console.error("Songsterr search:", e);
+      results.innerHTML =
+        `<div class="empty" style="padding:20px">Chyba při hledání.</div>`;
+    }
+  }
+
+  function renderResults(tabs) {
+    results.innerHTML = "";
+
+    if(!tabs.length) {
+      results.innerHTML =
+        `<div class="empty" style="padding:20px">Žádné taby nenalezeny.</div>`;
+      return;
+    }
+
+    tabs.forEach(tab => {
+      const row = document.createElement("div");
+      row.className = "fs-row";
+
+      row.innerHTML = `
+        <span class="fs-icon" data-icon="music" data-size="16"></span>
+        <div class="fs-name">
+          <div style="font-weight:700;color:var(--text)">
+            ${escapeHtml(tab.title)}
+          </div>
+          <div style="font-size:12px;color:var(--sub)">
+            ${escapeHtml(tab.artist)}
+          </div>
+        </div>
+        <span class="fs-size">${tab.difficulty || "N/A"}</span>
+      `;
+
+      row.onclick = () => loadTab(tab.songId);
+      results.appendChild(row);
+    });
+  }
+
+  async function loadTab(songId) {
+    try {
+      const meta = await Songsterr.getMeta(songId);
+
+      const trackIndex = Songsterr.pickGuitarTrack(meta);
+
+      if(trackIndex === null) {
+        throw new Error("V této skladbě nebyla nalezena kytarová stopa.");
+      }
+
+      const trackData = await Songsterr.getTrack(
+        songId,
+        meta.revisionId,
+        trackIndex
+      );
+
+      hide();
+
+      if(Mixer && Mixer.loadTab) {
+        Mixer.loadTab(trackData);
+      } else {
+        showToast("Tab načten, ale Mixer není připraven.");
+      }
+
+    } catch(e) {
+      console.error("Songsterr tab:", e);
+      showToast(
+        e.message || "Chyba při načítání tabulatury."
+      );
+    }
+  }
+
+  btn.onclick = runSearch;
+
+  input.onkeydown = (e) => {
+    if(e.key === "Enter") runSearch();
+  };
+
+  el("tab-search-close").onclick = hide;
+
+  return { show, hide };
+})();
+
+// ======================================================================
 const Mixer = (() => {
+  let stretchNodeFactory = null;
+
+  async function initStretch() {
+    if (stretchNodeFactory) return;
+    const module = await import('./stretch/SignalsmithStretch.mjs');
+    stretchNodeFactory = module.default;
+  }
+
   let audioCtx = null;
   let channels = [];   // [{stem, buffer, gainNode, analyser, panner, muted, solo, faderValue, source, vuFill, pitchRate, panValue, clipOffset}]
   let duration = 0;
+  // A song opens fitted to the window and stays fitted while the window's
+  // layout settles, until the listener zooms by hand.
+  let autoFit = true;
   let isPlaying = false;
   let startedAt = 0;
   let pausedAt = 0;
@@ -5138,6 +5943,9 @@ const Mixer = (() => {
   let dragStartOffset = 0;
   let sessionId = null;
   let currentSongName = null;
+  let currentTab = null; // {track: JSON, laune: Canvas, ...}
+  let tabNoteIdx = 0;
+  let guideEnabled = false;
 
   // The page hero has its own play button; keep its glyph with the mixer's.
   // The hero's play button and the mixer's share the player bar's solid
@@ -5158,8 +5966,33 @@ const Mixer = (() => {
     return audioCtx;
   }
 
+  // Everything the mixer plays — stems, click, the live guitar and the guide —
+  // ends here, so the player bar's volume and mute govern it like they govern
+  // a plain song.
+  let masterGain = null;
+  let masterLevel = 1;
+  function masterOut(){
+    const ac = ctx();
+    if(!masterGain){
+      masterGain = ac.createGain();
+      masterGain.gain.value = masterLevel;
+      masterGain.connect(ac.destination);
+    }
+    return masterGain;
+  }
+  function setMasterVolume(v){
+    masterLevel = Math.max(0, Math.min(1, v));
+    if(masterGain) masterGain.gain.value = masterLevel;
+  }
+
   function stopAllSources(){
-    channels.forEach(c => { if(c.source){ try{ c.source.stop(); }catch(e){} c.source = null; } });
+    GuitarSampler.stopAll(ctx());
+    channels.forEach(c => {
+      if(c.source){
+        try{ c.source.stop(); }catch(e){}
+        c.source = null;
+      }
+    });
   }
 
   // ---- Tempo detection via autocorrelation on downsampled peaks ----
@@ -5422,12 +6255,24 @@ const Mixer = (() => {
     }
   }
 
+  async function renderPitchedBuffer(c, semitones){
+    await initStretch();
+    const sampleRate = ctx().sampleRate;
+    const offlineCtx = new OfflineAudioContext(2, c.buffer.length, sampleRate);
+    const stretchNode = await stretchNodeFactory(offlineCtx, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+    await stretchNode.addBuffers([c.buffer]);
+    stretchNode.setTransposeSemitones(semitones, 8000);
+    stretchNode.connect(offlineCtx.destination);
+    stretchNode.start(0, 0, c.buffer.duration, 1, semitones);
+    return await offlineCtx.startRendering();
+  }
+
   function scheduleAll(offset){
     const when = ctx().currentTime + 0.05;
     channels.forEach(c => {
       const source = ctx().createBufferSource();
-      source.buffer = c.buffer;
-      source.playbackRate.value = c.pitchRate || 1;
+      source.buffer = c.pitchedBuffer || c.buffer;
+      source.playbackRate.value = 1;
       // Signal path is source -> gain -> analyser -> panner -> destination.
       // Connecting the source straight to the panner as well (as this used to)
       // bypassed the gain node entirely: faders, mute and solo were inaudible
@@ -5445,6 +6290,7 @@ const Mixer = (() => {
     AudioBus.claimMixer();
     if(pausedAt >= duration) pausedAt = 0;
     scheduleAll(pausedAt);
+    tabNoteIdx = firstNoteIndexAt(pausedAt);
     isPlaying = true;
     setMixerPlayGlyph(true);
     tick();
@@ -5463,6 +6309,19 @@ const Mixer = (() => {
   // Anything else that starts playing stops the mixer through this.
   AudioBus.registerMixer(pause);
 
+  // Binary search for the first note at or after t.
+  function firstNoteIndexAt(t){
+    if(!currentTab || !currentTab.notes) return 0;
+    const notes = currentTab.notes;
+    let lo = 0, hi = notes.length;
+    while(lo < hi){
+      const mid = (lo + hi) >>> 1;
+      if(notes[mid].time < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
   function seek(t){
     t = Math.max(0, Math.min(duration, t));
     if(isPlaying){
@@ -5471,6 +6330,7 @@ const Mixer = (() => {
     } else {
       pausedAt = t;
     }
+    tabNoteIdx = firstNoteIndexAt(t);
     updateSeekUI(t);
     updateRulerPlayhead(t);
     var allMuted = channels.every(c => c.muted || c.faderValue < 0.01);
@@ -5482,6 +6342,162 @@ const Mixer = (() => {
 
   function currentTime(){
     return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
+  }
+
+  // ---- lyrics: a lane that sits beside the vocal stem, and a readout bar ----
+  //
+  // LRCLib gives each line a start time. The lane places every line at that
+  // time, so it lines up with the singing on the waveform above and below it;
+  // the bar above shows the line being sung in a size that is readable
+  // whatever the zoom.
+  let lyrics = null;        // {lines: [{timeInMs, text}], source}
+  let lyricsOn = false;
+  let lyricsOffset = 0;     // seconds the text is shifted against the singing
+  let lyricsIdx = -2;
+
+  function lyricsOffsetKey(){ return "spotdl-gui-lyrics-offset:" + (currentSongName || ""); }
+
+  function lyricTime(i){ return lyrics.lines[i].timeInMs / 1000 + lyricsOffset; }
+
+  function lyricIndexAt(t){
+    if(!lyrics) return -1;
+    let lo = 0, hi = lyrics.lines.length;
+    while(lo < hi){
+      const mid = (lo + hi) >>> 1;
+      if(lyricTime(mid) <= t) lo = mid + 1; else hi = mid;
+    }
+    return lo - 1;
+  }
+
+  function paintOffset(){
+    el("nm-lyr-offset").textContent = (lyricsOffset >= 0 ? "+" : "−") +
+      Math.abs(lyricsOffset).toFixed(1).replace(".", ",") + " s";
+  }
+
+  // Follows the playhead; called with every position update.
+  function updateLyricsNow(t){
+    if(!lyricsOn || !lyrics) return;
+    const idx = lyricIndexAt(t);
+    if(idx === lyricsIdx) return;
+    lyricsIdx = idx;
+    const line = i => (i >= 0 && i < lyrics.lines.length) ? (lyrics.lines[i].text || "♪") : "";
+    el("nm-lyr-prev").textContent = line(idx - 1);
+    el("nm-lyr-cur").textContent = idx >= 0 ? line(idx) : "";
+    el("nm-lyr-next").textContent = line(idx + 1);
+    document.querySelectorAll("#mixer-tracks .lyr-block").forEach(b =>
+      b.classList.toggle("cur", Number(b.dataset.i) === idx));
+  }
+
+  function renderLyricsLane(rail, lanes, totalPx){
+    if(!lyricsOn || !lyrics) return;
+    const lane = thinLane(rail, lanes, totalPx, "Text", 34, "lyr-lane");
+    const n = lyrics.lines.length;
+    for(let i = 0; i < n; i++){
+      const text = lyrics.lines[i].text;
+      if(!text) continue;
+      const x = lyricTime(i) * pixelsPerSecond;
+      // Up to the next line, so a block never runs over its neighbour.
+      const next = i + 1 < n ? lyricTime(i + 1) : duration;
+      const w = Math.max(4, (next - lyricTime(i)) * pixelsPerSecond);
+      const b = document.createElement("div");
+      b.className = "lyr-block";
+      b.dataset.i = String(i);
+      b.style.left = x + "px";
+      b.style.width = w + "px";
+      b.title = text;
+      b.textContent = w >= 24 ? text : "";
+      b.onclick = (e) => { e.stopPropagation(); seek(Math.max(0, lyricTime(i))); };
+      lane.appendChild(b);
+    }
+    lyricsIdx = -2;
+  }
+
+  async function fetchLyrics(query){
+    const q = query || currentSongName || "";
+    let data = null;
+    try{
+      const params = new URLSearchParams({q});
+      if(duration) params.set("duration", String(Math.round(duration)));
+      const res = await fetch(`/api/lyrics/local?${params}`);
+      data = await res.json();
+    }catch(e){}
+    return data;
+  }
+
+  async function toggleLyrics(force){
+    if(lyricsOn && force !== true){
+      lyricsOn = false;
+      el("mixer-lyrics-bar").hidden = true;
+      el("mixer-lyrics-toggle").classList.remove("active");
+      renderTimeline();
+      return;
+    }
+    if(!currentSongName){ showToast("Nejdřív načti píseň"); return; }
+    if(!lyrics){
+      showToast("Hledám text…");
+      const data = await fetchLyrics();
+      if(!data || !(data.synced && data.lines && data.lines.length)){
+        showToast(data && data.plain
+          ? "K téhle písni je jen text bez časů — nedá se přiřadit ke zpěvu"
+          : "Text jsem nenašel — zkus tlačítko Hledat s interpretem a názvem");
+        el("mixer-lyrics-bar").hidden = false;
+        el("mixer-lyrics-toggle").classList.add("active");
+        lyricsOn = true;
+        lyrics = null;
+        el("nm-lyr-cur").textContent = "Text nenalezen";
+        return;
+      }
+      lyrics = data;
+      try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+    }
+    lyricsOn = true;
+    paintOffset();
+    el("mixer-lyrics-bar").hidden = false;
+    el("mixer-lyrics-toggle").classList.add("active");
+    renderTimeline();
+  }
+
+  function nudgeLyrics(delta){
+    lyricsOffset = Math.round((lyricsOffset + delta) * 10) / 10;
+    try{ localStorage.setItem(lyricsOffsetKey(), String(lyricsOffset)); }catch(e){}
+    paintOffset();
+    renderTimeline();
+  }
+
+  el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+  el("nm-lyr-earlier").onclick = () => nudgeLyrics(-0.5);
+  el("nm-lyr-later").onclick = () => nudgeLyrics(0.5);
+  el("nm-lyr-change").onclick = async () => {
+    const q = prompt("Interpret - název písně:", currentSongName || "");
+    if(!q || !q.trim()) return;
+    showToast("Hledám text…");
+    const data = await fetchLyrics(q.trim());
+    if(data && data.synced && data.lines && data.lines.length){
+      lyrics = data;
+      lyricsOn = true;
+      el("mixer-lyrics-bar").hidden = false;
+      el("mixer-lyrics-toggle").classList.add("active");
+      renderTimeline();
+    } else {
+      showToast("Pod tímhle názvem text s časy není");
+    }
+  };
+
+  // A different song has a different text.
+  function resetLyrics(){
+    lyrics = null; lyricsOn = false; lyricsIdx = -2; lyricsOffset = 0;
+    el("mixer-lyrics-bar").hidden = true;
+    el("mixer-lyrics-toggle").classList.remove("active");
+  }
+
+  function loadTab(data){
+    currentTab = data;
+    tabNoteIdx = firstNoteIndexAt(currentTime());
+    tabHiKey = "";
+    const lane = el("mixer-tab-lane");
+    if(lane) lane.hidden = false;
+    renderTimeline();
+    showToast("Tabulatura načtena — hledejte v mixeru");
   }
 
   function updateSeekUI(t){
@@ -5519,6 +6535,9 @@ const Mixer = (() => {
   function totalWidthPx(){
     // Never narrower than the viewport: a grid that stops mid-window leaves a
     // dead strip beside the lanes.
+    // A fitted song is exactly as wide as the song: reading the window here
+    // as well let a width that was still settling widen the lanes.
+    if(autoFit && duration) return Math.max(1, duration * pixelsPerSecond);
     const view = el("nm-scroll") ? el("nm-scroll").clientWidth : 0;
     return Math.max(1, view, duration * pixelsPerSecond);
   }
@@ -5539,7 +6558,9 @@ const Mixer = (() => {
     return step;
   }
 
+  let renderedView = 0;   // the window width the lanes were last laid out for
   function renderTimeline(){
+    renderedView = el("nm-scroll") ? el("nm-scroll").clientWidth : 0;
     const totalPx = totalWidthPx();
     el("nm-canvas").style.width = totalPx + "px";
     renderRuler(totalPx);
@@ -5547,6 +6568,21 @@ const Mixer = (() => {
     renderOverview();
     updateLoopVisual();
     updateRulerPlayhead(currentTime());
+    settleFit();
+  }
+
+  // While a song is fitted to the window, the window's width can still move
+  // under the first renders (a scrollbar appears, a rail fills in) and leave
+  // the lanes a little wider than the view. Redraw a few times until they
+  // agree, instead of leaving a stray horizontal scrollbar.
+  let settleTries = 0;
+  function settleFit(){
+    if(!autoFit || !duration) return;
+    requestAnimationFrame(() => {
+      const s = el("nm-scroll");
+      if(!s || s.scrollWidth - s.clientWidth <= 2){ settleTries = 0; return; }
+      if(settleTries++ < 4) zoomToFit(); else settleTries = 0;
+    });
   }
 
   function renderRuler(totalPx){
@@ -5622,7 +6658,7 @@ const Mixer = (() => {
     g.stroke();
   }
 
-  // Grid lines at the tracker's own beat and downbeat times.
+  // Grid lines from detected beat/downbeat timing.
   function paintDetectedGrid(g, w, h){
     const spacing = (downbeatTimes.length > 1
       ? (downbeatTimes[1] - downbeatTimes[0]) : 2) * pixelsPerSecond;
@@ -5641,7 +6677,8 @@ const Mixer = (() => {
         const x = t * pixelsPerSecond;
         if(x > w) return;
         const px = Math.floor(x) + 0.5;
-        g.moveTo(px, 0); g.lineTo(px, h);
+        g.moveTo(px, 0);
+        g.lineTo(px, h);
         drew = true;
       });
       if(drew) g.stroke();
@@ -5655,6 +6692,106 @@ const Mixer = (() => {
 
     strokeLines(downbeatTimes, (t, i) => !(i % step) && measured(t), "rgba(200,121,31,.5)");
     strokeLines(downbeatTimes, (t, i) => !(i % step) && !measured(t), "rgba(200,121,31,.22)");
+  }
+
+  // Grid lines at the tracker's own beat and downbeat times.
+  function renderTabLane(rail, lanes, totalPx){
+    const lane = el("mixer-tab-lane");
+    if(!lane || !currentTab) return;
+
+    const cv = el("tab-canvas");
+    if(!cv) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const tabH = 132;
+    const cssW = Math.min(totalPx, 16000);
+
+    cv.width = Math.floor(cssW * dpr);
+    cv.height = Math.floor(tabH * dpr);
+    cv.style.width = totalPx + "px";
+    cv.style.height = tabH + "px";
+
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, cssW, tabH);
+
+    const notes = currentTab.notes || [];
+
+    // Six guitar strings, high E at the top and low E at the bottom.
+    const stringCount = 6;
+    const top = 18;
+    const bottom = 112;
+    const stringH = (bottom - top) / (stringCount - 1);
+
+    // Background.
+    g.fillStyle = "rgba(0,0,0,.18)";
+    g.fillRect(0, 0, cssW, tabH);
+
+    // Tab staff.
+    g.strokeStyle = "rgba(255,255,255,.24)";
+    g.lineWidth = 1;
+
+    for(let stringIndex = 0; stringIndex < stringCount; stringIndex++){
+      const y = top + stringIndex * stringH;
+
+      g.beginPath();
+      g.moveTo(0, Math.floor(y) + 0.5);
+      g.lineTo(cssW, Math.floor(y) + 0.5);
+      g.stroke();
+    }
+
+    // String labels.
+    const labels = ["e", "B", "G", "D", "A", "E"];
+
+    g.font = "10px sans-serif";
+    g.textAlign = "right";
+    g.textBaseline = "middle";
+
+    labels.forEach((label, index) => {
+      const y = top + index * stringH;
+      g.fillStyle = "rgba(255,255,255,.55)";
+      g.fillText(label, 15, y);
+    });
+
+    // Notes.
+    notes.forEach(n => {
+      const stringIndex = Number(n.string);
+      if(!Number.isInteger(stringIndex)) return;
+      if(stringIndex < 0 || stringIndex >= stringCount) return;
+
+      const x = n.time * pixelsPerSecond;
+      if(x < -20 || x > cssW + 20) return;
+
+      const y = top + stringIndex * stringH;
+      const duration = Math.max(0.05, Number(n.duration) || 0.05);
+      const noteW = Math.max(16, duration * pixelsPerSecond);
+
+      // Resting note. Only the note being played turns yellow, and that is
+      // an overlay (updateTabHighlight), so the canvas is not redrawn per frame.
+      g.fillStyle = "rgba(255,255,255,.2)";
+      g.fillRect(
+        Math.floor(x),
+        Math.floor(y - 8),
+        Math.max(16, Math.floor(noteW)),
+        16
+      );
+
+      // Fret number.
+      g.fillStyle = "#ececec";
+      g.font = "bold 11px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+
+      g.fillText(
+        String(n.fret),
+        x + Math.min(noteW / 2, 12),
+        y
+      );
+    });
+
+    // Restore default text alignment.
+    g.textAlign = "left";
+    g.textBaseline = "alphabetic";
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -6378,6 +7515,16 @@ const Mixer = (() => {
     const lanes = el("mixer-tracks");
     rail.innerHTML = '<div class="nm-rail-pad"></div>';
     lanes.innerHTML = "";
+    // The tab lane is a fixed row above the tracks. Without a matching row in
+    // the rail every label below it sat one tab-height too high.
+    if(currentTab && channels.length){
+      const tabStrip = document.createElement("div");
+      tabStrip.className = "nm-strip guitar-strip";
+      tabStrip.style.height = "150px";
+      tabStrip.innerHTML = `<div class="nm-strip-top"><span class="nm-strip-name">TABULATURA</span></div>
+        <div class="nm-strip-sub">${escapeHtml(currentTab.name || "")}</div>`;
+      rail.appendChild(tabStrip);
+    }
 
     const totalPx = totalWidthPx();
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
@@ -6386,10 +7533,13 @@ const Mixer = (() => {
       // The guitar first — it is the one channel you are playing rather than
       // listening to — then the map of the song, the click, and the audio.
       renderGuitarLane(rail, lanes, totalPx);
+      renderTabLane(rail, lanes, totalPx);
       renderSectionsLane(rail, lanes, totalPx);
       renderChordsLane(rail, lanes, totalPx);
       renderTempoLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
+      // Right above the vocal stem, so the words sit next to the singing.
+      renderLyricsLane(rail, lanes, totalPx);
       bindSectionLabels();
     }
     requestAnimationFrame(updateLaneOverflowHint);
@@ -6535,7 +7685,59 @@ const Mixer = (() => {
     }
   }
 
+  // The note (or chord) sounding at t, as yellow boxes over the tab canvas.
+  // Geometry mirrors renderTabLane.
+  let tabHiKey = "";
+  function updateTabHighlight(t){
+    const lane = el("mixer-tab-lane");
+    if(!lane || lane.hidden || !currentTab || !currentTab.notes) return;
+    const notes = currentTab.notes;
+
+    let idx = firstNoteIndexAt(t + 1e-6) - 1;   // last note that has started
+    let start = -1, end = -1;
+    if(idx >= 0){
+      const n = notes[idx];
+      if(t < n.time + Math.max(Number(n.duration) || 0, 0.15)){
+        end = idx + 1;
+        start = idx;
+        while(start > 0 && notes[start - 1].time === n.time) start--;
+      }
+    }
+    const key = start + ":" + end + ":" + pixelsPerSecond;
+    if(key === tabHiKey) return;
+    tabHiKey = key;
+
+    let box = el("tab-hi");
+    if(!box){
+      box = document.createElement("div");
+      box.id = "tab-hi";
+      box.style.cssText = "position:absolute;left:0;top:0;height:0;pointer-events:none;";
+      if(getComputedStyle(lane).position === "static") lane.style.position = "relative";
+      lane.appendChild(box);
+    }
+    box.textContent = "";
+    if(start < 0) return;
+
+    const top = 18, stringH = (112 - 18) / 5;
+    for(let i = start; i < end; i++){
+      const n = notes[i];
+      const s = Number(n.string);
+      if(!Number.isInteger(s) || s < 0 || s > 5) continue;
+      const noteW = Math.max(16, (Math.max(0.05, Number(n.duration) || 0.05)) * pixelsPerSecond);
+      const d = document.createElement("div");
+      d.textContent = String(n.fret);
+      d.style.cssText = "position:absolute;background:rgba(233,185,73,.95);color:#111;" +
+        "font:bold 11px sans-serif;display:flex;align-items:center;justify-content:center;" +
+        "left:" + Math.floor(n.time * pixelsPerSecond) + "px;" +
+        "top:" + Math.floor(top + s * stringH - 8) + "px;" +
+        "width:" + Math.max(16, Math.floor(noteW)) + "px;height:16px;";
+      box.appendChild(d);
+    }
+  }
+
   function updateRulerPlayhead(t){
+    updateTabHighlight(t);
+    updateLyricsNow(t);
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
 
@@ -6714,9 +7916,37 @@ const Mixer = (() => {
       t = loopStart;
       stopAllSources();
       scheduleAll(t);
+      tabNoteIdx = firstNoteIndexAt(t); // the guide restarts at loopStart, not at bar one
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
+
+    // Virtual Guitar Guide
+    if(guideEnabled && currentTab && currentTab.notes){
+      const audioNow = ctx().currentTime;
+      const scheduleAhead = 0.015;
+
+      while(
+        tabNoteIdx < currentTab.notes.length &&
+        currentTab.notes[tabNoteIdx].time <= t
+      ){
+        const n = currentTab.notes[tabNoteIdx];
+        const noteTime = startedAt + n.time;
+
+        GuitarSampler.playNote(
+          ctx(),
+          Guitar.getVirtualSource(),
+          n.string,
+          n.fret,
+          Math.max(audioNow + scheduleAhead, noteTime),
+          currentTab.tuning,
+          n
+        );
+
+        tabNoteIdx++;
+      }
+    }
+
     channels.forEach(c => {
       const data = new Uint8Array(c.analyser.frequencyBinCount);
       c.analyser.getByteFrequencyData(data);
@@ -6777,6 +8007,8 @@ const Mixer = (() => {
     pausedAt = 0;
     duration = 0;
     tempoBPM = null;
+    tabNoteIdx = 0;
+    currentTab = null;
     el("mixer").hidden = false;
     el("mixer").className = "fl-mixer";
     setMixerPlayGlyph(false);
@@ -6790,6 +8022,7 @@ const Mixer = (() => {
     el("fl-in-marker").value = "0:00";
     el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
+    resetLyrics();
 
     // Restore session if exists
     const saved = await loadSession(song.name);
@@ -6833,7 +8066,7 @@ const Mixer = (() => {
       const panner = ctx().createStereoPanner();
       gainNode.connect(analyser);
       analyser.connect(panner);
-      panner.connect(ctx().destination);
+      panner.connect(masterOut());
       const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
       loaded.push({
         stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
@@ -6843,8 +8076,9 @@ const Mixer = (() => {
         pitchRate: savedCh ? savedCh.pitchRate : 1,
         panValue: savedCh ? savedCh.panValue : 0,
         clipOffset: savedCh ? savedCh.clipOffset : 0,
-        source: null, vuFill: null,
+        source: null, vuFill: null, pitchedBuffer: null,
       });
+
       duration = Math.max(duration, audioBuf.duration);
     }
     if(myToken !== loadToken) return;
@@ -6903,6 +8137,7 @@ const Mixer = (() => {
       el("mixer-zoom-val").textContent = pixelsPerSecond.toFixed(1) + " px/s";
     }
     el("nm-scroll").scrollLeft = 0;
+    autoFit = true;
 
     renderChannels();
     renderTimeline();
@@ -7110,7 +8345,7 @@ const Mixer = (() => {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      showToast("✅ Export hotov: " + filename);
+      showToast("Export hotov: " + filename);
     }catch(e){
       showToast("Export selhal");
     }finally{
@@ -7131,7 +8366,7 @@ const Mixer = (() => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast(`⬇️ ${c.stem}.wav`);
+    showToast(`Staženo: ${c.stem}.wav`);
   }
 
   // ---- Metronome ----
@@ -7256,7 +8491,7 @@ const Mixer = (() => {
       const gain = ac.createGain();
       const panner = ac.createStereoPanner();
       gain.connect(panner);
-      panner.connect(ac.destination);
+      panner.connect(masterOut());
       metroBus = {gain, panner};
     }
     metroBus.gain.gain.value = metroMuted ? 0 : metroVolume;
@@ -7419,6 +8654,12 @@ const Mixer = (() => {
 
   // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
+  el("mixer-tab-search").onclick = () => TabSearch.show();
+  el("mixer-guide-toggle").onclick = (e) => {
+    guideEnabled = !guideEnabled;
+    e.currentTarget.classList.toggle("active", guideEnabled);
+    showToast(guideEnabled ? "Virtuální kytara zapnuta" : "Virtuální kytara vypnuta");
+  };
   // Overview strip: click to jump, drag to scrub.
   (() => {
     const wrap = el("nm-ov-wrap");
@@ -7485,7 +8726,7 @@ const Mixer = (() => {
     try{ markers = JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){}
     markers.push({ time: t, label: "M"+(markers.length+1) });
     localStorage.setItem(key, JSON.stringify(markers));
-    showToast("🏷 Marker: " + fmtDur(t));
+    showToast("Značka: " + fmtDur(t));
   };
   el("fl-set-btn").onclick = () => {
     const inTxt = el("fl-in-marker").value;
@@ -7501,7 +8742,7 @@ const Mixer = (() => {
     loopEnabled = true;
     el("mixer-loop").classList.add("active");
     updateLoopVisual();
-    showToast("⚙ Set: " + fmtDur(loopStart) + " → " + fmtDur(loopEnd));
+    showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(loopEnd));
   };
   el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
   el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
@@ -7566,14 +8807,24 @@ const Mixer = (() => {
 
   function zoomToFit(){
     const w = el("nm-scroll").clientWidth || 900;
-    if(duration) setZoom(w / duration);
+    if(duration) setZoom(Math.floor((w / duration) * 100) / 100);
     el("nm-scroll").scrollLeft = 0;
   }
+  let fitRaf = 0;
+  new ResizeObserver(() => {
+    const cw = el("nm-scroll").clientWidth;
+    if(!duration || !cw || cw === renderedView) return;
+    cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(() => {
+      // The lanes were drawn for another width: refit, or at least redraw.
+      if(autoFit) zoomToFit(); else renderTimeline();
+    });
+  }).observe(el("nm-scroll"));
 
-  el("zoom-in").onclick = () => setZoom(pixelsPerSecond * 1.5);
-  el("zoom-out").onclick = () => setZoom(pixelsPerSecond / 1.5);
-  el("zoom-fit").onclick = () => zoomToFit();
-  el("mixer-zoom").addEventListener("input", (e) => setZoom(parseInt(e.target.value)));
+  el("zoom-in").onclick = () => { autoFit = false; setZoom(pixelsPerSecond * 1.5); };
+  el("zoom-out").onclick = () => { autoFit = false; setZoom(pixelsPerSecond / 1.5); };
+  el("zoom-fit").onclick = () => { autoFit = true; zoomToFit(); };
+  el("mixer-zoom").addEventListener("input", (e) => { autoFit = false; setZoom(parseInt(e.target.value)); });
 
   // Ruler click to seek
   el("mixer-ruler").addEventListener("click", (e) => {
@@ -7725,6 +8976,7 @@ const Mixer = (() => {
     let pannerNode = null;
     let analyser = null;
     let workletsLoaded = false;
+    let virtualSource = null; // GainNode for the virtual guitar guide
     let recording = false;
     let recordStartedAt = 0;
 
@@ -7745,6 +8997,45 @@ const Mixer = (() => {
       workletsLoaded = true;
     }
 
+    function ensureVirtualSource(){
+      const audioCtx = ctxRef();
+
+      let built = false;
+      if(!virtualSource){
+        virtualSource = audioCtx.createGain();
+        virtualSource.gain.value = 0.7;
+        built = true;
+      }
+
+      // The virtual guide must have its own monitor chain even when
+      // no physical guitar input is connected.
+      if(!gainNode){
+        gainNode = audioCtx.createGain();
+        built = true;
+      }
+
+      if(!pannerNode){
+        pannerNode = audioCtx.createStereoPanner();
+        built = true;
+      }
+
+      if(!analyser){
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        built = true;
+      }
+
+      // The guide asks for this once per note. Rewiring disconnects every
+      // node in the chain — the amp included — and would cut off whatever
+      // is still ringing, so it only happens when something was just made.
+      if(built){
+        rewire();
+        applyGuitarGain();
+      }
+
+      return virtualSource;
+    }
+
     async function devices(){
       // Labels are empty until permission has been given once, which is why
       // the picker asks for the microphone before it can list anything useful.
@@ -7757,6 +9048,9 @@ const Mixer = (() => {
       await ensureWorklets();
       const audioCtx = ctxRef();
       if(audioCtx.state === "suspended") await audioCtx.resume();
+
+      // Virtual guitar guide input
+      ensureVirtualSource();
 
       // Every one of these is off on purpose. Echo cancellation and noise
       // suppression are built for speech: they duck, they gate, and they
@@ -7794,10 +9088,13 @@ const Mixer = (() => {
         {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
       recNode.port.onmessage = onRecorderMessage;
 
-      gainNode = audioCtx.createGain();
-      pannerNode = audioCtx.createStereoPanner();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
+      // Reuse the output nodes the guide may already be playing through.
+      if(!gainNode) gainNode = audioCtx.createGain();
+      if(!pannerNode) pannerNode = audioCtx.createStereoPanner();
+      if(!analyser){
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+      }
 
       rewire();
       applyGuitarGain();
@@ -7811,18 +9108,30 @@ const Mixer = (() => {
     // it is five nodes, and a rebuild can't leave a stale connection behind.
     function rewire(){
       const audioCtx = ctxRef();
-      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
-      let node = source;
-      node.connect(gateNode); node = gateNode;
-      if(ampNode){ node.connect(ampNode); node = ampNode; }
-      if(cabNode){ node.connect(cabNode); node = cabNode; }
-      node.connect(recNode); node = recNode;
-      node.connect(gainNode);
+      // Live input chain
+      if(source){
+        let node = source;
+        node.connect(gateNode); node = gateNode;
+        if(ampNode){ node.connect(ampNode); node = ampNode; }
+        if(cabNode){ node.connect(cabNode); node = cabNode; }
+        node.connect(recNode); node = recNode;
+        node.connect(gainNode);
+      }
+
+      // Virtual guide chain
+      if(virtualSource){
+        let node = virtualSource;
+        if(ampNode){ node.connect(ampNode); node = ampNode; }
+        if(cabNode){ node.connect(cabNode); node = cabNode; }
+        node.connect(gainNode);
+      }
+
       gainNode.connect(analyser);
       analyser.connect(pannerNode);
-      pannerNode.connect(audioCtx.destination);
+      pannerNode.connect(masterOut());
     }
 
     // What the browser will admit to. The real round trip also includes the
@@ -7841,8 +9150,28 @@ const Mixer = (() => {
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
       if(gateNode) gateNode.port.postMessage("stop");
       if(stream) stream.getTracks().forEach(t => t.stop());
-      stream = source = gateNode = ampNode = cabNode = recNode = null;
-      gainNode = pannerNode = analyser = null;
+      stream = source = gateNode = recNode = null;
+
+      // Keep NAM and cabinet alive for the virtual guitar guide.
+      // They are shared by the live guitar and the guide.
+      if(virtualSource){
+        try{ virtualSource.disconnect(); }catch(e){}
+      }
+
+      if(gainNode){
+        try{ gainNode.disconnect(); }catch(e){}
+      }
+
+      if(pannerNode){
+        try{ pannerNode.disconnect(); }catch(e){}
+      }
+
+      if(analyser){
+        try{ analyser.disconnect(); }catch(e){}
+      }
+
+      rewire();
+
       state.live = false;
       state.peak = 0;
       renderGuitarStrip();
@@ -7936,9 +9265,12 @@ const Mixer = (() => {
       isRecording: () => recording,
       isLive: () => state.live,
       recordedSeconds: () => recording ? ctxRef().currentTime - recordStartedAt : 0,
-      setAmp(node, name){ ampNode = node; state.ampName = name; if(state.live) rewire(); },
-      setCab(node, name){ cabNode = node; state.cabName = name; if(state.live) rewire(); },
+      // The guide shares the amp and cab, so rewire whenever the output stage
+      // exists — not only while a physical input is live.
+      setAmp(node, name){ ampNode = node; state.ampName = name; if(gainNode) rewire(); },
+      setCab(node, name){ cabNode = node; state.cabName = name; if(gainNode) rewire(); },
       analyserNode: () => analyser,
+      getVirtualSource: () => ensureVirtualSource(),
     };
   })();
 
@@ -7982,7 +9314,7 @@ const Mixer = (() => {
         <span class="gt-cap">PAN</span>
         <input type="range" class="nm-tempo gt-pan" min="-1" max="1" step="0.02" value="${g.pan}">
         <button class="gt-rec ${Guitar.isRecording() ? "on" : ""}" title="Nahrát na novou stopu">
-          ${Guitar.isRecording() ? "■" : "●"}
+          ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}
         </button>
       </div>
       <div class="gt-row gt-amp">
@@ -8166,7 +9498,7 @@ const Mixer = (() => {
     function unloadCab(){ Guitar.setCab(null, null); }
 
     return {load, unload, loadCab, unloadCab, isLoading: () => loading,
-            hasEngine: () => !!engine};
+            hasEngine: () => !!engine, loadTab};
   })();
 
   // ---- picking one ----
@@ -8299,7 +9631,7 @@ const Mixer = (() => {
   }
 
   return {
-    load, saveSession, loadSession, play, pause,
+    load, saveSession, loadSession, play, pause, loadTab, setMasterVolume,
     // The live input channel, so the page (and the tests) can reach it.
     guitar: Guitar,
     // The remote control needs to know whether the mixer is the thing
@@ -8335,6 +9667,8 @@ async function runSearch(more=false){
   if(!more) lastLimit = 40; else lastLimit += 24;
 
   browseSection.hidden = true;
+  el("artists-section").hidden = true;
+  document.body.classList.remove("ab-dock");
   el("library-section").hidden = true;
   el("steems-section").hidden = true;
   resultsTitle.hidden = false;
@@ -8376,7 +9710,7 @@ async function runSearch(more=false){
       card.innerHTML = `
         ${owned?`<div class="owned-badge">${icon("check", 11)} máš</div>`:''}
         <div class="card-fabs">
-          <div class="fab-btn play-fab" title="Přehrát">▶</div>
+          <div class="fab-btn play-fab" title="Přehrát">${icon("play", 13)}</div>
           <div class="fab-btn add-fab" title="Přidat do playlistu">${icon("add", 14)}</div>
         </div>
         <div class="art" style="${t.image?`background-image:url('${thumbUrl(t.image)}')`:''}">${t.image?'':icon("note", 22)}</div>
@@ -8414,7 +9748,7 @@ async function runSearch(more=false){
 const overlay = el("overlay");
 const panel = el("panel");
 
-function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; }
+function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; document.body.classList.remove("ab-dock"); }
 overlay.addEventListener("click", e => { if(e.target === overlay) closeOverlay(); });
 
 async function openPlaylist(browseId){
@@ -8508,7 +9842,7 @@ function renderPlaylistPanel(p){
         <span class="badge" id="size-badge">${icon("drive", 12)} ~${fmtSize(estBytesTotal)} při ${bitrate()}</span>
       </div>
       <div class="actions">
-        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">▶</button>
+        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">${icon("play", 22)}</button>
         <button class="btn" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
         <button class="btn secondary" id="dl-selected">${icon("download", 14)}Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
         <button class="btn secondary" id="watch-videos">${icon("video", 14)}Přehrát videa</button>
@@ -8532,7 +9866,7 @@ function renderPlaylistPanel(p){
     });
     el("fav-toggle").innerHTML = added
       ? `${icon("starFilled", 13)}V oblíbených` : `${icon("star", 13)}Přidat do oblíbených`;
-    showToast(added ? "✓ Přidáno do oblíbených" : "Odebráno z oblíbených");
+    showToast(added ? "Přidáno do oblíbených" : "Odebráno z oblíbených");
   };
 
   const container = el("tracks-container");
@@ -8595,7 +9929,7 @@ function renderPlaylistPanel(p){
         thumbnail: t.thumbnail, source: "youtube",
       }, true)) n++;
     });
-    showToast(n ? `✓ Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
+    showToast(n ? `Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
     renderQueueBadge();
   };
   
@@ -8622,7 +9956,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
       </div>
       <div class="dur">${t.duration||fmtDur(t.duration_seconds)}</div>
       <button class="icon-btn add" title="Přidat do playlistu">${icon("add", 14)}</button>
-      <button class="icon-btn play" title="Přehrát">▶</button>
+      <button class="icon-btn play" title="Přehrát">${icon("play", 13)}</button>
     </div>
   `;
   const inner = row.querySelector(".track-row");
@@ -8703,7 +10037,7 @@ function addToQueue(item, silent=false){
   queue.push(item);
   saveQueue(queue);
   renderQueueBadge();
-  if(!silent) showToast("✓ Přidáno do playlistu");
+  if(!silent) showToast("Přidáno do playlistu");
   return true;
 }
 function removeFromQueue(key){
@@ -8713,6 +10047,7 @@ function removeFromQueue(key){
 }
 function renderQueueBadge(){
   el("pb-queue-count").textContent = loadQueue().length;
+  refreshHomeRail();
 }
 function renderQueueDrawer(){
   const queue = loadQueue();
@@ -8731,7 +10066,7 @@ function renderQueueDrawer(){
           <div class="t-title">${escapeHtml(c.title||'')}</div>
           <div class="t-sub">${owned?`<span class="owned-tag">${icon("check", 10)} máš</span>`:''}${escapeHtml(c.artists||'')}</div>
         </div>
-        <button class="mini-btn play" title="Přehrát">▶</button>
+        <button class="mini-btn play" title="Přehrát">${icon("play", 12)}</button>
         <button class="mini-btn rm" title="Odebrat">${icon("close", 11)}</button>
       `;
       row.querySelector(".play").onclick = () => Player.play(c);
@@ -8811,6 +10146,23 @@ const Player = (() => {
     if(!isNaN(savedVol)) audio.volume = savedVol;
   }catch(e){}
   volumeSlider.value = audio.volume;
+  // The mixer has its own Web Audio output; keep it on the same volume.
+  function applyMasterVolume(){
+    Mixer.setMasterVolume(audio.muted ? 0 : audio.volume);
+    // Videos (the playlist player, floating windows) are separate media
+    // elements; the one volume control has to reach them too. The tiny
+    // preview in the player bar is muted on purpose.
+    document.querySelectorAll("video").forEach(v => {
+      if(v.id === "pb-mini-video-el") return;
+      v.volume = audio.volume;
+      v.muted = audio.muted;
+    });
+  }
+  applyMasterVolume();
+  // A video element created after the slider was set starts at full volume.
+  document.addEventListener("play", (e) => {
+    if(e.target && e.target.tagName === "VIDEO") applyMasterVolume();
+  }, true);
 
   function loadHistory(){
     try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){ return []; }
@@ -8988,11 +10340,14 @@ const Player = (() => {
     audio.muted = false;
     try{ localStorage.setItem(VOLUME_KEY, audio.volume); }catch(e){}
     paintMute();
+    applyMasterVolume();
   });
   muteBtn.onclick = () => {
     audio.muted = !audio.muted;
     paintMute();
+    applyMasterVolume();
   };
+  audio.addEventListener("volumechange", applyMasterVolume);
   function paintMute(){
     const silent = audio.muted || audio.volume === 0;
     muteBtn.innerHTML = icon(silent ? "volumeMuted" : "volume", 17);
@@ -9002,6 +10357,7 @@ const Player = (() => {
 
   function renderHistory(){
     const list = loadHistory();
+    refreshHomeRail();
     const box = el("history-list");
     if(!list.length){
       box.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím jsi nic nepustil/a.</div>`;
@@ -9017,7 +10373,7 @@ const Player = (() => {
           <div class="t-title">${escapeHtml(h.title||'')}</div>
           <div class="t-sub">${escapeHtml(h.artists||'')}</div>
         </div>
-        <button class="mini-btn play" title="Přehrát znovu">▶</button>
+        <button class="mini-btn play" title="Přehrát znovu">${icon("play", 12)}</button>
       `;
       row.querySelector(".play").onclick = () => h.source === "local" ? playLocal(h) : play(h);
       box.appendChild(row);
@@ -9345,7 +10701,7 @@ const LyricsView = (() => {
       div.textContent = line.text || "♪";
       div.onclick = () => {
         // Click-to-seek: seek to this line's timestamp
-        const audio = el("pb-audio");
+        const audio = activeMedia();
         if(audio && audio.duration){
           audio.currentTime = line.timeInMs / 1000;
         }
@@ -9399,9 +10755,19 @@ const LyricsView = (() => {
     rafId = requestAnimationFrame(tick);
   }
 
+  // The song may be playing in the audio element or, when a video is open,
+  // in a video element; the lyrics follow whichever one is running.
+  function activeMedia(){
+    const a = el("pb-audio");
+    if(a && !a.paused) return a;
+    const v = [...document.querySelectorAll("video")].find(
+      x => x.id !== "pb-mini-video-el" && !x.paused && x.currentSrc);
+    return v || a;
+  }
+
   function updateCurrentLine(){
     if(!currentLyrics || !currentLyrics.synced || !currentLyrics.lines) return;
-    const audio = el("pb-audio");
+    const audio = activeMedia();
     if(!audio || !audio.duration) return;
     const timeMs = Math.floor((audio.currentTime || 0) * 1000);
     const lines = currentLyrics.lines;
@@ -9582,8 +10948,36 @@ function saveSettingsToStorage(s){
   try{ localStorage.setItem("spotdl-gui-settings", JSON.stringify(s)); }catch(e){}
 }
 const settingsOverlay = el("settings-overlay");
+// What the choices cost, said in numbers: 1 minute of MP3 is bitrate x 60 / 8.
+function mbPerMin(kbps){ return (kbps * 60 / 8 / 1000).toFixed(1).replace(".", ","); }
+function paintQualityNotes(){
+  const k = parseInt(el("bitrate").value, 10) || 192;
+  el("bitrate-note").textContent =
+    `Bitrate MP3 při stažení písně z YouTube Music. Vyšší = čistší zvuk, ale větší soubor: ` +
+    `přibližně ${mbPerMin(k)} MB na minutu, tedy asi ${(k * 60 * 4 / 8 / 1000).toFixed(0)} MB za čtyřminutovou píseň.`;
+  const wav = el("stems-format").value === "wav";
+  el("stems-bitrate-row").hidden = wav;
+  const kb = parseInt(el("stems-bitrate").value, 10) || 320;
+  // Six stems per song.
+  el("stems-note").textContent = wav
+    ? "WAV je bezeztrátový a hodí se, když stopy budeš dál zpracovávat. Sada šesti stop jedné čtyřminutové písně zabere zhruba 250 MB."
+    : `MP3 ${kb} kbps: sada šesti stop jedné čtyřminutové písně zabere zhruba ${(6 * kb * 60 * 4 / 8 / 1000).toFixed(0)} MB. ` +
+      "Na míchání a cvičení to bohatě stačí.";
+}
+["bitrate", "stems-format", "stems-bitrate"].forEach(id => el(id).addEventListener("change", () => {
+  paintQualityNotes();
+  if(id === "bitrate"){ try{ localStorage.setItem("spotdl-gui-bitrate", el("bitrate").value); }catch(e){} }
+}));
+try{
+  const savedBitrate = localStorage.getItem("spotdl-gui-bitrate");
+  if(savedBitrate) el("bitrate").value = savedBitrate;
+}catch(e){}
+
 el("settings-btn").onclick = async () => {
   const s = loadSettings();
+  el("stems-format").value = s.stems_format || "mp3";
+  el("stems-bitrate").value = String(s.stems_bitrate || 320);
+  paintQualityNotes();
   el("cookies-browser").value = s.cookies_browser || "";
   el("cookie-file").value = s.cookie_file || "";
   el("music-root-error").textContent = "";
@@ -9607,6 +11001,8 @@ el("settings-save").onclick = async () => {
   saveSettingsToStorage({
     cookies_browser: el("cookies-browser").value || null,
     cookie_file: el("cookie-file").value.trim() || null,
+    stems_format: el("stems-format").value,
+    stems_bitrate: parseInt(el("stems-bitrate").value, 10) || 320,
   });
 
   const musicRoot = el("music-root-input").value.trim();
@@ -9785,7 +11181,7 @@ function playPodcastEpisode(episode, show){
     // Fallback: try to find it via YouTube search
     Player.play(track);
   }
-  showToast(`🎙️ ${episode.title}`);
+  showToast(`Podcast: ${episode.title}`);
 }
 
 // ======================================================================
@@ -10458,7 +11854,6 @@ el("pb-art").onclick = () => {
 
 // ---- shell chrome: collapse the rail, toggle the now-playing panel ----
 el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
-el("lib-expand").onclick = () => toggleNowPlaying();
 el("pb-np-btn").onclick = () => { toggleNowPlaying(); syncPlayerToggles(); };
 
 el("pb-add-btn").onclick = () => {
@@ -10493,8 +11888,6 @@ function syncPlayerToggles(){
   if(b) b.addEventListener("click", () => setTimeout(syncPlayerToggles, 0));
 });
 el("np-close").onclick = () => toggleNowPlaying(false);
-el("lib-create").onclick = () => { setMode("playlists"); el("search-input").focus(); };
-el("sp-avatar").onclick = () => el("settings-btn").click();
 
 function toggleNowPlaying(force){
   const open = force === undefined ? !document.body.classList.contains("np-open") : force;
@@ -10675,6 +12068,7 @@ const RemoteAgent = (() => {
 
   return {push, isOwner};
 })();
+
 
 </script>
 </body>
