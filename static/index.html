@@ -1729,6 +1729,21 @@
   .sect-block .nm{opacity:.95;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;will-change:transform}
 
+  /* The little popup for editing one note's fret/string from the alphaTab
+     notation view — a fixed-position card next to whatever was clicked. */
+  .tabnote-editor{position:fixed;z-index:5000;min-width:220px;padding:6px;
+    background:#1c1c22;border:1px solid #33333d;border-radius:9px;
+    box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .tabnote-fields{display:flex;gap:10px;align-items:center;padding:6px 10px}
+  .tabnote-fields label{font-size:11px;color:var(--nm-sub);display:flex;
+    align-items:center;gap:5px}
+  .tabnote-fields input,.tabnote-fields select{background:#131318;
+    border:1px solid #32323c;border-radius:5px;color:var(--nm-txt);
+    font-size:12px;padding:4px 6px}
+  .tabnote-fields input{width:52px}
+  .tabnote-actions{display:flex;gap:6px;padding:8px 10px 10px}
+  .tabnote-actions button{flex:1;font-size:12px;padding:6px 8px}
+
   .chord-block{position:absolute;top:2px;bottom:2px;border-radius:3px;
     background:rgba(255,255,255,.055);border-left:1px solid rgba(255,255,255,.16);
     display:flex;align-items:center;justify-content:center;cursor:pointer;
@@ -2424,9 +2439,26 @@
   <div class="panel" style="width:min(1000px,96vw);max-height:90vh">
     <div class="panel-head">
       <button class="close-btn" id="tabview-close"><span data-icon="close" data-size="13"></span></button>
-      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Notový zápis</div>
+      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Notový zápis
+        <select id="tabview-track-select" style="margin-left:12px;font-size:13px" hidden></select>
+      </div>
+      <div class="set-note" style="margin-top:2px">Klikni na notu a přeprav pražec/strunu, nebo klikni na prázdnou dobu a přidej novou.</div>
     </div>
-    <div id="tabview-host" style="overflow:auto;max-height:calc(90vh - 70px)"></div>
+    <div id="tabview-host" style="overflow:auto;max-height:calc(90vh - 70px);position:relative"></div>
+  </div>
+</div>
+<!-- Tiny popup for editing one note's fret/string from the notation view —
+     positioned next to whatever was clicked. -->
+<div id="tabnote-editor" class="tabnote-editor" hidden>
+  <div class="ss-head" id="tabnote-editor-title">Nota</div>
+  <div class="tabnote-fields">
+    <label>Pražec<input type="number" id="tabnote-fret" min="0" max="30"></label>
+    <label>Struna<select id="tabnote-string"></select></label>
+  </div>
+  <div class="tabnote-actions">
+    <button type="button" class="btn secondary" id="tabnote-save">Uložit</button>
+    <button type="button" class="btn secondary" id="tabnote-delete">Smazat</button>
+    <button type="button" class="btn secondary" id="tabnote-cancel">Zrušit</button>
   </div>
 </div>
 
@@ -7728,18 +7760,26 @@ const Mixer = (() => {
 
       const y = top + stringIndex * stringH;
       const dur = Math.max(0.05, Number(n.duration) || 0.05);
-      const noteW = Math.max(16, dur * pixelsPerSecond);
+      // A hard 16px floor meant that at a low zoom — a whole song fit to the
+      // window can be under 2 px/s — almost every note's box was wide enough
+      // to run into the next one's, drawing a smear of overlapping numbers
+      // rather than anything readable. A box is now only as wide as its
+      // note's actual duration, and the fret number itself only draws once
+      // there's genuinely room to read it.
+      const noteW = Math.max(2, dur * pixelsPerSecond);
 
       // Resting note. Only the note being played turns coloured, and that is
       // an overlay (updateTabHighlight), so the canvas is not redrawn per frame.
       g.fillStyle = "rgba(255,255,255,.2)";
-      g.fillRect(Math.floor(x), Math.floor(y - noteH / 2), Math.max(16, Math.floor(noteW)), Math.ceil(noteH));
+      g.fillRect(Math.floor(x), Math.floor(y - noteH / 2), Math.max(2, Math.floor(noteW)), Math.ceil(noteH));
 
-      g.fillStyle = "#ececec";
-      g.font = `bold ${fretFont}px sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText(String(n.fret), x + Math.min(noteW / 2, 12), y);
+      if(noteW >= fretFont + 4){
+        g.fillStyle = "#ececec";
+        g.font = `bold ${fretFont}px sans-serif`;
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(String(n.fret), x + Math.min(noteW / 2, 12), y);
+      }
     });
 
     g.textAlign = "left";
@@ -8713,14 +8753,18 @@ const Mixer = (() => {
         const n = notes[i];
         const s = Number(n.string);
         if(!Number.isInteger(s) || s < 0 || s >= stringCount) continue;
-        const noteW = Math.max(16, (Math.max(0.05, Number(n.duration) || 0.05)) * pixelsPerSecond);
+        // Same real-duration width as drawTabCanvas, not a 16px floor — this
+        // overlay has to line up with the boxes it's sitting on top of, or
+        // the coloured highlight visibly spills past the note it belongs to
+        // (worse still at a low zoom, into whatever note comes after it).
+        const noteW = Math.max(2, (Math.max(0.05, Number(n.duration) || 0.05)) * pixelsPerSecond);
         const d = document.createElement("div");
-        d.textContent = String(n.fret);
+        d.textContent = noteW >= fretFont + 4 ? String(n.fret) : "";
         d.style.cssText = `position:absolute;background:rgba(${rgb},.95);color:#111;` +
           `font:bold ${fretFont}px sans-serif;display:flex;align-items:center;justify-content:center;` +
           "left:" + Math.floor(n.time * pixelsPerSecond) + "px;" +
           "top:" + Math.floor(top + s * stringH - noteH / 2) + "px;" +
-          "width:" + Math.max(16, Math.floor(noteW)) + "px;height:" + Math.ceil(noteH) + "px;";
+          "width:" + Math.max(2, Math.floor(noteW)) + "px;height:" + Math.ceil(noteH) + "px;";
         box.appendChild(d);
       }
     });
@@ -9796,11 +9840,178 @@ const Mixer = (() => {
       return parts.join(" ");
     }
 
+    // ---- keeping "notes" (the flattened, absolute-time list the DAW
+    // timeline's tab lanes and the guide both read) in sync with "measures"
+    // (what an edit actually changes) — a JS port of the same accumulation
+    // server.py's normalize_songsterr_track does, since an edit has nowhere
+    // to round-trip through the server and back.
+    function flattenMeasuresToNotes(measures, tempoEvents){
+      const events = (tempoEvents || [])
+        .filter(e => e && typeof e.measure === "number" && typeof e.bpm === "number")
+        .slice().sort((a, b) => (a.measure - b.measure) || ((a.position || 0) - (b.position || 0)));
+      function bpmForMeasure(mi){
+        let bpm = 120;
+        for(const e of events){ if(e.measure <= mi) bpm = e.bpm; else break; }
+        return bpm;
+      }
+      function durationSeconds(duration, bpm){
+        if(!Array.isArray(duration) || duration.length !== 2) return 60 / bpm;
+        const num = Number(duration[0]), den = Number(duration[1]);
+        if(!den) return 60 / bpm;
+        return (num / den) * (60 / bpm) * 4;
+      }
+      const notes = [];
+      let measureStart = 0;
+      (measures || []).forEach((measure, mi) => {
+        const sig = measure.signature || [4, 4];
+        const sigNum = Number(sig[0]) || 4, sigDen = Number(sig[1]) || 4;
+        const bpm = bpmForMeasure(mi);
+        let beatTime = measureStart;
+        const voices = measure.voices || [];
+        const beats = (voices[0] && voices[0].beats) || [];
+        beats.forEach(beat => {
+          const durSec = durationSeconds(beat.duration || [1, 4], bpm);
+          (beat.notes || []).forEach(note => {
+            if(note.rest) return;
+            const stringIndex = Number(note.string), fret = Number(note.fret);
+            if(!Number.isInteger(stringIndex) || !Number.isInteger(fret)) return;
+            notes.push({
+              time: Math.round(beatTime * 1e6) / 1e6,
+              duration: Math.round(durSec * 1e6) / 1e6,
+              string: stringIndex, fret,
+              staccato: !!note.staccato, hammer: !!note.hammer, pull: !!note.pull,
+              slide: !!note.slide, bend: !!note.bend,
+            });
+          });
+          beatTime += durSec;
+        });
+        let measureLength = beatTime - measureStart;
+        if(measureLength <= 0) measureLength = (sigNum * 4 / sigDen) * (60 / bpm);
+        measureStart += measureLength;
+      });
+      return notes;
+    }
+
+    function findBeat(tabData, barIndex, beatIndex){
+      const measure = (tabData.measures || [])[barIndex];
+      if(!measure) return null;
+      const voices = measure.voices || [];
+      return (voices[0] && voices[0].beats && voices[0].beats[beatIndex]) || null;
+    }
+
+    // Rebuilds one tab's flattened notes after an edit to its measures, then
+    // re-renders whatever's currently looking at it: the notation (if it's
+    // the one on screen), the DAW timeline's tab lanes, and the guide's own
+    // sense of which note is next.
+    function applyEdit(idx){
+      const tb = tabs[idx];
+      tb.data.notes = flattenMeasuresToNotes(tb.data.measures, tb.data.tempo);
+      if(idx === activeIdx) renderActive();
+      renderTimeline();
+      syncTabIndices(currentTime());
+    }
+
+    // ---- the note popup: click a note to change it, click an empty beat
+    // (a rest) to add one ----
+    let editCtx = null;
+    let lastClickX = 0, lastClickY = 0;
+
+    function closeEditor(){
+      el("tabnote-editor").hidden = true;
+      editCtx = null;
+    }
+
+    function openEditor(tabData, ctx){
+      editCtx = ctx;
+      const box = el("tabnote-editor");
+      const stringSelect = el("tabnote-string");
+      const stringCount = Math.max(1, tabStringCount(tabData));
+      const labels = tabLabels(tabData.tuning, stringCount);
+      stringSelect.innerHTML = labels.map((l, i) =>
+        `<option value="${i}" ${i === ctx.string ? "selected" : ""}>${escapeHtml(l)} (${i + 1})</option>`).join("");
+      el("tabnote-fret").value = ctx.fret != null ? ctx.fret : 0;
+      el("tabnote-editor-title").textContent = ctx.isNew ? "Nová nota" : "Upravit notu";
+      el("tabnote-delete").hidden = ctx.isNew;
+
+      box.hidden = false;
+      const bw = box.offsetWidth || 220, bh = box.offsetHeight || 110;
+      box.style.left = Math.max(4, Math.min(lastClickX, window.innerWidth - bw - 8)) + "px";
+      box.style.top = Math.max(4, Math.min(lastClickY, window.innerHeight - bh - 8)) + "px";
+      el("tabnote-fret").focus();
+      el("tabnote-fret").select();
+    }
+
+    el("tabnote-cancel").onclick = closeEditor;
+    el("tabnote-save").onclick = () => {
+      if(!editCtx) return;
+      const fret = parseInt(el("tabnote-fret").value, 10);
+      const stringIdx = parseInt(el("tabnote-string").value, 10);
+      if(!Number.isInteger(fret) || fret < 0 || !Number.isInteger(stringIdx)){
+        showToast("Zadej platný pražec"); return;
+      }
+      const tb = tabs[editCtx.tabIdx];
+      const beat = findBeat(tb.data, editCtx.barIndex, editCtx.beatIndex);
+      if(!beat){ closeEditor(); return; }
+      if(!beat.notes) beat.notes = [];
+      if(editCtx.isNew){
+        beat.notes.push({fret, string: stringIdx});
+      } else {
+        const real = beat.notes.filter(n => !n.rest && n.fret !== undefined && n.string !== undefined);
+        const target = real[editCtx.noteIndex];
+        if(target){ target.fret = fret; target.string = stringIdx; }
+      }
+      applyEdit(editCtx.tabIdx);
+      closeEditor();
+      showToast(editCtx && editCtx.isNew ? "Nota přidána" : "Nota upravena");
+    };
+    el("tabnote-delete").onclick = () => {
+      if(!editCtx || editCtx.isNew) return;
+      const tb = tabs[editCtx.tabIdx];
+      const beat = findBeat(tb.data, editCtx.barIndex, editCtx.beatIndex);
+      if(beat && beat.notes){
+        const real = beat.notes.filter(n => !n.rest && n.fret !== undefined && n.string !== undefined);
+        const target = real[editCtx.noteIndex];
+        const at = target ? beat.notes.indexOf(target) : -1;
+        if(at >= 0) beat.notes.splice(at, 1);
+      }
+      applyEdit(editCtx.tabIdx);
+      closeEditor();
+      showToast("Nota smazána");
+    };
+
+    // ---- which of the loaded tab parts is on screen ----
+    let activeIdx = 0;
+
+    function renderTrackSelect(){
+      const sel = el("tabview-track-select");
+      if(tabs.length <= 1){ sel.hidden = true; return; }
+      sel.hidden = false;
+      sel.innerHTML = tabs.map((tb, i) =>
+        `<option value="${i}">Tab ${i + 1}: ${escapeHtml(tb.data.name || "")}</option>`).join("");
+      sel.value = String(activeIdx);
+    }
+    el("tabview-track-select").onchange = (e) => {
+      activeIdx = parseInt(e.target.value, 10) || 0;
+      renderActive();
+    };
+
+    function renderActive(){
+      if(!api || !tabs[activeIdx]) return;
+      try{
+        api.tex(measuresToAlphaTex(tabs[activeIdx].data));
+      }catch(e){
+        console.error("alphaTab tex:", e);
+        el("tabview-host").innerHTML = `<div class="empty" style="padding:24px">Tuhle tabulaturu se nepodařilo zobrazit.</div>`;
+      }
+    }
+
     async function open(){
       if(!tabs.length){ showToast("Nejdřív načti nebo vyhledej tabulaturu"); return; }
+      activeIdx = 0;
       const overlay = el("tabview-overlay");
       const host = el("tabview-host");
       overlay.hidden = false;
+      renderTrackSelect();
       // The host's own innerHTML is only ever touched before the api exists
       // — alphaTab builds its rendering surface as children of that element,
       // and clearing it out from under an api that's already bound (as a
@@ -9815,17 +10026,38 @@ const Mixer = (() => {
         }
         host.innerHTML = "";
         api = new window.alphaTab.AlphaTabApi(host, {
-          core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
+          // includeNoteBounds: without it noteMouseDown/Up simply never fire —
+          // alphaTab only tracks click targets down to the whole beat, not
+          // the individual note within it, unless this is explicitly on.
+          core: {fontDirectory: "/static/alphatab/font/", useWorkers: false, includeNoteBounds: true},
           display: {staveProfile: "ScoreTab"},
         });
         api.error.on((e) => { console.error("alphaTab:", e); showToast("Notaci se nepodařilo vykreslit"); });
+        host.addEventListener("pointerup", (e) => { lastClickX = e.clientX; lastClickY = e.clientY; });
+        // Click a note to edit its fret/string; click an empty beat (a
+        // rest — beatMouseUp fires for those too, but only acts when there
+        // really is nothing there yet) to add one.
+        api.noteMouseUp.on((note) => {
+          if(!note) return;
+          openEditor(tabs[activeIdx].data, {
+            tabIdx: activeIdx,
+            barIndex: note.beat.voice.bar.index,
+            beatIndex: note.beat.index,
+            noteIndex: note.index,
+            fret: note.fret, string: note.string - 1, isNew: false,
+          });
+        });
+        api.beatMouseUp.on((beat) => {
+          if(!beat || (beat.notes && beat.notes.length)) return;
+          openEditor(tabs[activeIdx].data, {
+            tabIdx: activeIdx,
+            barIndex: beat.voice.bar.index,
+            beatIndex: beat.index,
+            noteIndex: 0, fret: 0, string: 0, isNew: true,
+          });
+        });
       }
-      try{
-        api.tex(measuresToAlphaTex(tabs[0].data));
-      }catch(e){
-        console.error("alphaTab tex:", e);
-        host.innerHTML = `<div class="empty" style="padding:24px">Tuhle tabulaturu se nepodařilo zobrazit.</div>`;
-      }
+      renderActive();
     }
 
     return {open};
