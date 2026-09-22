@@ -2394,6 +2394,19 @@
   </div>
 </div>
 
+<!-- Notový zápis + tabulatura přes alphaTab — hezčí zobrazení stejného tabu,
+     který už mixpult zná; nenahrazuje proužky v timeline ani virtuální
+     kytaru, jen ukazuje totéž pěkněji. -->
+<div class="overlay" id="tabview-overlay" hidden>
+  <div class="panel" style="width:min(1000px,96vw);max-height:90vh">
+    <div class="panel-head">
+      <button class="close-btn" id="tabview-close"><span data-icon="close" data-size="13"></span></button>
+      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Notový zápis</div>
+    </div>
+    <div id="tabview-host" style="overflow:auto;max-height:calc(90vh - 70px)"></div>
+  </div>
+</div>
+
 <main>
   <!-- Kapely a umělci: artists by decade / style / mood / top, then one
        artist's page in the middle, and an album's tracklist docked right. -->
@@ -2591,6 +2604,7 @@
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-tab-view" title="Hezký notový zápis a tabulatura (alphaTab)"><span data-icon="music" data-size="14"></span>Notace</button>
               <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
               <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
             </div>
@@ -9638,9 +9652,160 @@ const Mixer = (() => {
     }catch(e){ return null; }
   }
 
+  // ---- alphaTab: a prettier notation+tab view of whatever Songsterr track
+  // is loaded, built from the bar/beat structure the server keeps alongside
+  // its own flattened note timeline. Purely a nicer picture of the same
+  // data — the timeline's own tab lanes and the virtual guitar guide read
+  // straight from "notes" as before and never touch this.
+  const AlphaTabView = (() => {
+    let libPromise = null;
+    let api = null;
+
+    function ensureLib(){
+      if(window.alphaTab) return Promise.resolve();
+      if(!libPromise){
+        libPromise = new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "/static/alphatab/alphaTab.min.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("load failed"));
+          document.head.appendChild(s);
+        });
+      }
+      return libPromise;
+    }
+
+    const NOTE_LETTERS = ["c","c#","d","d#","e","f","f#","g","g#","a","a#","b"];
+    // \tuning wants a note name per string (e.g. "e5"), same idea as the
+    // rest of this file's own MIDI-number tuning arrays — high string first,
+    // matching what Songsterr's own "tuning" field already gives us.
+    function midiToTexNote(m){
+      const n = Math.round(m);
+      return NOTE_LETTERS[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+    }
+
+    // Songsterr's beat duration is [numerator, denominator] as a fraction of
+    // a whole note. alphaTex wants a plain note value (4 = quarter) — dotted
+    // notes need their own confirmed syntax this file doesn't rely on
+    // guessing at, so a dotted duration (numerator 3, e.g. a dotted quarter
+    // as 3/8) just lands on its nearest plain value instead. A little
+    // rhythmically approximate beats a parse error that blanks the whole tab.
+    const STD_DURATIONS = [1, 2, 4, 8, 16, 32, 64];
+    function texDuration(duration){
+      let num = 1, den = 4;
+      if(Array.isArray(duration) && duration.length === 2){
+        num = Number(duration[0]) || 1;
+        den = Number(duration[1]) || 4;
+      }
+      if(num === 1 && STD_DURATIONS.includes(den)) return den;
+      const frac = num / den;
+      let best = 4, bestDiff = Infinity;
+      STD_DURATIONS.forEach(v => {
+        const diff = Math.abs(1 / v - frac);
+        if(diff < bestDiff){ bestDiff = diff; best = v; }
+      });
+      return best;
+    }
+
+    function texTitle(s){
+      return String(s || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    }
+
+    // Hammer-on/pull-off only — the one effect confirmed against a real
+    // render (a full Metallica tab's worth of hammer-ons came back clean).
+    // Slide and staccato looked right from the source but the parser
+    // rejected both ("Unrecognized property") once actually tried, so
+    // they're left off rather than guessed at a second time. Bend is a
+    // Songsterr boolean with no curve data behind it, and alphaTex wants
+    // actual bend points, so that's skipped too.
+    function texNoteEffects(n){
+      return (n.hammer || n.pull) ? "{h}" : "";
+    }
+
+    function measuresToAlphaTex(tabData){
+      const measures = tabData.measures || [];
+      const tuning = (tabData.tuning || []).map(midiToTexNote);
+      const bpm = (tabData.tempo && tabData.tempo[0] && tabData.tempo[0].bpm) || 120;
+      const parts = [
+        `\\title "${texTitle(tabData.name || currentSongName || "Tab")}"`,
+        `\\tempo ${Math.round(bpm)}`,
+      ];
+      if(tuning.length) parts.push(`\\tuning ${tuning.join(" ")}`);
+      parts.push(".");
+
+      measures.forEach((measure, mi) => {
+        const voices = measure.voices || [];
+        const beats = (voices[0] && voices[0].beats) || [];
+        if(!beats.length){
+          parts.push("r.4");
+        } else {
+          beats.forEach(beat => {
+            const value = texDuration(beat.duration);
+            const notes = (beat.notes || [])
+              .filter(n => !n.rest && n.fret !== undefined && n.string !== undefined);
+            // Songsterr's own string index is 0-based, high string first
+            // (string 0 is tuning[0], the high e) — alphaTex is 1-based in
+            // the same order, so this is a plain off-by-one, not a reorder.
+            const texString = (n) => n.string + 1;
+            if(!notes.length){
+              parts.push(`r.${value}`);
+            } else if(notes.length === 1){
+              parts.push(`${notes[0].fret}.${texString(notes[0])}.${value}${texNoteEffects(notes[0])}`);
+            } else {
+              const chord = notes.map(n => `${n.fret}.${texString(n)}${texNoteEffects(n)}`).join(" ");
+              parts.push(`(${chord}).${value}`);
+            }
+          });
+        }
+        if(mi < measures.length - 1) parts.push("|");
+      });
+
+      return parts.join(" ");
+    }
+
+    async function open(){
+      if(!tabs.length){ showToast("Nejdřív načti nebo vyhledej tabulaturu"); return; }
+      const overlay = el("tabview-overlay");
+      const host = el("tabview-host");
+      overlay.hidden = false;
+      // The host's own innerHTML is only ever touched before the api exists
+      // — alphaTab builds its rendering surface as children of that element,
+      // and clearing it out from under an api that's already bound (as a
+      // second open would, if this ran every time) leaves .tex() drawing
+      // into a surface that's no longer actually in the document.
+      if(!api){
+        host.innerHTML = `<div class="empty" style="padding:24px"><span class="spinner"></span> Načítám alphaTab…</div>`;
+        try{ await ensureLib(); }
+        catch(e){
+          host.innerHTML = `<div class="empty" style="padding:24px">alphaTab se nepodařilo načíst.</div>`;
+          return;
+        }
+        host.innerHTML = "";
+        api = new window.alphaTab.AlphaTabApi(host, {
+          core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
+          display: {staveProfile: "ScoreTab"},
+        });
+        api.error.on((e) => { console.error("alphaTab:", e); showToast("Notaci se nepodařilo vykreslit"); });
+      }
+      try{
+        api.tex(measuresToAlphaTex(tabs[0].data));
+      }catch(e){
+        console.error("alphaTab tex:", e);
+        host.innerHTML = `<div class="empty" style="padding:24px">Tuhle tabulaturu se nepodařilo zobrazit.</div>`;
+      }
+    }
+
+    return {open};
+  })();
+  el("tabview-close").onclick = () => { el("tabview-overlay").hidden = true; };
+  el("tabview-overlay").addEventListener("click", (e) => {
+    if(e.target === el("tabview-overlay")) el("tabview-overlay").hidden = true;
+  });
+
   // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
   el("mixer-tab-search").onclick = () => TabSearch.show(currentSongName);
+  el("mixer-tab-view").onclick = () => AlphaTabView.open();
   el("mixer-guide-toggle").onclick = (e) => {
     guideEnabled = !guideEnabled;
     e.currentTarget.classList.toggle("active", guideEnabled);

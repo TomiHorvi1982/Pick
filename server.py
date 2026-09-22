@@ -161,6 +161,36 @@ def ladicka_asset(name: str):
                     headers={"Cache-Control": "no-cache"})
 
 
+_re_alphatab_asset = _re_mod.compile(r"(font/)?[A-Za-z0-9_.-]+\.(js|mjs|woff2?|otf|eot|svg|txt)")
+
+
+@app.get("/static/alphatab/{name:path}")
+def alphatab_asset(name: str):
+    """The vendored alphaTab engine and its Bravura font files.
+
+    Self-hosted for the same reason NAM's worklet is: nothing here calls out
+    to a CDN, so this has to come from our own origin too. `{name:path}`
+    lets this also serve the nested font/ files, not just the top level.
+    """
+    if not _re_alphatab_asset.fullmatch(name) or ".." in name:
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "alphatab" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    types = {
+        ".js": "text/javascript", ".mjs": "text/javascript",
+        ".woff2": "font/woff2", ".woff": "font/woff",
+        ".otf": "font/otf", ".eot": "application/vnd.ms-fontobject",
+        ".svg": "image/svg+xml", ".txt": "text/plain",
+    }
+    return Response(
+        path.read_bytes(),
+        media_type=types.get(path.suffix, "application/octet-stream"),
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
 @app.get("/static/nam/{name}")
 def nam_asset(name: str):
     """The vendored NAM engine: its worklet, its glue and its wasm.
@@ -1197,6 +1227,12 @@ def normalize_songsterr_track(data: dict) -> dict:
         "tempo": tempo_events,
         "duration": round(measure_start, 6),
         "notes": notes,
+        # The bar/beat structure itself, untouched — "notes" above flattens
+        # it to absolute seconds for the timeline and the virtual guitar,
+        # which throws away exactly what a tab renderer needs (note values,
+        # measures). Kept alongside rather than instead of, so nothing that
+        # already reads "notes" has to change.
+        "measures": measures,
     }
 
 @app.get("/api/tabs/proxy")
