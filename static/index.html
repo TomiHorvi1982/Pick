@@ -6937,17 +6937,29 @@ const Mixer = (() => {
   const Tuner = (() => {
     const FloatTuner = makeFloating("tuner-float", {defaults: {width: 380, height: 540}});
     const KEY = "spotdl-gui-tuner-ladeni";
+    const KEY_CUSTOM = "spotdl-gui-tuner-custom-struny";
     let mod = null, node = null;
 
     // A tab that is tuned to something other than standard should open the
-    // tuner on that tuning. The tab lists strings high to low as MIDI notes.
+    // tuner on that tuning. The tab lists strings high to low as MIDI notes;
+    // the tuner's own tunings list them low to high, hence the reverse.
+    // Extended-range guitars (7, 8 strings…) rarely match one of the named
+    // presets, so when none does, the exact tab tuning is built as a custom
+    // one instead of silently falling back to standard.
+    function midiName(m){ return NOTE_NAMES[((Math.round(m) % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
+
     function tuningFromTab(){
       const t = tabs[0] && tabs[0].data && tabs[0].data.tuning;
-      if(!t || !mod) return null;
-      const want = t.slice().reverse().join(",");
+      if(!t || !t.length || !mod) return null;
+      const struny = t.slice().reverse();
+      // Two representations of the same strings: MIDI numbers to match a
+      // preset (roundtripping a name through frekvenceTonu/log2 can be a
+      // hair off, ints can't), note names for the custom-tuning fallback.
+      const wantMidi = struny.join(",");
       const midi = (name) => Math.round(69 + 12 * Math.log2(mod.frekvenceTonu(name) / 440));
-      const hit = mod.LADENI.find(l => l.struny.map(midi).join(",") === want);
-      return hit ? hit.id : null;
+      const hit = mod.LADENI.find(l => l.struny.map(midi).join(",") === wantMidi);
+      if(hit) return {id: hit.id};
+      return {id: "vlastni", struny: struny.map(midiName).join(",")};
     }
 
     async function open(){
@@ -6957,17 +6969,25 @@ const Mixer = (() => {
       }
       if(!node){
         node = document.createElement("neverlast-ladicka");
-        let saved = null;
-        try{ saved = localStorage.getItem(KEY); }catch(e){}
+        let saved = null, savedCustom = null;
+        try{ saved = localStorage.getItem(KEY); savedCustom = localStorage.getItem(KEY_CUSTOM); }catch(e){}
+        if(savedCustom) node.setAttribute("custom-struny", savedCustom);
         node.setAttribute("ladeni", saved || "standard");
         el("tuner-float-body").appendChild(node);
-        // Remember the tuning that was picked.
+        // Remember the tuning (and, for a custom one, its strings) that was picked.
         new MutationObserver(() => {
-          try{ localStorage.setItem(KEY, node.getAttribute("ladeni") || "standard"); }catch(e){}
-        }).observe(node, {attributes: true, attributeFilter: ["ladeni"]});
+          try{
+            localStorage.setItem(KEY, node.getAttribute("ladeni") || "standard");
+            const cs = node.getAttribute("custom-struny");
+            if(cs) localStorage.setItem(KEY_CUSTOM, cs);
+          }catch(e){}
+        }).observe(node, {attributes: true, attributeFilter: ["ladeni", "custom-struny"]});
       }
       const fromTab = tuningFromTab();
-      if(fromTab) node.setAttribute("ladeni", fromTab);
+      if(fromTab){
+        if(fromTab.struny) node.setAttribute("custom-struny", fromTab.struny);
+        node.setAttribute("ladeni", fromTab.id);
+      }
       FloatTuner.open();
     }
 
