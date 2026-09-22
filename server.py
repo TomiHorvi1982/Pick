@@ -2735,7 +2735,7 @@ def pick_folder():
 # ------------------------------------------------------------------- stems
 
 DEMUCS_BIN = str(HOME / ".local" / "bin" / "demucs")
-STEM_NAMES = ["vocals", "drums", "bass", "guitar", "piano", "other"]
+STEM_NAMES = ["drums", "bass", "guitar", "vocals", "piano", "other"]
 # Anything recorded into a song lands beside the separated stems and becomes a
 # track like any other — the point of recording a guitar part is that it is
 # still there after the guitar is unplugged.

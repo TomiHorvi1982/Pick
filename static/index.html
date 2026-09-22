@@ -464,7 +464,9 @@
   #eq-canvas.grabbing{cursor:grabbing}
 
   /* ---- loop markers on the timeline ---- */
-  .nm-mark{position:absolute;top:0;bottom:0;width:0;z-index:6}
+  /* Confined to the stems area — top/height set in JS (updateLoopVisual), so
+     they never run up into the tab lanes or the rows above the stems. */
+  .nm-mark{position:absolute;width:0;z-index:6}
   .nm-mark::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;
     background:var(--mk,#3ddc97);box-shadow:0 0 6px var(--mk,#3ddc97)}
   .nm-mark.in{--mk:#3ddc97}
@@ -881,16 +883,17 @@
   .nm-lane:last-child{border-bottom:none}
   .nm-lane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   /* One overlay for grid + playhead + loop, stretched over ruler *and* lanes */
-  .nm-grid{position:absolute;inset:0;pointer-events:none;z-index:2}
+  /* Above the sticky rail (z-index:4) — the loop's lines and the playhead
+     both pass through x=0 (a loop that starts at the very top of the song,
+     the moment playback begins), and the rail must not swallow them there. */
+  .nm-grid{position:absolute;inset:0;pointer-events:none;z-index:5}
   .nm-head-line{position:absolute;top:0;bottom:0;width:1px;background:var(--nm-red);
                 pointer-events:none;z-index:6;box-shadow:0 0 5px rgba(255,59,48,.55)}
-  .nm-loop{position:absolute;top:0;bottom:0;background:rgba(61,139,253,.16);
+  /* Same vertical confinement as the marks above — no grips of its own any
+     more, it just shows the span the two lines mark out. */
+  .nm-loop{position:absolute;background:rgba(61,139,253,.16);
            border-left:1px solid var(--nm-blue);border-right:1px solid var(--nm-blue);
            z-index:3;pointer-events:none}
-  .nm-loop-grip{position:absolute;width:11px;height:9px;background:var(--nm-blue);
-                pointer-events:auto;cursor:ew-resize;z-index:7}
-  .nm-loop-grip.in{top:0;left:-1px;clip-path:polygon(0 0,100% 0,0 100%)}
-  .nm-loop-grip.out{top:0;right:-1px;clip-path:polygon(0 0,100% 0,100% 100%)}
 
   /* --- transport --- */
   .nm-transport{display:flex;align-items:center;gap:15px 20px;padding:12px 16px;
@@ -1141,15 +1144,14 @@
   .sp-hero-stats b{font-weight:700}
   .sp-hero-stats .dot{color:rgba(255,255,255,.7)}
 
-  /* Steems: the hero is a header, not the point of the page — half width,
-     with the art shrunk to match, so the text/tabs/guitar below it aren't
-     pushed halfway down the screen. */
-  #steems-hero .sp-hero{max-width:50%;min-width:360px;min-height:auto;
+  /* Steems: the hero is a header, not the point of the page — a thin strip
+     the full width of the stage, with the art shrunk to match, so the
+     text/tabs/guitar below it aren't pushed halfway down the screen. */
+  #steems-hero .sp-hero{max-width:100%;min-height:auto;
     padding:18px 22px;align-items:center;gap:18px}
   #steems-hero .sp-hero-art{width:88px;height:88px;flex-basis:88px;font-size:28px}
   #steems-hero .sp-hero-title{font-size:clamp(20px,2.3vw,32px)}
   #steems-hero .sp-hero-stats{font-size:12.5px}
-  @media(max-width:900px){ #steems-hero .sp-hero{max-width:100%} }
 
   /* Action row under the hero, over a fading continuation of the wash. */
   .sp-actions{display:flex;align-items:center;gap:24px;padding:24px 32px;
@@ -2565,19 +2567,9 @@
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-btn round" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span></button>
-              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp"><span data-icon="repeat" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp — dvě čáry u stop, táhni je na začátek a konec"><span data-icon="repeat" data-size="14"></span></button>
             </div>
             <span class="cap">PŘEHRÁVÁNÍ</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <input type="text" class="nm-num" id="fl-in-marker" value="0:00" title="Začátek smyčky">
-              <input type="text" class="nm-num" id="fl-out-marker" value="0:00" title="Konec smyčky">
-              <button class="nm-btn round" id="fl-marker-btn" title="Přidat značku na pozici přehrávání: první je začátek smyčky, druhá konec"><span data-icon="tag" data-size="14"></span></button>
-              <button class="nm-btn" id="fl-set-btn" title="Nastavit smyčku z In/Out">Set</button>
-            </div>
-            <span class="cap">SMYČKA IN / OUT</span>
           </div>
 
           <div class="nm-tgroup">
@@ -2668,13 +2660,16 @@
           <div class="nm-scroll" id="nm-scroll">
             <div class="nm-canvas" id="nm-canvas">
               <div class="nm-ruler" id="mixer-ruler"></div>
+              <!-- Akordy + Tempo: right under the waveform strip above, before
+                   anything else in the scrolling grid. -->
+              <div id="mixer-top-lanes"></div>
               <div id="mixer-tab-lanes"></div>
               <div id="mixer-tracks"></div>
               <div class="nm-grid">
-                <div class="nm-loop" id="mixer-loop-region" hidden>
-                  <div class="nm-loop-grip in" data-edge="in"></div>
-                  <div class="nm-loop-grip out" data-edge="out"></div>
-                </div>
+                <!-- The loop's shaded span and its two draggable lines are
+                     confined to the stems (see updateLoopVisual) — dragged
+                     directly, no separate grips of their own any more. -->
+                <div class="nm-loop" id="mixer-loop-region" hidden></div>
                 <div class="nm-mark in" id="mixer-mark-in" data-edge="in" hidden title="Začátek smyčky — táhni, dvojklik smaže"><span class="nm-mark-grip"></span></div>
                 <div class="nm-mark out" id="mixer-mark-out" data-edge="out" hidden title="Konec smyčky — táhni, dvojklik smaže"><span class="nm-mark-grip"></span></div>
                 <div class="nm-head-line" id="mixer-ruler-playhead"></div>
@@ -5749,7 +5744,7 @@ function loadMixerSong(name){
   let song = steemsSongs.find(s => s.name === name);
   if(!song){ 
     // Fallback: create song from server data
-    song = { name, stems: ["vocals","drums","bass","guitar","piano","other"] };
+    song = { name, stems: ["drums","bass","guitar","vocals","piano","other"] };
   }
   // Ensure stems have proper format
   if(song.stems && !Array.isArray(song.stems[0]) && typeof song.stems[0] !== 'object'){
@@ -8256,30 +8251,42 @@ const Mixer = (() => {
   function renderTrackLanes(){
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
+    const topLanes = el("mixer-top-lanes");
     rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"></div>';
     lanes.innerHTML = "";
-    // The tab lanes are fixed rows above the tracks; the rail gets one row for
-    // each so every label below stays level with its lane.
-    const tabPx = totalWidthPx();
-    if(channels.length) renderTabLanes(rail, tabPx);
-    else el("mixer-tab-lanes").innerHTML = "";
-
+    topLanes.innerHTML = "";
     const totalPx = totalWidthPx();
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
 
     if(channels.length){
+      // Akordy and Tempo sit right under the waveform strip, above everything
+      // else — including the tab lanes, which is why they render into their
+      // own fixed container instead of the tab/stem one, and go first.
+      renderChordsLane(rail, topLanes, totalPx);
+      renderTempoLane(rail, topLanes, totalPx);
+    }
+    // The tab lanes are fixed rows above the tracks; the rail gets one row for
+    // each so every label below stays level with its lane.
+    if(channels.length) renderTabLanes(rail, totalPx);
+    else el("mixer-tab-lanes").innerHTML = "";
+
+    if(channels.length){
       // The guitar first — it is the one channel you are playing rather than
-      // listening to — then the map of the song, the click, and the audio.
+      // listening to — then the map of the song and the click.
       renderGuitarLane(rail, lanes, totalPx);
       renderSectionsLane(rail, lanes, totalPx);
-      renderChordsLane(rail, lanes, totalPx);
-      renderTempoLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
-      // Right above the vocal stem, so the words sit next to the singing.
-      renderLyricsLane(rail, lanes, totalPx);
       bindSectionLabels();
     }
     requestAnimationFrame(updateLaneOverflowHint);
+
+    // From here down is "the stems" for the loop's own purposes: the two
+    // draggable lines and the shaded span between them never reach above it.
+    // Measured from the real layout (not summed-up guesses at each lane's
+    // height) so it stays right whatever's rendered above — a tab or two, a
+    // section grid, however many bars of chords.
+    const canvasTop = el("nm-canvas").getBoundingClientRect().top;
+    stemsTopPx = lanes.getBoundingClientRect().top - canvasTop + lanes.scrollHeight;
 
     channels.forEach((c, idx) => {
       const style = stemStyle(c.stem);
@@ -8373,7 +8380,11 @@ const Mixer = (() => {
       });
 
       lanes.appendChild(lane);
+      // Right after the vocal stem, so the words sit next to the singing.
+      if(c.stem === "vocals") renderLyricsLane(rail, lanes, totalPx);
     });
+
+    stemsBottomPx = lanes.getBoundingClientRect().bottom - canvasTop;
 
     // Grid overlay (playhead + loop) has to span ruler and every lane.
     el("nm-canvas").style.height =
@@ -8406,28 +8417,28 @@ const Mixer = (() => {
     g.globalCompositeOperation = "source-over";
   }
 
-  // The two markers exist from the first press of the marker button, before
-  // there is a loop to play. Any loop that gets set some other way (the Set
-  // button, a section, a saved mix) shows them too.
-  let markIn = false, markOut = false;
-
-  function paintLoopFields(){
-    el("fl-in-marker").value = markIn ? fmtDur(loopStart) : "";
-    el("fl-out-marker").value = markOut ? fmtDur(loopEnd) : "";
-  }
+  // Where the stems start and end inside .nm-canvas, in pixels — set at the
+  // end of renderTrackLanes(), from the actual rendered lane elements rather
+  // than summed-up guesses. The loop's two lines and shaded span are drawn
+  // only across that range, never up into the tab lanes or the rows above.
+  let stemsTopPx = 0, stemsBottomPx = 0;
 
   function updateLoopVisual(){
     const region = el("mixer-loop-region");
     const ovLoop = el("nm-ov-loop");
     const mi = el("mixer-mark-in"), mo = el("mixer-mark-out");
     if(mi && mo){
-      mi.hidden = !markIn;
-      mo.hidden = !markOut;
-      mi.style.left = (loopStart * pixelsPerSecond) + "px";
-      mo.style.left = (loopEnd * pixelsPerSecond) + "px";
+      mi.hidden = mo.hidden = !loopEnabled;
+      if(loopEnabled){
+        [mi, mo].forEach(m => { m.style.top = stemsTopPx + "px"; m.style.height = (stemsBottomPx - stemsTopPx) + "px"; });
+        mi.style.left = (loopStart * pixelsPerSecond) + "px";
+        mo.style.left = (loopEnd * pixelsPerSecond) + "px";
+      }
     }
     if(loopEnabled && loopEnd > loopStart){
       region.hidden = false;
+      region.style.top = stemsTopPx + "px";
+      region.style.height = (stemsBottomPx - stemsTopPx) + "px";
       region.style.left = (loopStart * pixelsPerSecond) + "px";
       region.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px";
       ovLoop.hidden = false;
@@ -8778,11 +8789,8 @@ const Mixer = (() => {
     el("nm-title").textContent = song.name;
     el("nm-stemcount").textContent = song.stems.length;
     el("nm-key").textContent = "…";
-    el("fl-in-marker").value = "0:00";
-    el("fl-out-marker").value = fmtDur(duration || 0);
     currentSongName = song.name;
     resetLyrics();
-    markIn = markOut = false;
     loopEnabled = false; loopStart = 0; loopEnd = 0;
     el("mixer-loop").classList.remove("active");
 
@@ -8891,10 +8899,8 @@ const Mixer = (() => {
       loopEnabled = true;
       loopStart = saved.loop.start;
       loopEnd = saved.loop.end;
-      markIn = markOut = true;
       el("mixer-loop").classList.add("active");
     }
-    paintLoopFields();
     // Open on a zoom that fits the whole song — landing mid-bar on a track
     // you haven't heard yet tells you nothing about its shape.
     const viewW = el("nm-scroll").clientWidth || 900;
@@ -9348,9 +9354,7 @@ const Mixer = (() => {
       loopStart = 0;
       loopEnd = tempoBPM ? (60 / tempoBPM) * 4 : Math.min(8, duration);
     }
-    markIn = markOut = loopEnabled;
     el("mixer-loop").classList.toggle("active", loopEnabled);
-    paintLoopFields();
     updateLoopVisual();
     queueSessionSave();
   }
@@ -9496,35 +9500,7 @@ const Mixer = (() => {
     exportMixWithOptions({ fmt, scale, suffix });
   };
 
-  // ---- Marker / Set / In/Out ----
-  // Click anywhere on a track to put the playhead there, then press this: the
-  // first press marks the start of the loop, the second its end (and starts
-  // the loop). A third press begins a new one. Either marker can be dragged.
-  el("fl-marker-btn").onclick = () => {
-    if(!currentSongName) return;
-    const t = Math.max(0, Math.min(duration, currentTime()));
-    if(!markIn || (markIn && markOut)){
-      loopStart = t; loopEnd = t;
-      markIn = true; markOut = false;
-      loopEnabled = false;
-      el("mixer-loop").classList.remove("active");
-      showToast("Začátek smyčky: " + fmtDur(t) + " — další značka nastaví konec");
-    } else if(t <= loopStart + 0.05){
-      loopStart = t;
-      showToast("Začátek smyčky posunut na " + fmtDur(t));
-    } else {
-      loopEnd = t;
-      markOut = true;
-      loopEnabled = true;
-      el("mixer-loop").classList.add("active");
-      showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(t));
-    }
-    paintLoopFields();
-    updateLoopVisual();
-    queueSessionSave();
-  };
-
-  // Drag a marker; double-click removes the loop markers.
+  // ---- Loop markers: drag either line; double-click either one turns the loop off ----
   document.querySelectorAll(".nm-mark").forEach(mk => {
     const grip = mk.querySelector(".nm-mark-grip");
     let dragging = false;
@@ -9535,10 +9511,8 @@ const Mixer = (() => {
       if(!dragging) return;
       const rect = el("nm-canvas").getBoundingClientRect();
       const t = Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond));
-      if(mk.dataset.edge === "in") loopStart = markOut ? Math.min(t, loopEnd - 0.1) : t;
+      if(mk.dataset.edge === "in") loopStart = Math.min(t, loopEnd - 0.1);
       else loopEnd = Math.max(t, loopStart + 0.1);
-      if(!markOut) loopEnd = loopStart;
-      paintLoopFields();
       updateLoopVisual();
     });
     const up = (e) => {
@@ -9550,36 +9524,12 @@ const Mixer = (() => {
     grip.addEventListener("pointerup", up);
     grip.addEventListener("pointercancel", up);
     grip.addEventListener("dblclick", () => {
-      markIn = markOut = false;
       loopEnabled = false;
-      loopStart = loopEnd = 0;
       el("mixer-loop").classList.remove("active");
-      paintLoopFields();
       updateLoopVisual();
       queueSessionSave();
-      showToast("Značky smyčky smazány");
     });
   });
-  el("fl-set-btn").onclick = () => {
-    const inTxt = el("fl-in-marker").value;
-    const outTxt = el("fl-out-marker").value;
-    const parseTime = (s) => {
-      const parts = s.split(":");
-      if(parts.length===2) return parseFloat(parts[0])*60 + parseFloat(parts[1]);
-      return parseFloat(s);
-    };
-    loopStart = Math.max(0, parseTime(inTxt));
-    loopEnd = Math.min(duration, parseTime(outTxt));
-    if(loopEnd <= loopStart){ loopEnd = loopStart + 4; }
-    loopEnabled = true;
-    markIn = markOut = true;
-    el("mixer-loop").classList.add("active");
-    paintLoopFields();
-    updateLoopVisual();
-    showToast("Smyčka: " + fmtDur(loopStart) + " – " + fmtDur(loopEnd));
-  };
-  el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
-  el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
 
   // Fadery and the equaliser both stay out of the way until asked for —
   // the strips crowd the mixer, and the panel takes real vertical space.
@@ -9723,10 +9673,8 @@ const Mixer = (() => {
     loopStart = Math.min(loopDragStart, loopDragCurrent);
     loopEnd = Math.max(loopDragStart, loopDragCurrent);
     loopEnabled = true;
-    markIn = markOut = true;
     el("mixer-loop").classList.add("active");
     updateLoopVisual();
-    paintLoopFields();
   });
   ruler.addEventListener("pointerup", (ev) => {
     if(loopDragStart !== null){
@@ -9759,34 +9707,7 @@ const Mixer = (() => {
   el("nm-tempo-num").addEventListener("blur", commitTempoField);
   el("nm-tempo-num").addEventListener("focus", (e) => e.currentTarget.select());
 
-  // Loop handles: drag either edge of the blue region.
-  (() => {
-    const region = el("mixer-loop-region");
-    let edge = null;
-    region.querySelectorAll(".nm-loop-grip").forEach(grip => {
-      grip.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        edge = grip.dataset.edge;
-        grip.setPointerCapture(e.pointerId);
-      });
-      grip.addEventListener("pointermove", (e) => {
-        if(!edge) return;
-        const rect = el("mixer-ruler").getBoundingClientRect();
-        const t = Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond));
-        if(edge === "in") loopStart = Math.min(t, loopEnd - 0.1);
-        else loopEnd = Math.max(t, loopStart + 0.1);
-        updateLoopVisual();
-        el("fl-in-marker").value = fmtDur(loopStart);
-        el("fl-out-marker").value = fmtDur(loopEnd);
-      });
-      grip.addEventListener("pointerup", (e) => {
-        edge = null;
-        try{ grip.releasePointerCapture(e.pointerId); }catch(err){}
-      });
-    });
-  })();
-
-  // Spacebar transport, but never while typing into the In/Out fields.
+  // Spacebar transport.
   document.addEventListener("keydown", (e) => {
     if(e.code !== "Space" || el("mixer").hidden) return;
     const tag = (e.target.tagName || "").toLowerCase();
