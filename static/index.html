@@ -788,7 +788,7 @@
   /* ---- the live guitar channel ---- */
   /* Taller than a stem's strip because it carries what a stem never needs:
      which socket the sound arrives on, how hard the gate bites, and a meter. */
-  .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:200px}
+  .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:226px}
   #mixer-tab-lane{height:150px}
   .nm-strip.guitar-strip{gap:5px;padding:8px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
@@ -1595,17 +1595,25 @@
   .nm-lane.thin{overflow:hidden}
 
   /* ---- lyrics: the readout bar and the lane ---- */
-  .nm-lyr-bar{display:flex;align-items:center;gap:16px;padding:8px 16px;
-    border-bottom:1px solid var(--nm-line);background:rgba(0,0,0,.18)}
-  .nm-lyr-lines{flex:1;min-width:0;text-align:center;line-height:1.35}
-  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:12.5px;color:var(--nm-sub);opacity:.7;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px}
-  .nm-lyr-lines .cur{font-size:21px;font-weight:800;color:#fff;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:29px}
-  .nm-lyr-tools{display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--nm-sub)}
-  .nm-lyr-tools button{background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
-    font:inherit;padding:4px 10px;cursor:pointer}
-  .nm-lyr-tools button:hover{background:#3e3e3e}
+  .lyr-dock{margin:6px 0 4px;padding:12px 24px 18px;border-radius:12px;
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.07)}
+  .lyr-dock-tools{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);margin-bottom:6px}
+  .lyr-dock-tools .cap{font-size:10px;font-weight:800;letter-spacing:.16em;color:#ffd166}
+  .lyr-dock-tools .sp{flex:1}
+  .lyr-detached-note{font-style:italic}
+  .lyr-dock-tools button{background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
+    font:inherit;padding:4px 11px;cursor:pointer;display:inline-flex;align-items:center}
+  .lyr-dock-tools button:hover{background:#3e3e3e}
+  .nm-lyr-lines{text-align:center;line-height:1.3}
+  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:clamp(14px,1.5vw,19px);color:var(--sub);opacity:.75;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  .nm-lyr-lines .cur{font-size:clamp(24px,3vw,38px);font-weight:800;color:#fff;letter-spacing:-.01em;
+    padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  .lyr-float-body{background:#0c0c10;display:flex;align-items:center;justify-content:center;padding:10px 18px}
+  .lyr-float-body .nm-lyr-lines{width:100%}
+  .lyr-float-body .nm-lyr-lines .prev,.lyr-float-body .nm-lyr-lines .next{font-size:clamp(13px,2.4vw,20px)}
+  .lyr-float-body .nm-lyr-lines .cur{font-size:clamp(20px,4.6vw,40px)}
   .lyr-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 6px;
     font-size:11.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;cursor:pointer;border-left:1px solid var(--nm-line);box-sizing:border-box}
@@ -2469,6 +2477,26 @@
         </div>
       </div>
     </div>
+    <!-- The line being sung, under the song's title. It can be lifted out into
+         a floating window (see detachLyrics). -->
+    <div class="lyr-dock" id="mixer-lyrics-bar" hidden>
+      <div class="lyr-dock-tools">
+        <span class="cap">TEXT</span>
+        <span class="lyr-detached-note" id="lyr-detached-note" hidden>je v plovoucím okně</span>
+        <span class="sp"></span>
+        <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
+        <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
+        <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
+        <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
+        <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
+      </div>
+      <div class="nm-lyr-lines" id="nm-lyr-lines">
+        <div class="prev" id="nm-lyr-prev"></div>
+        <div class="cur" id="nm-lyr-cur"></div>
+        <div class="next" id="nm-lyr-next"></div>
+      </div>
+    </div>
+
     <div class="stems-head">
       <span class="section-title" id="steems-list-title">Rozseparované písně</span>
       <button class="btn secondary" id="stems-convert" hidden></button>
@@ -2600,20 +2628,6 @@
         </div>
 
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
-        <!-- The line being sung, big enough to read at any zoom. -->
-        <div class="nm-lyr-bar" id="mixer-lyrics-bar" hidden>
-          <div class="nm-lyr-lines">
-            <div class="prev" id="nm-lyr-prev"></div>
-            <div class="cur" id="nm-lyr-cur"></div>
-            <div class="next" id="nm-lyr-next"></div>
-          </div>
-          <div class="nm-lyr-tools">
-            <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
-            <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
-            <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
-            <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
-          </div>
-        </div>
         <div class="nm-body-wrap" id="nm-body-wrap">
         <div class="nm-body" id="nm-body">
           <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
@@ -2956,6 +2970,16 @@
   </div>
   <div class="float-body" id="float-video-body"></div>
   <div class="float-grip" id="float-video-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<!-- The lyrics readout, lifted out of the page: draggable and resizable. -->
+<div class="float-win lyr-float" id="lyr-float" hidden>
+  <div class="float-head" id="lyr-float-head">
+    <span class="float-title">Text písně</span>
+    <button class="float-btn" id="lyr-float-dock" title="Vrátit pod název písně"><span data-icon="back" data-size="13"></span></button>
+  </div>
+  <div class="float-body lyr-float-body" id="lyr-float-body"></div>
+  <div class="float-grip" id="lyr-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -6646,6 +6670,7 @@ const Mixer = (() => {
   async function toggleLyrics(force){
     if(lyricsOn && force !== true){
       lyricsOn = false;
+      dockLyrics();
       el("mixer-lyrics-bar").hidden = true;
       el("mixer-lyrics-toggle").classList.remove("active");
       renderTimeline();
@@ -6684,6 +6709,23 @@ const Mixer = (() => {
   }
 
   el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+  // ---- lift the readout out into a window of its own, and put it back ----
+  const FloatLyr = makeFloating("lyr-float", {defaults: {width: 560, height: 230}});
+
+  function detachLyrics(){
+    el("lyr-float-body").appendChild(el("nm-lyr-lines"));
+    el("lyr-detached-note").hidden = false;
+    FloatLyr.open();
+  }
+  function dockLyrics(){
+    const lines = el("nm-lyr-lines");
+    if(lines.parentElement !== el("mixer-lyrics-bar")) el("mixer-lyrics-bar").appendChild(lines);
+    el("lyr-detached-note").hidden = true;
+    FloatLyr.close();
+  }
+  el("nm-lyr-detach").onclick = () => (FloatLyr.isOpen() ? dockLyrics() : detachLyrics());
+  el("lyr-float-dock").onclick = dockLyrics;
+
   el("nm-lyr-earlier").onclick = () => nudgeLyrics(-0.5);
   el("nm-lyr-later").onclick = () => nudgeLyrics(0.5);
   el("nm-lyr-change").onclick = async () => {
@@ -6705,6 +6747,7 @@ const Mixer = (() => {
   // A different song has a different text.
   function resetLyrics(){
     lyrics = null; lyricsOn = false; lyricsIdx = -2; lyricsOffset = 0;
+    dockLyrics();
     el("mixer-lyrics-bar").hidden = true;
     el("mixer-lyrics-toggle").classList.remove("active");
   }
@@ -8265,6 +8308,7 @@ const Mixer = (() => {
       const gt = saved.guitar;
       Guitar.state.volume = gt.volume ?? Guitar.state.volume;
       Guitar.state.pan = gt.pan ?? Guitar.state.pan;
+      if(gt.guideVolume != null) Guitar.setGuideVolume(gt.guideVolume);
       Guitar.state.muted = !!gt.muted;
       Guitar.state.solo = !!gt.solo;
       Guitar.state.threshold = gt.threshold ?? Guitar.state.threshold;
@@ -8841,6 +8885,7 @@ const Mixer = (() => {
       },
       guitar: {
         volume: Guitar.state.volume, pan: Guitar.state.pan,
+        guideVolume: Guitar.state.guideVolume,
         muted: Guitar.state.muted, solo: Guitar.state.solo,
         threshold: Guitar.state.threshold,
         deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
@@ -9266,6 +9311,13 @@ const Mixer = (() => {
     let analyser = null;
     let workletsLoaded = false;
     let virtualSource = null; // GainNode for the virtual guitar guide
+    // The guide has an amp, cabinet and level of its own. If both it and the
+    // live guitar went into one amp, the two signals would be added *before*
+    // the distortion and smear into each other; separate chains are only
+    // added together after the cabinet.
+    let guideAmp = null;
+    let guideCab = null;
+    let guideOut = null;
     let recording = false;
     let recordStartedAt = 0;
 
@@ -9274,6 +9326,7 @@ const Mixer = (() => {
       volume: 0.9, pan: 0, muted: false, solo: false,
       threshold: -100,          // gate off until it is asked for
       ampName: null, cabName: null,
+      guideVolume: 0.8,
       peak: 0, gate: 0,
       latencyMs: null,
     };
@@ -9293,6 +9346,11 @@ const Mixer = (() => {
       if(!virtualSource){
         virtualSource = audioCtx.createGain();
         virtualSource.gain.value = 0.7;
+        built = true;
+      }
+      if(!guideOut){
+        guideOut = audioCtx.createGain();
+        guideOut.gain.value = state.guideVolume;
         built = true;
       }
 
@@ -9396,8 +9454,13 @@ const Mixer = (() => {
     // The chain is rebuilt rather than patched when the amp or cab changes:
     // it is five nodes, and a rebuild can't leave a stale connection behind.
     function rewire(){
+      // Nothing to wire until the output stage exists (the first of the live
+      // input and the guide to start creates it). stop() reaches here before
+      // that when the very first thing done is plugging the guitar in.
+      if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
-      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource]
+      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
+       guideAmp, guideCab, guideOut]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
       // Live input chain
@@ -9410,12 +9473,14 @@ const Mixer = (() => {
         node.connect(gainNode);
       }
 
-      // Virtual guide chain
-      if(virtualSource){
+      // Virtual guide chain: its own amp and cabinet, its own level, and
+      // only then into the shared meter and output.
+      if(virtualSource && guideOut){
         let node = virtualSource;
-        if(ampNode){ node.connect(ampNode); node = ampNode; }
-        if(cabNode){ node.connect(cabNode); node = cabNode; }
-        node.connect(gainNode);
+        if(guideAmp){ node.connect(guideAmp); node = guideAmp; }
+        if(guideCab){ node.connect(guideCab); node = guideCab; }
+        node.connect(guideOut);
+        guideOut.connect(analyser);
       }
 
       gainNode.connect(analyser);
@@ -9473,6 +9538,7 @@ const Mixer = (() => {
       const stemSolo = channels.some(c => c.solo);
       const silent = state.muted || (stemSolo && !state.solo);
       gainNode.gain.value = silent ? 0 : state.volume;
+      if(guideOut) guideOut.gain.value = state.guideVolume;
       if(pannerNode) pannerNode.pan.value = state.pan;
     }
 
@@ -9557,6 +9623,12 @@ const Mixer = (() => {
       // The guide shares the amp and cab, so rewire whenever the output stage
       // exists — not only while a physical input is live.
       setAmp(node, name){ ampNode = node; state.ampName = name; if(gainNode) rewire(); },
+      setGuideAmp(node){ guideAmp = node; if(gainNode) rewire(); },
+      setGuideCab(node){ guideCab = node; if(gainNode) rewire(); },
+      setGuideVolume(v){
+        state.guideVolume = Math.max(0, Math.min(1.4, v));
+        if(guideOut) guideOut.gain.value = state.guideVolume;
+      },
       setCab(node, name){ cabNode = node; state.cabName = name; if(gainNode) rewire(); },
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
@@ -9606,6 +9678,10 @@ const Mixer = (() => {
           ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}
         </button>
       </div>
+      <div class="gt-row">
+        <span class="gt-cap" title="Hlasitost virtuální kytary (Guide); má vlastní zesilovač a nemíchá se s tvou kytarou">GUIDE</span>
+        <input type="range" class="nm-tempo gt-guide" min="0" max="1.2" step="0.01" value="${g.guideVolume}">
+      </div>
       <div class="gt-row gt-amp">
         <button class="gt-chip" id="gt-amp-btn" title="Zesilovač a kabinet">
           ${icon("sliders", 11)}<span>${escapeHtml(
@@ -9629,6 +9705,10 @@ const Mixer = (() => {
 
   function wireGuitarStrip(strip){
     const g = Guitar.state;
+    strip.querySelector(".gt-guide").addEventListener("input", (e) => {
+      Guitar.setGuideVolume(parseFloat(e.target.value));
+      queueSessionSave();
+    });
 
     strip.querySelector(".gt-power").onclick = async () => {
       if(Guitar.isLive()){ await Guitar.stop(); return; }
@@ -9736,6 +9816,7 @@ const Mixer = (() => {
   const Amp = (() => {
     let engine = null;
     let node = null;
+    let guideNode = null;
     let loading = false;
 
     async function ensureEngine(){
@@ -9758,6 +9839,10 @@ const Mixer = (() => {
         // itself, so there is no click to hide here.
         const info = await node.loadModel(json);
         Guitar.setAmp(node, file.replace(/\.nam$/i, ""));
+        // A second copy of the same model for the guide.
+        if(!guideNode) guideNode = await eng.createNode();
+        await guideNode.loadModel(json);
+        Guitar.setGuideAmp(guideNode);
         return info;
       } finally {
         loading = false;
@@ -9768,7 +9853,11 @@ const Mixer = (() => {
       if(node){
         try{ await node.unloadModel(); }catch(e){}
       }
+      if(guideNode){
+        try{ await guideNode.unloadModel(); }catch(e){}
+      }
       Guitar.setAmp(null, null);
+      Guitar.setGuideAmp(null);
     }
 
     // The cabinet. A ConvolverNode wants an AudioBuffer, so the IR is decoded
@@ -9781,10 +9870,15 @@ const Mixer = (() => {
       conv.normalize = true;
       conv.buffer = buf;
       Guitar.setCab(conv, file.replace(/\.wav$/i, ""));
+      // The guide's own convolver, sharing the decoded impulse.
+      const guideConv = ctx().createConvolver();
+      guideConv.normalize = true;
+      guideConv.buffer = buf;
+      Guitar.setGuideCab(guideConv);
       return buf.duration;
     }
 
-    function unloadCab(){ Guitar.setCab(null, null); }
+    function unloadCab(){ Guitar.setCab(null, null); Guitar.setGuideCab(null); }
 
     return {load, unload, loadCab, unloadCab, isLoading: () => loading,
             hasEngine: () => !!engine, loadTab};
