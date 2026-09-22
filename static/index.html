@@ -685,7 +685,7 @@
   .icon-btn-flat:active{transform:scale(0.95)}
 
   /* Smooth player bar appearance */
-  .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
+  .player-bar{transition:transform .25s ease-out,opacity .25s ease-out,height .18s ease-out}
   .player-bar[hidden]{transform:translateY(100%);opacity:0}
 
   /* Collapsed into a thin roller strip — the Steems mixer has its own
@@ -699,8 +699,15 @@
   .pb-collapse-handle .ic-svg{transform:rotate(90deg);transition:transform .2s ease}
   body.pb-collapsed .pb-collapse-handle .ic-svg{transform:rotate(-90deg)}
   body.pb-collapsed .player-bar{overflow:hidden;cursor:pointer}
-  body.pb-collapsed .player-bar > *:not(.pb-collapse-handle){opacity:0;pointer-events:none}
+  body.pb-collapsed .player-bar > *:not(.pb-collapse-handle){opacity:0;pointer-events:none;transition:opacity .15s ease-out}
   body.pb-collapsed{--sp-player:11px}
+  /* Mousing down to where the player normally sits peeks it back open —
+     no need to land a click on the thin 11px handle. It floats over
+     whatever's above it (height only changes on the bar itself, not the
+     shared --sp-player the rest of the layout is padded against), and
+     drops back to the roller the instant the pointer leaves. */
+  body.pb-collapsed .player-bar:hover{height:var(--sp-player-open);cursor:default}
+  body.pb-collapsed .player-bar:hover > *:not(.pb-collapse-handle){opacity:1;pointer-events:auto;transition:opacity .15s ease-in .05s}
 /* Left sidebar */
 /* (the old fixed 200px rail lives on only in .sb-* leftovers below) */
 .sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
@@ -841,6 +848,10 @@
   .gt-chip.gt-eq .dot{width:6px;height:6px;border-radius:50%;background:#33333d}
   .gt-chip.gt-eq.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
   .gt-chip.gt-eq.sel{background:rgba(255,209,102,.14);box-shadow:inset 0 0 0 1px #ffd166;color:#ffd166}
+  .gt-amp-step{flex:0 0 auto;width:18px;height:20px;display:flex;align-items:center;
+    justify-content:center;border:none;border-radius:4px;background:#1c1c22;
+    color:var(--nm-sub);cursor:pointer;font-size:14px;line-height:1;padding:0}
+  .gt-amp-step:hover{background:#2a2a33;color:var(--nm-txt)}
   .amp-picker{min-width:236px;max-height:70vh;overflow-y:auto}
   .amp-picker .ss-head{padding:6px 8px 3px}
   .gt-lat{font-size:8.5px;color:var(--nm-sub);text-align:right;
@@ -938,7 +949,7 @@
     --bg:#000; --bg2:#121212; --card:#181818; --card-hi:#282828;
     --text:#fff; --sub:#b3b3b3; --accent:#1ed760; --accent-dim:#1db954;
     --danger:#f15e6c; --ok:#1ed760; --gold:#e9b949; --border:#282828;
-    --sp-gap:8px; --sp-topbar:64px; --sp-player:80px;
+    --sp-gap:8px; --sp-topbar:64px; --sp-player:80px; --sp-player-open:80px;
     --sp-lib:280px; --sp-np:0px; --sp-np-open:376px;
     --sp-radius:8px;
     --sp-hover:rgba(255,255,255,.1);
@@ -10165,10 +10176,12 @@ const Mixer = (() => {
         </button>
       </div>
       <div class="gt-row gt-amp">
+        <button class="gt-amp-step" id="gt-amp-prev" title="Předchozí model zesilovače">‹</button>
         <button class="gt-chip" id="gt-amp-btn" title="Zesilovač a kabinet">
           ${icon("sliders", 11)}<span>${escapeHtml(
             [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Bez zesilovače")}</span>
         </button>
+        <button class="gt-amp-step" id="gt-amp-next" title="Další model zesilovače">›</button>
         <button class="gt-chip gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">
           ${icon("eq", 11)}<span class="dot"></span>
         </button>
@@ -10256,6 +10269,8 @@ const Mixer = (() => {
       if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
     };
     strip.querySelector("#gt-amp-btn").onclick = () => openAmpPicker();
+    strip.querySelector("#gt-amp-prev").onclick = () => stepAmp(-1);
+    strip.querySelector("#gt-amp-next").onclick = () => stepAmp(1);
     strip.querySelector("#gt-eq-btn").onclick = () => {
       Guitar.ensureEq();
       setPanelOpen("eq-toggle", "eq-panel", true);
@@ -10383,6 +10398,35 @@ const Mixer = (() => {
             hasEngine: () => !!engine, loadTab};
   })();
 
+  // ---- stepping through models with ‹ › instead of opening the picker ----
+  // Cached so tapping the arrow repeatedly doesn't refetch the folder every
+  // time; a fresh upload invalidates it.
+  let ampModelsCache = null;
+  async function getAmpModels(){
+    if(!ampModelsCache){
+      try{
+        const all = await (await fetch("/api/amps")).json();
+        ampModelsCache = all.filter(a => a.kind === "model");
+      }catch(e){ ampModelsCache = []; }
+    }
+    return ampModelsCache;
+  }
+  async function stepAmp(delta){
+    const models = await getAmpModels();
+    if(!models.length){ showToast("Žádné modely zesilovače"); return; }
+    const cur = models.findIndex(m => m.name === Guitar.state.ampName);
+    const idx = cur < 0 ? (delta > 0 ? 0 : models.length - 1)
+                         : (cur + delta + models.length) % models.length;
+    const m = models[idx];
+    showToast("Načítám model…");
+    try{
+      await Amp.load(m.file);
+      showToast(`Zesilovač: ${m.name}`);
+    }catch(e){ showToast("Model se nepodařilo načíst"); }
+    renderGuitarStrip();
+    queueSessionSave();
+  }
+
   // ---- picking one ----
 
   async function openAmpPicker(){
@@ -10472,6 +10516,7 @@ const Mixer = (() => {
           showToast(res.ok ? `Přidáno: ${data.name}` : (data.error || "Nepodařilo se"));
         }catch(e){ showToast("Nahrání selhalo"); }
       }
+      ampModelsCache = null;
       openAmpPicker();
     };
     input.click();
