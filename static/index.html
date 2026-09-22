@@ -468,6 +468,8 @@
   .eq-panel{background:linear-gradient(180deg,#101014,#0a0a0d);border-top:1px solid var(--border);
     padding:12px 16px 16px}
   .eq-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+  .eq-chan-select{background:#1c1c22;color:var(--nm-txt,#ddd);border:1px solid #33333d;
+    border-radius:6px;font-size:11px;padding:4px 8px;text-transform:uppercase;font-family:inherit}
   .eq-title{font-size:11px;font-weight:800;letter-spacing:.16em;color:#ffd166;white-space:nowrap}
   .eq-readout{flex:1;min-width:0;font-size:12px;color:var(--sub);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
@@ -698,6 +700,20 @@
   /* Smooth player bar appearance */
   .player-bar{transition:transform .25s ease-out,opacity .25s ease-out}
   .player-bar[hidden]{transform:translateY(100%);opacity:0}
+
+  /* Collapsed into a thin roller strip — the Steems mixer has its own
+     transport, so the global player is just in the way while it's open. */
+  .pb-collapse-handle{position:absolute;left:50%;top:-11px;width:56px;height:11px;
+    border:1px solid var(--border);border-bottom:none;border-radius:7px 7px 0 0;
+    background:var(--bg2);color:var(--sub);cursor:pointer;display:flex;align-items:center;
+    justify-content:center;z-index:1;transition:color .15s}
+  .pb-collapse-handle:hover{color:#fff}
+  /* Chevron points down ("pull to collapse") when open, up ("pull to open") once collapsed. */
+  .pb-collapse-handle .ic-svg{transform:rotate(90deg);transition:transform .2s ease}
+  body.pb-collapsed .pb-collapse-handle .ic-svg{transform:rotate(-90deg)}
+  body.pb-collapsed .player-bar{overflow:hidden;cursor:pointer}
+  body.pb-collapsed .player-bar > *:not(.pb-collapse-handle){opacity:0;pointer-events:none}
+  body.pb-collapsed{--sp-player:11px}
 /* Left sidebar */
 /* (the old fixed 200px rail lives on only in .sb-* leftovers below) */
 .sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
@@ -1137,6 +1153,16 @@
     flex-wrap:wrap}
   .sp-hero-stats b{font-weight:700}
   .sp-hero-stats .dot{color:rgba(255,255,255,.7)}
+
+  /* Steems: the hero is a header, not the point of the page — half width,
+     with the art shrunk to match, so the text/tabs/guitar below it aren't
+     pushed halfway down the screen. */
+  #steems-hero .sp-hero{max-width:50%;min-width:360px;min-height:auto;
+    padding:18px 22px;align-items:center;gap:18px}
+  #steems-hero .sp-hero-art{width:88px;height:88px;flex-basis:88px;font-size:28px}
+  #steems-hero .sp-hero-title{font-size:clamp(20px,2.3vw,32px)}
+  #steems-hero .sp-hero-stats{font-size:12.5px}
+  @media(max-width:900px){ #steems-hero .sp-hero{max-width:100%} }
 
   /* Action row under the hero, over a fading continuation of the wash. */
   .sp-actions{display:flex;align-items:center;gap:24px;padding:24px 32px;
@@ -1989,7 +2015,7 @@
   .pb-ctl .ic-svg,.sp-iconbtn .ic-svg,.nm-btn.round .ic-svg,.nm-step .ic-svg,
   .close-btn .ic-svg,.float-btn .ic-svg,.icon-btn .ic-svg,.mini-btn .ic-svg,
   .fab-btn .ic-svg,.cat-x .ic-svg,.sp-round .ic-svg,.sp-browse .ic-svg,
-  .sp-fab .ic-svg,.gt-rec .ic-svg,.ab-video i .ic-svg{display:block;vertical-align:baseline}
+  .sp-fab .ic-svg,.gt-rec .ic-svg,.ab-video i .ic-svg,.pb-collapse-handle .ic-svg{display:block;vertical-align:baseline}
   /* The play glyph is drawn with its weight to the left; nudge it to look centred. */
   .sp-fab .ic-svg,.fab-btn.play-fab .ic-svg,.ab-video i .ic-svg{transform:translateX(1px)}
   .pb-ctl{display:flex;align-items:center;justify-content:center;
@@ -2626,6 +2652,8 @@
 
           <div class="nm-tgroup">
             <div class="row">
+              <button class="nm-btn round" id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="14"></span></button>
+              <button class="nm-btn round" id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
@@ -2669,12 +2697,13 @@
         </div>
         </div><!-- /nm-body-wrap -->
 
-        <div id="fl-channels" class="fl-channels"></div>
+        <div id="fl-channels" class="fl-channels" hidden></div>
 
         <!-- One equaliser, for whichever channel is selected in the strips above. -->
-        <div class="eq-panel" id="eq-panel">
+        <div class="eq-panel" id="eq-panel" hidden>
           <div class="eq-head">
             <span class="eq-title" id="eq-title">EQUALIZER</span>
+            <select class="eq-chan-select" id="eq-chan-select" title="Která stopa se upravuje"></select>
             <span class="eq-readout" id="eq-readout">Táhni body: vodorovně kmitočet, svisle zesílení. Kolečko myši mění šířku pásma.</span>
             <button type="button" class="nm-btn" id="eq-reset" title="Vrátit všechna pásma na nulu">Reset</button>
           </div>
@@ -2860,6 +2889,9 @@
 </div>
 
 <div class="player-bar" id="player-bar">
+  <button class="pb-collapse-handle" id="pb-collapse-handle" title="Sbalit/rozbalit přehrávač" aria-label="Sbalit/rozbalit přehrávač">
+    <span data-icon="chevron" data-size="11"></span>
+  </button>
   <div class="pb-track">
     <div class="pb-art" id="pb-art" aria-label="Album artwork" role="img">
       <div class="pb-art-glow" id="pb-art-glow"></div>
@@ -4671,6 +4703,8 @@ const ICONS = (() => {
       line("M16.4 5.4 19.4 4.6 22 18.6l-3 .8Z"),
     grid:
       line("M4.4 4.4h6v6h-6zM13.6 4.4h6v6h-6zM4.4 13.6h6v6h-6zM13.6 13.6h6v6h-6z"),
+    eq:
+      line("M3.4 15c2.4-7 4.8-7 6.8 0s4.8 7 6.8 0s2.8-7 2.8-7"),
     warning:
       line("M12 4.2 3.2 19.2h17.6Z") +
       line("M12 9.6v4M12 16.6h.01"),
@@ -5555,7 +5589,30 @@ function heroHue(text){
   return `hsl(${h} 42% 32%)`;
 }
 
+// ---- collapse the global player into a thin roller strip ----
+//
+// While Steems is open with a song loaded, the mixer has its own transport —
+// the global player bar underneath it is just dead weight. It collapses on
+// its own there, expands the moment audio actually starts (so its controls
+// are reachable), and a manual toggle always works and is remembered.
+function setPlayerCollapsed(collapsed){
+  document.body.classList.toggle("pb-collapsed", collapsed);
+}
+function autoCollapsePlayer(collapsed){
+  // A manual choice this session wins over the automatic one.
+  if(playerCollapseManual) return;
+  setPlayerCollapsed(collapsed);
+}
+let playerCollapseManual = false;
+el("pb-collapse-handle").onclick = (e) => {
+  e.stopPropagation();
+  playerCollapseManual = true;
+  setPlayerCollapsed(!document.body.classList.contains("pb-collapsed"));
+};
+el("pb-audio").addEventListener("play", () => autoCollapsePlayer(false));
+
 function showSteemsHero(name){
+  autoCollapsePlayer(!el("pb-audio") || el("pb-audio").paused);
   el("steems-hero").hidden = false;
   el("steems-section").style.paddingTop = "0";
   el("steems-list-title").hidden = true;
@@ -5570,6 +5627,8 @@ function showSteemsHero(name){
 }
 
 function hideSteemsHero(){
+  playerCollapseManual = false;
+  autoCollapsePlayer(false);
   el("steems-hero").hidden = true;
   el("steems-section").style.paddingTop = "";
   el("steems-list-title").hidden = false;
@@ -6466,9 +6525,21 @@ const Mixer = (() => {
     const c = channels[idx];
     el("eq-title").textContent = "EQUALIZER — " + String(c.stem).toUpperCase();
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
+    const sel = el("eq-chan-select");
+    if(sel && sel.value !== String(idx)) sel.value = String(idx);
     eqReadout();
     drawEq();
   }
+
+  // The strip's own EQ button needs the strip visible; this select in the
+  // panel's own header works whether the fader strips are shown or not.
+  function renderEqChannelSelect(){
+    const sel = el("eq-chan-select");
+    if(!sel) return;
+    sel.innerHTML = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("");
+    sel.value = String(eqSel);
+  }
+  el("eq-chan-select").onchange = (e) => selectEqChannel(parseInt(e.target.value, 10));
 
   function refreshEqButtons(){
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => {
@@ -8534,6 +8605,7 @@ const Mixer = (() => {
     applyGains();
     if(eqSel >= channels.length) eqSel = 0;
     refreshEqButtons();
+    renderEqChannelSelect();
     selectEqChannel(eqSel);
   }
 
@@ -9458,6 +9530,36 @@ const Mixer = (() => {
   };
   el("fl-in-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
   el("fl-out-marker").addEventListener("keydown", (e) => { if(e.key==="Enter") el("fl-set-btn").click(); });
+
+  // Fadery and the equaliser both stay out of the way until asked for —
+  // the strips crowd the mixer, and the panel takes real vertical space.
+  const PANEL_KEY = "spotdl-gui-mixer-panels";
+  function loadPanelPrefs(){
+    try{ return JSON.parse(localStorage.getItem(PANEL_KEY) || "{}"); }catch(e){ return {}; }
+  }
+  function savePanelPref(key, on){
+    const p = loadPanelPrefs();
+    p[key] = on;
+    try{ localStorage.setItem(PANEL_KEY, JSON.stringify(p)); }catch(e){}
+  }
+  function setPanelOpen(btnId, panelId, on){
+    el(panelId).hidden = !on;
+    el(btnId).classList.toggle("active", on);
+  }
+  const panelPrefs = loadPanelPrefs();
+  setPanelOpen("fl-strips-toggle", "fl-channels", !!panelPrefs.fadery);
+  setPanelOpen("eq-toggle", "eq-panel", !!panelPrefs.eq);
+  el("fl-strips-toggle").onclick = () => {
+    const on = el("fl-channels").hidden;
+    setPanelOpen("fl-strips-toggle", "fl-channels", on);
+    savePanelPref("fadery", on);
+  };
+  el("eq-toggle").onclick = () => {
+    const on = el("eq-panel").hidden;
+    setPanelOpen("eq-toggle", "eq-panel", on);
+    savePanelPref("eq", on);
+    if(on) drawEq();
+  };
 
   el("mixer-metro").onclick = () => toggleMetronome();
   el("nm-metro-rate").addEventListener("change", (e) => {
