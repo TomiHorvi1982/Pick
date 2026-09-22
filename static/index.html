@@ -837,6 +837,10 @@
     padding:4px 7px;border-radius:5px;overflow:hidden}
   .gt-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .gt-chip:hover{background:#2a2a33}
+  .gt-chip.gt-eq{flex:0 0 auto;padding:4px 8px;position:relative}
+  .gt-chip.gt-eq .dot{width:6px;height:6px;border-radius:50%;background:#33333d}
+  .gt-chip.gt-eq.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
+  .gt-chip.gt-eq.sel{background:rgba(255,209,102,.14);box-shadow:inset 0 0 0 1px #ffd166;color:#ffd166}
   .amp-picker{min-width:236px;max-height:70vh;overflow-y:auto}
   .amp-picker .ss-head{padding:6px 8px 3px}
   .gt-lat{font-size:8.5px;color:var(--nm-sub);text-align:right;
@@ -6377,8 +6381,13 @@ const Mixer = (() => {
   for(let i = 0; i < EQ_POINTS; i++){
     eqFreqs[i] = EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, i / (EQ_POINTS - 1));
   }
-  let eqSel = 0;        // channel whose equaliser is shown
+  let eqSel = 0;        // channel whose equaliser is shown — an index into
+                         // channels, or the string "guitar" for the live input
   let eqBand = 0;       // band being edited / hovered
+  let guitarEq = null;  // the live guitar's own EQ — built lazily once its
+                         // audio nodes exist (see Guitar.ensureEq), then
+                         // selectable from the panel exactly like a stem
+  function eqTarget(sel){ return sel === "guitar" ? guitarEq : channels[sel]; }
 
   // gain -> band filters -> analyser, plus a finer analyser hung off the end
   // for the spectrum drawn behind the curve.
@@ -6457,7 +6466,7 @@ const Mixer = (() => {
 
   function drawEq(){
     const cv = eqCanvas();
-    const c = channels[eqSel];
+    const c = eqTarget(eqSel);
     if(!cv || !c || !c.eqBands || el("mixer").hidden) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const W = cv.clientWidth, H = cv.clientHeight;
@@ -6556,7 +6565,7 @@ const Mixer = (() => {
   }
 
   function eqReadout(){
-    const c = channels[eqSel];
+    const c = eqTarget(eqSel);
     if(!c || !c.eqBands) return;
     const b = c.eqBands[eqBand];
     const kind = b.type === "peaking" ? "zvon" : b.type === "lowshelf" ? "hloubky" : "výšky";
@@ -6565,11 +6574,13 @@ const Mixer = (() => {
   }
 
   function selectEqChannel(idx){
-    if(!channels[idx]) return;
+    const c = eqTarget(idx);
+    if(!c) return;
     eqSel = idx;
-    const c = channels[idx];
-    el("eq-title").textContent = "EQUALIZER — " + String(c.stem).toUpperCase();
+    el("eq-title").textContent = "EQUALIZER — " + (idx === "guitar" ? "KYTARA (LIVE)" : String(c.stem).toUpperCase());
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
+    const gtBtn = el("gt-eq-btn");
+    if(gtBtn) gtBtn.classList.toggle("sel", idx === "guitar");
     const sel = el("eq-chan-select");
     if(sel && sel.value !== String(idx)) sel.value = String(idx);
     eqReadout();
@@ -6581,15 +6592,22 @@ const Mixer = (() => {
   function renderEqChannelSelect(){
     const sel = el("eq-chan-select");
     if(!sel) return;
-    sel.innerHTML = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("");
+    let html = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("");
+    if(guitarEq) html += `<option value="guitar">kytara (live)</option>`;
+    sel.innerHTML = html;
     sel.value = String(eqSel);
   }
-  el("eq-chan-select").onchange = (e) => selectEqChannel(parseInt(e.target.value, 10));
+  el("eq-chan-select").onchange = (e) => {
+    const v = e.target.value;
+    selectEqChannel(v === "guitar" ? "guitar" : parseInt(v, 10));
+  };
 
   function refreshEqButtons(){
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => {
       b.classList.toggle("on", !!channels[i] && !eqIsFlat(channels[i]));
     });
+    const gtBtn = el("gt-eq-btn");
+    if(gtBtn) gtBtn.classList.toggle("on", !!guitarEq && !eqIsFlat(guitarEq));
   }
 
   // ---- interaction ----
@@ -6598,7 +6616,7 @@ const Mixer = (() => {
     let drag = -1;
     const pos = (e) => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height}; };
     const hit = (p) => {
-      const c = channels[eqSel]; if(!c || !c.eqBands) return -1;
+      const c = eqTarget(eqSel); if(!c || !c.eqBands) return -1;
       let best = -1, bd = 15 * 15;
       c.eqBands.forEach((b, i) => {
         const dx = eqX(b.freq, p.w) - p.x, dy = eqY(b.gain, p.h) - p.y;
@@ -6616,7 +6634,7 @@ const Mixer = (() => {
       eqReadout(); drawEq();
     });
     cv.addEventListener("pointermove", (e) => {
-      const p = pos(e), c = channels[eqSel];
+      const p = pos(e), c = eqTarget(eqSel);
       if(!c || !c.eqBands) return;
       if(drag >= 0){
         setEqBand(c, drag, {freq: eqFreqAt(p.x, p.w), gain: eqDbAt(p.y, p.h)});
@@ -6636,21 +6654,21 @@ const Mixer = (() => {
     cv.addEventListener("pointerup", end);
     cv.addEventListener("pointercancel", end);
     cv.addEventListener("wheel", (e) => {
-      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      const c = eqTarget(eqSel); if(!c || !c.eqBands) return;
       const i = hit(pos(e)); const band = i >= 0 ? i : eqBand;
       e.preventDefault();
       setEqBand(c, band, {q: c.eqBands[band].q * Math.exp(-e.deltaY * 0.0025)});
       eqBand = band; eqReadout(); drawEq();
     }, {passive: false});
     cv.addEventListener("dblclick", (e) => {
-      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      const c = eqTarget(eqSel); if(!c || !c.eqBands) return;
       const i = hit(pos(e)); if(i < 0) return;
       const d = EQ_DEFAULT[i];
       setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q});
       eqBand = i; eqReadout(); refreshEqButtons(); drawEq();
     });
     el("eq-reset").onclick = () => {
-      const c = channels[eqSel]; if(!c || !c.eqBands) return;
+      const c = eqTarget(eqSel); if(!c || !c.eqBands) return;
       EQ_DEFAULT.forEach((d, i) => setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q}));
       eqReadout(); refreshEqButtons(); drawEq();
     };
@@ -8814,6 +8832,7 @@ const Mixer = (() => {
       // through them, and having to pick them again for every song is the
       // sort of chore this whole file exists to remove.
       restoreAmp(gt.ampName, gt.cabName);
+      if(gt.eq){ Guitar.ensureEq(); restoreEq(guitarEq, gt.eq); }
     }
     if(saved && saved.metronome){
       const m = saved.metronome;
@@ -9390,6 +9409,7 @@ const Mixer = (() => {
         threshold: Guitar.state.threshold,
         deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
         cabName: Guitar.state.cabName,
+        eq: guitarEq ? eqSnapshot(guitarEq) : null,
       },
     };
   }
@@ -9902,7 +9922,7 @@ const Mixer = (() => {
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
       [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
-       guideAmp, guideCab, guideOut]
+       guideAmp, guideCab, guideOut, ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
       // Live input chain
@@ -9925,9 +9945,29 @@ const Mixer = (() => {
         guideOut.connect(analyser);
       }
 
-      gainNode.connect(analyser);
+      // The live signal's own EQ, when built, sits right after its fader —
+      // before it joins the guide (which bypasses it: the guide has its own
+      // amp/cab chain and this EQ is specifically for the plugged-in guitar).
+      let outNode = gainNode;
+      if(guitarEq && guitarEq.eqFilters && guitarEq.eqFilters.length){
+        guitarEq.eqFilters.forEach(f => { outNode.connect(f); outNode = f; });
+        if(guitarEq.eqSpectrum) outNode.connect(guitarEq.eqSpectrum);
+      }
+      outNode.connect(analyser);
       analyser.connect(pannerNode);
       pannerNode.connect(masterOut());
+    }
+
+    // Lazily builds the live guitar's own EQ the first time it's needed —
+    // its nodes ride the same gainNode→analyser leg every other guitar
+    // control already depends on, so this only has to run once per session.
+    function ensureEq(){
+      ensureVirtualSource();
+      if(guitarEq) return guitarEq;
+      guitarEq = {stem: "kytara", color: "#ffd166", gainNode, analyser};
+      buildEq(guitarEq);
+      rewire();
+      return guitarEq;
     }
 
     // What the browser will admit to. The real round trip also includes the
@@ -10074,6 +10114,7 @@ const Mixer = (() => {
       setCab(node, name){ cabNode = node; state.cabName = name; if(gainNode) rewire(); },
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
+      ensureEq,
     };
   })();
 
@@ -10128,6 +10169,9 @@ const Mixer = (() => {
           ${icon("sliders", 11)}<span>${escapeHtml(
             [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Bez zesilovače")}</span>
         </button>
+        <button class="gt-chip gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">
+          ${icon("eq", 11)}<span class="dot"></span>
+        </button>
         <span class="gt-lat" id="gt-lat">${g.latencyMs !== null ? `~${g.latencyMs} ms` : ""}</span>
       </div>`;
     rail.appendChild(strip);
@@ -10142,6 +10186,13 @@ const Mixer = (() => {
 
     wireGuitarStrip(strip);
     fillGuitarDevices(strip.querySelector(".gt-device"));
+    // Built as soon as the strip exists so the EQ button works right away —
+    // no need to plug in an input first.
+    const hadEq = !!guitarEq;
+    Guitar.ensureEq();
+    strip.querySelector("#gt-eq-btn").classList.toggle("on", !eqIsFlat(guitarEq));
+    strip.querySelector("#gt-eq-btn").classList.toggle("sel", eqSel === "guitar");
+    if(!hadEq) renderEqChannelSelect();
   }
 
   function wireGuitarStrip(strip){
@@ -10205,6 +10256,12 @@ const Mixer = (() => {
       if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
     };
     strip.querySelector("#gt-amp-btn").onclick = () => openAmpPicker();
+    strip.querySelector("#gt-eq-btn").onclick = () => {
+      Guitar.ensureEq();
+      setPanelOpen("eq-toggle", "eq-panel", true);
+      savePanelPref("eq", true);
+      selectEqChannel("guitar");
+    };
   }
 
   async function fillGuitarDevices(select){

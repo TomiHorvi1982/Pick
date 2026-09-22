@@ -3304,6 +3304,12 @@ def reset_sections(name: str):
     return get_sections(name)
 
 
+class EqBand(BaseModel):
+    freq: float
+    gain: float
+    q: float
+
+
 class MixerChannel(BaseModel):
     stem: str
     muted: bool = False
@@ -3312,6 +3318,7 @@ class MixerChannel(BaseModel):
     pitchRate: float = 1.0
     panValue: float = 0.0
     clipOffset: float = 0.0
+    eq: Optional[List[EqBand]] = None
 
 
 class MetronomeSettings(BaseModel):
@@ -3331,6 +3338,7 @@ class GuitarSettings(BaseModel):
     deviceId: Optional[str] = None
     ampName: Optional[str] = None
     cabName: Optional[str] = None
+    eq: Optional[List[EqBand]] = None
 
 
 class MixerSession(BaseModel):
