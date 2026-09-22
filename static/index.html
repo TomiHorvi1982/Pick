@@ -1074,19 +1074,7 @@
     transition:background .15s,color .15s,transform .15s}
   .lib-create:hover{background:#3e3e3e;color:#fff;transform:scale(1.03)}
 
-  /* The chips wrap instead of scrolling sideways, so every section is in
-     reach at any width. */
-  .lib-chips{display:flex;flex-wrap:wrap;gap:6px 8px;padding:4px 16px 8px;flex:0 0 auto}
-  .lib-chips::-webkit-scrollbar{display:none}
-  body.lib-collapsed .lib-chips{display:none}
-  .lib-chips button{background:var(--card-hi);border:none;border-radius:500px;
-    color:var(--text);font-size:13px;padding:6px 12px;cursor:pointer;font-family:inherit;
-    white-space:nowrap;transition:background .15s}
-  .lib-chips button:hover{background:#3e3e3e}
-  .lib-chips button.active{background:#fff;color:#000}
-
-
-  .lib-list{flex:1;overflow-y:auto;padding:0 8px 8px;min-height:0}
+  .lib-list{flex:1;overflow-y:auto;padding:8px 8px 8px;min-height:0}
   .lib-row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
     cursor:pointer;transition:background .15s}
   .lib-row:hover{background:var(--card-hi)}
@@ -1115,11 +1103,28 @@
   .lib-art .ic-svg{display:block}
   .lib-sec,.lib-empty{grid-column:1/-1}
 
+  /* The five mode sections stacked at the top of the rail — same look as
+     .lib-sec, but two hit targets sharing the row: the chevron folds the
+     "top 5" underneath, the label switches into the mode. */
+  .lib-sec-mode{display:flex;align-items:center;width:100%;grid-column:1/-1}
+  .lib-sec-mode .lib-sec-chev,.lib-sec-mode .lib-sec-label{
+    border:none;background:none;font-family:inherit;cursor:pointer;color:var(--sub)}
+  .lib-sec-mode .lib-sec-chev{flex:0 0 auto;padding:14px 4px 6px 8px;opacity:.65;
+    display:flex;align-items:center}
+  .lib-sec-mode .lib-sec-chev .ic-svg{display:block;transform:rotate(90deg);
+    transition:transform .15s ease}
+  .lib-sec-mode.collapsed .lib-sec-chev .ic-svg{transform:rotate(0deg)}
+  .lib-sec-mode .lib-sec-label{flex:1;text-align:left;padding:14px 8px 6px 0;
+    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+  .lib-sec-mode:hover .lib-sec-chev,.lib-sec-mode:hover .lib-sec-label{color:#fff}
+  .lib-sec-mode.active .lib-sec-label{color:var(--accent)}
+
+  /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
+  .lib-rail-divider{grid-column:1/-1;height:1px;background:var(--border);margin:8px 8px 2px}
+
   /* The rail re-lays itself out as it is dragged wider or narrower. */
   @container libr (max-width: 250px){
     .lib-head{padding:14px 8px 6px 12px}
-    .lib-chips{padding:4px 10px 6px;gap:5px}
-    .lib-chips button{font-size:12px;padding:5px 10px}
     .lib-list{padding:0 4px 8px}
     .lib-row{gap:9px;padding:6px}
     .lib-art{width:38px;height:38px;flex-basis:38px}
@@ -1274,7 +1279,7 @@
   }
   @media(max-width:860px){
     :root{--sp-lib:72px}
-    .lib-title .tx,.lib-create .tx,.lib-chips,.lib-meta{display:none}
+    .lib-title .tx,.lib-create .tx,.lib-meta{display:none}
     .sp-hero{padding:16px;min-height:auto;flex-direction:column;align-items:flex-start}
     .sp-hero-art{width:120px;height:120px;flex-basis:120px}
     .sp-actions{padding:16px}
@@ -1391,8 +1396,6 @@
   .lib-head{padding:16px 12px 8px 16px;gap:6px}
   .lib-title{font-size:14px;gap:10px}
   .lib-create{padding:7px 12px;font-size:12.5px}
-  .lib-chips{padding:4px 12px 8px 16px}
-  .lib-chips button{font-size:12.5px;padding:6px 11px}
   .lib-name{font-size:14.5px}
   .lib-sub{font-size:12.5px}
 
@@ -2298,14 +2301,6 @@
     <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit panel" aria-label="Sbalit / rozbalit panel">
       <span class="ic" data-icon="menu" data-size="18"></span>
     </button>
-  </div>
-
-  <div class="lib-chips" id="lib-chips">
-    <button data-mode="playlists" class="active">Playlisty</button>
-    <button data-mode="songs">Kapely a umělci</button>
-    <button data-mode="steems">Steems</button>
-    <button data-mode="library">Knihovna</button>
-    <button data-mode="podcasts">Podcasty</button>
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
@@ -3235,6 +3230,13 @@ function toggleInSearch(value, opts = {}){
   }
 }
 
+// Used by the rail's own "top 5" previews — replaces whatever search was
+// running, rather than adding to it the way a browse chip's toggle does.
+function searchExactly(value){
+  setSearchTerms([value]);
+  runSearch();
+}
+
 // Back to the browse page when the search box empties.
 function showBrowse(){
   browseSection.hidden = false;
@@ -4021,7 +4023,22 @@ const Bands = (() => {
     paint();
   });
 
-  return {show, open, back};
+  // The rail's own "top 5" preview: the first chart's own top entries —
+  // same real chart data the Top tab shows, just five of it.
+  async function topFive(){
+    if(!charts){
+      try{ charts = await (await fetch("/api/charts/catalog")).json(); }catch(e){ charts = {intl: [], cz: []}; }
+    }
+    const list = (charts[region] || charts.intl || [])[0];
+    if(!list) return [];
+    try{
+      const data = await (await fetch(
+        `/api/charts/artists?id=${encodeURIComponent(list.id)}&offset=0&limit=5`)).json();
+      return data.artists || [];
+    }catch(e){ return []; }
+  }
+
+  return {show, open, back, topFive};
 })();
 
 // ======================================================================
@@ -4069,10 +4086,6 @@ regionToggle.querySelectorAll("button").forEach(btn=>{
 // ======================================================================
 // Tabs & mode switching
 // ======================================================================
-document.querySelectorAll("#lib-chips button").forEach(btn => {
-  btn.onclick = () => setMode(btn.dataset.mode);
-});
-
 function setMode(mode, opts){
   opts = opts || {};
   // A playlist/song overlay is stacked over the stage. Unconditional: this
@@ -4081,8 +4094,6 @@ function setMode(mode, opts){
   // needs the overlay gone just as much as an actual mode switch does.
   closeOverlay();
   state.mode = mode;
-  document.querySelectorAll("#lib-chips button").forEach(b =>
-    b.classList.toggle("active", b.dataset.mode === mode));
   // Search stays live in every mode — it's the top bar's only job.
   el("search-input").placeholder = mode === "playlists"
     ? "Hledej žánr, náladu, éru…"
@@ -4983,48 +4994,145 @@ function renderLibraryRail(mode){
   if(!list) return;
   list.innerHTML = "";
 
-  if(mode === "steems"){
-    if(!steemsSongs.length){
-      list.appendChild(libEmpty("Zatím žádné rozseparované písně. U stažené písně použij „Rozdělit na stopy\"."));
-      return;
-    }
-    steemsSongs.forEach(song => {
-      const row = libRow({
-        art: "\uD83C\uDF9A", name: song.name, sub: `Stopy • ${song.stems.length} stop`,
-        active: currentSteemsName === song.name,
-        onClick: () => { loadMixerSong(song.name); renderLibraryRail("steems"); },
-      });
-      Artwork.paint(row.querySelector(".lib-art"), song.name);
-      list.appendChild(row);
-    });
-    return;
-  }
+  RAIL_SECTIONS.forEach(sec => {
+    const collapsed = railModeSection(list, sec, mode);
+    // A marker that never moves, so the async rows below always land right
+    // after their own header no matter which section's fetch resolves first.
+    const anchor = document.createElement("span");
+    anchor.hidden = true;
+    anchor.dataset.secAnchor = sec.key;
+    list.appendChild(anchor);
+    const placeholder = libEmpty("Na\u010D\u00EDt\u00E1m\u2026");
+    placeholder.dataset.sec = sec.key;
+    placeholder.hidden = collapsed;
+    list.appendChild(placeholder);
 
-  if(mode === "podcasts"){
-    const shows = PODCASTS_STATE.shows || [];
-    if(!shows.length){ list.appendChild(libEmpty("Načítám podcasty…")); return; }
-    shows.forEach(show => {
-      list.appendChild(libRow({
-        art: show.thumbnail || "\uD83C\uDF99", artIsUrl: !!show.thumbnail,
-        name: show.title || "", sub: "Podcast • " + (show.author || show.publisher || ""),
-        onClick: () => openPodcastShow(show),
-      }));
+    getRailTop5(sec.key).then(items => {
+      if(!anchor.isConnected) return;   // the rail moved on before this landed
+      const stillCollapsed = collapsedSections.has(sec.key);
+      const rows = (items.length ? items.map(libRow) : [libEmpty("Nic tu zat\u00EDm nen\u00ED.")])
+        .map(row => { row.dataset.sec = sec.key; row.hidden = stillCollapsed; return row; });
+      list.querySelectorAll(`[data-sec="${sec.key}"]`).forEach(n => n.remove());
+      anchor.after(...rows);
     });
-    return;
-  }
+  });
 
-  if(mode === "library"){
-    renderFolderTree(list);
-    return;
-  }
+  const divider = document.createElement("div");
+  divider.className = "lib-rail-divider";
+  list.appendChild(divider);
 
   renderHomeRail(list);
 }
 
-// What the rail shows in the playlist / artist sections: the same three lists
-// the player's buttons open — queue, history — and the favourites.
+// The five modes, always stacked in the rail before the divider above —
+// each its own collapsible section with a "top 5" preview underneath, so
+// browsing into one isn't the only way to see what's in it. Clicking the
+// label switches into the mode exactly like the old chip row did; the
+// chevron only folds its own preview.
+const RAIL_SECTIONS = [
+  {key: "playlists", title: "Playlisty"},
+  {key: "songs", title: "Kapely a um\u011Blci"},
+  {key: "steems", title: "Steems"},
+  {key: "library", title: "Knihovna"},
+  {key: "podcasts", title: "Podcasty"},
+];
+
+// Resolved once per section and kept \u2014 the rail re-renders on every mode
+// switch, and none of these five change often enough to be worth refetching
+// each time. invalidateRailTop5 drops one entry when its own full list just
+// loaded something new.
+const railTop5Cache = {};
+function invalidateRailTop5(key){ delete railTop5Cache[key]; }
+
+async function fetchRailTop5(key){
+  if(key === "playlists"){
+    // The same curated "nejhledan\u011Bj\u0161\u00ED" terms the browse page's own chip
+    // uses \u2014 a plain search for each, not an actual ranked chart.
+    return POPULAR_TERMS.slice(0, 5).map(term => ({
+      art: icon("search", 18), name: term, sub: "Nejhledan\u011Bj\u0161\u00ED",
+      onClick: () => { setMode("playlists"); searchExactly(term); },
+    }));
+  }
+  if(key === "songs"){
+    const artists = await Bands.topFive();
+    return artists.slice(0, 5).map(a => ({
+      art: a.image, artIsUrl: !!a.image, round: true,
+      name: a.name || "", sub: "Top interpret",
+      onClick: () => { setMode("songs", {keepSection: true}); Bands.open(a); },
+    }));
+  }
+  if(key === "steems"){
+    let songs = steemsSongs;
+    if(!songs.length){
+      try{ songs = await (await fetch("/api/stems")).json(); }catch(e){ songs = []; }
+      if(!steemsSongs.length) steemsSongs = songs;
+    }
+    return songs.slice(0, 5).map(s => ({
+      art: "\uD83C\uDF9A", name: s.name, sub: `Stopy \u2022 ${(s.stems || []).length} stop`,
+      onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
+    }));
+  }
+  if(key === "library"){
+    const dirs = await treeChildren("");
+    return dirs.slice(0, 5).map(d => ({
+      art: icon("folder", 18), name: d.name, sub: "Slo\u017Eka",
+      onClick: () => { setMode("library", {keepSection: true}); loadLibraryFolder(d.rel); },
+    }));
+  }
+  if(key === "podcasts"){
+    let shows = PODCASTS_STATE.shows;
+    if(!shows.length){
+      try{
+        const res = await fetch(`/api/podcasts?region=${encodeURIComponent(PODCASTS_STATE.region || "cz")}&limit=5`);
+        shows = await res.json();
+      }catch(e){ shows = []; }
+    }
+    return shows.slice(0, 5).map(show => ({
+      art: show.thumbnail || "\uD83C\uDF99", artIsUrl: !!show.thumbnail,
+      name: show.title || "", sub: "Podcast \u2022 " + (show.author || show.publisher || ""),
+      onClick: () => { setMode("podcasts", {keepSection: true}); openPodcastShow(show); },
+    }));
+  }
+  return [];
+}
+
+function getRailTop5(key){
+  if(!railTop5Cache[key]) railTop5Cache[key] = fetchRailTop5(key).catch(() => []);
+  return railTop5Cache[key];
+}
+
+// One of the five mode headers. Unlike railSection's plain button, this one
+// has two independent hit targets sharing a row: the chevron folds the
+// preview, the label switches the mode \u2014 and it carries the "this is the
+// open one" highlight the old chip row used to.
+function railModeSection(list, sec, mode){
+  const key = sec.key;
+  const collapsed = collapsedSections.has(key);
+  const head = document.createElement("div");
+  head.className = "lib-sec-mode" + (collapsed ? " collapsed" : "") + (mode === key ? " active" : "");
+  head.dataset.mode = key;
+  head.innerHTML =
+    `<button type="button" class="lib-sec-chev" aria-expanded="${!collapsed}" title="Sbalit/rozbalit">${icon("chevron", 10)}</button>` +
+    `<button type="button" class="lib-sec-label" data-mode="${key}">${escapeHtml(sec.title)}</button>`;
+  head.querySelector(".lib-sec-chev").onclick = (e) => {
+    e.stopPropagation();
+    const now = !collapsedSections.has(key);
+    if(now) collapsedSections.add(key); else collapsedSections.delete(key);
+    saveCollapsedSections();
+    head.classList.toggle("collapsed", now);
+    head.querySelector(".lib-sec-chev").setAttribute("aria-expanded", String(!now));
+    list.querySelectorAll(`[data-sec="${key}"]`).forEach(row => row.hidden = now);
+  };
+  head.querySelector(".lib-sec-label").onclick = () => setMode(key);
+  list.appendChild(head);
+  return collapsed;
+}
+
+// What the rail shows below the divider \u2014 the same three lists the player's
+// buttons open (queue, history) plus favourites \u2014 now always on, not just
+// in the playlist/artist modes.
 function refreshHomeRail(){
-  if(state.mode === "playlists" || state.mode === "songs") renderLibraryRail(state.mode);
+  renderLibraryRail(state.mode);
 }
 
 // Collapse state for the rail's Fronta/Historie/Oblíbené sections — three
@@ -5575,6 +5683,10 @@ let currentSteemsName = null;   // which stem set the mixer has open
 let libraryRailEntries = [];    // last folder listing, mirrored into the rail
 let libraryCurrentRel = "";     // folder the stage is showing, for tree highlight
 let libraryLoaded = false;      // has a folder been fetched this session? (root counts)
+// Declared here rather than down by the rest of the podcasts code: the
+// rail's own render can run this early (from history/queue restoring at
+// load), and it reaches PODCASTS_STATE before the script gets that far.
+const PODCASTS_STATE = { shows: [], query: "", loading: false, region: "cz" };
 
 async function loadSteemsList(){
   pushNav("steems:list", () => { setMode("steems", {keepSection: true}); loadSteemsList(); });
@@ -5594,6 +5706,7 @@ async function loadSteemsList(){
     list.innerHTML = `<div class="empty" style="padding:24px 10px">Seznam se nepodařilo načíst.</div>`;
     return;
   }
+  invalidateRailTop5("steems");
   if(!steemsSongs.length){
     list.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím nemáš žádné rozseparované písně — u přehrávané nebo stažené písně použij „Rozdělit na stopy".</div>`;
     return;
@@ -11994,8 +12107,9 @@ el("settings-save").onclick = async () => {
 
 // ======================================================================
 // Podcasts — discovery and episode playback
+// (PODCASTS_STATE itself lives up near the other section-state — the rail's
+// own top-5 preview can render before the script gets this far down.)
 // ======================================================================
-const PODCASTS_STATE = { shows: [], query: "", loading: false, region: "cz" };
 
 async function loadPodcastsList(){
   pushNav("podcasts:list", () => { setMode("podcasts", {keepSection: true}); loadPodcastsList(); });
@@ -12013,6 +12127,7 @@ async function loadPodcastsList(){
     return;
   }
   PODCASTS_STATE.loading = false;
+  invalidateRailTop5("podcasts");
   renderPodcastsGrid();
   if(state.mode === "podcasts") renderLibraryRail("podcasts");
 }
