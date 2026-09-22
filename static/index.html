@@ -4154,13 +4154,23 @@ const Bands = (() => {
     if(!matchLabel) return;
     const target = [...el("ab-shelves").children]
       .find(sec => sec.querySelector(".h")?.textContent === matchLabel);
-    if(target){
-      target.scrollIntoView({block: "start", behavior: "smooth"});
-      if(target._start) target._start();
+    if(!target) return;
+    if(target._start) target._start();
+    // A single scrollIntoView right after paint() lands short for anything
+    // more than a few shelves down: every shelf above the target is still
+    // an empty header at that point (each only loads once it scrolls near
+    // the viewport itself), so the page is shorter than it ends up being —
+    // scrolling once computes a position for a page that's about to grow
+    // taller under it. A few follow-up scrolls, spaced out while those
+    // earlier shelves catch up and add their own height, converge on the
+    // right spot instead of stopping wherever the first, premature one did.
+    for(let i = 0; i < 5; i++){
+      target.scrollIntoView({block: "start", behavior: i === 0 ? "auto" : "smooth"});
+      await new Promise(r => setTimeout(r, 220));
     }
   }
 
-  return {show, open, back, topFive, jumpTo, DEC};
+  return {show, open, back, topFive, jumpTo, DEC, OTHER_STYLES};
 })();
 
 // ======================================================================
@@ -5218,11 +5228,13 @@ async function fetchRailBranchLeaves(branchKey){
     return Bands.DEC.map(([label, intl, cz]) => ({label, q: state.region === "cz" ? cz : intl}));
   }
   if(branchKey === "genre"){
-    return ROCK_METAL_GENRES.slice(0, 8).map(g => ({label: g, q: g}));
+    // The full metal list plus every other style — same pool Kapely a
+    // umělci's own Žánry tab draws from, not a cut-down preview of it.
+    return ROCK_METAL_GENRES.concat(Bands.OTHER_STYLES).map(g => ({label: g, q: g}));
   }
   if(branchKey === "mood"){
     const moods = await getRailMoods();
-    return moods.slice(0, 8).map(m => ({label: m, q: m}));
+    return moods.map(m => ({label: m, q: m}));
   }
   if(branchKey === "top"){
     const charts = await getRailCharts();
