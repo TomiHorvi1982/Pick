@@ -799,7 +799,6 @@
   /* Taller than a stem's strip because it carries what a stem never needs:
      which socket the sound arrives on, how hard the gate bites, and a meter. */
   .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:158px}
-  .nm-lane.tab-lane,.nm-strip.tab-strip{height:150px}
   .nm-strip.tab-strip{gap:4px}
   .tab-strip .tab-track-select{width:100%;background:#23232b;border:1px solid #33333d;border-radius:5px;
     color:var(--nm-txt,#ddd);font-size:10.5px;padding:3px 4px;font-family:inherit}
@@ -2775,7 +2774,6 @@
               <!-- Akordy + Tempo: right under the waveform strip above, before
                    anything else in the scrolling grid. -->
               <div id="mixer-top-lanes"></div>
-              <div id="mixer-tab-lanes"></div>
               <div id="mixer-tracks"></div>
               <div class="nm-grid">
                 <!-- The loop's shaded span and its two draggable lines are
@@ -6494,7 +6492,7 @@ const TabSearch = (() => {
     try {
       const meta = await Songsterr.getMeta(songId);
 
-      const indices = Songsterr.pickGuitarTracks(meta, 2);
+      const indices = Songsterr.pickGuitarTracks(meta, 1);
 
       if(!indices.length) {
         throw new Error("V této skladbě nebyla nalezena kytarová stopa.");
@@ -6623,8 +6621,6 @@ const Mixer = (() => {
   // revisionId, trackIndex, idx (next note for the guide), hiKey, muted}.
   let tabs = [];
   let tabMeta = null;      // Songsterr's list of the song's tracks, for the pickers
-  const TAB_MAX = 3;
-  const TAB_HI = ["233,185,73", "56,189,248", "244,114,182"];
   let guideEnabled = false;
 
   function setMixerPlayGlyph(playing){
@@ -7646,21 +7642,6 @@ const Mixer = (() => {
     }catch(e){ showToast("Tuhle stopu se nepodařilo načíst"); }
   }
 
-  // Add one more part from the same song.
-  async function addTabPart(){
-    if(!tabMeta || tabs.length >= TAB_MAX) return;
-    const used = new Set(tabs.map(t => t.trackIndex));
-    const next = Songsterr.pickGuitarTracks(tabMeta, 12).find(i => !used.has(i));
-    if(next === undefined){ showToast("Víc kytarových stop tahle skladba nemá"); return; }
-    const base = tabs[0];
-    try{
-      const data = await Songsterr.getTrack(base.songId, base.revisionId, next);
-      tabs.push(makeTab({data, songId: base.songId, revisionId: base.revisionId, trackIndex: next}));
-      syncTabIndices(currentTime());
-      renderTimeline();
-    }catch(e){ showToast("Tuhle stopu se nepodařilo načíst"); }
-  }
-
   function updateSeekUI(t){
     const pct = duration ? (t / duration) * 100 : 0;
     el("mixer-time-cur").textContent = fmtDur(t);
@@ -7874,64 +7855,50 @@ const Mixer = (() => {
 
   // The tab parts: a rail strip and a canvas lane for each. They sit above the
   // guitar strip, so the rail rows are added first (see renderTrackLanes).
-  function renderTabLanes(rail, totalPx){
-    const box = el("mixer-tab-lanes");
-    box.innerHTML = "";
-    tabs.forEach((tb, i) => {
-      const strip = document.createElement("div");
-      strip.className = "nm-strip guitar-strip tab-strip";
-      const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
-        .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""))
-        .map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
-          `${t.instrument || ""} — ${t.name || ""}`)}</option>`).join("");
-      strip.innerHTML = `
-        <div class="nm-strip-top">
-          <span class="nm-strip-icon">${icon("guitar", 13)}</span>
-          <span class="nm-strip-name">Tab ${i + 1}</span>
-          ${(tabMeta && tabs.length < TAB_MAX && i === 0) ? `<button class="nm-sm tab-add" title="Přidat další kytarovou stopu">+</button>` : ""}
-          <button class="nm-sm mute ${tb.muted ? "active" : ""}" title="Guide tuhle stopu nehraje">M</button>
-          <button class="nm-sm tab-rm" title="Odebrat tuhle stopu">×</button>
-        </div>
-        <div class="nm-strip-sub" title="${escapeHtml(tb.data.name || "")}">${escapeHtml(tb.data.name || "")}</div>
-        ${guitarOpts ? `<select class="tab-track-select" title="Jiná stopa téhle skladby">${guitarOpts}</select>` : ""}`;
-      rail.appendChild(strip);
+  // A single, plain guitar tab strip — the same size as every other stem's
+  // lane, right after Text. No per-note colour and no picking a second part
+  // to show alongside it any more: the shared playhead already sweeping
+  // across every other lane is exactly the orientation this needs, the same
+  // way it already is for the waveforms next to it.
+  function renderSimpleTabLane(rail, lanes, totalPx){
+    if(!tabs.length) return;
+    const tb = tabs[0];
+    const strip = document.createElement("div");
+    strip.className = "nm-strip tab-strip";
+    const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
+      .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""))
+      .map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
+        `${t.instrument || ""} — ${t.name || ""}`)}</option>`).join("");
+    strip.innerHTML = `
+      <div class="nm-strip-top">
+        <span class="nm-strip-icon">${icon("guitar", 13)}</span>
+        <span class="nm-strip-name">Tab</span>
+        <button class="nm-sm tab-rm" title="Odebrat tabulaturu">×</button>
+      </div>
+      <div class="nm-strip-sub" title="${escapeHtml(tb.data.name || "")}">${escapeHtml(tb.data.name || "")}</div>
+      ${guitarOpts ? `<select class="tab-track-select" title="Jiná stopa téhle skladby">${guitarOpts}</select>` : ""}`;
+    rail.appendChild(strip);
 
-      const add = strip.querySelector(".tab-add");
-      if(add) add.onclick = () => addTabPart();
-      strip.querySelector(".mute").onclick = (e) => {
-        tb.muted = !tb.muted;
-        e.currentTarget.classList.toggle("active", tb.muted);
-      };
-      strip.querySelector(".tab-rm").onclick = () => { tabs.splice(i, 1); renderTimeline(); };
-      const sel = strip.querySelector(".tab-track-select");
-      if(sel) sel.onchange = () => swapTabTrack(i, parseInt(sel.value, 10));
+    strip.querySelector(".tab-rm").onclick = () => { tabs.length = 0; renderTimeline(); };
+    const sel = strip.querySelector(".tab-track-select");
+    if(sel) sel.onchange = () => swapTabTrack(0, parseInt(sel.value, 10));
 
-      const lane = document.createElement("div");
-      lane.className = "nm-lane guitar-lane tab-lane";
-      lane.dataset.part = String(i);
-      lane.style.width = totalPx + "px";
-      const cv = document.createElement("canvas");
-      lane.appendChild(cv);
-      lane.addEventListener("click", (e) => {
-        const rect = lane.getBoundingClientRect();
-        seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
-      });
-      box.appendChild(lane);
-      // The lane's own CSS gives it a height that fits a plain 6-string
-      // part; a 7- or 8-string one (or any part whose actual tuning array
-      // says otherwise) needs more room, or its own rows would get the
-      // squeeze drawTabCanvas otherwise goes out of its way to avoid.
-      const tabH = drawTabCanvas(cv, tb.data, totalPx);
-      lane.style.height = tabH + "px";
-      strip.style.height = tabH + "px";
-      tb.hiKey = "";
+    const lane = document.createElement("div");
+    lane.className = "nm-lane";
+    lane.style.width = totalPx + "px";
+    const cv = document.createElement("canvas");
+    lane.appendChild(cv);
+    lane.addEventListener("click", (e) => {
+      const rect = lane.getBoundingClientRect();
+      seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
     });
+    lanes.appendChild(lane);
+    drawSimpleTabStrip(cv, tb.data, totalPx);
   }
 
   // Extended-range guitars (7, 8 strings...) carry a longer `tuning` array;
-  // the lane used to hard-code 6 strings and silently drop anything on
-  // string 6/7. Both the canvas and its highlight overlay size themselves to
-  // however many strings the part actually has.
+  // the lane sizes its rows to however many strings the part actually has
+  // rather than hard-coding 6 and silently dropping anything past it.
   function tabStringCount(data){
     const t = data && data.tuning;
     if(Array.isArray(t) && t.length) return t.length;
@@ -7941,9 +7908,10 @@ const Mixer = (() => {
     return max + 1;
   }
 
+  // String note names (e.g. for the Alpha Tab editor's string picker) —
+  // tuning[0] is the highest string, same order the lane draws top to bottom.
   function tabLabels(tuning, stringCount){
     if(Array.isArray(tuning) && tuning.length >= stringCount){
-      // tuning[0] is the highest string, same order the lane draws top to bottom.
       return tuning.slice(0, stringCount).map(m => NOTE_NAMES[((Math.round(m) % 12) + 12) % 12]);
     }
     const base = ["e", "B", "G", "D", "A", "E"];
@@ -7952,99 +7920,82 @@ const Mixer = (() => {
     return out;
   }
 
-  // String rows keep this same pixel spacing no matter how many strings a
-  // part has. It used to be a fixed total height divided *among* the
-  // strings, so a 7- or 8-string part packed its rows tighter and tighter —
-  // numbers ended up only a few pixels apart and unreadable, on top of each
-  // other rather than on their own string. The lane grows taller instead;
-  // the row spacing itself never shrinks. drawTabCanvas, the lane/strip
-  // height that has to fit it, and updateTabHighlight's overlay all read
-  // from this one place so they can't drift out of sync with each other.
-  const TAB_STRING_PX = 17;
-  const TAB_TOP_PAD = 16;
-  const TAB_BOTTOM_PAD = 24;
-  function tabGeometry(stringCount){
-    const top = TAB_TOP_PAD;
-    const bottom = top + Math.max(0, stringCount - 1) * TAB_STRING_PX;
-    return {top, bottom, stringH: TAB_STRING_PX, tabH: bottom + TAB_BOTTOM_PAD, noteH: 14, fretFont: 10};
-  }
-
-  function drawTabCanvas(cv, data, totalPx){
+  // Plain notation: "T A B" written once on the left the way it's printed
+  // on paper, not a note name per string — thin lines, fret numbers sitting
+  // right on them, no colour and nothing that changes as it plays. The lane
+  // is a fixed height like every other stem's, so tighter string spacing on
+  // a 7- or 8-string part is the trade for looking like the rest of the
+  // mix instead of standing out as its own odd size.
+  function drawSimpleTabStrip(cv, data, totalPx){
     const notes = (data && data.notes) || [];
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // High string at the top, low at the bottom — as many as the part has,
-    // each at a fixed pixel spacing (see tabGeometry) so a 7- or 8-string
-    // part gets a taller lane rather than tighter rows.
+    const laneH = 86;
     const stringCount = Math.max(1, tabStringCount(data));
-    const {top, stringH, tabH, noteH, fretFont} = tabGeometry(stringCount);
+    const top = 14, bottom = 72;
+    const stringH = stringCount > 1 ? (bottom - top) / (stringCount - 1) : 0;
+    const noteH = Math.max(7, Math.min(13, stringH - 2));
+    const fretFont = Math.max(7, Math.min(10, Math.round(noteH * 0.8)));
+    const left = 20;
     const cssW = Math.min(totalPx, 16000);
 
     cv.width = Math.floor(cssW * dpr);
-    cv.height = Math.floor(tabH * dpr);
+    cv.height = Math.floor(laneH * dpr);
     cv.style.width = totalPx + "px";
-    cv.style.height = tabH + "px";
+    cv.style.height = laneH + "px";
 
     const g = cv.getContext("2d");
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, cssW, tabH);
+    g.clearRect(0, 0, cssW, laneH);
 
     g.fillStyle = "rgba(0,0,0,.18)";
-    g.fillRect(0, 0, cssW, tabH);
+    g.fillRect(0, 0, cssW, laneH);
 
-    g.strokeStyle = "rgba(255,255,255,.24)";
+    g.strokeStyle = "rgba(255,255,255,.28)";
     g.lineWidth = 1;
-    for(let stringIndex = 0; stringIndex < stringCount; stringIndex++){
-      const y = top + stringIndex * stringH;
+    for(let s = 0; s < stringCount; s++){
+      const y = Math.floor(top + s * stringH) + 0.5;
       g.beginPath();
-      g.moveTo(0, Math.floor(y) + 0.5);
-      g.lineTo(cssW, Math.floor(y) + 0.5);
+      g.moveTo(left, y);
+      g.lineTo(cssW, y);
       g.stroke();
     }
+    // The opening bar — same vertical stroke printed tab starts each system with.
+    g.beginPath();
+    g.moveTo(left + 0.5, top);
+    g.lineTo(left + 0.5, bottom);
+    g.stroke();
 
-    const labels = tabLabels(data.tuning, stringCount);
-    g.font = "10px sans-serif";
-    g.textAlign = "right";
+    g.fillStyle = "rgba(255,255,255,.5)";
+    g.font = "bold 9px sans-serif";
+    g.textAlign = "left";
     g.textBaseline = "middle";
-    labels.forEach((label, index) => {
-      g.fillStyle = "rgba(255,255,255,.55)";
-      g.fillText(label, 15, top + index * stringH);
-    });
+    g.fillText("T", 4, top);
+    g.fillText("A", 4, top + (bottom - top) / 2);
+    g.fillText("B", 4, bottom);
 
+    // At a low zoom, many notes land within a few pixels of each other on the
+    // same string; drawing every fret number regardless just smears them
+    // into an unreadable blob. A number only gets drawn once there's real
+    // room next to whatever was last drawn on that same string.
+    const minGap = fretFont + 3;
+    const lastX = new Array(stringCount).fill(-Infinity);
+    g.fillStyle = "#ececec";
+    g.font = `bold ${fretFont}px sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
     notes.forEach(n => {
-      const stringIndex = Number(n.string);
-      if(!Number.isInteger(stringIndex)) return;
-      if(stringIndex < 0 || stringIndex >= stringCount) return;
-
+      const s = Number(n.string);
+      if(!Number.isInteger(s) || s < 0 || s >= stringCount) return;
       const x = n.time * pixelsPerSecond;
       if(x < -20 || x > cssW + 20) return;
-
-      const y = top + stringIndex * stringH;
-      const dur = Math.max(0.05, Number(n.duration) || 0.05);
-      // A hard 16px floor meant that at a low zoom — a whole song fit to the
-      // window can be under 2 px/s — almost every note's box was wide enough
-      // to run into the next one's, drawing a smear of overlapping numbers
-      // rather than anything readable. A box is now only as wide as its
-      // note's actual duration, and the fret number itself only draws once
-      // there's genuinely room to read it.
-      const noteW = Math.max(2, dur * pixelsPerSecond);
-
-      // Resting note. Only the note being played turns coloured, and that is
-      // an overlay (updateTabHighlight), so the canvas is not redrawn per frame.
-      g.fillStyle = "rgba(255,255,255,.32)";
-      g.fillRect(Math.floor(x), Math.floor(y - noteH / 2), Math.max(2, Math.floor(noteW)), Math.ceil(noteH));
-
-      if(noteW >= fretFont + 4){
-        g.fillStyle = "#ececec";
-        g.font = `bold ${fretFont}px sans-serif`;
-        g.textAlign = "center";
-        g.textBaseline = "middle";
-        g.fillText(String(n.fret), x + Math.min(noteW / 2, 12), y);
-      }
+      if(x - lastX[s] < minGap) return;
+      lastX[s] = x;
+      const y = top + s * stringH;
+      g.fillText(String(n.fret), x, y);
     });
 
     g.textAlign = "left";
     g.textBaseline = "alphabetic";
-    return tabH;
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -8780,11 +8731,6 @@ const Mixer = (() => {
       renderChordsLane(rail, topLanes, totalPx);
       renderTempoLane(rail, topLanes, totalPx);
     }
-    // The tab lanes are fixed rows above the tracks; the rail gets one row for
-    // each so every label below stays level with its lane.
-    if(channels.length) renderTabLanes(rail, totalPx);
-    else el("mixer-tab-lanes").innerHTML = "";
-
     if(channels.length){
       // The guitar first — it is the one channel you are playing rather than
       // listening to — then the map of the song and the click.
@@ -8902,8 +8848,12 @@ const Mixer = (() => {
       });
 
       lanes.appendChild(lane);
-      // Right after the vocal stem, so the words sit next to the singing.
-      if(c.stem === "vocals") renderLyricsLane(rail, lanes, totalPx);
+      // Right after the vocal stem, so the words sit next to the singing —
+      // and the tab strip right after that, in the same spot the text sits.
+      if(c.stem === "vocals"){
+        renderLyricsLane(rail, lanes, totalPx);
+        renderSimpleTabLane(rail, lanes, totalPx);
+      }
     });
 
     stemsBottomPx = lanes.getBoundingClientRect().bottom - canvasTop;
@@ -8972,64 +8922,7 @@ const Mixer = (() => {
     }
   }
 
-  // The note (or chord) sounding at t in each part, as coloured boxes over its
-  // tab canvas. Geometry mirrors drawTabCanvas.
-  function updateTabHighlight(t){
-    tabs.forEach((tb, part) => {
-      const lane = document.querySelector(`#mixer-tab-lanes .tab-lane[data-part="${part}"]`);
-      const notes = tb.data && tb.data.notes;
-      if(!lane || !notes) return;
-
-      let idx = firstNoteIndexAt(t + 1e-6, notes) - 1;   // last note that has started
-      let start = -1, end = -1;
-      if(idx >= 0){
-        const n = notes[idx];
-        if(t < n.time + Math.max(Number(n.duration) || 0, 0.15)){
-          end = idx + 1;
-          start = idx;
-          while(start > 0 && notes[start - 1].time === n.time) start--;
-        }
-      }
-      const key = start + ":" + end + ":" + pixelsPerSecond;
-      if(key === tb.hiKey) return;
-      tb.hiKey = key;
-
-      let box = lane.querySelector(".tab-hi");
-      if(!box){
-        box = document.createElement("div");
-        box.className = "tab-hi";
-        box.style.cssText = "position:absolute;left:0;top:0;height:0;pointer-events:none;";
-        lane.appendChild(box);
-      }
-      box.textContent = "";
-      if(start < 0) return;
-
-      const rgb = TAB_HI[part % TAB_HI.length];
-      const stringCount = Math.max(1, tabStringCount(tb.data));
-      const {top, stringH, noteH, fretFont} = tabGeometry(stringCount);
-      for(let i = start; i < end; i++){
-        const n = notes[i];
-        const s = Number(n.string);
-        if(!Number.isInteger(s) || s < 0 || s >= stringCount) continue;
-        // Same real-duration width as drawTabCanvas, not a 16px floor — this
-        // overlay has to line up with the boxes it's sitting on top of, or
-        // the coloured highlight visibly spills past the note it belongs to
-        // (worse still at a low zoom, into whatever note comes after it).
-        const noteW = Math.max(2, (Math.max(0.05, Number(n.duration) || 0.05)) * pixelsPerSecond);
-        const d = document.createElement("div");
-        d.textContent = noteW >= fretFont + 4 ? String(n.fret) : "";
-        d.style.cssText = `position:absolute;background:rgba(${rgb},.95);color:#111;` +
-          `font:bold ${fretFont}px sans-serif;display:flex;align-items:center;justify-content:center;` +
-          "left:" + Math.floor(n.time * pixelsPerSecond) + "px;" +
-          "top:" + Math.floor(top + s * stringH - noteH / 2) + "px;" +
-          "width:" + Math.max(2, Math.floor(noteW)) + "px;height:" + Math.ceil(noteH) + "px;";
-        box.appendChild(d);
-      }
-    });
-  }
-
   function updateRulerPlayhead(t){
-    updateTabHighlight(t);
     updateLyricsNow(t);
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
