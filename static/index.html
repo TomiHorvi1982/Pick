@@ -1092,32 +1092,55 @@
   .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
   .lib-empty{padding:8px 12px 14px;color:var(--sub);font-size:13px;line-height:1.5}
-  .lib-sec{display:flex;align-items:baseline;gap:8px;padding:14px 8px 6px;width:100%;
+  .lib-sec{display:flex;align-items:center;gap:8px;padding:14px 8px 6px;width:100%;
     border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;
     font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
   .lib-sec:hover{color:#fff}
   .lib-sec .chev{flex:0 0 auto;opacity:.65}
   .lib-sec .chev .ic-svg{display:block;transform:rotate(90deg);transition:transform .15s ease}
   .lib-sec.collapsed .chev .ic-svg{transform:rotate(0deg)}
-  .lib-sec .n{font-weight:500;letter-spacing:0}
+  .lib-sec .lib-sec-icon{flex:0 0 auto;display:flex;opacity:.85}
+  .lib-sec .lib-sec-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-sec .n{flex:0 0 auto;font-weight:500;letter-spacing:0}
   .lib-art .ic-svg{display:block}
   .lib-sec,.lib-empty{grid-column:1/-1}
 
   /* The five mode sections stacked at the top of the rail — same look as
      .lib-sec, but two hit targets sharing the row: the chevron folds the
-     "top 5" underneath, the label switches into the mode. */
-  .lib-sec-mode{display:flex;align-items:center;width:100%;grid-column:1/-1}
+     "top 5" underneath, the label switches into the mode. Always green
+     (not just the active one) so each header still reads as a landmark
+     once every section's own preview is expanded underneath it; the
+     active one gets a soft fill instead, since the text color is spoken for. */
+  .lib-sec-mode{display:flex;align-items:center;width:100%;grid-column:1/-1;
+    border-radius:6px;transition:background .15s}
+  .lib-sec-mode.active{background:color-mix(in srgb, var(--accent) 12%, transparent)}
   .lib-sec-mode .lib-sec-chev,.lib-sec-mode .lib-sec-label{
-    border:none;background:none;font-family:inherit;cursor:pointer;color:var(--sub)}
+    border:none;background:none;font-family:inherit;cursor:pointer}
   .lib-sec-mode .lib-sec-chev{flex:0 0 auto;padding:14px 4px 6px 8px;opacity:.65;
-    display:flex;align-items:center}
+    display:flex;align-items:center;color:var(--sub)}
   .lib-sec-mode .lib-sec-chev .ic-svg{display:block;transform:rotate(90deg);
     transition:transform .15s ease}
   .lib-sec-mode.collapsed .lib-sec-chev .ic-svg{transform:rotate(0deg)}
-  .lib-sec-mode .lib-sec-label{flex:1;text-align:left;padding:14px 8px 6px 0;
-    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
-  .lib-sec-mode:hover .lib-sec-chev,.lib-sec-mode:hover .lib-sec-label{color:#fff}
-  .lib-sec-mode.active .lib-sec-label{color:var(--accent)}
+  .lib-sec-mode .lib-sec-label{flex:1;min-width:0;text-align:left;padding:14px 8px 6px 0;
+    display:flex;align-items:center;gap:8px;
+    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--accent)}
+  .lib-sec-mode .lib-sec-icon{flex:0 0 auto;display:flex}
+  .lib-sec-mode .lib-sec-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-sec-mode:hover .lib-sec-chev{color:#fff}
+  .lib-sec-mode:hover .lib-sec-label{color:#3be477}
+
+  /* Collapsed rail (the ☰ toggle, 76px wide): a section header can't fit its
+     own label any more than a row can fit a track name — same trade the
+     rows already make, down to just the icon, centered, no chevron (nothing
+     to fold when the previews below are already icon-only circles). */
+  body.lib-collapsed .lib-sec,body.lib-collapsed .lib-sec-mode{
+    flex-direction:column;padding:10px 0 4px}
+  body.lib-collapsed .lib-sec .chev,body.lib-collapsed .lib-sec-mode .lib-sec-chev,
+  body.lib-collapsed .lib-sec .lib-sec-text,body.lib-collapsed .lib-sec-mode .lib-sec-text,
+  body.lib-collapsed .lib-sec .n{display:none}
+  body.lib-collapsed .lib-sec{justify-content:center}
+  body.lib-collapsed .lib-sec-mode .lib-sec-label{width:100%;justify-content:center;padding:0}
 
   /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
   .lib-rail-divider{grid-column:1/-1;height:1px;background:var(--border);margin:8px 8px 2px}
@@ -5050,11 +5073,11 @@ function renderLibraryRail(mode){
 // label switches into the mode exactly like the old chip row did; the
 // chevron only folds its own preview.
 const RAIL_SECTIONS = [
-  {key: "playlists", title: "Playlisty"},
-  {key: "songs", title: "Kapely a um\u011Blci"},
-  {key: "steems", title: "Steems"},
-  {key: "library", title: "Knihovna"},
-  {key: "podcasts", title: "Podcasty"},
+  {key: "playlists", title: "Playlisty", icon: "queue"},
+  {key: "songs", title: "Kapely a um\u011Blci", icon: "mic"},
+  {key: "steems", title: "Steems", icon: "stems"},
+  {key: "library", title: "Knihovna", icon: "library"},
+  {key: "podcasts", title: "Podcasty", icon: "headphones"},
 ];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
@@ -5133,7 +5156,10 @@ function railModeSection(list, sec, mode){
   head.dataset.mode = key;
   head.innerHTML =
     `<button type="button" class="lib-sec-chev" aria-expanded="${!collapsed}" title="Sbalit/rozbalit">${icon("chevron", 10)}</button>` +
-    `<button type="button" class="lib-sec-label" data-mode="${key}">${escapeHtml(sec.title)}</button>`;
+    `<button type="button" class="lib-sec-label" data-mode="${key}" title="${escapeHtml(sec.title)}">` +
+      `<span class="lib-sec-icon">${icon(sec.icon, 14)}</span>` +
+      `<span class="lib-sec-text">${escapeHtml(sec.title)}</span>` +
+    `</button>`;
   head.querySelector(".lib-sec-chev").onclick = (e) => {
     e.stopPropagation();
     const now = !collapsedSections.has(key);
@@ -5166,6 +5192,11 @@ function saveCollapsedSections(){
 }
 let collapsedSections = loadCollapsedSections();
 
+// Fronta/Historie/Oblíbené each get one of these three fixed icons — a
+// lookup rather than a parameter, since this function only ever renders
+// these three sections.
+const RAIL_SECTION_ICONS = {fronta: "queue", historie: "history", oblibene: "star"};
+
 // A clickable header that hides/shows the rows appended after it (each row
 // tagged with the same section key) rather than wrapping them — the rail's
 // two-column layout at wider widths needs the rows as direct grid children.
@@ -5175,8 +5206,10 @@ function railSection(list, key, title, count){
   head.type = "button";
   head.className = "lib-sec" + (collapsed ? " collapsed" : "");
   head.setAttribute("aria-expanded", String(!collapsed));
+  head.title = title;
   head.innerHTML = `<span class="chev">${icon("chevron", 10)}</span>` +
-    `<span>${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
+    `<span class="lib-sec-icon">${icon(RAIL_SECTION_ICONS[key] || "star", 14)}</span>` +
+    `<span class="lib-sec-text">${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
   head.onclick = () => {
     const now = !collapsedSections.has(key);
     if(now) collapsedSections.add(key); else collapsedSections.delete(key);
