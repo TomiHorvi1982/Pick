@@ -6715,10 +6715,26 @@ const Mixer = (() => {
     }
   }
 
-  // One stretch node per stem, made the first time tempo or key is moved and
-  // kept for the song. All of them get the same schedule, so they stay locked
-  // to each other; each holds its own copy of the stem, which is why they are
-  // not built until they are needed.
+  // Whether anything at all — the song's own tempo/key controls, or a
+  // single stem's own pitch knob — needs the stretch nodes running.
+  function wantsStretch(){
+    return speed !== 1 || pitchSemitones !== 0 || channels.some(c => (c.pitchRate || 1) !== 1);
+  }
+  // A stem's own pitch is a semitone offset from the song's — so nudging
+  // just the guitar up a third still leaves it playing at the same *rate*
+  // (same `speed`, hence the same duration) as the drums and vocals next to
+  // it; only its pitch differs. This is the whole fix for stems drifting
+  // out of length against each other after a pitch tweak.
+  function channelSemitones(c){
+    return pitchSemitones + rateToSemitones(c.pitchRate || 1);
+  }
+
+  // One stretch node per stem, made the first time tempo, key or a single
+  // stem's own pitch is moved, and kept for the song. All of them get the
+  // same schedule — same outputTime, same input, same rate — so they stay
+  // locked to each other in time; only the semitones passed to each can
+  // differ. Each holds its own copy of the stem, which is why they are not
+  // built until they are needed.
   let stretchBuilding = null;
   function ensureStretchNodes(){
     if(channels.every(c => c.stretch)) return Promise.resolve();
@@ -6747,7 +6763,7 @@ const Mixer = (() => {
       const when = ctx().currentTime + STRETCH_LEAD;
       channels.forEach(c => {
         c.stretch.schedule({outputTime: when, active: true, input: offset,
-                            rate: speed, semitones: pitchSemitones});
+                            rate: speed, semitones: channelSemitones(c)});
       });
       runSpeed = speed;
       startedAt = when - offset / speed;
@@ -6781,7 +6797,7 @@ const Mixer = (() => {
 
   async function applyTempoPitch(){
     if(!channels.length) return;
-    const want = speed !== 1 || pitchSemitones !== 0;
+    const want = wantsStretch();
     const wasPlaying = isPlaying;
     const t = currentTime();
 
@@ -6792,7 +6808,9 @@ const Mixer = (() => {
       catch(e){
         console.error("stretch:", e);
         speed = 1; pitchSemitones = 0; stretchMode = false;
+        channels.forEach(c => { c.pitchRate = 1; });
         updateTempoUI();
+        renderTrackLanes();
         showToast("Změna tempa se nepodařila připravit");
         return;
       }
@@ -6804,13 +6822,14 @@ const Mixer = (() => {
 
     if(want && stretchMode && wasPlaying){
       // Already stretching and playing: carry on from where we are, at the
-      // new speed.
+      // new speed — each stem keeps its own pitch offset on top of the
+      // song's.
       const now = ctx().currentTime;
       const when = now + 0.08;
       const input = t + (when - now) * runSpeed;
       channels.forEach(c => {
         c.stretch.schedule({outputTime: when, active: true, input,
-                            rate: speed, semitones: pitchSemitones});
+                            rate: speed, semitones: channelSemitones(c)});
       });
       runSpeed = speed;
       startedAt = when - input / speed;
@@ -8370,9 +8389,12 @@ const Mixer = (() => {
         applyGains();
       };
 
-      // Per-stem pitch. playbackRate moves pitch and speed together, so this
-      // is a turntable-style shift, not a formant-preserving one — but it
-      // applies live, to one stem at a time.
+      // Per-stem pitch, through the same stretch node the song's own tempo
+      // and key use — every stem keeps playing at the *same rate*, so
+      // pitching just this one up or down never pulls its length away from
+      // the others. (This used to move playbackRate directly, which shifted
+      // speed along with pitch — great for a turntable, wrong for keeping
+      // stems the same length as each other.)
       const pitchSlider = strip.querySelector(".nm-pitch-slider");
       const pitchVal = strip.querySelector(".nm-pitch-row .val");
       pitchSlider.oninput = () => {
@@ -8380,7 +8402,7 @@ const Mixer = (() => {
         pitchVal.textContent = (st > 0 ? "+" : "") + st;
         c.pitchRate = semitonesToRate(st);
         queueSessionSave();
-        if(c.source) c.source.playbackRate.value = c.pitchRate;
+        requestTempoPitch();
       };
       rail.appendChild(strip);
 
@@ -8885,6 +8907,10 @@ const Mixer = (() => {
     }
     if(myToken !== loadToken) return;
     channels = loaded;
+    // A stem's pitch was left shifted from last time — get the stretch
+    // nodes ready before anything plays, the same as touching the slider
+    // would, so it doesn't drift for the first few seconds while they spin up.
+    if(channels.some(c => (c.pitchRate || 1) !== 1)) requestTempoPitch();
     // Tempo: the server's tracker runs on the isolated drums stem and returns
     // real beat *times*, so the grid follows tempo drift instead of
     // extrapolating one period from the top. The in-browser autocorrelation
