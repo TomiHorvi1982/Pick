@@ -1086,12 +1086,14 @@
   .lib-sub{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;margin-top:2px}
   .lib-empty{padding:8px 12px 14px;color:var(--sub);font-size:13px;line-height:1.5}
-  .lib-sec{display:flex;align-items:baseline;gap:8px;padding:14px 8px 6px;
+  .lib-sec{display:flex;align-items:baseline;gap:8px;padding:14px 8px 6px;width:100%;
+    border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;
     font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
+  .lib-sec:hover{color:#fff}
+  .lib-sec .chev{flex:0 0 auto;opacity:.65}
+  .lib-sec .chev .ic-svg{display:block;transform:rotate(90deg);transition:transform .15s ease}
+  .lib-sec.collapsed .chev .ic-svg{transform:rotate(0deg)}
   .lib-sec .n{font-weight:500;letter-spacing:0}
-  .lib-sec button{margin-left:auto;background:none;border:none;color:var(--sub);font:inherit;
-    text-transform:none;letter-spacing:0;cursor:pointer}
-  .lib-sec button:hover{color:#fff}
   .lib-art .ic-svg{display:block}
   .lib-sec,.lib-empty{grid-column:1/-1}
 
@@ -5012,18 +5014,43 @@ function refreshHomeRail(){
   if(state.mode === "playlists" || state.mode === "songs") renderLibraryRail(state.mode);
 }
 
-function railSection(list, title, count, action){
-  const head = document.createElement("div");
-  head.className = "lib-sec";
-  head.innerHTML = `<span>${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
-  if(action){
-    const a = document.createElement("button");
-    a.type = "button";
-    a.textContent = action.label;
-    a.onclick = action.onClick;
-    head.appendChild(a);
-  }
+// Collapse state for the rail's Fronta/Historie/Oblíbené sections — three
+// fixed keys, remembered across sessions.
+const RAIL_COLLAPSE_KEY = "spotdl-gui-rail-collapsed";
+function loadCollapsedSections(){
+  try{ return new Set(JSON.parse(localStorage.getItem(RAIL_COLLAPSE_KEY) || "[]")); }catch(e){ return new Set(); }
+}
+function saveCollapsedSections(){
+  try{ localStorage.setItem(RAIL_COLLAPSE_KEY, JSON.stringify([...collapsedSections])); }catch(e){}
+}
+let collapsedSections = loadCollapsedSections();
+
+// A clickable header that hides/shows the rows appended after it (each row
+// tagged with the same section key) rather than wrapping them — the rail's
+// two-column layout at wider widths needs the rows as direct grid children.
+function railSection(list, key, title, count){
+  const collapsed = collapsedSections.has(key);
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "lib-sec" + (collapsed ? " collapsed" : "");
+  head.setAttribute("aria-expanded", String(!collapsed));
+  head.innerHTML = `<span class="chev">${icon("chevron", 10)}</span>` +
+    `<span>${escapeHtml(title)}</span><span class="n">${count || ""}</span>`;
+  head.onclick = () => {
+    const now = !collapsedSections.has(key);
+    if(now) collapsedSections.add(key); else collapsedSections.delete(key);
+    saveCollapsedSections();
+    head.classList.toggle("collapsed", now);
+    head.setAttribute("aria-expanded", String(!now));
+    list.querySelectorAll(`[data-sec="${key}"]`).forEach(row => row.hidden = now);
+  };
   list.appendChild(head);
+  return collapsed;
+}
+
+// Appends rows tagged for a section, hidden up front if it's collapsed.
+function railRows(list, key, collapsed, rows){
+  rows.forEach(row => { row.dataset.sec = key; row.hidden = collapsed; list.appendChild(row); });
 }
 
 function renderHomeRail(list){
@@ -5036,14 +5063,15 @@ function renderHomeRail(list){
     name: t.title || "", sub: t.artists || "", onClick,
   });
 
-  railSection(list, "Fronta", queue.length);
-  if(!queue.length) list.appendChild(libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat."));
-  queue.forEach(t => list.appendChild(trackRow(t, () => Player.play(t))));
+  let collapsed = railSection(list, "fronta", "Fronta", queue.length);
+  railRows(list, "fronta", collapsed, queue.length
+    ? queue.map(t => trackRow(t, () => Player.play(t)))
+    : [libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat.")]);
 
-  railSection(list, "Historie", history.length);
-  if(!history.length) list.appendChild(libEmpty("Zatím jsi nic nepustil/a."));
-  history.forEach(t => list.appendChild(trackRow(t,
-    () => t.source === "local" ? Player.playLocal(t) : Player.play(t))));
+  collapsed = railSection(list, "historie", "Historie", history.length);
+  railRows(list, "historie", collapsed, history.length
+    ? history.map(t => trackRow(t, () => t.source === "local" ? Player.playLocal(t) : Player.play(t)))
+    : [libEmpty("Zatím jsi nic nepustil/a.")]);
 
   const lib = loadMyLibrary();
   const saved = []
@@ -5059,25 +5087,26 @@ function renderHomeRail(list){
     seen.add(k); return true;
   });
 
-  railSection(list, "Oblíbené", unique.length);
-  if(!unique.length) list.appendChild(libEmpty("Nic tu zatím není. Ulož si playlist nebo interpreta hvězdičkou z detailu."));
-  unique.forEach(item => {
-    const kindLabel = item.kind === "playlist" ? "Playlist" : item.kind === "album" ? "Album" : "Umělec";
-    list.appendChild(libRow({
-      art: item.thumbnail || icon(item.kind === "artist" ? "mic" : "note", 18),
-      artIsUrl: !!item.thumbnail,
-      round: item.kind === "artist",
-      name: item.title || item.name || "",
-      sub: kindLabel + (item.author ? " • " + item.author : ""),
-      onClick: () => {
-        const id = item.browseId || item.id;
-        if(item.kind === "artist"){
-          setMode("songs");
-          Bands.open({name: item.title || item.name, browseId: item.browseId || item.channelId});
-        } else if(id) openPlaylist(id);
-      },
-    }));
-  });
+  collapsed = railSection(list, "oblibene", "Oblíbené", unique.length);
+  railRows(list, "oblibene", collapsed, unique.length
+    ? unique.map(item => {
+        const kindLabel = item.kind === "playlist" ? "Playlist" : item.kind === "album" ? "Album" : "Umělec";
+        return libRow({
+          art: item.thumbnail || icon(item.kind === "artist" ? "mic" : "note", 18),
+          artIsUrl: !!item.thumbnail,
+          round: item.kind === "artist",
+          name: item.title || item.name || "",
+          sub: kindLabel + (item.author ? " • " + item.author : ""),
+          onClick: () => {
+            const id = item.browseId || item.id;
+            if(item.kind === "artist"){
+              setMode("songs");
+              Bands.open({name: item.title || item.name, browseId: item.browseId || item.channelId});
+            } else if(id) openPlaylist(id);
+          },
+        });
+      })
+    : [libEmpty("Nic tu zatím není. Ulož si playlist nebo interpreta hvězdičkou z detailu.")]);
 }
 
 // ======================================================================
