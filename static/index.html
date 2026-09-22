@@ -910,10 +910,19 @@
   .nm-tabtop-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
   .nm-tabtop-icon{color:var(--nm-sub);display:flex;align-items:center}
   .nm-tabtop-name{font-size:12px;font-weight:700;color:var(--nm-txt)}
+  .nm-tabtop-barlabel{font-size:11px;font-weight:600;color:var(--nm-gold);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
   .nm-tabtop-select{background:#23232b;border:1px solid #33333d;border-radius:5px;
     color:var(--nm-txt,#ddd);font-size:11px;padding:4px 6px;font-family:inherit;max-width:320px}
+  .nm-tabtop-hostwrap{position:relative}
   .nm-tabtop-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2;
     border-radius:8px;height:200px}
+  /* A fixed marker, not something redrawn every frame: syncTabToTime (JS,
+     TAB_CURSOR_OFFSET) always scrolls so "now" sits at this same left
+     offset — keep the two in sync — so the line just stays put while the
+     notation flows underneath it, the usual karaoke-style cue. */
+  .nm-tabtop-cursor{position:absolute;top:0;bottom:0;left:40px;width:2px;
+    background:rgba(200,60,40,.75);pointer-events:none}
   .nm-tabtop-pos{width:100%;margin-top:6px;accent-color:var(--nm-sub)}
 
   /* --- transport --- */
@@ -2683,13 +2692,17 @@
           <div class="nm-tabtop-bar">
             <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
             <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
+            <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
             <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
             <div class="nm-spacer"></div>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
             <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
             <button class="nm-btn round" id="nm-tabtop-rm" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
           </div>
-          <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
+          <div class="nm-tabtop-hostwrap">
+            <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
+            <div class="nm-tabtop-cursor" id="nm-tabtop-cursor"></div>
+          </div>
           <input type="range" class="nm-tabtop-pos" id="nm-tabtop-pos" min="0" max="1000" value="0" title="Pozice v tabulatuře">
         </div>
 
@@ -7904,7 +7917,9 @@ const Mixer = (() => {
       await AlphaTabView.ensureLib();
       const api = new window.alphaTab.AlphaTabApi(el("nm-tabtop-host"), {
         core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
-        display: {staveProfile: "ScoreTab", layoutMode: "horizontal", scale: tabLiveScale},
+        // Tab only — no standard notation staff above it, just strings and
+        // fret numbers, the way the DAW's own old hand-drawn lane looked.
+        display: {staveProfile: "Tab", layoutMode: "horizontal", scale: tabLiveScale},
       });
       api.error.on((e) => console.error("alphaTab (top):", e));
       // The rendered content's real height varies with tuning/profile/scale;
@@ -7988,10 +8003,18 @@ const Mixer = (() => {
   }
 
   // Keep the panel scrolled to whichever bar is currently playing — the
-  // "posuvník" reflects it too. Runs off the same real, tempo-accumulated
-  // bar times the DAW's own guide and note timeline already trust, not
-  // alphaTab's internal tick clock, so it stays right even though the
-  // alphaTex sent to alphaTab only encodes a single starting tempo.
+  // "posuvník" and the fixed cursor line both reflect it too. Runs off the
+  // same real, tempo-accumulated bar times the DAW's own guide and note
+  // timeline already trust, not alphaTab's internal tick clock, so it stays
+  // right even though the alphaTex sent to alphaTab only encodes a single
+  // starting tempo.
+  //
+  // Called every animation frame during playback (see tick/updateRulerPlayhead),
+  // so rather than jumping once per bar this interpolates the scroll
+  // position continuously between the current bar's x and the next one's,
+  // proportional to how far through the bar t already is — a smooth
+  // scroll instead of a stepped one.
+  const TAB_CURSOR_OFFSET = 40;
   function syncTabToTime(t){
     if(!tabs.length || !tabLiveApi || !tabBarStarts.length || tabPosDragging) return;
     const host = el("nm-tabtop-host");
@@ -8004,8 +8027,15 @@ const Mixer = (() => {
     }
     const mb = lookup.findMasterBarByIndex(bar);
     if(!mb) return;
-    const targetX = Math.max(0, mb.realBounds.x - 40);
-    if(Math.abs(host.scrollLeft - targetX) > 2) host.scrollLeft = targetX;
+    let x = mb.realBounds.x;
+    const nextMb = lookup.findMasterBarByIndex(bar + 1);
+    const barStart = tabBarStarts[bar], nextStart = tabBarStarts[bar + 1];
+    if(nextMb && nextStart > barStart){
+      const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
+      x += frac * (nextMb.realBounds.x - mb.realBounds.x);
+    }
+    host.scrollLeft = Math.max(0, x - TAB_CURSOR_OFFSET);
+    el("nm-tabtop-barlabel").textContent = "Takt " + (bar + 1);
     syncTabPosRange();
   }
 
