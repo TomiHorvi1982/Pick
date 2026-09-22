@@ -1130,10 +1130,25 @@
   .lib-sec-mode:hover .lib-sec-chev{color:#fff}
   .lib-sec-mode:hover .lib-sec-label{color:#3be477}
 
+  /* Dekády/Žánry/Nálady/Top under Playlisty and Kapely a umělci — one level
+     indented under their section, same chevron-folds pattern as everything
+     else in the rail, just smaller and quieter since there's a whole
+     section header already doing the heavy lifting above it. */
+  .lib-branch{display:flex;align-items:center;gap:7px;width:100%;grid-column:1/-1;
+    border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;
+    padding:6px 8px 6px 24px;font-size:11px;color:var(--sub)}
+  .lib-branch:hover{color:#fff}
+  .lib-branch .chev{flex:0 0 auto;opacity:.6}
+  .lib-branch .chev .ic-svg{display:block;transform:rotate(0deg);transition:transform .15s ease}
+  .lib-branch.open .chev .ic-svg{transform:rotate(90deg)}
+  .lib-branch .lib-sec-icon{flex:0 0 auto;opacity:.85}
+  .lib-branch .lib-branch-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
   /* Collapsed rail (the ☰ toggle, 76px wide): a section header can't fit its
      own label any more than a row can fit a track name — same trade the
      rows already make, down to just the icon, centered, no chevron (nothing
-     to fold when the previews below are already icon-only circles). */
+     to fold when the previews below are already icon-only circles). Branches
+     don't have an icon-only fallback worth showing, so they just disappear. */
   body.lib-collapsed .lib-sec,body.lib-collapsed .lib-sec-mode{
     flex-direction:column;padding:10px 0 4px}
   body.lib-collapsed .lib-sec .chev,body.lib-collapsed .lib-sec-mode .lib-sec-chev,
@@ -1141,6 +1156,7 @@
   body.lib-collapsed .lib-sec .n{display:none}
   body.lib-collapsed .lib-sec{justify-content:center}
   body.lib-collapsed .lib-sec-mode .lib-sec-label{width:100%;justify-content:center;padding:0}
+  body.lib-collapsed .lib-branch{display:none}
 
   /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
   .lib-rail-divider{grid-column:1/-1;height:1px;background:var(--border);margin:8px 8px 2px}
@@ -4113,7 +4129,27 @@ const Bands = (() => {
     }catch(e){ return []; }
   }
 
-  return {show, open, back, topFive};
+  // Jumps straight to one group (and, within it, one shelf by its label) —
+  // what the rail's own branched categories use to land exactly where a
+  // click on "Billboard Hot 100" under Top, say, means to land, rather than
+  // just opening the group and leaving the finding to a scroll.
+  async function jumpTo(groupKey, matchLabel){
+    el("ab-page").hidden = true;
+    el("ab-browse").hidden = false;
+    document.body.classList.remove("ab-dock");
+    group = groupKey;
+    el("ab-groups").querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.g === groupKey));
+    await paint();
+    if(!matchLabel) return;
+    const target = [...el("ab-shelves").children]
+      .find(sec => sec.querySelector(".h")?.textContent === matchLabel);
+    if(target){
+      target.scrollIntoView({block: "start", behavior: "smooth"});
+      if(target._start) target._start();
+    }
+  }
+
+  return {show, open, back, topFive, jumpTo, DEC};
 })();
 
 // ======================================================================
@@ -5071,6 +5107,10 @@ function renderLibraryRail(mode){
 
   RAIL_SECTIONS.forEach(sec => {
     const collapsed = railModeSection(list, sec, mode);
+    if(RAIL_BRANCH_SECTIONS.has(sec.key)){
+      renderRailBranches(list, sec, collapsed);
+      return;
+    }
     // A marker that never moves, so the async rows below always land right
     // after their own header no matter which section's fetch resolves first.
     const anchor = document.createElement("span");
@@ -5097,6 +5137,157 @@ function renderLibraryRail(mode){
   list.appendChild(divider);
 
   renderHomeRail(list);
+}
+
+// Playlisty and Kapely a um\u011Blci both have real browse categories behind
+// them (Dek\u00E1dy/\u017D\u00E1nry/N\u00E1lady/Top) \u2014 worth reaching from the rail itself,
+// one level deeper than a flat top-5, rather than only from inside the
+// mode once you're already there. The other three sections don't have an
+// equivalent (Knihovna already is a tree; Steems/Podcasty aren't
+// categorised), so they keep the plain top-5 above.
+const RAIL_BRANCH_SECTIONS = new Set(["playlists", "songs"]);
+const RAIL_BRANCHES = [
+  {key: "dec", title: "Dek\u00E1dy", icon: "clock"},
+  {key: "genre", title: "\u017D\u00E1nry", icon: "guitar"},
+  {key: "mood", title: "N\u00E1lady", icon: "masks"},
+  {key: "top", title: "Top", icon: "trophy"},
+];
+
+// Which of a section's own branches are expanded \u2014 collapsed by default
+// (four branches times two sections times however many leaves each would
+// be a lot to dump on screen at once), remembered like everything else here.
+const RAIL_BRANCH_OPEN_KEY = "spotdl-gui-rail-branches-open";
+function loadOpenBranches(){
+  try{ return new Set(JSON.parse(localStorage.getItem(RAIL_BRANCH_OPEN_KEY) || "[]")); }catch(e){ return new Set(); }
+}
+function saveOpenBranches(){
+  try{ localStorage.setItem(RAIL_BRANCH_OPEN_KEY, JSON.stringify([...openBranches])); }catch(e){}
+}
+let openBranches = loadOpenBranches();
+
+// Moods and the chart catalogue are each fetched once and shared by both
+// sections' Top/N\u00E1lady branches \u2014 the same underlying lists Kapely a
+// um\u011Blci's own browse tabs already use.
+let railMoodsPromise = null;
+function getRailMoods(){
+  if(!railMoodsPromise){
+    railMoodsPromise = (async () => {
+      try{ const d = await (await fetch("/api/categories")).json(); return d.moods || []; }
+      catch(e){ return []; }
+    })();
+  }
+  return railMoodsPromise;
+}
+let railChartsPromise = null;
+function getRailCharts(){
+  if(!railChartsPromise){
+    railChartsPromise = (async () => {
+      try{ return await (await fetch("/api/charts/catalog")).json(); }
+      catch(e){ return {intl: [], cz: []}; }
+    })();
+  }
+  return railChartsPromise;
+}
+
+async function fetchRailBranchLeaves(branchKey){
+  if(branchKey === "dec"){
+    return Bands.DEC.map(([label, intl, cz]) => ({label, q: state.region === "cz" ? cz : intl}));
+  }
+  if(branchKey === "genre"){
+    return ROCK_METAL_GENRES.slice(0, 8).map(g => ({label: g, q: g}));
+  }
+  if(branchKey === "mood"){
+    const moods = await getRailMoods();
+    return moods.slice(0, 8).map(m => ({label: m, q: m}));
+  }
+  if(branchKey === "top"){
+    const charts = await getRailCharts();
+    const list = charts[state.region] || charts.intl || [];
+    return list.map(c => ({label: c.label, q: c.label}));
+  }
+  return [];
+}
+
+// A branch leaf (a decade, a genre, a mood, one chart source) opens
+// straight into the matching browse view already showing it \u2014 Kapely a
+// um\u011Blci can jump to the exact shelf by label; Playlisty has no such
+// per-shelf view, so it runs the same search a browse chip's click would.
+function railBranchLeafClick(sectionKey, branchKey, leaf){
+  if(sectionKey === "songs"){
+    setMode("songs", {keepSection: true});
+    Bands.jumpTo(branchKey, leaf.label);
+  } else {
+    setMode("playlists");
+    searchExactly(leaf.q || leaf.label);
+  }
+}
+
+function renderRailBranches(list, sec, sectionCollapsed){
+  RAIL_BRANCHES.forEach(branch => {
+    const branchKey = sec.key + ":" + branch.key;
+    let open = openBranches.has(branchKey);
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "lib-branch" + (open ? " open" : "");
+    head.dataset.sec = sec.key;
+    head.hidden = sectionCollapsed;
+    head.setAttribute("aria-expanded", String(open));
+    head.innerHTML =
+      `<span class="chev">${icon("chevron", 9)}</span>` +
+      `<span class="lib-sec-icon">${icon(branch.icon, 12)}</span>` +
+      `<span class="lib-branch-text">${escapeHtml(branch.title)}</span>`;
+    list.appendChild(head);
+
+    // Same never-moves marker trick as the top-level sections, scoped to
+    // just this branch so its own leaves always land right after it.
+    const anchor = document.createElement("span");
+    anchor.hidden = true;
+    anchor.dataset.secAnchor = branchKey;
+    anchor.dataset.sec = sec.key;
+    list.appendChild(anchor);
+
+    let leavesRequested = false;
+    function loadLeaves(){
+      if(leavesRequested) return;
+      leavesRequested = true;
+      const loading = libEmpty("Na\u010D\u00EDt\u00E1m\u2026");
+      loading.dataset.sec = sec.key;
+      loading.dataset.branchSec = branchKey;
+      list.appendChild(loading);
+      fetchRailBranchLeaves(branch.key).then(leaves => {
+        if(!anchor.isConnected) return;
+        const stillOpen = openBranches.has(branchKey);
+        const stillSectionCollapsed = collapsedSections.has(sec.key);
+        const rows = (leaves.length ? leaves.map(leaf => libRow({
+            art: icon(branch.icon, 16), name: leaf.label, sub: branch.title,
+            onClick: () => railBranchLeafClick(sec.key, branch.key, leaf),
+          })) : [libEmpty("Nic tu nen\u00ED.")])
+          .map(row => {
+            row.dataset.sec = sec.key;
+            row.dataset.branchSec = branchKey;
+            row.hidden = !stillOpen || stillSectionCollapsed;
+            return row;
+          });
+        list.querySelectorAll(`[data-branch-sec="${branchKey}"]`).forEach(n => n.remove());
+        anchor.after(...rows);
+      });
+    }
+    if(open) loadLeaves();
+
+    head.onclick = () => {
+      open = !open;
+      if(open) openBranches.add(branchKey); else openBranches.delete(branchKey);
+      saveOpenBranches();
+      head.classList.toggle("open", open);
+      head.setAttribute("aria-expanded", String(open));
+      if(open){
+        loadLeaves();
+        list.querySelectorAll(`[data-branch-sec="${branchKey}"]`).forEach(row => row.hidden = false);
+      } else {
+        list.querySelectorAll(`[data-branch-sec="${branchKey}"]`).forEach(row => row.hidden = true);
+      }
+    };
+  });
 }
 
 // The five modes, always stacked in the rail before the divider above —
@@ -5199,7 +5390,12 @@ function railModeSection(list, sec, mode){
     saveCollapsedSections();
     head.classList.toggle("collapsed", now);
     head.querySelector(".lib-sec-chev").setAttribute("aria-expanded", String(!now));
-    list.querySelectorAll(`[data-sec="${key}"]`).forEach(row => row.hidden = now);
+    // A branch leaf (data-branch-sec) only ever comes back when both this
+    // section AND its own branch are open — re-expanding the section must
+    // not also reveal the leaves of a branch nobody asked to open.
+    list.querySelectorAll(`[data-sec="${key}"]`).forEach(row => {
+      row.hidden = now || (!!row.dataset.branchSec && !openBranches.has(row.dataset.branchSec));
+    });
   };
   head.querySelector(".lib-sec-label").onclick = () => setMode(key);
   list.appendChild(head);
