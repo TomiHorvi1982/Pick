@@ -799,19 +799,6 @@
   /* Taller than a stem's strip because it carries what a stem never needs:
      which socket the sound arrives on, how hard the gate bites, and a meter. */
   .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:158px}
-  .nm-strip.tab-strip{gap:4px}
-  .tab-strip .tab-track-select{width:100%;background:#23232b;border:1px solid #33333d;border-radius:5px;
-    color:var(--nm-txt,#ddd);font-size:10.5px;padding:3px 4px;font-family:inherit}
-  .tab-strip .nm-strip-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  /* The live alphaTab lane: a big field, not pinned to the other lanes'
-     86px — alphaTab's own engraving (staff + tab) needs real room, and its
-     "horizontal" layout draws the whole song as one long strip wider than
-     the timeline itself, so it gets its own horizontal scrollbar rather
-     than trying to share the timeline's. Light background for the same
-     reason as the Alpha Tab modal: alphaTab's default ink colours assume a
-     white page and read as near-invisible on this app's dark one. */
-  .nm-lane.tab-live-lane{height:200px;padding:0;background:#f4f4f2;overflow:hidden}
-  .tab-live-host{width:100%;height:100%;overflow-x:auto;overflow-y:hidden}
   .nm-strip.guitar-strip{gap:4px;padding:6px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
   .guitar-strip .nm-strip-name{color:var(--nm-gold)}
@@ -917,6 +904,17 @@
   .nm-loop{position:absolute;background:rgba(61,139,253,.16);
            border-left:1px solid var(--nm-blue);border-right:1px solid var(--nm-blue);
            z-index:3;pointer-events:none}
+
+  /* --- live tab panel, pinned above the transport --- */
+  .nm-tabtop{border-bottom:1px solid var(--nm-line);background:var(--nm-panel);padding:8px 12px 10px}
+  .nm-tabtop-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .nm-tabtop-icon{color:var(--nm-sub);display:flex;align-items:center}
+  .nm-tabtop-name{font-size:12px;font-weight:700;color:var(--nm-txt)}
+  .nm-tabtop-select{background:#23232b;border:1px solid #33333d;border-radius:5px;
+    color:var(--nm-txt,#ddd);font-size:11px;padding:4px 6px;font-family:inherit;max-width:320px}
+  .nm-tabtop-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2;
+    border-radius:8px;height:200px}
+  .nm-tabtop-pos{width:100%;margin-top:6px;accent-color:var(--nm-sub)}
 
   /* --- transport --- */
   .nm-transport{display:flex;align-items:center;gap:15px 20px;padding:12px 16px;
@@ -2676,6 +2674,23 @@
             <span class="lbl">BPM</span>
             <span class="val" id="mixer-tempo">—</span>
           </div>
+        </div>
+
+        <!-- The live Alpha Tab panel: pinned above the transport controls
+             (not one of the scrolling lanes below) so the tab is always in
+             view. Hidden until a Songsterr tab is loaded. -->
+        <div class="nm-tabtop" id="nm-tabtop" hidden>
+          <div class="nm-tabtop-bar">
+            <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
+            <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
+            <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
+            <div class="nm-spacer"></div>
+            <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
+            <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
+            <button class="nm-btn round" id="nm-tabtop-rm" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
+          </div>
+          <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
+          <input type="range" class="nm-tabtop-pos" id="nm-tabtop-pos" min="0" max="1000" value="0" title="Pozice v tabulatuře">
         </div>
 
         <!-- The only control bar: transport, loop, learning aids, pitch, tempo,
@@ -7716,6 +7731,7 @@ const Mixer = (() => {
     el("nm-canvas").style.width = totalPx + "px";
     renderRuler(totalPx);
     renderTrackLanes();
+    renderTopTabPanel();
     renderOverview();
     updateLoopVisual();
     updateRulerPlayhead(currentTime());
@@ -7862,101 +7878,135 @@ const Mixer = (() => {
     strokeLines(downbeatTimes, (t, i) => !(i % step) && !measured(t), "rgba(200,121,31,.22)");
   }
 
-  // The tab lane, right after Text: not a custom drawing any more but the
-  // real alphaTab renderer — the same pretty engraving as the Alpha Tab
-  // modal — mounted inline instead of a popup, laid out as one continuous
-  // horizontal row (alphaTab's own "horizontal" layout, not its default
-  // page-wrapped one) that scrolls on its own inside a lane the same
-  // fixed-height-family as the rest, rather than trying to force it onto
-  // the audio timeline's own per-second pixel scale (the two have no
-  // natural common unit — alphaTab spaces by rhythm, the timeline by time).
+  // The live tab panel, pinned above the transport controls (not one of the
+  // scrolling lanes any more): the real alphaTab renderer — the same pretty
+  // engraving as the Alpha Tab modal — laid out as one continuous horizontal
+  // row (alphaTab's own "horizontal" layout, not its default page-wrapped
+  // one). It has no natural common scale with the audio timeline below it
+  // (alphaTab spaces by rhythm, the timeline by seconds), so instead of
+  // trying to force the two onto one ruler, this panel gets its own
+  // scrollbar/position slider and is kept following the playhead by
+  // scrolling to whichever bar is currently playing (see syncTabToTime).
   //
-  // The host element and its AlphaTabApi are created once and kept alive in
-  // these module vars, then just re-appended into whichever lane the next
-  // renderTrackLanes() builds — recreating the api from scratch on every
-  // zoom/resize would mean reloading fonts and re-typesetting the whole
-  // song each time.
-  let tabLiveHost = null;
+  // The host element is static markup (#nm-tabtop-host, always in the DOM),
+  // so unlike the old in-timeline lane the AlphaTabApi binds to it exactly
+  // once and is simply re-rendered in place — no more juggling a detached
+  // element between re-created lanes on every zoom/resize.
   let tabLiveApiPromise = null;
+  let tabLiveApi = null;
   let tabLiveKey = "";
-  let tabLiveLane = null, tabLiveStrip = null;
+  let tabBarStarts = [];   // this tab's bar start times in seconds, for sync
+  let tabLiveScale = 1;
 
   function ensureTabLiveApi(){
     if(tabLiveApiPromise) return tabLiveApiPromise;
     tabLiveApiPromise = (async () => {
-      if(!tabLiveHost){
-        tabLiveHost = document.createElement("div");
-        tabLiveHost.className = "tab-live-host";
-      }
       await AlphaTabView.ensureLib();
-      const api = new window.alphaTab.AlphaTabApi(tabLiveHost, {
+      const api = new window.alphaTab.AlphaTabApi(el("nm-tabtop-host"), {
         core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
-        display: {staveProfile: "ScoreTab", layoutMode: "horizontal"},
+        display: {staveProfile: "ScoreTab", layoutMode: "horizontal", scale: tabLiveScale},
       });
-      api.error.on((e) => console.error("alphaTab (lane):", e));
-      // The rendered content's real height varies with the tuning/profile;
-      // the lane (and its rail strip, so the two stay level) grows or
-      // shrinks to fit it rather than clipping or leaving dead space. This
-      // fires more than once per render as alphaTab's own total-height
-      // estimate firms up (e.g. once fonts are ready), so it keeps applying
-      // the latest number rather than trusting the first one — reading the
-      // host's own scrollHeight back turned out to freeze on that first,
-      // still-too-short pass instead of tracking the later ones.
+      api.error.on((e) => console.error("alphaTab (top):", e));
+      // The rendered content's real height varies with tuning/profile/scale;
+      // the panel grows or shrinks to fit it rather than clipping or
+      // leaving dead space. Fires more than once per render as alphaTab's
+      // own total-height estimate firms up, so it keeps applying the latest
+      // number instead of trusting the first (too-short) one.
       api.renderFinished.on((e) => {
-        if(!tabLiveLane) return;
         const h = Math.max(140, Math.min(480, Math.ceil(e.totalHeight) || 200));
-        tabLiveLane.style.height = h + "px";
-        if(tabLiveStrip) tabLiveStrip.style.height = h + "px";
+        el("nm-tabtop-host").style.height = h + "px";
+        syncTabPosRange();
       });
+      tabLiveApi = api;
       return api;
     })();
     return tabLiveApiPromise;
   }
 
-  function renderSimpleTabLane(rail, lanes, totalPx){
-    if(!tabs.length) return;
+  function renderTopTabPanel(){
+    const box = el("nm-tabtop");
+    if(!tabs.length){ box.hidden = true; return; }
+    box.hidden = false;
     const tb = tabs[0];
-    const strip = document.createElement("div");
-    strip.className = "nm-strip tab-strip tab-live-strip";
+    el("nm-tabtop-name").textContent = tb.data.name || "Tab";
+    const sel = el("nm-tabtop-select");
     const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
-      .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""))
-      .map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
+      .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
+    if(guitarOpts.length > 1){
+      sel.hidden = false;
+      sel.innerHTML = guitarOpts.map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
         `${t.instrument || ""} — ${t.name || ""}`)}</option>`).join("");
-    strip.innerHTML = `
-      <div class="nm-strip-top">
-        <span class="nm-strip-icon">${icon("guitar", 13)}</span>
-        <span class="nm-strip-name">Tab</span>
-        <button class="nm-sm tab-rm" title="Odebrat tabulaturu">×</button>
-      </div>
-      <div class="nm-strip-sub" title="${escapeHtml(tb.data.name || "")}">${escapeHtml(tb.data.name || "")}</div>
-      ${guitarOpts ? `<select class="tab-track-select" title="Jiná stopa téhle skladby">${guitarOpts}</select>` : ""}`;
-    rail.appendChild(strip);
-
-    strip.querySelector(".tab-rm").onclick = () => {
-      tabs.length = 0;
-      tabLiveKey = "";
-      renderTimeline();
-    };
-    const sel = strip.querySelector(".tab-track-select");
-    if(sel) sel.onchange = () => swapTabTrack(0, parseInt(sel.value, 10));
-
-    const lane = document.createElement("div");
-    lane.className = "nm-lane tab-live-lane";
-    lanes.appendChild(lane);
-    tabLiveLane = lane;
-    tabLiveStrip = strip;
+    } else sel.hidden = true;
 
     ensureTabLiveApi().then(api => {
-      if(tabLiveLane !== lane) return;   // superseded by a later render
-      lane.appendChild(tabLiveHost);
       const key = (tb.songId || "") + ":" + (tb.revisionId || "") + ":" + tb.trackIndex + ":" +
         ((tb.data.notes && tb.data.notes.length) || 0);
-      if(key !== tabLiveKey){
-        tabLiveKey = key;
-        try{ api.tex(AlphaTabView.measuresToAlphaTex(tb.data)); }
-        catch(e){ console.error("alphaTab lane tex:", e); }
-      }
+      if(key === tabLiveKey) return;
+      tabLiveKey = key;
+      tabBarStarts = AlphaTabView.barStartTimes(tb.data);
+      try{ api.tex(AlphaTabView.measuresToAlphaTex(tb.data)); }
+      catch(e){ console.error("alphaTab top tex:", e); }
     });
+  }
+
+  el("nm-tabtop-rm").onclick = () => {
+    tabs.length = 0;
+    tabLiveKey = "";
+    renderTopTabPanel();
+  };
+  el("nm-tabtop-select").onchange = (e) => swapTabTrack(0, parseInt(e.target.value, 10));
+
+  // Size: alphaTab's own display scale, not a CSS zoom — rescaling actually
+  // re-typesets the engraving (spacing, note sizes) rather than just
+  // stretching a bitmap.
+  function adjustTabScale(delta){
+    if(!tabLiveApi) return;
+    tabLiveScale = Math.max(0.5, Math.min(2.5, Math.round((tabLiveScale + delta) * 100) / 100));
+    tabLiveApi.settings.display.scale = tabLiveScale;
+    tabLiveApi.updateSettings();
+    tabLiveApi.render();
+  }
+  el("nm-tabtop-zoom-dn").onclick = () => adjustTabScale(-0.15);
+  el("nm-tabtop-zoom-up").onclick = () => adjustTabScale(0.15);
+
+  // Position: a slider standing in for the host's own horizontal scroll —
+  // easier to grab than a thin OS scrollbar, and it's what the sync below
+  // also drives during playback.
+  let tabPosDragging = false;
+  el("nm-tabtop-pos").addEventListener("input", (e) => {
+    tabPosDragging = true;
+    const host = el("nm-tabtop-host");
+    const max = Math.max(0, host.scrollWidth - host.clientWidth);
+    host.scrollLeft = (parseFloat(e.target.value) / 1000) * max;
+  });
+  el("nm-tabtop-pos").addEventListener("change", () => { tabPosDragging = false; });
+  function syncTabPosRange(){
+    if(tabPosDragging) return;
+    const host = el("nm-tabtop-host");
+    const max = host.scrollWidth - host.clientWidth;
+    el("nm-tabtop-pos").value = max > 0 ? Math.round((host.scrollLeft / max) * 1000) : 0;
+  }
+
+  // Keep the panel scrolled to whichever bar is currently playing — the
+  // "posuvník" reflects it too. Runs off the same real, tempo-accumulated
+  // bar times the DAW's own guide and note timeline already trust, not
+  // alphaTab's internal tick clock, so it stays right even though the
+  // alphaTex sent to alphaTab only encodes a single starting tempo.
+  function syncTabToTime(t){
+    if(!tabs.length || !tabLiveApi || !tabBarStarts.length || tabPosDragging) return;
+    const host = el("nm-tabtop-host");
+    if(!host || host.offsetParent === null) return;
+    const lookup = tabLiveApi.boundsLookup;
+    if(!lookup) return;
+    let bar = 0;
+    for(let i = 0; i < tabBarStarts.length; i++){
+      if(tabBarStarts[i] <= t) bar = i; else break;
+    }
+    const mb = lookup.findMasterBarByIndex(bar);
+    if(!mb) return;
+    const targetX = Math.max(0, mb.realBounds.x - 40);
+    if(Math.abs(host.scrollLeft - targetX) > 2) host.scrollLeft = targetX;
+    syncTabPosRange();
   }
 
   // Extended-range guitars (7, 8 strings...) carry a longer `tuning` array;
@@ -8833,12 +8883,8 @@ const Mixer = (() => {
       });
 
       lanes.appendChild(lane);
-      // Right after the vocal stem, so the words sit next to the singing —
-      // and the tab strip right after that, in the same spot the text sits.
-      if(c.stem === "vocals"){
-        renderLyricsLane(rail, lanes, totalPx);
-        renderSimpleTabLane(rail, lanes, totalPx);
-      }
+      // Right after the vocal stem, so the words sit next to the singing.
+      if(c.stem === "vocals") renderLyricsLane(rail, lanes, totalPx);
     });
 
     stemsBottomPx = lanes.getBoundingClientRect().bottom - canvasTop;
@@ -8909,6 +8955,7 @@ const Mixer = (() => {
 
   function updateRulerPlayhead(t){
     updateLyricsNow(t);
+    syncTabToTime(t);
     const px = t * pixelsPerSecond;
     el("mixer-ruler-playhead").style.left = px + "px";
 
@@ -10028,6 +10075,45 @@ const Mixer = (() => {
       return notes;
     }
 
+    // Bar-by-bar start times (seconds) — the same tempo accumulation as
+    // flattenMeasuresToNotes above, but only the bar boundaries are needed
+    // here (the inline top tab panel scrolls to whichever bar this says is
+    // current, rather than trusting alphaTab's own tick clock, which only
+    // knows the single starting tempo the alphaTex text handed it).
+    function barStartTimes(tabData){
+      const measures = tabData.measures || [];
+      const events = (tabData.tempo || [])
+        .filter(e => e && typeof e.measure === "number" && typeof e.bpm === "number")
+        .slice().sort((a, b) => (a.measure - b.measure) || ((a.position || 0) - (b.position || 0)));
+      function bpmForMeasure(mi){
+        let bpm = 120;
+        for(const e of events){ if(e.measure <= mi) bpm = e.bpm; else break; }
+        return bpm;
+      }
+      function durationSeconds(duration, bpm){
+        if(!Array.isArray(duration) || duration.length !== 2) return 60 / bpm;
+        const num = Number(duration[0]), den = Number(duration[1]);
+        if(!den) return 60 / bpm;
+        return (num / den) * (60 / bpm) * 4;
+      }
+      const starts = [];
+      let measureStart = 0;
+      measures.forEach((measure, mi) => {
+        starts.push(measureStart);
+        const sig = measure.signature || [4, 4];
+        const sigNum = Number(sig[0]) || 4, sigDen = Number(sig[1]) || 4;
+        const bpm = bpmForMeasure(mi);
+        let beatTime = measureStart;
+        const voices = measure.voices || [];
+        const beats = (voices[0] && voices[0].beats) || [];
+        beats.forEach(beat => { beatTime += durationSeconds(beat.duration || [1, 4], bpm); });
+        let measureLength = beatTime - measureStart;
+        if(measureLength <= 0) measureLength = (sigNum * 4 / sigDen) * (60 / bpm);
+        measureStart += measureLength;
+      });
+      return starts;
+    }
+
     function findBeat(tabData, barIndex, beatIndex){
       const measure = (tabData.measures || [])[barIndex];
       if(!measure) return null;
@@ -10196,7 +10282,7 @@ const Mixer = (() => {
       renderActive();
     }
 
-    return {open, ensureLib, measuresToAlphaTex};
+    return {open, ensureLib, measuresToAlphaTex, barStartTimes};
   })();
   el("tabview-close").onclick = () => { el("tabview-overlay").hidden = true; };
   el("tabview-overlay").addEventListener("click", (e) => {
