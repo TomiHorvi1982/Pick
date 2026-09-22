@@ -1139,15 +1139,21 @@
      indented under their section, same chevron-folds pattern as everything
      else in the rail, just smaller and quieter since there's a whole
      section header already doing the heavy lifting above it. */
-  .lib-branch{display:flex;align-items:center;gap:7px;width:100%;grid-column:1/-1;
+  /* Sized to match .lib-row's own rhythm (its 48px art box, its padding) —
+     a branch used to be a cramped 11px single line sitting right next to
+     full-size leaf rows from another section, which read as two different
+     tiers of the rail rather than one consistent one. The icon sits in a
+     chip the same general weight as a real thumbnail, just not a photo. */
+  .lib-branch{display:flex;align-items:center;gap:12px;width:100%;grid-column:1/-1;
     border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;
-    padding:6px 8px 6px 24px;font-size:11px;color:var(--sub)}
+    padding:8px 8px 8px 24px;color:var(--sub)}
   .lib-branch:hover{color:#fff}
   .lib-branch .chev{flex:0 0 auto;opacity:.6}
   .lib-branch .chev .ic-svg{display:block;transform:rotate(0deg);transition:transform .15s ease}
   .lib-branch.open .chev .ic-svg{transform:rotate(90deg)}
-  .lib-branch .lib-sec-icon{flex:0 0 auto;opacity:.85}
-  .lib-branch .lib-branch-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-branch .lib-sec-icon{flex:0 0 36px;width:36px;height:36px;border-radius:6px;
+    background:var(--card-hi);display:flex;align-items:center;justify-content:center;opacity:.9}
+  .lib-branch .lib-branch-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 
   /* Collapsed rail (the ☰ toggle, 76px wide): a section header can't fit its
      own label any more than a row can fit a track name — same trade the
@@ -5251,8 +5257,8 @@ function renderRailBranches(list, sec, sectionCollapsed){
     head.hidden = sectionCollapsed;
     head.setAttribute("aria-expanded", String(open));
     head.innerHTML =
-      `<span class="chev">${icon("chevron", 9)}</span>` +
-      `<span class="lib-sec-icon">${icon(branch.icon, 12)}</span>` +
+      `<span class="chev">${icon("chevron", 10)}</span>` +
+      `<span class="lib-sec-icon">${icon(branch.icon, 17)}</span>` +
       `<span class="lib-branch-text">${escapeHtml(branch.title)}</span>`;
     list.appendChild(head);
 
@@ -7899,7 +7905,13 @@ const Mixer = (() => {
         seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
       });
       box.appendChild(lane);
-      drawTabCanvas(cv, tb.data, totalPx);
+      // The lane's own CSS gives it a height that fits a plain 6-string
+      // part; a 7- or 8-string one (or any part whose actual tuning array
+      // says otherwise) needs more room, or its own rows would get the
+      // squeeze drawTabCanvas otherwise goes out of its way to avoid.
+      const tabH = drawTabCanvas(cv, tb.data, totalPx);
+      lane.style.height = tabH + "px";
+      strip.style.height = tabH + "px";
       tb.hiKey = "";
     });
   }
@@ -7928,10 +7940,31 @@ const Mixer = (() => {
     return out;
   }
 
+  // String rows keep this same pixel spacing no matter how many strings a
+  // part has. It used to be a fixed total height divided *among* the
+  // strings, so a 7- or 8-string part packed its rows tighter and tighter —
+  // numbers ended up only a few pixels apart and unreadable, on top of each
+  // other rather than on their own string. The lane grows taller instead;
+  // the row spacing itself never shrinks. drawTabCanvas, the lane/strip
+  // height that has to fit it, and updateTabHighlight's overlay all read
+  // from this one place so they can't drift out of sync with each other.
+  const TAB_STRING_PX = 17;
+  const TAB_TOP_PAD = 16;
+  const TAB_BOTTOM_PAD = 24;
+  function tabGeometry(stringCount){
+    const top = TAB_TOP_PAD;
+    const bottom = top + Math.max(0, stringCount - 1) * TAB_STRING_PX;
+    return {top, bottom, stringH: TAB_STRING_PX, tabH: bottom + TAB_BOTTOM_PAD, noteH: 14, fretFont: 10};
+  }
+
   function drawTabCanvas(cv, data, totalPx){
     const notes = (data && data.notes) || [];
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const tabH = 132;
+    // High string at the top, low at the bottom — as many as the part has,
+    // each at a fixed pixel spacing (see tabGeometry) so a 7- or 8-string
+    // part gets a taller lane rather than tighter rows.
+    const stringCount = Math.max(1, tabStringCount(data));
+    const {top, stringH, tabH, noteH, fretFont} = tabGeometry(stringCount);
     const cssW = Math.min(totalPx, 16000);
 
     cv.width = Math.floor(cssW * dpr);
@@ -7942,14 +7975,6 @@ const Mixer = (() => {
     const g = cv.getContext("2d");
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, cssW, tabH);
-
-    // High string at the top, low at the bottom — as many as the part has.
-    const stringCount = Math.max(1, tabStringCount(data));
-    const top = 18;
-    const bottom = 112;
-    const stringH = stringCount > 1 ? (bottom - top) / (stringCount - 1) : 0;
-    const noteH = Math.max(8, Math.min(16, stringH - 2));
-    const fretFont = Math.max(8, Math.min(11, Math.round(noteH * 0.72)));
 
     g.fillStyle = "rgba(0,0,0,.18)";
     g.fillRect(0, 0, cssW, tabH);
@@ -8007,6 +8032,7 @@ const Mixer = (() => {
 
     g.textAlign = "left";
     g.textBaseline = "alphabetic";
+    return tabH;
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -8968,10 +8994,7 @@ const Mixer = (() => {
 
       const rgb = TAB_HI[part % TAB_HI.length];
       const stringCount = Math.max(1, tabStringCount(tb.data));
-      const top = 18;
-      const stringH = stringCount > 1 ? (112 - 18) / (stringCount - 1) : 0;
-      const noteH = Math.max(8, Math.min(16, stringH - 2));
-      const fretFont = Math.max(8, Math.min(11, Math.round(noteH * 0.72)));
+      const {top, stringH, noteH, fretFont} = tabGeometry(stringCount);
       for(let i = start; i < end; i++){
         const n = notes[i];
         const s = Number(n.string);
