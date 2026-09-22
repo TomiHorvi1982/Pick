@@ -2579,9 +2579,13 @@
 
           <div class="nm-tgroup">
             <div class="row">
-              <input type="range" class="nm-tempo" id="nm-tempo-slider" min="-50" max="50" step="1" value="0">
+              <button class="nm-step" id="nm-tempo-dn" title="Pomaleji o 1 BPM">‹</button>
+              <input type="text" class="nm-num" id="nm-tempo-num" value="—" inputmode="numeric"
+                     title="Tempo v BPM — napiš číslo a stiskni Enter">
+              <button class="nm-step" id="nm-tempo-up" title="Rychleji o 1 BPM">›</button>
+              <button class="nm-step" id="nm-tempo-reset" title="Původní tempo"><span data-icon="repeat" data-size="12"></span></button>
             </div>
-            <span class="cap">TEMPO <span id="nm-tempo-val">0 %</span></span>
+            <span class="cap">TEMPO <span id="nm-tempo-val">100 %</span></span>
           </div>
 
           <div class="nm-tgroup">
@@ -5949,7 +5953,7 @@ const Mixer = (() => {
 
   async function initStretch() {
     if (stretchNodeFactory) return;
-    const module = await import('./stretch/SignalsmithStretch.mjs');
+    const module = await import('/static/stretch/SignalsmithStretch.mjs');
     stretchNodeFactory = module.default;
   }
 
@@ -5966,6 +5970,17 @@ const Mixer = (() => {
   let loadToken = 0;
   let pixelsPerSecond = 30;
   let tempoBPM = null;
+  // Tempo and transposition are independent, and both are done by
+  // time-stretching (a stretch node per stem) rather than by playbackRate,
+  // which moves speed and pitch together. speed 1 and 0 semitones is the
+  // plain, cheap BufferSource path; anything else plays through the stretch
+  // nodes.
+  let speed = 1;              // tempo, 1 = the recording's own
+  let pitchSemitones = 0;     // key change, in semitones
+  let stretchMode = false;    // stems play through their stretch nodes
+  let runSpeed = 1;           // the speed the current playback was scheduled at
+  const STRETCH_LEAD = 0.25;  // the nodes want their start a little ahead
+  const SPEED_MIN = 0.5, SPEED_MAX = 1.5;
   let beatInterval = 0;
   // Detected grid: real beat/downbeat times from the drums stem. When these
   // are present the ruler, the lane grid and the click all follow them, so a
@@ -6058,10 +6073,14 @@ const Mixer = (() => {
 
   function stopAllSources(){
     GuitarSampler.stopAll(ctx());
+    const now = ctx().currentTime;
     channels.forEach(c => {
       if(c.source){
         try{ c.source.stop(); }catch(e){}
         c.source = null;
+      }
+      if(c.stretch){
+        try{ c.stretch.schedule({outputTime: now, active: false}); }catch(e){}
       }
     });
   }
@@ -6524,23 +6543,48 @@ const Mixer = (() => {
     }
   }
 
-  async function renderPitchedBuffer(c, semitones){
-    await initStretch();
-    const sampleRate = ctx().sampleRate;
-    const offlineCtx = new OfflineAudioContext(2, c.buffer.length, sampleRate);
-    const stretchNode = await stretchNodeFactory(offlineCtx, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
-    await stretchNode.addBuffers([c.buffer]);
-    stretchNode.setTransposeSemitones(semitones, 8000);
-    stretchNode.connect(offlineCtx.destination);
-    stretchNode.start(0, 0, c.buffer.duration, 1, semitones);
-    return await offlineCtx.startRendering();
+  // One stretch node per stem, made the first time tempo or key is moved and
+  // kept for the song. All of them get the same schedule, so they stay locked
+  // to each other; each holds its own copy of the stem, which is why they are
+  // not built until they are needed.
+  let stretchBuilding = null;
+  function ensureStretchNodes(){
+    if(channels.every(c => c.stretch)) return Promise.resolve();
+    if(stretchBuilding) return stretchBuilding;
+    stretchBuilding = (async () => {
+      await initStretch();
+      const ac = ctx();
+      for(const c of channels){
+        if(c.stretch) continue;
+        const node = await stretchNodeFactory(ac,
+          {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+        const b = c.buffer;
+        await node.addBuffers([
+          b.getChannelData(0).slice(),
+          b.getChannelData(Math.min(1, b.numberOfChannels - 1)).slice(),
+        ]);
+        node.connect(c.gainNode);
+        c.stretch = node;
+      }
+    })().finally(() => { stretchBuilding = null; });
+    return stretchBuilding;
   }
 
   function scheduleAll(offset){
+    if(stretchMode && channels.length && channels.every(c => c.stretch)){
+      const when = ctx().currentTime + STRETCH_LEAD;
+      channels.forEach(c => {
+        c.stretch.schedule({outputTime: when, active: true, input: offset,
+                            rate: speed, semitones: pitchSemitones});
+      });
+      runSpeed = speed;
+      startedAt = when - offset / speed;
+      return;
+    }
     const when = ctx().currentTime + 0.05;
     channels.forEach(c => {
       const source = ctx().createBufferSource();
-      source.buffer = c.pitchedBuffer || c.buffer;
+      source.buffer = c.buffer;
       source.playbackRate.value = 1;
       // Signal path is source -> gain -> analyser -> panner -> destination.
       // Connecting the source straight to the panner as well (as this used to)
@@ -6550,7 +6594,89 @@ const Mixer = (() => {
       source.start(when, offset);
       c.source = source;
     });
+    runSpeed = 1;
     startedAt = when - offset;
+  }
+
+  // Tempo or key was changed. Moving a little at a time (the buttons) must
+  // stay smooth, so a running mix is re-scheduled in place rather than
+  // stopped.
+  let tempoApplyTimer = null;
+  function requestTempoPitch(){
+    clearTimeout(tempoApplyTimer);
+    tempoApplyTimer = setTimeout(applyTempoPitch, 120);
+  }
+
+  async function applyTempoPitch(){
+    if(!channels.length) return;
+    const want = speed !== 1 || pitchSemitones !== 0;
+    const wasPlaying = isPlaying;
+    const t = currentTime();
+
+    if(want && !channels.every(c => c.stretch)){
+      if(wasPlaying) pause();
+      showToast("Připravuji změnu tempa a tóniny…");
+      try{ await ensureStretchNodes(); }
+      catch(e){
+        console.error("stretch:", e);
+        speed = 1; pitchSemitones = 0; stretchMode = false;
+        updateTempoUI();
+        showToast("Změna tempa se nepodařila připravit");
+        return;
+      }
+      stretchMode = true;
+      pausedAt = t;
+      if(wasPlaying) play();
+      return;
+    }
+
+    if(want && stretchMode && wasPlaying){
+      // Already stretching and playing: carry on from where we are, at the
+      // new speed.
+      const now = ctx().currentTime;
+      const when = now + 0.08;
+      const input = t + (when - now) * runSpeed;
+      channels.forEach(c => {
+        c.stretch.schedule({outputTime: when, active: true, input,
+                            rate: speed, semitones: pitchSemitones});
+      });
+      runSpeed = speed;
+      startedAt = when - input / speed;
+      return;
+    }
+
+    // Anything else: switch mode and, if it was playing, carry on from t.
+    stopAllSources();
+    stretchMode = want;
+    if(wasPlaying){
+      scheduleAll(t);
+      syncTabIndices(t);
+    } else {
+      pausedAt = t;
+    }
+  }
+
+  // ---- the tempo and key controls ----
+  function tempoBase(){ return tempoBPM || 100; }   // BPM, or a plain percentage
+  function updateTempoUI(){
+    const num = el("nm-tempo-num");
+    if(!num) return;
+    if(document.activeElement !== num) num.value = String(Math.round(tempoBase() * speed));
+    el("nm-tempo-val").textContent = Math.round(speed * 100) + " %";
+    el("nm-tempo-num").title = tempoBPM
+      ? `Tempo v BPM (původně ${tempoBPM}) — napiš číslo a stiskni Enter`
+      : "Tempo v procentech — napiš číslo a stiskni Enter";
+    el("nm-pitch").value = (pitchSemitones > 0 ? "+" : "") + pitchSemitones;
+  }
+  function setSpeed(s){
+    speed = Math.max(SPEED_MIN, Math.min(SPEED_MAX, s));
+    updateTempoUI();
+    requestTempoPitch();
+  }
+  function setPitch(n){
+    pitchSemitones = Math.max(-12, Math.min(12, n));
+    updateTempoUI();
+    requestTempoPitch();
   }
 
   function play(){
@@ -6562,6 +6688,7 @@ const Mixer = (() => {
     syncTabIndices(pausedAt);
     isPlaying = true;
     setMixerPlayGlyph(true);
+    if(metronomeOn) scheduleMetronomeClicks();
     tick();
   }
 
@@ -6614,7 +6741,7 @@ const Mixer = (() => {
   }
 
   function currentTime(){
-    return isPlaying ? Math.min(duration, ctx().currentTime - startedAt) : pausedAt;
+    return isPlaying ? Math.min(duration, (ctx().currentTime - startedAt) * runSpeed) : pausedAt;
   }
 
   // ---- lyrics: a lane that sits beside the vocal stem, and a readout bar ----
@@ -8286,7 +8413,7 @@ const Mixer = (() => {
         const notes = tb.data.notes;
         while(tb.idx < notes.length && notes[tb.idx].time <= t){
           const n = notes[tb.idx];
-          const noteTime = startedAt + n.time;
+          const noteTime = startedAt + n.time / runSpeed;
 
           GuitarSampler.playNote(
             ctx(),
@@ -8364,6 +8491,10 @@ const Mixer = (() => {
     pausedAt = 0;
     duration = 0;
     tempoBPM = null;
+    channels.forEach(c => {
+      if(c.stretch){ try{ c.stretch.disconnect(); }catch(e){} c.stretch = null; }
+    });
+    speed = 1; pitchSemitones = 0; stretchMode = false; runSpeed = 1;
     tabs = [];
     tabMeta = null;
     el("mixer").hidden = false;
@@ -8469,6 +8600,7 @@ const Mixer = (() => {
     try{
       const refCh = channels.find(c => c.stem === "drums") || channels[0];
       tempoBPM = detectTempo(refCh.buffer);
+      updateTempoUI();
       if(tempoBPM){
         beatInterval = 60 / tempoBPM;
         el("mixer-tempo").textContent = tempoBPM;
@@ -8560,6 +8692,7 @@ const Mixer = (() => {
       tempoCurve = data.tempo_curve || [];
       rebuildClickTrack();
       tempoBPM = Math.round(data.bpm);
+      updateTempoUI();
       beatInterval = 60 / data.bpm;
       el("mixer-tempo").textContent = tempoBPM;
       renderTimeline();
@@ -8791,12 +8924,15 @@ const Mixer = (() => {
     }
   }
 
+  let metroTimer = null;
   function scheduleMetronomeClicks(){
+    clearTimeout(metroTimer);
     if(!metronomeOn || !isPlaying) return;
     const now = ctx().currentTime;
     const currentSec = currentTime();
-    const lookahead = 2;                       // seconds of clicks to queue
-    const endSec = currentSec + lookahead;
+    const lookahead = 0.8;                     // seconds of clicks to queue
+    // Song seconds; a slowed song has fewer of them in the same wall time.
+    const endSec = currentSec + lookahead * runSpeed;
 
     if(clickTimes.length){
       // Click the times the tracker actually found (optionally subdivided or
@@ -8806,7 +8942,7 @@ const Mixer = (() => {
         const t = clickTimes[i];
         if(t <= currentSec) continue;
         if(t >= endSec) break;
-        playClick(clickAccent[i], now + (t - currentSec));
+        playClick(clickAccent[i], now + (t - currentSec) / runSpeed);
       }
     } else if(beatInterval){
       // No detected grid — fall back to a fixed period from the top.
@@ -8814,13 +8950,13 @@ const Mixer = (() => {
       const perBar = Math.max(1, Math.round(4 * metronomeRate));
       let beat = Math.floor(currentSec / step) + 1;
       while(beat * step < endSec){
-        playClick(beat % perBar === 0, now + (beat * step - currentSec));
+        playClick(beat % perBar === 0, now + (beat * step - currentSec) / runSpeed);
         beat++;
       }
     } else {
       return;
     }
-    setTimeout(scheduleMetronomeClicks, 200);
+    metroTimer = setTimeout(scheduleMetronomeClicks, 150);
   }
 
   // Ten click voices, all synthesised — no samples to ship or load. Each is
@@ -9196,7 +9332,7 @@ const Mixer = (() => {
       const c = channels.find(x => x.stem === sc.stem);
       if(c){ const {eq, ...rest} = sc; Object.assign(c, rest); restoreEq(c, eq); }
     });
-    if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60 / data.tempo; el("mixer-tempo").textContent = tempoBPM; }
+    if(data.tempo){ tempoBPM = data.tempo; beatInterval = 60 / data.tempo; el("mixer-tempo").textContent = tempoBPM; updateTempoUI(); }
     loopEnabled = !!data.loop;
     if(data.loop){ loopStart = data.loop.start; loopEnd = data.loop.end; }
     el("mixer-loop").classList.toggle("active", loopEnabled);
@@ -9299,29 +9435,24 @@ const Mixer = (() => {
   el("nm-rewind").onclick = () => seek(loopEnabled ? loopStart : 0);
 
 
-  // Pitch is in semitones and drives every stem's playbackRate together, so
-  // the mix stays in sync. Equal temperament: one semitone = 2^(1/12).
-  let pitchSemitones = 0;
-  let tempoScale = 1;
-  function applyPitch(){
-    el("nm-pitch").value = (pitchSemitones > 0 ? "+" : "") + pitchSemitones;
-    const rate = Math.pow(2, pitchSemitones / 12) * tempoScale;
-    channels.forEach(c => {
-      c.pitchRate = rate;
-      if(c.source) c.source.playbackRate.value = rate;
-    });
-  }
-  el("nm-pitch-dn").onclick = () => { pitchSemitones = Math.max(-12, pitchSemitones - 1); applyPitch(); };
-  el("nm-pitch-up").onclick = () => { pitchSemitones = Math.min(12, pitchSemitones + 1); applyPitch(); };
-
-  // Tempo trims playback rate as a percentage (pitch rides along — no
-  // time-stretching here, same as the reference's plain rate control).
-  el("nm-tempo-slider").addEventListener("input", (e) => {
-    const pct = parseInt(e.target.value, 10);
-    tempoScale = 1 + pct / 100;
-    el("nm-tempo-val").textContent = (pct > 0 ? "+" : "") + pct + " %";
-    applyPitch();
+  // Key and tempo are separate: the key moves by semitones without changing
+  // the speed, and the tempo by BPM without changing the key.
+  el("nm-pitch-dn").onclick = () => setPitch(pitchSemitones - 1);
+  el("nm-pitch-up").onclick = () => setPitch(pitchSemitones + 1);
+  el("nm-tempo-dn").onclick = () => setSpeed((Math.round(tempoBase() * speed) - 1) / tempoBase());
+  el("nm-tempo-up").onclick = () => setSpeed((Math.round(tempoBase() * speed) + 1) / tempoBase());
+  el("nm-tempo-reset").onclick = () => { setSpeed(1); };
+  const commitTempoField = () => {
+    const v = parseFloat(String(el("nm-tempo-num").value).replace(",", "."));
+    if(isFinite(v) && v > 0) setSpeed(v / tempoBase());
+    else updateTempoUI();
+  };
+  el("nm-tempo-num").addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){ commitTempoField(); e.currentTarget.blur(); }
+    if(e.key === "Escape"){ e.currentTarget.blur(); updateTempoUI(); }
   });
+  el("nm-tempo-num").addEventListener("blur", commitTempoField);
+  el("nm-tempo-num").addEventListener("focus", (e) => e.currentTarget.select());
 
   // Loop handles: drag either edge of the blue region.
   (() => {
