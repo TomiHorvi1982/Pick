@@ -2455,12 +2455,12 @@
   <div class="panel" style="width:min(1000px,96vw);max-height:90vh">
     <div class="panel-head">
       <button class="close-btn" id="tabview-close"><span data-icon="close" data-size="13"></span></button>
-      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Notový zápis
+      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Alpha Tab
         <select id="tabview-track-select" style="margin-left:12px;font-size:13px" hidden></select>
       </div>
       <div class="set-note" style="margin-top:2px">Klikni na notu a přeprav pražec/strunu, nebo klikni na prázdnou dobu a přidej novou.</div>
     </div>
-    <div id="tabview-host" style="overflow:auto;max-height:calc(90vh - 70px);position:relative"></div>
+    <div id="tabview-host" style="overflow:auto;max-height:calc(90vh - 70px);position:relative;background:#f4f4f2;border-radius:0 0 12px 12px"></div>
   </div>
 </div>
 <!-- Tiny popup for editing one note's fret/string from the notation view —
@@ -2675,7 +2675,7 @@
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
-              <button class="nm-btn round" id="mixer-tab-view" title="Hezký notový zápis a tabulatura (alphaTab)"><span data-icon="music" data-size="14"></span>Notace</button>
+              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="music" data-size="14"></span>Alpha Tab</button>
               <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
               <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
             </div>
@@ -7966,7 +7966,7 @@ const Mixer = (() => {
 
       // Resting note. Only the note being played turns coloured, and that is
       // an overlay (updateTabHighlight), so the canvas is not redrawn per frame.
-      g.fillStyle = "rgba(255,255,255,.2)";
+      g.fillStyle = "rgba(255,255,255,.32)";
       g.fillRect(Math.floor(x), Math.floor(y - noteH / 2), Math.max(2, Math.floor(noteW)), Math.ceil(noteH));
 
       if(noteW >= fretFont + 4){
@@ -10197,7 +10197,7 @@ const Mixer = (() => {
         api.tex(measuresToAlphaTex(tabs[activeIdx].data));
       }catch(e){
         console.error("alphaTab tex:", e);
-        el("tabview-host").innerHTML = `<div class="empty" style="padding:24px">Tuhle tabulaturu se nepodařilo zobrazit.</div>`;
+        el("tabview-host").innerHTML = `<div class="empty" style="padding:24px;color:#555">Tuhle tabulaturu se nepodařilo zobrazit.</div>`;
       }
     }
 
@@ -10214,10 +10214,10 @@ const Mixer = (() => {
       // second open would, if this ran every time) leaves .tex() drawing
       // into a surface that's no longer actually in the document.
       if(!api){
-        host.innerHTML = `<div class="empty" style="padding:24px"><span class="spinner"></span> Načítám alphaTab…</div>`;
+        host.innerHTML = `<div class="empty" style="padding:24px;color:#555"><span class="spinner"></span> Načítám alphaTab…</div>`;
         try{ await ensureLib(); }
         catch(e){
-          host.innerHTML = `<div class="empty" style="padding:24px">alphaTab se nepodařilo načíst.</div>`;
+          host.innerHTML = `<div class="empty" style="padding:24px;color:#555">alphaTab se nepodařilo načíst.</div>`;
           return;
         }
         host.innerHTML = "";
