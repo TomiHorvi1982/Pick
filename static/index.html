@@ -803,6 +803,15 @@
   .tab-strip .tab-track-select{width:100%;background:#23232b;border:1px solid #33333d;border-radius:5px;
     color:var(--nm-txt,#ddd);font-size:10.5px;padding:3px 4px;font-family:inherit}
   .tab-strip .nm-strip-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* The live alphaTab lane: a big field, not pinned to the other lanes'
+     86px — alphaTab's own engraving (staff + tab) needs real room, and its
+     "horizontal" layout draws the whole song as one long strip wider than
+     the timeline itself, so it gets its own horizontal scrollbar rather
+     than trying to share the timeline's. Light background for the same
+     reason as the Alpha Tab modal: alphaTab's default ink colours assume a
+     white page and read as near-invisible on this app's dark one. */
+  .nm-lane.tab-live-lane{height:200px;padding:0;background:#f4f4f2;overflow:hidden}
+  .tab-live-host{width:100%;height:100%;overflow-x:auto;overflow-y:hidden}
   .nm-strip.guitar-strip{gap:4px;padding:6px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
   .guitar-strip .nm-strip-name{color:var(--nm-gold)}
@@ -7853,18 +7862,62 @@ const Mixer = (() => {
     strokeLines(downbeatTimes, (t, i) => !(i % step) && !measured(t), "rgba(200,121,31,.22)");
   }
 
-  // The tab parts: a rail strip and a canvas lane for each. They sit above the
-  // guitar strip, so the rail rows are added first (see renderTrackLanes).
-  // A single, plain guitar tab strip — the same size as every other stem's
-  // lane, right after Text. No per-note colour and no picking a second part
-  // to show alongside it any more: the shared playhead already sweeping
-  // across every other lane is exactly the orientation this needs, the same
-  // way it already is for the waveforms next to it.
+  // The tab lane, right after Text: not a custom drawing any more but the
+  // real alphaTab renderer — the same pretty engraving as the Alpha Tab
+  // modal — mounted inline instead of a popup, laid out as one continuous
+  // horizontal row (alphaTab's own "horizontal" layout, not its default
+  // page-wrapped one) that scrolls on its own inside a lane the same
+  // fixed-height-family as the rest, rather than trying to force it onto
+  // the audio timeline's own per-second pixel scale (the two have no
+  // natural common unit — alphaTab spaces by rhythm, the timeline by time).
+  //
+  // The host element and its AlphaTabApi are created once and kept alive in
+  // these module vars, then just re-appended into whichever lane the next
+  // renderTrackLanes() builds — recreating the api from scratch on every
+  // zoom/resize would mean reloading fonts and re-typesetting the whole
+  // song each time.
+  let tabLiveHost = null;
+  let tabLiveApiPromise = null;
+  let tabLiveKey = "";
+  let tabLiveLane = null, tabLiveStrip = null;
+
+  function ensureTabLiveApi(){
+    if(tabLiveApiPromise) return tabLiveApiPromise;
+    tabLiveApiPromise = (async () => {
+      if(!tabLiveHost){
+        tabLiveHost = document.createElement("div");
+        tabLiveHost.className = "tab-live-host";
+      }
+      await AlphaTabView.ensureLib();
+      const api = new window.alphaTab.AlphaTabApi(tabLiveHost, {
+        core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
+        display: {staveProfile: "ScoreTab", layoutMode: "horizontal"},
+      });
+      api.error.on((e) => console.error("alphaTab (lane):", e));
+      // The rendered content's real height varies with the tuning/profile;
+      // the lane (and its rail strip, so the two stay level) grows or
+      // shrinks to fit it rather than clipping or leaving dead space. This
+      // fires more than once per render as alphaTab's own total-height
+      // estimate firms up (e.g. once fonts are ready), so it keeps applying
+      // the latest number rather than trusting the first one — reading the
+      // host's own scrollHeight back turned out to freeze on that first,
+      // still-too-short pass instead of tracking the later ones.
+      api.renderFinished.on((e) => {
+        if(!tabLiveLane) return;
+        const h = Math.max(140, Math.min(480, Math.ceil(e.totalHeight) || 200));
+        tabLiveLane.style.height = h + "px";
+        if(tabLiveStrip) tabLiveStrip.style.height = h + "px";
+      });
+      return api;
+    })();
+    return tabLiveApiPromise;
+  }
+
   function renderSimpleTabLane(rail, lanes, totalPx){
     if(!tabs.length) return;
     const tb = tabs[0];
     const strip = document.createElement("div");
-    strip.className = "nm-strip tab-strip";
+    strip.className = "nm-strip tab-strip tab-live-strip";
     const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
       .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""))
       .map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
@@ -7879,21 +7932,31 @@ const Mixer = (() => {
       ${guitarOpts ? `<select class="tab-track-select" title="Jiná stopa téhle skladby">${guitarOpts}</select>` : ""}`;
     rail.appendChild(strip);
 
-    strip.querySelector(".tab-rm").onclick = () => { tabs.length = 0; renderTimeline(); };
+    strip.querySelector(".tab-rm").onclick = () => {
+      tabs.length = 0;
+      tabLiveKey = "";
+      renderTimeline();
+    };
     const sel = strip.querySelector(".tab-track-select");
     if(sel) sel.onchange = () => swapTabTrack(0, parseInt(sel.value, 10));
 
     const lane = document.createElement("div");
-    lane.className = "nm-lane";
-    lane.style.width = totalPx + "px";
-    const cv = document.createElement("canvas");
-    lane.appendChild(cv);
-    lane.addEventListener("click", (e) => {
-      const rect = lane.getBoundingClientRect();
-      seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
-    });
+    lane.className = "nm-lane tab-live-lane";
     lanes.appendChild(lane);
-    drawSimpleTabStrip(cv, tb.data, totalPx);
+    tabLiveLane = lane;
+    tabLiveStrip = strip;
+
+    ensureTabLiveApi().then(api => {
+      if(tabLiveLane !== lane) return;   // superseded by a later render
+      lane.appendChild(tabLiveHost);
+      const key = (tb.songId || "") + ":" + (tb.revisionId || "") + ":" + tb.trackIndex + ":" +
+        ((tb.data.notes && tb.data.notes.length) || 0);
+      if(key !== tabLiveKey){
+        tabLiveKey = key;
+        try{ api.tex(AlphaTabView.measuresToAlphaTex(tb.data)); }
+        catch(e){ console.error("alphaTab lane tex:", e); }
+      }
+    });
   }
 
   // Extended-range guitars (7, 8 strings...) carry a longer `tuning` array;
@@ -7918,84 +7981,6 @@ const Mixer = (() => {
     const out = base.slice(0, stringCount);
     while(out.length < stringCount) out.push(String(out.length + 1));
     return out;
-  }
-
-  // Plain notation: "T A B" written once on the left the way it's printed
-  // on paper, not a note name per string — thin lines, fret numbers sitting
-  // right on them, no colour and nothing that changes as it plays. The lane
-  // is a fixed height like every other stem's, so tighter string spacing on
-  // a 7- or 8-string part is the trade for looking like the rest of the
-  // mix instead of standing out as its own odd size.
-  function drawSimpleTabStrip(cv, data, totalPx){
-    const notes = (data && data.notes) || [];
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const laneH = 86;
-    const stringCount = Math.max(1, tabStringCount(data));
-    const top = 14, bottom = 72;
-    const stringH = stringCount > 1 ? (bottom - top) / (stringCount - 1) : 0;
-    const noteH = Math.max(7, Math.min(13, stringH - 2));
-    const fretFont = Math.max(7, Math.min(10, Math.round(noteH * 0.8)));
-    const left = 20;
-    const cssW = Math.min(totalPx, 16000);
-
-    cv.width = Math.floor(cssW * dpr);
-    cv.height = Math.floor(laneH * dpr);
-    cv.style.width = totalPx + "px";
-    cv.style.height = laneH + "px";
-
-    const g = cv.getContext("2d");
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, cssW, laneH);
-
-    g.fillStyle = "rgba(0,0,0,.18)";
-    g.fillRect(0, 0, cssW, laneH);
-
-    g.strokeStyle = "rgba(255,255,255,.28)";
-    g.lineWidth = 1;
-    for(let s = 0; s < stringCount; s++){
-      const y = Math.floor(top + s * stringH) + 0.5;
-      g.beginPath();
-      g.moveTo(left, y);
-      g.lineTo(cssW, y);
-      g.stroke();
-    }
-    // The opening bar — same vertical stroke printed tab starts each system with.
-    g.beginPath();
-    g.moveTo(left + 0.5, top);
-    g.lineTo(left + 0.5, bottom);
-    g.stroke();
-
-    g.fillStyle = "rgba(255,255,255,.5)";
-    g.font = "bold 9px sans-serif";
-    g.textAlign = "left";
-    g.textBaseline = "middle";
-    g.fillText("T", 4, top);
-    g.fillText("A", 4, top + (bottom - top) / 2);
-    g.fillText("B", 4, bottom);
-
-    // At a low zoom, many notes land within a few pixels of each other on the
-    // same string; drawing every fret number regardless just smears them
-    // into an unreadable blob. A number only gets drawn once there's real
-    // room next to whatever was last drawn on that same string.
-    const minGap = fretFont + 3;
-    const lastX = new Array(stringCount).fill(-Infinity);
-    g.fillStyle = "#ececec";
-    g.font = `bold ${fretFont}px sans-serif`;
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    notes.forEach(n => {
-      const s = Number(n.string);
-      if(!Number.isInteger(s) || s < 0 || s >= stringCount) return;
-      const x = n.time * pixelsPerSecond;
-      if(x < -20 || x > cssW + 20) return;
-      if(x - lastX[s] < minGap) return;
-      lastX[s] = x;
-      const y = top + s * stringH;
-      g.fillText(String(n.fret), x, y);
-    });
-
-    g.textAlign = "left";
-    g.textBaseline = "alphabetic";
   }
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
@@ -10211,7 +10196,7 @@ const Mixer = (() => {
       renderActive();
     }
 
-    return {open};
+    return {open, ensureLib, measuresToAlphaTex};
   })();
   el("tabview-close").onclick = () => { el("tabview-overlay").hidden = true; };
   el("tabview-overlay").addEventListener("click", (e) => {
