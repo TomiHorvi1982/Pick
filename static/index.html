@@ -1082,7 +1082,12 @@
   .lib-art{width:48px;height:48px;border-radius:6px;flex:0 0 48px;object-fit:cover;
     background:var(--card-hi);display:flex;align-items:center;justify-content:center;
     font-size:20px;color:var(--sub);overflow:hidden;background-size:cover;
-    background-position:center}
+    background-position:center;position:relative}
+  /* Sits over the icon already in .lib-art and stays invisible (no
+     background of its own) until ChipThumbs finds a real cover for the
+     term — the icon underneath is never removed, just covered. */
+  .lib-art-thumb{position:absolute;inset:0;background-size:cover;
+    background-position:center;border-radius:inherit}
   .lib-art.round{border-radius:50%}
   .lib-meta{min-width:0;flex:1}
   body.lib-collapsed .lib-meta{display:none}
@@ -5078,12 +5083,16 @@ const ChipThumbs = (() => {
 // a row opens that thing in the main stage. Everything it shows already
 // exists elsewhere in the app, so this is a view, never a second store.
 // ======================================================================
-function libRow({art, artIsUrl, name, sub, round, onClick, active}){
+// thumbSlot: reserves a spot for ChipThumbs to paint a real preview over
+// the icon once one's found — the icon stays as the fallback underneath
+// rather than leaving a blank box while it loads or if there isn't one.
+function libRow({art, artIsUrl, name, sub, round, onClick, active, thumbSlot}){
   const row = document.createElement("div");
   row.className = "lib-row" + (active ? " active" : "");
   const style = artIsUrl ? `background-image:url('${thumbUrl(art)}')` : "";
   row.innerHTML = `
-    <div class="lib-art${round ? " round" : ""}" style="${style}">${artIsUrl ? "" : art}</div>
+    <div class="lib-art${round ? " round" : ""}" style="${style}">${artIsUrl ? "" : art}${
+      thumbSlot ? '<span class="lib-art-thumb"></span>' : ""}</div>
     <div class="lib-meta">
       <div class="lib-name">${escapeHtml(name)}</div>
       <div class="lib-sub">${escapeHtml(sub)}</div>
@@ -5125,8 +5134,17 @@ function renderLibraryRail(mode){
     getRailTop5(sec.key).then(items => {
       if(!anchor.isConnected) return;   // the rail moved on before this landed
       const stillCollapsed = collapsedSections.has(sec.key);
-      const rows = (items.length ? items.map(libRow) : [libEmpty("Nic tu zat\u00EDm nen\u00ED.")])
-        .map(row => { row.dataset.sec = sec.key; row.hidden = stillCollapsed; return row; });
+      const rows = (items.length
+          ? items.map(item => libRow({...item, thumbSlot: !!item.thumbTerm}))
+          : [libEmpty("Nic tu zat\u00EDm nen\u00ED.")])
+        .map((row, i) => {
+          row.dataset.sec = sec.key;
+          row.hidden = stillCollapsed;
+          const item = items[i];
+          if(item && item.thumbTerm) ChipThumbs.observe(row, item.thumbTerm, ".lib-art-thumb");
+          if(item && item.songArt) Artwork.paint(row.querySelector(".lib-art"), item.songArt);
+          return row;
+        });
       list.querySelectorAll(`[data-sec="${sec.key}"]`).forEach(n => n.remove());
       anchor.after(...rows);
     });
@@ -5258,14 +5276,21 @@ function renderRailBranches(list, sec, sectionCollapsed){
         if(!anchor.isConnected) return;
         const stillOpen = openBranches.has(branchKey);
         const stillSectionCollapsed = collapsedSections.has(sec.key);
+        // Chart names ("Billboard Hot 100 (USA, singly)") are too specific
+        // for an image search to land on anything meaningful \u2014 those keep
+        // the plain trophy icon. A decade, genre or mood is exactly the
+        // kind of term the chips elsewhere already get real covers for.
+        const wantsThumb = branch.key !== "top";
         const rows = (leaves.length ? leaves.map(leaf => libRow({
-            art: icon(branch.icon, 16), name: leaf.label, sub: branch.title,
+            art: icon(branch.icon, 18), name: leaf.label, sub: branch.title,
+            thumbSlot: wantsThumb,
             onClick: () => railBranchLeafClick(sec.key, branch.key, leaf),
           })) : [libEmpty("Nic tu nen\u00ED.")])
-          .map(row => {
+          .map((row, i) => {
             row.dataset.sec = sec.key;
             row.dataset.branchSec = branchKey;
             row.hidden = !stillOpen || stillSectionCollapsed;
+            if(wantsThumb && leaves[i]) ChipThumbs.observe(row, leaves[i].q || leaves[i].label, ".lib-art-thumb");
             return row;
           });
         list.querySelectorAll(`[data-branch-sec="${branchKey}"]`).forEach(n => n.remove());
@@ -5316,6 +5341,7 @@ async function fetchRailTop5(key){
     // uses \u2014 a plain search for each, not an actual ranked chart.
     return POPULAR_TERMS.slice(0, 5).map(term => ({
       art: icon("search", 18), name: term, sub: "Nejhledan\u011Bj\u0161\u00ED",
+      thumbTerm: term,
       onClick: () => { setMode("playlists"); searchExactly(term); },
     }));
   }
@@ -5334,7 +5360,8 @@ async function fetchRailTop5(key){
       if(!steemsSongs.length) steemsSongs = songs;
     }
     return songs.slice(0, 5).map(s => ({
-      art: "\uD83C\uDF9A", name: s.name, sub: `Stopy \u2022 ${(s.stems || []).length} stop`,
+      art: icon("stems", 18), name: s.name, sub: `Stopy \u2022 ${(s.stems || []).length} stop`,
+      songArt: s.name,
       onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
     }));
   }
@@ -5380,7 +5407,7 @@ function railModeSection(list, sec, mode){
   head.innerHTML =
     `<button type="button" class="lib-sec-chev" aria-expanded="${!collapsed}" title="Sbalit/rozbalit">${icon("chevron", 10)}</button>` +
     `<button type="button" class="lib-sec-label" data-mode="${key}" title="${escapeHtml(sec.title)}">` +
-      `<span class="lib-sec-icon">${icon(sec.icon, 14)}</span>` +
+      `<span class="lib-sec-icon">${icon(sec.icon, 16)}</span>` +
       `<span class="lib-sec-text">${escapeHtml(sec.title)}</span>` +
     `</button>`;
   head.querySelector(".lib-sec-chev").onclick = (e) => {
