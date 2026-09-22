@@ -869,10 +869,12 @@
   .nm-scroll::-webkit-scrollbar-thumb{background:#33333d;border-radius:5px}
   .nm-scroll::-webkit-scrollbar-thumb:hover{background:#43434f}
   .nm-canvas{position:relative;min-width:100%}
-  .nm-ruler{height:22px;position:relative;border-bottom:1px solid var(--nm-line);
+  .nm-ruler{height:34px;position:relative;border-bottom:1px solid var(--nm-line);
             background:var(--nm-panel);cursor:crosshair;overflow:hidden}
-  .nm-bar-num{position:absolute;top:5px;font-size:9.5px;color:var(--nm-sub);
+  .nm-bar-num{position:absolute;top:4px;font-size:9.5px;color:var(--nm-sub);
               padding-left:4px;pointer-events:none;user-select:none}
+  .nm-time-num{position:absolute;top:19px;font-size:9px;color:var(--nm-txt);opacity:.55;
+              font-variant-numeric:tabular-nums;padding-left:4px;pointer-events:none;user-select:none}
   .nm-lane{height:62px;border-bottom:1px solid var(--nm-line);position:relative;
            cursor:crosshair;overflow:hidden}
   .nm-lane:last-child{border-bottom:none}
@@ -2485,7 +2487,6 @@
       <div class="sp-hero" id="steems-hero-wash">
         <div class="sp-hero-art"><span data-icon="fader" data-size="46"></span></div>
         <div class="sp-hero-txt">
-          <span class="sp-hero-kind">Rozseparovaná píseň</span>
           <h1 class="sp-hero-title" id="steems-hero-title">—</h1>
           <div class="sp-hero-stats" id="steems-hero-stats"></div>
         </div>
@@ -2648,7 +2649,7 @@
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
         <div class="nm-body-wrap" id="nm-body-wrap">
         <div class="nm-body" id="nm-body">
-          <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad"></div></div>
+          <div class="nm-rail" id="nm-rail"><div class="nm-rail-pad" style="height:34px"></div></div>
           <div class="nm-scroll" id="nm-scroll">
             <div class="nm-canvas" id="nm-canvas">
               <div class="nm-ruler" id="mixer-ruler"></div>
@@ -5860,9 +5861,16 @@ const TabSearch = (() => {
   const btn = el("tab-search-btn");
   const results = el("tab-search-results");
 
-  function show() {
+  function show(query) {
     overlay.hidden = false;
-    input.focus();
+    if(query){
+      input.value = query;
+      input.focus();
+      input.select();
+      runSearch();
+    } else {
+      input.focus();
+    }
   }
 
   function hide() {
@@ -7115,6 +7123,21 @@ const Mixer = (() => {
     });
   }
 
+  // "Nice" spacings for the clock-time row: a round number of seconds, or
+  // minutes once seconds get silly, always at least ~50px apart on screen.
+  const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+  function renderTimeRow(ruler, totalPx){
+    let step = TIME_STEPS[TIME_STEPS.length - 1];
+    for(const s of TIME_STEPS){ if(s * pixelsPerSecond >= 50){ step = s; break; } }
+    for(let t = 0; t * pixelsPerSecond <= totalPx; t += step){
+      const label = document.createElement("div");
+      label.className = "nm-time-num";
+      label.style.left = (t * pixelsPerSecond) + "px";
+      label.textContent = fmtDur(t);
+      ruler.appendChild(label);
+    }
+  }
+
   function renderRuler(totalPx){
     const ruler = el("mixer-ruler");
     ruler.innerHTML = "";
@@ -7135,6 +7158,7 @@ const Mixer = (() => {
         label.textContent = i + 1;
         ruler.appendChild(label);
       });
+      renderTimeRow(ruler, totalPx);
       return;
     }
 
@@ -7149,6 +7173,7 @@ const Mixer = (() => {
       label.textContent = i + 1;
       ruler.appendChild(label);
     }
+    renderTimeRow(ruler, totalPx);
   }
 
   // Grid lines are painted into each lane's canvas rather than stacked as
@@ -8063,7 +8088,7 @@ const Mixer = (() => {
   function renderTrackLanes(){
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
-    rail.innerHTML = '<div class="nm-rail-pad"></div>';
+    rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"></div>';
     lanes.innerHTML = "";
     // The tab lanes are fixed rows above the tracks; the rail gets one row for
     // each so every label below stays level with its lane.
@@ -8226,7 +8251,6 @@ const Mixer = (() => {
   function updateLoopVisual(){
     const region = el("mixer-loop-region");
     const ovLoop = el("nm-ov-loop");
-    if(loopEnabled && loopEnd > loopStart){ markIn = markOut = true; }
     const mi = el("mixer-mark-in"), mo = el("mixer-mark-out");
     if(mi && mo){
       mi.hidden = !markIn;
@@ -8575,7 +8599,7 @@ const Mixer = (() => {
     el("mixer").className = "fl-mixer";
     setMixerPlayGlyph(false);
     el("mixer-tracks").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
-    el("nm-rail").innerHTML = '<div class="nm-rail-pad"></div>';
+    el("nm-rail").innerHTML = '<div class="nm-rail-pad" style="height:34px"></div>';
     el("fl-channels").innerHTML = "";
     el("mixer-tempo").textContent = "—";
     el("nm-title").textContent = song.name;
@@ -9140,18 +9164,22 @@ const Mixer = (() => {
   }
 
   // ---- Loop ----
+  // The loop button just shows/hides the loop: turning it off hides the two
+  // lines but keeps loopStart/loopEnd, so turning it back on remembers where
+  // the loop was rather than picking a new default every time.
   function toggleLoop(){
     loopEnabled = !loopEnabled;
-    el("mixer-loop").classList.toggle("active", loopEnabled);
-    queueSessionSave();
-    if(loopEnabled && loopEnd <= loopStart){
-      // Default loop: first 4 bars if tempo known, else first 8 seconds
+    if(loopEnabled && !(loopEnd > loopStart)){
+      // No loop was ever set for this song: first 4 bars if tempo is known,
+      // else the first 8 seconds.
       loopStart = 0;
       loopEnd = tempoBPM ? (60 / tempoBPM) * 4 : Math.min(8, duration);
-      markIn = markOut = true;
-      paintLoopFields();
     }
+    markIn = markOut = loopEnabled;
+    el("mixer-loop").classList.toggle("active", loopEnabled);
+    paintLoopFields();
     updateLoopVisual();
+    queueSessionSave();
   }
 
   // ---- Save / Load Session ----
@@ -9232,7 +9260,7 @@ const Mixer = (() => {
 
   // ---- Event wiring ----
   el("mixer-play").onclick = () => isPlaying ? pause() : play();
-  el("mixer-tab-search").onclick = () => TabSearch.show();
+  el("mixer-tab-search").onclick = () => TabSearch.show(currentSongName);
   el("mixer-guide-toggle").onclick = (e) => {
     guideEnabled = !guideEnabled;
     e.currentTarget.classList.toggle("active", guideEnabled);
