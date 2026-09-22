@@ -1728,6 +1728,12 @@
     font-weight:700;flex:0 0 auto}
   .nm-pitch-row .val{font-size:10px;color:var(--nm-sub);width:20px;text-align:right;
     font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .pitch-step{width:18px;height:18px;flex:0 0 auto;border-radius:4px;background:#1e1e25;
+    border:1px solid #32323c;color:var(--nm-sub);cursor:pointer;font-size:11px;
+    line-height:1;padding:0;font-family:inherit;display:flex;align-items:center;
+    justify-content:center}
+  .pitch-step:hover{color:var(--nm-txt);background:#2a2a33}
+  .pitch-step:active{background:#33333d}
   .nm-pitch-slider{-webkit-appearance:none;appearance:none;flex:1;min-width:0;
     height:10px;background:transparent;cursor:pointer;margin:0}
   .nm-pitch-slider::-webkit-slider-runnable-track{height:2px;border-radius:2px;
@@ -8467,9 +8473,9 @@ const Mixer = (() => {
                title="Hlasitost">
         <div class="nm-pitch-row">
           <span class="lbl">PITCH</span>
-          <input type="range" class="nm-pitch-slider" min="-12" max="12" step="1" value="${semis}"
-                 title="Pitch této stopy v půltónech">
+          <button type="button" class="pitch-step" data-d="-1" title="O půltón níž">−</button>
           <span class="val">${semis > 0 ? "+" : ""}${semis}</span>
+          <button type="button" class="pitch-step" data-d="1" title="O půltón výš">+</button>
         </div>
       `;
 
@@ -8507,16 +8513,20 @@ const Mixer = (() => {
       // pitching just this one up or down never pulls its length away from
       // the others. (This used to move playbackRate directly, which shifted
       // speed along with pitch — great for a turntable, wrong for keeping
-      // stems the same length as each other.)
-      const pitchSlider = strip.querySelector(".nm-pitch-slider");
+      // stems the same length as each other.) Stepped by a button rather
+      // than dragged — a half-tone at a time is plenty of precision, and a
+      // slider that small was fussier to hit than it was worth.
       const pitchVal = strip.querySelector(".nm-pitch-row .val");
-      pitchSlider.oninput = () => {
-        const st = parseInt(pitchSlider.value, 10);
-        pitchVal.textContent = (st > 0 ? "+" : "") + st;
-        c.pitchRate = semitonesToRate(st);
-        queueSessionSave();
-        requestTempoPitch();
-      };
+      strip.querySelectorAll(".pitch-step").forEach(btn => {
+        btn.onclick = () => {
+          const st = Math.max(-12, Math.min(12,
+            Math.round(rateToSemitones(c.pitchRate || 1)) + parseInt(btn.dataset.d, 10)));
+          pitchVal.textContent = (st > 0 ? "+" : "") + st;
+          c.pitchRate = semitonesToRate(st);
+          queueSessionSave();
+          requestTempoPitch();
+        };
+      });
       rail.appendChild(strip);
 
       // ---- right lane: grid + waveform on one canvas ----
@@ -8929,6 +8939,23 @@ const Mixer = (() => {
     rafId = requestAnimationFrame(tick);
   }
 
+  // Demucs' 6-stem model always writes a file for every stem, even one the
+  // song never had — its guess at an absent instrument is near-silence, not
+  // an empty file. A coarse strided scan (every 8th sample is plenty for a
+  // yes/no check) is fast enough to run on every stem as it decodes, and the
+  // threshold sits well above where that "guess" noise floor tends to land
+  // but well below anything a real, if quiet, part would peak at.
+  const SILENT_STEM_PEAK = 0.01;
+  function bufferIsSilent(buf){
+    for(let ch = 0; ch < buf.numberOfChannels; ch++){
+      const data = buf.getChannelData(ch);
+      for(let i = 0; i < data.length; i += 8){
+        if(Math.abs(data[i]) > SILENT_STEM_PEAK) return false;
+      }
+    }
+    return true;
+  }
+
   async function load(song){
     const myToken = ++loadToken;
     sessionReady = false;       // nothing saves while the mix is being set up
@@ -8996,6 +9023,13 @@ const Mixer = (() => {
       if(myToken !== loadToken) return;
       const audioBuf = await ctx().decodeAudioData(arrayBuf);
       if(myToken !== loadToken) return;
+      duration = Math.max(duration, audioBuf.duration);
+      // The 6-stem model always writes a file for every stem, whether or not
+      // that instrument was ever actually in the mix — its "best guess" at
+      // one that isn't there is just near-silence, not an empty file (most
+      // often piano and other, on a song that never had either). No point
+      // giving a whole channel strip to nothing.
+      if(bufferIsSilent(audioBuf)) continue;
       const gainNode = ctx().createGain();
       const analyser = ctx().createAnalyser();
       analyser.fftSize = 256;
@@ -9015,11 +9049,10 @@ const Mixer = (() => {
       };
       buildEq(chan, savedCh && savedCh.eq);
       loaded.push(chan);
-
-      duration = Math.max(duration, audioBuf.duration);
     }
     if(myToken !== loadToken) return;
     channels = loaded;
+    el("nm-stemcount").textContent = channels.length;
     // A stem's pitch was left shifted from last time — get the stretch
     // nodes ready before anything plays, the same as touching the slider
     // would, so it doesn't drift for the first few seconds while they spin up.
@@ -9809,6 +9842,18 @@ const Mixer = (() => {
   el("zoom-out").onclick = () => { autoFit = false; setZoom(pixelsPerSecond / 1.5); };
   el("zoom-fit").onclick = () => { autoFit = true; zoomToFit(); };
   el("mixer-zoom").addEventListener("input", (e) => { autoFit = false; setZoom(parseInt(e.target.value)); });
+
+  // Trackpad pinch (macOS sends this as a wheel event with ctrlKey set,
+  // same as Ctrl+scroll on a mouse — that's the one thing distinguishing a
+  // pinch from an ordinary two-finger scroll) zooms the timeline in and out,
+  // keeping the same anchor-under-the-playhead behaviour the buttons use.
+  // preventDefault stops it from also zooming the whole page.
+  el("nm-scroll").addEventListener("wheel", (e) => {
+    if(!e.ctrlKey) return;
+    e.preventDefault();
+    autoFit = false;
+    setZoom(pixelsPerSecond * Math.exp(-e.deltaY * 0.01));
+  }, {passive: false});
 
   // Ruler click to seek
   el("mixer-ruler").addEventListener("click", (e) => {
