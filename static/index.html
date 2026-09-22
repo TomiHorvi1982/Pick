@@ -917,11 +917,11 @@
   .nm-tabtop-hostwrap{position:relative}
   .nm-tabtop-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2;
     border-radius:8px;height:200px}
-  /* A fixed marker, not something redrawn every frame: syncTabToTime (JS,
-     TAB_CURSOR_OFFSET) always scrolls so "now" sits at this same left
-     offset — keep the two in sync — so the line just stays put while the
-     notation flows underneath it, the usual karaoke-style cue. */
-  .nm-tabtop-cursor{position:absolute;top:0;bottom:0;left:40px;width:2px;
+  /* Its left offset is set live by syncTabToTime (JS) every frame — moves
+     with "now" until that reaches the panel's centre, same as the main
+     ruler playhead, then holds there while the tab scrolls underneath it
+     instead, the usual karaoke-style cue. */
+  .nm-tabtop-cursor{position:absolute;top:0;bottom:0;left:0;width:2px;
     background:rgba(200,60,40,.75);pointer-events:none}
   .nm-tabtop-pos{width:100%;margin-top:6px;accent-color:var(--nm-sub)}
 
@@ -8002,19 +8002,19 @@ const Mixer = (() => {
     el("nm-tabtop-pos").value = max > 0 ? Math.round((host.scrollLeft / max) * 1000) : 0;
   }
 
-  // Keep the panel scrolled to whichever bar is currently playing — the
-  // "posuvník" and the fixed cursor line both reflect it too. Runs off the
-  // same real, tempo-accumulated bar times the DAW's own guide and note
-  // timeline already trust, not alphaTab's internal tick clock, so it stays
-  // right even though the alphaTex sent to alphaTab only encodes a single
-  // starting tempo.
+  // Keep the panel following whichever bar is currently playing — same
+  // rule as the main ruler playhead below (updateRulerPlayhead): the cursor
+  // runs out to the middle of the panel and from there the tab moves under
+  // it instead, coming off-centre again only once there's nothing left to
+  // scroll to at the end. Runs off the same real, tempo-accumulated bar
+  // times the DAW's own guide and note timeline already trust, not
+  // alphaTab's internal tick clock, so it stays right even though the
+  // alphaTex sent to alphaTab only encodes a single starting tempo.
   //
   // Called every animation frame during playback (see tick/updateRulerPlayhead),
-  // so rather than jumping once per bar this interpolates the scroll
-  // position continuously between the current bar's x and the next one's,
-  // proportional to how far through the bar t already is — a smooth
-  // scroll instead of a stepped one.
-  const TAB_CURSOR_OFFSET = 40;
+  // so rather than jumping once per bar this interpolates x continuously
+  // between the current bar's position and the next one's, proportional to
+  // how far through the bar t already is — smooth motion, not stepped.
   function syncTabToTime(t){
     if(!tabs.length || !tabLiveApi || !tabBarStarts.length || tabPosDragging) return;
     const host = el("nm-tabtop-host");
@@ -8034,7 +8034,23 @@ const Mixer = (() => {
       const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
       x += frac * (nextMb.realBounds.x - mb.realBounds.x);
     }
-    host.scrollLeft = Math.max(0, x - TAB_CURSOR_OFFSET);
+
+    const view = host.clientWidth;
+    const total = host.scrollWidth;
+    let cursorX = x;
+    if(total > view){
+      const centre = view / 2;
+      const target = Math.max(0, Math.min(total - view, x - centre));
+      // Snap when the jump is large (a track swap or a fresh load); glide
+      // for ordinary playback — identical heuristic to the main timeline.
+      host.scrollLeft = Math.abs(host.scrollLeft - target) > view * 0.5
+        ? target
+        : host.scrollLeft + (target - host.scrollLeft) * 0.35;
+      cursorX = x - host.scrollLeft;
+    } else {
+      host.scrollLeft = 0;
+    }
+    el("nm-tabtop-cursor").style.left = cursorX + "px";
     el("nm-tabtop-barlabel").textContent = "Takt " + (bar + 1);
     syncTabPosRange();
   }
