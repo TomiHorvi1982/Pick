@@ -144,6 +144,23 @@ def stretch_asset(name: str):
                     headers={"Cache-Control": "public, max-age=604800"})
 
 
+_re_ladicka_asset = _re_mod.compile(r"[A-Za-z0-9_.-]+\.(js|txt|md)")
+
+
+@app.get("/static/ladicka/{name}")
+def ladicka_asset(name: str):
+    """The vendored tuner web component (one file) and its licence."""
+    if not _re_ladicka_asset.fullmatch(name):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "static" / "ladicka" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    media = "text/javascript" if name.endswith(".js") else "text/plain; charset=utf-8"
+    return Response(path.read_bytes(), media_type=media,
+                    headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/static/nam/{name}")
 def nam_asset(name: str):
     """The vendored NAM engine: its worklet, its glue and its wasm.

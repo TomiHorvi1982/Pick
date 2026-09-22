@@ -1617,6 +1617,13 @@
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
   .nm-lyr-lines .cur{font-size:clamp(24px,3vw,38px);font-weight:800;color:#fff;letter-spacing:-.01em;
     padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  /* The tuner takes the app's colours through its own CSS variables. */
+  .tuner-body{background:#121214;overflow:auto;padding:10px}
+  neverlast-ladicka{--nl-lampa:#1ed760;--nl-signal:#1ed760;--nl-plocha:#26262c;--nl-vhloubeni:#0c0c0f;
+    --nl-text:#f1f1f3;--nl-tlum:#a7a7ad;--nl-slaby:#8b8b92;--nl-pismo:inherit;--nl-pismo-cisla:inherit;display:block}
+  .gt-tuner{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+    border:none;border-radius:5px;background:transparent;color:var(--nm-sub);cursor:pointer;padding:0}
+  .gt-tuner:hover{background:#2a2a33;color:var(--nm-gold,#e8c840)}
   .lyr-float-body{background:#0c0c10;display:flex;align-items:center;justify-content:center;padding:10px 18px}
   .lyr-float-body .nm-lyr-lines{width:100%}
   .lyr-float-body .nm-lyr-lines .prev,.lyr-float-body .nm-lyr-lines .next{font-size:clamp(13px,2.4vw,20px)}
@@ -2989,6 +2996,16 @@
   </div>
   <div class="float-body lyr-float-body" id="lyr-float-body"></div>
   <div class="float-grip" id="lyr-float-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<!-- The tuner (vendored <neverlast-ladicka>), opened from the live guitar strip. -->
+<div class="float-win tuner-float" id="tuner-float" hidden>
+  <div class="float-head" id="tuner-float-head">
+    <span class="float-title">Ladička</span>
+    <button class="float-btn" id="tuner-float-close" title="Zavřít a vypnout mikrofon"><span data-icon="close" data-size="13"></span></button>
+  </div>
+  <div class="float-body tuner-body" id="tuner-float-body"></div>
+  <div class="float-grip" id="tuner-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -4628,6 +4645,8 @@ const ICONS = (() => {
       line("M7.6 4.4h8.8v4.9a4.4 4.4 0 0 1-8.8 0Z") +
       line("M7.6 6.2H5.2a2 2 0 0 0 0 4h2.4M16.4 6.2h2.4a2 2 0 0 1 0 4h-2.4") +
       line("M12 13.7v3.5M8.8 20.2h6.4l-.8-3h-4.8Z"),
+    tuner:
+      line("M8.6 3.4v7.2a3.4 3.4 0 0 0 6.8 0V3.4") + line("M12 14v6.6") + line("M9.6 20.6h4.8"),
     guitar:
       line("M19.6 4.4 16.9 7.1") +
       line("M20.4 3.6 18 6") +
@@ -6900,6 +6919,61 @@ const Mixer = (() => {
       showToast("Pod tímhle názvem text s časy není");
     }
   };
+
+  // ---- the tuner ----
+  //
+  // <neverlast-ladicka> is loaded the first time it is asked for. It listens on
+  // the system's default input, so with an interface that is not the default
+  // the guitar has to be plugged into the default one, or the interface set as
+  // the default, for it to hear anything.
+  const Tuner = (() => {
+    const FloatTuner = makeFloating("tuner-float", {defaults: {width: 380, height: 540}});
+    const KEY = "spotdl-gui-tuner-ladeni";
+    let mod = null, node = null;
+
+    // A tab that is tuned to something other than standard should open the
+    // tuner on that tuning. The tab lists strings high to low as MIDI notes.
+    function tuningFromTab(){
+      const t = tabs[0] && tabs[0].data && tabs[0].data.tuning;
+      if(!t || !mod) return null;
+      const want = t.slice().reverse().join(",");
+      const midi = (name) => Math.round(69 + 12 * Math.log2(mod.frekvenceTonu(name) / 440));
+      const hit = mod.LADENI.find(l => l.struny.map(midi).join(",") === want);
+      return hit ? hit.id : null;
+    }
+
+    async function open(){
+      if(!mod){
+        try{ mod = await import("/static/ladicka/neverlast-ladicka.js"); }
+        catch(e){ console.error("tuner:", e); showToast("Ladičku se nepodařilo načíst"); return; }
+      }
+      if(!node){
+        node = document.createElement("neverlast-ladicka");
+        let saved = null;
+        try{ saved = localStorage.getItem(KEY); }catch(e){}
+        node.setAttribute("ladeni", saved || "standard");
+        el("tuner-float-body").appendChild(node);
+        // Remember the tuning that was picked.
+        new MutationObserver(() => {
+          try{ localStorage.setItem(KEY, node.getAttribute("ladeni") || "standard"); }catch(e){}
+        }).observe(node, {attributes: true, attributeFilter: ["ladeni"]});
+      }
+      const fromTab = tuningFromTab();
+      if(fromTab) node.setAttribute("ladeni", fromTab);
+      FloatTuner.open();
+    }
+
+    // Closing the window must also close the microphone.
+    function close(){
+      if(node && typeof node.stop === "function") node.stop();
+      FloatTuner.close();
+    }
+
+    function toggle(){ FloatTuner.isOpen() ? close() : open(); }
+
+    el("tuner-float-close").onclick = close;
+    return {open, close, toggle};
+  })();
 
   // A different song has a different text.
   function resetLyrics(){
@@ -9867,6 +9941,7 @@ const Mixer = (() => {
       <div class="nm-strip-top">
         <span class="nm-strip-icon">${icon("guitar", 13)}</span>
         <span class="nm-strip-name">Kytara</span>
+        <button class="gt-tuner" title="Ladička">${icon("tuner", 14)}</button>
         <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
         <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
       </div>
@@ -9919,6 +9994,7 @@ const Mixer = (() => {
 
   function wireGuitarStrip(strip){
     const g = Guitar.state;
+    strip.querySelector(".gt-tuner").onclick = () => Tuner.toggle();
     strip.querySelector(".gt-guide").addEventListener("input", (e) => {
       Guitar.setGuideVolume(parseFloat(e.target.value));
       queueSessionSave();
