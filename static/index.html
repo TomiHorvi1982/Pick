@@ -307,21 +307,6 @@
   .video-mode-toggle button.active{background:var(--accent);color:#04211d}
   .video-mode-toggle button:hover:not(.active){color:var(--text)}
 
-  /* Top search result */
-  .top-result-card{background:var(--card);border:1px solid var(--border);
-    border-radius:14px;overflow:hidden;margin-bottom:20px;
-    display:flex;gap:16px;padding:16px;align-items:center}
-  .top-result-card .top-art{width:120px;height:120px;border-radius:10px;
-    background:var(--bg2) center/cover no-repeat;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--sub)}
-  .top-result-card .top-info{flex:1;min-width:0}
-  .top-result-card .top-label{font-size:11px;text-transform:uppercase;
-    letter-spacing:.06em;color:var(--gold);font-weight:700;margin-bottom:6px}
-  .top-result-card .top-title{font-size:17px;font-weight:700;margin-bottom:4px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .top-result-card .top-sub{font-size:13px;color:var(--sub);margin-bottom:8px}
-  .top-result-card .top-actions{display:flex;gap:8px;flex-wrap:wrap}
-
   /* Library section */
   .library-section{padding:20px;max-width:1200px;margin:0 auto;padding-bottom:130px}
   .library-section[hidden]{display:none}
@@ -1281,7 +1266,7 @@
 
   /* Sections carry the page gutter; heroes bleed back out to the card edge. */
   #browse-section,#library-section,#my-library-section,#podcasts-section,
-  #steems-section,#results-title,.search-history,#top-result-container,
+  #steems-section,#results-title,.search-history,
   #results-grid,.load-more-wrap,.artist-suggest,#artists-section{padding-left:32px;padding-right:32px}
   #browse-section{padding-top:24px}
   #steems-section,#library-section,#podcasts-section,#my-library-section,#artists-section{padding-top:24px}
@@ -2775,7 +2760,6 @@
 
   <div class="section-title" id="results-title" hidden>Výsledky</div>
   <div class="search-history" id="search-history"></div>
-  <div id="top-result-container"></div>
   <div class="grid" id="results-grid"></div>
   <div class="load-more-wrap" id="load-more-wrap" hidden>
     <button class="btn secondary" id="load-more-btn">Načíst další výsledky</button>
@@ -3817,6 +3801,10 @@ const Bands = (() => {
 
   async function open(a){
     const mine = ++pageToken;
+    pushNav("artist:" + (a.browseId || a.channelId || a.name || ""), () => {
+      setMode("songs", {keepSection: true});
+      open(a);
+    });
     document.body.classList.remove("ab-dock");
     closeOverlay();
     el("ab-browse").hidden = true;
@@ -4073,10 +4061,13 @@ document.querySelectorAll("#lib-chips button").forEach(btn => {
   btn.onclick = () => setMode(btn.dataset.mode);
 });
 
-function setMode(mode){
-  // A playlist page is stacked over the stage, so switching sections left it
-  // covering whatever the new section rendered underneath.
-  if(state.mode !== mode) closeOverlay();
+function setMode(mode, opts){
+  opts = opts || {};
+  // A playlist/song overlay is stacked over the stage. Unconditional: this
+  // also runs for a nav restore that lands back on an unchanged mode (e.g.
+  // going back from a playlist to the search results behind it), which
+  // needs the overlay gone just as much as an actual mode switch does.
+  closeOverlay();
   state.mode = mode;
   document.querySelectorAll("#lib-chips button").forEach(b =>
     b.classList.toggle("active", b.dataset.mode === mode));
@@ -4085,9 +4076,13 @@ function setMode(mode){
     ? "Hledej žánr, náladu, éru…"
     : mode === "songs" ? "Hledej píseň nebo interpreta…" : "Co chceš přehrát?";
   regionToggle.style.display = mode === "playlists" ? "flex" : "none";
-  grid.innerHTML = "";
-  resultsTitle.hidden = true;
-  el("load-more-wrap").hidden = true;
+  // A restore (search results, a library folder, …) paints its own content
+  // right after this and would otherwise flash the browse chips first.
+  if(!opts.keepSection){
+    grid.innerHTML = "";
+    resultsTitle.hidden = true;
+    el("load-more-wrap").hidden = true;
+  }
   // Browse chips belong to the two search modes only.
   browseSection.hidden = mode !== "playlists";
   el("artists-section").hidden = mode !== "songs";
@@ -4096,12 +4091,14 @@ function setMode(mode){
   el("podcasts-section").hidden = mode !== "podcasts";
   el("my-library-section").hidden = true;
   if(mode === "library"){
-    loadLibraryFolder("");
     renderMyLibrary();
+    // loadLibraryFolder pushes its own (folder-specific) nav entry; letting
+    // it run here too would double up on a plain mode switch.
+    if(!opts.keepSection) loadLibraryFolder("");
   } else if(mode === "steems"){
-    loadSteemsList();
+    if(!opts.keepSection) loadSteemsList();
   } else if(mode === "podcasts"){
-    loadPodcastsList();
+    if(!opts.keepSection) loadPodcastsList();
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -4109,9 +4106,13 @@ function setMode(mode){
   updateArtistSuggestions();
   renderSearchCriteria();
   renderSearchHistory();
-  if(mode === "songs") Bands.show();
+  if(mode === "songs" && !opts.keepSection) Bands.show();
   renderLibraryRail(mode);
-  pushNav({type: "mode", mode});
+  // Library/Steems/Podcasts each push their own, more specific entry (the
+  // folder, the song, the show) from the function that actually loads it.
+  if(!opts.keepSection && mode !== "library" && mode !== "steems" && mode !== "podcasts"){
+    pushNav("mode:" + mode, () => setMode(mode));
+  }
 }
 
 // Artist profile and releases for whatever is playing. Cached per name so
@@ -5265,6 +5266,10 @@ function libraryTrackMeta(name, rel){
 }
 
 async function loadLibraryFolder(rel){
+  pushNav("library:" + rel, () => {
+    setMode("library", {keepSection: true});
+    loadLibraryFolder(rel);
+  });
   const list = el("library-list");
   list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
   el("library-play-all").hidden = true;
@@ -5528,7 +5533,14 @@ let libraryRailEntries = [];    // last folder listing, mirrored into the rail
 let libraryCurrentRel = "";     // folder the stage is showing, for tree highlight
 
 async function loadSteemsList(){
+  pushNav("steems:list", () => { setMode("steems", {keepSection: true}); loadSteemsList(); });
+  // Whatever song's hero was showing, the plain list is a different step.
+  el("steems-hero").hidden = true;
+  el("steems-section").style.paddingTop = "";
+  el("steems-list-title").hidden = false;
+  currentSteemsName = null;
   const list = el("steems-list");
+  list.hidden = false;
   list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
   el("mixer").hidden = true;
   try{
@@ -5693,6 +5705,10 @@ async function runStemsConversion(preview){
 }
 
 function loadMixerSong(name){
+  pushNav("steems:song:" + name, () => {
+    setMode("steems", {keepSection: true});
+    loadMixerSong(name);
+  });
   currentSteemsName = name;
   showSteemsHero(name);
   // Ensure song has stems array
@@ -10519,6 +10535,15 @@ async function runSearch(more=false){
   const q = el("search-input").value.trim();
   if(!q) return;
   if(!more) lastLimit = 40; else lastLimit += 24;
+  if(!more){
+    saveSearchHistoryItem(q);
+    const searchMode = state.mode;
+    pushNav("search:" + searchMode + ":" + q, () => {
+      el("search-input").value = q;
+      setMode(searchMode, {keepSection: true});
+      runSearch();
+    });
+  }
 
   browseSection.hidden = true;
   el("artists-section").hidden = true;
@@ -10606,7 +10631,7 @@ function closeOverlay(){ overlay.hidden = true; panel.innerHTML = ""; document.b
 overlay.addEventListener("click", e => { if(e.target === overlay) closeOverlay(); });
 
 async function openPlaylist(browseId){
-  pushNav({type: "playlist", id: browseId});
+  pushNav("playlist:" + browseId, () => openPlaylist(browseId));
   overlay.hidden = false;
   panel.innerHTML = `<div class="empty" style="padding-top:80px"><span class="spinner"></span> Načítám playlist…</div>`;
   if(!state.libraryStems) await loadLibrary();
@@ -10833,6 +10858,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
 // Song detail
 // ======================================================================
 async function openSongDetail(t){
+  pushNav("song:" + (t.id || t.title || ""), () => openSongDetail(t));
   overlay.hidden = false;
   panel.innerHTML = `
     <div class="panel-head">
@@ -11889,6 +11915,7 @@ el("settings-save").onclick = async () => {
 const PODCASTS_STATE = { shows: [], query: "", loading: false, region: "cz" };
 
 async function loadPodcastsList(){
+  pushNav("podcasts:list", () => { setMode("podcasts", {keepSection: true}); loadPodcastsList(); });
   const list = el("podcasts-list");
   const detail = el("podcast-detail");
   detail.hidden = true;
@@ -11947,6 +11974,10 @@ function renderPodcastsGrid(){
 }
 
 async function openPodcastShow(show){
+  pushNav("podcasts:show:" + (show.id || show.title || ""), () => {
+    setMode("podcasts", {keepSection: true});
+    openPodcastShow(show);
+  });
   const list = el("podcasts-list");
   const detail = el("podcast-detail");
   list.hidden = true;
@@ -12332,88 +12363,6 @@ function renderSearchHistory() {
 }
 
 // ======================================================================
-// Top search result (Kaset-inspired: prominent best match)
-// ======================================================================
-async function fetchTopResult(q) {
-  try {
-    const res = await fetch(`/api/search/top?q=${encodeURIComponent(q)}&limit=6`);
-    return await res.json();
-  } catch(e) {
-    return { top: null, suggestions: [] };
-  }
-}
-
-function renderTopResult(data) {
-  const container = el("top-result-container");
-  if (!container) return;
-  if (!data || !data.top) { container.innerHTML = ""; return; }
-  
-  const top = data.top;
-  const thumb = top.thumbnail || "";
-  container.innerHTML = `
-    <div class="top-result-card">
-      <div class="top-art" style="${thumb ? `background-image:url('${thumbUrl(thumb)}')` : ""}">${thumb ? "" : icon("note", 26)}</div>
-      <div class="top-info">
-        <div class="top-label">${icon("trophy", 14)} Nejlepší výsledek</div>
-        <div class="top-title">${escapeHtml(top.title || "")}</div>
-        <div class="top-sub">${escapeHtml(top.artists || "")}${top.album ? " · " + escapeHtml(top.album) : ""}</div>
-        <div class="top-actions">
-          <button class="btn" id="top-play">${icon("play", 12)}Přehrát</button>
-          <button class="btn secondary" id="top-add">${icon("add", 14)}Do playlistu</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  el("top-play").onclick = () => {
-    Player.play({
-      key: "top:" + top.videoId,
-      title: top.title,
-      artists: top.artists,
-      thumbnail: top.thumbnail,
-      videoId: top.videoId,
-    });
-  };
-  el("top-add").onclick = () => {
-    addToQueue({
-      key: "top:" + top.videoId,
-      title: top.title,
-      artists: top.artists,
-      duration_seconds: top.duration_seconds,
-      thumbnail: top.thumbnail,
-      source: "youtube",
-    });
-  };
-}
-
-// ======================================================================
-// Enhanced runSearch with top result + history
-// ======================================================================
-const _originalRunSearch = runSearch;
-runSearch = async function(more = false) {
-  const q = el("search-input").value.trim();
-  if (!q) return;
-  
-  // Save to search history
-  if (!more) {
-    saveSearchHistoryItem(q);
-    renderSearchHistory();
-  }
-  
-  // Fetch top result in parallel
-  const topPromise = fetchTopResult(q);
-  
-  // Call original search
-  await _originalRunSearch(more);
-  
-  // Render top result if not loading more
-  if (!more) {
-    const topData = await topPromise;
-    renderTopResult(topData);
-  }
-};
-
-// ======================================================================
 // Init
 // ======================================================================
 renderStaticChips();
@@ -12761,16 +12710,17 @@ const navHistory = [];
 let navPos = -1;
 let navSuppress = false;   // set while *applying* an entry, so it isn't re-pushed
 
-function sameView(a, b){
-  if(!a || !b || a.type !== b.type) return false;
-  return a.type === "mode" ? a.mode === b.mode : a.id === b.id;
-}
-
-function pushNav(entry){
+// Each entry is a `key` (for de-duping consecutive identical steps) plus a
+// `run` closure that puts the middle panel back exactly how it looked —
+// a search, an artist page, a library folder, a loaded Steems song, a
+// podcast show, a playlist or song detail. The function that reaches a step
+// pushes it; back/forward just replays run() with navSuppress up so that
+// call doesn't push a second entry.
+function pushNav(key, run){
   if(navSuppress) return;
-  if(sameView(navHistory[navPos], entry)) return;   // no self-entries
-  navHistory.splice(navPos + 1);                    // a new move truncates "forward"
-  navHistory.push(entry);
+  if(navHistory[navPos] && navHistory[navPos].key === key) return;  // no self-entries
+  navHistory.splice(navPos + 1);                                    // a new move truncates "forward"
+  navHistory.push({key, run});
   navPos = navHistory.length - 1;
   paintNavButtons();
 }
@@ -12780,25 +12730,13 @@ function paintNavButtons(){
   el("nav-fwd").disabled = navPos >= navHistory.length - 1;
 }
 
-function applyNav(entry){
-  navSuppress = true;
-  try{
-    if(entry.type === "mode"){
-      closeOverlay();
-      setMode(entry.mode);
-    } else if(entry.type === "playlist"){
-      openPlaylist(entry.id);
-    }
-  } finally {
-    navSuppress = false;
-  }
-}
-
 function navGo(delta){
   const next = navPos + delta;
   if(next < 0 || next >= navHistory.length) return;
   navPos = next;
-  applyNav(navHistory[navPos]);
+  navSuppress = true;
+  try{ navHistory[navPos].run(); }
+  finally{ navSuppress = false; }
   paintNavButtons();
 }
 
@@ -12809,7 +12747,7 @@ paintNavButtons();
 renderLibraryRail(state.mode);
 // The app renders its first view without going through setMode, so seed the
 // history here — otherwise "back" stays dead until the second navigation.
-pushNav({type: "mode", mode: state.mode});
+pushNav("mode:" + state.mode, () => setMode(state.mode));
 
 // ======================================================================
 // Remote control agent.
