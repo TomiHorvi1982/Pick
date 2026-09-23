@@ -5593,7 +5593,7 @@ function renderHomeRail(list){
 
   let collapsed = railSection(list, "fronta", "Fronta", queue.length);
   railRows(list, "fronta", collapsed, queue.length
-    ? queue.map(t => trackRow(t, () => Player.play(t)))
+    ? queue.map(t => trackRow(t, () => Player.playQueueFrom(t)))
     : [libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat.")]);
 
   collapsed = railSection(list, "historie", "Historie", history.length);
@@ -11852,8 +11852,35 @@ async function openSongDetail(t){
 // play any of them from the central player, download them all together.
 // ======================================================================
 const QUEUE_KEY = "spotdl-gui-queue";
+// Player.play()/playQueueAt() can only resolve a track to something
+// audible via track.relPath (a local file), track.videoId (YouTube) or
+// track.spotifyQuery (looked up against /api/preview). Every add-to-queue
+// button across the app builds its item from a "yt:ID"/"sp:ID" key but
+// several of them never carried the matching videoId/spotifyQuery field
+// alongside it — the item saved fine, but nothing could ever play it back
+// out of the queue. Backfilling from the key here means it's fixed once,
+// for every past and future queue item, not one at-risk call site at a time.
+function ensurePlayable(item){
+  if(!item || item.relPath || item.videoId || item.spotifyQuery) return item;
+  if(typeof item.key === "string"){
+    if(item.key.startsWith("yt:")) item.videoId = item.key.slice(3);
+    else if(item.key.startsWith("sp:") && (item.artists || item.title)){
+      item.spotifyQuery = `${item.artists || ""} ${item.title || ""}`.trim();
+    }
+  }
+  return item;
+}
 function loadQueue(){
-  try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){ return []; }
+  let queue;
+  try{ queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){ return []; }
+  let changed = false;
+  queue.forEach(item => {
+    const before = item.videoId || item.spotifyQuery;
+    ensurePlayable(item);
+    if(!before && (item.videoId || item.spotifyQuery)) changed = true;
+  });
+  if(changed) saveQueue(queue);
+  return queue;
 }
 function saveQueue(queue){
   try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); }catch(e){}
@@ -11864,7 +11891,7 @@ function addToQueue(item, silent=false){
     if(!silent) showToast("Už je v playlistu");
     return false;
   }
-  queue.push(item);
+  queue.push(ensurePlayable(item));
   saveQueue(queue);
   renderQueueBadge();
   if(!silent) showToast("Přidáno do playlistu");
@@ -11899,7 +11926,7 @@ function renderQueueDrawer(){
         <button class="mini-btn play" title="Přehrát">${icon("play", 12)}</button>
         <button class="mini-btn rm" title="Odebrat">${icon("close", 11)}</button>
       `;
-      row.querySelector(".play").onclick = () => Player.play(c);
+      row.querySelector(".play").onclick = () => Player.playQueueFrom(c);
       row.querySelector(".rm").onclick = () => removeFromQueue(c.key);
       items.appendChild(row);
     });
@@ -12018,11 +12045,26 @@ const Player = (() => {
     plEl.hidden = !sourcePlaylist;
   }
 
-  async function play(track){
+  // One resolve-and-play step for whatever sits at playQueueList[idx],
+  // shared by every way of starting playback (a single ad-hoc track, a
+  // local "play all", or a saved queue/playlist) so next/prev/shuffle/
+  // repeat and the "ended" handler below all walk the same list no matter
+  // where the track came from or whether it's a local file or a stream
+  // that still needs a videoId looked up.
+  async function playQueueAt(idx){
     const myToken = ++playToken;
-    playQueueList = [track];
-    playQueueIdx = 0;
+    const track = playQueueList[idx];
+    playQueueIdx = idx;
     current = track;
+
+    if(track.relPath){
+      audio.src = `/api/library/stream?rel=${encodeURIComponent(track.relPath)}`;
+      audio.play().catch(()=>{});
+      setMeta(track.title || track.relPath, track.artists || "", null, track.sourcePlaylist);
+      pushHistory({...track, source: "local", key: "local:"+track.relPath});
+      return;
+    }
+
     setMeta(track.title || "", "Hledám…", track.thumbnail, track.sourcePlaylist);
     let videoId = track.videoId;
     if(!videoId && track.spotifyQuery){
@@ -12050,26 +12092,35 @@ const Player = (() => {
     pushHistory({...track, videoId});
   }
 
+  function play(track){
+    playQueueList = [track];
+    return playQueueAt(0);
+  }
+
   function playLocal(track){
     playQueueList = [track];
-    return playLocalAt(0);
+    return playQueueAt(0);
   }
 
   function playLocalQueue(tracks){
     if(!tracks.length) return;
     playQueueList = tracks;
-    return playLocalAt(0);
+    return playQueueAt(0);
   }
 
-  function playLocalAt(idx){
-    ++playToken;
-    const track = playQueueList[idx];
-    playQueueIdx = idx;
-    current = track;
-    audio.src = `/api/library/stream?rel=${encodeURIComponent(track.relPath)}`;
-    audio.play().catch(()=>{});
-    setMeta(track.title || track.relPath, track.artists || "", null, track.sourcePlaylist);
-    pushHistory({...track, source: "local", key: "local:"+track.relPath});
+  // Play a track from the saved queue/playlist ("Fronta") and keep going
+  // through the rest of it afterward — the queue drawer and the Fronta
+  // rail both used to call plain play(), which always set a queue of just
+  // that one track, so the song after it had nothing to advance to and
+  // ended playback outright ("po skončení songu musím najít znova
+  // playlist"). This looks the clicked track up in the real saved queue
+  // and starts from there instead.
+  function playQueueFrom(track){
+    const saved = loadQueue();
+    const idx = saved.findIndex(c => c.key === track.key);
+    if(idx < 0){ playQueueList = [track]; return playQueueAt(0); }
+    playQueueList = saved;
+    return playQueueAt(idx);
   }
 
   audio.addEventListener("error", () => {
@@ -12100,14 +12151,14 @@ const Player = (() => {
     if(playQueueIdx < 0 || !playQueueList.length) return;
     const next = delta > 0 ? queueNext()
       : (playQueueIdx > 0 ? playQueueIdx - 1 : (repeatMode === "all" ? playQueueList.length - 1 : 0));
-    if(next >= 0) playLocalAt(next);
+    if(next >= 0) playQueueAt(next);
   }
 
   audio.addEventListener("ended", () => {
     // Repeat-one restarts the same file rather than walking the queue.
     if(repeatMode === "one"){ audio.currentTime = 0; audio.play().catch(()=>{}); return; }
     const next = queueNext();
-    if(next >= 0) playLocalAt(next);
+    if(next >= 0) playQueueAt(next);
     else { setPlayIcon(false); playBtn.classList.remove("playing"); }
   });
 
@@ -12392,7 +12443,7 @@ const Player = (() => {
   });
 
   return {
-    play, playLocal, playLocalQueue, playPodcastEpisode,
+    play, playLocal, playLocalQueue, playQueueFrom, playPodcastEpisode,
     getCurrent: () => current,
     // Fade the song out as another element takes over playback, and stop it
     // only once that element is really running.
