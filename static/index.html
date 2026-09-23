@@ -7997,12 +7997,21 @@ const Mixer = (() => {
   // the whole line instead of a cramped one). Same host element and
   // AlphaTabApi both times — just reparented and re-rendered, not rebuilt. ----
   const FloatTab = makeFloating("tab-float", {defaults: {width: 760, height: 560}});
+  // The docked (horizontal) view's own scale, remembered across a detach —
+  // zooming around while reading the floated, wrapped view is a separate
+  // concern and shouldn't leave the docked view any bigger or smaller than
+  // it was; docking always puts it back exactly where it was.
+  let tabDockedScale = 1;
 
   function detachTab(){
+    tabDockedScale = tabLiveScale;
     el("tab-float-body").appendChild(el("nm-tabtop-hostwrap"));
     el("nm-tabtop-pos").hidden = true;
     if(tabLiveApi){
-      tabLiveApi.settings.display.layoutMode = "page";
+      // The live settings object wants the actual enum value here, not the
+      // string the constructor's own JSON-style options happily accepted —
+      // assigning the string silently failed to switch the layout at all.
+      tabLiveApi.settings.display.layoutMode = window.alphaTab.LayoutMode.Page;
       tabLiveApi.updateSettings();
       tabLiveApi.render();
     }
@@ -8013,7 +8022,9 @@ const Mixer = (() => {
     if(wrap.parentElement !== el("nm-tabtop")) el("nm-tabtop").insertBefore(wrap, el("nm-tabtop-pos"));
     el("nm-tabtop-pos").hidden = false;
     if(tabLiveApi){
-      tabLiveApi.settings.display.layoutMode = "horizontal";
+      tabLiveScale = tabDockedScale;
+      tabLiveApi.settings.display.layoutMode = window.alphaTab.LayoutMode.Horizontal;
+      tabLiveApi.settings.display.scale = tabLiveScale;
       tabLiveApi.updateSettings();
       tabLiveApi.render();
     }
@@ -8092,17 +8103,18 @@ const Mixer = (() => {
       x += frac * (nextMb.realBounds.x - mb.realBounds.x);
     }
 
+    // x is already interpolated smoothly (see above), so the scroll needs
+    // no easing of its own on top — applying target directly keeps the
+    // cursor and the "Takt N" label both exactly where the bottom ruler
+    // playhead actually is, every frame, rather than visibly trailing it
+    // during a fast passage (an eased scroll here was a real, wrong lag,
+    // not just a cosmetic smoothing choice).
     const view = host.clientWidth;
     const total = host.scrollWidth;
     let cursorX = x;
     if(total > view){
       const centre = view / 2;
-      const target = Math.max(0, Math.min(total - view, x - centre));
-      // Snap when the jump is large (a track swap or a fresh load); glide
-      // for ordinary playback — identical heuristic to the main timeline.
-      host.scrollLeft = Math.abs(host.scrollLeft - target) > view * 0.5
-        ? target
-        : host.scrollLeft + (target - host.scrollLeft) * 0.35;
+      host.scrollLeft = Math.max(0, Math.min(total - view, x - centre));
       cursorX = x - host.scrollLeft;
     } else {
       host.scrollLeft = 0;
