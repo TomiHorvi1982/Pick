@@ -683,7 +683,9 @@ _BROWSE_INTL = ["{q}", "{q} bands", "best {q} artists", "{q} singers",
                 "{q} legends", "new {q} artists", "underground {q}"]
 _BROWSE_CZ = ["české {q} kapely", "česká {q} hudba interpreti", "czech {q} band",
               "čeští {q} zpěváci", "{q} czech artists", "české {q} legendy",
-              "slovenské {q} kapely"]
+              "slovenské {q} kapely", "nejlepší čeští {q} interpreti",
+              "česká {q} scéna", "mladé české {q} kapely",
+              "český {q} underground", "moravské {q} kapely"]
 
 
 @app.get("/api/artists/browse")
@@ -4115,6 +4117,38 @@ CZ_PODCAST_QUERIES = [
     "historie podcast česky",
     "věda podcast česky",
     "komedie podcast česky",
+    "vesmír podcast česky",
+    "technologie podcast česky",
+    "sociologie podcast česky",
+    "psychologie podcast česky",
+    "hudba podcast česky",
+    "filozofie podcast česky",
+    "byznys podcast česky",
+    "zdraví podcast česky",
+    "sport podcast česky",
+    "cestování podcast česky",
+]
+
+# The sidebar's Podcasty branch (Věda, Vesmír, Humor, …) — one query per
+# topic, run on demand only when that branch is opened rather than folded
+# into the default CZ pool above, so picking a topic actually narrows things
+# instead of the same 40-show mix appearing under every heading.
+PODCAST_TOPICS = [
+    ("veda", "Věda", "věda podcast česky"),
+    ("vesmir", "Vesmír", "vesmír astronomie podcast česky"),
+    ("humor", "Humor", "humor komedie podcast česky"),
+    ("technika", "Technika", "technologie technika podcast česky"),
+    ("sociologie", "Sociologie", "sociologie společnost podcast česky"),
+    ("psychologie", "Psychologie", "psychologie podcast česky"),
+    ("historie", "Historie", "historie podcast česky"),
+    ("hudba", "Hudba", "hudba podcast česky"),
+    ("filozofie", "Filozofie", "filozofie podcast česky"),
+    ("zdravi", "Zdraví", "zdraví podcast česky"),
+    ("byznys", "Byznys a finance", "byznys finance podcast česky"),
+    ("sport", "Sport", "sport podcast česky"),
+    ("cestovani", "Cestování", "cestování podcast česky"),
+    ("literatura", "Literatura", "knihy literatura podcast česky"),
+    ("politika", "Politika", "politika podcast česky"),
 ]
 
 INTL_PODCAST_QUERIES = ["podcast"]
@@ -4141,15 +4175,30 @@ def _podcast_rows(client, query, limit):
     return rows
 
 
+@app.get("/api/podcasts/topics")
+def podcast_topics():
+    """Topic list for the sidebar's Podcasty branch — key/label only; the
+    actual query string stays server-side."""
+    return [{"key": key, "label": label} for key, label, _q in PODCAST_TOPICS]
+
+
 @app.get("/api/podcasts")
-def search_podcasts(q: str = "", region: str = "cz", limit: int = 40):
+def search_podcasts(q: str = "", region: str = "cz", limit: int = 40, topic: str = ""):
     """Search for podcasts via YouTube Music (which indexes podcast shows).
 
     With no query, `region` picks a curated set of searches; Czech is the
     default because a bare "podcast" search returns essentially no Czech
-    shows. Episode fetching is deferred to /api/podcasts/{show_id}.
+    shows. `topic` (a PODCAST_TOPICS key) runs that one topic's query alone,
+    for the sidebar's Podcasty branch. Episode fetching is deferred to
+    /api/podcasts/{show_id}.
     """
     client = yt()
+
+    if topic.strip():
+        match = next((t for t in PODCAST_TOPICS if t[0] == topic.strip()), None)
+        if not match:
+            return JSONResponse({"error": "Neplatné téma."}, status_code=400)
+        return _podcast_rows(client, match[2], limit)
 
     if q.strip():
         return _podcast_rows(client, q.strip(), limit)

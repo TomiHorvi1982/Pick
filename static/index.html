@@ -3336,13 +3336,14 @@ const DECADES = [
   {label:"2020s", value:"2020s"}, {label:"Nejnovější", value:"2025 2026"},
 ];
 const TOPN_PRESETS = [10, 20, 25, 30, 50, 100];
+// Used to be ~20 separate "* Metal" entries (Heavy/Thrash/Death/Black/Doom/…)
+// each its own row in the sidebar's Žánry branch — a wall of near-duplicates
+// for what a listener thinks of as one thing. Collapsed to a single "Metal"
+// entry; the non-metal Rock flavors stay split out since those aren't the
+// same complaint.
 const ROCK_METAL_GENRES = [
-  "Heavy Metal","Thrash Metal","Death Metal","Black Metal","Doom Metal","Power Metal",
-  "Speed Metal","Groove Metal","Nu Metal","Metalcore","Deathcore","Progressive Metal",
-  "Symphonic Metal","Gothic Metal","Folk Metal","Industrial Metal","Sludge Metal",
-  "Stoner Rock","Glam Metal","Classic Rock","Hard Rock","Punk Rock","Post-Rock",
-  "Alternative Rock","Grunge","Progressive Rock","Southern Rock","Female Fronted Metal",
-  "Melodic Death Metal","Rock Ballads",
+  "Metal","Stoner Rock","Classic Rock","Hard Rock","Punk Rock","Post-Rock",
+  "Alternative Rock","Grunge","Progressive Rock","Southern Rock","Rock Ballads",
 ];
 const POPULAR_TERMS = [
   "Best Rock Songs Of All Time","Best Metal Songs Of All Time","Gym Metal Motivation",
@@ -5364,16 +5365,38 @@ function renderLibraryRail(mode){
 // Playlisty and Kapely a um\u011Blci both have real browse categories behind
 // them (Dek\u00E1dy/\u017D\u00E1nry/N\u00E1lady/Top) \u2014 worth reaching from the rail itself,
 // one level deeper than a flat top-5, rather than only from inside the
-// mode once you're already there. The other three sections don't have an
-// equivalent (Knihovna already is a tree; Steems/Podcasty aren't
-// categorised), so they keep the plain top-5 above.
-const RAIL_BRANCH_SECTIONS = new Set(["playlists", "songs"]);
+// mode once you're already there. Knihovna already is a tree and Steems
+// isn't categorised, so those two keep the plain top-5 above; Podcasty gets
+// its own topic branches (below) instead of playlists/songs' dec/genre/
+// mood/top set, since "a decade" or "a mood" means nothing for a show.
 const RAIL_BRANCHES = [
   {key: "dec", title: "Dek\u00E1dy", icon: "clock"},
   {key: "genre", title: "\u017D\u00E1nry", icon: "guitar"},
   {key: "mood", title: "N\u00E1lady", icon: "masks"},
   {key: "top", title: "Top", icon: "trophy"},
 ];
+// One query per topic (the actual search phrase stays server-side, see
+// PODCAST_TOPICS in server.py) \u2014 opening a branch runs /api/podcasts?topic=
+// and the leaves are real shows, not further search terms to click through.
+const PODCAST_BRANCHES = [
+  {key: "veda", title: "V\u011Bda", icon: "grid"},
+  {key: "vesmir", title: "Vesm\u00EDr", icon: "disc"},
+  {key: "humor", title: "Humor", icon: "masks"},
+  {key: "technika", title: "Technika", icon: "settings"},
+  {key: "sociologie", title: "Sociologie", icon: "library"},
+  {key: "psychologie", title: "Psychologie", icon: "star"},
+  {key: "historie", title: "Historie", icon: "history"},
+  {key: "hudba", title: "Hudba", icon: "guitar"},
+  {key: "filozofie", title: "Filozofie", icon: "note"},
+  {key: "zdravi", title: "Zdrav\u00ED", icon: "check"},
+  {key: "byznys", title: "Byznys a finance", icon: "trophy"},
+  {key: "sport", title: "Sport", icon: "flame"},
+  {key: "cestovani", title: "Cestov\u00E1n\u00ED", icon: "globe"},
+  {key: "literatura", title: "Literatura", icon: "library"},
+  {key: "politika", title: "Politika", icon: "flag"},
+];
+const RAIL_BRANCH_SECTIONS_MAP = {playlists: RAIL_BRANCHES, songs: RAIL_BRANCHES, podcasts: PODCAST_BRANCHES};
+const RAIL_BRANCH_SECTIONS = new Set(Object.keys(RAIL_BRANCH_SECTIONS_MAP));
 
 // Which of a section's own branches are expanded \u2014 collapsed by default
 // (four branches times two sections times however many leaves each would
@@ -5411,7 +5434,15 @@ function getRailCharts(){
   return railChartsPromise;
 }
 
-async function fetchRailBranchLeaves(branchKey){
+async function fetchRailBranchLeaves(sectionKey, branchKey){
+  if(sectionKey === "podcasts"){
+    // Real shows, not further search terms — clicking one opens it directly.
+    try{
+      const res = await fetch(`/api/podcasts?topic=${encodeURIComponent(branchKey)}&limit=8`);
+      const shows = await res.json();
+      return shows.map(show => ({label: show.title || "", sub: show.author || show.publisher || "", show}));
+    }catch(e){ return []; }
+  }
   if(branchKey === "dec"){
     return Bands.DEC.map(([label, intl, cz]) => ({label, q: state.region === "cz" ? cz : intl}));
   }
@@ -5437,7 +5468,10 @@ async function fetchRailBranchLeaves(branchKey){
 // um\u011Blci can jump to the exact shelf by label; Playlisty has no such
 // per-shelf view, so it runs the same search a browse chip's click would.
 function railBranchLeafClick(sectionKey, branchKey, leaf){
-  if(sectionKey === "songs"){
+  if(sectionKey === "podcasts"){
+    setMode("podcasts", {keepSection: true});
+    if(leaf.show) openPodcastShow(leaf.show);
+  } else if(sectionKey === "songs"){
     setMode("songs", {keepSection: true});
     Bands.jumpTo(branchKey, leaf.label);
   } else {
@@ -5447,7 +5481,7 @@ function railBranchLeafClick(sectionKey, branchKey, leaf){
 }
 
 function renderRailBranches(list, sec, sectionCollapsed){
-  RAIL_BRANCHES.forEach(branch => {
+  RAIL_BRANCH_SECTIONS_MAP[sec.key].forEach(branch => {
     const branchKey = sec.key + ":" + branch.key;
     let open = openBranches.has(branchKey);
     const head = document.createElement("button");
@@ -5478,17 +5512,22 @@ function renderRailBranches(list, sec, sectionCollapsed){
       loading.dataset.sec = sec.key;
       loading.dataset.branchSec = branchKey;
       list.appendChild(loading);
-      fetchRailBranchLeaves(branch.key).then(leaves => {
+      fetchRailBranchLeaves(sec.key, branch.key).then(leaves => {
         if(!anchor.isConnected) return;
         const stillOpen = openBranches.has(branchKey);
         const stillSectionCollapsed = collapsedSections.has(sec.key);
         // Chart names ("Billboard Hot 100 (USA, singly)") are too specific
         // for an image search to land on anything meaningful \u2014 those keep
         // the plain trophy icon. A decade, genre or mood is exactly the
-        // kind of term the chips elsewhere already get real covers for.
-        const wantsThumb = branch.key !== "top";
+        // kind of term the chips elsewhere already get real covers for. A
+        // podcast leaf is a real show and already has its own artwork, so
+        // it skips the image-search thumb entirely rather than fetching a
+        // second, worse picture for something that already has one.
+        const wantsThumb = branch.key !== "top" && sec.key !== "podcasts";
         const rows = (leaves.length ? leaves.map(leaf => libRow({
-            art: icon(branch.icon, 18), name: leaf.label, sub: branch.title,
+            art: leaf.show && leaf.show.thumbnail ? leaf.show.thumbnail : icon(branch.icon, 18),
+            artIsUrl: !!(leaf.show && leaf.show.thumbnail),
+            name: leaf.label, sub: leaf.sub || branch.title,
             thumbSlot: wantsThumb,
             onClick: () => railBranchLeafClick(sec.key, branch.key, leaf),
           })) : [libEmpty("Nic tu nen\u00ED.")])
