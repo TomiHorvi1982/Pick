@@ -2296,9 +2296,20 @@ def library_browse(rel: str = ""):
                 "size_bytes": p.stat().st_size,
                 **_audio_tags(p),
             })
+        # A NAM capture isn't playable audio (it's model weights, not a
+        # waveform) so it never matched AUDIO_EXTS and used to vanish from
+        # this listing entirely — a folder full of presets looked empty.
+        elif p.is_file() and p.suffix.lower() == ".nam":
+            files.append({
+                "name": p.name, "type": "nam", "rel": entry_rel,
+                "size_bytes": p.stat().st_size,
+            })
 
     total_size = sum(f["size_bytes"] for f in files) + sum(d["size_bytes"] for d in dirs)
-    total_tracks = len(files) + sum(d["track_count"] for d in dirs)
+    # NAM presets aren't songs — _folder_stats (which feeds a subfolder's own
+    # track_count) never counted them either, so keep this count consistent
+    # with that rather than inflating "N skladeb" with preset files.
+    total_tracks = sum(1 for f in files if f["type"] == "file") + sum(d["track_count"] for d in dirs)
     return {
         "rel": "/".join(parts), "breadcrumb": breadcrumb, "entries": dirs + files,
         "summary": {
@@ -2373,6 +2384,199 @@ def library_stream(rel: str, request: Request):
     if target.suffix.lower() not in AUDIO_EXTS:
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
     return _range_file_response(target, request.headers.get("range"))
+
+
+@app.get("/api/library/raw")
+def library_raw(rel: str):
+    """Raw bytes of a NAM capture under the library — .nam is model weights
+    (JSON), not a waveform, so it never belongs behind /api/library/stream's
+    audio-range machinery. Scoped to .nam only; anything else stays served
+    through /api/library/stream instead.
+    """
+    target = _resolve_under_music_root(rel)
+    if target is None or not target.is_file():
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    if target.suffix.lower() != ".nam":
+        return JSONResponse({"error": "Neplatný soubor."}, status_code=400)
+    from fastapi.responses import Response
+    return Response(target.read_bytes(), media_type="application/json")
+
+
+def _applescript_quote(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _unique_dest(parent: Path, name: str) -> Path:
+    """Appends " 2", " 3", … before the extension until the name is free,
+    rather than overwriting something already at the destination."""
+    candidate = parent / name
+    if not candidate.exists():
+        return candidate
+    stem, ext = os.path.splitext(name)
+    n = 2
+    while True:
+        candidate = parent / f"{stem} {n}{ext}"
+        if not candidate.exists():
+            return candidate
+        n += 1
+
+
+class LibraryMkdirRequest(BaseModel):
+    rel: str = ""   # parent folder, relative to MUSIC_ROOT
+    name: str
+
+
+@app.post("/api/library/fs/mkdir")
+def library_fs_mkdir(req: LibraryMkdirRequest):
+    parent = _resolve_under_music_root(req.rel)
+    if parent is None or not parent.is_dir():
+        return JSONResponse({"error": "Složka nenalezena."}, status_code=404)
+    name = "".join(c for c in (req.name or "").strip() if c not in '/\\:*?"<>|')[:120]
+    if not name:
+        return JSONResponse({"error": "Zadej název."}, status_code=400)
+    target = parent / name
+    if target.exists():
+        return JSONResponse({"error": "Taková složka už existuje."}, status_code=409)
+    try:
+        target.mkdir()
+    except OSError as exc:
+        return JSONResponse({"error": f"Nepodařilo se vytvořit: {exc}"}, status_code=500)
+    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+
+
+class LibraryImportRequest(BaseModel):
+    rel: str = ""       # destination folder, relative to MUSIC_ROOT
+    source_path: str    # absolute path on disk, from the native folder/file picker
+
+
+@app.post("/api/library/fs/import")
+def library_fs_import(req: LibraryImportRequest):
+    """Copies a folder or file chosen on disk into the library.
+
+    A copy, not a move or a symlink: _resolve_under_music_root resolves
+    symlinks and rejects anything whose real path escapes MUSIC_ROOT (by
+    design — that's what stops a browsed path from walking out of the
+    library), so a symlink into an external folder would just get refused
+    the moment anyone browsed into it. Copying also never risks a source
+    the user still has open somewhere else, the way a move would.
+    """
+    dest_dir = _resolve_under_music_root(req.rel)
+    if dest_dir is None or not dest_dir.is_dir():
+        return JSONResponse({"error": "Cílová složka nenalezena."}, status_code=404)
+    source = Path(req.source_path).expanduser()
+    if not source.is_absolute() or not source.exists():
+        return JSONResponse({"error": "Zdroj neexistuje."}, status_code=400)
+    try:
+        source.resolve().relative_to(MUSIC_ROOT.resolve())
+        return JSONResponse({"error": "Zdroj už je v knihovně."}, status_code=400)
+    except ValueError:
+        pass
+    target = _unique_dest(dest_dir, source.name)
+    try:
+        if source.is_dir():
+            shutil.copytree(source, target)
+        else:
+            shutil.copy2(source, target)
+    except OSError as exc:
+        return JSONResponse({"error": f"Kopírování selhalo: {exc}"}, status_code=500)
+    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+
+
+class LibraryMoveRequest(BaseModel):
+    rel: str            # source, relative to MUSIC_ROOT
+    dest_rel: str = ""  # destination folder, relative to MUSIC_ROOT
+
+
+@app.post("/api/library/fs/move")
+def library_fs_move(req: LibraryMoveRequest):
+    source = _resolve_under_music_root(req.rel)
+    dest_dir = _resolve_under_music_root(req.dest_rel)
+    if source is None or not source.exists():
+        return JSONResponse({"error": "Zdroj nenalezen."}, status_code=404)
+    if dest_dir is None or not dest_dir.is_dir():
+        return JSONResponse({"error": "Cílová složka nenalezena."}, status_code=404)
+    if source == MUSIC_ROOT.resolve():
+        return JSONResponse({"error": "Kořenovou složku nelze přesunout."}, status_code=400)
+    if source.is_dir() and (dest_dir == source or source in dest_dir.parents):
+        return JSONResponse({"error": "Nelze přesunout složku samu do sebe."}, status_code=400)
+    target = _unique_dest(dest_dir, source.name)
+    try:
+        shutil.move(str(source), str(target))
+    except OSError as exc:
+        return JSONResponse({"error": f"Přesun selhal: {exc}"}, status_code=500)
+    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+
+
+class LibraryDeleteRequest(BaseModel):
+    rel: str
+
+
+@app.post("/api/library/fs/delete")
+def library_fs_delete(req: LibraryDeleteRequest):
+    """Moves to Trash via Finder rather than unlinking outright — a
+    personal media library is exactly the kind of thing a misclick
+    shouldn't be able to permanently destroy."""
+    target = _resolve_under_music_root(req.rel)
+    if target is None or not target.exists():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    if target == MUSIC_ROOT.resolve():
+        return JSONResponse({"error": "Kořenovou složku nelze smazat."}, status_code=400)
+    script = f'tell application "Finder" to delete POSIX file "{_applescript_quote(str(target))}"'
+    try:
+        result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "Časový limit vypršel."}, status_code=500)
+    if result.returncode != 0:
+        return JSONResponse({"error": result.stderr.strip() or "Smazání selhalo."}, status_code=500)
+    return {"ok": True}
+
+
+# ------------------------------------------------------- NAM preset preview
+#
+# Same idea as TONE3000's web player (https://www.tone3000.com/blog/
+# introducing-the-nam-web-player): a short dry guitar recording, played
+# through whichever NAM capture is clicked, entirely client-side — the NAM
+# WASM engine already used for the live guitar channel does the actual
+# amp-modeling work. The riff has to be a *real* dry (pre-amp) recording,
+# so it's captured once from the user's own guitar rather than faked; a
+# stem or anything already-amped would just double up amp coloration.
+NAM_PREVIEW_DIR = HOME / ".local" / "share" / "spotdl-helper"
+NAM_PREVIEW_RIFF = NAM_PREVIEW_DIR / "nam_preview_di.webm"
+
+
+@app.get("/api/nam-preview/riff")
+def get_nam_preview_riff():
+    if not NAM_PREVIEW_RIFF.is_file():
+        return JSONResponse({"error": "Zatím nenahráno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(NAM_PREVIEW_RIFF.read_bytes(), media_type="audio/webm")
+
+
+@app.get("/api/nam-preview/riff/status")
+def nam_preview_riff_status():
+    exists = NAM_PREVIEW_RIFF.is_file()
+    return {"exists": exists, "bytes": NAM_PREVIEW_RIFF.stat().st_size if exists else 0}
+
+
+@app.post("/api/nam-preview/riff")
+async def save_nam_preview_riff(request: Request):
+    raw = await request.body()
+    if len(raw) < 1024:
+        return JSONResponse({"error": "Nahrávka je prázdná."}, status_code=400)
+    if len(raw) > 60 * 1024 * 1024:
+        return JSONResponse({"error": "Nahrávka je příliš velká."}, status_code=413)
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        NAM_PREVIEW_RIFF.write_bytes(raw)
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {"ok": True, "bytes": len(raw)}
+
+
+@app.delete("/api/nam-preview/riff")
+def delete_nam_preview_riff():
+    NAM_PREVIEW_RIFF.unlink(missing_ok=True)
+    return {"ok": True}
 
 
 @app.get("/api/preview")

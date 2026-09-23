@@ -2058,7 +2058,7 @@
 
   .lib-table{margin-top:10px}
   .lib-thead,.lib-trow{display:grid;
-    grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 76px;
+    grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 104px;
     align-items:center;gap:12px;padding:0 10px}
   .lib-thead{height:34px;color:var(--sub);font-size:12px;font-weight:500;
     border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px;
@@ -2080,9 +2080,20 @@
   .c-act{display:flex;gap:4px;justify-content:flex-end;opacity:0;
     transition:opacity .12s}
   .lib-trow:hover .c-act{opacity:1}
+  .lib-folder-row:hover .c-act{opacity:1}
+  .lib-folder-row .c-act{margin-left:8px}
   .c-act button{background:none;border:none;color:var(--sub);font-size:14px;
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
+  .nam-art{color:var(--accent)}
+  .move-tree-popover{max-height:60vh;min-width:220px}
+  .move-tree-scroll{max-height:50vh;overflow-y:auto}
+  .move-tree-line{display:flex;align-items:center}
+  .move-tree-popover button.move-tree-twisty{flex:0 0 16px;width:16px;height:16px;
+    border:none;background:none;color:var(--sub);cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;transition:transform .12s}
+  .move-tree-twisty.open{transform:rotate(90deg)}
+  .move-tree-popover button.move-tree-name{flex:1;min-width:0;width:auto}
   .lib-folder-row{grid-column:1 / -1;display:flex;align-items:center;gap:10px;
     height:42px;padding:0 6px;border-radius:5px;cursor:pointer;color:var(--text);
     font-size:14px}
@@ -2710,6 +2721,8 @@
         <span class="lib-folder-count" id="library-folder-count"></span>
       </div>
       <button class="btn secondary" id="library-play-all-btn"><span data-icon="play" data-size="12"></span>Přehrát vše</button>
+      <button class="btn secondary" id="library-new-folder-btn"><span data-icon="add" data-size="12"></span>Nová složka</button>
+      <button class="btn secondary" id="library-import-btn"><span data-icon="folderOpen" data-size="12"></span>Přidat z počítače</button>
       <div class="lib-search">
         <span data-icon="search" data-size="14"></span>
         <input type="text" id="library-filter" placeholder="Hledat v knihovně" autocomplete="off">
@@ -6002,6 +6015,46 @@ async function loadLibraryFolder(rel){
 
 el("library-filter").addEventListener("input", () => paintLibraryTable());
 
+el("library-new-folder-btn").onclick = async () => {
+  const name = prompt("Název nové složky:");
+  if(!name || !name.trim()) return;
+  try{
+    const res = await fetch("/api/library/fs/mkdir", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({rel: libraryCurrentRel, name: name.trim()}),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Nepodařilo se vytvořit");
+    treeCache.delete(libraryCurrentRel);
+    loadLibraryFolder(libraryCurrentRel);
+  }catch(e){ showToast(e.message || "Nepodařilo se vytvořit"); }
+};
+
+// The browser sandbox can't hand back a real filesystem path from its own
+// file picker, so this goes through the same native Finder dialog trick as
+// every other folder picker in the app (music root, NAM category folders).
+el("library-import-btn").onclick = async () => {
+  let path;
+  try{
+    const res = await fetch("/api/settings/pick-folder", {method: "POST"});
+    const data = await res.json();
+    path = data.path;
+  }catch(e){}
+  if(!path) return; // dialog cancelled
+  showToast("Kopíruji…");
+  try{
+    const res = await fetch("/api/library/fs/import", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({rel: libraryCurrentRel, source_path: path}),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Kopírování selhalo");
+    showToast("Přidáno");
+    treeCache.delete(libraryCurrentRel);
+    loadLibraryFolder(libraryCurrentRel);
+  }catch(e){ showToast(e.message || "Kopírování selhalo"); }
+};
+
 function renderLibraryBreadcrumb(breadcrumb){
   const box = el("library-breadcrumb");
   box.innerHTML = "";
@@ -6037,6 +6090,115 @@ function libDurationText(entry){
   return "";
 }
 
+// ---- move / delete, shared by every row kind (folder, track, NAM preset) ----
+
+async function deleteLibraryEntry(rel, name){
+  if(!confirm(`Přesunout „${name}“ do koše?`)) return;
+  try{
+    const res = await fetch("/api/library/fs/delete", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({rel}),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Smazání selhalo");
+    showToast(`„${name}“ v koši`);
+    loadLibraryFolder(libraryCurrentRel);
+    invalidateRailTop5("library");
+    treeCache.clear();
+  }catch(e){ showToast(e.message || "Smazání selhalo"); }
+}
+
+// A folder-tree popover for picking where something goes — one click on a
+// folder both picks it and runs the move, no separate confirm step.
+function openMoveTreePopover(anchorEl, sourceRel, name){
+  const existing = el("move-tree-popover");
+  if(existing){ existing.remove(); return; }
+  const box = document.createElement("div");
+  box.className = "sect-menu move-tree-popover";
+  box.id = "move-tree-popover";
+  box.innerHTML = `<div class="ss-head">Přesunout „${escapeHtml(name)}“ do…</div>
+    <div class="move-tree-scroll" id="move-tree-scroll"></div>`;
+  document.body.appendChild(box);
+  const a = anchorEl.getBoundingClientRect();
+  const r = box.getBoundingClientRect();
+  box.style.left = Math.min(a.left, window.innerWidth - r.width - 8) + "px";
+  box.style.top = Math.min(a.bottom + 6, window.innerHeight - r.height - 8) + "px";
+
+  async function doMove(destRel){
+    box.remove();
+    try{
+      const res = await fetch("/api/library/fs/move", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({rel: sourceRel, dest_rel: destRel}),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Přesun selhal");
+      showToast(`„${name}“ přesunuto`);
+      loadLibraryFolder(libraryCurrentRel);
+      invalidateRailTop5("library");
+      treeCache.clear();
+    }catch(e){ showToast(e.message || "Přesun selhal"); }
+  }
+
+  // Collapsed by default and expanded only on the twisty — a real library
+  // runs to hundreds of folders, and eagerly recursing the whole tree the
+  // moment this opens (every subfolder, every depth) was exactly that: a
+  // single popover triggering a fetch per folder in the entire library.
+  function row(entry, depth){
+    const wrap = document.createElement("div");
+    const line = document.createElement("div");
+    line.className = "move-tree-line";
+    line.style.paddingLeft = (depth * 14) + "px";
+    const excluded = entry.rel === sourceRel || entry.rel.startsWith(sourceRel + "/");
+    const twisty = document.createElement("button");
+    twisty.type = "button";
+    twisty.className = "move-tree-twisty";
+    twisty.innerHTML = (entry.folder_count && !excluded) ? icon("chevron", 10) : "";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "move-tree-name";
+    btn.innerHTML = `${icon("folder", 12)}<span>${escapeHtml(entry.name)}</span>`;
+    if(excluded){
+      btn.disabled = true;
+      btn.style.opacity = ".4";
+    } else {
+      btn.onclick = () => doMove(entry.rel);
+    }
+    line.appendChild(twisty);
+    line.appendChild(btn);
+    wrap.appendChild(line);
+    const kids = document.createElement("div");
+    kids.hidden = true;
+    wrap.appendChild(kids);
+    let loaded = false;
+    twisty.onclick = async () => {
+      if(!entry.folder_count || excluded) return;
+      const open = kids.hidden;
+      if(open && !loaded){
+        loaded = true;
+        const dirs = await treeChildren(entry.rel);
+        dirs.forEach(d => kids.appendChild(row(d, depth + 1)));
+      }
+      kids.hidden = !open;
+      twisty.classList.toggle("open", open);
+    };
+    return wrap;
+  }
+
+  const scroll = box.querySelector("#move-tree-scroll");
+  const rootBtn = document.createElement("button");
+  rootBtn.type = "button";
+  rootBtn.innerHTML = `${icon("folder", 12)}<span>Knihovna (kořen)</span>`;
+  rootBtn.onclick = () => doMove("");
+  scroll.appendChild(rootBtn);
+  treeChildren("").then(dirs => dirs.forEach(d => scroll.appendChild(row(d, 0))));
+
+  setTimeout(() => document.addEventListener("pointerdown", function once(e){
+    if(!e.target.closest("#move-tree-popover")) box.remove();
+    else document.addEventListener("pointerdown", once, {once: true});
+  }, {once: true}), 0);
+}
+
 function paintLibraryTable(){
   const list = el("library-list");
   const filter = norm(el("library-filter").value || "");
@@ -6050,6 +6212,7 @@ function paintLibraryTable(){
 
   const tracks = entries.filter(e => e.type === "file");
   const folders = entries.filter(e => e.type === "dir");
+  const namPresets = entries.filter(e => e.type === "nam");
 
   el("library-play-all-btn").hidden = !tracks.length;
   el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
@@ -6082,8 +6245,20 @@ function paintLibraryTable(){
     row.innerHTML = `
       <span class="tree-icon">\uD83D\uDCC1</span>
       <span class="tx">${escapeHtml(entry.name)}</span>
-      <span class="sub">${escapeHtml(bits.join(" · ") || "prázdná")}</span>`;
+      <span class="sub">${escapeHtml(bits.join(" · ") || "prázdná")}</span>
+      <span class="c-act">
+        <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
+        <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+      </span>`;
     row.onclick = () => loadLibraryFolder(entry.rel);
+    row.querySelector(".act-move").onclick = (e) => {
+      e.stopPropagation();
+      openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
+    };
+    row.querySelector(".act-delete").onclick = (e) => {
+      e.stopPropagation();
+      deleteLibraryEntry(entry.rel, entry.name);
+    };
     list.appendChild(row);
   });
 
@@ -6106,6 +6281,8 @@ function paintLibraryTable(){
       <span class="c-act">
         <button class="act-stems" title="Rozdělit na stopy">\uD83C\uDF9A</button>
         <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+        <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
+        <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
       </span>`;
 
     const play = () => {
@@ -6124,6 +6301,14 @@ function paintLibraryTable(){
         body: JSON.stringify({path: entry.rel}),
       });
     };
+    row.querySelector(".act-move").onclick = (e) => {
+      e.stopPropagation();
+      openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
+    };
+    row.querySelector(".act-delete").onclick = (e) => {
+      e.stopPropagation();
+      deleteLibraryEntry(entry.rel, entry.name);
+    };
     // Album art, resolved from the tags rather than the folder name.
     if(artist || entry.album){
       Artwork.paint(row.querySelector(".c-title .art"),
@@ -6131,8 +6316,65 @@ function paintLibraryTable(){
     }
     list.appendChild(row);
   });
+
+  // NAM captures: not playable audio, so a preview button runs them through
+  // the DI riff instead of Player.playLocal. See NamPreview above.
+  namPresets.forEach((entry, i) => {
+    const row = document.createElement("div");
+    row.className = "lib-trow nam-row";
+    row.innerHTML = `
+      <span class="c-idx">${i + 1}</span>
+      <span class="c-title">
+        <span class="art nam-art">${icon("sliders", 14)}</span>
+        <span class="tx">${escapeHtml(entry.name.replace(/\.nam$/i, ""))}</span>
+      </span>
+      <span class="c-artist">NAM preset</span>
+      <span class="c-album"></span>
+      <span class="c-time">${fmtSize(entry.size_bytes)}</span>
+      <span class="c-act">
+        <button class="act-preview" title="Přehrát ukázku">${icon("play", 13)}</button>
+        <button class="act-reveal" title="Ukázat ve Finderu">↗</button>
+        <button class="act-move" title="Přesunout">→📁</button>
+        <button class="act-delete" title="Do koše">🗑</button>
+      </span>`;
+
+    const previewBtn = row.querySelector(".act-preview");
+    const setPreviewIcon = (playing) => { previewBtn.innerHTML = icon(playing ? "stop" : "play", 13); };
+    row.classList.toggle("previewing", NamPreview.isPlaying(entry.rel));
+    setPreviewIcon(NamPreview.isPlaying(entry.rel));
+
+    const doPreview = async () => {
+      if(!(await NamPreview.hasRiff())){
+        showToast("Nejdřív nahraj ukázkový DI riff");
+        openNamRiffRecorder();
+        return;
+      }
+      try{ await NamPreview.play(entry.rel); }
+      catch(e){ showToast("Přehrání selhalo"); }
+    };
+    row.onclick = doPreview;
+    previewBtn.onclick = (e) => { e.stopPropagation(); doPreview(); };
+    row.querySelector(".act-reveal").onclick = (e) => {
+      e.stopPropagation();
+      fetch("/api/reveal", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({path: entry.rel}),
+      });
+    };
+    row.querySelector(".act-move").onclick = (e) => {
+      e.stopPropagation();
+      openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
+    };
+    row.querySelector(".act-delete").onclick = (e) => {
+      e.stopPropagation();
+      deleteLibraryEntry(entry.rel, entry.name);
+    };
+    list.appendChild(row);
+  });
 }
 
+// Keeps every visible preset row's play/stop icon in sync, including when
+// one row's click stops a preview that a different row started.
 function renderLibraryBreadcrumb(breadcrumb){
   const box = el("library-breadcrumb");
   box.innerHTML = "";
@@ -6150,6 +6392,198 @@ function renderLibraryBreadcrumb(breadcrumb){
     else node.onclick = () => loadLibraryFolder(b.rel);
     box.appendChild(node);
   });
+}
+
+// ======================================================================
+// NAM preset preview — same idea as TONE3000's web player: a short dry
+// (DI) guitar recording, played through whichever .nam capture is clicked,
+// entirely in the browser via the same WASM engine the live guitar channel
+// uses. Standalone from the Mixer/Guitar module on purpose: this only ever
+// needs a plain mic tap and a one-shot playback, none of Guitar's live-input
+// state (gate, amp/cab chain, EQ, recording takes) applies here.
+// ======================================================================
+const NamPreview = (() => {
+  let ctx = null, engine = null, riffBuffer = null;
+  let playingNode = null, playingSource = null, playingRel = null;
+  let onStateChange = null;
+
+  function audioCtx(){
+    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  }
+
+  async function ensureEngine(){
+    if(engine) return engine;
+    const mod = await import("/static/nam/index.js");
+    engine = await mod.NamEngine.attach(audioCtx(), {assetBaseUrl: "/static/nam/"});
+    return engine;
+  }
+
+  async function ensureRiff(){
+    if(riffBuffer) return riffBuffer;
+    const res = await fetch("/api/nam-preview/riff");
+    if(!res.ok) return null;
+    const arr = await res.arrayBuffer();
+    riffBuffer = await audioCtx().decodeAudioData(arr);
+    return riffBuffer;
+  }
+
+  function invalidateRiff(){ riffBuffer = null; }
+
+  function stop(){
+    if(playingSource){ try{ playingSource.stop(); }catch(e){} try{ playingSource.disconnect(); }catch(e){} }
+    if(playingNode){ try{ playingNode.disconnect(); }catch(e){} }
+    playingSource = null; playingNode = null;
+    const was = playingRel;
+    playingRel = null;
+    if(was && onStateChange) onStateChange(was, false);
+  }
+
+  // rel: the library path of the .nam file (served via /api/library/raw).
+  async function play(rel){
+    if(playingRel === rel){ stop(); return; }
+    stop();
+    const ac = audioCtx();
+    if(ac.state === "suspended") await ac.resume();
+    const buf = await ensureRiff();
+    if(!buf) throw new Error("no-riff");
+    const res = await fetch(`/api/library/raw?rel=${encodeURIComponent(rel)}`);
+    if(!res.ok) throw new Error("model-fetch-failed");
+    const json = await res.text();
+    const eng = await ensureEngine();
+    const node = await eng.createNode();
+    await node.loadModel(json);
+    const source = ac.createBufferSource();
+    source.buffer = buf;
+    source.connect(node);
+    node.connect(ac.destination);
+    source.onended = () => { if(playingRel === rel) stop(); };
+    source.start();
+    playingSource = source;
+    playingNode = node;
+    playingRel = rel;
+    if(onStateChange) onStateChange(rel, true);
+  }
+
+  return {
+    play, stop, invalidateRiff,
+    isPlaying: (rel) => playingRel === rel,
+    hasRiff: async () => {
+      try{ const r = await (await fetch("/api/nam-preview/riff/status")).json(); return !!r.exists; }
+      catch(e){ return false; }
+    },
+    onChange(fn){ onStateChange = fn; },
+  };
+})();
+
+// Keeps every visible preset row's play/stop icon in sync, including when
+// one row's click stops a preview that a different row started.
+NamPreview.onChange(() => { if(state.mode === "library") paintLibraryTable(); });
+
+// A plain mic tap for recording the one DI riff NamPreview plays presets
+// through — deliberately not the Guitar module's live-input chain: no
+// gate, no amp, no cabinet, because the whole point is capturing the guitar
+// dry, before any of that.
+const NamRiffRecorder = (() => {
+  let stream = null, recorder = null, chunks = [];
+
+  async function listDevices(){
+    try{
+      const temp = await navigator.mediaDevices.getUserMedia({audio: true});
+      temp.getTracks().forEach(t => t.stop());
+    }catch(e){}
+    try{ return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); }
+    catch(e){ return []; }
+  }
+
+  async function start(deviceId){
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: deviceId ? {exact: deviceId} : undefined,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+      },
+    });
+    chunks = [];
+    recorder = new MediaRecorder(stream, {mimeType: "audio/webm"});
+    recorder.ondataavailable = (e) => { if(e.data.size) chunks.push(e.data); };
+    recorder.start();
+  }
+
+  function stop(){
+    return new Promise(resolve => {
+      if(!recorder){ resolve(null); return; }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, {type: "audio/webm"});
+        recorder = null; stream = null;
+        resolve(blob);
+      };
+      recorder.stop();
+    });
+  }
+
+  return {listDevices, start, stop, isRecording: () => !!recorder};
+})();
+
+function openNamRiffRecorder(onSaved){
+  const existing = el("nam-riff-popover");
+  if(existing){ existing.remove(); return; }
+  const box = document.createElement("div");
+  box.className = "sect-menu nam-riff-popover";
+  box.id = "nam-riff-popover";
+  box.innerHTML = `
+    <div class="ss-head">Ukázkový DI riff</div>
+    <div class="hint" style="padding:0 8px 8px">Krátký suchý záznam kytary (bez
+      zesilovače) — na něm si pak přehraješ, jak by zněl kterýkoliv NAM model.</div>
+    <div class="gt-settings-row"><span class="gt-cap">VSTUP</span>
+      <select class="gt-device" id="nam-riff-device"></select></div>
+    <button type="button" id="nam-riff-rec">${icon("rec", 12)}<span>Nahrát</span></button>
+    <div class="hint" id="nam-riff-status" style="padding:4px 8px"></div>`;
+  document.body.appendChild(box);
+  box.style.left = Math.max(8, (window.innerWidth - box.getBoundingClientRect().width) / 2) + "px";
+  box.style.top = Math.max(8, (window.innerHeight - box.getBoundingClientRect().height) / 3) + "px";
+
+  NamRiffRecorder.listDevices().then(list => {
+    const sel = box.querySelector("#nam-riff-device");
+    sel.innerHTML = list.map(d => `<option value="${d.deviceId}">${escapeHtml(d.label || "Vstup bez názvu")}</option>`).join("")
+      || `<option value="">Žádný vstup</option>`;
+  });
+
+  const btn = box.querySelector("#nam-riff-rec");
+  const status = box.querySelector("#nam-riff-status");
+  btn.onclick = async () => {
+    if(!NamRiffRecorder.isRecording()){
+      try{
+        await NamRiffRecorder.start(box.querySelector("#nam-riff-device").value || null);
+      }catch(e){ showToast("Vstup se nepodařilo otevřít"); return; }
+      btn.innerHTML = `${icon("stop", 12)}<span>Stop</span>`;
+      status.textContent = "Nahrávám… zahraj krátký riff a klikni na Stop.";
+      return;
+    }
+    btn.disabled = true;
+    const blob = await NamRiffRecorder.stop();
+    btn.disabled = false;
+    btn.innerHTML = `${icon("rec", 12)}<span>Nahrát</span>`;
+    if(!blob || blob.size < 1024){ status.textContent = "Nahrávka je prázdná — zkus to znovu."; return; }
+    status.textContent = "Ukládám…";
+    try{
+      const res = await fetch("/api/nam-preview/riff", {method: "POST", body: blob});
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Uložení selhalo");
+      NamPreview.invalidateRiff();
+      status.textContent = "Uloženo — zkus teď přehrát nějaký preset.";
+      showToast("Ukázkový riff uložen");
+      if(onSaved) onSaved();
+    }catch(e){ status.textContent = "Uložení selhalo."; }
+  };
+
+  setTimeout(() => document.addEventListener("pointerdown", function once(e){
+    if(!e.target.closest("#nam-riff-popover")){
+      if(NamRiffRecorder.isRecording()) NamRiffRecorder.stop();
+      box.remove();
+    }
+    else document.addEventListener("pointerdown", once, {once: true});
+  }, {once: true}), 0);
 }
 
 // ======================================================================
