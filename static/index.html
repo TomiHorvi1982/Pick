@@ -849,6 +849,12 @@
   .gt-power.on{background:var(--nm-gold);color:#101014}
   .gt-device{flex:1;min-width:0;background:#1c1c22;color:var(--nm-txt);
     border:1px solid #33333d;border-radius:5px;font-size:9.5px;padding:3px 4px}
+  .gt-catdir{flex:1;min-width:0;background:#1c1c22;color:var(--nm-txt);
+    border:1px solid #33333d;border-radius:5px;font-size:9.5px;padding:3px 4px}
+  .gt-catdir-pick{flex:0 0 auto;width:20px;height:20px;border:none;border-radius:4px;
+    background:#1c1c22;color:var(--nm-sub);cursor:pointer;display:flex;
+    align-items:center;justify-content:center;padding:0}
+  .gt-catdir-pick:hover{background:#2a2a33;color:var(--nm-txt)}
 
   /* The meter reads the input *before* the gate: a gated signal looks like
      silence and tells you nothing about whether you are clipping. */
@@ -11636,7 +11642,9 @@ const Mixer = (() => {
       ${AMP_CATEGORY_ORDER.map(cat => `
       <div class="gt-settings-row"><span class="gt-cap">${AMP_CATEGORY_LABEL[cat]}</span>
         <input type="text" class="gt-catdir" data-cat="${cat}" placeholder="/cesta/ke/složce"
-          value="${escapeHtml(catDirs[cat] || "")}"></div>`).join("")}
+          value="${escapeHtml(catDirs[cat] || "")}">
+        <button type="button" class="gt-catdir-pick" data-cat="${cat}"
+          title="Vybrat složku ve Finderu">${icon("folderOpen", 12)}</button></div>`).join("")}
       <div class="hint">Složka na disku — jen se z ní čte, nic se nekopíruje.
         Šipky u kytary pak stepují modely (.nam) přímo z ní podle vybrané kategorie.</div>
       <div class="hint">Automatický výběr 20 nejtrendy modelů z TONE3000 nejde —
@@ -11658,21 +11666,34 @@ const Mixer = (() => {
       queueSessionSave();
     };
     box.querySelector("#gt-amp-open").onclick = () => { box.remove(); openAmpPicker(); };
+    const saveCatDir = async (cat, path) => {
+      try{
+        const res = await fetch("/api/settings/amp-category-dir", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({category: cat, path}),
+        });
+        const data = await res.json();
+        if(!res.ok){ showToast(data.error || "Uložení selhalo"); return; }
+        ampBrowseInvalidate(cat);
+        showToast(data.path ? `${AMP_CATEGORY_LABEL[cat]}: složka nastavena` : `${AMP_CATEGORY_LABEL[cat]}: složka zrušena`);
+      }catch(e){ showToast("Uložení selhalo"); }
+    };
     box.querySelectorAll(".gt-catdir").forEach(inp => {
-      const save = async () => {
-        const cat = inp.dataset.cat;
-        try{
-          const res = await fetch("/api/settings/amp-category-dir", {
-            method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({category: cat, path: inp.value.trim()}),
-          });
-          const data = await res.json();
-          if(!res.ok){ showToast(data.error || "Uložení selhalo"); return; }
-          ampBrowseInvalidate(cat);
-          showToast(data.path ? `${AMP_CATEGORY_LABEL[cat]}: složka nastavena` : `${AMP_CATEGORY_LABEL[cat]}: složka zrušena`);
-        }catch(e){ showToast("Uložení selhalo"); }
+      inp.addEventListener("change", () => saveCatDir(inp.dataset.cat, inp.value.trim()));
+    });
+    // The browser sandbox can't hand back an absolute filesystem path from
+    // its own file picker, so this shells out to a native Finder dialog
+    // (same trick as the music-root folder picker) instead of making
+    // someone hunt down and type the path themselves.
+    box.querySelectorAll(".gt-catdir-pick").forEach(btn => {
+      btn.onclick = async () => {
+        const cat = btn.dataset.cat;
+        const res = await fetch("/api/settings/pick-folder", {method: "POST"});
+        const data = await res.json();
+        if(!data.path) return; // dialog cancelled
+        box.querySelector(`.gt-catdir[data-cat="${cat}"]`).value = data.path;
+        await saveCatDir(cat, data.path);
       };
-      inp.addEventListener("change", save);
     });
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
