@@ -24,7 +24,7 @@ from urllib.parse import quote, unquote
 
 import httpx
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -2864,6 +2864,17 @@ def _next_take_name(stems_dir: Path) -> str:
         n += 1
     return f"{TAKE_PREFIX}{n}"
 
+
+# The two extra guitar parts an outside separator (Moises) can be asked to
+# split a song's guitar into — imported by hand rather than detected, since
+# nothing local does this split. Fixed names, not numbered like takes: there
+# is exactly one solo and one rhythm part, not an open-ended series of them.
+GUITAR_PARTS = ["guitar_solo", "guitar_rhythm"]
+
+
+def _guitar_parts_in(stems_dir: Path) -> list:
+    return [name for name in GUITAR_PARTS if _stem_file(stems_dir, name) is not None]
+
 # Stems are written as 320k MP3: six lossless stems of a five-minute track run
 # to well over 300 MB, and a library of them fills a disk fast. Reading still
 # accepts WAV so sets separated before this keep working.
@@ -3026,7 +3037,7 @@ def list_stems():
         if not d.is_dir() or d.name.startswith("."):
             continue  # ".raw" is Demucs' scratch area, not a stem set
         present, missing, total_bytes = [], [], 0
-        for stem in STEM_NAMES + _takes_in(d):
+        for stem in STEM_NAMES + _takes_in(d) + _guitar_parts_in(d):
             f = _stem_file(d, stem)
             if f is not None:
                 present.append(stem)
@@ -3674,6 +3685,79 @@ def delete_take(name: str, take: str):
     return {"takes": _takes_in(stems_dir)}
 
 
+async def _save_guitar_part(stems_dir: Path, dest_stem: str, upload: UploadFile) -> dict:
+    """Converts one uploaded guitar-part file to 320k MP3 beside the other
+    stems, the same encode _record_take already uses — so it plays back
+    through the exact same path as every other stem, not a special case."""
+    data = await upload.read()
+    if len(data) < 1024:
+        return {"error": f"{dest_stem}: soubor je prázdný."}
+    if len(data) > 600 * 1024 * 1024:
+        return {"error": f"{dest_stem}: soubor je příliš velký."}
+
+    target = stems_dir / f"{dest_stem}.mp3"
+    suffix = Path(upload.filename or "").suffix or ".wav"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = Path(tmp.name)
+    try:
+        proc = subprocess.run(
+            [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error",
+             "-i", str(tmp_path), "-codec:a", "libmp3lame", "-b:a", "320k",
+             str(target)],
+            capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"error": f"{dest_stem}: převod selhal ({exc})."}
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if proc.returncode != 0 or not target.is_file() or target.stat().st_size < 1024:
+        target.unlink(missing_ok=True)
+        detail = (proc.stderr or "").strip().splitlines()[-1:] or ["neznámá chyba"]
+        return {"error": f"{dest_stem}: převod selhal ({detail[0][:200]})"}
+    return {"stem": dest_stem, "bytes": target.stat().st_size}
+
+
+@app.post("/api/stems/{name}/guitar-parts/import")
+async def import_guitar_parts(name: str,
+                               solo: UploadFile = File(...),
+                               rhythm: UploadFile = File(...)):
+    """Brings a solo/rhythm guitar split made elsewhere (nothing local does
+    this) into the song as two extra stems, guitar_solo and guitar_rhythm —
+    the original combined "guitar" stem is left in place untouched, muted
+    by the frontend rather than deleted, so the split is easy to back out
+    of if it isn't an improvement."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    solo_res = await _save_guitar_part(stems_dir, "guitar_solo", solo)
+    rhythm_res = await _save_guitar_part(stems_dir, "guitar_rhythm", rhythm)
+    errors = [r["error"] for r in (solo_res, rhythm_res) if "error" in r]
+    if errors:
+        return JSONResponse({"error": " / ".join(errors)}, status_code=400)
+    return {"saved": [solo_res["stem"], rhythm_res["stem"]],
+            "guitar_parts": _guitar_parts_in(stems_dir)}
+
+
+@app.delete("/api/stems/{name}/guitar-parts")
+def delete_guitar_parts(name: str):
+    """Removes both imported parts, falling back to the original combined
+    guitar stem (which was never touched)."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    for part in GUITAR_PARTS:
+        f = _stem_file(stems_dir, part)
+        if f is not None:
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    return {"guitar_parts": _guitar_parts_in(stems_dir)}
+
+
 @app.get("/api/stems/{name}/{stem}")
 def stream_stem(name: str, stem: str, request: Request):
     """Serves one stem, whatever format it was written in.
@@ -3682,9 +3766,10 @@ def stream_stem(name: str, stem: str, request: Request):
     "<stem>.wav" and those URLs still resolve.
     """
     stem = stem.rsplit(".", 1)[0] if "." in stem else stem
-    # Separated stems, plus whatever was recorded into this song — a take is
-    # a track of the song and has to stream like one.
-    if stem not in STEM_NAMES and not _re_take.fullmatch(stem):
+    # Separated stems, plus whatever was recorded into this song, plus an
+    # imported guitar split — all three have to stream like any other stem.
+    if (stem not in STEM_NAMES and stem not in GUITAR_PARTS
+            and not _re_take.fullmatch(stem)):
         return JSONResponse({"error": "Neplatná stopa."}, status_code=404)
 
     stems_dir = _resolve_under_music_root(f"Stems/{name}")

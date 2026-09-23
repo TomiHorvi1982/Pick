@@ -7853,7 +7853,13 @@ const Mixer = (() => {
     guitar: {c:"#e9b949", icon:"guitar"},
     piano:  {c:"#5fd39a", icon:"piano"},
     other:  {c:"#9aa3b5", icon:"sliders"},
+    // An imported solo/rhythm split (see importGuitarParts) — same guitar
+    // gold family as the combined stem, one shade apart so the two read as
+    // related tracks rather than unrelated ones sharing a colour by chance.
+    guitar_solo:   {c:"#f2c96a", icon:"guitar"},
+    guitar_rhythm: {c:"#c99a3a", icon:"guitar"},
   };
+  const STEM_LABEL = {guitar_solo: "Kytara — sólo", guitar_rhythm: "Kytara — rytmus"};
   function stemStyle(name){
     return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
@@ -9136,10 +9142,15 @@ const Mixer = (() => {
       const strip = document.createElement("div");
       strip.className = "nm-strip" + (c.muted ? " muted" : "");
       const semis = rateToSemitones(c.pitchRate || 1);
+      const hasGuitarSplit = channels.some(x => x.stem === "guitar_solo");
       strip.innerHTML = `
         <div class="nm-strip-top">
           <span class="nm-strip-icon">${icon(style.icon, 13)}</span>
-          <span class="nm-strip-name" title="${escapeHtml(c.stem)}">${escapeHtml(c.stem)}</span>
+          <span class="nm-strip-name" title="${escapeHtml(STEM_LABEL[c.stem] || c.stem)}">${escapeHtml(STEM_LABEL[c.stem] || c.stem)}</span>
+          ${c.stem === "guitar" && !hasGuitarSplit
+            ? `<button class="nm-sm gt-import" title="Naimportovat sólo/rytmus kytaru (rozdělené jinde)">${icon("add", 12)}</button>` : ""}
+          ${c.stem === "guitar_solo"
+            ? `<button class="nm-sm gt-unimport" title="Odebrat rozdělenou kytaru, vrátit se k jedné stopě">${icon("close", 11)}</button>` : ""}
           <button class="nm-sm solo ${c.solo ? "active" : ""}" title="Sólo">S</button>
           <button class="nm-sm mute ${c.muted ? "active" : ""}" title="Ztlumit">M</button>
         </div>
@@ -9181,6 +9192,11 @@ const Mixer = (() => {
         soloBtn.classList.toggle("active", c.solo);
         applyGains();
       };
+
+      const importBtn = strip.querySelector(".gt-import");
+      if(importBtn) importBtn.onclick = () => openGuitarPartsImport();
+      const unimportBtn = strip.querySelector(".gt-unimport");
+      if(unimportBtn) unimportBtn.onclick = () => removeGuitarParts();
 
       // Per-stem pitch, through the same stretch node the song's own tempo
       // and key use — every stem keeps playing at the *same rate*, so
@@ -11505,6 +11521,81 @@ const Mixer = (() => {
       if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
       else document.addEventListener("pointerdown", once, {once: true});
     }, {once: true}), 0);
+  }
+
+  // ---- guitar_solo/guitar_rhythm: a split made elsewhere (nothing local
+  // does this — see Music AI settings) brought in as two extra stems. The
+  // combined "guitar" stem is muted, not deleted, once the split lands, so
+  // reverting is just un-muting it and removing the two new ones. ----
+  function openGuitarPartsImport(){
+    const existing = el("gt-import-popover");
+    if(existing){ existing.remove(); return; }
+    const box = document.createElement("div");
+    box.className = "sect-menu gt-import-popover";
+    box.id = "gt-import-popover";
+    box.innerHTML = `
+      <div class="ss-head">Naimportovat rozdělenou kytaru</div>
+      <div class="hint" style="padding:0 8px 8px">Dva soubory stažené odjinud
+        (Moises apod.) — jeden se sólovou, druhý s rytmickou kytarou.</div>
+      <div class="gt-settings-row"><span class="gt-cap">SÓLO</span>
+        <input type="file" id="gt-import-solo" accept="audio/*"></div>
+      <div class="gt-settings-row"><span class="gt-cap">RYTMUS</span>
+        <input type="file" id="gt-import-rhythm" accept="audio/*"></div>
+      <button type="button" id="gt-import-go">${icon("add", 12)}<span>Importovat</span></button>`;
+    document.body.appendChild(box);
+    const anchor = el("nm-rail").querySelector(".gt-import");
+    const r = box.getBoundingClientRect();
+    if(anchor){
+      const a = anchor.getBoundingClientRect();
+      box.style.left = Math.min(a.left, window.innerWidth - r.width - 8) + "px";
+      box.style.top = Math.min(a.bottom + 6, window.innerHeight - r.height - 8) + "px";
+    }
+
+    el("gt-import-go").onclick = async () => {
+      const soloFile = el("gt-import-solo").files[0];
+      const rhythmFile = el("gt-import-rhythm").files[0];
+      if(!soloFile || !rhythmFile){ showToast("Vyber oba soubory"); return; }
+      if(!currentSongName) return;
+      box.remove();
+      showToast("Importuju…");
+      const form = new FormData();
+      form.append("solo", soloFile);
+      form.append("rhythm", rhythmFile);
+      try{
+        const res = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/guitar-parts/import`,
+          {method: "POST", body: form});
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || "Import selhal");
+        // Muted, not deleted — but this has to actually reach the server
+        // before reloadCurrentSong() reads the session back, so it can't go
+        // through the usual debounced queueSessionSave() here.
+        const guitarCh = channels.find(c => c.stem === "guitar");
+        if(guitarCh){
+          guitarCh.muted = true;
+          await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/session`, {
+            method: "PUT", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(sessionSnapshot()),
+          }).catch(() => {});
+        }
+        showToast("Kytara rozdělena — načítám znovu");
+        await reloadCurrentSong();
+      }catch(e){ showToast(e.message || "Import selhal"); }
+    };
+
+    setTimeout(() => document.addEventListener("pointerdown", function once(e){
+      if(!e.target.closest("#gt-import-popover") && !e.target.closest(".gt-import")) box.remove();
+      else document.addEventListener("pointerdown", once, {once: true});
+    }, {once: true}), 0);
+  }
+
+  async function removeGuitarParts(){
+    if(!currentSongName) return;
+    if(!confirm("Smazat rozdělenou kytaru a vrátit se k jedné stopě?")) return;
+    try{
+      await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/guitar-parts`, {method: "DELETE"});
+      showToast("Rozdělení odstraněno");
+      await reloadCurrentSong();
+    }catch(e){ showToast("Nepodařilo se odstranit"); }
   }
 
   async function fillGuitarDevices(select){
