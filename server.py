@@ -3340,6 +3340,93 @@ def reset_sections(name: str):
     return get_sections(name)
 
 
+def _clean_chords(raw) -> list:
+    """Only well-formed, ordered, non-overlapping spans get stored. Chord
+    and bass are free-text (the wheel builds them client-side, e.g. "F#m",
+    "Cadd9") rather than an enum, so the only real validation is shape."""
+    out = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start = float(item.get("start"))
+            end = float(item.get("end"))
+        except (TypeError, ValueError):
+            continue
+        if not (end > start >= 0):
+            continue
+        chord = item.get("chord")
+        chord = str(chord)[:16] if chord else None
+        bass = item.get("bass")
+        bass = str(bass)[:8] if bass else None
+        out.append({"start": round(start, 3), "end": round(end, 3),
+                    "chord": chord, "bass": bass})
+    out.sort(key=lambda x: x["start"])
+    return out[:2000]
+
+
+@app.get("/api/stems/{name}/chords")
+def get_chords(name: str):
+    """The song's chords — the listener's own if they have edited any,
+    otherwise whatever the analysis found."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    edited = stems_dir / "chords.json"
+    if edited.is_file():
+        try:
+            data = json.loads(edited.read_text(encoding="utf-8"))
+            return {"chords": _clean_chords(data.get("chords")), "edited": True}
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    analysis = stems_dir / "analysis.json"
+    chords = []
+    if analysis.is_file():
+        try:
+            chords = _clean_chords(
+                json.loads(analysis.read_text(encoding="utf-8")).get("chords"))
+        except (json.JSONDecodeError, OSError):
+            chords = []
+    return {"chords": chords, "edited": False}
+
+
+class ChordsIn(BaseModel):
+    chords: List[dict] = []
+
+
+@app.put("/api/stems/{name}/chords")
+def put_chords(name: str, body: ChordsIn):
+    """Store the listener's own chords, beside the stems rather than into
+    analysis.json, so re-running the detector never overwrites hand-made
+    edits."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+
+    data = {"chords": _clean_chords(body.chords)}
+    try:
+        (stems_dir / "chords.json").write_text(
+            json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {**data, "edited": True}
+
+
+@app.delete("/api/stems/{name}/chords")
+def reset_chords(name: str):
+    """Throw the edits away and fall back to what the detector found."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        (stems_dir / "chords.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+    return get_chords(name)
+
+
 class EqBand(BaseModel):
     freq: float
     gain: float

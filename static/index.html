@@ -1838,6 +1838,52 @@
   .chord-block:hover{background:rgba(255,255,255,.12)}
   .chord-block.silent{background:transparent;border-left-color:transparent}
   .chord-block sub{font-size:8.5px;opacity:.72;vertical-align:baseline}
+  .chord-resize{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize;
+    z-index:2;background:transparent}
+  .chord-resize:hover{background:rgba(233,185,73,.45)}
+
+  /* ---- the chord wheel: circle of fifths, click a root to set the chord,
+     a handful of quality toggles and a bass note beside it ---- */
+  .chord-wheel-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center}
+  .chord-wheel-box{background:#1a1a1e;border:1px solid #2c2c34;border-radius:14px;
+    padding:20px;display:flex;gap:22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .chord-wheel{position:relative;width:300px;height:300px;border-radius:50%;
+    background:radial-gradient(circle,#26262c 0%,#1c1c20 70%,#151519 100%);
+    border:1px solid #2c2c34;flex:0 0 auto}
+  .chord-wheel-pos{position:absolute;border:none;cursor:pointer;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-weight:700;
+    background:#2a2a33;color:var(--nm-txt,#ddd);transition:background .12s,color .12s}
+  .chord-wheel-pos.maj{width:46px;height:46px;margin:-23px;font-size:13.5px}
+  .chord-wheel-pos.min{width:38px;height:38px;margin:-19px;font-size:10.5px;
+    color:var(--nm-sub,#999)}
+  .chord-wheel-pos:hover{background:#35353f}
+  .chord-wheel-pos.active{background:var(--nm-gold,#e9b949);color:#101014}
+  .chord-wheel-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:86px;height:86px;border-radius:50%;background:#101014;
+    border:2px solid var(--nm-gold,#e9b949);display:flex;align-items:center;justify-content:center}
+  .chord-wheel-center input{width:72px;background:transparent;border:none;
+    color:var(--nm-gold,#e9b949);font-size:18px;font-weight:800;text-align:center;outline:none}
+  .chord-wheel-side{display:flex;flex-direction:column;gap:12px;min-width:150px}
+  .chord-wheel-side-cap{font-size:9px;font-weight:700;letter-spacing:.1em;
+    color:var(--nm-sub,#999);margin-bottom:5px}
+  .chord-wheel-quals{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .chord-wheel-quals button{background:#232329;border:none;border-radius:6px;
+    color:var(--nm-txt,#ddd);font-size:11.5px;padding:8px 4px;cursor:pointer}
+  .chord-wheel-quals button:hover{background:#2e2e36}
+  .chord-wheel-quals button.active{background:var(--nm-gold,#e9b949);color:#101014}
+  .chord-wheel-bass{display:flex;align-items:center;gap:8px;font-size:9.5px;
+    font-weight:700;letter-spacing:.08em;color:var(--nm-sub,#999)}
+  .chord-wheel-bass select{flex:1;background:#232329;border:1px solid #33333d;
+    border-radius:5px;color:var(--nm-txt,#ddd);font-size:11.5px;padding:5px;
+    font-weight:400;letter-spacing:normal}
+  .chord-wheel-actions{display:flex;gap:6px}
+  .chord-wheel-actions:last-child{margin-top:auto}
+  .chord-wheel-actions button{flex:1;background:#232329;border:none;border-radius:6px;
+    color:var(--nm-txt,#ddd);font-size:11px;padding:7px;cursor:pointer}
+  .chord-wheel-actions button:hover{background:#2e2e36}
+  .chord-wheel-actions button.danger{color:#ff6b6b}
+  .chord-wheel-actions button.primary{background:var(--nm-gold,#e9b949);color:#101014}
 
   .nm-lane-empty{position:absolute;left:8px;top:50%;transform:translateY(-50%);
     font-size:10px;color:var(--nm-sub);letter-spacing:.04em}
@@ -8794,7 +8840,7 @@ const Mixer = (() => {
     const lane = thinLane(rail, lanes, totalPx, "Akordy", 26, "chord-lane");
     if(!chords.length){ laneNote(lane, analysisNote()); return; }
 
-    chords.forEach(ch => {
+    chords.forEach((ch, idx) => {
       const x = ch.start * pixelsPerSecond;
       const w = Math.max(2, (ch.end - ch.start) * pixelsPerSecond);
       const block = document.createElement("div");
@@ -8802,11 +8848,207 @@ const Mixer = (() => {
       block.style.left = x + "px";
       block.style.width = (w - 1) + "px";
       const label = ch.chord ? (ch.bass ? `${ch.chord}/${ch.bass}` : ch.chord) : "";
-      block.title = label ? `${label} — ${fmtDur(ch.start)}` : "ticho";
+      block.title = label ? `${label} — klikni pro úpravu` : "ticho — klikni pro přidání akordu";
       if(label && w >= 26) block.textContent = label;
-      block.onclick = (e) => { e.stopPropagation(); seek(ch.start); };
+      // A click opens the wheel rather than seeking (that's every other
+      // lane's job) — the exact click position becomes the split point if
+      // the editor's "Rozdělit" is used, so a chord that changes mid-block
+      // can be fixed without hunting for the boundary by hand.
+      block.onclick = (e) => {
+        e.stopPropagation();
+        const rect = block.getBoundingClientRect();
+        const atTime = ch.start + (e.clientX - rect.left) / pixelsPerSecond;
+        openChordWheel(idx, atTime);
+      };
       lane.appendChild(block);
+
+      // The shared edge with the next block is draggable — pulling it
+      // moves both this block's end and the next one's start together, so
+      // "posouvat" a chord boundary never opens a gap or overlap.
+      if(idx < chords.length - 1){
+        const handle = document.createElement("div");
+        handle.className = "chord-resize";
+        handle.style.left = (x + w - 3) + "px";
+        handle.title = "Táhni pro posun hranice akordu";
+        handle.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          handle.setPointerCapture(e.pointerId);
+          const next = chords[idx + 1];
+          const minT = ch.start + 0.1, maxT = next.end - 0.1;
+          const onMove = (ev) => {
+            const laneRect = lane.getBoundingClientRect();
+            let t = (ev.clientX - laneRect.left) / pixelsPerSecond;
+            t = Math.max(minT, Math.min(maxT, t));
+            ch.end = Math.round(t * 1000) / 1000;
+            next.start = ch.end;
+            renderChordsLane(rail, lanes, totalPx);
+          };
+          const onUp = () => {
+            handle.removeEventListener("pointermove", onMove);
+            handle.removeEventListener("pointerup", onUp);
+            queueChordSave();
+          };
+          handle.addEventListener("pointermove", onMove);
+          handle.addEventListener("pointerup", onUp);
+        });
+        lane.appendChild(handle);
+      }
     });
+  }
+
+  // ---- chords: detected, then owned by the listener ----
+  //
+  // Same "the detector's guess is a starting point" pattern as sections:
+  // edits are stored beside the stems, so re-running analysis never
+  // overwrites a hand-made fix. Picking a chord uses a circle-of-fifths
+  // wheel — root notes on the outer ring, their relative minors on the
+  // inner ring in the same position sections already use for its own
+  // presets — with a handful of quality toggles and a bass note for slash
+  // chords, and the centre stays a plain text field so anything the wheel
+  // can't build directly can still just be typed.
+  let chordSaveTimer = null;
+  function queueChordSave(){
+    clearTimeout(chordSaveTimer);
+    const song = currentSongName;
+    chordSaveTimer = setTimeout(() => {
+      if(!song) return;
+      fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({chords}),
+      }).catch(() => showToast("Akordy se nepodařilo uložit"));
+    }, 600);
+  }
+
+  // Circle of fifths starting at C, one step of +7 semitones per position —
+  // the standard order a chord wheel is laid out in, not anything specific
+  // to one piece of software.
+  const WHEEL_FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
+  function wheelPositions(){
+    return WHEEL_FIFTHS.map((pc, i) => ({
+      maj: NOTE_NAMES[pc], min: NOTE_NAMES[(pc + 9) % 12], angle: i * 30,
+    }));
+  }
+  const CHORD_QUALITIES = ["7", "maj7", "dim", "sus4", "aug", "add9"];
+
+  function parseChordForWheel(str){
+    if(!str) return {root: "C", minor: false, quality: ""};
+    const m = String(str).match(/^([A-G]#?)(.*)$/);
+    if(!m) return {root: "C", minor: false, quality: ""};
+    let rest = m[2], minor = false;
+    if(rest.startsWith("m") && !rest.startsWith("maj")){ minor = true; rest = rest.slice(1); }
+    const quality = CHORD_QUALITIES.includes(rest) ? rest : "";
+    return {root: m[1], minor, quality};
+  }
+
+  function closeChordWheel(){
+    const ov = el("chord-wheel-overlay");
+    if(ov) ov.remove();
+  }
+
+  function openChordWheel(idx, atTime){
+    closeChordWheel();
+    const ch = chords[idx];
+    let {root, minor, quality} = parseChordForWheel(ch.chord);
+    let bass = ch.bass || "";
+
+    const R_MAJ = 118, R_MIN = 72;
+    const posHtml = wheelPositions().map(p => {
+      const rad = (p.angle - 0) * Math.PI / 180;
+      const sx = Math.sin(rad), sy = -Math.cos(rad);
+      const majOn = !minor && root === p.maj;
+      const minOn = minor && root === p.min;
+      return `
+        <button type="button" class="chord-wheel-pos maj${majOn ? " active" : ""}"
+          data-root="${p.maj}" data-minor="0"
+          style="left:calc(50% + ${(sx * R_MAJ).toFixed(1)}px);top:calc(50% + ${(sy * R_MAJ).toFixed(1)}px)">${p.maj}</button>
+        <button type="button" class="chord-wheel-pos min${minOn ? " active" : ""}"
+          data-root="${p.min}" data-minor="1"
+          style="left:calc(50% + ${(sx * R_MIN).toFixed(1)}px);top:calc(50% + ${(sy * R_MIN).toFixed(1)}px)">${p.min}m</button>`;
+    }).join("");
+
+    const bassOpts = [`<option value="">bez basy</option>`]
+      .concat(NOTE_NAMES.map(n => `<option value="${n}" ${bass === n ? "selected" : ""}>${n}</option>`)).join("");
+
+    const box = document.createElement("div");
+    box.className = "chord-wheel-overlay";
+    box.id = "chord-wheel-overlay";
+    box.innerHTML = `
+      <div class="chord-wheel-box">
+        <div class="chord-wheel">
+          ${posHtml}
+          <div class="chord-wheel-center">
+            <input type="text" id="chord-wheel-text" maxlength="16" value="${escapeHtml(ch.chord || "")}" placeholder="ticho">
+          </div>
+        </div>
+        <div class="chord-wheel-side">
+          <div>
+            <div class="chord-wheel-side-cap">VARIACE</div>
+            <div class="chord-wheel-quals">
+              ${CHORD_QUALITIES.map(q => `<button type="button" data-q="${q}" class="${quality === q ? "active" : ""}">${q}</button>`).join("")}
+            </div>
+          </div>
+          <label class="chord-wheel-bass">BASA <select id="chord-wheel-bass">${bassOpts}</select></label>
+          <div class="chord-wheel-actions">
+            <button type="button" id="chord-wheel-split" title="Rozdělit blok na dva v místě, kam jsi klikl/a">Rozdělit</button>
+            <button type="button" id="chord-wheel-del" class="danger" title="Smazat akord (ticho)">Smazat</button>
+          </div>
+          <div class="chord-wheel-actions">
+            <button type="button" id="chord-wheel-cancel">Zrušit</button>
+            <button type="button" id="chord-wheel-save" class="primary">Uložit</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+
+    const textInput = el("chord-wheel-text");
+    function syncFromParts(){
+      textInput.value = root ? (root + (minor ? "m" : "") + quality) : "";
+    }
+    box.querySelectorAll(".chord-wheel-pos").forEach(btn => {
+      btn.onclick = () => {
+        root = btn.dataset.root;
+        minor = btn.dataset.minor === "1";
+        quality = "";
+        box.querySelectorAll(".chord-wheel-pos").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        box.querySelectorAll(".chord-wheel-quals button").forEach(b => b.classList.remove("active"));
+        syncFromParts();
+      };
+    });
+    box.querySelectorAll(".chord-wheel-quals button").forEach(btn => {
+      btn.onclick = () => {
+        const q = btn.dataset.q;
+        quality = quality === q ? "" : q;
+        box.querySelectorAll(".chord-wheel-quals button").forEach(b => b.classList.toggle("active", b.dataset.q === quality));
+        syncFromParts();
+      };
+    });
+    el("chord-wheel-bass").onchange = (e) => { bass = e.target.value; };
+
+    function applyAndClose(newChord){
+      ch.chord = newChord ? textInput.value.trim() : null;
+      ch.bass = newChord ? (bass || null) : null;
+      closeChordWheel();
+      renderTrackLanes();
+      queueChordSave();
+    }
+    el("chord-wheel-save").onclick = () => applyAndClose(true);
+    el("chord-wheel-del").onclick = () => applyAndClose(false);
+    el("chord-wheel-cancel").onclick = closeChordWheel;
+    el("chord-wheel-split").onclick = () => {
+      const t = Math.round(Math.max(ch.start + 0.05, Math.min(ch.end - 0.05, atTime)) * 1000) / 1000;
+      if(!(t > ch.start && t < ch.end)){ showToast("Tady se to rozdělit nedá"); return; }
+      const second = {start: t, end: ch.end, chord: ch.chord, bass: ch.bass};
+      ch.end = t;
+      chords.splice(idx + 1, 0, second);
+      closeChordWheel();
+      renderTrackLanes();
+      queueChordSave();
+      showToast("Rozděleno — uprav obě poloviny zvlášť");
+    };
+    box.addEventListener("pointerdown", (e) => { if(e.target === box) closeChordWheel(); });
   }
 
   // One listener for the life of the mixer; the lanes are rebuilt often and
@@ -9494,13 +9736,15 @@ const Mixer = (() => {
       if(!res.ok) throw new Error("analysis failed");
       const data = await res.json();
       if(token !== loadToken) return;      // another song was loaded meanwhile
-      chords = data.chords || [];
-      // Sections come from their own endpoint, which hands back the
-      // listener's edits when there are any and the detector's guess when
-      // there aren't.
-      const own = await (await fetch(
-        `/api/stems/${encodeURIComponent(name)}/sections`)).json();
+      // Sections and chords each come from their own endpoint, which hands
+      // back the listener's edits when there are any and the detector's
+      // guess when there aren't.
+      const [own, ownChords] = await Promise.all([
+        (await fetch(`/api/stems/${encodeURIComponent(name)}/sections`)).json(),
+        (await fetch(`/api/stems/${encodeURIComponent(name)}/chords`)).json(),
+      ]);
       if(token !== loadToken) return;
+      chords = ownChords.chords || data.chords || [];
       sections = own.sections || data.sections || [];
       sectionPresets = own.presets || [];
       sectionsEdited = !!own.edited;
