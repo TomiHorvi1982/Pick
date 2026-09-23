@@ -3037,7 +3037,12 @@ def list_stems():
         if not d.is_dir() or d.name.startswith("."):
             continue  # ".raw" is Demucs' scratch area, not a stem set
         present, missing, total_bytes = [], [], 0
-        for stem in STEM_NAMES + _takes_in(d) + _guitar_parts_in(d):
+        # An imported guitar split sits right after drums — appending it at
+        # the end (past piano/other) put it low enough in the mixer's rail
+        # that it rendered clipped, out of view without scrolling.
+        stem_order = (["drums"] + _guitar_parts_in(d)
+                      + [s for s in STEM_NAMES if s != "drums"] + _takes_in(d))
+        for stem in stem_order:
             f = _stem_file(d, stem)
             if f is not None:
                 present.append(stem)
