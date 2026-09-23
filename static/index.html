@@ -9650,6 +9650,12 @@ const Mixer = (() => {
       Guitar.state.muted = !!gt.muted;
       Guitar.state.solo = !!gt.solo;
       Guitar.state.threshold = gt.threshold ?? Guitar.state.threshold;
+      Guitar.state.compOn = !!gt.compOn;
+      Guitar.state.compThreshold = gt.compThreshold ?? Guitar.state.compThreshold;
+      Guitar.state.compRatio = gt.compRatio ?? Guitar.state.compRatio;
+      Guitar.state.compAttack = gt.compAttack ?? Guitar.state.compAttack;
+      Guitar.state.compRelease = gt.compRelease ?? Guitar.state.compRelease;
+      if(gt.compOn) Guitar.ensureComp();
       // The device id is remembered but not opened: a live input has to be
       // asked for, not resumed behind someone's back.
       Guitar.state.deviceId = gt.deviceId || Guitar.state.deviceId;
@@ -10240,6 +10246,9 @@ const Mixer = (() => {
         guideVolume: Guitar.state.guideVolume,
         muted: Guitar.state.muted, solo: Guitar.state.solo,
         threshold: Guitar.state.threshold,
+        compOn: Guitar.state.compOn, compThreshold: Guitar.state.compThreshold,
+        compRatio: Guitar.state.compRatio, compAttack: Guitar.state.compAttack,
+        compRelease: Guitar.state.compRelease,
         deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
         cabName: Guitar.state.cabName,
         eq: guitarEq ? eqSnapshot(guitarEq) : null,
@@ -10988,6 +10997,7 @@ const Mixer = (() => {
     let stream = null;
     let source = null;
     let gateNode = null;      // guitar-processor
+    let compNode = null;      // native DynamicsCompressorNode, gate -> comp -> amp
     let ampNode = null;       // NAM worklet, when a model is loaded
     let cabNode = null;       // ConvolverNode
     let recNode = null;       // take-recorder
@@ -11010,6 +11020,7 @@ const Mixer = (() => {
       deviceId: null, deviceLabel: null, live: false,
       volume: 0.9, pan: 0, muted: false, solo: false,
       threshold: -100,          // gate off until it is asked for
+      compOn: false, compThreshold: -24, compRatio: 4, compAttack: 0.02, compRelease: 0.25,
       ampName: null, cabName: null,
       guideVolume: 0.8,
       peak: 0, gate: 0,
@@ -11144,7 +11155,7 @@ const Mixer = (() => {
       // that when the very first thing done is plugging the guitar in.
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
-      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
+      [source, gateNode, compNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
        guideAmp, guideCab, guideOut, ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
@@ -11152,6 +11163,7 @@ const Mixer = (() => {
       if(source){
         let node = source;
         node.connect(gateNode); node = gateNode;
+        if(compNode && state.compOn){ node.connect(compNode); node = compNode; }
         if(ampNode){ node.connect(ampNode); node = ampNode; }
         if(cabNode){ node.connect(cabNode); node = cabNode; }
         node.connect(recNode); node = recNode;
@@ -11193,6 +11205,36 @@ const Mixer = (() => {
       return guitarEq;
     }
 
+    // Built once and left in place; rewire() only patches it into the chain
+    // when compOn is true, so toggling it on/off never has to recreate it.
+    function ensureComp(){
+      if(compNode) return compNode;
+      const audioCtx = ctxRef();
+      compNode = audioCtx.createDynamicsCompressor();
+      compNode.threshold.value = state.compThreshold;
+      compNode.ratio.value = state.compRatio;
+      compNode.attack.value = state.compAttack;
+      compNode.release.value = state.compRelease;
+      compNode.knee.value = 6;
+      rewire();
+      return compNode;
+    }
+
+    function toggleComp(on){
+      state.compOn = on === undefined ? !state.compOn : !!on;
+      if(state.compOn) ensureComp();
+      else rewire();
+      return state.compOn;
+    }
+
+    function setCompParam(name, value){
+      const map = {threshold: "compThreshold", ratio: "compRatio", attack: "compAttack", release: "compRelease"};
+      const key = map[name];
+      if(!key) return;
+      state[key] = value;
+      if(compNode) compNode[name].value = value;
+    }
+
     // What the browser will admit to. The real round trip also includes the
     // interface's own buffers, which nothing in a browser can see — so this
     // is a floor, not a promise.
@@ -11205,7 +11247,7 @@ const Mixer = (() => {
 
     async function stop(){
       if(recording) await stopRecording();
-      [source, gateNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+      [source, gateNode, compNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
       if(gateNode) gateNode.port.postMessage("stop");
       if(stream) stream.getTracks().forEach(t => t.stop());
@@ -11321,6 +11363,7 @@ const Mixer = (() => {
 
     return {
       state, devices, start, stop, rewire, applyGuitarGain, setThreshold,
+      ensureComp, toggleComp, setCompParam,
       startRecording, stopRecording,
       isRecording: () => recording,
       isLive: () => state.live,
@@ -11360,6 +11403,7 @@ const Mixer = (() => {
         <button class="gt-icon-btn gt-power-ic ${g.live ? "on" : ""}" id="gt-power-btn"
           title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
         <button class="gt-icon-btn gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">${icon("eq", 12)}</button>
+        <button class="gt-icon-btn gt-comp ${g.compOn ? "on" : ""}" id="gt-comp-btn" title="Kompresor na živou kytaru">${icon("fader", 12)}</button>
         <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : ""}" id="gt-rec-btn" title="Nahrát na novou stopu">
           ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}</button>
         <button class="gt-icon-btn" id="gt-settings-btn" title="Vstup, pan, zesilovač, zpoždění…">${icon("sliders", 12)}</button>
@@ -11490,6 +11534,7 @@ const Mixer = (() => {
       selectEqChannel("guitar");
     };
     strip.querySelector("#gt-settings-btn").onclick = () => openGuitarSettings();
+    strip.querySelector("#gt-comp-btn").onclick = () => openGuitarComp();
   }
 
   // Everything that used to sit in its own row (input device, pan, amp/cab,
@@ -11536,6 +11581,77 @@ const Mixer = (() => {
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
       if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
+      else document.addEventListener("pointerdown", once, {once: true});
+    }, {once: true}), 0);
+  }
+
+  // Pedal-style compressor on the live guitar input only (source -> gate ->
+  // comp -> amp), off by default. Same sect-menu popover pattern as the
+  // settings button, kept separate because it's an effect worth toggling
+  // mid-session rather than a one-time setup choice.
+  function openGuitarComp(){
+    const existing = el("gt-comp-popover");
+    if(existing){ existing.remove(); return; }
+    const g = Guitar.state;
+    const box = document.createElement("div");
+    box.className = "sect-menu gt-comp-popover";
+    box.id = "gt-comp-popover";
+    box.innerHTML = `
+      <div class="ss-head">Kompresor (živá kytara)</div>
+      <button type="button" id="gt-comp-toggle">${icon(g.compOn ? "check" : "close", 12)}
+        <span>${g.compOn ? "Zapnuto" : "Vypnuto"}</span></button>
+      <hr>
+      <div class="gt-settings-row"><span class="gt-cap">PRAH <span id="gt-comp-thr-val">${g.compThreshold}&nbsp;dB</span></span>
+        <input type="range" class="nm-tempo gt-comp-threshold" min="-60" max="0" step="1" value="${g.compThreshold}"></div>
+      <div class="gt-settings-row"><span class="gt-cap">POMĚR <span id="gt-comp-ratio-val">${g.compRatio}:1</span></span>
+        <input type="range" class="nm-tempo gt-comp-ratio" min="1" max="20" step="0.5" value="${g.compRatio}"></div>
+      <div class="gt-settings-row"><span class="gt-cap">ATTACK <span id="gt-comp-attack-val">${Math.round(g.compAttack * 1000)}&nbsp;ms</span></span>
+        <input type="range" class="nm-tempo gt-comp-attack" min="0" max="0.1" step="0.001" value="${g.compAttack}"></div>
+      <div class="gt-settings-row"><span class="gt-cap">RELEASE <span id="gt-comp-release-val">${Math.round(g.compRelease * 1000)}&nbsp;ms</span></span>
+        <input type="range" class="nm-tempo gt-comp-release" min="0.02" max="1" step="0.01" value="${g.compRelease}"></div>`;
+    document.body.appendChild(box);
+    const anchor = el("gt-comp-btn").getBoundingClientRect();
+    const r = box.getBoundingClientRect();
+    box.style.left = Math.min(anchor.left, window.innerWidth - r.width - 8) + "px";
+    box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
+
+    const syncToggleBtn = () => {
+      const btn = box.querySelector("#gt-comp-toggle");
+      btn.innerHTML = `${icon(g.compOn ? "check" : "close", 12)}<span>${g.compOn ? "Zapnuto" : "Vypnuto"}</span>`;
+      el("gt-comp-btn").classList.toggle("on", g.compOn);
+    };
+    box.querySelector("#gt-comp-toggle").onclick = () => {
+      Guitar.toggleComp();
+      syncToggleBtn();
+      queueSessionSave();
+    };
+    box.querySelector(".gt-comp-threshold").oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      Guitar.setCompParam("threshold", v);
+      el("gt-comp-thr-val").textContent = v + " dB";
+      queueSessionSave();
+    };
+    box.querySelector(".gt-comp-ratio").oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      Guitar.setCompParam("ratio", v);
+      el("gt-comp-ratio-val").textContent = v + ":1";
+      queueSessionSave();
+    };
+    box.querySelector(".gt-comp-attack").oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      Guitar.setCompParam("attack", v);
+      el("gt-comp-attack-val").textContent = Math.round(v * 1000) + " ms";
+      queueSessionSave();
+    };
+    box.querySelector(".gt-comp-release").oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      Guitar.setCompParam("release", v);
+      el("gt-comp-release-val").textContent = Math.round(v * 1000) + " ms";
+      queueSessionSave();
+    };
+
+    setTimeout(() => document.addEventListener("pointerdown", function once(e){
+      if(!e.target.closest("#gt-comp-popover") && !e.target.closest("#gt-comp-btn")) box.remove();
       else document.addEventListener("pointerdown", once, {once: true});
     }, {once: true}), 0);
   }

@@ -3533,6 +3533,11 @@ class GuitarSettings(BaseModel):
     muted: bool = False
     solo: bool = False
     threshold: float = -100.0
+    compOn: bool = False
+    compThreshold: float = -24.0
+    compRatio: float = 4.0
+    compAttack: float = 0.02
+    compRelease: float = 0.25
     deviceId: Optional[str] = None
     ampName: Optional[str] = None
     cabName: Optional[str] = None
@@ -3600,6 +3605,10 @@ def put_session(name: str, body: MixerSession):
         gtr["volume"] = max(0.0, min(2.0, float(gtr["volume"])))
         gtr["pan"] = max(-1.0, min(1.0, float(gtr["pan"])))
         gtr["threshold"] = max(-100.0, min(0.0, float(gtr["threshold"])))
+        gtr["compThreshold"] = max(-60.0, min(0.0, float(gtr["compThreshold"])))
+        gtr["compRatio"] = max(1.0, min(20.0, float(gtr["compRatio"])))
+        gtr["compAttack"] = max(0.0, min(0.1, float(gtr["compAttack"])))
+        gtr["compRelease"] = max(0.02, min(1.0, float(gtr["compRelease"])))
     try:
         (stems_dir / "session.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")
