@@ -812,8 +812,14 @@
   .gt-icon-btn.on{color:var(--nm-gold);background:rgba(233,185,73,.14)}
   .gt-icon-btn.sel{box-shadow:inset 0 0 0 1px var(--nm-gold)}
   .gt-icon-btn.rec-on{color:#ff5f5f;background:rgba(255,95,95,.16);animation:gtpulse 1.1s infinite}
-  .gt-knob-row{display:flex;align-items:center;justify-content:center;gap:20px;padding-top:1px}
+  .gt-knob-row{display:flex;align-items:center;justify-content:center;gap:10px;padding-top:1px}
   .gt-knob-wrap{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .gt-preset-stepper{display:flex;align-items:center;gap:2px}
+  .gt-preset-cat{flex:0 0 auto;min-width:30px;height:18px;padding:0 3px;border:none;
+    border-radius:3px;background:#1c1c22;color:var(--nm-gold);font-size:7px;font-weight:700;
+    letter-spacing:.03em;cursor:pointer;white-space:nowrap}
+  .gt-preset-cat:hover{background:#2a2a33}
+  .gt-preset-name{max-width:66px;overflow:hidden;text-overflow:ellipsis}
   .gt-knob{width:22px;height:22px;border-radius:50%;position:relative;cursor:pointer;
     background:radial-gradient(circle at 35% 35%,#505050,#1a1a1a);
     border:2px solid #404040;box-shadow:0 2px 4px rgba(0,0,0,.5);touch-action:none}
@@ -7011,6 +7017,62 @@ const Mixer = (() => {
                          // selectable from the panel exactly like a stem
   function eqTarget(sel){ return sel === "guitar" ? guitarEq : channels[sel]; }
 
+  // ---- live guitar NAM preset browser (clean / crunch / hi-gain) ----
+  // A category is just a folder: AMPS_DIR/<category>/ for anything uploaded
+  // through this app, plus one external folder per category the user can
+  // point at a pack downloaded elsewhere (mapped in guitar settings, never
+  // copied — see /api/settings/amp-category-dir). The arrows step through
+  // whichever of those two the server returned for the current category.
+  const AMP_CATEGORY_ORDER = ["clean", "crunch", "hi_gain"];
+  const AMP_CATEGORY_LABEL = {clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN"};
+  let ampBrowseCategory = "clean";
+  let ampBrowseCache = {clean: null, crunch: null, hi_gain: null};   // fetched lists
+  let ampBrowseIndex = {clean: -1, crunch: -1, hi_gain: -1};
+
+  async function ampBrowseFetch(cat){
+    if(ampBrowseCache[cat]) return ampBrowseCache[cat];
+    try{
+      const res = await fetch(`/api/amps?category=${cat}`);
+      const list = await res.json();
+      ampBrowseCache[cat] = Array.isArray(list) ? list : [];
+    }catch(e){ ampBrowseCache[cat] = []; }
+    return ampBrowseCache[cat];
+  }
+
+  function ampBrowseInvalidate(cat){
+    if(cat) ampBrowseCache[cat] = null;
+    else AMP_CATEGORY_ORDER.forEach(c => ampBrowseCache[c] = null);
+  }
+
+  async function ampBrowseStep(dir){
+    const list = await ampBrowseFetch(ampBrowseCategory);
+    if(!list.length){
+      showToast(`${AMP_CATEGORY_LABEL[ampBrowseCategory]}: žádné presety — namapuj složku v nastavení kytary`);
+      return;
+    }
+    let idx = ampBrowseIndex[ampBrowseCategory];
+    if(idx < 0) idx = list.findIndex(a => a.name === Guitar.state.ampName);
+    idx = ((idx + dir) % list.length + list.length) % list.length;
+    ampBrowseIndex[ampBrowseCategory] = idx;
+    await ampBrowseLoad(list[idx]);
+  }
+
+  async function ampBrowseLoad(item){
+    showToast("Načítám model…");
+    try{
+      await Amp.load(item.file, item.name);
+      showToast(`Zesilovač: ${item.name}`);
+    }catch(e){ showToast("Model se nepodařilo načíst"); }
+    renderGuitarStrip();
+    queueSessionSave();
+  }
+
+  function ampBrowseCycleCategory(){
+    const i = AMP_CATEGORY_ORDER.indexOf(ampBrowseCategory);
+    ampBrowseCategory = AMP_CATEGORY_ORDER[(i + 1) % AMP_CATEGORY_ORDER.length];
+    renderGuitarStrip();
+  }
+
   // gain -> band filters -> analyser, plus a finer analyser hung off the end
   // for the spectrum drawn behind the curve.
   function buildEq(c, saved){
@@ -9662,7 +9724,7 @@ const Mixer = (() => {
       // The amp and cabinet, though, cost nothing until something plays
       // through them, and having to pick them again for every song is the
       // sort of chore this whole file exists to remove.
-      restoreAmp(gt.ampName, gt.cabName);
+      restoreAmp(gt.ampName, gt.cabName, gt.ampFile);
       if(gt.eq){ Guitar.ensureEq(); restoreEq(guitarEq, gt.eq); }
     }
     if(saved && saved.metronome){
@@ -10250,6 +10312,7 @@ const Mixer = (() => {
         compRatio: Guitar.state.compRatio, compAttack: Guitar.state.compAttack,
         compRelease: Guitar.state.compRelease,
         deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
+        ampFile: Guitar.state.ampFile,
         cabName: Guitar.state.cabName,
         eq: guitarEq ? eqSnapshot(guitarEq) : null,
       },
@@ -11021,7 +11084,7 @@ const Mixer = (() => {
       volume: 0.9, pan: 0, muted: false, solo: false,
       threshold: -100,          // gate off until it is asked for
       compOn: false, compThreshold: -24, compRatio: 4, compAttack: 0.02, compRelease: 0.25,
-      ampName: null, cabName: null,
+      ampName: null, ampFile: null, cabName: null,
       guideVolume: 0.8,
       peak: 0, gate: 0,
       latencyMs: null,
@@ -11421,6 +11484,16 @@ const Mixer = (() => {
           <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
           <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
         </div>
+        <div class="gt-knob-wrap gt-preset-wrap">
+          <div class="gt-preset-stepper">
+            <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
+            <button class="gt-preset-cat" id="gt-preset-cat"
+              title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
+            <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
+          </div>
+          <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
+            title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>
+        </div>
         <div class="gt-knob-wrap">
           <div class="gt-knob" id="gt-guide-knob" tabindex="0"
             title="Hlasitost virtuální kytary (Guide) — táhni svisle. Má vlastní zesilovač a nemíchá se s tvou kytarou."></div>
@@ -11535,16 +11608,21 @@ const Mixer = (() => {
     };
     strip.querySelector("#gt-settings-btn").onclick = () => openGuitarSettings();
     strip.querySelector("#gt-comp-btn").onclick = () => openGuitarComp();
+    strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
+    strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
+    strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
   }
 
   // Everything that used to sit in its own row (input device, pan, amp/cab,
   // latency) but only matters while setting up, not while playing — folded
   // into one popover behind the settings icon, the same sect-menu pattern
   // as the amp picker it links to.
-  function openGuitarSettings(){
+  async function openGuitarSettings(){
     const existing = el("gt-settings-popover");
     if(existing){ existing.remove(); return; }
     const g = Guitar.state;
+    let catDirs = {};
+    try{ catDirs = await (await fetch("/api/settings/amp-category-dirs")).json(); }catch(e){}
     const box = document.createElement("div");
     box.className = "sect-menu gt-settings-popover";
     box.id = "gt-settings-popover";
@@ -11561,7 +11639,18 @@ const Mixer = (() => {
       <hr>
       <button type="button" id="gt-amp-open">${icon("sliders", 12)}<span>${escapeHtml(
         [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Zesilovač a kabinet…")}</span></button>
-      ${g.latencyMs !== null ? `<div class="hint">Zpoždění ~${g.latencyMs} ms</div>` : ""}`;
+      ${g.latencyMs !== null ? `<div class="hint">Zpoždění ~${g.latencyMs} ms</div>` : ""}
+      <hr>
+      <div class="ss-head">Složky s NAM presety (Clean / Crunch / Hi-Gain)</div>
+      ${AMP_CATEGORY_ORDER.map(cat => `
+      <div class="gt-settings-row"><span class="gt-cap">${AMP_CATEGORY_LABEL[cat]}</span>
+        <input type="text" class="gt-catdir" data-cat="${cat}" placeholder="/cesta/ke/složce"
+          value="${escapeHtml(catDirs[cat] || "")}"></div>`).join("")}
+      <div class="hint">Složka na disku — jen se z ní čte, nic se nekopíruje.
+        Šipky u kytary pak stepují modely (.nam) přímo z ní podle vybrané kategorie.</div>
+      <div class="hint">Automatický výběr 20 nejtrendy modelů z TONE3000 nejde —
+        jejich katalog nemá anonymní API, jen přihlášené uživatele (viz tlačítko
+        "Katalog TONE3000…" v okně zesilovače).</div>`;
     document.body.appendChild(box);
     const anchor = el("gt-settings-btn").getBoundingClientRect();
     const r = box.getBoundingClientRect();
@@ -11578,6 +11667,22 @@ const Mixer = (() => {
       queueSessionSave();
     };
     box.querySelector("#gt-amp-open").onclick = () => { box.remove(); openAmpPicker(); };
+    box.querySelectorAll(".gt-catdir").forEach(inp => {
+      const save = async () => {
+        const cat = inp.dataset.cat;
+        try{
+          const res = await fetch("/api/settings/amp-category-dir", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({category: cat, path: inp.value.trim()}),
+          });
+          const data = await res.json();
+          if(!res.ok){ showToast(data.error || "Uložení selhalo"); return; }
+          ampBrowseInvalidate(cat);
+          showToast(data.path ? `${AMP_CATEGORY_LABEL[cat]}: složka nastavena` : `${AMP_CATEGORY_LABEL[cat]}: složka zrušena`);
+        }catch(e){ showToast("Uložení selhalo"); }
+      };
+      inp.addEventListener("change", save);
+    });
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
       if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
@@ -11792,7 +11897,12 @@ const Mixer = (() => {
       return engine;
     }
 
-    async function load(file){
+    // `file` is whatever id fetches the model — a bare name for the old flat
+    // AMPS_DIR layout, or a "category/name.nam" / "ext:category/name.nam"
+    // composite id for a categorized preset. `displayName` is what's shown
+    // and saved as ampName; it defaults to the old behaviour (file minus
+    // extension) when not given, since a bare file id has no prefix to strip.
+    async function load(file, displayName){
       if(loading) return null;
       loading = true;
       try{
@@ -11804,7 +11914,8 @@ const Mixer = (() => {
         // Parsing happens on the audio thread; the node fades back in by
         // itself, so there is no click to hide here.
         const info = await node.loadModel(json);
-        Guitar.setAmp(node, file.replace(/\.nam$/i, ""));
+        Guitar.setAmp(node, displayName || file.replace(/\.nam$/i, ""));
+        Guitar.state.ampFile = file;
         // A second copy of the same model for the guide.
         if(!guideNode) guideNode = await eng.createNode();
         await guideNode.loadModel(json);
@@ -11823,6 +11934,7 @@ const Mixer = (() => {
         try{ await guideNode.unloadModel(); }catch(e){}
       }
       Guitar.setAmp(null, null);
+      Guitar.state.ampFile = null;
       Guitar.setGuideAmp(null);
     }
 
@@ -11959,9 +12071,13 @@ const Mixer = (() => {
 
   // Re-select the amp and cabinet a song was left with. Failures are quiet:
   // a model that has since been deleted must not stop the song loading.
-  async function restoreAmp(ampName, cabName){
+  // ampFile is the id it was actually loaded through — a bare "name.nam"
+  // for the flat layout, or a "category/…" / "ext:category/…" one for a
+  // categorized preset; a session saved before that existed only has
+  // ampName, so that legacy bare-name guess is the fallback.
+  async function restoreAmp(ampName, cabName, ampFile){
     if(ampName && ampName !== Guitar.state.ampName){
-      try{ await Amp.load(`${ampName}.nam`); }catch(e){}
+      try{ await Amp.load(ampFile || `${ampName}.nam`, ampName); }catch(e){}
     } else if(!ampName && Guitar.state.ampName){
       try{ await Amp.unload(); }catch(e){}
     }

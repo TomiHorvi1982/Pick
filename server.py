@@ -243,9 +243,86 @@ AMPS_DIR = HOME / ".local" / "share" / "spotdl-helper" / "amps"
 AMP_EXTS = {".nam": "model", ".wav": "ir"}
 MAX_AMP_BYTES = 80 * 1024 * 1024
 
+# Live-guitar preset browsing groups NAM models into three tone categories.
+# Each has its own subfolder under AMPS_DIR for uploads, and can additionally
+# be pointed at an external folder on disk (config-only — never copied) for
+# packs downloaded elsewhere.
+AMP_CATEGORIES = ["clean", "crunch", "hi_gain"]
+
+
+def _amp_category_dir(cat: str) -> Optional[Path]:
+    """The external folder mapped to `cat`, if one is set and still exists.
+    Never trusts a path from the client directly — only this config-stored,
+    server-validated one, keyed by a category checked against the fixed list."""
+    dirs = _read_config().get("amp_category_dirs") or {}
+    raw = dirs.get(cat)
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    return path if path.is_dir() else None
+
+
+def _resolve_amp_path(filename: str) -> Optional[Path]:
+    """Resolves a client-supplied amp/IR file id to a real path on disk.
+    The client only ever gets to name a category (checked against
+    AMP_CATEGORIES) and a bare filename (basename only) — the actual
+    directory always comes from the server side, so this can't be used to
+    walk out of the amps folder or the one mapped external directory.
+    """
+    if filename.startswith("ext:"):
+        rest = filename[len("ext:"):]
+        if "/" not in rest:
+            return None
+        cat, name = rest.split("/", 1)
+        if cat not in AMP_CATEGORIES:
+            return None
+        base = _amp_category_dir(cat)
+        if base is None:
+            return None
+        path = base / Path(name).name
+        return path if path.resolve().parent == base.resolve() else None
+    if "/" in filename:
+        cat, name = filename.split("/", 1)
+        if cat not in AMP_CATEGORIES:
+            return None
+        base = AMPS_DIR / cat
+        path = base / Path(name).name
+        return path if path.resolve().parent == base.resolve() else None
+    path = AMPS_DIR / Path(filename).name
+    return path if path.resolve().parent == AMPS_DIR.resolve() else None
+
 
 @app.get("/api/amps")
-def list_amps():
+def list_amps(category: str = ""):
+    if category:
+        if category not in AMP_CATEGORIES:
+            return JSONResponse({"error": "Neplatná kategorie."}, status_code=400)
+        out = []
+        cat_dir = AMPS_DIR / category
+        cat_dir.mkdir(parents=True, exist_ok=True)
+        for path in sorted(cat_dir.glob("*.nam")):
+            if not path.is_file():
+                continue
+            try:
+                size = path.stat().st_size
+            except OSError:
+                continue
+            out.append({"name": path.stem, "file": f"{category}/{path.name}",
+                        "kind": "model", "bytes": size, "category": category})
+        ext_dir = _amp_category_dir(category)
+        if ext_dir is not None:
+            for path in sorted(ext_dir.glob("*.nam")):
+                if not path.is_file():
+                    continue
+                try:
+                    size = path.stat().st_size
+                except OSError:
+                    continue
+                out.append({"name": path.stem, "file": f"ext:{category}/{path.name}",
+                            "kind": "model", "bytes": size, "category": category,
+                            "external": True})
+        return out
+
     AMPS_DIR.mkdir(parents=True, exist_ok=True)
     out = []
     for path in sorted(AMPS_DIR.glob("*")):
@@ -262,39 +339,46 @@ def list_amps():
 
 
 @app.post("/api/amps")
-async def add_amp(request: Request, filename: str = ""):
-    """Store one .nam model or .wav impulse response."""
+async def add_amp(request: Request, filename: str = "", category: str = ""):
+    """Store one .nam model or .wav impulse response. `category` (clean /
+    crunch / hi_gain) files it under AMPS_DIR/<category>/ instead of the
+    flat top-level folder — only .nam models are categorized, cabinets stay
+    uncategorized."""
     suffix = Path(filename).suffix.lower()
     if suffix not in AMP_EXTS:
         return JSONResponse(
             {"error": "Podporované jsou jen .nam modely a .wav impulsy."},
             status_code=400)
+    if category and (suffix != ".nam" or category not in AMP_CATEGORIES):
+        return JSONResponse({"error": "Neplatná kategorie."}, status_code=400)
     raw = await request.body()
     if not raw:
         return JSONResponse({"error": "Prázdný soubor."}, status_code=400)
     if len(raw) > MAX_AMP_BYTES:
         return JSONResponse({"error": "Soubor je příliš velký."}, status_code=413)
 
-    AMPS_DIR.mkdir(parents=True, exist_ok=True)
+    target_dir = (AMPS_DIR / category) if category else AMPS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
     safe = _safe_name(Path(filename).stem) + suffix
-    target = AMPS_DIR / safe
+    target = target_dir / safe
     # Never let a name walk out of the folder, whatever the browser sent.
-    if target.resolve().parent != AMPS_DIR.resolve():
+    if target.resolve().parent != target_dir.resolve():
         return JSONResponse({"error": "Neplatný název."}, status_code=400)
     try:
         target.write_bytes(raw)
     except OSError as exc:
         return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
-    return {"name": target.stem, "file": target.name,
+    file_id = f"{category}/{target.name}" if category else target.name
+    return {"name": target.stem, "file": file_id,
             "kind": AMP_EXTS[suffix], "bytes": len(raw)}
 
 
-@app.get("/api/amps/{filename}")
+@app.get("/api/amps/{filename:path}")
 def get_amp(filename: str):
     if Path(filename).suffix.lower() not in AMP_EXTS:
         return JSONResponse({"error": "Neplatný soubor."}, status_code=400)
-    path = AMPS_DIR / Path(filename).name
-    if not path.is_file() or path.resolve().parent != AMPS_DIR.resolve():
+    path = _resolve_amp_path(filename)
+    if path is None or not path.is_file():
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     from fastapi.responses import Response
     types = {".nam": "application/json", ".wav": "audio/wav"}
@@ -302,17 +386,49 @@ def get_amp(filename: str):
                     media_type=types[path.suffix.lower()])
 
 
-@app.delete("/api/amps/{filename}")
+@app.delete("/api/amps/{filename:path}")
 def delete_amp(filename: str):
-    path = AMPS_DIR / Path(filename).name
-    if (Path(filename).suffix.lower() not in AMP_EXTS or not path.is_file()
-            or path.resolve().parent != AMPS_DIR.resolve()):
+    if Path(filename).suffix.lower() not in AMP_EXTS:
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    path = _resolve_amp_path(filename)
+    if path is None or not path.is_file():
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     try:
         path.unlink()
     except OSError as exc:
         return JSONResponse({"error": f"Smazání selhalo: {exc}"}, status_code=500)
     return {"ok": True}
+
+
+class AmpCategoryDirRequest(BaseModel):
+    category: str
+    path: str = ""
+
+
+@app.get("/api/settings/amp-category-dirs")
+def get_amp_category_dirs():
+    dirs = _read_config().get("amp_category_dirs") or {}
+    return {cat: dirs.get(cat) for cat in AMP_CATEGORIES}
+
+
+@app.post("/api/settings/amp-category-dir")
+def set_amp_category_dir(req: AmpCategoryDirRequest):
+    if req.category not in AMP_CATEGORIES:
+        return JSONResponse({"error": "Neplatná kategorie."}, status_code=400)
+    dirs = dict(_read_config().get("amp_category_dirs") or {})
+    raw = req.path.strip()
+    if not raw:
+        dirs.pop(req.category, None)
+        _write_config({"amp_category_dirs": dirs})
+        return {"category": req.category, "path": None}
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        return JSONResponse({"error": "Cesta musí být absolutní."}, status_code=400)
+    if not path.is_dir():
+        return JSONResponse({"error": "Složka neexistuje."}, status_code=400)
+    dirs[req.category] = str(path)
+    _write_config({"amp_category_dirs": dirs})
+    return {"category": req.category, "path": str(path)}
 
 
 @app.get("/static/worklets/{name}")
@@ -3540,6 +3656,7 @@ class GuitarSettings(BaseModel):
     compRelease: float = 0.25
     deviceId: Optional[str] = None
     ampName: Optional[str] = None
+    ampFile: Optional[str] = None
     cabName: Optional[str] = None
     eq: Optional[List[EqBand]] = None
 
