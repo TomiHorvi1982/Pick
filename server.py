@@ -54,9 +54,9 @@ def _read_config() -> dict:
 
 def _write_config(patch: dict) -> dict:
     """Merges patch into config.json rather than replacing it — several
-    unrelated settings (music root, video mode, the Music AI key) all live
-    in this one file, so a plain overwrite would silently erase whichever
-    of them wasn't part of the current save.
+    unrelated settings (music root, video mode, amp category folders) all
+    live in this one file, so a plain overwrite would silently erase
+    whichever of them wasn't part of the current save.
     """
     data = _read_config()
     data.update(patch)
@@ -2865,8 +2865,7 @@ class SettingsRequest(BaseModel):
 
 @app.get("/api/settings")
 def get_settings():
-    return {"music_root": str(MUSIC_ROOT),
-            "music_ai_key_set": bool(_read_config().get("music_ai_api_key"))}
+    return {"music_root": str(MUSIC_ROOT)}
 
 
 @app.post("/api/settings")
@@ -2885,45 +2884,6 @@ def update_settings(req: SettingsRequest):
     MUSIC_ROOT = path
     _write_config({"music_root": str(path)})
     return {"music_root": str(MUSIC_ROOT)}
-
-
-class MusicAiKeyRequest(BaseModel):
-    api_key: str = ""
-
-
-@app.post("/api/settings/music-ai-key")
-def set_music_ai_key(req: MusicAiKeyRequest):
-    """Stored server-side only — GET /api/settings only ever reports
-    whether a key is set, never the key itself, so it can't leak back out
-    through the browser once saved."""
-    _write_config({"music_ai_api_key": req.api_key.strip()})
-    return {"music_ai_key_set": bool(req.api_key.strip())}
-
-
-@app.get("/api/music-ai/workflows")
-async def music_ai_workflows():
-    """Lists the account's available Music AI workflows — used to confirm
-    the API key works and to find the exact slug for guitar separation
-    without hand-typing (and possibly mistyping) an identifier that isn't
-    documented anywhere public.
-    """
-    key = _read_config().get("music_ai_api_key")
-    if not key:
-        return JSONResponse({"error": "Music AI klíč není nastavený."}, status_code=400)
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            res = await client.get("https://api.music.ai/v1/workflow",
-                                    headers={"Authorization": key})
-        if res.status_code == 401:
-            return JSONResponse({"error": "Klíč byl odmítnut (401)."}, status_code=401)
-        res.raise_for_status()
-        workflows = res.json()
-    except httpx.HTTPError as exc:
-        return JSONResponse({"error": f"Spojení s Music AI selhalo: {exc}"}, status_code=502)
-    items = workflows if isinstance(workflows, list) else workflows.get("data", [])
-    guitar = [w for w in items
-              if isinstance(w, dict) and "guitar" in str(w.get("name", "")).lower()]
-    return {"count": len(items), "guitar_workflows": guitar}
 
 
 @app.post("/api/settings/pick-folder")
