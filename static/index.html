@@ -832,7 +832,7 @@
     transform-origin:bottom center;transform:translateX(-50%) rotate(var(--rot,-135deg))}
   .gt-knob-label{font-size:7.5px;color:var(--nm-sub);user-select:none;
     font-variant-numeric:tabular-nums;white-space:nowrap}
-  .gt-settings-popover{min-width:200px}
+  .gt-settings-popover{min-width:240px;max-width:300px}
   .gt-settings-popover .ss-head{padding:6px 8px 3px}
   .gt-settings-row{display:flex;align-items:center;gap:6px;padding:4px 8px}
   .gt-settings-row .gt-cap{flex:0 0 32px}
@@ -849,12 +849,19 @@
   .gt-power.on{background:var(--nm-gold);color:#101014}
   .gt-device{flex:1;min-width:0;background:#1c1c22;color:var(--nm-txt);
     border:1px solid #33333d;border-radius:5px;font-size:9.5px;padding:3px 4px}
-  .gt-catdir{flex:1;min-width:0;background:#1c1c22;color:var(--nm-txt);
-    border:1px solid #33333d;border-radius:5px;font-size:9.5px;padding:3px 4px}
-  .gt-catdir-pick{flex:0 0 auto;width:20px;height:20px;border:none;border-radius:4px;
-    background:#1c1c22;color:var(--nm-sub);cursor:pointer;display:flex;
-    align-items:center;justify-content:center;padding:0}
-  .gt-catdir-pick:hover{background:#2a2a33;color:var(--nm-txt)}
+  .gt-catdir-list{display:flex;flex-direction:column;gap:6px;padding:2px 8px 4px}
+  .gt-catdir-chip{display:flex;align-items:center;gap:10px;width:100%;
+    background:#1c1c22;border:none;border-radius:10px;padding:8px 10px;
+    cursor:pointer;color:var(--nm-txt);text-align:left}
+  .gt-catdir-chip:hover{background:#24242c}
+  .gt-catdir-icon{flex:0 0 auto;color:var(--nm-gold);display:flex}
+  .gt-catdir-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .gt-catdir-label{font-size:8.5px;font-weight:700;letter-spacing:.09em;color:var(--nm-sub)}
+  .gt-catdir-path{font-size:10.5px;color:var(--nm-txt);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .gt-catdir-clear{flex:0 0 auto;color:var(--nm-sub);display:flex;align-items:center;
+    padding:3px;border-radius:4px}
+  .gt-catdir-clear:hover{color:#ff6b6b;background:rgba(255,107,107,.12)}
 
   /* The meter reads the input *before* the gate: a gated signal looks like
      silence and tells you nothing about whether you are clipping. */
@@ -11638,13 +11645,20 @@ const Mixer = (() => {
         [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Zesilovač a kabinet…")}</span></button>
       ${g.latencyMs !== null ? `<div class="hint">Zpoždění ~${g.latencyMs} ms</div>` : ""}
       <hr>
-      <div class="ss-head">Složky s NAM presety (Clean / Crunch / Hi-Gain)</div>
+      <div class="ss-head">Složky s NAM presety</div>
+      <div class="gt-catdir-list">
       ${AMP_CATEGORY_ORDER.map(cat => `
-      <div class="gt-settings-row"><span class="gt-cap">${AMP_CATEGORY_LABEL[cat]}</span>
-        <input type="text" class="gt-catdir" data-cat="${cat}" placeholder="/cesta/ke/složce"
-          value="${escapeHtml(catDirs[cat] || "")}">
-        <button type="button" class="gt-catdir-pick" data-cat="${cat}"
-          title="Vybrat složku ve Finderu">${icon("folderOpen", 12)}</button></div>`).join("")}
+      <button type="button" class="gt-catdir-chip" data-cat="${cat}">
+        <span class="gt-catdir-icon">${icon("folderOpen", 16)}</span>
+        <span class="gt-catdir-text">
+          <span class="gt-catdir-label">${AMP_CATEGORY_LABEL[cat]}</span>
+          <span class="gt-catdir-path" data-cat="${cat}">${catDirs[cat]
+            ? escapeHtml(catDirs[cat]) : "Nenastaveno — klikni pro výběr"}</span>
+        </span>
+        <span class="gt-catdir-clear" data-cat="${cat}" title="Zrušit složku"
+          ${catDirs[cat] ? "" : "hidden"}>${icon("close", 11)}</span>
+      </button>`).join("")}
+      </div>
       <div class="hint">Složka na disku — jen se z ní čte, nic se nekopíruje.
         Šipky u kytary pak stepují modely (.nam) přímo z ní podle vybrané kategorie.</div>
       <div class="hint">Automatický výběr 20 nejtrendy modelů z TONE3000 nejde —
@@ -11666,6 +11680,11 @@ const Mixer = (() => {
       queueSessionSave();
     };
     box.querySelector("#gt-amp-open").onclick = () => { box.remove(); openAmpPicker(); };
+    const paintCatDir = (cat, path) => {
+      box.querySelector(`.gt-catdir-path[data-cat="${cat}"]`).textContent =
+        path || "Nenastaveno — klikni pro výběr";
+      box.querySelector(`.gt-catdir-clear[data-cat="${cat}"]`).hidden = !path;
+    };
     const saveCatDir = async (cat, path) => {
       try{
         const res = await fetch("/api/settings/amp-category-dir", {
@@ -11675,25 +11694,26 @@ const Mixer = (() => {
         const data = await res.json();
         if(!res.ok){ showToast(data.error || "Uložení selhalo"); return; }
         ampBrowseInvalidate(cat);
+        paintCatDir(cat, data.path);
         showToast(data.path ? `${AMP_CATEGORY_LABEL[cat]}: složka nastavena` : `${AMP_CATEGORY_LABEL[cat]}: složka zrušena`);
       }catch(e){ showToast("Uložení selhalo"); }
     };
-    box.querySelectorAll(".gt-catdir").forEach(inp => {
-      inp.addEventListener("change", () => saveCatDir(inp.dataset.cat, inp.value.trim()));
-    });
     // The browser sandbox can't hand back an absolute filesystem path from
     // its own file picker, so this shells out to a native Finder dialog
     // (same trick as the music-root folder picker) instead of making
-    // someone hunt down and type the path themselves.
-    box.querySelectorAll(".gt-catdir-pick").forEach(btn => {
-      btn.onclick = async () => {
-        const cat = btn.dataset.cat;
+    // someone hunt down and type the path themselves — the whole chip is
+    // the picker; the × just clears it.
+    box.querySelectorAll(".gt-catdir-chip").forEach(chip => {
+      chip.onclick = async () => {
+        const cat = chip.dataset.cat;
         const res = await fetch("/api/settings/pick-folder", {method: "POST"});
         const data = await res.json();
         if(!data.path) return; // dialog cancelled
-        box.querySelector(`.gt-catdir[data-cat="${cat}"]`).value = data.path;
         await saveCatDir(cat, data.path);
       };
+    });
+    box.querySelectorAll(".gt-catdir-clear").forEach(x => {
+      x.onclick = (e) => { e.stopPropagation(); saveCatDir(x.dataset.cat, ""); };
     });
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
