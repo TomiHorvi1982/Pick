@@ -1232,8 +1232,12 @@
   /* Steems: the hero is a header, not the point of the page — a thin strip
      the full width of the stage, with the art shrunk to match, so the
      text/tabs/guitar below it aren't pushed halfway down the screen. */
+  /* The mixer panel right under it (.nm) is rounded on every corner
+     (border-radius:12px) — matching just the right side here (the left
+     sits flush against the rail, so it stays square) keeps the two from
+     reading as two unrelated shapes stacked on top of each other. */
   #steems-hero .sp-hero{max-width:100%;min-height:auto;
-    padding:18px 22px;align-items:center;gap:18px}
+    padding:18px 22px;align-items:center;gap:18px;border-radius:0 12px 12px 0}
   #steems-hero .sp-hero-art{width:88px;height:88px;flex-basis:88px;font-size:28px}
   #steems-hero .sp-hero-title{font-size:clamp(20px,2.3vw,32px)}
   #steems-hero .sp-hero-stats{font-size:12.5px}
