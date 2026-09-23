@@ -1736,6 +1736,15 @@
   .tab-float-body .nm-tabtop-hostwrap{height:100%}
   .tab-float-body .nm-tabtop-host{height:auto !important}
   .tab-float-body .nm-tabtop-cursor{display:none}
+  /* Karaoketexty.cz's own page, framed — not fetched or copied into this
+     app. The hint line just names the current song for typing into their
+     own search box; the "open in new window" link is a fallback for if
+     the site ever refuses to be framed. */
+  .karaoke-float-hint{padding:6px 10px;font-size:11.5px;color:var(--sub);
+    background:#0c0c10;border-bottom:1px solid #232329;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .karaoke-float-body{padding:0;background:#fff}
+  #karaoke-float-frame{width:100%;height:100%;border:none;display:block}
   .lyr-block{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 6px;
     font-size:11.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;cursor:pointer;border-left:1px solid var(--nm-line);box-sizing:border-box}
@@ -2652,6 +2661,7 @@
         <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
         <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
         <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
+        <button type="button" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
       </div>
       <div class="nm-lyr-lines" id="nm-lyr-lines">
@@ -3177,6 +3187,22 @@
   </div>
   <div class="float-body tab-float-body" id="tab-float-body"></div>
   <div class="float-grip" id="tab-float-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<!-- Karaoketexty.cz in a window of its own — LRCLib carries few Czech songs,
+     so for those this just frames their own site; the search itself and
+     the lyrics stay on karaoketexty.cz, nothing is copied into this app. -->
+<div class="float-win karaoke-float" id="karaoke-float" hidden>
+  <div class="float-head" id="karaoke-float-head">
+    <span class="float-title">Karaoketexty.cz</span>
+    <a class="float-btn" id="karaoke-float-open" href="https://www.karaoketexty.cz/" target="_blank" rel="noopener" title="Otevřít v novém okně prohlížeče"><span data-icon="external" data-size="13"></span></a>
+    <button class="float-btn" id="karaoke-float-dock" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
+  </div>
+  <div class="karaoke-float-hint" id="karaoke-float-hint"></div>
+  <div class="float-body karaoke-float-body">
+    <iframe id="karaoke-float-frame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </div>
+  <div class="float-grip" id="karaoke-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <!-- The tuner (vendored <neverlast-ladicka>), opened from the live guitar strip. -->
@@ -7579,6 +7605,30 @@ const Mixer = (() => {
       showToast("Pod tímhle názvem text s časy není");
     }
   };
+
+  // ---- Karaoketexty.cz, for the Czech songs LRCLib mostly doesn't have —
+  // their own page in a window of its own. Nothing is fetched or scraped
+  // server-side: the iframe is just the user's own browser visiting their
+  // site directly, same as opening it in a tab, and the search happens on
+  // their page, in their own search box. This app only fills in what song
+  // to type in.
+  const FloatKaraoke = makeFloating("karaoke-float", {defaults: {width: 620, height: 640}});
+  let karaokeLoaded = false;
+
+  function openKaraoke(){
+    const q = currentSongName || "";
+    el("karaoke-float-hint").textContent = q
+      ? `Hledej: „${q}“ — v jejich vyhledávání nahoře na stránce`
+      : "Napiš interpreta a název písně do jejich vyhledávání nahoře na stránce";
+    el("karaoke-float-open").href = "https://www.karaoketexty.cz/";
+    if(!karaokeLoaded){
+      el("karaoke-float-frame").src = "https://www.karaoketexty.cz/";
+      karaokeLoaded = true;
+    }
+    FloatKaraoke.open();
+  }
+  el("nm-lyr-karaoke").onclick = openKaraoke;
+  el("karaoke-float-dock").onclick = () => FloatKaraoke.close();
 
   // ---- the tuner ----
   //
