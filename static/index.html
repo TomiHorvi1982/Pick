@@ -11883,7 +11883,13 @@ const Mixer = (() => {
         set milisekund a zvuk se sám vrátí bez lupnutí.</div>`;
 
     document.body.appendChild(box);
-    const anchor = el("gt-amp-btn").getBoundingClientRect();
+    // Anchored to the settings button, not the "Zesilovač…" row that opened
+    // this: that row lives inside the settings popover, which is already
+    // gone (box.remove()) by the time we get here, so its id never resolved
+    // to anything — the null dereference used to throw before any of the
+    // click handlers below got wired up, leaving the popover unclickable.
+    const anchorEl = el("gt-settings-btn") || el("guitar-strip");
+    const anchor = anchorEl ? anchorEl.getBoundingClientRect() : {left: 0, bottom: 0};
     const r = box.getBoundingClientRect();
     box.style.left = Math.min(anchor.left, window.innerWidth - r.width - 8) + "px";
     box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
