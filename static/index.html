@@ -2538,6 +2538,21 @@
       </div>
       <div id="music-root-error" style="color:var(--danger);font-size:12px;margin-top:4px"></div>
 
+      <div class="section-title" style="margin-top:22px"><span data-icon="guitar"></span>Rozdělení kytary na sólo/rytmus (Music AI)</div>
+      <div class="set-note" style="margin-top:0">
+        Placená služba (~0,10 $/min zvuku) — kytarová stopa se jí pošle a
+        vrátí se zvlášť sólová a rytmická kytara. Klíč se ukládá jen na
+        tomhle počítači a appka ho nikam jinam neposílá.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="password" id="music-ai-key-input" placeholder="Music AI API klíč" style="flex:1;padding:10px" autocomplete="off">
+        <button class="btn secondary" id="music-ai-key-save" style="white-space:nowrap">Uložit klíč</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <button class="btn secondary" id="music-ai-key-test">Otestovat spojení</button>
+        <span id="music-ai-key-status" class="set-note" style="margin:0"></span>
+      </div>
+
       <div class="section-title" style="margin-top:22px"><span data-icon="headphones"></span>Přihlášení k YouTube (cookies)</div>
       <div class="set-note" style="margin-top:0">
         Když stahování selže s hláškou „Sign in to confirm you're not a bot“,
@@ -13152,10 +13167,14 @@ el("settings-btn").onclick = async () => {
   el("cookies-browser").value = s.cookies_browser || "";
   el("cookie-file").value = s.cookie_file || "";
   el("music-root-error").textContent = "";
+  el("music-ai-key-input").value = "";
+  el("music-ai-key-status").textContent = "";
   try{
     const res = await fetch("/api/settings");
     const data = await res.json();
     el("music-root-input").value = data.music_root || "";
+    el("music-ai-key-input").placeholder = data.music_ai_key_set
+      ? "klíč je nastavený (napiš nový pro změnu)" : "Music AI API klíč";
   }catch(e){}
   settingsOverlay.hidden = false;
 };
@@ -13166,6 +13185,33 @@ el("music-root-pick").onclick = async () => {
   const res = await fetch("/api/settings/pick-folder", { method: "POST" });
   const data = await res.json();
   if(data.path) el("music-root-input").value = data.path;
+};
+
+el("music-ai-key-save").onclick = async () => {
+  const key = el("music-ai-key-input").value.trim();
+  if(!key){ showToast("Napiš klíč"); return; }
+  try{
+    await fetch("/api/settings/music-ai-key", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({api_key: key}),
+    });
+    el("music-ai-key-input").value = "";
+    el("music-ai-key-input").placeholder = "klíč je nastavený (napiš nový pro změnu)";
+    showToast("Klíč uložen");
+  }catch(e){ showToast("Uložení selhalo"); }
+};
+
+el("music-ai-key-test").onclick = async () => {
+  const status = el("music-ai-key-status");
+  status.textContent = "Testuju…";
+  try{
+    const res = await fetch("/api/music-ai/workflows");
+    const data = await res.json();
+    if(!res.ok){ status.textContent = data.error || "Selhalo"; return; }
+    status.textContent = data.guitar_workflows.length
+      ? `Funguje — našel jsem: ${data.guitar_workflows.map(w => w.name).join(", ")}`
+      : `Klíč funguje (${data.count} workflow), ale žádné s "guitar" v názvu jsem nenašel`;
+  }catch(e){ status.textContent = "Spojení selhalo"; }
 };
 
 el("settings-save").onclick = async () => {
