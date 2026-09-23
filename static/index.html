@@ -772,8 +772,11 @@
   /* This was a fixed 404px, which fits the four analysis lanes and about two
      and a half stems: the rest were below the fold of a scrollbar inside a
      page that also scrolls, and read as missing stops rather than as
-     something to scroll to. It takes what the window can give it now. */
-  .nm-body{display:flex;max-height:min(78vh, 980px);overflow-y:auto;
+     something to scroll to. It takes what the window can give it now —
+     78vh/980px was still too tight once an imported guitar split (two more
+     channels) joined the usual six-plus-akordy-guitar-sekce-metronom stack,
+     clipping the last row or two on anything short of a very tall window. */
+  .nm-body{display:flex;max-height:min(85vh, 1200px);overflow-y:auto;
            overflow-x:hidden;background:var(--nm-bg);position:relative}
   /* A scrollbar wide enough to notice, since noticing it is the point. */
   .nm-body::-webkit-scrollbar{width:11px}
@@ -7865,7 +7868,7 @@ const Mixer = (() => {
     guitar_solo:   {c:"#f2c96a", icon:"guitar"},
     guitar_rhythm: {c:"#c99a3a", icon:"guitar"},
   };
-  const STEM_LABEL = {guitar_solo: "Kytara — sólo", guitar_rhythm: "Kytara — rytmus"};
+  const STEM_LABEL = {guitar_solo: "Moises Lead", guitar_rhythm: "Moises Rhythm"};
   function stemStyle(name){
     return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
@@ -9256,9 +9259,16 @@ const Mixer = (() => {
 
     stemsBottomPx = lanes.getBoundingClientRect().bottom - canvasTop;
 
-    // Grid overlay (playhead + loop) has to span ruler and every lane.
-    el("nm-canvas").style.height =
-      (22 + (channels.length ? channels.length + 1 : 0) * laneH) + "px";
+    // Grid overlay (playhead + loop) has to span ruler and every lane. Used
+    // to be a guess — 22 + (channels.length+1)*laneH — that assumed a fixed
+    // number of fixed-height rows above the stems; it fell short (the
+    // playhead line and every lane's own background line stopped short of
+    // the real last lane, "other") the moment that stopped being true: the
+    // guitar strip's own height changed, an imported split adds two more
+    // channels, the lyrics lane only sometimes exists. stemsBottomPx is
+    // already the real, measured bottom of the very last lane — using it
+    // directly can't drift out of sync with whatever actually rendered.
+    el("nm-canvas").style.height = stemsBottomPx + "px";
   }
 
   // ---- overview: the whole song, always fully visible ----
@@ -9345,7 +9355,8 @@ const Mixer = (() => {
   function renderChannels(){
     const box = el("fl-channels");
     box.innerHTML = "";
-    const stemColors = { vocals:"vocals", drums:"drums", bass:"bass", guitar:"guitar", piano:"piano", other:"other" };
+    const stemColors = { vocals:"vocals", drums:"drums", bass:"bass", guitar:"guitar", piano:"piano", other:"other",
+      guitar_solo:"guitar", guitar_rhythm:"guitar" };
     channels.forEach((c, idx) => {
       const colorClass = stemColors[c.stem.toLowerCase()] || "other";
       const strip = document.createElement("div");
@@ -9354,7 +9365,7 @@ const Mixer = (() => {
       if(c.solo) strip.classList.add("solo");
       strip.innerHTML = `
         <div class="fl-ch-header">
-          <div class="fl-ch-name">${escapeHtml(c.stem)}</div>
+          <div class="fl-ch-name">${escapeHtml(STEM_LABEL[c.stem] || c.stem)}</div>
           <div class="fl-ch-tag">Ch ${idx+1}</div>
         </div>
         <div class="fl-led-wrap">
