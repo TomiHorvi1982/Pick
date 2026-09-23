@@ -6631,10 +6631,6 @@ const Mixer = (() => {
   // are measured and which are inferred.
   let detectedFrom = 0;
   let detectedTo = Infinity;
-  let tempoSegments = [];   // [{from, to, bpm}] — one entry per fitted tempo
-  // The tempo as it was actually played, beat by beat. The grid above is
-  // regular by construction, so only this shows a push or a drag.
-  let tempoCurve = [];      // [[seconds, bpm], ...]
   // Song map: functional sections from All-In-One, chords from the harmonic
   // stems. Both arrive a minute after the stems do, so the lanes render empty
   // and fill in.
@@ -8732,108 +8728,6 @@ const Mixer = (() => {
     });
   }
 
-  function renderTempoLane(rail, lanes, totalPx){
-    const range = tempoRange();
-    const sub = range ? `${range.lo.toFixed(0)}–${range.hi.toFixed(0)} BPM` : "";
-    const lane = thinLane(rail, lanes, totalPx, "Tempo", 38, "tempo-lane", sub);
-    const cv = document.createElement("canvas");
-    cv.className = "tempo-canvas";
-    lane.appendChild(cv);
-    if(!tempoCurve.length){ laneNote(lane, "—"); return; }
-    paintTempoLane(cv, totalPx, 38);
-  }
-
-  // The vertical scale of the tempo lane. A rock-steady track would otherwise
-  // be drawn as a wildly noisy line, because the range it is scaled to would
-  // be a fraction of a BPM.
-  function tempoRange(){
-    if(!tempoCurve.length) return null;
-    const bpms = tempoCurve.map(p => p[1]);
-    let lo = Math.min(...bpms), hi = Math.max(...bpms);
-    const centre = (lo + hi) / 2;
-    const minSpan = Math.max(6, centre * 0.06);
-    if(hi - lo < minSpan){ lo = centre - minSpan / 2; hi = centre + minSpan / 2; }
-    return {lo, hi};
-  }
-
-  // The tempo of the whole track, drawn from the beats as they were heard.
-  // It used to be a stepped line behind the metronome's clicks, where the
-  // clicks drew over it and one fitted segment made it a flat line saying
-  // nothing. On its own strip, and drawn from the raw detections, a chorus
-  // that pushes or a breakdown that drags is visible at a glance.
-  function paintTempoLane(cv, totalPx, laneH){
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cssW = Math.min(totalPx, 16000);
-    cv.width = Math.floor(cssW * dpr);
-    cv.height = Math.floor(laneH * dpr);
-    cv.style.width = totalPx + "px";
-    cv.style.height = laneH + "px";
-    const g = cv.getContext("2d");
-    g.scale(dpr, dpr);
-    g.clearRect(0, 0, cssW, laneH);
-    if(!tempoCurve.length) return;
-
-    const {lo, hi} = tempoRange();
-    const pad = 6;
-    const yFor = (bpm) => laneH - pad - ((bpm - lo) / (hi - lo)) * (laneH - pad * 2);
-
-    // The fitted tempo, as a faint baseline to read the wobble against.
-    tempoSegments.forEach(seg => {
-      const y = yFor(seg.bpm);
-      g.strokeStyle = "rgba(255,255,255,.16)";
-      g.setLineDash([3, 3]);
-      g.lineWidth = 1;
-      g.beginPath();
-      g.moveTo(seg.from * pixelsPerSecond, y);
-      g.lineTo(Math.min(seg.to * pixelsPerSecond, cssW), y);
-      g.stroke();
-      g.setLineDash([]);
-    });
-
-    const pts = [];
-    for(const [t, bpm] of tempoCurve){
-      const x = t * pixelsPerSecond;
-      if(x > cssW + 4) break;
-      pts.push([x, yFor(bpm)]);
-    }
-    if(pts.length < 2) return;
-
-    const grad = g.createLinearGradient(0, 0, 0, laneH);
-    grad.addColorStop(0, "rgba(233,185,73,.30)");
-    grad.addColorStop(1, "rgba(233,185,73,.02)");
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(pts[0][0], laneH);
-    pts.forEach(([x, y]) => g.lineTo(x, y));
-    g.lineTo(pts[pts.length - 1][0], laneH);
-    g.closePath();
-    g.fill();
-
-    g.strokeStyle = "rgba(233,185,73,.92)";
-    g.lineWidth = 1.2;
-    g.beginPath();
-    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
-    g.stroke();
-
-    g.font = "600 9px -apple-system, system-ui, sans-serif";
-    // Where the fit says the tempo actually changed — the moment worth
-    // finding — labelled with the new BPM.
-    g.textBaseline = "top";
-    tempoSegments.forEach((seg, i) => {
-      if(i === 0) return;
-      const x = seg.from * pixelsPerSecond;
-      if(x > cssW) return;
-      g.strokeStyle = "rgba(233,185,73,.55)";
-      g.lineWidth = 1;
-      g.beginPath();
-      g.moveTo(x, 0);
-      g.lineTo(x, laneH);
-      g.stroke();
-      g.fillStyle = "rgba(233,185,73,.95)";
-      g.fillText(`${seg.bpm.toFixed(1)}`, x + 3, 2);
-    });
-  }
-
   // One listener for the life of the mixer; the lanes are rebuilt often and
   // must not each add their own.
   let sectionLabelsBound = false;
@@ -8874,11 +8768,10 @@ const Mixer = (() => {
     const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
 
     if(channels.length){
-      // Akordy and Tempo sit right under the waveform strip, above everything
-      // else — including the tab lanes, which is why they render into their
-      // own fixed container instead of the tab/stem one, and go first.
+      // Akordy sits right under the waveform strip, above everything else —
+      // including the tab lanes, which is why it renders into its own fixed
+      // container instead of the tab/stem one, and goes first.
       renderChordsLane(rail, topLanes, totalPx);
-      renderTempoLane(rail, topLanes, totalPx);
     }
     if(channels.length){
       // The guitar first — it is the one channel you are playing rather than
@@ -9452,7 +9345,6 @@ const Mixer = (() => {
     // the fallback if it fails.
     beatTimes = [];
     downbeatTimes = [];
-    tempoCurve = [];
     sections = [];
     chords = [];
     sectionPresets = [];
@@ -9463,7 +9355,6 @@ const Mixer = (() => {
     beatsPerBar = 4;
     detectedFrom = 0;
     detectedTo = Infinity;
-    tempoSegments = [];
     clickTimes = [];
     clickAccent = [];
     try{
@@ -9555,8 +9446,6 @@ const Mixer = (() => {
       beatSetIndex = new Set(downbeatTimes);
       detectedFrom = data.detected_from ?? 0;
       detectedTo = data.detected_to ?? Infinity;
-      tempoSegments = data.tempo_segments || [];
-      tempoCurve = data.tempo_curve || [];
       rebuildClickTrack();
       tempoBPM = Math.round(data.bpm);
       updateTempoUI();
