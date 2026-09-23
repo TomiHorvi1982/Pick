@@ -796,11 +796,33 @@
   .nm-strip-icon{display:flex;align-items:center;color:var(--nm-sub)}
 
   /* ---- the live guitar channel ---- */
-  /* Taller than a stem's strip because it carries what a stem never needs:
-     which socket the sound arrives on, how hard the gate bites, and a meter. */
-  .nm-strip.guitar-strip,.nm-lane.guitar-lane{height:158px}
-  .nm-strip.guitar-strip{gap:4px;padding:6px 10px;overflow:hidden;
+  /* Same height as every stem now — the setup controls (input device, pan,
+     amp/cab, latency) moved into a settings popover behind gt-settings-btn
+     instead of their own rows; what's left (connect, EQ, record) became
+     small icon toggles next to Solo/Mute, and gate/guide became knobs. */
+  .nm-strip.guitar-strip{gap:3px;padding:5px 10px;overflow:hidden;
     border-bottom:1px solid var(--nm-line)}
+  .gt-icon-btn{width:19px;height:19px;border:none;border-radius:4px;background:transparent;
+    color:var(--nm-sub);cursor:pointer;display:flex;align-items:center;justify-content:center;
+    flex:0 0 auto;padding:0}
+  .gt-icon-btn:hover{color:var(--nm-txt);background:#24242c}
+  .gt-icon-btn.on{color:var(--nm-gold);background:rgba(233,185,73,.14)}
+  .gt-icon-btn.sel{box-shadow:inset 0 0 0 1px var(--nm-gold)}
+  .gt-icon-btn.rec-on{color:#ff5f5f;background:rgba(255,95,95,.16);animation:gtpulse 1.1s infinite}
+  .gt-knob-row{display:flex;align-items:center;justify-content:center;gap:20px;padding-top:1px}
+  .gt-knob-wrap{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .gt-knob{width:22px;height:22px;border-radius:50%;position:relative;cursor:pointer;
+    background:radial-gradient(circle at 35% 35%,#505050,#1a1a1a);
+    border:2px solid #404040;box-shadow:0 2px 4px rgba(0,0,0,.5);touch-action:none}
+  .gt-knob::before{content:'';position:absolute;left:50%;top:2px;
+    width:2px;height:7px;background:var(--nm-gold);border-radius:1px;
+    transform-origin:bottom center;transform:translateX(-50%) rotate(var(--rot,-135deg))}
+  .gt-knob-label{font-size:7.5px;color:var(--nm-sub);user-select:none;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .gt-settings-popover{min-width:200px}
+  .gt-settings-popover .ss-head{padding:6px 8px 3px}
+  .gt-settings-row{display:flex;align-items:center;gap:6px;padding:4px 8px}
+  .gt-settings-row .gt-cap{flex:0 0 32px}
   .guitar-strip .nm-strip-name{color:var(--nm-gold)}
   .gt-row{display:flex;align-items:center;gap:6px}
   .gt-cap{font-size:8.5px;font-weight:700;letter-spacing:.09em;color:var(--nm-sub);
@@ -853,7 +875,7 @@
     font-variant-numeric:tabular-nums}
   .guitar-lane{display:flex;align-items:center}
   .gt-lane-note{position:sticky;left:12px;font-size:10.5px;color:var(--nm-sub);
-    padding-left:12px}
+    padding-left:12px;display:flex;align-items:center;gap:6px}
   .nm-strip-name{font-size:10.5px;font-weight:700;letter-spacing:.09em;
                  text-transform:uppercase;color:var(--nm-txt);flex:1;
                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1236,7 +1258,12 @@
      (border-radius:12px) — matching just the right side here (the left
      sits flush against the rail, so it stays square) keeps the two from
      reading as two unrelated shapes stacked on top of each other. */
-  #steems-hero .sp-hero{max-width:100%;min-height:auto;
+  /* No max-width here: .sp-hero's -32px side margins (from the shared
+     "heroes bleed back out to the card edge" rule) need the box to
+     actually grow into that space on both sides, not just shift left and
+     get clamped back to the section's un-bled width — that clamp was
+     exactly why the right edge fell short of the mixer panel below it. */
+  #steems-hero .sp-hero{min-height:auto;
     padding:18px 22px;align-items:center;gap:18px;border-radius:0 12px 12px 0}
   #steems-hero .sp-hero-art{width:88px;height:88px;flex-basis:88px;font-size:28px}
   #steems-hero .sp-hero-title{font-size:clamp(20px,2.3vw,32px)}
@@ -11038,60 +11065,41 @@ const Mixer = (() => {
       <div class="nm-strip-top">
         <span class="nm-strip-icon">${icon("guitar", 13)}</span>
         <span class="nm-strip-name">Kytara</span>
+        <button class="gt-icon-btn gt-power-ic ${g.live ? "on" : ""}" id="gt-power-btn"
+          title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
+        <button class="gt-icon-btn gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">${icon("eq", 12)}</button>
+        <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : ""}" id="gt-rec-btn" title="Nahrát na novou stopu">
+          ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}</button>
+        <button class="gt-icon-btn" id="gt-settings-btn" title="Vstup, pan, zesilovač, zpoždění…">${icon("sliders", 12)}</button>
         <button class="gt-tuner" title="Ladička">${icon("tuner", 14)}</button>
         <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
         <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
-      </div>
-      <div class="gt-row">
-        <button class="gt-power ${g.live ? "on" : ""}" title="${g.live ? "Odpojit vstup" : "Připojit vstup"}">
-          ${icon(g.live ? "pause" : "play", 11)}
-          <span>${g.live ? "Živě" : "Připojit"}</span>
-        </button>
-        <select class="gt-device" title="Zvukové rozhraní"></select>
       </div>
       <div class="gt-meter" title="Špička vstupu — nastav podle ní gain na rozhraní">
         <div class="gt-meter-fill" id="gt-meter-fill"></div>
         <div class="gt-meter-gate" id="gt-meter-gate" title="Otevření brány"></div>
       </div>
       <input type="range" class="nm-fader gt-vol" min="0" max="1.4" step="0.01" value="${g.volume}" title="Hlasitost tvé kytary">
-      <div class="gt-row gt-two">
-        <span class="gt-cap">GATE</span>
-        <input type="range" class="gt-gate" min="-100" max="-20" step="1" value="${g.threshold}" title="Brána šumu">
-        <span class="gt-val" id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span>
-        <span class="gt-cap">PAN</span>
-        <input type="range" class="nm-tempo gt-pan" min="-1" max="1" step="0.02" value="${g.pan}">
-      </div>
-      <div class="gt-row">
-        <span class="gt-cap" title="Hlasitost virtuální kytary (Guide); má vlastní zesilovač a nemíchá se s tvou kytarou">GUIDE</span>
-        <input type="range" class="nm-tempo gt-guide" min="0" max="1.2" step="0.01" value="${g.guideVolume}">
-        <button class="gt-rec ${Guitar.isRecording() ? "on" : ""}" title="Nahrát na novou stopu">
-          ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}
-        </button>
-      </div>
-      <div class="gt-row gt-amp">
-        <button class="gt-amp-step" id="gt-amp-prev" title="Předchozí model zesilovače">‹</button>
-        <button class="gt-chip" id="gt-amp-btn" title="Zesilovač a kabinet">
-          ${icon("sliders", 11)}<span>${escapeHtml(
-            [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Bez zesilovače")}</span>
-        </button>
-        <button class="gt-amp-step" id="gt-amp-next" title="Další model zesilovače">›</button>
-        <button class="gt-chip gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">
-          ${icon("eq", 11)}<span class="dot"></span>
-        </button>
-        <span class="gt-lat" id="gt-lat">${g.latencyMs !== null ? `~${g.latencyMs} ms` : ""}</span>
+      <div class="gt-knob-row">
+        <div class="gt-knob-wrap">
+          <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
+          <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
+        </div>
+        <div class="gt-knob-wrap">
+          <div class="gt-knob" id="gt-guide-knob" tabindex="0"
+            title="Hlasitost virtuální kytary (Guide) — táhni svisle. Má vlastní zesilovač a nemíchá se s tvou kytarou."></div>
+          <span class="gt-knob-label">GUIDE</span>
+        </div>
       </div>`;
     rail.appendChild(strip);
 
     const lane = document.createElement("div");
     lane.className = "nm-lane guitar-lane";
     lane.style.width = totalPx + "px";
-    lane.innerHTML = `<div class="gt-lane-note">${
-      g.live ? "Kytara hraje živě — nahrávka se uloží jako nová stopa"
-             : "Připoj vstup a hraj; nahrávka se uloží jako nová stopa"}</div>`;
+    lane.innerHTML = `<div class="gt-lane-note">${icon("guitar", 13)}<span>Monitoring</span></div>`;
     lanes.appendChild(lane);
 
     wireGuitarStrip(strip);
-    fillGuitarDevices(strip.querySelector(".gt-device"));
     // Built as soon as the strip exists so the EQ button works right away —
     // no need to plug in an input first.
     const hadEq = !!guitarEq;
@@ -11101,19 +11109,56 @@ const Mixer = (() => {
     if(!hadEq) renderEqChannelSelect();
   }
 
+  // A round drag-to-set control — vertical movement only, same convention
+  // as the mixer's own pan knobs (fl-pan-knob). --rot maps [min,max] onto a
+  // 270° sweep so the indicator line reads the same way a hardware gain
+  // knob does.
+  function wireKnob(knobEl, {min, max, get, set}){
+    function paint(){
+      const frac = Math.max(0, Math.min(1, (get() - min) / (max - min)));
+      knobEl.style.setProperty("--rot", (-135 + frac * 270) + "deg");
+    }
+    let dragging = false, startY = 0, startVal = 0;
+    knobEl.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      dragging = true;
+      startY = ev.clientY;
+      startVal = get();
+      knobEl.setPointerCapture(ev.pointerId);
+    });
+    knobEl.addEventListener("pointermove", (ev) => {
+      if(!dragging) return;
+      const dy = startY - ev.clientY;
+      let v = startVal + dy * ((max - min) / 150);
+      set(Math.max(min, Math.min(max, v)));
+      paint();
+    });
+    knobEl.addEventListener("pointerup", () => { dragging = false; });
+    paint();
+  }
+
   function wireGuitarStrip(strip){
     const g = Guitar.state;
     strip.querySelector(".gt-tuner").onclick = () => Tuner.toggle();
-    strip.querySelector(".gt-guide").addEventListener("input", (e) => {
-      Guitar.setGuideVolume(parseFloat(e.target.value));
-      queueSessionSave();
+
+    wireKnob(el("gt-guide-knob"), {
+      min: 0, max: 1.2, get: () => g.guideVolume,
+      set: (v) => { Guitar.setGuideVolume(v); queueSessionSave(); },
+    });
+    wireKnob(el("gt-gate-knob"), {
+      min: -100, max: -20, get: () => g.threshold,
+      set: (v) => {
+        const db = Math.round(v);
+        Guitar.setThreshold(db);
+        el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
+        queueSessionSave();
+      },
     });
 
-    strip.querySelector(".gt-power").onclick = async () => {
+    strip.querySelector("#gt-power-btn").onclick = async () => {
       if(Guitar.isLive()){ await Guitar.stop(); return; }
-      const sel = strip.querySelector(".gt-device");
       try{
-        await Guitar.start(sel.value || null);
+        await Guitar.start(g.deviceId || null);
         showToast(`Vstup: ${Guitar.state.deviceLabel}`);
       }catch(e){
         showToast(e && e.name === "NotAllowedError"
@@ -11122,24 +11167,9 @@ const Mixer = (() => {
       }
     };
 
-    strip.querySelector(".gt-device").onchange = async (e) => {
-      if(Guitar.isLive()) await Guitar.start(e.target.value);
-    };
-
     strip.querySelector(".gt-vol").oninput = (e) => {
       g.volume = parseFloat(e.target.value);
       Guitar.applyGuitarGain();
-      queueSessionSave();
-    };
-    strip.querySelector(".gt-pan").oninput = (e) => {
-      g.pan = parseFloat(e.target.value);
-      Guitar.applyGuitarGain();
-      queueSessionSave();
-    };
-    strip.querySelector(".gt-gate").oninput = (e) => {
-      const db = parseInt(e.target.value, 10);
-      Guitar.setThreshold(db);
-      el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
       queueSessionSave();
     };
     strip.querySelector(".nm-sm.mute").onclick = (e) => {
@@ -11156,20 +11186,66 @@ const Mixer = (() => {
       Guitar.applyGuitarGain();
       queueSessionSave();
     };
-    strip.querySelector(".gt-rec").onclick = async () => {
+    strip.querySelector("#gt-rec-btn").onclick = async () => {
       if(Guitar.isRecording()){ await Guitar.stopRecording(); return; }
       if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup"); return; }
       if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
     };
-    strip.querySelector("#gt-amp-btn").onclick = () => openAmpPicker();
-    strip.querySelector("#gt-amp-prev").onclick = () => stepAmp(-1);
-    strip.querySelector("#gt-amp-next").onclick = () => stepAmp(1);
     strip.querySelector("#gt-eq-btn").onclick = () => {
       Guitar.ensureEq();
       setPanelOpen("eq-toggle", "eq-panel", true);
       savePanelPref("eq", true);
       selectEqChannel("guitar");
     };
+    strip.querySelector("#gt-settings-btn").onclick = () => openGuitarSettings();
+  }
+
+  // Everything that used to sit in its own row (input device, pan, amp/cab,
+  // latency) but only matters while setting up, not while playing — folded
+  // into one popover behind the settings icon, the same sect-menu pattern
+  // as the amp picker it links to.
+  function openGuitarSettings(){
+    const existing = el("gt-settings-popover");
+    if(existing){ existing.remove(); return; }
+    const g = Guitar.state;
+    const box = document.createElement("div");
+    box.className = "sect-menu gt-settings-popover";
+    box.id = "gt-settings-popover";
+    box.innerHTML = `
+      <div class="ss-head">Nastavení kytary</div>
+      <div class="gt-settings-row">
+        <span class="gt-cap">VSTUP</span>
+        <select class="gt-device" title="Zvukové rozhraní"></select>
+      </div>
+      <div class="gt-settings-row">
+        <span class="gt-cap">PAN</span>
+        <input type="range" class="nm-tempo gt-pan" min="-1" max="1" step="0.02" value="${g.pan}">
+      </div>
+      <hr>
+      <button type="button" id="gt-amp-open">${icon("sliders", 12)}<span>${escapeHtml(
+        [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Zesilovač a kabinet…")}</span></button>
+      ${g.latencyMs !== null ? `<div class="hint">Zpoždění ~${g.latencyMs} ms</div>` : ""}`;
+    document.body.appendChild(box);
+    const anchor = el("gt-settings-btn").getBoundingClientRect();
+    const r = box.getBoundingClientRect();
+    box.style.left = Math.min(anchor.left, window.innerWidth - r.width - 8) + "px";
+    box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
+
+    fillGuitarDevices(box.querySelector(".gt-device"));
+    box.querySelector(".gt-device").onchange = async (e) => {
+      if(Guitar.isLive()) await Guitar.start(e.target.value);
+    };
+    box.querySelector(".gt-pan").oninput = (e) => {
+      g.pan = parseFloat(e.target.value);
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    };
+    box.querySelector("#gt-amp-open").onclick = () => { box.remove(); openAmpPicker(); };
+
+    setTimeout(() => document.addEventListener("pointerdown", function once(e){
+      if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
+      else document.addEventListener("pointerdown", once, {once: true});
+    }, {once: true}), 0);
   }
 
   async function fillGuitarDevices(select){
@@ -11291,35 +11367,6 @@ const Mixer = (() => {
             hasEngine: () => !!engine, loadTab};
   })();
 
-  // ---- stepping through models with ‹ › instead of opening the picker ----
-  // Cached so tapping the arrow repeatedly doesn't refetch the folder every
-  // time; a fresh upload invalidates it.
-  let ampModelsCache = null;
-  async function getAmpModels(){
-    if(!ampModelsCache){
-      try{
-        const all = await (await fetch("/api/amps")).json();
-        ampModelsCache = all.filter(a => a.kind === "model");
-      }catch(e){ ampModelsCache = []; }
-    }
-    return ampModelsCache;
-  }
-  async function stepAmp(delta){
-    const models = await getAmpModels();
-    if(!models.length){ showToast("Žádné modely zesilovače"); return; }
-    const cur = models.findIndex(m => m.name === Guitar.state.ampName);
-    const idx = cur < 0 ? (delta > 0 ? 0 : models.length - 1)
-                         : (cur + delta + models.length) % models.length;
-    const m = models[idx];
-    showToast("Načítám model…");
-    try{
-      await Amp.load(m.file);
-      showToast(`Zesilovač: ${m.name}`);
-    }catch(e){ showToast("Model se nepodařilo načíst"); }
-    renderGuitarStrip();
-    queueSessionSave();
-  }
-
   // ---- picking one ----
 
   async function openAmpPicker(){
@@ -11409,7 +11456,6 @@ const Mixer = (() => {
           showToast(res.ok ? `Přidáno: ${data.name}` : (data.error || "Nepodařilo se"));
         }catch(e){ showToast("Nahrání selhalo"); }
       }
-      ampModelsCache = null;
       openAmpPicker();
     };
     input.click();
