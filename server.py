@@ -525,6 +525,13 @@ def _album_as_playlist(client, browse_id: str):
             t["album"] = {"name": album.get("title")}
         if not t.get("thumbnails"):
             t["thumbnails"] = album.get("thumbnails")
+        # Per-track year isn't a field ytmusicapi's get_album() returns —
+        # every track on one release shares the album's own year, so that's
+        # what the playlist table's Rok column sorts on for anything opened
+        # this way. A generic (non-album) playlist mixing tracks from many
+        # releases has no such single source and is left without one.
+        if not t.get("year") and album.get("year"):
+            t["year"] = album.get("year")
         tracks.append(t)
 
     return {
@@ -564,13 +571,24 @@ def playlist_detail(browse_id: str, track_limit: int = 100):
         dur = t.get("duration_seconds") or 0
         total_shown_sec += dur
         artists = ", ".join(a["name"] for a in (t.get("artists") or []) if a.get("name"))
+        # get_playlist() gives album as {"name": ...}; get_album()'s own
+        # per-track entries (surfaced here via _album_as_playlist) give it
+        # as a plain string instead — this used to only handle the dict
+        # shape, so every track opened from an album showed no album at all.
         album = t.get("album")
+        if isinstance(album, dict):
+            album_name = album.get("name")
+        elif isinstance(album, str):
+            album_name = album
+        else:
+            album_name = None
         tracks.append(
             {
                 "videoId": t["videoId"],
                 "title": t.get("title"),
                 "artists": artists,
-                "album": album.get("name") if isinstance(album, dict) else None,
+                "album": album_name,
+                "year": t.get("year"),
                 "duration": t.get("duration") or _fmt_dur(dur),
                 "duration_seconds": dur,
                 "thumbnail": _best_thumb(t.get("thumbnails")),

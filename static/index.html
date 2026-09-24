@@ -120,8 +120,19 @@
 
   .load-more-wrap{display:flex;justify-content:center;margin:22px 0}
 
-  .track-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:9px}
+  .track-cols{grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) 56px 50px 34px 34px}
+  .track-cols-head{display:grid;align-items:center;gap:10px;padding:4px 8px 8px;
+    border-bottom:1px solid var(--border);margin-bottom:2px}
+  .track-cols-head span, .track-cols-head button{font-size:11px;color:var(--sub);
+    text-transform:uppercase;letter-spacing:.04em}
+  .track-cols-head button{background:none;border:none;font-weight:700;cursor:pointer;
+    padding:0;display:flex;align-items:center;gap:3px;text-align:left}
+  .track-cols-head button:hover{color:var(--text)}
+  .track-cols-head button.sorted{color:var(--accent)}
+  .track-cols-head .sort-arrow{font-size:9px;opacity:.85}
+  .track-row{display:grid;align-items:center;gap:10px;padding:9px 8px;border-radius:9px}
   .track-row:hover{background:var(--card-hi)}
+  .track-row .info-cell{display:flex;align-items:center;gap:10px;min-width:0}
   .track-row .thumb{width:42px;height:42px;border-radius:6px;background:var(--bg2) center/cover no-repeat;
     flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--sub)}
   .track-row .info{flex:1;min-width:0}
@@ -129,6 +140,8 @@
   .track-row .t-sub{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;gap:6px}
   .owned-tag{color:var(--ok);font-weight:700;font-size:11px}
+  .track-row .col-artist,.track-row .col-album,.track-row .col-year{
+    font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .track-row .dur{font-size:12px;color:var(--sub);width:42px;text-align:right;flex-shrink:0}
   .icon-btn{background:none;border:1px solid var(--border);color:var(--sub);
     width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0;font-size:13px;
@@ -1353,6 +1366,11 @@
     display:flex;align-items:center;justify-content:center;font-size:56px;color:var(--sub);
     background-size:cover;background-position:center;position:relative}
   .np-stage video{width:100%;height:100%;object-fit:cover;display:block}
+  .np-stage-video-tools{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:2}
+  .np-stage-video-tools button{background:rgba(0,0,0,.65);border:none;border-radius:6px;
+    color:#fff;width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer}
+  .np-stage-video-tools button:hover{background:rgba(0,0,0,.85)}
   .np-video-btn{display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.7);
     border:none;border-radius:500px;color:#fff;font-size:13px;font-weight:700;
     padding:8px 14px;cursor:pointer;font-family:inherit;margin-top:-44px;margin-left:8px;
@@ -3167,13 +3185,11 @@
         </div>
       </div>
 
-      <div id="np-photos-sect" hidden>
-        <div class="np-sect np-sect-row">
-          <span>Fotky</span>
-          <span class="np-count" id="np-photos-count"></span>
-        </div>
-        <div class="np-photos" id="np-photos"></div>
+      <div class="np-sect np-sect-row">
+        <span>Alba</span>
+        <span class="np-count" id="np-albums-count"></span>
       </div>
+      <div class="np-albums" id="np-albums"></div>
 
       <div id="np-events-sect" hidden>
         <div class="np-sect np-sect-row">
@@ -3192,11 +3208,13 @@
         <div class="np-videos" id="np-videos"></div>
       </div>
 
-      <div class="np-sect np-sect-row">
-        <span>Alba</span>
-        <span class="np-count" id="np-albums-count"></span>
+      <div id="np-photos-sect" hidden>
+        <div class="np-sect np-sect-row">
+          <span>Fotky</span>
+          <span class="np-count" id="np-photos-count"></span>
+        </div>
+        <div class="np-photos" id="np-photos"></div>
       </div>
-      <div class="np-albums" id="np-albums"></div>
     </div>
 
     <div id="np-source" hidden>
@@ -4711,7 +4729,7 @@ function paintArtistVideos(videos, artistName){
       </div>
       <div class="vt">${escapeHtml(v.title || "")}</div>
       <div class="vv">${escapeHtml(v.views || "")}</div>`;
-    card.onclick = () => openFloatingVideo({
+    card.onclick = () => playVideoInStage({
       videoId: v.videoId, title: v.title, artists: artistName,
     });
     box.appendChild(card);
@@ -5996,21 +6014,32 @@ function renderNowPlaying(){
   const t = Player.getCurrent();
   const stage = el("np-stage");
   const vbtn = el("np-video-btn");
+  // A video playing inline in the stage (see playVideoInStage) has its own
+  // lifecycle, independent of whatever audio track this otherwise syncs to
+  // — same as the floating video window already is. Without this,
+  // Player.handOffTo() pausing the audio element to start the video fires
+  // this function via the "pause" listener below and immediately stomps
+  // the video right back to album art.
+  const stageHasVideo = !!el("np-stage-video");
 
   if(!t){
     el("np-title").textContent = "Nic nehraje";
     el("np-artist").textContent = "Vyber píseň k přehrání";
     el("np-context").textContent = "Právě hraje";
-    stage.style.backgroundImage = "";
-    stage.textContent = "\uD83C\uDFB5";
+    if(!stageHasVideo){
+      stage.style.backgroundImage = "";
+      stage.textContent = "\uD83C\uDFB5";
+    }
     vbtn.hidden = true;
   } else {
     el("np-title").textContent = t.title || "";
     el("np-artist").textContent = t.artists || "";
     el("np-context").textContent = t.sourcePlaylist || "Právě hraje";
-    const img = t.image || t.thumbnail || "";
-    stage.textContent = img ? "" : "\uD83C\uDFB5";
-    stage.style.backgroundImage = img ? `url('${thumbUrl(img)}')` : "";
+    if(!stageHasVideo){
+      const img = t.image || t.thumbnail || "";
+      stage.textContent = img ? "" : "\uD83C\uDFB5";
+      stage.style.backgroundImage = img ? `url('${thumbUrl(img)}')` : "";
+    }
     vbtn.hidden = !t.videoId;
     vbtn.onclick = () => { setVideoMode("full"); el("pb-video-btn").click(); };
   }
@@ -13270,10 +13299,56 @@ function renderPlaylistPanel(p){
         <span>Zobrazeno ${p.tracks_shown} z ${p.track_count} · ~${fmtSize(estBytesShown)}</span>
         <a id="toggle-all">zrušit vše</a>
       </div>
+      <div class="track-cols-head track-cols">
+        <span>Skladba</span>
+        <button type="button" data-sort="artists">Interpret<span class="sort-arrow" id="sort-arrow-artists"></span></button>
+        <button type="button" data-sort="album">Album<span class="sort-arrow" id="sort-arrow-album"></span></button>
+        <button type="button" data-sort="year">Rok<span class="sort-arrow" id="sort-arrow-year"></span></button>
+        <span></span><span></span><span></span>
+      </div>
       <div id="tracks-container"></div>
     </div>
   `;
   el("close-panel").onclick = closeOverlay;
+
+  // Sort/group: artist and album sort A→Z (same-named albums land next to
+  // each other as a side effect — no separate grouped-header UI, just the
+  // ordering), year sorts newest→oldest since that's how a release list
+  // reads. Click again on the same column to go back to the original
+  // (YouTube-given) order rather than only ever reversing it.
+  let sortKey = null;
+  const originalTracks = p.tracks.slice();
+  function applySort(){
+    const container = el("tracks-container");
+    container.innerHTML = "";
+    let tracks = originalTracks;
+    if(sortKey === "artists" || sortKey === "album"){
+      tracks = originalTracks.slice().sort((a, b) =>
+        (a[sortKey] || "").localeCompare(b[sortKey] || "", "cs", {sensitivity: "base"}));
+    } else if(sortKey === "year"){
+      // No year at all sorts last regardless of direction — "unknown"
+      // isn't meaningfully "older" than anything.
+      tracks = originalTracks.slice().sort((a, b) => {
+        if(!a.year && !b.year) return 0;
+        if(!a.year) return 1;
+        if(!b.year) return -1;
+        return b.year - a.year;
+      });
+    }
+    tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title, p.browseId)));
+    panel.querySelectorAll(".track-cols-head button").forEach(btn => {
+      btn.classList.toggle("sorted", btn.dataset.sort === sortKey);
+    });
+    ["artists", "album", "year"].forEach(k => {
+      el(`sort-arrow-${k}`).textContent = k === sortKey ? (k === "year" ? "↓" : "A–Z") : "";
+    });
+  }
+  panel.querySelectorAll(".track-cols-head button[data-sort]").forEach(btn => {
+    btn.onclick = () => {
+      sortKey = sortKey === btn.dataset.sort ? null : btn.dataset.sort;
+      applySort();
+    };
+  });
   el("fav-toggle").onclick = () => {
     const added = toggleFavPlaylist({
       browseId: p.browseId, title: p.title, author: p.author, thumbnail: p.thumbnail,
@@ -13284,7 +13359,7 @@ function renderPlaylistPanel(p){
   };
 
   const container = el("tracks-container");
-  p.tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title, p.browseId)));
+  applySort();
 
   function updateSelCount(){
     const n = container.querySelectorAll("input.checkbox:checked").length;
@@ -13361,13 +13436,18 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
   const owned = isOwned(t.title, t.artists);
   const row = document.createElement("div");
   row.innerHTML = `
-    <div class="track-row" data-idx="${idx}">
-      <input type="checkbox" class="checkbox" ${owned?'':'checked'} data-video-id="${t.videoId}">
-      <div class="thumb" style="${t.thumbnail?`background-image:url('${thumbUrl(t.thumbnail)}')`:''}">${t.thumbnail?'':icon("note", 16)}</div>
-      <div class="info">
-        <div class="t-title">${escapeHtml(t.title||'')}</div>
-        <div class="t-sub">${owned?`<span class="owned-tag">${icon("check", 10)} máš</span>`:''}${escapeHtml(t.artists||'')}${t.album?' · '+escapeHtml(t.album):''}</div>
+    <div class="track-row track-cols" data-idx="${idx}">
+      <div class="info-cell">
+        <input type="checkbox" class="checkbox" ${owned?'':'checked'} data-video-id="${t.videoId}">
+        <div class="thumb" style="${t.thumbnail?`background-image:url('${thumbUrl(t.thumbnail)}')`:''}">${t.thumbnail?'':icon("note", 16)}</div>
+        <div class="info">
+          <div class="t-title">${escapeHtml(t.title||'')}</div>
+          ${owned?`<div class="t-sub"><span class="owned-tag">${icon("check", 10)} máš</span></div>`:''}
+        </div>
       </div>
+      <div class="col-artist" title="${escapeHtml(t.artists||'')}">${escapeHtml(t.artists||'')}</div>
+      <div class="col-album" title="${escapeHtml(t.album||'')}">${escapeHtml(t.album||'')}</div>
+      <div class="col-year">${t.year ? escapeHtml(String(t.year)) : ''}</div>
       <div class="dur">${t.duration||fmtDur(t.duration_seconds)}</div>
       <button class="icon-btn add" title="Přidat do playlistu">${icon("add", 14)}</button>
       <button class="icon-btn play" title="Přehrát">${icon("play", 13)}</button>
@@ -15269,6 +15349,57 @@ function openFloatingVideo(track){
   // for however long the stream takes to start.
   const video = el("float-video-body").querySelector("video");
   if(video) Player.handOffTo(video);
+}
+
+// ---- video inline at the top of the right panel, with an explicit detach
+// into the floating window above (same #float-video-body, same <video> —
+// reparenting a playing element keeps it playing, so "detach" doesn't
+// restart it) ----
+function stageShowArt(t){
+  const stage = el("np-stage");
+  stage.innerHTML = "";
+  const img = (t && (t.image || t.thumbnail)) || "";
+  stage.textContent = img ? "" : "🎵";
+  stage.style.backgroundImage = img ? `url('${thumbUrl(img)}')` : "";
+}
+
+function playVideoInStage(track){
+  const t = track || Player.getCurrent();
+  if(!t || !t.videoId){ showToast("K téhle skladbě není video"); return; }
+  const stage = el("np-stage");
+  stage.style.backgroundImage = "";
+  stage.innerHTML = `
+    <video id="np-stage-video" src="/api/stream-video/${encodeURIComponent(t.videoId)}"
+      controls autoplay playsinline style="background:#000"></video>
+    <div class="np-stage-video-tools">
+      <button type="button" id="np-stage-video-detach" title="Odpojit do plovoucího okna">${icon("external", 13)}</button>
+      <button type="button" id="np-stage-video-close" title="Zavřít video">${icon("close", 13)}</button>
+    </div>`;
+
+  el("np-stage-video-detach").onclick = () => {
+    const v = el("np-stage-video");
+    if(!v) return;
+    // Reparenting keeps the id — left as "np-stage-video" here, the stage
+    // would still look occupied (stageHasVideo in renderNowPlaying) even
+    // though the element now lives in the floating window instead.
+    v.id = "";
+    el("float-video-title").textContent = t.title || "Video";
+    el("float-video-pop").onclick = () =>
+      window.open(`https://www.youtube.com/watch?v=${t.videoId}`, "_blank");
+    el("float-video-body").innerHTML = "";
+    el("float-video-body").appendChild(v); // moves the live element — playback keeps going
+    FloatVideo.open();
+    stageShowArt(Player.getCurrent());
+    syncPlayerToggles();
+  };
+  el("np-stage-video-close").onclick = () => {
+    const v = el("np-stage-video");
+    if(v){ try{ v.pause(); }catch(e){} }
+    stageShowArt(Player.getCurrent());
+  };
+
+  const v = el("np-stage-video");
+  if(v) Player.handOffTo(v);
 }
 
 el("pb-video-btn").onclick = () => {
