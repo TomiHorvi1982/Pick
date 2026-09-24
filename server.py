@@ -2536,47 +2536,135 @@ def library_fs_delete(req: LibraryDeleteRequest):
 # Same idea as TONE3000's web player (https://www.tone3000.com/blog/
 # introducing-the-nam-web-player): a short dry guitar recording, played
 # through whichever NAM capture is clicked, entirely client-side — the NAM
-# WASM engine already used for the live guitar channel does the actual
-# amp-modeling work. The riff has to be a *real* dry (pre-amp) recording,
-# so it's captured once from the user's own guitar rather than faked; a
-# stem or anything already-amped would just double up amp coloration.
+# WASM engine already used for the live guitar channel (vendored from
+# tone-3000/neural-amp-modeler-wasm, the same package this feature is named
+# after — see static/nam/README.md) does the actual amp-modeling work. The
+# riff has to be a *real* dry (pre-amp) recording, so it's captured from the
+# user's own guitar rather than faked; a stem or anything already-amped
+# would just double up amp coloration.
+#
+# Started as a single riff with no way to replace or remove it; now a small
+# library of them (riffs.json + riffs/<id>.webm), one marked active — the
+# one preset-preview play buttons actually use — with the others kept
+# around to switch between or delete.
 NAM_PREVIEW_DIR = HOME / ".local" / "share" / "spotdl-helper"
-NAM_PREVIEW_RIFF = NAM_PREVIEW_DIR / "nam_preview_di.webm"
+NAM_RIFFS_DIR = NAM_PREVIEW_DIR / "riffs"
+NAM_RIFFS_INDEX = NAM_PREVIEW_DIR / "riffs.json"
+_LEGACY_NAM_RIFF = NAM_PREVIEW_DIR / "nam_preview_di.webm"
+_re_riff_id = _re_mod.compile(r"[0-9a-f]{8,32}")
 
 
-@app.get("/api/nam-preview/riff")
-def get_nam_preview_riff():
-    if not NAM_PREVIEW_RIFF.is_file():
-        return JSONResponse({"error": "Zatím nenahráno."}, status_code=404)
-    from fastapi.responses import Response
-    return Response(NAM_PREVIEW_RIFF.read_bytes(), media_type="audio/webm")
+def _load_riffs_index() -> dict:
+    try:
+        data = json.loads(NAM_RIFFS_INDEX.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        data = {}
+    data.setdefault("riffs", [])
+    data.setdefault("active_id", None)
+    # One-time migration: a riff recorded before this became a list lived as
+    # a single fixed-name file. Bring it in as riff 1 rather than orphaning
+    # (or silently discarding) whatever was already recorded there.
+    if not data["riffs"] and _LEGACY_NAM_RIFF.is_file():
+        riff_id = uuid.uuid4().hex[:12]
+        try:
+            NAM_RIFFS_DIR.mkdir(parents=True, exist_ok=True)
+            _LEGACY_NAM_RIFF.rename(NAM_RIFFS_DIR / f"{riff_id}.webm")
+        except OSError:
+            pass
+        else:
+            data["riffs"] = [{"id": riff_id, "name": "Riff 1", "created_at": int(time.time())}]
+            data["active_id"] = riff_id
+            _save_riffs_index(data)
+    return data
 
 
-@app.get("/api/nam-preview/riff/status")
-def nam_preview_riff_status():
-    exists = NAM_PREVIEW_RIFF.is_file()
-    return {"exists": exists, "bytes": NAM_PREVIEW_RIFF.stat().st_size if exists else 0}
+def _save_riffs_index(data: dict):
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    NAM_RIFFS_INDEX.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
-@app.post("/api/nam-preview/riff")
-async def save_nam_preview_riff(request: Request):
+@app.get("/api/nam-preview/riffs")
+def list_nam_riffs():
+    data = _load_riffs_index()
+    out = []
+    for r in data["riffs"]:
+        path = NAM_RIFFS_DIR / f"{r['id']}.webm"
+        if not path.is_file():
+            continue
+        out.append({**r, "bytes": path.stat().st_size})
+    return {"riffs": out, "active_id": data.get("active_id")}
+
+
+@app.post("/api/nam-preview/riffs")
+async def add_nam_riff(request: Request, name: str = ""):
     raw = await request.body()
     if len(raw) < 1024:
         return JSONResponse({"error": "Nahrávka je prázdná."}, status_code=400)
     if len(raw) > 60 * 1024 * 1024:
         return JSONResponse({"error": "Nahrávka je příliš velká."}, status_code=413)
-    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    data = _load_riffs_index()
+    NAM_RIFFS_DIR.mkdir(parents=True, exist_ok=True)
+    riff_id = uuid.uuid4().hex[:12]
     try:
-        NAM_PREVIEW_RIFF.write_bytes(raw)
+        (NAM_RIFFS_DIR / f"{riff_id}.webm").write_bytes(raw)
     except OSError as exc:
         return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
-    return {"ok": True, "bytes": len(raw)}
+    entry = {"id": riff_id, "name": (name or "").strip() or f"Riff {len(data['riffs']) + 1}",
+             "created_at": int(time.time())}
+    data["riffs"].append(entry)
+    if not data.get("active_id"):
+        data["active_id"] = riff_id
+    _save_riffs_index(data)
+    return {"ok": True, "riff": {**entry, "bytes": len(raw)}, "active_id": data["active_id"]}
 
 
-@app.delete("/api/nam-preview/riff")
-def delete_nam_preview_riff():
-    NAM_PREVIEW_RIFF.unlink(missing_ok=True)
-    return {"ok": True}
+@app.get("/api/nam-preview/riffs/{riff_id}")
+def get_nam_riff(riff_id: str):
+    if not _re_riff_id.fullmatch(riff_id):
+        return JSONResponse({"error": "Neplatné id."}, status_code=400)
+    path = NAM_RIFFS_DIR / f"{riff_id}.webm"
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(path.read_bytes(), media_type="audio/webm")
+
+
+@app.delete("/api/nam-preview/riffs/{riff_id}")
+def delete_nam_riff(riff_id: str):
+    if not _re_riff_id.fullmatch(riff_id):
+        return JSONResponse({"error": "Neplatné id."}, status_code=400)
+    path = NAM_RIFFS_DIR / f"{riff_id}.webm"
+    # A real recording of the user's own playing, and a straight unlink()
+    # here already once cost a real one during this feature's own testing —
+    # Trash it instead, same as library_fs_delete, so that mistake (by
+    # anyone, agent or human) is recoverable instead of just gone.
+    if path.is_file():
+        script = f'tell application "Finder" to delete POSIX file "{_applescript_quote(str(path))}"'
+        try:
+            subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            pass
+        path.unlink(missing_ok=True)  # in case Finder couldn't (e.g. no Finder.app in this context)
+    data = _load_riffs_index()
+    data["riffs"] = [r for r in data["riffs"] if r["id"] != riff_id]
+    if data.get("active_id") == riff_id:
+        data["active_id"] = data["riffs"][0]["id"] if data["riffs"] else None
+    _save_riffs_index(data)
+    return {"ok": True, "active_id": data.get("active_id")}
+
+
+class NamRiffActiveRequest(BaseModel):
+    riff_id: str
+
+
+@app.post("/api/nam-preview/riffs/active")
+def set_active_nam_riff(req: NamRiffActiveRequest):
+    data = _load_riffs_index()
+    if not any(r["id"] == req.riff_id for r in data["riffs"]):
+        return JSONResponse({"error": "Neplatný riff."}, status_code=400)
+    data["active_id"] = req.riff_id
+    _save_riffs_index(data)
+    return {"ok": True, "active_id": req.riff_id}
 
 
 @app.get("/api/preview")

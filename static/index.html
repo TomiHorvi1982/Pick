@@ -2104,6 +2104,21 @@
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
   .nam-art{color:var(--accent)}
+  .nam-riff-list{display:flex;flex-direction:column;gap:4px;padding:2px 8px 6px;
+    max-height:180px;overflow-y:auto}
+  .nam-riff-row{display:flex;align-items:center;gap:6px;padding:5px 6px;
+    border-radius:6px;background:var(--card-hi)}
+  .nam-riff-row.active{box-shadow:inset 0 0 0 1px var(--accent)}
+  .nam-riff-row button{background:none;border:none;color:var(--sub);cursor:pointer;
+    padding:3px;display:flex;align-items:center;border-radius:4px;flex:0 0 auto}
+  .nam-riff-row button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .nam-riff-row button.on{color:var(--accent)}
+  .nam-riff-row button:disabled{opacity:.3;cursor:default}
+  .nam-riff-row button:disabled:hover{background:none}
+  .nam-riff-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;font-size:12px;color:var(--text)}
+  .nam-riff-active-tag{font-size:9.5px;font-weight:700;letter-spacing:.06em;
+    color:var(--accent);flex:0 0 auto;text-transform:uppercase}
   .move-tree-popover{max-height:60vh;min-width:220px}
   .move-tree-scroll{max-height:50vh;overflow-y:auto}
   .move-tree-line{display:flex;align-items:center}
@@ -6386,7 +6401,7 @@ function paintLibraryTable(){
     const doPreview = async () => {
       if(!(await NamPreview.hasRiff())){
         showToast("Nejdřív nahraj ukázkový DI riff");
-        openNamRiffRecorder();
+        openNamRiffManager();
         return;
       }
       try{ await NamPreview.play(entry.rel); }
@@ -6461,7 +6476,13 @@ const NamPreview = (() => {
 
   async function ensureRiff(){
     if(riffBuffer) return riffBuffer;
-    const res = await fetch("/api/nam-preview/riff");
+    let activeId;
+    try{
+      const list = await (await fetch("/api/nam-preview/riffs")).json();
+      activeId = list.active_id;
+    }catch(e){ return null; }
+    if(!activeId) return null;
+    const res = await fetch(`/api/nam-preview/riffs/${encodeURIComponent(activeId)}`);
     if(!res.ok) return null;
     const arr = await res.arrayBuffer();
     riffBuffer = await audioCtx().decodeAudioData(arr);
@@ -6509,7 +6530,7 @@ const NamPreview = (() => {
     play, stop, invalidateRiff,
     isPlaying: (rel) => playingRel === rel,
     hasRiff: async () => {
-      try{ const r = await (await fetch("/api/nam-preview/riff/status")).json(); return !!r.exists; }
+      try{ const r = await (await fetch("/api/nam-preview/riffs")).json(); return !!r.active_id; }
       catch(e){ return false; }
     },
     onChange(fn){ onStateChange = fn; },
@@ -6565,23 +6586,93 @@ const NamRiffRecorder = (() => {
   return {listDevices, start, stop, isRecording: () => !!recorder};
 })();
 
-function openNamRiffRecorder(onSaved){
+// A small library of riffs (not just one, not fixed once recorded): each
+// has a name, one is "active" (what preset preview buttons actually play),
+// the rest can be auditioned, made active, or deleted.
+function openNamRiffManager(){
   const existing = el("nam-riff-popover");
   if(existing){ existing.remove(); return; }
   const box = document.createElement("div");
   box.className = "sect-menu nam-riff-popover";
   box.id = "nam-riff-popover";
   box.innerHTML = `
-    <div class="ss-head">Ukázkový DI riff</div>
-    <div class="hint" style="padding:0 8px 8px">Krátký suchý záznam kytary (bez
-      zesilovače) — na něm si pak přehraješ, jak by zněl kterýkoliv NAM model.</div>
+    <div class="ss-head">Ukázkové DI riffy</div>
+    <div class="hint" style="padding:0 8px 8px">Krátké suché záznamy kytary (bez
+      zesilovače) — "aktivní" je ten, co se použije při náhledu presetu.</div>
+    <div class="nam-riff-list" id="nam-riff-list">
+      <div class="hint" style="padding:4px 8px">Načítám…</div>
+    </div>
+    <hr>
     <div class="gt-settings-row"><span class="gt-cap">VSTUP</span>
       <select class="gt-device" id="nam-riff-device"></select></div>
-    <button type="button" id="nam-riff-rec">${icon("rec", 12)}<span>Nahrát</span></button>
+    <button type="button" id="nam-riff-rec">${icon("rec", 12)}<span>Nahrát nový</span></button>
     <div class="hint" id="nam-riff-status" style="padding:4px 8px"></div>`;
   document.body.appendChild(box);
   box.style.left = Math.max(8, (window.innerWidth - box.getBoundingClientRect().width) / 2) + "px";
   box.style.top = Math.max(8, (window.innerHeight - box.getBoundingClientRect().height) / 3) + "px";
+
+  // Plain <audio> playback of a riff's own dry sound — separate from
+  // NamPreview, which always routes through a NAM model.
+  let rawAudio = null;
+  function stopRawPlayback(){
+    if(rawAudio){ try{ rawAudio.pause(); }catch(e){} rawAudio = null; }
+    box.querySelectorAll(".nam-riff-play.on").forEach(b => b.classList.remove("on"));
+  }
+
+  async function refreshList(){
+    const list = box.querySelector("#nam-riff-list");
+    let data;
+    try{ data = await (await fetch("/api/nam-preview/riffs")).json(); }
+    catch(e){ list.innerHTML = `<div class="hint" style="padding:4px 8px">Nepodařilo se načíst.</div>`; return; }
+    if(!data.riffs.length){
+      list.innerHTML = `<div class="hint" style="padding:4px 8px">Zatím žádný riff — nahraj první níž.</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    data.riffs.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "nam-riff-row" + (r.id === data.active_id ? " active" : "");
+      row.innerHTML = `
+        <button type="button" class="nam-riff-play" title="Přehrát nahrávku">${icon("play", 11)}</button>
+        <span class="nam-riff-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
+        <span class="nam-riff-active-tag">${r.id === data.active_id ? "aktivní" : ""}</span>
+        <button type="button" class="nam-riff-use" title="Použít jako aktivní"
+          ${r.id === data.active_id ? "disabled" : ""}>${icon("check", 11)}</button>
+        <button type="button" class="nam-riff-del" title="Smazat">${icon("trash", 11)}</button>`;
+
+      const playBtn = row.querySelector(".nam-riff-play");
+      playBtn.onclick = () => {
+        const wasOn = playBtn.classList.contains("on");
+        stopRawPlayback();
+        if(wasOn) return; // click on the already-playing row just stops it
+        rawAudio = new Audio(`/api/nam-preview/riffs/${r.id}`);
+        rawAudio.onended = stopRawPlayback;
+        rawAudio.play().catch(() => showToast("Přehrání selhalo"));
+        playBtn.classList.add("on");
+      };
+      row.querySelector(".nam-riff-use").onclick = async () => {
+        try{
+          await fetch("/api/nam-preview/riffs/active", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({riff_id: r.id}),
+          });
+          NamPreview.invalidateRiff();
+          refreshList();
+        }catch(e){ showToast("Nepodařilo se přepnout"); }
+      };
+      row.querySelector(".nam-riff-del").onclick = async () => {
+        if(!confirm(`Smazat riff „${r.name}“?`)) return;
+        stopRawPlayback();
+        try{
+          await fetch(`/api/nam-preview/riffs/${r.id}`, {method: "DELETE"});
+          NamPreview.invalidateRiff();
+          refreshList();
+        }catch(e){ showToast("Smazání selhalo"); }
+      };
+      list.appendChild(row);
+    });
+  }
+  refreshList();
 
   NamRiffRecorder.listDevices().then(list => {
     const sel = box.querySelector("#nam-riff-device");
@@ -6593,6 +6684,7 @@ function openNamRiffRecorder(onSaved){
   const status = box.querySelector("#nam-riff-status");
   btn.onclick = async () => {
     if(!NamRiffRecorder.isRecording()){
+      stopRawPlayback();
       try{
         await NamRiffRecorder.start(box.querySelector("#nam-riff-device").value || null);
       }catch(e){ showToast("Vstup se nepodařilo otevřít"); return; }
@@ -6603,23 +6695,24 @@ function openNamRiffRecorder(onSaved){
     btn.disabled = true;
     const blob = await NamRiffRecorder.stop();
     btn.disabled = false;
-    btn.innerHTML = `${icon("rec", 12)}<span>Nahrát</span>`;
+    btn.innerHTML = `${icon("rec", 12)}<span>Nahrát nový</span>`;
     if(!blob || blob.size < 1024){ status.textContent = "Nahrávka je prázdná — zkus to znovu."; return; }
     status.textContent = "Ukládám…";
     try{
-      const res = await fetch("/api/nam-preview/riff", {method: "POST", body: blob});
+      const res = await fetch("/api/nam-preview/riffs", {method: "POST", body: blob});
       const data = await res.json();
       if(!res.ok) throw new Error(data.error || "Uložení selhalo");
       NamPreview.invalidateRiff();
-      status.textContent = "Uloženo — zkus teď přehrát nějaký preset.";
-      showToast("Ukázkový riff uložen");
-      if(onSaved) onSaved();
+      status.textContent = "Uloženo.";
+      showToast(`Riff „${data.riff.name}“ uložen`);
+      refreshList();
     }catch(e){ status.textContent = "Uložení selhalo."; }
   };
 
   setTimeout(() => document.addEventListener("pointerdown", function once(e){
     if(!e.target.closest("#nam-riff-popover")){
       if(NamRiffRecorder.isRecording()) NamRiffRecorder.stop();
+      stopRawPlayback();
       box.remove();
     }
     else document.addEventListener("pointerdown", once, {once: true});
