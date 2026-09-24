@@ -14513,11 +14513,18 @@ const PlayerTab = (() => {
     isOpen() ? close() : open();
   }
 
+  // The proportional sync (bar timings stretched evenly across the song's
+  // real length — see loadFromSongsterr) tends to run ahead of the actual
+  // playing, consistently enough across songs that a flat offset is worth
+  // more than not having one: shift the time this looks up by, not the
+  // audio itself.
+  const TAB_SYNC_DELAY_SEC = 3;
+
   function tick(){
     rafId = requestAnimationFrame(tick);
     if(!isOpen() || !api || !barStarts.length) return;
     const audio = el("pb-audio");
-    const t = audio ? audio.currentTime : 0;
+    const t = Math.max(0, (audio ? audio.currentTime : 0) - TAB_SYNC_DELAY_SEC);
     let bar = 0;
     for(let i = 0; i < barStarts.length; i++){
       if(barStarts[i] <= t) bar = i; else break;
