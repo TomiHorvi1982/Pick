@@ -2103,7 +2103,44 @@
   .c-act button{background:none;border:none;color:var(--sub);font-size:14px;
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
-  .nam-art{color:var(--accent)}
+  /* Custom flex row, not the shared c-idx/c-title/c-artist/c-album grid —
+     same reasoning as .lib-folder-row: a NAM preset isn't a song, and
+     fighting that grid's column semantics for Riff/Akce wasn't worth it. */
+  .nam-row{display:flex;align-items:center;gap:10px;height:46px;
+    padding:0 10px;border-radius:5px;font-size:13px;color:var(--sub)}
+  .nam-row:hover{background:var(--sp-hover)}
+  .nam-row.previewing{background:rgba(30,215,96,.12)}
+  .nam-thumb{flex:0 0 32px;width:32px;height:32px;border-radius:4px;position:relative;
+    overflow:hidden;background:var(--card-hi);display:flex;
+    align-items:center;justify-content:center;color:var(--accent)}
+  .nam-thumb-inner{position:absolute;inset:0;background-size:cover;background-position:center}
+  .nam-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .nam-name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nam-sub{font-size:11px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nam-row .act-preview{flex:0 0 auto;background:none;border:none;color:var(--sub);
+    cursor:pointer;padding:4px;border-radius:4px}
+  .nam-row .act-preview:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .nam-riff-col{flex:0 0 auto;display:flex;align-items:center;gap:4px;width:180px}
+  .nam-riff-select{flex:1;min-width:0;background:var(--bg2);color:var(--text);
+    border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:4px 4px}
+  .nam-riff-rec-btn{flex:0 0 auto;background:none;border:none;color:var(--sub);
+    cursor:pointer;padding:4px;border-radius:4px}
+  .nam-riff-rec-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.1)}
+  .nam-act-col{flex:0 0 auto;display:flex;gap:2px;opacity:0;transition:opacity .12s}
+  .nam-row:hover .nam-act-col{opacity:1}
+  .nam-act-col button{background:none;border:none;color:var(--sub);cursor:pointer;
+    padding:4px;border-radius:4px}
+  .nam-act-col button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .nam-metro-row{display:flex;align-items:center;gap:6px;padding:2px 8px 6px}
+  .nam-metro-row input[type=number]{width:52px;background:var(--bg2);color:var(--text);
+    border:1px solid var(--border);border-radius:5px;font-size:11.5px;padding:4px}
+  .nam-metro-row select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
+    border-radius:5px;font-size:11.5px;padding:4px}
+  .nam-metro-row button{background:var(--card-hi);border:none;border-radius:5px;
+    color:var(--text);padding:4px 9px;cursor:pointer;font-size:11.5px;
+    display:flex;align-items:center;gap:4px}
+  .nam-metro-row button:hover{background:#3e3e3e}
+  #nam-metro-toggle{margin-left:auto}
   .nam-presets-head{display:flex;align-items:center;justify-content:space-between;
     padding:14px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--sub)}
@@ -6393,58 +6430,94 @@ function paintLibraryTable(){
     namHead.querySelector("#nam-riffs-manage-btn").onclick = () => openNamRiffManager();
     list.appendChild(namHead);
   }
-  namPresets.forEach((entry, i) => {
-    const row = document.createElement("div");
-    row.className = "lib-trow nam-row";
-    row.innerHTML = `
-      <span class="c-idx">${i + 1}</span>
-      <span class="c-title">
-        <span class="art nam-art">${icon("sliders", 14)}</span>
-        <span class="tx">${escapeHtml(entry.name.replace(/\.nam$/i, ""))}</span>
-      </span>
-      <span class="c-artist">NAM preset</span>
-      <span class="c-album"></span>
-      <span class="c-time">${fmtSize(entry.size_bytes)}</span>
-      <span class="c-act">
-        <button class="act-preview" title="Přehrát ukázku">${icon("play", 13)}</button>
-        <button class="act-reveal" title="Ukázat ve Finderu">↗</button>
-        <button class="act-move" title="Přesunout">→📁</button>
-        <button class="act-delete" title="Do koše">🗑</button>
-      </span>`;
+  // The riff select in every row needs the same list, so it's fetched once
+  // up front rather than once per row — rows render as soon as it resolves
+  // (usually already cached, so effectively synchronous after the first
+  // NAM folder opened this session).
+  if(namPresets.length){
+    getNamRiffsList().then(riffData => {
+      if(!list.isConnected) return;
+      namPresets.forEach((entry, i) => list.appendChild(namPresetRow(entry, i, riffData)));
+    });
+  }
+}
 
-    const previewBtn = row.querySelector(".act-preview");
-    const setPreviewIcon = (playing) => { previewBtn.innerHTML = icon(playing ? "stop" : "play", 13); };
-    row.classList.toggle("previewing", NamPreview.isPlaying(entry.rel));
-    setPreviewIcon(NamPreview.isPlaying(entry.rel));
+// T3K-Null is what an unfilled gear field in a .nam export looks like —
+// treated the same as missing.
+function namField(v){ return (v && v !== "T3K-Null") ? v : null; }
 
-    const doPreview = async () => {
-      if(!(await NamPreview.hasRiff())){
-        showToast("Nejdřív nahraj ukázkový DI riff");
-        openNamRiffManager();
-        return;
-      }
-      try{ await NamPreview.play(entry.rel); }
-      catch(e){ showToast("Přehrání selhalo"); }
-    };
-    row.onclick = doPreview;
-    previewBtn.onclick = (e) => { e.stopPropagation(); doPreview(); };
-    row.querySelector(".act-reveal").onclick = (e) => {
-      e.stopPropagation();
-      fetch("/api/reveal", {
+function namPresetRow(entry, i, riffData){
+  const row = document.createElement("div");
+  row.className = "nam-row";
+  const gearMake = namField(entry.gear_make), gearModel = namField(entry.gear_model);
+  const gear = [gearMake, gearModel && gearMake !== gearModel ? gearModel : null].filter(Boolean).join(" ");
+  const sub = gear || namField(entry.tone_type) || fmtSize(entry.size_bytes);
+  const assigned = riffData.riffs.find(r => r.id === entry.riff_id);
+
+  row.innerHTML = `
+    <span class="nam-thumb">${icon("sliders", 16)}<span class="nam-thumb-inner"></span></span>
+    <span class="nam-info">
+      <span class="nam-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name.replace(/\.nam$/i, ""))}</span>
+      <span class="nam-sub">${escapeHtml(sub)}</span>
+    </span>
+    <button type="button" class="act-preview" title="Přehrát ukázku">${icon("play", 13)}</button>
+    <span class="nam-riff-col">
+      <select class="nam-riff-select" title="Riff pro tento model">
+        <option value="">Výchozí</option>
+        ${riffData.riffs.map(r => `<option value="${r.id}" ${r.id === entry.riff_id ? "selected" : ""}>${escapeHtml(r.name)}</option>`).join("")}
+      </select>
+      <button type="button" class="nam-riff-rec-btn" title="Nahrát nový riff pro tento model">${icon("rec", 12)}</button>
+    </span>
+    <span class="nam-act-col">
+      <button type="button" class="act-reveal" title="Ukázat ve Finderu">${icon("folderOpen", 13)}</button>
+      <button type="button" class="act-move" title="Přesunout">${icon("external", 13)}</button>
+      <button type="button" class="act-delete" title="Do koše">${icon("trash", 13)}</button>
+    </span>`;
+
+  if(gearMake || gearModel) ChipThumbs.observe(row, `${gearMake || ""} ${gearModel || ""}`.trim(), ".nam-thumb-inner");
+
+  const previewBtn = row.querySelector(".act-preview");
+  const setPreviewIcon = (playing) => { previewBtn.innerHTML = icon(playing ? "stop" : "play", 13); };
+  row.classList.toggle("previewing", NamPreview.isPlaying(entry.rel));
+  setPreviewIcon(NamPreview.isPlaying(entry.rel));
+
+  const doPreview = async () => {
+    if(!entry.riff_id && !(await NamPreview.hasRiff())){
+      showToast("Nejdřív nahraj ukázkový DI riff");
+      openNamRiffManager();
+      return;
+    }
+    try{ await NamPreview.play(entry.rel, entry.riff_id || null); }
+    catch(e){ showToast("Přehrání selhalo"); }
+  };
+  previewBtn.onclick = doPreview;
+
+  row.querySelector(".nam-riff-select").onchange = async (e) => {
+    const riffId = e.target.value || null;
+    try{
+      await fetch("/api/nam-preview/assign", {
         method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({path: entry.rel}),
+        body: JSON.stringify({rel: entry.rel, riff_id: riffId}),
       });
-    };
-    row.querySelector(".act-move").onclick = (e) => {
-      e.stopPropagation();
-      openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
-    };
-    row.querySelector(".act-delete").onclick = (e) => {
-      e.stopPropagation();
-      deleteLibraryEntry(entry.rel, entry.name);
-    };
-    list.appendChild(row);
-  });
+      entry.riff_id = riffId;
+      showToast(riffId ? `Riff přiřazen: ${assigned ? escapeHtml(assigned.name) : ""}` : "Vrácen výchozí riff");
+    }catch(err){ showToast("Přiřazení selhalo"); }
+  };
+  row.querySelector(".nam-riff-rec-btn").onclick = () => openNamRiffManager(entry.rel);
+
+  row.querySelector(".act-reveal").onclick = () => {
+    fetch("/api/reveal", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({path: entry.rel}),
+    });
+  };
+  row.querySelector(".act-move").onclick = (e) => {
+    openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
+  };
+  row.querySelector(".act-delete").onclick = () => {
+    deleteLibraryEntry(entry.rel, entry.name);
+  };
+  return row;
 }
 
 // Keeps every visible preset row's play/stop icon in sync, including when
@@ -6477,7 +6550,8 @@ function renderLibraryBreadcrumb(breadcrumb){
 // state (gate, amp/cab chain, EQ, recording takes) applies here.
 // ======================================================================
 const NamPreview = (() => {
-  let ctx = null, engine = null, riffBuffer = null;
+  let ctx = null, engine = null;
+  const riffBuffers = new Map(); // riff id -> decoded AudioBuffer
   let playingNode = null, playingSource = null, playingRel = null;
   let onStateChange = null;
 
@@ -6493,22 +6567,25 @@ const NamPreview = (() => {
     return engine;
   }
 
-  async function ensureRiff(){
-    if(riffBuffer) return riffBuffer;
-    let activeId;
-    try{
-      const list = await (await fetch("/api/nam-preview/riffs")).json();
-      activeId = list.active_id;
-    }catch(e){ return null; }
-    if(!activeId) return null;
-    const res = await fetch(`/api/nam-preview/riffs/${encodeURIComponent(activeId)}`);
+  // riffId: an explicit riff to use (a model's own assignment), falling
+  // back to whichever riff is globally "active" when not given.
+  async function ensureRiff(riffId){
+    let id = riffId;
+    if(!id){
+      try{ id = (await (await fetch("/api/nam-preview/riffs")).json()).active_id; }
+      catch(e){ return null; }
+    }
+    if(!id) return null;
+    if(riffBuffers.has(id)) return riffBuffers.get(id);
+    const res = await fetch(`/api/nam-preview/riffs/${encodeURIComponent(id)}`);
     if(!res.ok) return null;
     const arr = await res.arrayBuffer();
-    riffBuffer = await audioCtx().decodeAudioData(arr);
-    return riffBuffer;
+    const buf = await audioCtx().decodeAudioData(arr);
+    riffBuffers.set(id, buf);
+    return buf;
   }
 
-  function invalidateRiff(){ riffBuffer = null; }
+  function invalidateRiff(){ riffBuffers.clear(); }
 
   function stop(){
     if(playingSource){ try{ playingSource.stop(); }catch(e){} try{ playingSource.disconnect(); }catch(e){} }
@@ -6520,12 +6597,14 @@ const NamPreview = (() => {
   }
 
   // rel: the library path of the .nam file (served via /api/library/raw).
-  async function play(rel){
+  // riffId: this model's own assigned riff, if it has one — see the Riff
+  // column in paintLibraryTable; falls back to the global active riff.
+  async function play(rel, riffId){
     if(playingRel === rel){ stop(); return; }
     stop();
     const ac = audioCtx();
     if(ac.state === "suspended") await ac.resume();
-    const buf = await ensureRiff();
+    const buf = await ensureRiff(riffId);
     if(!buf) throw new Error("no-riff");
     const res = await fetch(`/api/library/raw?rel=${encodeURIComponent(rel)}`);
     if(!res.ok) throw new Error("model-fetch-failed");
@@ -6560,10 +6639,128 @@ const NamPreview = (() => {
 // one row's click stops a preview that a different row started.
 NamPreview.onChange(() => { if(state.mode === "library") paintLibraryTable(); });
 
+// The global riff list every row's Riff <select> is built from — fetched
+// once and reused rather than once per row; invalidated wherever the set
+// of riffs actually changes (add/delete/rename).
+let namRiffsListCache = null;
+async function getNamRiffsList(){
+  if(namRiffsListCache) return namRiffsListCache;
+  try{ namRiffsListCache = await (await fetch("/api/nam-preview/riffs")).json(); }
+  catch(e){ namRiffsListCache = {riffs: [], active_id: null}; }
+  return namRiffsListCache;
+}
+function invalidateNamRiffsList(){ namRiffsListCache = null; }
+
 // A plain mic tap for recording the one DI riff NamPreview plays presets
 // through — deliberately not the Guitar module's live-input chain: no
 // gate, no amp, no cabinet, because the whole point is capturing the guitar
 // dry, before any of that.
+// A small practice-along click, standalone from the Mixer's own metronome
+// (which is wired into the DAW's transport/tempo-detection state — none of
+// that applies to a short foreground recording made from a popover). Plays
+// out loud through the speakers/headphones while NamRiffRecorder records
+// the mic, same tradeoff any simple browser recorder has: it isn't removed
+// from the take, so headphones are what keeps it out of the recording.
+const SimpleMetronome = (() => {
+  let ctx = null, timer = null, nextTime = 0, beatInBar = 0;
+  let bpm = 100, beatsPerBar = 4, voiceName = "beep";
+  let onBeat = null;
+  let tapTimes = [];
+
+  const VOICES = {
+    beep(ac, out, when, accent){
+      const osc = ac.createOscillator(), gain = ac.createGain();
+      osc.type = "sine";
+      osc.frequency.value = accent ? 1000 : 700;
+      gain.gain.setValueAtTime(0, when);
+      gain.gain.linearRampToValueAtTime(accent ? 0.8 : 0.5, when + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+      osc.connect(gain); gain.connect(out);
+      osc.start(when); osc.stop(when + 0.08);
+    },
+    click(ac, out, when, accent){
+      const len = Math.floor(ac.sampleRate * 0.02);
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const filt = ac.createBiquadFilter();
+      filt.type = "highpass"; filt.frequency.value = accent ? 4000 : 2500;
+      const gain = ac.createGain(); gain.gain.value = accent ? 0.9 : 0.5;
+      src.connect(filt); filt.connect(gain); gain.connect(out);
+      src.start(when);
+    },
+    wood(ac, out, when, accent){
+      const osc = ac.createOscillator(), gain = ac.createGain();
+      osc.type = "square";
+      osc.frequency.value = accent ? 1600 : 1200;
+      const filt = ac.createBiquadFilter();
+      filt.type = "bandpass"; filt.frequency.value = 1400; filt.Q.value = 10;
+      gain.gain.setValueAtTime(0, when);
+      gain.gain.linearRampToValueAtTime(accent ? 0.7 : 0.4, when + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.03);
+      osc.connect(filt); filt.connect(gain); gain.connect(out);
+      osc.start(when); osc.stop(when + 0.05);
+    },
+  };
+
+  function audioCtx(){
+    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  }
+
+  // Standard lookahead scheduler: a setInterval tick just keeps topping up
+  // a short window of already-scheduled clicks, so the actual timing comes
+  // from the audio clock (sample-accurate) rather than setInterval itself
+  // (which drifts under load) — the classic web-audio-metronome pattern.
+  function tick(){
+    const ac = audioCtx();
+    while(nextTime < ac.currentTime + 0.15){
+      const accent = beatInBar === 0;
+      (VOICES[voiceName] || VOICES.beep)(ac, ac.destination, nextTime, accent);
+      if(onBeat){
+        const b = beatInBar;
+        setTimeout(() => onBeat(b), Math.max(0, (nextTime - ac.currentTime) * 1000));
+      }
+      beatInBar = (beatInBar + 1) % beatsPerBar;
+      nextTime += 60 / bpm;
+    }
+  }
+
+  function start(){
+    if(timer) return;
+    const ac = audioCtx();
+    if(ac.state === "suspended") ac.resume();
+    beatInBar = 0;
+    nextTime = ac.currentTime + 0.05;
+    timer = setInterval(tick, 30);
+  }
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } }
+
+  function tap(){
+    const now = performance.now();
+    tapTimes = tapTimes.filter(t => now - t < 2500);
+    tapTimes.push(now);
+    if(tapTimes.length >= 2){
+      const gaps = [];
+      for(let i = 1; i < tapTimes.length; i++) gaps.push(tapTimes[i] - tapTimes[i - 1]);
+      bpm = Math.max(30, Math.min(300, Math.round(60000 / (gaps.reduce((a, b) => a + b, 0) / gaps.length))));
+    }
+    return bpm;
+  }
+
+  return {
+    start, stop, tap,
+    isRunning: () => !!timer,
+    resetTap(){ tapTimes = []; },
+    setBpm(v){ bpm = Math.max(30, Math.min(300, Math.round(v) || bpm)); },
+    setVoice(v){ voiceName = v; },
+    setBeatsPerBar(n){ beatsPerBar = Math.max(1, Math.min(12, Math.round(n) || beatsPerBar)); },
+    getBpm: () => bpm,
+    onBeat(fn){ onBeat = fn; },
+  };
+})();
+
 const NamRiffRecorder = (() => {
   let stream = null, recorder = null, chunks = [];
 
@@ -6608,7 +6805,10 @@ const NamRiffRecorder = (() => {
 // A small library of riffs (not just one, not fixed once recorded): each
 // has a name, one is "active" (what preset preview buttons actually play),
 // the rest can be auditioned, made active, or deleted.
-function openNamRiffManager(){
+// forRel: when opened from a specific model's row (its Riff-column record
+// button), a newly saved riff is also assigned to that model, not just
+// added to the general pool.
+function openNamRiffManager(forRel){
   const existing = el("nam-riff-popover");
   if(existing){ existing.remove(); return; }
   const box = document.createElement("div");
@@ -6617,18 +6817,59 @@ function openNamRiffManager(){
   box.innerHTML = `
     <div class="ss-head">Ukázkové DI riffy</div>
     <div class="hint" style="padding:0 8px 8px">Krátké suché záznamy kytary (bez
-      zesilovače) — "aktivní" je ten, co se použije při náhledu presetu.</div>
+      zesilovače) — "aktivní" je ten, co se použije při náhledu presetu,
+      pokud model nemá vlastní.</div>
     <div class="nam-riff-list" id="nam-riff-list">
       <div class="hint" style="padding:4px 8px">Načítám…</div>
     </div>
     <hr>
+    <div class="ss-head">Metronom</div>
+    <div class="nam-metro-row">
+      <button type="button" id="nam-metro-tap" title="Klepej v rytmu — spočítá tempo">Tap</button>
+      <input type="number" id="nam-metro-bpm" min="30" max="300" value="100" title="BPM">
+      <span class="gt-cap" style="flex:0 0 auto">TAKT</span>
+      <input type="number" id="nam-metro-beats" min="1" max="12" value="4" title="Počet dob v taktu">
+      <select id="nam-metro-voice" title="Zvuk kliku">
+        <option value="beep">Pípnutí</option>
+        <option value="click">Klik</option>
+        <option value="wood">Dřívko</option>
+      </select>
+      <button type="button" id="nam-metro-toggle" title="Spustit/zastavit metronom">${icon("play", 11)}</button>
+    </div>
+    <div class="hint" style="padding:0 8px 6px">Metronom hraje nahlas z reproduktoru/sluchátek —
+      do nahrávky se dostane jen když ho slyší mikrofon, takže sluchátka jsou čistší.</div>
+    <hr>
     <div class="gt-settings-row"><span class="gt-cap">VSTUP</span>
       <select class="gt-device" id="nam-riff-device"></select></div>
+    <div class="gt-settings-row"><span class="gt-cap">NÁZEV</span>
+      <input type="text" id="nam-riff-name" placeholder="${forRel ? "název pro tento model…" : "název riffu…"}"></div>
     <button type="button" id="nam-riff-rec">${icon("rec", 12)}<span>Nahrát nový</span></button>
     <div class="hint" id="nam-riff-status" style="padding:4px 8px"></div>`;
   document.body.appendChild(box);
   box.style.left = Math.max(8, (window.innerWidth - box.getBoundingClientRect().width) / 2) + "px";
   box.style.top = Math.max(8, (window.innerHeight - box.getBoundingClientRect().height) / 3) + "px";
+
+  const metroToggle = box.querySelector("#nam-metro-toggle");
+  box.querySelector("#nam-metro-bpm").oninput = (e) => SimpleMetronome.setBpm(parseFloat(e.target.value));
+  box.querySelector("#nam-metro-beats").oninput = (e) => SimpleMetronome.setBeatsPerBar(parseFloat(e.target.value));
+  box.querySelector("#nam-metro-voice").onchange = (e) => SimpleMetronome.setVoice(e.target.value);
+  box.querySelector("#nam-metro-tap").onclick = () => {
+    const bpm = SimpleMetronome.tap();
+    box.querySelector("#nam-metro-bpm").value = bpm;
+  };
+  metroToggle.onclick = () => {
+    if(SimpleMetronome.isRunning()){
+      SimpleMetronome.stop();
+      metroToggle.innerHTML = icon("play", 11);
+    } else {
+      SimpleMetronome.setBpm(parseFloat(box.querySelector("#nam-metro-bpm").value) || 100);
+      SimpleMetronome.setBeatsPerBar(parseFloat(box.querySelector("#nam-metro-beats").value) || 4);
+      SimpleMetronome.setVoice(box.querySelector("#nam-metro-voice").value);
+      SimpleMetronome.resetTap();
+      SimpleMetronome.start();
+      metroToggle.innerHTML = icon("stop", 11);
+    }
+  };
 
   // Plain <audio> playback of a riff's own dry sound — separate from
   // NamPreview, which always routes through a NAM model.
@@ -6676,6 +6917,7 @@ function openNamRiffManager(){
             body: JSON.stringify({riff_id: r.id}),
           });
           NamPreview.invalidateRiff();
+          invalidateNamRiffsList();
           refreshList();
         }catch(e){ showToast("Nepodařilo se přepnout"); }
       };
@@ -6685,7 +6927,9 @@ function openNamRiffManager(){
         try{
           await fetch(`/api/nam-preview/riffs/${r.id}`, {method: "DELETE"});
           NamPreview.invalidateRiff();
+          invalidateNamRiffsList();
           refreshList();
+          if(state.mode === "library") paintLibraryTable();
         }catch(e){ showToast("Smazání selhalo"); }
       };
       list.appendChild(row);
@@ -6711,19 +6955,38 @@ function openNamRiffManager(){
       status.textContent = "Nahrávám… zahraj krátký riff a klikni na Stop.";
       return;
     }
+    if(SimpleMetronome.isRunning()){ SimpleMetronome.stop(); metroToggle.innerHTML = icon("play", 11); }
     btn.disabled = true;
     const blob = await NamRiffRecorder.stop();
     btn.disabled = false;
     btn.innerHTML = `${icon("rec", 12)}<span>Nahrát nový</span>`;
     if(!blob || blob.size < 1024){ status.textContent = "Nahrávka je prázdná — zkus to znovu."; return; }
     status.textContent = "Ukládám…";
+    const name = box.querySelector("#nam-riff-name").value.trim();
     try{
-      const res = await fetch("/api/nam-preview/riffs", {method: "POST", body: blob});
+      const res = await fetch(`/api/nam-preview/riffs?name=${encodeURIComponent(name)}`, {method: "POST", body: blob});
       const data = await res.json();
       if(!res.ok) throw new Error(data.error || "Uložení selhalo");
       NamPreview.invalidateRiff();
+      invalidateNamRiffsList();
+      box.querySelector("#nam-riff-name").value = "";
+      if(forRel){
+        try{
+          await fetch("/api/nam-preview/assign", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({rel: forRel, riff_id: data.riff.id}),
+          });
+          // paintLibraryTable() only re-renders libraryEntries as they
+          // already are in memory — it doesn't re-fetch, so the row would
+          // still show whatever riff_id it had before this save unless
+          // that in-memory entry is patched here first.
+          const entry = libraryEntries.find(e => e.rel === forRel);
+          if(entry) entry.riff_id = data.riff.id;
+        }catch(e){}
+        if(state.mode === "library") paintLibraryTable();
+      }
       status.textContent = "Uloženo.";
-      showToast(`Riff „${data.riff.name}“ uložen`);
+      showToast(`Riff „${data.riff.name}“ uložen` + (forRel ? " a přiřazen tomuto modelu" : ""));
       refreshList();
     }catch(e){ status.textContent = "Uložení selhalo."; }
   };
@@ -6731,6 +6994,7 @@ function openNamRiffManager(){
   setTimeout(() => document.addEventListener("pointerdown", function once(e){
     if(!e.target.closest("#nam-riff-popover")){
       if(NamRiffRecorder.isRecording()) NamRiffRecorder.stop();
+      if(SimpleMetronome.isRunning()) SimpleMetronome.stop();
       stopRawPlayback();
       box.remove();
     }

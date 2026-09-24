@@ -1526,8 +1526,15 @@ def _save_thumb_cache() -> None:
 
 
 def _resolve_chip_thumb(term: str) -> Optional[str]:
-    """Cover art for a search term, from the first playlist that matches it."""
-    for filt in ("playlists", "albums"):
+    """Cover art for a search term, from the first playlist/album/video that
+    matches it. "videos" is last and only a fallback: for a real music term
+    it is usually a worse cover than an album's own art, but for something
+    that is not music at all — "Marshall JCM800", a NAM capture's own
+    gear name — a demo/review video's thumbnail is often the only source
+    that actually shows the thing, since no playlist or album is named
+    after an amplifier.
+    """
+    for filt in ("playlists", "albums", "videos"):
         try:
             res = yt().search(term, filter=filt, limit=1)
         except Exception:
@@ -2233,6 +2240,43 @@ def _audio_tags(path: Path) -> dict:
     return tags
 
 
+# Same (mtime, size)-keyed cache pattern as _audio_tags, for the gear info a
+# .nam file already carries in its own "metadata" object — TONE3000 exports
+# (and most other NAM trainers) write gear_make/gear_model/tone_type/
+# modeled_by there, so the library can show what amp a capture actually is
+# instead of just its (often cryptic) filename.
+_NAM_META_CACHE: dict = {}
+
+
+def _nam_meta(path: Path) -> dict:
+    try:
+        st = path.stat()
+    except OSError:
+        return {}
+    key = str(path)
+    cached = _NAM_META_CACHE.get(key)
+    if cached and cached["sig"] == (st.st_mtime, st.st_size):
+        return cached["meta"]
+
+    meta = {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        md = raw.get("metadata") or {}
+        meta = {
+            "gear_make": md.get("gear_make"),
+            "gear_model": md.get("gear_model"),
+            "tone_type": md.get("tone_type"),
+            "modeled_by": md.get("modeled_by"),
+        }
+    except Exception:
+        meta = {}
+
+    if len(_NAM_META_CACHE) > 4000:
+        _NAM_META_CACHE.clear()
+    _NAM_META_CACHE[key] = {"sig": (st.st_mtime, st.st_size), "meta": meta}
+    return meta
+
+
 def _folder_stats(folder: Path, _depth: int = 0):
     """(audio files, total bytes, subfolders) beneath `folder`.
 
@@ -2303,6 +2347,8 @@ def library_browse(rel: str = ""):
             files.append({
                 "name": p.name, "type": "nam", "rel": entry_rel,
                 "size_bytes": p.stat().st_size,
+                **_nam_meta(p),
+                "riff_id": _nam_riff_assignments().get(entry_rel),
             })
 
     total_size = sum(f["size_bytes"] for f in files) + sum(d["size_bytes"] for d in dirs)
@@ -2500,11 +2546,14 @@ def library_fs_move(req: LibraryMoveRequest):
     if source.is_dir() and (dest_dir == source or source in dest_dir.parents):
         return JSONResponse({"error": "Nelze přesunout složku samu do sebe."}, status_code=400)
     target = _unique_dest(dest_dir, source.name)
+    old_rel = str(source.relative_to(MUSIC_ROOT.resolve()))
     try:
         shutil.move(str(source), str(target))
     except OSError as exc:
         return JSONResponse({"error": f"Přesun selhal: {exc}"}, status_code=500)
-    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+    new_rel = str(target.relative_to(MUSIC_ROOT.resolve()))
+    _rekey_nam_riff_assignments(old_rel, new_rel)
+    return {"ok": True, "rel": new_rel}
 
 
 class LibraryDeleteRequest(BaseModel):
@@ -2528,7 +2577,31 @@ def library_fs_delete(req: LibraryDeleteRequest):
         return JSONResponse({"error": "Časový limit vypršel."}, status_code=500)
     if result.returncode != 0:
         return JSONResponse({"error": result.stderr.strip() or "Smazání selhalo."}, status_code=500)
+    _rekey_nam_riff_assignments(req.rel, None)
     return {"ok": True}
+
+
+def _rekey_nam_riff_assignments(old_rel: str, new_rel: Optional[str]):
+    """Carries a NAM riff assignment forward through a move done via this
+    app's own endpoints (new_rel given), or drops it on delete (new_rel
+    None) — covers both a single .nam file and a folder of them, since
+    old_rel might be either.
+    """
+    assignments = _nam_riff_assignments()
+    changed = False
+    for key in list(assignments.keys()):
+        if key == old_rel:
+            new_key = new_rel
+        elif key.startswith(old_rel + "/"):
+            new_key = (new_rel + key[len(old_rel):]) if new_rel else None
+        else:
+            continue
+        value = assignments.pop(key)
+        if new_key:
+            assignments[new_key] = value
+        changed = True
+    if changed:
+        _save_nam_riff_assignments()
 
 
 # ------------------------------------------------------- NAM preset preview
@@ -2581,6 +2654,55 @@ def _load_riffs_index() -> dict:
 def _save_riffs_index(data: dict):
     NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     NAM_RIFFS_INDEX.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+# Which riff (by id, into the same global library above) a specific .nam
+# file should preview with instead of the globally active one — keyed by
+# library-relative path. A path key breaks if a file is moved from outside
+# this app (Finder, another tool); library_fs_move carries the entry
+# forward when the move happens through the app's own endpoint, which
+# covers the common case without needing a content hash for every file.
+NAM_RIFF_ASSIGN_PATH = NAM_PREVIEW_DIR / "nam_riff_assignments.json"
+_nam_riff_assign_cache: Optional[dict] = None
+
+
+def _nam_riff_assignments() -> dict:
+    global _nam_riff_assign_cache
+    if _nam_riff_assign_cache is None:
+        try:
+            _nam_riff_assign_cache = json.loads(NAM_RIFF_ASSIGN_PATH.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            _nam_riff_assign_cache = {}
+    return _nam_riff_assign_cache
+
+
+def _save_nam_riff_assignments():
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    NAM_RIFF_ASSIGN_PATH.write_text(
+        json.dumps(_nam_riff_assignments(), ensure_ascii=False), encoding="utf-8")
+
+
+class NamRiffAssignRequest(BaseModel):
+    rel: str
+    riff_id: Optional[str] = None  # None/omitted clears the assignment
+
+
+@app.post("/api/nam-preview/assign")
+def assign_nam_riff(req: NamRiffAssignRequest):
+    target = _resolve_under_music_root(req.rel)
+    if target is None or not target.is_file() or target.suffix.lower() != ".nam":
+        return JSONResponse({"error": "Neplatný soubor."}, status_code=404)
+    if req.riff_id:
+        data = _load_riffs_index()
+        if not any(r["id"] == req.riff_id for r in data["riffs"]):
+            return JSONResponse({"error": "Neplatný riff."}, status_code=400)
+    assignments = _nam_riff_assignments()
+    if req.riff_id:
+        assignments[req.rel] = req.riff_id
+    else:
+        assignments.pop(req.rel, None)
+    _save_nam_riff_assignments()
+    return {"ok": True}
 
 
 @app.get("/api/nam-preview/riffs")
@@ -2650,6 +2772,12 @@ def delete_nam_riff(riff_id: str):
     if data.get("active_id") == riff_id:
         data["active_id"] = data["riffs"][0]["id"] if data["riffs"] else None
     _save_riffs_index(data)
+    assignments = _nam_riff_assignments()
+    stale = [k for k, v in assignments.items() if v == riff_id]
+    if stale:
+        for k in stale:
+            del assignments[k]
+        _save_nam_riff_assignments()
     return {"ok": True, "active_id": data.get("active_id")}
 
 
