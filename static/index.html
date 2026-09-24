@@ -1410,17 +1410,28 @@
   .pb-tab-dock-bar button:hover, .pb-lyrics-dock-bar button:hover{background:#3e3e3e}
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
-  .pb-tab-dock-hostwrap{max-height:240px;overflow-y:hidden;position:relative}
+  .pb-tab-dock-hostwrap{max-height:300px;overflow-y:hidden;position:relative;
+    display:flex;flex-direction:column}
   .pb-tab-dock-syncval{font-weight:600;color:var(--sub);font-variant-numeric:tabular-nums;font-size:11px}
-  /* A thin strip of its own above the notation, not on top of it — the red
-     triangle just points at where the first string will be, it never covers
-     any tab content. */
-  .pb-tab-dock-marker{height:11px;position:relative;background:var(--bg2);flex:0 0 auto}
-  .pb-tab-dock-marker::after{content:"";position:absolute;left:50%;top:1px;
+  /* Thin strips of their own above/below the notation, never on top of it —
+     the red triangles just point at where the first string sits from
+     either side; clicking either cycles both through 10 sizes then wraps. */
+  .pb-tab-dock-marker{position:relative;background:#f4f4f2;flex:0 0 auto;
+    cursor:pointer}
+  .pb-tab-dock-marker::after{content:"";position:absolute;left:50%;
     transform:translateX(-50%);width:0;height:0;pointer-events:none;
-    border-left:6px solid transparent;border-right:6px solid transparent;
-    border-top:8px solid #e5484d}
-  .pb-tab-dock-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2}
+    border-left:var(--tri-w, 6px) solid transparent;
+    border-right:var(--tri-w, 6px) solid transparent}
+  .pb-tab-dock-marker-top::after{top:1px;border-top:var(--tri-h, 8px) solid #e5484d}
+  .pb-tab-dock-marker-bottom::after{bottom:1px;border-bottom:var(--tri-h, 8px) solid #e5484d}
+  /* The clipping viewport: fixed width, never scrolls natively — the host
+     inside it is moved with a CSS transform instead, which (unlike
+     scrollLeft) isn't clamped at the content's own edges. That's what lets
+     the very first or last note be centred under the marker instead of
+     pinned to the viewport's edge because there's nothing further to
+     scroll into. */
+  .pb-tab-dock-viewport{width:100%;overflow:hidden;position:relative;flex:1 1 auto}
+  .pb-tab-dock-host{background:#f4f4f2}
   .pb-lyrics-dock-lines{text-align:center;line-height:1.35;padding:10px 16px}
   .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:12px;color:var(--sub);opacity:.7}
   .pb-lyrics-dock-lines .cur{font-size:15px;font-weight:700;color:var(--text);margin:3px 0}
@@ -3314,8 +3325,13 @@
       <button type="button" id="pb-tab-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
     </div>
     <div class="pb-tab-dock-hostwrap">
-      <div class="pb-tab-dock-marker" id="pb-tab-dock-marker"></div>
-      <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
+      <div class="pb-tab-dock-marker pb-tab-dock-marker-top" id="pb-tab-dock-marker-top"
+        title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
+      <div class="pb-tab-dock-viewport" id="pb-tab-dock-viewport">
+        <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
+      </div>
+      <div class="pb-tab-dock-marker pb-tab-dock-marker-bottom" id="pb-tab-dock-marker-bottom"
+        title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
     </div>
   </div>
 </div>
@@ -14526,6 +14542,32 @@ const PlayerTab = (() => {
     if(v) v.textContent = (syncOffsetSec >= 0 ? "+" : "−") + Math.abs(syncOffsetSec).toFixed(1).replace(".", ",") + " s";
   }
 
+  // Triangle markers (above and below the stave) — click either to step
+  // through 10 sizes, then wrap back to the smallest. A display preference,
+  // not per-song, so it's remembered globally rather than per track.
+  const MARKER_SIZE_STEPS = 10;
+  const MARKER_KEY = "spotdl-gui-pb-tab-marker-size";
+  let markerStep = (() => {
+    try{ const v = parseInt(localStorage.getItem(MARKER_KEY), 10); return (v >= 1 && v <= MARKER_SIZE_STEPS) ? v : 1; }
+    catch(e){ return 1; }
+  })();
+  function paintMarkerSize(){
+    const triW = 6 + (markerStep - 1) * 2;
+    const triH = 8 + (markerStep - 1) * 3;
+    [el("pb-tab-dock-marker-top"), el("pb-tab-dock-marker-bottom")].forEach(m => {
+      if(!m) return;
+      m.style.height = (triH + 3) + "px";
+      m.style.setProperty("--tri-w", triW + "px");
+      m.style.setProperty("--tri-h", triH + "px");
+    });
+  }
+  function cycleMarkerSize(){
+    markerStep = markerStep >= MARKER_SIZE_STEPS ? 1 : markerStep + 1;
+    try{ localStorage.setItem(MARKER_KEY, String(markerStep)); }catch(e){}
+    paintMarkerSize();
+  }
+  paintMarkerSize();
+
   function ensureApi(){
     if(apiPromise) return apiPromise;
     apiPromise = (async () => {
@@ -14643,8 +14685,9 @@ const PlayerTab = (() => {
     }
     el("pb-tab-dock-barlabel").textContent = "Takt " + (bar + 1);
     const host = el("pb-tab-dock-host");
+    const viewport = el("pb-tab-dock-viewport");
     const lookup = api.boundsLookup;
-    if(!host || !lookup) return;
+    if(!host || !viewport || !lookup) return;
     const mb = lookup.findMasterBarByIndex(bar);
     if(!mb) return;
     let x = mb.realBounds.x;
@@ -14655,13 +14698,15 @@ const PlayerTab = (() => {
       const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
       x += frac * barPxWidth;
     }
-    // The scroll target above is clamped by the browser at both ends (can't
-    // scroll past 0 or past the content's own edge), so near the start or
-    // end of the tab the on-screen spot this centres on drifts away from
-    // true centre even though the request always asks for centred — the red
-    // triangle marker above the stave stays put regardless (pure CSS,
-    // nothing to update here), so "look here" keeps meaning something.
-    host.scrollLeft = Math.max(0, x - host.clientWidth / 2);
+    // A CSS transform on the host, not scrollLeft on the viewport — native
+    // scroll clamps at the content's own edges, which used to pin the very
+    // first (or last) note to the side of the screen instead of centring it
+    // under the marker, since there's nothing before/after it to scroll
+    // into. A transform has no such limit: the host can be pushed past its
+    // own start or end, leaving blank viewport background on the empty
+    // side while the note itself still lands dead centre.
+    const camX = x - viewport.clientWidth / 2;
+    host.style.transform = `translateX(${-camX}px)`;
   }
   function startTick(){ if(!rafId) rafId = requestAnimationFrame(tick); }
   function stopTick(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
@@ -14686,6 +14731,8 @@ const PlayerTab = (() => {
   };
   el("pb-tab-dock-zoom-dn").onclick = () => { zoom = Math.max(0.6, zoom - 0.1); rerender(); };
   el("pb-tab-dock-zoom-up").onclick = () => { zoom = Math.min(1.6, zoom + 0.1); rerender(); };
+  el("pb-tab-dock-marker-top").onclick = cycleMarkerSize;
+  el("pb-tab-dock-marker-bottom").onclick = cycleMarkerSize;
   el("pb-tab-dock-select").onchange = async (e) => {
     const idx = parseInt(e.target.value, 10);
     if(songId == null) return;
