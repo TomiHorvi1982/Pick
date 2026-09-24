@@ -2104,6 +2104,13 @@
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
   .nam-art{color:var(--accent)}
+  .nam-presets-head{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--sub)}
+  .nam-riffs-manage-btn{background:var(--card-hi);border:none;border-radius:999px;
+    color:var(--text);padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600;
+    text-transform:none;letter-spacing:normal;display:flex;align-items:center;gap:6px}
+  .nam-riffs-manage-btn:hover{background:#3e3e3e}
   .nam-riff-list{display:flex;flex-direction:column;gap:4px;padding:2px 8px 6px;
     max-height:180px;overflow-y:auto}
   .nam-riff-row{display:flex;align-items:center;gap:6px;padding:5px 6px;
@@ -6374,6 +6381,18 @@ function paintLibraryTable(){
 
   // NAM captures: not playable audio, so a preview button runs them through
   // the DI riff instead of Player.playLocal. See NamPreview above.
+  if(namPresets.length){
+    // Only reachable route into the riff manager used to be "you have no
+    // riff yet" — once one existed there was no way back in to add
+    // another, switch, or delete. A small persistent header fixes that.
+    const namHead = document.createElement("div");
+    namHead.className = "nam-presets-head";
+    namHead.innerHTML = `<span>NAM presety</span>
+      <button type="button" class="nam-riffs-manage-btn" id="nam-riffs-manage-btn">
+        ${icon("sliders", 12)}<span>Ukázkové riffy…</span></button>`;
+    namHead.querySelector("#nam-riffs-manage-btn").onclick = () => openNamRiffManager();
+    list.appendChild(namHead);
+  }
   namPresets.forEach((entry, i) => {
     const row = document.createElement("div");
     row.className = "lib-trow nam-row";
