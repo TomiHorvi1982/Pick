@@ -1439,10 +1439,21 @@
      it — black notation on the dark dock, i.e. the tab "went black" once
      the transform had moved it a screen or so along. */
   .pb-tab-dock-host{background:#f4f4f2;width:max-content;min-width:100%}
-  .pb-lyrics-dock-lines{text-align:center;line-height:1.35;padding:10px 16px}
-  .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:12px;color:var(--sub);opacity:.7}
-  .pb-lyrics-dock-lines .cur{font-size:15px;font-weight:700;color:var(--text);margin:3px 0}
-  .pb-lyr-float .float-body{padding:14px}
+  /* As tall as the tab dock's notation area (--pb-lyr-h, kept in step by
+     PlayerLyricsDock) so the two docks read as a matching pair. */
+  .pb-lyrics-dock-lines{text-align:center;line-height:1.35;padding:10px 16px;
+    min-height:var(--pb-lyr-h, 200px);box-sizing:border-box;
+    display:flex;flex-direction:column;justify-content:center}
+  .pb-lyrics-dock-lines[hidden]{display:none}
+  .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:16px;color:var(--sub);opacity:.7}
+  .pb-lyrics-dock-lines .cur{font-size:24px;font-weight:800;color:var(--text);margin:8px 0}
+  .pb-lyr-float .float-body{padding:0}
+  /* Detached: the whole song, the original LyricsView way — current line
+     lit and kept centred, click any line to jump the song there. */
+  .pb-lyr-full{height:100%;overflow-y:auto;padding:40% 0;box-sizing:border-box}
+  .pb-lyr-full .lyric-line{padding:7px 18px;font-size:15px}
+  .pb-lyr-full .lyric-line.current{font-size:19px}
+  .pb-lyr-full .lyrics-msg{padding:20px;text-align:center;color:var(--sub)}
   .pb-track{display:flex;align-items:center;gap:14px;width:30%;min-width:180px;flex:0 0 auto}
   .pb-art{width:56px;height:56px;border-radius:4px;flex:0 0 56px;font-size:22px}
   .pb-title{font-size:14px;font-weight:400;color:var(--text)}
@@ -3351,7 +3362,9 @@
     <span class="float-title">Text písně</span>
     <button class="float-btn" id="pb-lyr-float-dock" title="Vrátit dolů"><span data-icon="back" data-size="13"></span></button>
   </div>
-  <div class="float-body pb-lyr-float-body" id="pb-lyr-float-body"></div>
+  <div class="float-body pb-lyr-float-body" id="pb-lyr-float-body">
+    <div class="pb-lyr-full" id="pb-lyr-full"></div>
+  </div>
   <div class="float-grip" id="pb-lyr-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
@@ -14526,6 +14539,7 @@ const PlayerTab = (() => {
   let tabTime = 0;         // position in the tab's own timeline (s)
   let running = false;
   let lastAudioT = null;   // audio.currentTime seen on the previous frame
+  let synced = false;      // Start pressed for this song — tab and song move together
 
   function isOpen(){ return !dock.hidden; }
 
@@ -14642,6 +14656,7 @@ const PlayerTab = (() => {
 
     const saved = loadSavedAssignment();
     setRunning(false);
+    synced = false;
     setTabTime(saved && saved.songId === songId && saved.trackIndex === trackIndex
       && typeof saved.startAt === "number" ? saved.startAt : 0);
 
@@ -14773,6 +14788,7 @@ const PlayerTab = (() => {
     if(songId == null) return;
     if(running){ setRunning(false); return; }
     saveAssignment(tabTime);
+    synced = true;
     setRunning(true);
   };
   el("pb-tab-dock-prev").onclick = () => stepBar(-1);
@@ -14846,10 +14862,17 @@ const PlayerTab = (() => {
   // tab+sync from a previous visit, pick straight back up with those.
   return {
     toggle, open, close, isOpen, openSearch,
+    // A deliberate jump in the song (clicking a lyrics line) — unlike a
+    // plain seek on the player — carries a started tab along with it.
+    followSeek(delta){
+      if(!synced || !barStarts.length || !isFinite(delta)) return;
+      setTabTime(tabTime + delta);
+      lastAudioT = null;
+    },
     reset(){
       const wasOpen = isOpen();
       tabData = null; songId = null; revisionId = null; trackIndex = 0;
-      barStarts = []; tabTime = 0; setRunning(false);
+      barStarts = []; tabTime = 0; synced = false; setRunning(false);
       if(wasOpen){
         close();
         const saved = loadSavedAssignment();
@@ -15653,7 +15676,7 @@ const FloatVideo = makeFloating("float-video", {defaults: {width: 420, height: 2
 // The lyrics panel already existed with all its rendering; it just becomes
 // draggable rather than being replaced by a second window.
 const FloatLyrics = makeFloating("lyrics-panel", {defaults: {width: 380, height: 460}});
-const FloatPbLyr = makeFloating("pb-lyr-float", {defaults: {width: 420, height: 220}});
+const FloatPbLyr = makeFloating("pb-lyr-float", {defaults: {width: 460, height: 480}});
 
 // ======================================================================
 // Text, docked above the transport (and above the tab dock, if that's
@@ -15734,6 +15757,63 @@ const PlayerLyricsDock = (() => {
         ? "Text bez časování — zkus tlačítko s ikonou textu pro plné znění"
         : "Text nenalezen";
     }
+    plainText = !data.synced && data.plain ? data.plain : "";
+    renderFull();
+  }
+
+  // The detached window's full list. Built once per fetched text; tick()
+  // only moves the highlight.
+  let plainText = "";
+  let fullIdx = -2;
+  function renderFull(){
+    const box = el("pb-lyr-full");
+    box.innerHTML = "";
+    fullIdx = -2;
+    if(lyrics){
+      lyrics.lines.forEach((line, i) => {
+        const div = document.createElement("div");
+        div.className = "lyric-line upcoming" + (line.text === "" ? " empty-line" : "");
+        div.textContent = line.text || "♪";
+        div.onclick = () => seekToLine(i);
+        box.appendChild(div);
+      });
+    } else if(plainText){
+      plainText.split("\n").forEach(t => {
+        const div = document.createElement("div");
+        div.className = "lyric-line" + (t.trim() === "" ? " empty-line" : "");
+        div.style.cursor = "default";
+        div.textContent = t;
+        box.appendChild(div);
+      });
+    } else {
+      box.innerHTML = `<div class="lyrics-msg">${lyrics === null && isOpen() ? "Text nenalezen" : ""}</div>`;
+    }
+  }
+  function paintFull(i){
+    if(!FloatPbLyr.isOpen() || !lyrics || i === fullIdx) return;
+    fullIdx = i;
+    const box = el("pb-lyr-full");
+    const els = box.children;
+    for(let k = 0; k < els.length; k++){
+      els[k].classList.remove("current", "prev", "upcoming");
+      els[k].classList.add(k === i ? "current" : k < i ? "prev" : "upcoming");
+    }
+    const cur = els[Math.max(0, i)];
+    if(cur){
+      const target = box.scrollTop + (cur.getBoundingClientRect().top - box.getBoundingClientRect().top)
+        - box.clientHeight / 2 + cur.offsetHeight / 2;
+      box.scrollTo({top: target, behavior: "smooth"});
+    }
+  }
+  // Clicking a line jumps the song there — and a tab that's been started
+  // against this song moves by the same amount, so the two stay together.
+  function seekToLine(i){
+    const audio = el("pb-audio");
+    if(!audio || !lyrics) return;
+    const to = Math.max(0, lineTime(i));
+    const from = audio.currentTime;
+    Player.seekTo(to);
+    if(typeof PlayerTab !== "undefined") PlayerTab.followSeek(to - from);
   }
 
   function close(){
@@ -15750,6 +15830,7 @@ const PlayerLyricsDock = (() => {
     const audio = el("pb-audio");
     const t = audio ? audio.currentTime : 0;
     const i = lineIndexAt(t);
+    paintFull(i);
     if(i === idx) return;
     idx = i;
     const line = k => (k >= 0 && k < lyrics.lines.length) ? (lyrics.lines[k].text || "♪") : "";
@@ -15767,16 +15848,26 @@ const PlayerLyricsDock = (() => {
     idx = -2;
   }
 
-  // Same lift-out-into-a-window-of-its-own pattern as the Steems mixer's
-  // lyr-float: only the three lines move, the toolbar stays docked.
+  // Detached, the window shows the whole song (the three-line readout
+  // steps aside meanwhile); the toolbar stays docked.
   function detach(){
-    el("pb-lyr-float-body").appendChild(el("pb-lyrics-dock-lines"));
+    el("pb-lyrics-dock-lines").hidden = true;
     FloatPbLyr.open();
+    fullIdx = -2;
   }
   function dockFromFloat(){
-    const lines = el("pb-lyrics-dock-lines");
-    if(lines.parentElement !== dock) dock.insertBefore(lines, null);
+    el("pb-lyrics-dock-lines").hidden = false;
     FloatPbLyr.close();
+  }
+
+  // Match the tab dock's notation height whenever that's showing.
+  {
+    const wrap = document.querySelector("#pb-tab-dock .pb-tab-dock-hostwrap");
+    const sync = () => {
+      const h = wrap && wrap.offsetHeight;
+      if(h) document.documentElement.style.setProperty("--pb-lyr-h", h + "px");
+    };
+    if(wrap && typeof ResizeObserver !== "undefined") new ResizeObserver(sync).observe(wrap);
   }
 
   el("pb-lyrics-dock-earlier").onclick = () => nudge(-0.5);
