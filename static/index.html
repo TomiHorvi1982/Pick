@@ -1411,10 +1411,15 @@
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
   .pb-tab-dock-hostwrap{max-height:240px;overflow-y:hidden;position:relative}
-  .pb-tab-dock-cursor{position:absolute;top:0;bottom:0;left:50%;
-    background:rgba(45,212,191,.16);border-left:1px solid rgba(45,212,191,.55);
-    border-right:1px solid rgba(45,212,191,.55);pointer-events:none;z-index:1;
-    transform:translateX(-50%)}
+  .pb-tab-dock-syncval{font-weight:600;color:var(--sub);font-variant-numeric:tabular-nums;font-size:11px}
+  /* A thin strip of its own above the notation, not on top of it — the red
+     triangle just points at where the first string will be, it never covers
+     any tab content. */
+  .pb-tab-dock-marker{height:11px;position:relative;background:var(--bg2);flex:0 0 auto}
+  .pb-tab-dock-marker::after{content:"";position:absolute;left:50%;top:1px;
+    transform:translateX(-50%);width:0;height:0;pointer-events:none;
+    border-left:6px solid transparent;border-right:6px solid transparent;
+    border-top:8px solid #e5484d}
   .pb-tab-dock-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2}
   .pb-lyrics-dock-lines{text-align:center;line-height:1.35;padding:10px 16px}
   .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:12px;color:var(--sub);opacity:.7}
@@ -3301,14 +3306,16 @@
       <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
       <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
       <span class="sp"></span>
+      <span class="pb-tab-dock-syncval" id="pb-tab-dock-syncval" title="Aktuální posun tabu proti zpěvu"></span>
+      <button type="button" id="pb-tab-dock-sync" title="Klikni přesně v okamžiku, kdy má tab začít hrát — uloží se to k téhle písni">Sync</button>
       <button type="button" id="pb-tab-dock-zoom-dn" title="Zmenšit zápis">−</button>
       <button type="button" id="pb-tab-dock-zoom-up" title="Zvětšit zápis">+</button>
       <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="search" data-size="12"></span></button>
       <button type="button" id="pb-tab-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
     </div>
     <div class="pb-tab-dock-hostwrap">
+      <div class="pb-tab-dock-marker" id="pb-tab-dock-marker"></div>
       <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
-      <div class="pb-tab-dock-cursor" id="pb-tab-dock-cursor"></div>
     </div>
   </div>
 </div>
@@ -14484,11 +14491,40 @@ const PlayerTab = (() => {
   let apiPromise = null, api = null;
   let tabData = null, songId = null, revisionId = null, trackIndex = 0;
   let barStarts = [];
-  let lastPxPerSec = 0;
   let zoom = 1;
   let rafId = null;
 
+  // How far ahead of the real playback the tab's own bar-0 sits — a flat
+  // guess until the "Sync" button calibrates it by ear for this exact
+  // song+tab, at which point the calibrated value is what gets saved.
+  const DEFAULT_SYNC_DELAY_SEC = 3;
+  let syncOffsetSec = DEFAULT_SYNC_DELAY_SEC;
+
   function isOpen(){ return !dock.hidden; }
+
+  // Which tab (and at what sync offset) belongs to the song currently
+  // playing — keyed the same way PlayerLyricsDock keys its per-track offset,
+  // so "pro příště" (next time) just works without the user re-searching.
+  function trackTabKey(){
+    const t = Player.getCurrent();
+    return "spotdl-gui-pb-tab-sync:" + ((t && (t.videoId || t.relPath || t.title)) || "");
+  }
+  function loadSavedAssignment(){
+    try{
+      const raw = localStorage.getItem(trackTabKey());
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function saveAssignment(){
+    if(songId == null) return;
+    try{
+      localStorage.setItem(trackTabKey(), JSON.stringify({songId, revisionId, trackIndex, syncOffsetSec}));
+    }catch(e){}
+  }
+  function paintSyncVal(){
+    const v = el("pb-tab-dock-syncval");
+    if(v) v.textContent = (syncOffsetSec >= 0 ? "+" : "−") + Math.abs(syncOffsetSec).toFixed(1).replace(".", ",") + " s";
+  }
 
   function ensureApi(){
     if(apiPromise) return apiPromise;
@@ -14539,9 +14575,36 @@ const PlayerTab = (() => {
     const lastRaw = rawBars[rawBars.length - 1] || 1;
     const scale = songDur > 0 && lastRaw > 0 ? songDur / lastRaw : 1;
     barStarts = rawBars.map(t => t * scale);
+
+    // A tab already calibrated by ear for this exact song+track keeps that
+    // offset; anything not yet synced starts from the flat guess.
+    const saved = loadSavedAssignment();
+    syncOffsetSec = (saved && saved.songId === songId && saved.revisionId === revisionId
+      && saved.trackIndex === trackIndex && typeof saved.syncOffsetSec === "number")
+      ? saved.syncOffsetSec : DEFAULT_SYNC_DELAY_SEC;
+    paintSyncVal();
+
     try{ a.tex(Mixer.tabView.measuresToAlphaTex(tabData)); }
     catch(e){ console.error("alphaTab player tex:", e); }
+    // Remember which tab this song uses — even before it's synced — so
+    // reopening the dock for this song next time skips the search.
+    saveAssignment();
     open();
+  }
+
+  // Reload whichever tab was last picked (and its saved sync) for the song
+  // currently playing, instead of making the user search again.
+  async function autoLoadSaved(saved){
+    showToast("Načítám uloženou tabulaturu…");
+    try{
+      const meta = await Songsterr.getMeta(saved.songId);
+      const data = await Songsterr.getTrack(saved.songId, meta.revisionId, saved.trackIndex);
+      await loadFromSongsterr(
+        [{songId: saved.songId, revisionId: meta.revisionId, trackIndex: saved.trackIndex, data}], meta);
+    }catch(e){
+      console.error("auto tab load:", e);
+      openSearch();
+    }
   }
 
   function open(){
@@ -14559,23 +14622,21 @@ const PlayerTab = (() => {
     const q = track ? `${track.artists || ""} ${track.title || ""}`.trim() : "";
     TabSearch.show(q, loadFromSongsterr);
   }
-  function toggle(){
-    if(!tabData){ openSearch(); return; }
+  async function toggle(){
+    if(!tabData){
+      const saved = loadSavedAssignment();
+      if(saved && saved.songId != null){ await autoLoadSaved(saved); return; }
+      openSearch();
+      return;
+    }
     isOpen() ? close() : open();
   }
-
-  // The proportional sync (bar timings stretched evenly across the song's
-  // real length — see loadFromSongsterr) tends to run ahead of the actual
-  // playing, consistently enough across songs that a flat offset is worth
-  // more than not having one: shift the time this looks up by, not the
-  // audio itself.
-  const TAB_SYNC_DELAY_SEC = 3;
 
   function tick(){
     rafId = requestAnimationFrame(tick);
     if(!isOpen() || !api || !barStarts.length) return;
     const audio = el("pb-audio");
-    const t = Math.max(0, (audio ? audio.currentTime : 0) - TAB_SYNC_DELAY_SEC);
+    const t = Math.max(0, (audio ? audio.currentTime : 0) - syncOffsetSec);
     let bar = 0;
     for(let i = 0; i < barStarts.length; i++){
       if(barStarts[i] <= t) bar = i; else break;
@@ -14589,26 +14650,18 @@ const PlayerTab = (() => {
     let x = mb.realBounds.x;
     const nextMb = lookup.findMasterBarByIndex(bar + 1);
     const barStart = barStarts[bar], nextStart = barStarts[bar + 1];
-    let pxPerSec = lastPxPerSec;
     if(nextMb && nextStart > barStart){
       const barPxWidth = nextMb.realBounds.x - mb.realBounds.x;
       const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
       x += frac * barPxWidth;
-      pxPerSec = barPxWidth / (nextStart - barStart);
-      lastPxPerSec = pxPerSec;
     }
-    host.scrollLeft = Math.max(0, x - host.clientWidth / 2);
     // The scroll target above is clamped by the browser at both ends (can't
     // scroll past 0 or past the content's own edge), so near the start or
-    // end of the tab the cursor's actual on-screen spot drifts away from
-    // centre even though the request above always asks for centred. A band
-    // fixed at the middle of the viewport — not tied to scroll position —
-    // means "look here" stays true regardless, which the scroll math alone
-    // can't promise at the edges.
-    const cursor = el("pb-tab-dock-cursor");
-    if(cursor && pxPerSec){
-      cursor.style.width = Math.max(20, pxPerSec * 4) + "px"; // ~±2s
-    }
+    // end of the tab the on-screen spot this centres on drifts away from
+    // true centre even though the request always asks for centred — the red
+    // triangle marker above the stave stays put regardless (pure CSS,
+    // nothing to update here), so "look here" keeps meaning something.
+    host.scrollLeft = Math.max(0, x - host.clientWidth / 2);
   }
   function startTick(){ if(!rafId) rafId = requestAnimationFrame(tick); }
   function stopTick(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
@@ -14620,9 +14673,17 @@ const PlayerTab = (() => {
     api.render();
   }
 
-  btn.onclick = () => { toggle(); setTimeout(syncPlayerToggles, 0); };
+  btn.onclick = async () => { await toggle(); setTimeout(syncPlayerToggles, 0); };
   el("pb-tab-dock-close").onclick = () => { close(); syncPlayerToggles(); };
   el("pb-tab-dock-search").onclick = openSearch;
+  el("pb-tab-dock-sync").onclick = () => {
+    const audio = el("pb-audio");
+    if(!audio || songId == null) return;
+    syncOffsetSec = audio.currentTime;
+    saveAssignment();
+    paintSyncVal();
+    showToast("Tab synchronizován — uloženo k téhle písni");
+  };
   el("pb-tab-dock-zoom-dn").onclick = () => { zoom = Math.max(0.6, zoom - 0.1); rerender(); };
   el("pb-tab-dock-zoom-up").onclick = () => { zoom = Math.min(1.6, zoom + 0.1); rerender(); };
   el("pb-tab-dock-select").onchange = async (e) => {
@@ -14639,10 +14700,20 @@ const PlayerTab = (() => {
 
   // A new track playing while the dock is open no longer matches whatever
   // tab was loaded — close it rather than leave a stale tab scrolling
-  // against a different song.
+  // against a different song. If the new song already has its own saved
+  // tab+sync from a previous visit, pick straight back up with those.
   return {
     toggle, open, close, isOpen, openSearch,
-    reset(){ tabData = null; songId = null; barStarts = []; lastPxPerSec = 0; if(isOpen()) close(); },
+    reset(){
+      const wasOpen = isOpen();
+      tabData = null; songId = null; revisionId = null; trackIndex = 0;
+      barStarts = []; syncOffsetSec = DEFAULT_SYNC_DELAY_SEC;
+      if(wasOpen){
+        close();
+        const saved = loadSavedAssignment();
+        if(saved && saved.songId != null) autoLoadSaved(saved);
+      }
+    },
   };
 })();
 
