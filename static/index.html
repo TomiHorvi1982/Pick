@@ -1392,19 +1392,22 @@
     background:var(--bg);border-top:none;display:flex;align-items:center;
     gap:16px;padding:0 16px}
 
-  /* Tab, docked right above the transport — see PlayerTab. */
-  .pb-tab-dock{position:fixed;left:0;right:0;bottom:var(--sp-player);z-index:54;
-    background:var(--bg2);border-top:1px solid var(--border);
+  /* Text + tab, stacked (text on top) right above the transport — see
+     PlayerLyricsDock and PlayerTab. One fixed wrapper so either can be
+     hidden/shown without the other needing to know its height. */
+  #pb-docks{position:fixed;left:0;right:0;bottom:var(--sp-player);z-index:54;
+    display:flex;flex-direction:column}
+  .pb-tab-dock, .pb-lyrics-dock{background:var(--bg2);border-top:1px solid var(--border);
     box-shadow:0 -6px 20px rgba(0,0,0,.35)}
-  .pb-tab-dock-bar{display:flex;align-items:center;gap:8px;padding:6px 14px;
+  .pb-tab-dock-bar, .pb-lyrics-dock-bar{display:flex;align-items:center;gap:8px;padding:6px 14px;
     border-bottom:1px solid var(--border);font-size:12px;color:var(--sub)}
-  .pb-tab-dock-name{font-weight:700;color:var(--text)}
+  .pb-tab-dock-name, .pb-lyrics-dock-name{font-weight:700;color:var(--text)}
   .pb-tab-dock-barlabel{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
-  .pb-tab-dock-bar .sp{flex:1}
-  .pb-tab-dock-bar button{background:var(--card-hi);border:none;border-radius:5px;
+  .pb-tab-dock-bar .sp, .pb-lyrics-dock-bar .sp{flex:1}
+  .pb-tab-dock-bar button, .pb-lyrics-dock-bar button{background:var(--card-hi);border:none;border-radius:5px;
     color:var(--text);padding:4px 9px;cursor:pointer;font-size:12px;
     display:flex;align-items:center;gap:4px}
-  .pb-tab-dock-bar button:hover{background:#3e3e3e}
+  .pb-tab-dock-bar button:hover, .pb-lyrics-dock-bar button:hover{background:#3e3e3e}
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
   .pb-tab-dock-hostwrap{max-height:240px;overflow-y:hidden;position:relative}
@@ -1413,6 +1416,10 @@
     border-right:1px solid rgba(45,212,191,.55);pointer-events:none;z-index:1;
     transform:translateX(-50%)}
   .pb-tab-dock-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2}
+  .pb-lyrics-dock-lines{text-align:center;line-height:1.35;padding:10px 16px}
+  .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:12px;color:var(--sub);opacity:.7}
+  .pb-lyrics-dock-lines .cur{font-size:15px;font-weight:700;color:var(--text);margin:3px 0}
+  .pb-lyr-float .float-body{padding:14px}
   .pb-track{display:flex;align-items:center;gap:14px;width:30%;min-width:180px;flex:0 0 auto}
   .pb-art{width:56px;height:56px;border-radius:4px;flex:0 0 56px;font-size:22px}
   .pb-title{font-size:14px;font-weight:400;color:var(--text)}
@@ -3261,25 +3268,60 @@
   </div>
 </div>
 
-<!-- Guitar tab, docked right above the transport — the main-player
-     equivalent of Steems' nm-tabtop, so a tab works on anything playing
-     without separating/downloading first. See PlayerTab. -->
-<div class="pb-tab-dock" id="pb-tab-dock" hidden>
-  <div class="pb-tab-dock-bar">
-    <span data-icon="note" data-size="14"></span>
-    <span class="pb-tab-dock-name" id="pb-tab-dock-name">Tab</span>
-    <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
-    <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
-    <span class="sp"></span>
-    <button type="button" id="pb-tab-dock-zoom-dn" title="Zmenšit zápis">−</button>
-    <button type="button" id="pb-tab-dock-zoom-up" title="Zvětšit zápis">+</button>
-    <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="search" data-size="12"></span></button>
-    <button type="button" id="pb-tab-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
+<!-- Text and tab, docked right above the transport — the main-player
+     equivalent of Steems' lyrics bar + nm-tabtop, so both work on anything
+     playing without separating/downloading first. One fixed-position
+     wrapper so they stack (text above tab, tab above the transport)
+     without either needing to know the other's height. -->
+<div id="pb-docks">
+  <div class="pb-lyrics-dock" id="pb-lyrics-dock" hidden>
+    <div class="pb-lyrics-dock-bar">
+      <span data-icon="lyrics" data-size="14"></span>
+      <span class="pb-lyrics-dock-name">Text</span>
+      <span class="sp"></span>
+      <button type="button" id="pb-lyrics-dock-earlier" title="Text dřív o 0,5 s">−</button>
+      <span id="pb-lyrics-dock-offset" title="Posun textu proti zpěvu">0,0 s</span>
+      <button type="button" id="pb-lyrics-dock-later" title="Text později o 0,5 s">+</button>
+      <button type="button" id="pb-lyrics-dock-fix" title="Hledat pod jiným názvem">Opravit název</button>
+      <button type="button" id="pb-lyrics-dock-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
+      <button type="button" id="pb-lyrics-dock-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="12"></span></button>
+      <button type="button" id="pb-lyrics-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
+    </div>
+    <div class="pb-lyrics-dock-lines" id="pb-lyrics-dock-lines">
+      <div class="prev" id="pb-lyrics-dock-prev"></div>
+      <div class="cur" id="pb-lyrics-dock-cur"></div>
+      <div class="next" id="pb-lyrics-dock-next"></div>
+    </div>
   </div>
-  <div class="pb-tab-dock-hostwrap">
-    <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
-    <div class="pb-tab-dock-cursor" id="pb-tab-dock-cursor"></div>
+
+  <div class="pb-tab-dock" id="pb-tab-dock" hidden>
+    <div class="pb-tab-dock-bar">
+      <span data-icon="note" data-size="14"></span>
+      <span class="pb-tab-dock-name" id="pb-tab-dock-name">Tab</span>
+      <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
+      <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
+      <span class="sp"></span>
+      <button type="button" id="pb-tab-dock-zoom-dn" title="Zmenšit zápis">−</button>
+      <button type="button" id="pb-tab-dock-zoom-up" title="Zvětšit zápis">+</button>
+      <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="search" data-size="12"></span></button>
+      <button type="button" id="pb-tab-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
+    </div>
+    <div class="pb-tab-dock-hostwrap">
+      <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
+      <div class="pb-tab-dock-cursor" id="pb-tab-dock-cursor"></div>
+    </div>
   </div>
+</div>
+
+<!-- The lyrics dock's own lines, lifted out into a window of its own —
+     same pattern as the Steems mixer's lyr-float. -->
+<div class="float-win pb-lyr-float" id="pb-lyr-float" hidden>
+  <div class="float-head" id="pb-lyr-float-head">
+    <span class="float-title">Text písně</span>
+    <button class="float-btn" id="pb-lyr-float-dock" title="Vrátit dolů"><span data-icon="back" data-size="13"></span></button>
+  </div>
+  <div class="float-body pb-lyr-float-body" id="pb-lyr-float-body"></div>
+  <div class="float-grip" id="pb-lyr-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <div class="player-bar" id="player-bar">
@@ -14126,6 +14168,15 @@ const Player = (() => {
       }
     }catch(e){}
   });
+  // Same for the docked lyrics bar — otherwise a track change leaves the
+  // previous song's text (and sync offset) showing.
+  audio.addEventListener("loadedmetadata", () => {
+    try{
+      if(typeof PlayerLyricsDock !== "undefined" && PlayerLyricsDock.isOpen()){
+        PlayerLyricsDock.open();
+      }
+    }catch(e){}
+  });
   // A tab loaded for one song means nothing once another starts — close it
   // rather than leave it scrolling (now against the wrong duration) or
   // silently showing the previous track's part.
@@ -15389,6 +15440,158 @@ const FloatVideo = makeFloating("float-video", {defaults: {width: 420, height: 2
 // The lyrics panel already existed with all its rendering; it just becomes
 // draggable rather than being replaced by a second window.
 const FloatLyrics = makeFloating("lyrics-panel", {defaults: {width: 380, height: 460}});
+const FloatPbLyr = makeFloating("pb-lyr-float", {defaults: {width: 420, height: 220}});
+
+// ======================================================================
+// Text, docked above the transport (and above the tab dock, if that's
+// also open) — the main-player equivalent of Steems' own lyrics bar
+// (mixer-lyrics-bar), so it works on anything playing without separating
+// first. A prev/current/next readout, not LyricsView's full auto-scrolling
+// list — that stays reachable too (pb-lyrics-btn now opens this instead,
+// but LyricsView itself is untouched).
+// ======================================================================
+const PlayerLyricsDock = (() => {
+  const dock = el("pb-lyrics-dock");
+  const btn = el("pb-lyrics-btn");
+
+  let lyrics = null;      // {lines, synced, plain, source}
+  let lyricsOffset = 0;
+  let idx = -2;
+  let lastQuery = "";
+  let rafId = null;
+
+  function offsetKey(){
+    const t = Player.getCurrent();
+    return "spotdl-gui-pb-lyrics-offset:" + ((t && (t.videoId || t.relPath || t.title)) || "");
+  }
+  function lineTime(i){ return lyrics.lines[i].timeInMs / 1000 + lyricsOffset; }
+  function lineIndexAt(t){
+    if(!lyrics) return -1;
+    let lo = 0, hi = lyrics.lines.length;
+    while(lo < hi){ const mid = (lo + hi) >>> 1; if(lineTime(mid) <= t) lo = mid + 1; else hi = mid; }
+    return lo - 1;
+  }
+  function paintOffset(){
+    el("pb-lyrics-dock-offset").textContent =
+      (lyricsOffset >= 0 ? "+" : "−") + Math.abs(lyricsOffset).toFixed(1).replace(".", ",") + " s";
+  }
+
+  function isOpen(){ return !dock.hidden; }
+
+  async function open(overrideQuery){
+    const track = Player.getCurrent();
+    if(!track){ showToast("Nic nehraje — nejdřív přehrávej píseň"); return; }
+    dock.hidden = false;
+    if(btn) btn.classList.add("on");
+    el("pb-lyrics-dock-cur").textContent = "Hledám text…";
+    el("pb-lyrics-dock-prev").textContent = "";
+    el("pb-lyrics-dock-next").textContent = "";
+    lyrics = null;
+    idx = -2;
+
+    const videoId = track.videoId || "";
+    let title = track.title || "", artist = track.artists || "";
+    if(overrideQuery){
+      const parts = overrideQuery.split(" - ");
+      if(parts.length > 1){ artist = parts[0].trim(); title = parts.slice(1).join(" - ").trim(); }
+      else { title = overrideQuery.trim(); artist = ""; }
+    }
+    lastQuery = `${artist} - ${title}`.trim();
+
+    let data;
+    try{
+      const idSlot = encodeURIComponent(videoId || "local");
+      const params = new URLSearchParams({q: lastQuery, artist});
+      if(track.album) params.set("album", track.album);
+      if(track.duration_seconds) params.set("duration", track.duration_seconds);
+      const res = await fetch(`/api/lyrics/${idSlot}?${params}`);
+      data = await res.json();
+    }catch(e){
+      data = {synced: false, lines: null, plain: null, source: null};
+    }
+    if(!isOpen()) return; // closed while fetching
+
+    if(data.synced && data.lines && data.lines.length){
+      lyrics = data;
+      try{ lyricsOffset = parseFloat(localStorage.getItem(offsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+      paintOffset();
+      startTick();
+    } else {
+      el("pb-lyrics-dock-cur").textContent = data.plain
+        ? "Text bez časování — zkus tlačítko s ikonou textu pro plné znění"
+        : "Text nenalezen";
+    }
+  }
+
+  function close(){
+    dock.hidden = true;
+    if(btn) btn.classList.remove("on");
+    stopTick();
+    if(FloatPbLyr.isOpen()) dockFromFloat();
+  }
+  function toggle(){ isOpen() ? close() : open(); }
+
+  function tick(){
+    rafId = requestAnimationFrame(tick);
+    if(!lyrics) return;
+    const audio = el("pb-audio");
+    const t = audio ? audio.currentTime : 0;
+    const i = lineIndexAt(t);
+    if(i === idx) return;
+    idx = i;
+    const line = k => (k >= 0 && k < lyrics.lines.length) ? (lyrics.lines[k].text || "♪") : "";
+    el("pb-lyrics-dock-prev").textContent = line(idx - 1);
+    el("pb-lyrics-dock-cur").textContent = idx >= 0 ? line(idx) : "";
+    el("pb-lyrics-dock-next").textContent = line(idx + 1);
+  }
+  function startTick(){ if(!rafId) rafId = requestAnimationFrame(tick); }
+  function stopTick(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
+
+  function nudge(delta){
+    lyricsOffset = Math.round((lyricsOffset + delta) * 10) / 10;
+    try{ localStorage.setItem(offsetKey(), String(lyricsOffset)); }catch(e){}
+    paintOffset();
+    idx = -2;
+  }
+
+  // Same lift-out-into-a-window-of-its-own pattern as the Steems mixer's
+  // lyr-float: only the three lines move, the toolbar stays docked.
+  function detach(){
+    el("pb-lyr-float-body").appendChild(el("pb-lyrics-dock-lines"));
+    FloatPbLyr.open();
+  }
+  function dockFromFloat(){
+    const lines = el("pb-lyrics-dock-lines");
+    if(lines.parentElement !== dock) dock.insertBefore(lines, null);
+    FloatPbLyr.close();
+  }
+
+  el("pb-lyrics-dock-earlier").onclick = () => nudge(-0.5);
+  el("pb-lyrics-dock-later").onclick = () => nudge(0.5);
+  el("pb-lyrics-dock-fix").onclick = () => {
+    const val = prompt("Interpret - název písně:", lastQuery);
+    if(!val || !val.trim() || val.trim() === lastQuery) return;
+    open(val.trim());
+  };
+  el("pb-lyrics-dock-karaoke").onclick = () => {
+    if(typeof Mixer !== "undefined" && Mixer.openKaraoke) Mixer.openKaraoke(lastQuery);
+  };
+  el("pb-lyrics-dock-detach").onclick = () => FloatPbLyr.isOpen() ? dockFromFloat() : detach();
+  el("pb-lyrics-dock-close").onclick = close;
+  el("pb-lyr-float-dock").onclick = dockFromFloat;
+
+  return {open, close, toggle, isOpen};
+})();
+
+// LyricsView's own full auto-scrolling modal stays intact and reachable
+// (via LyricsView.toggle elsewhere) but pb-lyrics-btn itself now opens the
+// docked bar instead — "jako ve steems" was the explicit ask, and a plain
+// property assignment here simply overrides the handler LyricsView set on
+// the same button earlier in the script.
+if(el("pb-lyrics-btn")) el("pb-lyrics-btn").onclick = () => {
+  PlayerLyricsDock.toggle();
+  setTimeout(syncPlayerToggles, 0);
+};
 
 // ---- video in a floating window ----
 el("float-video-close").onclick = () => {
@@ -15636,7 +15839,8 @@ function syncPlayerToggles(){
     "pb-history-btn": !el("history-panel").hidden,
     "pb-video-btn": FloatVideo.isOpen(),
     "pb-np-btn": document.body.classList.contains("np-open"),
-    "pb-lyrics-btn": !el("lyrics-overlay").hidden,
+    "pb-lyrics-btn": (typeof PlayerLyricsDock !== "undefined" && PlayerLyricsDock.isOpen())
+      || !el("lyrics-overlay").hidden,
     "pb-tab-btn": typeof PlayerTab !== "undefined" && PlayerTab.isOpen(),
   };
   Object.entries(state).forEach(([id, on]) => {
