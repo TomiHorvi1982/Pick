@@ -1061,6 +1061,7 @@
   .sp-nav-btns .sp-round{background:rgba(0,0,0,.55)}
   .sp-nav-btns .sp-round:not(:disabled):hover{background:rgba(255,255,255,.08)}
   .sp-round:hover{color:#fff}
+  .sp-round.on{color:var(--accent)}
   .sp-round:disabled{color:#5a5a5a;cursor:default}
   .sp-center{flex:1;display:flex;justify-content:center;align-items:center;gap:8px;
     min-width:0;position:relative}
@@ -1406,7 +1407,11 @@
   .pb-tab-dock-bar button:hover{background:#3e3e3e}
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
-  .pb-tab-dock-hostwrap{max-height:240px;overflow-y:hidden}
+  .pb-tab-dock-hostwrap{max-height:240px;overflow-y:hidden;position:relative}
+  .pb-tab-dock-cursor{position:absolute;top:0;bottom:0;left:50%;
+    background:rgba(45,212,191,.16);border-left:1px solid rgba(45,212,191,.55);
+    border-right:1px solid rgba(45,212,191,.55);pointer-events:none;z-index:1;
+    transform:translateX(-50%)}
   .pb-tab-dock-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2}
   .pb-track{display:flex;align-items:center;gap:14px;width:30%;min-width:180px;flex:0 0 auto}
   .pb-art{width:56px;height:56px;border-radius:4px;flex:0 0 56px;font-size:22px}
@@ -2166,9 +2171,14 @@
     color:var(--text);padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600;
     text-transform:none;letter-spacing:normal;display:flex;align-items:center;gap:6px}
   .nam-riffs-manage-btn:hover{background:#3e3e3e}
-  .nam-riff-list{display:flex;flex-direction:column;gap:4px;padding:2px 8px 6px;
-    max-height:180px;overflow-y:auto}
-  .nam-riff-row{display:flex;align-items:center;gap:6px;padding:5px 6px;
+  .riff-dock{flex:1;overflow-y:auto;padding:0 0 12px;min-height:0}
+  .riff-dock-head{display:flex;align-items:center;gap:8px;padding:10px 10px 6px;
+    font-size:13px;font-weight:700;color:var(--text)}
+  .riff-dock-head button{background:none;border:none;color:var(--sub);cursor:pointer;
+    padding:4px;display:flex;align-items:center;border-radius:4px}
+  .riff-dock-head button:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .nam-riff-list{display:flex;flex-direction:column;gap:4px;padding:2px 10px 6px}
+  .nam-riff-row{display:flex;align-items:center;gap:6px;padding:6px 7px;
     border-radius:6px;background:var(--card-hi)}
   .nam-riff-row.active{box-shadow:inset 0 0 0 1px var(--accent)}
   .nam-riff-row button{background:none;border:none;color:var(--sub);cursor:pointer;
@@ -2179,8 +2189,10 @@
   .nam-riff-row button:disabled:hover{background:none}
   .nam-riff-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;font-size:12px;color:var(--text)}
-  .nam-riff-active-tag{font-size:9.5px;font-weight:700;letter-spacing:.06em;
-    color:var(--accent);flex:0 0 auto;text-transform:uppercase}
+  .nam-riff-active-dot{flex:0 0 auto;display:flex;align-items:center;cursor:pointer;
+    color:var(--sub);padding:3px;border-radius:4px}
+  .nam-riff-active-dot:hover{background:rgba(255,255,255,.08)}
+  .nam-riff-row.active .nam-riff-active-dot{color:var(--gold)}
   .move-tree-popover{max-height:60vh;min-width:220px}
   .move-tree-scroll{max-height:50vh;overflow-y:auto}
   .move-tree-line{display:flex;align-items:center}
@@ -2602,6 +2614,8 @@
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
+    <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
+    <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
     <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
 </div>
@@ -2618,6 +2632,7 @@
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
+  <div class="riff-dock sp-scroll" id="riff-dock" hidden></div>
   <div class="lib-resize" id="lib-resize" title="Táhnutím změníš šířku"></div>
 </nav>
 
@@ -3263,6 +3278,7 @@
   </div>
   <div class="pb-tab-dock-hostwrap">
     <div class="pb-tab-dock-host" id="pb-tab-dock-host"></div>
+    <div class="pb-tab-dock-cursor" id="pb-tab-dock-cursor"></div>
   </div>
 </div>
 
@@ -6819,67 +6835,74 @@ const NamRiffRecorder = (() => {
 // forRel: when opened from a specific model's row (its Riff-column record
 // button), a newly saved riff is also assigned to that model, not just
 // added to the general pool.
+// Docked in the left sidebar (swaps places with #lib-list) rather than a
+// floating popover — reachable from the top toolbar's metronome icon at
+// any time, or from a NAM preset row's own record button (forRel), which
+// auto-assigns whatever gets recorded to that specific model.
 function openNamRiffManager(forRel){
-  const existing = el("nam-riff-popover");
-  if(existing){ existing.remove(); return; }
-  const box = document.createElement("div");
-  box.className = "sect-menu nam-riff-popover";
-  box.id = "nam-riff-popover";
+  const box = el("riff-dock");
+  el("lib-list").hidden = true;
+  box.hidden = false;
+  const topBtn = el("metronome-top-btn");
+  if(topBtn) topBtn.classList.add("on");
   box.innerHTML = `
-    <div class="ss-head">Ukázkové DI riffy</div>
-    <div class="hint" style="padding:0 8px 8px">Krátké suché záznamy kytary (bez
+    <div class="riff-dock-head">
+      <button type="button" id="riff-dock-back" title="Zpět">${icon("back", 14)}</button>
+      <span>Ukázkové DI riffy</span>
+    </div>
+    <div class="hint" style="padding:0 10px 8px">Krátké suché záznamy kytary (bez
       zesilovače) — "aktivní" je ten, co se použije při náhledu presetu,
       pokud model nemá vlastní.</div>
     <div class="nam-riff-list" id="nam-riff-list">
-      <div class="hint" style="padding:4px 8px">Načítám…</div>
+      <div class="hint" style="padding:4px 10px">Načítám…</div>
     </div>
-    <hr>
-    <div class="ss-head">Metronom</div>
+    <div class="ss-head" style="padding:10px 10px 3px">Metronom</div>
     <div class="nam-metro-row">
       <button type="button" id="nam-metro-tap" title="Klepej v rytmu — spočítá tempo">Tap</button>
       <input type="number" id="nam-metro-bpm" min="30" max="300" value="100" title="BPM">
       <span class="gt-cap" style="flex:0 0 auto">TAKT</span>
       <input type="number" id="nam-metro-beats" min="1" max="12" value="4" title="Počet dob v taktu">
+    </div>
+    <div class="nam-metro-row">
       <select id="nam-metro-voice" title="Zvuk kliku">
         <option value="beep">Pípnutí</option>
         <option value="click">Klik</option>
         <option value="wood">Dřívko</option>
       </select>
-      <button type="button" id="nam-metro-toggle" title="Spustit/zastavit metronom">${icon("play", 11)}</button>
+      <button type="button" id="nam-metro-toggle" title="Spustit/zastavit metronom">${icon("play", 11)}<span>Spustit</span></button>
     </div>
-    <div class="hint" style="padding:0 8px 6px">Metronom hraje nahlas z reproduktoru/sluchátek —
-      do nahrávky se dostane jen když ho slyší mikrofon, takže sluchátka jsou čistší.</div>
-    <hr>
+    <div class="hint" style="padding:0 10px 6px">Zastaví se sám, jakmile klikneš na Nahrát —
+      hraje nahlas z reproduktoru/sluchátek, takže by jinak skončil i v nahrávce.</div>
+    <div class="ss-head" style="padding:8px 10px 3px">Nová nahrávka${forRel ? " pro tento model" : ""}</div>
     <div class="gt-settings-row"><span class="gt-cap">VSTUP</span>
       <select class="gt-device" id="nam-riff-device"></select></div>
     <div class="gt-settings-row"><span class="gt-cap">NÁZEV</span>
       <input type="text" id="nam-riff-name" placeholder="${forRel ? "název pro tento model…" : "název riffu…"}"></div>
-    <button type="button" id="nam-riff-rec">${icon("rec", 12)}<span>Nahrát nový</span></button>
-    <div class="hint" id="nam-riff-status" style="padding:4px 8px"></div>`;
-  document.body.appendChild(box);
-  box.style.left = Math.max(8, (window.innerWidth - box.getBoundingClientRect().width) / 2) + "px";
-  box.style.top = Math.max(8, (window.innerHeight - box.getBoundingClientRect().height) / 3) + "px";
+    <button type="button" id="nam-riff-rec" style="margin:6px 10px">${icon("rec", 12)}<span>Nahrát nový</span></button>
+    <div class="hint" id="nam-riff-status" style="padding:4px 10px"></div>`;
 
-  const metroToggle = box.querySelector("#nam-metro-toggle");
-  box.querySelector("#nam-metro-bpm").oninput = (e) => SimpleMetronome.setBpm(parseFloat(e.target.value));
-  box.querySelector("#nam-metro-beats").oninput = (e) => SimpleMetronome.setBeatsPerBar(parseFloat(e.target.value));
-  box.querySelector("#nam-metro-voice").onchange = (e) => SimpleMetronome.setVoice(e.target.value);
-  box.querySelector("#nam-metro-tap").onclick = () => {
-    const bpm = SimpleMetronome.tap();
-    box.querySelector("#nam-metro-bpm").value = bpm;
-  };
+  el("riff-dock-back").onclick = closeNamRiffManager;
+
+  const metroToggle = el("nam-metro-toggle");
+  function setMetroToggleUI(running){
+    metroToggle.innerHTML = running
+      ? `${icon("stop", 11)}<span>Zastavit</span>` : `${icon("play", 11)}<span>Spustit</span>`;
+  }
+  el("nam-metro-bpm").oninput = (e) => SimpleMetronome.setBpm(parseFloat(e.target.value));
+  el("nam-metro-beats").oninput = (e) => SimpleMetronome.setBeatsPerBar(parseFloat(e.target.value));
+  el("nam-metro-voice").onchange = (e) => SimpleMetronome.setVoice(e.target.value);
+  el("nam-metro-tap").onclick = () => { el("nam-metro-bpm").value = SimpleMetronome.tap(); };
   metroToggle.onclick = () => {
     if(SimpleMetronome.isRunning()){
       SimpleMetronome.stop();
-      metroToggle.innerHTML = icon("play", 11);
     } else {
-      SimpleMetronome.setBpm(parseFloat(box.querySelector("#nam-metro-bpm").value) || 100);
-      SimpleMetronome.setBeatsPerBar(parseFloat(box.querySelector("#nam-metro-beats").value) || 4);
-      SimpleMetronome.setVoice(box.querySelector("#nam-metro-voice").value);
+      SimpleMetronome.setBpm(parseFloat(el("nam-metro-bpm").value) || 100);
+      SimpleMetronome.setBeatsPerBar(parseFloat(el("nam-metro-beats").value) || 4);
+      SimpleMetronome.setVoice(el("nam-metro-voice").value);
       SimpleMetronome.resetTap();
       SimpleMetronome.start();
-      metroToggle.innerHTML = icon("stop", 11);
     }
+    setMetroToggleUI(SimpleMetronome.isRunning());
   };
 
   // Plain <audio> playback of a riff's own dry sound — separate from
@@ -6891,24 +6914,24 @@ function openNamRiffManager(forRel){
   }
 
   async function refreshList(){
-    const list = box.querySelector("#nam-riff-list");
+    const list = el("nam-riff-list");
     let data;
     try{ data = await (await fetch("/api/nam-preview/riffs")).json(); }
-    catch(e){ list.innerHTML = `<div class="hint" style="padding:4px 8px">Nepodařilo se načíst.</div>`; return; }
+    catch(e){ list.innerHTML = `<div class="hint" style="padding:4px 10px">Nepodařilo se načíst.</div>`; return; }
     if(!data.riffs.length){
-      list.innerHTML = `<div class="hint" style="padding:4px 8px">Zatím žádný riff — nahraj první níž.</div>`;
+      list.innerHTML = `<div class="hint" style="padding:4px 10px">Zatím žádný riff — nahraj první níž.</div>`;
       return;
     }
     list.innerHTML = "";
     data.riffs.forEach(r => {
+      const active = r.id === data.active_id;
       const row = document.createElement("div");
-      row.className = "nam-riff-row" + (r.id === data.active_id ? " active" : "");
+      row.className = "nam-riff-row" + (active ? " active" : "");
       row.innerHTML = `
         <button type="button" class="nam-riff-play" title="Přehrát nahrávku">${icon("play", 11)}</button>
+        <span class="nam-riff-active-dot" title="${active ? "Aktivní riff" : "Klikni pro nastavení jako aktivní"}">
+          ${active ? icon("starFilled", 12) : icon("star", 12)}</span>
         <span class="nam-riff-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
-        <span class="nam-riff-active-tag">${r.id === data.active_id ? "aktivní" : ""}</span>
-        <button type="button" class="nam-riff-use" title="Použít jako aktivní"
-          ${r.id === data.active_id ? "disabled" : ""}>${icon("check", 11)}</button>
         <button type="button" class="nam-riff-del" title="Smazat">${icon("trash", 11)}</button>`;
 
       const playBtn = row.querySelector(".nam-riff-play");
@@ -6921,7 +6944,8 @@ function openNamRiffManager(forRel){
         rawAudio.play().catch(() => showToast("Přehrání selhalo"));
         playBtn.classList.add("on");
       };
-      row.querySelector(".nam-riff-use").onclick = async () => {
+      row.querySelector(".nam-riff-active-dot").onclick = async () => {
+        if(active) return; // already the active one
         try{
           await fetch("/api/nam-preview/riffs/active", {
             method: "POST", headers: {"Content-Type": "application/json"},
@@ -6949,38 +6973,41 @@ function openNamRiffManager(forRel){
   refreshList();
 
   NamRiffRecorder.listDevices().then(list => {
-    const sel = box.querySelector("#nam-riff-device");
+    const sel = el("nam-riff-device");
     sel.innerHTML = list.map(d => `<option value="${d.deviceId}">${escapeHtml(d.label || "Vstup bez názvu")}</option>`).join("")
       || `<option value="">Žádný vstup</option>`;
   });
 
-  const btn = box.querySelector("#nam-riff-rec");
-  const status = box.querySelector("#nam-riff-status");
+  const btn = el("nam-riff-rec");
+  const status = el("nam-riff-status");
   btn.onclick = async () => {
     if(!NamRiffRecorder.isRecording()){
+      // A click captured in the take is worse than losing the count-in —
+      // this is the whole fix for that, not the closing-time stop it used
+      // to be (which left the metronome running through the entire take).
+      if(SimpleMetronome.isRunning()){ SimpleMetronome.stop(); setMetroToggleUI(false); }
       stopRawPlayback();
       try{
-        await NamRiffRecorder.start(box.querySelector("#nam-riff-device").value || null);
+        await NamRiffRecorder.start(el("nam-riff-device").value || null);
       }catch(e){ showToast("Vstup se nepodařilo otevřít"); return; }
       btn.innerHTML = `${icon("stop", 12)}<span>Stop</span>`;
       status.textContent = "Nahrávám… zahraj krátký riff a klikni na Stop.";
       return;
     }
-    if(SimpleMetronome.isRunning()){ SimpleMetronome.stop(); metroToggle.innerHTML = icon("play", 11); }
     btn.disabled = true;
     const blob = await NamRiffRecorder.stop();
     btn.disabled = false;
     btn.innerHTML = `${icon("rec", 12)}<span>Nahrát nový</span>`;
     if(!blob || blob.size < 1024){ status.textContent = "Nahrávka je prázdná — zkus to znovu."; return; }
     status.textContent = "Ukládám…";
-    const name = box.querySelector("#nam-riff-name").value.trim();
+    const name = el("nam-riff-name").value.trim();
     try{
       const res = await fetch(`/api/nam-preview/riffs?name=${encodeURIComponent(name)}`, {method: "POST", body: blob});
       const data = await res.json();
       if(!res.ok) throw new Error(data.error || "Uložení selhalo");
       NamPreview.invalidateRiff();
       invalidateNamRiffsList();
-      box.querySelector("#nam-riff-name").value = "";
+      el("nam-riff-name").value = "";
       if(forRel){
         try{
           await fetch("/api/nam-preview/assign", {
@@ -7001,16 +7028,24 @@ function openNamRiffManager(forRel){
       refreshList();
     }catch(e){ status.textContent = "Uložení selhalo."; }
   };
+}
 
-  setTimeout(() => document.addEventListener("pointerdown", function once(e){
-    if(!e.target.closest("#nam-riff-popover")){
-      if(NamRiffRecorder.isRecording()) NamRiffRecorder.stop();
-      if(SimpleMetronome.isRunning()) SimpleMetronome.stop();
-      stopRawPlayback();
-      box.remove();
-    }
-    else document.addEventListener("pointerdown", once, {once: true});
-  }, {once: true}), 0);
+function closeNamRiffManager(){
+  const box = el("riff-dock");
+  if(box.hidden) return;
+  if(NamRiffRecorder.isRecording()) NamRiffRecorder.stop();
+  if(SimpleMetronome.isRunning()) SimpleMetronome.stop();
+  box.hidden = true;
+  box.innerHTML = "";
+  el("lib-list").hidden = false;
+  const topBtn = el("metronome-top-btn");
+  if(topBtn) topBtn.classList.remove("on");
+}
+
+function isNamRiffManagerOpen(){ return !el("riff-dock").hidden; }
+function toggleNamRiffManager(){
+  if(isNamRiffManagerOpen()) closeNamRiffManager();
+  else openNamRiffManager();
 }
 
 // ======================================================================
@@ -13050,6 +13085,9 @@ const Mixer = (() => {
     // can render the same alphaTab tex without a second copy of the
     // loader/measure-to-tex logic.
     tabView: AlphaTabView,
+    // The top toolbar's tuner icon (outside the Mixer entirely) needs a way
+    // in — the tuner itself doesn't depend on anything Steems-specific.
+    tuner: Tuner,
     // The remote control needs to know whether the mixer is the thing
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
@@ -14395,6 +14433,7 @@ const PlayerTab = (() => {
   let apiPromise = null, api = null;
   let tabData = null, songId = null, revisionId = null, trackIndex = 0;
   let barStarts = [];
+  let lastPxPerSec = 0;
   let zoom = 1;
   let rafId = null;
 
@@ -14492,11 +14531,26 @@ const PlayerTab = (() => {
     let x = mb.realBounds.x;
     const nextMb = lookup.findMasterBarByIndex(bar + 1);
     const barStart = barStarts[bar], nextStart = barStarts[bar + 1];
+    let pxPerSec = lastPxPerSec;
     if(nextMb && nextStart > barStart){
+      const barPxWidth = nextMb.realBounds.x - mb.realBounds.x;
       const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
-      x += frac * (nextMb.realBounds.x - mb.realBounds.x);
+      x += frac * barPxWidth;
+      pxPerSec = barPxWidth / (nextStart - barStart);
+      lastPxPerSec = pxPerSec;
     }
     host.scrollLeft = Math.max(0, x - host.clientWidth / 2);
+    // The scroll target above is clamped by the browser at both ends (can't
+    // scroll past 0 or past the content's own edge), so near the start or
+    // end of the tab the cursor's actual on-screen spot drifts away from
+    // centre even though the request above always asks for centred. A band
+    // fixed at the middle of the viewport — not tied to scroll position —
+    // means "look here" stays true regardless, which the scroll math alone
+    // can't promise at the edges.
+    const cursor = el("pb-tab-dock-cursor");
+    if(cursor && pxPerSec){
+      cursor.style.width = Math.max(20, pxPerSec * 4) + "px"; // ~±2s
+    }
   }
   function startTick(){ if(!rafId) rafId = requestAnimationFrame(tick); }
   function stopTick(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
@@ -14530,7 +14584,7 @@ const PlayerTab = (() => {
   // against a different song.
   return {
     toggle, open, close, isOpen, openSearch,
-    reset(){ tabData = null; songId = null; barStarts = []; if(isOpen()) close(); },
+    reset(){ tabData = null; songId = null; barStarts = []; lastPxPerSec = 0; if(isOpen()) close(); },
   };
 })();
 
@@ -14688,6 +14742,12 @@ try{
   const savedBitrate = localStorage.getItem("spotdl-gui-bitrate");
   if(savedBitrate) el("bitrate").value = savedBitrate;
 }catch(e){}
+
+el("tuner-top-btn").onclick = () => {
+  if(typeof Mixer !== "undefined" && Mixer.tuner) Mixer.tuner.toggle();
+  else showToast("Ladička je dostupná ve Steems");
+};
+el("metronome-top-btn").onclick = () => toggleNamRiffManager();
 
 el("settings-btn").onclick = async () => {
   const s = loadSettings();
