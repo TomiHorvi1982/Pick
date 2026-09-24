@@ -4517,6 +4517,73 @@ def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, dur
         return None
 
 
+# YouTube titles/artists carry noise LRCLib's own catalogue entries almost
+# never do — "(feat. X)", "- Live", "(Official Video)" — so the exact string
+# that plays fine as a video title is often the reason a search for it comes
+# back empty. Only a conservative, clearly-noise set is stripped (not any
+# parenthetical — "(Sittin' On) The Dock of the Bay" has to survive this).
+_RE_LYRICS_FEAT = _re.compile(
+    r"\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring)\s+[^)\]]*[\)\]]"
+    r"|\s+[-–]\s*(?:feat\.?|ft\.?|featuring)\s+.+$"
+    r"|\s+(?:feat\.?|ft\.?|featuring)\s+.+$",
+    _re.I,
+)
+_RE_LYRICS_TAGS = _re.compile(
+    r"\s*[\(\[]\s*(?:official\s+(?:music\s+)?video|official\s+audio|lyric\s+video|"
+    r"remaster(?:ed)?(?:\s+\d{4})?|radio\s+edit|explicit|clean|visualizer)\s*[\)\]]"
+    r"|\s+[-–]\s*(?:live|remaster(?:ed)?(?:\s+\d{4})?|radio\s+edit)\s*$",
+    _re.I,
+)
+
+
+def _clean_lyrics_text(s: str) -> str:
+    if not s:
+        return s
+    cleaned = _RE_LYRICS_FEAT.sub("", s)
+    cleaned = _RE_LYRICS_TAGS.sub("", cleaned)
+    return cleaned.strip()
+
+
+def _lookup_lyrics(title: str, artist: str, album: str, duration, video_id: str = "") -> dict:
+    """Tries the caller's title/artist as given, then a noise-stripped
+    version (only if that's actually different — no point repeating an
+    identical query), then YouTube Music's own (unsynced) lyrics as a last
+    resort. Never trusts the cleaned version over a raw one that already
+    worked — this only ever adds an attempt, it doesn't replace the first.
+    """
+    result = _fetch_lrclib(title, artist, album, duration)
+    if not result or not (result.get("lines") or result.get("plain")):
+        clean_title, clean_artist = _clean_lyrics_text(title), _clean_lyrics_text(artist)
+        if clean_title != title or clean_artist != artist:
+            result = _fetch_lrclib(clean_title, clean_artist, album, duration) or result
+    if not result or not (result.get("lines") or result.get("plain")):
+        result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
+    return result or {"synced": False, "lines": None, "plain": None, "source": None}
+
+
+def _split_lyrics_query(q: str, artist: str) -> tuple:
+    """(title, artist) from a raw q plus whatever artist the caller already
+    knows.
+
+    The main player always sends both — q as "{artist} - {title}" *and*
+    artist separately (see LyricsView.showForTrack) — so q still has the
+    artist baked into it as a prefix even though it's redundant. LRCLib's
+    fuzzy search shrugs that off on its own most of the time, but stacked
+    with any noise _clean_lyrics_text strips (a "(feat. X)" tag, say) it was
+    sometimes enough of a mismatch to come back empty. Stripping a leading
+    "{artist} - " from q whenever one is already known removes that
+    redundancy before it can compound with anything else.
+    """
+    title = q
+    if artist and q.lower().startswith(artist.lower() + " - "):
+        title = q[len(artist) + 3:].strip()
+    elif not artist and " - " in q:
+        parts = q.split(" - ", 1)
+        artist = parts[0].strip()
+        title = parts[1].strip()
+    return title, artist
+
+
 @app.get("/api/lyrics/search")
 def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: float = None,
                   video_id: str = ""):
@@ -4524,19 +4591,12 @@ def search_lyrics(q: str = "", artist: str = "", album: str = "", duration: floa
 
     If q is provided but artist is not, q is treated as "artist - title" or just title.
     """
-    title = q
-    if not artist and " - " in q:
-        parts = q.split(" - ", 1)
-        artist = parts[0].strip()
-        title = parts[1].strip()
+    title, artist = _split_lyrics_query(q, artist)
 
     if not title:
         return {"synced": False, "lines": None, "plain": None, "source": None}
 
-    result = _fetch_lrclib(title, artist, album, duration)
-    if not result or not (result.get("lines") or result.get("plain")):
-        result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
-    return result or {"synced": False, "lines": None, "plain": None, "source": None}
+    return _lookup_lyrics(title, artist, album, duration, video_id)
 
 
 # ----------------------------------------------------------------- podcasts
@@ -4749,16 +4809,9 @@ def podcast_episodes(show_id: str, limit: int = 50):
 @app.get("/api/lyrics/{video_id}")
 def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str = "", duration: float = None):
     """Get lyrics for a video ID. Uses LRCLib with metadata from the caller."""
-    title = q
-    if not artist and " - " in q:
-        parts = q.split(" - ", 1)
-        artist = parts[0].strip()
-        title = parts[1].strip()
+    title, artist = _split_lyrics_query(q, artist)
 
     if not title:
         return {"synced": False, "lines": None, "plain": None, "source": None}
 
-    result = _fetch_lrclib(title, artist, album, duration)
-    if not result or not (result.get("lines") or result.get("plain")):
-        result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
-    return result or {"synced": False, "lines": None, "plain": None, "source": None}
+    return _lookup_lyrics(title, artist, album, duration, video_id)

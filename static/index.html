@@ -3224,8 +3224,6 @@
       </div>
       <div id="np-source-list"></div>
     </div>
-    <div class="np-sect">Na řadě</div>
-    <div id="np-queue"></div>
   </div>
 </aside>
 
@@ -3383,6 +3381,8 @@
       <div class="lh-title" id="lyrics-title"><span data-icon="lyrics" data-size="15"></span> Text písně</div>
       <div class="lh-sub" id="lyrics-sub"></div>
       <span class="lh-source" id="lyrics-source"></span>
+      <button type="button" class="lh-karaoke" id="lyrics-fix-btn"
+        title="Text nesedí (feat., jiný název)? Zkus hledat pod jiným názvem">Opravit název</button>
       <button type="button" class="lh-karaoke" id="lyrics-karaoke-btn"
         title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
       <button class="close-btn" id="lyrics-close"><span data-icon="close" data-size="13"></span></button>
@@ -6058,24 +6058,6 @@ function renderNowPlaying(){
   }
 
   renderNowPlayingArtist(t);
-
-  const box = el("np-queue");
-  box.innerHTML = "";
-  const queue = loadQueue();
-  if(!queue.length){
-    box.appendChild(libEmpty("Fronta je prázdná. Přidej písně tlačítkem Přidat."));
-    return;
-  }
-  queue.slice(0, 30).forEach(item => {
-    const row = libRow({
-      art: item.image || item.thumbnail || "\uD83C\uDFB5",
-      artIsUrl: !!(item.image || item.thumbnail),
-      name: item.title || "", sub: item.artists || "",
-      onClick: () => Player.play(item),
-    });
-    row.classList.add("np-queue-row");
-    box.appendChild(row);
-  });
 }
 
 // ======================================================================
@@ -14175,10 +14157,12 @@ const LyricsView = (() => {
   const closeBtn = el("lyrics-close");
   const btn = el("pb-lyrics-btn");
   const karaokeBtn = el("lyrics-karaoke-btn");
+  const fixBtn = el("lyrics-fix-btn");
 
   let currentLyrics = null; // { synced, lines, plain, source }
   let currentLineIdx = -1;
   let lastVideoId = null;
+  let lastTrack = null;     // for "Opravit název" to re-search against
   let currentQuery = "";    // "artist - title", for the Karaoketexty.cz handoff
   let rafId = null;
 
@@ -14201,11 +14185,23 @@ const LyricsView = (() => {
     showForTrack(track);
   }
 
-  async function showForTrack(track){
+  // overrideQuery ("Artist - Title", from the "Opravit název" prompt) stands
+  // in for the track's own title/artist when the app's own guess — usually
+  // right, but occasionally thrown off by "(feat. X)", a remix/live tag, or
+  // just a title LRCLib's catalogue doesn't have verbatim — didn't find
+  // anything. The server also strips common noise on its own before giving
+  // up (see _clean_lyrics_text), so this is for whatever that still misses.
+  async function showForTrack(track, overrideQuery){
     const videoId = track.videoId || "";
-    const title = track.title || "";
-    const artist = track.artists || "";
+    let title = track.title || "";
+    let artist = track.artists || "";
+    if(overrideQuery){
+      const parts = overrideQuery.split(" - ");
+      if(parts.length > 1){ artist = parts[0].trim(); title = parts.slice(1).join(" - ").trim(); }
+      else { title = overrideQuery.trim(); artist = ""; }
+    }
     currentQuery = `${artist} - ${title}`.trim();
+    lastTrack = track;
 
     titleEl.innerHTML = `${icon("lyrics", 14)} ${escapeHtml(title || "Text písně")}`;
     subEl.textContent = artist || "";
@@ -14360,6 +14356,11 @@ const LyricsView = (() => {
   if(btn) btn.onclick = () => { toggle(); setTimeout(syncPlayerToggles, 0); };
   if(karaokeBtn) karaokeBtn.onclick = () => {
     if(typeof Mixer !== "undefined" && Mixer.openKaraoke) Mixer.openKaraoke(currentQuery);
+  };
+  if(fixBtn) fixBtn.onclick = () => {
+    const val = prompt("Interpret - název písně:", currentQuery);
+    if(!val || !val.trim() || val.trim() === currentQuery) return;
+    showForTrack(lastTrack || Player.getCurrent() || {}, val.trim());
   };
   closeBtn.onclick = close;
   overlay.addEventListener("click", e => { if(e.target === overlay) close(); });
