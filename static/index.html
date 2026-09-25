@@ -1455,19 +1455,56 @@
   .pb-lyr-full .lyric-line.current{font-size:19px}
   .pb-lyr-full .lyrics-msg{padding:20px;text-align:center;color:var(--sub)}
   /* Live guitar through a NAM amp, for playing along with whatever the main
-     player has on — see PlayerGuitar. One bar, same look as the tab's. */
+     player has on — see PlayerGuitar. Knobs, preset stepper and a compact
+     EQ laid out the way the Steems guitar strip and EQ panel are. */
   .pb-gtr-dock{background:var(--bg2);border-top:1px solid var(--border);
     box-shadow:0 -6px 20px rgba(0,0,0,.35)}
-  .pb-gtr-dock .pb-tab-dock-bar{border-bottom:none;flex-wrap:wrap;row-gap:6px}
+  .pb-gtr-row{display:flex;align-items:stretch;gap:18px;padding:10px 14px;min-height:118px;box-sizing:border-box}
+  .pb-gtr-io{display:flex;flex-direction:column;justify-content:space-between;gap:6px;width:230px;flex:0 0 auto}
+  .pb-gtr-io .top{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub)}
+  .pb-gtr-io .top b{color:var(--text)}
+  .pb-gtr-io button, .pb-gtr-eq button, .pb-gtr-close{background:var(--card-hi);border:none;border-radius:5px;
+    color:var(--text);padding:4px 9px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px}
+  .pb-gtr-io button:hover, .pb-gtr-eq button:hover, .pb-gtr-close:hover{background:#3e3e3e}
   #pb-gtr-power.on{background:var(--accent);color:#000}
-  .pb-gtr-model{max-width:280px}
-  .pb-gtr-meter{position:relative;width:90px;height:7px;border-radius:4px;background:#1c1c22;overflow:hidden}
+  .pb-gtr-io select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
+    border-radius:5px;font-size:11px;padding:3px 4px;width:100%}
+  .pb-gtr-meter{position:relative;height:7px;border-radius:4px;background:#1c1c22;overflow:hidden}
   .pb-gtr-meter-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent)}
   .pb-gtr-meter-fill.warm{background:#e9b949}
   .pb-gtr-meter-fill.hot{background:#e5484d}
-  .pb-gtr-knob{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);white-space:nowrap}
-  .pb-gtr-knob input[type=range]{width:80px;accent-color:var(--accent)}
-  .pb-gtr-knob .v{min-width:44px;font-variant-numeric:tabular-nums}
+  .pb-gtr-meter-gate{position:absolute;right:0;top:0;bottom:0;width:4px;background:#e5484d;opacity:0}
+  .pb-gtr-knobs{display:flex;align-items:center;gap:16px;flex:0 0 auto}
+  .pb-gtr-knobs .kw{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .pb-gtr-knob{width:38px;height:38px;border-radius:50%;position:relative;cursor:ns-resize;
+    background:radial-gradient(circle at 35% 35%,#505050,#1a1a1a);
+    border:2px solid #404040;box-shadow:0 2px 4px rgba(0,0,0,.5);touch-action:none;box-sizing:border-box}
+  .pb-gtr-knob::before{content:'';position:absolute;left:50%;top:3px;
+    width:3px;height:12px;background:#e9b949;border-radius:1px;
+    transform-origin:50% 14px;transform:translateX(-50%) rotate(var(--rot,-135deg))}
+  .pb-gtr-knobs .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#8b8b96;user-select:none}
+  .pb-gtr-knobs .val{font-size:10px;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;user-select:none}
+  .pb-gtr-preset{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:200px;flex:0 0 auto}
+  .pb-gtr-stepper{display:flex;align-items:center;gap:3px}
+  .pb-gtr-stepper button{height:24px;border:none;border-radius:4px;background:#1c1c22;color:#8b8b96;cursor:pointer;padding:0}
+  .pb-gtr-stepper .step{width:24px;font-size:16px;line-height:1}
+  .pb-gtr-stepper .cat{min-width:62px;padding:0 6px;color:#e9b949;font-size:10px;font-weight:700;letter-spacing:.05em}
+  .pb-gtr-stepper button:hover{background:#2a2a33;color:#e8e8ec}
+  .pb-gtr-name{max-width:200px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px dashed #555}
+  .pb-gtr-cabname{max-width:200px;font-size:10.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pb-gtr-eq{flex:1 1 auto;min-width:260px;display:flex;flex-direction:column;gap:4px}
+  .pb-gtr-eq .head{display:flex;align-items:center;gap:10px}
+  .pb-gtr-eq .ttl{font-size:10px;font-weight:800;letter-spacing:.16em;color:#ffd166}
+  .pb-gtr-eq .ro{flex:1;min-width:0;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .pb-gtr-eq button{padding:2px 8px;font-size:11px}
+  #pb-gtr-eq-canvas{display:block;width:100%;height:92px;border-radius:6px;cursor:crosshair;
+    background:#08080b;border:1px solid #23232b;touch-action:none}
+  #pb-gtr-eq-canvas.grab{cursor:grab}
+  #pb-gtr-eq-canvas.grabbing{cursor:grabbing}
+  .pb-gtr-close{align-self:flex-start}
+  .pb-gtr-picker{position:fixed;z-index:80;min-width:260px;max-height:60vh;overflow-y:auto}
   .nam-row .act-live{flex:0 0 auto;background:none;border:none;color:var(--sub);
     width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .nam-row .act-live:hover{color:var(--text);background:rgba(255,255,255,.08)}
@@ -3372,20 +3409,42 @@
     </div>
   </div>
   <div class="pb-gtr-dock" id="pb-gtr-dock" hidden>
-    <div class="pb-tab-dock-bar">
-      <span data-icon="guitar" data-size="14"></span>
-      <span class="pb-tab-dock-name">Kytara</span>
-      <button type="button" id="pb-gtr-power" title="Připojit kytaru a hrát přes zesilovač">Připojit</button>
-      <select class="pb-tab-dock-select" id="pb-gtr-device" title="Vstup — zvuková karta"></select>
-      <div class="pb-gtr-meter" title="Špička vstupu — nastav podle ní gain na zvukovce"><div class="pb-gtr-meter-fill" id="pb-gtr-meter-fill"></div></div>
-      <span class="sp"></span>
-      <button type="button" id="pb-gtr-prev" title="Předchozí model">‹</button>
-      <select class="pb-tab-dock-select pb-gtr-model" id="pb-gtr-model" title="Zesilovač (NAM model)"></select>
-      <button type="button" id="pb-gtr-next" title="Další model">›</button>
-      <select class="pb-tab-dock-select" id="pb-gtr-cab" title="Kabinet (IR)"></select>
-      <label class="pb-gtr-knob" title="Brána šumu">Gate <input type="range" id="pb-gtr-gate" min="-100" max="-20" step="1"><span class="v" id="pb-gtr-gate-v"></span></label>
-      <label class="pb-gtr-knob" title="Hlasitost kytary">Hlasitost <input type="range" id="pb-gtr-vol" min="0" max="1.4" step="0.01"></label>
-      <button type="button" id="pb-gtr-close" title="Zavřít (kytara hraje dál, dokud ji neodpojíš)"><span data-icon="close" data-size="13"></span></button>
+    <div class="pb-gtr-row">
+      <div class="pb-gtr-io">
+        <div class="top"><span data-icon="guitar" data-size="14"></span><b>Kytara</b>
+          <span style="flex:1"></span>
+          <button type="button" id="pb-gtr-power" title="Připojit kytaru a hrát přes zesilovač">Připojit</button></div>
+        <select id="pb-gtr-device" title="Vstup — zvuková karta"></select>
+        <div class="pb-gtr-meter" title="Špička vstupu — nastav podle ní gain na zvukovce">
+          <div class="pb-gtr-meter-fill" id="pb-gtr-meter-fill"></div>
+          <div class="pb-gtr-meter-gate" id="pb-gtr-meter-gate" title="Brána zavřená"></div></div>
+      </div>
+      <div class="pb-gtr-knobs">
+        <div class="kw"><span class="lbl">GAIN</span><div class="pb-gtr-knob" id="pb-gtr-k-gain" tabindex="0"
+          title="Zesílení vstupu do zesilovače — táhni svisle, dvojklik = 0 dB"></div><span class="val" id="pb-gtr-v-gain"></span></div>
+        <div class="kw"><span class="lbl">GATE</span><div class="pb-gtr-knob" id="pb-gtr-k-gate" tabindex="0"
+          title="Brána šumu — táhni svisle, dvojklik = vypnuto"></div><span class="val" id="pb-gtr-v-gate"></span></div>
+        <div class="kw"><span class="lbl">PAN</span><div class="pb-gtr-knob" id="pb-gtr-k-pan" tabindex="0"
+          title="Panoráma — táhni svisle, dvojklik = střed"></div><span class="val" id="pb-gtr-v-pan"></span></div>
+        <div class="kw"><span class="lbl">VOLUME</span><div class="pb-gtr-knob" id="pb-gtr-k-vol" tabindex="0"
+          title="Hlasitost kytary — táhni svisle, dvojklik = výchozí"></div><span class="val" id="pb-gtr-v-vol"></span></div>
+      </div>
+      <div class="pb-gtr-preset">
+        <div class="pb-gtr-stepper">
+          <button type="button" class="step" id="pb-gtr-prev" title="Předchozí NAM preset">‹</button>
+          <button type="button" class="cat" id="pb-gtr-cat" title="Kategorie presetů — klikni pro přepnutí">VŠE</button>
+          <button type="button" class="step" id="pb-gtr-next" title="Další NAM preset">›</button>
+        </div>
+        <span class="pb-gtr-name" id="pb-gtr-name" title="Vybrat model a kabinet ze seznamu">—</span>
+        <span class="pb-gtr-cabname" id="pb-gtr-cabname"></span>
+      </div>
+      <div class="pb-gtr-eq">
+        <div class="head"><span class="ttl">EQ</span>
+          <span class="ro" id="pb-gtr-eq-ro">Táhni body: vodorovně kmitočet, svisle zesílení. Kolečko mění šířku.</span>
+          <button type="button" id="pb-gtr-eq-reset" title="Vrátit všechna pásma na nulu">Reset</button></div>
+        <canvas id="pb-gtr-eq-canvas"></canvas>
+      </div>
+      <button type="button" class="pb-gtr-close" id="pb-gtr-close" title="Zavřít (kytara hraje dál, dokud ji neodpojíš)"><span data-icon="close" data-size="13"></span></button>
     </div>
   </div>
 </div>
@@ -15935,31 +15994,42 @@ const PlayerLyricsDock = (() => {
 // ======================================================================
 // Live guitar in the main player: play along with whatever's on — tab and
 // text docked above — through a NAM amp and a cabinet IR. The same chain
-// as the Steems guitar channel (gate worklet → NAM → convolver), but its
-// own small AudioContext, since the main player isn't a Web Audio graph
-// and none of the mixer's channel state (solo, EQ, takes) applies here.
-// Models come from the amp list Steems uses, or straight from a .nam in
-// the library's NAM folders (the 🎸 on each preset row).
+// and controls as the Steems guitar strip (gain, gate, amp, cab, EQ, pan,
+// volume) but its own small AudioContext, since the main player isn't a
+// Web Audio graph and none of the mixer's channel state applies here.
+// Models come from the amp list Steems uses (by category, like its
+// stepper), or straight from a .nam in the library's NAM folders (the 🎸
+// on each preset row).
+//
+//   mic → gain → gate → NAM → cab → EQ ×5 → volume → pan → out
 // ======================================================================
 const PlayerGuitar = (() => {
   const dock = el("pb-gtr-dock");
   const btn = el("pb-gtr-btn");
   const KEY = "spotdl-gui-pb-guitar";
   const saved = (() => { try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ return {}; } })();
+  const num = (v, d) => typeof v === "number" && isFinite(v) ? v : d;
   const st = {
     deviceId: saved.deviceId || "",
     model: saved.model || null,   // {key: "amp:<file>" | "lib:<rel>", name}
     cab: saved.cab || "",         // /api/amps IR file, "" = none
-    gate: typeof saved.gate === "number" ? saved.gate : -100,
-    volume: typeof saved.volume === "number" ? saved.volume : 0.9,
+    gainDb: num(saved.gainDb, 0),
+    gate: num(saved.gate, -100),
+    pan: num(saved.pan, 0),
+    volume: num(saved.volume, 0.9),
+    category: saved.category || "all",
+    eq: Array.isArray(saved.eq) ? saved.eq : null,
   };
   function persist(){
-    try{ localStorage.setItem(KEY, JSON.stringify(
-      {deviceId: st.deviceId, model: st.model, cab: st.cab, gate: st.gate, volume: st.volume})); }catch(e){}
+    try{ localStorage.setItem(KEY, JSON.stringify({
+      deviceId: st.deviceId, model: st.model, cab: st.cab, gainDb: st.gainDb, gate: st.gate,
+      pan: st.pan, volume: st.volume, category: st.category,
+      eq: eqBands.map(b => ({freq: b.freq, gain: b.gain, q: b.q}))})); }catch(e){}
   }
 
   let ac = null, engine = null, workletsLoaded = false;
-  let stream = null, source = null, gateNode = null, ampNode = null, cabNode = null, outGain = null;
+  let stream = null, source = null, inGain = null, gateNode = null, ampNode = null, cabNode = null;
+  let eqFilters = [], eqSpectrum = null, outGain = null, panner = null;
   let live = false, amps = [];
 
   function ctx(){
@@ -15972,24 +16042,45 @@ const PlayerGuitar = (() => {
     engine = await mod.NamEngine.attach(ctx(), {assetBaseUrl: "/static/nam/"});
     return engine;
   }
+  const dbToGain = db => Math.pow(10, db / 20);
+
+  // The fixed back half (EQ → volume → pan → out) is built once; only the
+  // front of the chain changes as input, amp and cab come and go.
   function ensureOut(){
-    if(!outGain){
-      outGain = ctx().createGain();
-      outGain.gain.value = st.volume;
-      outGain.connect(ctx().destination);
-    }
-    return outGain;
+    if(outGain) return;
+    const a = ctx();
+    eqFilters = eqBands.map(b => {
+      const f = a.createBiquadFilter();
+      f.type = b.type; f.frequency.value = b.freq; f.gain.value = b.gain; f.Q.value = b.q;
+      return f;
+    });
+    outGain = a.createGain();
+    outGain.gain.value = st.volume;
+    panner = a.createStereoPanner();
+    panner.pan.value = st.pan;
+    for(let i = 0; i < eqFilters.length - 1; i++) eqFilters[i].connect(eqFilters[i + 1]);
+    eqFilters[eqFilters.length - 1].connect(outGain);
+    eqSpectrum = a.createAnalyser();
+    eqSpectrum.fftSize = 4096;
+    eqSpectrum.smoothingTimeConstant = 0.82;
+    eqSpectrum.minDecibels = -100;
+    eqSpectrum.maxDecibels = -10;
+    eqFilters[eqFilters.length - 1].connect(eqSpectrum);
+    outGain.connect(panner);
+    panner.connect(a.destination);
   }
-  // Rebuilt whole rather than patched — four nodes, and a rebuild can't
-  // leave a stale connection behind.
+  // Front half rebuilt whole rather than patched — a rebuild can't leave a
+  // stale connection behind.
   function rewire(){
-    [source, gateNode, ampNode, cabNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    [source, inGain, gateNode, ampNode, cabNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
     if(!source || !gateNode) return;
+    ensureOut();
     let node = source;
+    node.connect(inGain); node = inGain;
     node.connect(gateNode); node = gateNode;
     if(ampNode){ node.connect(ampNode); node = ampNode; }
     if(cabNode){ node.connect(cabNode); node = cabNode; }
-    node.connect(ensureOut());
+    node.connect(eqFilters[0]);
   }
 
   async function start(){
@@ -16005,10 +16096,12 @@ const PlayerGuitar = (() => {
     const track = stream.getAudioTracks()[0];
     st.deviceId = (track && track.getSettings().deviceId) || st.deviceId;
     source = a.createMediaStreamSource(stream);
+    inGain = a.createGain();
+    inGain.gain.value = dbToGain(st.gainDb);
     gateNode = new AudioWorkletNode(a, "guitar-processor",
       {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
     gateNode.parameters.get("threshold").value = st.gate;
-    gateNode.port.onmessage = (e) => { if(e.data && typeof e.data.peak === "number") paintMeter(e.data.peak); };
+    gateNode.port.onmessage = (e) => { if(e.data && typeof e.data.peak === "number") paintMeter(e.data.peak, e.data.gate); };
     if(!ampNode && st.model) await loadModel(st.model).catch(() => {});
     if(!cabNode && st.cab) await loadCab(st.cab).catch(() => {});
     rewire();
@@ -16016,15 +16109,17 @@ const PlayerGuitar = (() => {
     persist();
     await fillDevices();
     paint();
+    startEqLoop();
   }
   function stop(){
-    [source, gateNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    [source, inGain, gateNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
     if(gateNode) try{ gateNode.port.postMessage("stop"); }catch(e){}
     if(stream) stream.getTracks().forEach(t => t.stop());
-    stream = source = gateNode = null;
+    stream = source = inGain = gateNode = null;
     live = false;
-    paintMeter(0);
+    paintMeter(0, 1);
     paint();
+    drawEq();
   }
 
   async function loadModel(m){
@@ -16069,36 +16164,344 @@ const PlayerGuitar = (() => {
     cabNode = conv; st.cab = file; persist(); rewire();
   }
 
+  // ---- preset stepper: same categories as the Steems strip, plus VŠE
+  // (every model), which is also what the arrows fall back to while no
+  // category folder has been mapped yet.
+  const CATS = ["all", "clean", "crunch", "hi_gain"];
+  const CAT_LABEL = {all: "VŠE", clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN"};
+  const catCache = {};
+  async function catList(cat){
+    if(cat === "all") return amps.filter(a => a.kind === "model").map(a => ({key: "amp:" + a.file, name: a.name}));
+    if(!catCache[cat]){
+      try{
+        const list = await (await fetch(`/api/amps?category=${cat}`)).json();
+        catCache[cat] = (Array.isArray(list) ? list : []).map(a => ({key: "amp:" + a.file, name: a.name}));
+      }catch(e){ catCache[cat] = []; }
+    }
+    return catCache[cat];
+  }
+  async function step(d){
+    let list = await catList(st.category);
+    if(!list.length){
+      showToast(`${CAT_LABEL[st.category]}: žádné presety — namapuj složku v nastavení kytary ve Steems`);
+      return;
+    }
+    let i = st.model ? list.findIndex(m => m.key === st.model.key) : -1;
+    i = ((i + d) % list.length + list.length) % list.length;
+    await setModel(list[i]);
+  }
+  function cycleCategory(){
+    st.category = CATS[(CATS.indexOf(st.category) + 1) % CATS.length];
+    persist();
+    paint();
+  }
+
+  // The full list, like Steems' amp picker: models, then cabinets.
+  function openPicker(anchor){
+    const old = el("pb-gtr-picker");
+    if(old){ old.remove(); return; }
+    const models = amps.filter(a => a.kind === "model");
+    const irs = amps.filter(a => a.kind === "ir");
+    const lib = st.model && st.model.key.startsWith("lib:") ? st.model : null;
+    const box = document.createElement("div");
+    box.className = "sect-menu amp-picker pb-gtr-picker";
+    box.id = "pb-gtr-picker";
+    box.innerHTML = `
+      <div class="ss-head">Zesilovač (NAM)</div>
+      ${lib ? `<button type="button" data-model="${escapeHtml(lib.key)}">${icon("folderOpen", 12)}${escapeHtml(lib.name)}</button>` : ""}
+      ${models.map(m => `<button type="button" data-model="amp:${escapeHtml(m.file)}">
+        ${icon("sliders", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      <button type="button" data-model="">${icon("close", 12)}Bez zesilovače</button>
+      <hr>
+      <div class="ss-head">Kabinet (IR)</div>
+      ${irs.map(m => `<button type="button" data-ir="${escapeHtml(m.file)}">
+        ${icon("volume", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      <button type="button" data-ir="">${icon("close", 12)}Bez kabinetu</button>`;
+    document.body.appendChild(box);
+    const r = anchor.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(window.innerWidth - box.offsetWidth - 8, r.left + r.width / 2 - box.offsetWidth / 2)) + "px";
+    box.style.top = Math.max(8, r.top - box.offsetHeight - 8) + "px";
+    box.querySelectorAll("[data-model]").forEach(b => {
+      if(st.model && b.dataset.model === st.model.key) b.classList.add("on");
+      b.onclick = () => {
+        box.remove();
+        const key = b.dataset.model;
+        if(!key){ setModel(null); return; }
+        const m = lib && key === lib.key ? lib
+          : {key, name: (models.find(x => "amp:" + x.file === key) || {}).name || key.slice(4)};
+        setModel(m);
+      };
+    });
+    box.querySelectorAll("[data-ir]").forEach(b => {
+      if(b.dataset.ir === st.cab) b.classList.add("on");
+      b.onclick = async () => {
+        box.remove();
+        try{ await loadCab(b.dataset.ir); }catch(e){ showToast("Kabinet se nepodařilo načíst"); }
+        paint();
+      };
+    });
+    setTimeout(() => document.addEventListener("pointerdown", function off(e){
+      if(!box.contains(e.target)){ box.remove(); document.removeEventListener("pointerdown", off); }
+    }), 0);
+  }
+
+  // ---- knobs: vertical drag like the Steems strip; double-click resets.
+  function knob(id, {min, max, def, get, set, fmt}){
+    const k = el(id), v = el(id.replace("-k-", "-v-"));
+    const paintK = () => {
+      const frac = Math.max(0, Math.min(1, (get() - min) / (max - min)));
+      k.style.setProperty("--rot", (-135 + frac * 270) + "deg");
+      v.textContent = fmt(get());
+    };
+    let drag = false, y0 = 0, v0 = 0;
+    k.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); drag = true; y0 = e.clientY; v0 = get();
+      k.setPointerCapture(e.pointerId);
+    });
+    k.addEventListener("pointermove", (e) => {
+      if(!drag) return;
+      set(Math.max(min, Math.min(max, v0 + (y0 - e.clientY) * ((max - min) / 150))));
+      paintK(); persist();
+    });
+    k.addEventListener("pointerup", () => { drag = false; });
+    k.addEventListener("dblclick", () => { set(def); paintK(); persist(); });
+    k.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      set(Math.max(min, Math.min(max, get() - Math.sign(e.deltaY) * (max - min) / 60)));
+      paintK(); persist();
+    }, {passive: false});
+    return paintK;
+  }
+  const signed = (x, d) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(d).replace(".", ",");
+  const knobPainters = [
+    knob("pb-gtr-k-gain", {min: -12, max: 24, def: 0, get: () => st.gainDb,
+      set: (x) => { st.gainDb = Math.round(x * 2) / 2; if(inGain) inGain.gain.setTargetAtTime(dbToGain(st.gainDb), ctx().currentTime, 0.01); },
+      fmt: (x) => signed(x, 1) + " dB"}),
+    knob("pb-gtr-k-gate", {min: -100, max: -20, def: -100, get: () => st.gate,
+      set: (x) => { st.gate = Math.round(x); if(gateNode) gateNode.parameters.get("threshold").value = st.gate; },
+      fmt: (x) => x <= -99.5 ? "vyp" : Math.round(x) + " dB"}),
+    knob("pb-gtr-k-pan", {min: -1, max: 1, def: 0, get: () => st.pan,
+      set: (x) => { st.pan = Math.abs(x) < 0.03 ? 0 : Math.round(x * 100) / 100; if(panner) panner.pan.value = st.pan; },
+      fmt: (x) => Math.abs(x) < 0.005 ? "střed" : (x < 0 ? "L " : "P ") + Math.round(Math.abs(x) * 100)}),
+    knob("pb-gtr-k-vol", {min: 0, max: 1.4, def: 0.9, get: () => st.volume,
+      set: (x) => { st.volume = Math.round(x * 100) / 100; if(outGain) outGain.gain.value = st.volume; },
+      fmt: (x) => Math.round(x * 100) + " %"}),
+  ];
+
+  // ---- EQ: the Steems equaliser, smaller — same five bands, same drag /
+  // wheel / double-click handling, and the curve comes from the real
+  // filters' getFrequencyResponse so it can't disagree with the sound.
+  const EQ_MAX_DB = 18, EQ_F_MIN = 20, EQ_F_MAX = 20000, EQ_POINTS = 200;
+  const EQ_DEFAULT = [
+    {type: "lowshelf",  freq: 80,    gain: 0, q: 0.7, color: "#ff5c8a"},
+    {type: "peaking",   freq: 250,   gain: 0, q: 1,   color: "#ffb020"},
+    {type: "peaking",   freq: 1000,  gain: 0, q: 1,   color: "#3ddc97"},
+    {type: "peaking",   freq: 4000,  gain: 0, q: 1,   color: "#38bdf8"},
+    {type: "highshelf", freq: 10000, gain: 0, q: 0.7, color: "#a78bfa"},
+  ];
+  const eqBands = EQ_DEFAULT.map((b, i) => {
+    const s = st.eq && st.eq[i];
+    return {...b, freq: s && isFinite(s.freq) ? s.freq : b.freq,
+      gain: s && isFinite(s.gain) ? s.gain : b.gain, q: s && isFinite(s.q) ? s.q : b.q};
+  });
+  let eqBand = 0;
+  const eqFreqs = new Float32Array(EQ_POINTS);
+  for(let i = 0; i < EQ_POINTS; i++) eqFreqs[i] = EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, i / (EQ_POINTS - 1));
+  const eqX = (f, w) => (Math.log(f / EQ_F_MIN) / Math.log(EQ_F_MAX / EQ_F_MIN)) * w;
+  const eqFreqAt = (x, w) => EQ_F_MIN * Math.pow(EQ_F_MAX / EQ_F_MIN, Math.max(0, Math.min(1, x / w)));
+  const eqY = (db, h) => h / 2 - (db / EQ_MAX_DB) * (h / 2 - 8);
+  const eqDbAt = (y, h) => ((h / 2 - y) / (h / 2 - 8)) * EQ_MAX_DB;
+  const fmtHz = f => f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2).replace(/\.?0+$/, "").replace(".", ",") + " kHz" : Math.round(f) + " Hz";
+
+  function setEqBand(i, patch){
+    const b = eqBands[i];
+    Object.assign(b, patch);
+    b.freq = Math.max(EQ_F_MIN, Math.min(EQ_F_MAX, b.freq));
+    b.gain = Math.max(-EQ_MAX_DB, Math.min(EQ_MAX_DB, b.gain));
+    const shelf = b.type !== "peaking";
+    b.q = Math.max(shelf ? 0.3 : 0.2, Math.min(shelf ? 2 : 12, b.q));
+    ensureOut();
+    const f = eqFilters[i], now = ctx().currentTime;
+    f.frequency.setTargetAtTime(b.freq, now, 0.01);
+    f.gain.setTargetAtTime(b.gain, now, 0.01);
+    f.Q.setTargetAtTime(b.q, now, 0.01);
+    persist();
+  }
+  function eqReadout(){
+    const b = eqBands[eqBand];
+    const kind = b.type === "peaking" ? "zvon" : b.type === "lowshelf" ? "hloubky" : "výšky";
+    el("pb-gtr-eq-ro").textContent =
+      `Pásmo ${eqBand + 1} (${kind}):  ${fmtHz(b.freq)}   ${signed(b.gain, 1)} dB   Q ${b.q.toFixed(2).replace(".", ",")}`;
+  }
+  function drawEq(){
+    const cv = el("pb-gtr-eq-canvas");
+    if(!cv || !isOpen()) return;
+    ensureOut();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if(!W || !H) return;
+    if(cv.width !== Math.floor(W * dpr) || cv.height !== Math.floor(H * dpr)){
+      cv.width = Math.floor(W * dpr); cv.height = Math.floor(H * dpr);
+    }
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#0d0d12"); bg.addColorStop(1, "#08080b");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.lineWidth = 1;
+    [30, 50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000].forEach(f => {
+      const x = Math.round(eqX(f, W)) + 0.5;
+      g.strokeStyle = [100, 1000, 10000].includes(f) ? "rgba(255,255,255,.13)" : "rgba(255,255,255,.045)";
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+    });
+    g.font = "9px sans-serif"; g.textBaseline = "top"; g.textAlign = "center";
+    g.fillStyle = "rgba(255,255,255,.34)";
+    [[100, "100"], [1000, "1k"], [10000, "10k"]].forEach(([f, t]) => g.fillText(t, eqX(f, W), H - 11));
+    for(let db = -EQ_MAX_DB; db <= EQ_MAX_DB; db += 6){
+      const y = Math.round(eqY(db, H)) + 0.5;
+      g.strokeStyle = db === 0 ? "rgba(255,255,255,.22)" : "rgba(255,255,255,.05)";
+      g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+    }
+    // live spectrum behind the curve
+    if(live && eqSpectrum){
+      const bins = eqSpectrum.frequencyBinCount, data = new Float32Array(bins);
+      eqSpectrum.getFloatFrequencyData(data);
+      const nyq = ctx().sampleRate / 2;
+      g.beginPath(); g.moveTo(0, H);
+      for(let x = 0; x <= W; x += 2){
+        const bin = Math.min(bins - 1, Math.max(1, Math.round(eqFreqAt(x, W) / nyq * bins)));
+        let sum = 0, n = 0;
+        for(let k = -1; k <= 1; k++){ const v = data[Math.min(bins - 1, Math.max(0, bin + k))]; if(isFinite(v)){ sum += v; n++; } }
+        const db = n ? sum / n : -100;
+        g.lineTo(x, H - Math.max(0, Math.min(1, (db + 100) / 90)) * (H - 10) - 3);
+      }
+      g.lineTo(W, H); g.closePath();
+      const sg = g.createLinearGradient(0, 0, 0, H);
+      sg.addColorStop(0, "rgba(120,160,255,.45)"); sg.addColorStop(1, "rgba(120,160,255,.02)");
+      g.fillStyle = sg; g.fill();
+    }
+    // combined response
+    const total = new Float32Array(EQ_POINTS), mag = new Float32Array(EQ_POINTS), ph = new Float32Array(EQ_POINTS);
+    eqFilters.forEach(f => {
+      f.getFrequencyResponse(eqFreqs, mag, ph);
+      for(let i = 0; i < EQ_POINTS; i++) total[i] += 20 * Math.log10(Math.max(mag[i], 1e-6));
+    });
+    const trace = () => {
+      g.beginPath();
+      for(let i = 0; i < EQ_POINTS; i++){
+        const x = eqX(eqFreqs[i], W), y = eqY(Math.max(-EQ_MAX_DB - 6, Math.min(EQ_MAX_DB + 6, total[i])), H);
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+    };
+    trace(); g.lineTo(W, eqY(0, H)); g.lineTo(0, eqY(0, H)); g.closePath();
+    const fg = g.createLinearGradient(0, 0, 0, H);
+    fg.addColorStop(0, "rgba(255,209,102,.30)"); fg.addColorStop(.5, "rgba(255,209,102,.08)"); fg.addColorStop(1, "rgba(255,209,102,.30)");
+    g.fillStyle = fg; g.fill();
+    trace();
+    g.lineWidth = 1.8; g.strokeStyle = "#ffd166"; g.shadowColor = "rgba(255,209,102,.6)"; g.shadowBlur = 6;
+    g.stroke(); g.shadowBlur = 0;
+    eqBands.forEach((b, i) => {
+      const x = eqX(b.freq, W), y = eqY(b.gain, H), active = i === eqBand;
+      g.beginPath(); g.arc(x, y, active ? 8 : 6.5, 0, Math.PI * 2);
+      g.fillStyle = b.color; g.globalAlpha = active ? 1 : .88; g.fill(); g.globalAlpha = 1;
+      g.lineWidth = active ? 2 : 1.2; g.strokeStyle = active ? "#fff" : "rgba(0,0,0,.6)"; g.stroke();
+      g.fillStyle = "#101014"; g.font = "bold 9px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(String(i + 1), x, y + .5);
+    });
+  }
+  // Redrawn every frame only while there's a live spectrum to show.
+  let eqRaf = null;
+  function startEqLoop(){
+    if(eqRaf) return;
+    const loop = () => {
+      if(!live || !isOpen()){ eqRaf = null; return; }
+      drawEq();
+      eqRaf = requestAnimationFrame(loop);
+    };
+    eqRaf = requestAnimationFrame(loop);
+  }
+  (() => {
+    const cv = el("pb-gtr-eq-canvas");
+    let drag = -1;
+    const pos = (e) => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height}; };
+    const hit = (p) => {
+      let best = -1, bd = 12 * 12;
+      eqBands.forEach((b, i) => {
+        const dx = eqX(b.freq, p.w) - p.x, dy = eqY(b.gain, p.h) - p.y, d = dx * dx + dy * dy;
+        if(d < bd){ bd = d; best = i; }
+      });
+      return best;
+    };
+    cv.addEventListener("pointerdown", (e) => {
+      const i = hit(pos(e));
+      if(i < 0) return;
+      drag = i; eqBand = i;
+      cv.setPointerCapture(e.pointerId);
+      cv.classList.add("grabbing");
+      eqReadout(); drawEq();
+    });
+    cv.addEventListener("pointermove", (e) => {
+      const p = pos(e);
+      if(drag >= 0){
+        setEqBand(drag, {freq: eqFreqAt(p.x, p.w), gain: eqDbAt(p.y, p.h)});
+        eqReadout(); drawEq();
+      } else {
+        const i = hit(p);
+        cv.classList.toggle("grab", i >= 0);
+        if(i >= 0 && i !== eqBand){ eqBand = i; eqReadout(); drawEq(); }
+      }
+    });
+    const end = (e) => {
+      if(drag < 0) return;
+      drag = -1;
+      cv.classList.remove("grabbing");
+      try{ cv.releasePointerCapture(e.pointerId); }catch(err){}
+    };
+    cv.addEventListener("pointerup", end);
+    cv.addEventListener("pointercancel", end);
+    cv.addEventListener("wheel", (e) => {
+      const i = hit(pos(e)), band = i >= 0 ? i : eqBand;
+      e.preventDefault();
+      setEqBand(band, {q: eqBands[band].q * Math.exp(-e.deltaY * 0.0025)});
+      eqBand = band; eqReadout(); drawEq();
+    }, {passive: false});
+    cv.addEventListener("dblclick", (e) => {
+      const i = hit(pos(e)); if(i < 0) return;
+      const d = EQ_DEFAULT[i];
+      setEqBand(i, {freq: d.freq, gain: 0, q: d.q});
+      eqBand = i; eqReadout(); drawEq();
+    });
+    el("pb-gtr-eq-reset").onclick = () => {
+      EQ_DEFAULT.forEach((d, i) => setEqBand(i, {freq: d.freq, gain: 0, q: d.q}));
+      eqReadout(); drawEq();
+    };
+    new ResizeObserver(() => drawEq()).observe(cv);
+  })();
+
   // ---- UI ----
-  function paintMeter(peak){
+  function paintMeter(peak, gate){
     const fill = el("pb-gtr-meter-fill");
     if(!fill) return;
     const db = peak > 0 ? 20 * Math.log10(peak) : -100;
     fill.style.width = (Math.max(0, Math.min(1, (db + 60) / 60)) * 100) + "%";
     fill.classList.toggle("hot", db > -3);
     fill.classList.toggle("warm", db > -12 && db <= -3);
-  }
-  function modelList(){
-    const list = amps.filter(a => a.kind === "model").map(a => ({key: "amp:" + a.file, name: a.name}));
-    // A model picked from the library's NAM folders isn't in the amp list;
-    // keep it selectable (and first) so ‹ › still has somewhere to start.
-    if(st.model && !list.some(m => m.key === st.model.key)) list.unshift(st.model);
-    return list;
+    const g = el("pb-gtr-meter-gate");
+    if(g) g.style.opacity = String(1 - (typeof gate === "number" ? gate : 1));
   }
   function paint(){
     const p = el("pb-gtr-power");
     p.textContent = live ? "Odpojit" : "Připojit";
     p.classList.toggle("on", live);
-    const models = modelList();
-    el("pb-gtr-model").innerHTML = `<option value="">— bez zesilovače —</option>` + models.map(m =>
-      `<option value="${escapeHtml(m.key)}" ${st.model && st.model.key === m.key ? "selected" : ""}>${
-        m.key.startsWith("lib:") ? "📁 " : ""}${escapeHtml(m.name)}</option>`).join("");
-    const irs = amps.filter(a => a.kind === "ir");
-    el("pb-gtr-cab").innerHTML = `<option value="">— bez kabinetu —</option>` + irs.map(a =>
-      `<option value="${escapeHtml(a.file)}" ${st.cab === a.file ? "selected" : ""}>${escapeHtml(a.name)}</option>`).join("");
-    el("pb-gtr-gate").value = st.gate;
-    el("pb-gtr-gate-v").textContent = st.gate <= -99.5 ? "vyp" : st.gate + " dB";
-    el("pb-gtr-vol").value = st.volume;
+    el("pb-gtr-cat").textContent = CAT_LABEL[st.category] || "VŠE";
+    const name = el("pb-gtr-name");
+    name.textContent = st.model ? (st.model.key.startsWith("lib:") ? "📁 " : "") + st.model.name : "— bez zesilovače —";
+    name.title = (st.model ? st.model.name + " — " : "") + "klikni pro seznam modelů a kabinetů";
+    const cab = amps.find(a => a.file === st.cab);
+    el("pb-gtr-cabname").textContent = st.cab ? "Kabinet: " + (cab ? cab.name : st.cab.replace(/\.wav$/i, "")) : "bez kabinetu";
+    knobPainters.forEach(f => f());
+    eqReadout();
+    drawEq();
     syncPlayerToggles();
   }
   async function fillDevices(){
@@ -16120,15 +16523,12 @@ const PlayerGuitar = (() => {
     dock.hidden = false;
     await Promise.all([refreshAmps(), fillDevices()]);
     paint();
+    if(live) startEqLoop();
   }
-  function close(){ dock.hidden = true; syncPlayerToggles(); }
-
-  function step(d){
-    const models = modelList();
-    if(!models.length){ showToast("Žádné modely — přidej je v nastavení kytary ve Steems"); return; }
-    let i = st.model ? models.findIndex(m => m.key === st.model.key) : -1;
-    i = ((i + d) % models.length + models.length) % models.length;
-    setModel(models[i]);
+  function close(){
+    dock.hidden = true;
+    const pk = el("pb-gtr-picker"); if(pk) pk.remove();
+    syncPlayerToggles();
   }
 
   btn.onclick = () => { isOpen() ? close() : open(); };
@@ -16136,33 +16536,20 @@ const PlayerGuitar = (() => {
   el("pb-gtr-power").onclick = async () => {
     if(live){ stop(); return; }
     try{ await start(); showToast("Kytara připojená" + (st.model ? " — " + st.model.name : "")); }
-    catch(e){ console.error("player guitar:", e); showToast("Vstup se nepodařilo otevřít — povol mikrofon"); stop(); }
+    catch(e){
+      console.error("player guitar:", e);
+      showToast(e && e.name === "NotAllowedError" ? "Prohlížeč nepustil mikrofonní vstup" : "Vstup se nepodařilo otevřít");
+      stop();
+    }
   };
   el("pb-gtr-device").onchange = async (e) => {
     st.deviceId = e.target.value; persist();
     if(live){ stop(); try{ await start(); }catch(err){ showToast("Vstup se nepodařilo otevřít"); } }
   };
-  el("pb-gtr-model").onchange = (e) => {
-    const m = modelList().find(x => x.key === e.target.value) || null;
-    setModel(m);
-  };
   el("pb-gtr-prev").onclick = () => step(-1);
   el("pb-gtr-next").onclick = () => step(1);
-  el("pb-gtr-cab").onchange = async (e) => {
-    try{ await loadCab(e.target.value); }catch(err){ showToast("Kabinet se nepodařilo načíst"); }
-    paint();
-  };
-  el("pb-gtr-gate").oninput = (e) => {
-    st.gate = parseFloat(e.target.value);
-    if(gateNode) gateNode.parameters.get("threshold").value = st.gate;
-    el("pb-gtr-gate-v").textContent = st.gate <= -99.5 ? "vyp" : st.gate + " dB";
-    persist();
-  };
-  el("pb-gtr-vol").oninput = (e) => {
-    st.volume = parseFloat(e.target.value);
-    if(outGain) outGain.gain.value = st.volume;
-    persist();
-  };
+  el("pb-gtr-cat").onclick = cycleCategory;
+  el("pb-gtr-name").onclick = (e) => openPicker(e.currentTarget);
 
   return {
     isOpen, isLive: () => live, open, close,
