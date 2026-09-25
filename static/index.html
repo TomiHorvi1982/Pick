@@ -1413,6 +1413,8 @@
   .pb-tab-dock-hostwrap{max-height:300px;overflow-y:hidden;position:relative;
     display:flex;flex-direction:column}
   #pb-tab-dock-run.on{background:var(--accent);color:#000}
+  .pb-tab-dock-len{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pb-tab-dock-len b{color:var(--text);font-weight:600}
   /* Thin strips of their own above/below the notation, never on top of it —
      the red triangles just point at where the first string sits from
      either side; clicking either cycles both through 10 sizes then wraps. */
@@ -3390,9 +3392,10 @@
       <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
       <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
       <span class="sp"></span>
-      <button type="button" id="pb-tab-dock-prev" title="O takt zpět (nebo táhni / kolečkem myši přímo v tabu)">‹</button>
-      <button type="button" id="pb-tab-dock-next" title="O takt dál">›</button>
-      <button type="button" id="pb-tab-dock-run" title="Spusť ve chvíli, kdy v písni začne hrát kytara — od toho místa tab jede s písní">▶ Start</button>
+      <button type="button" id="pb-tab-dock-slower" title="Tab pomaleji — o 0,1 s delší (Shift = 1 s)">−0,1 s</button>
+      <span class="pb-tab-dock-len" id="pb-tab-dock-len" title="Délka tabu · délka písně · tempo tabu"></span>
+      <button type="button" id="pb-tab-dock-faster" title="Tab rychleji — o 0,1 s kratší (Shift = 1 s)">+0,1 s</button>
+      <button type="button" id="pb-tab-dock-run" title="Nastav tab (táhni / kolečko / klik na takt) na místo, které odpovídá aktuálnímu času písně, a klikni — pak stačí Play v přehrávači">Sync</button>
       <button type="button" id="pb-tab-dock-zoom-dn" title="Zmenšit zápis">−</button>
       <button type="button" id="pb-tab-dock-zoom-up" title="Zvětšit zápis">+</button>
       <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="search" data-size="12"></span></button>
@@ -6023,7 +6026,7 @@ let collapsedSections = loadCollapsedSections();
 // Fronta/Historie/Oblíbené each get one of these three fixed icons — a
 // lookup rather than a parameter, since this function only ever renders
 // these three sections.
-const RAIL_SECTION_ICONS = {fronta: "queue", historie: "history", oblibene: "star"};
+const RAIL_SECTION_ICONS = {ready: "guitar", fronta: "queue", historie: "history", oblibene: "star"};
 
 // A clickable header that hides/shows the rows appended after it (each row
 // tagged with the same section key) rather than wrapping them — the rail's
@@ -6065,7 +6068,32 @@ function renderHomeRail(list){
     name: t.title || "", sub: t.artists || "", onClick,
   });
 
-  let collapsed = railSection(list, "fronta", "Fronta", queue.length);
+  // Songs with a tab already synced (PlayerTab's per-song save) — click to
+  // play, and the tab comes up with it, already in time.
+  const ready = [];
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(!k || !k.startsWith("spotdl-gui-pb-tab-sync:")) continue;
+      const v = JSON.parse(localStorage.getItem(k));
+      if(v && v.sync && v.track && (v.track.relPath || v.track.videoId)) ready.push(v);
+    }
+  }catch(e){}
+  ready.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  let collapsed = railSection(list, "ready", "Ready to play", ready.length);
+  railRows(list, "ready", collapsed, ready.length
+    ? ready.map(v => libRow({
+        art: v.track.thumbnail || icon("guitar", 18), artIsUrl: !!v.track.thumbnail,
+        name: v.track.title || v.tabName || "", sub: (v.track.artists ? v.track.artists + " • " : "") + "tab načasovaný",
+        onClick: async () => {
+          const t = {...v.track};
+          await (t.relPath ? Player.playLocal(t) : Player.play(t));
+          if(!PlayerTab.isOpen()) PlayerTab.toggle();
+        },
+      }))
+    : [libEmpty("Zatím nic. Načti k písni tab a dej Sync — objeví se tady.")]);
+
+  collapsed = railSection(list, "fronta", "Fronta", queue.length);
   railRows(list, "fronta", collapsed, queue.length
     ? queue.map(t => trackRow(t, () => Player.playQueueFrom(t)))
     : [libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat.")]);
@@ -14635,15 +14663,20 @@ const PlayerTab = (() => {
   let zoom = 1;
   let rafId = null;
 
-  // The tab keeps its own clock, deliberately not tied to the player's
-  // position: the user parks the bar they want under the markers, starts
-  // the song, and hits Start the moment the guitar comes in. From then on
-  // the tab only advances by however much the song itself has played —
-  // seeking the player (a jump, not playback) never moves it.
+  // Until synced, the tab sits wherever it's parked and ignores the player.
+  // Sync pins "this spot in the tab = this moment in the song"; from then
+  // on the tab is a function of the song's own clock, so Play/Pause, seeks
+  // and lyric-line jumps all carry it along:
+  //
+  //   tabTime = sync.tabT + (audio.currentTime - sync.audioT) / stretch
+  //
+  // stretch > 1 plays the tab slower (longer), < 1 faster — nudged 0.1 s of
+  // total tab length at a time, for a tab whose tempo drifts off the
+  // recording. Both are saved with the song.
   let tabTime = 0;         // position in the tab's own timeline (s)
-  let running = false;
-  let lastAudioT = null;   // audio.currentTime seen on the previous frame
-  let synced = false;      // Start pressed for this song — tab and song move together
+  let sync = null;         // {audioT, tabT} once Sync was pressed
+  let stretch = 1;
+  let tabLen = 0;          // the tab's own full length at stretch 1 (s)
 
   function isOpen(){ return !dock.hidden; }
 
@@ -14660,24 +14693,52 @@ const PlayerTab = (() => {
       return raw ? JSON.parse(raw) : null;
     }catch(e){ return null; }
   }
-  // startAt = where the tab was parked the last time Start was pressed, so
-  // next time the song opens already sitting on the guitar's entry bar.
-  function saveAssignment(startAt){
+  // The track itself is saved alongside, so the rail's "Ready to play" list
+  // can start the song again without anything else to look it up by.
+  function saveAssignment(){
     if(songId == null) return;
-    const prev = loadSavedAssignment();
-    const keep = prev && prev.songId === songId && prev.trackIndex === trackIndex ? prev.startAt : undefined;
+    const t = Player.getCurrent() || {};
+    const track = {title: t.title || "", artists: t.artists || "", thumbnail: t.thumbnail || "",
+      relPath: t.relPath || "", videoId: t.videoId || "", source: t.relPath ? "local" : (t.source || "")};
     try{
-      localStorage.setItem(trackTabKey(), JSON.stringify(
-        {songId, revisionId, trackIndex, startAt: startAt != null ? startAt : keep}));
+      localStorage.setItem(trackTabKey(), JSON.stringify({songId, revisionId, trackIndex,
+        tabName: tabData && tabData.name || "", sync, stretch, track, savedAt: Date.now()}));
     }catch(e){}
+    if(typeof refreshHomeRail === "function") try{ refreshHomeRail(); }catch(e){}
   }
-  function setRunning(on){
-    running = on;
-    lastAudioT = null;
+  function audioNow(){ const a = el("pb-audio"); return a ? a.currentTime : 0; }
+  function syncedTime(){ return sync.tabT + (audioNow() - sync.audioT) / stretch; }
+  // Moving the tab by hand once synced re-pins the sync to the new spot.
+  function placeTab(t){
+    setTabTime(t);
+    if(sync){ sync = {audioT: audioNow(), tabT: tabTime}; saveAssignment(); }
+  }
+  function paintSync(){
     const b = el("pb-tab-dock-run");
-    if(b){ b.textContent = on ? "⏸ Stop" : "▶ Start"; b.classList.toggle("on", on); }
+    if(b){ b.textContent = sync ? "✓ Sync" : "Sync"; b.classList.toggle("on", !!sync); }
+    const len = el("pb-tab-dock-len");
+    if(!len) return;
+    if(!tabLen){ len.textContent = ""; return; }
+    const a = el("pb-audio");
+    const song = a && isFinite(a.duration) && a.duration > 0 ? a.duration : 0;
+    const clock = (sec) => {
+      const m = Math.floor(sec / 60), r = sec - m * 60;
+      return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1).replace(".", ",");
+    };
+    len.innerHTML = `Tab <b>${clock(tabLen * stretch)}</b>` + (song ? ` · píseň ${clock(song)}` : "")
+      + ` · tempo <b>${(100 / stretch).toFixed(1).replace(".", ",")} %</b>`;
   }
-  function tabEnd(){ return barStarts.length ? barStarts[barStarts.length - 1] : 0; }
+  // ±delta seconds of total tab length, pivoting on where the tab is right
+  // now so the change only affects what's still to come — no jump.
+  function nudgeLength(delta){
+    if(!tabLen) return;
+    const cur = sync ? Math.max(0, Math.min(tabEnd(), syncedTime())) : tabTime;
+    stretch = Math.max(0.5, Math.min(2, (tabLen * stretch + delta) / tabLen));
+    if(sync) sync = {audioT: audioNow(), tabT: cur};
+    saveAssignment();
+    paintSync();
+  }
+  function tabEnd(){ return tabLen || (barStarts.length ? barStarts[barStarts.length - 1] : 0); }
   function setTabTime(t){ tabTime = Math.max(0, Math.min(tabEnd(), t)); }
   function barAt(t){
     let bar = 0;
@@ -14757,12 +14818,15 @@ const PlayerTab = (() => {
     // with the recording from 0 s — the user starts it by hand at the right
     // moment, after which real tempo is what keeps it in step.
     barStarts = Mixer.tabView.barStartTimes(tabData);
+    tabLen = typeof tabData.duration === "number" && tabData.duration > 0 ? tabData.duration
+      : (barStarts.length > 1 ? barStarts[barStarts.length - 1] * barStarts.length / (barStarts.length - 1) : 0);
 
     const saved = loadSavedAssignment();
-    setRunning(false);
-    synced = false;
-    setTabTime(saved && saved.songId === songId && saved.trackIndex === trackIndex
-      && typeof saved.startAt === "number" ? saved.startAt : 0);
+    const same = saved && saved.songId === songId && saved.trackIndex === trackIndex;
+    sync = same && saved.sync && isFinite(saved.sync.audioT) && isFinite(saved.sync.tabT) ? saved.sync : null;
+    stretch = same && isFinite(saved.stretch) && saved.stretch > 0 ? saved.stretch : 1;
+    setTabTime(sync ? syncedTime() : 0);
+    paintSync();
 
     try{ a.tex(Mixer.tabView.measuresToAlphaTex(tabData)); }
     catch(e){ console.error("alphaTab player tex:", e); }
@@ -14815,16 +14879,7 @@ const PlayerTab = (() => {
   function tick(){
     rafId = requestAnimationFrame(tick);
     if(!isOpen() || !api || !barStarts.length) return;
-    const audio = el("pb-audio");
-    if(running && audio){
-      const now = audio.currentTime;
-      // Only real playback moves the tab: a seek re-baselines lastAudioT
-      // (see the "seeking" listener) instead of counting as elapsed time,
-      // and a pause just yields zero progress.
-      if(lastAudioT != null && now > lastAudioT && !audio.seeking) setTabTime(tabTime + (now - lastAudioT));
-      lastAudioT = now;
-      if(tabTime >= tabEnd()) setRunning(false);
-    }
+    if(sync) setTabTime(syncedTime());
     const bar = barAt(tabTime);
     el("pb-tab-dock-barlabel").textContent = "Takt " + (bar + 1);
     const host = el("pb-tab-dock-host");
@@ -14851,7 +14906,14 @@ const PlayerTab = (() => {
     const bar = barAt(t);
     const x0 = barX(bar);
     if(x0 == null) return null;
-    const x1 = barX(bar + 1), t0 = barStarts[bar], t1 = barStarts[bar + 1];
+    let x1 = barX(bar + 1), t1 = barStarts[bar + 1];
+    const t0 = barStarts[bar];
+    if(x1 == null){
+      // The last bar has no next one to measure against — use its own width
+      // and the tab's end instead.
+      const mb = api.boundsLookup.findMasterBarByIndex(bar);
+      x1 = mb ? x0 + mb.realBounds.w : null; t1 = tabLen;
+    }
     if(x1 == null || !(t1 > t0)) return x0;
     return x0 + Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) * (x1 - x0);
   }
@@ -14868,13 +14930,6 @@ const PlayerTab = (() => {
     }
     return tabEnd();
   }
-  function stepBar(d){
-    const bar = barAt(tabTime);
-    // "Back" from mid-bar snaps to that bar's own start first.
-    const target = d < 0 && tabTime - barStarts[bar] > 0.05 ? bar : bar + d;
-    setTabTime(barStarts[Math.max(0, Math.min(barStarts.length - 1, target))]);
-    lastAudioT = null;
-  }
   function startTick(){ if(!rafId) rafId = requestAnimationFrame(tick); }
   function stopTick(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
 
@@ -14890,20 +14945,14 @@ const PlayerTab = (() => {
   el("pb-tab-dock-search").onclick = openSearch;
   el("pb-tab-dock-run").onclick = () => {
     if(songId == null) return;
-    if(running){ setRunning(false); return; }
-    saveAssignment(tabTime);
-    synced = true;
-    setRunning(true);
+    sync = {audioT: audioNow(), tabT: tabTime};
+    saveAssignment();
+    paintSync();
+    showToast("Tab synchronizovaný a uložený k písni — pusť Play");
   };
-  el("pb-tab-dock-prev").onclick = () => stepBar(-1);
-  el("pb-tab-dock-next").onclick = () => stepBar(1);
-  {
-    const audio = el("pb-audio");
-    if(audio){
-      audio.addEventListener("seeking", () => { lastAudioT = null; });
-      audio.addEventListener("emptied", () => { lastAudioT = null; });
-    }
-  }
+  el("pb-tab-dock-slower").onclick = (e) => nudgeLength(e.shiftKey ? 1 : 0.1);
+  el("pb-tab-dock-faster").onclick = (e) => nudgeLength(e.shiftKey ? -1 : -0.1);
+  el("pb-audio").addEventListener("durationchange", paintSync);
   // Positioning the tab by hand: drag it sideways, use the wheel/trackpad,
   // or just click a bar to put that bar's start under the markers.
   {
@@ -14920,15 +14969,14 @@ const PlayerTab = (() => {
       if(!drag || e.pointerId !== drag.id) return;
       const dx = e.clientX - drag.sx;
       if(Math.abs(dx) > 4) drag.moved = true;
-      if(drag.moved){ vp.classList.add("dragging"); setTabTime(xToTime(drag.x0 - dx)); lastAudioT = null; }
+      if(drag.moved){ vp.classList.add("dragging"); placeTab(xToTime(drag.x0 - dx)); }
     });
     const end = (e) => {
       if(!drag || e.pointerId !== drag.id) return;
       if(!drag.moved){
         const r = vp.getBoundingClientRect();
         const contentX = drag.x0 - vp.clientWidth / 2 + (e.clientX - r.left);
-        setTabTime(barStarts[barAt(xToTime(contentX))]);
-        lastAudioT = null;
+        placeTab(barStarts[barAt(xToTime(contentX))]);
       }
       vp.classList.remove("dragging");
       drag = null;
@@ -14940,8 +14988,7 @@ const PlayerTab = (() => {
       e.preventDefault();
       const x = timeToX(tabTime);
       if(x == null) return;
-      setTabTime(xToTime(x + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY)));
-      lastAudioT = null;
+      placeTab(xToTime(x + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY)));
     }, {passive: false});
   }
   el("pb-tab-dock-zoom-dn").onclick = () => { zoom = Math.max(0.6, zoom - 0.1); rerender(); };
@@ -14966,17 +15013,10 @@ const PlayerTab = (() => {
   // tab+sync from a previous visit, pick straight back up with those.
   return {
     toggle, open, close, isOpen, openSearch,
-    // A deliberate jump in the song (clicking a lyrics line) — unlike a
-    // plain seek on the player — carries a started tab along with it.
-    followSeek(delta){
-      if(!synced || !barStarts.length || !isFinite(delta)) return;
-      setTabTime(tabTime + delta);
-      lastAudioT = null;
-    },
     reset(){
       const wasOpen = isOpen();
       tabData = null; songId = null; revisionId = null; trackIndex = 0;
-      barStarts = []; tabTime = 0; synced = false; setRunning(false);
+      barStarts = []; tabTime = 0; sync = null; stretch = 1; tabLen = 0;
       if(wasOpen){
         close();
         const saved = loadSavedAssignment();
@@ -15909,15 +15949,11 @@ const PlayerLyricsDock = (() => {
       box.scrollTo({top: target, behavior: "smooth"});
     }
   }
-  // Clicking a line jumps the song there — and a tab that's been started
-  // against this song moves by the same amount, so the two stay together.
+  // Clicking a line jumps the song there — a synced tab follows the song's
+  // clock, so it comes along by itself.
   function seekToLine(i){
-    const audio = el("pb-audio");
-    if(!audio || !lyrics) return;
-    const to = Math.max(0, lineTime(i));
-    const from = audio.currentTime;
-    Player.seekTo(to);
-    if(typeof PlayerTab !== "undefined") PlayerTab.followSeek(to - from);
+    if(!el("pb-audio") || !lyrics) return;
+    Player.seekTo(Math.max(0, lineTime(i)));
   }
 
   function close(){
