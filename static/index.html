@@ -1454,6 +1454,24 @@
   .pb-lyr-full .lyric-line{padding:7px 18px;font-size:15px}
   .pb-lyr-full .lyric-line.current{font-size:19px}
   .pb-lyr-full .lyrics-msg{padding:20px;text-align:center;color:var(--sub)}
+  /* Live guitar through a NAM amp, for playing along with whatever the main
+     player has on — see PlayerGuitar. One bar, same look as the tab's. */
+  .pb-gtr-dock{background:var(--bg2);border-top:1px solid var(--border);
+    box-shadow:0 -6px 20px rgba(0,0,0,.35)}
+  .pb-gtr-dock .pb-tab-dock-bar{border-bottom:none;flex-wrap:wrap;row-gap:6px}
+  #pb-gtr-power.on{background:var(--accent);color:#000}
+  .pb-gtr-model{max-width:280px}
+  .pb-gtr-meter{position:relative;width:90px;height:7px;border-radius:4px;background:#1c1c22;overflow:hidden}
+  .pb-gtr-meter-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent)}
+  .pb-gtr-meter-fill.warm{background:#e9b949}
+  .pb-gtr-meter-fill.hot{background:#e5484d}
+  .pb-gtr-knob{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);white-space:nowrap}
+  .pb-gtr-knob input[type=range]{width:80px;accent-color:var(--accent)}
+  .pb-gtr-knob .v{min-width:44px;font-variant-numeric:tabular-nums}
+  .nam-row .act-live{flex:0 0 auto;background:none;border:none;color:var(--sub);
+    width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .nam-row .act-live:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .nam-row .act-live.on{color:var(--accent)}
   .pb-track{display:flex;align-items:center;gap:14px;width:30%;min-width:180px;flex:0 0 auto}
   .pb-art{width:56px;height:56px;border-radius:4px;flex:0 0 56px;font-size:22px}
   .pb-title{font-size:14px;font-weight:400;color:var(--text)}
@@ -3353,6 +3371,23 @@
         title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
     </div>
   </div>
+  <div class="pb-gtr-dock" id="pb-gtr-dock" hidden>
+    <div class="pb-tab-dock-bar">
+      <span data-icon="guitar" data-size="14"></span>
+      <span class="pb-tab-dock-name">Kytara</span>
+      <button type="button" id="pb-gtr-power" title="Připojit kytaru a hrát přes zesilovač">Připojit</button>
+      <select class="pb-tab-dock-select" id="pb-gtr-device" title="Vstup — zvuková karta"></select>
+      <div class="pb-gtr-meter" title="Špička vstupu — nastav podle ní gain na zvukovce"><div class="pb-gtr-meter-fill" id="pb-gtr-meter-fill"></div></div>
+      <span class="sp"></span>
+      <button type="button" id="pb-gtr-prev" title="Předchozí model">‹</button>
+      <select class="pb-tab-dock-select pb-gtr-model" id="pb-gtr-model" title="Zesilovač (NAM model)"></select>
+      <button type="button" id="pb-gtr-next" title="Další model">›</button>
+      <select class="pb-tab-dock-select" id="pb-gtr-cab" title="Kabinet (IR)"></select>
+      <label class="pb-gtr-knob" title="Brána šumu">Gate <input type="range" id="pb-gtr-gate" min="-100" max="-20" step="1"><span class="v" id="pb-gtr-gate-v"></span></label>
+      <label class="pb-gtr-knob" title="Hlasitost kytary">Hlasitost <input type="range" id="pb-gtr-vol" min="0" max="1.4" step="0.01"></label>
+      <button type="button" id="pb-gtr-close" title="Zavřít (kytara hraje dál, dokud ji neodpojíš)"><span data-icon="close" data-size="13"></span></button>
+    </div>
+  </div>
 </div>
 
 <!-- The lyrics dock's own lines, lifted out into a window of its own —
@@ -3404,6 +3439,7 @@
   <div class="pb-right">
     <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně" aria-label="Text písně"></button>
     <button class="pb-ctl pb-tab-btn" id="pb-tab-btn" title="Kytarová tabulatura" aria-label="Tabulatura"></button>
+    <button class="pb-ctl" id="pb-gtr-btn" title="Hrát živě přes NAM zesilovač" aria-label="Kytara"></button>
     <button class="pb-ctl" id="pb-queue-btn" title="Fronta" aria-label="Fronta"><span class="pb-badge" id="pb-queue-count">0</span></button>
     <button class="pb-ctl" id="pb-video-btn" title="Video v plovoucím okně" aria-label="Video"></button>
     <button class="pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň" aria-label="Stáhnout"></button>
@@ -5351,6 +5387,7 @@ function paintPlayerIcons(){
   put("pb-repeat", "repeat", 17);
   put("pb-lyrics-btn", "lyrics", 17);
   put("pb-tab-btn", "note", 17);
+  put("pb-gtr-btn", "guitar", 17);
   put("pb-queue-btn", "queue", 17);
   put("pb-video-btn", "video", 17);
   put("pb-dl-song-btn", "download", 17);
@@ -6574,6 +6611,7 @@ function namPresetRow(entry, i, riffData){
       <span class="nam-sub">${escapeHtml(sub)}</span>
     </span>
     <button type="button" class="act-preview" title="Přehrát ukázku">${icon("play", 13)}</button>
+    <button type="button" class="act-live" title="Hrát živě přes tento model (k písni v přehrávači)">${icon("guitar", 14)}</button>
     <span class="nam-riff-col">
       <select class="nam-riff-select" title="Riff pro tento model">
         <option value="">Výchozí</option>
@@ -6604,6 +6642,13 @@ function namPresetRow(entry, i, riffData){
     catch(e){ showToast("Přehrání selhalo"); }
   };
   previewBtn.onclick = doPreview;
+  const liveBtn = row.querySelector(".act-live");
+  liveBtn.classList.toggle("on", PlayerGuitar.currentModelKey() === "lib:" + entry.rel);
+  liveBtn.onclick = async () => {
+    if(NamPreview.isPlaying(entry.rel)) NamPreview.stop();
+    await PlayerGuitar.useLibraryModel(entry.rel, entry.name.replace(/\.nam$/i, ""));
+    if(state.mode === "library") paintLibraryTable();
+  };
 
   row.querySelector(".nam-riff-select").onchange = async (e) => {
     const riffId = e.target.value || null;
@@ -15887,6 +15932,251 @@ const PlayerLyricsDock = (() => {
   return {open, close, toggle, isOpen};
 })();
 
+// ======================================================================
+// Live guitar in the main player: play along with whatever's on — tab and
+// text docked above — through a NAM amp and a cabinet IR. The same chain
+// as the Steems guitar channel (gate worklet → NAM → convolver), but its
+// own small AudioContext, since the main player isn't a Web Audio graph
+// and none of the mixer's channel state (solo, EQ, takes) applies here.
+// Models come from the amp list Steems uses, or straight from a .nam in
+// the library's NAM folders (the 🎸 on each preset row).
+// ======================================================================
+const PlayerGuitar = (() => {
+  const dock = el("pb-gtr-dock");
+  const btn = el("pb-gtr-btn");
+  const KEY = "spotdl-gui-pb-guitar";
+  const saved = (() => { try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ return {}; } })();
+  const st = {
+    deviceId: saved.deviceId || "",
+    model: saved.model || null,   // {key: "amp:<file>" | "lib:<rel>", name}
+    cab: saved.cab || "",         // /api/amps IR file, "" = none
+    gate: typeof saved.gate === "number" ? saved.gate : -100,
+    volume: typeof saved.volume === "number" ? saved.volume : 0.9,
+  };
+  function persist(){
+    try{ localStorage.setItem(KEY, JSON.stringify(
+      {deviceId: st.deviceId, model: st.model, cab: st.cab, gate: st.gate, volume: st.volume})); }catch(e){}
+  }
+
+  let ac = null, engine = null, workletsLoaded = false;
+  let stream = null, source = null, gateNode = null, ampNode = null, cabNode = null, outGain = null;
+  let live = false, amps = [];
+
+  function ctx(){
+    if(!ac) ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+    return ac;
+  }
+  async function ensureEngine(){
+    if(engine) return engine;
+    const mod = await import("/static/nam/index.js");
+    engine = await mod.NamEngine.attach(ctx(), {assetBaseUrl: "/static/nam/"});
+    return engine;
+  }
+  function ensureOut(){
+    if(!outGain){
+      outGain = ctx().createGain();
+      outGain.gain.value = st.volume;
+      outGain.connect(ctx().destination);
+    }
+    return outGain;
+  }
+  // Rebuilt whole rather than patched — four nodes, and a rebuild can't
+  // leave a stale connection behind.
+  function rewire(){
+    [source, gateNode, ampNode, cabNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    if(!source || !gateNode) return;
+    let node = source;
+    node.connect(gateNode); node = gateNode;
+    if(ampNode){ node.connect(ampNode); node = ampNode; }
+    if(cabNode){ node.connect(cabNode); node = cabNode; }
+    node.connect(ensureOut());
+  }
+
+  async function start(){
+    const a = ctx();
+    if(a.state === "suspended") await a.resume();
+    if(!workletsLoaded){ await a.audioWorklet.addModule("/static/worklets/guitar.js"); workletsLoaded = true; }
+    // Browser voice processing off: it ducks, gates and resamples — built
+    // for speech, ruinous on a guitar.
+    stream = await navigator.mediaDevices.getUserMedia({audio: {
+      deviceId: st.deviceId ? {exact: st.deviceId} : undefined,
+      echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+      channelCount: {ideal: 2}, latency: {ideal: 0}}, video: false});
+    const track = stream.getAudioTracks()[0];
+    st.deviceId = (track && track.getSettings().deviceId) || st.deviceId;
+    source = a.createMediaStreamSource(stream);
+    gateNode = new AudioWorkletNode(a, "guitar-processor",
+      {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+    gateNode.parameters.get("threshold").value = st.gate;
+    gateNode.port.onmessage = (e) => { if(e.data && typeof e.data.peak === "number") paintMeter(e.data.peak); };
+    if(!ampNode && st.model) await loadModel(st.model).catch(() => {});
+    if(!cabNode && st.cab) await loadCab(st.cab).catch(() => {});
+    rewire();
+    live = true;
+    persist();
+    await fillDevices();
+    paint();
+  }
+  function stop(){
+    [source, gateNode].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    if(gateNode) try{ gateNode.port.postMessage("stop"); }catch(e){}
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    stream = source = gateNode = null;
+    live = false;
+    paintMeter(0);
+    paint();
+  }
+
+  async function loadModel(m){
+    const url = m.key.startsWith("lib:")
+      ? `/api/library/raw?rel=${encodeURIComponent(m.key.slice(4))}`
+      : `/api/amps/${encodeURIComponent(m.key.slice(4))}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("model-fetch-failed");
+    const json = await res.text();
+    const eng = await ensureEngine();
+    if(!ampNode) ampNode = await eng.createNode();
+    await ampNode.loadModel(json);   // fades itself back in, no click
+    st.model = m;
+    persist();
+    rewire();
+  }
+  async function setModel(m){
+    if(!m){
+      if(ampNode) try{ await ampNode.unloadModel(); }catch(e){}
+      try{ ampNode && ampNode.disconnect(); }catch(e){}
+      ampNode = null; st.model = null; persist(); rewire(); paint();
+      return;
+    }
+    showToast("Načítám model…");
+    try{ await loadModel(m); showToast("Zesilovač: " + m.name); }
+    catch(e){ showToast("Model se nepodařilo načíst"); }
+    paint();
+  }
+  async function loadCab(file){
+    if(!file){
+      try{ cabNode && cabNode.disconnect(); }catch(e){}
+      cabNode = null; st.cab = ""; persist(); rewire();
+      return;
+    }
+    const res = await fetch(`/api/amps/${encodeURIComponent(file)}`);
+    if(!res.ok) throw new Error("ir-fetch-failed");
+    const buf = await ctx().decodeAudioData(await res.arrayBuffer());
+    const conv = ctx().createConvolver();
+    conv.normalize = true;
+    conv.buffer = buf;
+    try{ cabNode && cabNode.disconnect(); }catch(e){}
+    cabNode = conv; st.cab = file; persist(); rewire();
+  }
+
+  // ---- UI ----
+  function paintMeter(peak){
+    const fill = el("pb-gtr-meter-fill");
+    if(!fill) return;
+    const db = peak > 0 ? 20 * Math.log10(peak) : -100;
+    fill.style.width = (Math.max(0, Math.min(1, (db + 60) / 60)) * 100) + "%";
+    fill.classList.toggle("hot", db > -3);
+    fill.classList.toggle("warm", db > -12 && db <= -3);
+  }
+  function modelList(){
+    const list = amps.filter(a => a.kind === "model").map(a => ({key: "amp:" + a.file, name: a.name}));
+    // A model picked from the library's NAM folders isn't in the amp list;
+    // keep it selectable (and first) so ‹ › still has somewhere to start.
+    if(st.model && !list.some(m => m.key === st.model.key)) list.unshift(st.model);
+    return list;
+  }
+  function paint(){
+    const p = el("pb-gtr-power");
+    p.textContent = live ? "Odpojit" : "Připojit";
+    p.classList.toggle("on", live);
+    const models = modelList();
+    el("pb-gtr-model").innerHTML = `<option value="">— bez zesilovače —</option>` + models.map(m =>
+      `<option value="${escapeHtml(m.key)}" ${st.model && st.model.key === m.key ? "selected" : ""}>${
+        m.key.startsWith("lib:") ? "📁 " : ""}${escapeHtml(m.name)}</option>`).join("");
+    const irs = amps.filter(a => a.kind === "ir");
+    el("pb-gtr-cab").innerHTML = `<option value="">— bez kabinetu —</option>` + irs.map(a =>
+      `<option value="${escapeHtml(a.file)}" ${st.cab === a.file ? "selected" : ""}>${escapeHtml(a.name)}</option>`).join("");
+    el("pb-gtr-gate").value = st.gate;
+    el("pb-gtr-gate-v").textContent = st.gate <= -99.5 ? "vyp" : st.gate + " dB";
+    el("pb-gtr-vol").value = st.volume;
+    syncPlayerToggles();
+  }
+  async function fillDevices(){
+    let devs = [];
+    try{ devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); }catch(e){}
+    const sel = el("pb-gtr-device");
+    sel.innerHTML = devs.length
+      ? devs.map((d, i) => `<option value="${escapeHtml(d.deviceId)}" ${d.deviceId === st.deviceId ? "selected" : ""}>${
+          escapeHtml(d.label || "Vstup " + (i + 1))}</option>`).join("")
+      : `<option value="">Výchozí vstup</option>`;
+  }
+  async function refreshAmps(){
+    try{ amps = await (await fetch("/api/amps")).json(); }catch(e){ amps = []; }
+    if(!Array.isArray(amps)) amps = [];
+  }
+
+  function isOpen(){ return !dock.hidden; }
+  async function open(){
+    dock.hidden = false;
+    await Promise.all([refreshAmps(), fillDevices()]);
+    paint();
+  }
+  function close(){ dock.hidden = true; syncPlayerToggles(); }
+
+  function step(d){
+    const models = modelList();
+    if(!models.length){ showToast("Žádné modely — přidej je v nastavení kytary ve Steems"); return; }
+    let i = st.model ? models.findIndex(m => m.key === st.model.key) : -1;
+    i = ((i + d) % models.length + models.length) % models.length;
+    setModel(models[i]);
+  }
+
+  btn.onclick = () => { isOpen() ? close() : open(); };
+  el("pb-gtr-close").onclick = close;
+  el("pb-gtr-power").onclick = async () => {
+    if(live){ stop(); return; }
+    try{ await start(); showToast("Kytara připojená" + (st.model ? " — " + st.model.name : "")); }
+    catch(e){ console.error("player guitar:", e); showToast("Vstup se nepodařilo otevřít — povol mikrofon"); stop(); }
+  };
+  el("pb-gtr-device").onchange = async (e) => {
+    st.deviceId = e.target.value; persist();
+    if(live){ stop(); try{ await start(); }catch(err){ showToast("Vstup se nepodařilo otevřít"); } }
+  };
+  el("pb-gtr-model").onchange = (e) => {
+    const m = modelList().find(x => x.key === e.target.value) || null;
+    setModel(m);
+  };
+  el("pb-gtr-prev").onclick = () => step(-1);
+  el("pb-gtr-next").onclick = () => step(1);
+  el("pb-gtr-cab").onchange = async (e) => {
+    try{ await loadCab(e.target.value); }catch(err){ showToast("Kabinet se nepodařilo načíst"); }
+    paint();
+  };
+  el("pb-gtr-gate").oninput = (e) => {
+    st.gate = parseFloat(e.target.value);
+    if(gateNode) gateNode.parameters.get("threshold").value = st.gate;
+    el("pb-gtr-gate-v").textContent = st.gate <= -99.5 ? "vyp" : st.gate + " dB";
+    persist();
+  };
+  el("pb-gtr-vol").oninput = (e) => {
+    st.volume = parseFloat(e.target.value);
+    if(outGain) outGain.gain.value = st.volume;
+    persist();
+  };
+
+  return {
+    isOpen, isLive: () => live, open, close,
+    currentModelKey: () => st.model ? st.model.key : null,
+    // From a NAM preset row: make that .nam the live amp and bring the
+    // dock up, ready to plug in (or already playing through it).
+    async useLibraryModel(rel, name){
+      await open();
+      await setModel({key: "lib:" + rel, name});
+      if(!live) showToast("Model nastaven — klikni Připojit v panelu Kytara");
+    },
+  };
+})();
+
 // LyricsView's own full auto-scrolling modal stays intact and reachable
 // (via LyricsView.toggle elsewhere) but pb-lyrics-btn itself now opens the
 // docked bar instead — "jako ve steems" was the explicit ask, and a plain
@@ -16146,6 +16436,7 @@ function syncPlayerToggles(){
     "pb-lyrics-btn": (typeof PlayerLyricsDock !== "undefined" && PlayerLyricsDock.isOpen())
       || !el("lyrics-overlay").hidden,
     "pb-tab-btn": typeof PlayerTab !== "undefined" && PlayerTab.isOpen(),
+    "pb-gtr-btn": typeof PlayerGuitar !== "undefined" && (PlayerGuitar.isOpen() || PlayerGuitar.isLive()),
   };
   Object.entries(state).forEach(([id, on]) => {
     const b = el(id);
