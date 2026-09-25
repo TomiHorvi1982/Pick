@@ -1413,6 +1413,8 @@
   .pb-tab-dock-hostwrap{max-height:300px;overflow-y:hidden;position:relative;
     display:flex;flex-direction:column}
   #pb-tab-dock-run.on{background:var(--accent);color:#000}
+  .tab-tuning{font-size:11px;font-weight:700;color:#e9b949;border:1px solid rgba(233,185,73,.45);
+    border-radius:10px;padding:1px 8px;white-space:nowrap;font-variant-numeric:tabular-nums}
   .pb-tab-dock-len{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
   .pb-tab-dock-len b{color:var(--text);font-weight:600}
   /* Thin strips of their own above/below the notation, never on top of it —
@@ -3037,6 +3039,7 @@
             <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
             <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
             <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
+            <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
             <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
             <div class="nm-spacer"></div>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
@@ -3390,6 +3393,7 @@
       <span data-icon="note" data-size="14"></span>
       <span class="pb-tab-dock-name" id="pb-tab-dock-name">Tab</span>
       <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
+      <span class="tab-tuning" id="pb-tab-dock-tuning" hidden></span>
       <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
       <span class="sp"></span>
       <button type="button" id="pb-tab-dock-slower" title="Tab pomaleji — o 0,1 s delší (Shift = 1 s)">−0,1 s</button>
@@ -7753,6 +7757,43 @@ const Songsterr = {
 
 };
 
+// A tab's tuning (Songsterr lists strings high to low as MIDI notes) as
+// something a guitarist reads at a glance: "Drop D", "Eb Standard", or
+// failing a named shape, just the notes — with the notes low to high
+// alongside either way. Named from the lowest string, the usual way.
+function describeTuning(tuning){
+  if(!Array.isArray(tuning) || !tuning.length) return null;
+  // The root is spelled the way tunings are usually called (C#, Eb, F#,
+  // Ab, Bb); the other strings follow its lead — flats with a flat root.
+  const ROOT = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+  const SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+  const pc = m => ((Math.round(m) % 12) + 12) % 12;
+  const low = tuning.slice().reverse();
+  const names = ROOT[pc(low[0])].endsWith("b") ? FLAT : SHARP;
+  const nm = m => names[pc(m)];
+  const steps = low.slice(1).map((m, i) => m - low[i]);
+  const n = low.length;
+  // Standard: fourths all the way, except a major third between the G and
+  // B strings on a guitar (which is the 3rd string from the top).
+  const std = steps.map((_, i) => (n >= 6 && i === n - 3) ? 4 : 5);
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const extra = (n === 6 || n === 4) ? "" : ` (${n} strun)`;
+  let name = null;
+  if(same(steps, std)) name = (low[0] === 40 && n === 6) || (low[0] === 28 && n === 4) ? "Standard" : ROOT[pc(low[0])] + " Standard";
+  else if(steps[0] === 7 && same(steps.slice(1), std.slice(1))) name = "Drop " + ROOT[pc(low[0])];
+  if(name) name += extra;
+  const notes = low.map(nm).join(" ");
+  return {name: name || notes, notes, label: name ? `${name} · ${notes}` : notes};
+}
+function paintTuning(elId, tuning){
+  const box = el(elId);
+  if(!box) return;
+  const t = describeTuning(tuning);
+  box.hidden = !t;
+  if(t){ box.textContent = t.label; box.title = "Ladění (od nejhlubší struny): " + t.notes; }
+}
+
 const TabSearch = (() => {
 
   const overlay = el("tab-search-overlay");
@@ -9338,6 +9379,7 @@ const Mixer = (() => {
     box.hidden = false;
     const tb = tabs[0];
     el("nm-tabtop-name").textContent = tb.data.name || "Tab";
+    paintTuning("nm-tabtop-tuning", tb.data.tuning);
     const sel = el("nm-tabtop-select");
     const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
       .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
@@ -14804,6 +14846,7 @@ const PlayerTab = (() => {
     trackIndex = entry.trackIndex;
 
     el("pb-tab-dock-name").textContent = tabData.name || "Tab";
+    paintTuning("pb-tab-dock-tuning", tabData.tuning);
     const guitarOpts = (meta && Array.isArray(meta.tracks) ? meta.tracks : [])
       .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
     const sel = el("pb-tab-dock-select");
