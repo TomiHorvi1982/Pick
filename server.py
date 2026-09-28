@@ -39,7 +39,7 @@ def ffmpeg_bin() -> str:
     return (os.environ.get("SPOTIFYLISTY_FFMPEG")
             or shutil.which("ffmpeg")
             or "/opt/homebrew/bin/ffmpeg")
-AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav"}
+AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav", ".aac"}
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
 LIBRARY_PATH = HOME / "Music" / "spotdl" / "library.json"
@@ -2645,6 +2645,18 @@ _LEGACY_NAM_RIFF = NAM_PREVIEW_DIR / "nam_preview_di.webm"
 _re_riff_id = _re_mod.compile(r"[0-9a-f]{8,32}")
 
 
+def _riff_file(riff_id: str) -> Optional[Path]:
+    """The stored file of a riff. Recordings are .webm, but a DI riff copied
+    in from disk keeps its own extension (wav, mp3, flac…)."""
+    if not _re_riff_id.fullmatch(riff_id or ""):
+        return None
+    if NAM_RIFFS_DIR.is_dir():
+        for p in sorted(NAM_RIFFS_DIR.glob(f"{riff_id}.*")):
+            if p.is_file():
+                return p
+    return None
+
+
 def _load_riffs_index() -> dict:
     try:
         data = json.loads(NAM_RIFFS_INDEX.read_text(encoding="utf-8"))
@@ -2728,8 +2740,8 @@ def list_nam_riffs():
     data = _load_riffs_index()
     out = []
     for r in data["riffs"]:
-        path = NAM_RIFFS_DIR / f"{r['id']}.webm"
-        if not path.is_file():
+        path = _riff_file(r["id"])
+        if path is None:
             continue
         out.append({**r, "bytes": path.stat().st_size})
     return {"riffs": out, "active_id": data.get("active_id")}
@@ -2762,18 +2774,19 @@ async def add_nam_riff(request: Request, name: str = ""):
 def get_nam_riff(riff_id: str):
     if not _re_riff_id.fullmatch(riff_id):
         return JSONResponse({"error": "Neplatné id."}, status_code=400)
-    path = NAM_RIFFS_DIR / f"{riff_id}.webm"
-    if not path.is_file():
+    path = _riff_file(riff_id)
+    if path is None:
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     from fastapi.responses import Response
-    return Response(path.read_bytes(), media_type="audio/webm")
+    return Response(path.read_bytes(),
+                    media_type=mimetypes.guess_type(str(path))[0] or "audio/webm")
 
 
 @app.delete("/api/nam-preview/riffs/{riff_id}")
 def delete_nam_riff(riff_id: str):
     if not _re_riff_id.fullmatch(riff_id):
         return JSONResponse({"error": "Neplatné id."}, status_code=400)
-    path = NAM_RIFFS_DIR / f"{riff_id}.webm"
+    path = _riff_file(riff_id) or (NAM_RIFFS_DIR / f"{riff_id}.webm")
     # A real recording of the user's own playing, and a straight unlink()
     # here already once cost a real one during this feature's own testing —
     # Trash it instead, same as library_fs_delete, so that mistake (by
@@ -2811,6 +2824,185 @@ def set_active_nam_riff(req: NamRiffActiveRequest):
     data["active_id"] = req.riff_id
     _save_riffs_index(data)
     return {"ok": True, "active_id": req.riff_id}
+
+
+# ------------------------------------------------------- DI riffs from disk
+#
+# Folders of dry guitar recordings that live anywhere on the disk can be
+# "mapped": they are browsed in place (never moved or changed) and any file in
+# them can be copied into the sample riffs, to hear a NAM profile on it.
+DI_EXTS = AUDIO_EXTS | {".aif", ".aiff", ".wma", ".webm"}
+# Chrome can't decode these, so they are converted to wav when copied in.
+DI_TRANSCODE_EXTS = {".aif", ".aiff", ".wma"}
+DI_MAX_BYTES = 60 * 1024 * 1024
+
+
+def _di_dirs() -> list:
+    out = []
+    for raw in _read_config().get("di_dirs") or []:
+        if isinstance(raw, str) and raw:
+            out.append(raw)
+    return out
+
+
+def _resolve_under_di_dirs(path: str) -> Optional[Path]:
+    """`path` resolved, only if it is (inside) one of the mapped folders."""
+    if not path or not Path(path).is_absolute():
+        return None
+    try:
+        candidate = Path(path).resolve()
+    except (ValueError, OSError):
+        return None
+    for d in _di_dirs():
+        try:
+            root = Path(d).resolve()
+        except (ValueError, OSError):
+            continue
+        if candidate == root or root in candidate.parents:
+            return candidate
+    return None
+
+
+def _di_dirs_payload() -> dict:
+    return {"dirs": [{"path": d, "name": Path(d).name or d, "exists": Path(d).is_dir()}
+                     for d in _di_dirs()]}
+
+
+class DiDirRequest(BaseModel):
+    path: Optional[str] = None  # omitted: ask with the native folder picker
+
+
+@app.get("/api/di/dirs")
+def di_dirs_list():
+    return _di_dirs_payload()
+
+
+@app.post("/api/di/dirs")
+def di_dirs_add(req: DiDirRequest):
+    path = req.path
+    if not path:
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", 'POSIX path of (choose folder with prompt "Složka s DI riffy")'],
+                capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            return {**_di_dirs_payload(), "added": None}
+        if result.returncode != 0:
+            return {**_di_dirs_payload(), "added": None}  # dialog cancelled
+        path = result.stdout.strip()
+    p = Path(path).expanduser()
+    if not p.is_absolute() or not p.is_dir():
+        return JSONResponse({"error": "Složka neexistuje."}, status_code=400)
+    p = p.resolve()
+    dirs = _di_dirs()
+    if str(p) not in dirs:
+        dirs.append(str(p))
+        _write_config({"di_dirs": dirs})
+    return {**_di_dirs_payload(), "added": str(p)}
+
+
+@app.post("/api/di/dirs/remove")
+def di_dirs_remove(req: DiDirRequest):
+    # Only the mapping goes; the folder and its files are not touched.
+    dirs = [d for d in _di_dirs() if d != req.path]
+    _write_config({"di_dirs": dirs})
+    return _di_dirs_payload()
+
+
+@app.get("/api/di/browse")
+def di_browse(path: str):
+    target = _resolve_under_di_dirs(path)
+    if target is None or not target.is_dir():
+        return JSONResponse({"error": "Složka nenalezena."}, status_code=404)
+    roots = {str(Path(d).resolve()) for d in _di_dirs() if Path(d).exists()}
+    entries = []
+    try:
+        children = sorted(target.iterdir(), key=lambda q: (not q.is_dir(), q.name.lower()))
+    except OSError:
+        children = []
+    for c in children:
+        if c.name.startswith("."):
+            continue
+        if c.is_dir():
+            entries.append({"type": "dir", "name": c.name, "path": str(c)})
+        elif c.is_file() and c.suffix.lower() in DI_EXTS:
+            try:
+                size = c.stat().st_size
+            except OSError:
+                continue
+            entries.append({"type": "file", "name": c.name, "path": str(c), "size_bytes": size,
+                            "playable": c.suffix.lower() not in DI_TRANSCODE_EXTS})
+    at_root = str(target) in roots
+    return {"path": str(target), "name": target.name or str(target),
+            "parent": None if at_root else str(target.parent), "entries": entries}
+
+
+@app.get("/api/di/audio")
+def di_audio(path: str, request: Request):
+    target = _resolve_under_di_dirs(path)
+    if target is None or not target.is_file() or target.suffix.lower() not in DI_EXTS:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return _range_file_response(target, request.headers.get("range"))
+
+
+class RiffFromFileRequest(BaseModel):
+    path: Optional[str] = None   # absolute, inside a mapped DI folder
+    rel: Optional[str] = None    # or a library-relative audio file
+    name: Optional[str] = None
+    activate: bool = False
+
+
+@app.post("/api/nam-preview/riffs/from-file")
+def add_nam_riff_from_file(req: RiffFromFileRequest):
+    """Copies an existing audio file into the sample riffs. The original is
+    never moved or modified; copying the same file twice returns the riff
+    that already holds it."""
+    if req.path:
+        src = _resolve_under_di_dirs(req.path)
+    elif req.rel:
+        src = _resolve_under_music_root(req.rel)
+    else:
+        src = None
+    if src is None or not src.is_file() or src.suffix.lower() not in DI_EXTS:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    st = src.stat()
+    if st.st_size > DI_MAX_BYTES:
+        return JSONResponse({"error": "Soubor je příliš velký (max 60 MB) — vyber kratší riff."},
+                            status_code=413)
+    source_key = f"{src}|{int(st.st_mtime)}|{st.st_size}"
+    data = _load_riffs_index()
+    existing = next((r for r in data["riffs"] if r.get("source") == source_key
+                     and _riff_file(r["id"]) is not None), None)
+    if existing:
+        if req.activate:
+            data["active_id"] = existing["id"]
+            _save_riffs_index(data)
+        return {"ok": True, "riff": existing, "active_id": data.get("active_id"), "existing": True}
+
+    NAM_RIFFS_DIR.mkdir(parents=True, exist_ok=True)
+    riff_id = uuid.uuid4().hex[:12]
+    ext = src.suffix.lower()
+    try:
+        if ext in DI_TRANSCODE_EXTS:
+            dest = NAM_RIFFS_DIR / f"{riff_id}.wav"
+            r = subprocess.run([ffmpeg_bin(), "-y", "-i", str(src), "-vn", str(dest)],
+                               capture_output=True, timeout=120)
+            if r.returncode != 0 or not dest.is_file():
+                dest.unlink(missing_ok=True)
+                return JSONResponse({"error": "Soubor se nepodařilo převést na wav."}, status_code=500)
+        else:
+            dest = NAM_RIFFS_DIR / f"{riff_id}{ext}"
+            shutil.copyfile(src, dest)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return JSONResponse({"error": f"Kopírování selhalo: {exc}"}, status_code=500)
+    entry = {"id": riff_id, "name": (req.name or "").strip() or src.stem,
+             "created_at": int(time.time()), "source": source_key}
+    data["riffs"].append(entry)
+    if req.activate or not data.get("active_id"):
+        data["active_id"] = riff_id
+    _save_riffs_index(data)
+    return {"ok": True, "riff": {**entry, "bytes": dest.stat().st_size},
+            "active_id": data["active_id"], "existing": False}
 
 
 @app.get("/api/preview")
@@ -4457,59 +4649,90 @@ def _fetch_ytmusic_lyrics(title: str, artist: str, video_id: str = "") -> Option
     }
 
 
+def _lrclib_diff(r: dict, duration) -> float:
+    if not duration or not r.get("duration"):
+        return 999.0
+    return abs(float(r["duration"]) - float(duration))
+
+
+def _lrclib_to_data(best: dict, duration) -> dict:
+    data = {
+        "synced": False,
+        "lines": None,
+        "plain": best.get("plainLyrics"),
+        "source": "LRCLib",
+        "duration_diff": None,
+    }
+    d = _lrclib_diff(best, duration)
+    if d < 999:
+        data["duration_diff"] = round(d, 1)
+    if best.get("syncedLyrics"):
+        parsed = _parse_lrc(best["syncedLyrics"])
+        if parsed:
+            data["synced"] = True
+            data["lines"] = parsed
+    return data
+
+
 def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, duration: float = None) -> Optional[dict]:
     """Fetch synced lyrics from LRCLib API.
 
-    Returns dict with keys: synced (bool), lines (list or None), plain (str or None), source (str)
+    Returns dict with keys: synced (bool), lines (list or None), plain (str or None),
+    source (str), duration_diff (seconds between the file and the picked version).
+
+    One song usually has several versions on LRCLib (album, single, radio edit,
+    live) whose timings differ, so which one gets picked decides whether the
+    lines sit on the singing. A synced version whose length matches the file
+    wins over anything else; a plain-only one never beats a synced one.
     """
-    cache_key = f"{track_name.lower()}|{artist_name.lower()}"
+    dur_key = int(round(duration)) if duration else 0
+    cache_key = f"{track_name.lower()}|{artist_name.lower()}|{dur_key}"
     cached = _LYRICS_CACHE.get(cache_key)
     if cached and cached["expires"] > time.time():
         return cached["data"]
 
+    headers = {"User-Agent": "Spotifylisty/1.0"}
     try:
-        params = {
-            "track_name": track_name,
-            "artist_name": artist_name,
-        }
-        if album_name:
-            params["album_name"] = album_name
+        data = None
+        # LRCLib's own exact lookup (matches length within ±2 s) when the album
+        # and length are both known — the closest thing to "this very version".
+        if duration and album_name:
+            g = httpx.get("https://lrclib.net/api/get", headers=headers, timeout=10.0, params={
+                "track_name": track_name, "artist_name": artist_name,
+                "album_name": album_name, "duration": int(round(duration)),
+            })
+            if g.status_code == 200:
+                gj = g.json()
+                if isinstance(gj, dict) and gj.get("syncedLyrics") and not gj.get("instrumental"):
+                    data = _lrclib_to_data(gj, duration)
 
-        req = httpx.get("https://lrclib.net/api/search", params=params, headers={"User-Agent": "Spotifylisty/1.0"}, timeout=15.0)
-        if req.status_code != 200:
-            return None
+        if data is None:
+            params = {"track_name": track_name, "artist_name": artist_name}
+            if album_name:
+                params["album_name"] = album_name
+            req = httpx.get("https://lrclib.net/api/search", params=params, headers=headers, timeout=15.0)
+            if req.status_code != 200:
+                return None
+            results = req.json()
+            if not results or not isinstance(results, list):
+                return None
+            valid = [
+                r for r in results
+                if isinstance(r, dict) and (r.get("syncedLyrics") or r.get("plainLyrics"))
+                and not r.get("instrumental")
+            ]
+            if not valid:
+                return None
 
-        results = req.json()
-        if not results or not isinstance(results, list):
-            return None
+            synced = [r for r in valid if r.get("syncedLyrics")]
+            pool = synced or valid
+            want_album = (album_name or "").strip().lower()
 
-        # Filter valid results
-        valid = [
-            r for r in results
-            if (r.get("syncedLyrics") or r.get("plainLyrics"))
-            and not r.get("instrumental")
-        ]
-        if not valid:
-            return None
+            def rank(r):
+                album_miss = 0 if want_album and (r.get("albumName") or "").strip().lower() == want_album else 1
+                return (_lrclib_diff(r, duration), album_miss)
 
-        # Find best match by duration
-        best = valid[0]
-        if duration and any(r.get("duration") for r in valid):
-            target_dur = duration
-            best = min(valid, key=lambda r: abs((r.get("duration") or 0) - target_dur))
-
-        data = {
-            "synced": False,
-            "lines": None,
-            "plain": best.get("plainLyrics"),
-            "source": "LRCLib",
-        }
-
-        if best.get("syncedLyrics"):
-            parsed = _parse_lrc(best["syncedLyrics"])
-            if parsed:
-                data["synced"] = True
-                data["lines"] = parsed
+            data = _lrclib_to_data(min(pool, key=rank), duration)
 
         _LYRICS_CACHE[cache_key] = {"data": data, "expires": time.time() + _LYRICS_CACHE_TTL}
         return data

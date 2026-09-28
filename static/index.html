@@ -975,15 +975,22 @@
     font-variant-numeric:tabular-nums;white-space:nowrap}
   .nm-tabtop-select{background:#23232b;border:1px solid #33333d;border-radius:5px;
     color:var(--nm-txt,#ddd);font-size:11px;padding:4px 6px;font-family:inherit;max-width:320px}
-  .nm-tabtop-hostwrap{position:relative}
-  .nm-tabtop-host{width:100%;overflow-x:auto;overflow-y:hidden;background:#f4f4f2;
-    border-radius:8px;height:200px}
-  /* Its left offset is set live by syncTabToTime (JS) every frame — moves
-     with "now" until that reaches the panel's centre, same as the main
-     ruler playhead, then holds there while the tab scrolls underneath it
-     instead, the usual karaoke-style cue. */
-  .nm-tabtop-cursor{position:absolute;top:0;bottom:0;left:0;width:2px;
-    background:rgba(200,60,40,.75);pointer-events:none}
+  /* Same idea as the main player's tab dock: a fixed clipping viewport, the
+     host inside it moved with a transform (no native scroll to clamp at the
+     ends), red triangles above and below marking the centre — the bar being
+     played sits under them, and the first bar starts there. */
+  .nm-tabtop-hostwrap{position:relative;display:flex;flex-direction:column;
+    border-radius:8px;overflow:hidden;background:#f4f4f2}
+  .nm-tabtop-viewport{overflow:hidden;position:relative;background:#f4f4f2;
+    cursor:grab;touch-action:none}
+  .nm-tabtop-viewport.dragging{cursor:grabbing}
+  .nm-tabtop-host{background:#f4f4f2;width:max-content;min-width:100%;height:200px}
+  .nm-tabtop-hostwrap.floated{overflow:visible;border-radius:0}
+  .nm-tabtop-hostwrap.floated .nm-tabtop-viewport{overflow:visible;cursor:auto}
+  .nm-tabtop-hostwrap.floated .nm-tabtop-host{width:100%;transform:none !important}
+  .nm-tabtop-hostwrap.floated .pb-tab-dock-marker{display:none}
+  .nm-tabtop-off{font-size:11px;font-weight:600;color:var(--nm-gold);
+    font-variant-numeric:tabular-nums;min-width:44px;text-align:center}
   .nm-tabtop-pos{width:100%;margin-top:6px;accent-color:var(--nm-sub)}
 
   /* --- transport --- */
@@ -1935,7 +1942,6 @@
   .tab-float-body{background:#f4f4f2;overflow-y:auto;padding:8px}
   .tab-float-body .nm-tabtop-hostwrap{height:100%}
   .tab-float-body .nm-tabtop-host{height:auto !important}
-  .tab-float-body .nm-tabtop-cursor{display:none}
   /* Karaoketexty.cz's own page, framed — not fetched or copied into this
      app. The hint line just names the current song for typing into their
      own search box; the "open in new window" link is a fallback for if
@@ -2199,7 +2205,7 @@
 
   .lib-table{margin-top:10px}
   .lib-thead,.lib-trow{display:grid;
-    grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 104px;
+    grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 132px;
     align-items:center;gap:12px;padding:0 10px}
   .lib-thead{height:34px;color:var(--sub);font-size:12px;font-weight:500;
     border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px;
@@ -2287,6 +2293,19 @@
   .nam-riff-row button.on{color:var(--accent)}
   .nam-riff-row button:disabled{opacity:.3;cursor:default}
   .nam-riff-row button:disabled:hover{background:none}
+  .di-dirs,.di-browser{display:flex;flex-direction:column;gap:4px;padding:2px 10px 6px}
+  .di-dirs .di-dir-row{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;
+    background:var(--card-hi);cursor:pointer;font-size:12px;color:var(--text)}
+  .di-dirs .di-dir-row.on{box-shadow:inset 0 0 0 1px var(--accent)}
+  .di-dirs .di-dir-row .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .di-dirs button,.di-browser button.di-txt,.di-add-btn{background:none;border:none;color:var(--sub);
+    cursor:pointer;padding:3px 5px;display:flex;align-items:center;gap:4px;border-radius:4px;font-size:11.5px}
+  .di-dirs button:hover,.di-browser button.di-txt:hover,.di-add-btn:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .di-add-btn{margin:2px 10px 4px;background:var(--card-hi);color:var(--text)}
+  .di-crumb{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--sub);padding:2px 2px 4px}
+  .di-crumb .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .di-browser .nam-riff-row.di-dir{cursor:pointer}
+  .di-size{flex:0 0 auto;font-size:10.5px;color:var(--sub)}
   .nam-riff-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;font-size:12px;color:var(--text)}
   .nam-riff-active-dot{flex:0 0 auto;display:flex;align-items:center;cursor:pointer;
@@ -3042,14 +3061,23 @@
             <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
             <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
             <div class="nm-spacer"></div>
+            <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
+            <span class="nm-tabtop-off" id="nm-tabtop-off" title="Posun tabulatury proti písni — kdy začíná první takt">0,0 s</span>
+            <button class="nm-step" id="nm-tabtop-later" title="Tab o 0,1 s později (Shift = 1 s)">+0,1</button>
+            <button class="nm-btn round" id="nm-tabtop-sync" title="První takt tabulatury začne právě teď — pusť písničku, až nastoupí kytara, a klikni (uloží se k písni)">Sync</button>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
             <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
             <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
             <button class="nm-btn round" id="nm-tabtop-rm" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
           </div>
           <div class="nm-tabtop-hostwrap" id="nm-tabtop-hostwrap">
-            <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
-            <div class="nm-tabtop-cursor" id="nm-tabtop-cursor"></div>
+            <div class="pb-tab-dock-marker pb-tab-dock-marker-top" id="nm-tabtop-marker-top"
+              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
+            <div class="nm-tabtop-viewport" id="nm-tabtop-viewport">
+              <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
+            </div>
+            <div class="pb-tab-dock-marker pb-tab-dock-marker-bottom" id="nm-tabtop-marker-bottom"
+              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
           </div>
           <input type="range" class="nm-tabtop-pos" id="nm-tabtop-pos" min="0" max="1000" value="0" title="Pozice v tabulatuře">
         </div>
@@ -3760,31 +3788,132 @@ function thumbUrl(u){
 // ======================================================================
 const AudioBus = (() => {
   let mixerStop = null;
+  let mixerIsPlaying = null;
   let owner = null;          // the HTMLMediaElement, or "mixer"
+  const seen = new Set();    // every media element that ever played, weakly held
 
-  function silenceOthers(next){
-    document.querySelectorAll("audio, video").forEach(el => {
-      if(el !== next && !el.paused) el.pause();
+  // A second window of the app (the PIKO app window plus a browser tab, say)
+  // has its own bus and knows nothing of this one — so whoever starts tells
+  // the others, and they stop theirs.
+  let chan = null;
+  const winId = Math.random().toString(36).slice(2);
+  try{
+    chan = new BroadcastChannel("spotdl-audio-bus");
+    chan.onmessage = (e) => {
+      if(e.data && e.data.type === "claim" && e.data.from !== winId) silenceOthers(null, true);
+    };
+  }catch(err){ chan = null; }
+
+  function pauseMedia(except){
+    document.querySelectorAll("audio, video").forEach(m => {
+      if(m !== except && !m.paused) m.pause();
     });
+    seen.forEach(ref => {
+      const m = ref.deref();
+      if(m && m !== except && !m.paused) m.pause();
+    });
+  }
+
+  function silenceOthers(next, fromOtherWindow){
+    pauseMedia(next);
     if(next !== "mixer" && mixerStop){
       try{ mixerStop(); }catch(e){}
     }
     owner = next;
+    if(!fromOtherWindow && chan){
+      try{ chan.postMessage({type: "claim", from: winId}); }catch(e){}
+    }
   }
+
+  // Elements that never enter the page (new Audio(...)) don't send "play"
+  // events to the document, so play() itself is what has to announce them.
+  const nativePlay = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function(...args){
+    if(!this.isConnected){
+      seen.add(new WeakRef(this));
+      silenceOthers(this);
+    }
+    return nativePlay.apply(this, args);
+  };
 
   document.addEventListener("play", (e) => {
     const el = e.target;
     if(el instanceof HTMLMediaElement) silenceOthers(el);
   }, true);
 
+  // Safety net for any start path that slips past the above: if the mixer
+  // and a media element are ever both running, the one that claimed the bus
+  // last keeps it.
+  setInterval(() => {
+    if(!mixerIsPlaying || !mixerIsPlaying()) return;
+    const mediaOn = [...document.querySelectorAll("audio, video")].some(m => !m.paused);
+    if(!mediaOn) return;
+    if(owner === "mixer") pauseMedia(null);
+    else if(mixerStop) { try{ mixerStop(); }catch(e){} }
+  }, 500);
+
   return {
-    // The mixer hands over the way to stop it, once.
-    registerMixer(stop){ mixerStop = stop; },
+    // The mixer hands over the way to stop it (and to ask if it's running), once.
+    registerMixer(stop, isPlayingFn){ mixerStop = stop; mixerIsPlaying = isPlayingFn || null; },
     // …and claims the bus when it starts.
     claimMixer(){ silenceOthers("mixer"); },
     release(who){ if(owner === who) owner = null; },
     owner(){ return owner; },
   };
+})();
+
+// ======================================================================
+// Hover captions ("title" tooltips) only where they earn their place: in the
+// Steems mixer (and the floating windows that belong to it) and on tiny
+// icon-only buttons. Everywhere else they popped up over song rows, cards
+// and labelled buttons that already say what they are. Done on hover rather
+// than by editing every title in the markup, so titles set later from script
+// (rows, cards) are covered too; the text is kept as aria-label.
+// ======================================================================
+(() => {
+  const keeps = (t) => {
+    if(t.closest("#mixer, .float-win")) return true;
+    const txt = (t.textContent || "").trim();
+    if(txt.length > 2) return false;
+    const r = t.getBoundingClientRect();
+    // Width only: icon buttons in a row are often stretched to the row's height.
+    return r.width <= 48;
+  };
+  document.addEventListener("mouseover", (e) => {
+    const t = e.target instanceof Element ? e.target.closest("[title]") : null;
+    if(!t || keeps(t)) return;
+    if(!t.hasAttribute("aria-label")) t.setAttribute("aria-label", t.getAttribute("title"));
+    t.removeAttribute("title");
+  }, true);
+})();
+
+// Red triangles above/below a tab (main player dock and Steems panel alike):
+// click any of them to step through 10 sizes, then wrap to the smallest.
+// A display preference, so remembered globally rather than per song.
+const TabMarkers = (() => {
+  const STEPS = 10, KEY = "spotdl-gui-pb-tab-marker-size";
+  const IDS = ["pb-tab-dock-marker-top", "pb-tab-dock-marker-bottom",
+               "nm-tabtop-marker-top", "nm-tabtop-marker-bottom"];
+  let step = 1;
+  try{ const v = parseInt(localStorage.getItem(KEY), 10); if(v >= 1 && v <= STEPS) step = v; }catch(e){}
+  function paint(){
+    const triW = 6 + (step - 1) * 2, triH = 8 + (step - 1) * 3;
+    IDS.forEach(id => {
+      const m = document.getElementById(id);
+      if(!m) return;
+      m.style.height = (triH + 3) + "px";
+      m.style.setProperty("--tri-w", triW + "px");
+      m.style.setProperty("--tri-h", triH + "px");
+    });
+  }
+  function cycle(){
+    step = step >= STEPS ? 1 : step + 1;
+    try{ localStorage.setItem(KEY, String(step)); }catch(e){}
+    paint();
+  }
+  IDS.forEach(id => { const m = document.getElementById(id); if(m) m.onclick = cycle; });
+  paint();
+  return {paint, cycle};
 })();
 
 function showToast(msg){
@@ -6620,6 +6749,7 @@ function paintLibraryTable(){
       <span class="c-time">${libDurationText(entry)}</span>
       <span class="c-act">
         <button class="act-stems" title="Rozdělit na stopy">\uD83C\uDF9A</button>
+        <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">\uD83C\uDFB8</button>
         <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
         <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
         <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
@@ -6633,6 +6763,10 @@ function paintLibraryTable(){
     row.querySelector(".act-stems").onclick = (e) => {
       e.stopPropagation();
       startStemsSeparation(entry.rel);
+    };
+    row.querySelector(".act-riff").onclick = (e) => {
+      e.stopPropagation();
+      importRiffFromFile({rel: entry.rel, name: title});
     };
     row.querySelector(".act-reveal").onclick = (e) => {
       e.stopPropagation();
@@ -7051,6 +7185,31 @@ const NamRiffRecorder = (() => {
   return {listDevices, start, stop, isRecording: () => !!recorder};
 })();
 
+// Copies an audio file (a library file, or one from a mapped DI folder) into
+// the sample riffs and makes it the active one, so the ▶ of any NAM profile
+// plays that riff through the model. The original is left as it is.
+async function importRiffFromFile(src, activate = true){
+  try{
+    const res = await fetch("/api/nam-preview/riffs/from-file", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({...src, activate}),
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Kopírování selhalo");
+    NamPreview.invalidateRiff();
+    invalidateNamRiffsList();
+    if(state.mode === "library") paintLibraryTable();
+    const name = data.riff && data.riff.name ? data.riff.name : "riff";
+    showToast(data.existing
+      ? `„${name}“ už mezi riffy je` + (activate ? " — nastaven jako aktivní" : "")
+      : `„${name}“ zkopírován do ukázkových riffů` + (activate ? " a nastaven jako aktivní" : ""));
+    return data;
+  }catch(e){
+    showToast(e.message || "Kopírování selhalo");
+    return null;
+  }
+}
+
 // A small library of riffs (not just one, not fixed once recorded): each
 // has a name, one is "active" (what preset preview buttons actually play),
 // the rest can be auditioned, made active, or deleted.
@@ -7078,6 +7237,13 @@ function openNamRiffManager(forRel){
     <div class="nam-riff-list" id="nam-riff-list">
       <div class="hint" style="padding:4px 10px">Načítám…</div>
     </div>
+    <div class="ss-head" style="padding:10px 10px 3px">DI riffy z disku</div>
+    <div class="hint" style="padding:0 10px 6px">Namapuj složku s DI nahrávkami — zůstane
+      tam, kde je. Soubor z ní vyzkoušíš s NAM profily tlačítkem <b>Použít</b>
+      (zkopíruje ho mezi riffy a nastaví jako aktivní), nebo ho jen zkopíruješ přes +.</div>
+    <div class="di-dirs" id="di-dirs"></div>
+    <button type="button" class="di-add-btn" id="di-add-dir">${icon("folder", 12)}<span>Namapovat složku…</span></button>
+    <div class="di-browser" id="di-browser"></div>
     <div class="ss-head" style="padding:10px 10px 3px">Metronom</div>
     <div class="nam-metro-row">
       <button type="button" id="nam-metro-tap" title="Klepej v rytmu — spočítá tempo">Tap</button>
@@ -7193,6 +7359,108 @@ function openNamRiffManager(forRel){
     });
   }
   refreshList();
+
+  // ---- DI folders mapped from anywhere on the disk ----
+  let diCurrent = null;
+  const fmtBytes = (n) => n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB"
+    : Math.max(1, Math.round(n / 1024)) + " kB";
+
+  async function refreshDiDirs(){
+    const wrap = el("di-dirs");
+    let data;
+    try{ data = await (await fetch("/api/di/dirs")).json(); }
+    catch(e){ wrap.innerHTML = ""; return; }
+    wrap.innerHTML = "";
+    data.dirs.forEach(d => {
+      const row = document.createElement("div");
+      row.className = "di-dir-row" + (diCurrent && (diCurrent === d.path || diCurrent.startsWith(d.path + "/")) ? " on" : "");
+      row.innerHTML = `${icon("folder", 12)}<span class="tx" title="${escapeHtml(d.path)}">${escapeHtml(d.name)}${d.exists ? "" : " (chybí)"}</span>
+        <button type="button" class="di-unmap" title="Odpojit složku (soubory zůstanou)">${icon("close", 11)}</button>`;
+      row.onclick = () => browseDi(d.path);
+      row.querySelector(".di-unmap").onclick = async (e) => {
+        e.stopPropagation();
+        await fetch("/api/di/dirs/remove", {method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({path: d.path})});
+        if(diCurrent && (diCurrent === d.path || diCurrent.startsWith(d.path + "/"))){
+          diCurrent = null; el("di-browser").innerHTML = "";
+        }
+        refreshDiDirs();
+      };
+      wrap.appendChild(row);
+    });
+    return data;
+  }
+
+  async function browseDi(path){
+    diCurrent = path;
+    stopRawPlayback();
+    const b = el("di-browser");
+    b.innerHTML = `<div class="hint">Načítám…</div>`;
+    let res, d;
+    try{ res = await fetch(`/api/di/browse?path=${encodeURIComponent(path)}`); d = await res.json(); }
+    catch(e){ b.innerHTML = `<div class="hint">Složku se nepodařilo otevřít.</div>`; return; }
+    if(!res.ok){ b.innerHTML = `<div class="hint">${escapeHtml(d.error || "Složka nejde otevřít.")}</div>`; return; }
+    refreshDiDirs();
+    b.innerHTML = "";
+    const crumb = document.createElement("div");
+    crumb.className = "di-crumb";
+    crumb.innerHTML = (d.parent ? `<button type="button" class="di-txt di-up" title="O úroveň výš">${icon("back", 12)}</button>` : "")
+      + `<span class="tx" title="${escapeHtml(d.path)}">${escapeHtml(d.name)}</span>`;
+    if(d.parent) crumb.querySelector(".di-up").onclick = () => browseDi(d.parent);
+    b.appendChild(crumb);
+    if(!d.entries.length){
+      const h = document.createElement("div");
+      h.className = "hint";
+      h.textContent = "Žádné audio soubory ani podsložky.";
+      b.appendChild(h);
+    }
+    d.entries.forEach(f => {
+      const row = document.createElement("div");
+      if(f.type === "dir"){
+        row.className = "nam-riff-row di-dir";
+        row.innerHTML = `${icon("folder", 12)}<span class="nam-riff-name">${escapeHtml(f.name)}</span>`;
+        row.onclick = () => browseDi(f.path);
+        b.appendChild(row);
+        return;
+      }
+      row.className = "nam-riff-row";
+      row.innerHTML = `
+        <button type="button" class="nam-riff-play" ${f.playable ? "" : "disabled"} title="Přehrát">${icon("play", 11)}</button>
+        <span class="nam-riff-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="di-size">${fmtBytes(f.size_bytes)}</span>
+        <button type="button" class="di-copy" title="Jen zkopírovat mezi ukázkové riffy">${icon("plus", 11)}</button>
+        <button type="button" class="di-txt di-use" title="Zkopírovat mezi riffy a nastavit jako aktivní — náhled NAM profilů ho pak použije">Použít</button>`;
+      const playBtn = row.querySelector(".nam-riff-play");
+      playBtn.onclick = () => {
+        const wasOn = playBtn.classList.contains("on");
+        stopRawPlayback();
+        if(wasOn) return;
+        rawAudio = new Audio(`/api/di/audio?path=${encodeURIComponent(f.path)}`);
+        rawAudio.onended = stopRawPlayback;
+        rawAudio.play().catch(() => showToast("Přehrání selhalo"));
+        playBtn.classList.add("on");
+      };
+      const after = async (activate) => {
+        const data = await importRiffFromFile({path: f.path, name: f.name.replace(/\.[^.]+$/, "")}, activate);
+        if(data) refreshList();
+      };
+      row.querySelector(".di-copy").onclick = () => after(false);
+      row.querySelector(".di-use").onclick = () => after(true);
+      b.appendChild(row);
+    });
+  }
+
+  el("di-add-dir").onclick = async () => {
+    let data;
+    try{
+      const res = await fetch("/api/di/dirs", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+      data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Složku se nepodařilo přidat");
+    }catch(e){ showToast(e.message || "Složku se nepodařilo přidat"); return; }
+    if(data.added) browseDi(data.added);
+    else refreshDiDirs();
+  };
+  refreshDiDirs().then(d => { if(d && d.dirs.length === 1 && d.dirs[0].exists) browseDi(d.dirs[0].path); });
 
   NamRiffRecorder.listDevices().then(list => {
     const sel = el("nam-riff-device");
@@ -8771,7 +9039,7 @@ const Mixer = (() => {
   }
 
   // Anything else that starts playing stops the mixer through this.
-  AudioBus.registerMixer(pause);
+  AudioBus.registerMixer(pause, () => isPlaying);
 
   // Binary search for the first note at or after t.
   function firstNoteIndexAt(t, notes){
@@ -9351,7 +9619,9 @@ const Mixer = (() => {
     tabLiveApiPromise = (async () => {
       await AlphaTabView.ensureLib();
       const api = new window.alphaTab.AlphaTabApi(el("nm-tabtop-host"), {
-        core: {fontDirectory: "/static/alphatab/font/", useWorkers: false},
+        // Lazy loading only paints bars alphaTab believes are on screen; the
+        // host is moved by a transform it doesn't track, so paint everything.
+        core: {fontDirectory: "/static/alphatab/font/", useWorkers: false, enableLazyLoading: false},
         // Tab only — no standard notation staff above it, just strings and
         // fret numbers, the way the DAW's own old hand-drawn lane looked.
         display: {staveProfile: "Tab", layoutMode: "horizontal", scale: tabLiveScale},
@@ -9365,6 +9635,9 @@ const Mixer = (() => {
       api.renderFinished.on((e) => {
         const h = Math.max(140, Math.min(480, Math.ceil(e.totalHeight) || 200));
         el("nm-tabtop-host").style.height = h + "px";
+        // Park the tab on the current spot (the first bar under the triangles
+        // at 0:00) as soon as it is drawn, not only once playback starts.
+        syncTabToTime(currentTime());
         syncTabPosRange();
       });
       tabLiveApi = api;
@@ -9426,6 +9699,8 @@ const Mixer = (() => {
   function detachTab(){
     tabDockedScale = tabLiveScale;
     el("tab-float-body").appendChild(el("nm-tabtop-hostwrap"));
+    el("nm-tabtop-hostwrap").classList.add("floated");
+    el("nm-tabtop-host").style.transform = "";
     el("nm-tabtop-pos").hidden = true;
     if(tabLiveApi){
       // The live settings object wants the actual enum value here, not the
@@ -9440,6 +9715,7 @@ const Mixer = (() => {
   function dockTab(){
     const wrap = el("nm-tabtop-hostwrap");
     if(wrap.parentElement !== el("nm-tabtop")) el("nm-tabtop").insertBefore(wrap, el("nm-tabtop-pos"));
+    wrap.classList.remove("floated");
     el("nm-tabtop-pos").hidden = false;
     if(tabLiveApi){
       tabLiveScale = tabDockedScale;
@@ -9449,6 +9725,10 @@ const Mixer = (() => {
       tabLiveApi.render();
     }
     FloatTab.close();
+    // The render above can finish before FloatTab is closed (while docking
+    // is still "floated" as far as syncTabToTime can tell) — park the tab
+    // under the triangles again now that it is really docked.
+    syncTabToTime(currentTime());
   }
   el("nm-tabtop-detach").onclick = () => (FloatTab.isOpen() ? dockTab() : detachTab());
   el("tab-float-dock").onclick = dockTab;
@@ -9466,80 +9746,143 @@ const Mixer = (() => {
   el("nm-tabtop-zoom-dn").onclick = () => adjustTabScale(-0.15);
   el("nm-tabtop-zoom-up").onclick = () => adjustTabScale(0.15);
 
-  // Position: a slider standing in for the host's own horizontal scroll —
-  // easier to grab than a thin OS scrollbar, and it's what the sync below
-  // also drives during playback.
+  // Position: a slider standing in for a scrollbar — easier to grab than a
+  // thin OS one. The host is moved with a transform (see syncTabToTime), so
+  // "scroll position" here is the camera's x, tracked in tabCamX.
   let tabPosDragging = false;
+  let tabCamX = 0;
+  function tabScrollMax(){
+    const host = el("nm-tabtop-host"), vp = el("nm-tabtop-viewport");
+    return Math.max(0, host.offsetWidth - vp.clientWidth);
+  }
+  function setTabCam(x){
+    tabCamX = x;
+    el("nm-tabtop-host").style.transform = `translateX(${-x}px)`;
+  }
   el("nm-tabtop-pos").addEventListener("input", (e) => {
     tabPosDragging = true;
-    const host = el("nm-tabtop-host");
-    const max = Math.max(0, host.scrollWidth - host.clientWidth);
-    host.scrollLeft = (parseFloat(e.target.value) / 1000) * max;
+    setTabCam((parseFloat(e.target.value) / 1000) * tabScrollMax());
   });
   el("nm-tabtop-pos").addEventListener("change", () => { tabPosDragging = false; });
   function syncTabPosRange(){
     if(tabPosDragging) return;
-    const host = el("nm-tabtop-host");
-    const max = host.scrollWidth - host.clientWidth;
-    el("nm-tabtop-pos").value = max > 0 ? Math.round((host.scrollLeft / max) * 1000) : 0;
+    const max = tabScrollMax();
+    el("nm-tabtop-pos").value = max > 0 ? Math.round(Math.max(0, Math.min(1, tabCamX / max)) * 1000) : 0;
   }
 
-  // Keep the panel following whichever bar is currently playing — same
-  // rule as the main ruler playhead below (updateRulerPlayhead): the cursor
-  // runs out to the middle of the panel and from there the tab moves under
-  // it instead, coming off-centre again only once there's nothing left to
-  // scroll to at the end. Runs off the same real, tempo-accumulated bar
-  // times the DAW's own guide and note timeline already trust, not
-  // alphaTab's internal tick clock, so it stays right even though the
-  // alphaTex sent to alphaTab only encodes a single starting tempo.
-  //
-  // Called every animation frame during playback (see tick/updateRulerPlayhead),
-  // so rather than jumping once per bar this interpolates x continuously
-  // between the current bar's position and the next one's, proportional to
-  // how far through the bar t already is — smooth motion, not stepped.
+  // Look around the tab by hand (drag / wheel) — while paused it stays where
+  // it was left; playing (or seeking) puts it back on the current bar.
+  {
+    const vp = el("nm-tabtop-viewport");
+    let drag = null;
+    vp.addEventListener("pointerdown", (e) => {
+      if(e.button !== 0 || FloatTab.isOpen()) return;
+      drag = {id: e.pointerId, sx: e.clientX, cam: tabCamX, moved: false};
+      vp.setPointerCapture(e.pointerId);
+    });
+    vp.addEventListener("pointermove", (e) => {
+      if(!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.sx;
+      if(Math.abs(dx) > 3) drag.moved = true;
+      if(drag.moved){ vp.classList.add("dragging"); tabPosDragging = true; setTabCam(drag.cam - dx); syncTabPosRange(); }
+    });
+    const end = (e) => {
+      if(!drag || e.pointerId !== drag.id) return;
+      vp.classList.remove("dragging");
+      tabPosDragging = false;
+      drag = null;
+    };
+    vp.addEventListener("pointerup", end);
+    vp.addEventListener("pointercancel", end);
+    vp.addEventListener("wheel", (e) => {
+      if(FloatTab.isOpen()) return;
+      e.preventDefault();
+      setTabCam(tabCamX + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY));
+      syncTabPosRange();
+    }, {passive: false});
+  }
+
+  // How far into the song the tab's first bar begins (s), saved per song.
+  // Until the user sets one, bar 1 goes on the first bar line the beat
+  // detection found (when that is early enough to be the song's real
+  // start); Sync and the ±0,1 s buttons take over from there.
+  let tabOffset = 0, tabOffsetSong = null, tabOffsetAuto = true;
+  function tabOffsetKey(){ return "spotdl-gui-nm-tab-offset:" + (currentSongName || ""); }
+  function autoTabOffset(){
+    const d = downbeatTimes && downbeatTimes.length ? downbeatTimes[0] : 0;
+    return d > 0 && d < 8 ? Math.round(d * 10) / 10 : 0;
+  }
+  function paintTabOffset(){
+    el("nm-tabtop-off").textContent =
+      (tabOffset >= 0 ? "+" : "−") + Math.abs(tabOffset).toFixed(1).replace(".", ",") + " s";
+  }
+  function ensureTabOffset(){
+    if(tabOffsetSong !== currentSongName){
+      tabOffsetSong = currentSongName;
+      tabOffsetAuto = true;
+      try{
+        const raw = localStorage.getItem(tabOffsetKey());
+        const v = raw == null || raw === "" ? NaN : parseFloat(raw);
+        if(isFinite(v)){ tabOffset = v; tabOffsetAuto = false; }
+      }catch(e){}
+    }
+    if(tabOffsetAuto){
+      const v = autoTabOffset();
+      if(v !== tabOffset || !el("nm-tabtop-off").textContent.trim()){ tabOffset = v; paintTabOffset(); }
+    }
+  }
+  function setTabOffset(v){
+    tabOffset = Math.round(v * 10) / 10;
+    tabOffsetAuto = false;
+    try{ localStorage.setItem(tabOffsetKey(), String(tabOffset)); }catch(e){}
+    paintTabOffset();
+    syncTabToTime(currentTime());
+  }
+  el("nm-tabtop-earlier").onclick = (e) => setTabOffset(tabOffset - (e.shiftKey ? 1 : 0.1));
+  el("nm-tabtop-later").onclick = (e) => setTabOffset(tabOffset + (e.shiftKey ? 1 : 0.1));
+  el("nm-tabtop-sync").onclick = () => {
+    setTabOffset(currentTime());
+    showToast("První takt tabulatury začíná v " + fmtDur(tabOffset) + " — uloženo k písni");
+  };
+
+  // Keep the panel on whichever bar is playing, that bar's position under
+  // the red triangles at the middle. The host is moved with a transform, not
+  // scrolled: native scroll clamps at both ends of the content, which would
+  // park the first bar at the panel's edge instead of under the triangles.
+  // Runs off the real, tempo-accumulated bar times the DAW's own guide
+  // already trusts (not alphaTab's tick clock, which only knows the single
+  // starting tempo in the alphaTex), shifted by tabOffset. Called every
+  // animation frame during playback and on every seek, and interpolates x
+  // between a bar and the next so the motion is smooth, not stepped.
   function syncTabToTime(t){
     if(!tabs.length || !tabLiveApi || !tabBarStarts.length) return;
+    ensureTabOffset();
+    const tt = Math.max(0, t - tabOffset);
     let bar = 0;
     for(let i = 0; i < tabBarStarts.length; i++){
-      if(tabBarStarts[i] <= t) bar = i; else break;
+      if(tabBarStarts[i] <= tt) bar = i; else break;
     }
-    // The "Takt N" readout is cheap and still means something while
-    // floated or wrapped into rows, so it keeps updating regardless —
-    // only the horizontal follow below is specific to the docked,
-    // one-row layout.
+    // The "Takt N" readout keeps updating even while floated.
     el("nm-tabtop-barlabel").textContent = "Takt " + (bar + 1);
     if(tabPosDragging || FloatTab.isOpen()) return;
-    const host = el("nm-tabtop-host");
-    if(!host || host.offsetParent === null) return;
+    const host = el("nm-tabtop-host"), vp = el("nm-tabtop-viewport");
+    if(!host || !vp || host.offsetParent === null) return;
     const lookup = tabLiveApi.boundsLookup;
     if(!lookup) return;
     const mb = lookup.findMasterBarByIndex(bar);
     if(!mb) return;
     let x = mb.realBounds.x;
     const nextMb = lookup.findMasterBarByIndex(bar + 1);
-    const barStart = tabBarStarts[bar], nextStart = tabBarStarts[bar + 1];
-    if(nextMb && nextStart > barStart){
-      const frac = Math.max(0, Math.min(1, (t - barStart) / (nextStart - barStart)));
+    const barStart = tabBarStarts[bar];
+    if(nextMb && tabBarStarts[bar + 1] > barStart){
+      const frac = Math.max(0, Math.min(1, (tt - barStart) / (tabBarStarts[bar + 1] - barStart)));
       x += frac * (nextMb.realBounds.x - mb.realBounds.x);
+    } else if(!nextMb && bar > 0){
+      // Last bar: no next one to measure against — assume it is as long as the one before.
+      const len = barStart - tabBarStarts[bar - 1];
+      if(len > 0) x += Math.max(0, Math.min(1, (tt - barStart) / len)) * mb.realBounds.w;
     }
-
-    // x is already interpolated smoothly (see above), so the scroll needs
-    // no easing of its own on top — applying target directly keeps the
-    // cursor and the "Takt N" label both exactly where the bottom ruler
-    // playhead actually is, every frame, rather than visibly trailing it
-    // during a fast passage (an eased scroll here was a real, wrong lag,
-    // not just a cosmetic smoothing choice).
-    const view = host.clientWidth;
-    const total = host.scrollWidth;
-    let cursorX = x;
-    if(total > view){
-      const centre = view / 2;
-      host.scrollLeft = Math.max(0, Math.min(total - view, x - centre));
-      cursorX = x - host.scrollLeft;
-    } else {
-      host.scrollLeft = 0;
-    }
-    el("nm-tabtop-cursor").style.left = cursorX + "px";
+    setTabCam(x - vp.clientWidth / 2);
     syncTabPosRange();
   }
 
@@ -14526,7 +14869,11 @@ const LyricsView = (() => {
       const idSlot = encodeURIComponent(videoId || "local");
       const params = new URLSearchParams({ q: `${artist} - ${title}`.trim(), artist });
       if(track.album) params.set("album", track.album);
-      if(track.duration_seconds) params.set("duration", track.duration_seconds);
+      // The real length of what is playing when the track carries none (local
+      // files) — LRCLib holds several versions per song and this is what picks
+      // the one whose timing actually fits.
+      const realDur = track.duration_seconds || (el("pb-audio") && el("pb-audio").duration) || 0;
+      if(realDur && isFinite(realDur)) params.set("duration", realDur);
       const res = await fetch(`/api/lyrics/${idSlot}?${params}`);
       data = await res.json();
     }catch(e){
@@ -14790,32 +15137,6 @@ const PlayerTab = (() => {
     return bar;
   }
 
-  // Triangle markers (above and below the stave) — click either to step
-  // through 10 sizes, then wrap back to the smallest. A display preference,
-  // not per-song, so it's remembered globally rather than per track.
-  const MARKER_SIZE_STEPS = 10;
-  const MARKER_KEY = "spotdl-gui-pb-tab-marker-size";
-  let markerStep = (() => {
-    try{ const v = parseInt(localStorage.getItem(MARKER_KEY), 10); return (v >= 1 && v <= MARKER_SIZE_STEPS) ? v : 1; }
-    catch(e){ return 1; }
-  })();
-  function paintMarkerSize(){
-    const triW = 6 + (markerStep - 1) * 2;
-    const triH = 8 + (markerStep - 1) * 3;
-    [el("pb-tab-dock-marker-top"), el("pb-tab-dock-marker-bottom")].forEach(m => {
-      if(!m) return;
-      m.style.height = (triH + 3) + "px";
-      m.style.setProperty("--tri-w", triW + "px");
-      m.style.setProperty("--tri-h", triH + "px");
-    });
-  }
-  function cycleMarkerSize(){
-    markerStep = markerStep >= MARKER_SIZE_STEPS ? 1 : markerStep + 1;
-    try{ localStorage.setItem(MARKER_KEY, String(markerStep)); }catch(e){}
-    paintMarkerSize();
-  }
-  paintMarkerSize();
-
   function ensureApi(){
     if(apiPromise) return apiPromise;
     apiPromise = (async () => {
@@ -15036,8 +15357,6 @@ const PlayerTab = (() => {
   }
   el("pb-tab-dock-zoom-dn").onclick = () => { zoom = Math.max(0.6, zoom - 0.1); rerender(); };
   el("pb-tab-dock-zoom-up").onclick = () => { zoom = Math.min(1.6, zoom + 0.1); rerender(); };
-  el("pb-tab-dock-marker-top").onclick = cycleMarkerSize;
-  el("pb-tab-dock-marker-bottom").onclick = cycleMarkerSize;
   el("pb-tab-dock-select").onchange = async (e) => {
     const idx = parseInt(e.target.value, 10);
     if(songId == null) return;
@@ -15926,7 +16245,11 @@ const PlayerLyricsDock = (() => {
       const idSlot = encodeURIComponent(videoId || "local");
       const params = new URLSearchParams({q: lastQuery, artist});
       if(track.album) params.set("album", track.album);
-      if(track.duration_seconds) params.set("duration", track.duration_seconds);
+      // The real length of what is playing when the track carries none (local
+      // files) — LRCLib holds several versions per song and this is what picks
+      // the one whose timing actually fits.
+      const realDur = track.duration_seconds || (el("pb-audio") && el("pb-audio").duration) || 0;
+      if(realDur && isFinite(realDur)) params.set("duration", realDur);
       const res = await fetch(`/api/lyrics/${idSlot}?${params}`);
       data = await res.json();
     }catch(e){
@@ -15939,6 +16262,9 @@ const PlayerLyricsDock = (() => {
       try{ lyricsOffset = parseFloat(localStorage.getItem(offsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
       paintOffset();
       startTick();
+      if(data.duration_diff != null && data.duration_diff > 4){
+        showToast(`Text je z verze o ${Math.round(data.duration_diff)} s jiné délky — případně doladit posunem ±`);
+      }
     } else {
       el("pb-lyrics-dock-cur").textContent = data.plain
         ? "Text bez časování — zkus tlačítko s ikonou textu pro plné znění"
