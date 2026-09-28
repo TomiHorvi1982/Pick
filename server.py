@@ -1270,6 +1270,48 @@ async def tab_meta(song_id: str):
 
 
 
+_VIDEO_POINTS_CACHE: dict = {}
+
+
+@app.get("/api/tabs/video-points/{song_id}/{revision_id}")
+async def tab_video_points(song_id: str, revision_id: str):
+    """Songsterr's own bar timings: for each YouTube recording it has synced
+    a tab to, the time (s) at which every bar starts in that recording. With
+    these a tab follows the real performance — tempo changes, rubato and
+    all — instead of the tab's nominal tempo. Same data the Songsterr web
+    player syncs with.
+    """
+    key = f"{song_id}/{revision_id}"
+    hit = _VIDEO_POINTS_CACHE.get(key)
+    if hit and hit[0] > time.time():
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(
+                f"https://www.songsterr.com/api/video-points/{song_id}/{revision_id}/list",
+                headers={"User-Agent": APP_UA},
+            )
+            r.raise_for_status()
+            raw = r.json()
+    except Exception as e:
+        return JSONResponse({"error": f"Video points fetch failed: {e}"}, status_code=500)
+    out = []
+    for v in raw if isinstance(raw, list) else []:
+        pts = v.get("points")
+        if not isinstance(pts, list) or len(pts) < 3 or v.get("status") != "done" or not v.get("videoId"):
+            continue
+        if v.get("problematic"):
+            continue
+        try:
+            pts = [float(x) for x in pts]
+        except (TypeError, ValueError):
+            continue
+        out.append({"videoId": v["videoId"], "feature": v.get("feature"), "points": pts})
+    result = {"videos": out}
+    _VIDEO_POINTS_CACHE[key] = (time.time() + 3600, result)
+    return result
+
+
 def normalize_songsterr_track(data: dict) -> dict:
     """Convert Songsterr measure/voice/beat data to a flat note timeline."""
 

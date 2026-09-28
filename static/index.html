@@ -1083,6 +1083,25 @@
     box-shadow:0 18px 48px rgba(0,0,0,.62);padding:6px;max-height:60vh;
     overflow-y:auto}
   .search-suggest[hidden]{display:none}
+  .sp-kbd-btn{background:none;border:none;color:var(--sub);cursor:pointer;display:flex;
+    align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;flex:0 0 auto}
+  .sp-kbd-btn:hover,.sp-kbd-btn.on{color:#fff;background:rgba(255,255,255,.1)}
+  /* On-screen keyboard for the search box — Czech layout, so the háčky and
+     čárky are on the keys instead of behind dead-key combinations. */
+  .vkbd{position:fixed;bottom:calc(var(--sp-player, 90px) + 18px);left:50%;transform:translateX(-50%);z-index:130;
+    width:min(880px,94vw);background:#181818;border:1px solid rgba(255,255,255,.12);
+    border-radius:12px;padding:10px;box-shadow:0 18px 50px rgba(0,0,0,.6);user-select:none}
+  .vkbd[hidden]{display:none}
+  .vkbd-row{display:flex;gap:6px;margin-bottom:6px;justify-content:center}
+  .vkbd-row:last-child{margin-bottom:0}
+  .vkbd button{flex:1 1 0;min-width:0;height:46px;background:#2a2a2a;border:none;border-radius:7px;
+    color:#fff;font-size:18px;font-family:inherit;cursor:pointer}
+  .vkbd button:hover{background:#3a3a3a}
+  .vkbd button:active{background:var(--accent);color:#000}
+  .vkbd button.wide{flex:1.7 1 0}
+  .vkbd button.space{flex:6 1 0}
+  .vkbd button.on{background:var(--accent);color:#000}
+  .vkbd button.go{background:#fff;color:#000;font-weight:700}
   .ss-row{display:flex;align-items:center;gap:11px;padding:7px 9px;
     border-radius:7px;cursor:pointer;border:none;background:none;width:100%;
     text-align:left;color:var(--text)}
@@ -2727,6 +2746,7 @@
     </button>
     <div class="sp-searchbox">
       <input id="search-input" type="text" placeholder="Co chceš přehrát?" autocomplete="off">
+      <button class="sp-kbd-btn" id="kbd-btn" type="button" title="Klávesnice na obrazovce" aria-label="Klávesnice na obrazovce"><span data-icon="keyboard" data-size="20"></span></button>
       <span class="divider"></span>
       <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat"></button>
     </div>
@@ -2738,6 +2758,7 @@
     <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
 </div>
+<div class="vkbd" id="vkbd" hidden></div>
 
 <div class="sp-shell">
 
@@ -3060,6 +3081,7 @@
             <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
             <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
             <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
+            <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
             <div class="nm-spacer"></div>
             <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
             <span class="nm-tabtop-off" id="nm-tabtop-off" title="Posun tabulatury proti písni — kdy začíná první takt">0,0 s</span>
@@ -3423,6 +3445,7 @@
       <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
       <span class="tab-tuning" id="pb-tab-dock-tuning" hidden></span>
       <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
+      <select class="pb-tab-dock-select" id="pb-tab-dock-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru, nebo podle tempa tabu" hidden></select>
       <span class="sp"></span>
       <button type="button" id="pb-tab-dock-slower" title="Tab pomaleji — o 0,1 s delší (Shift = 1 s)">−0,1 s</button>
       <span class="pb-tab-dock-len" id="pb-tab-dock-len" title="Délka tabu · délka písně · tempo tabu"></span>
@@ -4265,6 +4288,81 @@ el("search-input").addEventListener("keydown", (e) => {
 });
 
 el("search-input").addEventListener("focus", () => SearchSuggest.schedule());
+
+// ---- on-screen keyboard (Czech QWERTZ) for the search box ----
+const VirtualKeyboard = (() => {
+  const box = el("vkbd"), btn = el("kbd-btn"), input = el("search-input");
+  const ROWS = [
+    ["ě","š","č","ř","ž","ý","á","í","é","ú","ů","⌫"],
+    ["q","w","e","r","t","z","u","i","o","p","ó","ď"],
+    ["a","s","d","f","g","h","j","k","l","ť","ň","⏎"],
+    ["⇧","y","x","c","v","b","n","m",",",".","-","⇧"],
+  ];
+  const SHIFT = {",": ";", ".": ":", "-": "_"};
+  let shift = false;
+
+  function label(k){ return shift && k.length === 1 ? (SHIFT[k] || k.toUpperCase()) : k; }
+
+  function insert(text){
+    const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? s;
+    input.value = input.value.slice(0, s) + text + input.value.slice(e);
+    input.setSelectionRange(s + text.length, s + text.length);
+    input.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+  function backspace(){
+    const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? s;
+    if(s !== e){ input.value = input.value.slice(0, s) + input.value.slice(e); input.setSelectionRange(s, s); }
+    else if(s > 0){ input.value = input.value.slice(0, s - 1) + input.value.slice(s); input.setSelectionRange(s - 1, s - 1); }
+    input.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+  function press(k){
+    input.focus();
+    if(k === "⌫") backspace();
+    else if(k === "⏎"){ const go = el("search-btn"); if(go) go.click(); }
+    else if(k === "␣") insert(" ");
+    else if(k === "⇧"){ shift = !shift; render(); }
+    else { insert(label(k)); if(shift){ shift = false; render(); } }
+  }
+
+  function render(){
+    box.innerHTML = "";
+    const add = (row, k, cls) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = k === "␣" ? "" : label(k);
+      if(cls) b.className = cls;
+      if(k === "⇧" && shift) b.classList.add("on");
+      if(k === "⏎") b.classList.add("go");
+      if(k === "⇧" || k === "⌫" || k === "⏎") b.classList.add("wide");
+      b.setAttribute("aria-label", k === "␣" ? "mezerník" : k);
+      // A key must not take focus from the search box, or the caret is lost.
+      b.addEventListener("mousedown", (e) => e.preventDefault());
+      b.addEventListener("click", () => press(k));
+      row.appendChild(b);
+    };
+    ROWS.forEach(keys => {
+      const row = document.createElement("div");
+      row.className = "vkbd-row";
+      keys.forEach(k => add(row, k));
+      box.appendChild(row);
+    });
+    const last = document.createElement("div");
+    last.className = "vkbd-row";
+    ["1","2","3","4","5","6","7","8","9","0"].forEach(k => add(last, k));
+    add(last, "␣", "space");
+    box.appendChild(last);
+  }
+
+  function open(){ render(); box.hidden = false; btn.classList.add("on"); input.focus(); }
+  function close(){ box.hidden = true; btn.classList.remove("on"); }
+  btn.addEventListener("mousedown", (e) => e.preventDefault());
+  btn.addEventListener("click", () => (box.hidden ? open() : close()));
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && !box.hidden) close(); });
+  document.addEventListener("pointerdown", (e) => {
+    if(!box.hidden && !e.target.closest("#vkbd, #kbd-btn, #search-input")) close();
+  });
+  return {open, close, toggle: () => (box.hidden ? open() : close())};
+})();
 document.addEventListener("pointerdown", (e) => {
   if(!e.target.closest(".sp-center")) SearchSuggest.hide();
 });
@@ -5407,6 +5505,9 @@ const ICONS = (() => {
     add:
       line("M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 0 0 0-17.2Z") +
       line("M12 8.2v7.6M8.2 12h7.6"),
+    keyboard:
+      line("M3.6 6.6h16.8a1.6 1.6 0 0 1 1.6 1.6v7.6a1.6 1.6 0 0 1-1.6 1.6H3.6A1.6 1.6 0 0 1 2 15.8V8.2a1.6 1.6 0 0 1 1.6-1.6Z") +
+      line("M5.8 10h.01M9 10h.01M12 10h.01M15 10h.01M18.2 10h.01M5.8 13.6h.01M18.2 13.6h.01M8.4 14h7.2"),
     search:
       line("M10.6 3.6a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z") +
       line("M15.6 15.6 20.6 20.6"),
@@ -7970,6 +8071,36 @@ const Songsterr = {
     return res.json();
   },
 
+  // The bar times Songsterr has synced this tab to, one set per YouTube
+  // recording: [{videoId, feature, points: [start of bar 1, bar 2, ...]}].
+  // A popular song has dozens of these, most of them noise: backing tracks,
+  // recordings whose bar times go backwards. What is left is the original
+  // first, then the ones whose length is closest to the typical one — the
+  // few worth choosing between. `keepId` (a recording picked before) stays
+  // in the list wherever it would have ranked.
+  async getVideoPoints(songId, revisionId, keepId) {
+    try {
+      const res = await fetch(`/api/tabs/video-points/${songId}/${revisionId}`);
+      if(!res.ok) return [];
+      const data = await res.json();
+      const all = Array.isArray(data.videos) ? data.videos : [];
+      const span = (v) => v.points[v.points.length - 1] - v.points[0];
+      const sane = all.filter(v => v.feature !== "backing"
+        && v.points.every((p, i) => i === 0 || p > v.points[i - 1]));
+      if(!sane.length) return [];
+      const lens = sane.map(span).sort((a, b) => a - b);
+      const med = lens[lens.length >> 1];
+      sane.sort((a, b) => ((a.feature ? 1 : 0) - (b.feature ? 1 : 0))
+        || (Math.abs(span(a) - med) - Math.abs(span(b) - med)));
+      const top = sane.slice(0, 8);
+      if(keepId && !top.some(v => v.videoId === keepId)){
+        const k = sane.find(v => v.videoId === keepId);
+        if(k) top.push(k);
+      }
+      return top;
+    } catch(e) { return []; }
+  },
+
   async getTrack(songId, revisionId, trackIndex) {
     const res = await fetch(
       `/api/tabs/track/${songId}/${revisionId}/${trackIndex}`
@@ -9612,6 +9743,8 @@ const Mixer = (() => {
   let tabLiveApi = null;
   let tabLiveKey = "";
   let tabBarStarts = [];   // this tab's bar start times in seconds, for sync
+  let tabTempoBars = [];   // the same from the tab's nominal tempo (the fallback timing)
+  let tabTiming = {list: [], sel: -1};   // Songsterr recordings with real bar times
   let tabLiveScale = 1;
 
   function ensureTabLiveApi(){
@@ -9668,8 +9801,28 @@ const Mixer = (() => {
       if(key === tabLiveKey) return;
       tabLiveKey = key;
       tabBarStarts = AlphaTabView.barStartTimes(tb.data);
+      tabTempoBars = tabBarStarts.slice();
+      tabTiming = {list: [], sel: -1};
+      tabOffsetSong = null;
+      paintTabTiming();
       try{ api.tex(AlphaTabView.measuresToAlphaTex(tb.data)); }
       catch(e){ console.error("alphaTab top tex:", e); }
+      // Songsterr's own bar times for real recordings of this song, if it has
+      // any: they follow the actual performance instead of the nominal tempo.
+      if(tb.songId && tb.revisionId){
+        let want = null;
+        try{ want = localStorage.getItem(tabTimingKey()); }catch(e){}
+        Songsterr.getVideoPoints(tb.songId, tb.revisionId, want !== "tempo" ? want : null).then(list => {
+          if(tabLiveKey !== key || !list.length) return;
+          tabTiming.list = list;
+          let sel = want === "tempo" ? -1 : list.findIndex(v => v.videoId === want);
+          if(want !== "tempo" && sel < 0){
+            sel = list.findIndex(v => !v.feature);
+            if(sel < 0) sel = 0;
+          }
+          applyTabTiming(sel);
+        });
+      }
     });
   }
 
@@ -9807,11 +9960,86 @@ const Mixer = (() => {
   // detection found (when that is early enough to be the song's real
   // start); Sync and the ±0,1 s buttons take over from there.
   let tabOffset = 0, tabOffsetSong = null, tabOffsetAuto = true;
-  function tabOffsetKey(){ return "spotdl-gui-nm-tab-offset:" + (currentSongName || ""); }
+  function tabTimingKey(){ return "spotdl-gui-nm-tab-timing:" + (currentSongName || ""); }
+  function tabOffsetKey(){
+    // A recording's bar times and the tab's nominal ones need different offsets.
+    const v = tabTiming.sel >= 0 ? ":" + tabTiming.list[tabTiming.sel].videoId : "";
+    return "spotdl-gui-nm-tab-offset:" + (currentSongName || "") + v;
+  }
+  // Where the recording's bars fall against the beat grid found in this
+  // song's own audio: the shift that lands most of the first bars on a
+  // detected bar line. The song here may not start where the YouTube
+  // recording does, and this is what makes the tab line up regardless.
+  let alignMemo = {key: "", value: null};
+  function alignToDownbeats(bars, downs){
+    if(!downs || downs.length < 4 || !bars || bars.length < 4) return null;
+    const B = bars.slice(0, 24);
+    const cands = new Set();
+    for(let i = 0; i < Math.min(4, B.length); i++){
+      for(let j = 0; j < Math.min(10, downs.length); j++){
+        cands.add(Math.round((downs[j] - B[i]) * 20) / 20);
+      }
+    }
+    let best = null;
+    cands.forEach(d => {
+      let hits = 0, err = 0;
+      for(const b of B){
+        const t = b + d;
+        let m = Infinity;
+        for(const x of downs){
+          const e = Math.abs(x - t);
+          if(e < m) m = e; else if(x > t) break;
+        }
+        if(m < 0.2){ hits++; err += m; }
+      }
+      const score = hits - err;
+      if(!best || score > best.score) best = {d, hits, score};
+    });
+    return best && best.hits >= B.length * 0.6 ? best.d : null;
+  }
   function autoTabOffset(){
+    if(tabTiming.sel >= 0){
+      const k = currentSongName + "|" + tabTiming.sel + "|" + (downbeatTimes ? downbeatTimes.length : 0);
+      if(alignMemo.key !== k){
+        alignMemo = {key: k, value: alignToDownbeats(tabBarStarts, downbeatTimes)};
+      }
+      return alignMemo.value == null ? 0 : Math.round(alignMemo.value * 10) / 10;
+    }
     const d = downbeatTimes && downbeatTimes.length ? downbeatTimes[0] : 0;
     return d > 0 && d < 8 ? Math.round(d * 10) / 10 : 0;
   }
+
+  function paintTabTiming(){
+    const selEl = el("nm-tabtop-timing");
+    if(!tabTiming.list.length){ selEl.hidden = true; return; }
+    const clock = (sec) => Math.floor(sec / 60) + ":" + String(Math.round(sec % 60)).padStart(2, "0");
+    selEl.hidden = false;
+    selEl.innerHTML = `<option value="-1">Načasování: podle tempa tabu</option>` + tabTiming.list.map((v, i) => {
+      const last = v.points[v.points.length - 1] - v.points[0];
+      return `<option value="${i}">Nahrávka ${i + 1} · ${v.feature ? "alternativa" : "originál"} · ${clock(last)}</option>`;
+    }).join("");
+    selEl.value = String(tabTiming.sel);
+  }
+  function applyTabTiming(sel, remember){
+    tabTiming.sel = sel;
+    if(sel >= 0){
+      const pts = tabTiming.list[sel].points;
+      tabBarStarts = pts.slice(0, Math.min(tabTempoBars.length, pts.length));
+    } else {
+      tabBarStarts = tabTempoBars.slice();
+    }
+    tabOffsetSong = null;   // reload the offset that belongs to this timing
+    if(remember){
+      try{ localStorage.setItem(tabTimingKey(), sel >= 0 ? tabTiming.list[sel].videoId : "tempo"); }catch(e){}
+    }
+    paintTabTiming();
+    syncTabToTime(currentTime());
+  }
+  el("nm-tabtop-timing").onchange = (e) => {
+    applyTabTiming(parseInt(e.target.value, 10), true);
+    showToast(tabTiming.sel >= 0 ? "Načasováno podle nahrávky — srovnáno s taktem písně, případně dolaď ±0,1"
+                                 : "Načasování podle tempa tabu");
+  };
   function paintTabOffset(){
     el("nm-tabtop-off").textContent =
       (tabOffset >= 0 ? "+" : "−") + Math.abs(tabOffset).toFixed(1).replace(".", ",") + " s";
@@ -15066,6 +15294,13 @@ const PlayerTab = (() => {
   let sync = null;         // {audioT, tabT} once Sync was pressed
   let stretch = 1;
   let tabLen = 0;          // the tab's own full length at stretch 1 (s)
+  // Bar times can come from two places: the tab's own nominal tempo
+  // (tempoBars), or from a real recording Songsterr has synced the tab to
+  // (timing.list[sel].points) — the latter follows the actual performance,
+  // tempo changes and all, so a recording of the same song needs no
+  // by-hand syncing at all.
+  let tempoBars = [], tempoLen = 0;
+  let timing = {list: [], sel: -1, key: "tempo"};
 
   function isOpen(){ return !dock.hidden; }
 
@@ -15091,7 +15326,7 @@ const PlayerTab = (() => {
       relPath: t.relPath || "", videoId: t.videoId || "", source: t.relPath ? "local" : (t.source || "")};
     try{
       localStorage.setItem(trackTabKey(), JSON.stringify({songId, revisionId, trackIndex,
-        tabName: tabData && tabData.name || "", sync, stretch, track, savedAt: Date.now()}));
+        tabName: tabData && tabData.name || "", sync, stretch, timing: timing.key, track, savedAt: Date.now()}));
     }catch(e){}
     if(typeof refreshHomeRail === "function") try{ refreshHomeRail(); }catch(e){}
   }
@@ -15135,6 +15370,43 @@ const PlayerTab = (() => {
       if(barStarts[i] <= t + 1e-6) bar = i; else break;
     }
     return bar;
+  }
+
+  function applyTiming(sel, savedSync, savedStretch){
+    timing.sel = sel;
+    timing.key = sel >= 0 ? timing.list[sel].videoId : "tempo";
+    if(sel < 0){
+      barStarts = tempoBars.slice(); tabLen = tempoLen;
+      sync = savedSync || null;
+    } else {
+      const pts = timing.list[sel].points, p0 = pts[0];
+      const n = Math.min(tempoBars.length, pts.length);
+      barStarts = pts.slice(0, n).map(x => x - p0);
+      const lastGap = n > 1 ? barStarts[n - 1] - barStarts[n - 2] : 2;
+      tabLen = pts.length > n ? pts[n] - p0 : barStarts[n - 1] + lastGap;
+      // The same recording as the song playing: song time = recording time,
+      // so the tab is in step from the first note without pressing Sync.
+      sync = savedSync || {audioT: Math.max(0, p0), tabT: Math.max(0, -p0)};
+    }
+    stretch = savedStretch || 1;
+    setTabTime(sync ? syncedTime() : 0);
+    paintTiming();
+    paintSync();
+    saveAssignment();
+  }
+  function paintTiming(){
+    const selEl = el("pb-tab-dock-timing");
+    if(!selEl) return;
+    if(!timing.list.length){ selEl.hidden = true; return; }
+    const cur = Player.getCurrent() || {};
+    const clock = (sec) => Math.floor(sec / 60) + ":" + String(Math.round(sec % 60)).padStart(2, "0");
+    selEl.hidden = false;
+    selEl.innerHTML = `<option value="-1">Načasování: podle tempa tabu</option>` + timing.list.map((v, i) => {
+      const last = v.points[v.points.length - 1] - v.points[0];
+      const same = cur.videoId && v.videoId === cur.videoId ? " ★ stejné video" : "";
+      return `<option value="${i}">Nahrávka ${i + 1} · ${v.feature ? "alternativa" : "originál"} · ${clock(last)}${same}</option>`;
+    }).join("");
+    selEl.value = String(timing.sel);
   }
 
   function ensureApi(){
@@ -15185,12 +15457,39 @@ const PlayerTab = (() => {
     tabLen = typeof tabData.duration === "number" && tabData.duration > 0 ? tabData.duration
       : (barStarts.length > 1 ? barStarts[barStarts.length - 1] * barStarts.length / (barStarts.length - 1) : 0);
 
+    tempoBars = barStarts.slice(); tempoLen = tabLen;
+    timing = {list: [], sel: -1, key: "tempo"};
+    paintTiming();
     const saved = loadSavedAssignment();
     const same = saved && saved.songId === songId && saved.trackIndex === trackIndex;
-    sync = same && saved.sync && isFinite(saved.sync.audioT) && isFinite(saved.sync.tabT) ? saved.sync : null;
-    stretch = same && isFinite(saved.stretch) && saved.stretch > 0 ? saved.stretch : 1;
+    const savedSync = same && saved.sync && isFinite(saved.sync.audioT) && isFinite(saved.sync.tabT) ? saved.sync : null;
+    const savedStretch = same && isFinite(saved.stretch) && saved.stretch > 0 ? saved.stretch : 1;
+    const savedTiming = same ? (saved.timing || "tempo") : null;
+    // A sync saved against a recording's bar times means nothing against the
+    // tempo ones (and the other way round) — it is put back only once the
+    // matching timing is the one in use.
+    sync = savedTiming === "tempo" ? savedSync : null;
+    stretch = savedTiming === "tempo" ? savedStretch : 1;
     setTabTime(sync ? syncedTime() : 0);
     paintSync();
+    const loadedTab = tabData;
+    Songsterr.getVideoPoints(songId, revisionId, savedTiming !== "tempo" ? savedTiming : null).then(list => {
+      if(tabData !== loadedTab || !list.length) return;
+      timing.list = list;
+      const cur = Player.getCurrent() || {};
+      let sel = -1, restore = false;
+      if(savedTiming === "tempo") sel = -1;
+      else {
+        if(savedTiming) sel = list.findIndex(v => v.videoId === savedTiming);
+        if(sel >= 0) restore = true;
+        else {
+          sel = list.findIndex(v => cur.videoId && v.videoId === cur.videoId);
+          if(sel < 0) sel = list.findIndex(v => !v.feature);
+          if(sel < 0) sel = 0;
+        }
+      }
+      applyTiming(sel, restore ? savedSync : null, restore ? savedStretch : 1);
+    });
 
     try{ a.tex(Mixer.tabView.measuresToAlphaTex(tabData)); }
     catch(e){ console.error("alphaTab player tex:", e); }
@@ -15314,6 +15613,10 @@ const PlayerTab = (() => {
     paintSync();
     showToast("Tab synchronizovaný a uložený k písni — pusť Play");
   };
+  el("pb-tab-dock-timing").onchange = (e) => {
+    applyTiming(parseInt(e.target.value, 10), null, 1);
+    showToast(timing.sel >= 0 ? "Načasováno podle nahrávky — pusť Play (případně dolaď Sync)" : "Načasování podle tempa tabu");
+  };
   el("pb-tab-dock-slower").onclick = (e) => nudgeLength(e.shiftKey ? 1 : 0.1);
   el("pb-tab-dock-faster").onclick = (e) => nudgeLength(e.shiftKey ? -1 : -0.1);
   el("pb-audio").addEventListener("durationchange", paintSync);
@@ -15379,6 +15682,7 @@ const PlayerTab = (() => {
       const wasOpen = isOpen();
       tabData = null; songId = null; revisionId = null; trackIndex = 0;
       barStarts = []; tabTime = 0; sync = null; stretch = 1; tabLen = 0;
+      tempoBars = []; tempoLen = 0; timing = {list: [], sel: -1, key: "tempo"}; paintTiming();
       if(wasOpen){
         close();
         const saved = loadSavedAssignment();
