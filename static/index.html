@@ -497,7 +497,8 @@
   .dbl-popover .dbl-row label b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
   .dbl-popover .dbl-row input{width:100%;accent-color:#ffd166}
   .dbl-popover .dbl-mode{display:flex;gap:4px;padding:4px 8px}
-  .dbl-popover .dbl-mode button{flex:1;justify-content:center}
+  .dbl-popover .dbl-mode button{flex:1;justify-content:center;padding:5px 4px}
+  .dbl-popover [hidden]{display:none !important}
   .dbl-popover .dbl-mode button.on{background:rgba(255,209,102,.16);color:#ffd166}
   .dbl-popover.off .dbl-row,.dbl-popover.off .dbl-mode{opacity:.45}
 
@@ -8913,7 +8914,11 @@ const Mixer = (() => {
   const COMP_DEFAULT = {on: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.25, knee: 6, makeup: 0};
   // Parameters as in NeuralDouble, plus a wet level. Position is where the
   // second guitar sits (−1 left … +1 right); the original keeps its own pan.
-  const DBL_DEFAULT = {on: false, mode: "electric", mix: 0.8, xover: 120, smoothing: 0.5, gateRoom: 0, position: 0.8};
+  // algo "micro" is the other doubler: MicroShift-style micro pitch shift
+  // (style 1–3, detune/delay as % of the style's own amount, focus =
+  // crossover below which the original stays untouched, its own mix).
+  const DBL_DEFAULT = {on: false, algo: "neural", mode: "electric", mix: 0.8, xover: 120, smoothing: 0.5, gateRoom: 0, position: 0.8,
+                       style: 1, detune: 1, delay: 1, focus: 150, microMix: 1};
 
   function makeFx(saved){
     const ac = ctx();
@@ -9009,7 +9014,7 @@ const Mixer = (() => {
     fx.dblBuilding = (async () => {
       await ensureDoublerWorklet();
       const ac = ctx();
-      const d = {input: ac.createGain(), output: ac.createGain()};
+      const d = {input: ac.createGain(), output: ac.createGain(), nIn: ac.createGain(), mIn: ac.createGain()};
       d.voice = new AudioWorkletNode(ac, "doubler-voice", {
         numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
         processorOptions: {seed: Math.floor(Math.random() * 2147483647)},
@@ -9025,8 +9030,8 @@ const Mixer = (() => {
       d.roomSend = ac.createGain();
       d.room = ac.createConvolver();
       d.room.buffer = roomImpulse();
-      d.input.connect(d.output);                       // the original, untouched
-      let n = d.input;
+      d.nIn.connect(d.output);                         // the original, untouched
+      let n = d.nIn;
       [d.voice, ...d.allpass, ...d.hp].forEach(x => { n.connect(x); n = x; });
       n.connect(d.panner);
       d.panner.connect(d.wet);
@@ -9034,6 +9039,21 @@ const Mixer = (() => {
       d.panner.connect(d.roomSend);
       d.roomSend.connect(d.room);
       d.room.connect(d.output);
+
+      // MicroShift-style: dry (1 − mix) + low band of the dry (below Focus,
+      // at the mix level, so the bottom end stays centred) + the two shifted
+      // sides high-passed at Focus.
+      d.micro = new AudioWorkletNode(ac, "micropitch-voice", {
+        numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
+      });
+      d.mDry = ac.createGain();
+      d.mLow = [0, 1].map(() => { const b = ac.createBiquadFilter(); b.type = "lowpass"; b.Q.value = 0.707; return b; });
+      d.mLowGain = ac.createGain();
+      d.mHp = [0, 1].map(() => { const b = ac.createBiquadFilter(); b.type = "highpass"; b.Q.value = 0.707; return b; });
+      d.mWet = ac.createGain();
+      d.mIn.connect(d.mDry); d.mDry.connect(d.output);
+      d.mIn.connect(d.mLow[0]); d.mLow[0].connect(d.mLow[1]); d.mLow[1].connect(d.mLowGain); d.mLowGain.connect(d.output);
+      d.mIn.connect(d.micro); d.micro.connect(d.mHp[0]); d.mHp[0].connect(d.mHp[1]); d.mHp[1].connect(d.mWet); d.mWet.connect(d.output);
       fx.dbl = d;
       applyDoublerParams(fx);
       wireFx(fx);
@@ -9046,6 +9066,17 @@ const Mixer = (() => {
     const d = fx.dbl, s = fx.state.dbl;
     if(!d) return;
     const now = ctx().currentTime;
+    try{ d.input.disconnect(); }catch(e){}
+    d.input.connect(s.algo === "micro" ? d.mIn : d.nIn);
+    const focus = Math.max(20, s.focus || 20), mm = s.microMix;
+    d.micro.parameters.get("style").setValueAtTime(s.style, now);
+    d.micro.parameters.get("detune").setValueAtTime(s.detune, now);
+    d.micro.parameters.get("delay").setValueAtTime(s.delay, now);
+    d.mLow.forEach(b => b.frequency.setTargetAtTime(focus, now, 0.02));
+    d.mHp.forEach(b => b.frequency.setTargetAtTime(focus, now, 0.02));
+    d.mDry.gain.setTargetAtTime(1 - mm, now, 0.02);
+    d.mLowGain.gain.setTargetAtTime(focus > 25 ? mm : 0, now, 0.02);
+    d.mWet.gain.setTargetAtTime(mm, now, 0.02);
     d.voice.parameters.get("smoothing").setValueAtTime(s.smoothing, now);
     d.voice.parameters.get("gate").setValueAtTime(Math.max(0, -s.gateRoom), now);
     d.voice.parameters.get("acoustic").setValueAtTime(s.mode === "acoustic" ? 1 : 0, now);
@@ -9129,7 +9160,10 @@ const Mixer = (() => {
 
     // live spectrum behind the curve
     const stemColor = c.color || "#4d9fff";
-    if(c.eqSpectrum && isPlaying){
+    // The live guitar makes sound without the song playing, so its spectrum
+    // shows whenever the input is on — not only during playback.
+    const guitarLive = c === guitarEq && typeof Guitar !== "undefined" && Guitar.isLive();
+    if(c.eqSpectrum && (isPlaying || guitarLive)){
       const bins = c.eqSpectrum.frequencyBinCount;
       const data = new Float32Array(bins);
       c.eqSpectrum.getFloatFrequencyData(data);
@@ -9194,10 +9228,25 @@ const Mixer = (() => {
       `Pásmo ${eqBand + 1} (${kind}):  ${fmtHz(b.freq)}   ${b.gain >= 0 ? "+" : "−"}${Math.abs(b.gain).toFixed(1).replace(".", ",")} dB   Q ${b.q.toFixed(2).replace(".", ",")}`;
   }
 
+  // tick() redraws the EQ during playback; this keeps it moving the rest of
+  // the time while the live guitar is the one shown (and stops by itself).
+  let eqLoop = null;
+  function startEqLoop(){
+    if(eqLoop) return;
+    const loop = () => {
+      const on = !el("eq-panel").hidden && !el("mixer").hidden && eqSel === "guitar" && Guitar.isLive();
+      if(!on){ eqLoop = null; return; }
+      if(!isPlaying) drawEq();
+      eqLoop = requestAnimationFrame(loop);
+    };
+    eqLoop = requestAnimationFrame(loop);
+  }
+
   function selectEqChannel(idx){
     const c = eqTarget(idx);
     if(!c) return;
     eqSel = idx;
+    if(idx === "guitar") startEqLoop();
     el("eq-title").textContent = "EQUALIZER — " + (idx === "guitar" ? "KYTARA (LIVE)" : String(c.stem).toUpperCase());
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
     const gtBtn = el("gt-eq-btn");
@@ -12999,7 +13048,7 @@ const Mixer = (() => {
     const on = el("eq-panel").hidden;
     setPanelOpen("eq-toggle", "eq-panel", on);
     savePanelPref("eq", on);
-    if(on) drawEq();
+    if(on){ drawEq(); startEqLoop(); }
   };
 
   // ---- the compressor panel ----
@@ -13319,19 +13368,27 @@ const Mixer = (() => {
     box.className = "sect-menu dbl-popover";
     box.id = "dbl-popover";
     box.dataset.sel = String(sel);
+    const pct = v => Math.round(v * 100) + " %";
     const rows = [
-      ["mix", "MIX (2. kytara)", 0, 1, 0.01, v => Math.round(v * 100) + " %"],
-      ["xover", "MONO XOVER", 20, 250, 1, v => Math.round(v) + " Hz"],
-      ["smoothing", "SMOOTHING (sevřenost)", 0, 1, 0.01, v => Math.round(v * 100) + " %"],
-      ["gateRoom", "GATE ← → ROOM", -1, 1, 0.01, v => Math.abs(v) < 0.005 ? "0 %" : (v < 0 ? "gate " : "room ") + Math.round(Math.abs(v) * 100) + " %"],
-      ["position", "POZICE 2. kytary", -1, 1, 0.01, v => Math.abs(v) < 0.02 ? "střed" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100)],
+      ["neural", "mix", "MIX (2. kytara)", 0, 1, 0.01, pct],
+      ["neural", "xover", "MONO XOVER", 20, 250, 1, v => Math.round(v) + " Hz"],
+      ["neural", "smoothing", "SMOOTHING (sevřenost)", 0, 1, 0.01, pct],
+      ["neural", "gateRoom", "GATE ← → ROOM", -1, 1, 0.01, v => Math.abs(v) < 0.005 ? "0 %" : (v < 0 ? "gate " : "room ") + Math.round(Math.abs(v) * 100) + " %"],
+      ["neural", "position", "POZICE 2. kytary", -1, 1, 0.01, v => Math.abs(v) < 0.02 ? "střed" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100)],
+      ["micro", "detune", "DETUNE (rozladění)", 0, 2, 0.01, pct],
+      ["micro", "delay", "DELAY (zpoždění)", 0, 2, 0.01, pct],
+      ["micro", "focus", "FOCUS (basy beze změny)", 20, 1000, 1, v => v <= 25 ? "vyp" : Math.round(v) + " Hz"],
+      ["micro", "microMix", "MIX", 0, 1, 0.01, pct],
     ];
     const paint = () => {
       const s = fx.state.dbl;
       box.classList.toggle("off", !s.on);
       box.querySelector("#dbl-onoff").innerHTML = `${icon(s.on ? "check" : "close", 12)}<span>${s.on ? "Zapnuto" : "Vypnuto"}</span>`;
-      box.querySelectorAll(".dbl-mode button").forEach(b => b.classList.toggle("on", b.dataset.mode === s.mode));
-      rows.forEach(([k, , , , , fmt]) => {
+      box.querySelectorAll(".dbl-algo button").forEach(b => b.classList.toggle("on", b.dataset.algo === s.algo));
+      box.querySelectorAll(".dbl-mode button[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === s.mode));
+      box.querySelectorAll(".dbl-style button").forEach(b => b.classList.toggle("on", +b.dataset.style === +s.style));
+      box.querySelectorAll("[data-for]").forEach(n => { n.hidden = n.dataset.for !== s.algo; });
+      rows.forEach(([, k, , , , , fmt]) => {
         box.querySelector(`b[data-v="${k}"]`).textContent = fmt(s[k]);
         const inp = box.querySelector(`input[data-k="${k}"]`);
         if(document.activeElement !== inp) inp.value = String(s[k]);
@@ -13340,20 +13397,31 @@ const Mixer = (() => {
     box.innerHTML = `
       <div class="ss-head">Doubler — ${escapeHtml(label)}</div>
       <button type="button" id="dbl-onoff"></button>
-      <div class="dbl-mode">
+      <div class="dbl-mode dbl-algo">
+        <button type="button" data-algo="neural" title="Druhý kytarista s lidskou nepřesností (NeuralDouble)">NeuralDouble</button>
+        <button type="button" data-algo="micro" title="Mikro posun ladění a krátké zpoždění vlevo/vpravo (styl Soundtoys MicroShift / Eventide H3000)">MicroShift</button>
+      </div>
+      <div class="dbl-mode" data-for="neural">
         <button type="button" data-mode="electric">Elektrická</button>
         <button type="button" data-mode="acoustic">Akustická</button>
       </div>
-      ${rows.map(([k, lab, mn, mx, st]) => `
-        <div class="dbl-row"><label>${lab} <b data-v="${k}"></b></label>
+      <div class="dbl-mode dbl-style" data-for="micro">
+        <button type="button" data-style="1" title="Eventide H3000 #231 — pevné ±9 centů, lehká saturace">Style I</button>
+        <button type="button" data-style="2" title="Eventide H3000 #519 — rozladění se pomalu mění">Style II</button>
+        <button type="button" data-style="3" title="AMS DMX 15-80 — delší zpoždění, jemný pohyb (ADT)">Style III</button>
+      </div>
+      ${rows.map(([algo, k, lab, mn, mx, st]) => `
+        <div class="dbl-row" data-for="${algo}"><label>${lab} <b data-v="${k}"></b></label>
           <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"></div>`).join("")}
-      <div class="hint" style="padding:4px 8px 6px">Druhá kytara hraje s lidskou nepřesností v čase i ladění
-        (podle NeuralDouble). Basy pod Mono Xover zůstávají jen v originálu, uprostřed.</div>`;
+      <div class="hint" data-for="neural" style="padding:4px 8px 6px">Druhá kytara hraje s lidskou nepřesností v čase i ladění
+        (podle NeuralDouble). Basy pod Mono Xover zůstávají jen v originálu, uprostřed.</div>
+      <div class="hint" data-for="micro" style="padding:4px 8px 6px">Levá strana o pár centů výš, pravá níž, každá s krátkým
+        zpožděním — široký „dvojitý“ zvuk bez rozmazání. Styly podle veřejných popisů H3000 / DMX 15-80.</div>`;
     document.body.appendChild(box);
+    paint();
     const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
     box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
     box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
-    paint();
 
     const apply = async (patch) => {
       await setDoubler(fx, patch);
@@ -13361,7 +13429,9 @@ const Mixer = (() => {
       refreshCompButtons();
     };
     box.querySelector("#dbl-onoff").onclick = () => apply({on: !fx.state.dbl.on});
-    box.querySelectorAll(".dbl-mode button").forEach(b => { b.onclick = () => apply({mode: b.dataset.mode}); });
+    box.querySelectorAll(".dbl-algo button").forEach(b => { b.onclick = () => apply({algo: b.dataset.algo}); });
+    box.querySelectorAll(".dbl-mode button[data-mode]").forEach(b => { b.onclick = () => apply({mode: b.dataset.mode}); });
+    box.querySelectorAll(".dbl-style button").forEach(b => { b.onclick = () => apply({style: +b.dataset.style}); });
     box.querySelectorAll("input[data-k]").forEach(inp => {
       inp.oninput = () => apply({[inp.dataset.k]: parseFloat(inp.value)});
     });
@@ -13717,6 +13787,7 @@ const Mixer = (() => {
       state.live = true;
       state.latencyMs = latencyEstimate();
       renderGuitarStrip();
+      startEqLoop();
       return state;
     }
 
@@ -14734,6 +14805,22 @@ const Mixer = (() => {
     // can render the same alphaTab tex without a second copy of the
     // loader/measure-to-tex logic.
     tabView: AlphaTabView,
+    // Peak level (dBFS) of each channel after its inserts and fader, plus the
+    // live guitar's — what the meters show, as numbers.
+    levels(){
+      const peak = (an) => {
+        const b = new Float32Array(an.fftSize);
+        an.getFloatTimeDomainData(b);
+        let p = 0;
+        for(let i = 0; i < b.length; i++){ const a = Math.abs(b[i]); if(a > p) p = a; }
+        return p > 0 ? Math.round(20 * Math.log10(p) * 10) / 10 : -120;
+      };
+      const out = {};
+      channels.forEach(c => { out[c.stem] = peak(c.analyser); });
+      const ga = Guitar.analyserNode();
+      if(ga) out["live"] = peak(ga);
+      return out;
+    },
     // The top toolbar's tuner icon (outside the Mixer entirely) needs a way
     // in — the tuner itself doesn't depend on anything Steems-specific.
     tuner: Tuner,

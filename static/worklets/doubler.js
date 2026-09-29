@@ -141,3 +141,87 @@ class DoublerVoice extends AudioWorkletProcessor {
 }
 
 registerProcessor("doubler-voice", DoublerVoice);
+
+// ---------------------------------------------------------------------------
+// "MicroShift"-style doubler: the micro pitch-shift + short delay trick of the
+// Eventide H3000 and AMS DMX 15-80 (what Soundtoys MicroShift models). Each
+// side gets its own copy, pitched a few cents up (left) or down (right) and
+// delayed by a few ms; the three styles differ in how much and whether it
+// moves. Values follow the published descriptions of those presets — an
+// approximation, not a copy of anyone's code.
+//
+// Pitch shift: the classic two-tap delay line ("rotating tape heads") — a
+// read pointer drifting through a 40 ms window at (1 − ratio) samples per
+// sample, a second one half a window behind, cross-faded so the wrap is
+// never heard.
+const MS_STYLES = {
+  1: {L: {c: 9, d: 10}, R: {c: -9, d: 14}, lfoC: 0, lfoD: 0, rate: [0, 0], drive: 1.25},
+  2: {L: {c: 7, d: 7}, R: {c: -7, d: 12}, lfoC: 4, lfoD: 1.5, rate: [0.23, 0.19], drive: 1},
+  3: {L: {c: 5, d: 22}, R: {c: -5, d: 28}, lfoC: 1.5, lfoD: 2, rate: [0.4, 0.33], drive: 1},
+};
+
+class MicroPitchVoice extends AudioWorkletProcessor {
+  static get parameterDescriptors(){
+    return [
+      {name: "style", defaultValue: 1, minValue: 1, maxValue: 3, automationRate: "k-rate"},
+      {name: "detune", defaultValue: 1, minValue: 0, maxValue: 2, automationRate: "k-rate"},
+      {name: "delay", defaultValue: 1, minValue: 0, maxValue: 2, automationRate: "k-rate"},
+    ];
+  }
+  constructor(){
+    super();
+    this.size = 1 << 14;
+    this.buf = new Float32Array(this.size);
+    this.w = 0;
+    this.win = Math.round(0.04 * sampleRate);
+    this.ph = [0, 0];            // pitch-shift phase per side, 0..win
+    this.lfo = [0, Math.PI / 2];
+  }
+  read(pos){
+    const mask = this.size - 1;
+    pos = ((pos % this.size) + this.size) % this.size;
+    const i = Math.floor(pos), f = pos - i;
+    return this.buf[i & mask] * (1 - f) + this.buf[(i + 1) & mask] * f;
+  }
+  process(inputs, outputs, params){
+    const out = outputs[0];
+    if(!out || out.length < 2) return true;
+    const input = inputs[0] || [];
+    const n = out[0].length, sr = sampleRate, mask = this.size - 1;
+    const st = MS_STYLES[Math.round(params.style[0])] || MS_STYLES[1];
+    const detune = params.detune[0], delayK = params.delay[0];
+    const chans = input.length;
+    for(let i = 0; i < n; i++){
+      let x = 0;
+      for(let c = 0; c < chans; c++) x += input[c][i];
+      if(chans) x /= chans;
+      this.buf[this.w] = x;
+      this.w = (this.w + 1) & mask;
+    }
+    const start = (this.w - n) & mask;
+    const win = this.win;
+    [["L", 0], ["R", 1]].forEach(([side, k]) => {
+      const cfg = st[side];
+      this.lfo[k] += 2 * Math.PI * st.rate[k] * n / sr;
+      const m = Math.sin(this.lfo[k]) * (k ? -1 : 1);
+      const cents = (cfg.c + st.lfoC * m * Math.sign(cfg.c)) * detune;
+      const ratio = Math.pow(2, cents / 1200);
+      const baseD = Math.max(1, (cfg.d + st.lfoD * m) * delayK) * sr / 1000;
+      const o = out[k];
+      for(let i = 0; i < n; i++){
+        this.ph[k] += 1 - ratio;
+        if(this.ph[k] >= win) this.ph[k] -= win;
+        if(this.ph[k] < 0) this.ph[k] += win;
+        const p1 = this.ph[k], p2 = (p1 + win / 2) % win;
+        const g1 = Math.sin(Math.PI * p1 / win), g2 = Math.sin(Math.PI * p2 / win);
+        const at = start + i - baseD;
+        let s = this.read(at - p1) * g1 * g1 + this.read(at - p2) * g2 * g2;
+        if(st.drive > 1) s = Math.tanh(s * st.drive) / Math.tanh(st.drive);
+        o[i] = s;
+      }
+    });
+    return true;
+  }
+}
+
+registerProcessor("micropitch-voice", MicroPitchVoice);
