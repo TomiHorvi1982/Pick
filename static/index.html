@@ -455,12 +455,51 @@
 
   /* EQ button on a strip: picks the channel the equaliser below is showing */
   .fl-eq-btn{width:100%;height:20px;border-radius:4px;border:1px solid var(--border);
-    background:var(--bg2);color:var(--sub);font:700 9.5px/1 inherit;letter-spacing:.12em;
+    background:var(--bg2);color:var(--sub);font-size:9.5px;font-weight:700;line-height:1;letter-spacing:.12em;
     cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font-family:inherit}
   .fl-eq-btn:hover{border-color:var(--accent);color:var(--text)}
   .fl-eq-btn .dot{width:6px;height:6px;border-radius:50%;background:#33333d}
   .fl-eq-btn.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
   .fl-eq-btn.sel{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.08)}
+
+  /* ---- channel inserts row (mono / compressor / doubler) ---- */
+  .fl-fx-row{display:flex;gap:2px;width:100%}
+  .fl-fx-btn{flex:1;min-width:0;height:17px;border-radius:3px;font-size:7.5px;font-weight:700;line-height:1;letter-spacing:.02em;
+    border:1px solid var(--border);background:var(--bg2);color:var(--sub);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+  .fl-fx-btn:hover{border-color:var(--accent);color:var(--text)}
+  .fl-fx-btn.on{background:rgba(255,209,102,.16);border-color:#ffd166;color:#ffd166}
+  .fl-channel.fl-live{width:118px;--ch-color:#ffd166}
+  .fl-channel.fl-live.flash{box-shadow:0 0 0 2px #ffd166}
+  .fl-live-top{display:flex;gap:4px;align-items:center;justify-content:center}
+  .fl-live .gt-knob-row{gap:14px}
+  .fl-live .gt-preset-name{max-width:104px;font-size:8px}
+  .gt-rail-preset{font-size:9px;color:var(--nm-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .comp-panel .eq-head .comp-onoff.on{background:#ffd166;color:#1a1400;border-color:#ffd166}
+  .comp-body{display:flex;gap:14px;align-items:stretch}
+  #comp-canvas{flex:0 0 auto;width:320px;height:240px;border-radius:8px;border:1px solid #23232b;
+    cursor:crosshair;touch-action:none}
+  #comp-canvas.grab{cursor:grab}
+  #comp-canvas.grabbing{cursor:grabbing}
+  .comp-gr{display:flex;flex-direction:column;align-items:center;gap:4px;width:34px}
+  .comp-gr-bar{flex:1;width:12px;background:#0b0b0e;border:1px solid #23232b;border-radius:3px;position:relative;overflow:hidden}
+  .comp-gr-fill{position:absolute;left:0;right:0;top:0;height:0;background:linear-gradient(#ff8a3d,#ffd166)}
+  .comp-gr-val{font-size:10px;color:var(--nm-txt,#ddd);font-variant-numeric:tabular-nums}
+  .comp-gr-cap{font-size:8px;color:var(--sub);letter-spacing:.06em}
+  .comp-params{flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;align-content:start}
+  .comp-param{display:flex;flex-direction:column;gap:4px}
+  .comp-param label{display:flex;justify-content:space-between;font-size:10.5px;color:var(--sub);letter-spacing:.05em}
+  .comp-param label b{color:var(--nm-txt,#ddd);font-weight:600;font-variant-numeric:tabular-nums}
+  .comp-param input{width:100%;accent-color:#ffd166}
+  .dbl-popover{width:280px}
+  .dbl-popover .dbl-row{display:flex;flex-direction:column;gap:3px;padding:4px 8px}
+  .dbl-popover .dbl-row label{display:flex;justify-content:space-between;font-size:10.5px;color:var(--sub)}
+  .dbl-popover .dbl-row label b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+  .dbl-popover .dbl-row input{width:100%;accent-color:#ffd166}
+  .dbl-popover .dbl-mode{display:flex;gap:4px;padding:4px 8px}
+  .dbl-popover .dbl-mode button{flex:1;justify-content:center}
+  .dbl-popover .dbl-mode button.on{background:rgba(255,209,102,.16);color:#ffd166}
+  .dbl-popover.off .dbl-row,.dbl-popover.off .dbl-mode{opacity:.45}
 
   /* ---- graphic equaliser ---- */
   .eq-panel{background:linear-gradient(180deg,#101014,#0a0a0d);border-top:1px solid var(--border);
@@ -2824,6 +2863,16 @@
       </div>
       <div class="set-note" id="stems-note"></div>
 
+      <div class="section-title" style="margin-top:22px"><span data-icon="volume"></span>Výstup zvuku</div>
+      <div style="display:flex;gap:8px">
+        <select id="audio-out" style="flex:1;padding:10px"></select>
+        <button class="btn secondary" id="audio-out-names" style="white-space:nowrap" title="Prohlížeč ukáže názvy zařízení až po povolení mikrofonu">Názvy</button>
+      </div>
+      <div class="set-note">Platí hned pro celou aplikaci (přehrávač, Steems, kytaru, náhledy).
+        Bluetooth reproduktor nebo sluchátka nejdřív spáruj a připoj v Nastavení systému —
+        pak se objeví tady. Pozor: přes Bluetooth má živá kytara znatelné zpoždění.</div>
+      <div class="set-note" id="audio-out-unsupported" hidden style="color:var(--danger)">Tenhle prohlížeč neumí posílat zvuk na jiné zařízení — otevři aplikaci v Chrome.</div>
+
       <div class="section-title" style="margin-top:22px"><span data-icon="folder"></span>Kam se stahují songy</div>
       <div style="display:flex;gap:8px">
         <input type="text" id="music-root-input" placeholder="/Users/…/Music/spotdl" style="flex:1;padding:10px">
@@ -3179,6 +3228,7 @@
             <div class="row">
               <button class="nm-btn round" id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="14"></span></button>
               <button class="nm-btn round" id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="14"></span></button>
+              <button class="nm-btn round" id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
@@ -3235,6 +3285,28 @@
             <button type="button" class="nm-btn" id="eq-reset" title="Vrátit všechna pásma na nulu">Reset</button>
           </div>
           <canvas id="eq-canvas"></canvas>
+        </div>
+
+        <!-- Compressor for whichever channel is selected — drawn as its transfer
+             curve (input level → output level), the way the EQ is drawn as its
+             frequency response. -->
+        <div class="eq-panel comp-panel" id="comp-panel" hidden>
+          <div class="eq-head">
+            <span class="eq-title" id="comp-title">KOMPRESOR</span>
+            <select class="eq-chan-select" id="comp-chan-select" title="Která stopa se upravuje"></select>
+            <button type="button" class="nm-btn comp-onoff" id="comp-onoff">Vypnuto</button>
+            <span class="eq-readout" id="comp-readout">Táhni bod prahu vodorovně, bod poměru svisle. Kolečko myši mění koleno.</span>
+            <button type="button" class="nm-btn" id="comp-reset" title="Výchozí nastavení">Reset</button>
+          </div>
+          <div class="comp-body">
+            <canvas id="comp-canvas"></canvas>
+            <div class="comp-gr" title="Stažení (gain reduction)">
+              <div class="comp-gr-bar"><div class="comp-gr-fill" id="comp-gr-fill"></div></div>
+              <span class="comp-gr-val" id="comp-gr-val">0,0</span>
+              <span class="comp-gr-cap">GR dB</span>
+            </div>
+            <div class="comp-params" id="comp-params"></div>
+          </div>
         </div>
       </div>
 
@@ -3809,6 +3881,55 @@ function thumbUrl(u){
 // which also picks up the video elements that are created on demand. The
 // mixer has no element, so it announces itself.
 // ======================================================================
+// ======================================================================
+// Where the sound comes out. Any output macOS knows about — built-in
+// speakers, headphones, an interface, a Bluetooth speaker once it is paired
+// and connected in System Settings — can be picked in Settings, and every
+// part of the app plays there: the player (and videos) via setSinkId on the
+// media element, the mixer, guitar and previews via setSinkId on their
+// AudioContexts. "" is the system default.
+// ======================================================================
+const AudioOut = (() => {
+  const KEY = "spotdl-gui-output-sink";
+  let sink = "";
+  try{ sink = localStorage.getItem(KEY) || ""; }catch(e){}
+  const ctxs = new Set();
+  let warned = false;
+
+  function failed(){
+    if(warned || !sink) return;
+    warned = true;
+    showToast("Vybraný výstup zvuku teď není dostupný — hraje výchozí");
+  }
+  function applyEl(m){
+    if(!m || typeof m.setSinkId !== "function") return;
+    if((m.sinkId || "") === sink) return;
+    m.setSinkId(sink).catch(failed);
+  }
+  function applyCtx(c){
+    if(!c || typeof c.setSinkId !== "function") return;
+    const cur = typeof c.sinkId === "string" ? c.sinkId : "";
+    if(cur === sink) return;
+    c.setSinkId(sink).catch(failed);
+  }
+  function adopt(c){ ctxs.add(c); if(sink) applyCtx(c); return c; }
+  function set(id){
+    sink = id || "";
+    warned = false;
+    try{ localStorage.setItem(KEY, sink); }catch(e){}
+    document.querySelectorAll("audio, video").forEach(applyEl);
+    ctxs.forEach(applyCtx);
+  }
+  async function list(){
+    try{ return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audiooutput"); }
+    catch(e){ return []; }
+  }
+  // A Bluetooth speaker that drops out and comes back gets the sound again.
+  try{ navigator.mediaDevices.addEventListener("devicechange", () => { if(sink){ warned = false; set(sink); } }); }catch(e){}
+  return {adopt, applyEl, set, list, get: () => sink,
+    supported: () => typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype};
+})();
+
 const AudioBus = (() => {
   let mixerStop = null;
   let mixerIsPlaying = null;
@@ -3852,6 +3973,7 @@ const AudioBus = (() => {
   // events to the document, so play() itself is what has to announce them.
   const nativePlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function(...args){
+    AudioOut.applyEl(this);
     if(!this.isConnected){
       seen.add(new WeakRef(this));
       silenceOthers(this);
@@ -7040,7 +7162,7 @@ const NamPreview = (() => {
   let onStateChange = null;
 
   function audioCtx(){
-    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); AudioOut.adopt(ctx); }
     return ctx;
   }
 
@@ -7189,7 +7311,7 @@ const SimpleMetronome = (() => {
   };
 
   function audioCtx(){
-    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); AudioOut.adopt(ctx); }
     return ctx;
   }
 
@@ -8414,7 +8536,7 @@ const Mixer = (() => {
   }
 
   function ctx(){
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); AudioOut.adopt(audioCtx); }
     return audioCtx;
   }
 
@@ -8697,7 +8819,9 @@ const Mixer = (() => {
     });
     let node = c.gainNode;
     c.eqFilters.forEach(f => { node.connect(f); node = f; });
-    node.connect(c.analyser);
+    // A stem's inserts (compressor, mono, doubler) sit after its EQ and
+    // before its meter and pan; the live guitar wires its own (see rewire).
+    node.connect(c.fx ? c.fx.input : c.analyser);
     c.eqSpectrum = ac.createAnalyser();
     c.eqSpectrum.fftSize = 4096;
     c.eqSpectrum.smoothingTimeConstant = 0.82;
@@ -8730,6 +8854,168 @@ const Mixer = (() => {
   function restoreEq(c, saved){
     if(!c.eqBands || !Array.isArray(saved)) return;
     saved.forEach((s, i) => { if(c.eqBands[i] && s) setEqBand(c, i, {freq: s.freq, gain: s.gain, q: s.q}); });
+  }
+
+
+  // ---- channel inserts: compressor -> mono -> doubler ----
+  //
+  // One small chain per channel, between its EQ and its meter/pan. Stages
+  // that are off are simply left out of the wiring, so an untouched channel
+  // sounds exactly as it did before these existed.
+  const COMP_DEFAULT = {on: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.25, knee: 6, makeup: 0};
+  // Parameters as in NeuralDouble, plus a wet level. Position is where the
+  // second guitar sits (−1 left … +1 right); the original keeps its own pan.
+  const DBL_DEFAULT = {on: false, mode: "electric", mix: 0.8, xover: 120, smoothing: 0.5, gateRoom: 0, position: 0.8};
+
+  function makeFx(saved){
+    const ac = ctx();
+    const fx = {
+      input: ac.createGain(), output: ac.createGain(),
+      pre: ac.createAnalyser(),
+      comp: ac.createDynamicsCompressor(), makeup: ac.createGain(),
+      mono: ac.createGain(),
+      dbl: null, dblBuilding: null,
+      state: {
+        mono: !!(saved && saved.mono),
+        comp: {...COMP_DEFAULT, ...(saved && saved.comp || {})},
+        dbl: {...DBL_DEFAULT, ...(saved && saved.dbl || {})},
+      },
+    };
+    fx.pre.fftSize = 512;
+    // Downmix to one channel; whatever follows (the panner) spreads it again.
+    fx.mono.channelCount = 1;
+    fx.mono.channelCountMode = "explicit";
+    fx.mono.channelInterpretation = "speakers";
+    fx.comp.connect(fx.makeup);
+    applyCompParams(fx);
+    wireFx(fx);
+    if(fx.state.dbl.on) ensureDoubler(fx);
+    return fx;
+  }
+
+  function wireFx(fx){
+    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    fx.input.connect(fx.pre);
+    let n = fx.input;
+    if(fx.state.comp.on){ n.connect(fx.comp); n = fx.makeup; }
+    if(fx.state.mono){ n.connect(fx.mono); n = fx.mono; }
+    if(fx.state.dbl.on && fx.dbl){ n.connect(fx.dbl.input); n = fx.dbl.output; }
+    n.connect(fx.output);
+  }
+
+  function applyCompParams(fx){
+    const s = fx.state.comp, now = ctx().currentTime;
+    fx.comp.threshold.setTargetAtTime(s.threshold, now, 0.01);
+    fx.comp.ratio.setTargetAtTime(s.ratio, now, 0.01);
+    fx.comp.knee.setTargetAtTime(s.knee, now, 0.01);
+    fx.comp.attack.setTargetAtTime(s.attack, now, 0.01);
+    fx.comp.release.setTargetAtTime(s.release, now, 0.01);
+    fx.makeup.gain.setTargetAtTime(Math.pow(10, s.makeup / 20), now, 0.01);
+  }
+
+  function setFxMono(fx, on){
+    fx.state.mono = !!on;
+    wireFx(fx);
+    queueSessionSave();
+  }
+
+  function fxSnapshot(fx){
+    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}} : null;
+  }
+
+  // ---- the doubler ----
+  let doublerWorkletReady = null;
+  function ensureDoublerWorklet(){
+    if(!doublerWorkletReady){
+      doublerWorkletReady = ctx().audioWorklet.addModule("/static/worklets/doubler.js")
+        .catch(e => { doublerWorkletReady = null; throw e; });
+    }
+    return doublerWorkletReady;
+  }
+
+  // A short, dark stereo tail for the "room" half of Gate/Room.
+  let roomIr = null;
+  function roomImpulse(){
+    if(roomIr) return roomIr;
+    const ac = ctx(), sr = ac.sampleRate, len = Math.floor(sr * 0.7);
+    roomIr = ac.createBuffer(2, len, sr);
+    for(let ch = 0; ch < 2; ch++){
+      const d = roomIr.getChannelData(ch);
+      let lp = 0;
+      for(let i = 0; i < len; i++){
+        const t = i / sr;
+        lp = lp * 0.55 + (Math.random() * 2 - 1) * 0.45;
+        d[i] = t < 0.008 ? 0 : lp * Math.exp(-t / 0.16);
+      }
+    }
+    return roomIr;
+  }
+
+  // input -> dry -> output, and input -> clone (worklet) -> 4 all-pass
+  // filters (so the clone doesn't comb with the original) -> steep high-pass
+  // at the mono crossover (the low end stays in the original only, centred)
+  // -> pan to Position -> wet level -> output; plus an optional room.
+  function ensureDoubler(fx){
+    if(fx.dbl) return Promise.resolve(fx.dbl);
+    if(fx.dblBuilding) return fx.dblBuilding;
+    fx.dblBuilding = (async () => {
+      await ensureDoublerWorklet();
+      const ac = ctx();
+      const d = {input: ac.createGain(), output: ac.createGain()};
+      d.voice = new AudioWorkletNode(ac, "doubler-voice", {
+        numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
+        processorOptions: {seed: Math.floor(Math.random() * 2147483647)},
+      });
+      d.allpass = [320, 870, 2200, 5400].map((f, i) => {
+        const b = ac.createBiquadFilter();
+        b.type = "allpass"; b.frequency.value = f; b.Q.value = 0.6 + i * 0.15;
+        return b;
+      });
+      d.hp = [0, 1].map(() => { const b = ac.createBiquadFilter(); b.type = "highpass"; b.Q.value = 0.707; return b; });
+      d.panner = ac.createStereoPanner();
+      d.wet = ac.createGain();
+      d.roomSend = ac.createGain();
+      d.room = ac.createConvolver();
+      d.room.buffer = roomImpulse();
+      d.input.connect(d.output);                       // the original, untouched
+      let n = d.input;
+      [d.voice, ...d.allpass, ...d.hp].forEach(x => { n.connect(x); n = x; });
+      n.connect(d.panner);
+      d.panner.connect(d.wet);
+      d.wet.connect(d.output);
+      d.panner.connect(d.roomSend);
+      d.roomSend.connect(d.room);
+      d.room.connect(d.output);
+      fx.dbl = d;
+      applyDoublerParams(fx);
+      wireFx(fx);
+      return d;
+    })().finally(() => { fx.dblBuilding = null; });
+    return fx.dblBuilding;
+  }
+
+  function applyDoublerParams(fx){
+    const d = fx.dbl, s = fx.state.dbl;
+    if(!d) return;
+    const now = ctx().currentTime;
+    d.voice.parameters.get("smoothing").setValueAtTime(s.smoothing, now);
+    d.voice.parameters.get("gate").setValueAtTime(Math.max(0, -s.gateRoom), now);
+    d.voice.parameters.get("acoustic").setValueAtTime(s.mode === "acoustic" ? 1 : 0, now);
+    d.hp.forEach(b => b.frequency.setTargetAtTime(s.xover, now, 0.02));
+    d.panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, s.position)), now, 0.02);
+    d.wet.gain.setTargetAtTime(s.mix, now, 0.02);
+    d.roomSend.gain.setTargetAtTime(Math.max(0, s.gateRoom) * 0.7, now, 0.02);
+  }
+
+  async function setDoubler(fx, patch){
+    Object.assign(fx.state.dbl, patch);
+    if(fx.state.dbl.on){
+      try{ await ensureDoubler(fx); }
+      catch(e){ showToast("Doubler se nepodařilo spustit"); fx.state.dbl.on = false; }
+    }
+    applyDoublerParams(fx);
+    wireFx(fx);
+    queueSessionSave();
   }
 
   // ---- drawing ----
@@ -8970,7 +9256,7 @@ const Mixer = (() => {
     channels.forEach((c, idx) => {
       const active = solo ? c.solo : !c.muted;
       const gain = (!active || c.faderValue < 0.01) ? 0 : c.faderValue;
-      c.gainNode.gain.value = gain;
+      (c.faderNode || c.gainNode).gain.value = gain;
       // c.muted is the user's own mute switch — deriving it from the computed
       // gain used to latch every non-soloed stem to muted, so turning solo
       // back off left the rest of the mix permanently silent.
@@ -11224,6 +11510,11 @@ const Mixer = (() => {
           <button class="fl-ms-btn mute ${c.muted?'active':''}" id="fl-mute-${idx}" title="Mute">M</button>
           <button class="fl-ms-btn solo ${c.solo?'active':''}" id="fl-solo-${idx}" title="Solo">S</button>
         </div>
+        <div class="fl-fx-row">
+          <button class="fl-fx-btn ${c.fx && c.fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${c.fx && c.fx.state.mono ? "MONO" : "ST"}</button>
+          <button class="fl-fx-btn ${c.fx && c.fx.state.comp.on ? "on" : ""}" data-act="comp" title="Kompresor">CMP</button>
+          <button class="fl-fx-btn ${c.fx && c.fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
+        </div>
         <button type="button" class="fl-eq-btn" id="fl-eq-${idx}" title="Ekvalizér tohoto kanálu"><span class="dot"></span>EQ</button>
       `;
       // Initialize LED segments (10 per meter)
@@ -11324,9 +11615,19 @@ const Mixer = (() => {
       // EQ: selects this channel in the equaliser under the strips.
       strip.querySelector(".fl-eq-btn").onclick = () => selectEqChannel(idx);
       strip.querySelector(".fl-ch-name").onclick = () => selectEqChannel(idx);
+      strip.dataset.idx = String(idx);
+      strip.querySelector('[data-act="mono"]').onclick = (e) => {
+        setFxMono(c.fx, !c.fx.state.mono);
+        e.currentTarget.classList.toggle("on", c.fx.state.mono);
+        e.currentTarget.textContent = c.fx.state.mono ? "MONO" : "ST";
+      };
+      strip.querySelector('[data-act="comp"]').onclick = () => openCompPanel(idx);
+      strip.querySelector('[data-act="dbl"]').onclick = (e) => openDoublerPopover(idx, e.currentTarget);
 
       box.appendChild(strip);
     });
+    renderLiveGuitarFader();
+    if(!el("comp-panel").hidden){ renderCompChannelSelect(); paintCompParams(); startCompLoop(); }
     applyGains();
     if(eqSel >= channels.length) eqSel = 0;
     refreshEqButtons();
@@ -11493,7 +11794,10 @@ const Mixer = (() => {
       Guitar.state.compRatio = gt.compRatio ?? Guitar.state.compRatio;
       Guitar.state.compAttack = gt.compAttack ?? Guitar.state.compAttack;
       Guitar.state.compRelease = gt.compRelease ?? Guitar.state.compRelease;
+      Guitar.state.compKnee = gt.compKnee ?? Guitar.state.compKnee;
+      Guitar.state.compMakeup = gt.compMakeup ?? Guitar.state.compMakeup;
       if(gt.compOn) Guitar.ensureComp();
+      Guitar.restoreFx(gt.fx);
       // The device id is remembered but not opened: a live input has to be
       // asked for, not resumed behind someone's back.
       Guitar.state.deviceId = gt.deviceId || Guitar.state.deviceId;
@@ -11533,6 +11837,12 @@ const Mixer = (() => {
       analyser.connect(panner);
       panner.connect(masterOut());
       const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
+      const fxChain = makeFx(savedCh && savedCh.fx);
+      // The fader comes after EQ and the inserts (as on a desk): moving it
+      // must not change how hard the compressor works.
+      const faderNode = ctx().createGain();
+      fxChain.output.connect(faderNode);
+      faderNode.connect(analyser);
       const chan = {
         stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
         muted: savedCh ? savedCh.muted : false,
@@ -11542,6 +11852,7 @@ const Mixer = (() => {
         panValue: savedCh ? savedCh.panValue : 0,
         clipOffset: savedCh ? savedCh.clipOffset : 0,
         source: null, vuFill: null, pitchedBuffer: null,
+        fx: fxChain, faderNode,
       };
       buildEq(chan, savedCh && savedCh.eq);
       loaded.push(chan);
@@ -12073,6 +12384,7 @@ const Mixer = (() => {
         faderValue: c.faderValue, pitchRate: c.pitchRate || 1,
         panValue: c.panValue || 0, clipOffset: c.clipOffset || 0,
         eq: eqSnapshot(c),
+        fx: fxSnapshot(c.fx),
       })),
       pixelsPerSecond,
       metronome: {
@@ -12087,6 +12399,8 @@ const Mixer = (() => {
         compOn: Guitar.state.compOn, compThreshold: Guitar.state.compThreshold,
         compRatio: Guitar.state.compRatio, compAttack: Guitar.state.compAttack,
         compRelease: Guitar.state.compRelease,
+        compKnee: Guitar.state.compKnee, compMakeup: Guitar.state.compMakeup,
+        fx: fxSnapshot(Guitar.fx()),
         deviceId: Guitar.state.deviceId, ampName: Guitar.state.ampName,
         ampFile: Guitar.state.ampFile,
         cabName: Guitar.state.cabName,
@@ -12640,6 +12954,375 @@ const Mixer = (() => {
     if(on) drawEq();
   };
 
+  // ---- the compressor panel ----
+  //
+  // Same idea as the EQ: one panel for whichever channel is picked, drawn as
+  // what the compressor does rather than a row of numbers — the transfer
+  // curve (level in → level out), with the input's live level riding on it
+  // and a gain-reduction meter beside it. A stem's compressor sits after its
+  // EQ; the live guitar's is the pedal before its amp.
+  let compSel = 0, compLoop = null, compDrag = null;
+  const CMP_LO = -60, CMP_HI = 6;
+  const COMP_LIMITS = {threshold: [-60, 0], ratio: [1, 20], attack: [0, 0.2], release: [0.02, 1.5], knee: [0, 30], makeup: [0, 24]};
+
+  function compTarget(sel){
+    if(sel === "guitar"){
+      const g = Guitar.state;
+      return {
+        label: "LIVE KYTARA",
+        get: () => ({on: g.compOn, threshold: g.compThreshold, ratio: g.compRatio, attack: g.compAttack,
+                     release: g.compRelease, knee: g.compKnee, makeup: g.compMakeup}),
+        set(patch){
+          if("on" in patch) Guitar.toggleComp(patch.on);
+          else if(!Guitar.compNodeRef()) Guitar.ensureComp();
+          Object.keys(patch).forEach(k => { if(k !== "on") Guitar.setCompParam(k, patch[k]); });
+        },
+        node: () => Guitar.compNodeRef(),
+        inputDb: () => g.peak > 0 ? 20 * Math.log10(g.peak) : -120,
+      };
+    }
+    const c = channels[sel];
+    if(!c || !c.fx) return null;
+    const fx = c.fx;
+    let buf = null;
+    return {
+      label: String(STEM_LABEL[c.stem] || c.stem).toUpperCase(),
+      get: () => fx.state.comp,
+      set(patch){
+        Object.assign(fx.state.comp, patch);
+        applyCompParams(fx);
+        if("on" in patch) wireFx(fx);
+      },
+      node: () => fx.comp,
+      inputDb(){
+        if(!buf || buf.length !== fx.pre.fftSize) buf = new Float32Array(fx.pre.fftSize);
+        fx.pre.getFloatTimeDomainData(buf);
+        let peak = 0;
+        for(let i = 0; i < buf.length; i++){ const a = Math.abs(buf[i]); if(a > peak) peak = a; }
+        return peak > 0 ? 20 * Math.log10(peak) : -120;
+      },
+    };
+  }
+
+  function compCurve(x, s){
+    const thr = s.threshold, r = Math.max(1, s.ratio), k = Math.max(0.001, s.knee);
+    let y;
+    if(x <= thr) y = x;
+    else if(x < thr + k) y = x + (1 / r - 1) * (x - thr) * (x - thr) / (2 * k);
+    else y = thr + k + (1 / r - 1) * k / 2 + (x - thr - k) / r;
+    return y + s.makeup;
+  }
+
+  function setComp(patch){
+    const t = compTarget(compSel);
+    if(!t) return;
+    const s = t.get();
+    Object.keys(patch).forEach(k => {
+      if(COMP_LIMITS[k]) patch[k] = Math.max(COMP_LIMITS[k][0], Math.min(COMP_LIMITS[k][1], patch[k]));
+    });
+    t.set(patch);
+    queueSessionSave();
+    paintCompParams();
+    refreshCompButtons();
+    drawComp();
+    return s;
+  }
+
+  function refreshCompButtons(){
+    document.querySelectorAll("#fl-channels .fl-channel[data-idx]").forEach(strip => {
+      const c = channels[+strip.dataset.idx];
+      const b = strip.querySelector('[data-act="comp"]');
+      if(c && c.fx && b) b.classList.toggle("on", c.fx.state.comp.on);
+      const d = strip.querySelector('[data-act="dbl"]');
+      if(c && c.fx && d) d.classList.toggle("on", c.fx.state.dbl.on);
+    });
+    const gb = el("gt-comp-btn");
+    if(gb) gb.classList.toggle("on", Guitar.state.compOn);
+    const gd = document.querySelector('#gt-fader [data-act="dbl"]');
+    if(gd) gd.classList.toggle("on", Guitar.fx().state.dbl.on);
+  }
+
+  const fmtNum = (v, d) => v.toFixed(d).replace(".", ",");
+  function paintCompParams(){
+    const t = compTarget(compSel);
+    if(!t) return;
+    const s = t.get();
+    el("comp-title").textContent = "KOMPRESOR — " + t.label;
+    const onBtn = el("comp-onoff");
+    onBtn.textContent = s.on ? "Zapnuto" : "Vypnuto";
+    onBtn.classList.toggle("on", !!s.on);
+    const box = el("comp-params");
+    const rows = [
+      ["threshold", "PRÁH", -60, 0, 0.5, v => fmtNum(v, 1) + " dB"],
+      ["ratio", "POMĚR", 1, 20, 0.1, v => fmtNum(v, 1) + " : 1"],
+      ["attack", "ATTACK", 0, 0.2, 0.001, v => Math.round(v * 1000) + " ms"],
+      ["release", "RELEASE", 0.02, 1.5, 0.01, v => Math.round(v * 1000) + " ms"],
+      ["knee", "KOLENO", 0, 30, 0.5, v => fmtNum(v, 1) + " dB"],
+      ["makeup", "ZESÍLENÍ", 0, 24, 0.5, v => "+" + fmtNum(v, 1) + " dB"],
+    ];
+    if(box.dataset.built !== "1"){
+      box.innerHTML = rows.map(([k, lab, mn, mx, st]) => `
+        <div class="comp-param"><label>${lab} <b data-v="${k}"></b></label>
+          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"></div>`).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.oninput = () => setComp({[inp.dataset.k]: parseFloat(inp.value)});
+      });
+      box.dataset.built = "1";
+    }
+    rows.forEach(([k, , , , , fmt]) => {
+      const inp = box.querySelector(`input[data-k="${k}"]`);
+      if(document.activeElement !== inp) inp.value = String(s[k]);
+      box.querySelector(`b[data-v="${k}"]`).textContent = fmt(s[k]);
+    });
+  }
+
+  function renderCompChannelSelect(){
+    const sel = el("comp-chan-select");
+    sel.innerHTML = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("")
+      + `<option value="guitar">live kytara</option>`;
+    sel.value = String(compSel);
+  }
+
+  function openCompPanel(sel){
+    if(sel !== undefined) compSel = sel;
+    if(compSel !== "guitar" && !channels[compSel]) compSel = channels.length ? 0 : "guitar";
+    setPanelOpen("comp-toggle", "comp-panel", true);
+    savePanelPref("comp", true);
+    renderCompChannelSelect();
+    paintCompParams();
+    startCompLoop();
+  }
+
+  const cmpX = (db, W) => 34 + (db - CMP_LO) / (CMP_HI - CMP_LO) * (W - 44);
+  const cmpY = (db, H) => H - 24 - (db - CMP_LO) / (CMP_HI - CMP_LO) * (H - 34);
+  const cmpDbX = (x, W) => CMP_LO + (x - 34) / (W - 44) * (CMP_HI - CMP_LO);
+  const cmpDbY = (y, H) => CMP_LO + (H - 24 - y) / (H - 34) * (CMP_HI - CMP_LO);
+
+  function drawComp(){
+    const cv = el("comp-canvas");
+    const t = compTarget(compSel);
+    if(!cv || !t || el("comp-panel").hidden) return;
+    const s = t.get();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if(!W || !H) return;
+    if(cv.width !== Math.floor(W * dpr) || cv.height !== Math.floor(H * dpr)){
+      cv.width = Math.floor(W * dpr); cv.height = Math.floor(H * dpr);
+    }
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#0d0d12"); bg.addColorStop(1, "#08080b");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+
+    g.font = "10px sans-serif"; g.lineWidth = 1;
+    for(let db = CMP_LO; db <= CMP_HI; db += 6){
+      const x = Math.round(cmpX(db, W)) + 0.5, y = Math.round(cmpY(db, H)) + 0.5;
+      g.strokeStyle = db === 0 ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)";
+      g.beginPath(); g.moveTo(x, 8); g.lineTo(x, H - 24); g.stroke();
+      g.beginPath(); g.moveTo(34, y); g.lineTo(W - 10, y); g.stroke();
+      if(db % 12 === 0){
+        g.fillStyle = "rgba(255,255,255,.35)";
+        g.textAlign = "center"; g.textBaseline = "top"; g.fillText(String(db), x, H - 18);
+        g.textAlign = "right"; g.textBaseline = "middle"; g.fillText(String(db), 28, y);
+      }
+    }
+    // unity line
+    g.setLineDash([4, 4]); g.strokeStyle = "rgba(255,255,255,.18)";
+    g.beginPath(); g.moveTo(cmpX(CMP_LO, W), cmpY(CMP_LO, H)); g.lineTo(cmpX(CMP_HI, W), cmpY(CMP_HI, H)); g.stroke();
+    g.setLineDash([]);
+
+    // the part above the threshold, shaded
+    const tx = cmpX(s.threshold, W);
+    g.fillStyle = s.on ? "rgba(255,209,102,.06)" : "rgba(255,255,255,.025)";
+    g.fillRect(tx, 8, W - 10 - tx, H - 32);
+
+    // transfer curve
+    const col = s.on ? "#ffd166" : "#6b6b78";
+    g.beginPath();
+    for(let x = CMP_LO; x <= CMP_HI; x += 0.25){
+      const X = cmpX(x, W), Y = cmpY(Math.max(CMP_LO, Math.min(CMP_HI + 6, compCurve(x, s))), H);
+      x === CMP_LO ? g.moveTo(X, Y) : g.lineTo(X, Y);
+    }
+    g.lineWidth = 2.4; g.strokeStyle = col;
+    if(s.on){ g.shadowColor = "rgba(255,209,102,.55)"; g.shadowBlur = 8; }
+    g.stroke(); g.shadowBlur = 0;
+
+    // handles: threshold (the knee point) and ratio (the top of the curve)
+    const hThr = {x: tx, y: cmpY(compCurve(s.threshold, s), H)};
+    const hRat = {x: cmpX(0, W), y: cmpY(Math.min(CMP_HI + 6, compCurve(0, s)), H)};
+    [[hThr, "#38bdf8", "P"], [hRat, "#ff5c8a", "R"]].forEach(([h, c, t2]) => {
+      g.beginPath(); g.arc(h.x, h.y, 8, 0, Math.PI * 2);
+      g.fillStyle = c; g.fill();
+      g.lineWidth = 1.5; g.strokeStyle = "rgba(0,0,0,.6)"; g.stroke();
+      g.fillStyle = "#101014"; g.font = "bold 9.5px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(t2, h.x, h.y + .5);
+    });
+
+    // live level
+    const inDb = t.inputDb();
+    if(inDb > CMP_LO){
+      const x = Math.min(CMP_HI, inDb);
+      g.beginPath(); g.arc(cmpX(x, W), cmpY(Math.min(CMP_HI + 6, compCurve(x, s)), H), 5, 0, Math.PI * 2);
+      g.fillStyle = "#fff"; g.shadowColor = "#fff"; g.shadowBlur = 10; g.fill(); g.shadowBlur = 0;
+    }
+    const node = t.node();
+    const gr = s.on && node ? Math.max(0, -node.reduction) : 0;
+    el("comp-gr-fill").style.height = Math.min(100, gr / 24 * 100) + "%";
+    el("comp-gr-val").textContent = fmtNum(gr, 1);
+    compHandles = {thr: hThr, rat: hRat};
+  }
+  let compHandles = null;
+
+  function startCompLoop(){
+    if(compLoop) return;
+    const loop = () => {
+      if(el("comp-panel").hidden || el("mixer").hidden){ compLoop = null; return; }
+      drawComp();
+      compLoop = requestAnimationFrame(loop);
+    };
+    compLoop = requestAnimationFrame(loop);
+  }
+
+  (() => {
+    const cv = el("comp-canvas");
+    const pos = (e) => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height}; };
+    const hit = (p) => {
+      if(!compHandles) return null;
+      for(const k of ["thr", "rat"]){
+        const h = compHandles[k];
+        if((h.x - p.x) ** 2 + (h.y - p.y) ** 2 < 14 * 14) return k;
+      }
+      return null;
+    };
+    cv.addEventListener("pointerdown", (e) => {
+      const p = pos(e), k = hit(p);
+      if(!k) return;
+      compDrag = k;
+      cv.setPointerCapture(e.pointerId);
+      cv.classList.add("grabbing");
+      const t = compTarget(compSel);
+      if(t && !t.get().on) setComp({on: true});
+    });
+    cv.addEventListener("pointermove", (e) => {
+      const p = pos(e);
+      if(!compDrag){ cv.classList.toggle("grab", !!hit(p)); return; }
+      const t = compTarget(compSel);
+      if(!t) return;
+      const s = t.get();
+      if(compDrag === "thr"){
+        setComp({threshold: Math.round(cmpDbX(p.x, p.w) * 2) / 2});
+      } else {
+        // Output at 0 dB in → the ratio that puts the curve's end there.
+        const y0 = cmpDbY(p.y, p.h) - s.makeup;
+        const k = s.knee, thr = s.threshold;
+        const num = -thr - k / 2, den = y0 - thr - k / 2;
+        const r = den > 0.05 ? num / den : 20;
+        setComp({ratio: Math.round(Math.max(1, Math.min(20, r)) * 10) / 10});
+      }
+    });
+    const end = (e) => {
+      if(!compDrag) return;
+      compDrag = null;
+      cv.classList.remove("grabbing");
+      try{ cv.releasePointerCapture(e.pointerId); }catch(err){}
+    };
+    cv.addEventListener("pointerup", end);
+    cv.addEventListener("pointercancel", end);
+    cv.addEventListener("wheel", (e) => {
+      const t = compTarget(compSel); if(!t) return;
+      e.preventDefault();
+      setComp({knee: Math.round((t.get().knee - e.deltaY * 0.02) * 2) / 2});
+    }, {passive: false});
+    cv.addEventListener("dblclick", () => el("comp-reset").click());
+    new ResizeObserver(() => drawComp()).observe(cv);
+  })();
+
+  el("comp-onoff").onclick = () => {
+    const t = compTarget(compSel);
+    if(t) setComp({on: !t.get().on});
+  };
+  el("comp-reset").onclick = () => {
+    const t = compTarget(compSel);
+    if(!t) return;
+    const {on, ...rest} = COMP_DEFAULT;
+    setComp({...rest});
+  };
+  el("comp-chan-select").onchange = (e) => {
+    const v = e.target.value;
+    compSel = v === "guitar" ? "guitar" : parseInt(v, 10);
+    paintCompParams();
+    drawComp();
+  };
+  setPanelOpen("comp-toggle", "comp-panel", !!panelPrefs.comp);
+  el("comp-toggle").onclick = () => {
+    if(el("comp-panel").hidden) openCompPanel();
+    else { setPanelOpen("comp-toggle", "comp-panel", false); savePanelPref("comp", false); }
+  };
+
+  // ---- the doubler's settings, next to the button that opened them ----
+  function openDoublerPopover(sel, anchor){
+    const existing = el("dbl-popover");
+    if(existing){ const same = existing.dataset.sel === String(sel); existing.remove(); if(same) return; }
+    const fx = sel === "guitar" ? Guitar.fx() : (channels[sel] && channels[sel].fx);
+    if(!fx) return;
+    const label = sel === "guitar" ? "live kytara" : (STEM_LABEL[channels[sel].stem] || channels[sel].stem);
+    const box = document.createElement("div");
+    box.className = "sect-menu dbl-popover";
+    box.id = "dbl-popover";
+    box.dataset.sel = String(sel);
+    const rows = [
+      ["mix", "MIX (2. kytara)", 0, 1, 0.01, v => Math.round(v * 100) + " %"],
+      ["xover", "MONO XOVER", 20, 250, 1, v => Math.round(v) + " Hz"],
+      ["smoothing", "SMOOTHING (sevřenost)", 0, 1, 0.01, v => Math.round(v * 100) + " %"],
+      ["gateRoom", "GATE ← → ROOM", -1, 1, 0.01, v => Math.abs(v) < 0.005 ? "0 %" : (v < 0 ? "gate " : "room ") + Math.round(Math.abs(v) * 100) + " %"],
+      ["position", "POZICE 2. kytary", -1, 1, 0.01, v => Math.abs(v) < 0.02 ? "střed" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100)],
+    ];
+    const paint = () => {
+      const s = fx.state.dbl;
+      box.classList.toggle("off", !s.on);
+      box.querySelector("#dbl-onoff").innerHTML = `${icon(s.on ? "check" : "close", 12)}<span>${s.on ? "Zapnuto" : "Vypnuto"}</span>`;
+      box.querySelectorAll(".dbl-mode button").forEach(b => b.classList.toggle("on", b.dataset.mode === s.mode));
+      rows.forEach(([k, , , , , fmt]) => {
+        box.querySelector(`b[data-v="${k}"]`).textContent = fmt(s[k]);
+        const inp = box.querySelector(`input[data-k="${k}"]`);
+        if(document.activeElement !== inp) inp.value = String(s[k]);
+      });
+    };
+    box.innerHTML = `
+      <div class="ss-head">Doubler — ${escapeHtml(label)}</div>
+      <button type="button" id="dbl-onoff"></button>
+      <div class="dbl-mode">
+        <button type="button" data-mode="electric">Elektrická</button>
+        <button type="button" data-mode="acoustic">Akustická</button>
+      </div>
+      ${rows.map(([k, lab, mn, mx, st]) => `
+        <div class="dbl-row"><label>${lab} <b data-v="${k}"></b></label>
+          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"></div>`).join("")}
+      <div class="hint" style="padding:4px 8px 6px">Druhá kytara hraje s lidskou nepřesností v čase i ladění
+        (podle NeuralDouble). Basy pod Mono Xover zůstávají jen v originálu, uprostřed.</div>`;
+    document.body.appendChild(box);
+    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    paint();
+
+    const apply = async (patch) => {
+      await setDoubler(fx, patch);
+      paint();
+      refreshCompButtons();
+    };
+    box.querySelector("#dbl-onoff").onclick = () => apply({on: !fx.state.dbl.on});
+    box.querySelectorAll(".dbl-mode button").forEach(b => { b.onclick = () => apply({mode: b.dataset.mode}); });
+    box.querySelectorAll("input[data-k]").forEach(inp => {
+      inp.oninput = () => apply({[inp.dataset.k]: parseFloat(inp.value)});
+    });
+    setTimeout(() => document.addEventListener("pointerdown", function once(e){
+      if(!e.target.closest("#dbl-popover") && e.target !== anchor && !anchor.contains(e.target)) box.remove();
+      else if(el("dbl-popover")) document.addEventListener("pointerdown", once, {once: true});
+    }, {once: true}), 0);
+  }
+
   el("mixer-metro").onclick = () => toggleMetronome();
   el("nm-metro-rate").addEventListener("change", (e) => {
     setMetronomeRate(parseFloat(e.target.value));
@@ -12837,6 +13520,8 @@ const Mixer = (() => {
     let source = null;
     let gateNode = null;      // guitar-processor
     let compNode = null;      // native DynamicsCompressorNode, gate -> comp -> amp
+    let compMakeup = null;    // its make-up gain
+    let fxChain = null;       // mono / doubler after the EQ (see makeFx)
     let ampNode = null;       // NAM worklet, when a model is loaded
     let cabNode = null;       // ConvolverNode
     let recNode = null;       // take-recorder
@@ -12860,6 +13545,7 @@ const Mixer = (() => {
       volume: 0.9, pan: 0, muted: false, solo: false,
       threshold: -100,          // gate off until it is asked for
       compOn: false, compThreshold: -24, compRatio: 4, compAttack: 0.02, compRelease: 0.25,
+      compKnee: 6, compMakeup: 0,
       ampName: null, ampFile: null, cabName: null,
       guideVolume: 0.8,
       peak: 0, gate: 0,
@@ -12994,15 +13680,16 @@ const Mixer = (() => {
       // that when the very first thing done is plugging the guitar in.
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
-      [source, gateNode, compNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
-       guideAmp, guideCab, guideOut, ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
+      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
+       guideAmp, guideCab, guideOut, fxChain && fxChain.output,
+       ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
       // Live input chain
       if(source){
         let node = source;
         node.connect(gateNode); node = gateNode;
-        if(compNode && state.compOn){ node.connect(compNode); node = compNode; }
+        if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
         if(ampNode){ node.connect(ampNode); node = ampNode; }
         if(cabNode){ node.connect(cabNode); node = cabNode; }
         node.connect(recNode); node = recNode;
@@ -13027,6 +13714,8 @@ const Mixer = (() => {
         guitarEq.eqFilters.forEach(f => { outNode.connect(f); outNode = f; });
         if(guitarEq.eqSpectrum) outNode.connect(guitarEq.eqSpectrum);
       }
+      // Mono / doubler: the live guitar only, the guide stays as it is.
+      if(fxChain){ outNode.connect(fxChain.input); outNode = fxChain.output; }
       outNode.connect(analyser);
       analyser.connect(pannerNode);
       pannerNode.connect(masterOut());
@@ -13054,7 +13743,9 @@ const Mixer = (() => {
       compNode.ratio.value = state.compRatio;
       compNode.attack.value = state.compAttack;
       compNode.release.value = state.compRelease;
-      compNode.knee.value = 6;
+      compNode.knee.value = state.compKnee;
+      compMakeup = audioCtx.createGain();
+      compMakeup.gain.value = Math.pow(10, state.compMakeup / 20);
       rewire();
       return compNode;
     }
@@ -13067,11 +13758,29 @@ const Mixer = (() => {
     }
 
     function setCompParam(name, value){
-      const map = {threshold: "compThreshold", ratio: "compRatio", attack: "compAttack", release: "compRelease"};
+      const map = {threshold: "compThreshold", ratio: "compRatio", attack: "compAttack", release: "compRelease",
+                   knee: "compKnee", makeup: "compMakeup"};
       const key = map[name];
       if(!key) return;
       state[key] = value;
+      if(name === "makeup"){ if(compMakeup) compMakeup.gain.value = Math.pow(10, value / 20); return; }
       if(compNode) compNode[name].value = value;
+    }
+
+    function ensureFx(){
+      if(!fxChain){
+        fxChain = makeFx(null);
+        if(gainNode) rewire();
+      }
+      return fxChain;
+    }
+    function restoreFx(saved){
+      const fx = ensureFx();
+      fx.state.mono = !!(saved && saved.mono);
+      fx.state.dbl = {...DBL_DEFAULT, ...(saved && saved.dbl || {})};
+      if(fx.state.dbl.on) ensureDoubler(fx).catch(() => {});
+      applyDoublerParams(fx);
+      wireFx(fx);
     }
 
     // What the browser will admit to. The real round trip also includes the
@@ -13086,7 +13795,7 @@ const Mixer = (() => {
 
     async function stop(){
       if(recording) await stopRecording();
-      [source, gateNode, compNode, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
       if(gateNode) gateNode.port.postMessage("stop");
       if(stream) stream.getTracks().forEach(t => t.stop());
@@ -13203,6 +13912,8 @@ const Mixer = (() => {
     return {
       state, devices, start, stop, rewire, applyGuitarGain, setThreshold,
       ensureComp, toggleComp, setCompParam,
+      compNodeRef: () => compNode,
+      fx: ensureFx, restoreFx,
       startRecording, stopRecording,
       isRecording: () => recording,
       isLive: () => state.live,
@@ -13241,12 +13952,9 @@ const Mixer = (() => {
         <span class="nm-strip-name">Kytara</span>
         <button class="gt-icon-btn gt-power-ic ${g.live ? "on" : ""}" id="gt-power-btn"
           title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
-        <button class="gt-icon-btn gt-eq" id="gt-eq-btn" title="Ekvalizér tvé živé kytary">${icon("eq", 12)}</button>
-        <button class="gt-icon-btn gt-comp ${g.compOn ? "on" : ""}" id="gt-comp-btn" title="Kompresor na živou kytaru">${icon("fader", 12)}</button>
         <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : ""}" id="gt-rec-btn" title="Nahrát na novou stopu">
           ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}</button>
-        <button class="gt-icon-btn" id="gt-settings-btn" title="Vstup, pan, zesilovač, zpoždění…">${icon("sliders", 12)}</button>
-        <button class="gt-tuner" title="Ladička">${icon("tuner", 14)}</button>
+        <button class="gt-icon-btn" id="gt-open-fader" title="Nastavení kytary — fader Live kytara (gate, preset, EQ, kompresor, doubler…)">${icon("fader", 12)}</button>
         <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
         <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
       </div>
@@ -13255,27 +13963,7 @@ const Mixer = (() => {
         <div class="gt-meter-gate" id="gt-meter-gate" title="Otevření brány"></div>
       </div>
       <input type="range" class="nm-fader gt-vol" min="0" max="1.4" step="0.01" value="${g.volume}" title="Hlasitost tvé kytary">
-      <div class="gt-knob-row">
-        <div class="gt-knob-wrap">
-          <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
-          <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
-        </div>
-        <div class="gt-knob-wrap gt-preset-wrap">
-          <div class="gt-preset-stepper">
-            <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
-            <button class="gt-preset-cat" id="gt-preset-cat"
-              title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
-            <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
-          </div>
-          <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
-            title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>
-        </div>
-        <div class="gt-knob-wrap">
-          <div class="gt-knob" id="gt-guide-knob" tabindex="0"
-            title="Hlasitost virtuální kytary (Guide) — táhni svisle. Má vlastní zesilovač a nemíchá se s tvou kytarou."></div>
-          <span class="gt-knob-label">GUIDE</span>
-        </div>
-      </div>`;
+      <div class="gt-rail-preset" title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "bez zesilovače")}</div>`;
     rail.appendChild(strip);
 
     const lane = document.createElement("div");
@@ -13284,14 +13972,187 @@ const Mixer = (() => {
     lane.innerHTML = `<div class="gt-lane-note">${icon("guitar", 13)}<span>Monitoring</span></div>`;
     lanes.appendChild(lane);
 
-    wireGuitarStrip(strip);
-    // Built as soon as the strip exists so the EQ button works right away —
-    // no need to plug in an input first.
+    wireGuitarRail(strip);
+    // Built as soon as the strip exists so the EQ works right away — no need
+    // to plug in an input first.
     const hadEq = !!guitarEq;
     Guitar.ensureEq();
-    strip.querySelector("#gt-eq-btn").classList.toggle("on", !eqIsFlat(guitarEq));
-    strip.querySelector("#gt-eq-btn").classList.toggle("sel", eqSel === "guitar");
     if(!hadEq) renderEqChannelSelect();
+  }
+
+  // ---- the live guitar's own fader strip, after the stems ----
+  //
+  // Everything that shapes the guitar's sound lives here, the same way a
+  // stem's does: level, pan, M/S, EQ, compressor, mono and the doubler —
+  // plus the guitar-only bits (input, gate, NAM preset, guide, tuner).
+  function liveFaderHtml(){
+    const g = Guitar.state, fx = Guitar.fx();
+    const vol = g.volume;
+    const db = vol <= 0.01 ? "-∞" : (20 * Math.log10(vol)).toFixed(1);
+    const pan = g.pan > 0.05 ? "R" + Math.round(g.pan * 100) : g.pan < -0.05 ? "L" + Math.round(-g.pan * 100) : "C";
+    return `
+      <div class="fl-ch-header">
+        <div class="fl-ch-name">Live kytara</div>
+        <div class="fl-ch-tag">${escapeHtml(g.live ? (g.deviceLabel || "vstup") : "vstup vypnutý")}</div>
+      </div>
+      <div class="fl-live-top">
+        <button class="gt-icon-btn gt-power-ic ${g.live ? "on" : ""}" data-act="power"
+          title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
+        <button class="gt-tuner" data-act="tuner" title="Ladička">${icon("tuner", 13)}</button>
+        <button class="gt-icon-btn" id="gt-settings-btn" data-act="settings" title="Vstup, zesilovač a kabinet, složky presetů…">${icon("sliders", 12)}</button>
+      </div>
+      <div class="fl-led-wrap">
+        <div class="fl-led-meter" id="gt-led-l"></div>
+        <div class="fl-fader-area">
+          <div class="fl-fader-track" id="gt-fader-track">
+            <div class="fl-fader-handle" style="bottom:${Math.round(vol / 1.4 * 90) + 5}%"></div>
+          </div>
+        </div>
+        <div class="fl-led-meter" id="gt-led-r"></div>
+      </div>
+      <div class="fl-db-label">${db} dB</div>
+      <div class="fl-pan-wrap">
+        <div class="fl-pan-knob ${g.pan < -0.05 ? "pan-l" : g.pan > 0.05 ? "pan-r" : ""}" id="gt-pan-knob"></div>
+        <div class="fl-pan-label">${pan}</div>
+      </div>
+      <div class="fl-ms-btns">
+        <button class="fl-ms-btn mute ${g.muted ? "active" : ""}" data-act="mute" title="Mute">M</button>
+        <button class="fl-ms-btn solo ${g.solo ? "active" : ""}" data-act="solo" title="Solo">S</button>
+      </div>
+      <div class="gt-knob-row">
+        <div class="gt-knob-wrap">
+          <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
+          <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
+        </div>
+        <div class="gt-knob-wrap">
+          <div class="gt-knob" id="gt-guide-knob" tabindex="0"
+            title="Hlasitost virtuální kytary (Guide) — táhni svisle. Má vlastní zesilovač a nemíchá se s tvou kytarou."></div>
+          <span class="gt-knob-label">GUIDE</span>
+        </div>
+      </div>
+      <div class="gt-preset-stepper">
+        <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
+        <button class="gt-preset-cat" id="gt-preset-cat"
+          title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
+        <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
+      </div>
+      <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
+        title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>
+      <div class="fl-fx-row">
+        <button class="fl-fx-btn ${fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${fx.state.mono ? "MONO" : "ST"}</button>
+        <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
+        <button class="fl-fx-btn ${fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
+      </div>
+      <button type="button" class="fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
+        id="gt-eq-btn" title="Ekvalizér tvé živé kytary"><span class="dot"></span>EQ</button>`;
+  }
+
+  function renderLiveGuitarFader(){
+    const box = el("fl-channels");
+    if(!box || !channels.length) return;
+    let strip = el("gt-fader");
+    if(!strip){
+      strip = document.createElement("div");
+      strip.id = "gt-fader";
+      box.appendChild(strip);
+    }
+    const g = Guitar.state;
+    strip.className = "fl-channel color-guitar fl-live" + (g.muted ? " muted" : "") + (g.solo ? " solo" : "");
+    strip.innerHTML = liveFaderHtml();
+    ["gt-led-l", "gt-led-r"].forEach(id => {
+      const m = strip.querySelector("#" + id);
+      for(let i = 0; i < 10; i++){ const seg = document.createElement("div"); seg.className = "fl-led-seg"; m.appendChild(seg); }
+    });
+    wireGuitarFader(strip);
+  }
+
+  function wireGuitarFader(strip){
+    const g = Guitar.state;
+    const act = (name) => strip.querySelector(`[data-act="${name}"]`);
+    act("tuner").onclick = () => Tuner.toggle();
+    act("settings").onclick = () => openGuitarSettings();
+    act("power").onclick = () => toggleGuitarInput();
+    act("mute").onclick = () => {
+      g.muted = !g.muted;
+      Guitar.applyGuitarGain(); queueSessionSave(); renderGuitarStrip();
+    };
+    act("solo").onclick = () => {
+      g.solo = !g.solo;
+      applyGains(); Guitar.applyGuitarGain(); queueSessionSave(); renderGuitarStrip();
+    };
+    act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
+    act("comp").onclick = () => openCompPanel("guitar");
+    act("dbl").onclick = (e) => openDoublerPopover("guitar", e.currentTarget);
+    strip.querySelector("#gt-eq-btn").onclick = () => {
+      Guitar.ensureEq();
+      setPanelOpen("eq-toggle", "eq-panel", true);
+      savePanelPref("eq", true);
+      selectEqChannel("guitar");
+    };
+    strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
+    strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
+    strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
+    wireKnob(el("gt-guide-knob"), {
+      min: 0, max: 1.2, get: () => g.guideVolume,
+      set: (v) => { Guitar.setGuideVolume(v); queueSessionSave(); },
+    });
+    wireKnob(el("gt-gate-knob"), {
+      min: -100, max: -20, get: () => g.threshold,
+      set: (v) => {
+        const db = Math.round(v);
+        Guitar.setThreshold(db);
+        el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
+        queueSessionSave();
+      },
+    });
+
+    // Fader: same travel and look as a stem's, over the guitar's 0 … 1.4.
+    const track = strip.querySelector("#gt-fader-track");
+    const handle = track.querySelector(".fl-fader-handle");
+    const dbLabel = strip.querySelector(".fl-db-label");
+    let dragging = false;
+    const setFrom = (ev) => {
+      const r = track.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, 1 - (ev.clientY - r.top) / r.height));
+      g.volume = pct * 1.4;
+      handle.style.bottom = (Math.round(pct * 90) + 5) + "%";
+      dbLabel.textContent = (g.volume <= 0.01 ? "-∞" : (20 * Math.log10(g.volume)).toFixed(1)) + " dB";
+      Guitar.applyGuitarGain();
+      const railVol = document.querySelector("#guitar-strip .gt-vol");
+      if(railVol) railVol.value = String(g.volume);
+      queueSessionSave();
+    };
+    track.addEventListener("pointerdown", (ev) => { ev.preventDefault(); dragging = true; track.setPointerCapture(ev.pointerId); setFrom(ev); });
+    track.addEventListener("pointermove", (ev) => { if(dragging) setFrom(ev); });
+    track.addEventListener("pointerup", () => { dragging = false; });
+
+    const panKnob = strip.querySelector("#gt-pan-knob");
+    const panLabel = strip.querySelector(".fl-pan-label");
+    let panDrag = null;
+    panKnob.addEventListener("pointerdown", (ev) => { ev.preventDefault(); panDrag = {y: ev.clientY, v: g.pan}; panKnob.setPointerCapture(ev.pointerId); });
+    panKnob.addEventListener("pointermove", (ev) => {
+      if(!panDrag) return;
+      g.pan = Math.max(-1, Math.min(1, panDrag.v + (panDrag.y - ev.clientY) * 0.01));
+      panKnob.classList.toggle("pan-l", g.pan < -0.05);
+      panKnob.classList.toggle("pan-r", g.pan > 0.05);
+      panLabel.textContent = g.pan > 0.05 ? "R" + Math.round(g.pan * 100) : g.pan < -0.05 ? "L" + Math.round(-g.pan * 100) : "C";
+      Guitar.applyGuitarGain();
+      queueSessionSave();
+    });
+    panKnob.addEventListener("pointerup", () => { panDrag = null; });
+  }
+
+  async function toggleGuitarInput(){
+    const g = Guitar.state;
+    if(Guitar.isLive()){ await Guitar.stop(); return; }
+    try{
+      await Guitar.start(g.deviceId || null);
+      showToast(`Vstup: ${Guitar.state.deviceLabel}`);
+    }catch(e){
+      showToast(e && e.name === "NotAllowedError"
+        ? "Prohlížeč nepustil mikrofonní vstup"
+        : "Vstup se nepodařilo otevřít");
+    }
   }
 
   // A round drag-to-set control — vertical movement only, same convention
@@ -13322,40 +14183,14 @@ const Mixer = (() => {
     paint();
   }
 
-  function wireGuitarStrip(strip){
+  function wireGuitarRail(strip){
     const g = Guitar.state;
-    strip.querySelector(".gt-tuner").onclick = () => Tuner.toggle();
-
-    wireKnob(el("gt-guide-knob"), {
-      min: 0, max: 1.2, get: () => g.guideVolume,
-      set: (v) => { Guitar.setGuideVolume(v); queueSessionSave(); },
-    });
-    wireKnob(el("gt-gate-knob"), {
-      min: -100, max: -20, get: () => g.threshold,
-      set: (v) => {
-        const db = Math.round(v);
-        Guitar.setThreshold(db);
-        el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
-        queueSessionSave();
-      },
-    });
-
-    strip.querySelector("#gt-power-btn").onclick = async () => {
-      if(Guitar.isLive()){ await Guitar.stop(); return; }
-      try{
-        await Guitar.start(g.deviceId || null);
-        showToast(`Vstup: ${Guitar.state.deviceLabel}`);
-      }catch(e){
-        showToast(e && e.name === "NotAllowedError"
-          ? "Prohlížeč nepustil mikrofonní vstup"
-          : "Vstup se nepodařilo otevřít");
-      }
-    };
-
+    strip.querySelector("#gt-power-btn").onclick = () => toggleGuitarInput();
     strip.querySelector(".gt-vol").oninput = (e) => {
       g.volume = parseFloat(e.target.value);
       Guitar.applyGuitarGain();
       queueSessionSave();
+      if(el("gt-fader")) renderLiveGuitarFader();
     };
     strip.querySelector(".nm-sm.mute").onclick = (e) => {
       g.muted = !g.muted;
@@ -13363,6 +14198,7 @@ const Mixer = (() => {
       strip.classList.toggle("muted", g.muted);
       Guitar.applyGuitarGain();
       queueSessionSave();
+      if(el("gt-fader")) renderLiveGuitarFader();
     };
     strip.querySelector(".nm-sm.solo").onclick = (e) => {
       g.solo = !g.solo;
@@ -13370,23 +14206,23 @@ const Mixer = (() => {
       applyGains();               // solo is a property of the whole mixer
       Guitar.applyGuitarGain();
       queueSessionSave();
+      if(el("gt-fader")) renderLiveGuitarFader();
     };
     strip.querySelector("#gt-rec-btn").onclick = async () => {
       if(Guitar.isRecording()){ await Guitar.stopRecording(); return; }
       if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup"); return; }
       if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
     };
-    strip.querySelector("#gt-eq-btn").onclick = () => {
-      Guitar.ensureEq();
-      setPanelOpen("eq-toggle", "eq-panel", true);
-      savePanelPref("eq", true);
-      selectEqChannel("guitar");
+    strip.querySelector("#gt-open-fader").onclick = () => {
+      setPanelOpen("fl-strips-toggle", "fl-channels", true);
+      savePanelPref("fadery", true);
+      const f = el("gt-fader");
+      if(f){
+        f.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"});
+        f.classList.add("flash");
+        setTimeout(() => f.classList.remove("flash"), 900);
+      }
     };
-    strip.querySelector("#gt-settings-btn").onclick = () => openGuitarSettings();
-    strip.querySelector("#gt-comp-btn").onclick = () => openGuitarComp();
-    strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
-    strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
-    strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
   }
 
   // Everything that used to sit in its own row (input device, pan, amp/cab,
@@ -13490,77 +14326,6 @@ const Mixer = (() => {
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
       if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
-      else document.addEventListener("pointerdown", once, {once: true});
-    }, {once: true}), 0);
-  }
-
-  // Pedal-style compressor on the live guitar input only (source -> gate ->
-  // comp -> amp), off by default. Same sect-menu popover pattern as the
-  // settings button, kept separate because it's an effect worth toggling
-  // mid-session rather than a one-time setup choice.
-  function openGuitarComp(){
-    const existing = el("gt-comp-popover");
-    if(existing){ existing.remove(); return; }
-    const g = Guitar.state;
-    const box = document.createElement("div");
-    box.className = "sect-menu gt-comp-popover";
-    box.id = "gt-comp-popover";
-    box.innerHTML = `
-      <div class="ss-head">Kompresor (živá kytara)</div>
-      <button type="button" id="gt-comp-toggle">${icon(g.compOn ? "check" : "close", 12)}
-        <span>${g.compOn ? "Zapnuto" : "Vypnuto"}</span></button>
-      <hr>
-      <div class="gt-settings-row"><span class="gt-cap">PRAH <span id="gt-comp-thr-val">${g.compThreshold}&nbsp;dB</span></span>
-        <input type="range" class="nm-tempo gt-comp-threshold" min="-60" max="0" step="1" value="${g.compThreshold}"></div>
-      <div class="gt-settings-row"><span class="gt-cap">POMĚR <span id="gt-comp-ratio-val">${g.compRatio}:1</span></span>
-        <input type="range" class="nm-tempo gt-comp-ratio" min="1" max="20" step="0.5" value="${g.compRatio}"></div>
-      <div class="gt-settings-row"><span class="gt-cap">ATTACK <span id="gt-comp-attack-val">${Math.round(g.compAttack * 1000)}&nbsp;ms</span></span>
-        <input type="range" class="nm-tempo gt-comp-attack" min="0" max="0.1" step="0.001" value="${g.compAttack}"></div>
-      <div class="gt-settings-row"><span class="gt-cap">RELEASE <span id="gt-comp-release-val">${Math.round(g.compRelease * 1000)}&nbsp;ms</span></span>
-        <input type="range" class="nm-tempo gt-comp-release" min="0.02" max="1" step="0.01" value="${g.compRelease}"></div>`;
-    document.body.appendChild(box);
-    const anchor = el("gt-comp-btn").getBoundingClientRect();
-    const r = box.getBoundingClientRect();
-    box.style.left = Math.min(anchor.left, window.innerWidth - r.width - 8) + "px";
-    box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
-
-    const syncToggleBtn = () => {
-      const btn = box.querySelector("#gt-comp-toggle");
-      btn.innerHTML = `${icon(g.compOn ? "check" : "close", 12)}<span>${g.compOn ? "Zapnuto" : "Vypnuto"}</span>`;
-      el("gt-comp-btn").classList.toggle("on", g.compOn);
-    };
-    box.querySelector("#gt-comp-toggle").onclick = () => {
-      Guitar.toggleComp();
-      syncToggleBtn();
-      queueSessionSave();
-    };
-    box.querySelector(".gt-comp-threshold").oninput = (e) => {
-      const v = parseFloat(e.target.value);
-      Guitar.setCompParam("threshold", v);
-      el("gt-comp-thr-val").textContent = v + " dB";
-      queueSessionSave();
-    };
-    box.querySelector(".gt-comp-ratio").oninput = (e) => {
-      const v = parseFloat(e.target.value);
-      Guitar.setCompParam("ratio", v);
-      el("gt-comp-ratio-val").textContent = v + ":1";
-      queueSessionSave();
-    };
-    box.querySelector(".gt-comp-attack").oninput = (e) => {
-      const v = parseFloat(e.target.value);
-      Guitar.setCompParam("attack", v);
-      el("gt-comp-attack-val").textContent = Math.round(v * 1000) + " ms";
-      queueSessionSave();
-    };
-    box.querySelector(".gt-comp-release").oninput = (e) => {
-      const v = parseFloat(e.target.value);
-      Guitar.setCompParam("release", v);
-      el("gt-comp-release-val").textContent = Math.round(v * 1000) + " ms";
-      queueSessionSave();
-    };
-
-    setTimeout(() => document.addEventListener("pointerdown", function once(e){
-      if(!e.target.closest("#gt-comp-popover") && !e.target.closest("#gt-comp-btn")) box.remove();
       else document.addEventListener("pointerdown", once, {once: true});
     }, {once: true}), 0);
   }
@@ -13669,11 +14434,27 @@ const Mixer = (() => {
     fill.classList.toggle("warm", db > -12 && db <= -3);
     const gate = el("gt-meter-gate");
     if(gate) gate.style.opacity = String(1 - g.gate);
+    paintLeds(el("gt-led-l"), pct);
+    paintLeds(el("gt-led-r"), pct);
+  }
+
+  function paintLeds(meter, level){
+    if(!meter) return;
+    const segs = meter.querySelectorAll(".fl-led-seg");
+    const lit = Math.round(level * segs.length);
+    segs.forEach((seg, i) => {
+      seg.className = "fl-led-seg";
+      if(i >= lit) return;
+      const li = segs.length - i;
+      seg.classList.add(li <= 3 ? "on-peak" : li <= 4 ? "on-8" : li <= 5 ? "on-7" : li <= 6 ? "on-6"
+        : li <= 7 ? "on-5" : li <= 8 ? "on-4" : "on-l1");
+    });
   }
 
   function renderGuitarStrip(){
-    // Cheap enough to redraw the lanes; the strip's state is all in Guitar.
+    // Cheap enough to redraw; the strips' state is all in Guitar.
     if(el("guitar-strip")) renderTrackLanes();
+    if(el("gt-fader")) renderLiveGuitarFader();
   }
 
 
@@ -15867,6 +16648,33 @@ el("settings-btn").onclick = async () => {
     el("music-root-input").value = data.music_root || "";
   }catch(e){}
   settingsOverlay.hidden = false;
+  fillAudioOut();
+};
+
+async function fillAudioOut(){
+  const sel = el("audio-out");
+  el("audio-out-unsupported").hidden = AudioOut.supported();
+  const list = await AudioOut.list();
+  const cur = AudioOut.get();
+  const opts = [`<option value="">Výchozí výstup systému</option>`].concat(
+    list.filter(d => d.deviceId && d.deviceId !== "default")
+        .map((d, i) => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || ("Výstup " + (i + 1)))}</option>`));
+  if(cur && !list.some(d => d.deviceId === cur)) opts.push(`<option value="${escapeHtml(cur)}">Uložené zařízení (teď nepřipojené)</option>`);
+  sel.innerHTML = opts.join("");
+  sel.value = cur;
+  el("audio-out-names").hidden = list.every(d => d.label);
+}
+el("audio-out").onchange = (e) => {
+  AudioOut.set(e.target.value);
+  const name = e.target.selectedOptions[0] ? e.target.selectedOptions[0].textContent : "";
+  showToast("Zvuk teď hraje: " + name);
+};
+el("audio-out-names").onclick = async () => {
+  try{
+    const st = await navigator.mediaDevices.getUserMedia({audio: true});
+    st.getTracks().forEach(t => t.stop());
+  }catch(e){ showToast("Bez povolení mikrofonu prohlížeč názvy zařízení neukáže"); }
+  fillAudioOut();
 };
 el("settings-close").onclick = () => settingsOverlay.hidden = true;
 settingsOverlay.addEventListener("click", e => { if(e.target === settingsOverlay) settingsOverlay.hidden = true; });
@@ -16742,7 +17550,7 @@ const PlayerGuitar = (() => {
   let live = false, amps = [];
 
   function ctx(){
-    if(!ac) ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+    if(!ac){ ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"}); AudioOut.adopt(ac); }
     return ac;
   }
   async function ensureEngine(){

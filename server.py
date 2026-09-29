@@ -4267,6 +4267,9 @@ class MixerChannel(BaseModel):
     panValue: float = 0.0
     clipOffset: float = 0.0
     eq: Optional[List[EqBand]] = None
+    # Inserts: {mono, comp: {...}, dbl: {...}} — kept as a plain dict so a
+    # new parameter doesn't need a model change (and isn't silently dropped).
+    fx: Optional[dict] = None
 
 
 class MetronomeSettings(BaseModel):
@@ -4288,6 +4291,9 @@ class GuitarSettings(BaseModel):
     compRatio: float = 4.0
     compAttack: float = 0.02
     compRelease: float = 0.25
+    compKnee: float = 6.0
+    compMakeup: float = 0.0
+    fx: Optional[dict] = None
     deviceId: Optional[str] = None
     ampName: Optional[str] = None
     ampFile: Optional[str] = None
