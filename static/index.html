@@ -6891,6 +6891,26 @@ function openMoveTreePopover(anchorEl, sourceRel, name){
   }, {once: true}), 0);
 }
 
+// Selects the file itself in Finder. (The old route got a library-relative
+// path it treated as a folder to create and open — so it made an empty
+// folder named after the file next to the app instead.)
+function revealLibraryEntry(rel){
+  fetch("/api/library/reveal", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({rel}),
+  }).then(r => { if(!r.ok) showToast("Soubor nenalezen"); }).catch(() => {});
+}
+
+const OTHER_FILE_ICON = (ext) =>
+  /^(gp|gpx|gp3|gp4|gp5|gp6|gp7|ptb|tg)$/.test(ext) ? "\uD83C\uDFBC"
+  : /^(pdf)$/.test(ext) ? "\uD83D\uDCC4"
+  : /^(jpg|jpeg|png|gif|webp|heic|bmp|tif|tiff)$/.test(ext) ? "\uD83D\uDDBC"
+  : /^(mp4|mov|mkv|avi|m4v|webm)$/.test(ext) ? "\uD83C\uDF9E"
+  : /^(mid|midi)$/.test(ext) ? "\uD83C\uDFB9"
+  : /^(txt|md|lrc|cue|log|nfo)$/.test(ext) ? "\uD83D\uDCDD"
+  : /^(zip|rar|7z|tar|gz)$/.test(ext) ? "\uD83D\uDDC3"
+  : "\uD83D\uDCCE";
+
 function paintLibraryTable(){
   const list = el("library-list");
   const filter = norm(el("library-filter").value || "");
@@ -6905,6 +6925,7 @@ function paintLibraryTable(){
   const tracks = entries.filter(e => e.type === "file");
   const folders = entries.filter(e => e.type === "dir");
   const namPresets = entries.filter(e => e.type === "nam");
+  const others = entries.filter(e => e.type === "other");
 
   el("library-play-all-btn").hidden = !tracks.length;
   el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
@@ -6993,10 +7014,7 @@ function paintLibraryTable(){
     };
     row.querySelector(".act-reveal").onclick = (e) => {
       e.stopPropagation();
-      fetch("/api/reveal", {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({path: entry.rel}),
-      });
+      revealLibraryEntry(entry.rel);
     };
     row.querySelector(".act-move").onclick = (e) => {
       e.stopPropagation();
@@ -7013,6 +7031,36 @@ function paintLibraryTable(){
     }
     list.appendChild(row);
   });
+
+  // Everything else in the folder — opens in its own Mac app on click.
+  if(others.length){
+    const head = document.createElement("div");
+    head.className = "nam-presets-head";
+    head.innerHTML = `<span>Ostatní soubory</span>`;
+    list.appendChild(head);
+    others.forEach(entry => {
+      const row = document.createElement("div");
+      row.className = "lib-folder-row lib-other-row";
+      row.innerHTML = `
+        <span class="tree-icon">${OTHER_FILE_ICON(entry.ext || "")}</span>
+        <span class="tx">${escapeHtml(entry.name)}</span>
+        <span class="sub">${escapeHtml((entry.ext || "soubor").toUpperCase())} · ${fmtSize(entry.size_bytes || 0)}</span>
+        <span class="c-act">
+          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+          <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
+          <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+        </span>`;
+      row.title = "Otevřít v aplikaci Macu";
+      row.onclick = () => fetch("/api/library/open", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({rel: entry.rel}),
+      }).then(r => { if(!r.ok) showToast("Soubor se nepodařilo otevřít"); }).catch(() => {});
+      row.querySelector(".act-reveal").onclick = (e) => { e.stopPropagation(); revealLibraryEntry(entry.rel); };
+      row.querySelector(".act-move").onclick = (e) => { e.stopPropagation(); openMoveTreePopover(e.currentTarget, entry.rel, entry.name); };
+      row.querySelector(".act-delete").onclick = (e) => { e.stopPropagation(); deleteLibraryEntry(entry.rel, entry.name); };
+      list.appendChild(row);
+    });
+  }
 
   // NAM captures: not playable audio, so a preview button runs them through
   // the DI riff instead of Player.playLocal. See NamPreview above.
@@ -7112,10 +7160,7 @@ function namPresetRow(entry, i, riffData){
   row.querySelector(".nam-riff-rec-btn").onclick = () => openNamRiffManager(entry.rel);
 
   row.querySelector(".act-reveal").onclick = () => {
-    fetch("/api/reveal", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({path: entry.rel}),
-    });
+    revealLibraryEntry(entry.rel);
   };
   row.querySelector(".act-move").onclick = (e) => {
     openMoveTreePopover(e.currentTarget, entry.rel, entry.name);
@@ -8748,11 +8793,14 @@ const Mixer = (() => {
   // point at a pack downloaded elsewhere (mapped in guitar settings, never
   // copied — see /api/settings/amp-category-dir). The arrows step through
   // whichever of those two the server returned for the current category.
-  const AMP_CATEGORY_ORDER = ["clean", "crunch", "hi_gain"];
-  const AMP_CATEGORY_LABEL = {clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN"};
+  // ALL isn't a folder of its own: every profile from the three categories
+  // plus any .nam file in the library, in one alphabetical list.
+  const AMP_CATEGORY_ORDER = ["clean", "crunch", "hi_gain", "all"];
+  const AMP_FOLDER_CATEGORIES = ["clean", "crunch", "hi_gain"];
+  const AMP_CATEGORY_LABEL = {clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN", all: "ALL"};
   let ampBrowseCategory = "clean";
-  let ampBrowseCache = {clean: null, crunch: null, hi_gain: null};   // fetched lists
-  let ampBrowseIndex = {clean: -1, crunch: -1, hi_gain: -1};
+  let ampBrowseCache = {clean: null, crunch: null, hi_gain: null, all: null};   // fetched lists
+  let ampBrowseIndex = {clean: -1, crunch: -1, hi_gain: -1, all: -1};
 
   async function ampBrowseFetch(cat){
     if(ampBrowseCache[cat]) return ampBrowseCache[cat];
@@ -8765,7 +8813,7 @@ const Mixer = (() => {
   }
 
   function ampBrowseInvalidate(cat){
-    if(cat) ampBrowseCache[cat] = null;
+    if(cat){ ampBrowseCache[cat] = null; ampBrowseCache.all = null; }
     else AMP_CATEGORY_ORDER.forEach(c => ampBrowseCache[c] = null);
   }
 
@@ -13954,7 +14002,6 @@ const Mixer = (() => {
           title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
         <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : ""}" id="gt-rec-btn" title="Nahrát na novou stopu">
           ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}</button>
-        <button class="gt-icon-btn" id="gt-open-fader" title="Nastavení kytary — fader Live kytara (gate, preset, EQ, kompresor, doubler…)">${icon("fader", 12)}</button>
         <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
         <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
       </div>
@@ -14033,7 +14080,7 @@ const Mixer = (() => {
       <div class="gt-preset-stepper">
         <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
         <button class="gt-preset-cat" id="gt-preset-cat"
-          title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
+          title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain / All (všechny profily)">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
         <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
       </div>
       <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
@@ -14213,16 +14260,6 @@ const Mixer = (() => {
       if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup"); return; }
       if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
     };
-    strip.querySelector("#gt-open-fader").onclick = () => {
-      setPanelOpen("fl-strips-toggle", "fl-channels", true);
-      savePanelPref("fadery", true);
-      const f = el("gt-fader");
-      if(f){
-        f.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"});
-        f.classList.add("flash");
-        setTimeout(() => f.classList.remove("flash"), 900);
-      }
-    };
   }
 
   // Everything that used to sit in its own row (input device, pan, amp/cab,
@@ -14255,7 +14292,7 @@ const Mixer = (() => {
       <hr>
       <div class="ss-head">Složky s NAM presety</div>
       <div class="gt-catdir-list">
-      ${AMP_CATEGORY_ORDER.map(cat => `
+      ${AMP_FOLDER_CATEGORIES.map(cat => `
       <button type="button" class="gt-catdir-chip" data-cat="${cat}">
         <span class="gt-catdir-icon">${icon("folderOpen", 16)}</span>
         <span class="gt-catdir-text">

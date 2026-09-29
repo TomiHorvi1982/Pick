@@ -39,7 +39,16 @@ def ffmpeg_bin() -> str:
     return (os.environ.get("SPOTIFYLISTY_FFMPEG")
             or shutil.which("ffmpeg")
             or "/opt/homebrew/bin/ffmpeg")
-AUDIO_EXTS = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".wav", ".aac"}
+# What Chrome decodes by itself (checked against Chrome for Testing: MP3,
+# AAC in any MP4 container, FLAC, WAV, Ogg Vorbis/Opus/FLAC, WebM).
+BROWSER_AUDIO_EXTS = {".mp3", ".m4a", ".m4b", ".aac", ".flac", ".wav", ".ogg", ".oga", ".opus", ".webm", ".weba"}
+# Audio it can't (AIFF, WMA, AC3, Matroska, CAF, AU, MP2, TTA, WavPack, APE,
+# DSD, AMR, …): shown and played all the same, converted once by ffmpeg into
+# a cached copy — see _playable_copy.
+TRANSCODE_AUDIO_EXTS = {".aif", ".aiff", ".aifc", ".wma", ".ac3", ".eac3", ".dts", ".mka", ".caf",
+                        ".au", ".snd", ".mp2", ".mpa", ".tta", ".wv", ".ape", ".dsf", ".dff", ".amr",
+                        ".awb", ".ra", ".mpc", ".spx", ".w64", ".rf64", ".voc", ".gsm"}
+AUDIO_EXTS = BROWSER_AUDIO_EXTS | TRANSCODE_AUDIO_EXTS
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
 LIBRARY_PATH = HOME / "Music" / "spotdl" / "library.json"
@@ -262,6 +271,91 @@ def _amp_category_dir(cat: str) -> Optional[Path]:
     return path if path.is_dir() else None
 
 
+# ---------------------------------------------------- audio Chrome can't play
+TRANSCODE_CACHE_DIR = HOME / ".cache" / "spotdl-helper" / "transcode"
+TRANSCODE_CACHE_MAX = 3 * 1024 ** 3
+_LOSSLESS_EXTS = {".aif", ".aiff", ".aifc", ".caf", ".au", ".snd", ".tta", ".wv", ".ape",
+                  ".dsf", ".dff", ".w64", ".rf64", ".voc"}
+_transcode_locks: dict = {}
+_codec_cache: dict = {}
+
+
+def _audio_codec(path: Path) -> str:
+    try:
+        st = path.stat()
+    except OSError:
+        return ""
+    key = (str(path), st.st_mtime, st.st_size)
+    if key in _codec_cache:
+        return _codec_cache[key]
+    codec = ""
+    try:
+        probe = shutil.which("ffprobe") or str(Path(ffmpeg_bin()).with_name("ffprobe"))
+        r = subprocess.run([probe, "-v", "error", "-select_streams", "a:0", "-show_entries",
+                            "stream=codec_name", "-of", "default=nw=1:nk=1", str(path)],
+                           capture_output=True, text=True, timeout=15)
+        codec = r.stdout.strip().lower()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    _codec_cache[key] = codec
+    return codec
+
+
+def _needs_transcode(path: Path) -> bool:
+    ext = path.suffix.lower()
+    if ext in TRANSCODE_AUDIO_EXTS:
+        return True
+    # An .m4a can hold Apple Lossless, which Chrome doesn't decode.
+    if ext in {".m4a", ".m4b"}:
+        return _audio_codec(path) == "alac"
+    return False
+
+
+def _prune_transcode_cache():
+    try:
+        files = sorted((p for p in TRANSCODE_CACHE_DIR.iterdir() if p.is_file()),
+                       key=lambda p: p.stat().st_atime)
+        total = sum(p.stat().st_size for p in files)
+        while files and total > TRANSCODE_CACHE_MAX:
+            p = files.pop(0)
+            total -= p.stat().st_size
+            p.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _playable_copy(path: Path) -> Optional[Path]:
+    """A copy of `path` Chrome can play, made once and cached (lossless
+    sources → FLAC, lossy → AAC). The original is never touched."""
+    import hashlib
+    st = path.stat()
+    key = hashlib.sha1(f"{path.resolve()}|{st.st_mtime}|{st.st_size}".encode()).hexdigest()[:20]
+    lossless = path.suffix.lower() in _LOSSLESS_EXTS or _audio_codec(path) == "alac"
+    out = TRANSCODE_CACHE_DIR / (key + (".flac" if lossless else ".m4a"))
+    if out.is_file() and out.stat().st_size > 0:
+        return out
+    lock = _transcode_locks.setdefault(key, threading.Lock())
+    with lock:
+        if out.is_file() and out.stat().st_size > 0:
+            return out
+        TRANSCODE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".part" + out.suffix)
+        codec = ["-c:a", "flac"] if lossless else ["-c:a", "aac", "-b:a", "256k"]
+        try:
+            r = subprocess.run([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", str(path), "-vn",
+                                "-map_metadata", "0", *codec, str(tmp)],
+                               capture_output=True, timeout=600)
+        except (OSError, subprocess.TimeoutExpired):
+            tmp.unlink(missing_ok=True)
+            return None
+        if r.returncode != 0 or not tmp.is_file():
+            tmp.unlink(missing_ok=True)
+            return None
+        tmp.replace(out)
+    _prune_transcode_cache()
+    return out
+
+
 def _resolve_amp_path(filename: str) -> Optional[Path]:
     """Resolves a client-supplied amp/IR file id to a real path on disk.
     The client only ever gets to name a category (checked against
@@ -269,6 +363,10 @@ def _resolve_amp_path(filename: str) -> Optional[Path]:
     directory always comes from the server side, so this can't be used to
     walk out of the amps folder or the one mapped external directory.
     """
+    if filename.startswith("lib:"):
+        # A .nam file anywhere in the music library (the "ALL" list).
+        path = _resolve_under_music_root(filename[len("lib:"):])
+        return path if path is not None and path.suffix.lower() == ".nam" else None
     if filename.startswith("ext:"):
         rest = filename[len("ext:"):]
         if "/" not in rest:
@@ -292,8 +390,50 @@ def _resolve_amp_path(filename: str) -> Optional[Path]:
     return path if path.resolve().parent == AMPS_DIR.resolve() else None
 
 
+def _all_amps() -> list:
+    """Every NAM profile the app knows about: the three categories (uploaded
+    and mapped folders) plus any .nam file in the music library, each once."""
+    out, seen = [], set()
+
+    def add(item, path):
+        try:
+            key = str(path.resolve())
+        except OSError:
+            return
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(item)
+
+    for cat in AMP_CATEGORIES:
+        cat_dir = AMPS_DIR / cat
+        for path in sorted(cat_dir.glob("*.nam")) if cat_dir.is_dir() else []:
+            if path.is_file():
+                add({"name": path.stem, "file": f"{cat}/{path.name}", "kind": "model",
+                     "bytes": path.stat().st_size, "category": cat}, path)
+        ext_dir = _amp_category_dir(cat)
+        for path in sorted(ext_dir.glob("*.nam")) if ext_dir is not None else []:
+            if path.is_file():
+                add({"name": path.stem, "file": f"ext:{cat}/{path.name}", "kind": "model",
+                     "bytes": path.stat().st_size, "category": cat, "external": True}, path)
+    root = MUSIC_ROOT.resolve()
+    try:
+        lib = sorted(root.rglob("*.nam"), key=lambda q: str(q).lower())
+    except OSError:
+        lib = []
+    for path in lib:
+        if path.is_file() and not any(part.startswith(".") for part in path.relative_to(root).parts):
+            rel = path.relative_to(root).as_posix()
+            add({"name": path.stem, "file": f"lib:{rel}", "kind": "model",
+                 "bytes": path.stat().st_size, "category": "library"}, path)
+    out.sort(key=lambda a: a["name"].lower())
+    return out
+
+
 @app.get("/api/amps")
 def list_amps(category: str = ""):
+    if category == "all":
+        return _all_amps()
     if category:
         if category not in AMP_CATEGORIES:
             return JSONResponse({"error": "Neplatná kategorie."}, status_code=400)
@@ -2386,6 +2526,8 @@ def library_browse(rel: str = ""):
     dirs, files = [], []
     for p in sorted(target.iterdir(), key=lambda p: p.name.lower()):
         entry_rel = "/".join((*parts, p.name))
+        if p.name.startswith("."):
+            continue
         if p.is_dir():
             tracks, size, folders = _folder_stats(p)
             dirs.append({
@@ -2410,6 +2552,15 @@ def library_browse(rel: str = ""):
                 **_nam_meta(p),
                 "riff_id": _nam_riff_assignments().get(entry_rel),
             })
+        # Anything else (tabs, PDFs, pictures, video…) is listed too, so a
+        # folder shows what is really in it; it opens in its own Mac app.
+        elif p.is_file() and not p.name.startswith("."):
+            try:
+                size = p.stat().st_size
+            except OSError:
+                continue
+            files.append({"name": p.name, "type": "other", "rel": entry_rel,
+                          "size_bytes": size, "ext": p.suffix.lower().lstrip(".")})
 
     total_size = sum(f["size_bytes"] for f in files) + sum(d["size_bytes"] for d in dirs)
     # NAM presets aren't songs — _folder_stats (which feeds a subfolder's own
@@ -2489,6 +2640,11 @@ def library_stream(rel: str, request: Request):
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
     if target.suffix.lower() not in AUDIO_EXTS:
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    if _needs_transcode(target):
+        copy = _playable_copy(target)
+        if copy is None:
+            return JSONResponse({"error": "Soubor se nepodařilo převést."}, status_code=500)
+        target = copy
     return _range_file_response(target, request.headers.get("range"))
 
 
@@ -2873,9 +3029,9 @@ def set_active_nam_riff(req: NamRiffActiveRequest):
 # Folders of dry guitar recordings that live anywhere on the disk can be
 # "mapped": they are browsed in place (never moved or changed) and any file in
 # them can be copied into the sample riffs, to hear a NAM profile on it.
-DI_EXTS = AUDIO_EXTS | {".aif", ".aiff", ".wma", ".webm"}
+DI_EXTS = AUDIO_EXTS
 # Chrome can't decode these, so they are converted to wav when copied in.
-DI_TRANSCODE_EXTS = {".aif", ".aiff", ".wma"}
+DI_TRANSCODE_EXTS = TRANSCODE_AUDIO_EXTS
 DI_MAX_BYTES = 60 * 1024 * 1024
 
 
@@ -2973,7 +3129,7 @@ def di_browse(path: str):
             except OSError:
                 continue
             entries.append({"type": "file", "name": c.name, "path": str(c), "size_bytes": size,
-                            "playable": c.suffix.lower() not in DI_TRANSCODE_EXTS})
+                            "playable": True})
     at_root = str(target) in roots
     return {"path": str(target), "name": target.name or str(target),
             "parent": None if at_root else str(target.parent), "entries": entries}
@@ -2984,6 +3140,10 @@ def di_audio(path: str, request: Request):
     target = _resolve_under_di_dirs(path)
     if target is None or not target.is_file() or target.suffix.lower() not in DI_EXTS:
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    if _needs_transcode(target):
+        target = _playable_copy(target)
+        if target is None:
+            return JSONResponse({"error": "Soubor se nepodařilo převést."}, status_code=500)
     return _range_file_response(target, request.headers.get("range"))
 
 
@@ -3025,7 +3185,7 @@ def add_nam_riff_from_file(req: RiffFromFileRequest):
     riff_id = uuid.uuid4().hex[:12]
     ext = src.suffix.lower()
     try:
-        if ext in DI_TRANSCODE_EXTS:
+        if _needs_transcode(src):
             dest = NAM_RIFFS_DIR / f"{riff_id}.wav"
             r = subprocess.run([ffmpeg_bin(), "-y", "-i", str(src), "-vn", str(dest)],
                                capture_output=True, timeout=120)
@@ -3521,6 +3681,30 @@ async def job_events(job_id: str):
 
 class RevealRequest(BaseModel):
     path: str
+
+
+class LibraryPathRequest(BaseModel):
+    rel: str
+
+
+@app.post("/api/library/reveal")
+def library_reveal(req: LibraryPathRequest):
+    """Shows a library file or folder selected in Finder."""
+    target = _resolve_under_music_root(req.rel)
+    if target is None or not target.exists():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    subprocess.run(["open", "-R", str(target)], check=False)
+    return {"ok": True}
+
+
+@app.post("/api/library/open")
+def library_open(req: LibraryPathRequest):
+    """Opens a library file in its default Mac app (PDF, picture, tab…)."""
+    target = _resolve_under_music_root(req.rel)
+    if target is None or not target.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    subprocess.run(["open", str(target)], check=False)
+    return {"ok": True}
 
 
 @app.post("/api/reveal")
