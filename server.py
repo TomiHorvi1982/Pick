@@ -3207,6 +3207,251 @@ def add_nam_riff_from_file(req: RiffFromFileRequest):
             "active_id": data["active_id"], "existing": False}
 
 
+# ------------------------------------------------------------------- loops
+#
+# Sites with free loops (Looperman first) can't be shown inside the app —
+# they send X-Frame-Options/frame-ancestors, and proxying them would break
+# their login. So each one opens in an app window of its own (Chrome --app,
+# the user's own profile, so the login sticks), and whatever it downloads
+# into ~/Downloads is moved into the library under Loops/<site>/.
+#
+# A site's downloads are recognised by file name (Looperman's all start with
+# "looperman-"). A site added without a pattern claims audio files that
+# land in Downloads within two hours of its window being opened.
+LOOP_SOURCES_BUILTIN = [
+    {"id": "looperman", "name": "Looperman", "url": "https://www.looperman.com/loops",
+     "match": r"^looperman-", "builtin": True},
+]
+DOWNLOADS_DIR = HOME / "Downloads"
+_loop_events: list = []            # recent imports, for the page's toasts
+_loop_opened: dict = {}            # source id -> time its window was opened
+_loop_watch_lock = threading.Lock()
+_re_loop_id = _re_mod.compile(r"[a-z0-9_-]{1,40}")
+
+
+def _loop_sources() -> list:
+    custom = _read_config().get("loop_sources") or []
+    return LOOP_SOURCES_BUILTIN + [dict(c, builtin=False) for c in custom if isinstance(c, dict) and c.get("id")]
+
+
+def _loop_source(source_id: str) -> Optional[dict]:
+    return next((s for s in _loop_sources() if s["id"] == source_id), None)
+
+
+def _loop_folder(src: dict) -> Path:
+    safe = _re_mod.sub(r"[^\w .-]", "_", src["name"]).strip() or src["id"]
+    return MUSIC_ROOT / "Loops" / safe
+
+
+def _loop_watch_since() -> float:
+    cfg = _read_config()
+    since = cfg.get("loops_watch_since")
+    if not isinstance(since, (int, float)):
+        since = time.time()
+        _write_config({"loops_watch_since": since})
+    return float(since)
+
+
+def _loop_owner(name: str, mtime: float) -> Optional[dict]:
+    """Which loop site a downloaded file belongs to, if any."""
+    sources = _loop_sources()
+    for src in sources:
+        pat = src.get("match")
+        if pat:
+            try:
+                if _re_mod.search(pat, name, _re_mod.IGNORECASE):
+                    return src
+            except _re_mod.error:
+                continue
+    # No pattern matched: the site without a pattern whose window was opened
+    # most recently, if that was within two hours of this download.
+    best = None
+    for src in sources:
+        opened = _loop_opened.get(src["id"])
+        if src.get("match") or not opened or mtime < opened or mtime - opened > 7200:
+            continue
+        if best is None or opened > _loop_opened[best["id"]]:
+            best = src
+    return best
+
+
+def _move_into_loops(path: Path, src: dict) -> Optional[Path]:
+    folder = _loop_folder(src)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / path.name
+    n = 2
+    while dest.exists():
+        dest = folder / f"{path.stem} ({n}){path.suffix}"
+        n += 1
+    try:
+        shutil.move(str(path), str(dest))
+    except OSError:
+        return None
+    try:
+        rel = dest.relative_to(MUSIC_ROOT).as_posix()
+    except ValueError:
+        rel = dest.name
+    _loop_events.append({"t": time.time(), "source": src["id"], "name": dest.name, "rel": rel})
+    del _loop_events[:-50]
+    return dest
+
+
+def _loop_candidates(since: Optional[float]) -> list:
+    """(path, source) for audio in Downloads that belongs to a loop site."""
+    out = []
+    try:
+        entries = list(os.scandir(DOWNLOADS_DIR))
+    except OSError:
+        return out
+    for e in entries:
+        if not e.is_file() or e.name.startswith("."):
+            continue
+        p = Path(e.path)
+        if p.suffix.lower() not in AUDIO_EXTS:
+            continue          # .crdownload and friends: not finished yet
+        try:
+            st = e.stat()
+        except OSError:
+            continue
+        if since is not None and st.st_mtime < since:
+            continue
+        src = _loop_owner(e.name, st.st_mtime)
+        if src:
+            out.append((p, src, st.st_size))
+    return out
+
+
+def _loops_watcher():
+    sizes: dict = {}
+    while True:
+        time.sleep(2)
+        try:
+            since = _loop_watch_since()
+            seen = {}
+            for p, src, size in _loop_candidates(since):
+                seen[str(p)] = size
+                # Moved only once its size has held still for a poll — a
+                # browser can create the final name before it has finished.
+                if sizes.get(str(p)) == size and size > 0:
+                    with _loop_watch_lock:
+                        if p.exists():
+                            _move_into_loops(p, src)
+                    seen.pop(str(p), None)
+            sizes = seen
+        except Exception:
+            pass
+
+
+threading.Thread(target=_loops_watcher, daemon=True, name="loops-watcher").start()
+
+
+@app.get("/api/loops/sources")
+def loops_sources():
+    _loop_watch_since()
+    out = []
+    for src in _loop_sources():
+        folder = _loop_folder(src)
+        try:
+            count = sum(1 for p in folder.iterdir() if p.is_file() and p.suffix.lower() in AUDIO_EXTS) if folder.is_dir() else 0
+        except OSError:
+            count = 0
+        out.append({**src, "folder_rel": folder.relative_to(MUSIC_ROOT).as_posix(), "count": count})
+    return {"sources": out, "downloads_dir": str(DOWNLOADS_DIR)}
+
+
+class LoopSourceRequest(BaseModel):
+    name: str
+    url: str
+    match: Optional[str] = None
+
+
+@app.post("/api/loops/sources")
+def loops_add_source(req: LoopSourceRequest):
+    name = (req.name or "").strip()[:60]
+    url = (req.url or "").strip()
+    if not name or not _re_mod.match(r"^https?://[^\s/]+\.[^\s]+$", url):
+        return JSONResponse({"error": "Zadej název a platnou adresu (https://…)."}, status_code=400)
+    match = (req.match or "").strip() or None
+    if match:
+        try:
+            _re_mod.compile(match)
+        except _re_mod.error:
+            return JSONResponse({"error": "Neplatný vzor názvu souboru."}, status_code=400)
+    sid = _re_mod.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:30] or "web"
+    existing = {s["id"] for s in _loop_sources()}
+    base, n = sid, 2
+    while sid in existing:
+        sid = f"{base}-{n}"; n += 1
+    custom = list(_read_config().get("loop_sources") or [])
+    custom.append({"id": sid, "name": name, "url": url, "match": match})
+    _write_config({"loop_sources": custom})
+    return {"ok": True, "id": sid}
+
+
+@app.delete("/api/loops/sources/{source_id}")
+def loops_remove_source(source_id: str):
+    # Only the entry goes; its loops stay in the library.
+    custom = [c for c in (_read_config().get("loop_sources") or []) if c.get("id") != source_id]
+    _write_config({"loop_sources": custom})
+    return {"ok": True}
+
+
+class LoopOpenRequest(BaseModel):
+    id: str
+
+
+@app.post("/api/loops/open")
+def loops_open(req: LoopOpenRequest):
+    src = _loop_source(req.id)
+    if src is None:
+        return JSONResponse({"error": "Neznámý zdroj."}, status_code=404)
+    _loop_opened[src["id"]] = time.time()
+    _loop_watch_since()
+    url = src["url"]
+    r = subprocess.run(["open", "-na", "Google Chrome", "--args", f"--app={url}", "--window-size=1280,860"],
+                       capture_output=True)
+    if r.returncode != 0:
+        subprocess.run(["open", url], check=False)
+    return {"ok": True}
+
+
+@app.get("/api/loops/pending")
+def loops_pending():
+    """Loop-site files in Downloads from before watching started — offered
+    for import on request, never moved behind the user's back."""
+    since = _loop_watch_since()
+    out = []
+    for p, src, size in _loop_candidates(None):
+        try:
+            if p.stat().st_mtime >= since:
+                continue
+        except OSError:
+            continue
+        out.append({"name": p.name, "source": src["id"], "size_bytes": size})
+    return {"files": out}
+
+
+@app.post("/api/loops/import-pending")
+def loops_import_pending():
+    since = _loop_watch_since()
+    moved = 0
+    with _loop_watch_lock:
+        for p, src, _ in _loop_candidates(None):
+            try:
+                if p.stat().st_mtime >= since:
+                    continue
+            except OSError:
+                continue
+            if _move_into_loops(p, src):
+                moved += 1
+    return {"ok": True, "moved": moved}
+
+
+@app.get("/api/loops/events")
+def loops_events(since: float = 0):
+    return {"events": [e for e in _loop_events if e["t"] > since], "now": time.time()}
+
+
 @app.get("/api/preview")
 def preview(q: str):
     """Najde nejbližší YouTube video pro náhled (u výsledků hledání písní,

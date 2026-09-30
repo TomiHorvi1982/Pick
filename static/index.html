@@ -462,6 +462,25 @@
   .fl-eq-btn.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
   .fl-eq-btn.sel{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.08)}
 
+  /* ---- Loops ---- */
+  .loops-sources{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+  .loops-sources button{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;
+    border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font:inherit;font-size:13px}
+  .loops-sources button.active{background:#fff;color:#000;border-color:#fff}
+  .loops-sources button.add{color:var(--sub)}
+  .loops-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:10px;
+    background:var(--card);margin-bottom:12px}
+  .loops-head .info{flex:1;min-width:240px;font-size:12.5px;color:var(--sub);line-height:1.45}
+  .loops-head .info b{color:var(--text)}
+  .loops-head .name{font-size:18px;font-weight:700;color:var(--text)}
+  .loops-pending{padding:10px 14px;border-radius:8px;background:rgba(255,209,102,.1);color:var(--text);
+    font-size:12.5px;display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .loops-add{display:flex;flex-direction:column;gap:8px;max-width:520px;padding:14px;border-radius:10px;
+    background:var(--card);margin-bottom:12px}
+  .loops-add input{padding:9px}
+  .loops-add-actions{display:flex;gap:8px}
+  .lib-trow.loop-row .c-album{font-variant-numeric:tabular-nums}
+
   /* ---- channel inserts row (mono / compressor / doubler) ---- */
   .fl-fx-row{display:flex;gap:2px;width:100%}
   .fl-fx-btn{flex:1;min-width:0;height:17px;border-radius:3px;font-size:7.5px;font-weight:700;line-height:1;letter-spacing:.02em;
@@ -3363,6 +3382,26 @@
     </div>
   </div>
 
+  <div id="loops-section" hidden>
+    <div class="section-title">Loops</div>
+    <div class="loops-sources" id="loops-sources"></div>
+    <div class="loops-head" id="loops-head"></div>
+    <div class="loops-pending" id="loops-pending" hidden></div>
+    <form class="loops-add" id="loops-add" hidden>
+      <div class="ss-head">Přidat web s loopy</div>
+      <input type="text" id="loops-add-name" placeholder="Název (např. Freesound)" required>
+      <input type="url" id="loops-add-url" placeholder="https://…" required>
+      <input type="text" id="loops-add-match" placeholder="Začátek názvu stažených souborů (nepovinné, např. freesound-)">
+      <div class="set-note">Bez vzoru se do sekce přesune každé audio, které se stáhne do dvou hodin
+        od otevření toho webu.</div>
+      <div class="loops-add-actions">
+        <button type="submit" class="btn">Přidat</button>
+        <button type="button" class="btn secondary" id="loops-add-cancel">Zrušit</button>
+      </div>
+    </form>
+    <div class="lib-table" id="loops-list"></div>
+  </div>
+
   <div id="podcasts-section" hidden>
     <div class="section-title">Podcasty</div>
     <div class="region-toggle" id="podcast-region">
@@ -5087,6 +5126,183 @@ regionToggle.querySelectorAll("button").forEach(btn=>{
   };
 });
 
+
+// ======================================================================
+// Loops — free loop sites. Each one opens in an app window of its own (the
+// sites forbid being shown inside another page), and whatever loop it
+// downloads lands in the library under Loops/<site> by itself — the server
+// watches ~/Downloads (see /api/loops/*). This page lists them to play,
+// use as a DI riff, or send elsewhere.
+// ======================================================================
+const Loops = (() => {
+  let list = [], current = null, pollTimer = null, lastEvent = 0;
+
+  async function sources(){
+    try{ list = (await (await fetch("/api/loops/sources")).json()).sources || []; }
+    catch(e){ list = list || []; }
+    return list;
+  }
+
+  const niceTitle = (name) => name
+    .replace(/\.[^.]+$/, "")
+    .replace(/^looperman-[a-z]-\d+-\d+-?/i, "")
+    .replace(/[-_]+/g, " ").trim() || name;
+  const bpmOf = (name) => { const m = name.match(/(\d{2,3})\s*-?\s*bpm/i); return m ? m[1] + " BPM" : ""; };
+
+  function paintSources(){
+    const box = el("loops-sources");
+    box.innerHTML = "";
+    list.forEach(src => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = src.id === (current && current.id) ? "active" : "";
+      b.innerHTML = `${icon(src.id === "looperman" ? "note" : "globe", 14)}<span>${escapeHtml(src.name)}</span>`;
+      b.onclick = () => show(src.id);
+      box.appendChild(b);
+    });
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "add";
+    add.innerHTML = `${icon("plus", 14)}<span>Přidat web</span>`;
+    add.onclick = () => { el("loops-add").hidden = false; el("loops-add-name").focus(); };
+    box.appendChild(add);
+  }
+
+  function paintHead(){
+    const head = el("loops-head");
+    if(!current){ head.innerHTML = ""; return; }
+    head.innerHTML = `
+      <div class="info">
+        <div class="name">${escapeHtml(current.name)}</div>
+        ${escapeHtml(current.url)}<br>
+        Otevře se ve vlastním okně (přihlášení zůstane uložené v Chrome). Co v něm stáhneš,
+        se samo přesune do Knihovny do <b>${escapeHtml(current.folder_rel)}</b> a objeví se tady.
+      </div>
+      <button type="button" class="btn" id="loops-open">${icon("external", 15)}Otevřít ${escapeHtml(current.name)}</button>
+      <button type="button" class="btn secondary" id="loops-folder">${icon("folder", 15)}Složka v Knihovně</button>
+      ${current.builtin ? "" : `<button type="button" class="btn secondary" id="loops-remove" title="Odebrat web ze seznamu (loopy zůstanou)">${icon("trash", 15)}</button>`}`;
+    el("loops-open").onclick = async () => {
+      await fetch("/api/loops/open", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: current.id})});
+      showToast(`${current.name} se otevírá v novém okně`);
+    };
+    el("loops-folder").onclick = () => { setMode("library", {keepSection: true}); loadLibraryFolder(current.folder_rel); };
+    const rm = el("loops-remove");
+    if(rm) rm.onclick = async () => {
+      if(!confirm(`Odebrat „${current.name}“ ze seznamu? Stažené loopy zůstanou v Knihovně.`)) return;
+      await fetch(`/api/loops/sources/${encodeURIComponent(current.id)}`, {method: "DELETE"});
+      current = null;
+      invalidateRailTop5("loops");
+      show();
+    };
+  }
+
+  async function paintPending(){
+    const box = el("loops-pending");
+    let files = [];
+    try{ files = (await (await fetch("/api/loops/pending")).json()).files || []; }catch(e){}
+    box.hidden = !files.length;
+    if(!files.length) return;
+    box.innerHTML = `<span>Ve Stažených je ${files.length} ${files.length === 1 ? "starší loop" : "starších loopů"}
+      z doby před zapnutím této sekce.</span><button type="button" class="btn secondary" id="loops-import-old">Přesunout do Loops</button>`;
+    el("loops-import-old").onclick = async () => {
+      const r = await (await fetch("/api/loops/import-pending", {method: "POST"})).json();
+      showToast(`Přesunuto: ${r.moved}`);
+      paintPending(); paintList(); invalidateRailTop5("loops");
+    };
+  }
+
+  async function paintList(){
+    const box = el("loops-list");
+    if(!current){ box.innerHTML = ""; return; }
+    let data = null;
+    try{
+      const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(current.folder_rel)}`);
+      if(res.ok) data = await res.json();
+    }catch(e){}
+    const files = data ? data.entries.filter(e => e.type === "file") : [];
+    if(!files.length){
+      box.innerHTML = `<div class="empty" style="padding:28px 10px">Zatím tu nic není — otevři ${escapeHtml(current.name)},
+        přihlas se a stáhni si loop.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="lib-thead"><span class="c-idx">#</span><span>Název</span><span>Tempo</span>
+      <span>Velikost</span><span class="c-time">Délka</span><span></span></div>`;
+    const cur = Player.getCurrent();
+    const tracks = files.map(f => ({relPath: f.rel, title: niceTitle(f.name), artists: current.name}));
+    files.forEach((f, i) => {
+      const row = document.createElement("div");
+      row.className = "lib-trow loop-row" + (cur && cur.relPath === f.rel ? " playing" : "");
+      row.innerHTML = `
+        <span class="c-idx">${i + 1}</span>
+        <span class="c-title"><span class="art">♫</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(niceTitle(f.name))}</span></span>
+        <span class="c-artist">${escapeHtml(bpmOf(f.name))}</span>
+        <span class="c-album">${fmtSize(f.size_bytes || 0)}</span>
+        <span class="c-time">${libDurationText(f)}</span>
+        <span class="c-act">
+          <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">🎸</button>
+          <button class="act-reveal" title="Ukázat ve Finderu">↗</button>
+          <button class="act-delete" title="Do koše">🗑</button>
+        </span>`;
+      row.onclick = () => { Player.playLocalQueue(tracks.slice(i)); setTimeout(paintList, 300); };
+      row.querySelector(".act-riff").onclick = (e) => { e.stopPropagation(); importRiffFromFile({rel: f.rel, name: niceTitle(f.name)}); };
+      row.querySelector(".act-reveal").onclick = (e) => { e.stopPropagation(); revealLibraryEntry(f.rel); };
+      row.querySelector(".act-delete").onclick = async (e) => {
+        e.stopPropagation();
+        await deleteLibraryEntry(f.rel, f.name);
+        setTimeout(paintList, 400);
+      };
+      box.appendChild(row);
+    });
+  }
+
+  async function poll(){
+    if(el("loops-section").hidden){ pollTimer = null; return; }
+    try{
+      const data = await (await fetch(`/api/loops/events?since=${lastEvent}`)).json();
+      if(data.events && data.events.length){
+        lastEvent = Math.max(...data.events.map(e => e.t));
+        data.events.forEach(ev => {
+          const src = list.find(s => s.id === ev.source);
+          showToast(`Nový loop v ${src ? src.name : "Loops"}: ${niceTitle(ev.name)}`);
+        });
+        await sources();
+        current = list.find(s => s.id === (current && current.id)) || current;
+        paintSources(); paintList(); invalidateRailTop5("loops"); refreshHomeRail();
+      } else if(data.now && !lastEvent){
+        lastEvent = data.now;
+      }
+    }catch(e){}
+    pollTimer = setTimeout(poll, 3000);
+  }
+
+  async function show(id){
+    await sources();
+    current = list.find(s => s.id === id) || list.find(s => s.id === (current && current.id)) || list[0] || null;
+    paintSources(); paintHead(); paintList(); paintPending();
+    if(!pollTimer) pollTimer = setTimeout(poll, 1000);
+  }
+
+  el("loops-add").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = {name: el("loops-add-name").value.trim(), url: el("loops-add-url").value.trim(),
+                  match: el("loops-add-match").value.trim() || null};
+    if(body.match) body.match = "^" + body.match.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const res = await fetch("/api/loops/sources", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)});
+    const data = await res.json();
+    if(!res.ok){ showToast(data.error || "Nepodařilo se přidat"); return; }
+    el("loops-add").hidden = true;
+    el("loops-add").reset();
+    invalidateRailTop5("loops");
+    refreshHomeRail();
+    show(data.id);
+  };
+  el("loops-add-cancel").onclick = () => { el("loops-add").hidden = true; };
+
+  return {show, sources};
+})();
+
 // ======================================================================
 // Tabs & mode switching
 // ======================================================================
@@ -5116,6 +5332,7 @@ function setMode(mode, opts){
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
+  el("loops-section").hidden = mode !== "loops";
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -5129,6 +5346,8 @@ function setMode(mode, opts){
     if(!opts.keepSection && !currentSteemsName) loadSteemsList();
   } else if(mode === "podcasts"){
     if(!opts.keepSection && el("podcast-detail").hidden) loadPodcastsList();
+  } else if(mode === "loops"){
+    if(!opts.keepSection) Loops.show();
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -6259,6 +6478,7 @@ const RAIL_SECTIONS = [
   {key: "steems", title: "Steems", icon: "stems"},
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
+  {key: "loops", title: "Loops", icon: "note"},
 ];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
@@ -6303,6 +6523,14 @@ async function fetchRailTop5(key){
     return dirs.slice(0, 5).map(d => ({
       art: icon("folder", 18), name: d.name, sub: "Slo\u017Eka",
       onClick: () => { setMode("library", {keepSection: true}); loadLibraryFolder(d.rel); },
+    }));
+  }
+  if(key === "loops"){
+    const data = await Loops.sources();
+    return data.map(src => ({
+      art: icon(src.id === "looperman" ? "note" : "globe", 18), name: src.name,
+      sub: src.count ? `${src.count} ${src.count === 1 ? "loop" : src.count < 5 ? "loopy" : "loopů"}` : "Loops",
+      onClick: () => { setMode("loops", {keepSection: true}); Loops.show(src.id); },
     }));
   }
   if(key === "podcasts"){
