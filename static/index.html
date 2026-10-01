@@ -473,6 +473,21 @@
   .loops-head .info{flex:1;min-width:240px;font-size:12.5px;color:var(--sub);line-height:1.45}
   .loops-head .info b{color:var(--text)}
   .loops-head .name{font-size:18px;font-weight:700;color:var(--text)}
+  .loops-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;
+    background:var(--card);margin-bottom:10px}
+  .loops-bar .nav{width:32px;height:32px;border-radius:50%;border:none;background:var(--card-hi);color:var(--text);
+    cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .loops-bar .nav:hover{background:#3a3a3a}
+  .loops-bar .addr{flex:1;min-width:160px;font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    padding:7px 12px;border-radius:999px;background:var(--bg2)}
+  .loops-bar .tab{padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;
+    color:var(--text);cursor:pointer;font:inherit;font-size:12.5px}
+  .loops-bar .tab.on{background:#fff;color:#000;border-color:#fff}
+  .loops-bar .ghost{padding:7px 10px;border-radius:999px;border:none;background:transparent;color:var(--sub);
+    cursor:pointer;font:inherit;font-size:12px}
+  .loops-bar .ghost:hover{color:var(--text)}
+  .loops-web{border-radius:10px;overflow:hidden;background:#111;height:calc(100vh - 330px);min-height:480px}
+  .loops-web iframe{width:100%;height:100%;border:0;display:block;background:#1a1a1a}
   .loops-pending{padding:10px 14px;border-radius:8px;background:rgba(255,209,102,.1);color:var(--text);
     font-size:12.5px;display:flex;align-items:center;gap:12px;margin-bottom:12px}
   .loops-add{display:flex;flex-direction:column;gap:8px;max-width:520px;padding:14px;border-radius:10px;
@@ -3399,7 +3414,8 @@
         <button type="button" class="btn secondary" id="loops-add-cancel">Zrušit</button>
       </div>
     </form>
-    <div class="lib-table" id="loops-list"></div>
+    <div class="loops-web" id="loops-web" hidden><iframe id="loops-frame" title="Loops"></iframe></div>
+    <div class="lib-table" id="loops-list" hidden></div>
   </div>
 
   <div id="podcasts-section" hidden>
@@ -5168,25 +5184,63 @@ const Loops = (() => {
     box.appendChild(add);
   }
 
+  let view = "web";            // "web" (the site, inside) or "list" (what's been downloaded)
+  let webPort = null, webAddr = "";
+
+  function frameUrl(path){ return `${location.protocol}//127.0.0.1:${webPort}${path}`; }
+
+  async function loadWeb(reset){
+    if(!current) return;
+    let info;
+    try{ info = await (await fetch(`/api/loops/web?id=${encodeURIComponent(current.id)}`)).json(); }
+    catch(e){ return; }
+    webPort = info.port;
+    const fr = el("loops-frame");
+    const want = frameUrl(info.path);
+    if(reset || fr.dataset.source !== current.id){
+      fr.dataset.source = current.id;
+      // The proxy starts on first use; give it a moment if it's not up yet.
+      const tryLoad = (n) => fetch(`${location.protocol}//127.0.0.1:${webPort}/`, {mode: "no-cors"})
+        .then(() => { fr.src = want; })
+        .catch(() => { if(n > 0) setTimeout(() => tryLoad(n - 1), 400); else fr.src = want; });
+      tryLoad(15);
+      webAddr = current.url;
+    }
+  }
+
   function paintHead(){
     const head = el("loops-head");
-    if(!current){ head.innerHTML = ""; return; }
+    if(!current){ head.innerHTML = ""; el("loops-web").hidden = true; el("loops-list").hidden = true; return; }
+    head.className = "loops-bar";
     head.innerHTML = `
-      <div class="info">
-        <div class="name">${escapeHtml(current.name)}</div>
-        ${escapeHtml(current.url)}<br>
-        Otevře se ve vlastním okně (přihlášení zůstane uložené v Chrome). Co v něm stáhneš,
-        se samo přesune do Knihovny do <b>${escapeHtml(current.folder_rel)}</b> a objeví se tady.
-      </div>
-      <button type="button" class="btn" id="loops-open">${icon("external", 15)}Otevřít ${escapeHtml(current.name)}</button>
-      <button type="button" class="btn secondary" id="loops-folder">${icon("folder", 15)}Složka v Knihovně</button>
-      ${current.builtin ? "" : `<button type="button" class="btn secondary" id="loops-remove" title="Odebrat web ze seznamu (loopy zůstanou)">${icon("trash", 15)}</button>`}`;
-    el("loops-open").onclick = async () => {
+      <button type="button" class="nav" id="loops-back" title="Zpět">${icon("back", 14)}</button>
+      <button type="button" class="nav" id="loops-fwd" title="Vpřed" style="transform:scaleX(-1)">${icon("back", 14)}</button>
+      <button type="button" class="nav" id="loops-home" title="Úvodní stránka">${icon("search", 14)}</button>
+      <span class="addr" id="loops-addr" title="Stažené loopy se ukládají do Knihovny: ${escapeHtml(current.folder_rel)}">${escapeHtml(webAddr || current.url)}</span>
+      <button type="button" class="tab ${view === "web" ? "on" : ""}" id="loops-view-web">${escapeHtml(current.name)}</button>
+      <button type="button" class="tab ${view === "list" ? "on" : ""}" id="loops-view-list">Staženo${current.count ? ` (${current.count})` : ""}</button>
+      <button type="button" class="ghost" id="loops-window" title="Kdyby se něco na stránce uvnitř nechovalo správně">Otevřít v okně</button>
+      <button type="button" class="ghost" id="loops-logout" title="Odhlásit tento web v aplikaci">Odhlásit</button>
+      ${current.builtin ? "" : `<button type="button" class="ghost" id="loops-remove" title="Odebrat web ze seznamu (loopy zůstanou)">${icon("trash", 13)}</button>`}`;
+    el("loops-web").hidden = view !== "web";
+    el("loops-list").hidden = view !== "list";
+    const post = (msg) => { try{ el("loops-frame").contentWindow.postMessage(msg, "*"); }catch(e){} };
+    el("loops-back").onclick = () => post("spotdl-back");
+    el("loops-fwd").onclick = () => post("spotdl-forward");
+    el("loops-home").onclick = () => { view = "web"; paintHead(); loadWeb(true); };
+    el("loops-view-web").onclick = () => { view = "web"; paintHead(); loadWeb(false); };
+    el("loops-view-list").onclick = () => { view = "list"; paintHead(); paintList(); };
+    el("loops-window").onclick = async () => {
       await fetch("/api/loops/open", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({id: current.id})});
-      showToast(`${current.name} se otevírá v novém okně`);
+      showToast(`${current.name} se otevírá v samostatném okně`);
     };
-    el("loops-folder").onclick = () => { setMode("library", {keepSection: true}); loadLibraryFolder(current.folder_rel); };
+    el("loops-logout").onclick = async () => {
+      if(!confirm(`Odhlásit ${current.name} v aplikaci?`)) return;
+      await fetch("/api/loops/logout", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: current.id})});
+      loadWeb(true);
+    };
     const rm = el("loops-remove");
     if(rm) rm.onclick = async () => {
       if(!confirm(`Odebrat „${current.name}“ ze seznamu? Stažené loopy zůstanou v Knihovně.`)) return;
@@ -5195,7 +5249,19 @@ const Loops = (() => {
       invalidateRailTop5("loops");
       show();
     };
+    if(view === "web") loadWeb(false);
   }
+
+  // The framed page reports where it is (via the proxy's little shim).
+  window.addEventListener("message", (e) => {
+    if(!webPort || e.origin !== `${location.protocol}//127.0.0.1:${webPort}` || !e.data || !e.data.spotdlLoops) return;
+    const path = String(e.data.spotdlLoops).replace(/^\/ext\/[^/]+/, "");
+    if(current){
+      webAddr = new URL(current.url).origin + path;
+      const a = el("loops-addr");
+      if(a) a.textContent = webAddr;
+    }
+  });
 
   async function paintPending(){
     const box = el("loops-pending");
@@ -5222,8 +5288,8 @@ const Loops = (() => {
     }catch(e){}
     const files = data ? data.entries.filter(e => e.type === "file") : [];
     if(!files.length){
-      box.innerHTML = `<div class="empty" style="padding:28px 10px">Zatím tu nic není — otevři ${escapeHtml(current.name)},
-        přihlas se a stáhni si loop.</div>`;
+      box.innerHTML = `<div class="empty" style="padding:28px 10px">Zatím tu nic není — přepni na ${escapeHtml(current.name)},
+        přihlas se a stáhni si loop. Uloží se sem i do Knihovny (${escapeHtml(current.folder_rel)}).</div>`;
       return;
     }
     box.innerHTML = `<div class="lib-thead"><span class="c-idx">#</span><span>Název</span><span>Tempo</span>
@@ -5269,6 +5335,8 @@ const Loops = (() => {
         await sources();
         current = list.find(s => s.id === (current && current.id)) || current;
         paintSources(); paintList(); invalidateRailTop5("loops"); refreshHomeRail();
+        const tl = el("loops-view-list");
+        if(tl && current) tl.textContent = "Staženo" + (current.count ? ` (${current.count})` : "");
       } else if(data.now && !lastEvent){
         lastEvent = data.now;
       }

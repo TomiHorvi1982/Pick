@@ -3452,6 +3452,250 @@ def loops_events(since: float = 0):
     return {"events": [e for e in _loop_events if e["t"] > since], "now": time.time()}
 
 
+# ------------------------------------------------- loop sites inside the app
+#
+# Looperman (like most sites) refuses to be framed by another origin, so the
+# Loops page shows it through this proxy instead: /ext/<source>/<path> is
+# fetched from the site, its own links rewritten back to /ext/<source>/…, the
+# anti-framing headers dropped. It runs on a port of its own (8766), so the
+# site's scripts live on a different origin than the app and can't reach
+# its API or its page. The login lives here, server-side, in a cookie jar
+# per site (the browser never holds the site's cookies). Anything the site
+# sends as a file download is saved straight into Library/Loops/<site>.
+import http.cookiejar as _cookiejar
+from urllib.parse import urlsplit as _urlsplit, quote as _urlquote
+
+LOOP_PROXY_PORT = 8766
+WEB_SESSIONS_DIR = NAM_PREVIEW_DIR / "web-sessions"
+_proxy_clients: dict = {}
+_proxy_started = False
+_proxy_lock = threading.Lock()
+_AD_SCRIPT_RE = _re_mod.compile(
+    r'<script[^>]*src="[^"]*(?:pub\.network|googlesyndication|btloader|googletagmanager|doubleclick|adservice)[^"]*"[^>]*>\s*</script>',
+    _re_mod.IGNORECASE)
+_DROP_RESP_HEADERS = {"x-frame-options", "content-security-policy", "content-security-policy-report-only",
+                      "set-cookie", "content-length", "content-encoding", "transfer-encoding", "connection",
+                      "strict-transport-security", "alt-svc", "location"}
+
+
+def _source_origin(src: dict) -> str:
+    u = _urlsplit(src["url"])
+    return f"{u.scheme}://{u.netloc}"
+
+
+def _proxy_client(src: dict) -> httpx.Client:
+    c = _proxy_clients.get(src["id"])
+    if c is None:
+        WEB_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        jar = _cookiejar.LWPCookieJar(str(WEB_SESSIONS_DIR / f"{src['id']}.cookies"))
+        try:
+            jar.load(ignore_discard=True, ignore_expires=True)
+        except (OSError, _cookiejar.LoadError):
+            pass
+        c = httpx.Client(cookies=jar, follow_redirects=False, timeout=60.0)
+        c._spotdl_jar = jar
+        _proxy_clients[src["id"]] = c
+    return c
+
+
+def _save_jar(c: httpx.Client):
+    jar = getattr(c, "_spotdl_jar", None)
+    if jar is None:
+        return
+    try:
+        jar.save(ignore_discard=True, ignore_expires=True)
+        os.chmod(jar.filename, 0o600)
+    except OSError:
+        pass
+
+
+def _rewrite_text(text: str, src: dict, html: bool) -> str:
+    origin = _source_origin(src)
+    host = _urlsplit(origin).netloc
+    prefix = f"/ext/{src['id']}"
+    bare = host[4:] if host.startswith("www.") else host
+    for h in {host, bare, "www." + bare}:
+        for scheme in ("https:", "http:", ""):
+            text = text.replace(f"{scheme}//{h}", prefix)
+            text = text.replace(f"{scheme}\\/\\/{h}".replace("\\/", "\\/"), prefix.replace("/", "\\/"))
+    if html:
+        text = _AD_SCRIPT_RE.sub("", text)
+        # Root-relative links (href="/x") would otherwise leave the proxy.
+        text = _re_mod.sub(r'(\s(?:href|src|action|data-[\w-]+)=["\'])/(?!/|ext/)', r"\1" + prefix + "/", text)
+        shim = ("<script>(function(){var P=%s;function fx(u){if(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/'&&u.indexOf(P+'/')!==0)return P+u;return u}"
+                "var f=window.fetch;window.fetch=function(u,o){if(typeof u==='string')u=fx(u);return f.call(this,u,o)};"
+                "var op=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=fx(u);return op.apply(this,arguments)};"
+                "var wo=window.open;window.open=function(u){arguments[0]=fx(u);return wo.apply(this,arguments)};"
+                "if(window.parent!==window){var rp=function(){try{parent.postMessage({spotdlLoops:location.pathname+location.search,title:document.title},'*')}catch(e){}};rp();"
+                "addEventListener('DOMContentLoaded',rp);"
+                "addEventListener('message',function(e){if(e.data==='spotdl-back')history.back();if(e.data==='spotdl-forward')history.forward();});}"
+                "})();</script>") % json.dumps(prefix)
+        text = _re_mod.sub(r"(<head[^>]*>)", lambda m: m.group(1) + shim, text, count=1, flags=_re_mod.IGNORECASE)
+    return text
+
+
+def _download_name(resp: httpx.Response, url: str) -> str:
+    cd = resp.headers.get("content-disposition", "")
+    m = _re_mod.search(r"filename\*=UTF-8''([^;]+)", cd, _re_mod.IGNORECASE) or \
+        _re_mod.search(r'filename="?([^";]+)"?', cd, _re_mod.IGNORECASE)
+    name = m.group(1) if m else Path(_urlsplit(url).path).name
+    from urllib.parse import unquote
+    name = Path(unquote(name)).name.strip() or "loop"
+    return _re_mod.sub(r'[\\/:*?"<>|]', "_", name)
+
+
+def _save_proxy_download(src: dict, resp: httpx.Response, url: str) -> Optional[str]:
+    name = _download_name(resp, url)
+    folder = _loop_folder(src)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / name
+    n = 2
+    while dest.exists():
+        dest = folder / f"{Path(name).stem} ({n}){Path(name).suffix}"
+        n += 1
+    tmp = dest.with_name(dest.name + ".part")
+    try:
+        with tmp.open("wb") as fh:
+            for chunk in resp.iter_bytes():
+                fh.write(chunk)
+        tmp.replace(dest)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        return None
+    try:
+        rel = dest.relative_to(MUSIC_ROOT).as_posix()
+    except ValueError:
+        rel = dest.name
+    _loop_events.append({"t": time.time(), "source": src["id"], "name": dest.name, "rel": rel})
+    del _loop_events[:-50]
+    return rel
+
+
+proxy_app = FastAPI(title="loop sites proxy")
+
+
+@proxy_app.api_route("/ext/{source_id}/{path:path}", methods=["GET", "POST", "HEAD"])
+async def loop_proxy(source_id: str, path: str, request: Request):
+    import asyncio
+    body = await request.body()
+    return await asyncio.to_thread(_loop_proxy_sync, source_id, path, request, body)
+
+
+def _loop_proxy_sync(source_id: str, path: str, request: Request, body: bytes):
+    from fastapi.responses import Response
+    src = _loop_source(source_id)
+    if src is None:
+        return JSONResponse({"error": "Neznámý zdroj."}, status_code=404)
+    origin = _source_origin(src)
+    prefix = f"/ext/{src['id']}"
+    url = origin + "/" + path
+    if request.url.query:
+        url += "?" + request.url.query
+    fwd = {}
+    for k, v in request.headers.items():
+        lk = k.lower()
+        if lk in ("host", "cookie", "connection", "content-length", "accept-encoding") or lk.startswith("sec-fetch"):
+            continue
+        if lk in ("origin", "referer"):
+            v = v.replace(f"{request.url.scheme}://{request.url.netloc}{prefix}", origin)
+            v = v.replace(f"{request.url.scheme}://{request.url.netloc}", origin)
+        fwd[k] = v
+    # Sites protect their files against hotlinking by Referer; a request the
+    # browser sent without one still comes "from the site" as far as it knows.
+    if not any(k.lower() == "referer" for k in fwd):
+        fwd["Referer"] = origin + "/"
+    dest = (request.headers.get("sec-fetch-dest") or "").lower()
+    client = _proxy_client(src)
+    try:
+        req = client.build_request(request.method, url, headers=fwd, content=body or None)
+        resp = client.send(req, stream=True)
+    except httpx.HTTPError as exc:
+        return JSONResponse({"error": f"{src['name']} neodpověděl: {exc}"}, status_code=502)
+    try:
+        _save_jar(client)
+        ctype = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+        disp = resp.headers.get("content-disposition", "").lower()
+        is_file_type = ctype.startswith("audio/") or ctype in (
+            "application/zip", "application/x-zip-compressed", "application/octet-stream", "application/x-rar-compressed")
+        # A real download (not the site's own preview player): sent as an
+        # attachment, or a file opened as a page rather than by an <audio>.
+        if resp.status_code == 200 and ("attachment" in disp or (is_file_type and dest in ("document", "iframe"))):
+            rel = _save_proxy_download(src, resp, url)
+            if rel is None:
+                return JSONResponse({"error": "Uložení selhalo."}, status_code=500)
+            return Response(status_code=204)
+
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in _DROP_RESP_HEADERS}
+        loc = resp.headers.get("location")
+        if loc:
+            if loc.startswith(origin):
+                loc = prefix + loc[len(origin):]
+            elif loc.startswith("/") and not loc.startswith("//"):
+                loc = prefix + loc
+            else:
+                loc = _rewrite_text(loc, src, False)
+            headers["location"] = loc
+        textual = ctype.startswith("text/") or ctype in ("application/javascript", "application/json",
+                                                           "application/x-javascript", "image/svg+xml")
+        if textual:
+            raw = resp.read()
+            text = raw.decode(resp.encoding or "utf-8", errors="replace")
+            text = _rewrite_text(text, src, ctype == "text/html")
+            return Response(text.encode("utf-8"), status_code=resp.status_code, headers=headers,
+                            media_type=resp.headers.get("content-type"))
+        data = resp.read()
+        return Response(data, status_code=resp.status_code, headers=headers,
+                        media_type=resp.headers.get("content-type"))
+    finally:
+        resp.close()
+
+
+@proxy_app.get("/")
+def proxy_root():
+    return JSONResponse({"ok": True})
+
+
+def _ensure_loop_proxy():
+    global _proxy_started
+    with _proxy_lock:
+        if _proxy_started:
+            return
+        _proxy_started = True
+    import uvicorn
+
+    def run():
+        try:
+            uvicorn.Server(uvicorn.Config(proxy_app, host="127.0.0.1", port=LOOP_PROXY_PORT,
+                                          log_level="warning")).run()
+        except BaseException:
+            pass
+    threading.Thread(target=run, daemon=True, name="loop-proxy").start()
+
+
+@app.get("/api/loops/web")
+def loops_web(id: str):
+    """Where the Loops page frames a site from (its start page via the proxy)."""
+    src = _loop_source(id)
+    if src is None:
+        return JSONResponse({"error": "Neznámý zdroj."}, status_code=404)
+    _ensure_loop_proxy()
+    u = _urlsplit(src["url"])
+    start = (u.path or "/") + (("?" + u.query) if u.query else "")
+    return {"port": LOOP_PROXY_PORT, "path": f"/ext/{src['id']}{start}"}
+
+
+@app.post("/api/loops/logout")
+def loops_logout(req: LoopOpenRequest):
+    src = _loop_source(req.id)
+    if src is None:
+        return JSONResponse({"error": "Neznámý zdroj."}, status_code=404)
+    c = _proxy_clients.pop(src["id"], None)
+    if c is not None:
+        c.close()
+    (WEB_SESSIONS_DIR / f"{src['id']}.cookies").unlink(missing_ok=True)
+    return {"ok": True}
+
+
 @app.get("/api/preview")
 def preview(q: str):
     """Najde nejbližší YouTube video pro náhled (u výsledků hledání písní,
