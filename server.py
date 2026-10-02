@@ -190,7 +190,7 @@ def ladicka_asset(name: str):
                     headers={"Cache-Control": "no-cache"})
 
 
-_re_alphatab_asset = _re_mod.compile(r"(font/)?[A-Za-z0-9_.-]+\.(js|mjs|woff2?|otf|eot|svg|txt)")
+_re_alphatab_asset = _re_mod.compile(r"(font/|soundfont/)?[A-Za-z0-9_.-]+\.(js|mjs|woff2?|otf|eot|svg|txt|sf2|sf3)")
 
 
 @app.get("/static/alphatab/{name:path}")
@@ -3694,6 +3694,277 @@ def loops_logout(req: LoopOpenRequest):
         c.close()
     (WEB_SESSIONS_DIR / f"{src['id']}.cookies").unlink(missing_ok=True)
     return {"ok": True}
+
+
+# ------------------------------------------------------- Guitar Pro & co.
+#
+# Folders of tab files anywhere on the disk (Guitar Pro 3–8, MusicXML,
+# Capella) are "mapped" like DI folders: read in place, never moved. The
+# Taby page plays them with alphaTab — its own synthesizer through a
+# SoundFont, or in sync with the real recording of the song, separated into
+# stems — and remembers per file which recording and which sync it uses.
+TAB_FILE_EXTS = {".gp", ".gpx", ".gp3", ".gp4", ".gp5", ".gp7", ".gp8", ".musicxml", ".mxl", ".capx"}
+TAB_LINKS_PATH = NAM_PREVIEW_DIR / "tab_links.json"
+SOUNDFONT_DIR = NAM_PREVIEW_DIR / "soundfonts"
+SOUNDFONT_SOURCES = {
+    # Free for any use incl. redistribution (S. Christian Collins, license v2.0).
+    "GeneralUser-GS.sf2": "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/GeneralUser-GS.sf2",
+}
+_soundfont_jobs: dict = {}
+_tab_index_cache: dict = {"key": None, "at": 0.0, "files": []}
+
+
+def _tab_dirs() -> list:
+    return [d for d in (_read_config().get("tab_dirs") or []) if isinstance(d, str) and d]
+
+
+def _resolve_under_tab_dirs(path: str) -> Optional[Path]:
+    if not path or not Path(path).is_absolute():
+        return None
+    try:
+        candidate = Path(path).resolve()
+    except (ValueError, OSError):
+        return None
+    for d in _tab_dirs():
+        try:
+            root = Path(d).resolve()
+        except (ValueError, OSError):
+            continue
+        if candidate == root or root in candidate.parents:
+            return candidate
+    return None
+
+
+def _tab_meta_from_name(p: Path, root: Path) -> dict:
+    stem = p.stem.replace("_", " ").strip()
+    artist, title = "", stem
+    if " - " in stem:
+        artist, title = [x.strip() for x in stem.split(" - ", 1)]
+    elif p.parent != root:
+        artist = p.parent.name
+    return {"artist": artist, "title": title}
+
+
+def _scan_tab_dirs(force: bool = False) -> list:
+    dirs = _tab_dirs()
+    key = tuple(dirs)
+    if not force and _tab_index_cache["key"] == key and time.time() - _tab_index_cache["at"] < 30:
+        return _tab_index_cache["files"]
+    out = []
+    for d in dirs:
+        root = Path(d)
+        if not root.is_dir():
+            continue
+        for cur, subdirs, files in os.walk(root):
+            subdirs[:] = [s for s in subdirs if not s.startswith(".")]
+            if len(Path(cur).relative_to(root).parts) > 8:
+                subdirs[:] = []
+            for f in files:
+                p = Path(cur) / f
+                if f.startswith(".") or p.suffix.lower() not in TAB_FILE_EXTS:
+                    continue
+                try:
+                    size = p.stat().st_size
+                except OSError:
+                    continue
+                folder = Path(cur).relative_to(root).as_posix()
+                out.append({"path": str(p), "name": f, "ext": p.suffix.lower().lstrip("."),
+                            "size_bytes": size, "root": str(root), "folder": "" if folder == "." else folder,
+                            **_tab_meta_from_name(p, root)})
+    out.sort(key=lambda x: (x["artist"].lower(), x["title"].lower()))
+    _tab_index_cache.update({"key": key, "at": time.time(), "files": out})
+    return out
+
+
+def _tab_links() -> dict:
+    try:
+        return json.loads(TAB_LINKS_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+@app.get("/api/tabfiles/dirs")
+def tabfiles_dirs():
+    return {"dirs": [{"path": d, "name": Path(d).name or d, "exists": Path(d).is_dir()} for d in _tab_dirs()]}
+
+
+@app.post("/api/tabfiles/dirs")
+def tabfiles_add_dir(req: DiDirRequest):
+    path = req.path
+    if not path:
+        try:
+            r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Složka s taby (Guitar Pro…)")'],
+                               capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            return {**tabfiles_dirs(), "added": None}
+        if r.returncode != 0:
+            return {**tabfiles_dirs(), "added": None}
+        path = r.stdout.strip()
+    p = Path(path).expanduser()
+    if not p.is_absolute() or not p.is_dir():
+        return JSONResponse({"error": "Složka neexistuje."}, status_code=400)
+    p = p.resolve()
+    dirs = _tab_dirs()
+    if str(p) not in dirs:
+        dirs.append(str(p))
+        _write_config({"tab_dirs": dirs})
+    return {**tabfiles_dirs(), "added": str(p)}
+
+
+@app.post("/api/tabfiles/dirs/remove")
+def tabfiles_remove_dir(req: DiDirRequest):
+    _write_config({"tab_dirs": [d for d in _tab_dirs() if d != req.path]})
+    return tabfiles_dirs()
+
+
+@app.get("/api/tabfiles/list")
+def tabfiles_list(refresh: bool = False):
+    files = _scan_tab_dirs(refresh)
+    links = _tab_links()
+    return {"files": [{**f, "linked": f["path"] in links} for f in files]}
+
+
+@app.get("/api/tabfiles/file")
+def tabfiles_file(path: str):
+    target = _resolve_under_tab_dirs(path)
+    if target is None or not target.is_file() or target.suffix.lower() not in TAB_FILE_EXTS:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(target.read_bytes(), media_type="application/octet-stream")
+
+
+class TabLinkRequest(BaseModel):
+    path: str
+    link: Optional[dict] = None     # None removes it
+
+
+@app.get("/api/tabfiles/link")
+def tabfiles_get_link(path: str):
+    return {"link": _tab_links().get(path)}
+
+
+@app.put("/api/tabfiles/link")
+def tabfiles_put_link(req: TabLinkRequest):
+    if _resolve_under_tab_dirs(req.path) is None:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    links = _tab_links()
+    if req.link:
+        links[req.path] = {**req.link, "updated": int(time.time())}
+    else:
+        links.pop(req.path, None)
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    TAB_LINKS_PATH.write_text(json.dumps(links, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True}
+
+
+@app.get("/api/tabfiles/yt-search")
+def tabfiles_yt_search(q: str):
+    out = []
+    try:
+        for kind in ("songs", "videos"):
+            for r in yt().search(q, filter=kind, limit=6) or []:
+                vid = r.get("videoId")
+                if not vid or any(o["videoId"] == vid for o in out):
+                    continue
+                out.append({"videoId": vid, "title": r.get("title") or "",
+                            "artists": ", ".join(a.get("name", "") for a in (r.get("artists") or [])),
+                            "duration": r.get("duration") or "", "kind": kind,
+                            "thumbnail": ((r.get("thumbnails") or [{}])[-1] or {}).get("url")})
+            if len(out) >= 6:
+                break
+    except Exception as e:
+        return JSONResponse({"error": f"Hledání selhalo: {e}"}, status_code=502)
+    return {"results": out[:8]}
+
+
+class TabAudioRequest(BaseModel):
+    video_id: str
+    name: str
+
+
+@app.post("/api/tabfiles/fetch-audio")
+def tabfiles_fetch_audio(req: TabAudioRequest):
+    """Downloads a YouTube recording's audio into the library (Songs/Taby),
+    as a job the page follows like any other download."""
+    if not _re_mod.fullmatch(r"[\w-]{6,20}", req.video_id or ""):
+        return JSONResponse({"error": "Neplatné video."}, status_code=400)
+    safe = _safe_name(req.name) or req.video_id
+    out_dir = MUSIC_ROOT / "Songs" / "Taby"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / f"{safe}.mp3"
+    rel = target.relative_to(MUSIC_ROOT).as_posix()
+    if target.is_file() and target.stat().st_size > 0:
+        return {"job_id": None, "rel": rel, "ready": True}
+    py = str(Path(SPOTDL_BIN).resolve().parent / "python")
+    cmd = [py, "-m", "yt_dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0",
+           "--no-playlist", "--newline", "--ffmpeg-location", ffmpeg_bin(),
+           "-o", str(out_dir / f"{safe}.%(ext)s"),
+           f"https://music.youtube.com/watch?v={req.video_id}"]
+    job_id = uuid.uuid4().hex[:12]
+    JOBS[job_id] = {"cmd": cmd, "status": "queued", "lines": [], "output_dir": str(out_dir)}
+    return {"job_id": job_id, "rel": rel, "ready": False}
+
+
+@app.get("/api/soundfonts")
+def soundfonts_list():
+    out = [{"id": "builtin:sonivox", "name": "Sonivox (základní, 1 MB)", "url": "/static/alphatab/soundfont/sonivox.sf3",
+            "ready": True}]
+    SOUNDFONT_DIR.mkdir(parents=True, exist_ok=True)
+    local = {p.name: p for p in SOUNDFONT_DIR.iterdir() if p.suffix.lower() in (".sf2", ".sf3")}
+    for name in SOUNDFONT_SOURCES:
+        job = _soundfont_jobs.get(name)
+        out.append({"id": name, "name": "GeneralUser GS (kvalitní, 32 MB)" if name.startswith("GeneralUser") else name,
+                    "url": f"/api/soundfonts/file/{name}", "ready": name in local,
+                    "downloadable": True, "progress": job.get("progress") if job else None,
+                    "error": job.get("error") if job else None})
+    for name in sorted(local):
+        if name not in SOUNDFONT_SOURCES:
+            out.append({"id": name, "name": name, "url": f"/api/soundfonts/file/{name}", "ready": True})
+    return {"soundfonts": out, "folder": str(SOUNDFONT_DIR)}
+
+
+@app.post("/api/soundfonts/download/{name}")
+def soundfonts_download(name: str):
+    url = SOUNDFONT_SOURCES.get(name)
+    if not url:
+        return JSONResponse({"error": "Neznámá zvuková banka."}, status_code=404)
+    job = _soundfont_jobs.get(name)
+    if job and job.get("running"):
+        return {"ok": True}
+    job = _soundfont_jobs[name] = {"running": True, "progress": 0.0, "error": None}
+
+    def run():
+        SOUNDFONT_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = SOUNDFONT_DIR / (name + ".part")
+        try:
+            with httpx.stream("GET", url, follow_redirects=True, timeout=120.0) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("content-length") or 0)
+                got = 0
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes():
+                        fh.write(chunk)
+                        got += len(chunk)
+                        if total:
+                            job["progress"] = round(got / total, 3)
+            tmp.replace(SOUNDFONT_DIR / name)
+            job["progress"] = 1.0
+        except Exception as e:
+            tmp.unlink(missing_ok=True)
+            job["error"] = str(e)
+        finally:
+            job["running"] = False
+
+    threading.Thread(target=run, daemon=True).start()
+    return {"ok": True}
+
+
+@app.get("/api/soundfonts/file/{name}")
+def soundfonts_file(name: str, request: Request):
+    p = SOUNDFONT_DIR / Path(name).name
+    if p.suffix.lower() not in (".sf2", ".sf3") or not p.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return _range_file_response(p, request.headers.get("range"))
 
 
 @app.get("/api/preview")

@@ -462,6 +462,86 @@
   .fl-eq-btn.on .dot{background:#ffd166;box-shadow:0 0 6px #ffd166}
   .fl-eq-btn.sel{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.08)}
 
+  /* ---- Taby (Guitar Pro player) ---- */
+  .tabs-headrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .tabs-headrow input{flex:1;min-width:220px;padding:9px 12px;border-radius:999px}
+  .tabs-dirs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .tabs-dirs .chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--card);
+    font-size:12px;color:var(--text)}
+  .tabs-dirs .chip button{background:none;border:none;color:var(--sub);cursor:pointer;padding:0 2px}
+  .lib-trow.tab-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.5fr) 56px 60px}
+  .tp{display:flex;flex-direction:column;gap:8px;height:calc(100vh - 150px);min-height:560px}
+  .tp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:var(--card)}
+  .tp-bar .nav{width:32px;height:32px;border-radius:50%;border:none;background:var(--card-hi);color:var(--text);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:15px}
+  .tp-title{display:flex;flex-direction:column;min-width:120px;max-width:280px;overflow:hidden}
+  .tp-title b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tp-title span{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tp-play{width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#000;cursor:pointer;
+    display:flex;align-items:center;justify-content:center}
+  .tp-time{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:92px}
+  .tp-src{display:flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .tp-src button{border:none;background:transparent;color:var(--sub);padding:6px 11px;cursor:pointer;font:inherit;font-size:12px}
+  .tp-src button.on{background:#fff;color:#000}
+  .tp-src button:disabled{opacity:.35;cursor:default}
+  .tp-ctl{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--sub)}
+  .tp-ctl select{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px;padding:4px 6px}
+  .tp-tog{border:1px solid var(--border);background:transparent;color:var(--sub);border-radius:999px;padding:5px 10px;cursor:pointer;font:inherit;font-size:12px}
+  .tp-tog.on{background:rgba(30,215,96,.15);border-color:var(--accent);color:var(--accent)}
+  .tp-bar .ghost,.tp-rec .ghost{border:none;background:transparent;color:var(--sub);cursor:pointer;font:inherit;font-size:12px}
+  .tp-bar .ghost:hover,.tp-rec .ghost:hover{color:var(--text)}
+  .tp-main{flex:1;min-height:0;display:flex;gap:8px}
+  .tp-tracks{width:230px;flex:0 0 230px;overflow-y:auto;background:var(--card);border-radius:10px;padding:6px}
+  .tp-track{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12.5px}
+  .tp-track:hover{background:var(--card-hi)}
+  .tp-track.on{background:rgba(30,215,96,.14);box-shadow:inset 3px 0 0 var(--accent)}
+  .tp-track .tp-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tp-track .cls{font-size:9.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
+  .tp-track .ms{display:flex;gap:2px}
+  .tp-track .ms button{width:20px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--sub);
+    font-size:9px;font-weight:700;cursor:pointer;padding:0}
+  .tp-track .ms button.m.on{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .tp-track .ms button.s.on{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+  .tp-track input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0 0}
+  .tp-track-wrap{padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.05)}
+  .tp-score-wrap{flex:1;min-width:0;overflow:auto;background:#f4f4f2;border-radius:10px;position:relative}
+  #tp-score{min-height:100%}
+  .tp-score-wrap .at-cursor-bar{background:rgba(255,242,0,.22)}
+  .tp-score-wrap .at-cursor-beat{background:rgba(64,64,255,.75);width:3px}
+  .tp-score-wrap .at-selection div{background:rgba(64,64,255,.12)}
+  .tp-score-wrap .at-highlight *{fill:#1a6dff;stroke:#1a6dff}
+  .tp-rec{background:var(--card);border-radius:10px;padding:8px 10px;flex:0 0 auto;max-height:42vh;overflow-y:auto}
+  .tp-rec-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px}
+  .tp-rec-head .sp{flex:1}
+  .tp-rec-status{color:var(--sub);font-size:12px}
+  .tp-sync{display:flex;align-items:center;gap:4px}
+  .tp-sync button{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:6px;padding:4px 8px;cursor:pointer;font:inherit;font-size:11.5px}
+  .tp-sync #tp-sync-now{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700}
+  #tp-sync-val{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:110px;text-align:center}
+  .tp-find{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+  .tp-find-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .tp-find-row input{flex:1;min-width:220px;padding:8px 12px;border-radius:999px}
+  .tp-find-row select{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;max-width:320px}
+  .tp-find-results{display:flex;flex-direction:column;gap:4px}
+  .tp-hit{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;background:var(--bg2)}
+  .tp-hit img{width:40px;height:40px;border-radius:4px;object-fit:cover}
+  .tp-hit .tx{flex:1;min-width:0;font-size:12.5px}
+  .tp-hit .tx span{display:block;color:var(--sub);font-size:11.5px}
+  .tp-progress{font-size:12px;color:var(--text);padding:6px 8px;border-radius:8px;background:rgba(30,215,96,.08)}
+  .tp-stems{display:flex;flex-direction:column;gap:3px;margin-top:8px}
+  .tp-stem{display:grid;grid-template-columns:120px 50px 90px 1fr;align-items:center;gap:8px;padding:3px 6px;border-radius:7px;
+    border:1px solid transparent}
+  .tp-stem.focus{border-color:var(--accent);background:rgba(30,215,96,.08)}
+  .tp-stem .tp-nm{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .tp-stem .tp-nm i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .tp-stem .ms{display:flex;gap:3px}
+  .tp-stem .ms button{width:22px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--sub);
+    font-size:9.5px;font-weight:700;cursor:pointer;padding:0}
+  .tp-stem .ms button.m.on{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .tp-stem .ms button.s.on{background:var(--gold);color:#2a1d00;border-color:var(--gold)}
+  .tp-stem input[type=range]{width:100%;accent-color:var(--accent)}
+  .tp-stem canvas{width:100%;height:34px;display:block;border-radius:4px;background:#0c0c10;cursor:pointer}
+
   /* ---- Loops ---- */
   .loops-sources{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
   .loops-sources button{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;
@@ -3397,6 +3477,77 @@
     </div>
   </div>
 
+  <div id="tabs-section" hidden>
+    <div id="tabs-browse">
+      <div class="tabs-headrow">
+        <div class="section-title" style="margin:0">Taby</div>
+        <input type="search" id="tabs-filter" placeholder="Hledat interpreta nebo píseň…">
+        <button type="button" class="btn secondary" id="tabs-refresh" title="Znovu projít složky">&#x21BB;</button>
+        <button type="button" class="btn" id="tabs-add-dir"><span data-icon="folder" data-size="15"></span>Namapovat složku</button>
+      </div>
+      <div class="tabs-dirs" id="tabs-dirs"></div>
+      <div class="lib-table" id="tabs-list"></div>
+    </div>
+
+    <div id="tabs-player" class="tp" hidden>
+      <div class="tp-bar">
+        <button type="button" class="nav" id="tp-back" title="Zpět na seznam">&#x2190;</button>
+        <div class="tp-title"><b id="tp-title">—</b><span id="tp-sub"></span></div>
+        <button type="button" class="tp-play" id="tp-play" title="Přehrát / pauza (mezerník)"><span data-icon="play" data-size="20"></span></button>
+        <button type="button" class="nav" id="tp-stop" title="Na začátek"><span data-icon="prev" data-size="14"></span></button>
+        <span class="tp-time" id="tp-time">0:00 / 0:00</span>
+        <div class="tp-src" id="tp-src">
+          <button type="button" data-src="synth" title="Zvukovou bankou (jako Guitar Pro)">Syntezátor</button>
+          <button type="button" data-src="stems" title="Skutečná nahrávka písně rozdělená na stopy">Nahrávka</button>
+          <button type="button" data-src="file" title="Doprovodná stopa uložená v souboru Guitar Pro 8" hidden>Stopa v souboru</button>
+        </div>
+        <label class="tp-ctl" title="Rychlost přehrávání">Tempo
+          <select id="tp-speed"><option value="0.5">50 %</option><option value="0.6">60 %</option><option value="0.7">70 %</option>
+            <option value="0.75">75 %</option><option value="0.8">80 %</option><option value="0.9">90 %</option>
+            <option value="1" selected>100 %</option><option value="1.1">110 %</option><option value="1.25">125 %</option></select></label>
+        <button type="button" class="tp-tog" id="tp-loop" title="Opakovat vybraný úsek (označ takty tažením v zápisu)">Smyčka</button>
+        <button type="button" class="tp-tog" id="tp-metro" title="Metronom (syntezátor)">Metronom</button>
+        <button type="button" class="tp-tog" id="tp-countin" title="Předtaktí před začátkem (syntezátor)">Předtaktí</button>
+        <label class="tp-ctl" title="Zvuková banka syntezátoru">Zvuky <select id="tp-sf"></select></label>
+        <button type="button" class="ghost" id="tp-sf-get" hidden>Stáhnout kvalitní zvuky (32 MB)</button>
+        <label class="tp-ctl">Zobrazení <select id="tp-layout"><option value="page">Stránka</option><option value="horizontal">Řádek</option></select></label>
+        <button type="button" class="nav" id="tp-zoom-dn" title="Zmenšit">−</button>
+        <button type="button" class="nav" id="tp-zoom-up" title="Zvětšit">+</button>
+      </div>
+      <div class="tp-main">
+        <div class="tp-tracks" id="tp-tracks"></div>
+        <div class="tp-score-wrap" id="tp-score-wrap"><div id="tp-score"></div></div>
+      </div>
+      <div class="tp-rec" id="tp-rec">
+        <div class="tp-rec-head">
+          <b>Nahrávka</b>
+          <span id="tp-rec-status" class="tp-rec-status">Žádná — najdi píseň na YouTube, rozdělí se na stopy a srovná s taby.</span>
+          <span class="sp"></span>
+          <span id="tp-sync-box" class="tp-sync" hidden>
+            <button type="button" id="tp-sync-now" title="Pusť nahrávku a klikni přesně ve chvíli, kdy začíná 1. takt tabu">Takt 1 = teď</button>
+            <button type="button" id="tp-sync-prev" title="O dobu dřív">−1 doba</button>
+            <button type="button" id="tp-sync-next" title="O dobu později">+1 doba</button>
+            <button type="button" id="tp-sync-m" title="Jemně dřív">−0,05 s</button>
+            <span id="tp-sync-val"></span>
+            <button type="button" id="tp-sync-p" title="Jemně později">+0,05 s</button>
+          </span>
+          <button type="button" class="ghost" id="tp-rec-change">Změnit nahrávku…</button>
+        </div>
+        <div class="tp-find" id="tp-find" hidden>
+          <div class="tp-find-row">
+            <input type="search" id="tp-find-q" placeholder="Interpret – název písně">
+            <button type="button" class="btn" id="tp-find-go">Hledat na YouTube</button>
+            <select id="tp-find-steems"><option value="">…nebo vyber už rozdělenou píseň (Steems)</option></select>
+            <button type="button" class="ghost" id="tp-unlink" hidden>Odpojit nahrávku</button>
+          </div>
+          <div class="tp-find-results" id="tp-find-results"></div>
+          <div class="tp-progress" id="tp-progress" hidden></div>
+        </div>
+        <div class="tp-stems" id="tp-stems"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="loops-section" hidden>
     <div class="section-title">Loops</div>
     <div class="loops-sources" id="loops-sources"></div>
@@ -4004,22 +4155,28 @@ const AudioBus = (() => {
     };
   }catch(err){ chan = null; }
 
+  // Players without a media element of their own (the mixer's Web Audio
+  // graph, the tab player's synth) register a way to stop them. Elements
+  // that belong to one of those (data-bus-owner, e.g. the tab player's
+  // stems, which play together) never silence each other or their owner.
+  const virtuals = new Map();    // id -> stop()
+  const ownerOf = (x) => (x instanceof HTMLMediaElement ? (x.dataset.busOwner || x) : x);
+
   function pauseMedia(except){
-    document.querySelectorAll("audio, video").forEach(m => {
-      if(m !== except && !m.paused) m.pause();
-    });
-    seen.forEach(ref => {
-      const m = ref.deref();
-      if(m && m !== except && !m.paused) m.pause();
-    });
+    const keep = ownerOf(except);
+    const stopIt = (m) => { if(m && m !== except && !m.paused && ownerOf(m) !== keep) m.pause(); };
+    document.querySelectorAll("audio, video").forEach(stopIt);
+    seen.forEach(ref => stopIt(ref.deref()));
   }
 
   function silenceOthers(next, fromOtherWindow){
     pauseMedia(next);
-    if(next !== "mixer" && mixerStop){
+    const id = ownerOf(next);
+    if(id !== "mixer" && mixerStop){
       try{ mixerStop(); }catch(e){}
     }
-    owner = next;
+    virtuals.forEach((stop, vid) => { if(vid !== id){ try{ stop(); }catch(e){} } });
+    owner = id;
     if(!fromOtherWindow && chan){
       try{ chan.postMessage({type: "claim", from: winId}); }catch(e){}
     }
@@ -4058,6 +4215,9 @@ const AudioBus = (() => {
     registerMixer(stop, isPlayingFn){ mixerStop = stop; mixerIsPlaying = isPlayingFn || null; },
     // …and claims the bus when it starts.
     claimMixer(){ silenceOthers("mixer"); },
+    // Any other element-less player: register once, claim when it starts.
+    register(id, stop){ virtuals.set(id, stop); },
+    claim(id){ silenceOthers(id); },
     release(who){ if(owner === who) owner = null; },
     owner(){ return owner; },
   };
@@ -5372,6 +5532,698 @@ const Loops = (() => {
 })();
 
 // ======================================================================
+// Taby — a full player for your own tab files (Guitar Pro 3–8, MusicXML,
+// Capella) from folders mapped anywhere on the disk, built on alphaTab:
+//  - "Syntezátor": alphaTab's own synth through a SoundFont (GeneralUser GS
+//    by default, downloadable from the page; Sonivox built in);
+//  - "Nahrávka": the real song — downloaded from YouTube, split into stems
+//    (the same Demucs pipeline as Steems) — with the score following it via
+//    alphaTab sync points laid on the song's own detected beats;
+//  - "Stopa v souboru": a backing track a Guitar Pro 8 file carries itself.
+// Choosing a track in the score lights up the stem it belongs to, and the
+// other way round.
+// ======================================================================
+const TabsLib = (() => {
+  const RECENT_KEY = "spotdl-gui-tabs-recent";
+  const SF_KEY = "spotdl-gui-tabs-soundfont";
+  const STEM_COLORS = {drums: "#ff7a6b", bass: "#4d8cff", guitar: "#e9b949", vocals: "#d8d4e8", piano: "#5fd39a", other: "#9aa0b4"};
+  const STEM_NAMES_CZ = {drums: "Bicí", bass: "Basa", guitar: "Kytara", vocals: "Zpěv", piano: "Klavír", other: "Ostatní"};
+  let files = [], dirs = [];
+  let api = null, apiReady = null;
+  let cur = null;          // {file, link}
+  let src = "synth";
+  let zoom = 1;
+  let shownTrack = 0;
+
+  // ---------------------------------------------------------- recent list
+  function recent(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }catch(e){ return []; } }
+  function pushRecent(f){
+    const list = [f, ...recent().filter(x => x.path !== f.path)].slice(0, 20);
+    try{ localStorage.setItem(RECENT_KEY, JSON.stringify(list)); }catch(e){}
+    invalidateRailTop5("tabs");
+  }
+
+  // -------------------------------------------------------------- browse
+  async function loadDirs(){
+    try{ dirs = (await (await fetch("/api/tabfiles/dirs")).json()).dirs || []; }catch(e){ dirs = []; }
+    const box = el("tabs-dirs");
+    box.innerHTML = "";
+    dirs.forEach(d => {
+      const c = document.createElement("span");
+      c.className = "chip";
+      c.innerHTML = `${icon("folder", 12)}<span title="${escapeHtml(d.path)}">${escapeHtml(d.name)}${d.exists ? "" : " (chybí)"}</span>
+        <button type="button" title="Odpojit složku (soubory zůstanou)">${icon("close", 10)}</button>`;
+      c.querySelector("button").onclick = async () => {
+        await fetch("/api/tabfiles/dirs/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: d.path})});
+        await loadDirs(); await loadList(true);
+      };
+      box.appendChild(c);
+    });
+  }
+  async function loadList(refresh){
+    try{ files = (await (await fetch("/api/tabfiles/list" + (refresh ? "?refresh=1" : ""))).json()).files || []; }catch(e){ files = []; }
+    paintList();
+  }
+  function paintList(){
+    const box = el("tabs-list");
+    const q = norm(el("tabs-filter").value || "");
+    const shown = files.filter(f => !q || norm(`${f.artist} ${f.title} ${f.folder} ${f.name}`).includes(q));
+    if(!dirs.length){
+      box.innerHTML = `<div class="empty" style="padding:28px 10px">Namapuj složku, kde máš taby (Guitar Pro .gp/.gpx/.gp5…, MusicXML).
+        Soubory zůstanou, kde jsou — aplikace je jen čte.</div>`;
+      return;
+    }
+    if(!shown.length){ box.innerHTML = `<div class="empty" style="padding:28px 10px">${q ? "Nic neodpovídá hledání." : "V namapovaných složkách nejsou žádné taby."}</div>`; return; }
+    box.innerHTML = `<div class="lib-thead tab-row"><span class="c-idx">#</span><span>Píseň</span><span>Interpret</span><span>Složka</span>
+      <span>Formát</span><span></span></div>`;
+    shown.slice(0, 1500).forEach((f, i) => {
+      const row = document.createElement("div");
+      row.className = "lib-trow tab-row";
+      row.innerHTML = `<span class="c-idx">${i + 1}</span>
+        <span class="c-title"><span class="art">${f.linked ? "♫" : "🎸"}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(f.title)}</span></span>
+        <span class="c-artist">${escapeHtml(f.artist)}</span><span class="c-album">${escapeHtml(f.folder)}</span>
+        <span class="c-time">${escapeHtml(f.ext.toUpperCase())}</span><span class="c-act"></span>`;
+      if(f.linked) row.title = "Má propojenou nahrávku";
+      row.onclick = () => open(f);
+      box.appendChild(row);
+    });
+  }
+  el("tabs-filter").addEventListener("input", paintList);
+  el("tabs-refresh").onclick = () => loadList(true);
+  el("tabs-add-dir").onclick = async () => {
+    const res = await fetch("/api/tabfiles/dirs", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+    const data = await res.json();
+    if(!res.ok){ showToast(data.error || "Složku se nepodařilo přidat"); return; }
+    await loadDirs(); await loadList(true);
+  };
+
+  async function show(){
+    el("tabs-player").hidden = true;
+    el("tabs-browse").hidden = false;
+    if(api && api.player && api.playerState === 1) api.pause();
+    Deck.pause();
+    await loadDirs(); await loadList(false);
+  }
+
+  // ------------------------------------------------------- the stem deck
+  // One <audio> per stem, kept together (they belong to the "tabs" bus
+  // owner, so they never silence each other); preservesPitch so the tempo
+  // control slows the song down without dropping its key.
+  const Deck = (() => {
+    let els = {}, name = null, gains = {}, mutes = {}, solos = {}, rate = 1, master = 1, raf = null;
+    const host = document.createElement("div");
+    host.hidden = true;
+    document.body.appendChild(host);
+    function lead(){ const k = Object.keys(els); return k.length ? els[k.includes("drums") ? "drums" : k[0]] : null; }
+    // Each stem is fetched whole and played from a blob: six <audio>
+    // elements streaming from the server would each hold one of the
+    // browser's six connections to it open, and every other request the
+    // app makes would then wait behind them.
+    let blobs = {};
+    async function load(stemsName, stems){
+      destroy();
+      name = stemsName;
+      const token = name;
+      await Promise.all(stems.map(async st => {
+        let blob;
+        try{ blob = await (await fetch(`/api/stems/${encodeURIComponent(stemsName)}/${encodeURIComponent(st)}`)).blob(); }
+        catch(e){ return; }
+        if(name !== token) return;
+        const a = document.createElement("audio");
+        a.preload = "auto";
+        a.dataset.busOwner = "tabs";
+        a.preservesPitch = true;
+        blobs[st] = blob;
+        a.src = URL.createObjectURL(blob);
+        host.appendChild(a);
+        els[st] = a; gains[st] = gains[st] ?? 1; mutes[st] = !!mutes[st]; solos[st] = !!solos[st];
+      }));
+      // Same order as the stems list (drums, bass, guitar, …).
+      const ordered = {};
+      stems.forEach(st => { if(els[st]) ordered[st] = els[st]; });
+      els = ordered;
+      apply();
+      await Promise.all(Object.values(els).map(a => a.readyState >= 1 ? null : new Promise(r => { a.onloadedmetadata = r; a.onerror = r; })));
+    }
+    function destroy(){
+      Object.values(els).forEach(a => { try{ a.pause(); URL.revokeObjectURL(a.src); a.removeAttribute("src"); a.load(); a.remove(); }catch(e){} });
+      els = {}; blobs = {}; name = null;
+    }
+    function apply(){
+      const anySolo = Object.keys(els).some(k => solos[k]);
+      Object.entries(els).forEach(([k, a]) => {
+        const on = anySolo ? solos[k] : !mutes[k];
+        a.volume = Math.max(0, Math.min(1, (on ? gains[k] : 0) * master));
+        a.playbackRate = rate;
+      });
+    }
+    function play(){
+      const t = currentTime();
+      Object.values(els).forEach(a => { a.currentTime = t; a.play().catch(() => {}); });
+      if(!raf) raf = requestAnimationFrame(keepTogether);
+    }
+    function pause(){ Object.values(els).forEach(a => a.pause()); }
+    function seek(sec){ Object.values(els).forEach(a => { try{ a.currentTime = Math.max(0, sec); }catch(e){} }); }
+    function currentTime(){ const l = lead(); return l ? l.currentTime : 0; }
+    function duration(){ const l = lead(); return l && isFinite(l.duration) ? l.duration : 0; }
+    function isPlaying(){ const l = lead(); return !!(l && !l.paused); }
+    // Media elements drift apart a little; pull the others back to the lead.
+    function keepTogether(){
+      raf = null;
+      const l = lead();
+      if(!l || l.paused) return;
+      Object.values(els).forEach(a => { if(a !== l && Math.abs(a.currentTime - l.currentTime) > 0.04) a.currentTime = l.currentTime; });
+      raf = requestAnimationFrame(keepTogether);
+    }
+    return {load, destroy, play, pause, seek, currentTime, duration, isPlaying, apply,
+      get name(){ return name; }, stems: () => Object.keys(els), blob: (k) => blobs[k],
+      setGain(k, v){ gains[k] = v; apply(); }, gain: (k) => gains[k] ?? 1,
+      toggleMute(k){ mutes[k] = !mutes[k]; apply(); return mutes[k]; }, muted: (k) => !!mutes[k],
+      toggleSolo(k){ solos[k] = !solos[k]; apply(); return solos[k]; }, soloed: (k) => !!solos[k],
+      setRate(r){ rate = r; apply(); }, get rate(){ return rate; },
+      setMaster(v){ master = v; apply(); }, get master(){ return master; },
+      onEnded(fn){ Object.values(els).forEach(a => a.onended = fn); }};
+  })();
+
+  // ---------------------------------------------------------- alphaTab
+  async function sfList(){ try{ return (await (await fetch("/api/soundfonts")).json()).soundfonts || []; }catch(e){ return []; } }
+  async function pickSoundFont(){
+    const list = await sfList();
+    const want = (() => { try{ return localStorage.getItem(SF_KEY); }catch(e){ return null; } })();
+    const ready = list.filter(s => s.ready);
+    const chosen = ready.find(s => s.id === want) || ready.find(s => s.id.startsWith("GeneralUser")) || ready[0];
+    const sel = el("tp-sf");
+    sel.innerHTML = ready.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join("");
+    if(chosen) sel.value = chosen.id;
+    const gu = list.find(s => s.downloadable && !s.ready);
+    el("tp-sf-get").hidden = !gu;
+    if(gu) el("tp-sf-get").dataset.id = gu.id;
+    return chosen ? location.origin + chosen.url : location.origin + "/static/alphatab/soundfont/sonivox.sf3";
+  }
+
+  function ensureApi(){
+    if(apiReady) return apiReady;
+    apiReady = (async () => {
+      await Mixer.tabView.ensureLib();
+      const sf = await pickSoundFont();
+      const a = new alphaTab.AlphaTabApi(el("tp-score"), {
+        core: {fontDirectory: "/static/alphatab/font/", scriptFile: location.origin + "/static/alphatab/alphaTab.min.js"},
+        display: {layoutMode: alphaTab.LayoutMode.Page, scale: zoom},
+        player: {playerMode: alphaTab.PlayerMode.EnabledSynthesizer, soundFont: sf, enableCursor: true,
+                 enableAnimatedBeatCursor: true, enableUserInteraction: true, scrollElement: el("tp-score-wrap"),
+                 scrollOffsetY: -40},
+      });
+      a.error.on((e) => { console.error("alphaTab:", e); });
+      a.scoreLoaded.on(onScoreLoaded);
+      a.playerStateChanged.on((e) => paintPlay(e.state === 1));
+      a.playerPositionChanged.on((e) => {
+        el("tp-time").textContent = src === "stems" && Deck.duration()
+          ? `${fmtDur(Deck.currentTime())} / ${fmtDur(Deck.duration())}`
+          : `${fmtDur(e.currentTime / 1000)} / ${fmtDur(e.endTime / 1000)}`;
+        paintStemHeads();
+      });
+      // Clicking a beat in the score is a seek; with the recording as the
+      // time axis that has to reach the stems too (alphaTab does it through
+      // the handler's seekTo).
+      AudioBus.register("tabs", () => { if(a.playerState === 1) a.pause(); Deck.pause(); });
+      api = a;
+      return a;
+    })();
+    return apiReady;
+  }
+
+  function paintPlay(playing){
+    el("tp-play").innerHTML = icon(playing ? "pause" : "play", 20);
+    if(playing) AudioBus.claim("tabs");
+  }
+
+  async function open(f){
+    cur = {file: f, link: null};
+    pushRecent({path: f.path, name: f.name, title: f.title, artist: f.artist});
+    el("tabs-browse").hidden = true;
+    el("tabs-player").hidden = false;
+    el("tp-title").textContent = f.title || f.name;
+    el("tp-sub").textContent = [f.artist, f.ext.toUpperCase()].filter(Boolean).join(" · ");
+    el("tp-tracks").innerHTML = `<div class="hint" style="padding:8px">Načítám…</div>`;
+    el("tp-find").hidden = true;
+    el("tp-progress").hidden = true;
+    el("tp-find-results").innerHTML = "";
+    Deck.destroy();
+    paintStems();
+    const a = await ensureApi();
+    let buf;
+    try{
+      const res = await fetch(`/api/tabfiles/file?path=${encodeURIComponent(f.path)}`);
+      if(!res.ok) throw new Error();
+      buf = new Uint8Array(await res.arrayBuffer());
+    }catch(e){ showToast("Soubor se nepodařilo načíst"); return; }
+    try{ cur.link = (await (await fetch(`/api/tabfiles/link?path=${encodeURIComponent(f.path)}`)).json()).link; }catch(e){}
+    setSource("synth", true);
+    shownTrack = 0;
+    try{ a.load(buf); }catch(e){ showToast("Tenhle soubor alphaTab neumí přečíst"); }
+  }
+
+  // ------------------------------------------------------------ tracks
+  function trackClass(t){
+    const st = t.staves && t.staves[0];
+    if(st && st.isPercussion) return "drums";
+    const p = t.playbackInfo ? t.playbackInfo.program : -1;
+    const n = `${t.name || ""} ${t.shortName || ""}`.toLowerCase();
+    if(/voc|voice|sing|zp[eě]v|vox/.test(n) || (p >= 52 && p <= 54)) return "vocals";
+    if(/bass|basa|baskyt/.test(n) || (p >= 32 && p <= 39)) return "bass";
+    if(/guit|kytar|gtr/.test(n) || (p >= 24 && p <= 31)) return "guitar";
+    if(/piano|keys|klav|organ|varhan/.test(n) || (p >= 0 && p <= 23)) return "piano";
+    return "other";
+  }
+
+  function onScoreLoaded(score){
+    el("tp-title").textContent = score.title || cur.file.title || cur.file.name;
+    el("tp-sub").textContent = [score.artist || cur.file.artist, cur.file.ext.toUpperCase(),
+      score.tempo ? Math.round(score.tempo) + " BPM" : ""].filter(Boolean).join(" · ");
+    const hasFileTrack = !!(score.backingTrack && score.backingTrack.rawAudioFile && score.backingTrack.rawAudioFile.length);
+    el("tp-src").querySelector('[data-src="file"]').hidden = !hasFileTrack;
+    // A guitar part first, if there is one — that's what this is for.
+    const g = score.tracks.findIndex(t => trackClass(t) === "guitar");
+    shownTrack = g >= 0 ? g : 0;
+    api.renderTracks([score.tracks[shownTrack]]);
+    paintTracks();
+    paintRec();
+    if(cur.link && cur.link.stems) attachStems(cur.link.stems, false);
+  }
+
+  function paintTracks(){
+    const box = el("tp-tracks");
+    const score = api && api.score;
+    if(!score){ box.innerHTML = ""; return; }
+    box.innerHTML = "";
+    score.tracks.forEach((t, i) => {
+      const w = document.createElement("div");
+      w.className = "tp-track-wrap";
+      const cls = trackClass(t);
+      w.innerHTML = `<div class="tp-track ${i === shownTrack ? "on" : ""}" title="Zobrazit tuto stopu v zápisu">
+          <span class="tp-nm">${escapeHtml(t.name || `Stopa ${i + 1}`)}</span>
+          <span class="cls">${STEM_NAMES_CZ[cls]}</span>
+          <span class="ms"><button type="button" class="s" title="Sólo (syntezátor)">S</button><button type="button" class="m" title="Ztlumit (syntezátor)">M</button></span>
+        </div>
+        <input type="range" min="0" max="1.5" step="0.05" value="${t.playbackInfo ? t.playbackInfo.volume / 16 : 1}" title="Hlasitost stopy (syntezátor)">`;
+      const row = w.querySelector(".tp-track");
+      row.onclick = (e) => { if(e.target.closest("button")) return; selectTrack(i); };
+      const sb = w.querySelector(".s"), mb = w.querySelector(".m");
+      sb.onclick = () => { const on = !sb.classList.contains("on"); sb.classList.toggle("on", on); api.changeTrackSolo([t], on); };
+      mb.onclick = () => { const on = !mb.classList.contains("on"); mb.classList.toggle("on", on); api.changeTrackMute([t], on); };
+      w.querySelector("input").oninput = (e) => api.changeTrackVolume([t], parseFloat(e.target.value));
+      box.appendChild(w);
+    });
+    focusStem(trackClass(score.tracks[shownTrack]));
+  }
+
+  function selectTrack(i){
+    if(!api || !api.score || !api.score.tracks[i]) return;
+    shownTrack = i;
+    api.renderTracks([api.score.tracks[i]]);
+    el("tp-tracks").querySelectorAll(".tp-track").forEach((r, k) => r.classList.toggle("on", k === i));
+    focusStem(trackClass(api.score.tracks[i]));
+  }
+
+  // ------------------------------------------------------------ sources
+  function setSource(next, quiet){
+    if(!api) return;
+    if(next === "stems" && !Deck.stems().length){ if(!quiet) showToast("Nejdřív propoj nahrávku (dole)"); return; }
+    src = next;
+    el("tp-src").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.src === src));
+    el("tp-src").querySelector('[data-src="stems"]').disabled = !Deck.stems().length;
+    const mode = src === "stems" ? alphaTab.PlayerMode.EnabledExternalMedia
+      : src === "file" ? alphaTab.PlayerMode.EnabledBackingTrack : alphaTab.PlayerMode.EnabledSynthesizer;
+    if(api.playerState === 1) api.pause();
+    Deck.pause();
+    if(api.settings.player.playerMode !== mode){
+      api.settings.player.playerMode = mode;
+      api.updateSettings();
+      if(api.score) api.loadMidiForScore();
+    }
+    if(src === "stems") wireExternal();
+    el("tp-metro").disabled = el("tp-countin").disabled = src !== "synth";
+  }
+  el("tp-src").querySelectorAll("button").forEach(b => { b.onclick = () => setSource(b.dataset.src); });
+
+  let extLoop = null;
+  function wireExternal(){
+    const out = api.player && api.player.output;
+    if(!out) { setTimeout(wireExternal, 200); return; }
+    out.handler = {
+      get backingTrackDuration(){ return Deck.duration() * 1000; },
+      get playbackRate(){ return Deck.rate; }, set playbackRate(v){ Deck.setRate(v); },
+      get masterVolume(){ return Deck.master; }, set masterVolume(v){ Deck.setMaster(v); },
+      seekTo(ms){ Deck.seek(ms / 1000); paintStemHeads(); },
+      play(){ Deck.play(); },
+      pause(){ Deck.pause(); },
+    };
+    Deck.onEnded(() => { if(api.playerState === 1) api.pause(); });
+    if(!extLoop){
+      const tick = () => {
+        extLoop = requestAnimationFrame(tick);
+        if(src === "stems" && Deck.isPlaying() && api.player && api.player.output && api.player.output.updatePosition){
+          api.player.output.updatePosition(Deck.currentTime() * 1000);
+        }
+        paintStemHeads();
+      };
+      extLoop = requestAnimationFrame(tick);
+    }
+    applySync();
+  }
+
+  // ------------------------------------------------------------- sync
+  // The score is laid onto the song's own beats (detected on the drums
+  // stem): bar j (in playing order, repeats included) starts at the beat
+  // `startBeat + quarters played before it × factor`, factor covering a
+  // detector that counts in half or double time. "Takt 1 = teď", ±1 beat and
+  // ±0.05 s set where bar 1 lands; everything after follows the real tempo.
+  let beats = [];
+  function beatAt(x){
+    if(!beats.length) return x * 0.5;
+    const n = beats.length;
+    if(x <= 0){ const d = n > 1 ? beats[1] - beats[0] : 0.5; return beats[0] + x * d; }
+    if(x >= n - 1){ const d = n > 1 ? (beats[n - 1] - beats[0]) / (n - 1) : 0.5; return beats[n - 1] + (x - (n - 1)) * d; }
+    const i = Math.floor(x), f = x - i;
+    return beats[i] + (beats[i + 1] - beats[i]) * f;
+  }
+  function playedBars(){
+    const tc = api && api.tickCache;
+    const list = tc && tc.masterBars ? tc.masterBars : [];
+    return list.map(l => l.masterBar);
+  }
+  function applySync(){
+    if(!api || !api.score || !cur || !cur.link || !cur.link.stems) return;
+    const L = cur.link;
+    const seq = playedBars();
+    if(!seq.length) return;
+    api.score.masterBars.forEach(mb => { mb.syncPoints = undefined; });
+    const occ = new Map();
+    let q = 0;
+    seq.forEach(mb => {
+      const k = occ.get(mb.index) || 0;
+      occ.set(mb.index, k + 1);
+      const ms = Math.max(0, beatAt((L.startBeat || 0) + q * (L.factor || 1)) * 1000 + (L.offsetMs || 0));
+      const a = new alphaTab.model.Automation();
+      a.type = alphaTab.model.AutomationType.SyncPoint;
+      a.ratioPosition = 0;
+      const d = new alphaTab.model.SyncPointData();
+      d.barOccurence = k;
+      d.millisecondOffset = ms;
+      a.syncPointValue = d;
+      (mb.syncPoints = mb.syncPoints || []).push(a);
+      q += mb.timeSignatureNumerator * 4 / mb.timeSignatureDenominator;
+    });
+    api.updateSyncPoints();
+    paintSyncVal();
+  }
+  function paintSyncVal(){
+    const L = cur && cur.link;
+    if(!L) return;
+    el("tp-sync-val").textContent = `takt 1 v ${fmtDur(beatAt(L.startBeat || 0) + (L.offsetMs || 0) / 1000)}`
+      + ((L.offsetMs || 0) ? ` (${L.offsetMs > 0 ? "+" : ""}${Math.round(L.offsetMs)} ms)` : "");
+  }
+  let saveT = null;
+  function saveLink(){
+    clearTimeout(saveT);
+    saveT = setTimeout(() => fetch("/api/tabfiles/link", {method: "PUT", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({path: cur.file.path, link: cur.link})}).catch(() => {}), 500);
+  }
+  function nudge(patch){
+    if(!cur || !cur.link) return;
+    Object.assign(cur.link, patch);
+    applySync(); saveLink();
+  }
+  el("tp-sync-now").onclick = () => {
+    if(!cur || !cur.link) return;
+    // The beat nearest to where the recording is right now.
+    const t = Deck.currentTime();
+    let best = 0;
+    beats.forEach((b, i) => { if(Math.abs(b - t) < Math.abs(beats[best] - t)) best = i; });
+    nudge({startBeat: best, offsetMs: 0});
+    showToast("Takt 1 srovnán s nahrávkou — ulož se samo");
+  };
+  el("tp-sync-prev").onclick = () => nudge({startBeat: (cur.link.startBeat || 0) - 1});
+  el("tp-sync-next").onclick = () => nudge({startBeat: (cur.link.startBeat || 0) + 1});
+  el("tp-sync-m").onclick = () => nudge({offsetMs: (cur.link.offsetMs || 0) - 50});
+  el("tp-sync-p").onclick = () => nudge({offsetMs: (cur.link.offsetMs || 0) + 50});
+
+  // ------------------------------------------------------- the recording
+  async function attachStems(stemsName, fresh){
+    let entry = null;
+    try{ entry = (await (await fetch("/api/stems")).json()).find(s => s.name === stemsName); }catch(e){}
+    if(!entry){ el("tp-rec-status").textContent = `Stopy „${stemsName}“ nenalezeny — propoj nahrávku znovu.`; return; }
+    el("tp-rec-status").textContent = `${stemsName} · načítám stopy…`;
+    await Deck.load(stemsName, entry.stems.filter(s => !s.startsWith("take-")));
+    el("tp-rec-status").textContent = `${stemsName} · ${entry.stems.length} stop · zjišťuji doby…`;
+    beats = [];
+    try{
+      const g = await (await fetch(`/api/stems/${encodeURIComponent(stemsName)}/beats`)).json();
+      beats = g.beats || [];
+      if(fresh || cur.link.factor == null){
+        // Detected tempo vs the file's own: half or double time is common.
+        const fileBpm = api.score && api.score.tempo ? api.score.tempo : g.bpm;
+        const r = g.bpm && fileBpm ? g.bpm / fileBpm : 1;
+        cur.link.factor = r > 1.6 ? 2 : r < 0.65 ? 0.5 : 1;
+        if(cur.link.startBeat == null){
+          const d0 = (g.downbeats || [])[0];
+          cur.link.startBeat = d0 != null ? Math.max(0, beats.findIndex(b => Math.abs(b - d0) < 0.02)) : 0;
+          cur.link.offsetMs = 0;
+        }
+        saveLink();
+      }
+      el("tp-rec-status").textContent = `${stemsName} · ${entry.stems.length} stop · ${Math.round(g.bpm || 0)} BPM`;
+    }catch(e){
+      el("tp-rec-status").textContent = `${stemsName} · doby se nepodařilo zjistit — srovnej „Takt 1 = teď“`;
+    }
+    el("tp-sync-box").hidden = false;
+    paintStems();
+    drawWaves(stemsName, Deck.stems());
+    setSource("stems", true);
+    paintRec();
+  }
+
+  function paintRec(){
+    const linked = !!(cur && cur.link && cur.link.stems);
+    el("tp-unlink").hidden = !linked;
+    el("tp-sync-box").hidden = !linked;
+    el("tp-rec-change").textContent = linked ? "Změnit nahrávku…" : "Najít nahrávku…";
+    if(!linked){
+      el("tp-rec-status").textContent = "Žádná — najdi píseň na YouTube, rozdělí se na stopy a srovná s taby.";
+    }
+    el("tp-src").querySelector('[data-src="stems"]').disabled = !Deck.stems().length;
+  }
+  el("tp-rec-change").onclick = async () => {
+    const f = el("tp-find");
+    f.hidden = !f.hidden;
+    if(f.hidden) return;
+    const score = api && api.score;
+    el("tp-find-q").value = `${(score && score.artist) || cur.file.artist || ""} ${(score && score.title) || cur.file.title || ""}`.trim();
+    try{
+      const songs = await (await fetch("/api/stems")).json();
+      el("tp-find-steems").innerHTML = `<option value="">…nebo vyber už rozdělenou píseň (Steems)</option>` +
+        songs.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("");
+    }catch(e){}
+  };
+  el("tp-find-steems").onchange = (e) => {
+    if(!e.target.value) return;
+    linkStems(e.target.value);
+  };
+  el("tp-unlink").onclick = async () => {
+    if(!confirm("Odpojit nahrávku od tohoto tabu? Stopy zůstanou ve Steems.")) return;
+    cur.link = null;
+    await fetch("/api/tabfiles/link", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: cur.file.path, link: null})});
+    Deck.destroy(); beats = [];
+    if(api.score) api.score.masterBars.forEach(mb => { mb.syncPoints = undefined; });
+    setSource("synth", true); paintStems(); paintRec();
+  };
+  function linkStems(name){
+    cur.link = {stems: name, startBeat: null, offsetMs: 0, factor: null};
+    el("tp-find").hidden = true;
+    attachStems(name, true);
+  }
+
+  el("tp-find-go").onclick = async () => {
+    const q = el("tp-find-q").value.trim();
+    if(!q) return;
+    const box = el("tp-find-results");
+    box.innerHTML = `<div class="hint">Hledám…</div>`;
+    let data;
+    try{ data = await (await fetch(`/api/tabfiles/yt-search?q=${encodeURIComponent(q)}`)).json(); }catch(e){ data = {}; }
+    const res = data.results || [];
+    if(!res.length){ box.innerHTML = `<div class="hint">Nic nenalezeno.</div>`; return; }
+    box.innerHTML = "";
+    res.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "tp-hit";
+      row.innerHTML = `${r.thumbnail ? `<img src="${escapeHtml(thumbUrl(r.thumbnail))}" alt="">` : ""}
+        <div class="tx">${escapeHtml(r.title)}<span>${escapeHtml(r.artists)} · ${escapeHtml(r.duration)} · ${r.kind === "songs" ? "skladba" : "video"}</span></div>
+        <button type="button" class="btn">Použít</button>`;
+      row.querySelector("button").onclick = () => fetchAndSplit(r);
+      box.appendChild(row);
+    });
+  };
+
+  function followJob(jobId, label){
+    return new Promise((resolve) => {
+      const p = el("tp-progress");
+      p.hidden = false;
+      p.textContent = label;
+      const es = new EventSource(`/api/jobs/${jobId}/events`);
+      es.onmessage = (ev) => {
+        let d; try{ d = JSON.parse(ev.data); }catch(e){ return; }
+        if(d.line){
+          const m = d.line.match(/(\d{1,3}(?:\.\d)?)%/);
+          p.textContent = label + (m ? ` ${m[1]} %` : "");
+        }
+        if(d.done){ es.close(); resolve(d.returncode === 0 || d.status === "done"); }
+      };
+      es.onerror = () => { es.close(); resolve(false); };
+    });
+  }
+  async function fetchAndSplit(r){
+    const name = `${r.artists ? r.artists + " - " : ""}${r.title}`;
+    el("tp-find-results").innerHTML = "";
+    const p = el("tp-progress");
+    p.hidden = false;
+    p.textContent = "Stahuji nahrávku z YouTube…";
+    let d;
+    try{
+      d = await (await fetch("/api/tabfiles/fetch-audio", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({video_id: r.videoId, name})})).json();
+    }catch(e){ p.textContent = "Stažení selhalo."; return; }
+    if(d.job_id && !(await followJob(d.job_id, "Stahuji nahrávku z YouTube…"))){ p.textContent = "Stažení selhalo."; return; }
+    p.textContent = "Rozděluji na stopy (Demucs) — pár minut…";
+    let s;
+    try{
+      s = await (await fetch("/api/stems/separate", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({rel: d.rel, format: "mp3", mp3_bitrate: 320})})).json();
+    }catch(e){ p.textContent = "Rozdělení se nepodařilo spustit."; return; }
+    if(s.job_id && !(await followJob(s.job_id, "Rozděluji na stopy (Demucs)…"))){ p.textContent = "Rozdělení selhalo."; return; }
+    p.textContent = "Hotovo — zjišťuji doby a srovnávám s taby…";
+    invalidateRailTop5("steems");
+    linkStems(s.name);
+    setTimeout(() => { p.hidden = true; }, 2500);
+  }
+
+  // ---------------------------------------------------------- stem lanes
+  let waves = {};
+  function paintStems(){
+    const box = el("tp-stems");
+    box.innerHTML = "";
+    Deck.stems().forEach(st => {
+      const row = document.createElement("div");
+      row.className = "tp-stem";
+      row.dataset.stem = st;
+      const base = st.split("_")[0];
+      row.innerHTML = `<span class="tp-nm" title="Zobrazit odpovídající stopu tabu"><i style="background:${STEM_COLORS[base] || STEM_COLORS.other}"></i>${escapeHtml(STEM_NAMES_CZ[base] || st)}</span>
+        <span class="ms"><button type="button" class="s ${Deck.soloed(st) ? "on" : ""}">S</button><button type="button" class="m ${Deck.muted(st) ? "on" : ""}">M</button></span>
+        <input type="range" min="0" max="1" step="0.02" value="${Deck.gain(st)}" title="Hlasitost stopy nahrávky">
+        <canvas></canvas>`;
+      row.querySelector(".tp-nm").onclick = () => {
+        const i = api && api.score ? api.score.tracks.findIndex(t => trackClass(t) === base) : -1;
+        if(i >= 0) selectTrack(i); else focusStem(base);
+      };
+      row.querySelector(".s").onclick = (e) => e.currentTarget.classList.toggle("on", Deck.toggleSolo(st));
+      row.querySelector(".m").onclick = (e) => e.currentTarget.classList.toggle("on", Deck.toggleMute(st));
+      row.querySelector("input").oninput = (e) => Deck.setGain(st, parseFloat(e.target.value));
+      const cv = row.querySelector("canvas");
+      cv.onclick = (e) => {
+        const r = cv.getBoundingClientRect();
+        const t = (e.clientX - r.left) / r.width * Deck.duration();
+        if(src === "stems" && api){ api.player.output.handler.seekTo(t * 1000); api.player.output.updatePosition(t * 1000); }
+        else Deck.seek(t);
+      };
+      box.appendChild(row);
+    });
+    if(api && api.score) focusStem(trackClass(api.score.tracks[shownTrack]));
+    paintStemHeads();
+  }
+  function focusStem(cls){
+    el("tp-stems").querySelectorAll(".tp-stem").forEach(r => r.classList.toggle("focus", r.dataset.stem.split("_")[0] === cls));
+  }
+  async function drawWaves(name, stems){
+    waves = {};
+    const ac = new OfflineAudioContext(1, 1, 44100);
+    for(const st of stems){
+      if(Deck.name !== name) return;
+      try{
+        const b = Deck.blob(st);
+        if(!b) continue;
+        const buf = await ac.decodeAudioData(await b.arrayBuffer());
+        const d = buf.getChannelData(0), N = 900, step = Math.floor(d.length / N) || 1, peaks = new Float32Array(N);
+        for(let i = 0; i < N; i++){ let m = 0; for(let j = i * step, e = Math.min(d.length, j + step); j < e; j += 8){ const v = Math.abs(d[j]); if(v > m) m = v; } peaks[i] = m; }
+        waves[st] = peaks;
+        paintStemHeads();
+      }catch(e){}
+    }
+  }
+  function paintStemHeads(){
+    const dur = Deck.duration(), t = Deck.currentTime();
+    el("tp-stems").querySelectorAll(".tp-stem").forEach(row => {
+      const st = row.dataset.stem, cv = row.querySelector("canvas");
+      const W = cv.clientWidth, H = cv.clientHeight;
+      if(!W) return;
+      if(cv.width !== W) { cv.width = W; cv.height = H; }
+      const g = cv.getContext("2d");
+      g.clearRect(0, 0, W, H);
+      const p = waves[st], col = STEM_COLORS[st.split("_")[0]] || STEM_COLORS.other;
+      if(p){
+        g.fillStyle = col;
+        for(let x = 0; x < W; x++){ const v = p[Math.floor(x / W * p.length)]; const h = Math.max(1, v * (H - 4)); g.fillRect(x, (H - h) / 2, 1, h); }
+      }
+      if(dur){
+        const x = t / dur * W;
+        g.fillStyle = "#fff"; g.fillRect(Math.round(x), 0, 2, H);
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ controls
+  el("tp-back").onclick = () => show();
+  el("tp-play").onclick = () => { if(api) api.playPause(); };
+  el("tp-stop").onclick = () => { if(!api) return; api.stop(); if(src === "stems"){ Deck.pause(); Deck.seek(0); } };
+  el("tp-speed").onchange = (e) => { if(api) api.playbackSpeed = parseFloat(e.target.value); };
+  el("tp-loop").onclick = (e) => { if(!api) return; api.isLooping = !api.isLooping; e.currentTarget.classList.toggle("on", api.isLooping);
+    if(api.isLooping && !api.playbackRange) showToast("Označ takty tažením myší v zápisu — ty se budou opakovat"); };
+  el("tp-metro").onclick = (e) => { if(!api) return; api.metronomeVolume = api.metronomeVolume > 0 ? 0 : 1; e.currentTarget.classList.toggle("on", api.metronomeVolume > 0); };
+  el("tp-countin").onclick = (e) => { if(!api) return; api.countInVolume = api.countInVolume > 0 ? 0 : 1; e.currentTarget.classList.toggle("on", api.countInVolume > 0); };
+  el("tp-sf").onchange = async (e) => {
+    try{ localStorage.setItem(SF_KEY, e.target.value); }catch(err){}
+    const s = (await sfList()).find(x => x.id === e.target.value);
+    if(s && api){ api.loadSoundFont(location.origin + s.url, false); showToast("Načítám zvuky…"); }
+  };
+  el("tp-sf-get").onclick = async (e) => {
+    const id = e.currentTarget.dataset.id;
+    await fetch(`/api/soundfonts/download/${encodeURIComponent(id)}`, {method: "POST"});
+    const btn = e.currentTarget;
+    const poll = async () => {
+      const s = (await sfList()).find(x => x.id === id);
+      if(!s) return;
+      if(s.ready){ btn.hidden = true; try{ localStorage.setItem(SF_KEY, id); }catch(err){} await pickSoundFont();
+        if(api) api.loadSoundFont(location.origin + s.url, false); showToast("Kvalitní zvuky stažené a použité"); return; }
+      if(s.error){ btn.textContent = "Stažení selhalo — zkusit znovu"; return; }
+      btn.textContent = `Stahuji zvuky… ${Math.round((s.progress || 0) * 100)} %`;
+      setTimeout(poll, 800);
+    };
+    poll();
+  };
+  el("tp-layout").onchange = (e) => {
+    if(!api) return;
+    api.settings.display.layoutMode = e.target.value === "horizontal" ? alphaTab.LayoutMode.Horizontal : alphaTab.LayoutMode.Page;
+    api.updateSettings(); api.render();
+  };
+  const rezoom = (d) => { if(!api) return; zoom = Math.max(0.5, Math.min(2, Math.round((zoom + d) * 10) / 10)); api.settings.display.scale = zoom; api.updateSettings(); api.render(); };
+  el("tp-zoom-dn").onclick = () => rezoom(-0.1);
+  el("tp-zoom-up").onclick = () => rezoom(0.1);
+  document.addEventListener("keydown", (e) => {
+    if(el("tabs-player").hidden || el("tabs-section").hidden) return;
+    if(e.code === "Space" && !e.target.closest("input, select, textarea")){ e.preventDefault(); if(api) api.playPause(); }
+  });
+  return {show, open, recent};
+})();
+
+// ======================================================================
 // Tabs & mode switching
 // ======================================================================
 function setMode(mode, opts){
@@ -5401,6 +6253,7 @@ function setMode(mode, opts){
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
   el("loops-section").hidden = mode !== "loops";
+  el("tabs-section").hidden = mode !== "tabs";
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -5416,6 +6269,8 @@ function setMode(mode, opts){
     if(!opts.keepSection && el("podcast-detail").hidden) loadPodcastsList();
   } else if(mode === "loops"){
     if(!opts.keepSection) Loops.show();
+  } else if(mode === "tabs"){
+    if(!opts.keepSection) TabsLib.show();
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -6547,6 +7402,7 @@ const RAIL_SECTIONS = [
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
   {key: "loops", title: "Loops", icon: "note"},
+  {key: "tabs", title: "Taby", icon: "guitar"},
 ];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
@@ -6592,6 +7448,15 @@ async function fetchRailTop5(key){
       art: icon("folder", 18), name: d.name, sub: "Slo\u017Eka",
       onClick: () => { setMode("library", {keepSection: true}); loadLibraryFolder(d.rel); },
     }));
+  }
+  if(key === "tabs"){
+    const recent = TabsLib.recent();
+    if(recent.length) return recent.slice(0, 5).map(f => ({
+      art: icon("guitar", 18), name: f.title || f.name, sub: f.artist || "Tab",
+      onClick: () => { setMode("tabs", {keepSection: true}); TabsLib.open(f); },
+    }));
+    return [{art: icon("folder", 18), name: "Namapovat složku s taby", sub: "Guitar Pro, MusicXML…",
+      onClick: () => { setMode("tabs"); }}];
   }
   if(key === "loops"){
     const data = await Loops.sources();
