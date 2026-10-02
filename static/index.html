@@ -2483,6 +2483,15 @@
   .pk-fb td.mute .dot.on{background:none;color:#ff6b6b}
   .pk-fb .lbl{color:#888;cursor:default;border:none}
   .pk-fb tr.marks td{border:none;height:12px;cursor:default}
+  .tuner-mine{display:flex;gap:6px;padding:8px 10px;background:#141418;border-bottom:1px solid #26262e}
+  .tuner-mine select{flex:1;min-width:0;background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:4px 6px;font-size:12px}
+  .tuner-mine button{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
+  .tuner-body{display:flex;flex-direction:column}
+  .pk-tun-ed{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 0;font-size:12px;color:var(--sub)}
+  .pk-tun-ed input{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:3px 5px;font-size:12px}
+  .pk-tun-ed input.s{width:44px;text-align:center}
+  .pk-tun-ed input.s.bad{border-color:#ff6b6b}
+  .pk-tun-ed button{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
   .float-grip{position:absolute;right:0;bottom:0;width:16px;height:16px;
     cursor:nwse-resize;z-index:2}
   .float-grip::after{content:"";position:absolute;right:3px;bottom:3px;width:7px;height:7px;
@@ -10636,6 +10645,59 @@ const TabSearch = (() => {
 
 // ======================================================================
 // ======================================================================
+// Tunings — the tuner's own presets plus the user's named ones (kept on the
+// server), shared by the guitar tuner and the virtual keyboard's fretboard.
+// Strings low → high in scientific pitch, the tuner's own notation.
+// ======================================================================
+const Tunings = (() => {
+  const BUILTIN = [
+    {id: "standard", name: "Standard E", strings: ["E2", "A2", "D3", "G3", "B3", "E4"]},
+    {id: "drop-d", name: "Drop D", strings: ["D2", "A2", "D3", "G3", "B3", "E4"]},
+    {id: "eb", name: "Půltón dolů (Eb)", strings: ["Eb2", "Ab2", "Db3", "Gb3", "Bb3", "Eb4"]},
+    {id: "d", name: "Celý tón dolů (D)", strings: ["D2", "G2", "C3", "F3", "A3", "D4"]},
+    {id: "drop-c", name: "Drop C", strings: ["C2", "G2", "C3", "F3", "A3", "D4"]},
+    {id: "drop-b", name: "Drop B", strings: ["B1", "F#2", "B2", "E3", "G#3", "C#4"]},
+    {id: "open-g", name: "Open G", strings: ["D2", "G2", "D3", "G3", "B3", "D4"]},
+    {id: "open-d", name: "Open D", strings: ["D2", "A2", "D3", "F#3", "A3", "D4"]},
+    {id: "dadgad", name: "DADGAD", strings: ["D2", "A2", "D3", "G3", "A3", "D4"]},
+    {id: "baskytara", name: "Baskytara", strings: ["E1", "A1", "D2", "G2"]},
+    {id: "ukulele", name: "Ukulele", strings: ["G4", "C4", "E4", "A4"]},
+  ];
+  const TONES = {C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11, H: 11};
+  let saved = [];
+  const listeners = new Set();
+  function midi(note){
+    const m = /^([A-H](?:#|b)?)(-?\d)$/.exec(String(note).trim());
+    return m && TONES[m[1]] !== undefined ? TONES[m[1]] + (Number(m[2]) + 1) * 12 : null;
+  }
+  const valid = (note) => midi(note) != null;
+  async function load(){
+    try{ saved = (await (await fetch("/api/tunings")).json()).tunings || []; }catch(e){}
+    listeners.forEach(f => f());
+    return saved;
+  }
+  async function save(name, strings, id){
+    const res = await fetch("/api/tunings", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id, name, strings})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Uložení ladění selhalo");
+    saved = data.tunings;
+    listeners.forEach(f => f());
+    return data.tuning;
+  }
+  async function remove(id){
+    try{ saved = (await (await fetch(`/api/tunings/${encodeURIComponent(id)}`, {method: "DELETE"})).json()).tunings || []; }catch(e){}
+    listeners.forEach(f => f());
+  }
+  const all = () => BUILTIN.concat(saved);
+  const find = (id) => all().find(t => t.id === id) || null;
+  // The same strings under another id (a saved copy of a preset, say).
+  const matching = (strings) => all().find(t => t.strings.map(midi).join() === strings.map(midi).join()) || null;
+  return {BUILTIN, all, saved: () => saved, find, matching, load, save, remove, midi, valid,
+    isBuiltin: (id) => BUILTIN.some(t => t.id === id), onChange: (f) => listeners.add(f)};
+})();
+Tunings.load();
+
+// ======================================================================
 // ToneRig — the iPhone's NAM pedalboard as the live guitar's amp.
 // Its sound comes in on an interface input (Live kytara → external amp, so
 // ours is skipped). Its presets are switched from here — by MIDI (ToneRig's
@@ -12171,6 +12233,7 @@ const Mixer = (() => {
         try{ saved = localStorage.getItem(KEY); savedCustom = localStorage.getItem(KEY_CUSTOM); }catch(e){}
         if(savedCustom) node.setAttribute("custom-struny", savedCustom);
         node.setAttribute("ladeni", saved || "standard");
+        el("tuner-float-body").appendChild(mineBar());
         el("tuner-float-body").appendChild(node);
         // Remember the tuning (and, for a custom one, its strings) that was picked.
         new MutationObserver(() => {
@@ -12197,8 +12260,55 @@ const Mixer = (() => {
 
     function toggle(){ FloatTuner.isOpen() ? close() : open(); }
 
+    // ---- the user's named tunings, above the tuner itself ----
+    function mineBar(){
+      const bar = document.createElement("div");
+      bar.className = "tuner-mine";
+      const paint = () => {
+        const list = Tunings.saved();
+        bar.innerHTML = `<select title="Uložená vlastní ladění (sdílená s hmatníkem u klaviatury)">
+            <option value="">Moje ladění${list.length ? "…" : " — zatím žádné"}</option>
+            ${list.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(t.strings.join(" "))}</option>`).join("")}
+          </select>
+          <button type="button" title="Uložit právě nastavené ladění pod vlastním jménem">Uložit…</button>`;
+        bar.querySelector("select").onchange = (e) => { const t = Tunings.find(e.target.value); if(t) applyTuning(t); };
+        bar.querySelector("button").onclick = saveCurrent;
+      };
+      Tunings.onChange(paint);
+      paint();
+      return bar;
+    }
+    // Whatever the tuner is on now, as strings low → high.
+    function currentStrings(){
+      if(!node) return null;
+      const id = node.getAttribute("ladeni");
+      if(id === "vlastni") return (node.getAttribute("custom-struny") || "").split(",").map(x => x.trim()).filter(Boolean);
+      const t = Tunings.find(id);
+      return t ? t.strings.slice() : null;
+    }
+    async function saveCurrent(){
+      const strings = currentStrings();
+      if(!strings || !strings.length){ showToast("Nejdřív v ladičce nastav ladění (třeba Vlastní… a Použít)"); return; }
+      const name = prompt(`Název ladění (${strings.join(" ")}):`, "");
+      if(!name || !name.trim()) return;
+      try{ await Tunings.save(name.trim(), strings); showToast(`Ladění „${name.trim()}“ uloženo — najdeš ho i u hmatníku`); }
+      catch(e){ showToast(e.message); }
+    }
+    // From the fretboard (or the bar): a preset by its id, anything else
+    // as the tuner's custom tuning. Remembered for the next open too.
+    function applyTuning(t){
+      const builtin = Tunings.isBuiltin(t.id);
+      try{
+        localStorage.setItem(KEY, builtin ? t.id : "vlastni");
+        if(!builtin) localStorage.setItem(KEY_CUSTOM, t.strings.join(","));
+      }catch(e){}
+      if(!node) return;
+      if(!builtin) node.setAttribute("custom-struny", t.strings.join(","));
+      node.setAttribute("ladeni", builtin ? t.id : "vlastni");
+    }
+
     el("tuner-float-close").onclick = close;
-    return {open, close, toggle};
+    return {open, close, toggle, applyTuning};
   })();
 
   // A different song has a different text.
@@ -17239,6 +17349,7 @@ const Mixer = (() => {
       ampName: null, ampFile: null, cabName: null,
       guideVolume: 0.8,
       instrOn: false, instrId: null, instrVolume: 0.8, instrReplace: false,
+      tunnel: (() => { try{ return localStorage.getItem("spotdl-tunnel") === "1"; }catch(e){ return false; } })(),
       peak: 0, gate: 0,
       latencyMs: null,
     };
@@ -17430,8 +17541,9 @@ const Mixer = (() => {
         if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
         // An external amp (ToneRig on the phone) has already shaped the
         // sound — ours would be a second amp on top of it.
-        if(ampNode && !state.externalAmp){ node.connect(ampNode); node = ampNode; }
-        if(cabNode && !state.externalAmp){ node.connect(cabNode); node = cabNode; }
+        const ext = state.externalAmp || state.tunnel;
+        if(ampNode && !ext){ node.connect(ampNode); node = ampNode; }
+        if(cabNode && !ext){ node.connect(cabNode); node = cabNode; }
         node.connect(recNode); node = recNode;
         if(dryGain){ node.connect(dryGain); node = dryGain; }
         node.connect(gainNode);
@@ -17785,6 +17897,7 @@ const Mixer = (() => {
       ensureEq,
       setInputGain, setInputChannel,
       setExternalAmp(on){ state.externalAmp = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
+      setTunnel(on){ state.tunnel = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
       instrumentRunning: () => !!(instrNode && instrNode.bezi),
@@ -18594,6 +18707,94 @@ const Mixer = (() => {
     };
   })();
 
+  // ======================================================================
+  // Tunnel — any app's sound into the live guitar input, through BlackHole
+  // (a virtual audio device): a guitar sim or a plugin host plays out to
+  // "BlackHole 2ch", the live guitar takes BlackHole as its input, and our
+  // own amp is skipped (the sound is finished already). Everything after
+  // it — fader, EQ, doubler, recording, guitar-as-instrument — stays.
+  // ======================================================================
+  const Tunnel = (() => {
+    const isBH = (label) => /blackhole/i.test(label || "");
+    async function findInput(){
+      let list = [];
+      try{ list = await Guitar.devices(); }catch(e){}
+      return list.find(d => isBH(d.label)) || null;
+    }
+    // The app's own output into BlackHole would feed itself back.
+    async function loopRisk(){
+      try{
+        const outs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audiooutput");
+        const sink = AudioOut.get();
+        const cur = outs.find(d => d.deviceId === (sink || "default")) || outs.find(d => d.deviceId === "default");
+        return !!(cur && isBH(cur.label));
+      }catch(e){ return false; }
+    }
+    async function on(){
+      // Labels only come with permission; ask once if they're missing.
+      let dev = await findInput();
+      if(!dev){
+        try{ const s = await navigator.mediaDevices.getUserMedia({audio: true}); s.getTracks().forEach(t => t.stop()); }catch(e){}
+        dev = await findInput();
+      }
+      if(!dev){ showToast("BlackHole nenalezen — nainstaluj ho (existential.audio/blackhole) a zkus znovu"); return false; }
+      if(await loopRisk()) showToast("Pozor: výstup aplikace je BlackHole — zvuk by se točil dokola. Přepni výstup v Nastavení → Výstup zvuku");
+      try{ localStorage.setItem("spotdl-tunnel", "1"); }catch(e){}
+      Guitar.setTunnel(true);
+      Guitar.setInputChannel("sum");           // a sim plays stereo: both sides, at full level
+      Guitar.setThreshold(-100);               // the sim gates on its own
+      try{ await Guitar.start(dev.deviceId); }
+      catch(e){ showToast("BlackHole se nepodařilo otevřít jako vstup"); return false; }
+      queueSessionSave();
+      showToast("Tunel zapnutý: BlackHole → Live kytara");
+      return true;
+    }
+    async function off(){
+      try{ localStorage.removeItem("spotdl-tunnel"); }catch(e){}
+      Guitar.setTunnel(false);
+      Guitar.setInputChannel("auto");
+      if(Guitar.isLive() && isBH(Guitar.state.deviceLabel)) await Guitar.stop();
+      showToast("Tunel vypnutý — Live kytara zase s naším zesilovačem");
+    }
+    async function open(){
+      const old = el("tunnel-modal");
+      if(old) old.remove();
+      const dev = await findInput();
+      const risk = await loopRisk();
+      const g = Guitar.state;
+      const box = document.createElement("div");
+      box.className = "tr-modal";
+      box.id = "tunnel-modal";
+      box.innerHTML = `<div class="tr-box">
+        <h3>Tunel z jiné aplikace (BlackHole)</h3>
+        <div class="hint">Zvuk z kytarového simulátoru nebo jakéhokoli pluginu v Macu pošleš do Live kytary — tady pak jde přes fader, EQ, doubler,
+          nahrávání a ven tvým výstupem do beden.</div>
+        <ol class="tr-steps">
+          <li>V simulátoru (Neural DSP, AmpliTube, Guitar Rig, Logic…) nastav <b>výstup zvuku na „BlackHole 2ch“</b>. Vstup tam nech svou zvukovku s kytarou.</li>
+          <li>Tady klikni <b>Zapnout tunel</b> — Live kytara si vezme BlackHole jako vstup a náš NAM zesilovač vynechá.</li>
+          <li>Výstup téhle aplikace musí jít do beden/sluchátek, <b>ne do BlackHole</b> (Nastavení → Výstup zvuku).</li>
+          <li>Simulátor sám do beden hrát nemusí — zvuk uslyšíš přes aplikaci. Kdyby hrál oběma cestami, uslyšíš ho dvakrát.</li>
+        </ol>
+        <div class="tr-row"><span>BlackHole</span><b style="color:${dev ? "var(--accent)" : "#ff6b6b"}">${dev ? escapeHtml(dev.label) + " — nalezen" : "nenalezen (nebo chybí povolení mikrofonu)"}</b></div>
+        <div class="tr-row"><span>Stav</span><span>${g.tunnel ? (g.live && isBH(g.deviceLabel) ? "tunel běží" : "tunel zapnutý, vstup je odpojený") : "vypnutý"}</span></div>
+        ${risk ? `<div class="tr-row" style="color:#ff6b6b">Výstup aplikace je teď BlackHole — vznikla by smyčka. Přepni ho v Nastavení → Výstup zvuku.</div>` : ""}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+          <button type="button" class="btn secondary" id="tn-ams">Otevřít Nastavení Audio MIDI</button>
+          ${g.tunnel ? `<button type="button" class="btn secondary" id="tn-off">Vypnout tunel</button>` : ""}
+          <button type="button" class="btn" id="tn-on">${g.tunnel ? "Znovu připojit" : "Zapnout tunel"}</button>
+          <button type="button" class="btn secondary" id="tn-close">Zavřít</button>
+        </div></div>`;
+      document.body.appendChild(box);
+      box.addEventListener("pointerdown", (e) => { if(e.target === box) box.remove(); });
+      box.querySelector("#tn-close").onclick = () => box.remove();
+      box.querySelector("#tn-ams").onclick = () => fetch("/api/system/audio-midi-setup", {method: "POST"});
+      box.querySelector("#tn-on").onclick = async () => { if(await on()) box.remove(); };
+      const offB = box.querySelector("#tn-off");
+      if(offB) offB.onclick = async () => { await off(); box.remove(); };
+    }
+    return {open, on, off, findInput, loopRisk};
+  })();
+
   // ---- the guitar's own strip, above the metronome ----
   //
   // Taller than a stem's strip because it carries the things a stem never
@@ -18698,7 +18899,10 @@ const Mixer = (() => {
           <span class="gt-knob-label">GUIDE</span>
         </div>
       </div>
-      ${g.externalAmp ? `<div class="gt-preset-stepper">
+      ${g.tunnel && !g.externalAmp ? `<div class="gt-preset-stepper">
+        <button class="gt-preset-cat" id="gt-tunnel-open" style="flex:1" title="Tunel z jiné aplikace přes BlackHole — nastavení">TUNEL</button>
+      </div>
+      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>` : g.externalAmp ? `<div class="gt-preset-stepper">
         <button class="gt-amp-step" id="gt-tr-prev" title="Předchozí preset ToneRigu">‹</button>
         <button class="gt-preset-cat" id="gt-tr-open" title="ToneRig — nastavení a presety">TONERIG</button>
         <button class="gt-amp-step" id="gt-tr-next" title="Další preset ToneRigu">›</button>
@@ -18767,7 +18971,9 @@ const Mixer = (() => {
       savePanelPref("eq", true);
       selectEqChannel("guitar");
     };
-    if(g.externalAmp){
+    if(g.tunnel && !g.externalAmp){
+      strip.querySelector("#gt-tunnel-open").onclick = () => Tunnel.open();
+    } else if(g.externalAmp){
       strip.querySelector("#gt-tr-prev").onclick = () => ToneRig.step(-1);
       strip.querySelector("#gt-tr-next").onclick = () => ToneRig.step(1);
       strip.querySelector("#gt-tr-open").onclick = () => ToneRig.openSettings();
@@ -19006,6 +19212,7 @@ const Mixer = (() => {
     box.innerHTML = `
       <div class="ss-head">Nastavení kytary</div>
       <button type="button" id="gt-tonerig-open">${icon("external", 12)}<span>ToneRig v telefonu jako zesilovač…</span></button>
+      <button type="button" id="gt-tunnel-open-s">${icon("external", 12)}<span>Tunel z jiné aplikace (BlackHole)…</span></button>
       <div class="gt-settings-row">
         <span class="gt-cap">VSTUP</span>
         <select class="gt-device" title="Zvukové rozhraní"></select>
@@ -19055,6 +19262,7 @@ const Mixer = (() => {
 
     fillGuitarDevices(box.querySelector(".gt-device"));
     box.querySelector("#gt-tonerig-open").onclick = () => { box.remove(); ToneRig.openSettings(); };
+    box.querySelector("#gt-tunnel-open-s").onclick = () => { box.remove(); Tunnel.open(); };
     box.querySelector(".gt-channel").value = g.inputChannel || "auto";
     box.querySelector(".gt-channel").onchange = (e) => {
       Guitar.setInputChannel(e.target.value);
@@ -19502,6 +19710,7 @@ const Mixer = (() => {
     isPlaying: () => isPlaying,
     currentTime: () => currentTime(), seek: (t) => seek(t),
     takeRec: () => TakeRec,
+    tunnel: () => Tunnel,
     midi: () => Midi,
     audioState: () => ({state: ctx().state, time: ctx().currentTime, startedAt, playFrom}),
     channelByStem: (s) => channels.find(c => c.stem === s),
@@ -22009,6 +22218,14 @@ setVideoMode(getVideoMode());
 // the position is remembered. Used for the video and the lyrics, so both
 // can sit wherever you want instead of being pinned to a panel.
 // ======================================================================
+// The floating window last touched (or opened) is the one on top.
+let floatTop = 80;
+function raiseFloat(win){ if(win && win.style.zIndex != floatTop){ win.style.zIndex = ++floatTop; } }
+document.addEventListener("pointerdown", (e) => {
+  const w = e.target.closest && e.target.closest(".float-win");
+  if(w) raiseFloat(w);
+}, true);
+
 function makeFloating(id, opts){
   const win = el(id);
   const head = el(id + "-head");
@@ -22104,7 +22321,7 @@ function makeFloating(id, opts){
   window.addEventListener("resize", () => { if(!win.hidden) clampIntoView(); });
 
   return {
-    open(){ win.hidden = false; restore(); },
+    open(){ win.hidden = false; restore(); raiseFloat(win); },
     close(){ win.hidden = true; },
     isOpen(){ return !win.hidden; },
     toggle(){ win.hidden ? this.open() : this.close(); },
@@ -22154,11 +22371,8 @@ const Piano = (() => {
     ["dim7", [0, 3, 6, 9]], ["mMaj7", [0, 3, 7, 11]], ["6", [0, 4, 7, 9]], ["m6", [0, 3, 7, 9]], ["add9", [0, 2, 4, 7]],
     ["madd9", [0, 2, 3, 7]], ["9", [0, 2, 4, 7, 10]], ["maj9", [0, 2, 4, 7, 11]], ["m9", [0, 2, 3, 7, 10]], ["7sus4", [0, 5, 7, 10]],
   ];
-  const TUNINGS = {
-    std: ["Standard E", [64, 59, 55, 50, 45, 40]], dropD: ["Drop D", [64, 59, 55, 50, 45, 38]],
-    half: ["Eb (o půltón níž)", [63, 58, 54, 49, 44, 39]], dstd: ["D standard", [62, 57, 53, 48, 43, 38]],
-    dadgad: ["DADGAD", [62, 57, 55, 50, 45, 38]], openG: ["Open G", [62, 59, 55, 50, 43, 38]],
-  };
+  // Tunings come from the shared list (presets + the user's own).
+  const OLD_IDS = {std: "standard", dropD: "drop-d", half: "eb", dstd: "d", dadgad: "dadgad", openG: "open-g"};
   // Computer keys (by physical position, so QWERTZ and QWERTY both work).
   const PC_CHROMA = {KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11,
     Comma: 12, KeyL: 13, Period: 14, Semicolon: 15, Slash: 16,
@@ -22168,9 +22382,21 @@ const Piano = (() => {
   const PC_DEGREE_HIGH = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"];
 
   const st = Object.assign({octaves: 3, low: 48, instrument: null, volume: 0.8, root: 0, scale: "none", lock: "highlight",
-    pc: "chroma", pcBase: 48, labels: true, hints: true, fret: false, tuning: "std", frets: [null, null, null, null, null, null]},
+    pc: "chroma", pcBase: 48, labels: true, hints: true, fret: false, tuning: "standard", frets: [null, null, null, null, null, null]},
     (() => { try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } })());
   const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
+  if(OLD_IDS[st.tuning]) st.tuning = OLD_IDS[st.tuning];
+  let tunEdit = null;              // {id?, name, strings} while the editor is open
+  // Strings high → low as MIDI notes (the fretboard draws the high one on top).
+  function tunMidi(){
+    const t = Tunings.find(st.tuning) || Tunings.BUILTIN[0];
+    return t.strings.map(Tunings.midi).reverse();
+  }
+  function fitFrets(){
+    const n = tunMidi().length;
+    if(st.frets.length !== n) st.frets = Array.from({length: n}, (_, i) => st.frets[i] ?? null);
+  }
+  Tunings.onChange(() => { if(built) paintFretboard(); });
 
   let ac = null, out = null, zv = null, lib = null, built = false, layout = null, midiAccess = null;
   const sounding = new Map();       // midi → voice
@@ -22282,8 +22508,8 @@ const Piano = (() => {
 
   // ---- fretboard ----
   function fretNotes(){
-    const tun = TUNINGS[st.tuning][1];
-    return st.frets.map((f, s) => f == null ? null : tun[s] + f).filter(x => x != null);
+    const tun = tunMidi();
+    return st.frets.map((f, s) => f == null || tun[s] == null ? null : tun[s] + f).filter(x => x != null);
   }
 
   // ---- UI ----
@@ -22417,14 +22643,31 @@ const Piano = (() => {
   function paintFretboard(){
     const box = el("pk-fb");
     if(!box || !st.fret) return;
-    const tun = TUNINGS[st.tuning][1], FR = 15, iv = scaleIv();
-    let html = `<div class="pk-ctl" style="margin-bottom:4px">Ladění <select id="pk-tun">${Object.entries(TUNINGS).map(([k, [n]]) => `<option value="${k}" ${k === st.tuning ? "selected" : ""}>${n}</option>`).join("")}</select>
+    fitFrets();
+    const tun = tunMidi(), FR = 15, iv = scaleIv();
+    const cur = Tunings.find(st.tuning);
+    const mine = Tunings.saved();
+    let html = `<div class="pk-ctl" style="margin-bottom:4px">Ladění <select id="pk-tun" title="Ladění — sdílené s ladičkou">
+        <optgroup label="Ladičky">${Tunings.BUILTIN.map(t => `<option value="${t.id}" ${t.id === st.tuning ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</optgroup>
+        ${mine.length ? `<optgroup label="Moje">${mine.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === st.tuning ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</optgroup>` : ""}
+        <option value="__new">+ Vlastní ladění…</option></select>
+      ${cur && !Tunings.isBuiltin(cur.id) ? `<button type="button" id="pk-tun-edit" title="Upravit tohle ladění">Upravit</button>` : ""}
+      <button type="button" id="pk-tun-tuner" title="Otevřít ladičku na tomhle ladění">Ladička</button>
       <button type="button" id="pk-strum" title="Zahrát hmat">▶ Zahrát</button><button type="button" id="pk-fclear" title="Vymazat hmat">Vymazat</button>
-      <span>klik na pražec = tón · znovu = struna ztlumená (x) · 0 = prázdná struna</span></div><table>`;
+      <span>klik na pražec = tón · znovu = struna ztlumená (x) · 0 = prázdná struna</span></div>`;
+    if(tunEdit){
+      html += `<div class="pk-tun-ed">Název <input type="text" id="pk-ted-name" maxlength="40" value="${escapeHtml(tunEdit.name)}" placeholder="např. Drop A 7str." style="width:150px">
+        Strun <input type="number" id="pk-ted-n" min="4" max="8" value="${tunEdit.strings.length}" style="width:44px">
+        <span>od nejhlubší:</span>${tunEdit.strings.map((x, i) => `<input type="text" class="s ${Tunings.valid(x) ? "" : "bad"}" data-i="${i}" value="${escapeHtml(x)}" title="Tón struny ${i + 1} (od nejhlubší), např. E2, F#3, Bb1">`).join("")}
+        <button type="button" id="pk-ted-save">Uložit</button>
+        ${tunEdit.id ? `<button type="button" id="pk-ted-del" title="Smazat tohle ladění">Smazat</button>` : ""}
+        <button type="button" id="pk-ted-cancel">Zrušit</button></div>`;
+    }
+    html += `<table>`;
     html += `<tr class="marks"><td class="lbl"></td><td class="lbl"></td>${Array.from({length: FR}, (_, i) => `<td class="lbl">${[3, 5, 7, 9, 12, 15].includes(i + 1) ? (i + 1) : ""}</td>`).join("")}</tr>`;
     tun.forEach((open, s) => {
       const f = st.frets[s];
-      html += `<tr><td class="lbl">${NOTES[open % 12]}</td>`;
+      html += `<tr><td class="lbl" data-open="${open}" title="Prázdná struna ${NOTES[open % 12]}${Math.floor(open / 12) - 1} — klik ji zahraje" style="cursor:pointer">${NOTES[open % 12]}</td>`;
       for(let fr = 0; fr <= FR; fr++){
         const m = open + fr, on = f === fr;
         const sc = iv && st.lock !== "off" && inScale(m);
@@ -22434,7 +22677,50 @@ const Piano = (() => {
       html += `</tr>`;
     });
     box.innerHTML = html + `</table>`;
-    box.querySelector("#pk-tun").onchange = (e) => { st.tuning = e.target.value; changed(); };
+    box.querySelector("#pk-tun").onchange = (e) => {
+      if(e.target.value === "__new"){
+        const base = Tunings.find(st.tuning) || Tunings.BUILTIN[0];
+        tunEdit = {name: "", strings: base.strings.slice()};
+        paintFretboard();
+        return;
+      }
+      setTuning(e.target.value);
+    };
+    const ed = box.querySelector("#pk-tun-edit");
+    if(ed) ed.onclick = () => { const t = Tunings.find(st.tuning); tunEdit = {id: t.id, name: t.name, strings: t.strings.slice()}; paintFretboard(); };
+    box.querySelector("#pk-tun-tuner").onclick = () => { const t = Tunings.find(st.tuning); if(t) Mixer.tuner.applyTuning(t); Mixer.tuner.open(); };
+    if(tunEdit){
+      const n = box.querySelector("#pk-ted-n");
+      n.onchange = () => {
+        const k = Math.max(4, Math.min(8, +n.value || 6));
+        // A string more goes a fourth below the lowest, as on a 7/8-string guitar.
+        while(tunEdit.strings.length < k){ const low = Tunings.midi(tunEdit.strings[0]) ?? 40; tunEdit.strings.unshift(NOTES[(low - 5) % 12] + (Math.floor((low - 5) / 12) - 1)); }
+        while(tunEdit.strings.length > k) tunEdit.strings.shift();
+        paintFretboard();
+      };
+      box.querySelectorAll(".pk-tun-ed input.s").forEach(inp => inp.oninput = () => {
+        tunEdit.strings[+inp.dataset.i] = inp.value.trim();
+        inp.classList.toggle("bad", !Tunings.valid(inp.value.trim()));
+      });
+      box.querySelector("#pk-ted-name").oninput = (e) => { tunEdit.name = e.target.value; };
+      box.querySelectorAll(".pk-tun-ed input").forEach(i => i.addEventListener("keydown", (e) => e.stopPropagation()));
+      box.querySelector("#pk-ted-cancel").onclick = () => { tunEdit = null; paintFretboard(); };
+      const del = box.querySelector("#pk-ted-del");
+      if(del) del.onclick = async () => {
+        if(!confirm(`Smazat ladění „${tunEdit.name}“?`)) return;
+        await Tunings.remove(tunEdit.id); tunEdit = null; setTuning("standard");
+      };
+      box.querySelector("#pk-ted-save").onclick = async () => {
+        if(!tunEdit.name.trim()){ showToast("Ladění pojmenuj"); return; }
+        if(!tunEdit.strings.every(Tunings.valid)){ showToast("Struny piš jako E2, F#3, Bb1"); return; }
+        try{
+          const t = await Tunings.save(tunEdit.name.trim(), tunEdit.strings, tunEdit.id);
+          tunEdit = null;
+          setTuning(t.id);
+          showToast(`Ladění „${t.name}“ uloženo — najdeš ho i v ladičce`);
+        }catch(e){ showToast(e.message); }
+      };
+    }
     box.querySelector("#pk-fclear").onclick = () => { st.frets = [null, null, null, null, null, null]; changed(); };
     box.querySelector("#pk-strum").onclick = strum;
     box.querySelectorAll("td[data-s]").forEach(td => td.onclick = () => {
@@ -22443,9 +22729,21 @@ const Piano = (() => {
       changed();
       noteOn(tun[s] + (st.frets[s] ?? f), 0.7, true).then(m => setTimeout(() => noteOff(m), 500));
     });
+    box.querySelectorAll("td.lbl[data-open]").forEach(td => td.onclick = () => {
+      noteOn(+td.dataset.open, 0.7, true).then(m => setTimeout(() => noteOff(m), 700));
+    });
+  }
+  // A tuning picked here is the tuner's too.
+  function setTuning(id){
+    st.tuning = id;
+    st.frets = [];
+    fitFrets();
+    const t = Tunings.find(id);
+    if(t && typeof Mixer !== "undefined" && Mixer.tuner && Mixer.tuner.applyTuning) Mixer.tuner.applyTuning(t);
+    changed();
   }
   async function strum(){
-    const tun = TUNINGS[st.tuning][1];
+    const tun = tunMidi();
     const ms = st.frets.map((f, s) => f == null ? null : tun[s] + f).filter(x => x != null).reverse();   // low string first
     for(let i = 0; i < ms.length; i++){ setTimeout(() => noteOn(ms[i], 0.75, true), i * 35); }
     setTimeout(() => ms.forEach(noteOff), 1600);

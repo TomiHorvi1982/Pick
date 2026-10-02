@@ -4454,6 +4454,66 @@ def push_remote_state(body: RemoteState):
     return {"ok": True}
 
 
+@app.post("/api/system/audio-midi-setup")
+def open_audio_midi_setup():
+    """Opens macOS's Audio MIDI Setup (BlackHole, aggregate devices, network MIDI)."""
+    subprocess.run(["open", "-a", "Audio MIDI Setup"], check=False)
+    return {"ok": True}
+
+
+# ------------------------------------------------------------ saved tunings
+#
+# Named tunings of the user's own, shared by the tuner and the virtual
+# keyboard's fretboard. Strings low → high in scientific pitch ("D2").
+_re_tone = _re_mod.compile(r"[A-H](?:#|b)?-?\d")
+
+
+class Tuning(BaseModel):
+    id: Optional[str] = None
+    name: str
+    strings: List[str]
+
+
+def _tunings() -> list:
+    out = []
+    for t in _read_config().get("tunings") or []:
+        if isinstance(t, dict) and t.get("id") and t.get("name") and isinstance(t.get("strings"), list):
+            out.append({"id": str(t["id"]), "name": str(t["name"]), "strings": [str(x) for x in t["strings"]]})
+    return out
+
+
+@app.get("/api/tunings")
+def tunings_list():
+    return {"tunings": _tunings()}
+
+
+@app.put("/api/tunings")
+def tunings_save(body: Tuning):
+    """Saves (or, with an id, updates) one named tuning."""
+    import secrets
+    strings = [x.strip() for x in body.strings]
+    name = body.name.strip()[:40]
+    if not name:
+        return JSONResponse({"error": "Zadej název ladění."}, status_code=400)
+    if not 1 <= len(strings) <= 12 or not all(_re_tone.fullmatch(x) for x in strings):
+        return JSONResponse({"error": "Struny piš jako E2, F#3, Bb1 (1–12 strun)."}, status_code=400)
+    items = _tunings()
+    tid = body.id if body.id and any(t["id"] == body.id for t in items) else "t-" + secrets.token_hex(4)
+    entry = {"id": tid, "name": name, "strings": strings}
+    items = [entry if t["id"] == tid else t for t in items]
+    if not any(t["id"] == tid for t in items):
+        items.append(entry)
+    _write_config({"tunings": items[:50]})
+    return {"tuning": entry, "tunings": items[:50]}
+
+
+@app.delete("/api/tunings/{tid}")
+def tunings_delete(tid: str):
+    items = [t for t in _tunings() if t["id"] != tid]
+    _write_config({"tunings": items})
+    return {"tunings": items}
+
+
 # ---------------------------------------------------------------- ToneRig
 #
 # ToneRig (the NAM pedalboard app on the iPhone) can't tell anyone which
