@@ -64,3 +64,13 @@ def test_browse_rejects_symlink_escape(client, tmp_music_root, tmp_path):
     (tmp_music_root / "escape").symlink_to(outside)
     res = client.get("/api/library/browse", params={"rel": "escape"})
     assert res.status_code == 404
+
+
+def test_track_number_is_read_for_sorting_by_album():
+    from server import _track_no
+    assert _track_no("3") == 3
+    assert _track_no("7/12") == 7
+    assert _track_no(" 9 / 10") == 9
+    assert _track_no(None) is None
+    assert _track_no("") is None
+    assert _track_no("A1") is None

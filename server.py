@@ -2419,6 +2419,13 @@ def _resolve_under_music_root(rel: str) -> Optional[Path]:
 _TAG_CACHE: dict = {}
 
 
+def _track_no(value) -> Optional[int]:
+    try:
+        return int(str(value).split("/")[0].strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _audio_tags(path: Path) -> dict:
     """title / artist / album / duration from the file's own tags.
 
@@ -2448,6 +2455,9 @@ def _audio_tags(path: Path) -> dict:
                 "title": first("title"),
                 "artist": first("artist"),
                 "album": first("album"),
+                # "3" or "3/12" — only the position is wanted, for sorting
+                # a list by album the way the album plays.
+                "track": _track_no(first("tracknumber")),
                 "duration": round(audio.info.length, 1) if getattr(audio, "info", None) else None,
             }
     except Exception:
@@ -5252,6 +5262,7 @@ class GuitarSettings(BaseModel):
     muted: bool = False
     solo: bool = False
     threshold: float = -100.0
+    inputGainDb: float = 0.0
     compOn: bool = False
     compThreshold: float = -24.0
     compRatio: float = 4.0
@@ -5339,6 +5350,7 @@ def put_session(name: str, body: MixerSession):
         if gtr.get("guideVolume") is not None:
             gtr["guideVolume"] = max(0.0, min(1.4, float(gtr["guideVolume"])))
         gtr["instrVolume"] = max(0.0, min(1.0, float(gtr["instrVolume"])))
+        gtr["inputGainDb"] = max(-12.0, min(24.0, float(gtr["inputGainDb"])))
     try:
         (stems_dir / "session.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")

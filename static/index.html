@@ -597,7 +597,10 @@
   .fl-channel.fl-live{width:118px;--ch-color:#ffd166}
   .fl-channel.fl-live.flash{box-shadow:0 0 0 2px #ffd166}
   .fl-live-top{display:flex;gap:4px;align-items:center;justify-content:center}
-  .fl-live .gt-knob-row{gap:14px}
+  .fl-live .gt-knob-row{gap:2px;width:100%;align-items:flex-start}
+  .fl-live .gt-knob-wrap{flex:1;min-width:0}
+  .fl-live .gt-knob-label{white-space:nowrap;text-align:center;line-height:1.15}
+  .fl-live .gt-knob-label > span{display:block}
   .fl-live .gt-preset-name{max-width:104px;font-size:8px}
   .gt-rail-preset{font-size:9px;color:var(--nm-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .comp-panel .eq-head .comp-onoff.on{background:#ffd166;color:#1a1400;border-color:#ffd166}
@@ -2395,6 +2398,11 @@
     border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px;
     position:sticky;top:0;background:var(--bg2);z-index:2}
   .lib-thead .c-idx,.lib-thead .c-time{text-align:right}
+  .lib-thead button[data-lsort]{background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;
+    display:flex;align-items:center;gap:4px;min-width:0;text-align:left}
+  .lib-thead button[data-lsort]:hover{color:var(--text)}
+  .lib-thead button[data-lsort].sorted,.track-cols-head button[data-lsort].sorted{color:var(--accent)}
+  .lsort-arrow{font-size:10px;font-weight:600;text-transform:none;letter-spacing:0}
   .lib-trow{height:46px;border-radius:5px;cursor:pointer;font-size:13.5px;
     color:var(--sub)}
   .lib-trow:hover{background:var(--sp-hover)}
@@ -3168,9 +3176,9 @@
     <div class="lib-table" id="library-table">
       <div class="lib-thead">
         <span class="c-idx">#</span>
-        <span class="c-title">Název</span>
-        <span class="c-artist">Interpret</span>
-        <span class="c-album">Album</span>
+        <button type="button" class="c-title" data-lsort="title">Název</button>
+        <button type="button" class="c-artist" data-lsort="artist">Interpret</button>
+        <button type="button" class="c-album" data-lsort="album">Album</button>
         <span class="c-time" data-icon="clock" data-size="13"></span>
         <span class="c-act"></span>
       </div>
@@ -4009,6 +4017,63 @@
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
+// ---- Sorting a song list by its column headers --------------------------
+// One behaviour for every list with Skladba / Interpret / Album columns:
+//   Skladba:   A–Z → by album (album A–Z, then the album's own order) → off
+//   Interpret: A–Z (then album and its order) → off
+//   Album:     A–Z (then the album's own order) → off
+// "Off" is the list's own order. A missing value sorts last; the original
+// position breaks every tie, so albums without track numbers keep theirs.
+const ListSort = (() => {
+  const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
+  const txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
+  const no = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : 1e9; };
+  const LABEL = {title: "A–Z", titleByAlbum: "dle alba", artist: "A–Z", album: "A–Z"};
+
+  function sort(items, mode, get){
+    if(!mode || !LABEL[mode]) return items.slice();
+    const rows = items.map((it, i) => ({it, i, k: get(it)}));
+    const albumOrder = (a, b) => txt(a.k.album, b.k.album) || (no(a.k.track) - no(b.k.track));
+    const cmp = {
+      title: (a, b) => txt(a.k.title, b.k.title),
+      titleByAlbum: albumOrder,
+      album: albumOrder,
+      artist: (a, b) => txt(a.k.artist, b.k.artist) || albumOrder(a, b),
+    }[mode];
+    return rows.sort((a, b) => cmp(a, b) || (a.i - b.i)).map(r => r.it);
+  }
+
+  function next(mode, col){
+    if(col === "title") return mode === "title" ? "titleByAlbum" : mode === "titleByAlbum" ? null : "title";
+    return mode === col ? null : col;
+  }
+
+  // Header buttons carry data-lsort="title|artist|album"; each gets an
+  // arrow span. onChange(mode) re-renders the list.
+  function wire(head, getMode, onChange){
+    head.querySelectorAll("button[data-lsort]").forEach(btn => {
+      if(!btn.querySelector(".lsort-arrow")) btn.insertAdjacentHTML("beforeend", `<span class="lsort-arrow"></span>`);
+      btn.onclick = () => onChange(next(getMode(), btn.dataset.lsort));
+    });
+    paint(head, getMode());
+  }
+  function paint(head, mode){
+    head.querySelectorAll("button[data-lsort]").forEach(btn => {
+      const col = btn.dataset.lsort;
+      const on = mode === col || (col === "title" && mode === "titleByAlbum");
+      btn.classList.toggle("sorted", on);
+      btn.title = col === "title" ? "Řadit: A–Z → podle alba → původní pořadí" : "Řadit A–Z (znovu = původní pořadí)";
+      const arrow = btn.querySelector(".lsort-arrow");
+      if(arrow) arrow.textContent = on ? LABEL[mode] : "";
+    });
+  }
+  // The chosen order is remembered per list (a convenience, not data).
+  function load(key){ try{ return localStorage.getItem("spotdl-sort:" + key) || null; }catch(e){ return null; } }
+  function save(key, mode){ try{ mode ? localStorage.setItem("spotdl-sort:" + key, mode) : localStorage.removeItem("spotdl-sort:" + key); }catch(e){} }
+  return {sort, next, wire, paint, load, save};
+})();
+
+
 
 // ======================================================================
 // Curated categories
@@ -5605,6 +5670,7 @@ const TabsLib = (() => {
     try{ files = (await (await fetch("/api/tabfiles/list" + (refresh ? "?refresh=1" : ""))).json()).files || []; }catch(e){ files = []; }
     paintList();
   }
+  let sortMode = ListSort.load("tabs");
   function paintList(){
     const box = el("tabs-list");
     const q = norm(el("tabs-filter").value || "");
@@ -5615,9 +5681,11 @@ const TabsLib = (() => {
       return;
     }
     if(!shown.length){ box.innerHTML = `<div class="empty" style="padding:28px 10px">${q ? "Nic neodpovídá hledání." : "V namapovaných složkách nejsou žádné taby."}</div>`; return; }
-    box.innerHTML = `<div class="lib-thead tab-row"><span class="c-idx">#</span><span>Píseň</span><span>Interpret</span><span>Složka</span>
+    box.innerHTML = `<div class="lib-thead tab-row"><span class="c-idx">#</span><button type="button" data-lsort="title">Píseň</button>
+      <button type="button" data-lsort="artist">Interpret</button><button type="button" data-lsort="album">Složka</button>
       <span>Formát</span><span></span></div>`;
-    shown.slice(0, 1500).forEach((f, i) => {
+    ListSort.wire(box.querySelector(".lib-thead"), () => sortMode, (mode) => { sortMode = mode; ListSort.save("tabs", mode); paintList(); });
+    ListSort.sort(shown, sortMode, f => ({title: f.title, artist: f.artist, album: f.folder})).slice(0, 1500).forEach((f, i) => {
       const row = document.createElement("div");
       row.className = "lib-trow tab-row";
       row.innerHTML = `<span class="c-idx">${i + 1}</span>
@@ -8094,6 +8162,8 @@ const OTHER_FILE_ICON = (ext) =>
   : /^(zip|rar|7z|tar|gz)$/.test(ext) ? "\uD83D\uDDC3"
   : "\uD83D\uDCCE";
 
+let libSortMode = ListSort.load("library");
+
 function paintLibraryTable(){
   const list = el("library-list");
   const filter = norm(el("library-filter").value || "");
@@ -8105,7 +8175,13 @@ function paintLibraryTable(){
       .some(v => v && norm(v).includes(filter));
   });
 
-  const tracks = entries.filter(e => e.type === "file");
+  const tracks = ListSort.sort(entries.filter(e => e.type === "file"), libSortMode, e => {
+    const m = libraryTrackMeta(e.name, e.rel);
+    return {title: e.title || m.title, artist: e.artist || m.artists, album: e.album, track: e.track};
+  });
+  ListSort.wire(document.querySelector("#library-table .lib-thead"), () => libSortMode, (mode) => {
+    libSortMode = mode; ListSort.save("library", mode); paintLibraryTable();
+  });
   const folders = entries.filter(e => e.type === "dir");
   const namPresets = entries.filter(e => e.type === "nam");
   const others = entries.filter(e => e.type === "other");
@@ -13090,6 +13166,7 @@ const Mixer = (() => {
       Guitar.state.muted = !!gt.muted;
       Guitar.state.solo = !!gt.solo;
       Guitar.state.threshold = gt.threshold ?? Guitar.state.threshold;
+      Guitar.setInputGain(gt.inputGainDb ?? 0);
       Guitar.state.compOn = !!gt.compOn;
       Guitar.state.compThreshold = gt.compThreshold ?? Guitar.state.compThreshold;
       Guitar.state.compRatio = gt.compRatio ?? Guitar.state.compRatio;
@@ -13703,7 +13780,7 @@ const Mixer = (() => {
         volume: Guitar.state.volume, pan: Guitar.state.pan,
         guideVolume: Guitar.state.guideVolume,
         muted: Guitar.state.muted, solo: Guitar.state.solo,
-        threshold: Guitar.state.threshold,
+        threshold: Guitar.state.threshold, inputGainDb: Guitar.state.inputGainDb,
         compOn: Guitar.state.compOn, compThreshold: Guitar.state.compThreshold,
         compRatio: Guitar.state.compRatio, compAttack: Guitar.state.compAttack,
         compRelease: Guitar.state.compRelease,
@@ -14849,6 +14926,7 @@ const Mixer = (() => {
   const Guitar = (() => {
     let stream = null;
     let source = null;
+    let inGain = null;        // input gain (drive into gate / comp / amp)
     let gateNode = null;      // guitar-processor
     let compNode = null;      // native DynamicsCompressorNode, gate -> comp -> amp
     let compMakeup = null;    // its make-up gain
@@ -14894,6 +14972,7 @@ const Mixer = (() => {
       deviceId: null, deviceLabel: null, live: false,
       volume: 0.9, pan: 0, muted: false, solo: false,
       threshold: -100,          // gate off until it is asked for
+      inputGainDb: 0,           // the GAIN knob, -12 … +24 dB
       compOn: false, compThreshold: -24, compRatio: 4, compAttack: 0.02, compRelease: 0.25,
       compKnee: 6, compMakeup: 0,
       ampName: null, ampFile: null, cabName: null,
@@ -14975,9 +15054,9 @@ const Mixer = (() => {
       // suppression are built for speech: they duck, they gate, and they
       // resample — on a guitar they destroy the dynamics that make it worth
       // plugging in. Auto gain fights the volume knob.
-      stream = await navigator.mediaDevices.getUserMedia({
+      const ask = (id) => navigator.mediaDevices.getUserMedia({
         audio: {
-          deviceId: deviceId ? {exact: deviceId} : undefined,
+          deviceId: id ? {exact: id} : undefined,
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -14986,6 +15065,16 @@ const Mixer = (() => {
         },
         video: false,
       });
+      try{
+        stream = await ask(deviceId);
+      }catch(e){
+        // A remembered interface that is unplugged, swapped or re-enumerated
+        // (Chrome's ids change) can't be opened "exactly" — fall back to the
+        // system's default input rather than not opening anything.
+        if(!deviceId || !(e && (e.name === "OverconstrainedError" || e.name === "NotFoundError"))) throw e;
+        stream = await ask(null);
+        showToast("Uložená zvukovka nenalezena — používám výchozí vstup");
+      }
 
       const track = stream.getAudioTracks()[0];
       state.deviceId = track.getSettings().deviceId || deviceId || null;
@@ -14993,6 +15082,8 @@ const Mixer = (() => {
 
       source = audioCtx.createMediaStreamSource(stream);
       instrTap = audioCtx.createGain();
+      inGain = audioCtx.createGain();
+      inGain.gain.value = Math.pow(10, state.inputGainDb / 20);
       if(!dryGain) dryGain = audioCtx.createGain();
       // Unplugged interface: the track ends on its own. Stop like the power
       // button would, so the instrument is stopped and released too.
@@ -15040,7 +15131,7 @@ const Mixer = (() => {
       // that when the very first thing done is plugging the guitar in.
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
-      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, dryGain, instrOut, gainNode, pannerNode, analyser, virtualSource,
+      [source, inGain, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, dryGain, instrOut, gainNode, pannerNode, analyser, virtualSource,
        guideAmp, guideCab, guideOut, fxChain && fxChain.output,
        ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
@@ -15048,6 +15139,10 @@ const Mixer = (() => {
       // Live input chain
       if(source){
         let node = source;
+        // GAIN drives everything after it — gate, comp and above all the
+        // amp model, which reacts to input level like a real one. The
+        // instrument's tap stays on the raw source below.
+        if(inGain){ node.connect(inGain); node = inGain; }
         node.connect(gateNode); node = gateNode;
         if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
         if(ampNode){ node.connect(ampNode); node = ampNode; }
@@ -15159,8 +15254,9 @@ const Mixer = (() => {
 
     async function stop(){
       if(recording) await stopRecording();
-      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
+      [source, inGain, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+      inGain = null;
       if(gateNode) gateNode.port.postMessage("stop");
       // The instrument is bound to this input: stop it, release it, and let
       // the next start() build a fresh one on the new source.
@@ -15202,6 +15298,11 @@ const Mixer = (() => {
         .then(lib => { instrStatus.groups = lib.nastrojePodleKategorii(); return lib; })
         .catch(e => { instrLib = null; throw e; });
       return instrLib;
+    }
+
+    function setInputGain(db){
+      state.inputGainDb = Math.max(-12, Math.min(24, db));
+      if(inGain) inGain.gain.setTargetAtTime(Math.pow(10, state.inputGainDb / 20), ctxRef().currentTime, 0.01);
     }
 
     function applyDry(){
@@ -15373,6 +15474,7 @@ const Mixer = (() => {
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
+      setInputGain,
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
       instrumentRunning: () => !!(instrNode && instrNode.bezi),
@@ -15443,6 +15545,8 @@ const Mixer = (() => {
   // Everything that shapes the guitar's sound lives here, the same way a
   // stem's does: level, pan, M/S, EQ, compressor, mono and the doubler —
   // plus the guitar-only bits (input, gate, NAM preset, guide, tuner).
+  function fmtGainDb(db){ return (db > 0 ? "+" : "") + db + " dB"; }
+
   function liveFaderHtml(){
     const g = Guitar.state, fx = Guitar.fx();
     const vol = g.volume;
@@ -15478,6 +15582,11 @@ const Mixer = (() => {
         <button class="fl-ms-btn solo ${g.solo ? "active" : ""}" data-act="solo" title="Solo">S</button>
       </div>
       <div class="gt-knob-row">
+        <div class="gt-knob-wrap">
+          <div class="gt-knob" id="gt-gain-knob" tabindex="0"
+            title="Vstupní zesílení (gain) před zesilovačem — táhni svisle, dvojklik = 0 dB"></div>
+          <span class="gt-knob-label">GAIN <span id="gt-gain-val">${fmtGainDb(g.inputGainDb)}</span></span>
+        </div>
         <div class="gt-knob-wrap">
           <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
           <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
@@ -15558,6 +15667,21 @@ const Mixer = (() => {
       min: 0, max: 1.2, get: () => g.guideVolume,
       set: (v) => { Guitar.setGuideVolume(v); queueSessionSave(); },
     });
+    const gainKnob = el("gt-gain-knob");
+    wireKnob(gainKnob, {
+      min: -12, max: 24, get: () => g.inputGainDb,
+      set: (v) => {
+        Guitar.setInputGain(Math.round(v * 2) / 2);
+        el("gt-gain-val").textContent = fmtGainDb(g.inputGainDb);
+        queueSessionSave();
+      },
+    });
+    gainKnob.ondblclick = () => {
+      Guitar.setInputGain(0);
+      el("gt-gain-val").textContent = fmtGainDb(0);
+      gainKnob.style.setProperty("--rot", (-135 + (12 / 36) * 270) + "deg");
+      queueSessionSave();
+    };
     wireKnob(el("gt-gate-knob"), {
       min: -100, max: -20, get: () => g.threshold,
       set: (v) => {
@@ -15689,9 +15813,10 @@ const Mixer = (() => {
       await Guitar.start(g.deviceId || null);
       showToast(`Vstup: ${Guitar.state.deviceLabel}`);
     }catch(e){
-      showToast(e && e.name === "NotAllowedError"
-        ? "Prohlížeč nepustil mikrofonní vstup"
-        : "Vstup se nepodařilo otevřít");
+      console.error("Guitar input:", e);
+      showToast(e && e.name === "NotAllowedError" ? "Prohlížeč nepustil mikrofonní vstup"
+        : e && e.name === "NotReadableError" ? "Zvukovku drží jiná aplikace nebo je odpojená"
+        : `Vstup se nepodařilo otevřít (${e && e.name || "chyba"})`);
     }
   }
 
@@ -16478,9 +16603,9 @@ function renderPlaylistPanel(p){
         <a id="toggle-all">zrušit vše</a>
       </div>
       <div class="track-cols-head track-cols">
-        <span>Skladba</span>
-        <button type="button" data-sort="artists">Interpret<span class="sort-arrow" id="sort-arrow-artists"></span></button>
-        <button type="button" data-sort="album">Album<span class="sort-arrow" id="sort-arrow-album"></span></button>
+        <button type="button" data-lsort="title">Skladba</button>
+        <button type="button" data-lsort="artist">Interpret</button>
+        <button type="button" data-lsort="album">Album</button>
         <button type="button" data-sort="year">Rok<span class="sort-arrow" id="sort-arrow-year"></span></button>
         <span></span><span></span><span></span>
       </div>
@@ -16500,9 +16625,8 @@ function renderPlaylistPanel(p){
     const container = el("tracks-container");
     container.innerHTML = "";
     let tracks = originalTracks;
-    if(sortKey === "artists" || sortKey === "album"){
-      tracks = originalTracks.slice().sort((a, b) =>
-        (a[sortKey] || "").localeCompare(b[sortKey] || "", "cs", {sensitivity: "base"}));
+    if(sortKey && sortKey !== "year"){
+      tracks = ListSort.sort(originalTracks, sortKey, t => ({title: t.title, artist: t.artists, album: t.album}));
     } else if(sortKey === "year"){
       // No year at all sorts last regardless of direction — "unknown"
       // isn't meaningfully "older" than anything.
@@ -16514,19 +16638,16 @@ function renderPlaylistPanel(p){
       });
     }
     tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title, p.browseId)));
-    panel.querySelectorAll(".track-cols-head button").forEach(btn => {
-      btn.classList.toggle("sorted", btn.dataset.sort === sortKey);
-    });
-    ["artists", "album", "year"].forEach(k => {
-      el(`sort-arrow-${k}`).textContent = k === sortKey ? (k === "year" ? "↓" : "A–Z") : "";
-    });
+    const yearBtn = panel.querySelector('.track-cols-head button[data-sort="year"]');
+    yearBtn.classList.toggle("sorted", sortKey === "year");
+    el("sort-arrow-year").textContent = sortKey === "year" ? "↓" : "";
+    ListSort.paint(panel.querySelector(".track-cols-head"), sortKey);
   }
-  panel.querySelectorAll(".track-cols-head button[data-sort]").forEach(btn => {
-    btn.onclick = () => {
-      sortKey = sortKey === btn.dataset.sort ? null : btn.dataset.sort;
-      applySort();
-    };
-  });
+  ListSort.wire(panel.querySelector(".track-cols-head"), () => sortKey, (mode) => { sortKey = mode; applySort(); });
+  panel.querySelector('.track-cols-head button[data-sort="year"]').onclick = () => {
+    sortKey = sortKey === "year" ? null : "year";
+    applySort();
+  };
   el("fav-toggle").onclick = () => {
     const added = toggleFavPlaylist({
       browseId: p.browseId, title: p.title, author: p.author, thumbnail: p.thumbnail,

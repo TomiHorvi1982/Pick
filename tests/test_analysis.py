@@ -438,13 +438,14 @@ def test_the_live_guitar_settings_round_trip(client, tmp_music_root):
     stems.mkdir(parents=True)
 
     client.put("/api/stems/Song/session", json={"channels": [], "guitar": {
-        "volume": 0.7, "guideVolume": 0.35,
+        "volume": 0.7, "guideVolume": 0.35, "inputGainDb": 9.5,
         "instrOn": True, "instrId": "harpsichord_baroque",
         "instrVolume": 0.6, "instrReplace": True,
     }})
 
     gtr = client.get("/api/stems/Song/session").json()["guitar"]
     assert gtr["guideVolume"] == 0.35
+    assert gtr["inputGainDb"] == 9.5
     assert gtr["instrOn"] is True
     assert gtr["instrId"] == "harpsichord_baroque"
     assert gtr["instrVolume"] == 0.6
@@ -456,8 +457,9 @@ def test_guitar_levels_out_of_range_are_clamped(client, tmp_music_root):
     stems.mkdir(parents=True)
 
     gtr = client.put("/api/stems/Song/session", json={"channels": [], "guitar": {
-        "guideVolume": 14.0, "instrVolume": 8.0,
+        "guideVolume": 14.0, "instrVolume": 8.0, "inputGainDb": 60.0,
     }}).json()["guitar"]
+    assert gtr["inputGainDb"] == 24.0
     assert gtr["guideVolume"] == 1.4
     assert gtr["instrVolume"] == 1.0
 
