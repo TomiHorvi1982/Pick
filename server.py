@@ -4726,6 +4726,16 @@ def _finalize_stems_job(job: dict) -> None:
     if dest_dir.exists():
         shutil.rmtree(dest_dir)
     shutil.move(str(raw_track_dir), str(dest_dir))
+    # Who and what this is, while the source file is still known — it may
+    # be moved or renamed later.
+    tags = _audio_tags(source) if source.is_file() else {}
+    if tags.get("title") or tags.get("artist"):
+        try:
+            (dest_dir / "meta.json").write_text(json.dumps({
+                "artist": tags.get("artist"), "title": tags.get("title"),
+                "album": tags.get("album")}, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
 
 
 # ------------------------------------------------------------ separation queue
@@ -4927,6 +4937,92 @@ def stems_queue():
     return {"jobs": out, "active": waiting}
 
 
+# ------------------------------------------------------- what a stem set is
+#
+# A stem folder's name is whatever the source file was called ("06
+# Propaganda", "Nothing Else Matters"), which is a poor thing to sort or
+# group by. Its artist / title / album come, in order of trust, from:
+#   1. meta.json in the folder with "manual": true — typed by the user;
+#   2. meta.json written when the separation finished (the source's tags);
+#   3. the tags of a library file with the same name, if there is one;
+#   4. a guess from the folder name ("Artist - Title").
+# The folder itself is never renamed: saved mixes, tab links and offsets
+# all hang off its name.
+_STEMS_SOURCE_INDEX: dict = {"at": 0.0, "map": {}}
+
+
+def _stems_source_index() -> dict:
+    """safe name → a library audio file with that name (refreshed each minute)."""
+    now = time.time()
+    if now - _STEMS_SOURCE_INDEX["at"] < 60 and _STEMS_SOURCE_INDEX.get("root") == str(MUSIC_ROOT):
+        return _STEMS_SOURCE_INDEX["map"]
+    found: dict = {}
+    try:
+        for dirpath, dirnames, filenames in os.walk(MUSIC_ROOT):
+            dirnames[:] = [d for d in dirnames if not d.startswith(".") and not (
+                Path(dirpath) == MUSIC_ROOT and d == "Stems")]
+            for fn in filenames:
+                p = Path(dirpath) / fn
+                if p.suffix.lower() in AUDIO_EXTS and not fn.startswith("."):
+                    found.setdefault(_safe_name(p.stem), p)
+    except OSError:
+        pass
+    _STEMS_SOURCE_INDEX.update(at=now, map=found, root=str(MUSIC_ROOT))
+    return found
+
+
+def _guess_from_name(name: str) -> dict:
+    base = _re_mod.sub(r"^\s*\d{1,3}[\s._-]+", "", name).strip() or name
+    if " - " in base:
+        artist, title = base.split(" - ", 1)
+        return {"artist": artist.strip(), "title": title.strip(), "album": None}
+    return {"artist": None, "title": base, "album": None}
+
+
+def _stems_meta(d: Path) -> dict:
+    meta_file = d / "meta.json"
+    if meta_file.is_file():
+        try:
+            m = json.loads(meta_file.read_text(encoding="utf-8"))
+            return {"artist": m.get("artist") or None, "title": m.get("title") or None,
+                    "album": m.get("album") or None,
+                    "source": "manual" if m.get("manual") else "tags"}
+        except (OSError, ValueError):
+            pass
+    src = _stems_source_index().get(d.name)
+    if src is not None:
+        tags = _audio_tags(src)
+        if tags.get("title") or tags.get("artist"):
+            return {"artist": tags.get("artist"), "title": tags.get("title") or d.name,
+                    "album": tags.get("album"), "source": "tags"}
+    return {**_guess_from_name(d.name), "source": "name"}
+
+
+class StemsMeta(BaseModel):
+    artist: Optional[str] = None
+    title: Optional[str] = None
+    album: Optional[str] = None
+
+
+@app.put("/api/stems/{name}/meta")
+def put_stems_meta(name: str, body: StemsMeta):
+    """Artist / title / album typed by the user. All three empty = back to
+    the automatic ones."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    clean = {k: (v or "").strip()[:200] or None for k, v in body.model_dump().items()}
+    meta_file = d / "meta.json"
+    try:
+        if not any(clean.values()):
+            meta_file.unlink(missing_ok=True)
+        else:
+            meta_file.write_text(json.dumps({**clean, "manual": True}, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        return JSONResponse({"error": f"Uložení selhalo: {e}"}, status_code=500)
+    return {"name": name, "meta": _stems_meta(d)}
+
+
 @app.get("/api/stems")
 def list_stems():
     stems_root = MUSIC_ROOT / "Stems"
@@ -4954,6 +5050,10 @@ def list_stems():
                 missing.append(stem)
         if not present:
             continue
+        # A project opened from a single file has none of the separated
+        # stems at all — that is what it is, not an incomplete separation.
+        if not any(s in present for s in STEM_NAMES):
+            missing = []
         try:
             mtime = d.stat().st_mtime
         except OSError:
@@ -4968,6 +5068,9 @@ def list_stems():
             "size_bytes": total_bytes,
             "modified": mtime,
             "rel": f"Stems/{d.name}",
+            "meta": _stems_meta(d),
+            "labels": _track_labels(d),
+            "edited": _edited_stems(d),
         })
     return out
 
@@ -5440,6 +5543,8 @@ class GuitarSettings(BaseModel):
     solo: bool = False
     threshold: float = -100.0
     inputGainDb: float = 0.0
+    inputChannel: str = "auto"
+    activeChannel: int = 0
     compOn: bool = False
     compThreshold: float = -24.0
     compRatio: float = 4.0
@@ -5528,6 +5633,9 @@ def put_session(name: str, body: MixerSession):
             gtr["guideVolume"] = max(0.0, min(1.4, float(gtr["guideVolume"])))
         gtr["instrVolume"] = max(0.0, min(1.0, float(gtr["instrVolume"])))
         gtr["inputGainDb"] = max(-12.0, min(24.0, float(gtr["inputGainDb"])))
+        if gtr.get("inputChannel") not in ("auto", "1", "2", "sum"):
+            gtr["inputChannel"] = "auto"
+        gtr["activeChannel"] = 1 if gtr.get("activeChannel") == 1 else 0
     try:
         (stems_dir / "session.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -5547,6 +5655,222 @@ def reset_session(name: str):
         pass
     return {"channels": [], "loop": None, "pixelsPerSecond": None,
             "tempo": None, "saved": False}
+
+
+# ---------------------------------------------- tracks from any audio file
+#
+# Any audio file can join a song's mix as one more track, or start a mix of
+# its own. It is stored like a recorded take (take-N.mp3, 320k) so it plays
+# through the same path as every stem; its own name is kept in tracks.json.
+TRACK_LABELS = "tracks.json"
+ORIG_DIR = ".orig"
+
+
+def _track_labels(d: Path) -> dict:
+    try:
+        data = json.loads((d / TRACK_LABELS).read_text(encoding="utf-8"))
+        return {k: str(v) for k, v in data.items() if isinstance(k, str)}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def _set_track_label(d: Path, stem: str, label: Optional[str]) -> None:
+    labels = _track_labels(d)
+    if label:
+        labels[stem] = label[:120]
+    else:
+        labels.pop(stem, None)
+    try:
+        (d / TRACK_LABELS).write_text(json.dumps(labels, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _edited_stems(d: Path) -> list:
+    o = d / ORIG_DIR
+    if not o.is_dir():
+        return []
+    return sorted({p.stem for p in o.iterdir() if p.suffix.lower() in STEM_READ_EXTS})
+
+
+def _encode_to_stem(src: Path, target: Path) -> Optional[str]:
+    """Any audio ffmpeg can read → 320k MP3 at target. Returns an error or None."""
+    try:
+        proc = subprocess.run(
+            [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error", "-i", str(src),
+             "-vn", "-codec:a", "libmp3lame", "-b:a", "320k", str(target)],
+            capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"Převod selhal: {exc}"
+    if proc.returncode != 0 or not target.is_file() or target.stat().st_size < 1024:
+        target.unlink(missing_ok=True)
+        detail = (proc.stderr or "").strip().splitlines()[-1:] or ["neznámá chyba"]
+        return f"Převod selhal: {detail[0][:200]}"
+    return None
+
+
+def _add_track_from(stems_dir: Path, src: Path, label: str):
+    take = _next_take_name(stems_dir)
+    err = _encode_to_stem(src, stems_dir / f"{take}.mp3")
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    _set_track_label(stems_dir, take, label)
+    return {"stem": take, "label": label, "takes": _takes_in(stems_dir)}
+
+
+async def _upload_to_temp(upload: UploadFile) -> Path:
+    data = await upload.read()
+    if len(data) < 1024:
+        raise ValueError("Soubor je prázdný.")
+    if len(data) > 800 * 1024 * 1024:
+        raise ValueError("Soubor je příliš velký.")
+    suffix = Path(upload.filename or "").suffix or ".bin"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(data)
+        return Path(tmp.name)
+
+
+class LibraryFileRequest(BaseModel):
+    rel: str
+
+
+@app.post("/api/stems/{name}/tracks/upload")
+async def add_track_upload(name: str, file: UploadFile = File(...)):
+    """A file from the computer becomes a new track of this song."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        tmp = await _upload_to_temp(file)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        return _add_track_from(stems_dir, tmp, Path(file.filename or "Stopa").stem)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+@app.post("/api/stems/{name}/tracks/library")
+def add_track_library(name: str, req: LibraryFileRequest):
+    """A file from the library becomes a new track of this song."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    src = _resolve_under_music_root(req.rel)
+    if src is None or not src.is_file():
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return _add_track_from(stems_dir, src, src.stem)
+
+
+def _new_project_dir(base: str) -> Path:
+    root = MUSIC_ROOT / "Stems"
+    root.mkdir(parents=True, exist_ok=True)
+    name = _safe_name(base)
+    d, n = root / name, 2
+    while d.exists():
+        d = root / f"{name} ({n})"
+        n += 1
+    d.mkdir()
+    return d
+
+
+def _new_project_from(src: Path, label: str):
+    d = _new_project_dir(label)
+    res = _add_track_from(d, src, label)
+    if isinstance(res, JSONResponse):
+        shutil.rmtree(d, ignore_errors=True)
+        return res
+    tags = _audio_tags(src) if src.is_file() else {}
+    try:
+        (d / "meta.json").write_text(json.dumps({
+            "artist": tags.get("artist"), "title": tags.get("title") or label,
+            "album": tags.get("album")}, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return {"name": d.name, **res}
+
+
+@app.post("/api/stems/new/library")
+def new_project_library(req: LibraryFileRequest):
+    """Opens a library file in the mixer as a project of its own."""
+    src = _resolve_under_music_root(req.rel)
+    if src is None or not src.is_file():
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return _new_project_from(src, src.stem)
+
+
+@app.post("/api/stems/new/upload")
+async def new_project_upload(file: UploadFile = File(...)):
+    try:
+        tmp = await _upload_to_temp(file)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        return _new_project_from(tmp, Path(file.filename or "Projekt").stem)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+@app.put("/api/stems/{name}/{stem}/audio")
+async def save_edited_stem(name: str, stem: str, request: Request):
+    """A track edited in the mixer (cut, paste, fades…), sent back as WAV.
+    The first edit keeps the original in .orig/ so it can be restored."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    if not _re_mod.fullmatch(r"[A-Za-z0-9_-]{1,40}", stem):
+        return JSONResponse({"error": "Neplatná stopa."}, status_code=400)
+    current = _stem_file(stems_dir, stem)
+    if current is None:
+        return JSONResponse({"error": "Stopa nenalezena."}, status_code=404)
+    raw = await request.body()
+    if len(raw) < 44:
+        return JSONResponse({"error": "Prázdná stopa."}, status_code=400)
+    if len(raw) > 1500 * 1024 * 1024:
+        return JSONResponse({"error": "Stopa je příliš velká."}, status_code=413)
+    orig = stems_dir / ORIG_DIR
+    if stem not in _edited_stems(stems_dir):
+        orig.mkdir(exist_ok=True)
+        shutil.copy2(current, orig / current.name)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    target = stems_dir / f"{stem}.mp3"
+    staged = stems_dir / f".{stem}.saving.mp3"
+    try:
+        err = _encode_to_stem(tmp_path, staged)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+    os.replace(staged, target)
+    # Older WAV/FLAC copies of the same stem would shadow nothing (MP3 wins)
+    # but would confuse a restore; the original is safe in .orig/.
+    for ext in STEM_READ_EXTS:
+        other = stems_dir / f"{stem}{ext}"
+        if other != target and other.exists():
+            other.unlink()
+    return {"stem": stem, "bytes": target.stat().st_size, "edited": _edited_stems(stems_dir)}
+
+
+@app.post("/api/stems/{name}/{stem}/restore")
+def restore_stem(name: str, stem: str):
+    """Back to the track as it was before the first edit."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    orig = stems_dir / ORIG_DIR
+    backup = next((orig / f"{stem}{ext}" for ext in STEM_READ_EXTS if (orig / f"{stem}{ext}").is_file()), None)
+    if backup is None:
+        return JSONResponse({"error": "Původní verze není uložená."}, status_code=404)
+    for ext in STEM_READ_EXTS:
+        (stems_dir / f"{stem}{ext}").unlink(missing_ok=True)
+    shutil.move(str(backup), str(stems_dir / backup.name))
+    try:
+        orig.rmdir()
+    except OSError:
+        pass
+    return {"stem": stem, "edited": _edited_stems(stems_dir)}
 
 
 @app.post("/api/stems/{name}/record")
@@ -5615,6 +5939,9 @@ def delete_take(name: str, take: str):
         path.unlink()
     except OSError as exc:
         return JSONResponse({"error": f"Smazání selhalo: {exc}"}, status_code=500)
+    _set_track_label(stems_dir, take, None)
+    for ext in STEM_READ_EXTS:
+        (stems_dir / ORIG_DIR / f"{take}{ext}").unlink(missing_ok=True)
     return {"takes": _takes_in(stems_dir)}
 
 

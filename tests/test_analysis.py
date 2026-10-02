@@ -464,6 +464,14 @@ def test_guitar_levels_out_of_range_are_clamped(client, tmp_music_root):
     assert gtr["instrVolume"] == 1.0
 
 
+def test_the_guitar_input_channel_round_trips_and_rejects_nonsense(client, tmp_music_root):
+    (tmp_music_root / "Stems" / "Song").mkdir(parents=True)
+    put = lambda g: client.put("/api/stems/Song/session", json={"channels": [], "guitar": g}).json()["guitar"]
+    assert (put({"inputChannel": "2", "activeChannel": 1})["inputChannel"], put({"inputChannel": "2", "activeChannel": 1})["activeChannel"]) == ("2", 1)
+    bad = put({"inputChannel": "left", "activeChannel": 7})
+    assert (bad["inputChannel"], bad["activeChannel"]) == ("auto", 0)
+
+
 def test_an_old_mix_without_a_guide_level_leaves_it_unset(client, tmp_music_root):
     stems = tmp_music_root / "Stems" / "Song"
     stems.mkdir(parents=True)
