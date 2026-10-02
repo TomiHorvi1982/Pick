@@ -19955,6 +19955,33 @@ renderLibraryRail(state.mode);
 // history here — otherwise "back" stays dead until the second navigation.
 pushNav("mode:" + state.mode, () => setMode(state.mode));
 
+// A link straight into a section or a song's mix: #sekce=<key> opens a
+// side-panel section, #steems=<song> opens a song in Steems, and
+// &panel=nastroj also opens the live guitar's "Kytara jako nástroj" panel
+// once the fader is there. The hash is cleared so a reload doesn't repeat it.
+(() => {
+  const h = new URLSearchParams(location.hash.slice(1));
+  const song = h.get("steems"), mode = h.get("sekce");
+  if(!song && !(mode && RAIL_SECTIONS.some(sec => sec.key === mode))) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  // #sekce=tabs (or any rail section key) just opens that section.
+  if(!song){ setMode(mode); return; }
+  openSteemsSong(song);
+  if(h.get("panel") !== "nastroj") return;
+  const started = Date.now();
+  const wait = setInterval(() => {
+    const btn = el("gt-instr-btn");
+    if(btn && !el("instr-popover")){
+      clearInterval(wait);
+      // The fader strips may be folded away; the panel anchors to the button.
+      if(el("fl-channels").hidden) el("fl-strips-toggle").click();
+      btn.scrollIntoView({block: "center"});
+      btn.click();
+    }
+    else if(Date.now() - started > 60000) clearInterval(wait);
+  }, 300);
+})();
+
 // ======================================================================
 // Remote control agent.
 //
