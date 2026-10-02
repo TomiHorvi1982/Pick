@@ -4454,6 +4454,238 @@ def push_remote_state(body: RemoteState):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- ToneRig
+#
+# ToneRig (the NAM pedalboard app on the iPhone) can't tell anyone which
+# preset it is on — but it recalls presets 1–8 by MIDI Learn. So the presets
+# are switched from here: the Mac app sends ToneRig the MIDI message for a
+# preset (Web MIDI → a network MIDI session or the interface's MIDI out) and
+# therefore knows which one is on. The buttons can also be on the phone: a
+# tiny page on its own port, reachable on the home network only while it is
+# switched on and only with the secret token in its address. Nothing else of
+# the app is served there.
+TONERIG_LAN_PORT = 8767
+_tonerig = {"seq": 0, "events": [], "server": None, "thread": None}
+_tonerig_lock = threading.Lock()
+
+
+def _tonerig_cfg() -> dict:
+    cfg = dict(_read_config().get("tonerig") or {})
+    presets = list(cfg.get("presets") or [])[:8]
+    presets += [""] * (8 - len(presets))
+    out = {
+        "mode": cfg.get("mode") if cfg.get("mode") in ("pc", "cc", "note") else "pc",
+        "channel": max(1, min(16, int(cfg.get("channel") or 1))),
+        "cc": max(0, min(127, int(cfg.get("cc") or 0))),
+        "base": max(0, min(120, int(cfg.get("base") or 0))),
+        "output": str(cfg.get("output") or ""),
+        "presets": [str(x or "")[:40] for x in presets],
+        "active": cfg.get("active") if isinstance(cfg.get("active"), int) and 0 <= cfg.get("active") < 8 else None,
+        "external": bool(cfg.get("external")),
+        "lan": bool(cfg.get("lan")),
+        "token": str(cfg.get("token") or ""),
+    }
+    return out
+
+
+def _tonerig_save(patch: dict) -> dict:
+    cfg = _tonerig_cfg()
+    cfg.update(patch)
+    _write_config({"tonerig": cfg})
+    return cfg
+
+
+def _lan_ip() -> Optional[str]:
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))        # no packet is sent; it picks the route
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def _tonerig_public(cfg: dict) -> dict:
+    ip = _lan_ip()
+    running = _tonerig["server"] is not None
+    return {**{k: v for k, v in cfg.items() if k != "token"},
+            "lanRunning": running,
+            "phoneUrl": f"http://{ip}:{TONERIG_LAN_PORT}/t/{cfg['token']}" if (running and ip and cfg["token"]) else None}
+
+
+def _tonerig_select(i: int, source: str) -> dict:
+    if not 0 <= i < 8:
+        return {"error": "Preset 1–8."}
+    with _tonerig_lock:
+        _tonerig["seq"] += 1
+        _tonerig["events"].append({"seq": _tonerig["seq"], "i": i, "source": source})
+        _tonerig["events"] = _tonerig["events"][-20:]
+    cfg = _tonerig_save({"active": i})
+    return {"ok": True, "active": i, "name": cfg["presets"][i], "seq": _tonerig["seq"]}
+
+
+class ToneRigSettings(BaseModel):
+    mode: Optional[str] = None
+    channel: Optional[int] = None
+    cc: Optional[int] = None
+    base: Optional[int] = None
+    output: Optional[str] = None
+    presets: Optional[List[str]] = None
+    external: Optional[bool] = None
+
+
+class ToneRigSelect(BaseModel):
+    i: int
+
+
+@app.get("/api/tonerig")
+def tonerig_get():
+    return _tonerig_public(_tonerig_cfg())
+
+
+@app.put("/api/tonerig")
+def tonerig_put(body: ToneRigSettings):
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    _tonerig_save(patch)
+    return _tonerig_public(_tonerig_cfg())
+
+
+@app.post("/api/tonerig/select")
+def tonerig_select(body: ToneRigSelect):
+    res = _tonerig_select(body.i, "mac")
+    return JSONResponse(res, status_code=400) if "error" in res else res
+
+
+@app.get("/api/tonerig/pending")
+def tonerig_pending(since: int = 0):
+    """For the Mac app: presets picked (on the phone) that still need their
+    MIDI message sent."""
+    with _tonerig_lock:
+        ev = [e for e in _tonerig["events"] if e["seq"] > since]
+        seq = _tonerig["seq"]
+    cfg = _tonerig_cfg()
+    return {"seq": seq, "events": ev, "active": cfg["active"],
+            "name": cfg["presets"][cfg["active"]] if cfg["active"] is not None else None}
+
+
+# -- the phone's page, on its own port
+tonerig_app = FastAPI()
+
+
+def _tonerig_token_ok(token: str) -> bool:
+    import hmac
+    cfg = _tonerig_cfg()
+    # Switched off means refused at once — the port itself may take a moment
+    # to close while the phone still holds a connection open.
+    return cfg["lan"] and bool(cfg["token"]) and hmac.compare_digest(token, cfg["token"])
+
+
+_TONERIG_PAGE = r"""<!doctype html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes"><title>ToneRig presety</title>
+<style>
+:root{color-scheme:dark}body{margin:0;background:#0d0d10;color:#eee;font-family:-apple-system,system-ui,sans-serif;padding:16px}
+h1{font-size:17px;margin:4px 0 2px}p{margin:0 0 14px;color:#888;font-size:13px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{background:#1d1d24;color:#eee;border:1px solid #33333d;border-radius:14px;padding:18px 10px;font-size:16px;text-align:left;min-height:84px}
+button b{display:block;font-size:26px;color:#666}button.on{background:#123a22;border-color:#1ed760}button.on b{color:#1ed760}
+#st{margin-top:14px;font-size:12px;color:#777}
+</style></head><body>
+<h1>ToneRig presety</h1><p>Klepnutím přepneš preset v ToneRigu — přes Mac (MIDI).</p>
+<div class="g" id="g"></div><div id="st"></div>
+<script>
+const base = location.pathname.replace(/\/$/, "");
+let st = null;
+function paint(){
+  const g = document.getElementById("g"); g.innerHTML = "";
+  st.presets.forEach((n, i) => { const b = document.createElement("button");
+    b.className = st.active === i ? "on" : ""; b.innerHTML = "<b>" + (i + 1) + "</b>" + (n ? n.replace(/</g, "&lt;") : "Preset " + (i + 1));
+    b.onclick = () => pick(i); g.appendChild(b); });
+}
+async function load(){ try{ st = await (await fetch(base + "/state")).json(); paint(); document.getElementById("st").textContent = ""; }
+  catch(e){ document.getElementById("st").textContent = "Mac nedostupný — běží aplikace a ovladač je zapnutý?"; } }
+async function pick(i){ st.active = i; paint(); try{ await fetch(base + "/select", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({i})}); }catch(e){} }
+load(); setInterval(load, 2500);
+</script></body></html>"""
+
+
+@tonerig_app.get("/t/{token}")
+def tonerig_phone_page(token: str):
+    if not _tonerig_token_ok(token):
+        return JSONResponse({"error": "Neplatný odkaz."}, status_code=403)
+    return HTMLResponse(_TONERIG_PAGE)
+
+
+@tonerig_app.get("/t/{token}/state")
+def tonerig_phone_state(token: str):
+    if not _tonerig_token_ok(token):
+        return JSONResponse({"error": "Neplatný odkaz."}, status_code=403)
+    cfg = _tonerig_cfg()
+    return {"presets": cfg["presets"], "active": cfg["active"]}
+
+
+@tonerig_app.post("/t/{token}/select")
+def tonerig_phone_select(token: str, body: ToneRigSelect):
+    if not _tonerig_token_ok(token):
+        return JSONResponse({"error": "Neplatný odkaz."}, status_code=403)
+    res = _tonerig_select(body.i, "phone")
+    return JSONResponse(res, status_code=400) if "error" in res else res
+
+
+def _tonerig_lan(on: bool) -> None:
+    import uvicorn
+    with _tonerig_lock:
+        srv = _tonerig["server"]
+        if not on:
+            if srv is not None:
+                srv.should_exit = True
+                _tonerig["server"] = None
+            return
+        if srv is not None:
+            return
+        srv = uvicorn.Server(uvicorn.Config(tonerig_app, host="0.0.0.0", port=TONERIG_LAN_PORT, log_level="warning",
+                                            timeout_graceful_shutdown=1))
+        _tonerig["server"] = srv
+
+    def run():
+        try:
+            srv.run()
+        except BaseException:
+            pass
+        finally:
+            with _tonerig_lock:
+                if _tonerig["server"] is srv:
+                    _tonerig["server"] = None
+    threading.Thread(target=run, daemon=True, name="tonerig-lan").start()
+
+
+class ToneRigLan(BaseModel):
+    on: bool
+    new_token: bool = False
+
+
+@app.post("/api/tonerig/lan")
+def tonerig_lan(body: ToneRigLan):
+    """The phone page on/off. A new secret link on request (or the first time)."""
+    import secrets
+    cfg = _tonerig_cfg()
+    patch = {"lan": body.on}
+    if body.on and (body.new_token or not cfg["token"]):
+        patch["token"] = secrets.token_urlsafe(9)
+    _tonerig_save(patch)
+    _tonerig_lan(body.on)
+    time.sleep(0.4 if body.on else 0)
+    return _tonerig_public(_tonerig_cfg())
+
+
+@app.on_event("startup")
+def _tonerig_resume():
+    if _tonerig_cfg()["lan"]:
+        _tonerig_lan(True)
+
+
 @app.post("/api/remote/command")
 def push_remote_command(body: RemoteCommand):
     """Queue something for the playing window to do."""

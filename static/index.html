@@ -1683,6 +1683,21 @@
   .pb-tab-dock-bar button:hover, .pb-lyrics-dock-bar button:hover{background:#3e3e3e}
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
+  .tr-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:85;display:flex;align-items:center;justify-content:center}
+  .tr-box{background:var(--card);border:1px solid var(--border);border-radius:14px;width:min(640px,94vw);max-height:90vh;overflow:auto;padding:18px 20px}
+  .tr-box h3{margin:0 0 4px;font-size:17px}
+  .tr-box .hint{font-size:12.5px;color:var(--sub);line-height:1.45}
+  .tr-row{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px}
+  .tr-row > span:first-child{flex:none;width:150px;color:var(--sub)}
+  .tr-row select,.tr-row input{flex:1;min-width:0}
+  .tr-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin:8px 0}
+  .tr-presets label{display:flex;align-items:center;gap:6px;font-size:13px}
+  .tr-presets b{width:16px;color:var(--sub)}
+  .tr-presets input{flex:1;min-width:0}
+  .tr-presets button{flex:none}
+  .tr-presets .on b{color:var(--accent)}
+  .tr-url{font-family:ui-monospace,monospace;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;word-break:break-all;user-select:all}
+  .tr-steps{font-size:12.5px;color:var(--sub);margin:6px 0 0 18px;padding:0;line-height:1.5}
   .tab-more-btn{background:none;border:1px solid var(--border);color:var(--sub);border-radius:5px;font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap}
   .tab-more-btn:hover{color:var(--text)}
   .tab-more-btn.on{color:#ffd166;border-color:#ffd166}
@@ -10478,6 +10493,182 @@ const TabSearch = (() => {
 })();
 
 // ======================================================================
+// ======================================================================
+// ToneRig — the iPhone's NAM pedalboard as the live guitar's amp.
+// Its sound comes in on an interface input (Live kytara → external amp, so
+// ours is skipped). Its presets are switched from here — by MIDI (ToneRig's
+// MIDI Learn for presets 1–8), sent from this window through Web MIDI to a
+// network MIDI session or the interface's MIDI out — from the buttons here or
+// from the phone page the server can put on the home network. ToneRig can't
+// report its preset back, so "which preset" is the last one switched to here.
+// ======================================================================
+const ToneRig = (() => {
+  let cfg = null, midi = null, seq = 0, pollT = null;
+
+  async function load(){
+    try{ cfg = await (await fetch("/api/tonerig")).json(); }catch(e){ return null; }
+    if(typeof Mixer !== "undefined" && Mixer.guitar) Mixer.guitar.setExternalAmp(cfg.external);
+    if(cfg.external || cfg.lanRunning) startPolling();
+    return cfg;
+  }
+  async function save(patch){
+    try{
+      cfg = await (await fetch("/api/tonerig", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(patch)})).json();
+    }catch(e){ showToast("Uložení nastavení ToneRigu selhalo"); }
+    return cfg;
+  }
+  function label(){
+    if(!cfg || cfg.active == null) return "preset —";
+    return `${cfg.active + 1} · ${cfg.presets[cfg.active] || "Preset " + (cfg.active + 1)}`;
+  }
+
+  // ---- MIDI out ----
+  async function access(){
+    if(midi) return midi;
+    if(!navigator.requestMIDIAccess){ showToast("Tenhle prohlížeč neumí MIDI — otevři aplikaci v Chrome"); return null; }
+    try{ midi = await navigator.requestMIDIAccess(); }catch(e){ showToast("Přístup k MIDI zamítnut"); return null; }
+    return midi;
+  }
+  async function outputs(){
+    const m = await access();
+    return m ? [...m.outputs.values()] : [];
+  }
+  function message(i){
+    const ch = (cfg.channel || 1) - 1, v = Math.min(127, (cfg.base || 0) + i);
+    if(cfg.mode === "cc") return [[0xB0 | ch, cfg.cc || 0, v]];
+    if(cfg.mode === "note") return [[0x90 | ch, v, 100], [0x80 | ch, v, 0]];
+    return [[0xC0 | ch, v]];
+  }
+  async function sendMidi(i){
+    if(!cfg) await load();
+    const outs = await outputs();
+    const out = outs.find(o => o.name === cfg.output) || (outs.length === 1 ? outs[0] : null);
+    if(!out){ showToast(outs.length ? "Vyber MIDI výstup v nastavení ToneRigu" : "Žádný MIDI výstup — zapni síťovou MIDI relaci (viz nastavení ToneRigu)"); return false; }
+    const msgs = message(i);
+    out.send(msgs[0]);
+    if(msgs[1]) out.send(msgs[1], performance.now() + 120);
+    return true;
+  }
+
+  // ---- picking a preset (here, or on the phone) ----
+  async function select(i){
+    const ok = await sendMidi(i);
+    try{
+      const r = await (await fetch("/api/tonerig/select", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({i})})).json();
+      seq = Math.max(seq, r.seq || 0);
+    }catch(e){}
+    if(cfg) cfg.active = i;
+    repaint();
+    if(ok) showToast(`ToneRig: ${label()}`);
+  }
+  function step(d){
+    if(!cfg) return;
+    const named = cfg.presets.map((n, i) => i).filter(i => cfg.presets[i]);
+    const list = named.length ? named : [0, 1, 2, 3, 4, 5, 6, 7];
+    const at = list.indexOf(cfg.active);
+    select(list[(at + d + list.length) % list.length] ?? list[0]);
+  }
+  function startPolling(){
+    if(pollT) return;
+    const tick = async () => {
+      try{
+        const r = await (await fetch(`/api/tonerig/pending?since=${seq}`)).json();
+        if(r.events && r.events.length){
+          // Only the latest pick matters; the server already remembered it.
+          const last = r.events[r.events.length - 1];
+          seq = r.seq;
+          if(last.source === "phone"){ await sendMidi(last.i); if(cfg) cfg.active = last.i; repaint(); showToast(`ToneRig (z telefonu): ${label()}`); }
+        } else seq = Math.max(seq, r.seq || 0);
+      }catch(e){}
+      pollT = setTimeout(tick, 700);
+    };
+    pollT = setTimeout(tick, 300);
+  }
+  function repaint(){
+    const n = document.getElementById("gt-preset-name");
+    if(n && typeof Mixer !== "undefined" && Mixer.guitar && Mixer.guitar.state.externalAmp){ n.textContent = label(); n.title = label(); }
+    const box = document.getElementById("tr-modal");
+    if(box) box.querySelectorAll(".tr-presets label").forEach((l, i) => l.classList.toggle("on", cfg.active === i));
+  }
+
+  // ---- settings ----
+  async function openSettings(){
+    await load();
+    const old = document.getElementById("tr-modal");
+    if(old) old.remove();
+    const outs = await outputs();
+    const box = document.createElement("div");
+    box.className = "tr-modal";
+    box.id = "tr-modal";
+    box.innerHTML = `<div class="tr-box">
+      <h3>ToneRig v telefonu jako zesilovač</h3>
+      <div class="hint">Zvuk kytary jde přes ToneRig v telefonu a do zvukovky u Macu; presety přepínáš tady nebo z telefonu a aplikace ví, který je zapnutý.</div>
+      <ol class="tr-steps">
+        <li><b>Zvuk:</b> kytara → iRig → iPhone (ToneRig) → výstup telefonu / iRigu kabelem do <b>vstupu 2</b> iRig PRO DUO. V Live kytaře zvol kanál „Vstup 2“ (nebo nech Automaticky).</li>
+        <li><b>MIDI k telefonu:</b> na Macu Nastavení Audio MIDI → Okno → Zobrazit MIDI studio → Síť → „+“ nová relace a zaškrtni ji; iPhone musí být na stejné Wi-Fi a v seznamu „Adresář“ ho připoj. (Nebo MIDI kabel z iRig PRO DUO.)</li>
+        <li><b>ToneRig:</b> u presetů 1–8 zapni MIDI Learn a pro každý stiskni tady „Test“ — ToneRig si zprávu zapamatuje.</li>
+      </ol>
+      <div class="tr-row"><span>Zesilovač Live kytary</span>
+        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="tr-ext" ${cfg.external ? "checked" : ""}> ToneRig (náš NAM zesilovač a kabinet se vynechají)</label></div>
+      <div class="tr-row"><span>MIDI výstup</span><select id="tr-out">
+        <option value="">— vyber —</option>${outs.map(o => `<option ${o.name === cfg.output ? "selected" : ""}>${escapeHtml(o.name)}</option>`).join("")}</select>
+        <button type="button" class="btn secondary" id="tr-refresh">Obnovit</button></div>
+      <div class="tr-row"><span>Zpráva pro preset</span><select id="tr-mode">
+        <option value="pc">Program Change</option><option value="cc">Control Change (CC)</option><option value="note">Nota</option></select></div>
+      <div class="tr-row"><span>Kanál / CC / první hodnota</span>
+        <input type="number" id="tr-ch" min="1" max="16" value="${cfg.channel}" title="MIDI kanál 1–16">
+        <input type="number" id="tr-cc" min="0" max="127" value="${cfg.cc}" title="Číslo CC (jen pro Control Change)">
+        <input type="number" id="tr-base" min="0" max="120" value="${cfg.base}" title="Hodnota pro preset 1 (další jsou +1)"></div>
+      <div class="tr-presets">${cfg.presets.map((n, i) => `<label class="${cfg.active === i ? "on" : ""}"><b>${i + 1}</b>
+        <input type="text" data-i="${i}" value="${escapeHtml(n)}" placeholder="název presetu ${i + 1}" maxlength="40">
+        <button type="button" class="btn secondary" data-test="${i}" title="Pošli ToneRigu preset ${i + 1} (pro MIDI Learn i pro přepnutí)">Test</button></label>`).join("")}</div>
+      <div class="tr-row"><span>Ovladač v telefonu</span>
+        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="tr-lan" ${cfg.lan ? "checked" : ""}> zapnout stránku s presety pro telefon (domácí síť, tajný odkaz)</label></div>
+      <div id="tr-url-box" ${cfg.phoneUrl ? "" : "hidden"}>
+        <div class="tr-url" id="tr-url">${escapeHtml(cfg.phoneUrl || "")}</div>
+        <div class="hint" style="margin-top:4px">Otevři tenhle odkaz v telefonu (Safari) a přidej si ho na plochu. Odkaz zná jen ten, komu ho dáš;
+          <a href="#" id="tr-newlink">vytvořit nový</a> zneplatní starý. Mac musí mít appku otevřenou — přes ni jde MIDI do ToneRigu.</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" class="btn" id="tr-close">Hotovo</button></div>
+    </div>`;
+    document.body.appendChild(box);
+    const q = (sel) => box.querySelector(sel);
+    q("#tr-mode").value = cfg.mode;
+    box.addEventListener("pointerdown", (e) => { if(e.target === box) box.remove(); });
+    q("#tr-close").onclick = () => box.remove();
+    box.querySelectorAll("input").forEach(i => i.addEventListener("keydown", e => e.stopPropagation()));
+    q("#tr-ext").onchange = async (e) => {
+      await save({external: e.target.checked});
+      Mixer.guitar.setExternalAmp(e.target.checked);
+      if(e.target.checked) startPolling();
+    };
+    q("#tr-out").onchange = (e) => save({output: e.target.value});
+    q("#tr-refresh").onclick = () => openSettings();
+    q("#tr-mode").onchange = (e) => save({mode: e.target.value});
+    const num = (id, key) => q(id).onchange = (e) => save({[key]: parseInt(e.target.value, 10) || 0});
+    num("#tr-ch", "channel"); num("#tr-cc", "cc"); num("#tr-base", "base");
+    box.querySelectorAll(".tr-presets input").forEach(inp => inp.onchange = () => {
+      const presets = [...box.querySelectorAll(".tr-presets input")].map(x => x.value.trim());
+      save({presets}).then(repaint);
+    });
+    box.querySelectorAll("[data-test]").forEach(b => b.onclick = () => select(parseInt(b.dataset.test, 10)));
+    const lan = async (on, fresh) => {
+      try{
+        cfg = await (await fetch("/api/tonerig/lan", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on, new_token: !!fresh})})).json();
+      }catch(e){ showToast("Ovladač pro telefon se nepodařilo zapnout"); return; }
+      q("#tr-url-box").hidden = !cfg.phoneUrl;
+      q("#tr-url").textContent = cfg.phoneUrl || "";
+      if(on) startPolling();
+      if(on && !cfg.phoneUrl) showToast("Mac není připojený k síti — telefon se k němu nedostane");
+    };
+    q("#tr-lan").onchange = (e) => lan(e.target.checked);
+    const nl = q("#tr-newlink");
+    if(nl) nl.onclick = (e) => { e.preventDefault(); lan(true, true); };
+  }
+
+  return {load, label, select, step, openSettings, outputs};
+})();
+
 const Mixer = (() => {
   let stretchNodeFactory = null;
 
@@ -17080,8 +17271,10 @@ const Mixer = (() => {
         if(instrTap) node.connect(instrTap);
         node.connect(gateNode); node = gateNode;
         if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
-        if(ampNode){ node.connect(ampNode); node = ampNode; }
-        if(cabNode){ node.connect(cabNode); node = cabNode; }
+        // An external amp (ToneRig on the phone) has already shaped the
+        // sound — ours would be a second amp on top of it.
+        if(ampNode && !state.externalAmp){ node.connect(ampNode); node = ampNode; }
+        if(cabNode && !state.externalAmp){ node.connect(cabNode); node = cabNode; }
         node.connect(recNode); node = recNode;
         if(dryGain){ node.connect(dryGain); node = dryGain; }
         node.connect(gainNode);
@@ -17434,6 +17627,7 @@ const Mixer = (() => {
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
       setInputGain, setInputChannel,
+      setExternalAmp(on){ state.externalAmp = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
       instrumentRunning: () => !!(instrNode && instrNode.bezi),
@@ -18347,6 +18541,12 @@ const Mixer = (() => {
           <span class="gt-knob-label">GUIDE</span>
         </div>
       </div>
+      ${g.externalAmp ? `<div class="gt-preset-stepper">
+        <button class="gt-amp-step" id="gt-tr-prev" title="Předchozí preset ToneRigu">‹</button>
+        <button class="gt-preset-cat" id="gt-tr-open" title="ToneRig — nastavení a presety">TONERIG</button>
+        <button class="gt-amp-step" id="gt-tr-next" title="Další preset ToneRigu">›</button>
+      </div>
+      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(ToneRig.label())}">${escapeHtml(ToneRig.label())}</span>` : `
       <div class="gt-preset-stepper">
         <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
         <button class="gt-preset-cat" id="gt-preset-cat"
@@ -18354,7 +18554,7 @@ const Mixer = (() => {
         <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
       </div>
       <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
-        title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>
+        title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>`}
       <div class="fl-fx-row">
         <button class="fl-fx-btn ${fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${fx.state.mono ? "MONO" : "ST"}</button>
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
@@ -18410,9 +18610,15 @@ const Mixer = (() => {
       savePanelPref("eq", true);
       selectEqChannel("guitar");
     };
-    strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
-    strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
-    strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
+    if(g.externalAmp){
+      strip.querySelector("#gt-tr-prev").onclick = () => ToneRig.step(-1);
+      strip.querySelector("#gt-tr-next").onclick = () => ToneRig.step(1);
+      strip.querySelector("#gt-tr-open").onclick = () => ToneRig.openSettings();
+    } else {
+      strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
+      strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
+      strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
+    }
     wireKnob(el("gt-guide-knob"), {
       min: 0, max: 1.2, get: () => g.guideVolume,
       set: (v) => { Guitar.setGuideVolume(v); queueSessionSave(); },
@@ -18642,6 +18848,7 @@ const Mixer = (() => {
     box.id = "gt-settings-popover";
     box.innerHTML = `
       <div class="ss-head">Nastavení kytary</div>
+      <button type="button" id="gt-tonerig-open">${icon("external", 12)}<span>ToneRig v telefonu jako zesilovač…</span></button>
       <div class="gt-settings-row">
         <span class="gt-cap">VSTUP</span>
         <select class="gt-device" title="Zvukové rozhraní"></select>
@@ -18690,6 +18897,7 @@ const Mixer = (() => {
     box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
 
     fillGuitarDevices(box.querySelector(".gt-device"));
+    box.querySelector("#gt-tonerig-open").onclick = () => { box.remove(); ToneRig.openSettings(); };
     box.querySelector(".gt-channel").value = g.inputChannel || "auto";
     box.querySelector(".gt-channel").onchange = (e) => {
       Guitar.setInputChannel(e.target.value);
@@ -22860,6 +23068,7 @@ el("nav-back").onclick = () => navGo(-1);
 el("nav-fwd").onclick = () => navGo(1);
 paintNavButtons();
 
+ToneRig.load();
 renderLibraryRail(state.mode);
 // The app renders its first view without going through setMode, so seed the
 // history here — otherwise "back" stays dead until the second navigation.
