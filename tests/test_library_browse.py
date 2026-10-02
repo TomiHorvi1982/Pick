@@ -1,7 +1,8 @@
-def test_browse_root_lists_dirs_and_audio_files(client, tmp_music_root):
+def test_browse_root_lists_dirs_and_all_files(client, tmp_music_root):
     (tmp_music_root / "Songs").mkdir()
     (tmp_music_root / "track.mp3").write_bytes(b"x")
-    (tmp_music_root / "notes.txt").write_bytes(b"x")  # not audio — must be excluded
+    (tmp_music_root / "notes.txt").write_bytes(b"x")  # not audio — listed, but as "other"
+    (tmp_music_root / ".DS_Store").write_bytes(b"x")  # hidden — never listed
 
     res = client.get("/api/library/browse")
 
@@ -9,10 +10,15 @@ def test_browse_root_lists_dirs_and_audio_files(client, tmp_music_root):
     data = res.json()
     assert data["rel"] == ""
     names = [e["name"] for e in data["entries"]]
-    assert names == ["Songs", "track.mp3"]  # dirs first, then files, both alphabetical
-    assert data["entries"][0]["type"] == "dir"
-    assert data["entries"][1]["type"] == "file"
-    assert data["entries"][1]["size_bytes"] == 1
+    assert names == ["Songs", "notes.txt", "track.mp3"]  # dirs first, then files, both alphabetical
+    by_name = {e["name"]: e for e in data["entries"]}
+    assert by_name["Songs"]["type"] == "dir"
+    assert by_name["track.mp3"]["type"] == "file"
+    assert by_name["track.mp3"]["size_bytes"] == 1
+    assert by_name["notes.txt"]["type"] == "other"
+    assert by_name["notes.txt"]["ext"] == "txt"
+    # Only audio counts as a track.
+    assert data["summary"]["total_tracks"] == 1
 
 
 def test_browse_subfolder_returns_breadcrumb(client, tmp_music_root):

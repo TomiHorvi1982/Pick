@@ -5246,6 +5246,9 @@ class MetronomeSettings(BaseModel):
 class GuitarSettings(BaseModel):
     volume: float = 0.9
     pan: float = 0.0
+    # The virtual guide's own level. None for mixes saved before it was
+    # kept, so those leave whatever level is already set alone.
+    guideVolume: Optional[float] = None
     muted: bool = False
     solo: bool = False
     threshold: float = -100.0
@@ -5333,6 +5336,9 @@ def put_session(name: str, body: MixerSession):
         gtr["compRatio"] = max(1.0, min(20.0, float(gtr["compRatio"])))
         gtr["compAttack"] = max(0.0, min(0.1, float(gtr["compAttack"])))
         gtr["compRelease"] = max(0.02, min(1.0, float(gtr["compRelease"])))
+        if gtr.get("guideVolume") is not None:
+            gtr["guideVolume"] = max(0.0, min(1.4, float(gtr["guideVolume"])))
+        gtr["instrVolume"] = max(0.0, min(1.0, float(gtr["instrVolume"])))
     try:
         (stems_dir / "session.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")

@@ -431,6 +431,46 @@ def test_a_fader_out_of_range_is_clamped_not_stored(client, tmp_music_root):
     assert ch["clipOffset"] == 600.0
 
 
+def test_the_live_guitar_settings_round_trip(client, tmp_music_root):
+    """Every guitar field has to be declared on the model — pydantic drops
+    the rest silently, which is how the guide's level used to get lost."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    client.put("/api/stems/Song/session", json={"channels": [], "guitar": {
+        "volume": 0.7, "guideVolume": 0.35,
+        "instrOn": True, "instrId": "harpsichord_baroque",
+        "instrVolume": 0.6, "instrReplace": True,
+    }})
+
+    gtr = client.get("/api/stems/Song/session").json()["guitar"]
+    assert gtr["guideVolume"] == 0.35
+    assert gtr["instrOn"] is True
+    assert gtr["instrId"] == "harpsichord_baroque"
+    assert gtr["instrVolume"] == 0.6
+    assert gtr["instrReplace"] is True
+
+
+def test_guitar_levels_out_of_range_are_clamped(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    gtr = client.put("/api/stems/Song/session", json={"channels": [], "guitar": {
+        "guideVolume": 14.0, "instrVolume": 8.0,
+    }}).json()["guitar"]
+    assert gtr["guideVolume"] == 1.4
+    assert gtr["instrVolume"] == 1.0
+
+
+def test_an_old_mix_without_a_guide_level_leaves_it_unset(client, tmp_music_root):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+
+    gtr = client.put("/api/stems/Song/session", json={"channels": [], "guitar": {
+        "volume": 0.9}}).json()["guitar"]
+    assert gtr["guideVolume"] is None
+
+
 def test_deleting_the_mix_returns_an_empty_one(client, tmp_music_root):
     stems = tmp_music_root / "Stems" / "Song"
     stems.mkdir(parents=True)
