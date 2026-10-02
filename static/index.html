@@ -2424,6 +2424,15 @@
   .c-act button{background:none;border:none;color:var(--sub);font-size:14px;
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
+  /* Where a track stands with its stems — always visible, unlike .c-act. */
+  .stems-badge{flex:none;display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:9px;
+    font-size:10px;font-weight:700;letter-spacing:.03em;white-space:nowrap;cursor:pointer;
+    border:1px solid currentColor;background:none;font-family:inherit}
+  .stems-badge.ready{color:var(--accent)}
+  .stems-badge.queued{color:var(--sub)}
+  .stems-badge.running{color:#ffd166}
+  .stems-badge.error{color:var(--danger)}
+  .stems-badge .spinner{width:8px;height:8px;border-width:1.5px}
   /* Custom flex row, not the shared c-idx/c-title/c-artist/c-album grid —
      same reasoning as .lib-folder-row: a NAM preset isn't a song, and
      fighting that grid's column semantics for Riff/Akce wasn't worth it. */
@@ -8246,12 +8255,13 @@ function paintLibraryTable(){
       <span class="c-title">
         <span class="art">\u266A</span>
         <span class="tx">${escapeHtml(title)}</span>
+        <span class="stems-slot">${StemsQueue.badgeHtml(entry.rel, entry.stems)}</span>
       </span>
       <span class="c-artist">${escapeHtml(artist)}</span>
       <span class="c-album">${escapeHtml(entry.album || "")}</span>
       <span class="c-time">${libDurationText(entry)}</span>
       <span class="c-act">
-        <button class="act-stems" title="Rozdělit na stopy">\uD83C\uDF9A</button>
+        <button class="act-stems" title="${entry.stems && entry.stems.state === "ready" ? "Stopy hotové — otevřít ve Steems" : "Rozdělit na stopy"}">\uD83C\uDF9A</button>
         <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">\uD83C\uDFB8</button>
         <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
         <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
@@ -8263,9 +8273,17 @@ function paintLibraryTable(){
       paintLibraryTable();
     };
     row.onclick = play;
+    row.dataset.rel = entry.rel;
     row.querySelector(".act-stems").onclick = (e) => {
       e.stopPropagation();
       startStemsSeparation(entry.rel);
+    };
+    row.querySelector(".stems-slot").onclick = (e) => {
+      if(!e.target.closest(".stems-badge")) return;
+      e.stopPropagation();
+      const st = StemsQueue.stateFor(entry.rel, entry.stems);
+      if(st && st.state === "ready") openSteemsSong(st.name);
+      else if(st && st.job_id) StemsQueue.follow(st.job_id, st.name);
     };
     row.querySelector(".act-riff").onclick = (e) => {
       e.stopPropagation();
@@ -9086,46 +9104,150 @@ function startStemsSeparation(rel){
       return;
     }
     if(!data.job_id){
-      showToast("Separation se nepodařilo spustit");
+      showToast(data.error || "Separaci se nepodařilo spustit");
       return;
     }
+    showToast(data.already
+      ? `„${data.name}“ už ve frontě je (${data.position}.)`
+      : data.position > 1 ? `„${data.name}“ přidáno do fronty separací (${data.position}.)`
+      : `Rozděluji „${data.name}“ na stopy`);
+    StemsQueue.poke();
+    StemsQueue.follow(data.job_id, data.name);
+  })
+  .catch(e => showToast("Chyba při spouštění separace: " + e));
+}
+
+// ---- Separation queue (server-side; see /api/stems/queue) ----------------
+// Several songs can be sent; the server separates them one after another and
+// keeps going with the window closed. This polls the queue while anything is
+// in it, keeps the library's stems badges current, and drives the drawer for
+// whichever job you last started or clicked.
+const StemsQueue = (() => {
+  let jobs = [];            // from /api/stems/queue
+  let timer = null;
+  let followed = null;      // {id, name, es}
+  const seenDone = new Set();
+
+  function byRel(rel){ return jobs.find(j => j.rel === rel && (j.status === "queued" || j.status === "running")); }
+
+  function stateFor(rel, fromServer){
+    const j = byRel(rel);
+    if(j) return {state: j.status, position: j.position, progress: j.progress, job_id: j.job_id, name: j.name};
+    const done = jobs.find(x => x.rel === rel && x.status === "done");
+    if(done) return {state: "ready", name: done.name};
+    const failed = jobs.find(x => x.rel === rel && x.status === "error");
+    if(failed && !(fromServer && fromServer.state === "ready")) return {state: "error", job_id: failed.job_id, name: failed.name};
+    return fromServer || null;
+  }
+
+  function badgeHtml(rel, fromServer){
+    const st = stateFor(rel, fromServer);
+    if(!st) return "";
+    if(st.state === "ready") return `<button type="button" class="stems-badge ready" title="Stopy jsou hotové — klikni pro otevření ve Steems">${icon("stems", 10)} STOPY</button>`;
+    if(st.state === "running") return `<button type="button" class="stems-badge running" title="Právě se rozděluje — klikni pro průběh"><span class="spinner"></span> ${st.progress != null ? Math.round(st.progress) + " %" : "rozděluji"}</button>`;
+    if(st.state === "queued") return `<button type="button" class="stems-badge queued" title="Čeká ve frontě separací">ve frontě ${st.position || ""}.</button>`;
+    if(st.state === "error") return `<button type="button" class="stems-badge error" title="Separace selhala — klikni pro výpis">chyba</button>`;
+    return "";
+  }
+
+  function paintLibrary(){
+    document.querySelectorAll("#library-list .lib-trow[data-rel]").forEach(row => {
+      const slot = row.querySelector(".stems-slot");
+      if(!slot) return;
+      const entry = (typeof libraryEntries !== "undefined" ? libraryEntries : []).find(e => e.rel === row.dataset.rel);
+      const html = badgeHtml(row.dataset.rel, entry && entry.stems);
+      if(slot.innerHTML !== html) slot.innerHTML = html;
+    });
+  }
+
+  async function poll(){
+    timer = null;
+    let data;
+    try{ data = await (await fetch("/api/stems/queue")).json(); }catch(e){ schedule(5000); return; }
+    jobs = data.jobs || [];
+    jobs.forEach(j => {
+      if((j.status === "done" || j.status === "error") && !seenDone.has(j.job_id)){
+        seenDone.add(j.job_id);
+        // The followed job reports itself in the drawer.
+        if(!followed || followed.id !== j.job_id){
+          showToast(j.status === "done" ? `Stopy hotové: ${j.name}` : `Separace selhala: ${j.name}`);
+        }
+        const entry = (typeof libraryEntries !== "undefined" ? libraryEntries : []).find(e => e.rel === j.rel);
+        if(entry && j.status === "done") entry.stems = {state: "ready", name: j.name};
+        if(typeof invalidateRailTop5 === "function") invalidateRailTop5("steems");
+      }
+    });
+    paintLibrary();
+    paintDrawerTitle();
+    if(data.active) schedule(1500);
+  }
+  function schedule(ms){ if(!timer) timer = setTimeout(poll, ms); }
+  function poke(){ if(timer){ clearTimeout(timer); timer = null; } poll(); }
+
+  function paintDrawerTitle(){
+    if(!followed) return;
+    const waiting = jobs.filter(j => j.status === "queued" || j.status === "running").length;
+    const others = waiting - (jobs.some(j => j.job_id === followed.id && (j.status === "queued" || j.status === "running")) ? 1 : 0);
+    const mine = jobs.find(j => j.job_id === followed.id);
+    const verb = mine && mine.status === "queued" ? "Ve frontě na stopy" : "Rozděluji na stopy";
+    el("dl-title").innerHTML = `${icon("headphones", 15)} ${verb}: ${escapeHtml(followed.name)}` +
+      (others > 0 ? ` <span style="color:var(--sub);font-weight:400">· další ve frontě: ${others}</span>` : "");
+  }
+
+  // The drawer shows one job's log; watching never affects the job itself.
+  function follow(jobId, name){
+    if(followed && followed.es) followed.es.close();
+    if(currentEventSource) currentEventSource.close();
+    followed = {id: jobId, name};
     drawer.hidden = false;
-    el("dl-title").innerHTML = `${icon("headphones", 15)} Rozděluji na stopy`;
-    el("dl-status").innerHTML = `<span class="spinner"></span> separuji…`;
+    paintDrawerTitle();
+    el("dl-status").innerHTML = `<span class="spinner"></span> připravuji…`;
     el("dl-log").innerHTML = "";
     el("dl-reveal").disabled = true;
     el("dl-reveal").innerHTML = `${icon("headphones", 14)}Otevřít ve Steems`;
-
-    if(currentEventSource) currentEventSource.close();
-    const es = new EventSource(`/api/jobs/${data.job_id}/events`);
+    const es = new EventSource(`/api/jobs/${jobId}/events`);
+    followed.es = es;
     currentEventSource = es;
     es.onmessage = (ev) => {
+      if(!followed || followed.es !== es) return;
       const msg = JSON.parse(ev.data);
+      const log = el("dl-log");
+      if(msg.queued){
+        el("dl-status").innerHTML = `${icon("clock", 13)} čeká ve frontě${msg.position ? ` (${msg.position}.)` : ""}`;
+      }
       if(msg.line){
-        const log = el("dl-log");
-        const line = document.createElement("div");
-        line.textContent = msg.line;
-        log.appendChild(line);
+        el("dl-status").innerHTML = `<span class="spinner"></span> separuji…`;
+        if(msg.replace && log.lastChild) log.lastChild.textContent = msg.line;
+        else{
+          const line = document.createElement("div");
+          line.textContent = msg.line;
+          log.appendChild(line);
+        }
         log.scrollTop = log.scrollHeight;
       }
       if(msg.done){
         es.close();
-        const ok = (msg.returncode === 0) || msg.status === "done";
-        el("dl-status").innerHTML = ok
-          ? `${icon("check", 13)} hotovo` : `${icon("warning", 13)} chyba`;
-        el("dl-reveal").disabled = false;
-        el("dl-reveal").onclick = () => {
-          if(ok) openSteemsSong(data.name, {force: true});
-        };
-        if(ok){
-          // Fresh stems: load them even if this song's old ones are open.
-          setTimeout(() => openSteemsSong(data.name, {force: true}), 600);
+        const ok = msg.status === "done" || msg.returncode === 0;
+        seenDone.add(jobId);
+        el("dl-status").innerHTML = ok ? `${icon("check", 13)} hotovo` : `${icon("warning", 13)} chyba`;
+        el("dl-reveal").disabled = !ok;
+        el("dl-reveal").onclick = () => { if(ok) openSteemsSong(name, {force: true}); };
+        poke();
+        // Jump into Steems only when nothing else is still on its way —
+        // with a queue running, a finished song shouldn't pull you away.
+        if(ok && !jobs.some(j => j.job_id !== jobId && (j.status === "queued" || j.status === "running"))){
+          setTimeout(() => openSteemsSong(name, {force: true}), 600);
+        }else if(ok){
+          showToast(`Stopy hotové: ${name} — otevřeš je tlačítkem v liště`);
         }
       }
     };
-  })
-  .catch(e => showToast("Chyba při spouštění separace: " + e));
-}
+  }
+
+  return {badgeHtml, stateFor, poke, follow, paintLibrary};
+})();
+// Separations left running from before a reload show up straight away.
+StemsQueue.poke();
 
 // Placeholder — Task 4 replaces this whole function with the real
 // "switch to Steems tab and load this song into the mixer" behavior.

@@ -2570,6 +2570,7 @@ def library_browse(rel: str = ""):
                 "name": p.name, "type": "file", "rel": entry_rel,
                 "size_bytes": p.stat().st_size,
                 **_audio_tags(p),
+                "stems": _stems_state_for(p),
             })
         # A NAM capture isn't playable audio (it's model weights, not a
         # waveform) so it never matched AUDIO_EXTS and used to vanish from
@@ -4435,6 +4436,29 @@ async def job_events(job_id: str):
         return JSONResponse({"error": "not found"}, status_code=404)
 
     async def gen():
+        if job.get("kind") == "stems":
+            # Run by the queue worker; this stream only follows it, so
+            # closing it changes nothing about the separation itself.
+            sent, seq, last = 0, -1, None
+            while True:
+                lines = list(job["lines"])
+                if job.get("_seq", 0) != seq:
+                    seq = job.get("_seq", 0)
+                    # The progress bar rewrites its line in place; send the
+                    # final state of the last line already sent first.
+                    if sent and len(lines) >= sent and lines[sent - 1] != last:
+                        yield f"data: {json.dumps({'line': lines[sent - 1], 'replace': True})}\n\n"
+                        last = lines[sent - 1]
+                    for text in lines[sent:]:
+                        yield f"data: {json.dumps({'line': text})}\n\n"
+                        last = text
+                    sent = len(lines)
+                if job["status"] == "queued":
+                    yield f"data: {json.dumps({'queued': True, 'position': next((i + 1 for i, (jid, _) in enumerate(_stems_active_jobs()) if jid == job_id), None)})}\n\n"
+                if job["status"] in ("done", "error"):
+                    yield f"data: {json.dumps({'done': True, 'status': job['status'], 'returncode': job.get('returncode')})}\n\n"
+                    return
+                await asyncio.sleep(1.0 if job["status"] == "queued" else 0.4)
         if job["status"] == "queued":
             job["status"] = "running"
             proc = await asyncio.create_subprocess_exec(
@@ -4704,6 +4728,126 @@ def _finalize_stems_job(job: dict) -> None:
     shutil.move(str(raw_track_dir), str(dest_dir))
 
 
+# ------------------------------------------------------------ separation queue
+#
+# Separations used to run inside the browser's event stream: closing it (by
+# starting a second one, or closing the window) left Demucs stalled on a
+# full pipe and the stems never got moved into place. Now they are a queue
+# the server works through on its own, one at a time — two Demucs runs side
+# by side on one Mac are slower in total and can run out of memory. The
+# event stream only watches.
+_STEMS_QUEUE: list = []                 # job ids, oldest first
+_STEMS_LOCK = threading.Lock()
+_STEMS_WAKE = threading.Event()
+_STEMS_WORKER: dict = {}
+
+
+def _stems_active_jobs() -> list:
+    """Queued and running separations, in the order they will finish."""
+    with _STEMS_LOCK:
+        return [(jid, JOBS[jid]) for jid in _STEMS_QUEUE
+                if jid in JOBS and JOBS[jid]["status"] in ("queued", "running")]
+
+
+def _run_stems_job(job: dict) -> None:
+    job["status"] = "running"
+    job["started"] = time.time()
+    try:
+        proc = subprocess.Popen(job["cmd"], stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, bufsize=0)
+    except OSError as e:
+        job["lines"].append(f"Demucs se nepodařilo spustit: {e}")
+        job["status"] = "error"
+        return
+    job["proc"] = proc
+    # Demucs draws its progress bar with carriage returns, so a line only
+    # ends at the very end; split on both to see the percentage move.
+    buf = b""
+    while True:
+        chunk = proc.stdout.read(512)
+        if not chunk:
+            break
+        buf += chunk
+        parts = _re_mod.split(rb"[\r\n]", buf)
+        buf = parts.pop()
+        for raw in parts:
+            text = raw.decode(errors="replace").strip()
+            if not text:
+                continue
+            m = _re_mod.search(r"(\d{1,3}(?:\.\d+)?)%", text)
+            if m:
+                job["progress"] = min(100.0, float(m.group(1)))
+                # A bar redraws hundreds of times; keep only its latest state.
+                if job["lines"] and job.get("_bar"):
+                    job["lines"][-1] = text
+                    job["_seq"] = job.get("_seq", 0) + 1
+                    continue
+                job["_bar"] = True
+            else:
+                job["_bar"] = False
+            job["lines"].append(text)
+            job["_seq"] = job.get("_seq", 0) + 1
+    rc = proc.wait()
+    job["returncode"] = rc
+    if rc == 0:
+        try:
+            _finalize_stems_job(job)
+            job["status"] = "done"
+            job["progress"] = 100.0
+        except Exception as e:
+            job["lines"].append(f"Přesun stop selhal: {e}")
+            job["status"] = "error"
+    else:
+        job["status"] = "error"
+    job["finished"] = time.time()
+
+
+def _stems_worker_loop() -> None:
+    while True:
+        job = None
+        with _STEMS_LOCK:
+            for jid in _STEMS_QUEUE:
+                j = JOBS.get(jid)
+                if j and j["status"] == "queued":
+                    job = j
+                    break
+            # Finished entries stay visible for a while, then drop out.
+            now = time.time()
+            _STEMS_QUEUE[:] = [jid for jid in _STEMS_QUEUE if jid in JOBS and (
+                JOBS[jid]["status"] in ("queued", "running")
+                or now - JOBS[jid].get("finished", now) < 600)]
+        if job is None:
+            _STEMS_WAKE.wait(5)
+            _STEMS_WAKE.clear()
+            continue
+        _run_stems_job(job)
+
+
+_STEMS_AUTOSTART = True                 # tests fill the queue without running it
+
+
+def _ensure_stems_worker() -> None:
+    if not _STEMS_AUTOSTART:
+        return
+    t = _STEMS_WORKER.get("thread")
+    if t is None or not t.is_alive():
+        t = threading.Thread(target=_stems_worker_loop, name="stems-queue", daemon=True)
+        _STEMS_WORKER["thread"] = t
+        t.start()
+
+
+def _stems_state_for(source: Path) -> Optional[dict]:
+    """Where a library file stands: stems ready, waiting, or being made."""
+    key = str(source)
+    for pos, (jid, job) in enumerate(_stems_active_jobs()):
+        if job.get("stems_source") == key:
+            return {"state": job["status"], "position": pos + 1,
+                    "progress": job.get("progress"), "job_id": jid}
+    if _stems_ready(_safe_name(source.stem)):
+        return {"state": "ready", "name": _safe_name(source.stem)}
+    return None
+
+
 class StemsSeparateRequest(BaseModel):
     rel: str
     format: str = "mp3"       # "mp3" or "wav"
@@ -4719,6 +4863,11 @@ def separate_stems(req: StemsSeparateRequest):
     safe_name = _safe_name(source.stem)
     if _stems_ready(safe_name):
         return {"job_id": None, "ready": True, "name": safe_name}
+    # Already waiting or running: hand back that job instead of a second one.
+    for pos, (jid, job) in enumerate(_stems_active_jobs()):
+        if job.get("stems_name") == safe_name:
+            return {"job_id": jid, "ready": False, "name": safe_name,
+                    "position": pos + 1, "already": True}
 
     job_id = uuid.uuid4().hex[:12]
     raw_dir = MUSIC_ROOT / "Stems" / ".raw"
@@ -4746,8 +4895,36 @@ def separate_stems(req: StemsSeparateRequest):
         "kind": "stems",
         "stems_source": str(source),
         "stems_name": safe_name,
+        "stems_rel": req.rel,
+        "progress": None,
+        "queued_at": time.time(),
     }
-    return {"job_id": job_id, "ready": False, "name": safe_name}
+    with _STEMS_LOCK:
+        _STEMS_QUEUE.append(job_id)
+    _ensure_stems_worker()
+    _STEMS_WAKE.set()
+    position = next((i + 1 for i, (jid, _) in enumerate(_stems_active_jobs()) if jid == job_id), 1)
+    return {"job_id": job_id, "ready": False, "name": safe_name, "position": position}
+
+
+@app.get("/api/stems/queue")
+def stems_queue():
+    """Every separation waiting, running, or finished in the last minutes."""
+    with _STEMS_LOCK:
+        ids = list(_STEMS_QUEUE)
+    out, waiting = [], 0
+    for jid in ids:
+        job = JOBS.get(jid)
+        if not job:
+            continue
+        if job["status"] in ("queued", "running"):
+            waiting += 1
+        out.append({
+            "job_id": jid, "name": job["stems_name"], "rel": job.get("stems_rel"),
+            "status": job["status"], "progress": job.get("progress"),
+            "position": waiting if job["status"] in ("queued", "running") else None,
+        })
+    return {"jobs": out, "active": waiting}
 
 
 @app.get("/api/stems")

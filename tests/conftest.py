@@ -24,3 +24,10 @@ def tmp_music_root(tmp_path, monkeypatch):
     root.mkdir()
     monkeypatch.setattr(server, "MUSIC_ROOT", root)
     return root
+
+
+@pytest.fixture(autouse=True)
+def _no_real_separations(monkeypatch):
+    """Separations queue up but never start Demucs inside a test."""
+    monkeypatch.setattr(server, "_STEMS_AUTOSTART", False)
+    monkeypatch.setattr(server, "_STEMS_QUEUE", [])
