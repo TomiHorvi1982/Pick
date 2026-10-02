@@ -31,3 +31,10 @@ def _no_real_separations(monkeypatch):
     """Separations queue up but never start Demucs inside a test."""
     monkeypatch.setattr(server, "_STEMS_AUTOSTART", False)
     monkeypatch.setattr(server, "_STEMS_QUEUE", [])
+
+
+@pytest.fixture(autouse=True)
+def _own_config(tmp_path, monkeypatch):
+    """Every test gets an empty config of its own — the user's real one
+    (mapped folders, ToneRig, …) must neither leak in nor be written to."""
+    monkeypatch.setattr(server, "CONFIG_PATH", tmp_path / "config.json")

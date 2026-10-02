@@ -573,6 +573,17 @@
     cursor:pointer;font:inherit;font-size:12px}
   .loops-bar .ghost:hover{color:var(--text)}
   .loops-web{border-radius:10px;overflow:hidden;background:#111;height:calc(100vh - 330px);min-height:480px}
+  .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
+  .tool-card{display:flex;align-items:center;gap:14px;padding:18px;border-radius:12px;background:var(--card);border:1px solid var(--border);
+    cursor:pointer;text-align:left;color:var(--text);font:inherit;transition:background .15s}
+  .tool-card:hover{background:var(--sp-hover)}
+  .tool-card .ic{width:52px;height:52px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--card-hi);color:var(--accent)}
+  .tool-card b{display:block;font-size:16px;margin-bottom:3px}
+  .tool-card span.sub{font-size:12.5px;color:var(--sub)}
+  .chords-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .chords-head .sp{flex:1}
+  .chords-web{border-radius:10px;overflow:hidden;background:#fff;height:calc(100vh - 260px);min-height:480px}
+  .chords-web iframe{width:100%;height:100%;border:0;display:block}
   .loops-web iframe{width:100%;height:100%;border:0;display:block;background:#1a1a1a}
   .loops-pending{padding:10px 14px;border-radius:8px;background:rgba(255,209,102,.1);color:var(--text);
     font-size:12.5px;display:flex;align-items:center;gap:12px;margin-bottom:12px}
@@ -954,6 +965,12 @@
   .nm-editbar .sep{width:1px;height:20px;background:#2c2c35;margin:0 4px}
   .nm-editbar .nm-btn{padding:5px 9px;font-size:11.5px}
   .nm-editbar .nm-btn:disabled{opacity:.35;cursor:default}
+  .nm-editbar .ib{width:30px;height:28px;padding:0;justify-content:center;flex:none;position:relative}
+  .nm-editbar .ib .ic-svg{display:block}
+  .nm-editbar .ib .n{position:absolute;right:1px;bottom:0;font-size:8.5px;font-weight:800;line-height:1;color:inherit}
+  .nm-editbar .grp{display:inline-flex;align-items:center;gap:3px}
+  .nm-editbar .snap{display:inline-flex;align-items:center;gap:2px;border:1px solid #32323c;border-radius:7px;padding:0 0 0 6px;background:#1e1e25;color:var(--nm-sub)}
+  .nm-editbar .snap select{border:none;background:none;padding:5px 6px}
   .nm-editbar .nm-btn:disabled:hover{background:#1e1e25}
   .nm-editbar select{background:#1e1e25;color:var(--nm-txt);border:1px solid #32323c;border-radius:7px;padding:5px 8px;font-size:12px;max-width:190px}
   .nm-editbar .sel{font-size:11.5px;color:var(--nm-sub);font-variant-numeric:tabular-nums;min-width:120px}
@@ -1855,9 +1872,9 @@
   /* Sections carry the page gutter; heroes bleed back out to the card edge. */
   #browse-section,#library-section,#my-library-section,#podcasts-section,
   #steems-section,#results-title,.search-history,
-  #results-grid,.load-more-wrap,.artist-suggest,#artists-section{padding-left:32px;padding-right:32px}
+  #results-grid,.load-more-wrap,.artist-suggest,#artists-section,#tools-section,#chords-section{padding-left:32px;padding-right:32px}
   #browse-section{padding-top:24px}
-  #steems-section,#library-section,#podcasts-section,#my-library-section,#artists-section{padding-top:24px}
+  #steems-section,#library-section,#podcasts-section,#my-library-section,#artists-section,#tools-section,#chords-section{padding-top:24px}
   .sp-hero,.sp-actions{margin-left:-32px;margin-right:-32px}
   main{padding-bottom:32px}
 
@@ -2427,6 +2444,45 @@
   .float-btn:hover{background:#2a2a33;color:#fff}
   .float-body{flex:1;min-height:0;overflow:hidden;position:relative;background:#000}
   .float-body iframe,.float-body video{width:100%;height:100%;border:none;display:block}
+  /* virtual keyboard */
+  .piano-body{background:#111116;display:flex;flex-direction:column;gap:6px;padding:8px;overflow:auto}
+  .pk-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+  .pk-ctl select,.pk-ctl input[type=range]{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:3px 5px;font-size:12px}
+  .pk-ctl .grp{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #26262e;border-radius:8px}
+  .pk-ctl button{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
+  .pk-ctl button.on{border-color:var(--accent);color:var(--accent)}
+  .pk-info{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-height:26px;font-size:12.5px;color:var(--sub)}
+  .pk-chord{font-size:20px;font-weight:800;color:var(--text);min-width:70px}
+  .pk-notes{color:var(--text)}
+  .pk-sugg{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .pk-sugg button{background:#1b2a1f;border:1px solid #2e5a3a;color:#8fe0a8;border-radius:12px;padding:2px 9px;font-size:11.5px;cursor:pointer}
+  .pk-keys{position:relative;flex:1;min-height:110px;display:flex;user-select:none;touch-action:none;border-radius:6px;overflow:hidden}
+  .pk-w{flex:1;position:relative;background:linear-gradient(#fafafa,#e6e6e6);border:1px solid #888;border-top:none;border-radius:0 0 5px 5px;margin-right:-1px;
+    display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:5px;font-size:10px;color:#555;cursor:pointer}
+  .pk-b{position:absolute;top:0;height:62%;background:linear-gradient(#333,#111);border:1px solid #000;border-radius:0 0 4px 4px;z-index:2;
+    display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:4px;font-size:9px;color:#bbb;cursor:pointer}
+  .pk-w .hk,.pk-b .hk{font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;margin-bottom:3px}
+  .pk-w .hk{background:#ddd;color:#333}
+  .pk-b .hk{background:#444;color:#eee}
+  .pk-w.out{background:linear-gradient(#cfcfcf,#bdbdbd);color:#999}
+  .pk-b.out{background:linear-gradient(#2a2a2a,#1c1c1c);color:#555}
+  .pk-w.out.locked,.pk-b.out.locked{cursor:not-allowed}
+  .pk-w.root{box-shadow:inset 0 -6px 0 #1ed760}
+  .pk-b.root{box-shadow:inset 0 -5px 0 #1ed760}
+  .pk-w.fret,.pk-b.fret{background:linear-gradient(#ffe6a3,#ffd166)}
+  .pk-w.down,.pk-b.down{background:linear-gradient(#7fd3ff,#3aa8ff) !important;color:#012}
+  .pk-fb{flex:none;overflow-x:auto;border-top:1px solid #26262e;padding-top:6px}
+  .pk-fb table{border-collapse:collapse;font-size:10px;color:var(--sub)}
+  .pk-fb td{width:30px;height:20px;text-align:center;border-right:2px solid #8a8a8a;position:relative;cursor:pointer}
+  .pk-fb td.nut{border-right:5px solid #ddd;width:24px}
+  .pk-fb td.str::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#aaa}
+  .pk-fb td .dot{position:relative;z-index:1;display:inline-block;width:15px;height:15px;line-height:15px;border-radius:50%;font-size:9px;font-weight:700}
+  .pk-fb td .dot.sc{width:8px;height:8px;background:rgba(30,215,96,.35)}
+  .pk-fb td .dot.sc.r{background:rgba(30,215,96,.8)}
+  .pk-fb td .dot.on{background:#ffd166;color:#222}
+  .pk-fb td.mute .dot.on{background:none;color:#ff6b6b}
+  .pk-fb .lbl{color:#888;cursor:default;border:none}
+  .pk-fb tr.marks td{border:none;height:12px;cursor:default}
   .float-grip{position:absolute;right:0;bottom:0;width:16px;height:16px;
     cursor:nwse-resize;z-index:2}
   .float-grip::after{content:"";position:absolute;right:3px;bottom:3px;width:7px;height:7px;
@@ -3068,6 +3124,7 @@
   </div>
   <div class="sp-topbar-right">
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
+    <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
     <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
     <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
@@ -3726,6 +3783,21 @@
     </div>
   </div>
 
+  <div id="tools-section" hidden>
+    <div class="section-title">Tools</div>
+    <div class="tools-grid" id="tools-grid"></div>
+  </div>
+
+  <div id="chords-section" hidden>
+    <div class="chords-head">
+      <div class="section-title" style="margin:0">Scales and Chords</div>
+      <span class="sp"></span>
+      <button type="button" class="btn secondary" id="chords-home" title="Na úvodní stránku webu"><span data-icon="prev" data-size="12"></span>Úvod</button>
+      <button type="button" class="btn secondary" id="chords-out" title="Otevřít v běžném prohlížeči"><span data-icon="external" data-size="12"></span>Otevřít v prohlížeči</button>
+    </div>
+    <div class="chords-web"><iframe id="chords-frame" title="Scales and Chords" referrerpolicy="no-referrer"></iframe></div>
+  </div>
+
   <div id="loops-section" hidden>
     <div class="section-title">Loops</div>
     <div class="loops-sources" id="loops-sources"></div>
@@ -4162,6 +4234,16 @@
   </div>
   <div class="float-body tuner-body" id="tuner-float-body"></div>
   <div class="float-grip" id="tuner-float-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<!-- The virtual keyboard: scales, chords, fretboard. Opened from the top bar. -->
+<div class="float-win piano-float" id="piano-float" hidden>
+  <div class="float-head" id="piano-float-head">
+    <span class="float-title">Klaviatura</span>
+    <button class="float-btn" id="piano-float-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
+  </div>
+  <div class="float-body piano-body" id="piano-body"></div>
+  <div class="float-grip" id="piano-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -6509,6 +6591,22 @@ const TabsLib = (() => {
 // ======================================================================
 // Tabs & mode switching
 // ======================================================================
+const CHORDS_URL = "https://www.all-guitar-chords.com/";
+function renderToolsGrid(){
+  const g = el("tools-grid");
+  g.innerHTML = "";
+  TOOLS.forEach(t => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tool-card";
+    b.innerHTML = `<span class="ic">${icon(t.icon, 24)}</span><span><b>${escapeHtml(t.title)}</b><span class="sub">${escapeHtml(t.sub)}</span></span>`;
+    b.onclick = () => setMode(t.key);
+    g.appendChild(b);
+  });
+}
+el("chords-home").onclick = () => { el("chords-frame").src = CHORDS_URL; };
+el("chords-out").onclick = () => window.open(CHORDS_URL, "_blank", "noopener");
+
 function setMode(mode, opts){
   opts = opts || {};
   // A playlist/song overlay is stacked over the stage. Unconditional: this
@@ -6537,6 +6635,8 @@ function setMode(mode, opts){
   el("podcasts-section").hidden = mode !== "podcasts";
   el("loops-section").hidden = mode !== "loops";
   el("tabs-section").hidden = mode !== "tabs";
+  el("tools-section").hidden = mode !== "tools";
+  el("chords-section").hidden = mode !== "chords";
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -6554,6 +6654,13 @@ function setMode(mode, opts){
     if(!opts.keepSection) Loops.show();
   } else if(mode === "tabs"){
     if(!opts.keepSection) TabsLib.show();
+  } else if(mode === "tools"){
+    renderToolsGrid();
+  } else if(mode === "chords"){
+    // Loaded the first time it's shown; kept (with wherever it was browsed
+    // to) when switching away and back.
+    const fr = el("chords-frame");
+    if(!fr.getAttribute("src")) fr.src = CHORDS_URL;
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -7113,6 +7220,26 @@ const ICONS = (() => {
     save:
       line("M18.2 20.4H5.8a1.8 1.8 0 0 1-1.8-1.8V5.4a1.8 1.8 0 0 1 1.8-1.8h9.3L20 8.5v10.1a1.8 1.8 0 0 1-1.8 1.8Z") +
       line("M7.8 20.4v-6.6h8.4v6.6M7.8 3.6v4.4h6"),
+    // ---- DAW editing tools ----
+    pointer:   line("M6.2 3.6l11.6 8.1-5.3 1.2 3 5.9-2.3 1.2-3-5.9-4 3.6z"),
+    scissors:  line("M8.6 8.8a2.6 2.6 0 1 1-3.7-3.7 2.6 2.6 0 0 1 3.7 3.7zM8.6 15.2a2.6 2.6 0 1 0-3.7 3.7 2.6 2.6 0 0 0 3.7-3.7zM8.6 8.8L20 18.4M8.6 15.2L20 5.6"),
+    copy:      line("M9 9h10.5v11.5H9zM15.5 9V4H4.5v11.5H9"),
+    paste:     line("M8.6 5.2H6.4a1.4 1.4 0 0 0-1.4 1.4v13a1.4 1.4 0 0 0 1.4 1.4h11.2a1.4 1.4 0 0 0 1.4-1.4v-13a1.4 1.4 0 0 0-1.4-1.4h-2.2M9.2 3.5h5.6v3.4H9.2zM9 12.2h6M9 15.8h4"),
+    duplicate: line("M9.5 9.5h10.5v10.5H9.5zM5 14.5V4h10.5M14.75 12.3v5.4M12.05 15h5.4"),
+    fadeIn:    line("M3.5 19.5L20.5 5M3.5 19.5h17M20.5 5v14.5"),
+    fadeOut:   line("M3.5 5l17 14.5M3.5 19.5h17M3.5 5v14.5"),
+    gainDown:  line("M3.8 9.4h3.4L11.6 5.6v12.8l-4.4-3.8H3.8zM15 12h5.5"),
+    gainUp:    line("M3.8 9.4h3.4L11.6 5.6v12.8l-4.4-3.8H3.8zM15 12h5.5M17.75 9.25v5.5"),
+    normalize: line("M3.5 3.8h17M3.5 20.2h17M4 12h2.2l1.4-4.6 2 9.2 2-11.4 2 13.6 2-8.8 1.4 2H20"),
+    reverse:   line("M6.5 8h12.5M15.5 4.5L19 8l-3.5 3.5M17.5 16H5M8.5 12.5L5 16l3.5 3.5"),
+    crop:      line("M7 3v14h14M3 7h14v14"),
+    undo:      line("M8.8 6.5L4.5 10.8l4.3 4.3M4.5 10.8h10.2a4.6 4.6 0 0 1 0 9.2h-2.8"),
+    redo:      line("M15.2 6.5l4.3 4.3-4.3 4.3M19.5 10.8H9.3a4.6 4.6 0 0 0 0 9.2h2.8"),
+    eyeOff:    line("M3 12s3.3-6 9-6 9 6 9 6-3.3 6-9 6-9-6-9-6zM9.6 12a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0zM4 4l16 16"),
+    magnet:    line("M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4zM6 8.2h4M14 8.2h4"),
+    piano:     line("M3.5 5h17v14h-17zM8 5v14M12 5v14M16 5v14") + solid("M6.6 5h2.8v8H6.6zM10.6 5h2.8v8h-2.8zM14.6 5h2.8v8h-2.8z"),
+    fileAdd:   line("M13.5 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5zM13.5 3.5v5h5M12 11.3v6.4M8.8 14.5h6.4"),
+    silence:   line("M3.8 9.4h3.4L11.6 5.6v12.8l-4.4-3.8H3.8zM15.2 9.2l5.6 5.6M20.8 9.2l-5.6 5.6"),
     trash:
       line("M4.4 6.8h15.2") +
       line("M9.4 6.8V5.2a1.6 1.6 0 0 1 1.6-1.6h2a1.6 1.6 0 0 1 1.6 1.6v1.6") +
@@ -7483,7 +7610,8 @@ function renderLibraryRail(mode){
       if(!anchor.isConnected) return;   // the rail moved on before this landed
       const stillCollapsed = collapsedSections.has(sec.key);
       const rows = (items.length
-          ? items.map(item => libRow({...item, thumbSlot: !!item.thumbTerm}))
+          ? items.map(item => libRow({...item, thumbSlot: !!item.thumbTerm,
+              active: item.modeKey ? item.modeKey === mode : item.active}))
           : [libEmpty("Nic tu zat\u00EDm nen\u00ED.")])
         .map((row, i) => {
           row.dataset.sec = sec.key;
@@ -7709,15 +7837,24 @@ function renderRailBranches(list, sec, sectionCollapsed){
 // browsing into one isn't the only way to see what's in it. Clicking the
 // label switches into the mode exactly like the old chip row did; the
 // chevron only folds its own preview.
+// The Tools section's own pages.
+const TOOLS = [
+  {key: "tabs", title: "Taby", icon: "guitar", sub: "Guitar Pro / MusicXML s nahrávkou"},
+  {key: "loops", title: "Loops", icon: "note", sub: "Looperman a další weby s loopy"},
+  {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
+];
+
 const RAIL_SECTIONS = [
   {key: "playlists", title: "Playlisty", icon: "queue"},
   {key: "songs", title: "Kapely a um\u011Blci", icon: "mic"},
   {key: "steems", title: "Steems", icon: "stems"},
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
-  {key: "loops", title: "Loops", icon: "note"},
-  {key: "tabs", title: "Taby", icon: "guitar"},
+  // Taby, Loops and Scales and Chords live under one heading.
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords"]},
 ];
+// Every mode the app can show, not only the rail's own headings.
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -7769,6 +7906,10 @@ async function fetchRailTop5(key){
       onClick: () => { setMode("library", {keepSection: true}); loadLibraryFolder(d.rel); },
     }));
   }
+  if(key === "tools"){
+    return TOOLS.map(t => ({art: icon(t.icon, 18), name: t.title, sub: t.sub, modeKey: t.key,
+      onClick: () => setMode(t.key)}));
+  }
   if(key === "tabs"){
     const recent = TabsLib.recent();
     if(recent.length) return recent.slice(0, 5).map(f => ({
@@ -7816,7 +7957,8 @@ function railModeSection(list, sec, mode){
   const key = sec.key;
   const collapsed = collapsedSections.has(key);
   const head = document.createElement("div");
-  head.className = "lib-sec-mode" + (collapsed ? " collapsed" : "") + (mode === key ? " active" : "");
+  head.className = "lib-sec-mode" + (collapsed ? " collapsed" : "") +
+    ((sec.modes ? sec.modes.includes(mode) : mode === key) ? " active" : "");
   head.dataset.mode = key;
   head.innerHTML =
     `<button type="button" class="lib-sec-chev" aria-expanded="${!collapsed}" title="Sbalit/rozbalit">${icon("chevron", 10)}</button>` +
@@ -14436,46 +14578,61 @@ const Mixer = (() => {
     const r = c ? editRange(c) : null;
     const hasSel = loopEnd - loopStart > 0.005;
     const dis = (cond) => cond ? "" : "disabled";
-    const b = (act, text, title, enabled) =>
-      `<button type="button" class="nm-btn" data-edit="${act}" title="${title}" ${dis(enabled)}>${text}</button>`;
+    // Icon buttons, DAW-style; the tooltip says what each one does.
+    const b = (act, ic, title, enabled, n) =>
+      `<button type="button" class="nm-btn ib" data-edit="${act}" title="${title}" aria-label="${title}" ${dis(enabled)}>${icon(ic, 16)}${n ? `<span class="n">${n}</span>` : ""}</button>`;
     bar.innerHTML = `
-      <button type="button" class="nm-btn" id="nm-addtrack" title="Otevřít libovolný audio soubor z počítače jako novou stopu téhle písně">${icon("add", 12)} Stopa ze souboru</button>
-      <button type="button" class="nm-btn" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("add", 12)} MIDI stopa</button>
-      <button type="button" class="nm-btn tool ${Midi.keyboardOn() ? "on" : ""}" id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, , . = oktáva) — vypne ostatní zkratky">⌨ Klávesy</button>
+      <span class="grp">
+        <button type="button" class="nm-btn ib" id="nm-addtrack" title="Nová stopa ze souboru — libovolný audio soubor z počítače">${icon("fileAdd", 16)}</button>
+        <button type="button" class="nm-btn ib" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("piano", 16)}</button>
+        <button type="button" class="nm-btn ib tool ${Midi.keyboardOn() ? "on" : ""}" id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, čárka/tečka = oktáva) — vypne ostatní zkratky">${icon("keyboard", 16)}</button>
+      </span>
       <span class="sep"></span>
-      <button type="button" class="nm-btn tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr: klik na dílek ho vybere, tažením ho přesuneš">Výběr</button>
-      <select id="nm-snap" title="Přichytávání dílků a střihů k mřížce (Alt = volně)">
-        <option value="off">Mřížka: vyp</option><option value="beat">Mřížka: doby</option><option value="bar">Mřížka: takty</option></select>
-      <button type="button" class="nm-btn tool ${tool === "scissors" ? "on" : ""}" data-edit="toolScissors" title="Nůžky (S): kam klikneš do stopy, tam se rozstřihne">✂ Nůžky</button>
-      ${b("clipDelete", "Smazat dílek", "Smazat vybraný dílek (Delete)", selClipChannel())}
-      ${b("clipCopy", "Kopírovat dílek", "Kopírovat vybraný dílek (⌘C)", selClipChannel())}
-      ${b("clipPaste", "Vložit dílek", "Vložit zkopírovaný dílek na pozici přehrávání do vybrané stopy (⌘V)", c && clipBoard)}
-      ${b("clipDuplicate", "Duplikovat", "Kopie dílku hned za něj (⌘D)", selClipChannel())}
+      <span class="grp">
+        <button type="button" class="nm-btn ib tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr — klik na dílek ho vybere, tažením ho přesuneš">${icon("pointer", 16)}</button>
+        <button type="button" class="nm-btn ib tool ${tool === "scissors" ? "on" : ""}" data-edit="toolScissors" title="Nůžky (S) — kam klikneš do stopy, tam se rozstřihne">${icon("scissors", 16)}</button>
+        <span class="snap" title="Přichytávání dílků a střihů k mřížce (Alt = volně)">${icon("magnet", 14)}<select id="nm-snap">
+          <option value="off">vyp</option><option value="beat">doby</option><option value="bar">takty</option></select></span>
+      </span>
       <span class="sep"></span>
-      <span class="cap">ÚPRAVY</span>
+      <span class="cap">DÍLEK</span>
+      <span class="grp">
+        ${b("clipCopy", "copy", "Kopírovat vybraný dílek (⌘C)", selClipChannel())}
+        ${b("clipPaste", "paste", "Vložit zkopírovaný dílek na pozici přehrávání do vybrané stopy (⌘V)", c && clipBoard)}
+        ${b("clipDuplicate", "duplicate", "Duplikovat dílek — kopie hned za něj (⌘D)", selClipChannel())}
+        ${b("clipDelete", "trash", "Smazat vybraný dílek (Delete)", selClipChannel())}
+      </span>
+      <span class="sep"></span>
+      <span class="cap">STOPA</span>
       <select id="nm-edit-track" title="Stopa, kterou upravuješ (nebo klikni na její název vlevo)">
         <option value="-1">— vyber stopu —</option>
         ${channels.map((x, i) => `<option value="${i}" ${i === editIdx ? "selected" : ""}>${escapeHtml(stemLabel(x.stem))}${editedStems.has(x.stem) ? " ✎" : ""}</option>`).join("")}
       </select>
       <span class="sel">${hasSel ? `výběr <b>${fmtEditTime(loopStart)}–${fmtEditTime(loopEnd)}</b>` : "výběr: táhni po pravítku"}</span>
-      ${b("cut", "✂ Vystřihnout", "Vystřihnout výběr do schránky (⌘X) — zbytek stopy se posune", c && r)}
-      ${b("copy", "Kopírovat", "Kopírovat výběr (⌘C)", c && r)}
-      ${b("paste", "Vložit", "Vložit schránku na pozici přehrávání (⌘V) — zbytek stopy se posune", c && clip)}
-      ${b("del", "Smazat", "Smazat výběr (Delete) — zbytek stopy se posune", c && r)}
-      ${b("silence", "Ticho", "Ztlumit výběr — stopa se neposune", c && r)}
+      <span class="grp">
+        ${b("cut", "scissors", "Vystřihnout výběr do schránky (⌘X) — zbytek stopy se posune", c && r)}
+        ${b("copy", "copy", "Kopírovat výběr (⌘C)", c && r)}
+        ${b("paste", "paste", "Vložit schránku na pozici přehrávání (⌘V) — zbytek stopy se posune", c && clip)}
+        ${b("del", "trash", "Smazat výběr (Delete) — zbytek stopy se posune", c && r)}
+        ${b("silence", "silence", "Ticho — ztlumit výběr (stopa se neposune)", c && r)}
+        ${b("crop", "crop", "Oříznout — ponechat jen výběr, zbytek ztlumit (stopa se neposune)", c && r)}
+      </span>
       <span class="sep"></span>
-      ${b("fadeIn", "Fade in", "Postupné zesílení přes výběr", c && r)}
-      ${b("fadeOut", "Fade out", "Postupné zeslabení přes výběr", c && r)}
-      ${b("gainDown", "−3 dB", "Zeslabit výběr (bez výběru celou stopu)", c)}
-      ${b("gainUp", "+3 dB", "Zesílit výběr (bez výběru celou stopu)", c)}
-      ${b("normalize", "Normalizovat", "Nejhlasitější místo na −0,3 dB (výběr, nebo celá stopa)", c)}
-      ${b("reverse", "Obrátit", "Přehrát výběr pozpátku", c && r)}
-      ${b("crop", "Jen výběr", "Ponechat jen výběr, zbytek stopy ztlumit (stopa se neposune)", c && r)}
+      <span class="grp">
+        ${b("fadeIn", "fadeIn", "Fade in — postupné zesílení přes výběr", c && r)}
+        ${b("fadeOut", "fadeOut", "Fade out — postupné zeslabení přes výběr", c && r)}
+        ${b("gainDown", "gainDown", "Zeslabit o 3 dB (výběr, bez výběru celou stopu)", c, "3")}
+        ${b("gainUp", "gainUp", "Zesílit o 3 dB (výběr, bez výběru celou stopu)", c, "3")}
+        ${b("normalize", "normalize", "Normalizovat — nejhlasitější místo na −0,3 dB (výběr, nebo celá stopa)", c)}
+        ${b("reverse", "reverse", "Obrátit — přehrát výběr pozpátku", c && r)}
+      </span>
       <span class="sep"></span>
-      ${b("undo", "↶ Zpět", "Vrátit poslední úpravu (⌘Z)", undoStack.length)}
-      ${b("redo", "↷ Znovu", "Znovu provést (⇧⌘Z)", redoStack.length)}
-      ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn" id="nm-edit-restore" title="Zahodit všechny úpravy téhle stopy">Obnovit původní</button>` : ""}
-      ${hiddenChannels.length ? `<button type="button" class="nm-btn" id="nm-hidden-btn" title="Stopy odebrané z mixu křížkem">Skryté stopy (${hiddenChannels.length})</button>` : ""}
+      <span class="grp">
+        ${b("undo", "undo", "Zpět (⌘Z)", undoStack.length)}
+        ${b("redo", "redo", "Znovu (⇧⌘Z)", redoStack.length)}
+        ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn ib" id="nm-edit-restore" title="Obnovit původní — zahodit všechny úpravy téhle stopy">${icon("history", 16)}</button>` : ""}
+        ${hiddenChannels.length ? `<button type="button" class="nm-btn ib" id="nm-hidden-btn" title="Skryté stopy (${hiddenChannels.length}) — vrátit stopy odebrané křížkem">${icon("eyeOff", 16)}<span class="n">${hiddenChannels.length}</span></button>` : ""}
+      </span>
       <span class="status"></span>`;
     bar.querySelector("#nm-addtrack").onclick = () => el("nm-addtrack-file").click();
     bar.querySelector("#nm-addmidi").onclick = () => Midi.addTrack();
@@ -21961,6 +22118,432 @@ const FloatLyrics = makeFloating("lyrics-panel", {defaults: {width: 380, height:
 const FloatPbLyr = makeFloating("pb-lyr-float", {defaults: {width: 460, height: 480}});
 
 // ======================================================================
+// Piano — a virtual keyboard in its own window, always at hand (top bar,
+// next to the tuner). HQ sampled instruments (FluidR3 via kytara-nastroj),
+// note names and computer-key hints on the keys, the computer keyboard or
+// MIDI keys to play it. A "smart" scale: out-of-scale keys are dimmed, or
+// locked — snapped to the nearest scale tone — so a wrong note can't be
+// played; on the computer keys the scale can even be laid out one tone per
+// key. Chords are named from the held keys, scales guessed from what was
+// played, and a guitar fretboard turns a fingering into a chord shown on
+// the keys.
+// ======================================================================
+const Piano = (() => {
+  const FW = makeFloating("piano-float", {defaults: {width: 940, height: 470}});
+  const KEY = "spotdl-piano";
+  const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const SCALES = {
+    none: ["— bez stupnice —", null],
+    major: ["Dur (jónská)", [0, 2, 4, 5, 7, 9, 11]],
+    minor: ["Moll (aiolská)", [0, 2, 3, 5, 7, 8, 10]],
+    harmonic: ["Harmonická moll", [0, 2, 3, 5, 7, 8, 11]],
+    melodic: ["Melodická moll", [0, 2, 3, 5, 7, 9, 11]],
+    pentaMaj: ["Pentatonika dur", [0, 2, 4, 7, 9]],
+    pentaMin: ["Pentatonika moll", [0, 3, 5, 7, 10]],
+    blues: ["Blues", [0, 3, 5, 6, 7, 10]],
+    dorian: ["Dórská", [0, 2, 3, 5, 7, 9, 10]],
+    phrygian: ["Frygická", [0, 1, 3, 5, 7, 8, 10]],
+    lydian: ["Lydická", [0, 2, 4, 6, 7, 9, 11]],
+    mixolydian: ["Mixolydická", [0, 2, 4, 5, 7, 9, 10]],
+    locrian: ["Lokrická", [0, 1, 3, 5, 6, 8, 10]],
+    phrygDom: ["Frygická dominantní", [0, 1, 4, 5, 7, 8, 10]],
+  };
+  const CHORDS = [
+    ["", [0, 4, 7]], ["m", [0, 3, 7]], ["dim", [0, 3, 6]], ["aug", [0, 4, 8]], ["sus2", [0, 2, 7]], ["sus4", [0, 5, 7]],
+    ["5", [0, 7]], ["7", [0, 4, 7, 10]], ["maj7", [0, 4, 7, 11]], ["m7", [0, 3, 7, 10]], ["m7b5", [0, 3, 6, 10]],
+    ["dim7", [0, 3, 6, 9]], ["mMaj7", [0, 3, 7, 11]], ["6", [0, 4, 7, 9]], ["m6", [0, 3, 7, 9]], ["add9", [0, 2, 4, 7]],
+    ["madd9", [0, 2, 3, 7]], ["9", [0, 2, 4, 7, 10]], ["maj9", [0, 2, 4, 7, 11]], ["m9", [0, 2, 3, 7, 10]], ["7sus4", [0, 5, 7, 10]],
+  ];
+  const TUNINGS = {
+    std: ["Standard E", [64, 59, 55, 50, 45, 40]], dropD: ["Drop D", [64, 59, 55, 50, 45, 38]],
+    half: ["Eb (o půltón níž)", [63, 58, 54, 49, 44, 39]], dstd: ["D standard", [62, 57, 53, 48, 43, 38]],
+    dadgad: ["DADGAD", [62, 57, 55, 50, 45, 38]], openG: ["Open G", [62, 59, 55, 50, 43, 38]],
+  };
+  // Computer keys (by physical position, so QWERTZ and QWERTY both work).
+  const PC_CHROMA = {KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11,
+    Comma: 12, KeyL: 13, Period: 14, Semicolon: 15, Slash: 16,
+    KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23,
+    KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28};
+  const PC_DEGREE_LOW = ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period", "Slash"];
+  const PC_DEGREE_HIGH = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"];
+
+  const st = Object.assign({octaves: 3, low: 48, instrument: null, volume: 0.8, root: 0, scale: "none", lock: "highlight",
+    pc: "chroma", pcBase: 48, labels: true, hints: true, fret: false, tuning: "std", frets: [null, null, null, null, null, null]},
+    (() => { try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } })());
+  const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
+
+  let ac = null, out = null, zv = null, lib = null, built = false, layout = null, midiAccess = null;
+  const sounding = new Map();       // midi → voice
+  const down = new Set();           // held (for chords)
+  const pcHeld = new Map();         // code → midi
+  let history = [];                 // recent pitch classes, for the scale guess
+
+  // ---- sound ----
+  async function sound(){
+    if(!ac){
+      ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+      AudioOut.adopt(ac);
+      out = ac.createGain(); out.gain.value = st.volume; out.connect(ac.destination);
+    }
+    if(ac.state === "suspended") ac.resume();
+    if(!lib) lib = await Mixer.guitar.instrumentLib();
+    if(!zv) zv = new lib.Zvuky(ac);
+    if(!st.instrument) st.instrument = lib.VYCHOZI_NASTROJ;
+    return lib.najdiNastroj(st.instrument).soundfont;
+  }
+  async function noteOn(m, v = 0.8, quiet){
+    m = constrain(m);
+    if(m == null) return null;
+    down.add(m);
+    paintKeys();
+    if(!quiet){ history.push(m % 12); if(history.length > 32) history.shift(); }
+    paintInfo();
+    let sf;
+    try{ sf = await sound(); }catch(e){ return m; }
+    if(!zv.jeNacteny(sf)){ zv.nacti(sf).catch(() => showToast("Zvuk nástroje se nepodařilo stáhnout")); }
+    const prev = sounding.get(m);
+    if(prev) zv.utni(prev);
+    sounding.set(m, zv.hraj(sf, m, v, out));
+    return m;
+  }
+  function noteOff(m){
+    if(m == null) return;
+    down.delete(m);
+    const h = sounding.get(m);
+    if(h && zv) zv.utni(h);
+    sounding.delete(m);
+    paintKeys();
+    paintInfo();
+  }
+
+  // ---- scale ----
+  const scaleIv = () => SCALES[st.scale] ? SCALES[st.scale][1] : null;
+  function inScale(m){ const iv = scaleIv(); return !iv || iv.includes(((m - st.root) % 12 + 12) % 12); }
+  // With the lock on, a wrong note becomes the nearest right one.
+  function constrain(m){
+    if(st.lock !== "lock" || !scaleIv() || inScale(m)) return m;
+    for(let d = 1; d < 12; d++){ if(inScale(m - d)) return m - d; if(inScale(m + d)) return m + d; }
+    return m;
+  }
+  function degreeNote(base, deg){
+    const iv = scaleIv() || [0, 2, 4, 5, 7, 9, 11];
+    const oct = Math.floor(deg / iv.length), i = ((deg % iv.length) + iv.length) % iv.length;
+    // base is a C; the scale starts at its root within that octave.
+    return base + st.root + oct * 12 + iv[i];
+  }
+
+  // ---- chords and scales from notes ----
+  function nameChord(midis){
+    const ms = [...new Set(midis)].sort((a, b) => a - b);
+    const pcs = new Set(ms.map(m => m % 12));
+    if(pcs.size < 2) return null;
+    const bass = ms[0] % 12;
+    let best = null;
+    for(let root = 0; root < 12; root++){
+      for(const [suf, iv] of CHORDS){
+        const t = new Set(iv.map(x => (root + x) % 12));
+        const missing = [...t].filter(x => !pcs.has(x)).length;
+        const extra = [...pcs].filter(x => !t.has(x)).length;
+        if(extra) continue;
+        // Exact, or without its fifth (guitar voicings drop it often).
+        const fifthOnly = missing === 1 && !pcs.has((root + 7) % 12) && iv.includes(7);
+        if(missing && !fifthOnly) continue;
+        const score = (missing ? 60 : 100) + iv.length * 3 + (root === bass ? 8 : 0) - (suf.length ? 1 : 0);
+        if(!best || score > best.score) best = {score, name: NOTES[root] + suf + (root !== bass ? "/" + NOTES[bass] : "")};
+      }
+    }
+    if(best) return best.name;
+    if(pcs.size === 2){
+      const [a, b] = ms; const d = (b - a) % 12;
+      const IV = ["unisono", "malá sekunda", "velká sekunda", "malá tercie", "velká tercie", "kvarta", "tritón", "kvinta", "malá sexta", "velká sexta", "malá septima", "velká septima"];
+      return `${NOTES[a % 12]}–${NOTES[b % 12]} (${IV[d]})`;
+    }
+    return "?";
+  }
+  function guessScales(){
+    if(history.length < 4) return [];
+    const count = new Array(12).fill(0);
+    history.forEach(pc => count[pc]++);
+    const used = count.map((c, i) => c ? i : -1).filter(i => i >= 0);
+    const res = [];
+    for(const [key, [name, iv]] of Object.entries(SCALES)){
+      if(!iv) continue;
+      for(let root = 0; root < 12; root++){
+        const set = new Set(iv.map(x => (root + x) % 12));
+        const hit = used.filter(pc => set.has(pc)).length, miss = used.length - hit;
+        if(miss) continue;
+        // Fewer unused scale tones and a root that was played (first or often) rank higher.
+        const score = hit * 10 - (set.size - hit) * 2 + count[root] * 2 + (history[0] === root ? 3 : 0) + (key === "major" || key === "minor" ? 2 : 0);
+        res.push({key, root, score, label: `${NOTES[root]} ${name.toLowerCase()}`});
+      }
+    }
+    return res.sort((a, b) => b.score - a.score).slice(0, 4);
+  }
+
+  // ---- fretboard ----
+  function fretNotes(){
+    const tun = TUNINGS[st.tuning][1];
+    return st.frets.map((f, s) => f == null ? null : tun[s] + f).filter(x => x != null);
+  }
+
+  // ---- UI ----
+  function build(){
+    const body = el("piano-body");
+    body.innerHTML = `
+      <div class="pk-ctl">
+        <span class="grp" title="Zvuk"><select id="pk-inst"><option>načítám nástroje…</option></select>
+          <input type="range" id="pk-vol" min="0" max="1" step="0.01" value="${st.volume}" title="Hlasitost" style="width:70px"></span>
+        <span class="grp" title="Stupnice — tónina a druh">Stupnice <select id="pk-root">${NOTES.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
+          <select id="pk-scale">${Object.entries(SCALES).map(([k, [n]]) => `<option value="${k}">${n}</option>`).join("")}</select>
+          <select id="pk-lock" title="Co s tóny mimo stupnici"><option value="off">ukázat vše</option><option value="highlight">zvýraznit stupnici</option><option value="lock">zámek — jen tóny stupnice</option></select></span>
+        <span class="grp" title="Klávesnice počítače (− / + = oktáva)">${icon("keyboard", 15)}<select id="pk-pc"><option value="off">vypnutá</option><option value="chroma">jako klavír</option><option value="scale">jen tóny stupnice</option></select>
+          <button type="button" id="pk-pcdn" title="Klávesnice počítače o oktávu níž (−)">−</button><button type="button" id="pk-pcup" title="O oktávu výš (+)">+</button></span>
+        <span class="grp" title="Rozsah klaviatury"><button type="button" id="pk-lowdn" title="Posunout dolů">‹</button>
+          <select id="pk-oct">${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n} okt.</option>`).join("")}</select>
+          <button type="button" id="pk-lowup" title="Posunout nahoru">›</button></span>
+        <button type="button" id="pk-labels" class="${st.labels ? "on" : ""}" title="Názvy tónů na klávesách">C D E</button>
+        <button type="button" id="pk-hints" class="${st.hints ? "on" : ""}" title="Nápověda kláves počítače na klávesách">A S D</button>
+        <button type="button" id="pk-midi" title="Připojit MIDI klaviaturu">MIDI</button>
+        <button type="button" id="pk-fret" class="${st.fret ? "on" : ""}" title="Hmatník kytary — poskládej hmat, pozná akord">Hmatník</button>
+      </div>
+      <div class="pk-info"><span class="pk-chord" id="pk-chord">—</span><span class="pk-notes" id="pk-notes"></span>
+        <span class="pk-sugg" id="pk-sugg"></span></div>
+      <div class="pk-keys" id="pk-keys"></div>
+      <div class="pk-fb" id="pk-fb" ${st.fret ? "" : "hidden"}></div>`;
+    const q = (id) => el(id);
+    q("pk-root").value = String(st.root); q("pk-scale").value = st.scale; q("pk-lock").value = st.lock;
+    q("pk-pc").value = st.pc; q("pk-oct").value = String(st.octaves);
+    q("pk-root").onchange = (e) => { st.root = +e.target.value; changed(); };
+    q("pk-scale").onchange = (e) => { st.scale = e.target.value; changed(); };
+    q("pk-lock").onchange = (e) => { st.lock = e.target.value; changed(); };
+    q("pk-pc").onchange = (e) => { st.pc = e.target.value; changed(); };
+    q("pk-pcdn").onclick = () => { st.pcBase = Math.max(24, st.pcBase - 12); changed(); };
+    q("pk-pcup").onclick = () => { st.pcBase = Math.min(96, st.pcBase + 12); changed(); };
+    q("pk-oct").onchange = (e) => { st.octaves = +e.target.value; changed(); };
+    q("pk-lowdn").onclick = () => { st.low = Math.max(12, st.low - 12); changed(); };
+    q("pk-lowup").onclick = () => { st.low = Math.min(96, st.low + 12); changed(); };
+    q("pk-labels").onclick = () => { st.labels = !st.labels; q("pk-labels").classList.toggle("on", st.labels); changed(); };
+    q("pk-hints").onclick = () => { st.hints = !st.hints; q("pk-hints").classList.toggle("on", st.hints); changed(); };
+    q("pk-vol").oninput = (e) => { st.volume = +e.target.value; if(out) out.gain.value = st.volume; save(); };
+    q("pk-midi").onclick = connectMidi;
+    q("pk-fret").onclick = () => { st.fret = !st.fret; q("pk-fret").classList.toggle("on", st.fret); q("pk-fb").hidden = !st.fret; changed(); };
+    q("pk-inst").onchange = (e) => { st.instrument = e.target.value; save(); sound().then(sf => zv.nacti(sf)).catch(() => {}); };
+    Mixer.guitar.instrumentLib().then(L => {
+      lib = L;
+      if(!st.instrument) st.instrument = L.VYCHOZI_NASTROJ;
+      q("pk-inst").innerHTML = L.nastrojePodleKategorii().map(g => `<optgroup label="${escapeHtml(g.kategorie)}">${
+        g.nastroje.map(n => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.nazev)}</option>`).join("")}</optgroup>`).join("");
+      q("pk-inst").value = st.instrument;
+    }).catch(() => { q("pk-inst").innerHTML = `<option>nástroje se nenačetly</option>`; });
+    if(navigator.keyboard && navigator.keyboard.getLayoutMap){
+      navigator.keyboard.getLayoutMap().then(m => { layout = m; paintKeys(true); }).catch(() => {});
+    }
+    built = true;
+    paintKeys(true);
+    paintFretboard();
+    paintInfo();
+  }
+  function changed(){ save(); paintKeys(true); paintFretboard(); paintInfo(); }
+
+  function keyCap(code){
+    const c = layout && layout.get(code);
+    if(c) return c.toUpperCase();
+    return code.replace(/^Key|^Digit/, "").replace("Comma", ",").replace("Period", ".").replace("Semicolon", ";").replace("Slash", "/");
+  }
+  // Which computer key plays each MIDI note, in the current mode.
+  function pcHints(){
+    const map = new Map();
+    if(st.pc === "chroma") for(const [code, off] of Object.entries(PC_CHROMA)){ const m = st.pcBase + off; if(!map.has(m)) map.set(m, code); }
+    if(st.pc === "scale"){
+      const len = (scaleIv() || [0, 2, 4, 5, 7, 9, 11]).length;
+      PC_DEGREE_LOW.forEach((code, i) => { const m = degreeNote(st.pcBase, i); if(!map.has(m)) map.set(m, code); });
+      PC_DEGREE_HIGH.forEach((code, i) => { const m = degreeNote(st.pcBase, len + i); if(!map.has(m)) map.set(m, code); });
+    }
+    return map;
+  }
+  function paintKeys(full){
+    const box = el("pk-keys");
+    if(!box) return;
+    const lo = st.low, hi = st.low + st.octaves * 12;
+    const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+    const fret = new Set(st.fret ? fretNotes() : []);
+    if(full || box.childElementCount === 0){
+      const hints = st.hints ? pcHints() : new Map();
+      const whites = [];
+      for(let m = lo; m <= hi; m++) if(!isBlack(m)) whites.push(m);
+      const W = 100 / whites.length;
+      let html = "";
+      whites.forEach(m => {
+        html += `<div class="pk-w" data-m="${m}">${hints.has(m) ? `<span class="hk">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}${Math.floor(m / 12) - 1}</span>` : ""}</div>`;
+      });
+      for(let m = lo; m <= hi; m++){
+        if(!isBlack(m)) continue;
+        const wi = whites.indexOf(m - 1);
+        html += `<div class="pk-b" data-m="${m}" style="left:calc(${(wi + 1) * W}% - ${W * 0.3}%);width:${W * 0.6}%">${hints.has(m) ? `<span class="hk">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}</span>` : ""}</div>`;
+      }
+      box.innerHTML = html;
+    }
+    const iv = scaleIv();
+    box.querySelectorAll("[data-m]").forEach(k => {
+      const m = +k.dataset.m;
+      k.classList.toggle("out", !!iv && st.lock !== "off" && !inScale(m));
+      k.classList.toggle("locked", st.lock === "lock");
+      k.classList.toggle("root", !!iv && st.lock !== "off" && ((m - st.root) % 12 + 12) % 12 === 0);
+      k.classList.toggle("fret", fret.has(m));
+      k.classList.toggle("down", down.has(m));
+    });
+  }
+  function paintInfo(){
+    const chordEl = el("pk-chord");
+    if(!chordEl) return;
+    const held = [...down];
+    const src = held.length >= 2 ? held : (st.fret ? fretNotes() : []);
+    const name = src.length >= 2 ? nameChord(src) : (held.length === 1 ? NOTES[held[0] % 12] + (Math.floor(held[0] / 12) - 1) : null);
+    chordEl.textContent = name || "—";
+    el("pk-notes").textContent = src.length >= 2 ? [...new Set(src.sort((a, b) => a - b).map(m => NOTES[m % 12]))].join(" · ") : "";
+    const sugg = guessScales();
+    const box = el("pk-sugg");
+    box.innerHTML = sugg.length ? `<span>Hraješ asi v:</span>` + sugg.map((g, i) => `<button type="button" data-i="${i}" title="Nastavit tuhle stupnici">${escapeHtml(g.label)}</button>`).join("") +
+      ` <button type="button" data-clear="1" title="Zapomenout zahrané tóny" style="background:none;border-color:#333;color:#888">×</button>` : "";
+    box.querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
+      const g = sugg[+b.dataset.i]; st.root = g.root; st.scale = g.key;
+      if(st.lock === "off") st.lock = "highlight";
+      el("pk-root").value = String(st.root); el("pk-scale").value = st.scale; el("pk-lock").value = st.lock;
+      changed();
+    });
+    const cl = box.querySelector("[data-clear]");
+    if(cl) cl.onclick = () => { history = []; paintInfo(); };
+  }
+  function paintFretboard(){
+    const box = el("pk-fb");
+    if(!box || !st.fret) return;
+    const tun = TUNINGS[st.tuning][1], FR = 15, iv = scaleIv();
+    let html = `<div class="pk-ctl" style="margin-bottom:4px">Ladění <select id="pk-tun">${Object.entries(TUNINGS).map(([k, [n]]) => `<option value="${k}" ${k === st.tuning ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <button type="button" id="pk-strum" title="Zahrát hmat">▶ Zahrát</button><button type="button" id="pk-fclear" title="Vymazat hmat">Vymazat</button>
+      <span>klik na pražec = tón · znovu = struna ztlumená (x) · 0 = prázdná struna</span></div><table>`;
+    html += `<tr class="marks"><td class="lbl"></td><td class="lbl"></td>${Array.from({length: FR}, (_, i) => `<td class="lbl">${[3, 5, 7, 9, 12, 15].includes(i + 1) ? (i + 1) : ""}</td>`).join("")}</tr>`;
+    tun.forEach((open, s) => {
+      const f = st.frets[s];
+      html += `<tr><td class="lbl">${NOTES[open % 12]}</td>`;
+      for(let fr = 0; fr <= FR; fr++){
+        const m = open + fr, on = f === fr;
+        const sc = iv && st.lock !== "off" && inScale(m);
+        html += `<td class="${fr === 0 ? "nut" : "str"} ${f == null && fr === 0 ? "mute" : ""}" data-s="${s}" data-f="${fr}" title="${NOTES[m % 12]}${Math.floor(m / 12) - 1}">${
+          on ? `<span class="dot on">${NOTES[m % 12]}</span>` : (f == null && fr === 0 ? `<span class="dot on">x</span>` : (sc ? `<span class="dot sc ${((m - st.root) % 12 + 12) % 12 === 0 ? "r" : ""}"></span>` : ""))}</td>`;
+      }
+      html += `</tr>`;
+    });
+    box.innerHTML = html + `</table>`;
+    box.querySelector("#pk-tun").onchange = (e) => { st.tuning = e.target.value; changed(); };
+    box.querySelector("#pk-fclear").onclick = () => { st.frets = [null, null, null, null, null, null]; changed(); };
+    box.querySelector("#pk-strum").onclick = strum;
+    box.querySelectorAll("td[data-s]").forEach(td => td.onclick = () => {
+      const s = +td.dataset.s, f = +td.dataset.f;
+      st.frets[s] = st.frets[s] === f ? null : f;
+      changed();
+      noteOn(tun[s] + (st.frets[s] ?? f), 0.7, true).then(m => setTimeout(() => noteOff(m), 500));
+    });
+  }
+  async function strum(){
+    const tun = TUNINGS[st.tuning][1];
+    const ms = st.frets.map((f, s) => f == null ? null : tun[s] + f).filter(x => x != null).reverse();   // low string first
+    for(let i = 0; i < ms.length; i++){ setTimeout(() => noteOn(ms[i], 0.75, true), i * 35); }
+    setTimeout(() => ms.forEach(noteOff), 1600);
+  }
+
+  // ---- input: mouse ----
+  let mouseNote = null, mouseDown = false;
+  document.addEventListener("pointerdown", async (e) => {
+    const k = e.target.closest && e.target.closest("#pk-keys [data-m]");
+    if(!k) return;
+    e.preventDefault();
+    mouseDown = true;
+    mouseNote = await noteOn(+k.dataset.m, 0.8);
+  });
+  document.addEventListener("pointerover", async (e) => {
+    if(!mouseDown) return;
+    const k = e.target.closest && e.target.closest("#pk-keys [data-m]");
+    if(!k) return;
+    const m = constrain(+k.dataset.m);
+    if(m === mouseNote) return;
+    noteOff(mouseNote);
+    mouseNote = await noteOn(+k.dataset.m, 0.8);
+  });
+  document.addEventListener("pointerup", () => { if(!mouseDown) return; mouseDown = false; noteOff(mouseNote); mouseNote = null; });
+
+  // ---- input: computer keys ----
+  function pcNote(code){
+    if(st.pc === "chroma") return code in PC_CHROMA ? st.pcBase + PC_CHROMA[code] : null;
+    if(st.pc === "scale"){
+      const len = (scaleIv() || [0, 2, 4, 5, 7, 9, 11]).length;
+      let i = PC_DEGREE_LOW.indexOf(code);
+      if(i >= 0) return degreeNote(st.pcBase, i);
+      i = PC_DEGREE_HIGH.indexOf(code);
+      if(i >= 0) return degreeNote(st.pcBase, len + i);
+    }
+    return null;
+  }
+  window.addEventListener("keydown", async (e) => {
+    if(!FW.isOpen() || st.pc === "off" || e.metaKey || e.ctrlKey || e.altKey) return;
+    if(e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if(e.code === "Minus" || e.code === "Equal"){
+      e.preventDefault(); e.stopPropagation();
+      st.pcBase = Math.max(24, Math.min(96, st.pcBase + (e.code === "Equal" ? 12 : -12))); changed(); return;
+    }
+    const m = pcNote(e.code);
+    if(m == null) return;
+    e.preventDefault(); e.stopPropagation();
+    if(e.repeat || pcHeld.has(e.code)) return;
+    pcHeld.set(e.code, null);
+    const played = await noteOn(m, 0.8);
+    if(pcHeld.has(e.code)) pcHeld.set(e.code, played); else noteOff(played);
+  }, true);
+  window.addEventListener("keyup", (e) => {
+    if(!pcHeld.has(e.code)) return;
+    e.stopPropagation();
+    const m = pcHeld.get(e.code);
+    pcHeld.delete(e.code);
+    if(m != null) noteOff(m);
+  }, true);
+
+  // ---- input: MIDI keys ----
+  async function connectMidi(){
+    if(midiAccess){ listMidi(); return; }
+    if(!navigator.requestMIDIAccess){ showToast("Tenhle prohlížeč neumí MIDI — otevři aplikaci v Chrome"); return; }
+    try{ midiAccess = await navigator.requestMIDIAccess(); }catch(e){ showToast("Přístup k MIDI zamítnut"); return; }
+    const bind = () => midiAccess.inputs.forEach(inp => {
+      if(inp.__piano) return;
+      inp.__piano = true;
+      inp.addEventListener("midimessage", (ev) => {
+        if(!FW.isOpen()) return;
+        const [stt, d1, d2] = ev.data, cmd = stt & 0xf0;
+        if(cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127).then(m => { midiMap.set(d1, m); });
+        else if(cmd === 0x80 || (cmd === 0x90 && d2 === 0)){ noteOff(midiMap.get(d1) ?? d1); midiMap.delete(d1); }
+      });
+    });
+    bind();
+    midiAccess.addEventListener("statechange", bind);
+    listMidi();
+  }
+  const midiMap = new Map();     // played key → the (maybe snapped) note that sounds
+  function listMidi(){
+    const names = midiAccess ? [...midiAccess.inputs.values()].map(i => i.name) : [];
+    const b = el("pk-midi");
+    if(b){ b.classList.toggle("on", names.length > 0); b.title = names.length ? `MIDI: ${names.join(", ")}` : "Žádné MIDI klávesy nejsou připojené"; }
+    showToast(names.length ? `MIDI klávesy: ${names.join(", ")}` : "Žádné MIDI klávesy nejsou připojené");
+  }
+
+  function open(){
+    FW.open();
+    if(!built) build(); else changed();
+  }
+  el("piano-float-close").onclick = () => { FW.close(); [...down].forEach(noteOff); };
+  el("piano-top-btn").onclick = () => FW.isOpen() ? (FW.close(), [...down].forEach(noteOff)) : open();
+  return {open, toggle: () => (FW.isOpen() ? FW.close() : open()), nameChord, guessScales,
+    play: (m) => noteOn(m), stop: (m) => noteOff(m), state: st, setFrets: (f) => { st.frets = f; changed(); }};
+})();
+
+// ======================================================================
 // Text, docked above the transport (and above the tab dock, if that's
 // also open) — the main-player equivalent of Steems' own lyrics bar
 // (mixer-lyrics-bar), so it works on anything playing without separating
@@ -23081,7 +23664,7 @@ pushNav("mode:" + state.mode, () => setMode(state.mode));
 (() => {
   const h = new URLSearchParams(location.hash.slice(1));
   const song = h.get("steems"), mode = h.get("sekce");
-  if(!song && !(mode && RAIL_SECTIONS.some(sec => sec.key === mode))) return;
+  if(!song && !(mode && ALL_MODES.includes(mode))) return;
   history.replaceState(null, "", location.pathname + location.search);
   // #sekce=tabs (or any rail section key) just opens that section.
   if(!song){ setMode(mode); return; }
