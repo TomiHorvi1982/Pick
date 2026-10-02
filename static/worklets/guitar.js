@@ -115,22 +115,34 @@ registerProcessor("guitar-processor", GuitarProcessor);
  *
  * A MediaRecorder would be less code, but it encodes to Opus in a container
  * and the point here is to get the exact samples that were played into a
- * stem. This keeps Float32 blocks and hands them over when asked.
+ * stem. While recording, the samples are streamed to the page in batches,
+ * each stamped with the audio clock's time of its first frame: that is what
+ * lets the page draw the take as it comes in, place it on the song's
+ * timeline exactly, and cut it at a loop boundary to start the next take.
  */
+const BATCH = 2048;
+
 class TakeRecorder extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.chunks = [];
     this.recording = false;
-    this.frames = 0;
+    this.batch = null;
     this.port.onmessage = (e) => {
-      if (e.data === "start") { this.chunks = []; this.frames = 0; this.recording = true; }
+      if (e.data === "start") { this.batch = null; this.recording = true; }
       else if (e.data === "stop") {
+        this.flush();
         this.recording = false;
-        this.port.postMessage({done: true, chunks: this.chunks, frames: this.frames});
-        this.chunks = [];
+        this.port.postMessage({done: true});
       }
     };
+  }
+
+  flush() {
+    const b = this.batch;
+    this.batch = null;
+    if (!b || !b.n) return;
+    const data = b.chans.map(c => (b.n === BATCH ? c : c.slice(0, b.n)));
+    this.port.postMessage({t: b.t, n: b.n, data}, data.map(a => a.buffer));
   }
 
   process(inputs, outputs) {
@@ -142,11 +154,14 @@ class TakeRecorder extends AudioWorkletProcessor {
         output[c].set(src);
       }
       if (this.recording) {
-        // Copy: the buffers are reused by the browser on the next block.
-        this.chunks.push(input.map(ch => new Float32Array(ch)));
-        this.frames += input[0].length;
-        // A take that runs away would eat memory until the tab dies.
-        if (this.frames > sampleRate * 60 * 30) this.recording = false;
+        const n = input[0].length;
+        if (!this.batch) {
+          this.batch = {t: currentTime, n: 0, chans: input.map(() => new Float32Array(BATCH))};
+        }
+        const b = this.batch;
+        for (let c = 0; c < b.chans.length; c++) b.chans[c].set(input[Math.min(c, input.length - 1)], b.n);
+        b.n += n;
+        if (b.n + n > BATCH) this.flush();
       }
     } else if (output) {
       output.forEach(ch => ch.fill(0));

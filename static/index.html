@@ -345,6 +345,12 @@
      3D vertical faders, pan knobs, M/S buttons, FX slots, color-coded
      ================================================================ */
   .fl-mixer{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .fl-ch-header{position:relative}
+  .fl-ch-hide{position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:50%;border:none;background:none;
+    color:var(--nm-sub, #888);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;padding:0}
+  .fl-channel:hover .fl-ch-hide{opacity:1}
+  .fl-ch-hide:hover{background:#3a2020;color:#ff6b6b}
+  .nm-sm.trk-hide:hover{color:#ff6b6b}
   .fl-mixer[hidden]{display:none}
 
   /* ---- Transport Bar ---- */
@@ -957,6 +963,34 @@
   .nm-strip.edit-sel .nm-strip-name{color:#ffd166}
   .nm-lane.edit-sel{box-shadow:inset 0 0 0 1px rgba(255,209,102,.55)}
   .nm-strip:not(.metro-strip) .nm-strip-name{cursor:pointer}
+  /* Clips: a track cut into pieces with the scissors. */
+  .nm-clip{position:absolute;top:2px;bottom:2px;border:1px solid rgba(255,255,255,.35);border-radius:4px;
+    background:rgba(255,255,255,.03);cursor:grab;z-index:2;box-sizing:border-box}
+  .nm-clip:hover{border-color:rgba(255,255,255,.7)}
+  .nm-clip.sel{border:2px solid #ffd166;background:rgba(255,209,102,.10)}
+  .nm-clip.dragging{cursor:grabbing;opacity:.85}
+  .nm-clip .nm-clip-tag{position:absolute;left:4px;top:2px;font-size:9.5px;color:rgba(255,255,255,.75);pointer-events:none;
+    white-space:nowrap;overflow:hidden;max-width:calc(100% - 8px)}
+  .nm-body.scissors .nm-lane, .nm-body.scissors .nm-clip{cursor:crosshair}
+  .nm-cut-guide{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed #ff6b6b;pointer-events:none;z-index:4;display:none}
+  .nm-body.scissors .nm-lane:hover .nm-cut-guide{display:block}
+  .nm-editbar .tool.on{background:#3a2a10;border-color:#ffd166;color:#ffd166}
+  /* MIDI tracks */
+  .midi-row{display:flex;align-items:center;gap:5px}
+  .midi-row button{background:#23232b;border:1px solid #33333d;border-radius:5px;color:var(--nm-txt);font-size:10.5px;padding:2px 6px;cursor:pointer;white-space:nowrap}
+  .midi-row button:hover{border-color:#55556a}
+  .midi-row button.rec.on{background:#ff3b3b;border-color:#ff3b3b;color:#fff}
+  .midi-row .inst{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .midi-ed{border-top:1px solid #26262e;background:#121217}
+  .midi-ed-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 16px;font-size:12px;color:var(--nm-sub)}
+  .midi-ed-head b{color:var(--nm-txt)}
+  .midi-ed-head .nm-btn{padding:5px 9px;font-size:11.5px}
+  .midi-ed-head select{background:#1e1e25;color:var(--nm-txt);border:1px solid #32323c;border-radius:7px;padding:5px 8px;font-size:12px;max-width:230px}
+  .midi-ed-body{display:flex;height:300px;position:relative}
+  .midi-ed-keys{flex:0 0 46px;overflow:hidden;position:relative;background:#18181e;border-right:1px solid #26262e}
+  .midi-ed-keys canvas,.midi-ed-scroll canvas{display:block}
+  .midi-ed-scroll{flex:1;overflow:auto;position:relative}
+  .midi-ed-scroll canvas{cursor:crosshair}
 
   /* --- overview strip (whole song at a glance) --- */
   .nm-overview{display:flex;align-items:center;gap:14px;padding:9px 16px;
@@ -978,7 +1012,12 @@
      78vh/980px was still too tight once an imported guitar split (two more
      channels) joined the usual six-plus-akordy-guitar-sekce-metronom stack,
      clipping the last row or two on anything short of a very tall window. */
-  .nm-body{display:flex;max-height:min(85vh, 1200px);overflow-y:auto;
+  /* align-items:flex-start: the rail and the lanes take their full content
+     height and scroll together inside this box. Stretched to the box's own
+     (max) height instead, the lanes were cut off at it — scrolling moved
+     the track names on the left while the waveforms below that line stayed
+     clipped away, so tracks past the first screenful looked empty. */
+  .nm-body{display:flex;align-items:flex-start;max-height:min(85vh, 1200px);overflow-y:auto;
            overflow-x:hidden;background:var(--nm-bg);position:relative}
   /* A scrollbar wide enough to notice, since noticing it is the point. */
   .nm-body::-webkit-scrollbar{width:11px}
@@ -1076,6 +1115,22 @@
     background:#2a2a33;color:#ff5f5f;font-size:11px;line-height:1;flex:0 0 auto}
   .gt-rec:hover{background:#35353f}
   .gt-rec.on{background:#ff3b3b;color:#fff;animation:gtpulse 1.1s infinite}
+  .gt-rec.armed{background:#ff9f1a;color:#fff}
+  .gt-rec-opts{width:22px;height:22px;border:none;border-radius:50%;cursor:pointer;background:none;color:var(--nm-sub);display:flex;align-items:center;justify-content:center}
+  .gt-rec-opts:hover{color:var(--nm-txt);background:#35353f}
+  .guitar-lane{position:relative}
+  .gt-rec-cv{position:absolute;left:0;top:0;height:100%;pointer-events:none}
+  .rec-count{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:90}
+  .rec-count span{font-size:140px;font-weight:800;color:rgba(255,59,59,.92);text-shadow:0 6px 40px rgba(0,0,0,.6);
+    font-variant-numeric:tabular-nums;animation:recpop .25s ease-out}
+  .rec-count span.go{color:rgba(255,255,255,.9);font-size:64px}
+  @keyframes recpop{from{transform:scale(1.35);opacity:.3}to{transform:scale(1);opacity:1}}
+  .rec-opts-pop{width:300px}
+  .rec-opts-pop .row{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12.5px}
+  .rec-opts-pop .row > span:first-child{flex:none;width:118px;color:var(--sub)}
+  .rec-opts-pop select,.rec-opts-pop input[type=number]{flex:1;min-width:0}
+  .rec-opts-pop .keycap{flex:1;text-align:left}
+  .rec-opts-pop .keycap.listening{border-color:#ff9f1a;color:#ff9f1a}
   @keyframes gtpulse{50%{opacity:.55}}
   .gt-two .gt-val{flex:0 0 28px}
   .gt-two .gt-gate,.gt-two .gt-pan{flex:1 1 0;min-width:0}
@@ -1628,7 +1683,14 @@
   .pb-tab-dock-bar button:hover, .pb-lyrics-dock-bar button:hover{background:#3e3e3e}
   .pb-tab-dock-select{background:var(--bg2);color:var(--text);border:1px solid var(--border);
     border-radius:5px;font-size:11px;padding:2px 4px;max-width:220px}
-  .pb-tab-dock-hostwrap{max-height:300px;overflow-y:hidden;position:relative;
+  .tab-more-btn{background:none;border:1px solid var(--border);color:var(--sub);border-radius:5px;font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap}
+  .tab-more-btn:hover{color:var(--text)}
+  .tab-more-btn.on{color:#ffd166;border-color:#ffd166}
+  .tab-more-pop{width:290px}
+  .tab-more-pop label{display:flex;align-items:center;gap:8px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+  .tab-more-pop label.main{color:var(--sub);cursor:default}
+  .tp-track .show{flex:none;margin:0 4px 0 0;accent-color:#ffd166}
+  .pb-tab-dock-hostwrap{max-height:520px;overflow-y:hidden;position:relative;
     display:flex;flex-direction:column}
   #pb-tab-dock-run.on{background:var(--accent);color:#000}
   .tab-tuning{font-size:11px;font-weight:700;color:#e9b949;border:1px solid rgba(233,185,73,.45);
@@ -2105,6 +2167,17 @@
   .stems-group-bar{display:flex;align-items:center;gap:6px;padding:0 4px 12px;flex-wrap:wrap}
   .stems-group-bar span{font-size:12px;color:var(--sub);margin-right:2px}
   .stems-group-bar input{margin-left:auto;width:220px;max-width:100%}
+  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 64px}
+  .steems-row .c-act{opacity:1}
+  .steems-row .c-act button{opacity:0}
+  .lib-trow.steems-row:hover .c-act button{opacity:1}
+  .steems-row .c-title .sub{display:block;font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .steems-row .c-title .tx2{min-width:0;display:flex;flex-direction:column}
+  .stems-view{display:inline-flex;gap:2px;margin-left:6px}
+  .stems-view button{background:none;border:1px solid var(--border);color:var(--sub);border-radius:6px;padding:4px 6px;cursor:pointer;display:flex}
+  .stems-view button.on{color:var(--text);border-color:var(--text)}
+  .stems-meta-pop{width:320px;padding:10px}
+  .stems-meta-pop .stem-meta-form{grid-template-columns:1fr}
   .stems-group-head{display:flex;align-items:baseline;gap:8px;padding:14px 12px 4px;font-size:13px;font-weight:700;color:var(--text);
     border-bottom:1px solid var(--border);margin-bottom:4px}
   .stems-group-head .n{font-weight:400;color:var(--sub);font-size:12px}
@@ -2466,6 +2539,8 @@
   .c-act button{background:none;border:none;color:var(--sub);font-size:14px;
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
+  .lib-mount-row .tree-icon{color:var(--accent)}
+  .lib-mount-row .sub{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Where a track stands with its stems — always visible, unlike .c-act. */
   .stems-badge{flex:none;display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:9px;
     font-size:10px;font-weight:700;letter-spacing:.03em;white-space:nowrap;cursor:pointer;
@@ -3217,6 +3292,7 @@
       <button class="btn secondary" id="library-play-all-btn"><span data-icon="play" data-size="12"></span>Přehrát vše</button>
       <button class="btn secondary" id="library-new-folder-btn"><span data-icon="add" data-size="12"></span>Nová složka</button>
       <button class="btn secondary" id="library-import-btn"><span data-icon="folderOpen" data-size="12"></span>Přidat z počítače</button>
+      <button class="btn secondary" id="library-mount-btn" title="Ukázat v knihovně složku z počítače nebo z cloudu (iCloud, Google Drive, OneDrive…) — nic se nekopíruje"><span data-icon="external" data-size="12"></span>Namapovat složku</button>
       <div class="lib-search">
         <span data-icon="search" data-size="14"></span>
         <input type="text" id="library-filter" placeholder="Hledat v knihovně" autocomplete="off">
@@ -3324,7 +3400,8 @@
             <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
             <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
             <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
-            <select class="nm-tabtop-select" id="nm-tabtop-select" title="Jiná stopa téhle skladby" hidden></select>
+            <select class="nm-tabtop-select" id="nm-tabtop-select" title="Hlavní stopa (podle ní se synchronizuje)" hidden></select>
+            <button type="button" class="tab-more-btn" id="nm-tabtop-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
             <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
             <div class="nm-spacer"></div>
             <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
@@ -3425,7 +3502,7 @@
               <button class="nm-btn round" id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="14"></span></button>
               <button class="nm-btn round" id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="14"></span></button>
               <button class="nm-btn round" id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="14"></span></button>
-              <button class="nm-btn round" id="mixer-export" title="Export mixu"><span data-icon="download" data-size="14"></span></button>
+              <button class="nm-btn round" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
               <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span></button>
@@ -3447,6 +3524,7 @@
 
         <!-- Editing a track: built by the mixer (renderEditBar). -->
         <div class="nm-editbar" id="nm-editbar" hidden></div>
+        <div class="midi-ed" id="midi-editor" hidden></div>
         <input type="file" id="nm-addtrack-file" accept="audio/*,video/*,.wav,.mp3,.flac,.m4a,.aac,.ogg,.opus,.aif,.aiff,.wma" multiple hidden>
 
         <!-- Stem rail (sticky) + bar-numbered timeline (scrolls horizontally) -->
@@ -3555,7 +3633,7 @@
           <div class="fl-export-info" id="fl-export-estimate">Est. size: —</div>
           <div class="fl-export-btns">
             <button class="fl-btn" id="fl-export-cancel">Cancel</button>
-            <button class="fl-btn" id="fl-export-confirm"><span data-icon="download" data-size="14"></span>Export</button>
+            <button class="fl-btn" id="fl-export-confirm" title="Uloží se do knihovny, do složky Export"><span data-icon="download" data-size="14"></span>Exportovat do knihovny</button>
           </div>
         </div>
       </div>
@@ -3808,7 +3886,8 @@
       <span class="pb-tab-dock-name" id="pb-tab-dock-name">Tab</span>
       <span class="pb-tab-dock-barlabel" id="pb-tab-dock-barlabel">Takt —</span>
       <span class="tab-tuning" id="pb-tab-dock-tuning" hidden></span>
-      <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Jiná stopa téhle skladby" hidden></select>
+      <select class="pb-tab-dock-select" id="pb-tab-dock-select" title="Hlavní stopa (podle ní se synchronizuje)" hidden></select>
+      <button type="button" class="tab-more-btn" id="pb-tab-dock-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
       <select class="pb-tab-dock-select" id="pb-tab-dock-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru, nebo podle tempa tabu" hidden></select>
       <span class="sp"></span>
       <button type="button" id="pb-tab-dock-slower" title="Tab pomaleji — o 0,1 s delší (Shift = 1 s)">−0,1 s</button>
@@ -5695,7 +5774,9 @@ const TabsLib = (() => {
   let cur = null;          // {file, link}
   let src = "synth";
   let zoom = 1;
-  let shownTrack = 0;
+  let shownTrack = 0;              // the main shown part (the stems focus on it)
+  let shownExtra = new Set();      // more parts drawn under it
+  const extraKey = () => "spotdl-tp-extra:" + (cur && cur.file ? cur.file.path : "");
 
   // ---------------------------------------------------------- recent list
   function recent(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }catch(e){ return []; } }
@@ -5873,7 +5954,8 @@ const TabsLib = (() => {
       const sf = await pickSoundFont();
       const a = new alphaTab.AlphaTabApi(el("tp-score"), {
         core: {fontDirectory: "/static/alphatab/font/", scriptFile: location.origin + "/static/alphatab/alphaTab.min.js"},
-        display: {layoutMode: alphaTab.LayoutMode.Page, scale: zoom},
+        // Tabs only — no standard notation over them.
+        display: {layoutMode: alphaTab.LayoutMode.Page, scale: zoom, staveProfile: alphaTab.StaveProfile.Tab},
         player: {playerMode: alphaTab.PlayerMode.EnabledSynthesizer, soundFont: sf, enableCursor: true,
                  enableAnimatedBeatCursor: true, enableUserInteraction: true, scrollElement: el("tp-score-wrap"),
                  scrollOffsetY: -40},
@@ -5950,7 +6032,9 @@ const TabsLib = (() => {
     // A guitar part first, if there is one — that's what this is for.
     const g = score.tracks.findIndex(t => trackClass(t) === "guitar");
     shownTrack = g >= 0 ? g : 0;
-    api.renderTracks([score.tracks[shownTrack]]);
+    try{ shownExtra = new Set(JSON.parse(localStorage.getItem(extraKey()) || "[]").filter(i => score.tracks[i] && i !== shownTrack)); }
+    catch(e){ shownExtra = new Set(); }
+    renderShown();
     paintTracks();
     paintRec();
     if(cur.link && cur.link.stems) attachStems(cur.link.stems, false);
@@ -5965,14 +6049,16 @@ const TabsLib = (() => {
       const w = document.createElement("div");
       w.className = "tp-track-wrap";
       const cls = trackClass(t);
-      w.innerHTML = `<div class="tp-track ${i === shownTrack ? "on" : ""}" title="Zobrazit tuto stopu v zápisu">
+      w.innerHTML = `<div class="tp-track ${i === shownTrack || shownExtra.has(i) ? "on" : ""}" title="Klik = jen tahle stopa; zaškrtnutí = přidat ji k zobrazeným">
+          <input type="checkbox" class="show" title="Zobrazit i tuhle stopu" ${i === shownTrack || shownExtra.has(i) ? "checked" : ""}>
           <span class="tp-nm">${escapeHtml(t.name || `Stopa ${i + 1}`)}</span>
           <span class="cls">${STEM_NAMES_CZ[cls]}</span>
           <span class="ms"><button type="button" class="s" title="Sólo (syntezátor)">S</button><button type="button" class="m" title="Ztlumit (syntezátor)">M</button></span>
         </div>
         <input type="range" min="0" max="1.5" step="0.05" value="${t.playbackInfo ? t.playbackInfo.volume / 16 : 1}" title="Hlasitost stopy (syntezátor)">`;
       const row = w.querySelector(".tp-track");
-      row.onclick = (e) => { if(e.target.closest("button")) return; selectTrack(i); };
+      row.onclick = (e) => { if(e.target.closest("button, input")) return; selectTrack(i); };
+      w.querySelector(".show").onchange = (e) => toggleShown(i, e.target.checked);
       const sb = w.querySelector(".s"), mb = w.querySelector(".m");
       sb.onclick = () => { const on = !sb.classList.contains("on"); sb.classList.toggle("on", on); api.changeTrackSolo([t], on); };
       mb.onclick = () => { const on = !mb.classList.contains("on"); mb.classList.toggle("on", on); api.changeTrackMute([t], on); };
@@ -5982,12 +6068,40 @@ const TabsLib = (() => {
     focusStem(trackClass(score.tracks[shownTrack]));
   }
 
+  // Only this part.
   function selectTrack(i){
     if(!api || !api.score || !api.score.tracks[i]) return;
     shownTrack = i;
-    api.renderTracks([api.score.tracks[i]]);
-    el("tp-tracks").querySelectorAll(".tp-track").forEach((r, k) => r.classList.toggle("on", k === i));
+    shownExtra = new Set();
+    renderShown();
+    paintShown();
     focusStem(trackClass(api.score.tracks[i]));
+  }
+  // Add or drop a part from the ones drawn (both guitars, say).
+  function toggleShown(i, on){
+    if(!api || !api.score) return;
+    if(on){ if(i !== shownTrack) shownExtra.add(i); }
+    else if(i === shownTrack){
+      const rest = [...shownExtra].sort((a, b) => a - b);
+      if(!rest.length){ paintShown(); return; }            // one part always stays
+      shownTrack = rest[0]; shownExtra.delete(rest[0]);
+      focusStem(trackClass(api.score.tracks[shownTrack]));
+    } else shownExtra.delete(i);
+    renderShown();
+    paintShown();
+  }
+  function renderShown(){
+    const idx = [shownTrack, ...shownExtra].filter(i => api.score.tracks[i]).sort((a, b) => a - b);
+    api.renderTracks(idx.map(i => api.score.tracks[i]));
+    try{ localStorage.setItem(extraKey(), JSON.stringify([...shownExtra])); }catch(e){}
+  }
+  function paintShown(){
+    el("tp-tracks").querySelectorAll(".tp-track").forEach((r, k) => {
+      const on = k === shownTrack || shownExtra.has(k);
+      r.classList.toggle("on", on);
+      const cb = r.querySelector(".show");
+      if(cb) cb.checked = on;
+    });
   }
 
   // ------------------------------------------------------------ sources
@@ -6114,16 +6228,23 @@ const TabsLib = (() => {
   el("tp-sync-p").onclick = () => nudge({offsetMs: (cur.link.offsetMs || 0) + 50});
 
   // ------------------------------------------------------- the recording
+  // Still the recording this was started for? Unlinking, or linking another
+  // one, while stems are loading must not let the old load finish the job.
+  const stillLinked = (name) => !!(cur && cur.link && cur.link.stems === name);
   async function attachStems(stemsName, fresh){
     let entry = null;
     try{ entry = (await (await fetch("/api/stems")).json()).find(s => s.name === stemsName); }catch(e){}
+    if(!stillLinked(stemsName)) return;
     if(!entry){ el("tp-rec-status").textContent = `Stopy „${stemsName}“ nenalezeny — propoj nahrávku znovu.`; return; }
     el("tp-rec-status").textContent = `${stemsName} · načítám stopy…`;
+    Deck.destroy();
     await Deck.load(stemsName, entry.stems.filter(s => !s.startsWith("take-")));
+    if(!stillLinked(stemsName)){ if(Deck.name === stemsName) Deck.destroy(); return; }
     el("tp-rec-status").textContent = `${stemsName} · ${entry.stems.length} stop · zjišťuji doby…`;
     beats = [];
     try{
       const g = await (await fetch(`/api/stems/${encodeURIComponent(stemsName)}/beats`)).json();
+      if(!stillLinked(stemsName)) return;
       beats = g.beats || [];
       if(fresh || cur.link.factor == null){
         // Detected tempo vs the file's own: half or double time is common.
@@ -6176,6 +6297,7 @@ const TabsLib = (() => {
   };
   el("tp-unlink").onclick = async () => {
     if(!confirm("Odpojit nahrávku od tohoto tabu? Stopy zůstanou ve Steems.")) return;
+    clearTimeout(saveT);        // a pending save of the old link must not bring it back
     cur.link = null;
     await fetch("/api/tabfiles/link", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: cur.file.path, link: null})});
     Deck.destroy(); beats = [];
@@ -6183,6 +6305,7 @@ const TabsLib = (() => {
     setSource("synth", true); paintStems(); paintRec();
   };
   function linkStems(name){
+    clearTimeout(saveT);
     cur.link = {stems: name, startBeat: null, offsetMs: 0, factor: null};
     el("tp-find").hidden = true;
     attachStems(name, true);
@@ -7121,6 +7244,36 @@ paintPlayerIcons();
 // ("Sylosis - Erased"), a cover otherwise. Resolved once per name and cached
 // on the server, so this is a single fast request after the first time.
 // ======================================================================
+// Pictures of separated songs: the cover embedded in the source file when
+// there is one, otherwise the album's cover found by artist + album (so a
+// whole album shares one picture), otherwise the song's.
+const StemsArt = (() => {
+  const known = new Map();
+  function urlFor(name){
+    if(!known.has(name)){
+      known.set(name, fetch(`/api/stems/${encodeURIComponent(name)}/art`).then(r => r.json())
+        .then(d => d.url || null).catch(() => { known.delete(name); return null; }));
+    }
+    return known.get(name);
+  }
+  async function paint(elm, name){
+    const url = await urlFor(name);
+    if(!url || !elm || !elm.isConnected) return;
+    const src = url.startsWith("/") ? url : thumbUrl(url);
+    const probe = new Image();
+    probe.onload = () => {
+      if(!elm.isConnected) return;
+      elm.style.backgroundImage = `url('${src}')`;
+      elm.style.backgroundSize = "cover";
+      elm.style.backgroundPosition = "center";
+      elm.textContent = "";
+      elm.classList.add("has-art");
+    };
+    probe.src = src;
+  }
+  return {paint, forget: (name) => known.delete(name)};
+})();
+
 const Artwork = (() => {
   const known = new Map();
   const inFlight = new Map();
@@ -7323,6 +7476,7 @@ function renderLibraryRail(mode){
           const item = items[i];
           if(item && item.thumbTerm) ChipThumbs.observe(row, item.thumbTerm, ".lib-art-thumb");
           if(item && item.songArt) Artwork.paint(row.querySelector(".lib-art"), item.songArt);
+          if(item && item.stemsArt) StemsArt.paint(row.querySelector(".lib-art"), item.stemsArt);
           return row;
         });
       list.querySelectorAll(`[data-sec="${sec.key}"]`).forEach(n => n.remove());
@@ -7589,7 +7743,7 @@ async function fetchRailTop5(key){
     }).map(s => ({
       art: icon("stems", 18), name: stemsDisplay(s).title,
       sub: stemsDisplay(s).artist || `Stopy \u2022 ${(s.stems || []).length} stop`,
-      songArt: s.name,
+      stemsArt: s.name,
       onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
     }));
   }
@@ -8038,6 +8192,20 @@ el("library-new-folder-btn").onclick = async () => {
 // The browser sandbox can't hand back a real filesystem path from its own
 // file picker, so this goes through the same native Finder dialog trick as
 // every other folder picker in the app (music root, NAM category folders).
+el("library-mount-btn").onclick = async () => {
+  showToast("Vyber složku v okně, které se otevřelo…");
+  try{
+    const res = await fetch("/api/library/mounts", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Namapování selhalo");
+    if(!data.added) return;                    // the picker was cancelled
+    showToast(`Namapováno: ${data.added.name} — nic se nekopírovalo`);
+    treeCache.clear(); invalidateRailTop5("library");
+    setMode("library", {keepSection: true});
+    loadLibraryFolder(data.added.rel);
+  }catch(e){ showToast(e.message || "Namapování selhalo"); }
+};
+
 el("library-import-btn").onclick = async () => {
   let path;
   try{
@@ -8276,6 +8444,33 @@ function paintLibraryTable(){
     const bits = [];
     if(entry.folder_count) bits.push(`${entry.folder_count} ${entry.folder_count === 1 ? "složka" : "složek"}`);
     if(entry.track_count) bits.push(`${entry.track_count} ${entry.track_count === 1 ? "skladba" : "skladeb"}`);
+    if(entry.mount){
+      // A folder mapped in from elsewhere: open it, or unmap it — never
+      // move or delete it (the files are the user's, wherever they live).
+      row.classList.add("lib-mount-row");
+      row.innerHTML = `
+        <span class="tree-icon">${icon("external", 15)}</span>
+        <span class="tx">${escapeHtml(entry.name)}</span>
+        <span class="sub" title="${escapeHtml(entry.path)}">${entry.missing ? "nedostupná — " : "namapováno · "}${escapeHtml(entry.path)}</span>
+        <span class="c-act">
+          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+          <button class="act-unmount" title="Odpojit (soubory zůstanou, kde jsou)">${icon("close", 12)}</button>
+        </span>`;
+      row.onclick = () => { if(entry.missing){ showToast("Složka teď není dostupná (odpojený disk nebo cloud?)"); return; } loadLibraryFolder(entry.rel); };
+      row.querySelector(".act-reveal").onclick = (e) => {
+        e.stopPropagation();
+        fetch("/api/library/reveal", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({rel: entry.rel})});
+      };
+      row.querySelector(".act-unmount").onclick = async (e) => {
+        e.stopPropagation();
+        if(!confirm(`Odpojit „${entry.name}“ z knihovny? Soubory zůstanou, kde jsou.`)) return;
+        await fetch("/api/library/mounts/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name: entry.name})});
+        treeCache.clear(); invalidateRailTop5("library");
+        loadLibraryFolder("");
+      };
+      list.appendChild(row);
+      return;
+    }
     row.innerHTML = `
       <span class="tree-icon">\uD83D\uDCC1</span>
       <span class="tx">${escapeHtml(entry.name)}</span>
@@ -9451,7 +9646,17 @@ async function loadSteemsList(){
   bar.innerHTML = `<span>Seskupit:</span>` +
     [["artist", "Interpret"], ["album", "Album"], ["title", "Název A–Z"]].map(([k, l]) =>
       `<button type="button" class="chip ${steemsGroupMode === k ? "active" : ""}" data-group="${k}">${l}</button>`).join("") +
-    `<input type="text" class="stems-filter" placeholder="Hledat ve stopách" value="${escapeHtml(steemsFilter)}" autocomplete="off">`;
+    `<input type="text" class="stems-filter" placeholder="Hledat ve stopách" value="${escapeHtml(steemsFilter)}" autocomplete="off">` +
+    `<span class="stems-view">
+       <button type="button" data-view="table" class="${steemsView === "table" ? "on" : ""}" title="Seznam (jako v knihovně)">${icon("menu", 15)}</button>
+       <button type="button" data-view="cards" class="${steemsView === "cards" ? "on" : ""}" title="Podrobně — karty se stopami">${icon("grid", 15)}</button>
+     </span>`;
+  bar.querySelectorAll("[data-view]").forEach(btn => btn.onclick = () => {
+    steemsView = btn.dataset.view;
+    try{ localStorage.setItem("spotdl-steems-view", steemsView); }catch(e){}
+    bar.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("on", x === btn));
+    paintSteemsCards(body);
+  });
   list.appendChild(bar);
   const body = document.createElement("div");
   list.appendChild(body);
@@ -9476,6 +9681,8 @@ function stemsDisplayByName(name){
   const song = (steemsSongs || []).find(s => s.name === name);
   return song ? stemsDisplay(song) : {title: name, artist: "", album: "", source: "name"};
 }
+let steemsView = (() => { try{ return localStorage.getItem("spotdl-steems-view") || "table"; }catch(e){ return "table"; } })();
+let steemsSortMode = ListSort.load("steems") || "artist";
 let steemsGroupMode = (() => { try{ return localStorage.getItem("spotdl-steems-group") || "artist"; }catch(e){ return "artist"; } })();
 let steemsFilter = "";
 const steemsCollator = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
@@ -9489,6 +9696,10 @@ function paintSteemsCards(box){
     return norm(`${d.title} ${d.artist} ${d.album} ${song.name}`).includes(q);
   });
   if(!songs.length){ box.innerHTML = `<div class="empty" style="padding:24px 10px">Nic neodpovídá hledání.</div>`; return; }
+  // Grouping chips belong to the card view; the table sorts by its headers.
+  box.parentElement.querySelectorAll(".stems-group-bar [data-group], .stems-group-bar > span:first-child")
+    .forEach(n => n.hidden = steemsView === "table");
+  if(steemsView === "table"){ paintSteemsTable(box, songs); return; }
   const cmp = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : steemsCollator.compare(a, b);
   const sorted = songs.slice().sort((x, y) => {
     const a = stemsDisplay(x), b = stemsDisplay(y);
@@ -9519,10 +9730,71 @@ function paintSteemsCards(box){
   });
 }
 
+// The plain list, like the library's: # · title · artist · album · length.
+function paintSteemsTable(box, songs){
+  const table = document.createElement("div");
+  table.className = "lib-table";
+  table.innerHTML = `<div class="lib-thead steems-row">
+      <span class="c-idx">#</span>
+      <button type="button" class="c-title" data-lsort="title">Název</button>
+      <button type="button" class="c-artist" data-lsort="artist">Interpret</button>
+      <button type="button" class="c-album" data-lsort="album">Album</button>
+      <span class="c-time" data-icon="clock" data-size="13"></span>
+      <span class="c-act"></span>
+    </div>`;
+  ListSort.wire(table.querySelector(".lib-thead"), () => steemsSortMode, (mode) => {
+    steemsSortMode = mode; ListSort.save("steems", mode); paintSteemsCards(box);
+  });
+  const tc = table.querySelector(".c-time[data-icon]");
+  if(tc) tc.innerHTML = icon("clock", 13);
+  const sorted = ListSort.sort(songs, steemsSortMode, x => { const d = stemsDisplay(x); return {title: d.title, artist: d.artist, album: d.album}; });
+  sorted.forEach((song, i) => {
+    const d = stemsDisplay(song);
+    const row = document.createElement("div");
+    row.className = "lib-trow steems-row";
+    const n = (song.stems || []).length;
+    row.innerHTML = `
+      <span class="c-idx">${i + 1}</span>
+      <span class="c-title"><span class="art"></span>
+        <span class="tx2"><span class="tx" title="Složka: ${escapeHtml(song.name)}">${escapeHtml(d.title)}</span>
+        <span class="sub">${n} ${n < 5 ? "stopy" : "stop"}${song.complete === false ? " · nekompletní" : ""}${d.source === "name" ? " · údaje odhadnuté z názvu" : ""}</span></span></span>
+      <span class="c-artist">${escapeHtml(d.artist || "")}</span>
+      <span class="c-album">${escapeHtml(d.album || "")}</span>
+      <span class="c-time">${song.duration ? fmtDur(song.duration) : ""}</span>
+      <span class="c-act">
+        <button type="button" class="act-meta" title="Upravit interpreta, název a album">${icon("tag", 14)}</button>
+      </span>`;
+    StemsArt.paint(row.querySelector(".art"), song.name);
+    row.onclick = () => loadMixerSong(song.name);
+    row.querySelector(".act-meta").onclick = (e) => { e.stopPropagation(); openSteemsMetaPopover(e.currentTarget, song, box); };
+    table.appendChild(row);
+  });
+  box.appendChild(table);
+}
+
+function openSteemsMetaPopover(anchor, song, box){
+  const old = el("stems-meta-pop");
+  if(old){ old.remove(); if(old.dataset.name === song.name) return; }
+  const pop = document.createElement("div");
+  pop.className = "sect-menu stems-meta-pop";
+  pop.id = "stems-meta-pop";
+  pop.dataset.name = song.name;
+  const host = document.createElement("div");
+  pop.appendChild(host);
+  document.body.appendChild(pop);
+  steemsMetaForm(host, song, () => { pop.remove(); paintSteemsCards(box); }, () => pop.remove());
+  const a = anchor.getBoundingClientRect(), r = pop.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(a.right - r.width, window.innerWidth - r.width - 8)) + "px";
+  pop.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+  const away = (ev) => { if(!pop.contains(ev.target) && !anchor.contains(ev.target)){ pop.remove(); document.removeEventListener("pointerdown", away, true); } };
+  document.addEventListener("pointerdown", away, true);
+}
+
 function steemsCard(song, box){
   const d = stemsDisplay(song);
   const row = document.createElement("div");
   row.className = "stem-card" + (song.complete === false ? " incomplete" : "");
+  row.dataset.name = song.name;
   // Show which stems exist, so a partial set is obvious before you open it.
   const chips = (song.stems || []).map(st =>
     `<span class="stem-chip ${st}">${escapeHtml(st)}</span>`).join("");
@@ -9544,16 +9816,21 @@ function steemsCard(song, box){
     </div>`;
   row.onclick = (e) => { if(!row.classList.contains("editing")) loadMixerSong(song.name); };
   row.querySelector(".stem-card-edit").onclick = (e) => { e.stopPropagation(); editSteemsMeta(row, song, box); };
-  Artwork.paint(row.querySelector(".stem-card-art"), song.name);
+  StemsArt.paint(row.querySelector(".stem-card-art"), song.name);
   return row;
 }
 
 function editSteemsMeta(row, song, box){
-  const d = stemsDisplay(song);
   row.classList.add("editing");
   const body = row.querySelector(".stem-card-body");
   const keep = body.innerHTML;
-  body.innerHTML = `
+  steemsMetaForm(body, song, () => paintSteemsCards(box), () => { row.classList.remove("editing"); body.innerHTML = keep; });
+}
+
+// Artist / title / album, typed by hand. onSaved after a save, onClose to cancel.
+function steemsMetaForm(host, song, onSaved, onClose){
+  const d = stemsDisplay(song);
+  host.innerHTML = `
     <div class="stem-meta-form">
       <label>Interpret<input type="text" name="artist" value="${escapeHtml(d.artist)}" autocomplete="off"></label>
       <label>Název<input type="text" name="title" value="${escapeHtml(d.title)}" autocomplete="off"></label>
@@ -9565,9 +9842,8 @@ function editSteemsMeta(row, song, box){
       <div class="hint">Složka na disku zůstává „${escapeHtml(song.name)}“ — mění se jen to, jak se píseň v aplikaci jmenuje.
         ${d.source === "manual" ? `<a href="#" data-a="auto">Vrátit automatické údaje</a>` : ""}</div>
     </div>`;
-  const form = body.querySelector(".stem-meta-form");
+  const form = host.querySelector(".stem-meta-form");
   form.onclick = (e) => e.stopPropagation();
-  const close = () => { row.classList.remove("editing"); body.innerHTML = keep; };
   const save = async (values) => {
     try{
       const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/meta`, {
@@ -9575,21 +9851,22 @@ function editSteemsMeta(row, song, box){
       const data = await res.json();
       if(!res.ok) throw new Error(data.error || "Uložení selhalo");
       song.meta = data.meta;
+      StemsArt.forget(song.name);      // a new album may mean a new cover
       invalidateRailTop5("steems");
       if(state.mode === "steems") renderLibraryRail("steems");
-      paintSteemsCards(box);
+      onSaved();
       showToast("Uloženo");
     }catch(err){ showToast(err.message || "Uložení selhalo"); }
   };
   const values = () => Object.fromEntries([...form.querySelectorAll("input")].map(i => [i.name, i.value]));
   form.querySelector('[data-a="save"]').onclick = () => save(values());
-  form.querySelector('[data-a="cancel"]').onclick = close;
+  form.querySelector('[data-a="cancel"]').onclick = onClose;
   const auto = form.querySelector('[data-a="auto"]');
   if(auto) auto.onclick = (e) => { e.preventDefault(); save({artist: "", title: "", album: ""}); };
   form.querySelectorAll("input").forEach(i => i.onkeydown = (e) => {
     e.stopPropagation();
     if(e.key === "Enter") save(values());
-    else if(e.key === "Escape") close();
+    else if(e.key === "Escape") onClose();
   });
   form.querySelector('input[name="artist"]').focus();
 }
@@ -9635,7 +9912,7 @@ function showSteemsHero(name){
   const heroArt = el("steems-hero").querySelector(".sp-hero-art");
   heroArt.style.backgroundImage = "";
   heroArt.textContent = "\uD83C\uDF9A";
-  Artwork.paint(heroArt, name);
+  StemsArt.paint(heroArt, name);
   el("steems-hero-wash").style.setProperty("--hero", heroHue(name));
   el("steems-hero-stats").innerHTML = '<span class="dot">Načítám stopy…</span>';
 }
@@ -9881,6 +10158,63 @@ const GuitarSampler = (() => {
 })();
 
 // ======================================================================
+// More than one part of a Songsterr song shown at once (both guitars, a
+// bass…): the extra parts chosen per song, their data, and the picker.
+const TabParts = {
+  _cache: new Map(),
+  key(songId){ return "spotdl-tab-extra:" + songId; },
+  load(songId){ try{ return JSON.parse(localStorage.getItem(this.key(songId)) || "[]"); }catch(e){ return []; } },
+  save(songId, list){ try{ localStorage.setItem(this.key(songId), JSON.stringify(list)); }catch(e){} },
+  options(meta){
+    return (meta && Array.isArray(meta.tracks) ? meta.tracks : [])
+      .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
+  },
+  label(meta, k){
+    const t = meta && meta.tracks && meta.tracks[k];
+    return t ? [t.name, t.instrument].filter(Boolean).join(" — ") : `Stopa ${k + 1}`;
+  },
+  data(songId, revisionId, k){
+    const key = `${songId}:${revisionId}:${k}`;
+    if(!this._cache.has(key)){
+      this._cache.set(key, Songsterr.getTrack(songId, revisionId, k).catch(e => { this._cache.delete(key); throw e; }));
+    }
+    return this._cache.get(key);
+  },
+  // [{data, name}] for the main part plus the chosen extras, in score order.
+  async parts(songId, revisionId, meta, mainIdx, mainData){
+    const extras = this.load(songId).filter(k => k !== mainIdx && meta && meta.tracks && meta.tracks[k]);
+    const list = [{data: mainData, name: this.label(meta, mainIdx)}];
+    for(const k of extras){
+      try{ list.push({data: await this.data(songId, revisionId, k), name: this.label(meta, k)}); }catch(e){}
+    }
+    return list;
+  },
+  openPicker(anchor, songId, meta, mainIdx, onChange){
+    const old = document.getElementById("tab-more-pop");
+    if(old){ old.remove(); return; }
+    const chosen = new Set(this.load(songId));
+    const box = document.createElement("div");
+    box.className = "sect-menu tab-more-pop";
+    box.id = "tab-more-pop";
+    box.innerHTML = `<div class="ss-head">Zobrazit i další stopy</div>` + this.options(meta).map(({k}) =>
+      k === mainIdx
+        ? `<label class="main"><input type="checkbox" checked disabled> ${escapeHtml(this.label(meta, k))} (hlavní)</label>`
+        : `<label><input type="checkbox" data-k="${k}" ${chosen.has(k) ? "checked" : ""}> ${escapeHtml(this.label(meta, k))}</label>`).join("") +
+      `<div class="hint" style="padding:4px 10px 8px">Synchronizace jede podle hlavní stopy; ostatní mají stejné takty.</div>`;
+    document.body.appendChild(box);
+    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    box.querySelectorAll("input[data-k]").forEach(i => i.onchange = () => {
+      const list = [...box.querySelectorAll("input[data-k]:checked")].map(x => parseInt(x.dataset.k, 10));
+      this.save(songId, list);
+      onChange(list);
+    });
+    const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", away, true); } };
+    document.addEventListener("pointerdown", away, true);
+  },
+};
+
 const Songsterr = {
 
   async search(q) {
@@ -11075,18 +11409,38 @@ const Mixer = (() => {
     return stretchBuilding;
   }
 
-  function scheduleAll(offset){
+  // Which song second plays at which moment of the audio clock — every
+  // (re)start of playback is logged, so a recording can map each of its
+  // samples back to the song (see TakeRec).
+  const playLog = [];
+  function logPlay(when, offset, rate){
+    playLog.push({when, offset, rate});
+    if(playLog.length > 200) playLog.splice(0, playLog.length - 200);
+  }
+  function songAtCtx(t){
+    for(let i = playLog.length - 1; i >= 0; i--){
+      const e = playLog[i];
+      if(e.when <= t) return e.offset + (t - e.when) * e.rate;
+    }
+    return null;
+  }
+
+  let playFrom = 0;               // the song second the current run started at
+  function scheduleAll(offset, delay = 0){
+    playFrom = offset;
     if(stretchMode && channels.length && channels.every(c => c.stretch)){
-      const when = ctx().currentTime + STRETCH_LEAD;
+      const when = ctx().currentTime + STRETCH_LEAD + delay;
       channels.forEach(c => {
         c.stretch.schedule({outputTime: when, active: true, input: offset,
                             rate: speed, semitones: channelSemitones(c)});
       });
       runSpeed = speed;
       startedAt = when - offset / speed;
+      logPlay(when, offset, speed);
       return;
     }
-    const when = ctx().currentTime + 0.05;
+    const when = ctx().currentTime + 0.05 + delay;
+    logPlay(when, offset, 1);
     channels.forEach(c => {
       const source = ctx().createBufferSource();
       source.buffer = c.buffer;
@@ -11187,12 +11541,16 @@ const Mixer = (() => {
     requestTempoPitch();
   }
 
-  function play(){
+  // delay: seconds to wait before the song starts (a count-in).
+  function play(delay = 0){
     if(!channels.length || isPlaying) return;
+    // A context made outside a click starts suspended, and the song would
+    // sit at 0:00 "playing" (and a recording would capture nothing).
+    if(ctx().state === "suspended") ctx().resume();
     // The mixer has no media element for the bus to notice, so it says so.
     AudioBus.claimMixer();
     if(pausedAt >= duration) pausedAt = 0;
-    scheduleAll(pausedAt);
+    scheduleAll(pausedAt, delay);
     syncTabIndices(pausedAt);
     isPlaying = true;
     setMixerPlayGlyph(true);
@@ -11203,6 +11561,7 @@ const Mixer = (() => {
   function pause(){
     if(!isPlaying) return;
     pausedAt = currentTime();
+    logPlay(ctx().currentTime, pausedAt, 0);
     stopAllSources();
     isPlaying = false;
     setMixerPlayGlyph(false);
@@ -11249,7 +11608,8 @@ const Mixer = (() => {
   }
 
   function currentTime(){
-    return isPlaying ? Math.min(duration, (ctx().currentTime - startedAt) * runSpeed) : pausedAt;
+    // During a count-in the song hasn't started: it stays at its start.
+    return isPlaying ? Math.max(playFrom, Math.min(duration, (ctx().currentTime - startedAt) * runSpeed)) : pausedAt;
   }
 
   // ---- lyrics: a lane that sits beside the vocal stem, and a readout bar ----
@@ -11807,7 +12167,7 @@ const Mixer = (() => {
       // own total-height estimate firms up, so it keeps applying the latest
       // number instead of trusting the first (too-short) one.
       api.renderFinished.on((e) => {
-        const h = Math.max(140, Math.min(480, Math.ceil(e.totalHeight) || 200));
+        const h = Math.max(140, Math.min(900, Math.ceil(e.totalHeight) || 200));
         el("nm-tabtop-host").style.height = h + "px";
         // Park the tab on the current spot (the first bar under the triangles
         // at 0:00) as soon as it is drawn, not only once playback starts.
@@ -11835,10 +12195,15 @@ const Mixer = (() => {
       sel.innerHTML = guitarOpts.map(({t, k}) => `<option value="${k}" ${k === tb.trackIndex ? "selected" : ""}>${escapeHtml(
         `${t.instrument || ""} — ${t.name || ""}`)}</option>`).join("");
     } else sel.hidden = true;
+    const more = el("nm-tabtop-more");
+    const extraNow = tb.songId ? TabParts.load(tb.songId).filter(k => k !== tb.trackIndex) : [];
+    more.hidden = !(guitarOpts.length > 1 && tb.songId);
+    more.classList.toggle("on", extraNow.length > 0);
+    more.textContent = extraNow.length ? `+ Stopy (${extraNow.length})` : "+ Stopy";
 
-    ensureTabLiveApi().then(api => {
+    ensureTabLiveApi().then(async api => {
       const key = (tb.songId || "") + ":" + (tb.revisionId || "") + ":" + tb.trackIndex + ":" +
-        ((tb.data.notes && tb.data.notes.length) || 0);
+        ((tb.data.notes && tb.data.notes.length) || 0) + ":" + extraNow.join(",");
       if(key === tabLiveKey) return;
       tabLiveKey = key;
       tabBarStarts = AlphaTabView.barStartTimes(tb.data);
@@ -11847,7 +12212,12 @@ const Mixer = (() => {
       tabOffsetSong = null;
       holdTab(false);            // a different tab: nothing waits for Sync
       paintTabTiming();
-      try{ api.tex(AlphaTabView.measuresToAlphaTex(tb.data)); }
+      try{
+        const parts = tb.songId ? await TabParts.parts(tb.songId, tb.revisionId, tabMeta, tb.trackIndex, tb.data)
+                                : [{data: tb.data}];
+        if(tabLiveKey !== key) return;
+        api.tex(AlphaTabView.tracksToAlphaTex(parts), parts.map((_, i) => i));
+      }
       catch(e){ console.error("alphaTab top tex:", e); }
       // Songsterr's own bar times for real recordings of this song, if it has
       // any: they follow the actual performance instead of the nominal tempo.
@@ -11875,6 +12245,11 @@ const Mixer = (() => {
     renderTopTabPanel();
   };
   el("nm-tabtop-select").onchange = (e) => swapTabTrack(0, parseInt(e.target.value, 10));
+  el("nm-tabtop-more").onclick = (e) => {
+    const tb = tabs[0];
+    if(!tb || !tb.songId) return;
+    TabParts.openPicker(e.currentTarget, tb.songId, tabMeta, tb.trackIndex, () => renderTopTabPanel());
+  };
 
   // ---- lift the tab out into a window of its own, and put it back — same
   // pattern as the lyrics float, but alphaTab also needs its layout mode
@@ -13095,7 +13470,60 @@ const Mixer = (() => {
   const saveTimers = {};
   let editStatus = "";
 
-  function stemLabel(stem){ return STEM_LABEL[stem] || stemLabels[stem] || stem; }
+  function stemLabel(stem){
+    if(STEM_LABEL[stem] || stemLabels[stem]) return STEM_LABEL[stem] || stemLabels[stem];
+    const m = /^take-(\d+)$/.exec(stem);
+    return m ? `Nahrávka ${m[1]}` : stem;
+  }
+
+  // ---- taking a track out of the mix (×) and bringing it back ----
+  // Out of `channels` entirely, so nothing plays, draws or exports it and
+  // its fader goes too; kept here with its settings so it can return.
+  let hiddenChannels = [];
+  function hideTrack(c){
+    if(!channels.includes(c)) return;
+    if(c.source){ try{ c.source.stop(); }catch(e){} try{ c.source.disconnect(); }catch(e){} c.source = null; }
+    if(c.stretch){ try{ c.stretch.disconnect(); }catch(e){} c.stretch = null; }
+    channels = channels.filter(x => x !== c);
+    hiddenChannels.push(c);
+    editIdx = -1; selClip = null;
+    afterTrackSetChange();
+    showToast(`„${stemLabel(c.stem)}“ odebrána z mixu — vrátíš ji přes „Skryté stopy“`);
+  }
+  function unhideTrack(c){
+    hiddenChannels = hiddenChannels.filter(x => x !== c);
+    channels.push(c);
+    channels.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    const wasPlaying = isPlaying, t = currentTime();
+    if(wasPlaying) pause();
+    afterTrackSetChange();
+    if(wasPlaying){ pausedAt = t; play(); }
+  }
+  function afterTrackSetChange(){
+    duration = Math.max(0.1, ...channels.map(x => x.buffer.duration));
+    el("nm-stemcount").textContent = channels.length;
+    renderTimeline();
+    renderChannels();
+    applyGains();
+    renderEditBar();
+    queueSessionSave();
+  }
+  function openHiddenMenu(anchor){
+    const old = el("hidden-tracks-pop");
+    if(old){ old.remove(); return; }
+    const box = document.createElement("div");
+    box.className = "sect-menu";
+    box.id = "hidden-tracks-pop";
+    box.innerHTML = `<div class="ss-head">Stopy odebrané z mixu</div>` + hiddenChannels.map((c, i) =>
+      `<button type="button" data-i="${i}">${icon("add", 12)}<span>Vrátit „${escapeHtml(stemLabel(c.stem))}“</span></button>`).join("");
+    document.body.appendChild(box);
+    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    box.querySelectorAll("[data-i]").forEach(b => b.onclick = () => { const c = hiddenChannels[+b.dataset.i]; box.remove(); if(c) unhideTrack(c); });
+    const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", away, true); } };
+    document.addEventListener("pointerdown", away, true);
+  }
 
   function selectEditTrack(idx){
     editIdx = idx === editIdx ? -1 : idx;
@@ -13156,7 +13584,15 @@ const Mixer = (() => {
   // Whole track when nothing is selected — for gain, normalise.
   function rangeOrAll(c){ return editRange(c) || [0, c.buffer.length]; }
 
+  // A destructive edit: the result becomes the track's own audio (and its
+  // file); any clip layout is baked into it.
   function setBuffer(c, buf){
+    c.srcBuf = buf;
+    c.clips = null;
+    queueSessionSave();
+    showBuffer(c, buf);
+  }
+  function showBuffer(c, buf){
     const wasPlaying = isPlaying, t = currentTime();
     if(wasPlaying) pause();
     c.buffer = buf;
@@ -13170,17 +13606,420 @@ const Mixer = (() => {
   function applyEdit(label, make){
     const c = editChannel();
     if(!c){ showToast("Nejdřív vyber stopu (klikni na její název vlevo)"); return; }
+    if(c.midi){ showToast("MIDI stopu uprav v editoru tónů (tlačítko Noty)"); return; }
     let out;
     try{ out = make(c); }catch(e){ console.error(e); showToast("Úprava se nepovedla"); return; }
     if(!out) return;
-    undoStack.push({stem: c.stem, buffer: c.buffer, label});
-    if(undoStack.length > UNDO_MAX) undoStack.shift();
-    redoStack.length = 0;
+    pushUndo(c, label);
     setBuffer(c, out);
     scheduleSave(c);
     renderEditBar();
     if(label) showToast(label);
   }
+  // ---- clips: a track cut with the scissors ----
+  // c.clips = [{src: stem, offset: s, dur: s, start: s}] — pieces of a
+  // track's (or another track's) own audio placed on the timeline; later
+  // clips sit on top of earlier ones where they overlap. c.buffer is always
+  // what they add up to, so playback, tempo and export see one ordinary
+  // buffer. The layout is saved in the mix, not in the file.
+  let tool = "select";          // "select" | "scissors"
+  // Grid snapping for moving and cutting clips: "off" | "beat" | "bar".
+  let snapMode = (() => { try{ return localStorage.getItem("spotdl-snap") || "beat"; }catch(e){ return "beat"; } })();
+  function snapTime(t){
+    if(snapMode === "off") return t;
+    const grid = snapMode === "bar" ? downbeatTimes : beatTimes;
+    if(!grid || !grid.length) return t;
+    let lo = 0, hi = grid.length - 1;
+    while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(grid[mid] <= t) lo = mid; else hi = mid; }
+    const best = Math.abs(grid[lo] - t) <= Math.abs(grid[hi] - t) ? grid[lo] : grid[hi];
+    // Before the first detected beat the grid isn't there to snap to.
+    return Math.abs(best - t) < 2.5 ? best : t;
+  }
+  let selClip = null;           // {stem, i}
+  let clipBoard = null;         // {src, offset, dur}
+  let lastCopied = null;        // "clip" | "range" — what ⌘V pastes
+
+  function srcOf(stem){ const x = channels.find(c => c.stem === stem) || hiddenChannels.find(c => c.stem === stem); return x ? x.srcBuf : null; }
+  function ensureClips(c){
+    if(!c.clips) c.clips = [{src: c.stem, offset: 0, dur: c.srcBuf.duration, start: 0}];
+  }
+  function flattenClips(c){
+    if(!c.clips) return c.srcBuf;
+    const sr = c.srcBuf.sampleRate, nch = c.srcBuf.numberOfChannels;
+    const end = Math.max(0.05, ...c.clips.map(k => k.start + k.dur));
+    const out = new AudioBuffer({numberOfChannels: nch, length: Math.ceil(end * sr), sampleRate: sr});
+    for(const k of c.clips){
+      const src = srcOf(k.src);
+      if(!src) continue;
+      const a = Math.round(k.offset * sr), n = Math.min(Math.round(k.dur * sr), src.length - a);
+      const at = Math.round(k.start * sr);
+      if(n <= 0) continue;
+      for(let ch = 0; ch < nch; ch++){
+        out.copyToChannel(src.getChannelData(Math.min(ch, src.numberOfChannels - 1)).subarray(a, a + n), ch, at);
+      }
+    }
+    return out;
+  }
+  function snapOf(c){
+    return {stem: c.stem, srcBuf: c.srcBuf, clips: c.clips ? c.clips.map(k => ({...k})) : null};
+  }
+  function pushUndo(c, label){
+    undoStack.push({...snapOf(c), label});
+    if(undoStack.length > UNDO_MAX) undoStack.shift();
+    redoStack.length = 0;
+  }
+  function restoreSnap(c, snap){
+    const fileChanged = c.srcBuf !== snap.srcBuf;
+    c.srcBuf = snap.srcBuf;
+    c.clips = snap.clips ? snap.clips.map(k => ({...k})) : null;
+    selClip = null;
+    queueSessionSave();
+    showBuffer(c, flattenClips(c));
+    if(fileChanged) scheduleSave(c);
+  }
+  function clipsChanged(c, message){
+    if(c.clips && !c.clips.length) c.clips = [];
+    queueSessionSave();
+    showBuffer(c, flattenClips(c));
+    renderEditBar();
+    if(message) showToast(message);
+  }
+  function selClipChannel(){
+    if(!selClip) return null;
+    const c = channels.find(x => x.stem === selClip.stem);
+    return c && c.clips && c.clips[selClip.i] ? c : null;
+  }
+  function clipAction(label, fn){
+    const c = selClipChannel();
+    if(!c){ showToast("Nejdřív klikni na dílek (stopu rozstřihni nůžkami)"); return; }
+    pushUndo(c, label);
+    fn(c, selClip.i);
+    clipsChanged(c, label);
+  }
+  function splitAt(c, t){
+    if(c.midi){ showToast("MIDI stopu uprav v editoru tónů (tlačítko Noty)"); return true; }
+    ensureClips(c);
+    // The topmost clip under t is the one cut.
+    for(let i = c.clips.length - 1; i >= 0; i--){
+      const k = c.clips[i];
+      if(t > k.start + 0.01 && t < k.start + k.dur - 0.01){
+        pushUndo(c, "Rozstřiženo");
+        const left = t - k.start;
+        c.clips.splice(i, 1, {...k, dur: left}, {src: k.src, offset: k.offset + left, dur: k.dur - left, start: t});
+        selClip = {stem: c.stem, i: i + 1};
+        clipsChanged(c, null);
+        return true;
+      }
+    }
+    return false;
+  }
+  function setTool(t){
+    tool = t;
+    const body = el("nm-body");
+    if(body) body.classList.toggle("scissors", tool === "scissors");
+    renderEditBar();
+    if(tool === "scissors") showToast("Nůžky: klikni do stopy tam, kde ji chceš rozstřihnout (Esc = zpět na výběr)");
+  }
+
+  // Clip boxes over a track's waveform: select, drag to move.
+  function paintClips(lane, c, idx){
+    lane.querySelectorAll(".nm-clip").forEach(n => n.remove());
+    if(!c.clips) return;
+    const pps = pixelsPerSecond;
+    c.clips.forEach((k, i) => {
+      const box = document.createElement("div");
+      box.className = "nm-clip" + (selClip && selClip.stem === c.stem && selClip.i === i ? " sel" : "");
+      box.style.left = (k.start * pps) + "px";
+      box.style.width = Math.max(2, k.dur * pps) + "px";
+      box.title = `${fmtEditTime(k.start)}–${fmtEditTime(k.start + k.dur)} · táhni pro přesun, Delete smaže, ⌘C/⌘V kopie`;
+      if(k.src !== c.stem) box.innerHTML = `<span class="nm-clip-tag">z ${escapeHtml(stemLabel(k.src))}</span>`;
+      box.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        selClip = {stem: c.stem, i}; editIdx = idx;
+        lane.parentElement.querySelectorAll(".nm-clip.sel").forEach(n => n.classList.remove("sel"));
+        box.classList.add("sel");
+        renderEditBar();
+        openClipMenu(ev.clientX, ev.clientY, c, i);
+      });
+      box.addEventListener("pointerdown", (ev) => {
+        if(tool === "scissors" || ev.button !== 0) return;      // the lane cuts
+        ev.stopPropagation();
+        selClip = {stem: c.stem, i};
+        if(editIdx !== idx){ editIdx = idx; }
+        lane.parentElement.querySelectorAll(".nm-clip.sel").forEach(n => n.classList.remove("sel"));
+        box.classList.add("sel");
+        renderEditBar();
+        const x0 = ev.clientX, s0 = k.start;
+        let moved = false, newStart = s0;
+        box.setPointerCapture(ev.pointerId);
+        const move = (e) => {
+          const dx = e.clientX - x0;
+          if(!moved && Math.abs(dx) < 3) return;
+          moved = true;
+          box.classList.add("dragging");
+          newStart = Math.max(0, s0 + dx / pps);
+          // Snap to 0, the playhead and the other clips' edges (6 px).
+          const edges = [0, currentTime()];
+          c.clips.forEach((o, j) => { if(j !== i){ edges.push(o.start, o.start + o.dur); } });
+          for(const ed of edges){
+            if(Math.abs((newStart - ed) * pps) < 6){ newStart = ed; break; }
+            if(Math.abs((newStart + k.dur - ed) * pps) < 6){ newStart = ed - k.dur; break; }
+          }
+          // The grid wins over the edges; Alt drags freely.
+          if(snapMode !== "off" && !e.altKey) newStart = snapTime(newStart);
+          newStart = Math.max(0, newStart);
+          box.style.left = (newStart * pps) + "px";
+        };
+        const up = () => {
+          box.removeEventListener("pointermove", move);
+          box.removeEventListener("pointerup", up);
+          box.classList.remove("dragging");
+          if(!moved) return;
+          lane.dataset.justDragged = "1";
+          pushUndo(c, "Dílek přesunut");
+          // The moved clip goes on top.
+          const [mk] = c.clips.splice(i, 1);
+          mk.start = newStart;
+          c.clips.push(mk);
+          selClip = {stem: c.stem, i: c.clips.length - 1};
+          clipsChanged(c, null);
+        };
+        box.addEventListener("pointermove", move);
+        box.addEventListener("pointerup", up);
+      });
+      lane.appendChild(box);
+    });
+  }
+
+  // ---- right-click menu of a clip (or of a whole track: i = -1) ----
+  function clipPiece(c, i){
+    if(i < 0 || !c.clips) return {buf: c.buffer, start: 0, dur: c.buffer.duration, whole: true};
+    const k = c.clips[i], src = srcOf(k.src);
+    if(!src) return null;
+    const sr = src.sampleRate, a = Math.round(k.offset * sr), b = Math.min(src.length, a + Math.round(k.dur * sr));
+    return {buf: sliceBuf(src, a, b), start: k.start, dur: k.dur, whole: false};
+  }
+  // "Song – Track (1-23)": readable, and safe as a file name. The track's
+  // name is left out when it is just the song's again.
+  function pieceName(c, p){
+    const song = (typeof stemsDisplayByName === "function" ? stemsDisplayByName(currentSongName).title : currentSongName) || "Dílek";
+    const label = stemLabel(c.stem);
+    const head = label && label !== song && !label.startsWith(song) ? `${song} - ${label}` : song;
+    if(p.whole) return head;
+    const at = Math.round(p.start), m = Math.floor(at / 60), sec = at % 60;
+    return `${head} (${m}-${String(sec).padStart(2, "0")})`;
+  }
+  function openClipMenu(x, y, c, i){
+    const old = el("clip-menu");
+    if(old) old.remove();
+    const p = clipPiece(c, i);
+    if(!p) return;
+    const box = document.createElement("div");
+    box.className = "sect-menu";
+    box.id = "clip-menu";
+    const what = p.whole ? "celá stopa" : `dílek ${fmtEditTime(p.start)}–${fmtEditTime(p.start + p.dur)}`;
+    box.innerHTML = `<div class="ss-head">${escapeHtml(stemLabel(c.stem))} · ${what}</div>
+      <button type="button" data-a="nam">${icon("guitar", 12)}<span>Uložit do NAM nahrávek (DI riff)</span></button>
+      <button type="button" data-a="track">${icon("add", 12)}<span>Vložit do nové stopy</span></button>
+      <button type="button" data-a="cap">${icon("folder", 12)}<span>Uložit do knihovny (složka CAP)</span></button>
+      <button type="button" data-a="tempo">${icon("bell", 12)}<span>Detect Tempo — srovnat metronom s tímhle</span></button>
+      ${loopEnd - loopStart > 3 ? `<button type="button" data-a="tempoSel">${icon("bell", 12)}<span>Detect Tempo z označeného úseku (${fmtEditTime(loopStart)}–${fmtEditTime(loopEnd)})</span></button>` : ""}
+      ${p.whole ? "" : `<hr>
+      <button type="button" data-a="loopIt">${icon("repeat", 12)}<span>Smyčka = tento dílek</span></button>
+      <button type="button" data-a="rep2"><span>Opakovat ×2</span></button>
+      <button type="button" data-a="rep4"><span>Opakovat ×4</span></button>
+      <button type="button" data-a="rep8"><span>Opakovat ×8</span></button>
+      ${loopEnd - loopStart > 0.5 ? `<button type="button" data-a="repLoop"><span>Opakovat do konce smyčky</span></button>` : ""}
+      <button type="button" data-a="looper">${icon("stems", 12)}<span>Poslat do Looperu</span></button>
+      <hr>
+      <button type="button" data-a="copy"><span>Kopírovat dílek</span></button>`}
+      ${p.whole ? `<button type="button" data-a="looper">${icon("stems", 12)}<span>Poslat do Looperu</span></button>` : ""}
+      ${p.whole ? "" : `
+      <button type="button" data-a="dup"><span>Duplikovat</span></button>
+      <button type="button" data-a="del"><span>Smazat dílek</span></button>`}`;
+    document.body.appendChild(box);
+    const r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + "px";
+    const close = () => { box.remove(); document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc, true); };
+    const away = (ev) => { if(!box.contains(ev.target)) close(); };
+    const esc = (ev) => { if(ev.key === "Escape") close(); };
+    setTimeout(() => { document.addEventListener("pointerdown", away, true); document.addEventListener("keydown", esc, true); }, 0);
+    const on = (a, fn) => { const b = box.querySelector(`[data-a="${a}"]`); if(b) b.onclick = () => { close(); fn(); }; };
+    on("nam", () => pieceToNam(c, p));
+    on("track", () => pieceToTrack(c, p));
+    on("cap", () => pieceToCap(c, p));
+    on("tempo", () => pieceTempo(c, p));
+    on("tempoSel", () => {
+      // What this track plays across the marked span, gaps and all.
+      const sr = c.buffer.sampleRate;
+      const a = Math.max(0, Math.round(loopStart * sr)), b = Math.min(c.buffer.length, Math.round(loopEnd * sr));
+      if(b - a < sr * 3){ showToast("Označený úsek je na téhle stopě kratší než 3 s"); return; }
+      pieceTempo(c, {buf: sliceBuf(c.buffer, a, b), start: a / sr, dur: (b - a) / sr, whole: false});
+    });
+    on("copy", () => EDITS.clipCopy());
+    on("loopIt", () => {
+      loopStart = p.start; loopEnd = p.start + p.dur; loopEnabled = true;
+      el("mixer-loop").classList.add("active");
+      updateLoopVisual(); queueSessionSave();
+      showToast("Smyčka nastavená na dílek");
+    });
+    const repeat = (n) => clipAction(n ? `Zopakováno ×${n}` : "Zopakováno do konce smyčky", (c, idx) => {
+      const k = c.clips[idx];
+      const until = n ? k.start + k.dur * n : loopEnd;
+      for(let at = k.start + k.dur, j = 1; at < until - 0.01; at += k.dur, j++){
+        c.clips.push({...k, start: at, dur: Math.min(k.dur, until - at)});
+      }
+    });
+    on("rep2", () => repeat(2)); on("rep4", () => repeat(4)); on("rep8", () => repeat(8)); on("repLoop", () => repeat(0));
+    on("looper", () => pieceToLooper(c, p));
+    on("dup", () => EDITS.clipDuplicate());
+    on("del", () => EDITS.clipDelete());
+  }
+
+  async function postPiece(url, p, label){
+    const res = await fetch(url, {method: "POST", headers: {"Content-Type": "audio/wav"}, body: encodeWav(p.buf)});
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(data.error || `${label} selhalo`);
+    return data;
+  }
+  async function pieceToNam(c, p){
+    const name = pieceName(c, p);
+    try{
+      await postPiece(`/api/nam-preview/riffs?name=${encodeURIComponent(name)}`, p, "Uložení");
+      showToast(`„${name}“ je v NAM nahrávkách (DI riffy) — použiješ ho pro náhled profilů`);
+    }catch(e){ showToast(e.message); }
+  }
+  async function pieceToCap(c, p){
+    const name = pieceName(c, p);
+    try{
+      const d = await postPiece(`/api/library/cap?name=${encodeURIComponent(name)}`, p, "Uložení");
+      showToast(`Uloženo do knihovny: CAP/${d.name}`);
+      if(typeof treeCache !== "undefined" && treeCache.clear) treeCache.clear();
+      if(typeof invalidateRailTop5 === "function") invalidateRailTop5("library");
+    }catch(e){ showToast(e.message); }
+  }
+  async function pieceToTrack(c, p){
+    const name = pieceName(c, p);
+    const fd = new FormData();
+    fd.append("file", encodeWav(p.buf), name + ".wav");
+    editStatus = "importing"; paintEditStatus();
+    try{
+      const res = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/tracks/upload`, {method: "POST", body: fd});
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Vložení selhalo");
+      // The new track starts where the clip sat, so it plays in the same place.
+      newTrackStart = {stem: data.stem, start: p.start};
+      await reloadSongTracks(`Nová stopa „${data.label}“`);
+    }catch(e){ editStatus = ""; paintEditStatus(); showToast(e.message); }
+  }
+  let newTrackStart = null;
+
+  // Pieces of songs collected into one project of their own — "Looper –
+  // <song>" — to be arranged, looped and played along with. Made on the
+  // first piece sent; every next piece is one more track of it.
+  async function pieceToLooper(c, p){
+    const song = (typeof stemsDisplayByName === "function" ? stemsDisplayByName(currentSongName).title : currentSongName) || "Píseň";
+    const looper = `Looper - ${song}`.replace(/[^\p{L}\p{N} \-_()\[\]]/gu, "").trim().slice(0, 80);
+    const fd = new FormData();
+    fd.append("file", encodeWav(p.buf), pieceName(c, p) + ".wav");
+    try{
+      let list = await (await fetch("/api/stems")).json();
+      const exists = list.some(x => x.name === looper);
+      const url = exists ? `/api/stems/${encodeURIComponent(looper)}/tracks/upload` : `/api/stems/new/upload?name=${encodeURIComponent(looper)}`;
+      const res = await fetch(url, {method: "POST", body: fd});
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Odeslání selhalo");
+      const name = data.name || looper;
+      steemsSongs = await (await fetch("/api/stems")).json();
+      invalidateRailTop5("steems");
+      showLooperToast(name);
+    }catch(e){ showToast(e.message || "Odeslání do Looperu selhalo"); }
+  }
+  function showLooperToast(name){
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.style.pointerEvents = "auto";
+    t.innerHTML = `Dílek je v projektu <b>${escapeHtml(name)}</b>
+      <button type="button" class="btn secondary" style="margin-left:10px;padding:3px 10px;font-size:12px">Otevřít Looper</button>`;
+    t.querySelector("button").onclick = () => { t.remove(); openSteemsSong(name); };
+    el("toast-wrap").appendChild(t);
+    setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 7000);
+  }
+  let persistAfterLoad = false;
+
+  // Onset strength at 1 ms steps, then the period (±3 % around the guess,
+  // 0,1 ms steps) and phase whose beat positions collect the most of it.
+  function refineBeatFit(buf, period0, first0){
+    const sr = buf.sampleRate, hop = Math.max(1, Math.round(sr / 1000));
+    const n = Math.floor(buf.length / hop);
+    const env = new Float32Array(n);
+    let prev = 0;
+    for(let i = 0; i < n; i++){
+      let e = 0;
+      for(let ch = 0; ch < buf.numberOfChannels; ch++){
+        const d = buf.getChannelData(ch);
+        for(let j = i * hop, z = j + hop; j < z; j++) e += d[j] * d[j];
+      }
+      env[i] = Math.max(0, e - prev);     // rises only: the attacks
+      prev = e;
+    }
+    // Spread each attack a little so near-misses still count.
+    const sm = new Float32Array(n);
+    for(let i = 0; i < n; i++){ let a = 0; for(let k = -3; k <= 3; k++){ const x = env[i + k]; if(x) a += x * (4 - Math.abs(k)); } sm[i] = a; }
+    let best = {score: -1, period: period0, first: first0};
+    for(let pm = period0 * 0.97; pm <= period0 * 1.03; pm += 0.0001){
+      const pms = pm * 1000;
+      for(let ph = 0; ph < pms; ph += 1){
+        let sc = 0;
+        for(let t = ph; t < n; t += pms) sc += sm[Math.round(t)] || 0;
+        if(sc > best.score) best = {score: sc, period: pm, first: ph / 1000};
+      }
+    }
+    return best;
+  }
+
+  // Tempo from this piece, and the click grid laid over the whole song so
+  // it lands on the piece's beats: the tracker's beats inside the piece,
+  // the same tempo carried on before and after it.
+  async function pieceTempo(c, p){
+    if(p.dur < 3){ showToast("Na tempo potřebuju aspoň 3 sekundy — vyber delší dílek"); return; }
+    showToast("Hledám tempo v dílku…");
+    let g;
+    try{ g = await postPiece("/api/analyze/beats", p, "Detekce tempa"); }
+    catch(e){ showToast(e.message); return; }
+    const raw = (g.beats || []).filter(t => t >= -0.01 && t <= p.dur + 0.01);
+    if(raw.length < 4 || !g.bpm){ showToast("Tempo se v dílku nepodařilo najít"); return; }
+    // The tracker's tempo is close but not exact (a 120 BPM click came back
+    // as 121.6 — a second off after a minute). Fine-tune period and phase on
+    // the piece's own attacks before laying the grid over the whole song.
+    const fit = refineBeatFit(p.buf, 60 / g.bpm, raw[0]);
+    const period = fit.period;
+    const inner = [];
+    for(let t = fit.first; t <= p.dur + 0.001; t += period) inner.push(t + p.start);
+    g.bpm = 60 / period;
+    const bpb = g.beats_per_bar || 4;
+    const firstDown = ((g.downbeats || []).find(t => t >= -0.01) ?? raw[0]) + p.start;
+    const all = [];
+    for(let t = inner[0] - period; t > -period / 2; t -= period) all.unshift(t);
+    all.push(...inner);
+    const end = Math.max(duration, ...channels.map(x => x.buffer.duration));
+    for(let t = inner[inner.length - 1] + period; t < end + period; t += period) all.push(t);
+    const beatsArr = all.filter(t => t >= 0).map(t => Math.round(t * 1000) / 1000);
+    // Bar lines: every bpb-th beat, phased on the piece's first downbeat.
+    let di = 0, best = Infinity;
+    beatsArr.forEach((t, i) => { const d = Math.abs(t - firstDown); if(d < best){ best = d; di = i; } });
+    const downs = beatsArr.filter((_, i) => ((i - di) % bpb + bpb) % bpb === 0);
+    const grid = {beats: beatsArr, downbeats: downs, bpm: g.bpm, beats_per_bar: bpb,
+      detected_from: p.start, detected_to: p.start + p.dur};
+    applyBeatGrid(grid);
+    try{
+      await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/beats`, {method: "PUT",
+        headers: {"Content-Type": "application/json"}, body: JSON.stringify(grid)});
+    }catch(e){}
+    showToast(`Tempo ${Math.round(g.bpm * 10) / 10} BPM — metronom srovnaný s dílkem a uložený k písni`);
+  }
+
   const needRange = (c) => {
     const r = editRange(c);
     if(!r) showToast("Označ úsek: táhni po pravítku nad stopami");
@@ -13191,6 +14030,7 @@ const Mixer = (() => {
     cut: () => applyEdit("Vystřiženo", c => {
       const r = needRange(c); if(!r) return null;
       clip = sliceBuf(c.buffer, r[0], r[1]);
+      lastCopied = "range";
       return concatBufs(c.buffer, [sliceBuf(c.buffer, 0, r[0]), sliceBuf(c.buffer, r[1], c.buffer.length)]);
     }),
     copy: () => {
@@ -13198,6 +14038,7 @@ const Mixer = (() => {
       if(!c){ showToast("Nejdřív vyber stopu (klikni na její název vlevo)"); return; }
       const r = needRange(c); if(!r) return;
       clip = sliceBuf(c.buffer, r[0], r[1]);
+      lastCopied = "range";
       showToast(`Zkopírováno ${fmtEditTime(clip.duration)}`);
       renderEditBar();
     },
@@ -13247,17 +14088,44 @@ const Mixer = (() => {
     undo: () => {
       const u = undoStack.pop(); if(!u) return;
       const c = channels.find(x => x.stem === u.stem); if(!c) return;
-      redoStack.push({stem: c.stem, buffer: c.buffer, label: u.label});
-      setBuffer(c, u.buffer); scheduleSave(c); renderEditBar();
+      redoStack.push({...snapOf(c), label: u.label});
+      restoreSnap(c, u); renderEditBar();
       showToast("Zpět: " + (u.label || "úprava"));
     },
     redo: () => {
       const u = redoStack.pop(); if(!u) return;
       const c = channels.find(x => x.stem === u.stem); if(!c) return;
-      undoStack.push({stem: c.stem, buffer: c.buffer, label: u.label});
-      setBuffer(c, u.buffer); scheduleSave(c); renderEditBar();
+      undoStack.push({...snapOf(c), label: u.label});
+      restoreSnap(c, u); renderEditBar();
       showToast("Znovu: " + (u.label || "úprava"));
     },
+    // ---- clips ----
+    clipDelete: () => clipAction("Dílek smazán", (c, i) => { c.clips.splice(i, 1); selClip = null; }),
+    clipCopy: () => {
+      const c = selClipChannel(); if(!c) return;
+      const k = c.clips[selClip.i];
+      clipBoard = {src: k.src, offset: k.offset, dur: k.dur};
+      lastCopied = "clip";
+      showToast(`Dílek zkopírován (${fmtEditTime(k.dur)}) — vlož ho ⌘V na pozici přehrávání`);
+      renderEditBar();
+    },
+    clipPaste: () => {
+      const c = editChannel();
+      if(!c){ showToast("Vyber stopu, kam vložit (klikni na její název vlevo)"); return; }
+      if(!clipBoard){ showToast("Nejdřív zkopíruj dílek"); return; }
+      pushUndo(c, "Dílek vložen");
+      ensureClips(c);
+      c.clips.push({...clipBoard, start: Math.max(0, currentTime())});
+      selClip = {stem: c.stem, i: c.clips.length - 1};
+      clipsChanged(c, "Dílek vložen na pozici přehrávání");
+    },
+    clipDuplicate: () => clipAction("Dílek zduplikován", (c, i) => {
+      const k = c.clips[i];
+      c.clips.push({...k, start: k.start + k.dur});
+      selClip = {stem: c.stem, i: c.clips.length - 1};
+    }),
+    toolSelect: () => setTool("select"),
+    toolScissors: () => setTool(tool === "scissors" ? "select" : "scissors"),
   };
 
   function fmtEditTime(t){
@@ -13276,7 +14144,7 @@ const Mixer = (() => {
       if(currentSongName !== name || !channels.includes(c)) return;
       try{
         const res = await fetch(`/api/stems/${encodeURIComponent(name)}/${encodeURIComponent(stem)}/audio`,
-          {method: "PUT", headers: {"Content-Type": "audio/wav"}, body: encodeWav(c.buffer)});
+          {method: "PUT", headers: {"Content-Type": "audio/wav"}, body: encodeWav(c.srcBuf)});
         const data = await res.json();
         if(!res.ok) throw new Error(data.error || "Uložení selhalo");
         editedStems = new Set(data.edited || []);
@@ -13304,6 +14172,7 @@ const Mixer = (() => {
       const buf = await ctx().decodeAudioData(audio);
       for(const st of [undoStack, redoStack]){ for(let i = st.length - 1; i >= 0; i--) if(st[i].stem === c.stem) st.splice(i, 1); }
       setBuffer(c, buf);
+      selClip = null;
       editStatus = "";
       renderEditBar();
       showToast("Stopa je zpátky v původní podobě");
@@ -13380,6 +14249,17 @@ const Mixer = (() => {
       `<button type="button" class="nm-btn" data-edit="${act}" title="${title}" ${dis(enabled)}>${text}</button>`;
     bar.innerHTML = `
       <button type="button" class="nm-btn" id="nm-addtrack" title="Otevřít libovolný audio soubor z počítače jako novou stopu téhle písně">${icon("add", 12)} Stopa ze souboru</button>
+      <button type="button" class="nm-btn" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("add", 12)} MIDI stopa</button>
+      <button type="button" class="nm-btn tool ${Midi.keyboardOn() ? "on" : ""}" id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, , . = oktáva) — vypne ostatní zkratky">⌨ Klávesy</button>
+      <span class="sep"></span>
+      <button type="button" class="nm-btn tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr: klik na dílek ho vybere, tažením ho přesuneš">Výběr</button>
+      <select id="nm-snap" title="Přichytávání dílků a střihů k mřížce (Alt = volně)">
+        <option value="off">Mřížka: vyp</option><option value="beat">Mřížka: doby</option><option value="bar">Mřížka: takty</option></select>
+      <button type="button" class="nm-btn tool ${tool === "scissors" ? "on" : ""}" data-edit="toolScissors" title="Nůžky (S): kam klikneš do stopy, tam se rozstřihne">✂ Nůžky</button>
+      ${b("clipDelete", "Smazat dílek", "Smazat vybraný dílek (Delete)", selClipChannel())}
+      ${b("clipCopy", "Kopírovat dílek", "Kopírovat vybraný dílek (⌘C)", selClipChannel())}
+      ${b("clipPaste", "Vložit dílek", "Vložit zkopírovaný dílek na pozici přehrávání do vybrané stopy (⌘V)", c && clipBoard)}
+      ${b("clipDuplicate", "Duplikovat", "Kopie dílku hned za něj (⌘D)", selClipChannel())}
       <span class="sep"></span>
       <span class="cap">ÚPRAVY</span>
       <select id="nm-edit-track" title="Stopa, kterou upravuješ (nebo klikni na její název vlevo)">
@@ -13404,15 +14284,23 @@ const Mixer = (() => {
       ${b("undo", "↶ Zpět", "Vrátit poslední úpravu (⌘Z)", undoStack.length)}
       ${b("redo", "↷ Znovu", "Znovu provést (⇧⌘Z)", redoStack.length)}
       ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn" id="nm-edit-restore" title="Zahodit všechny úpravy téhle stopy">Obnovit původní</button>` : ""}
+      ${hiddenChannels.length ? `<button type="button" class="nm-btn" id="nm-hidden-btn" title="Stopy odebrané z mixu křížkem">Skryté stopy (${hiddenChannels.length})</button>` : ""}
       <span class="status"></span>`;
     bar.querySelector("#nm-addtrack").onclick = () => el("nm-addtrack-file").click();
+    bar.querySelector("#nm-addmidi").onclick = () => Midi.addTrack();
+    bar.querySelector("#nm-midikbd").onclick = () => { Midi.setKeyboard(!Midi.keyboardOn()); renderEditBar(); };
+    const snapSel = bar.querySelector("#nm-snap");
+    snapSel.value = snapMode;
+    snapSel.onchange = () => { snapMode = snapSel.value; try{ localStorage.setItem("spotdl-snap", snapMode); }catch(e){} };
     bar.querySelector("#nm-edit-track").onchange = (e) => {
       const v = parseInt(e.target.value, 10);
-      editIdx = v; renderTimeline(); renderEditBar();
+      editIdx = v; selClip = null; renderTimeline(); renderEditBar();
     };
     bar.querySelectorAll("[data-edit]").forEach(btn => btn.onclick = () => EDITS[btn.dataset.edit]());
     const rs = bar.querySelector("#nm-edit-restore");
     if(rs) rs.onclick = restoreOriginal;
+    const hb = bar.querySelector("#nm-hidden-btn");
+    if(hb) hb.onclick = (e) => openHiddenMenu(e.currentTarget);
     paintEditStatus();
   }
 
@@ -13420,11 +14308,23 @@ const Mixer = (() => {
   // isn't in a text field — only once a track has been picked for editing,
   // so these keys keep doing nothing surprising otherwise.
   document.addEventListener("keydown", (e) => {
-    if(el("mixer").hidden || editIdx < 0) return;
+    if(el("mixer").hidden || !channels.length) return;
     const t = e.target;
     if(t && (t.closest("input, textarea, select, [contenteditable]"))) return;
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key.toLowerCase();
+    if(!mod && k === "s" && !e.shiftKey && !e.altKey){ e.preventDefault(); EDITS.toolScissors(); return; }
+    if(e.key === "Escape" && tool === "scissors"){ setTool("select"); return; }
+    // A selected clip takes the keys.
+    if(selClipChannel()){
+      let ca = null;
+      if(!mod && (e.key === "Delete" || e.key === "Backspace")) ca = "clipDelete";
+      else if(mod && k === "c") ca = "clipCopy";
+      else if(mod && k === "d") ca = "clipDuplicate";
+      if(ca){ e.preventDefault(); EDITS[ca](); return; }
+    }
+    if(mod && k === "v" && lastCopied === "clip" && clipBoard && editIdx >= 0){ e.preventDefault(); EDITS.clipPaste(); return; }
+    if(editIdx < 0 && !(mod && k === "z")) return;
     let act = null;
     if(mod && k === "x") act = "cut";
     else if(mod && k === "c") act = "copy";
@@ -13488,19 +14388,29 @@ const Mixer = (() => {
           ${c.stem === "guitar_solo"
             ? `<button class="nm-sm gt-unimport" title="Odebrat rozdělenou kytaru, vrátit se k jedné stopě">${icon("close", 11)}</button>` : ""}
           ${c.stem.startsWith("take-")
-            ? `<button class="nm-sm trk-remove" title="Odebrat tuhle stopu z písně (smaže její soubor)">${icon("trash", 11)}</button>` : ""}
+            ? `<button class="nm-sm trk-remove" title="Smazat nahrávku i se souborem">${icon("trash", 11)}</button>` : ""}
+          <button class="nm-sm trk-hide" title="Odebrat stopu z mixu i s faderem (soubor zůstane, vrátíš ji přes „Skryté stopy“)">${icon("close", 10)}</button>
           <button class="nm-sm solo ${c.solo ? "active" : ""}" title="Sólo">S</button>
           <button class="nm-sm mute ${c.muted ? "active" : ""}" title="Ztlumit">M</button>
         </div>
         <input type="range" class="nm-fader" min="0" max="1.4" step="0.01" value="${c.faderValue}"
                title="Hlasitost">
-        <div class="nm-pitch-row">
+        ${c.midi ? `<div class="midi-row">
+          <button type="button" class="rec ${Midi.isRecording(c) ? "on" : ""}" title="Nahrát z MIDI kláves (s odpočtem)">●</button>
+          <button type="button" class="notes" title="Editor tónů">Noty</button>
+          <button type="button" class="inst" title="Nástroj — klikni pro výběr">${escapeHtml(Midi.instrumentName(c))}</button>
+        </div>` : `<div class="nm-pitch-row">
           <span class="lbl">PITCH</span>
           <button type="button" class="pitch-step" data-d="-1" title="O půltón níž">−</button>
           <span class="val">${semis > 0 ? "+" : ""}${semis}</span>
           <button type="button" class="pitch-step" data-d="1" title="O půltón výš">+</button>
-        </div>
+        </div>`}
       `;
+      if(c.midi){
+        strip.querySelector(".midi-row .rec").onclick = () => Midi.toggleRec(c);
+        strip.querySelector(".midi-row .notes").onclick = () => Midi.openEditor(c);
+        strip.querySelector(".midi-row .inst").onclick = (e) => Midi.pickInstrument(c, e.currentTarget);
+      }
 
       const fader = strip.querySelector(".nm-fader");
       const paintFader = () => {
@@ -13532,6 +14442,7 @@ const Mixer = (() => {
       };
 
       strip.querySelector(".nm-strip-name").onclick = () => selectEditTrack(idx);
+      strip.querySelector(".trk-hide").onclick = () => hideTrack(c);
       const rmBtn = strip.querySelector(".trk-remove");
       if(rmBtn) rmBtn.onclick = () => removeTrack(c);
       const importBtn = strip.querySelector(".gt-import");
@@ -13576,12 +14487,39 @@ const Mixer = (() => {
       const g = cv.getContext("2d");
       g.scale(dpr, dpr);
       paintGrid(g, cssW, laneH);
-      paintWave(g, c.buffer, cssW, laneH, style.c);
+      // At its real length: a track shorter than the song (a clip deleted at
+      // the end, a short take) must not be stretched over the whole lane.
+      paintWave(g, c.buffer, Math.max(1, Math.min(cssW, cssW * c.buffer.duration / Math.max(duration, 0.001))), laneH, style.c);
       lane.appendChild(cv);
 
+      const guide = document.createElement("div");
+      guide.className = "nm-cut-guide";
+      lane.appendChild(guide);
+      lane.addEventListener("pointermove", (e) => {
+        if(tool !== "scissors") return;
+        const t = (e.clientX - lane.getBoundingClientRect().left) / pixelsPerSecond;
+        guide.style.left = ((e.altKey ? t : snapTime(t)) * pixelsPerSecond) + "px";
+      });
+      paintClips(lane, c, idx);
+      // Right-click on a track that isn't cut: the same menu, for the whole
+      // track (instead of the browser's "save image" on the waveform).
+      lane.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if(e.target.closest(".nm-clip")) return;
+        openClipMenu(e.clientX, e.clientY, c, -1);
+      });
       lane.addEventListener("click", (e) => {
         const rect = lane.getBoundingClientRect();
-        seek(Math.max(0, Math.min(duration, (e.clientX - rect.left) / pixelsPerSecond)));
+        const t = Math.max(0, (e.clientX - rect.left) / pixelsPerSecond);
+        if(lane.dataset.justDragged){ delete lane.dataset.justDragged; return; }
+        if(tool === "scissors"){
+          editIdx = idx;
+          if(!splitAt(c, e.altKey ? t : snapTime(t))) showToast("Tady není co stříhat");
+          return;
+        }
+        if(e.target.closest(".nm-clip")) return;
+        if(selClip){ selClip = null; lane.parentElement.querySelectorAll(".nm-clip.sel").forEach(n => n.classList.remove("sel")); renderEditBar(); }
+        seek(Math.max(0, Math.min(duration, t)));
       });
 
       lanes.appendChild(lane);
@@ -13623,7 +14561,7 @@ const Mixer = (() => {
     channels.forEach(c => {
       if(c.muted) return;
       g.globalAlpha = 0.5;
-      paintWave(g, c.buffer, w, h, stemStyle(c.stem).c);
+      paintWave(g, c.buffer, Math.max(1, Math.min(w, w * c.buffer.duration / Math.max(duration, 0.001))), h, stemStyle(c.stem).c);
     });
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
@@ -13702,6 +14640,7 @@ const Mixer = (() => {
       if(c.solo) strip.classList.add("solo");
       strip.innerHTML = `
         <div class="fl-ch-header">
+          <button type="button" class="fl-ch-hide" title="Odebrat stopu z mixu (vrátíš ji přes „Skryté stopy“)">${icon("close", 9)}</button>
           <div class="fl-ch-name">${escapeHtml(stemLabel(c.stem))}</div>
           <div class="fl-ch-tag">Ch ${idx+1}</div>
         </div>
@@ -13730,6 +14669,7 @@ const Mixer = (() => {
         </div>
         <button type="button" class="fl-eq-btn" id="fl-eq-${idx}" title="Ekvalizér tohoto kanálu"><span class="dot"></span>EQ</button>
       `;
+      strip.querySelector(".fl-ch-hide").onclick = (e) => { e.stopPropagation(); hideTrack(c); };
       // Initialize LED segments (10 per meter)
       const ledEl = strip.querySelector(`#fl-led-${idx}`);
       const ledREl = strip.querySelector(`#fl-led-r-${idx}`);
@@ -13857,6 +14797,7 @@ const Mixer = (() => {
       stopAllSources();
       scheduleAll(t);
       syncTabIndices(t); // the guide restarts at loopStart, not at bar one
+      TakeRec.onWrap();
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
@@ -13960,6 +14901,38 @@ const Mixer = (() => {
     return true;
   }
 
+  // One channel: the stem's audio with its whole insert chain, fader, meter
+  // and pan, as saved last time (savedCh) or at defaults.
+  function buildChannel(stemName, audioBuf, savedCh){
+      const gainNode = ctx().createGain();
+      const analyser = ctx().createAnalyser();
+      analyser.fftSize = 256;
+      const panner = ctx().createStereoPanner();
+      analyser.connect(panner);
+      panner.connect(masterOut());
+      const fxChain = makeFx(savedCh && savedCh.fx);
+      // The fader comes after EQ and the inserts (as on a desk): moving it
+      // must not change how hard the compressor works.
+      const faderNode = ctx().createGain();
+      fxChain.output.connect(faderNode);
+      faderNode.connect(analyser);
+      const chan = {
+        stem: stemName, buffer: audioBuf, srcBuf: audioBuf,
+        clips: savedCh && Array.isArray(savedCh.clips) && savedCh.clips.length ? savedCh.clips : null,
+        gainNode, analyser, panner,
+        muted: savedCh ? savedCh.muted : false,
+        solo: savedCh ? savedCh.solo : false,
+        faderValue: savedCh ? savedCh.faderValue : 1,
+        pitchRate: savedCh ? savedCh.pitchRate : 1,
+        panValue: savedCh ? savedCh.panValue : 0,
+        clipOffset: savedCh ? savedCh.clipOffset : 0,
+        source: null, vuFill: null, pitchedBuffer: null,
+        fx: fxChain, faderNode,
+      };
+      buildEq(chan, savedCh && savedCh.eq);
+      return chan;
+  }
+
   async function load(song){
     const myToken = ++loadToken;
     sessionReady = false;       // nothing saves while the mix is being set up
@@ -14041,6 +15014,7 @@ const Mixer = (() => {
     stemLabels = song.labels || {};
     editedStems = new Set(song.edited || []);
     editIdx = -1; clip = null; undoStack.length = 0; redoStack.length = 0;
+    selClip = null; clipBoard = null; lastCopied = null;
     const loaded = [];
     for(const stem of song.stems){
       const stemName = typeof stem === 'string' ? stem : (stem.name || stem);
@@ -14056,35 +15030,42 @@ const Mixer = (() => {
       // often piano and other, on a song that never had either). No point
       // giving a whole channel strip to nothing.
       if(bufferIsSilent(audioBuf)) continue;
-      const gainNode = ctx().createGain();
-      const analyser = ctx().createAnalyser();
-      analyser.fftSize = 256;
-      const panner = ctx().createStereoPanner();
-      analyser.connect(panner);
-      panner.connect(masterOut());
       const savedCh = saved && saved.channels ? saved.channels.find(c => c.stem === stemName) : null;
-      const fxChain = makeFx(savedCh && savedCh.fx);
-      // The fader comes after EQ and the inserts (as on a desk): moving it
-      // must not change how hard the compressor works.
-      const faderNode = ctx().createGain();
-      fxChain.output.connect(faderNode);
-      faderNode.connect(analyser);
-      const chan = {
-        stem: stemName, buffer: audioBuf, gainNode, analyser, panner,
-        muted: savedCh ? savedCh.muted : false,
-        solo: savedCh ? savedCh.solo : false,
-        faderValue: savedCh ? savedCh.faderValue : 1,
-        pitchRate: savedCh ? savedCh.pitchRate : 1,
-        panValue: savedCh ? savedCh.panValue : 0,
-        clipOffset: savedCh ? savedCh.clipOffset : 0,
-        source: null, vuFill: null, pitchedBuffer: null,
-        fx: fxChain, faderNode,
-      };
-      buildEq(chan, savedCh && savedCh.eq);
-      loaded.push(chan);
+      loaded.push(buildChannel(stemName, audioBuf, savedCh));
     }
     if(myToken !== loadToken) return;
-    channels = loaded;
+    // MIDI tracks: notes from the mix, sound rendered once they're in.
+    for(const m of ((saved && saved.midi) || [])){
+      const savedCh = saved.channels ? saved.channels.find(x => x.stem === m.stem) : null;
+      const sil = ctx().createBuffer(2, ctx().sampleRate, ctx().sampleRate);
+      const c = buildChannel(m.stem, sil, savedCh);
+      c.clips = null;
+      c.midi = {instrument: m.instrument, notes: (m.notes || []).slice()};
+      stemLabels[m.stem] = m.label || m.stem;
+      loaded.push(c);
+    }
+    loaded.forEach((c, i) => { c.order = i; });
+    const savedHidden = new Set(((saved && saved.channels) || []).filter(x => x.hidden).map(x => x.stem));
+    hiddenChannels = loaded.filter(c => savedHidden.has(c.stem));
+    channels = loaded.filter(c => !savedHidden.has(c.stem));
+
+    // Tracks cut into clips last time: put them back together from the
+    // clip layout (the files themselves are untouched by clip edits).
+    if(newTrackStart){
+      const nt = channels.find(c => c.stem === newTrackStart.stem);
+      if(nt && newTrackStart.start > 0.005 && !nt.clips){
+        nt.clips = [{src: nt.stem, offset: 0, dur: nt.srcBuf.duration, start: newTrackStart.start}];
+        persistAfterLoad = true;
+      }
+      newTrackStart = null;
+    }
+    [...channels, ...hiddenChannels].forEach(c => {
+      if(!c.clips) return;
+      c.clips = c.clips.filter(k => loaded.some(x => x.stem === k.src) && k.dur > 0);
+      if(!c.clips.length){ c.clips = null; return; }
+      c.buffer = flattenClips(c);
+      duration = Math.max(duration, c.buffer.duration);
+    });
     el("nm-stemcount").textContent = channels.length;
     // A stem's pitch was left shifted from last time — get the stretch
     // nodes ready before anything plays, the same as touching the slider
@@ -14154,6 +15135,8 @@ const Mixer = (() => {
     // The mix is set up; from here on every change writes itself.
     sessionReady = true;
     renderEditBar();
+    channels.concat(hiddenChannels).filter(c => c.midi && c.midi.notes.length).forEach(c => Midi.render(c));
+    if(persistAfterLoad){ persistAfterLoad = false; queueSessionSave(); }
   }
 
   // Sections and chords take the better part of a minute the first time, so
@@ -14185,6 +15168,23 @@ const Mixer = (() => {
       analysisState = "failed";
       renderTrackLanes();
     }
+  }
+
+  function applyBeatGrid(data){
+    beatTimes = data.beats;
+    downbeatTimes = data.downbeats || [];
+    beatsPerBar = data.beats_per_bar || 4;
+    beatSetIndex = new Set(downbeatTimes);
+    detectedFrom = data.detected_from ?? 0;
+    detectedTo = data.detected_to ?? Infinity;
+    rebuildClickTrack();
+    tempoBPM = Math.round(data.bpm);
+    updateTempoUI();
+    beatInterval = 60 / data.bpm;
+    el("mixer-tempo").textContent = tempoBPM;
+    renderTimeline();
+    refreshSteemsHeroStats();
+    if(isPlaying && metronomeOn) scheduleMetronomeClicks();
   }
 
   async function fetchBeatGrid(name, token){
@@ -14251,6 +15251,35 @@ const Mixer = (() => {
     return new Blob([buffer], { type: "audio/wav" });
   }
 
+  // 32-bit float WAV: what the mixer rendered, with nothing rounded off yet —
+  // the server encodes it to the format, rate and depth the dialog asks for.
+  function encodeWavFloat(audioBuffer){
+    const nch = audioBuffer.numberOfChannels, sr = audioBuffer.sampleRate, len = audioBuffer.length;
+    const dataSize = len * nch * 4;
+    const buf = new ArrayBuffer(44 + dataSize), v = new DataView(buf);
+    const str = (o, t) => { for(let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    str(0, "RIFF"); v.setUint32(4, 36 + dataSize, true); str(8, "WAVE"); str(12, "fmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 3, true); v.setUint16(22, nch, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * nch * 4, true); v.setUint16(32, nch * 4, true);
+    v.setUint16(34, 32, true); str(36, "data"); v.setUint32(40, dataSize, true);
+    const out = new Float32Array(buf, 44, len * nch);
+    const chs = [];
+    for(let c = 0; c < nch; c++) chs.push(audioBuffer.getChannelData(c));
+    for(let i = 0, o = 0; i < len; i++) for(let c = 0; c < nch; c++) out[o++] = chs[c][i];
+    return new Blob([buf], {type: "audio/wav"});
+  }
+
+  // Into the library's Export folder (not the browser's downloads).
+  async function sendExport(buffer, name, opts){
+    const q = new URLSearchParams({name, fmt: opts.fmt || "wav", rate: String(opts.rate || 44100), bits: String(opts.bits || 16)});
+    const res = await fetch(`/api/library/export?${q}`, {method: "POST", headers: {"Content-Type": "audio/wav"}, body: encodeWavFloat(buffer)});
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(data.error || "Export selhal");
+    if(typeof treeCache !== "undefined" && treeCache.clear) treeCache.clear();
+    if(typeof invalidateRailTop5 === "function") invalidateRailTop5("library");
+    return data;
+  }
+
   async function exportMix(){
     if(!channels.length) return;
     const exportBtn = el("mixer-export");
@@ -14291,7 +15320,7 @@ const Mixer = (() => {
       showToast("Export selhal");
     }finally{
       exportBtn.disabled = false;
-      exportBtn.innerHTML = `${icon("download", 14)}Export`;
+      exportBtn.innerHTML = icon("download", 14);
     }
   }
 
@@ -14341,40 +15370,39 @@ const Mixer = (() => {
           }
         }
       }
-      const blob = encodeWav(rendered);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      let filename = (currentSongName || "mix").replace(/[^a-zA-Z0-9 _-]/g,"_");
-      if(opts.suffix) filename += opts.suffix;
-      filename += "." + opts.fmt;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      showToast("Export hotov: " + filename);
+      const shown = typeof stemsDisplayByName === "function" ? stemsDisplayByName(currentSongName) : null;
+      let name = shown ? (shown.artist ? `${shown.artist} - ${shown.title}` : shown.title) : (currentSongName || "Mix");
+      if(opts.suffix) name += " " + opts.suffix;
+      exportBtn.innerHTML = `${icon("hourglass", 14)}Ukládám…`;
+      const saved = await sendExport(rendered, name, opts);
+      showExportDone(saved);
     }catch(e){
-      showToast("Export selhal");
+      showToast(e && e.message ? e.message : "Export selhal");
     }finally{
       exportBtn.disabled = false;
-      exportBtn.innerHTML = `${icon("download", 14)}Export`;
+      exportBtn.innerHTML = icon("download", 14);
     }
   }
 
-  function exportStem(idx){
+  async function exportStem(idx){
     const c = channels[idx];
     if(!c) return;
-    const blob = encodeWav(c.buffer);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${c.stem}.wav`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast(`Staženo: ${c.stem}.wav`);
+    try{
+      const saved = await sendExport(c.buffer, `${currentSongName} - ${stemLabel(c.stem)}`, {fmt: "wav", bits: 24, rate: c.buffer.sampleRate});
+      showExportDone(saved);
+    }catch(e){ showToast(e.message || "Export selhal"); }
+  }
+
+  // A toast that can take you to the file.
+  function showExportDone(saved){
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.style.pointerEvents = "auto";
+    t.innerHTML = `Exportováno do knihovny: <b>Export/${escapeHtml(saved.name)}</b>
+      <button type="button" class="btn secondary" style="margin-left:10px;padding:3px 10px;font-size:12px">Otevřít složku</button>`;
+    t.querySelector("button").onclick = () => { t.remove(); setMode("library", {keepSection: true}); loadLibraryFolder("Export"); };
+    el("toast-wrap").appendChild(t);
+    setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 7000);
   }
 
   // ---- Metronome ----
@@ -14449,11 +15477,15 @@ const Mixer = (() => {
       // Click the times the tracker actually found (optionally subdivided or
       // thinned), so the click sits on the snare instead of drifting away
       // from it over a few minutes.
+      // Measured from the song's clock, not currentTime(): during a count-in
+      // the song hasn't started, and nothing before its start may click
+      // (the count-in does that).
+      const songNow = (now - startedAt) * runSpeed;
       for(let i = 0; i < clickTimes.length; i++){
         const t = clickTimes[i];
-        if(t <= currentSec) continue;
+        if(t <= songNow || t < playFrom - 0.001) continue;
         if(t >= endSec) break;
-        playClick(clickAccent[i], now + (t - currentSec) / runSpeed);
+        playClick(clickAccent[i], now + (t - songNow) / runSpeed);
       }
     } else if(beatInterval){
       // No detected grid — fall back to a fixed period from the top.
@@ -14510,8 +15542,9 @@ const Mixer = (() => {
     return metroBus.gain;
   }
 
-  function playClick(accent, when){
-    if(metroMuted) return;
+  // force: sound even with the click muted (a recording's count-in).
+  function playClick(accent, when, force){
+    if(metroMuted && !force) return;
     const ac = ctx();
     const voice = METRO_VOICES.find(v => v.id === metroVoice) || METRO_VOICES[0];
     const out = metroOut();
@@ -14606,14 +15639,18 @@ const Mixer = (() => {
     return {
       tempo: tempoBPM,
       loop: loopEnabled ? {start: loopStart, end: loopEnd} : null,
-      channels: channels.map(c => ({
+      channels: [...channels, ...hiddenChannels].map(c => ({
+        hidden: hiddenChannels.includes(c),
         stem: c.stem, muted: !!c.muted, solo: !!c.solo,
         faderValue: c.faderValue, pitchRate: c.pitchRate || 1,
         panValue: c.panValue || 0, clipOffset: c.clipOffset || 0,
+        clips: c.clips ? c.clips.map(k => ({src: k.src, offset: k.offset, dur: k.dur, start: k.start})) : null,
         eq: eqSnapshot(c),
         fx: fxSnapshot(c.fx),
       })),
       pixelsPerSecond,
+      midi: [...channels, ...hiddenChannels].filter(c => c.midi).map(c => ({
+        stem: c.stem, label: stemLabels[c.stem] || c.stem, instrument: c.midi.instrument, notes: c.midi.notes})),
       metronome: {
         volume: metroVolume, pan: metroPan, muted: metroMuted,
         voice: metroVoice, rate: metronomeRate,
@@ -14748,6 +15785,25 @@ const Mixer = (() => {
     // actual bend points, so that's skipped too.
     function texNoteEffects(n){
       return (n.hammer || n.pull) ? "{h}" : "";
+    }
+
+    // Several Songsterr parts of one song as one score, one \track each —
+    // they share the bars, so they line up under each other.
+    function tracksToAlphaTex(list){
+      if(list.length <= 1) return measuresToAlphaTex(list[0].data);
+      const head = measuresToAlphaTex(list[0].data);
+      const meta = head.slice(0, head.indexOf(" . ")).split(" \\tuning ")[0];
+      // Inside a \track the tuning needs the bracketed form, and the staff
+      // has to be declared a tab staff — otherwise a part that opens with
+      // rests is taken for percussion and its first fretted note is refused.
+      const body = list.map(({data, name}) => {
+        const tuning = (data.tuning || []).map(midiToTexNote);
+        const one = measuresToAlphaTex(data);
+        const bars = one.slice(one.indexOf(" . ") + 3);
+        return `\\track ("${texTitle(name || data.name || "Stopa")}") \\staff {tabs}` +
+          (tuning.length ? ` \\tuning (${tuning.join(" ")})` : "") + ` ${bars}`;
+      }).join(" ");
+      return `${meta} . ${body}`;
     }
 
     function measuresToAlphaTex(tabData){
@@ -15020,7 +16076,7 @@ const Mixer = (() => {
           // alphaTab only tracks click targets down to the whole beat, not
           // the individual note within it, unless this is explicitly on.
           core: {fontDirectory: "/static/alphatab/font/", useWorkers: false, includeNoteBounds: true},
-          display: {staveProfile: "ScoreTab"},
+          display: {staveProfile: "Tab"},
         });
         api.error.on((e) => { console.error("alphaTab:", e); showToast("Notaci se nepodařilo vykreslit"); });
         host.addEventListener("pointerup", (e) => { lastClickX = e.clientX; lastClickY = e.clientY; });
@@ -15050,7 +16106,7 @@ const Mixer = (() => {
       renderActive();
     }
 
-    return {open, ensureLib, measuresToAlphaTex, barStartTimes};
+    return {open, ensureLib, measuresToAlphaTex, tracksToAlphaTex, barStartTimes};
   })();
   el("tabview-close").onclick = () => { el("tabview-overlay").hidden = true; };
   el("tabview-overlay").addEventListener("click", (e) => {
@@ -15120,7 +16176,9 @@ const Mixer = (() => {
     const fmt = el("fl-export-format").value;
     const scale = el("fl-export-scale").value;
     const suffix = el("fl-export-suffix").value.trim();
-    exportMixWithOptions({ fmt, scale, suffix });
+    const rate = parseInt(el("fl-export-sample-rate").value, 10);
+    const bits = parseInt(el("fl-export-bit-depth").value, 10);
+    exportMixWithOptions({ fmt, scale, suffix, rate, bits });
   };
 
   // ---- Loop markers: drag either line; double-click either one turns the loop off ----
@@ -16303,64 +17361,49 @@ const Mixer = (() => {
 
     // ---- recording ----
 
-    function startRecording(){
+    // Recording streams the samples to TakeRec as they arrive (each batch
+    // stamped with the audio clock); TakeRec turns them into takes.
+    let onRecBatch = null, recDone = null;
+    function startRecording(onBatch){
       if(!state.live || recording) return false;
       recording = true;
       recordStartedAt = ctxRef().currentTime;
+      onRecBatch = onBatch || null;
       recNode.port.postMessage("start");
       renderGuitarStrip();
       return true;
     }
-
-    let recordResolve = null;
     function stopRecording(){
-      if(!recording) return Promise.resolve(null);
+      if(!recording) return Promise.resolve();
       recording = false;
       return new Promise(resolve => {
-        recordResolve = resolve;
+        recDone = resolve;
         recNode.port.postMessage("stop");
+        // Unplugged mid-take: the node may never answer.
+        setTimeout(() => { if(recDone === resolve){ recDone = null; resolve(); } }, 1500);
       });
     }
-
-    async function onRecorderMessage(e){
-      if(!e.data || !e.data.done) return;
-      const {chunks, frames} = e.data;
-      renderGuitarStrip();
-      if(!frames || !chunks.length){
-        if(recordResolve) recordResolve(null);
-        showToast("Nahrávka je prázdná");
+    function onRecorderMessage(e){
+      const d = e.data;
+      if(!d) return;
+      if(d.done){
+        renderGuitarStrip();
+        if(recDone){ const r = recDone; recDone = null; r(); }
         return;
       }
-      const buffer = ctxRef().createBuffer(
-        chunks[0].length, frames, ctxRef().sampleRate);
-      for(let c = 0; c < buffer.numberOfChannels; c++){
-        const out = buffer.getChannelData(c);
-        let at = 0;
-        chunks.forEach(block => {
-          out.set(block[Math.min(c, block.length - 1)], at);
-          at += block[0].length;
-        });
-      }
-      const wav = encodeWav(buffer);
-      const saved = await uploadTake(wav);
-      if(recordResolve) recordResolve(saved);
+      if(d.data && onRecBatch) onRecBatch(d);
     }
 
     async function uploadTake(wavBlob){
       if(!currentSongName){ showToast("Nejdřív načti song"); return null; }
-      showToast("Ukládám nahrávku…");
       try{
         const res = await fetch(
           `/api/stems/${encodeURIComponent(currentSongName)}/record`,
           {method: "POST", headers: {"Content-Type": "audio/wav"}, body: wavBlob});
         const data = await res.json();
         if(!res.ok){ showToast(data.error || "Uložení selhalo"); return null; }
-        showToast(`Nahrávka uložena jako ${takeLabel(data.stem)}`);
-        // It is a track of this song now, so the mixer reloads to show it.
-        // If that fails the take is still saved — say so rather than
-        // reporting a failure that didn't happen.
-        try{ await reloadCurrentSong(); }
-        catch(e){ showToast("Nahrávka uložena, mixpult se nepřenačetl"); }
+        // The track is already in the mixer (TakeRec added it from memory);
+        // this only gives it its name on disk.
         return data.stem;
       }catch(e){
         showToast("Uložení selhalo");
@@ -16373,7 +17416,7 @@ const Mixer = (() => {
       ensureComp, toggleComp, setCompParam,
       compNodeRef: () => compNode,
       fx: ensureFx, restoreFx,
-      startRecording, stopRecording,
+      startRecording, stopRecording, uploadTake,
       isRecording: () => recording,
       isLive: () => state.live,
       recordedSeconds: () => recording ? ctxRef().currentTime - recordStartedAt : 0,
@@ -16412,6 +17455,794 @@ const Mixer = (() => {
   })();
 
 
+  // ======================================================================
+  // TakeRec — recording takes of the live guitar onto the song.
+  //
+  //  - A count-in (0/1/2 bars of clicks at the song's tempo), then the song
+  //    starts at the playhead (or the loop's start) and the take with it.
+  //  - Every sample is mapped back to the song through playLog, minus the
+  //    round-trip latency, so a take lands where it was played.
+  //  - The take is drawn into the guitar lane while it comes in.
+  //  - With the loop on, the "next take" key turns the take being recorded
+  //    into a track at the next pass of the loop and goes straight on
+  //    recording a new one — the previous take now playing underneath.
+  // A take becomes a track at once, from memory; the upload only names it.
+  // ======================================================================
+  const TakeRec = (() => {
+    const OPTS_KEY = "spotdl-rec-opts";
+    const opts = Object.assign({countIn: 1, nextKey: "t", latencyMs: null},
+      (() => { try{ return JSON.parse(localStorage.getItem(OPTS_KEY) || "{}"); }catch(e){ return {}; } })());
+    const saveOpts = () => { try{ localStorage.setItem(OPTS_KEY, JSON.stringify(opts)); }catch(e){} };
+
+    let active = false, counting = false, loopMode = false;
+    let batches = [];             // {t, n, data}
+    let sr = 48000;
+    let passStart = null;         // audio-clock time the current take's audio starts at (pre-latency)
+    let takeStartSong = 0;        // song time the take should start at
+    let armed = false;            // next take at the next loop pass
+    let lastPass = null;          // [t0, t1] of the last complete pass, not yet used
+    let peaks = [];               // {t (song), lo, hi} for drawing
+    let laneEl = null, laneCv = null, lanePx = 0;
+    let countTimer = null, takeNo = 0;
+
+    const lat = () => (opts.latencyMs != null ? opts.latencyMs : (Guitar.state.latencyMs || 0)) / 1000;
+
+    // ---- the samples ----
+    function onBatch(b){
+      sr = sampleRateOf();
+      batches.push(b);
+      // Peaks for the lane: min/max per 512 frames, at their song time.
+      const d0 = b.data[0], step = 512;
+      for(let i = 0; i < b.n; i += step){
+        let lo = 0, hi = 0;
+        for(let c = 0; c < b.data.length; c++){
+          const d = b.data[c];
+          for(let j = i, z = Math.min(b.n, i + step); j < z; j++){ const v = d[j]; if(v < lo) lo = v; if(v > hi) hi = v; }
+        }
+        const t = songAtCtx(b.t + i / sr - lat());
+        if(t == null || !isPlaying) continue;
+        if(passStart != null && b.t + i / sr - lat() < passStart) continue;   // count-in
+        peaks.push({t, lo, hi});
+      }
+      paintPeaks(false);
+    }
+    function sampleRateOf(){ return ctx().sampleRate; }
+
+    // Samples whose (time − latency) falls in [t0, t1), as an AudioBuffer.
+    function extract(t0, t1){
+      const L = lat();
+      const keep = [];
+      let total = 0, nch = 1;
+      for(const b of batches){
+        const bs = b.t - L, be = bs + b.n / sr;
+        if(be <= t0 || bs >= t1) continue;
+        const a = Math.max(0, Math.round((t0 - bs) * sr));
+        const z = Math.min(b.n, Math.round((t1 - bs) * sr));
+        if(z <= a) continue;
+        keep.push({b, a, z});
+        total += z - a;
+        nch = Math.max(nch, b.data.length);
+      }
+      if(!total) return null;
+      const out = ctx().createBuffer(nch, total, sr);
+      for(let c = 0; c < nch; c++){
+        const dst = out.getChannelData(c);
+        let at = 0;
+        for(const k of keep){ dst.set(k.b.data[Math.min(c, k.b.data.length - 1)].subarray(k.a, k.z), at); at += k.z - k.a; }
+      }
+      return out;
+    }
+    function dropBefore(t){
+      const L = lat();
+      batches = batches.filter(b => b.t - L + b.n / sr > t);
+    }
+
+    // ---- a take becomes a track ----
+    async function commitTake(buf, startSong){
+      if(!buf || buf.duration < 0.2){ showToast("Take je moc krátký — nic se neuložilo"); return; }
+      const temp = `take-rec${++takeNo}`;
+      const c = buildChannel(temp, buf, null);
+      c.order = channels.length + hiddenChannels.length + 1;
+      c.clips = [{src: temp, offset: 0, dur: buf.duration, start: Math.max(0, startSong)}];
+      channels.push(c);
+      stemLabels[temp] = `Nahrávka ${channels.filter(x => x.stem.startsWith("take-")).length}`;
+      c.buffer = flattenClips(c);
+      duration = Math.max(duration, c.buffer.duration);
+      renderTimeline();
+      renderChannels();
+      applyGains();
+      // Playing the loop: the new take sounds from the next pass on.
+      const stem = await Guitar.uploadTake(encodeWav(buf));
+      if(!stem){ showToast("Take se nepodařilo uložit na disk — zůstává jen do zavření"); return; }
+      const oldLabel = stemLabels[temp];
+      delete stemLabels[temp];
+      c.stem = stem;
+      c.clips.forEach(k => { if(k.src === temp) k.src = stem; });
+      stemLabels[stem] = stemLabels[stem] || oldLabel;
+      editIdx = channels.indexOf(c);
+      renderTimeline(); renderChannels(); renderEditBar();
+      queueSessionSave();
+      showToast(`Take uložen: ${stemLabel(stem)}`);
+    }
+
+    // ---- start / stop ----
+    async function begin(){
+      if(active || counting) return;
+      if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup (ikona kytary)"); return; }
+      if(!channels.length){ showToast("Nejdřív otevři píseň"); return; }
+      loopMode = loopEnabled && loopEnd - loopStart > 0.5;
+      batches = []; peaks = []; armed = false; lastPass = null; passStart = null;
+      const wasPlaying = isPlaying;
+      if(!wasPlaying && loopMode && (pausedAt < loopStart || pausedAt >= loopEnd)) pausedAt = loopStart;
+      takeStartSong = wasPlaying ? currentTime() : pausedAt;
+      active = true;
+      Guitar.startRecording(onBatch);
+      if(wasPlaying){
+        passStart = ctx().currentTime;
+        showToast(loopMode ? `Nahrávám ve smyčce — „${opts.nextKey.toUpperCase()}“ = další take` : "Nahrávám");
+        return;
+      }
+      const bars = opts.countIn || 0;
+      const interval = beatInterval || (tempoBPM ? 60 / tempoBPM : 0.5);
+      const bpb = beatsPerBar || 4;
+      const lead = bars * bpb * interval;
+      const T0 = ctx().currentTime + 0.12;
+      if(lead > 0){
+        counting = true;
+        renderGuitarStrip();
+        for(let i = 0; i < bars * bpb; i++) playClick(i % bpb === 0, T0 + i * interval, true);
+        showCount(T0, bars * bpb, bpb, interval);
+      }
+      play(Math.max(0, T0 + lead - (ctx().currentTime + 0.05)));
+      const started = playLog[playLog.length - 1];
+      passStart = started ? started.when : T0 + lead;
+      setTimeout(() => {
+        counting = false;
+        // The last number gives way to "REC" even if its own timer is late.
+        const cb = el("rec-count");
+        if(cb && active){ cb.innerHTML = `<span class="go">● REC</span>`; clearTimeout(countTimer); countTimer = setTimeout(clearCount, 700); }
+        renderGuitarStrip();
+        if(active) showToast(loopMode ? `Nahrávám ve smyčce — „${opts.nextKey.toUpperCase()}“ = další take` : "Nahrávám");
+      }, Math.max(0, (passStart - ctx().currentTime) * 1000));
+    }
+
+    async function end(){
+      if(!active) return;
+      active = false;
+      const stopAt = ctx().currentTime;
+      await Guitar.stopRecording();
+      if(counting){ counting = false; clearCount(); pause(); renderGuitarStrip(); showToast("Nahrávání zrušeno"); return; }
+      pause();
+      let range;
+      if(loopMode){
+        // A pass that finished counts more than the bit after it.
+        const partial = [passStart, stopAt];
+        range = lastPass && (partial[1] - partial[0]) < (lastPass[1] - lastPass[0]) * 0.6 ? lastPass : partial;
+      } else {
+        range = [passStart, stopAt];
+      }
+      const startSong = songAtCtx(range[0]);
+      const buf = extract(range[0], range[1]);
+      batches = []; peaks = [];
+      paintPeaks(true);
+      await commitTake(buf, startSong == null ? takeStartSong : startSong);
+    }
+
+    // The loop just started its pass again.
+    function onWrap(){
+      if(!active || !loopMode || passStart == null) return;
+      const e = playLog[playLog.length - 1];
+      const when = e ? e.when : ctx().currentTime;
+      if(when < passStart + 0.3) return;            // the count-in's own start
+      // The wrap is noticed a frame late and restarts 50 ms ahead: a pass is
+      // exactly the loop's length, not what happened to be recorded.
+      const pass = [passStart, Math.min(when, passStart + (loopEnd - loopStart) / (runSpeed || 1))];
+      passStart = when;
+      peaks = [];
+      paintPeaks(true);
+      if(armed){
+        armed = false;
+        renderGuitarStrip();
+        const startSong = songAtCtx(pass[0]);
+        lastPass = null;
+        // The last few milliseconds of the pass are still on their way from
+        // the audio thread (it sends ~40 ms at a time).
+        setTimeout(() => {
+          const buf = extract(pass[0], pass[1]);
+          dropBefore(when);
+          commitTake(buf, startSong == null ? loopStart : startSong);
+        }, 200);
+      }else{
+        lastPass = pass;
+        dropBefore(pass[0]);
+      }
+    }
+
+    function nextTake(){
+      if(!active || counting) return;
+      if(loopMode){
+        armed = true;
+        showToast("Další take začne od začátku smyčky — tenhle se uloží jako stopa");
+        renderGuitarStrip();
+        return;
+      }
+      // No loop: cut here, the next take starts right now on a new track.
+      const now = ctx().currentTime;
+      const from = passStart;
+      const startSong = songAtCtx(from);
+      passStart = now;
+      peaks = []; paintPeaks(true);
+      setTimeout(() => {
+        const buf = extract(from, now);
+        dropBefore(now);
+        commitTake(buf, startSong == null ? takeStartSong : startSong);
+      }, 200);
+    }
+
+    // ---- count-in display ----
+    function showCount(T0, beats, bpb, interval){
+      clearCount();
+      const box = document.createElement("div");
+      box.className = "rec-count";
+      box.id = "rec-count";
+      document.body.appendChild(box);
+      const step = (i) => {
+        if(!el("rec-count")) return;
+        if(i >= beats || !counting){
+          if(!active){ clearCount(); return; }
+          box.innerHTML = `<span class="go">● REC</span>`;
+          countTimer = setTimeout(clearCount, 700);
+          return;
+        }
+        const left = beats - i;
+        box.innerHTML = `<span>${((left - 1) % bpb) + 1}</span>`;
+        countTimer = setTimeout(() => step(i + 1), interval * 1000);
+      };
+      countTimer = setTimeout(() => step(0), Math.max(0, (T0 - ctx().currentTime) * 1000));
+    }
+    function clearCount(){ clearTimeout(countTimer); const b = el("rec-count"); if(b) b.remove(); }
+
+    // ---- the take drawn into the guitar lane while it comes in ----
+    function attachLane(lane, totalPx){
+      laneEl = lane; lanePx = totalPx;
+      laneCv = document.createElement("canvas");
+      laneCv.className = "gt-rec-cv";
+      lane.appendChild(laneCv);
+      paintPeaks(true);
+    }
+    function paintPeaks(full){
+      if(!laneCv || !laneCv.isConnected) return;
+      const w = Math.min(lanePx, 16000), h = laneEl.clientHeight || 62;
+      if(laneCv.width !== w || laneCv.height !== h){ laneCv.width = w; laneCv.height = h; laneCv.style.width = lanePx + "px"; full = true; }
+      const g = laneCv.getContext("2d");
+      if(full) g.clearRect(0, 0, w, h);
+      if(!peaks.length) return;
+      const sx = w / Math.max(1, lanePx), mid = h / 2;
+      const from = full ? 0 : Math.max(0, peaks.length - 40);
+      for(let i = from; i < peaks.length; i++){
+        const p = peaks[i];
+        const x = p.t * pixelsPerSecond * sx;
+        const clip = Math.max(-p.lo, p.hi) > 0.97;
+        g.fillStyle = clip ? "#ff3b3b" : "#ff8a7a";
+        g.fillRect(x, mid + p.lo * mid * 0.95, Math.max(1, 512 / sr * pixelsPerSecond * sx), Math.max(1, (p.hi - p.lo) * mid * 0.95));
+      }
+    }
+
+    // ---- options ----
+    function openOptions(anchor){
+      const old = el("rec-opts-pop");
+      if(old){ old.remove(); return; }
+      const box = document.createElement("div");
+      box.className = "sect-menu rec-opts-pop";
+      box.id = "rec-opts-pop";
+      const auto = Guitar.state.latencyMs;
+      box.innerHTML = `<div class="ss-head">Nahrávání kytary</div>
+        <label class="row"><span>Odpočet</span><select data-o="countIn">
+          <option value="0">bez odpočtu</option><option value="1">1 takt</option><option value="2">2 takty</option></select></label>
+        <div class="row"><span>Další take</span><button type="button" class="btn secondary keycap" data-o="key">${escapeHtml(keyName(opts.nextKey))}</button></div>
+        <label class="row"><span>Vyrovnání zpoždění</span><input type="number" data-o="lat" min="0" max="500" step="1"
+          placeholder="${auto != null ? "auto " + Math.round(auto) : "auto"}" value="${opts.latencyMs != null ? opts.latencyMs : ""}"><span>ms</span></label>
+        <div class="hint" style="padding:4px 10px 8px">Nahrává se od pozice přehrávání, se zapnutou smyčkou od jejího začátku a dokola.
+          Klávesa „další take“ uloží, co hraješ, jako novou stopu (ve smyčce na jejím konci) a hned nahrává další — předchozí take hraje dál.
+          Prázdné zpoždění = odhad z prohlížeče.</div>`;
+      document.body.appendChild(box);
+      const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+      box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+      box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+      const sel = box.querySelector('[data-o="countIn"]');
+      sel.value = String(opts.countIn);
+      sel.onchange = () => { opts.countIn = parseInt(sel.value, 10); saveOpts(); };
+      const latIn = box.querySelector('[data-o="lat"]');
+      latIn.oninput = () => { const v = latIn.value.trim(); opts.latencyMs = v === "" ? null : Math.max(0, Math.min(500, parseFloat(v) || 0)); saveOpts(); };
+      latIn.onkeydown = (e) => e.stopPropagation();
+      const keyBtn = box.querySelector('[data-o="key"]');
+      keyBtn.onclick = () => {
+        keyBtn.classList.add("listening");
+        keyBtn.textContent = "stiskni klávesu…";
+        const grab = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          document.removeEventListener("keydown", grab, true);
+          keyBtn.classList.remove("listening");
+          if(e.key !== "Escape" && e.key !== " " && !["Shift", "Control", "Alt", "Meta"].includes(e.key)){
+            opts.nextKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+            saveOpts();
+          }
+          keyBtn.textContent = keyName(opts.nextKey);
+        };
+        document.addEventListener("keydown", grab, true);
+      };
+      const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", away, true); } };
+      document.addEventListener("pointerdown", away, true);
+    }
+    function keyName(k){ return k.length === 1 ? k.toUpperCase() : k; }
+
+    // The mapped key, wherever focus is (but not while typing).
+    document.addEventListener("keydown", (e) => {
+      if(!active || e.metaKey || e.ctrlKey || e.altKey) return;
+      if(e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if(k !== opts.nextKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      nextTake();
+    }, true);
+
+    return {
+      toggle: () => (active ? end() : begin()),
+      begin, end, nextTake, onWrap, attachLane, openOptions,
+      isCounting: () => counting, isActive: () => active, isArmed: () => armed,
+      opts,
+    };
+  })();
+
+  // ======================================================================
+  // Midi — MIDI tracks: notes played by a sampled instrument (the FluidR3
+  // sounds of kytara-nastroj). A MIDI track is an ordinary channel whose
+  // audio is rendered from its notes (OfflineAudioContext) whenever they
+  // change, so fader, EQ, mute, export… all just work. Notes come from MIDI
+  // keys (Web MIDI), the computer keyboard, or the piano-roll editor.
+  // c.midi = {instrument, notes: [{m, t, d, v}]} — song seconds.
+  // ======================================================================
+  const Midi = (() => {
+    let access = null, kbd = false, octave = 0;
+    let zv = null;
+    const live = new Map();             // pitch → {h, c}
+    const renderTimers = new Map();
+    let rec = null;                     // {c, on, open: Map, notes: []}
+    let editorC = null;
+
+    async function zvuky(){
+      const L = await Guitar.instrumentLib();
+      if(!zv) zv = new L.Zvuky(ctx());
+      return {L, zv};
+    }
+    function instrumentName(c){
+      const lib = Guitar.instrStatus().groups;
+      if(lib) for(const g of lib) for(const n of g.nastroje) if(n.id === c.midi.instrument) return n.nazev;
+      return c.midi.instrument || "Nástroj";
+    }
+    function nextStem(){
+      const all = channels.concat(hiddenChannels);
+      let n = 1;
+      while(all.some(c => c.stem === `midi-${n}`)) n++;
+      return `midi-${n}`;
+    }
+
+    async function addTrack(){
+      let L;
+      try{ ({L} = await zvuky()); }catch(e){ showToast("Knihovnu nástrojů se nepodařilo načíst"); return null; }
+      const stem = nextStem();
+      const sil = ctx().createBuffer(2, ctx().sampleRate, ctx().sampleRate);
+      const c = buildChannel(stem, sil, null);
+      c.order = channels.length + hiddenChannels.length + 1;
+      c.clips = null;
+      c.midi = {instrument: L.VYCHOZI_NASTROJ, notes: []};
+      stemLabels[stem] = `MIDI ${stem.slice(5)}`;
+      channels.push(c);
+      editIdx = channels.indexOf(c);
+      afterTrackSetChange();
+      zvuky().then(({L, zv}) => zv.nacti(L.najdiNastroj(c.midi.instrument).soundfont)).catch(() => {});
+      showToast("MIDI stopa přidána — hraj, nahrávej (●) nebo piš tóny (Noty)");
+      return c;
+    }
+
+    // ---- notes → audio ----
+    async function render(c){
+      let L, zvs;
+      try{ ({L, zv: zvs} = await zvuky()); }catch(e){ return; }
+      const n = L.najdiNastroj(c.midi.instrument);
+      let bufs;
+      try{ bufs = await zvs.nacti(n.soundfont); }catch(e){ showToast("Zvuk nástroje se nepodařilo stáhnout"); return; }
+      const sr = ctx().sampleRate, notes = c.midi.notes;
+      const end = Math.max(1, ...notes.map(x => x.t + x.d + 1.2));
+      const oc = new OfflineAudioContext(2, Math.ceil(end * sr), sr);
+      const keys = [...bufs.keys()];
+      for(const x of notes){
+        const k = bufs.has(x.m) ? x.m : keys.reduce((a, b) => Math.abs(b - x.m) < Math.abs(a - x.m) ? b : a);
+        const src = oc.createBufferSource();
+        src.buffer = bufs.get(k);
+        src.playbackRate.value = Math.pow(2, (x.m - k) / 12);
+        const g = oc.createGain(), peak = 0.25 + 0.75 * (x.v ?? 0.8);
+        g.gain.setValueAtTime(0, x.t);
+        g.gain.linearRampToValueAtTime(peak, x.t + 0.004);
+        g.gain.setValueAtTime(peak, x.t + x.d);
+        g.gain.linearRampToValueAtTime(0, x.t + x.d + 0.18);
+        src.connect(g); g.connect(oc.destination);
+        src.start(x.t); src.stop(x.t + x.d + 0.2);
+      }
+      const buf = await oc.startRendering();
+      if(!channels.includes(c) && !hiddenChannels.includes(c)) return;
+      if(rec && rec.c === c) return;          // not while it is being recorded into
+      c.srcBuf = buf; c.clips = null;
+      if(channels.includes(c)) showBuffer(c, buf); else c.buffer = buf;
+      if(editorC === c) paintEditor();
+    }
+    function changed(c, ms = 250){
+      clearTimeout(renderTimers.get(c));
+      renderTimers.set(c, setTimeout(() => { render(c); queueSessionSave(); }, ms));
+    }
+
+    // ---- live notes ----
+    function target(){
+      const c = channels[editIdx];
+      if(c && c.midi) return c;
+      return channels.find(x => x.midi) || null;
+    }
+    const outLat = () => (ctx().outputLatency || 0) + (ctx().baseLatency || 0);
+    function songNow(){ return isPlaying ? songAtCtx(ctx().currentTime - outLat()) : null; }
+    async function noteOn(m, v){
+      const c = rec ? rec.c : target();
+      if(!c) return;
+      if(ctx().state === "suspended") ctx().resume();
+      const {L, zv: zvs} = await zvuky();
+      const sf = L.najdiNastroj(c.midi.instrument).soundfont;
+      if(!zvs.jeNacteny(sf)) zvs.nacti(sf);
+      const prev = live.get(m);
+      if(prev) zvs.utni(prev.h);
+      live.set(m, {h: zvs.hraj(sf, m, v, c.gainNode), c});
+      if(rec && rec.on){ const t = songNow(); if(t != null) rec.open.set(m, {t, v}); }
+    }
+    function noteOff(m){
+      const l = live.get(m);
+      if(l && zv) zv.utni(l.h);
+      live.delete(m);
+      if(rec && rec.on){
+        const o = rec.open.get(m);
+        if(o){
+          rec.open.delete(m);
+          let t = songNow();
+          if(t != null && t < o.t && loopEnabled) t = loopEnd;       // held across the loop's wrap
+          if(t != null && t > o.t) rec.notes.push({m, t: o.t, d: Math.max(0.03, t - o.t), v: o.v});
+        }
+      }
+    }
+
+    // ---- MIDI keys (Web MIDI) ----
+    async function connect(quiet){
+      if(access) return true;
+      if(!navigator.requestMIDIAccess){ if(!quiet) showToast("Tenhle prohlížeč neumí MIDI — otevři aplikaci v Chrome"); return false; }
+      try{ access = await navigator.requestMIDIAccess(); }
+      catch(e){ if(!quiet) showToast("Přístup k MIDI zamítnut"); return false; }
+      const bind = () => access.inputs.forEach(inp => { inp.onmidimessage = onMsg; });
+      bind();
+      access.onstatechange = (e) => {
+        bind();
+        if(e.port && e.port.type === "input") showToast(`MIDI: ${e.port.name} ${e.port.state === "connected" ? "připojeno" : "odpojeno"}`);
+      };
+      const names = [...access.inputs.values()].map(i => i.name);
+      if(!quiet) showToast(names.length ? `MIDI: ${names.join(", ")}` : "Žádné MIDI klávesy nejsou připojené");
+      return true;
+    }
+    function onMsg(e){
+      const [st, d1, d2] = e.data, cmd = st & 0xf0;
+      if(cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127);
+      else if(cmd === 0x80 || (cmd === 0x90 && d2 === 0)) noteOff(d1);
+    }
+
+    // ---- the computer keyboard as keys ----
+    const KEYMAP = {a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, z: 8, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14};
+    const held = new Set();
+    function setKeyboard(on){
+      kbd = !!on;
+      if(kbd) showToast("Klávesy: A W S E D F T G Z H U J K = C…C, čárka/tečka = oktáva dolů/nahoru");
+    }
+    document.addEventListener("keydown", (e) => {
+      if(!kbd || el("mixer").hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+      if(e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+      const k = e.key.toLowerCase();
+      if(k === "," || k === "."){ e.preventDefault(); e.stopPropagation(); octave = Math.max(-3, Math.min(3, octave + (k === "." ? 1 : -1))); showToast(`Oktáva ${octave >= 0 ? "+" : ""}${octave}`); return; }
+      if(!(k in KEYMAP)) return;
+      e.preventDefault(); e.stopPropagation();
+      if(e.repeat || held.has(k)) return;
+      held.add(k);
+      noteOn(60 + 12 * octave + KEYMAP[k], 0.8);
+    }, true);
+    document.addEventListener("keyup", (e) => {
+      const k = e.key.toLowerCase();
+      if(!held.has(k)) return;
+      held.delete(k);
+      noteOff(60 + 12 * octave + KEYMAP[k]);
+    }, true);
+
+    // ---- recording ----
+    function toggleRec(c){ return rec ? stopRec() : startRec(c); }
+    async function startRec(c){
+      if(!c || !c.midi) return;
+      if(!kbd) connect(true);
+      editIdx = channels.indexOf(c);
+      rec = {c, on: false, open: new Map(), notes: []};
+      renderTimeline();
+      if(isPlaying){ rec.on = true; showToast("Nahrávám MIDI"); return; }
+      const bars = (TakeRec.opts && TakeRec.opts.countIn) || 0;
+      const interval = beatInterval || (tempoBPM ? 60 / tempoBPM : 0.5);
+      const bpb = beatsPerBar || 4, lead = bars * bpb * interval;
+      const T0 = ctx().currentTime + 0.12;
+      for(let i = 0; i < bars * bpb; i++) playClick(i % bpb === 0, T0 + i * interval, true);
+      if(lead) showToast(`Odpočet ${bars} ${bars === 1 ? "takt" : "takty"}…`);
+      play(Math.max(0, T0 + lead - (ctx().currentTime + 0.05)));
+      setTimeout(() => { if(rec){ rec.on = true; showToast("Nahrávám MIDI"); } }, Math.max(0, (T0 + lead - ctx().currentTime) * 1000));
+    }
+    function stopRec(){
+      if(!rec) return;
+      const r = rec;
+      const t = songNow();
+      r.open.forEach((o, m) => { if(t != null && t > o.t) r.notes.push({m, t: o.t, d: t - o.t, v: o.v}); });
+      rec = null;
+      pause();
+      r.c.midi.notes.push(...r.notes);
+      r.c.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+      renderTimeline();
+      changed(r.c, 10);
+      showToast(r.notes.length ? `Nahráno ${r.notes.length} tónů` : "Nic se nenahrálo — hrál jsi na připojené klávesy?");
+    }
+
+    // ---- instrument ----
+    async function pickInstrument(c, anchor){
+      const old = el("midi-inst-pop");
+      if(old){ old.remove(); return; }
+      let L;
+      try{ ({L} = await zvuky()); }catch(e){ showToast("Knihovnu nástrojů se nepodařilo načíst"); return; }
+      const groups = L.nastrojePodleKategorii();
+      const box = document.createElement("div");
+      box.className = "sect-menu";
+      box.id = "midi-inst-pop";
+      box.innerHTML = `<div class="ss-head">Nástroj MIDI stopy</div>
+        <div style="padding:6px 10px"><select style="width:100%">${groups.map(g => `<optgroup label="${escapeHtml(g.kategorie)}">${
+          g.nastroje.map(n => `<option value="${escapeHtml(n.id)}" ${n.id === c.midi.instrument ? "selected" : ""}>${escapeHtml(n.nazev)}</option>`).join("")}</optgroup>`).join("")}</select></div>`;
+      document.body.appendChild(box);
+      const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+      box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+      box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+      box.querySelector("select").onchange = (e) => setInstrument(c, e.target.value);
+      const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", away, true); } };
+      document.addEventListener("pointerdown", away, true);
+    }
+    async function setInstrument(c, id){
+      c.midi.instrument = id;
+      showToast("Načítám zvuk nástroje…");
+      try{ const {L, zv: zvs} = await zvuky(); await zvs.nacti(L.najdiNastroj(id).soundfont); }catch(e){}
+      renderTimeline();
+      if(editorC === c) openEditor(c, true);
+      changed(c, 10);
+    }
+
+    // ---- piano roll ----
+    const ROW = 12;
+    let ed = null;          // {lo, hi, sel: Set<note>, drag}
+    let edTimer = null;
+    function openEditor(c, keep){
+      const box = el("midi-editor");
+      if(!keep && editorC === c && !box.hidden){ closeEditor(); return; }
+      editorC = c;
+      editIdx = channels.indexOf(c);
+      const ns = c.midi.notes;
+      const lo = Math.max(0, Math.min(48, ...ns.map(n => n.m)) - 3), hi = Math.min(127, Math.max(84, ...ns.map(n => n.m)) + 3);
+      ed = {lo, hi, sel: new Set(), drag: null};
+      box.hidden = false;
+      box.innerHTML = `
+        <div class="midi-ed-head">
+          <span>Editor tónů: <b>${escapeHtml(stemLabel(c.stem))}</b> · ${escapeHtml(instrumentName(c))}</span>
+          <span style="margin-left:8px">klik = nový tón · tažení = posun (čas i výška) · pravý okraj = délka · dvojklik / Delete = smazat</span>
+          <select id="midi-q" title="Kvantizace">
+            <option value="1">Kvantizace: doba</option><option value="2" selected>1/2 doby</option><option value="4">1/4 doby</option><option value="0">volně</option></select>
+          <button type="button" class="nm-btn" id="midi-quant" title="Srovnat vybrané (nebo všechny) tóny na mřížku">Kvantizovat</button>
+          <button type="button" class="nm-btn" id="midi-del" title="Smazat vybrané tóny">Smazat vybrané</button>
+          <button type="button" class="nm-btn" id="midi-close" style="margin-left:auto">Zavřít</button>
+        </div>
+        <div class="midi-ed-body">
+          <div class="midi-ed-keys"><canvas id="midi-keys"></canvas></div>
+          <div class="midi-ed-scroll" id="midi-scroll" tabindex="0"><canvas id="midi-cv"></canvas></div>
+        </div>`;
+      box.querySelector("#midi-close").onclick = closeEditor;
+      box.querySelector("#midi-del").onclick = deleteSelected;
+      box.querySelector("#midi-quant").onclick = quantize;
+      const sc = box.querySelector("#midi-scroll");
+      sc.scrollLeft = el("nm-scroll") ? el("nm-scroll").scrollLeft : 0;
+      sc.scrollTop = Math.max(0, (ed.hi - 72) * ROW - 120);
+      sc.addEventListener("scroll", () => { const k = el("midi-keys"); if(k) k.style.transform = `translateY(${-sc.scrollTop}px)`; });
+      wireEditor(sc, c);
+      paintEditor();
+      clearInterval(edTimer);
+      edTimer = setInterval(() => { if(editorC && isPlaying) paintEditor(); }, 120);
+      box.scrollIntoView({block: "nearest"});
+    }
+    function closeEditor(){
+      el("midi-editor").hidden = true;
+      el("midi-editor").innerHTML = "";
+      editorC = null; ed = null;
+      clearInterval(edTimer);
+    }
+    const NOTE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "H"];
+    const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+    function paintEditor(){
+      const c = editorC;
+      if(!c || !ed) return;
+      const cv = el("midi-cv"), kc = el("midi-keys");
+      if(!cv || !kc) return;
+      const pps = pixelsPerSecond, rows = ed.hi - ed.lo + 1;
+      const W = Math.max(400, Math.ceil(Math.max(duration, ...c.midi.notes.map(n => n.t + n.d)) * pps) + 200), H = rows * ROW;
+      const cw = Math.min(W, 16000);
+      if(cv.width !== cw || cv.height !== H){ cv.width = cw; cv.height = H; cv.style.width = W + "px"; cv.style.height = H + "px"; }
+      kc.width = 46; kc.height = H;
+      const sx = cw / W, g = cv.getContext("2d"), gk = kc.getContext("2d");
+      g.fillStyle = "#121217"; g.fillRect(0, 0, cw, H);
+      for(let m = ed.hi; m >= ed.lo; m--){
+        const y = (ed.hi - m) * ROW;
+        g.fillStyle = isBlack(m) ? "#16161c" : "#1b1b22";
+        g.fillRect(0, y, cw, ROW);
+        if(m % 12 === 0){ g.fillStyle = "#2c2c38"; g.fillRect(0, y + ROW - 1, cw, 1); }
+        gk.fillStyle = isBlack(m) ? "#26262e" : "#d9d9df";
+        gk.fillRect(0, y, 46, ROW - 1);
+        if(m % 12 === 0){ gk.fillStyle = "#555"; gk.font = "9px sans-serif"; gk.fillText(`C${Math.floor(m / 12) - 1}`, 22, y + ROW - 3); }
+      }
+      // beats and bars
+      const downs = new Set(downbeatTimes);
+      for(const b of beatTimes){
+        const x = b * pps * sx;
+        if(x > cw) break;
+        g.fillStyle = downs.has(b) ? "rgba(255,166,77,.35)" : "rgba(255,255,255,.06)";
+        g.fillRect(x, 0, 1, H);
+      }
+      // notes
+      for(const n of c.midi.notes){
+        if(n.m < ed.lo || n.m > ed.hi) continue;
+        const x = n.t * pps * sx, y = (ed.hi - n.m) * ROW, w = Math.max(3, n.d * pps * sx);
+        const sel = ed.sel.has(n);
+        g.fillStyle = sel ? "#ffd166" : `rgba(110,170,255,${0.45 + 0.55 * (n.v ?? 0.8)})`;
+        g.fillRect(x, y + 1, w, ROW - 2);
+        g.fillStyle = sel ? "#8a6a10" : "#1d3d6e";
+        g.fillRect(x + w - 2, y + 1, 2, ROW - 2);
+      }
+      // playhead
+      const ph = currentTime() * pps * sx;
+      g.fillStyle = "#ff4d4d"; g.fillRect(ph, 0, 1.5, H);
+    }
+    function qStep(t){
+      // The grid of the chosen division of the song's beats near t.
+      const div = parseInt((el("midi-q") || {}).value || "2", 10);
+      if(!div || !beatTimes.length) return null;
+      let i = beatTimes.findIndex(b => b > t) - 1;
+      if(i < 0) i = 0;
+      const b0 = beatTimes[i], b1 = beatTimes[i + 1] ?? (b0 + (beatInterval || 0.5));
+      return {b0, step: (b1 - b0) / div};
+    }
+    function qTime(t){
+      const q = qStep(t);
+      if(!q) return t;
+      return q.b0 + Math.round((t - q.b0) / q.step) * q.step;
+    }
+    function hit(c, t, m, px){
+      const pps = pixelsPerSecond;
+      for(let i = c.midi.notes.length - 1; i >= 0; i--){
+        const n = c.midi.notes[i];
+        if(n.m === m && t >= n.t && t <= n.t + n.d + 3 / pps){
+          return {n, edge: (n.t + n.d - t) * pps < 6};
+        }
+      }
+      return null;
+    }
+    function wireEditor(sc, c){
+      const cv = el("midi-cv");
+      const at = (e) => {
+        const r = cv.getBoundingClientRect();
+        const W = parseFloat(cv.style.width);
+        const t = (e.clientX - r.left) / r.width * W / pixelsPerSecond;
+        const m = ed.hi - Math.floor((e.clientY - r.top) / ROW);
+        return {t: Math.max(0, t), m};
+      };
+      cv.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0) return;
+        sc.focus();
+        const p = at(e);
+        let h = hit(c, p.t, p.m);
+        if(!h){
+          // A new note, one grid step long (a beat if there's no grid).
+          const q = qStep(p.t);
+          const t0 = e.altKey ? p.t : qTime(p.t);
+          const n = {m: p.m, t: t0, d: q ? q.step : (beatInterval || 0.5) / 2, v: 0.8};
+          c.midi.notes.push(n);
+          h = {n, edge: true};
+          preview(c, n.m);
+        }
+        if(!e.shiftKey && !ed.sel.has(h.n)) ed.sel.clear();
+        ed.sel.add(h.n);
+        ed.drag = {mode: h.edge ? "len" : "move", t0: p.t, m0: p.m,
+          orig: [...ed.sel].map(n => ({n, t: n.t, m: n.m, d: n.d})), alt: e.altKey};
+        cv.setPointerCapture(e.pointerId);
+        paintEditor();
+      });
+      cv.addEventListener("pointermove", (e) => {
+        if(!ed || !ed.drag) return;
+        const p = at(e), dr = ed.drag;
+        const dt = p.t - dr.t0, dm = p.m - dr.m0;
+        for(const o of dr.orig){
+          if(dr.mode === "len"){
+            const endT = e.altKey ? o.t + o.d + dt : qTime(o.t + o.d + dt);
+            o.n.d = Math.max(0.03, endT - o.n.t);
+          } else {
+            o.n.t = Math.max(0, e.altKey ? o.t + dt : qTime(o.t + dt));
+            o.n.m = Math.max(0, Math.min(127, o.m + dm));
+          }
+        }
+        paintEditor();
+      });
+      cv.addEventListener("pointerup", () => {
+        if(!ed || !ed.drag) return;
+        const dr = ed.drag; ed.drag = null;
+        const movedPitch = dr.mode === "move" && dr.orig.some(o => o.n.m !== o.m);
+        if(movedPitch) preview(c, dr.orig[0].n.m);
+        c.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+        changed(c);
+      });
+      cv.addEventListener("dblclick", (e) => {
+        const p = at(e), h = hit(c, p.t, p.m);
+        if(!h) return;
+        c.midi.notes = c.midi.notes.filter(n => n !== h.n);
+        ed.sel.delete(h.n);
+        paintEditor(); changed(c);
+      });
+      sc.addEventListener("keydown", (e) => {
+        if(e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); e.stopPropagation(); deleteSelected(); }
+        else if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a"){ e.preventDefault(); c.midi.notes.forEach(n => ed.sel.add(n)); paintEditor(); }
+      });
+    }
+    async function preview(c, m){
+      try{
+        const {L, zv: zvs} = await zvuky();
+        const sf = L.najdiNastroj(c.midi.instrument).soundfont;
+        const h = zvs.hraj(sf, m, 0.7, c.gainNode);
+        setTimeout(() => zvs.utni(h), 300);
+      }catch(e){}
+    }
+    function deleteSelected(){
+      const c = editorC;
+      if(!c || !ed || !ed.sel.size) return;
+      c.midi.notes = c.midi.notes.filter(n => !ed.sel.has(n));
+      ed.sel.clear();
+      paintEditor(); changed(c);
+    }
+    function quantize(){
+      const c = editorC;
+      if(!c) return;
+      const list = ed.sel.size ? [...ed.sel] : c.midi.notes;
+      list.forEach(n => {
+        const end = qTime(n.t + n.d);
+        n.t = qTime(n.t);
+        // A note shorter than a grid step keeps one step, not nothing.
+        const q = qStep(n.t);
+        n.d = end - n.t > 0.01 ? end - n.t : (q ? q.step : n.d);
+      });
+      paintEditor(); changed(c, 10);
+      showToast(`Kvantizováno ${list.length} tónů`);
+    }
+
+    return {
+      addTrack, render, changed, connect, noteOn, noteOff, toggleRec, setKeyboard, pickInstrument, openEditor, closeEditor,
+      keyboardOn: () => kbd, isRecording: (c) => !!(rec && rec.c === c), instrumentName,
+      notesOf: (c) => c.midi.notes,
+    };
+  })();
+
   // ---- the guitar's own strip, above the metronome ----
   //
   // Taller than a stem's strip because it carries the things a stem never
@@ -16429,8 +18260,10 @@ const Mixer = (() => {
         <span class="nm-strip-name">Kytara</span>
         <button class="gt-icon-btn gt-power-ic ${g.live ? "on" : ""}" id="gt-power-btn"
           title="${g.live ? "Odpojit vstup (Monitoring)" : "Připojit vstup (Monitoring)"}">${icon("guitar", 12)}</button>
-        <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : ""}" id="gt-rec-btn" title="Nahrát na novou stopu">
+        <button class="gt-icon-btn gt-rec ${Guitar.isRecording() ? "on rec-on" : TakeRec.isCounting() ? "armed" : ""}" id="gt-rec-btn"
+          title="${Guitar.isRecording() ? "Zastavit nahrávání" : "Nahrát na novou stopu — od pozice přehrávání (nebo začátku smyčky), s odpočtem podle nastavení"}">
           ${icon(Guitar.isRecording() ? "stop" : "rec", 12)}</button>
+        <button class="gt-rec-opts" id="gt-rec-opts" title="Nastavení nahrávání: odpočet, klávesa pro další take">${icon("sliders", 11)}</button>
         <button class="nm-sm solo ${g.solo ? "active" : ""}" title="Sólo">S</button>
         <button class="nm-sm mute ${g.muted ? "active" : ""}" title="Ztlumit">M</button>
       </div>
@@ -16447,6 +18280,7 @@ const Mixer = (() => {
     lane.style.width = totalPx + "px";
     lane.innerHTML = `<div class="gt-lane-note">${icon("guitar", 13)}<span>Monitoring</span></div>`;
     lanes.appendChild(lane);
+    TakeRec.attachLane(lane, totalPx);
 
     wireGuitarRail(strip);
     // Built as soon as the strip exists so the EQ works right away — no need
@@ -16789,11 +18623,8 @@ const Mixer = (() => {
       queueSessionSave();
       if(el("gt-fader")) renderLiveGuitarFader();
     };
-    strip.querySelector("#gt-rec-btn").onclick = async () => {
-      if(Guitar.isRecording()){ await Guitar.stopRecording(); return; }
-      if(!Guitar.isLive()){ showToast("Nejdřív připoj vstup"); return; }
-      if(Guitar.startRecording()) showToast("Nahrávám — stiskni znovu pro konec");
-    };
+    strip.querySelector("#gt-rec-btn").onclick = () => TakeRec.toggle();
+    strip.querySelector("#gt-rec-opts").onclick = (e) => TakeRec.openOptions(e.currentTarget);
   }
 
   // Everything that used to sit in its own row (input device, pan, amp/cab,
@@ -17305,9 +19136,15 @@ const Mixer = (() => {
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
     currentTime: () => currentTime(), seek: (t) => seek(t),
+    takeRec: () => TakeRec,
+    midi: () => Midi,
+    audioState: () => ({state: ctx().state, time: ctx().currentTime, startedAt, playFrom}),
+    channelByStem: (s) => channels.find(c => c.stem === s),
+    setLoop: (a, b) => { loopStart = a; loopEnd = b; loopEnabled = b > a; updateLoopVisual(); },
     reloadTracks: (msg) => reloadSongTracks(msg),
     edits: () => EDITS, selectEditTrack: (i) => selectEditTrack(i),
-    channelInfo: () => channels.map(c => ({stem: c.stem, label: stemLabel(c.stem), duration: c.buffer.duration, length: c.buffer.length})),
+    channelInfo: () => channels.map(c => ({stem: c.stem, label: stemLabel(c.stem), duration: c.buffer.duration, length: c.buffer.length,
+      clips: c.clips ? c.clips.map(k => ({...k})) : null})),
     currentSong: () => currentSongName,
     // Read-only view of the generated click track, for diagnostics.
     getClickTrack: () => ({
@@ -18804,7 +20641,7 @@ const PlayerTab = (() => {
       });
       a.error.on((e) => console.error("alphaTab (player):", e));
       a.renderFinished.on((e) => {
-        const h = Math.max(120, Math.min(260, Math.ceil(e.totalHeight) || 160));
+        const h = Math.max(120, Math.min(500, Math.ceil(e.totalHeight) || 160));
         el("pb-tab-dock-host").style.height = h + "px";
       });
       api = a;
@@ -18822,9 +20659,11 @@ const PlayerTab = (() => {
 
     el("pb-tab-dock-name").textContent = tabData.name || "Tab";
     paintTuning("pb-tab-dock-tuning", tabData.tuning);
-    const guitarOpts = (meta && Array.isArray(meta.tracks) ? meta.tracks : [])
-      .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
+    dockMeta = meta || dockMeta;
+    const guitarOpts = TabParts.options(dockMeta);
     const sel = el("pb-tab-dock-select");
+    const moreBtn = el("pb-tab-dock-more");
+    moreBtn.hidden = !(guitarOpts.length > 1);
     if(guitarOpts.length > 1){
       sel.hidden = false;
       sel.innerHTML = guitarOpts.map(({t, k}) => `<option value="${k}" ${k === trackIndex ? "selected" : ""}>${escapeHtml(
@@ -18873,8 +20712,7 @@ const PlayerTab = (() => {
       applyTiming(sel, restore ? savedSync : null, restore ? savedStretch : 1);
     });
 
-    try{ a.tex(Mixer.tabView.measuresToAlphaTex(tabData)); }
-    catch(e){ console.error("alphaTab player tex:", e); }
+    await renderDockParts(a);
     // Remember which tab this song uses — even before it's synced — so
     // reopening the dock for this song next time skips the search.
     saveAssignment();
@@ -19042,15 +20880,32 @@ const PlayerTab = (() => {
   }
   el("pb-tab-dock-zoom-dn").onclick = () => { zoom = Math.max(0.6, zoom - 0.1); rerender(); };
   el("pb-tab-dock-zoom-up").onclick = () => { zoom = Math.min(1.6, zoom + 0.1); rerender(); };
+  // The main part and the extra ones chosen for this song, one under another.
+  let dockMeta = null;
+  async function renderDockParts(a){
+    const loaded = tabData;
+    let parts = [{data: tabData}];
+    try{ if(songId != null) parts = await TabParts.parts(songId, revisionId, dockMeta, trackIndex, tabData); }catch(e){}
+    if(tabData !== loaded) return;
+    const n = parts.length - 1;
+    const moreBtn = el("pb-tab-dock-more");
+    moreBtn.classList.toggle("on", n > 0);
+    moreBtn.textContent = n ? `+ Stopy (${n})` : "+ Stopy";
+    try{ a.tex(Mixer.tabView.tracksToAlphaTex(parts), parts.map((_, i) => i)); }
+    catch(e){ console.error("alphaTab player tex:", e); }
+  }
+  el("pb-tab-dock-more").onclick = (e) => {
+    if(songId == null) return;
+    TabParts.openPicker(e.currentTarget, songId, dockMeta, trackIndex, async () => { const a = await ensureApi(); renderDockParts(a); });
+  };
   el("pb-tab-dock-select").onchange = async (e) => {
     const idx = parseInt(e.target.value, 10);
     if(songId == null) return;
     showToast("Načítám…");
     try{
-      const data = await Songsterr.getTrack(songId, revisionId, idx);
-      loadFromSongsterr(
-        [{songId, revisionId, trackIndex: idx, data}],
-        {tracks: [...el("pb-tab-dock-select").options].map((o, k) => ({instrument: "guitar", name: o.textContent}))});
+      const data = await TabParts.data(songId, revisionId, idx);
+      // The song's real track list — the indices in the picker are its.
+      loadFromSongsterr([{songId, revisionId, trackIndex: idx, data}], dockMeta);
     }catch(e){ showToast("Nepodařilo se přepnout stopu"); }
   };
 

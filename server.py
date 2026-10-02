@@ -2391,16 +2391,69 @@ def video_blackout():
 # ----------------------------------------------------------------- browse (local files)
 
 
+# ---------------------------------------------- folders mapped into the library
+#
+# A folder anywhere on the Mac (or in iCloud / Google Drive / OneDrive) shown
+# in the library without copying anything: it appears at the library's root
+# as "@Name", and every library path under it is "@Name/sub/file". Each one
+# is its own root — nothing resolved through it may leave it.
+MOUNT_PREFIX = "@"
+
+
+def _library_mounts() -> list:
+    out = []
+    for m in _read_config().get("library_mounts") or []:
+        if isinstance(m, dict) and m.get("name") and m.get("path"):
+            out.append({"name": str(m["name"]), "path": str(m["path"])})
+    return out
+
+
+def _mount_named(name: str):
+    return next((m for m in _library_mounts() if m["name"] == name), None)
+
+
+def _is_mount_root(rel: str) -> bool:
+    return bool(rel) and rel.startswith(MOUNT_PREFIX) and "/" not in rel.strip("/")
+
+
+def _rel_of(path: Path) -> Optional[str]:
+    """The library path of a real path: under MUSIC_ROOT, or "@Name/…"."""
+    p = path.resolve()
+    root = MUSIC_ROOT.resolve()
+    if p == root or root in p.parents:
+        return p.relative_to(root).as_posix() if p != root else ""
+    for m in _library_mounts():
+        base = Path(m["path"]).resolve()
+        if p == base or base in p.parents:
+            sub = p.relative_to(base).as_posix() if p != base else ""
+            return MOUNT_PREFIX + m["name"] + ("/" + sub if sub else "")
+    return None
+
+
 def _resolve_under_music_root(rel: str) -> Optional[Path]:
     """Resolves `rel` under MUSIC_ROOT, refusing anything that would escape
     it — a leading '/' (pathlib silently drops the left side when you `/`
     it with an absolute path, so this has to be checked explicitly), '..'
     segments, or a symlink pointing outside. Returns None on any violation.
+    "@Name/…" resolves the same way under that mapped folder instead.
     """
     if not rel:
         return MUSIC_ROOT.resolve()
     if Path(rel).is_absolute():
         return None
+    if rel.startswith(MOUNT_PREFIX):
+        name, _, sub = rel[len(MOUNT_PREFIX):].partition("/")
+        m = _mount_named(name)
+        if m is None:
+            return None
+        base = Path(m["path"]).resolve()
+        try:
+            candidate = (base / sub).resolve() if sub else base
+        except (ValueError, OSError):
+            return None
+        if candidate != base and base not in candidate.parents:
+            return None
+        return candidate
     try:
         candidate = (MUSIC_ROOT / rel).resolve()
     except (ValueError, OSError):
@@ -2545,15 +2598,29 @@ def library_browse(rel: str = ""):
         return JSONResponse({"error": "Složka nenalezena."}, status_code=404)
 
     root = MUSIC_ROOT.resolve()
-    parts = target.relative_to(root).parts
+    here = _rel_of(target) or ""
+    parts = [x for x in here.split("/") if x]
     breadcrumb = [{"name": root.name or str(root), "rel": ""}]
     acc = []
     for part in parts:
         acc.append(part)
-        breadcrumb.append({"name": part, "rel": "/".join(acc)})
+        breadcrumb.append({"name": part.lstrip(MOUNT_PREFIX) if len(acc) == 1 and part.startswith(MOUNT_PREFIX) else part,
+                           "rel": "/".join(acc)})
 
     dirs, files = [], []
-    for p in sorted(target.iterdir(), key=lambda p: p.name.lower()):
+    if not here:
+        # Mapped folders first. Their contents aren't counted here: a cloud
+        # folder can be large and slow to walk.
+        for m in _library_mounts():
+            ok = Path(m["path"]).is_dir()
+            dirs.append({"name": m["name"], "type": "dir", "rel": MOUNT_PREFIX + m["name"],
+                         "mount": True, "path": m["path"], "missing": not ok,
+                         "track_count": 0, "folder_count": 0, "size_bytes": 0, "uncounted": True})
+    try:
+        listing = sorted(target.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        listing = []
+    for p in listing:
         entry_rel = "/".join((*parts, p.name))
         if p.name.startswith("."):
             continue
@@ -2718,6 +2785,58 @@ class LibraryMkdirRequest(BaseModel):
     name: str
 
 
+class LibraryMountRequest(BaseModel):
+    path: str = ""      # empty: ask with the system's folder picker
+    name: str = ""
+
+
+@app.get("/api/library/mounts")
+def library_mounts():
+    return {"mounts": [{**m, "rel": MOUNT_PREFIX + m["name"], "exists": Path(m["path"]).is_dir()}
+                       for m in _library_mounts()]}
+
+
+@app.post("/api/library/mounts")
+def library_add_mount(req: LibraryMountRequest):
+    """Maps a folder into the library — nothing is copied."""
+    path = req.path
+    if not path:
+        try:
+            r = subprocess.run(["osascript", "-e",
+                                'POSIX path of (choose folder with prompt "Složka, kterou chceš vidět v knihovně (nic se nekopíruje)")'],
+                               capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            return {**library_mounts(), "added": None}
+        if r.returncode != 0:
+            return {**library_mounts(), "added": None}
+        path = r.stdout.strip()
+    p = Path(path).expanduser()
+    if not p.is_absolute() or not p.is_dir():
+        return JSONResponse({"error": "Složka neexistuje."}, status_code=400)
+    p = p.resolve()
+    root = MUSIC_ROOT.resolve()
+    if p == root or root in p.parents:
+        return JSONResponse({"error": "Tahle složka už je v knihovně."}, status_code=400)
+    mounts = _library_mounts()
+    if any(Path(m["path"]).resolve() == p for m in mounts):
+        return JSONResponse({"error": "Tahle složka už je namapovaná."}, status_code=400)
+    base = "".join(c for c in (req.name or p.name or "Složka") if c not in '/\\:@').strip()[:60] or "Složka"
+    name, n = base, 2
+    while any(m["name"] == name for m in mounts):
+        name = f"{base} ({n})"
+        n += 1
+    mounts.append({"name": name, "path": str(p)})
+    _write_config({"library_mounts": mounts})
+    return {**library_mounts(), "added": {"name": name, "rel": MOUNT_PREFIX + name, "path": str(p)}}
+
+
+@app.post("/api/library/mounts/remove")
+def library_remove_mount(req: LibraryMountRequest):
+    """Unmaps a folder. Its files stay where they are."""
+    _write_config({"library_mounts": [m for m in _library_mounts() if m["name"] != req.name]})
+    return library_mounts()
+
+
 @app.post("/api/library/fs/mkdir")
 def library_fs_mkdir(req: LibraryMkdirRequest):
     parent = _resolve_under_music_root(req.rel)
@@ -2733,7 +2852,7 @@ def library_fs_mkdir(req: LibraryMkdirRequest):
         target.mkdir()
     except OSError as exc:
         return JSONResponse({"error": f"Nepodařilo se vytvořit: {exc}"}, status_code=500)
-    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+    return {"ok": True, "rel": _rel_of(target) or ""}
 
 
 class LibraryImportRequest(BaseModel):
@@ -2771,7 +2890,7 @@ def library_fs_import(req: LibraryImportRequest):
             shutil.copy2(source, target)
     except OSError as exc:
         return JSONResponse({"error": f"Kopírování selhalo: {exc}"}, status_code=500)
-    return {"ok": True, "rel": str(target.relative_to(MUSIC_ROOT.resolve()))}
+    return {"ok": True, "rel": _rel_of(target) or ""}
 
 
 class LibraryMoveRequest(BaseModel):
@@ -2781,6 +2900,8 @@ class LibraryMoveRequest(BaseModel):
 
 @app.post("/api/library/fs/move")
 def library_fs_move(req: LibraryMoveRequest):
+    if _is_mount_root(req.rel):
+        return JSONResponse({"error": "Namapovanou složku nejde přesunout."}, status_code=400)
     source = _resolve_under_music_root(req.rel)
     dest_dir = _resolve_under_music_root(req.dest_rel)
     if source is None or not source.exists():
@@ -2792,12 +2913,12 @@ def library_fs_move(req: LibraryMoveRequest):
     if source.is_dir() and (dest_dir == source or source in dest_dir.parents):
         return JSONResponse({"error": "Nelze přesunout složku samu do sebe."}, status_code=400)
     target = _unique_dest(dest_dir, source.name)
-    old_rel = str(source.relative_to(MUSIC_ROOT.resolve()))
+    old_rel = _rel_of(source) or ""
     try:
         shutil.move(str(source), str(target))
     except OSError as exc:
         return JSONResponse({"error": f"Přesun selhal: {exc}"}, status_code=500)
-    new_rel = str(target.relative_to(MUSIC_ROOT.resolve()))
+    new_rel = _rel_of(target) or ""
     _rekey_nam_riff_assignments(old_rel, new_rel)
     return {"ok": True, "rel": new_rel}
 
@@ -2811,6 +2932,8 @@ def library_fs_delete(req: LibraryDeleteRequest):
     """Moves to Trash via Finder rather than unlinking outright — a
     personal media library is exactly the kind of thing a misclick
     shouldn't be able to permanently destroy."""
+    if _is_mount_root(req.rel):
+        return JSONResponse({"error": "Namapovanou složku nejde smazat — jen odpojit (soubory zůstanou)."}, status_code=400)
     target = _resolve_under_music_root(req.rel)
     if target is None or not target.exists():
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
@@ -2985,8 +3108,10 @@ async def add_nam_riff(request: Request, name: str = ""):
     data = _load_riffs_index()
     NAM_RIFFS_DIR.mkdir(parents=True, exist_ok=True)
     riff_id = uuid.uuid4().hex[:12]
+    # Recorded in the browser it is WebM; a clip cut in the mixer comes as WAV.
+    ext = ".wav" if raw[:4] == b"RIFF" else ".webm"
     try:
-        (NAM_RIFFS_DIR / f"{riff_id}.webm").write_bytes(raw)
+        (NAM_RIFFS_DIR / f"{riff_id}{ext}").write_bytes(raw)
     except OSError as exc:
         return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
     entry = {"id": riff_id, "name": (name or "").strip() or f"Riff {len(data['riffs']) + 1}",
@@ -3918,7 +4043,11 @@ def tabfiles_fetch_audio(req: TabAudioRequest):
     as a job the page follows like any other download."""
     if not _re_mod.fullmatch(r"[\w-]{6,20}", req.video_id or ""):
         return JSONResponse({"error": "Neplatné video."}, status_code=400)
-    safe = _safe_name(req.name) or req.video_id
+    # The video's id is part of the name: two recordings of one song are two
+    # files (and two stem sets). Named by artist and title alone, picking a
+    # different recording found the old file "already downloaded" and the
+    # old stems came back. The tags (embedded below) carry the clean name.
+    safe = _safe_name(f"{req.name} [{req.video_id}]")
     out_dir = MUSIC_ROOT / "Songs" / "Taby"
     out_dir.mkdir(parents=True, exist_ok=True)
     target = out_dir / f"{safe}.mp3"
@@ -3927,6 +4056,7 @@ def tabfiles_fetch_audio(req: TabAudioRequest):
         return {"job_id": None, "rel": rel, "ready": True}
     py = str(Path(SPOTDL_BIN).resolve().parent / "python")
     cmd = [py, "-m", "yt_dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0",
+           "--embed-metadata",
            "--no-playlist", "--newline", "--ffmpeg-location", ffmpeg_bin(),
            "-o", str(out_dir / f"{safe}.%(ext)s"),
            f"https://music.youtube.com/watch?v={req.video_id}"]
@@ -5069,6 +5199,9 @@ def list_stems():
             "modified": mtime,
             "rel": f"Stems/{d.name}",
             "meta": _stems_meta(d),
+            # How long the song is — any stem says it (tags are cached).
+            "duration": next((dur for dur in (_audio_tags(f).get("duration")
+                              for f in (_stem_file(d, st) for st in present[:2]) if f) if dur), None),
             "labels": _track_labels(d),
             "edited": _edited_stems(d),
         })
@@ -5169,7 +5302,9 @@ def _beat_grid_for(stems_dir: Path, refresh: bool = False):
     if interpreter is None:
         return "Detektor beatů není dostupný."
 
-    for stem in ("drums", "other", "bass", "guitar", "piano", "vocals"):
+    # A project opened from a single file has no separated stems — its own
+    # track(s) are what there is to listen to.
+    for stem in ("drums", "other", "bass", "guitar", "piano", "vocals", *_takes_in(stems_dir)):
         source = _stem_file(stems_dir, stem)
         if source is None:
             continue
@@ -5200,6 +5335,145 @@ def _beat_grid_for(stems_dir: Path, refresh: bool = False):
         return data
 
     return "Beaty se nepodařilo detekovat."
+
+
+# ------------------------------------------- a clip cut in the mixer, kept
+#
+# Cut Audio Parts: pieces of tracks saved into the library, each a WAV in
+# the CAP folder (lossless — they are usually short and often DI).
+CAP_DIR_NAME = "CAP"
+
+
+@app.post("/api/library/cap")
+async def save_cap(request: Request, name: str = ""):
+    raw = await request.body()
+    if len(raw) < 1024 or raw[:4] != b"RIFF":
+        return JSONResponse({"error": "Dílek je prázdný."}, status_code=400)
+    if len(raw) > 1500 * 1024 * 1024:
+        return JSONResponse({"error": "Dílek je příliš velký."}, status_code=413)
+    d = MUSIC_ROOT / CAP_DIR_NAME
+    d.mkdir(parents=True, exist_ok=True)
+    base = _safe_name(name or "Dilek")
+    target, n = d / f"{base}.wav", 2
+    while target.exists():
+        target = d / f"{base} ({n}).wav"
+        n += 1
+    try:
+        target.write_bytes(raw)
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return {"rel": target.relative_to(MUSIC_ROOT).as_posix(), "name": target.name}
+
+
+# Mixer exports land in the library's Export folder, encoded to what the
+# export dialog asked for. The page renders the mix and sends it as 32-bit
+# float WAV, so a 24-bit or float export keeps its resolution.
+EXPORT_DIR_NAME = "Export"
+_EXPORT_CODECS = {
+    "wav": {16: ["-c:a", "pcm_s16le"], 24: ["-c:a", "pcm_s24le"], 32: ["-c:a", "pcm_f32le"]},
+    "flac": {16: ["-c:a", "flac", "-sample_fmt", "s16"], 24: ["-c:a", "flac", "-sample_fmt", "s32"],
+             32: ["-c:a", "flac", "-sample_fmt", "s32"]},
+    "mp3": {0: ["-c:a", "libmp3lame", "-b:a", "320k"]},
+    "ogg": {0: ["-c:a", "libvorbis", "-q:a", "8"]},
+}
+
+
+@app.post("/api/library/export")
+async def save_export(request: Request, name: str = "", fmt: str = "wav", rate: int = 44100, bits: int = 16):
+    raw = await request.body()
+    if len(raw) < 1024 or raw[:4] != b"RIFF":
+        return JSONResponse({"error": "Export je prázdný."}, status_code=400)
+    if fmt not in _EXPORT_CODECS:
+        return JSONResponse({"error": "Neznámý formát."}, status_code=400)
+    if rate not in (22050, 32000, 44100, 48000, 88200, 96000):
+        rate = 44100
+    codec = _EXPORT_CODECS[fmt].get(bits) or _EXPORT_CODECS[fmt].get(0) or _EXPORT_CODECS[fmt][16]
+    d = MUSIC_ROOT / EXPORT_DIR_NAME
+    d.mkdir(parents=True, exist_ok=True)
+    base = _safe_name(name or "Mix")
+    target, n = d / f"{base}.{fmt}", 2
+    while target.exists():
+        target = d / f"{base} ({n}).{fmt}"
+        n += 1
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    try:
+        proc = subprocess.run([ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error", "-i", str(tmp_path),
+                               "-ar", str(rate), *codec, str(target)],
+                              capture_output=True, text=True, timeout=900)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return JSONResponse({"error": f"Export selhal: {exc}"}, status_code=500)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    if proc.returncode != 0 or not target.is_file():
+        target.unlink(missing_ok=True)
+        detail = (proc.stderr or "").strip().splitlines()[-1:] or ["neznámá chyba"]
+        return JSONResponse({"error": f"Export selhal: {detail[0][:200]}"}, status_code=500)
+    return {"rel": target.relative_to(MUSIC_ROOT).as_posix(), "name": target.name,
+            "bytes": target.stat().st_size}
+
+
+@app.post("/api/analyze/beats")
+async def analyze_clip_beats(request: Request):
+    """Beat grid of a piece of audio (a clip cut in the mixer), with the same
+    tracker the stems get. Times are from the start of the clip."""
+    raw = await request.body()
+    if len(raw) < 1024 or raw[:4] != b"RIFF":
+        return JSONResponse({"error": "Dílek je prázdný."}, status_code=400)
+    interpreter = _demucs_interpreter()
+    if interpreter is None:
+        return JSONResponse({"error": "Detektor beatů není dostupný."}, status_code=503)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    try:
+        proc = subprocess.run([interpreter, str(APP_DIR / "beatgrid.py"), str(tmp_path)],
+                              capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return JSONResponse({"error": f"Detekce selhala: {exc}"}, status_code=500)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    lines = (proc.stdout or "").strip().splitlines()
+    try:
+        data = json.loads(lines[-1]) if lines else {"error": "bez výstupu"}
+    except json.JSONDecodeError:
+        data = {"error": "nečitelný výstup"}
+    if "error" in data:
+        return JSONResponse({"error": "Tempo se v dílku nepodařilo najít — zkus delší úsek s jasným rytmem."},
+                            status_code=422)
+    return data
+
+
+class BeatGridBody(BaseModel):
+    beats: List[float]
+    downbeats: List[float] = []
+    bpm: float
+    beats_per_bar: int = 4
+    detected_from: Optional[float] = None
+    detected_to: Optional[float] = None
+
+
+@app.put("/api/stems/{name}/beats")
+def put_stems_beatgrid(name: str, body: BeatGridBody):
+    """A grid set by hand (Detect Tempo on a clip) replaces the detected one."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    beats = sorted(float(b) for b in body.beats if b >= 0)[:20000]
+    if len(beats) < 2 or not (20 <= body.bpm <= 300):
+        return JSONResponse({"error": "Neplatná mřížka."}, status_code=400)
+    data = {"beats": beats, "downbeats": sorted(float(b) for b in body.downbeats if b >= 0)[:5000],
+            "bpm": round(body.bpm, 2), "beats_per_bar": max(1, min(12, body.beats_per_bar)),
+            "detector": "clip", "tempo_curve": [],
+            "detected_from": body.detected_from if body.detected_from is not None else beats[0],
+            "detected_to": body.detected_to if body.detected_to is not None else beats[-1],
+            "grid_version": BEATGRID_VERSION}
+    try:
+        (stems_dir / "beats.json").write_text(json.dumps(data), encoding="utf-8")
+    except OSError as exc:
+        return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
+    return data
 
 
 @app.get("/api/stems/{name}/beats")
@@ -5519,6 +5793,10 @@ class MixerChannel(BaseModel):
     pitchRate: float = 1.0
     panValue: float = 0.0
     clipOffset: float = 0.0
+    # Pieces of a track cut with the scissors: [{src, offset, dur, start}].
+    clips: Optional[List[dict]] = None
+    # Taken out of the mix with its × (the file stays; it can come back).
+    hidden: bool = False
     eq: Optional[List[EqBand]] = None
     # Inserts: {mono, comp: {...}, dbl: {...}} — kept as a plain dict so a
     # new parameter doesn't need a model change (and isn't silently dropped).
@@ -5573,6 +5851,9 @@ class MixerSession(BaseModel):
     # part of the mix, and re-picking them on every open is a chore.
     metronome: Optional[MetronomeSettings] = None
     guitar: Optional[GuitarSettings] = None
+    # MIDI tracks: [{stem, label, instrument, notes: [{m, t, d, v}]}] — the
+    # notes themselves, played by a sampled instrument in the page.
+    midi: Optional[List[dict]] = None
 
 
 @app.get("/api/stems/{name}/session")
@@ -5620,6 +5901,23 @@ def put_session(name: str, body: MixerSession):
         metro["volume"] = max(0.0, min(2.0, float(metro["volume"])))
         metro["pan"] = max(-1.0, min(1.0, float(metro["pan"])))
         metro["rate"] = max(0.25, min(4.0, float(metro["rate"])))
+    # MIDI: keep only well-formed notes, and not an unbounded number of them.
+    tracks = []
+    for tr in (data.get("midi") or [])[:32]:
+        if not isinstance(tr, dict) or not _re_mod.fullmatch(r"midi-\d{1,4}", str(tr.get("stem", ""))):
+            continue
+        notes = []
+        for n in (tr.get("notes") or [])[:20000]:
+            try:
+                m, t, d = int(n["m"]), float(n["t"]), float(n["d"])
+                v = float(n.get("v", 0.8))
+            except (KeyError, TypeError, ValueError):
+                continue
+            if 0 <= m <= 127 and 0 <= t <= 7200 and 0.005 <= d <= 600:
+                notes.append({"m": m, "t": round(t, 4), "d": round(d, 4), "v": max(0.05, min(1.0, v))})
+        tracks.append({"stem": tr["stem"], "label": str(tr.get("label") or "MIDI")[:80],
+                       "instrument": str(tr.get("instrument") or "")[:80], "notes": notes})
+    data["midi"] = tracks or None
     gtr = data.get("guitar")
     if gtr:
         gtr["volume"] = max(0.0, min(2.0, float(gtr["volume"])))
@@ -5774,8 +6072,8 @@ def _new_project_dir(base: str) -> Path:
     return d
 
 
-def _new_project_from(src: Path, label: str):
-    d = _new_project_dir(label)
+def _new_project_from(src: Path, label: str, project: str = ""):
+    d = _new_project_dir(project or label)
     res = _add_track_from(d, src, label)
     if isinstance(res, JSONResponse):
         shutil.rmtree(d, ignore_errors=True)
@@ -5783,7 +6081,7 @@ def _new_project_from(src: Path, label: str):
     tags = _audio_tags(src) if src.is_file() else {}
     try:
         (d / "meta.json").write_text(json.dumps({
-            "artist": tags.get("artist"), "title": tags.get("title") or label,
+            "artist": None if project else tags.get("artist"), "title": project or tags.get("title") or label,
             "album": tags.get("album")}, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -5800,13 +6098,15 @@ def new_project_library(req: LibraryFileRequest):
 
 
 @app.post("/api/stems/new/upload")
-async def new_project_upload(file: UploadFile = File(...)):
+async def new_project_upload(file: UploadFile = File(...), name: str = ""):
+    """A file from the computer as a project of its own; `name` names the
+    project (a looper), otherwise the file does."""
     try:
         tmp = await _upload_to_temp(file)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     try:
-        return _new_project_from(tmp, Path(file.filename or "Projekt").stem)
+        return _new_project_from(tmp, Path(file.filename or "Projekt").stem, name)
     finally:
         tmp.unlink(missing_ok=True)
 
@@ -6016,6 +6316,113 @@ def delete_guitar_parts(name: str):
             except OSError:
                 pass
     return {"guitar_parts": _guitar_parts_in(stems_dir)}
+
+
+# ------------------------------------------------- a stem set's picture
+def _embedded_cover(path: Path):
+    """(bytes, mime) of the cover art inside an audio file, or None."""
+    if path.suffix.lower() == ".mp3":
+        try:
+            from mutagen.id3 import ID3
+            pics = ID3(str(path)).getall("APIC")
+            if pics:
+                front = next((p for p in pics if getattr(p, "type", None) == 3), pics[0])
+                return front.data, front.mime or "image/jpeg"
+        except Exception:
+            pass
+    try:
+        from mutagen import File as MutagenFile
+        audio = MutagenFile(str(path))
+    except Exception:
+        return None
+    if audio is None:
+        return None
+    try:
+        tags = audio.tags
+        if tags is not None and hasattr(tags, "getall"):           # MP3 (ID3)
+            pics = tags.getall("APIC")
+            if pics:
+                front = next((p for p in pics if getattr(p, "type", None) == 3), pics[0])
+                return front.data, front.mime or "image/jpeg"
+        pics = getattr(audio, "pictures", None)                     # FLAC
+        if pics:
+            return pics[0].data, pics[0].mime or "image/jpeg"
+        if tags is not None and "covr" in tags:                     # M4A
+            data = bytes(tags["covr"][0])
+            return data, "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
+    except Exception:
+        return None
+    return None
+
+
+def _stems_cover_file(d: Path):
+    src = _stems_source_index().get(d.name)
+    if src is not None and src.is_file():
+        cov = _embedded_cover(src)
+        if cov and len(cov[0]) > 512:
+            return cov
+    return None
+
+
+@app.get("/api/stems/{name}/art")
+def stems_art(name: str):
+    """The picture for a separated song. The cover in its source file wins;
+    otherwise the album's cover found by artist + album — so every song of an
+    album shows the same one — then the song by artist + title, then the
+    artist. Lookups are cached by artist|album, not by folder."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"url": None}, status_code=404)
+    if _stems_cover_file(d):
+        return {"url": f"/api/stems/{quote(name)}/art/image", "source": "file"}
+    m = _stems_meta(d)
+    artist, title, album = (m.get("artist") or "").strip(), (m.get("title") or "").strip(), (m.get("album") or "").strip()
+    cache = _load_thumb_cache()
+    key = "stemart:" + "|".join([artist.lower(), album.lower() or ("song:" + title.lower())])
+    hit, cached = _thumb_get(cache, key)
+    if hit:
+        return {"url": cached, "source": "cache"}
+
+    def same_artist(hit):
+        names = " ".join(a.get("name", "") for a in (hit.get("artists") or [])).lower()
+        return not artist or artist.lower() in names or names in artist.lower()
+
+    attempts = []
+    if artist and album:
+        attempts.append((f"{artist} {album}", "albums"))
+    if title:
+        attempts.append((f"{artist} {title}".strip(), "songs"))
+    if artist:
+        attempts.append((artist, "artists"))
+    url = None
+    for query, filt in attempts:
+        try:
+            hits = yt().search(query, filter=filt, limit=5) or []
+        except Exception:
+            continue
+        pick = next((h for h in hits if filt == "artists" or same_artist(h)), None)
+        if pick:
+            url = _best_thumb(pick.get("thumbnails"))
+            if url:
+                # Song results only carry a 120 px thumbnail; the same image
+                # is served at any size by asking for it.
+                url = _re_mod.sub(r"=w\d+-h\d+", "=w544-h544", url)
+                break
+    _thumb_put(cache, key, url)
+    _save_thumb_cache()
+    return {"url": url, "source": "search"}
+
+
+@app.get("/api/stems/{name}/art/image")
+def stems_art_image(name: str):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    cov = _stems_cover_file(d)
+    if not cov:
+        return JSONResponse({"error": "Bez obrázku."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(cov[0], media_type=cov[1], headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/stems/{name}/{stem}")

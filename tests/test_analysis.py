@@ -496,3 +496,15 @@ def test_the_mix_refuses_a_path_outside_the_music_root(client, tmp_music_root):
     assert client.get("/api/stems/..%2F..%2Fetc/session").status_code == 404
     assert client.put("/api/stems/..%2F..%2Fetc/session",
                       json={"channels": []}).status_code == 404
+
+
+def test_midi_tracks_are_kept_in_the_mix_and_cleaned(client, tmp_music_root):
+    (tmp_music_root / "Stems" / "Song").mkdir(parents=True)
+    got = client.put("/api/stems/Song/session", json={"channels": [{"stem": "midi-1"}], "midi": [
+        {"stem": "midi-1", "label": "Klavír", "instrument": "grand_piano_steinway",
+         "notes": [{"m": 60, "t": 1.0, "d": 0.5, "v": 0.9}, {"m": 300, "t": 1, "d": 1}, {"m": 64, "t": "x", "d": 1}]},
+        {"stem": "../evil", "notes": []},
+    ]}).json()
+    assert got["midi"] == [{"stem": "midi-1", "label": "Klavír", "instrument": "grand_piano_steinway",
+                            "notes": [{"m": 60, "t": 1.0, "d": 0.5, "v": 0.9}]}]
+    assert client.get("/api/stems/Song/session").json()["midi"][0]["notes"][0]["m"] == 60
