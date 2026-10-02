@@ -583,6 +583,17 @@
     display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
   .fl-fx-btn:hover{border-color:var(--accent);color:var(--text)}
   .fl-fx-btn.on{background:rgba(255,209,102,.16);border-color:#ffd166;color:#ffd166}
+  .fl-instr-btn{flex:none;width:100%;margin-top:2px;display:flex;align-items:center;justify-content:center;gap:3px}
+  .fl-instr-btn.busy{border-color:var(--accent);color:var(--text)}
+  .fl-instr-btn .spinner{width:7px;height:7px;border-width:1.5px}
+  .instr-pop{width:250px}
+  .instr-pop .instr-row{display:flex;align-items:center;gap:8px;padding:5px 10px}
+  .instr-pop .instr-row > span:first-child{flex:none;width:72px;font-size:11px;color:var(--muted)}
+  .instr-pop select{flex:1;min-width:0}
+  .instr-pop input[type=range]{flex:1;min-width:0}
+  .instr-pop .instr-switch{flex:1;display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer}
+  .instr-pop .instr-status{padding:2px 10px 8px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;min-height:16px}
+  .instr-pop .instr-status.err{color:#ff6b6b}
   .fl-channel.fl-live{width:118px;--ch-color:#ffd166}
   .fl-channel.fl-live.flash{box-shadow:0 0 0 2px #ffd166}
   .fl-live-top{display:flex;gap:4px;align-items:center;justify-content:center}
@@ -3016,6 +3027,16 @@
 
       <div class="actions">
         <button class="btn" id="settings-save">Uložit</button>
+      </div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="note"></span>O aplikaci</div>
+      <div class="set-note" id="about-credits">
+        Kytara jako nástroj (Steems → Live kytara → NÁSTROJ):
+        zvuky nástrojů FluidR3_GM (Frank Wen) přes
+        <a href="https://github.com/gleitz/midi-js-soundfonts" target="_blank" rel="noopener">midi-js-soundfonts</a>
+        (Benjamin Gleitzman), licence
+        <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>.
+        Rozpoznávání tónů podle MoChord (MIT).
       </div>
     </div>
   </div>
@@ -9743,7 +9764,9 @@ const Mixer = (() => {
   }
 
   function ctx(){
-    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); AudioOut.adopt(audioCtx); }
+    // "interactive": the smallest buffer the device allows — the live guitar
+    // and the guitar-as-instrument both play through this context.
+    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"}); AudioOut.adopt(audioCtx); }
     return audioCtx;
   }
 
@@ -13064,6 +13087,13 @@ const Mixer = (() => {
       // sort of chore this whole file exists to remove.
       restoreAmp(gt.ampName, gt.cabName, gt.ampFile);
       if(gt.eq){ Guitar.ensureEq(); restoreEq(guitarEq, gt.eq); }
+      // Guitar as an instrument: the choice and the switches come back; it
+      // only actually plays once the input is live.
+      Guitar.setInstrument({
+        instrOn: !!gt.instrOn, instrReplace: !!gt.instrReplace,
+        instrId: gt.instrId || Guitar.state.instrId,
+        instrVolume: gt.instrVolume ?? Guitar.state.instrVolume,
+      });
     }
     if(saved && saved.metronome){
       const m = saved.metronome;
@@ -13663,6 +13693,8 @@ const Mixer = (() => {
         ampFile: Guitar.state.ampFile,
         cabName: Guitar.state.cabName,
         eq: guitarEq ? eqSnapshot(guitarEq) : null,
+        instrOn: Guitar.state.instrOn, instrId: Guitar.state.instrId,
+        instrVolume: Guitar.state.instrVolume, instrReplace: Guitar.state.instrReplace,
       },
     };
   }
@@ -14819,6 +14851,25 @@ const Mixer = (() => {
     let recording = false;
     let recordStartedAt = 0;
 
+    // "Kytara jako nástroj" — the kytara-nastroj package (package.json →
+    // node_modules, served by server.py). It listens to the clean DI and
+    // plays the notes it hears with a sampled instrument.
+    //  - its input is instrTap: a unity tap straight off the sound-card
+    //    source, before gate / comp / amp. A tap of our own because rewire()
+    //    disconnects `source` from everything, the library's analyser too;
+    //  - its output (instrOut) joins the guitar channel at the fader, so
+    //    fader, mute / solo, EQ, doubler and pan all apply to it;
+    //  - "Nahradit kytaru" closes dryGain (recNode → gainNode), the dry
+    //    guitar's own leg only — the tap and the meter are untouched.
+    let instrLib = null;       // import() promise
+    let instrNode = null;      // KytaraNastroj, bound to the current instrTap
+    let instrTap = null;
+    let instrOut = null;
+    let dryGain = null;
+    let instrTicket = 0;       // a newer sync overtakes an older one's awaits
+    let instrVisible = true;   // the mixer is on screen (see the observer below)
+    const instrStatus = {busy: false, error: null, groups: null};
+
     const state = {
       deviceId: null, deviceLabel: null, live: false,
       volume: 0.9, pan: 0, muted: false, solo: false,
@@ -14827,6 +14878,7 @@ const Mixer = (() => {
       compKnee: 6, compMakeup: 0,
       ampName: null, ampFile: null, cabName: null,
       guideVolume: 0.8,
+      instrOn: false, instrId: null, instrVolume: 0.8, instrReplace: false,
       peak: 0, gate: 0,
       latencyMs: null,
     };
@@ -14920,6 +14972,11 @@ const Mixer = (() => {
       state.deviceLabel = track.label || "Vstup";
 
       source = audioCtx.createMediaStreamSource(stream);
+      instrTap = audioCtx.createGain();
+      if(!dryGain) dryGain = audioCtx.createGain();
+      // Unplugged interface: the track ends on its own. Stop like the power
+      // button would, so the instrument is stopped and released too.
+      track.onended = () => { if(stream && stream.getAudioTracks()[0] === track){ stop(); showToast("Zvukovka odpojena"); } };
       gateNode = new AudioWorkletNode(audioCtx, "guitar-processor",
         {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
       gateNode.parameters.get("threshold").value = state.threshold;
@@ -14943,12 +15000,15 @@ const Mixer = (() => {
         analyser.fftSize = 256;
       }
 
+      if(!instrOut) instrOut = audioCtx.createGain();
+
       rewire();
       applyGuitarGain();
       state.live = true;
       state.latencyMs = latencyEstimate();
       renderGuitarStrip();
       startEqLoop();
+      syncInstrument();
       return state;
     }
 
@@ -14960,7 +15020,7 @@ const Mixer = (() => {
       // that when the very first thing done is plugging the guitar in.
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
-      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser, virtualSource,
+      [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, dryGain, instrOut, gainNode, pannerNode, analyser, virtualSource,
        guideAmp, guideCab, guideOut, fxChain && fxChain.output,
        ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
@@ -14973,8 +15033,12 @@ const Mixer = (() => {
         if(ampNode){ node.connect(ampNode); node = ampNode; }
         if(cabNode){ node.connect(cabNode); node = cabNode; }
         node.connect(recNode); node = recNode;
+        if(dryGain){ node.connect(dryGain); node = dryGain; }
         node.connect(gainNode);
+        if(instrTap) source.connect(instrTap);
       }
+      if(instrOut) instrOut.connect(gainNode);
+      applyDry();
 
       // Virtual guide chain: its own amp and cabinet, its own level, and
       // only then into the shared meter and output.
@@ -15078,7 +15142,14 @@ const Mixer = (() => {
       [source, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, gainNode, pannerNode, analyser]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
       if(gateNode) gateNode.port.postMessage("stop");
-      if(stream) stream.getTracks().forEach(t => t.stop());
+      // The instrument is bound to this input: stop it, release it, and let
+      // the next start() build a fresh one on the new source.
+      instrTicket++;
+      if(instrNode){ instrNode.stop(); instrNode.znic(); instrNode = null; }
+      if(instrTap) try{ instrTap.disconnect(); }catch(e){}
+      instrTap = null;
+      instrStatus.busy = false;
+      if(stream) stream.getTracks().forEach(t => { t.onended = null; t.stop(); });
       stream = source = gateNode = recNode = null;
 
       // Keep NAM and cabinet alive for the virtual guitar guide.
@@ -15104,6 +15175,77 @@ const Mixer = (() => {
       state.live = false;
       state.peak = 0;
       renderGuitarStrip();
+    }
+
+    function instrumentLib(){
+      if(!instrLib) instrLib = import("/static/kytara-nastroj/kytara-nastroj.js")
+        .then(lib => { instrStatus.groups = lib.nastrojePodleKategorii(); return lib; })
+        .catch(e => { instrLib = null; throw e; });
+      return instrLib;
+    }
+
+    function applyDry(){
+      if(!dryGain) return;
+      const off = state.instrOn && state.instrReplace && state.live;
+      dryGain.gain.setTargetAtTime(off ? 0 : 1, ctxRef().currentTime, 0.015);
+    }
+
+    // Brings the instrument in line with the switches, the input and the
+    // mixer being on screen. Every trigger (toggle, picker, device change,
+    // unplug, leaving the mixer) just calls this. start() / nastavNastroj()
+    // wait for the sound to download; the UI shows that as busy.
+    async function syncInstrument(){
+      const ticket = ++instrTicket;
+      const wanted = () => state.instrOn && state.live && !!instrTap && instrVisible;
+      applyDry();
+      if(!wanted()){
+        if(instrNode) instrNode.stop();
+        instrStatus.busy = false; instrStatus.error = null;
+        paintInstrument();
+        return;
+      }
+      instrStatus.busy = true; instrStatus.error = null;
+      paintInstrument();
+      try{
+        const lib = await instrumentLib();
+        if(ticket !== instrTicket) return;
+        if(!state.instrId || !lib.najdiNastroj(state.instrId)) state.instrId = lib.VYCHOZI_NASTROJ;
+        if(!instrNode){
+          instrNode = new lib.KytaraNastroj({kontext: ctxRef(), vstup: instrTap, vystup: instrOut,
+            nastroj: state.instrId, hlasitost: state.instrVolume});
+        }else if(instrNode.nastroj !== state.instrId){
+          await instrNode.nastavNastroj(state.instrId);
+        }
+        if(ticket !== instrTicket) return;
+        await instrNode.start();
+        // Switched off (or the mixer left) while the sound was downloading.
+        if(ticket !== instrTicket){ if(!wanted() && instrNode) instrNode.stop(); return; }
+        instrStatus.busy = false;
+      }catch(e){
+        if(ticket !== instrTicket) return;
+        instrStatus.busy = false;
+        instrStatus.error = "Nástroj se nepodařilo načíst";
+        showToast(instrStatus.error);
+      }
+      paintInstrument();
+    }
+
+    function setInstrument(patch){
+      Object.assign(state, patch);
+      if("instrVolume" in patch && instrNode) instrNode.nastavHlasitost(state.instrVolume);
+      if("instrOn" in patch || "instrId" in patch || "instrReplace" in patch) syncInstrument();
+    }
+
+    // Leaving the mixer stops the instrument; coming back resumes it.
+    function setInstrumentVisible(v){
+      if(instrVisible === !!v) return;
+      instrVisible = !!v;
+      syncInstrument();
+    }
+
+    function destroyInstrument(){
+      instrTicket++;
+      if(instrNode){ instrNode.znic(); instrNode = null; }
     }
 
     function applyGuitarGain(){
@@ -15211,7 +15353,24 @@ const Mixer = (() => {
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
+      instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
+      instrStatus: () => instrStatus,
+      instrumentRunning: () => !!(instrNode && instrNode.bezi),
     };
+  })();
+
+  // Leaving the mixer (another song list, another section, its close
+  // button…) hides #mixer whichever path got there: watching that one
+  // attribute stops the guitar-as-instrument on all of them, and showing it
+  // again resumes. The page going away releases it for good.
+  (() => {
+    const mixerEl = document.getElementById("mixer");
+    if(!mixerEl) return;
+    const onScreen = () => !mixerEl.hidden && !mixerEl.closest("[hidden]");
+    new MutationObserver(() => Guitar.setInstrumentVisible(onScreen()))
+      .observe(document.body, {attributes: true, attributeFilter: ["hidden"], subtree: true});
+    Guitar.setInstrumentVisible(onScreen());
+    window.addEventListener("pagehide", () => Guitar.destroyInstrument());
   })();
 
 
@@ -15322,6 +15481,8 @@ const Mixer = (() => {
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
         <button class="fl-fx-btn ${fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
       </div>
+      <button class="fl-fx-btn fl-instr-btn" id="gt-instr-btn" data-act="instr"
+        title="Kytara jako nástroj — tvoje hraní zahraje klavír, smyčce, píšťala…">NÁSTROJ</button>
       <button type="button" class="fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
         id="gt-eq-btn" title="Ekvalizér tvé živé kytary"><span class="dot"></span>EQ</button>`;
   }
@@ -15362,6 +15523,8 @@ const Mixer = (() => {
     act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
     act("comp").onclick = () => openCompPanel("guitar");
     act("dbl").onclick = (e) => openDoublerPopover("guitar", e.currentTarget);
+    act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
+    paintInstrument();
     strip.querySelector("#gt-eq-btn").onclick = () => {
       Guitar.ensureEq();
       setPanelOpen("eq-toggle", "eq-panel", true);
@@ -15419,6 +15582,84 @@ const Mixer = (() => {
       queueSessionSave();
     });
     panKnob.addEventListener("pointerup", () => { panDrag = null; });
+  }
+
+  // ---- Kytara jako nástroj: the fader button and its popover -------------
+  // Reflects Guitar.instrStatus() / Guitar.state into whatever is on screen;
+  // the Guitar module calls it whenever loading starts, ends or fails.
+  function paintInstrument(){
+    const g = Guitar.state, st = Guitar.instrStatus();
+    const btn = el("gt-instr-btn");
+    if(btn){
+      btn.classList.toggle("on", g.instrOn);
+      btn.classList.toggle("busy", st.busy);
+      btn.innerHTML = (st.busy ? `<span class="spinner"></span>` : "") + "NÁSTROJ";
+    }
+    const pop = el("instr-popover");
+    if(!pop) return;
+    pop.querySelector(".instr-on").checked = g.instrOn;
+    pop.querySelector(".instr-replace").checked = g.instrReplace;
+    const sel = pop.querySelector(".instr-select");
+    if(st.groups && !sel.options.length){
+      sel.innerHTML = st.groups.map(k => `<optgroup label="${escapeHtml(k.kategorie)}">${
+        k.nastroje.map(n => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.nazev)}</option>`).join("")}</optgroup>`).join("");
+    }
+    if(g.instrId) sel.value = g.instrId;
+    const status = pop.querySelector(".instr-status");
+    status.classList.toggle("err", !!st.error);
+    status.innerHTML = st.busy ? `<span class="spinner"></span> Načítám zvuk nástroje…`
+      : st.error ? escapeHtml(st.error)
+      : !g.instrOn ? "Vypnuto"
+      : !g.live ? "Zapne se, až připojíš vstup (ikona kytary)"
+      : Guitar.instrumentRunning() ? "Hraje — jeden tón na brnknutí (akord = nejsilnější tón)"
+      : "";
+  }
+
+  async function openInstrumentPopover(anchorEl){
+    const existing = el("instr-popover");
+    if(existing){ existing.remove(); return; }
+    const g = Guitar.state;
+    const box = document.createElement("div");
+    box.className = "sect-menu instr-pop";
+    box.id = "instr-popover";
+    box.innerHTML = `
+      <div class="ss-head">Kytara jako nástroj</div>
+      <label class="instr-row"><span>Nástroj</span>
+        <span class="instr-switch"><input type="checkbox" class="instr-on"> zapnuto</span></label>
+      <div class="instr-row"><span>Zvuk</span><select class="instr-select" title="Nástroj"></select></div>
+      <div class="instr-row"><span>Hlasitost</span>
+        <input type="range" class="nm-tempo instr-vol" min="0" max="1" step="0.01" value="${g.instrVolume}"></div>
+      <label class="instr-row" title="Ztlumí tvou kytaru v pultu, hraje jen nástroj. Poslech nástroje (detekce tónů) jde dál z čistého signálu.">
+        <span>Kytara</span>
+        <span class="instr-switch"><input type="checkbox" class="instr-replace"> nahradit kytaru</span></label>
+      <div class="instr-status"></div>`;
+    document.body.appendChild(box);
+    const a = anchorEl.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    const close = (ev) => {
+      if(box.contains(ev.target) || anchorEl.contains(ev.target)) return;
+      box.remove(); document.removeEventListener("pointerdown", close, true);
+    };
+    document.addEventListener("pointerdown", close, true);
+
+    box.querySelector(".instr-on").onchange = (e) => {
+      Guitar.setInstrument({instrOn: e.target.checked}); queueSessionSave(); paintInstrument();
+    };
+    box.querySelector(".instr-replace").onchange = (e) => {
+      Guitar.setInstrument({instrReplace: e.target.checked}); queueSessionSave(); paintInstrument();
+    };
+    box.querySelector(".instr-select").onchange = (e) => {
+      Guitar.setInstrument({instrId: e.target.value}); queueSessionSave(); paintInstrument();
+    };
+    box.querySelector(".instr-vol").oninput = (e) => {
+      Guitar.setInstrument({instrVolume: parseFloat(e.target.value)}); queueSessionSave();
+    };
+    paintInstrument();
+    // The catalogue lives in the package itself; load it for the picker.
+    try{ await Guitar.instrumentLib(); }
+    catch(e){ Guitar.instrStatus().error = "Knihovnu kytara-nastroj se nepodařilo načíst"; }
+    if(el("instr-popover") === box) paintInstrument();
   }
 
   async function toggleGuitarInput(){

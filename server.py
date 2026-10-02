@@ -242,6 +242,25 @@ def nam_asset(name: str):
     )
 
 
+@app.get("/static/kytara-nastroj/{name}")
+def kytara_nastroj_asset(name: str):
+    """The "guitar as an instrument" library, installed as a local npm package
+    (package.json → node_modules/kytara-nastroj). Only its built ES modules
+    are served; the page imports them with import().
+    """
+    if not _re_nam_asset.fullmatch(name) or not name.endswith((".js", ".mjs")):
+        return JSONResponse({"error": "Neplatný název."}, status_code=400)
+    path = APP_DIR / "node_modules" / "kytara-nastroj" / "dist" / name
+    if not path.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(
+        path.read_bytes(),
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 # ------------------------------------------------------------- amp library
 #
 # Models and cabinet impulse responses the listener has collected, kept once
@@ -5243,6 +5262,10 @@ class GuitarSettings(BaseModel):
     ampFile: Optional[str] = None
     cabName: Optional[str] = None
     eq: Optional[List[EqBand]] = None
+    instrOn: bool = False
+    instrId: Optional[str] = None
+    instrVolume: float = 0.8
+    instrReplace: bool = False
 
 
 class MixerSession(BaseModel):

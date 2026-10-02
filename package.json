@@ -1,0 +1,8 @@
+{
+  "name": "spotdl-helper-app",
+  "private": true,
+  "description": "Front-end libraries for the spotdl-helper app (served by server.py, no build step).",
+  "dependencies": {
+    "kytara-nastroj": "file:../../../../Documents/AI Projekty/Aplikace/KytaraNastroj"
+  }
+}
