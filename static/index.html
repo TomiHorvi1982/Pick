@@ -9039,10 +9039,11 @@ function startStemsSeparation(rel){
           ? `${icon("check", 13)} hotovo` : `${icon("warning", 13)} chyba`;
         el("dl-reveal").disabled = false;
         el("dl-reveal").onclick = () => {
-          if(ok) openSteemsSong(data.name);
+          if(ok) openSteemsSong(data.name, {force: true});
         };
         if(ok){
-          setTimeout(() => openSteemsSong(data.name), 600);
+          // Fresh stems: load them even if this song's old ones are open.
+          setTimeout(() => openSteemsSong(data.name, {force: true}), 600);
         }
       }
     };
@@ -9052,9 +9053,9 @@ function startStemsSeparation(rel){
 
 // Placeholder — Task 4 replaces this whole function with the real
 // "switch to Steems tab and load this song into the mixer" behavior.
-function openSteemsSong(name){
+function openSteemsSong(name, opts = {}){
   setMode("steems");
-  loadMixerSong(name);
+  loadMixerSong(name, opts);
 }
 
 // ======================================================================
@@ -9251,13 +9252,28 @@ async function runStemsConversion(preview){
   btn.disabled = false;
 }
 
-function loadMixerSong(name){
+// The song the mixer holds (or is loading) and whether that worked. Coming
+// back to it — the Back button, its card in the side panel, its row in the
+// list — just shows it again: stems, waveforms, tab, amp, position and
+// everything else are still there, so loading it all again would only cost
+// time. `force` is for when the stems themselves changed (a new separation).
+let mixerHeld = {name: null, state: null};   // state: "loading" | "ok" | "failed"
+
+function loadMixerSong(name, opts = {}){
   pushNav("steems:song:" + name, () => {
     setMode("steems", {keepSection: true});
     loadMixerSong(name);
   });
   currentSteemsName = name;
   showSteemsHero(name);
+  if(!opts.force && mixerHeld.name === name && mixerHeld.state !== "failed" && Mixer.currentSong() === name){
+    el("steems-list").hidden = true;
+    el("steems-list-title").hidden = true;
+    el("mixer").hidden = false;
+    if(mixerHeld.state === "ok") refreshSteemsHeroStats();
+    return;
+  }
+  const held = mixerHeld = {name, state: "loading"};
   // Ensure song has stems array
   let song = steemsSongs.find(s => s.name === name);
   if(!song){ 
@@ -9269,7 +9285,11 @@ function loadMixerSong(name){
     // Convert string array to object array
     song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}`}));
   }
-  Promise.resolve(Mixer.load(song)).then(refreshSteemsHeroStats).catch(() => {
+  Promise.resolve(Mixer.load(song)).then(() => {
+    if(held === mixerHeld) held.state = "ok";
+    refreshSteemsHeroStats();
+  }).catch(() => {
+    if(held === mixerHeld) held.state = "failed";
     el("steems-hero-stats").textContent = "Stopy se nepodařilo načíst.";
   });
 }
