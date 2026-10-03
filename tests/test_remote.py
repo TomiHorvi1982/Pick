@@ -82,7 +82,7 @@ def test_every_action_the_browser_handles_is_allowed(client):
 def test_the_mini_player_is_served(client):
     res = client.get("/mini")
     assert res.status_code == 200
-    assert "Spotifylisty" in res.text
+    assert "PIKO — mini" in res.text
     # It must be its own page, not the app: loading the whole app in a
     # 360px window was the thing this exists to avoid.
     assert "sp-shell" not in res.text
@@ -241,3 +241,36 @@ def test_with_no_window_open_one_is_launched():
     assert len(opened) == 1
     assert opened[0]["size"][0] >= mb.MIN_APP_SIZE[0]
     assert opened[0]["size"][1] >= mb.MIN_APP_SIZE[1]
+
+
+def test_state_carries_the_video_and_queue_key(client):
+    # The mini player shows the playing video and marks the queue entry by these.
+    client.post("/api/remote/state", json={"title": "T", "playing": True,
+                                           "videoId": "abc123", "key": "yt:abc123"})
+    st = client.get("/api/remote/state").json()
+    assert st["videoId"] == "abc123" and st["key"] == "yt:abc123"
+
+
+def test_the_mini_player_can_start_a_queue_entry(client):
+    # Clicking a song in the mini player's queue sends this; it used to be
+    # refused as an unknown command, so nothing ever played.
+    res = client.post("/api/remote/command", json={"action": "playqueue", "value": 2})
+    assert res.status_code == 200
+    cmds = client.get("/api/remote/commands?since=0").json()["commands"]
+    assert {"action": "playqueue", "value": 2} in cmds
+
+
+def test_mini_resize_asks_chrome_for_the_mini_window(client, monkeypatch):
+    # The size buttons of the mini player: the server tells Chrome (via
+    # AppleScript) to resize the window showing /mini, sizes kept sane.
+    import server
+    calls = []
+
+    class Done:
+        stdout = "ok"
+
+    monkeypatch.setattr(server.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or Done())
+    res = client.post("/api/mini/resize", json={"width": 10, "height": 99999})
+    assert res.json() == {"ok": True}
+    script = calls[0][2]
+    assert "/mini" in script and "- 240" in script and "+ 1600" in script

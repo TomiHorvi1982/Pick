@@ -49,6 +49,8 @@ TRANSCODE_AUDIO_EXTS = {".aif", ".aiff", ".aifc", ".wma", ".ac3", ".eac3", ".dts
                         ".au", ".snd", ".mp2", ".mpa", ".tta", ".wv", ".ape", ".dsf", ".dff", ".amr",
                         ".awb", ".ra", ".mpc", ".spx", ".w64", ".rf64", ".voc", ".gsm"}
 AUDIO_EXTS = BROWSER_AUDIO_EXTS | TRANSCODE_AUDIO_EXTS
+# Standard MIDI files: listed in the library and dragged onto a MIDI track.
+MIDI_EXTS = {".mid", ".midi"}
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
 LIBRARY_PATH = HOME / "Music" / "spotdl" / "library.json"
@@ -2559,6 +2561,14 @@ def _nam_meta(path: Path) -> dict:
     return meta
 
 
+def _midi_count(folder: Path) -> int:
+    try:
+        return sum(1 for c in folder.iterdir()
+                   if c.suffix.lower() in MIDI_EXTS and not c.name.startswith(".") and c.is_file())
+    except OSError:
+        return 0
+
+
 def _folder_stats(folder: Path, _depth: int = 0):
     """(audio files, total bytes, subfolders) beneath `folder`.
 
@@ -2631,6 +2641,9 @@ def library_browse(rel: str = ""):
                 # Counts and size let the browser show the shape of a folder
                 # without making you open it.
                 "track_count": tracks, "folder_count": folders, "size_bytes": size,
+                # MIDI files right inside it — the rail's tree shows those as
+                # draggable leaves, so such a folder must be unfoldable.
+                "midi_count": _midi_count(p),
             })
         elif p.is_file() and p.suffix.lower() in AUDIO_EXTS:
             files.append({
@@ -2649,6 +2662,9 @@ def library_browse(rel: str = ""):
                 **_nam_meta(p),
                 "riff_id": _nam_riff_assignments().get(entry_rel),
             })
+        elif p.is_file() and p.suffix.lower() in MIDI_EXTS:
+            files.append({"name": p.name, "type": "midi", "rel": entry_rel,
+                          "size_bytes": p.stat().st_size})
         # Anything else (tabs, PDFs, pictures, video…) is listed too, so a
         # folder shows what is really in it; it opens in its own Mac app.
         elif p.is_file() and not p.name.startswith("."):
@@ -2743,6 +2759,17 @@ def library_stream(rel: str, request: Request):
             return JSONResponse({"error": "Soubor se nepodařilo převést."}, status_code=500)
         target = copy
     return _range_file_response(target, request.headers.get("range"))
+
+
+@app.get("/api/library/midi")
+def library_midi(rel: str):
+    """A MIDI file's bytes — the browser parses it and puts the notes on a
+    MIDI track. Only .mid/.midi."""
+    target = _resolve_under_music_root(rel)
+    if target is None or not target.is_file() or target.suffix.lower() not in MIDI_EXTS:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    from fastapi.responses import Response
+    return Response(target.read_bytes(), media_type="audio/midi")
 
 
 @app.get("/api/library/raw")
@@ -4128,12 +4155,17 @@ def soundfonts_file(name: str, request: Request):
 
 
 @app.get("/api/preview")
-def preview(q: str):
+def preview(q: str, kind: str = "song"):
     """Najde nejbližší YouTube video pro náhled (u výsledků hledání písní,
-    kde ještě nemáme videoId — u playlistů ho už máme rovnou)."""
-    res = yt().search(q, filter="songs", limit=1)
+    kde ještě nemáme videoId — u playlistů ho už máme rovnou).
+
+    kind=video hledá nejdřív videoklip (mini přehrávač ho ukazuje); "songs"
+    na YouTube Music bývá jen zvuková stopa se statickým obrázkem.
+    """
+    order = ("videos", "songs") if kind == "video" else ("songs", "videos")
+    res = yt().search(q, filter=order[0], limit=1)
     if not res:
-        res = yt().search(q, filter="videos", limit=1)
+        res = yt().search(q, filter=order[1], limit=1)
     return {"videoId": res[0]["videoId"] if res else None}
 
 
@@ -4426,6 +4458,11 @@ class RemoteState(BaseModel):
     position: Optional[float] = 0.0
     duration: Optional[float] = 0.0
     source: Optional[str] = None
+    # The mini player shows the video and finds the lyrics by these, and marks
+    # which queue entry plays by the key.
+    videoId: Optional[str] = None
+    key: Optional[str] = None
+    relPath: Optional[str] = None
 
 
 class RemoteCommand(BaseModel):
@@ -4768,7 +4805,52 @@ def remote_commands(since: int = 0):
 REMOTE_ACTIONS = {
     "playpause", "play", "pause", "next", "prev",
     "volume", "seek", "stop", "mute",
+    "playqueue",   # value = index into the saved queue (the mini player's Fronta)
 }
+
+
+class MiniResize(BaseModel):
+    width: int
+    height: int
+
+
+@app.post("/api/mini/resize")
+def mini_resize(body: MiniResize, request: Request):
+    """Resizes the mini player's own Chrome window (its size buttons).
+
+    A page can't resize a window it didn't open, so the server asks Chrome
+    through AppleScript, as PIKO does for the main window. The right edge and
+    the top stay put — the mini player sits at the right of the screen.
+    """
+    w = max(240, min(2400, int(body.width)))
+    h = max(150, min(1600, int(body.height)))
+    url = f"http://{request.url.netloc}/mini"
+    script = f'''
+    if application "Google Chrome" is running then
+      tell application "Google Chrome"
+        repeat with win in windows
+          repeat with t in tabs of win
+            if URL of t starts with "{url}" then
+              set b to bounds of win
+              set r to item 3 of b
+              set l to r - {w}
+              if l < 0 then
+                set l to 0
+                set r to {w}
+              end if
+              set bounds of win to {{l, item 2 of b, r, (item 2 of b) + {h}}}
+              return "ok"
+            end if
+          end repeat
+        end repeat
+      end tell
+    end if
+    return "none"'''
+    try:
+        out = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=6).stdout.strip()
+    except Exception:                                          # noqa: BLE001
+        out = ""
+    return {"ok": out == "ok"}
 
 
 @app.get("/mini")

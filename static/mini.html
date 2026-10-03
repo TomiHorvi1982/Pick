@@ -1,59 +1,290 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Spotifylisty — mini</title>
+<title>PIKO — mini</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  /* Deliberately its own page rather than the app squeezed into a small
-     window: everything here is a remote, so it needs none of the app's
-     layout, and it has to stay legible at 320px. */
+  /* Its own page rather than the app squeezed into a small window: all of it
+     is a remote for the main window, which is the only thing making sound. */
   :root{
-    --bg:#0b0b0e; --panel:#17171c; --line:#2a2a33;
-    --text:#f1f1f3; --sub:#9a9aa5; --accent:#1ed760;
+    --bg:#08080b; --text:#f4f4f6; --sub:rgba(255,255,255,.62); --dim:rgba(255,255,255,.38);
+    --glass:rgba(255,255,255,.07); --glass2:rgba(255,255,255,.13); --line:rgba(255,255,255,.10);
+    --accent:#ff5a1f; --accent2:#ffb347;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);overflow:hidden;
     font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-    user-select:none;-webkit-user-select:none;overflow:hidden}
-  .wrap{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;
-    height:100vh}
-  .now{display:flex;align-items:center;gap:12px;min-width:0}
-  .art{width:54px;height:54px;border-radius:7px;flex:0 0 auto;
-    background:var(--panel) center/cover no-repeat;display:flex;
-    align-items:center;justify-content:center;color:var(--sub)}
-  .meta{min-width:0;flex:1}
-  .t{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis}
-  .a{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis;margin-top:2px}
+    user-select:none;-webkit-user-select:none}
+  /* The cover, huge and blurred, is the backdrop; the accent is taken from it. */
+  .backdrop{position:fixed;inset:-60px;background:#111 center/cover no-repeat;
+    filter:blur(42px) saturate(1.5) brightness(.55);transform:scale(1.15);
+    transition:background-image .6s, opacity .6s;z-index:0}
+  .shade{position:fixed;inset:0;z-index:0;
+    background:radial-gradient(120% 70% at 50% 0%, transparent, rgba(0,0,0,.55) 70%),
+               linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.72))}
+  .wrap{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;
+    padding:12px 16px 14px;gap:10px}
+
+  /* ---- tabs ---- */
+  .top{display:flex;align-items:center;gap:8px}
+  .tabs{flex:1;display:flex;gap:2px;padding:3px;border-radius:11px;background:rgba(0,0,0,.32);
+    border:1px solid var(--line);backdrop-filter:blur(8px)}
+  .tab{flex:1;height:28px;border-radius:8px;border:0;background:none;color:var(--sub);
+    font-weight:600;font-size:11.5px;line-height:1;font-family:inherit;display:flex;align-items:center;justify-content:center;
+    gap:5px;cursor:pointer;transition:background .15s,color .15s}
+  .tab:hover{color:var(--text)}
+  .tab.on{background:var(--glass2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+  .tab svg{opacity:.9}
+  .iconbtn{width:34px;height:34px;flex:0 0 auto;border-radius:10px;border:1px solid var(--line);
+    background:rgba(0,0,0,.32);color:var(--sub);cursor:pointer;display:flex;align-items:center;
+    justify-content:center;position:relative;transition:color .15s, border-color .15s}
+  .iconbtn:hover{color:var(--text)}
+  .iconbtn.on{color:var(--accent2);border-color:color-mix(in srgb, var(--accent) 60%, transparent)}
+  .iconbtn .badge{position:absolute;bottom:-5px;right:-5px;font-weight:700;font-size:9px;line-height:1;font-family:inherit;
+    padding:2px 4px;border-radius:6px;background:var(--accent);color:#000}
+
+  /* ---- stage ---- */
+  .stage{flex:1;min-height:0;position:relative}
+  .pane{position:absolute;inset:0;display:none;animation:fade .25s ease}
+  .pane.on{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* Cover: a record that spins while music plays, with a tone arm — and it
+     can be scratched: drag it round to scrub through the song. */
+  #pane-cover{align-items:center;justify-content:center}
+  .deck{position:relative;width:min(100%, 300px);aspect-ratio:1}
+  .vinyl{position:absolute;inset:4%;border-radius:50%;cursor:grab;touch-action:none;
+    background:
+      radial-gradient(circle, transparent 0 31%, rgba(255,255,255,.05) 31.5% 32%, transparent 32.5%),
+      repeating-radial-gradient(circle, #121214 0 1.6px, #1b1b1f 1.6px 3.2px),
+      #141416;
+    box-shadow:0 18px 50px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.06),
+               0 0 60px color-mix(in srgb, var(--accent) 22%, transparent)}
+  .vinyl:active{cursor:grabbing}
+  .vinyl::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+    background:conic-gradient(from 30deg, transparent 0 10%, rgba(255,255,255,.10) 14%, transparent 20% 55%,
+      rgba(255,255,255,.08) 62%, transparent 68%)}
+  .label{position:absolute;inset:32%;border-radius:50%;background:#222 center/cover no-repeat;
+    box-shadow:0 0 0 3px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.12);display:flex;
+    align-items:center;justify-content:center;color:var(--dim)}
+  .label::after{content:"";width:9%;height:9%;border-radius:50%;background:#0b0b0d;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+  .arm{position:absolute;top:-2%;right:2%;width:34%;height:62%;pointer-events:none;
+    transform-origin:78% 12%;transform:rotate(-26deg);transition:transform .7s cubic-bezier(.3,1.4,.5,1);
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
+  .playing .arm{transform:rotate(0deg)}
+  .scrub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    font-weight:800;font-size:22px;line-height:1;font-family:inherit;font-variant-numeric:tabular-nums;padding:8px 12px;border-radius:12px;
+    background:rgba(0,0,0,.7);color:var(--accent2);pointer-events:none;opacity:0;transition:opacity .15s}
+  .scrub.on{opacity:1}
+
+  /* Video */
+  #pane-video{flex-direction:column;gap:8px}
+  .screen{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#000;
+    box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 0 1px var(--line)}
+  .screen video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+  .screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+  .screen iframe[hidden], .screen video[hidden]{display:none}
+  .screen .msg{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;align-items:center;
+    justify-content:center;color:var(--sub);font-size:12px;text-align:center;padding:20px}
+  .spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.15);
+    border-top-color:var(--accent);animation:rot .8s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .vbar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub)}
+  .seg{display:flex;padding:2px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid var(--line)}
+  .seg button{border:0;background:none;color:var(--sub);font-weight:600;font-size:11px;line-height:1;font-family:inherit;
+    padding:5px 9px;border-radius:6px;cursor:pointer}
+  .seg button.on{background:var(--glass2);color:var(--text)}
+  .vbar .sp{flex:1}
+  .chip{border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--sub);border-radius:7px;
+    font-weight:600;font-size:11px;line-height:1;font-family:inherit;padding:5px 7px;cursor:pointer}
+  .chip:hover{color:var(--text)}
+  #voff{min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
+
+  /* Lyrics: karaoke — the current line lit in the accent, the rest dimmed. */
+  #pane-lyrics{flex-direction:column}
+  .lyrics{flex:1;overflow-y:auto;padding:38% 4px 45%;scroll-behavior:smooth;
+    mask-image:linear-gradient(180deg, transparent, #000 18%, #000 78%, transparent);
+    -webkit-mask-image:linear-gradient(180deg, transparent, #000 18%, #000 78%, transparent);
+    scrollbar-width:none}
+  .lyrics::-webkit-scrollbar{display:none}
+  .ln{font-size:19px;font-weight:800;line-height:1.3;margin:0 0 12px;color:rgba(255,255,255,.28);
+    cursor:pointer;transition:color .25s, transform .25s, filter .25s;transform-origin:left center;
+    filter:blur(.4px)}
+  .ln:hover{color:rgba(255,255,255,.55)}
+  .ln.past{color:rgba(255,255,255,.42)}
+  .ln.cur{color:#fff;transform:scale(1.04);filter:none;
+    text-shadow:0 0 22px color-mix(in srgb, var(--accent) 70%, transparent)}
+  .ln.cur .fill{background:linear-gradient(90deg, var(--accent2) var(--p,0%), #fff var(--p,0%));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lbar{padding-top:6px}
+  .plain{white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--sub);padding:0 4px}
+  .empty{margin:auto;color:var(--sub);font-size:12px;text-align:center;line-height:1.6}
+
+  /* Queue */
+  #pane-queue{flex-direction:column}
+  .queue{flex:1;overflow-y:auto;margin:0 -6px;padding:0 6px;scrollbar-width:thin}
+  .qi{display:flex;align-items:center;gap:10px;padding:6px;border-radius:10px;cursor:pointer;
+    transition:background .12s}
+  .qi:hover{background:var(--glass)}
+  .qi.cur{background:color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent)}
+  .qi .n{width:18px;text-align:right;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+  .qi .th{width:38px;height:38px;border-radius:6px;background:#222 center/cover no-repeat;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;color:var(--dim)}
+  .qi .m{min-width:0;flex:1}
+  .qi .m b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qi .m span{display:block;font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qhead{font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin:0 0 6px}
+
+  /* ---- now playing ---- */
+  .meta{display:flex;align-items:flex-end;gap:10px;min-width:0}
+  .meta .txt{min-width:0;flex:1}
+  .marquee{overflow:hidden;white-space:nowrap;font-size:18px;font-weight:800;letter-spacing:-.01em;
+    mask-image:linear-gradient(90deg, #000 88%, transparent);-webkit-mask-image:linear-gradient(90deg, #000 88%, transparent)}
+  .marquee span{display:inline-block;padding-right:40px}
+  .marquee.run span{animation:mq var(--mq,10s) linear infinite}
+  @keyframes mq{0%,15%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+  .artist{font-size:12.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  /* Bars that dance while music plays (they only pretend — this window has no audio). */
+  .eq{display:flex;align-items:flex-end;gap:2px;height:18px;flex:0 0 auto;padding-bottom:4px}
+  .eq i{width:3px;height:3px;border-radius:2px;background:linear-gradient(0deg, var(--accent), var(--accent2))}
+  .playing .eq i{animation:eq 1s ease-in-out infinite}
+  .eq i:nth-child(2){animation-delay:-.4s!important;animation-duration:.8s!important}
+  .eq i:nth-child(3){animation-delay:-.7s!important;animation-duration:1.15s!important}
+  .eq i:nth-child(4){animation-delay:-.2s!important;animation-duration:.9s!important}
+  @keyframes eq{0%,100%{height:3px}50%{height:16px}}
+
   .bar{display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}
   .bar .time{font-size:10.5px;color:var(--sub);flex:0 0 auto;min-width:32px}
   .bar .time.right{text-align:right}
-  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;
-    border-radius:2px;background:#33333d;outline:none;cursor:pointer}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;
-    height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.6)}
-  input[type=range]:hover{background:#3d3d49}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:5px;border-radius:3px;outline:none;
+    cursor:pointer;background:linear-gradient(90deg, var(--accent), var(--accent2)) 0/var(--v,0%) 100% no-repeat,
+    rgba(255,255,255,.16)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:#fff;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent), 0 1px 4px rgba(0,0,0,.6);
+    opacity:0;transition:opacity .15s}
+  input[type=range]:hover::-webkit-slider-thumb{opacity:1}
   input[type=range]:disabled{opacity:.45;cursor:default}
-  .controls{display:flex;align-items:center;justify-content:center;gap:6px}
-  button{border:none;background:none;color:var(--sub);cursor:pointer;padding:0;
-    display:flex;align-items:center;justify-content:center;border-radius:50%;
-    width:32px;height:32px;transition:color .12s,background .12s}
-  button:hover{color:var(--text);background:rgba(255,255,255,.08)}
-  .play{width:40px;height:40px;background:#fff;color:#000}
-  .play:hover{background:#fff;color:#000;transform:scale(1.05)}
-  .vol{display:flex;align-items:center;gap:9px}
-  .vol button{width:26px;height:26px}
-  .offline{font-size:11.5px;color:var(--sub);text-align:center;padding:6px 0}
-  .offline a{color:var(--accent)}
+
+  .controls{display:flex;align-items:center;justify-content:center;gap:14px}
+  .ctl{border:none;background:none;color:var(--text);cursor:pointer;width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;transition:background .12s, transform .12s}
+  .ctl:hover{background:var(--glass)}
+  .ctl:active{transform:scale(.92)}
+  .ctl.small{width:32px;height:32px;color:var(--sub)}
+  .ctl.small:hover{color:var(--text)}
+  .play{width:56px;height:56px;color:#160800;
+    background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));
+    box-shadow:0 8px 26px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.35)}
+  .play:hover{background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));transform:scale(1.05)}
+  .vol{display:flex;align-items:center;gap:8px}
+  .offline{font-size:11.5px;color:var(--sub);text-align:center}
+  .offline a{color:var(--accent2)}
+  .toast{position:fixed;left:50%;bottom:16px;transform:translate(-50%, 20px);opacity:0;z-index:5;
+    background:rgba(0,0,0,.82);border:1px solid var(--line);padding:7px 12px;border-radius:9px;font-size:12px;
+    transition:opacity .2s, transform .2s;pointer-events:none;white-space:nowrap}
+  .toast.on{opacity:1;transform:translate(-50%, 0)}
+  /* ---- layouts: compact (small window), tabs (tall), wide (side by side) ---- */
+  .mart{display:none;width:52px;height:52px;flex:0 0 auto;border-radius:8px;background:#222 center/cover no-repeat;
+    box-shadow:0 4px 14px rgba(0,0,0,.5);align-items:center;justify-content:center;color:var(--dim)}
+  .mini-size{display:none;width:28px;height:28px}
+  body.compact .wrap{padding:10px 12px;gap:7px}
+  body.compact .top, body.compact .stage, body.compact .vol{display:none}
+  body.compact .mart{display:flex}
+  body.compact .mini-size{display:flex}
+  body.compact .meta{align-items:center}
+  body.compact .marquee{font-size:14.5px}
+  body.compact .artist{font-size:11.5px}
+  body.compact .controls{gap:6px}
+  body.compact .ctl{width:32px;height:32px}
+  body.compact .play{width:42px;height:42px}
+  body.compact .ctl svg{transform:scale(.85)}
+  body.compact .offline{display:none}
+  /* Wide: video | lyrics | queue, all at once. */
+  body.wide .tabs .tab{display:none}
+  body.wide .tabs{visibility:hidden}
+  body.wide .stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.85fr);gap:14px}
+  body.wide .pane{position:relative;inset:auto;display:none;min-height:0}
+  body.wide #pane-video, body.wide #pane-lyrics, body.wide #pane-queue{display:flex}
+  body.wide #pane-lyrics{background:rgba(0,0,0,.22);border-radius:14px;padding:0 10px 8px;border:1px solid var(--line)}
+  body.wide #pane-queue{background:rgba(0,0,0,.22);border-radius:14px;padding:10px 8px;border:1px solid var(--line)}
+  body.wide .lyrics{padding:30% 4px 40%}
+  body.wide .ln{font-size:17px}
+  kbd{font:600 10px/1 ui-monospace,monospace;padding:2px 4px;border-radius:4px;background:var(--glass2)}
 </style>
 
-<div class="wrap">
-  <div class="now">
-    <div class="art" id="art"></div>
-    <div class="meta">
-      <div class="t" id="title">Nic nehraje</div>
-      <div class="a" id="artist">Spotifylisty</div>
+<div class="backdrop" id="backdrop"></div>
+<div class="shade"></div>
+
+<div class="wrap" id="wrap">
+  <div class="top">
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-tab="cover"></button>
+      <button class="tab" data-tab="video"></button>
+      <button class="tab" data-tab="lyrics"></button>
+      <button class="tab" data-tab="queue"></button>
     </div>
+    <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
+    <button class="iconbtn" id="size" title="Velikost okna: malé · se záložkami · široké"></button>
+  </div>
+
+  <div class="stage">
+    <div class="pane on" id="pane-cover">
+      <div class="deck">
+        <div class="vinyl" id="vinyl"><div class="label" id="label"></div></div>
+        <svg class="arm" viewBox="0 0 100 180" aria-hidden="true">
+          <circle cx="78" cy="22" r="15" fill="#2a2a30" stroke="#55555f" stroke-width="2"/>
+          <circle cx="78" cy="22" r="6" fill="#8d8d96"/>
+          <path d="M78 22 L74 128 L52 160" fill="none" stroke="#c9c9d1" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="38" y="152" width="22" height="16" rx="3" transform="rotate(35 49 160)" fill="#1d1d22" stroke="#6b6b75" stroke-width="1.5"/>
+        </svg>
+        <div class="scrub" id="scrub">0:00</div>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-video">
+      <div class="screen">
+        <video id="video" muted playsinline preload="auto"></video>
+        <iframe id="yt" hidden allow="autoplay; encrypted-media" title="YouTube"></iframe>
+        <div class="msg" id="vmsg"></div>
+      </div>
+      <div class="vbar">
+        <div class="seg" id="vsrc">
+          <button data-src="track" class="on" title="Přesně to video, které hraje — vždy synchronní">Hraje</button>
+          <button data-src="clip" title="Oficiální videoklip z YouTube (může začínat jinde — dolaď Posunem)">Klip</button>
+        </div>
+        <span class="sp"></span>
+        <span>Posun</span>
+        <button class="chip" id="vminus">−1 s</button>
+        <span id="voff">0 s</span>
+        <button class="chip" id="vplus">+1 s</button>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-lyrics">
+      <div class="lyrics" id="lyrics"><div class="empty">Texty se načtou, až něco začne hrát.</div></div>
+      <div class="vbar lbar">
+        <span>Text</span><span class="sp"></span><span>Posun</span>
+        <button class="chip" id="lminus" title="Text dřív">−0,5 s</button>
+        <span id="loff">0 s</span>
+        <button class="chip" id="lplus" title="Text později">+0,5 s</button>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-queue">
+      <div class="queue" id="queue"></div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="mart" id="mart"></div>
+    <div class="txt">
+      <div class="marquee" id="title"><span>Nic nehraje</span></div>
+      <div class="artist" id="artist">PIKO</div>
+    </div>
+    <div class="eq"><i></i><i></i><i></i><i></i></div>
+    <button class="iconbtn mini-size" id="size2" title="Zvětšit okno"></button>
   </div>
 
   <div class="bar">
@@ -63,13 +294,15 @@
   </div>
 
   <div class="controls">
-    <button id="prev" title="Předchozí"></button>
-    <button class="play" id="play" title="Přehrát / pauza"></button>
-    <button id="next" title="Další"></button>
+    <button class="ctl small" id="back10" title="Zpět o 10 s (←)"></button>
+    <button class="ctl" id="prev" title="Předchozí"></button>
+    <button class="ctl play" id="play" title="Přehrát / pauza (mezerník)"></button>
+    <button class="ctl" id="next" title="Další"></button>
+    <button class="ctl small" id="fwd10" title="Vpřed o 10 s (→)"></button>
   </div>
 
   <div class="vol">
-    <button id="mute" title="Ztlumit"></button>
+    <button class="ctl small" id="mute" title="Ztlumit (M)"></button>
     <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
   </div>
 
@@ -77,10 +310,9 @@
     Hlavní okno neběží — <a href="#" id="openMain">otevřít aplikaci</a>
   </div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
-// The same drawn glyphs as the player bar, so the mini window is visibly the
-// same app rather than a second one that happens to control it.
 const line = (d) => `<path d="${d}" fill="none" stroke="currentColor"
   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
 const solid = (d) => `<path d="${d}" fill="currentColor"/>`;
@@ -96,22 +328,53 @@ const ICONS = {
   note: line("M18.6 4.2v10.2") + line("M9 6.6v10.2") + line("M9 6.6 18.6 4.2")
     + line("M6.6 20.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z")
     + line("M16.2 18a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z"),
+  disc: line("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z") + line("M12 14.6a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z") + line("M6.8 9.2a5.6 5.6 0 0 1 2.6-2.5"),
+  video: line("M3.5 6.5h12a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 2 16V8a1.5 1.5 0 0 1 1.5-1.5Z") + line("M17 10.5l4.5-2.6v8.2L17 13.5"),
+  lyrics: line("M4 6h16M4 10.5h11M4 15h14M4 19.5h8"),
+  list: line("M9 6h11M9 12h11M9 18h11") + solid("M4.6 7.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM4.6 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM4.6 19.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z"),
+  grow: line("M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"),
+  shrink: line("M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7"),
+  moon: line("M20 14.6A8.4 8.4 0 0 1 9.4 4a8.4 8.4 0 1 0 10.6 10.6Z"),
+  back10: line("M4.5 12a7.5 7.5 0 1 0 2.2-5.3") + line("M4.5 4.5v3.6h3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
+  fwd10: line("M19.5 12a7.5 7.5 0 1 1-2.2-5.3") + line("M19.5 4.5v3.6h-3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
 };
 const icon = (n, s = 17) =>
   `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">${ICONS[n] || ""}</svg>`;
 
 const el = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt = (s) => {
   s = Math.max(0, Math.round(s || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 const THUMB = /^https:\/\/([a-z0-9-]+\.)*((googleusercontent|ggpht|ytimg|bandsintown)\.com|wikimedia\.org)\//i;
 const thumbUrl = (u) => (u && THUMB.test(u)) ? "/api/thumb?url=" + encodeURIComponent(u) : (u || "");
+const QUEUE_KEY = "spotdl-gui-queue";   // the main window's queue — same origin
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("mini." + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("mini." + k, JSON.stringify(v)); }catch(e){} },
+};
 
-el("prev").innerHTML = icon("prev", 15);
-el("next").innerHTML = icon("next", 15);
-el("play").innerHTML = icon("play", 15);
-el("mute").innerHTML = icon("volume", 15);
+const TABS = {cover: ["disc", "Obal"], video: ["video", "Video"], lyrics: ["lyrics", "Text"], queue: ["list", "Fronta"]};
+document.querySelectorAll(".tab").forEach(b => {
+  const [ic, label] = TABS[b.dataset.tab];
+  b.innerHTML = icon(ic, 14) + label;
+  b.onclick = () => showTab(b.dataset.tab);
+});
+el("prev").innerHTML = icon("prev", 18);
+el("next").innerHTML = icon("next", 18);
+el("play").innerHTML = icon("play", 22);
+el("back10").innerHTML = icon("back10", 19);
+el("fwd10").innerHTML = icon("fwd10", 19);
+el("mute").innerHTML = icon("volume", 16);
+el("sleep").innerHTML = icon("moon", 16);
+el("label").innerHTML = icon("note", 26);
+
+let toastT = 0;
+function toast(msg){
+  const t = el("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1800);
+}
 
 function send(action, value){
   return fetch("/api/remote/command", {
@@ -121,64 +384,521 @@ function send(action, value){
   }).catch(() => {});
 }
 
-el("play").onclick = () => send("playpause");
-el("prev").onclick = () => send("prev");
-el("next").onclick = () => send("next");
-el("mute").onclick = () => send("mute");
-el("volume").oninput = (e) => send("volume", parseFloat(e.target.value));
-el("openMain").onclick = (e) => { e.preventDefault(); window.open("/", "_blank"); };
+// ------------------------------------------------------------- state
+// The main window reports where it was at `at`; adding the time since keeps
+// the bar, the lyrics and the video moving smoothly between polls.
+const S = {title: "", artists: "", thumbnail: "", playing: false, volume: 1, position: 0,
+           duration: 0, at: 0, videoId: null, key: null, relPath: null, live: false};
+const nowPos = () => {
+  if(!S.live) return 0;
+  const p = S.position + (S.playing ? Math.max(0, Date.now() / 1000 - S.at) : 0);
+  return S.duration > 0 ? Math.min(p, S.duration) : p;
+};
+let trackKey = "";
 
-// While a slider is being dragged the incoming state must not fight it.
-let dragging = false;
-el("seek").addEventListener("pointerdown", () => { dragging = true; });
-el("seek").addEventListener("change", (e) => {
-  dragging = false;
-  if(lastDuration > 0) send("seek", (parseFloat(e.target.value) / 1000) * lastDuration);
-});
-
-let lastDuration = 0;
 async function refresh(){
   let s;
-  try{
-    s = await (await fetch("/api/remote/state")).json();
-  }catch(e){
-    el("offline").hidden = false;
-    return;
-  }
-  // "Stale" means no window has said anything for a while — the app is
-  // probably closed, and pretending a song is playing would be a lie.
-  const live = !s.stale && (s.title || s.playing);
+  try{ s = await (await fetch("/api/remote/state")).json(); }
+  catch(e){ el("offline").hidden = false; S.live = false; return; }
+  const live = !s.stale && !!(s.title || s.playing);
+  Object.assign(S, {
+    title: s.title || "", artists: s.artists || "", thumbnail: s.thumbnail || "",
+    playing: live && !!s.playing, volume: s.volume ?? 1, position: s.position || 0,
+    duration: s.duration || 0, at: s.at || Date.now() / 1000, videoId: s.videoId || null,
+    key: s.key || null, relPath: s.relPath || null, live,
+  });
   el("offline").hidden = live;
-
-  el("title").textContent = live ? (s.title || "Nic nehraje") : "Nic nehraje";
-  el("artist").textContent = live ? (s.artists || "") : "Spotifylisty";
-  const art = el("art");
-  if(live && s.thumbnail){
-    art.style.backgroundImage = `url('${thumbUrl(s.thumbnail)}')`;
-    art.innerHTML = "";
-  } else {
-    art.style.backgroundImage = "";
-    art.innerHTML = icon("note", 22);
-  }
-
-  el("play").innerHTML = icon(s.playing ? "pause" : "play", 15);
-  el("mute").innerHTML = icon(s.volume > 0 ? "volume" : "volumeMuted", 15);
-  if(document.activeElement !== el("volume")) el("volume").value = String(s.volume ?? 1);
-
-  // With no window to report, the clock and the bar have nothing to show —
-  // leaving the last values up claimed a song was two minutes in when
-  // nothing was playing at all.
-  lastDuration = live ? (s.duration || 0) : 0;
-  const pos = live ? (s.position || 0) : 0;
-  el("pos").textContent = fmt(pos);
-  el("dur").textContent = fmt(lastDuration);
-  if(!dragging){
-    el("seek").value = String(lastDuration > 0
-      ? Math.round((pos / lastDuration) * 1000) : 0);
+  el("wrap").classList.toggle("playing", S.playing);
+  el("play").innerHTML = icon(S.playing ? "pause" : "play", 22);
+  el("mute").innerHTML = icon(S.volume > 0 ? "volume" : "volumeMuted", 16);
+  if(document.activeElement !== el("volume")){
+    el("volume").value = String(S.volume);
+    el("volume").style.setProperty("--v", (S.volume * 100) + "%");
   }
   el("seek").disabled = !live;
+
+  const k = live ? `${S.title}|${S.artists}` : "";
+  if(k !== trackKey){ trackKey = k; onTrackChange(); }
+  else if(live && S.videoId && !videoState.trackId){ videoState.trackId = S.videoId; if(shown("video")) loadVideo(); }
+  checkSleep();
 }
 
+function onTrackChange(){
+  const live = S.live;
+  setTitle(live ? S.title || "Nic nehraje" : "Nic nehraje");
+  el("artist").textContent = live ? (S.artists || "") : "PIKO";
+  const art = live && S.thumbnail ? thumbUrl(S.thumbnail) : "";
+  el("backdrop").style.backgroundImage = art ? `url('${art}')` : "";
+  el("label").style.backgroundImage = art ? `url('${art}')` : "";
+  el("mart").style.backgroundImage = art ? `url('${art}')` : "";
+  el("mart").innerHTML = art ? "" : icon("note", 20);
+  el("label").innerHTML = art ? "" : icon("note", 26);
+  pickAccent(art);
+  lyrics = null; lyricsFor = "";
+  videoState.trackId = S.videoId; videoState.clipId = null; videoState.loaded = "";
+  if(shown("lyrics")) loadLyrics();
+  if(shown("video")) loadVideo();
+  if(shown("queue")) renderQueue();
+}
+
+function setTitle(text){
+  const m = el("title");
+  m.innerHTML = `<span>${esc(text)}</span>`;
+  m.classList.remove("run");
+  requestAnimationFrame(() => {
+    const w = m.firstChild.scrollWidth;
+    if(w - 40 > m.clientWidth){
+      // Too long to fit: let it scroll, at a speed that doesn't depend on its length.
+      m.innerHTML = `<span>${esc(text)}</span><span>${esc(text)}</span>`;
+      m.style.setProperty("--mq", (w / 38) + "s");
+      m.classList.add("run");
+    }
+  });
+}
+
+// The accent follows the cover: the most colourful of its pixels, brightened.
+function pickAccent(url){
+  const root = document.documentElement.style;
+  const reset = () => { root.removeProperty("--accent"); root.removeProperty("--accent2"); };
+  if(!url){ reset(); return; }
+  const img = new Image();
+  img.onload = () => {
+    try{
+      const c = document.createElement("canvas"); c.width = c.height = 24;
+      const g = c.getContext("2d"); g.drawImage(img, 0, 0, 24, 24);
+      const d = g.getImageData(0, 0, 24, 24).data;
+      let best = null, bestScore = -1;
+      for(let i = 0; i < d.length; i += 4){
+        const [r, gg, b] = [d[i], d[i+1], d[i+2]];
+        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        const sat = mx ? (mx - mn) / mx : 0, lum = mx / 255;
+        const score = sat * 1.4 + lum * .6 - (lum < .2 ? 1 : 0);
+        if(score > bestScore){ bestScore = score; best = [r, gg, b]; }
+      }
+      if(!best || bestScore < .55){ reset(); return; }
+      const [h, s] = rgbToHsl(...best);
+      root.setProperty("--accent", `hsl(${h} ${Math.max(60, s)}% 55%)`);
+      root.setProperty("--accent2", `hsl(${(h + 28) % 360} ${Math.max(70, s)}% 68%)`);
+    }catch(e){ reset(); }
+  };
+  img.onerror = reset;
+  img.src = url;
+}
+function rgbToHsl(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if(mx === mn) return [0, 0, l * 100];
+  const d = mx - mn, s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+  let h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [Math.round(h * 60), Math.round(s * 100), l * 100];
+}
+
+// ------------------------------------------------------------- layout
+// From the window's size: small → compact (no panes), tall → tabs, wide →
+// video, lyrics and queue side by side.
+let mode = "";
+const shown = (t) => mode === "wide" ? ["video", "lyrics", "queue"].includes(t) : mode === "tabs" && curTab === t;
+function applyLayout(){
+  const m = innerHeight < 330 ? "compact" : innerWidth >= 720 ? "wide" : "tabs";
+  if(m === mode) return;
+  mode = m;
+  document.body.classList.toggle("compact", m === "compact");
+  document.body.classList.toggle("wide", m === "wide");
+  el("size").innerHTML = icon(m === "wide" ? "shrink" : "grow", 16);
+  el("size2").innerHTML = icon("grow", 14);
+  if(!shown("video")){ el("video").pause(); ytCmd("pauseVideo"); }
+  if(shown("lyrics")) loadLyrics();
+  if(shown("video")) loadVideo();
+  if(shown("queue")) renderQueue();
+}
+window.addEventListener("resize", applyLayout);
+// The window's three sizes; the size button steps through them and the last
+// one is how the player opens next time (small at first).
+const SIZES = {compact: [340, 210], tabs: [400, 660], wide: [1080, 500]};
+const ORDER = ["compact", "wide", "tabs"];
+async function setSize(name){
+  store.set("size", name);
+  const [w, h] = SIZES[name];
+  try{
+    const r = await (await fetch("/api/mini/resize", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({width: w, height: h})})).json();
+    if(r.ok) return;
+  }catch(e){}
+  try{ window.resizeTo(w, h); }catch(e){}
+  setTimeout(() => { if(Math.abs(innerWidth - w) > 40) toast("Okno roztáhni myší za okraj"); }, 600);
+}
+const nextSize = () => ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+el("size").onclick = () => setSize(nextSize());
+el("size2").onclick = () => setSize("wide");
+
+// -------------------------------------------------------------- tabs
+let curTab = store.get("tab", "cover");
+function showTab(t){
+  curTab = t; store.set("tab", t);
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === "pane-" + t));
+  if(!shown("video")){ el("video").pause(); ytCmd("pauseVideo"); }
+  if(shown("lyrics")) loadLyrics();
+  if(shown("video")) loadVideo();
+  if(shown("queue")) renderQueue();
+}
+
+// ------------------------------------------------- vinyl (and scratching)
+let spin = 0, lastFrame = performance.now(), scratch = null;
+const vinyl = el("vinyl");
+const angleOf = (e) => {
+  const r = vinyl.getBoundingClientRect();
+  return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI;
+};
+const SEC_PER_TURN = 6;   // one full turn by hand = six seconds of the song
+vinyl.addEventListener("pointerdown", (e) => {
+  if(!S.live || !S.duration) return;
+  vinyl.setPointerCapture(e.pointerId);
+  scratch = {last: angleOf(e), total: 0, from: nowPos()};
+});
+vinyl.addEventListener("pointermove", (e) => {
+  if(!scratch) return;
+  const a = angleOf(e);
+  let d = a - scratch.last;
+  if(d > 180) d -= 360; if(d < -180) d += 360;
+  scratch.last = a; scratch.total += d; spin += d;
+  const target = Math.max(0, Math.min(S.duration, scratch.from + scratch.total / 360 * SEC_PER_TURN));
+  el("scrub").textContent = (scratch.total >= 0 ? "⟳ " : "⟲ ") + fmt(target);
+  el("scrub").classList.add("on");
+});
+const endScratch = () => {
+  if(!scratch) return;
+  if(Math.abs(scratch.total) > 4){
+    const target = Math.max(0, Math.min(S.duration, scratch.from + scratch.total / 360 * SEC_PER_TURN));
+    send("seek", target);
+    S.position = target; S.at = Date.now() / 1000;
+  }
+  scratch = null;
+  setTimeout(() => el("scrub").classList.remove("on"), 400);
+};
+vinyl.addEventListener("pointerup", endScratch);
+vinyl.addEventListener("pointercancel", endScratch);
+
+// --------------------------------------------------------------- video
+// Muted: the sound comes from the main window. "Stopa" is exactly what plays
+// (in sync by construction); "Klip" looks up the official video, which may
+// start at a different moment — hence the offset buttons.
+const videoState = {src: store.get("vsrc2", "track"), trackId: null, clipId: null, loaded: "", offset: 0, busy: false};
+document.querySelectorAll("#vsrc button").forEach(b => {
+  b.classList.toggle("on", b.dataset.src === videoState.src);
+  b.onclick = () => {
+    videoState.src = b.dataset.src; store.set("vsrc2", videoState.src);
+    document.querySelectorAll("#vsrc button").forEach(x => x.classList.toggle("on", x === b));
+    loadVideo();
+  };
+});
+const setOffset = (v) => { videoState.offset = v; el("voff").textContent = (v > 0 ? "+" : "") + v + " s"; };
+el("vminus").onclick = () => setOffset(videoState.offset - 1);
+el("vplus").onclick = () => setOffset(videoState.offset + 1);
+function vmsg(html){ el("vmsg").innerHTML = html || ""; el("vmsg").style.display = html ? "flex" : "none"; }
+
+async function loadVideo(){
+  const v = el("video");
+  if(!S.live){ v.removeAttribute("src"); v.load(); videoState.loaded = ""; useEmbed(null); vmsg("Nic nehraje."); return; }
+  let id = null;
+  const forKey = trackKey;
+  // A local file has no video of its own — then the official clip is the
+  // closest thing, whichever button is on.
+  if(videoState.src === "clip" || !videoState.trackId){
+    if(!videoState.clipId){
+      vmsg('<div class="spin"></div>Hledám videoklip…');
+      try{
+        const q = `${S.artists} ${S.title}`.trim();
+        const r = await (await fetch(`/api/preview?kind=video&q=${encodeURIComponent(q)}`)).json();
+        if(forKey !== trackKey) return;
+        videoState.clipId = r.videoId || null;
+      }catch(e){}
+    }
+    id = videoState.clipId || videoState.trackId;
+  } else {
+    id = videoState.trackId;
+  }
+  if(!id){ vmsg("Video se nenašlo."); return; }
+  if(videoState.loaded === id){ vmsg(""); return; }
+  videoState.loaded = id;
+  setOffset(0);
+  useEmbed(null);
+  vmsg('<div class="spin"></div>Načítám video… (první spuštění trvá pár sekund)');
+  v.hidden = false;
+  v.src = `/api/stream-video/${encodeURIComponent(id)}`;
+}
+el("video").addEventListener("loadeddata", () => vmsg(""));
+// When the server can't get the video (YouTube asking it to prove it isn't a
+// bot, an embargo…), YouTube's own player plays it here instead — it runs in
+// the browser, needs nothing from the server, and is kept in time through
+// its iframe API.
+el("video").addEventListener("error", () => {
+  const v = el("video");
+  if(!v.getAttribute("src") || !videoState.loaded) return;
+  v.removeAttribute("src"); v.load(); v.hidden = true;
+  useEmbed(videoState.loaded);
+});
+
+const yt = {id: null, time: 0, at: 0, state: -1, ready: false, lastSeek: 0};
+function ytCmd(func, args){
+  const f = el("yt");
+  if(!f.contentWindow || !yt.id) return;
+  f.contentWindow.postMessage(JSON.stringify({event: "command", func, args: args || []}), "*");
+}
+function useEmbed(id){
+  const f = el("yt");
+  yt.id = id; yt.ready = false; yt.state = -1; yt.time = 0; yt.at = 0;
+  if(!id){ f.hidden = true; f.removeAttribute("src"); return; }
+  f.hidden = false;
+  vmsg("");
+  const start = Math.max(0, Math.floor(nowPos() + videoState.offset));
+  f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?enablejsapi=1&autoplay=1&mute=1&controls=0` +
+    `&playsinline=1&rel=0&modestbranding=1&start=${start}&origin=${encodeURIComponent(location.origin)}`;
+  f.onload = () => {
+    // Ask the player to report its time; it answers with "infoDelivery".
+    f.contentWindow.postMessage(JSON.stringify({event: "listening", id: 1}), "*");
+    ytCmd("mute");
+  };
+}
+window.addEventListener("message", (e) => {
+  if(!/youtube\.com$/.test(new URL(e.origin).hostname)) return;
+  let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch(err){ return; }
+  if(!d) return;
+  if(d.event === "onReady") yt.ready = true;
+  if(d.event === "onError"){ yt.id = null; el("yt").hidden = true; vmsg("Video nejde přehrát (YouTube ho nedovoluje vložit)."); }
+  const info = d.info || {};
+  if(typeof info.currentTime === "number"){ yt.time = info.currentTime; yt.at = performance.now(); yt.ready = true; }
+  if(typeof info.playerState === "number") yt.state = info.playerState;
+});
+function syncEmbed(){
+  if(!yt.id || !yt.ready || !shown("video")) return;
+  const target = nowPos() + videoState.offset;
+  const playing = yt.state === 1;
+  const cur = yt.time + (playing && yt.at ? (performance.now() - yt.at) / 1000 : 0);
+  const now = performance.now();
+  if(Math.abs(cur - target) > 1.2 && now - yt.lastSeek > 2500){ ytCmd("seekTo", [Math.max(0, target), true]); yt.lastSeek = now; }
+  if(S.playing && !playing && yt.state !== 3 && now - yt.lastSeek > 600) ytCmd("playVideo");
+  if(!S.playing && playing) ytCmd("pauseVideo");
+}
+
+function syncVideo(){
+  syncEmbed();
+  const v = el("video");
+  if(!shown("video") || !v.getAttribute("src") || v.readyState < 2) return;
+  const target = nowPos() + videoState.offset;
+  if(v.duration && target > v.duration){ v.pause(); return; }
+  if(Math.abs(v.currentTime - target) > 0.7) v.currentTime = Math.max(0, target);
+  if(S.playing && v.paused) v.play().catch(() => {});
+  if(!S.playing && !v.paused) v.pause();
+}
+
+// -------------------------------------------------------------- lyrics
+let lyrics = null, lyricsFor = "", lyricEls = [], curLine = -1, userScrollAt = 0;
+// Same per-song offset as the main player's lyrics (and the same key), so a
+// text nudged into time there is in time here too, and the other way round.
+const lyrOffKey = () => "spotdl-gui-pb-lyrics-offset:" + (S.videoId || S.relPath || S.title || "");
+function lyrOffset(){ try{ return parseFloat(localStorage.getItem(lyrOffKey())) || 0; }catch(e){ return 0; } }
+function paintLyrOffset(){
+  const o = lyrOffset();
+  el("loff").textContent = (o > 0 ? "+" : o < 0 ? "−" : "") + Math.abs(o).toFixed(1).replace(".", ",") + " s";
+}
+function nudgeLyr(d){
+  const o = Math.round((lyrOffset() + d) * 10) / 10;
+  try{ localStorage.setItem(lyrOffKey(), String(o)); }catch(e){}
+  paintLyrOffset(); curLine = -1; userScrollAt = 0;
+}
+el("lminus").onclick = () => nudgeLyr(-0.5);
+el("lplus").onclick = () => nudgeLyr(0.5);
+async function loadLyrics(){
+  const box = el("lyrics");
+  if(!S.live){ box.innerHTML = '<div class="empty">Texty se načtou, až něco začne hrát.</div>'; return; }
+  if(lyricsFor === trackKey) return;
+  lyricsFor = trackKey;
+  const forKey = trackKey;
+  box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám text…</div>';
+  try{
+    const qs = new URLSearchParams({q: S.title, artist: S.artists, duration: String(Math.round(S.duration || 0))});
+    if(S.videoId) qs.set("video_id", S.videoId);
+    lyrics = await (await fetch("/api/lyrics/search?" + qs)).json();
+  }catch(e){ lyrics = null; }
+  if(forKey !== trackKey) return;
+  curLine = -1; lyricEls = [];
+  paintLyrOffset();
+  if(lyrics && lyrics.synced && lyrics.lines && lyrics.lines.length){
+    box.innerHTML = lyrics.lines.map((l, i) =>
+      `<p class="ln" data-i="${i}"><span class="fill">${esc(l.text || "♪")}</span></p>`).join("");
+    lyricEls = [...box.querySelectorAll(".ln")];
+    lyricEls.forEach(p => p.onclick = () => {
+      const t = Math.max(0, lyrics.lines[+p.dataset.i].timeInMs / 1000 + lyrOffset());
+      send("seek", t); S.position = t; S.at = Date.now() / 1000; userScrollAt = 0;
+    });
+  } else if(lyrics && lyrics.plain){
+    box.innerHTML = `<div class="plain">${esc(lyrics.plain)}</div>`;
+  } else {
+    box.innerHTML = '<div class="empty">Text k téhle skladbě se nenašel.</div>';
+  }
+}
+el("lyrics").addEventListener("wheel", () => { userScrollAt = Date.now(); }, {passive: true});
+
+function syncLyrics(){
+  if(!shown("lyrics") || !lyricEls.length) return;
+  const ms = (nowPos() - lyrOffset()) * 1000 + 150;
+  const L = lyrics.lines;
+  let i = -1;
+  for(let k = 0; k < L.length; k++){ if(L[k].timeInMs <= ms) i = k; else break; }
+  if(i !== curLine){
+    lyricEls.forEach((p, k) => { p.classList.toggle("cur", k === i); p.classList.toggle("past", k < i); });
+    curLine = i;
+    // Leave the text alone for a few seconds after the user scrolled it.
+    if(i >= 0 && Date.now() - userScrollAt > 4000){
+      const box = el("lyrics"), p = lyricEls[i];
+      box.scrollTop = p.offsetTop - box.clientHeight * 0.38;
+    }
+  }
+  if(i >= 0){
+    // The current line fills in left to right as it is sung.
+    const start = L[i].timeInMs, end = L[i + 1] ? L[i + 1].timeInMs : start + (L[i].duration || 4000);
+    const p = Math.max(0, Math.min(1, (ms - start) / Math.max(1, end - start)));
+    lyricEls[i].style.setProperty("--p", (p * 100).toFixed(1) + "%");
+  }
+}
+
+// --------------------------------------------------------------- queue
+function loadQueue(){ try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){ return []; } }
+function renderQueue(){
+  const q = loadQueue(), box = el("queue");
+  if(!q.length){
+    box.innerHTML = '<div class="empty" style="padding-top:60px">Fronta je prázdná.<br>Písničky do ní přidáš v aplikaci tlačítkem ➕.</div>';
+    return;
+  }
+  box.innerHTML = `<div class="qhead">Fronta · ${q.length}</div>` + q.map((it, i) => {
+    const cur = (S.key && it.key === S.key) || (!S.key && it.title === S.title && (it.artists || "") === S.artists);
+    const th = it.thumbnail || it.image;
+    return `<div class="qi${cur ? " cur" : ""}" data-i="${i}">
+      <span class="n">${cur && S.playing ? "▶" : i + 1}</span>
+      <div class="th" style="${th ? `background-image:url('${esc(thumbUrl(th))}')` : ""}">${th ? "" : icon("note", 16)}</div>
+      <div class="m"><b>${esc(it.title || it.relPath || "—")}</b><span>${esc(it.artists || "")}</span></div>
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".qi").forEach(r => r.onclick = () => {
+    send("playqueue", +r.dataset.i);
+    toast("Přehrávám z fronty");
+  });
+  const cur = box.querySelector(".qi.cur");
+  if(cur) cur.scrollIntoView({block: "nearest"});
+}
+window.addEventListener("storage", (e) => { if(e.key === QUEUE_KEY && shown("queue")) renderQueue(); });
+
+// --------------------------------------------------------- sleep timer
+// Click cycles off → 15 → 30 → 60 min → end of this song → off.
+const SLEEP_STEPS = [0, 15, 30, 60, "end"];
+let sleep = {step: 0, until: 0, songKey: ""};
+el("sleep").onclick = () => {
+  sleep.step = (sleep.step + 1) % SLEEP_STEPS.length;
+  const v = SLEEP_STEPS[sleep.step];
+  sleep.until = typeof v === "number" && v ? Date.now() + v * 60000 : 0;
+  sleep.songKey = trackKey;
+  toast(v === 0 ? "Časovač spánku vypnut" : v === "end" ? "Usnu po konci téhle skladby" : `Usnu za ${v} min`);
+  paintSleep();
+};
+function paintSleep(){
+  const v = SLEEP_STEPS[sleep.step], b = el("sleep");
+  b.classList.toggle("on", v !== 0);
+  let badge = "";
+  if(v === "end") badge = "♪";
+  else if(v) badge = Math.max(1, Math.ceil((sleep.until - Date.now()) / 60000)) + "";
+  b.innerHTML = icon("moon", 16) + (badge ? `<span class="badge">${badge}</span>` : "");
+}
+function checkSleep(){
+  const v = SLEEP_STEPS[sleep.step];
+  if(!v) return;
+  const fire = v === "end"
+    ? (sleep.songKey && trackKey !== sleep.songKey) || (S.duration > 0 && S.duration - nowPos() < 1.2)
+    : Date.now() >= sleep.until;
+  if(fire && S.playing){
+    send("pause");
+    sleep.step = 0; paintSleep();
+    toast("Dobrou noc 🌙");
+  } else if(fire && v !== "end"){ sleep.step = 0; paintSleep(); }
+  else paintSleep();
+}
+
+// ----------------------------------------------------------- controls
+el("play").onclick = () => { send("playpause"); S.playing = !S.playing; el("play").innerHTML = icon(S.playing ? "pause" : "play", 22); };
+el("prev").onclick = () => send("prev");
+el("next").onclick = () => send("next");
+const jump = (d) => { if(!S.duration) return; const t = Math.max(0, Math.min(S.duration, nowPos() + d)); send("seek", t); S.position = t; S.at = Date.now() / 1000; };
+el("back10").onclick = () => jump(-10);
+el("fwd10").onclick = () => jump(10);
+el("mute").onclick = () => send("mute");
+el("volume").oninput = (e) => { send("volume", parseFloat(e.target.value)); e.target.style.setProperty("--v", (e.target.value * 100) + "%"); };
+el("openMain").onclick = (e) => { e.preventDefault(); window.open("/", "_blank"); };
+
+let dragging = false;
+el("seek").addEventListener("pointerdown", () => { dragging = true; });
+el("seek").addEventListener("input", (e) => {
+  el("pos").textContent = fmt(parseFloat(e.target.value) / 1000 * S.duration);
+  e.target.style.setProperty("--v", (e.target.value / 10) + "%");
+});
+el("seek").addEventListener("change", (e) => {
+  dragging = false;
+  if(S.duration > 0){
+    const t = (parseFloat(e.target.value) / 1000) * S.duration;
+    send("seek", t); S.position = t; S.at = Date.now() / 1000;
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if(e.target.tagName === "INPUT" && e.target.type !== "range") return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if(k === " "){ e.preventDefault(); el("play").click(); }
+  else if(k === "ArrowLeft"){ e.preventDefault(); jump(-5); }
+  else if(k === "ArrowRight"){ e.preventDefault(); jump(5); }
+  else if(k === "ArrowUp" || k === "ArrowDown"){
+    e.preventDefault();
+    const v = Math.max(0, Math.min(1, S.volume + (k === "ArrowUp" ? .05 : -.05)));
+    S.volume = v; send("volume", v);
+    el("volume").value = String(v); el("volume").style.setProperty("--v", v * 100 + "%");
+  }
+  else if(k === "m" || k === "M") send("mute");
+  else if(k === "n" || k === "N") send("next");
+  else if(k === "p" || k === "P") send("prev");
+  else if("1234".includes(k) && k.length === 1) showTab(Object.keys(TABS)[+k - 1]);
+});
+
+// ----------------------------------------------------------- the loop
+function frame(now){
+  const dt = Math.min(100, now - lastFrame); lastFrame = now;
+  // 33⅓ rpm, near enough — the record stands still when the music does.
+  if(S.playing && !scratch) spin += dt * 0.2;
+  vinyl.style.transform = `rotate(${spin % 360}deg)`;
+  const pos = nowPos();
+  if(!dragging){
+    el("pos").textContent = fmt(pos);
+    el("dur").textContent = fmt(S.duration);
+    const pct = S.duration > 0 ? pos / S.duration : 0;
+    el("seek").value = String(Math.round(pct * 1000));
+    el("seek").style.setProperty("--v", (pct * 100).toFixed(2) + "%");
+  }
+  syncLyrics();
+  syncVideo();
+  requestAnimationFrame(frame);
+}
+
+applyLayout();
+showTab(curTab);
+// A freshly opened window takes the size used last (small the first time).
+try{
+  if(!sessionStorage.getItem("mini.opened")){
+    sessionStorage.setItem("mini.opened", "1");
+    const want = store.get("size", "compact");
+    const [w, h] = SIZES[want] || SIZES.compact;
+    if(Math.abs(innerWidth - w) > 40 || Math.abs(innerHeight - h) > 60) setSize(want);
+  }
+}catch(e){}
 refresh();
-setInterval(refresh, 900);
+setInterval(refresh, 700);
+setInterval(() => { if(shown("queue")) renderQueue(); }, 5000);
+requestAnimationFrame(frame);
 </script>

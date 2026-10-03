@@ -74,3 +74,23 @@ def test_track_number_is_read_for_sorting_by_album():
     assert _track_no(None) is None
     assert _track_no("") is None
     assert _track_no("A1") is None
+
+
+def test_midi_files_are_listed_and_served(client, tmp_music_root):
+    # MIDI files are dragged from the library onto a MIDI track, so they get
+    # their own type, their folder is marked as holding some, and the bytes
+    # are served (only for .mid/.midi).
+    sub = tmp_music_root / "MIDI"
+    sub.mkdir()
+    (sub / "riff.mid").write_bytes(b"MThd-data")
+    (sub / "notes.txt").write_bytes(b"x")
+
+    root = {e["name"]: e for e in client.get("/api/library/browse").json()["entries"]}
+    assert root["MIDI"]["midi_count"] == 1
+    entries = {e["name"]: e for e in client.get("/api/library/browse", params={"rel": "MIDI"}).json()["entries"]}
+    assert entries["riff.mid"]["type"] == "midi"
+
+    res = client.get("/api/library/midi", params={"rel": "MIDI/riff.mid"})
+    assert res.status_code == 200 and res.content == b"MThd-data"
+    assert client.get("/api/library/midi", params={"rel": "MIDI/notes.txt"}).status_code == 404
+    assert client.get("/api/library/midi", params={"rel": "../../etc/passwd"}).status_code == 404

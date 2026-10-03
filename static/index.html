@@ -620,10 +620,45 @@
   .fl-live .gt-knob-label > span{display:block}
   .fl-live .gt-preset-name{max-width:104px;font-size:8px}
   .gt-rail-preset{font-size:9px;color:var(--nm-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .comp-panel .eq-head .comp-onoff.on{background:#ffd166;color:#1a1400;border-color:#ffd166}
-  .comp-body{display:flex;gap:14px;align-items:stretch}
-  #comp-canvas{flex:0 0 auto;width:320px;height:240px;border-radius:8px;border:1px solid #23232b;
+  .eq-panel .eq-head .comp-onoff.on{background:#ffd166;color:#1a1400;border-color:#ffd166}
+  .comp-body{display:flex;gap:10px;align-items:stretch}
+  #comp-canvas{flex:0 0 auto;width:150px;height:170px;border-radius:8px;border:1px solid #23232b;
     cursor:crosshair;touch-action:none}
+  /* EQ | compressor | doubler in one row; they wrap when it gets narrow. */
+  .fx-rack{display:flex;flex-wrap:wrap;gap:1px;background:var(--border)}
+  .fx-rack > .eq-panel{border-top:none}
+  .fx-rack > .eq-panel:not(.fx-mini){flex:1 1 260px;min-width:0}
+  .fx-rack > .eq-panel:not(.fx-mini) .eq-head{flex-wrap:wrap;gap:6px 10px}
+  .fx-rack > .eq-panel:not(.fx-mini) .eq-readout{flex-basis:100%;order:9}
+  /* As wide as their contents, never wider: the header wraps to fit. */
+  .fx-rack > .fx-mini{flex:0 0 auto;width:min-content;padding:12px 10px}
+  .fx-mini .comp-gr{width:24px}
+  .fx-rack:has(> .eq-panel:not([hidden])){border-top:1px solid var(--border)}
+  .eq-head.wrap{flex-wrap:wrap;gap:6px 8px}
+  .fx-head-row{display:flex;gap:6px;width:100%}
+  .fx-head-row select{flex:1;min-width:0}
+  .fx-preset{background:#1c1c22;color:#ffd166;border:1px solid #4a3f1f;border-radius:6px;font-size:11px;
+    padding:4px 8px;font-family:inherit;max-width:190px}
+  .fx-mini .fx-head-row select{width:0;flex:1 1 0;max-width:none}
+  .fx-mini .eq-title{font-size:10px;letter-spacing:.1em}
+  .fx-preset:hover{border-color:#ffd166}
+  /* Vertical sliders: value on top, the slider, the name below. */
+  .vsliders{display:flex;gap:2px;align-items:stretch}
+  .vs{display:flex;flex-direction:column;align-items:center;gap:4px;width:30px}
+  .vs b{font-size:9.5px;color:var(--nm-txt,#ddd);font-weight:600;font-variant-numeric:tabular-nums;
+    white-space:nowrap;min-height:12px}
+  .vs input[type=range]{writing-mode:vertical-lr;direction:rtl;width:18px;flex:1;min-height:120px;
+    accent-color:#ffd166;margin:0;cursor:ns-resize}
+  .vs span{font-size:8px;color:var(--sub);letter-spacing:0;text-align:center;line-height:1.1;white-space:nowrap}
+  .dbl-side{display:flex;flex-direction:column;gap:6px}
+  .dbl-side [hidden]{display:none !important}
+  .dbl-side .dbl-mode{display:flex;gap:3px}
+  .dbl-side .dbl-mode button{flex:1;background:#1c1c22;border:1px solid #33333d;color:var(--sub);border-radius:6px;
+    font-size:10.5px;padding:4px 6px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .dbl-side .dbl-mode button:hover{color:var(--text)}
+  .dbl-side .dbl-mode button.on{background:rgba(255,209,102,.16);color:#ffd166;border-color:#ffd166}
+  .dbl-panel.off .dbl-side .vsliders{opacity:.5}
+  #dbl-canvas{flex:0 0 auto;width:164px;height:170px;border-radius:8px;border:1px solid #23232b;background:#08080b}
   #comp-canvas.grab{cursor:grab}
   #comp-canvas.grabbing{cursor:grabbing}
   .comp-gr{display:flex;flex-direction:column;align-items:center;gap:4px;width:34px}
@@ -982,7 +1017,15 @@
   .nm-strip:not(.metro-strip) .nm-strip-name{cursor:pointer}
   /* Clips: a track cut into pieces with the scissors. */
   .nm-clip{position:absolute;top:2px;bottom:2px;border:1px solid rgba(255,255,255,.35);border-radius:4px;
-    background:rgba(255,255,255,.03);cursor:grab;z-index:2;box-sizing:border-box}
+    background:rgba(255,255,255,.03);cursor:text;z-index:2;box-sizing:border-box}
+  /* The clip's top bar moves it; dragging anywhere else selects. */
+  .nm-clip::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;
+    background:rgba(255,255,255,.10);border-radius:3px 3px 0 0;cursor:grab}
+  .nm-clip.sel::before{background:rgba(255,209,102,.35)}
+  .nm-lane{cursor:text}
+  .nm-lane-sel{position:absolute;top:0;bottom:0;background:rgba(255,209,102,.22);
+    box-shadow:inset 1px 0 0 #ffd166, inset -1px 0 0 #ffd166;pointer-events:none;z-index:3}
+  .nm-lane-sel[hidden]{display:none}
   .nm-clip:hover{border-color:rgba(255,255,255,.7)}
   .nm-clip.sel{border:2px solid #ffd166;background:rgba(255,209,102,.10)}
   .nm-clip.dragging{cursor:grabbing;opacity:.85}
@@ -999,15 +1042,37 @@
   .midi-row button.rec.on{background:#ff3b3b;border-color:#ff3b3b;color:#fff}
   .midi-row .inst{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
   .midi-ed{border-top:1px solid #26262e;background:#121217}
-  .midi-ed-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 16px;font-size:12px;color:var(--nm-sub)}
+  .midi-ed-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 12px;font-size:12px;color:var(--nm-sub)}
   .midi-ed-head b{color:var(--nm-txt)}
+  .midi-ed-name{display:flex;align-items:center;gap:5px;margin-right:4px}
   .midi-ed-head .nm-btn{padding:5px 9px;font-size:11.5px}
-  .midi-ed-head select{background:#1e1e25;color:var(--nm-txt);border:1px solid #32323c;border-radius:7px;padding:5px 8px;font-size:12px;max-width:230px}
-  .midi-ed-body{display:flex;height:300px;position:relative}
+  .midi-ed-head .nm-btn.ib{padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center}
+  .midi-ed-head .nm-btn.tx{padding:4px 7px;font-size:11px;font-variant-numeric:tabular-nums}
+  .midi-ed-head .nm-btn.on{background:rgba(255,209,102,.18);border-color:#ffd166;color:#ffd166}
+  .midi-ed-head .nm-btn:disabled{opacity:.35;cursor:default}
+  .midi-ed-head .mtb{display:inline-flex;align-items:center;gap:3px;padding:2px 6px 2px 0;margin-right:2px;border-right:1px solid #2a2a33}
+  .midi-ed-head .mtb.vel{gap:5px;font-size:10.5px;letter-spacing:.06em}
+  .midi-ed-head .mtb.vel input{width:90px;accent-color:#ffd166}
+  .midi-ed-head .mtb.vel b{min-width:22px;font-variant-numeric:tabular-nums}
+  .midi-ed-head select{background:#1e1e25;color:var(--nm-txt);border:1px solid #32323c;border-radius:7px;padding:5px 6px;font-size:12px;max-width:170px}
+  .midi-ed-body{display:flex;height:320px;position:relative}
   .midi-ed-keys{flex:0 0 46px;overflow:hidden;position:relative;background:#18181e;border-right:1px solid #26262e}
-  .midi-ed-keys canvas,.midi-ed-scroll canvas{display:block}
-  .midi-ed-scroll{flex:1;overflow:auto;position:relative}
-  .midi-ed-scroll canvas{cursor:crosshair}
+  .midi-ed-keys canvas{display:block}
+  .midi-ed-main{flex:1;position:relative;min-width:0}
+  #midi-cv{position:absolute;left:0;top:0;pointer-events:none}
+  .midi-ed-scroll{position:absolute;inset:0;overflow:auto;outline:none;cursor:default}
+  .midi-ed-scroll[data-tool="draw"]{cursor:crosshair}
+  .midi-ed-scroll[data-tool="cut"]{cursor:col-resize}
+  #midi-spacer{pointer-events:none}
+  .midi-band{position:absolute;border:1px solid #ffd166;background:rgba(255,209,102,.12);pointer-events:none}
+  .midi-band[hidden]{display:none}
+  .midi-ed-vel{display:flex;height:64px;border-top:1px solid #26262e}
+  .midi-ed-vlbl{flex:0 0 46px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+    color:var(--nm-sub);background:#18181e;border-right:1px solid #26262e}
+  .midi-ed-vwrap{flex:1;min-width:0;position:relative;overflow:hidden}
+  .midi-ed-vwrap canvas{display:block;cursor:ns-resize}
+  .midi-ed-resize{height:7px;cursor:ns-resize;background:linear-gradient(#1a1a20,#121217);border-top:1px solid #26262e}
+  .midi-ed-resize:hover{background:#2a2a33}
 
   /* --- overview strip (whole song at a glance) --- */
   .nm-overview{display:flex;align-items:center;gap:14px;padding:9px 16px;
@@ -1543,6 +1608,13 @@
   body.lib-collapsed .lib-branch{display:none}
 
   /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
+  /* Songs (Steems, Ready to play, Fronta, Historie): no picture, just the
+     title with the band under it, one per line across the whole rail. */
+  .lib-row.song{grid-column:1/-1;padding:6px 10px;gap:0;border-radius:5px}
+  .lib-row.song .lib-name{font-size:14px;font-weight:600;line-height:1.3}
+  .lib-row.song .lib-sub{font-size:12.5px;margin-top:1px;line-height:1.3}
+  .lib-row.song.active .lib-name{color:var(--accent)}
+  body.lib-collapsed .lib-row.song{display:none}
   .lib-rail-divider{grid-column:1/-1;height:1px;background:var(--border);margin:8px 8px 2px}
 
   /* The rail re-lays itself out as it is dragged wider or narrower. */
@@ -1553,6 +1625,7 @@
     .lib-art{width:38px;height:38px;flex-basis:38px}
     .lib-name{font-size:13.5px}
     .lib-sub{display:none}
+    .lib-row.song .lib-sub{display:block}
   }
   @container libr (min-width: 380px){
     .lib-art{width:56px;height:56px;flex-basis:56px}
@@ -2461,9 +2534,23 @@
     display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:5px;font-size:10px;color:#555;cursor:pointer}
   .pk-b{position:absolute;top:0;height:62%;background:linear-gradient(#333,#111);border:1px solid #000;border-radius:0 0 4px 4px;z-index:2;
     display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:4px;font-size:9px;color:#bbb;cursor:pointer}
-  .pk-w .hk,.pk-b .hk{font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;margin-bottom:3px}
-  .pk-w .hk{background:#ddd;color:#333}
-  .pk-b .hk{background:#444;color:#eee}
+  /* Computer-key hints drawn as little keycaps; the held one lights up. */
+  .pk-w .hk,.pk-b .hk{font-size:11px;font-weight:800;min-width:18px;text-align:center;padding:2px 4px;border-radius:4px;
+    margin-bottom:4px;font-family:ui-monospace,Menlo,monospace;transition:background .08s,transform .08s}
+  .pk-w .hk{background:#fff;color:#222;border:1px solid #9a9a9a;border-bottom-width:3px}
+  .pk-b .hk{background:#3a3a3a;color:#f2f2f2;border:1px solid #111;border-bottom-width:3px}
+  .pk-w .hk.on,.pk-b .hk.on{background:#ffd166;color:#1a1400;border-color:#b8860b;transform:translateY(2px);border-bottom-width:1px}
+  /* What a Steems MIDI track plays (and what comes next). */
+  .pk-w.latch{background:linear-gradient(#c9ffd8,#5fe08a) !important;color:#012}
+  .pk-b.latch{background:linear-gradient(#36d26b,#1a8a43) !important;color:#fff}
+  .pk-w.play,.pk-b.play{background:linear-gradient(#ffb36b,#ff7a1a) !important;color:#1a0a00}
+  .pk-w.next{box-shadow:inset 0 0 0 3px rgba(255,140,40,.65)}
+  .pk-b.next{box-shadow:inset 0 0 0 2px rgba(255,160,70,.9)}
+  .pk-w.play.down,.pk-b.play.down{background:linear-gradient(#9dffb0,#2fd36a) !important}
+  .pk-outside{font-size:11px;color:#ff9a3c;cursor:pointer;border:1px solid rgba(255,154,60,.5);border-radius:5px;padding:1px 6px}
+  .pk-legend{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--sub)}
+  .pk-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:6px}
+  .pk-legend .lg-down{background:#3aa8ff}.pk-legend .lg-play{background:#ff7a1a}.pk-legend .lg-next{box-shadow:inset 0 0 0 2px #ff8c28}
   .pk-w.out{background:linear-gradient(#cfcfcf,#bdbdbd);color:#999}
   .pk-b.out{background:linear-gradient(#2a2a2a,#1c1c1c);color:#555}
   .pk-w.out.locked,.pk-b.out.locked{cursor:not-allowed}
@@ -2620,6 +2707,10 @@
     cursor:pointer;padding:3px}
   .c-act button:hover{color:#fff}
   .lib-mount-row .tree-icon{color:var(--accent)}
+  .lib-mount-row .c-act{opacity:1}
+  .lib-mount-row .act-unmount{display:flex;align-items:center;gap:5px;font-size:12px;
+    font-weight:600;padding:4px 10px;border:1px solid var(--border);border-radius:500px}
+  .lib-mount-row .act-unmount:hover{border-color:var(--danger);color:var(--danger)}
   .lib-mount-row .sub{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Where a track stands with its stems — always visible, unlike .c-act. */
   .stems-badge{flex:none;display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:9px;
@@ -2736,6 +2827,14 @@
   .tree-node.open > .tree-row .tree-twisty{transform:rotate(90deg)}
   .tree-icon{font-size:13px;flex:0 0 auto;opacity:.85}
   .tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .lib-tree{grid-column:1/-1;padding:2px 0 8px 6px}
+  .lib-tree .tree-row{padding:6px 8px;font-size:14px}
+  .tree-icon.mount{color:var(--accent);display:flex}
+  .tree-midi{cursor:grab;color:var(--sub)}
+  .tree-midi:hover{color:var(--text)}
+  .tree-midi:active{cursor:grabbing}
+  .lib-midi-row{cursor:grab}
+  .midi-ed.drop,.nm-strip.midi-drop{outline:2px dashed var(--accent);outline-offset:-3px}
   .tree-children{margin-left:14px;border-left:1px solid rgba(255,255,255,.07)}
   body.lib-collapsed .tree-row{justify-content:center;padding:6px 0}
   body.lib-collapsed .tree-twisty,body.lib-collapsed .tree-name{display:none}
@@ -3106,9 +3205,104 @@
     .cat{height:108px}
     .cat .label{font-size:17px}
   }
+
+  /* ==================================================================
+     Ambient look — the mini player's style for the whole app. Only paint:
+     the cover of what plays, blurred, behind everything; slow colour
+     shapes; glass panels; an accent taken from the cover. It works by
+     redefining the colour variables the app is built on, so every control
+     keeps its place and behaviour. Settings → Vzhled turns it off.
+     ================================================================== */
+  html.ambient{
+    --bg: transparent;
+    --bg2: rgba(17,18,24,.80);
+    --card: rgba(255,255,255,.055);
+    --card-hi: rgba(255,255,255,.10);
+    --border: rgba(255,255,255,.085);
+    --sp-hover: rgba(255,255,255,.08);
+    --sp-radius: 14px;
+    --accent2: #38bdf8;
+    --glass: rgba(14,15,20,.40);
+    --glass-strong: rgba(14,15,20,.80);
+    --accent-dim: color-mix(in srgb, var(--accent) 70%, #000);
+    background:#06070a;
+  }
+  html.ambient body{background:transparent}
+  #amb-bg, #amb-blobs, #amb-shade{display:none}
+  html.ambient #amb-bg{display:block;position:fixed;inset:-90px;z-index:-3;
+    background:#0b0c10 center/cover no-repeat;filter:blur(64px) saturate(1.7) brightness(.62);
+    transform:scale(1.12);transition:background-image .9s ease, opacity .9s ease}
+  html.ambient #amb-blobs{display:block;position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
+  html.ambient #amb-blobs i{position:absolute;width:62vmax;height:62vmax;border-radius:50%;filter:blur(70px);
+    opacity:.42;mix-blend-mode:screen;animation:amb-drift 40s ease-in-out infinite alternate}
+  html.ambient #amb-blobs i:nth-child(1){left:-18vmax;top:-24vmax;background:radial-gradient(circle,var(--accent),transparent 66%)}
+  html.ambient #amb-blobs i:nth-child(2){right:-22vmax;bottom:-28vmax;background:radial-gradient(circle,var(--accent2),transparent 66%);
+    animation-duration:52s;animation-direction:alternate-reverse}
+  html.ambient #amb-blobs i:nth-child(3){left:35vw;top:30vh;width:40vmax;height:40vmax;opacity:.16;
+    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 50%,var(--accent2)),transparent 66%);animation-duration:64s}
+  html.ambient #amb-shade{display:block;position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(120% 80% at 50% 0%, transparent, rgba(0,0,0,.35) 78%), linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.4))}
+  @keyframes amb-drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(9vmax,6vmax) scale(1.14)}100%{transform:translate(-7vmax,11vmax) scale(.94)}}
+  @media (prefers-reduced-motion: reduce){ html.ambient #amb-blobs i{animation:none} }
+
+  /* glass panels */
+  html.ambient .sp-topbar{background:transparent}
+  html.ambient .sp-shell > *{background:var(--glass);backdrop-filter:blur(26px) saturate(1.35);
+    -webkit-backdrop-filter:blur(26px) saturate(1.35);border:1px solid rgba(255,255,255,.07);
+    box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  html.ambient .main-content{background:var(--glass)}
+  html.ambient #overlay .panel{background:var(--glass)}
+  html.ambient .player-bar{background:rgba(10,11,15,.55);backdrop-filter:blur(28px) saturate(1.4);
+    -webkit-backdrop-filter:blur(28px) saturate(1.4);border-top:1px solid rgba(255,255,255,.07)}
+  html.ambient .panel, html.ambient .sect-menu, html.ambient .tr-box{background:var(--glass-strong);
+    backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);
+    border-color:rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  html.ambient .overlay{backdrop-filter:blur(6px)}
+  html.ambient .sp-hero{background:linear-gradient(180deg,color-mix(in srgb,var(--hero,#333) 62%,transparent) 0%,transparent 100%)}
+
+  /* modern controls */
+  html.ambient button.btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07080b;
+    border-radius:999px;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 32%,transparent);
+    transition:filter .15s, transform .15s, box-shadow .15s}
+  html.ambient button.btn:hover{background:linear-gradient(135deg,var(--accent),var(--accent2));filter:brightness(1.1);transform:translateY(-1px)}
+  html.ambient button.btn.secondary, html.ambient button.btn.danger{background:rgba(255,255,255,.06);box-shadow:none;
+    border:1px solid rgba(255,255,255,.12)}
+  html.ambient button.btn.secondary{color:var(--text)}
+  html.ambient button.btn.secondary:hover, html.ambient button.btn.danger:hover{background:rgba(255,255,255,.1);filter:none}
+  html.ambient button.btn.secondary.on{border-color:var(--accent);color:var(--accent)}
+  html.ambient .pb-play, html.ambient .pb-play:hover{width:40px;height:40px;color:#07080b !important;
+    background:radial-gradient(circle at 35% 30%,var(--accent2),var(--accent)) !important;
+    box-shadow:0 6px 22px color-mix(in srgb,var(--accent) 50%,transparent), inset 0 1px 0 rgba(255,255,255,.35) !important}
+  html.ambient .pb-progress{background:rgba(255,255,255,.14);height:5px}
+  html.ambient .pb-progress-fill, html.ambient .pb-progress:hover .pb-progress-fill{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  html.ambient .pb-progress-handle{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+  html.ambient .pb-art{border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+  html.ambient input[type=range]{accent-color:var(--accent)}
+  html.ambient ::selection{background:color-mix(in srgb,var(--accent) 35%,transparent)}
+  html.ambient .sp-scroll:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);background-clip:content-box}
+  html.ambient .lib-sec-mode.active{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 22%,transparent),transparent)}
+  html.ambient .lib-row, html.ambient .tree-row{border-radius:10px}
+  html.ambient .lib-row:hover, html.ambient .tree-row:hover{background:rgba(255,255,255,.07)}
+  html.ambient .tree-row.active, html.ambient .lib-row.active{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  html.ambient .sp-round{background:rgba(255,255,255,.06);backdrop-filter:blur(10px)}
+  html.ambient .sp-round:hover{background:rgba(255,255,255,.12)}
+  /* category tiles: rounded, with a soft sheen and a lift on hover */
+  html.ambient .cat{border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.28);
+    transition:transform .18s ease, box-shadow .18s ease}
+  html.ambient .cat::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+    background:linear-gradient(135deg,rgba(255,255,255,.16),transparent 45%,rgba(0,0,0,.18));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
+  html.ambient .cat:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,.4)}
+  .amb-theme{display:flex;gap:6px}
 </style>
 </head>
 <body>
+<script>
+  // Before anything paints: the ambient look, unless it was switched off.
+  try{ if(localStorage.getItem("spotdl-theme") !== "classic") document.documentElement.classList.add("ambient"); }
+  catch(e){ document.documentElement.classList.add("ambient"); }
+</script>
+<div id="amb-bg"></div><div id="amb-blobs"><i></i><i></i><i></i></div><div id="amb-shade"></div>
 <!-- Floating top bar: history nav, home + search pill, account cluster. -->
 <div class="sp-topbar">
   <div class="sp-nav-btns">
@@ -3171,6 +3365,13 @@
     <div class="panel-head">
       <button class="close-btn" id="settings-close"><span data-icon="close" data-size="13"></span></button>
       <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="star"></span>Vzhled</div>
+      <div class="amb-theme">
+        <button type="button" class="btn secondary" id="theme-ambient">Ambientní — barvy podle obalu</button>
+        <button type="button" class="btn secondary" id="theme-classic">Klasický</button>
+      </div>
+      <div class="set-note">Ambientní: rozmazaný obal hrající písně v pozadí, skleněné panely a barva tlačítek podle obalu.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="download"></span>Kvalita stahovaných písní</div>
       <select id="bitrate" style="width:100%;padding:10px">
@@ -3583,6 +3784,7 @@
               <button class="nm-btn round" id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="14"></span></button>
               <button class="nm-btn round" id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="14"></span></button>
               <button class="nm-btn round" id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="14"></span></button>
+              <button class="nm-btn round" id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span></button>
               <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span></button>
@@ -3635,11 +3837,15 @@
 
         <div id="fl-channels" class="fl-channels" hidden></div>
 
+        <!-- EQ, compressor and doubler side by side (they wrap under each other
+             when the window is narrow). Each is for whichever channel is picked. -->
+        <div class="fx-rack" id="fx-rack">
         <!-- One equaliser, for whichever channel is selected in the strips above. -->
         <div class="eq-panel" id="eq-panel" hidden>
           <div class="eq-head">
             <span class="eq-title" id="eq-title">EQUALIZER</span>
             <select class="eq-chan-select" id="eq-chan-select" title="Která stopa se upravuje"></select>
+            <select class="fx-preset" id="eq-preset" title="Přednastavení pro nástroj"></select>
             <span class="eq-readout" id="eq-readout">Táhni body: vodorovně kmitočet, svisle zesílení. Kolečko myši mění šířku pásma.</span>
             <button type="button" class="nm-btn" id="eq-reset" title="Vrátit všechna pásma na nulu">Reset</button>
           </div>
@@ -3649,24 +3855,60 @@
         <!-- Compressor for whichever channel is selected — drawn as its transfer
              curve (input level → output level), the way the EQ is drawn as its
              frequency response. -->
-        <div class="eq-panel comp-panel" id="comp-panel" hidden>
-          <div class="eq-head">
+        <div class="eq-panel comp-panel fx-mini" id="comp-panel" hidden>
+          <div class="eq-head wrap">
             <span class="eq-title" id="comp-title">KOMPRESOR</span>
-            <select class="eq-chan-select" id="comp-chan-select" title="Která stopa se upravuje"></select>
             <button type="button" class="nm-btn comp-onoff" id="comp-onoff">Vypnuto</button>
-            <span class="eq-readout" id="comp-readout">Táhni bod prahu vodorovně, bod poměru svisle. Kolečko myši mění koleno.</span>
             <button type="button" class="nm-btn" id="comp-reset" title="Výchozí nastavení">Reset</button>
+            <span class="eq-readout" id="comp-readout" hidden></span>
+            <div class="fx-head-row">
+              <select class="eq-chan-select" id="comp-chan-select" title="Která stopa se upravuje"></select>
+              <select class="fx-preset" id="comp-preset" title="Přednastavení pro nástroj"></select>
+            </div>
           </div>
           <div class="comp-body">
-            <canvas id="comp-canvas"></canvas>
+            <canvas id="comp-canvas" title="Táhni bod P (práh) vodorovně, bod R (poměr) svisle. Kolečko myši mění koleno."></canvas>
             <div class="comp-gr" title="Stažení (gain reduction)">
               <div class="comp-gr-bar"><div class="comp-gr-fill" id="comp-gr-fill"></div></div>
               <span class="comp-gr-val" id="comp-gr-val">0,0</span>
-              <span class="comp-gr-cap">GR dB</span>
+              <span class="comp-gr-cap">GR</span>
             </div>
-            <div class="comp-params" id="comp-params"></div>
+            <div class="vsliders" id="comp-params"></div>
           </div>
         </div>
+
+        <!-- Doubler for whichever channel is picked: a top view of where the
+             second guitar (or the two shifted copies) sits and how it moves. -->
+        <div class="eq-panel dbl-panel fx-mini" id="dbl-panel" hidden>
+          <div class="eq-head wrap">
+            <span class="eq-title" id="dbl-title">DOUBLER</span>
+            <button type="button" class="nm-btn comp-onoff" id="dbl-onoff">Vypnuto</button>
+            <div class="fx-head-row">
+              <select class="eq-chan-select" id="dbl-chan-select" title="Která stopa se upravuje"></select>
+              <select class="fx-preset" id="dbl-preset" title="Přednastavení"></select>
+            </div>
+          </div>
+          <div class="comp-body">
+            <canvas id="dbl-canvas"></canvas>
+            <div class="dbl-side">
+              <div class="dbl-mode dbl-algo">
+                <button type="button" data-algo="neural" title="Druhý kytarista s lidskou nepřesností (NeuralDouble)">Neural</button>
+                <button type="button" data-algo="micro" title="Mikro posun ladění a krátké zpoždění vlevo/vpravo (styl MicroShift / H3000)">MicroShift</button>
+              </div>
+              <div class="dbl-mode" data-for="neural">
+                <button type="button" data-mode="electric">Elektrická</button>
+                <button type="button" data-mode="acoustic">Akustická</button>
+              </div>
+              <div class="dbl-mode dbl-style" data-for="micro">
+                <button type="button" data-style="1" title="Eventide H3000 #231 — pevné ±9 centů, lehká saturace">I</button>
+                <button type="button" data-style="2" title="Eventide H3000 #519 — rozladění se pomalu mění">II</button>
+                <button type="button" data-style="3" title="AMS DMX 15-80 — delší zpoždění, jemný pohyb (ADT)">III</button>
+              </div>
+              <div class="vsliders" id="dbl-params"></div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /fx-rack -->
       </div>
 
       <!-- Export Dialog -->
@@ -5723,14 +5965,12 @@ const Loops = (() => {
       showToast(`${current.name} se otevírá v samostatném okně`);
     };
     el("loops-logout").onclick = async () => {
-      if(!confirm(`Odhlásit ${current.name} v aplikaci?`)) return;
       await fetch("/api/loops/logout", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({id: current.id})});
       loadWeb(true);
     };
     const rm = el("loops-remove");
     if(rm) rm.onclick = async () => {
-      if(!confirm(`Odebrat „${current.name}“ ze seznamu? Stažené loopy zůstanou v Knihovně.`)) return;
       await fetch(`/api/loops/sources/${encodeURIComponent(current.id)}`, {method: "DELETE"});
       current = null;
       invalidateRailTop5("loops");
@@ -6402,7 +6642,6 @@ const TabsLib = (() => {
     linkStems(e.target.value);
   };
   el("tp-unlink").onclick = async () => {
-    if(!confirm("Odpojit nahrávku od tohoto tabu? Stopy zůstanou ve Steems.")) return;
     clearTimeout(saveT);        // a pending save of the old link must not bring it back
     cur.link = null;
     await fetch("/api/tabfiles/link", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: cur.file.path, link: null})});
@@ -6654,7 +6893,10 @@ function setMode(mode, opts){
     // switch back into a section it's already showing something in (a
     // folder, a loaded song, an open show) leaves that alone rather than
     // reloading it from scratch — nothing tore it down while hidden.
-    if(!opts.keepSection && !libraryLoaded) loadLibraryFolder("");
+    // Clicking "Knihovna" itself always lands on the top level with all the
+    // folders — staying in whatever subfolder was open last looked like the
+    // folders had gone missing. Back/forward and folder rows pass keepSection.
+    if(!opts.keepSection) loadLibraryFolder("");
   } else if(mode === "steems"){
     if(!opts.keepSection && !currentSteemsName) loadSteemsList();
   } else if(mode === "podcasts"){
@@ -7246,6 +7488,12 @@ const ICONS = (() => {
     redo:      line("M15.2 6.5l4.3 4.3-4.3 4.3M19.5 10.8H9.3a4.6 4.6 0 0 0 0 9.2h2.8"),
     eyeOff:    line("M3 12s3.3-6 9-6 9 6 9 6-3.3 6-9 6-9-6-9-6zM9.6 12a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0zM4 4l16 16"),
     magnet:    line("M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4zM6 8.2h4M14 8.2h4"),
+    pencil:    line("M4.5 19.5l1-4.6L15.6 4.8a2.1 2.1 0 0 1 3 3L8.5 17.9zM13.6 6.8l3 3"),
+    selectAll: line("M4 4h3M10.5 4h3M17 4h3v3M20 10.5v3M20 17v3h-3M13.5 20h-3M7 20H4v-3M4 13.5v-3M4 7V4") + line("M8.5 9.5h7v5h-7z"),
+    zoomIn:    line("M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.3 15.3 20 20M10.5 8v5M8 10.5h5"),
+    zoomOut:   line("M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.3 15.3 20 20M8 10.5h5"),
+    rowsUp:    line("M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"),
+    rowsDown:  line("M12 9v6M8 5h8M8 19h8M9.5 11.5 12 9l2.5 2.5M9.5 12.5 12 15l2.5-2.5"),
     piano:     line("M3.5 5h17v14h-17zM8 5v14M12 5v14M16 5v14") + solid("M6.6 5h2.8v8H6.6zM10.6 5h2.8v8h-2.8zM14.6 5h2.8v8h-2.8z"),
     fileAdd:   line("M13.5 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8.5zM13.5 3.5v5h5M12 11.3v6.4M8.8 14.5h6.4"),
     silence:   line("M3.8 9.4h3.4L11.6 5.6v12.8l-4.4-3.8H3.8zM15.2 9.2l5.6 5.6M20.8 9.2l-5.6 5.6"),
@@ -7570,9 +7818,16 @@ const ChipThumbs = (() => {
 // thumbSlot: reserves a spot for ChipThumbs to paint a real preview over
 // the icon once one's found — the icon stays as the fallback underneath
 // rather than leaving a blank box while it loads or if there isn't one.
-function libRow({art, artIsUrl, name, sub, round, onClick, active, thumbSlot}){
+function libRow({art, artIsUrl, name, sub, round, onClick, active, thumbSlot, song}){
   const row = document.createElement("div");
-  row.className = "lib-row" + (active ? " active" : "");
+  row.className = "lib-row" + (active ? " active" : "") + (song ? " song" : "");
+  if(song){
+    row.innerHTML = `<div class="lib-meta"><div class="lib-name">${escapeHtml(name)}</div>` +
+      (sub ? `<div class="lib-sub">${escapeHtml(sub)}</div>` : "") + `</div>`;
+    row.title = sub ? `${name} — ${sub}` : name;
+    row.onclick = onClick;
+    return row;
+  }
   const style = artIsUrl ? `background-image:url('${thumbUrl(art)}')` : "";
   row.innerHTML = `
     <div class="lib-art${round ? " round" : ""}" style="${style}">${artIsUrl ? "" : art}${
@@ -7604,6 +7859,17 @@ function renderLibraryRail(mode){
       renderRailBranches(list, sec, collapsed);
       return;
     }
+    if(sec.key === "library"){
+      // Every folder of the library, not a top five — as a tree: the arrow
+      // unfolds a folder's subfolders, the name opens it in the main panel.
+      const box = document.createElement("div");
+      box.className = "lib-tree";
+      box.dataset.sec = sec.key;
+      box.hidden = collapsed;
+      list.appendChild(box);
+      fillTree(box, "", 0);
+      return;
+    }
     // A marker that never moves, so the async rows below always land right
     // after their own header no matter which section's fetch resolves first.
     const anchor = document.createElement("span");
@@ -7627,8 +7893,9 @@ function renderLibraryRail(mode){
           row.hidden = stillCollapsed;
           const item = items[i];
           if(item && item.thumbTerm) ChipThumbs.observe(row, item.thumbTerm, ".lib-art-thumb");
-          if(item && item.songArt) Artwork.paint(row.querySelector(".lib-art"), item.songArt);
-          if(item && item.stemsArt) StemsArt.paint(row.querySelector(".lib-art"), item.stemsArt);
+          const artBox = row.querySelector(".lib-art");
+          if(item && item.songArt && artBox) Artwork.paint(artBox, item.songArt);
+          if(item && item.stemsArt && artBox) StemsArt.paint(artBox, item.stemsArt);
           return row;
         });
       list.querySelectorAll(`[data-sec="${sec.key}"]`).forEach(n => n.remove());
@@ -7902,9 +8169,8 @@ async function fetchRailTop5(key){
       const a = stemsDisplay(x), b = stemsDisplay(y);
       return cmp(a.artist, b.artist) || cmp(a.title, b.title);
     }).map(s => ({
-      art: icon("stems", 18), name: stemsDisplay(s).title,
+      song: true, name: stemsDisplay(s).title,
       sub: stemsDisplay(s).artist || `Stopy \u2022 ${(s.stems || []).length} stop`,
-      stemsArt: s.name,
       onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
     }));
   }
@@ -8053,8 +8319,7 @@ function renderHomeRail(list){
   try{ history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){}
 
   const trackRow = (t, onClick) => libRow({
-    art: t.thumbnail || icon("note", 18), artIsUrl: !!t.thumbnail,
-    name: t.title || "", sub: t.artists || "", onClick,
+    song: true, name: t.title || t.relPath || "", sub: t.artists || "", onClick,
   });
 
   // Songs with a tab already synced (PlayerTab's per-song save) — click to
@@ -8072,7 +8337,7 @@ function renderHomeRail(list){
   let collapsed = railSection(list, "ready", "Ready to play", ready.length);
   railRows(list, "ready", collapsed, ready.length
     ? ready.map(v => libRow({
-        art: v.track.thumbnail || icon("guitar", 18), artIsUrl: !!v.track.thumbnail,
+        song: true,
         name: v.track.title || v.tabName || "", sub: (v.track.artists ? v.track.artists + " • " : "") + "tab načasovaný",
         onClick: async () => {
           const t = {...v.track};
@@ -8134,8 +8399,17 @@ function renderHomeRail(list){
 // and the open set survives navigation so the tree doesn't collapse under
 // you when you click through to a folder.
 // ======================================================================
-const treeOpen = new Set([""]);
+// Which folders are unfolded in the rail — remembered across sessions.
+const TREE_OPEN_KEY = "spotdl-gui-lib-tree-open";
+const treeOpen = (() => {
+  try{ return new Set(["", ...JSON.parse(localStorage.getItem(TREE_OPEN_KEY) || "[]")]); }
+  catch(e){ return new Set([""]); }
+})();
+function saveTreeOpen(){
+  try{ localStorage.setItem(TREE_OPEN_KEY, JSON.stringify([...treeOpen].filter(Boolean))); }catch(e){}
+}
 const treeCache = new Map();     // rel -> subfolder entries
+const treeMidiCache = new Map(); // rel -> MIDI files right inside it
 
 async function treeChildren(rel){
   if(treeCache.has(rel)) return treeCache.get(rel);
@@ -8145,6 +8419,7 @@ async function treeChildren(rel){
     const data = await res.json();
     const dirs = (data.entries || []).filter(e => e.type === "dir");
     treeCache.set(rel, dirs);
+    treeMidiCache.set(rel, (data.entries || []).filter(e => e.type === "midi"));
     return dirs;
   }catch(e){
     treeCache.set(rel, []);
@@ -8152,15 +8427,121 @@ async function treeChildren(rel){
   }
 }
 
+// ---- MIDI files ----
+// Drag payload for a MIDI file from the library (the rail tree or the main
+// list); the MIDI editor and a MIDI track's strip accept it, and files
+// dragged in straight from Finder too.
+const MIDI_DRAG = "application/x-piko-midi";
+const isMidiName = (n) => /\.midi?$/i.test(n || "");
+function makeMidiDraggable(row, entry){
+  row.draggable = true;
+  row.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData(MIDI_DRAG, JSON.stringify({rel: entry.rel, name: entry.name}));
+    e.dataTransfer.setData("text/plain", entry.name);
+    e.dataTransfer.effectAllowed = "copy";
+  });
+}
+function hasMidiDrag(e){
+  const t = [...(e.dataTransfer && e.dataTransfer.types || [])];
+  return t.includes(MIDI_DRAG) || t.includes("Files");
+}
+// {buf, name} from a drop: our own library drag, or a .mid from Finder.
+async function midiFromDrop(e){
+  const own = e.dataTransfer.getData(MIDI_DRAG);
+  if(own){
+    const {rel, name} = JSON.parse(own);
+    const res = await fetch(`/api/library/midi?rel=${encodeURIComponent(rel)}`);
+    if(!res.ok) throw new Error("Soubor se nepodařilo načíst");
+    return {buf: await res.arrayBuffer(), name};
+  }
+  const f = [...(e.dataTransfer.files || [])].find(f => isMidiName(f.name));
+  if(!f) return null;
+  return {buf: await f.arrayBuffer(), name: f.name};
+}
+
+// Standard MIDI File → notes in seconds ({m, t, d, v}), the MIDI track's own
+// format. Every track and channel is merged; the tempo map is honoured, so
+// the notes land where the file's own tempo puts them.
+function parseMidiFile(buf){
+  const b = new Uint8Array(buf);
+  let p = 0;
+  const str = (n) => { let s = ""; for(let i = 0; i < n; i++) s += String.fromCharCode(b[p + i]); p += n; return s; };
+  const u32 = () => { const v = (b[p] << 24 | b[p+1] << 16 | b[p+2] << 8 | b[p+3]) >>> 0; p += 4; return v; };
+  const u16 = () => { const v = b[p] << 8 | b[p+1]; p += 2; return v; };
+  const vlq = () => { let v = 0, c; do{ c = b[p++]; v = (v << 7) | (c & 0x7f); }while(c & 0x80 && p < b.length); return v; };
+  if(str(4) !== "MThd") throw new Error("Tohle není MIDI soubor");
+  const hlen = u32(); u16(); const ntrk = u16(); const div = u16(); p += hlen - 6;
+  const smpte = div & 0x8000 ? (256 - (div >> 8)) * (div & 0xff) : 0;   // ticks per second
+  const tempos = [];       // [tick, µs per quarter]
+  const raw = [];          // {tick, on, ch, m, v, trk}
+  let name = "";
+  for(let t = 0; t < ntrk && p + 8 <= b.length; t++){
+    const id = str(4), len = u32(), end = p + len;
+    if(id !== "MTrk"){ p = end; continue; }
+    let tick = 0, run = 0;
+    while(p < end){
+      tick += vlq();
+      let st = b[p];
+      if(st & 0x80) p++; else st = run;
+      if(st === 0xff){
+        const type = b[p++], l = vlq();
+        if(type === 0x51 && l === 3) tempos.push([tick, b[p] << 16 | b[p+1] << 8 | b[p+2]]);
+        if(type === 0x03 && !name){ for(let i = 0; i < l; i++) name += String.fromCharCode(b[p + i]); }
+        p += l;
+      } else if(st === 0xf0 || st === 0xf7){ p += vlq(); }
+      else{
+        run = st;
+        const cmd = st & 0xf0, ch = st & 0x0f;
+        if(cmd === 0xc0 || cmd === 0xd0){ p += 1; continue; }
+        const d1 = b[p++], d2 = b[p++];
+        if(cmd === 0x90 && d2 > 0) raw.push({tick, on: true, ch, m: d1, v: d2, trk: t});
+        else if(cmd === 0x80 || cmd === 0x90) raw.push({tick, on: false, ch, m: d1, trk: t});
+      }
+    }
+    p = end;
+  }
+  tempos.sort((a, c) => a[0] - c[0]);
+  const ppq = div & 0x7fff || 480;
+  const sec = (tick) => {
+    if(smpte) return tick / smpte;
+    let s = 0, last = 0, us = 500000;
+    for(const [tk, v] of tempos){
+      if(tk >= tick) break;
+      s += (tk - last) / ppq * us / 1e6; last = tk; us = v;
+    }
+    return s + (tick - last) / ppq * us / 1e6;
+  };
+  raw.sort((a, c) => a.tick - c.tick || (a.on === c.on ? 0 : a.on ? 1 : -1));
+  const open = new Map(), notes = [];
+  for(const e of raw){
+    const k = `${e.trk}:${e.ch}:${e.m}`;
+    if(e.on){ (open.get(k) || open.set(k, []).get(k)).push(e); continue; }
+    const st = open.get(k);
+    const on = st && st.shift();
+    if(!on) continue;
+    const t0 = sec(on.tick);
+    notes.push({m: on.m, t: t0, d: Math.max(0.03, sec(e.tick) - t0), v: on.v / 127, ch: on.ch});
+  }
+  // Drums (channel 10) would come out as random pitches on a melodic
+  // instrument, so they're left out — unless they're all the file has.
+  const melodic = notes.filter(n => n.ch !== 9);
+  const out = (melodic.length ? melodic : notes).map(({m, t, d, v}) => ({m, t, d, v}));
+  out.sort((a, c) => a.t - c.t || a.m - c.m);
+  return {notes: out, name, drumsSkipped: melodic.length ? notes.length - melodic.length : 0};
+}
+
 function treeNode(entry, depth){
   const node = document.createElement("div");
   node.className = "tree-node" + (treeOpen.has(entry.rel) ? " open" : "");
 
+  // A mapped folder isn't counted up front (it may be huge), so it may
+  // have subfolders even with folder_count 0.
+  const hasSub = !!(entry.folder_count || entry.midi_count || entry.mount);
   const row = document.createElement("div");
-  row.className = "tree-row" + (libraryCurrentRel === entry.rel ? " active" : "");
+  row.className = "tree-row" + (state.mode === "library" && libraryCurrentRel === entry.rel ? " active" : "");
   row.innerHTML = `
-    <span class="tree-twisty">${entry.folder_count ? icon("chevron", 11) : ""}</span>
-    <span class="tree-icon">\uD83D\uDCC1</span>
+    <span class="tree-twisty">${hasSub ? icon("chevron", 11) : ""}</span>
+    <span class="tree-icon${entry.mount ? " mount" : ""}">${entry.mount ? icon("external", 13) : "\uD83D\uDCC1"}</span>
     <span class="tree-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span>`;
 
   const children = document.createElement("div");
@@ -8171,15 +8552,20 @@ function treeNode(entry, depth){
   // shouldn't fight over the same click.
   row.querySelector(".tree-twisty").onclick = async (e) => {
     e.stopPropagation();
-    if(!entry.folder_count) return;
+    if(!hasSub) return;
     const open = !treeOpen.has(entry.rel);
     open ? treeOpen.add(entry.rel) : treeOpen.delete(entry.rel);
+    saveTreeOpen();
     node.classList.toggle("open", open);
     children.hidden = !open;
-    if(open && !children.childElementCount) await fillTree(children, entry.rel, depth + 1);
+    if(open && !children.childElementCount){
+      await fillTree(children, entry.rel, depth + 1);
+      // Nothing inside after all: drop the arrow instead of leaving a dud.
+      if(!children.childElementCount) row.querySelector(".tree-twisty").innerHTML = "";
+    }
   };
   row.onclick = () => {
-    treeOpen.add(entry.rel);
+    if(state.mode !== "library") setMode("library", {keepSection: true});
     loadLibraryFolder(entry.rel);
   };
 
@@ -8194,6 +8580,17 @@ async function fillTree(container, rel, depth){
   const dirs = await treeChildren(rel);
   container.innerHTML = "";
   dirs.forEach(d => container.appendChild(treeNode(d, depth)));
+  // MIDI files are leaves you drag onto a MIDI track's note editor.
+  (treeMidiCache.get(rel) || []).forEach(f => {
+    const row = document.createElement("div");
+    row.className = "tree-row tree-midi";
+    row.innerHTML = `<span class="tree-twisty"></span><span class="tree-icon">\uD83C\uDFB9</span>
+      <span class="tree-name">${escapeHtml(f.name.replace(/\.midi?$/i, ""))}</span>`;
+    row.title = `${f.name} — přetáhni do editoru tónů MIDI stopy (Steems)`;
+    makeMidiDraggable(row, f);
+    row.onclick = () => Mixer.midiImportRel(f.rel, f.name);
+    container.appendChild(row);
+  });
 }
 
 async function renderFolderTree(list){
@@ -8432,7 +8829,6 @@ function libDurationText(entry){
 // ---- move / delete, shared by every row kind (folder, track, NAM preset) ----
 
 async function deleteLibraryEntry(rel, name){
-  if(!confirm(`Přesunout „${name}“ do koše?`)) return;
   try{
     const res = await fetch("/api/library/fs/delete", {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -8581,6 +8977,7 @@ function paintLibraryTable(){
   const folders = entries.filter(e => e.type === "dir");
   const namPresets = entries.filter(e => e.type === "nam");
   const others = entries.filter(e => e.type === "other");
+  const midis = entries.filter(e => e.type === "midi");
 
   el("library-play-all-btn").hidden = !tracks.length;
   el("library-play-all-btn").onclick = () => Player.playLocalQueue(tracks.map(t => ({
@@ -8620,7 +9017,7 @@ function paintLibraryTable(){
         <span class="sub" title="${escapeHtml(entry.path)}">${entry.missing ? "nedostupná — " : "namapováno · "}${escapeHtml(entry.path)}</span>
         <span class="c-act">
           <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
-          <button class="act-unmount" title="Odpojit (soubory zůstanou, kde jsou)">${icon("close", 12)}</button>
+          <button class="act-unmount" title="Odmapovat — složka zmizí z knihovny, soubory zůstanou, kde jsou">${icon("close", 11)} Odmapovat</button>
         </span>`;
       row.onclick = () => { if(entry.missing){ showToast("Složka teď není dostupná (odpojený disk nebo cloud?)"); return; } loadLibraryFolder(entry.rel); };
       row.querySelector(".act-reveal").onclick = (e) => {
@@ -8629,9 +9026,9 @@ function paintLibraryTable(){
       };
       row.querySelector(".act-unmount").onclick = async (e) => {
         e.stopPropagation();
-        if(!confirm(`Odpojit „${entry.name}“ z knihovny? Soubory zůstanou, kde jsou.`)) return;
         await fetch("/api/library/mounts/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name: entry.name})});
         treeCache.clear(); invalidateRailTop5("library");
+        showToast(`Odmapováno: ${entry.name} — soubory zůstaly na místě`);
         loadLibraryFolder("");
       };
       list.appendChild(row);
@@ -8729,6 +9126,33 @@ function paintLibraryTable(){
   });
 
   // Everything else in the folder — opens in its own Mac app on click.
+  if(midis.length){
+    const head = document.createElement("div");
+    head.className = "nam-presets-head";
+    head.innerHTML = `<span>MIDI · přetáhni na MIDI stopu v Steems</span>`;
+    list.appendChild(head);
+    midis.forEach(entry => {
+      const row = document.createElement("div");
+      row.className = "lib-folder-row lib-midi-row";
+      row.innerHTML = `
+        <span class="tree-icon">\uD83C\uDFB9</span>
+        <span class="tx">${escapeHtml(entry.name)}</span>
+        <span class="sub">MIDI · ${fmtSize(entry.size_bytes || 0)}</span>
+        <span class="c-act">
+          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+          <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
+          <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+        </span>`;
+      row.title = "Klik = vložit na MIDI stopu otevřené písně ve Steems · nebo přetáhni";
+      makeMidiDraggable(row, entry);
+      row.onclick = () => Mixer.midiImportRel(entry.rel, entry.name);
+      row.querySelector(".act-reveal").onclick = (e) => { e.stopPropagation(); revealLibraryEntry(entry.rel); };
+      row.querySelector(".act-move").onclick = (e) => { e.stopPropagation(); openMoveTreePopover(e.currentTarget, entry.rel, entry.name); };
+      row.querySelector(".act-delete").onclick = (e) => { e.stopPropagation(); deleteLibraryEntry(entry.rel, entry.name); };
+      list.appendChild(row);
+    });
+  }
+
   if(others.length){
     const head = document.createElement("div");
     head.className = "nam-presets-head";
@@ -9309,7 +9733,6 @@ function openNamRiffManager(forRel){
         }catch(e){ showToast("Nepodařilo se přepnout"); }
       };
       row.querySelector(".nam-riff-del").onclick = async () => {
-        if(!confirm(`Smazat riff „${r.name}“?`)) return;
         stopRawPlayback();
         try{
           await fetch(`/api/nam-preview/riffs/${r.id}`, {method: "DELETE"});
@@ -10125,12 +10548,6 @@ async function checkStemsConversion(){
 }
 
 async function runStemsConversion(preview){
-  const ok = confirm(
-    `Převést ${preview.converted} stop na MP3 320 kbps?\n\n` +
-    `Zabírají ${fmtSize(preview.freed_bytes)}. Původní WAV soubory se po ` +
-    `úspěšném převodu smažou — každý až potom, co se ověří, že MP3 vzniklo.`
-  );
-  if(!ok) return;
 
   const btn = el("stems-convert");
   btn.disabled = true;
@@ -11162,6 +11579,31 @@ const Mixer = (() => {
     {type: "peaking",   freq: 4000,  gain: 0, q: 1,   color: "#38bdf8"},
     {type: "highshelf", freq: 10000, gain: 0, q: 0.7, color: "#a78bfa"},
   ];
+  // Starting points per instrument: [low shelf, low-mid, mid, high-mid, high shelf]
+  // as [freq, gain dB, q]. "for" = stem names it suits (offered first).
+  const EQ_PRESETS = [
+    {name: "Plochý (vše na nule)", bands: [[80, 0, .7], [250, 0, 1], [1000, 0, 1], [4000, 0, 1], [10000, 0, .7]]},
+    {name: "Kytara — metal rytmika", for: /guit|gtr|kytar/i, bands: [[90, -4, .7], [250, -3, 1.3], [700, -2, 1], [3000, 3, 1], [9000, -3, .7]]},
+    {name: "Kytara — sólo / lead", for: /guit|gtr|kytar/i, bands: [[100, -3, .7], [400, -2, 1], [1500, 3, .9], [4000, 2, 1], [9000, -1, .7]]},
+    {name: "Kytara — čistá", for: /guit|gtr|kytar/i, bands: [[90, -2, .7], [250, -1.5, 1], [1000, 0, 1], [3500, 2, 1], [10000, 3, .7]]},
+    {name: "Akustická kytara", for: /guit|gtr|kytar|acou|akust/i, bands: [[100, -4, .7], [200, -3, 1.4], [1000, -1, 1], [5000, 2, 1], [12000, 3, .7]]},
+    {name: "Baskytara", for: /bass|bas/i, bands: [[60, 3, .7], [250, -3, 1.2], [800, 2, 1.2], [2500, 2, 1], [8000, -4, .7]]},
+    {name: "Zpěv", for: /voc|zpev|zpěv|voice/i, bands: [[100, -5, .7], [300, -2, 1], [1200, 0, 1], [3500, 3, 1], [12000, 3, .7]]},
+    {name: "Bicí", for: /drum|bic|bubn/i, bands: [[60, 3, .7], [400, -4, 1.2], [1000, 0, 1], [5000, 2, 1], [10000, 2, .7]]},
+    {name: "Klavír / klávesy", for: /piano|klav|key/i, bands: [[80, -2, .7], [250, -1.5, 1], [1000, 0, 1], [4000, 1.5, 1], [10000, 2, .7]]},
+    {name: "Synth / pad", for: /other|synth|ostat/i, bands: [[120, -3, .7], [500, -2, 1], [2000, 1, 1], [6000, 2, 1], [12000, 2, .7]]},
+    {name: "Telefon / lo-fi", bands: [[300, -12, .7], [800, 2, 1], [1600, 5, 1.2], [3000, 2, 1], [4500, -12, .7]]},
+  ];
+  // Fill a preset <select>: the ones that suit this channel first.
+  function fillPresetSelect(sel, presets, stem){
+    const fits = presets.filter(p => p.for && p.for.test(stem || ""));
+    const rest = presets.filter(p => !fits.includes(p));
+    const opt = (p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`;
+    sel.innerHTML = `<option value="">Presety…</option>` +
+      (fits.length ? `<optgroup label="Pro tuhle stopu">${fits.map(opt).join("")}</optgroup><optgroup label="Další">${rest.map(opt).join("")}</optgroup>`
+                   : rest.map(opt).join(""));
+    sel.value = "";
+  }
   const EQ_POINTS = 240;
   const eqFreqs = new Float32Array(EQ_POINTS);
   for(let i = 0; i < EQ_POINTS; i++){
@@ -11299,6 +11741,27 @@ const Mixer = (() => {
   // that are off are simply left out of the wiring, so an untouched channel
   // sounds exactly as it did before these existed.
   const COMP_DEFAULT = {on: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.25, knee: 6, makeup: 0};
+  const COMP_PRESETS = [
+    {name: "Zpěv", for: /voc|zpev|zpěv|voice/i, p: {threshold: -20, ratio: 3.5, attack: 0.008, release: 0.18, knee: 6, makeup: 4}},
+    {name: "Baskytara", for: /bass|bas/i, p: {threshold: -22, ratio: 5, attack: 0.015, release: 0.2, knee: 4, makeup: 5}},
+    {name: "Bicí — punch", for: /drum|bic|bubn/i, p: {threshold: -18, ratio: 4, attack: 0.025, release: 0.12, knee: 3, makeup: 3}},
+    {name: "Kytara — rytmika", for: /guit|gtr|kytar/i, p: {threshold: -16, ratio: 3, attack: 0.012, release: 0.15, knee: 6, makeup: 2}},
+    {name: "Kytara — sólo (sustain)", for: /guit|gtr|kytar/i, p: {threshold: -28, ratio: 6, attack: 0.005, release: 0.4, knee: 8, makeup: 8}},
+    {name: "Akustická kytara", for: /guit|gtr|kytar|acou|akust/i, p: {threshold: -22, ratio: 3, attack: 0.01, release: 0.2, knee: 8, makeup: 3}},
+    {name: "Klavír / klávesy", for: /piano|klav|key/i, p: {threshold: -20, ratio: 2.5, attack: 0.02, release: 0.3, knee: 10, makeup: 2}},
+    {name: "Jemné lepidlo (glue)", p: {threshold: -14, ratio: 2, attack: 0.03, release: 0.3, knee: 10, makeup: 1}},
+    {name: "Limiter", p: {threshold: -6, ratio: 20, attack: 0.001, release: 0.08, knee: 0, makeup: 4}},
+  ];
+  const DBL_PRESETS = [
+    {name: "Metalová stěna", for: /guit|gtr|kytar/i, p: {algo: "neural", mode: "electric", mix: 0.9, xover: 120, smoothing: 0.7, gateRoom: -0.25, position: 1}},
+    {name: "Volná dvojka (punk)", for: /guit|gtr|kytar/i, p: {algo: "neural", mode: "electric", mix: 0.85, xover: 110, smoothing: 0.2, gateRoom: 0, position: 0.9}},
+    {name: "Akustická dvojka", for: /guit|gtr|kytar|acou|akust/i, p: {algo: "neural", mode: "acoustic", mix: 0.7, xover: 140, smoothing: 0.5, gateRoom: 0.3, position: 0.7}},
+    {name: "Prostorná, v místnosti", p: {algo: "neural", mode: "electric", mix: 0.7, xover: 120, smoothing: 0.5, gateRoom: 0.6, position: 0.6}},
+    {name: "MicroShift I — široký", p: {algo: "micro", style: 1, detune: 1, delay: 1, focus: 150, microMix: 1}},
+    {name: "MicroShift II — pohyb", p: {algo: "micro", style: 2, detune: 1.2, delay: 1, focus: 150, microMix: 0.9}},
+    {name: "ADT na zpěv (III)", for: /voc|zpev|zpěv|voice/i, p: {algo: "micro", style: 3, detune: 0.8, delay: 1, focus: 200, microMix: 0.55}},
+    {name: "Jemné rozšíření", p: {algo: "micro", style: 1, detune: 0.5, delay: 0.6, focus: 250, microMix: 0.45}},
+  ];
   // Parameters as in NeuralDouble, plus a wet level. Position is where the
   // second guitar sits (−1 left … +1 right); the original keeps its own pan.
   // algo "micro" is the other doubler: MicroShift-style micro pitch shift
@@ -11635,6 +12098,7 @@ const Mixer = (() => {
     eqSel = idx;
     if(idx === "guitar") startEqLoop();
     el("eq-title").textContent = "EQUALIZER — " + (idx === "guitar" ? "KYTARA (LIVE)" : String(c.stem).toUpperCase());
+    fillPresetSelect(el("eq-preset"), EQ_PRESETS, idx === "guitar" ? "guitar" : c.stem);
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
     const gtBtn = el("gt-eq-btn");
     if(gtBtn) gtBtn.classList.toggle("sel", idx === "guitar");
@@ -11724,6 +12188,15 @@ const Mixer = (() => {
       setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q});
       eqBand = i; eqReadout(); refreshEqButtons(); drawEq();
     });
+    el("eq-preset").onchange = (e) => {
+      const pr = EQ_PRESETS.find(x => x.name === e.target.value);
+      const c = eqTarget(eqSel);
+      e.target.value = "";
+      if(!pr || !c || !c.eqBands) return;
+      pr.bands.forEach(([freq, gain, q], i) => setEqBand(c, i, {freq, gain, q}));
+      eqReadout(); refreshEqButtons(); drawEq();
+      showToast(`EQ: ${pr.name}`);
+    };
     el("eq-reset").onclick = () => {
       const c = eqTarget(eqSel); if(!c || !c.eqBands) return;
       EQ_DEFAULT.forEach((d, i) => setEqBand(c, i, {freq: d.freq, gain: 0, q: d.q}));
@@ -11951,6 +12424,7 @@ const Mixer = (() => {
     setMixerPlayGlyph(true);
     if(metronomeOn) scheduleMetronomeClicks();
     tick();
+    try{ Midi.follow(); }catch(e){}
   }
 
   function pause(){
@@ -11962,6 +12436,7 @@ const Mixer = (() => {
     setMixerPlayGlyph(false);
     AudioBus.release("mixer");
     if(rafId) cancelAnimationFrame(rafId);
+    try{ Midi.follow(); }catch(e){}   // clears the keys the MIDI track was holding
   }
 
   // Anything else that starts playing stops the mixer through this.
@@ -14186,11 +14661,13 @@ const Mixer = (() => {
       });
       box.addEventListener("pointerdown", (ev) => {
         if(tool === "scissors" || ev.button !== 0) return;      // the lane cuts
-        ev.stopPropagation();
         selClip = {stem: c.stem, i};
-        if(editIdx !== idx){ editIdx = idx; }
         lane.parentElement.querySelectorAll(".nm-clip.sel").forEach(n => n.classList.remove("sel"));
         box.classList.add("sel");
+        // Below the top bar it's the lane's: a drag there selects a range.
+        if(ev.clientY - box.getBoundingClientRect().top > 14){ renderEditBar(); return; }
+        ev.stopPropagation();
+        if(editIdx !== idx){ editIdx = idx; }
         renderEditBar();
         const x0 = ev.clientX, s0 = k.start;
         let moved = false, newStart = s0;
@@ -14465,7 +14942,7 @@ const Mixer = (() => {
 
   const needRange = (c) => {
     const r = editRange(c);
-    if(!r) showToast("Označ úsek: táhni po pravítku nad stopami");
+    if(!r) showToast("Označ úsek: táhni myší po stopě");
     return r;
   };
 
@@ -14604,7 +15081,6 @@ const Mixer = (() => {
   async function restoreOriginal(){
     const c = editChannel();
     if(!c || !editedStems.has(c.stem)) return;
-    if(!confirm(`Vrátit stopu „${stemLabel(c.stem)}“ do původní podoby? Všechny její úpravy se zahodí.`)) return;
     clearTimeout(saveTimers[c.stem]); delete saveTimers[c.stem];
     try{
       const res = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/${encodeURIComponent(c.stem)}/restore`, {method: "POST"});
@@ -14623,7 +15099,6 @@ const Mixer = (() => {
   }
 
   async function removeTrack(c){
-    if(!confirm(`Odebrat stopu „${stemLabel(c.stem)}“ z písně? Smaže se i její soubor.`)) return;
     try{
       const res = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/record/${encodeURIComponent(c.stem)}`, {method: "DELETE"});
       if(!res.ok) throw new Error((await res.json()).error || "Smazání selhalo");
@@ -14718,7 +15193,7 @@ const Mixer = (() => {
         <option value="-1">— vyber stopu —</option>
         ${channels.map((x, i) => `<option value="${i}" ${i === editIdx ? "selected" : ""}>${escapeHtml(stemLabel(x.stem))}${editedStems.has(x.stem) ? " ✎" : ""}</option>`).join("")}
       </select>
-      <span class="sel">${hasSel ? `výběr <b>${fmtEditTime(loopStart)}–${fmtEditTime(loopEnd)}</b>` : "výběr: táhni po pravítku"}</span>
+      <span class="sel">${hasSel ? `výběr <b>${fmtEditTime(loopStart)}–${fmtEditTime(loopEnd)}</b>` : "výběr: táhni myší po stopě"}</span>
       <span class="grp">
         ${b("cut", "scissors", "Vystřihnout výběr do schránky (⌘X) — zbytek stopy se posune", c && r)}
         ${b("copy", "copy", "Kopírovat výběr (⌘C)", c && r)}
@@ -14856,6 +15331,7 @@ const Mixer = (() => {
         ${c.midi ? `<div class="midi-row">
           <button type="button" class="rec ${Midi.isRecording(c) ? "on" : ""}" title="Nahrát z MIDI kláves (s odpočtem)">●</button>
           <button type="button" class="notes" title="Editor tónů">Noty</button>
+          <button type="button" class="midi-file" title="Vložit MIDI soubor z počítače — nebo ho na stopu přetáhni">+MIDI</button>
           <button type="button" class="inst" title="Nástroj — klikni pro výběr">${escapeHtml(Midi.instrumentName(c))}</button>
         </div>` : `<div class="nm-pitch-row">
           <span class="lbl">PITCH</span>
@@ -14867,6 +15343,8 @@ const Mixer = (() => {
       if(c.midi){
         strip.querySelector(".midi-row .rec").onclick = () => Midi.toggleRec(c);
         strip.querySelector(".midi-row .notes").onclick = () => Midi.openEditor(c);
+        strip.querySelector(".midi-row .midi-file").onclick = () => Midi.pickFile(c);
+        Midi.wireDrop(strip, () => c, () => currentTime());
         strip.querySelector(".midi-row .inst").onclick = (e) => Midi.pickInstrument(c, e.currentTarget);
       }
 
@@ -14966,6 +15444,49 @@ const Mixer = (() => {
         if(e.target.closest(".nm-clip")) return;
         openClipMenu(e.clientX, e.clientY, c, -1);
       });
+      // Dragging across a track selects that stretch of it (what the edit
+      // tools work on, and the loop) — the way a DAW does it, on the track
+      // itself. A plain click still just moves the playhead.
+      const laneSel = document.createElement("div");
+      laneSel.className = "nm-lane-sel";
+      laneSel.hidden = true;
+      lane.appendChild(laneSel);
+      lane.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0 || tool === "scissors" || !duration) return;
+        if(e.target.closest(".nm-clip") && e.clientY - e.target.closest(".nm-clip").getBoundingClientRect().top <= 14) return;
+        const tAt = (ev) => Math.max(0, Math.min(duration, (ev.clientX - lane.getBoundingClientRect().left) / pixelsPerSecond));
+        const t0 = tAt(e), x0 = e.clientX;
+        let dragging = false;
+        const prevIdx = editIdx;
+        lane.setPointerCapture(e.pointerId);
+        const move = (ev) => {
+          if(!dragging && Math.abs(ev.clientX - x0) < 5) return;
+          if(!dragging){
+            dragging = true;
+            editIdx = idx;
+            lane.parentElement.querySelectorAll(".nm-lane").forEach(n => n.classList.toggle("edit-sel", n === lane));
+          }
+          let a = t0, b = tAt(ev);
+          if(snapMode !== "off" && !ev.altKey){ a = snapTime(a); b = snapTime(b); }
+          loopStart = Math.min(a, b); loopEnd = Math.max(a, b);
+          loopEnabled = loopEnd - loopStart > 0.005;
+          el("mixer-loop").classList.toggle("active", loopEnabled);
+          updateLoopVisual();
+        };
+        const up = () => {
+          lane.removeEventListener("pointermove", move);
+          lane.removeEventListener("pointerup", up);
+          lane.removeEventListener("pointercancel", up);
+          if(!dragging) return;
+          lane.dataset.justDragged = "1";
+          queueSessionSave();
+          if(prevIdx !== idx) renderTimeline();
+          renderEditBar();
+        };
+        lane.addEventListener("pointermove", move);
+        lane.addEventListener("pointerup", up);
+        lane.addEventListener("pointercancel", up);
+      });
       lane.addEventListener("click", (e) => {
         const rect = lane.getBoundingClientRect();
         const t = Math.max(0, (e.clientX - rect.left) / pixelsPerSecond);
@@ -15037,6 +15558,11 @@ const Mixer = (() => {
     if(!editBarFrame && document.querySelector("#nm-editbar .sel")){
       editBarFrame = requestAnimationFrame(() => { editBarFrame = 0; renderEditBar(); });
     }
+    document.querySelectorAll(".nm-lane-sel").forEach(n => {
+      const on = loopEnabled && loopEnd > loopStart && n.parentElement.classList.contains("edit-sel");
+      n.hidden = !on;
+      if(on){ n.style.left = (loopStart * pixelsPerSecond) + "px"; n.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px"; }
+    });
     const region = el("mixer-loop-region");
     const ovLoop = el("nm-ov-loop");
     const mi = el("mixer-mark-in"), mo = el("mixer-mark-out");
@@ -15233,12 +15759,13 @@ const Mixer = (() => {
         e.currentTarget.textContent = c.fx.state.mono ? "MONO" : "ST";
       };
       strip.querySelector('[data-act="comp"]').onclick = () => openCompPanel(idx);
-      strip.querySelector('[data-act="dbl"]').onclick = (e) => openDoublerPopover(idx, e.currentTarget);
+      strip.querySelector('[data-act="dbl"]').onclick = () => openDblPanel(idx);
 
       box.appendChild(strip);
     });
     renderLiveGuitarFader();
     if(!el("comp-panel").hidden){ renderCompChannelSelect(); paintCompParams(); startCompLoop(); }
+    if(!el("dbl-panel").hidden){ renderDblChannelSelect(); paintDbl(); startDblLoop(); }
     applyGains();
     if(eqSel >= channels.length) eqSel = 0;
     refreshEqButtons();
@@ -16799,17 +17326,17 @@ const Mixer = (() => {
     onBtn.classList.toggle("on", !!s.on);
     const box = el("comp-params");
     const rows = [
-      ["threshold", "PRÁH", -60, 0, 0.5, v => fmtNum(v, 1) + " dB"],
-      ["ratio", "POMĚR", 1, 20, 0.1, v => fmtNum(v, 1) + " : 1"],
-      ["attack", "ATTACK", 0, 0.2, 0.001, v => Math.round(v * 1000) + " ms"],
-      ["release", "RELEASE", 0.02, 1.5, 0.01, v => Math.round(v * 1000) + " ms"],
-      ["knee", "KOLENO", 0, 30, 0.5, v => fmtNum(v, 1) + " dB"],
-      ["makeup", "ZESÍLENÍ", 0, 24, 0.5, v => "+" + fmtNum(v, 1) + " dB"],
+      ["threshold", "PRÁH", -60, 0, 0.5, v => fmtNum(v, 1)],
+      ["ratio", "POMĚR", 1, 20, 0.1, v => fmtNum(v, 1) + ":1"],
+      ["attack", "ATTACK", 0, 0.2, 0.001, v => Math.round(v * 1000) + "ms"],
+      ["release", "REL", 0.02, 1.5, 0.01, v => Math.round(v * 1000) + "ms"],
+      ["knee", "KNEE", 0, 30, 0.5, v => fmtNum(v, 1)],
+      ["makeup", "GAIN", 0, 24, 0.5, v => "+" + fmtNum(v, 1)],
     ];
     if(box.dataset.built !== "1"){
       box.innerHTML = rows.map(([k, lab, mn, mx, st]) => `
-        <div class="comp-param"><label>${lab} <b data-v="${k}"></b></label>
-          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"></div>`).join("");
+        <div class="vs" title="${lab}"><b data-v="${k}"></b>
+          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"><span>${lab}</span></div>`).join("");
       box.querySelectorAll("input").forEach(inp => {
         inp.oninput = () => setComp({[inp.dataset.k]: parseFloat(inp.value)});
       });
@@ -16827,7 +17354,15 @@ const Mixer = (() => {
     sel.innerHTML = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("")
       + `<option value="guitar">live kytara</option>`;
     sel.value = String(compSel);
+    fillPresetSelect(el("comp-preset"), COMP_PRESETS, compSel === "guitar" ? "guitar" : (channels[compSel] && channels[compSel].stem));
   }
+  el("comp-preset").onchange = (e) => {
+    const pr = COMP_PRESETS.find(x => x.name === e.target.value);
+    e.target.value = "";
+    if(!pr) return;
+    setComp({...pr.p, on: true});
+    showToast(`Kompresor: ${pr.name}`);
+  };
 
   function openCompPanel(sel){
     if(sel !== undefined) compSel = sel;
@@ -16997,6 +17532,7 @@ const Mixer = (() => {
   el("comp-chan-select").onchange = (e) => {
     const v = e.target.value;
     compSel = v === "guitar" ? "guitar" : parseInt(v, 10);
+    fillPresetSelect(el("comp-preset"), COMP_PRESETS, compSel === "guitar" ? "guitar" : (channels[compSel] && channels[compSel].stem));
     paintCompParams();
     drawComp();
   };
@@ -17006,88 +17542,240 @@ const Mixer = (() => {
     else { setPanelOpen("comp-toggle", "comp-panel", false); savePanelPref("comp", false); }
   };
 
-  // ---- the doubler's settings, next to the button that opened them ----
-  function openDoublerPopover(sel, anchor){
-    const existing = el("dbl-popover");
-    if(existing){ const same = existing.dataset.sel === String(sel); existing.remove(); if(same) return; }
-    const fx = sel === "guitar" ? Guitar.fx() : (channels[sel] && channels[sel].fx);
-    if(!fx) return;
-    const label = sel === "guitar" ? "live kytara" : stemLabel(channels[sel].stem);
-    const box = document.createElement("div");
-    box.className = "sect-menu dbl-popover";
-    box.id = "dbl-popover";
-    box.dataset.sel = String(sel);
-    const pct = v => Math.round(v * 100) + " %";
-    const rows = [
-      ["neural", "mix", "MIX (2. kytara)", 0, 1, 0.01, pct],
-      ["neural", "xover", "MONO XOVER", 20, 250, 1, v => Math.round(v) + " Hz"],
-      ["neural", "smoothing", "SMOOTHING (sevřenost)", 0, 1, 0.01, pct],
-      ["neural", "gateRoom", "GATE ← → ROOM", -1, 1, 0.01, v => Math.abs(v) < 0.005 ? "0 %" : (v < 0 ? "gate " : "room ") + Math.round(Math.abs(v) * 100) + " %"],
-      ["neural", "position", "POZICE 2. kytary", -1, 1, 0.01, v => Math.abs(v) < 0.02 ? "střed" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100)],
-      ["micro", "detune", "DETUNE (rozladění)", 0, 2, 0.01, pct],
-      ["micro", "delay", "DELAY (zpoždění)", 0, 2, 0.01, pct],
-      ["micro", "focus", "FOCUS (basy beze změny)", 20, 1000, 1, v => v <= 25 ? "vyp" : Math.round(v) + " Hz"],
-      ["micro", "microMix", "MIX", 0, 1, 0.01, pct],
-    ];
-    const paint = () => {
-      const s = fx.state.dbl;
-      box.classList.toggle("off", !s.on);
-      box.querySelector("#dbl-onoff").innerHTML = `${icon(s.on ? "check" : "close", 12)}<span>${s.on ? "Zapnuto" : "Vypnuto"}</span>`;
-      box.querySelectorAll(".dbl-algo button").forEach(b => b.classList.toggle("on", b.dataset.algo === s.algo));
-      box.querySelectorAll(".dbl-mode button[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === s.mode));
-      box.querySelectorAll(".dbl-style button").forEach(b => b.classList.toggle("on", +b.dataset.style === +s.style));
-      box.querySelectorAll("[data-for]").forEach(n => { n.hidden = n.dataset.for !== s.algo; });
-      rows.forEach(([, k, , , , , fmt]) => {
-        box.querySelector(`b[data-v="${k}"]`).textContent = fmt(s[k]);
-        const inp = box.querySelector(`input[data-k="${k}"]`);
-        if(document.activeElement !== inp) inp.value = String(s[k]);
-      });
-    };
-    box.innerHTML = `
-      <div class="ss-head">Doubler — ${escapeHtml(label)}</div>
-      <button type="button" id="dbl-onoff"></button>
-      <div class="dbl-mode dbl-algo">
-        <button type="button" data-algo="neural" title="Druhý kytarista s lidskou nepřesností (NeuralDouble)">NeuralDouble</button>
-        <button type="button" data-algo="micro" title="Mikro posun ladění a krátké zpoždění vlevo/vpravo (styl Soundtoys MicroShift / Eventide H3000)">MicroShift</button>
-      </div>
-      <div class="dbl-mode" data-for="neural">
-        <button type="button" data-mode="electric">Elektrická</button>
-        <button type="button" data-mode="acoustic">Akustická</button>
-      </div>
-      <div class="dbl-mode dbl-style" data-for="micro">
-        <button type="button" data-style="1" title="Eventide H3000 #231 — pevné ±9 centů, lehká saturace">Style I</button>
-        <button type="button" data-style="2" title="Eventide H3000 #519 — rozladění se pomalu mění">Style II</button>
-        <button type="button" data-style="3" title="AMS DMX 15-80 — delší zpoždění, jemný pohyb (ADT)">Style III</button>
-      </div>
-      ${rows.map(([algo, k, lab, mn, mx, st]) => `
-        <div class="dbl-row" data-for="${algo}"><label>${lab} <b data-v="${k}"></b></label>
-          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"></div>`).join("")}
-      <div class="hint" data-for="neural" style="padding:4px 8px 6px">Druhá kytara hraje s lidskou nepřesností v čase i ladění
-        (podle NeuralDouble). Basy pod Mono Xover zůstávají jen v originálu, uprostřed.</div>
-      <div class="hint" data-for="micro" style="padding:4px 8px 6px">Levá strana o pár centů výš, pravá níž, každá s krátkým
-        zpožděním — široký „dvojitý“ zvuk bez rozmazání. Styly podle veřejných popisů H3000 / DMX 15-80.</div>`;
-    document.body.appendChild(box);
-    paint();
-    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
-    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
-    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+  // ---- the doubler panel ----
+  //
+  // Docked beside the EQ and the compressor, for whichever channel is picked
+  // (the strip's DBL button picks it). The picture is a view from above: you
+  // at the bottom, the stage across the top — where the original and the
+  // second guitar (or MicroShift's two shifted copies) stand, how loose the
+  // double plays, how much room is around it, and what stays centred below
+  // the crossover. It breathes with the channel's level.
+  let dblSel = 0, dblLoop = null;
+  const DBL_ROWS = {
+    neural: [
+      ["mix", "MIX", 0, 1, 0.01, v => Math.round(v * 100) + "%"],
+      ["xover", "XOVER", 20, 250, 1, v => Math.round(v) + "Hz"],
+      ["smoothing", "TIGHT", 0, 1, 0.01, v => Math.round(v * 100) + "%"],
+      ["gateRoom", "G·ROOM", -1, 1, 0.01, v => Math.abs(v) < 0.005 ? "0" : (v < 0 ? "G " : "R ") + Math.round(Math.abs(v) * 100)],
+      ["position", "POZICE", -1, 1, 0.01, v => Math.abs(v) < 0.02 ? "střed" : (v < 0 ? "L" : "R") + Math.round(Math.abs(v) * 100)],
+    ],
+    micro: [
+      ["detune", "DETUNE", 0, 2, 0.01, v => Math.round(v * 100) + "%"],
+      ["delay", "DELAY", 0, 2, 0.01, v => Math.round(v * 100) + "%"],
+      ["focus", "FOCUS", 20, 1000, 1, v => v <= 25 ? "vyp" : Math.round(v) + "Hz"],
+      ["microMix", "MIX", 0, 1, 0.01, v => Math.round(v * 100) + "%"],
+    ],
+  };
+  // The worklet's own numbers (static/worklets/doubler.js), for the labels.
+  const MS_STYLE_INFO = {1: {L: [9, 10], R: [-9, 14], lfo: 0}, 2: {L: [7, 7], R: [-7, 12], lfo: 4}, 3: {L: [5, 22], R: [-5, 28], lfo: 1.5}};
 
-    const apply = async (patch) => {
-      await setDoubler(fx, patch);
-      paint();
-      refreshCompButtons();
-    };
-    box.querySelector("#dbl-onoff").onclick = () => apply({on: !fx.state.dbl.on});
-    box.querySelectorAll(".dbl-algo button").forEach(b => { b.onclick = () => apply({algo: b.dataset.algo}); });
-    box.querySelectorAll(".dbl-mode button[data-mode]").forEach(b => { b.onclick = () => apply({mode: b.dataset.mode}); });
-    box.querySelectorAll(".dbl-style button").forEach(b => { b.onclick = () => apply({style: +b.dataset.style}); });
-    box.querySelectorAll("input[data-k]").forEach(inp => {
-      inp.oninput = () => apply({[inp.dataset.k]: parseFloat(inp.value)});
+  const dblFx = (sel) => sel === "guitar" ? Guitar.fx() : (channels[sel] && channels[sel].fx);
+  const dblLabel = (sel) => sel === "guitar" ? "LIVE KYTARA" : String(stemLabel(channels[sel].stem)).toUpperCase();
+
+  function openDoublerPopover(sel){ openDblPanel(sel); }   // the strips' DBL buttons
+  function openDblPanel(sel){
+    if(sel !== undefined) dblSel = sel;
+    if(dblSel !== "guitar" && !channels[dblSel]) dblSel = channels.length ? 0 : "guitar";
+    setPanelOpen("dbl-toggle", "dbl-panel", true);
+    savePanelPref("dbl", true);
+    renderDblChannelSelect();
+    paintDbl();
+    startDblLoop();
+  }
+  function renderDblChannelSelect(){
+    const sel = el("dbl-chan-select");
+    sel.innerHTML = channels.map((c, i) => `<option value="${i}">${escapeHtml(c.stem)}</option>`).join("")
+      + `<option value="guitar">live kytara</option>`;
+    sel.value = String(dblSel);
+    fillPresetSelect(el("dbl-preset"), DBL_PRESETS, dblSel === "guitar" ? "guitar" : (channels[dblSel] && channels[dblSel].stem));
+  }
+  function paintDbl(){
+    const fx = dblFx(dblSel);
+    const panel = el("dbl-panel");
+    if(!fx){ panel.classList.add("off"); return; }
+    const s = fx.state.dbl;
+    el("dbl-title").textContent = "DOUBLER — " + dblLabel(dblSel);
+    const onBtn = el("dbl-onoff");
+    onBtn.textContent = s.on ? "Zapnuto" : "Vypnuto";
+    onBtn.classList.toggle("on", !!s.on);
+    panel.classList.toggle("off", !s.on);
+    panel.querySelectorAll(".dbl-algo button").forEach(b => b.classList.toggle("on", b.dataset.algo === s.algo));
+    panel.querySelectorAll("[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === s.mode));
+    panel.querySelectorAll(".dbl-style button").forEach(b => b.classList.toggle("on", +b.dataset.style === +s.style));
+    panel.querySelectorAll(".dbl-side [data-for]").forEach(n => { n.hidden = n.dataset.for !== s.algo; });
+    const box = el("dbl-params"), rows = DBL_ROWS[s.algo] || DBL_ROWS.neural;
+    if(box.dataset.algo !== s.algo){
+      box.innerHTML = rows.map(([k, lab, mn, mx, st]) => `
+        <div class="vs" title="${lab}"><b data-v="${k}"></b>
+          <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}"><span>${lab}</span></div>`).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.oninput = () => applyDbl({[inp.dataset.k]: parseFloat(inp.value)});
+      });
+      box.dataset.algo = s.algo;
+    }
+    rows.forEach(([k, , , , , fmt]) => {
+      const inp = box.querySelector(`input[data-k="${k}"]`);
+      if(document.activeElement !== inp) inp.value = String(s[k]);
+      box.querySelector(`b[data-v="${k}"]`).textContent = fmt(s[k]);
     });
-    setTimeout(() => document.addEventListener("pointerdown", function once(e){
-      if(!e.target.closest("#dbl-popover") && e.target !== anchor && !anchor.contains(e.target)) box.remove();
-      else if(el("dbl-popover")) document.addEventListener("pointerdown", once, {once: true});
-    }, {once: true}), 0);
+  }
+  async function applyDbl(patch){
+    const fx = dblFx(dblSel);
+    if(!fx) return;
+    await setDoubler(fx, patch);
+    paintDbl();
+    refreshCompButtons();
+    drawDbl();
+  }
+  el("dbl-onoff").onclick = () => { const fx = dblFx(dblSel); if(fx) applyDbl({on: !fx.state.dbl.on}); };
+  el("dbl-panel").querySelectorAll(".dbl-algo button").forEach(b => { b.onclick = () => applyDbl({algo: b.dataset.algo}); });
+  el("dbl-panel").querySelectorAll("[data-mode]").forEach(b => { b.onclick = () => applyDbl({mode: b.dataset.mode}); });
+  el("dbl-panel").querySelectorAll(".dbl-style button").forEach(b => { b.onclick = () => applyDbl({style: +b.dataset.style}); });
+  el("dbl-chan-select").onchange = (e) => {
+    const v = e.target.value;
+    dblSel = v === "guitar" ? "guitar" : parseInt(v, 10);
+    renderDblChannelSelect(); paintDbl(); drawDbl();
+  };
+  el("dbl-preset").onchange = (e) => {
+    const pr = DBL_PRESETS.find(x => x.name === e.target.value);
+    e.target.value = "";
+    if(!pr) return;
+    applyDbl({...pr.p, on: true});
+    showToast(`Doubler: ${pr.name}`);
+  };
+  setPanelOpen("dbl-toggle", "dbl-panel", !!panelPrefs.dbl);
+  el("dbl-toggle").onclick = () => {
+    const on = el("dbl-panel").hidden;
+    setPanelOpen("dbl-toggle", "dbl-panel", on);
+    savePanelPref("dbl", on);
+    if(on) openDblPanel();
+  };
+
+  let dblBuf = null, dblLevel = 0;
+  function dblInputLevel(fx){
+    if(!fx || !fx.pre) return 0;
+    if(!dblBuf || dblBuf.length !== fx.pre.fftSize) dblBuf = new Float32Array(fx.pre.fftSize);
+    fx.pre.getFloatTimeDomainData(dblBuf);
+    let p = 0;
+    for(let i = 0; i < dblBuf.length; i++){ const a = Math.abs(dblBuf[i]); if(a > p) p = a; }
+    return p;
+  }
+  function drawDbl(){
+    const cv = el("dbl-canvas"), fx = dblFx(dblSel);
+    if(!cv || el("dbl-panel").hidden) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if(!W || !H) return;
+    if(cv.width !== Math.floor(W * dpr)){ cv.width = Math.floor(W * dpr); cv.height = Math.floor(H * dpr); }
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#0e0e14"); bg.addColorStop(1, "#08080b");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    if(!fx){ return; }
+    const s = fx.state.dbl, on = !!s.on, t = performance.now() / 1000;
+    dblLevel = Math.max(dblInputLevel(fx), dblLevel * 0.9);
+    const lvl = Math.min(1, dblLevel * 1.6);
+    const cx = W / 2, stageY = H * 0.36, me = {x: cx, y: H - 22};
+    const X = (pan) => cx + pan * (W / 2 - 26);
+
+    // the room: a fan from the listener to the stage, L / R marks
+    g.strokeStyle = "rgba(255,255,255,.06)"; g.lineWidth = 1;
+    for(let i = -4; i <= 4; i++){ g.beginPath(); g.moveTo(me.x, me.y); g.lineTo(X(i / 4), stageY - 40); g.stroke(); }
+    g.fillStyle = "rgba(255,255,255,.35)"; g.font = "bold 10px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText("L", 12, 14); g.fillText("R", W - 12, 14);
+    // listener
+    g.fillStyle = "#2a2a33"; g.beginPath(); g.arc(me.x, me.y, 9, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#3a3a46"; g.fillRect(me.x - 12, me.y - 3, 3, 7); g.fillRect(me.x + 9, me.y - 3, 3, 7);
+
+    const gold = (a) => `rgba(255,209,102,${a})`, blue = (a) => `rgba(56,189,248,${a})`, pink = (a) => `rgba(255,92,138,${a})`;
+    const voice = (x, y, r, col, label, sub, wob) => {
+      const pulse = 1 + lvl * 0.35;
+      // sound waves towards the listener
+      for(let k = 0; k < 3; k++){
+        const ph = (t * 0.8 + k / 3) % 1;
+        g.strokeStyle = col(on ? (1 - ph) * 0.35 * (0.3 + lvl) : 0.06);
+        g.lineWidth = 1.5;
+        g.beginPath(); g.arc(x, y, r + ph * 34, Math.PI * 0.15, Math.PI * 0.85); g.stroke();
+      }
+      const gl = g.createRadialGradient(x, y, 1, x, y, r * 2.4 * pulse);
+      gl.addColorStop(0, col(on ? 0.55 : 0.15)); gl.addColorStop(1, col(0));
+      g.fillStyle = gl; g.beginPath(); g.arc(x, y, r * 2.4 * pulse, 0, Math.PI * 2); g.fill();
+      g.fillStyle = col(on ? 1 : 0.35); g.beginPath(); g.arc(x + (wob || 0), y, r, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#0b0b0e"; g.font = "bold 9px sans-serif"; g.fillText(label, x + (wob || 0), y + 0.5);
+      if(sub){
+        g.fillStyle = col(on ? 0.95 : 0.4); g.font = "9.5px sans-serif";
+        const half = g.measureText(sub).width / 2 + 4;
+        g.fillText(sub, Math.max(half, Math.min(W - half, x)), y - r - 11);
+      }
+    };
+
+    if(s.algo === "micro"){
+      const st = MS_STYLE_INFO[s.style] || MS_STYLE_INFO[1];
+      const mix = s.microMix;
+      const lfo = st.lfo ? Math.sin(t * 1.3) * st.lfo * s.detune : 0;
+      const cL = (st.L[0] * s.detune + lfo), cR = (st.R[0] * s.detune - lfo);
+      voice(X(0), stageY + 18, 9, gold, "O", mix < 0.99 ? `dry ${Math.round((1 - mix) * 100)}%` : "", 0);
+      voice(X(-0.85), stageY, 7 + 6 * mix, blue, "L",
+        `${cL >= 0 ? "+" : ""}${cL.toFixed(1).replace(".", ",")} c · ${Math.round(st.L[1] * s.delay)} ms`, st.lfo ? Math.sin(t * 2.1) * 2 : 0);
+      voice(X(0.85), stageY, 7 + 6 * mix, pink, "R",
+        `${cR >= 0 ? "+" : ""}${cR.toFixed(1).replace(".", ",")} c · ${Math.round(st.R[1] * s.delay)} ms`, st.lfo ? Math.sin(t * 1.7 + 1) * 2 : 0);
+      if(s.focus > 25){
+        g.fillStyle = gold(on ? 0.16 : 0.06);
+        g.fillRect(cx - 9, stageY + 34, 18, me.y - stageY - 50);
+        g.fillStyle = gold(on ? 0.8 : 0.35); g.font = "9px sans-serif";
+        g.fillText(`< ${Math.round(s.focus)} Hz uprostřed`, cx, me.y - 26 + 10);
+      }
+      g.fillStyle = "rgba(255,255,255,.45)"; g.font = "bold 9.5px sans-serif"; g.textAlign = "left";
+      g.fillText(`MicroShift ${"I".repeat(s.style)}`, 8, H - 10);
+    } else {
+      // NeuralDouble: original + a second, slightly loose player
+      const loose = 1 - s.smoothing;
+      const ms = 20 - 15 * s.smoothing, cents = 12 - 8 * s.smoothing;
+      const jitter = on ? (Math.sin(t * 3.1) + Math.sin(t * 5.3 + 1) * 0.6) * loose * 5 : 0;
+      const room = Math.max(0, s.gateRoom), gate = Math.max(0, -s.gateRoom);
+      const dx = X(Math.max(-1, Math.min(1, s.position)));
+      // the original
+      voice(X(0), stageY + 14, 9, gold, "1", "originál", 0);
+      // room around the double
+      if(room > 0.01){
+        const rr = 18 + room * 34;
+        const gr = g.createRadialGradient(dx, stageY, 6, dx, stageY, rr);
+        gr.addColorStop(0, blue(0)); gr.addColorStop(0.6, blue(on ? room * 0.12 : 0.03)); gr.addColorStop(1, blue(0));
+        g.fillStyle = gr; g.beginPath(); g.arc(dx, stageY, rr, 0, Math.PI * 2); g.fill();
+      }
+      if(gate > 0.01){
+        g.setLineDash([3, 3]); g.strokeStyle = pink(on ? 0.4 + gate * 0.5 : 0.15); g.lineWidth = 1.2;
+        g.beginPath(); g.arc(dx, stageY, 15 - gate * 3, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      }
+      // the double, with a ghost trail showing how loosely it follows
+      for(let k = 3; k >= 1; k--){
+        g.fillStyle = blue(on ? 0.07 * (4 - k) * (0.4 + loose) : 0.03);
+        g.beginPath(); g.arc(dx - jitter * k * 0.7, stageY, 7 + 6 * s.mix, 0, Math.PI * 2); g.fill();
+      }
+      voice(dx, stageY, 7 + 6 * s.mix, blue, "2", `±${Math.round(ms)} ms · ±${Math.round(cents)} c`, jitter);
+      // bass stays with the original
+      g.fillStyle = gold(on ? 0.16 : 0.06);
+      g.fillRect(cx - 9, stageY + 30, 18, me.y - stageY - 46);
+      g.fillStyle = gold(on ? 0.8 : 0.35); g.font = "9px sans-serif"; g.textAlign = "center";
+      g.fillText(`< ${Math.round(s.xover)} Hz jen originál`, cx, me.y - 16);
+      g.fillStyle = "rgba(255,255,255,.45)"; g.font = "bold 9.5px sans-serif"; g.textAlign = "left";
+      g.fillText(s.mode === "acoustic" ? "Neural · akustická" : "Neural · elektrická", 8, H - 10);
+    }
+    if(!on){
+      g.fillStyle = "rgba(8,8,11,.45)"; g.fillRect(0, 0, W, H);
+      g.fillStyle = "rgba(255,255,255,.55)"; g.font = "bold 11px sans-serif"; g.textAlign = "center";
+      g.fillText("VYPNUTO", cx, 14);
+    }
+  }
+  function startDblLoop(){
+    if(dblLoop) return;
+    const loop = () => {
+      if(el("dbl-panel").hidden || el("mixer").hidden){ dblLoop = null; return; }
+      drawDbl();
+      dblLoop = requestAnimationFrame(loop);
+    };
+    dblLoop = requestAnimationFrame(loop);
   }
 
   el("mixer-metro").onclick = () => toggleMetronome();
@@ -18354,9 +19042,51 @@ const Mixer = (() => {
     }
     const outLat = () => (ctx().outputLatency || 0) + (ctx().baseLatency || 0);
     function songNow(){ return isPlaying ? songAtCtx(ctx().currentTime - outLat()) : null; }
+    // What's played and what plays, shown on the virtual keyboard (Piano).
+    const pianoLive = (m, on) => { if(typeof Piano !== "undefined") Piano.liveNote(m, on); };
+    // Notes from elsewhere (the virtual keyboard) go into a take being
+    // recorded — written down only, the keyboard makes its own sound.
+    function recNote(m, v, on){
+      if(!rec || !rec.on) return;
+      if(on){ const t = songNow(); if(t != null) rec.open.set(m, {t, v}); return; }
+      const o = rec.open.get(m);
+      if(!o) return;
+      rec.open.delete(m);
+      let t = songNow();
+      if(t != null && t < o.t && loopEnabled) t = loopEnd;
+      if(t != null && t > o.t) rec.notes.push({m, t: o.t, d: Math.max(0.03, t - o.t), v: o.v});
+    }
+    // While the song plays: the MIDI tracks' notes sounding now (and the ones
+    // coming right after), on the keyboard. It follows the song's own clock,
+    // so a slowed-down song is slowed down on the keys too.
+    let followRaf = 0, followKey = "";
+    function followTick(){
+      followRaf = 0;
+      if(typeof Piano === "undefined" || !Piano.isOpen()) return;
+      const now = new Set(), next = new Set();
+      const t = isPlaying ? songAtCtx(ctx().currentTime - outLat()) : null;
+      if(t != null){
+        const solo = channels.some(c => c.solo);
+        const ahead = 0.6 * (speed || 1);
+        for(const c of channels){
+          if(!c.midi || c.muted || (solo && !c.solo)) continue;
+          const shift = Math.round(pitchSemitones + rateToSemitones(c.pitchRate || 1));
+          for(const n of c.midi.notes){
+            if(n.t > t + ahead) break;               // notes are sorted by time
+            if(n.t <= t && t < n.t + n.d) now.add(n.m + shift);
+            else if(n.t > t) next.add(n.m + shift);
+          }
+        }
+      }
+      const key = [...now].join(",") + "|" + [...next].join(",");
+      if(key !== followKey){ followKey = key; Piano.follow(now, next); }
+      if(isPlaying) followRaf = requestAnimationFrame(followTick);
+    }
+    function follow(){ if(!followRaf) followRaf = requestAnimationFrame(followTick); }
     async function noteOn(m, v){
       const c = rec ? rec.c : target();
       if(!c) return;
+      pianoLive(m, true);
       if(ctx().state === "suspended") ctx().resume();
       const {L, zv: zvs} = await zvuky();
       const sf = L.najdiNastroj(c.midi.instrument).soundfont;
@@ -18370,6 +19100,7 @@ const Mixer = (() => {
       const l = live.get(m);
       if(l && zv) zv.utni(l.h);
       live.delete(m);
+      pianoLive(m, false);
       if(rec && rec.on){
         const o = rec.open.get(m);
         if(o){
@@ -18491,44 +19222,197 @@ const Mixer = (() => {
     }
 
     // ---- piano roll ----
-    const ROW = 12;
-    let ed = null;          // {lo, hi, sel: Set<note>, drag}
-    let edTimer = null;
+    //
+    // The canvas only ever covers what's on screen: it sits over a scroll box
+    // whose spacer has the full size, and is redrawn from the scroll offset.
+    // Its own zoom (pinch = time, ⌥ + pinch = pitch), tools (select / pencil
+    // / scissors), rubber-band selection, a velocity lane, a scale shown on
+    // the rows, and its own undo.
+    const ED_KEY = "spotdl-midi-editor";
+    const edPrefs = Object.assign({pps: 0, row: 14, height: 320, tool: "select", root: 0, scale: "none", snapScale: false},
+      (() => { try{ return JSON.parse(localStorage.getItem(ED_KEY) || "{}"); }catch(e){ return {}; } })());
+    const saveEdPrefs = () => { try{ localStorage.setItem(ED_KEY, JSON.stringify(edPrefs)); }catch(e){} };
+    const ED_SCALES = {
+      none: ["— bez stupnice —", null],
+      major: ["Dur", [0, 2, 4, 5, 7, 9, 11]], minor: ["Moll", [0, 2, 3, 5, 7, 8, 10]],
+      harmonic: ["Harmonická moll", [0, 2, 3, 5, 7, 8, 11]], melodic: ["Melodická moll", [0, 2, 3, 5, 7, 9, 11]],
+      pentaMaj: ["Pentatonika dur", [0, 2, 4, 7, 9]], pentaMin: ["Pentatonika moll", [0, 3, 5, 7, 10]],
+      blues: ["Blues", [0, 3, 5, 6, 7, 10]], dorian: ["Dórská", [0, 2, 3, 5, 7, 9, 10]],
+      phrygian: ["Frygická", [0, 1, 3, 5, 7, 8, 10]], lydian: ["Lydická", [0, 2, 4, 6, 7, 9, 11]],
+      mixolydian: ["Mixolydická", [0, 2, 4, 5, 7, 9, 10]], locrian: ["Lokrická", [0, 1, 3, 5, 6, 8, 10]],
+      phrygDom: ["Frygická dominantní", [0, 1, 4, 5, 7, 8, 10]],
+    };
+    const NOTE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "H"];
+    const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+    const KEYS_W = 46, VEL_H = 64, LO = 0, HI = 127;
+    let ed = null;          // {sel: Set<note>, drag, hover}
+    let edTimer = null, edPaintRaf = 0;
+    const edUndo = new WeakMap();   // channel → {u: [], r: []}
+
+    const scaleIv = () => (ED_SCALES[edPrefs.scale] || ED_SCALES.none)[1];
+    const inScale = (m) => { const iv = scaleIv(); return !iv || iv.includes(((m - edPrefs.root) % 12 + 12) % 12); };
+    function toScale(m){
+      if(!edPrefs.snapScale || inScale(m)) return m;
+      for(let d = 1; d < 7; d++){ if(inScale(m - d)) return m - d; if(inScale(m + d)) return m + d; }
+      return m;
+    }
+    const edPps = () => edPrefs.pps || pixelsPerSecond;
+    const ROWH = () => edPrefs.row;
+
+    function snapshot(c){ return c.midi.notes.map(n => ({...n})); }
+    function pushEdUndo(c){
+      const st = edUndo.get(c) || {u: [], r: []};
+      st.u.push(snapshot(c)); if(st.u.length > 60) st.u.shift();
+      st.r = [];
+      edUndo.set(c, st);
+    }
+    function undoRedo(c, redo){
+      const st = edUndo.get(c);
+      if(!st) return;
+      const from = redo ? st.r : st.u, to = redo ? st.u : st.r;
+      if(!from.length){ showToast(redo ? "Není co opakovat" : "Není co vrátit"); return; }
+      to.push(snapshot(c));
+      c.midi.notes = from.pop();
+      ed.sel.clear();
+      paintEditor(); changed(c, 10);
+    }
+    // Every edit: undo point first, then the change, then a re-render.
+    function edit(c, fn, ms){
+      pushEdUndo(c);
+      fn();
+      c.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+      paintEditor(); paintToolbar(); changed(c, ms ?? 120);
+    }
+
+    const tb = (id, ic, title, extra = "") =>
+      `<button type="button" class="nm-btn ib" id="${id}" title="${title}" aria-label="${title}" ${extra}>${icon(ic, 15)}</button>`;
     function openEditor(c, keep){
       const box = el("midi-editor");
       if(!keep && editorC === c && !box.hidden){ closeEditor(); return; }
+      const sameC = editorC === c && ed;
+      const prevScroll = sameC ? {x: el("midi-scroll").scrollLeft, y: el("midi-scroll").scrollTop} : null;
       editorC = c;
       editIdx = channels.indexOf(c);
-      const ns = c.midi.notes;
-      const lo = Math.max(0, Math.min(48, ...ns.map(n => n.m)) - 3), hi = Math.min(127, Math.max(84, ...ns.map(n => n.m)) + 3);
-      ed = {lo, hi, sel: new Set(), drag: null};
+      ed = {sel: sameC ? ed.sel : new Set(), drag: null};
       box.hidden = false;
       box.innerHTML = `
         <div class="midi-ed-head">
-          <span>Editor tónů: <b>${escapeHtml(stemLabel(c.stem))}</b> · ${escapeHtml(instrumentName(c))}</span>
-          <span style="margin-left:8px">klik = nový tón · tažení = posun (čas i výška) · pravý okraj = délka · dvojklik / Delete = smazat</span>
-          <select id="midi-q" title="Kvantizace">
-            <option value="1">Kvantizace: doba</option><option value="2" selected>1/2 doby</option><option value="4">1/4 doby</option><option value="0">volně</option></select>
-          <button type="button" class="nm-btn" id="midi-quant" title="Srovnat vybrané (nebo všechny) tóny na mřížku">Kvantizovat</button>
-          <button type="button" class="nm-btn" id="midi-del" title="Smazat vybrané tóny">Smazat vybrané</button>
+          <span class="midi-ed-name">${icon("piano", 14)} <b>${escapeHtml(stemLabel(c.stem))}</b> · ${escapeHtml(instrumentName(c))}</span>
+          <span class="mtb">
+            ${tb("me-t-select", "pointer", "Výběr (V) — klik označí, tažení po prázdnu = označit více, tažení tónu = posun, okraj = délka")}
+            ${tb("me-t-draw", "pencil", "Tužka (B) — klik vloží tón, tažení = délka")}
+            ${tb("me-t-cut", "scissors", "Nůžky (C) — klik rozstřihne tón")}
+          </span>
+          <span class="mtb">
+            ${tb("me-all", "selectAll", "Označit vše (⌘A)")}
+            ${tb("me-dup", "duplicate", "Duplikovat za sebe (⌘D)")}
+            ${tb("me-copy", "copy", "Kopírovat (⌘C)")}
+            ${tb("me-paste", "paste", "Vložit na pozici přehrávání (⌘V)")}
+            ${tb("me-del", "trash", "Smazat označené (Delete)")}
+          </span>
+          <span class="mtb">
+            <select id="midi-q" title="Mřížka — kam se tóny přichytávají">
+              <option value="1">doba</option><option value="2">1/2</option><option value="4">1/4</option><option value="3">triola</option><option value="0">volně</option></select>
+            ${tb("me-quant", "magnet", "Kvantizovat označené (nebo všechny) na mřížku (Q)")}
+          </span>
+          <span class="mtb">
+            <button type="button" class="nm-btn tx" id="me-tr-12" title="O oktávu níž (⇧↓)">−12</button>
+            <button type="button" class="nm-btn tx" id="me-tr-1" title="O půltón níž (↓)">−1</button>
+            <button type="button" class="nm-btn tx" id="me-tr1" title="O půltón výš (↑)">+1</button>
+            <button type="button" class="nm-btn tx" id="me-tr12" title="O oktávu výš (⇧↑)">+12</button>
+          </span>
+          <span class="mtb vel" title="Síla úhozu (velocity) označených tónů">VEL
+            <input type="range" id="me-vel" min="1" max="127" step="1"><b id="me-vel-v">—</b></span>
+          <span class="mtb" title="Stupnice — řádky jejích tónů jsou světlejší, tónika zelená">
+            <select id="me-root">${NOTE.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
+            <select id="me-scale">${Object.entries(ED_SCALES).map(([k, [n]]) => `<option value="${k}">${n}</option>`).join("")}</select>
+            <button type="button" class="nm-btn tx" id="me-snapscale" title="Nové a posouvané tóny jen do stupnice">jen stupnice</button>
+          </span>
+          <span class="mtb">
+            ${tb("me-zout", "zoomOut", "Oddálit čas (gesto dvěma prsty)")}
+            ${tb("me-zin", "zoomIn", "Přiblížit čas (gesto dvěma prsty)")}
+            ${tb("me-rdn", "rowsDown", "Nižší řádky (⌥ + gesto)")}
+            ${tb("me-rup", "rowsUp", "Vyšší řádky (⌥ + gesto)")}
+            <button type="button" class="nm-btn tx" id="me-fit" title="Ukázat všechny tóny">Vše</button>
+          </span>
+          <span class="mtb">
+            ${tb("me-undo", "undo", "Zpět (⌘Z)")}
+            ${tb("me-redo", "redo", "Znovu (⇧⌘Z)")}
+          </span>
+          <button type="button" class="nm-btn" id="midi-import" title="Vložit MIDI soubor z počítače na pozici přehrávání — nebo ho sem přetáhni (z Finderu i z Knihovny vlevo)">Vložit MIDI…</button>
           <button type="button" class="nm-btn" id="midi-close" style="margin-left:auto">Zavřít</button>
         </div>
-        <div class="midi-ed-body">
+        <div class="midi-ed-body" id="midi-body" style="height:${edPrefs.height}px">
           <div class="midi-ed-keys"><canvas id="midi-keys"></canvas></div>
-          <div class="midi-ed-scroll" id="midi-scroll" tabindex="0"><canvas id="midi-cv"></canvas></div>
-        </div>`;
-      box.querySelector("#midi-close").onclick = closeEditor;
-      box.querySelector("#midi-del").onclick = deleteSelected;
-      box.querySelector("#midi-quant").onclick = quantize;
-      const sc = box.querySelector("#midi-scroll");
-      sc.scrollLeft = el("nm-scroll") ? el("nm-scroll").scrollLeft : 0;
-      sc.scrollTop = Math.max(0, (ed.hi - 72) * ROW - 120);
-      sc.addEventListener("scroll", () => { const k = el("midi-keys"); if(k) k.style.transform = `translateY(${-sc.scrollTop}px)`; });
+          <div class="midi-ed-main">
+            <canvas id="midi-cv"></canvas>
+            <div class="midi-ed-scroll" id="midi-scroll" tabindex="0"><div id="midi-spacer"></div></div>
+            <div class="midi-band" id="midi-band" hidden></div>
+          </div>
+        </div>
+        <div class="midi-ed-vel">
+          <div class="midi-ed-vlbl" title="Síla úhozu — táhni sloupek nahoru/dolů">VEL</div>
+          <div class="midi-ed-vwrap"><canvas id="midi-vel"></canvas></div>
+        </div>
+        <div class="midi-ed-resize" id="midi-resize" title="Táhni — výška editoru"></div>`;
+      const q = (id) => box.querySelector("#" + id);
+      q("midi-close").onclick = closeEditor;
+      q("midi-import").onclick = () => pickFile(c);
+      q("me-t-select").onclick = () => setEdTool("select");
+      q("me-t-draw").onclick = () => setEdTool("draw");
+      q("me-t-cut").onclick = () => setEdTool("cut");
+      q("me-all").onclick = () => { c.midi.notes.forEach(n => ed.sel.add(n)); paintEditor(); paintToolbar(); };
+      q("me-dup").onclick = () => duplicateSel(c);
+      q("me-copy").onclick = () => copySel(c);
+      q("me-paste").onclick = () => pasteAt(c, currentTime());
+      q("me-del").onclick = deleteSelected;
+      q("me-quant").onclick = quantize;
+      q("midi-q").value = String(edPrefs.grid ?? 2);
+      q("midi-q").onchange = (e) => { edPrefs.grid = +e.target.value; saveEdPrefs(); paintEditor(); };
+      [["me-tr-12", -12], ["me-tr-1", -1], ["me-tr1", 1], ["me-tr12", 12]].forEach(([id, d]) => { q(id).onclick = () => transpose(c, d); });
+      q("me-vel").oninput = (e) => setVelocity(c, +e.target.value / 127, true);
+      q("me-vel").onchange = () => { if(ed.velEdit){ ed.velEdit = false; changed(c, 120); } };
+      q("me-root").value = String(edPrefs.root);
+      q("me-scale").value = edPrefs.scale;
+      q("me-root").onchange = (e) => { edPrefs.root = +e.target.value; saveEdPrefs(); paintEditor(); };
+      q("me-scale").onchange = (e) => { edPrefs.scale = e.target.value; saveEdPrefs(); paintEditor(); paintToolbar(); };
+      q("me-snapscale").onclick = () => { edPrefs.snapScale = !edPrefs.snapScale; saveEdPrefs(); paintToolbar(); };
+      q("me-zin").onclick = () => zoomTime(1.4);
+      q("me-zout").onclick = () => zoomTime(1 / 1.4);
+      q("me-rup").onclick = () => zoomRows(1.25);
+      q("me-rdn").onclick = () => zoomRows(1 / 1.25);
+      q("me-fit").onclick = () => fitNotes(c);
+      q("me-undo").onclick = () => undoRedo(c, false);
+      q("me-redo").onclick = () => undoRedo(c, true);
+
+      const sc = q("midi-scroll");
       wireEditor(sc, c);
+      wireVelocity(c);
+      wireResize();
+      sizeSpacer();
+      if(prevScroll){ sc.scrollLeft = prevScroll.x; sc.scrollTop = prevScroll.y; }
+      else{
+        sc.scrollLeft = el("nm-scroll") ? el("nm-scroll").scrollLeft * edPps() / pixelsPerSecond : 0;
+        const ns = c.midi.notes;
+        const mid = ns.length ? (Math.min(...ns.map(n => n.m)) + Math.max(...ns.map(n => n.m))) / 2 : 64;
+        sc.scrollTop = Math.max(0, (HI - mid) * ROWH() - sc.clientHeight / 2);
+      }
+      sc.addEventListener("scroll", () => schedulePaint());
+      new ResizeObserver(() => schedulePaint()).observe(sc);
+      paintToolbar();
       paintEditor();
       clearInterval(edTimer);
-      edTimer = setInterval(() => { if(editorC && isPlaying) paintEditor(); }, 120);
-      box.scrollIntoView({block: "nearest"});
+      edTimer = setInterval(() => {
+        if(!editorC || !isPlaying) return;
+        // Keep the playhead in view while the song plays (not while editing).
+        const s2 = el("midi-scroll");
+        if(s2 && ed && !ed.drag){
+          const x = currentTime() * edPps();
+          if(x > s2.scrollLeft + s2.clientWidth * 0.88 || x < s2.scrollLeft) s2.scrollLeft = Math.max(0, x - s2.clientWidth * 0.15);
+        }
+        paintEditor();
+      }, 100);
+      if(!keep) box.scrollIntoView({block: "nearest"});
     }
     function closeEditor(){
       el("midi-editor").hidden = true;
@@ -18536,54 +19420,140 @@ const Mixer = (() => {
       editorC = null; ed = null;
       clearInterval(edTimer);
     }
-    const NOTE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "H"];
-    const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+    function setEdTool(t){
+      edPrefs.tool = t; saveEdPrefs(); paintToolbar();
+      const sc = el("midi-scroll");
+      if(sc) sc.dataset.tool = t;
+    }
+    function paintToolbar(){
+      const box = el("midi-editor");
+      if(!box || !ed) return;
+      ["select", "draw", "cut"].forEach(t => { const b = box.querySelector("#me-t-" + t); if(b) b.classList.toggle("on", edPrefs.tool === t); });
+      const sc = el("midi-scroll"); if(sc) sc.dataset.tool = edPrefs.tool;
+      const has = ed.sel.size > 0;
+      ["me-dup", "me-copy", "me-del"].forEach(id => { const b = box.querySelector("#" + id); if(b) b.disabled = !has; });
+      const st = edUndo.get(editorC);
+      box.querySelector("#me-undo").disabled = !(st && st.u.length);
+      box.querySelector("#me-redo").disabled = !(st && st.r.length);
+      const ss = box.querySelector("#me-snapscale");
+      ss.classList.toggle("on", edPrefs.snapScale);
+      ss.disabled = !scaleIv();
+      const vel = box.querySelector("#me-vel"), vv = box.querySelector("#me-vel-v");
+      if(has){
+        const avg = [...ed.sel].reduce((a, n) => a + (n.v ?? 0.8), 0) / ed.sel.size;
+        if(document.activeElement !== vel) vel.value = String(Math.round(avg * 127));
+        vv.textContent = String(Math.round(avg * 127));
+      } else vv.textContent = "—";
+      vel.disabled = !has;
+    }
+    function sizeSpacer(){
+      const c = editorC, sp = el("midi-spacer");
+      if(!c || !sp) return;
+      const end = Math.max(duration, ...c.midi.notes.map(n => n.t + n.d)) + 4;
+      sp.style.width = Math.ceil(end * edPps()) + "px";
+      sp.style.height = ((HI - LO + 1) * ROWH()) + "px";
+    }
+    function schedulePaint(){ if(!edPaintRaf) edPaintRaf = requestAnimationFrame(() => { edPaintRaf = 0; paintEditor(); }); }
+    function fitCanvas(cv, w, h){
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if(cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){
+        cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+        cv.style.width = w + "px"; cv.style.height = h + "px";
+      }
+      const g = cv.getContext("2d");
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return g;
+    }
+    // Soft = blue, through violet, to loud = red; yellow stays for "selected".
+    const velColor = (v, a = 1) => `hsla(${Math.round(215 + 140 * Math.max(0, Math.min(1, v))) % 360}, 80%, ${50 + 8 * v}%, ${a})`;
     function paintEditor(){
       const c = editorC;
       if(!c || !ed) return;
-      const cv = el("midi-cv"), kc = el("midi-keys");
-      if(!cv || !kc) return;
-      const pps = pixelsPerSecond, rows = ed.hi - ed.lo + 1;
-      const W = Math.max(400, Math.ceil(Math.max(duration, ...c.midi.notes.map(n => n.t + n.d)) * pps) + 200), H = rows * ROW;
-      const cw = Math.min(W, 16000);
-      if(cv.width !== cw || cv.height !== H){ cv.width = cw; cv.height = H; cv.style.width = W + "px"; cv.style.height = H + "px"; }
-      kc.width = 46; kc.height = H;
-      const sx = cw / W, g = cv.getContext("2d"), gk = kc.getContext("2d");
-      g.fillStyle = "#121217"; g.fillRect(0, 0, cw, H);
-      for(let m = ed.hi; m >= ed.lo; m--){
-        const y = (ed.hi - m) * ROW;
-        g.fillStyle = isBlack(m) ? "#16161c" : "#1b1b22";
-        g.fillRect(0, y, cw, ROW);
-        if(m % 12 === 0){ g.fillStyle = "#2c2c38"; g.fillRect(0, y + ROW - 1, cw, 1); }
-        gk.fillStyle = isBlack(m) ? "#26262e" : "#d9d9df";
-        gk.fillRect(0, y, 46, ROW - 1);
-        if(m % 12 === 0){ gk.fillStyle = "#555"; gk.font = "9px sans-serif"; gk.fillText(`C${Math.floor(m / 12) - 1}`, 22, y + ROW - 3); }
+      const cv = el("midi-cv"), kc = el("midi-keys"), sc = el("midi-scroll"), vc = el("midi-vel");
+      if(!cv || !kc || !sc) return;
+      sizeSpacer();
+      const W = sc.clientWidth, H = sc.clientHeight, sx = sc.scrollLeft, sy = sc.scrollTop;
+      if(!W || !H) return;
+      const pps = edPps(), row = ROWH(), iv = scaleIv();
+      const g = fitCanvas(cv, W, H), gk = fitCanvas(kc, KEYS_W, H);
+      g.fillStyle = "#111116"; g.fillRect(0, 0, W, H);
+      gk.fillStyle = "#18181e"; gk.fillRect(0, 0, KEYS_W, H);
+      const mTop = HI - Math.floor(sy / row), mBot = Math.max(LO, HI - Math.ceil((sy + H) / row));
+      for(let m = mTop; m >= mBot; m--){
+        const y = (HI - m) * row - sy;
+        const deg = ((m - edPrefs.root) % 12 + 12) % 12;
+        let bg = isBlack(m) ? "#15151b" : "#1b1b22";
+        if(iv){ bg = iv.includes(deg) ? (deg === 0 ? "#1d2a22" : "#22222b") : "#121217"; }
+        g.fillStyle = bg; g.fillRect(0, y, W, row);
+        if(m % 12 === 0){ g.fillStyle = "#30303c"; g.fillRect(0, y + row - 1, W, 1); }
+        // the keys column, with names where there is room
+        gk.fillStyle = isBlack(m) ? "#2a2a32" : "#dcdce2";
+        if(iv && !iv.includes(deg)) gk.fillStyle = isBlack(m) ? "#1d1d22" : "#8e8e96";
+        gk.fillRect(0, y, isBlack(m) ? 30 : KEYS_W, row - 1);
+        if(iv && deg === 0){ gk.fillStyle = "#1ed760"; gk.fillRect(KEYS_W - 4, y, 4, row - 1); }
+        if(m % 12 === 0 || row >= 15){
+          gk.fillStyle = isBlack(m) ? "#bbb" : "#333";
+          gk.font = `${Math.min(10, row - 3)}px sans-serif`; gk.textBaseline = "middle";
+          gk.fillText(`${NOTE[m % 12]}${Math.floor(m / 12) - 1}`, isBlack(m) ? 4 : 18, y + row / 2);
+        }
       }
-      // beats and bars
-      const downs = new Set(downbeatTimes);
-      for(const b of beatTimes){
-        const x = b * pps * sx;
-        if(x > cw) break;
-        g.fillStyle = downs.has(b) ? "rgba(255,166,77,.35)" : "rgba(255,255,255,.06)";
+      // grid: the chosen division, beats, bars
+      const downs = new Set(downbeatTimes), t0 = sx / pps, t1 = (sx + W) / pps;
+      const div = edPrefs.grid ?? 2;
+      for(let i = 0; i < beatTimes.length; i++){
+        const b = beatTimes[i];
+        if(b > t1) break;
+        const nb = beatTimes[i + 1] ?? b + (beatInterval || 0.5);
+        if(nb < t0) continue;
+        const x = b * pps - sx;
+        g.fillStyle = downs.has(b) ? "rgba(255,166,77,.38)" : "rgba(255,255,255,.09)";
         g.fillRect(x, 0, 1, H);
+        if(div > 1 && (nb - b) * pps / div > 7){
+          g.fillStyle = "rgba(255,255,255,.035)";
+          for(let k = 1; k < div; k++) g.fillRect(x + (nb - b) * pps * k / div, 0, 1, H);
+        }
       }
-      // notes
+      // notes, coloured by velocity
       for(const n of c.midi.notes){
-        if(n.m < ed.lo || n.m > ed.hi) continue;
-        const x = n.t * pps * sx, y = (ed.hi - n.m) * ROW, w = Math.max(3, n.d * pps * sx);
-        const sel = ed.sel.has(n);
-        g.fillStyle = sel ? "#ffd166" : `rgba(110,170,255,${0.45 + 0.55 * (n.v ?? 0.8)})`;
-        g.fillRect(x, y + 1, w, ROW - 2);
-        g.fillStyle = sel ? "#8a6a10" : "#1d3d6e";
-        g.fillRect(x + w - 2, y + 1, 2, ROW - 2);
+        if(n.t > t1) break;
+        if(n.t + n.d < t0 || n.m > mTop || n.m < mBot) continue;
+        const x = n.t * pps - sx, y = (HI - n.m) * row - sy, w = Math.max(3, n.d * pps);
+        const sel = ed.sel.has(n), v = n.v ?? 0.8;
+        g.fillStyle = sel ? "#ffd166" : velColor(v, 0.95);
+        g.beginPath(); g.roundRect ? g.roundRect(x, y + 1, w, row - 2, 2) : g.rect(x, y + 1, w, row - 2); g.fill();
+        g.fillStyle = sel ? "#8a6a10" : "rgba(0,0,0,.35)";
+        g.fillRect(x + w - 2, y + 1, 2, row - 2);
+        if(sel){ g.strokeStyle = "#fff"; g.lineWidth = 1; g.strokeRect(x + .5, y + 1.5, w - 1, row - 3); }
+        if(row >= 13 && w > 26){
+          g.fillStyle = "rgba(0,0,0,.7)"; g.font = `${Math.min(10, row - 4)}px sans-serif`; g.textBaseline = "middle";
+          g.fillText(NOTE[n.m % 12] + (Math.floor(n.m / 12) - 1), x + 3, y + row / 2);
+        }
       }
       // playhead
-      const ph = currentTime() * pps * sx;
+      const ph = currentTime() * pps - sx;
       g.fillStyle = "#ff4d4d"; g.fillRect(ph, 0, 1.5, H);
+      // the velocity lane, in step with the notes above
+      if(vc){
+        const vw = vc.parentElement.clientWidth;
+        const gv = fitCanvas(vc, vw, VEL_H);
+        gv.fillStyle = "#0e0e12"; gv.fillRect(0, 0, vw, VEL_H);
+        gv.fillStyle = "rgba(255,255,255,.06)";
+        [0.25, 0.5, 0.75].forEach(f => gv.fillRect(0, Math.round(VEL_H - f * (VEL_H - 6)), vw, 1));
+        for(const n of c.midi.notes){
+          if(n.t > t1) break;
+          if(n.t + n.d < t0) continue;
+          const x = n.t * pps - sx, v = n.v ?? 0.8, hgt = v * (VEL_H - 6);
+          const sel = ed.sel.has(n);
+          gv.fillStyle = sel ? "#ffd166" : velColor(v, 0.9);
+          gv.fillRect(x, VEL_H - hgt, Math.max(3, Math.min(8, n.d * pps)), hgt);
+          gv.beginPath(); gv.arc(x + 1.5, VEL_H - hgt, 3, 0, Math.PI * 2); gv.fill();
+        }
+        gv.fillStyle = "#ff4d4d"; gv.fillRect(ph, 0, 1.5, VEL_H);
+      }
     }
     function qStep(t){
       // The grid of the chosen division of the song's beats near t.
-      const div = parseInt((el("midi-q") || {}).value || "2", 10);
+      const div = edPrefs.grid ?? 2;
       if(!div || !beatTimes.length) return null;
       let i = beatTimes.findIndex(b => b > t) - 1;
       if(i < 0) i = 0;
@@ -18595,114 +19565,414 @@ const Mixer = (() => {
       if(!q) return t;
       return q.b0 + Math.round((t - q.b0) / q.step) * q.step;
     }
-    function hit(c, t, m, px){
-      const pps = pixelsPerSecond;
+    function hit(c, t, m){
+      const pps = edPps();
       for(let i = c.midi.notes.length - 1; i >= 0; i--){
         const n = c.midi.notes[i];
-        if(n.m === m && t >= n.t && t <= n.t + n.d + 3 / pps){
-          return {n, edge: (n.t + n.d - t) * pps < 6};
+        if(n.m === m && t >= n.t - 2 / pps && t <= n.t + n.d + 3 / pps){
+          return {n, edge: (n.t + n.d - t) * pps < Math.min(7, n.d * pps / 3)};
         }
       }
       return null;
     }
+    // Zoom keeping the time (or the pitch) under the pointer where it is.
+    function zoomTime(f, clientX){
+      const sc = el("midi-scroll");
+      if(!sc) return;
+      const r = sc.getBoundingClientRect(), px = clientX != null ? clientX - r.left : sc.clientWidth / 2;
+      const t = (sc.scrollLeft + px) / edPps();
+      edPrefs.pps = Math.max(8, Math.min(1500, edPps() * f)); saveEdPrefs();
+      sizeSpacer();
+      sc.scrollLeft = t * edPps() - px;
+      paintEditor();
+    }
+    function zoomRows(f, clientY){
+      const sc = el("midi-scroll");
+      if(!sc) return;
+      const r = sc.getBoundingClientRect(), py = clientY != null ? clientY - r.top : sc.clientHeight / 2;
+      const m = HI - (sc.scrollTop + py) / ROWH();
+      edPrefs.row = Math.max(6, Math.min(32, ROWH() * f)); saveEdPrefs();
+      sizeSpacer();
+      sc.scrollTop = (HI - m) * ROWH() - py;
+      paintEditor();
+    }
+    function fitNotes(c){
+      const sc = el("midi-scroll"), ns = c.midi.notes;
+      if(!sc || !ns.length){ showToast("Zatím tu nejsou žádné tóny"); return; }
+      const a = Math.min(...ns.map(n => n.t)), b = Math.max(...ns.map(n => n.t + n.d));
+      const lo = Math.min(...ns.map(n => n.m)), hi = Math.max(...ns.map(n => n.m));
+      edPrefs.pps = Math.max(8, Math.min(1500, (sc.clientWidth - 40) / Math.max(0.5, b - a)));
+      edPrefs.row = Math.max(6, Math.min(32, (sc.clientHeight - 10) / (hi - lo + 3)));
+      saveEdPrefs(); sizeSpacer();
+      sc.scrollLeft = Math.max(0, a * edPps() - 20);
+      sc.scrollTop = Math.max(0, (HI - hi - 1) * ROWH());
+      paintEditor();
+    }
+
     function wireEditor(sc, c){
-      const cv = el("midi-cv");
       const at = (e) => {
-        const r = cv.getBoundingClientRect();
-        const W = parseFloat(cv.style.width);
-        const t = (e.clientX - r.left) / r.width * W / pixelsPerSecond;
-        const m = ed.hi - Math.floor((e.clientY - r.top) / ROW);
-        return {t: Math.max(0, t), m};
+        const r = sc.getBoundingClientRect();
+        const x = e.clientX - r.left + sc.scrollLeft, y = e.clientY - r.top + sc.scrollTop;
+        return {t: Math.max(0, x / edPps()), m: Math.max(LO, Math.min(HI, HI - Math.floor(y / ROWH()))), x, y};
       };
-      cv.addEventListener("pointerdown", (e) => {
+      const defLen = (t) => { const q = qStep(t); return q ? q.step : (beatInterval || 0.5) / 2; };
+      sc.addEventListener("pointerdown", (e) => {
         if(e.button !== 0) return;
-        sc.focus();
+        // a click on the scrollbar is the scrollbar's
+        const r = sc.getBoundingClientRect();
+        if(e.clientX - r.left > sc.clientWidth || e.clientY - r.top > sc.clientHeight) return;
+        sc.focus({preventScroll: true});
         const p = at(e);
+        const tool = edPrefs.tool;
         let h = hit(c, p.t, p.m);
-        if(!h){
-          // A new note, one grid step long (a beat if there's no grid).
-          const q = qStep(p.t);
-          const t0 = e.altKey ? p.t : qTime(p.t);
-          const n = {m: p.m, t: t0, d: q ? q.step : (beatInterval || 0.5) / 2, v: 0.8};
-          c.midi.notes.push(n);
-          h = {n, edge: true};
-          preview(c, n.m);
+        if(tool === "cut"){
+          if(!h){ return; }
+          const cutT = e.altKey ? p.t : qTime(p.t);
+          if(cutT <= h.n.t + 0.02 || cutT >= h.n.t + h.n.d - 0.02){ showToast("Tady se tón rozstřihnout nedá"); return; }
+          edit(c, () => {
+            const right = {...h.n, t: cutT, d: h.n.t + h.n.d - cutT};
+            h.n.d = cutT - h.n.t;
+            c.midi.notes.push(right);
+            ed.sel.clear(); ed.sel.add(right);
+          });
+          return;
         }
+        if(!h && tool === "draw"){
+          pushEdUndo(c);
+          const t0 = e.altKey ? p.t : qTime(p.t);
+          const n = {m: toScale(p.m), t: Math.max(0, t0), d: defLen(p.t), v: ed.lastVel ?? 0.8};
+          c.midi.notes.push(n);
+          ed.sel.clear(); ed.sel.add(n);
+          preview(c, n.m);
+          ed.drag = {mode: "len", t0: p.t, m0: p.m, orig: [{n, t: n.t, m: n.m, d: n.d}], undone: true};
+          sc.setPointerCapture(e.pointerId);
+          paintEditor(); paintToolbar();
+          return;
+        }
+        if(!h){
+          // select tool on empty space: rubber band (Shift adds to it)
+          if(!e.shiftKey) ed.sel.clear();
+          ed.drag = {mode: "band", x0: p.x, y0: p.y, base: new Set(ed.sel)};
+          sc.setPointerCapture(e.pointerId);
+          paintEditor(); paintToolbar();
+          return;
+        }
+        if(e.shiftKey && ed.sel.has(h.n) && !h.edge){ ed.sel.delete(h.n); paintEditor(); paintToolbar(); return; }
         if(!e.shiftKey && !ed.sel.has(h.n)) ed.sel.clear();
         ed.sel.add(h.n);
-        ed.drag = {mode: h.edge ? "len" : "move", t0: p.t, m0: p.m,
-          orig: [...ed.sel].map(n => ({n, t: n.t, m: n.m, d: n.d})), alt: e.altKey};
-        cv.setPointerCapture(e.pointerId);
-        paintEditor();
+        ed.lastVel = h.n.v ?? 0.8;
+        preview(c, h.n.m, h.n.v);
+        ed.drag = {mode: h.edge ? "len" : "move", t0: p.t, m0: p.m, moved: false, clicked: h.n, shift: e.shiftKey,
+          orig: [...ed.sel].map(n => ({n, t: n.t, m: n.m, d: n.d}))};
+        sc.setPointerCapture(e.pointerId);
+        paintEditor(); paintToolbar();
       });
-      cv.addEventListener("pointermove", (e) => {
+      sc.addEventListener("pointermove", (e) => {
+        ed && (ed.hoverAt = Date.now());
         if(!ed || !ed.drag) return;
         const p = at(e), dr = ed.drag;
+        if(dr.mode === "band"){
+          const x0 = Math.min(dr.x0, p.x), x1 = Math.max(dr.x0, p.x), y0 = Math.min(dr.y0, p.y), y1 = Math.max(dr.y0, p.y);
+          const band = el("midi-band");
+          band.hidden = false;
+          band.style.left = (x0 - sc.scrollLeft) + "px"; band.style.top = (y0 - sc.scrollTop) + "px";
+          band.style.width = (x1 - x0) + "px"; band.style.height = (y1 - y0) + "px";
+          const pps = edPps(), row = ROWH();
+          ed.sel = new Set(dr.base);
+          for(const n of c.midi.notes){
+            const nx0 = n.t * pps, nx1 = nx0 + Math.max(3, n.d * pps), ny0 = (HI - n.m) * row, ny1 = ny0 + row;
+            if(nx1 >= x0 && nx0 <= x1 && ny1 >= y0 && ny0 <= y1) ed.sel.add(n);
+          }
+          paintEditor(); paintToolbar();
+          return;
+        }
         const dt = p.t - dr.t0, dm = p.m - dr.m0;
+        if(!dr.moved && Math.abs(dt * edPps()) < 3 && dm === 0) return;
+        if(!dr.moved && !dr.undone){
+          // the undo point is the state before the drag, not after
+          const st = edUndo.get(c) || {u: [], r: []};
+          st.u.push(dr.orig.length ? c.midi.notes.map(n => {
+            const o = dr.orig.find(x => x.n === n);
+            return o ? {...n, t: o.t, m: o.m, d: o.d} : {...n};
+          }) : snapshot(c));
+          st.r = []; edUndo.set(c, st);
+        }
+        dr.moved = true;
         for(const o of dr.orig){
           if(dr.mode === "len"){
             const endT = e.altKey ? o.t + o.d + dt : qTime(o.t + o.d + dt);
             o.n.d = Math.max(0.03, endT - o.n.t);
           } else {
             o.n.t = Math.max(0, e.altKey ? o.t + dt : qTime(o.t + dt));
-            o.n.m = Math.max(0, Math.min(127, o.m + dm));
+            o.n.m = toScale(Math.max(LO, Math.min(HI, o.m + dm)));
           }
         }
+        if(dr.mode === "move" && dm !== dr.lastDm){ dr.lastDm = dm; if(dm) preview(c, dr.orig[0].n.m, dr.orig[0].n.v); }
         paintEditor();
       });
-      cv.addEventListener("pointerup", () => {
+      const up = () => {
         if(!ed || !ed.drag) return;
         const dr = ed.drag; ed.drag = null;
-        const movedPitch = dr.mode === "move" && dr.orig.some(o => o.n.m !== o.m);
-        if(movedPitch) preview(c, dr.orig[0].n.m);
+        el("midi-band").hidden = true;
+        if(dr.mode === "band"){ paintToolbar(); return; }
+        // A click (no drag) on a note of a bigger selection selects just it.
+        if(!dr.moved && !dr.undone){
+          if(dr.clicked && !dr.shift && ed.sel.size > 1){ ed.sel = new Set([dr.clicked]); paintEditor(); paintToolbar(); }
+          return;
+        }
         c.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+        paintEditor(); paintToolbar();
         changed(c);
-      });
-      cv.addEventListener("dblclick", (e) => {
+      };
+      sc.addEventListener("pointerup", up);
+      sc.addEventListener("pointercancel", up);
+      sc.addEventListener("dblclick", (e) => {
         const p = at(e), h = hit(c, p.t, p.m);
-        if(!h) return;
-        c.midi.notes = c.midi.notes.filter(n => n !== h.n);
-        ed.sel.delete(h.n);
-        paintEditor(); changed(c);
+        if(h){ edit(c, () => { c.midi.notes = c.midi.notes.filter(n => n !== h.n); ed.sel.delete(h.n); }); return; }
+        if(edPrefs.tool !== "select") return;
+        // double-click on empty space with the select tool: a new note
+        edit(c, () => {
+          const n = {m: toScale(p.m), t: e.altKey ? p.t : qTime(p.t), d: defLen(p.t), v: ed.lastVel ?? 0.8};
+          c.midi.notes.push(n); ed.sel.clear(); ed.sel.add(n);
+          preview(c, n.m);
+        });
       });
-      sc.addEventListener("keydown", (e) => {
-        if(e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); e.stopPropagation(); deleteSelected(); }
-        else if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a"){ e.preventDefault(); c.midi.notes.forEach(n => ed.sel.add(n)); paintEditor(); }
+      // right click on a note deletes it (as in most piano rolls)
+      sc.addEventListener("contextmenu", (e) => {
+        const p = at(e), h = hit(c, p.t, p.m);
+        e.preventDefault();
+        if(!h) return;
+        edit(c, () => { c.midi.notes = c.midi.notes.filter(n => n !== h.n); ed.sel.delete(h.n); });
+      });
+      // trackpad: two fingers scroll, a pinch zooms time, ⌥ + pinch the rows
+      sc.addEventListener("wheel", (e) => {
+        if(!e.ctrlKey && !e.metaKey && !e.altKey) return;
+        e.preventDefault();
+        const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.004));
+        if(e.altKey) zoomRows(f, e.clientY); else zoomTime(f, e.clientX);
+      }, {passive: false});
+      sc.addEventListener("pointerenter", () => { if(ed) ed.hoverAt = Date.now(); });
+    }
+    // The velocity lane: drag a bar (or, with notes selected, anywhere) up/down.
+    function wireVelocity(c){
+      const vc = el("midi-vel");
+      if(!vc) return;
+      const vAt = (e) => Math.max(1 / 127, Math.min(1, (VEL_H - (e.clientY - vc.getBoundingClientRect().top)) / (VEL_H - 6)));
+      vc.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0) return;
+        const sc = el("midi-scroll"), r = vc.getBoundingClientRect();
+        const x = e.clientX - r.left + sc.scrollLeft, pps = edPps();
+        let target = null, best = 9;
+        for(const n of c.midi.notes){ const d = Math.abs(n.t * pps - x); if(d < best){ best = d; target = n; } }
+        let list;
+        if(target && !ed.sel.has(target)){ ed.sel.clear(); ed.sel.add(target); list = [target]; }
+        else list = ed.sel.size ? [...ed.sel] : (target ? [target] : []);
+        if(!list.length) return;
+        pushEdUndo(c);
+        const apply = (ev) => { const v = vAt(ev); list.forEach(n => { n.v = v; }); ed.lastVel = v; paintEditor(); paintToolbar(); };
+        apply(e);
+        vc.setPointerCapture(e.pointerId);
+        const mv = (ev) => apply(ev);
+        const done = () => { vc.removeEventListener("pointermove", mv); vc.removeEventListener("pointerup", done); changed(c, 120); };
+        vc.addEventListener("pointermove", mv);
+        vc.addEventListener("pointerup", done);
       });
     }
-    async function preview(c, m){
+    function wireResize(){
+      const h = el("midi-resize");
+      if(!h) return;
+      h.addEventListener("pointerdown", (e) => {
+        const body = el("midi-body"), y0 = e.clientY, h0 = body.offsetHeight;
+        h.setPointerCapture(e.pointerId);
+        const mv = (ev) => { edPrefs.height = Math.max(160, Math.min(900, h0 + ev.clientY - y0)); body.style.height = edPrefs.height + "px"; schedulePaint(); };
+        const done = () => { h.removeEventListener("pointermove", mv); h.removeEventListener("pointerup", done); saveEdPrefs(); };
+        h.addEventListener("pointermove", mv);
+        h.addEventListener("pointerup", done);
+      });
+    }
+    function setVelocity(c, v, live){
+      if(!ed || !ed.sel.size) return;
+      if(!ed.velEdit){ pushEdUndo(c); ed.velEdit = true; }
+      ed.sel.forEach(n => { n.v = v; });
+      ed.lastVel = v;
+      paintEditor(); paintToolbar();
+      if(!live) changed(c, 120);
+    }
+    function transpose(c, d){
+      if(!ed.sel.size){ showToast("Nejdřív označ tóny"); return; }
+      edit(c, () => ed.sel.forEach(n => { n.m = Math.max(LO, Math.min(HI, n.m + d)); }));
+      const first = [...ed.sel][0];
+      if(first) preview(c, first.m, first.v);
+    }
+    function nudge(c, dir){
+      if(!ed.sel.size) return;
+      edit(c, () => ed.sel.forEach(n => {
+        const q = qStep(n.t);
+        n.t = Math.max(0, n.t + dir * (q ? q.step : 0.05));
+      }));
+    }
+    let midiClip = null;
+    function copySel(c){
+      if(!ed.sel.size) return;
+      const ns = [...ed.sel], a = Math.min(...ns.map(n => n.t));
+      midiClip = ns.map(n => ({...n, t: n.t - a}));
+      showToast(`Zkopírováno ${ns.length} ${ns.length === 1 ? "tón" : ns.length < 5 ? "tóny" : "tónů"}`);
+    }
+    function pasteAt(c, t){
+      if(!midiClip || !midiClip.length){ showToast("Schránka je prázdná — nejdřív ⌘C"); return; }
+      edit(c, () => {
+        const added = midiClip.map(n => ({...n, t: n.t + t}));
+        c.midi.notes.push(...added);
+        ed.sel = new Set(added);
+      });
+    }
+    function duplicateSel(c){
+      if(!ed.sel.size) return;
+      const ns = [...ed.sel];
+      const a = Math.min(...ns.map(n => n.t)), b = Math.max(...ns.map(n => n.t + n.d));
+      let span = b - a;
+      const q = qStep(a);
+      if(q) span = Math.max(q.step, Math.ceil(span / q.step - 0.01) * q.step);
+      edit(c, () => {
+        const added = ns.map(n => ({...n, t: n.t + span}));
+        c.midi.notes.push(...added);
+        ed.sel = new Set(added);
+      });
+    }
+    // Keys work whenever the pointer is over the editor (or it has focus) —
+    // no need to click it first.
+    window.addEventListener("keydown", (e) => {
+      const c = editorC;
+      if(!c || !ed || el("midi-editor").hidden) return;
+      const box = el("midi-editor");
+      const inside = box.contains(document.activeElement) || box.matches(":hover");
+      if(!inside) return;
+      if(e.target && e.target.closest && e.target.closest("input:not([type=range]), textarea, select, [contenteditable]")) return;
+      const k = e.key, mod = e.metaKey || e.ctrlKey;
+      let done = true;
+      if(k === "Delete" || k === "Backspace") deleteSelected();
+      else if(mod && k.toLowerCase() === "a") { c.midi.notes.forEach(n => ed.sel.add(n)); paintEditor(); paintToolbar(); }
+      else if(mod && k.toLowerCase() === "d") duplicateSel(c);
+      else if(mod && k.toLowerCase() === "c") copySel(c);
+      else if(mod && k.toLowerCase() === "v") pasteAt(c, currentTime());
+      else if(mod && k.toLowerCase() === "z") undoRedo(c, e.shiftKey);
+      else if(k === "ArrowUp" || k === "ArrowDown"){ if(!ed.sel.size){ done = false; } else transpose(c, (k === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 12 : 1)); }
+      else if(k === "ArrowLeft" || k === "ArrowRight"){ if(!ed.sel.size){ done = false; } else nudge(c, k === "ArrowRight" ? 1 : -1); }
+      else if(k === "Escape"){ ed.sel.clear(); paintEditor(); paintToolbar(); }
+      else if(!mod && k.length === 1 && typeof Piano !== "undefined" && Piano.isOpen() && Piano.state.pc !== "off") done = false;
+      else if(!mod && (k === "v" || k === "V")) setEdTool("select");
+      else if(!mod && (k === "b" || k === "B")) setEdTool("draw");
+      else if(!mod && (k === "c" || k === "C") && !kbd) setEdTool("cut");
+      else if(!mod && (k === "q" || k === "Q") && !kbd) quantize();
+      else done = false;
+      if(done){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+    async function preview(c, m, v){
       try{
         const {L, zv: zvs} = await zvuky();
         const sf = L.najdiNastroj(c.midi.instrument).soundfont;
-        const h = zvs.hraj(sf, m, 0.7, c.gainNode);
+        const h = zvs.hraj(sf, m, v ?? 0.7, c.gainNode);
         setTimeout(() => zvs.utni(h), 300);
       }catch(e){}
     }
+    // ---- MIDI files ----
+    // The file's own time 0 lands at `at` (seconds in the song): where it was
+    // dropped in the editor, or the playhead otherwise.
+    function importNotes(c, src, at){
+      let parsed;
+      try{ parsed = parseMidiFile(src.buf); }
+      catch(e){ showToast(e.message || "MIDI soubor se nepodařilo přečíst"); return; }
+      if(!parsed.notes.length){ showToast("V MIDI souboru nejsou žádné tóny"); return; }
+      const added = parsed.notes.map(n => ({...n, t: n.t + Math.max(0, at || 0)}));
+      pushEdUndo(c);
+      c.midi.notes.push(...added);
+      c.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+      renderTimeline();
+      changed(c, 10);
+      openEditor(c, true);
+      if(ed){ ed.sel = new Set(added); paintEditor(); paintToolbar(); }   // selected, ready to move
+      const label = (src.name || "MIDI").replace(/\.midi?$/i, "");
+      const k = added.length;
+      showToast(`Vloženo ${k} ${k === 1 ? "tón" : k < 5 ? "tóny" : "tónů"} z „${label}“` + (parsed.drumsSkipped ? ` (bicí vynechány: ${parsed.drumsSkipped})` : ""));
+    }
+    function midiTarget(){
+      const c = editorC || target();
+      if(!c) showToast(channels.length ? "Nejdřív přidej MIDI stopu (+ Stopa → MIDI)" : "Otevři píseň ve Steems a přidej MIDI stopu");
+      return c;
+    }
+    async function importRel(rel, name){
+      const c = midiTarget();
+      if(!c) return;
+      try{
+        const res = await fetch(`/api/library/midi?rel=${encodeURIComponent(rel)}`);
+        if(!res.ok) throw new Error();
+        importNotes(c, {buf: await res.arrayBuffer(), name}, currentTime());
+      }catch(e){ showToast("MIDI soubor se nepodařilo načíst"); }
+    }
+    function pickFile(c){
+      c = c || midiTarget();
+      if(!c) return;
+      const inp = document.createElement("input");
+      inp.type = "file"; inp.accept = ".mid,.midi,audio/midi";
+      inp.onchange = async () => {
+        const f = inp.files && inp.files[0];
+        if(f) importNotes(c, {buf: await f.arrayBuffer(), name: f.name}, currentTime());
+      };
+      inp.click();
+    }
+    // Drops onto the editor (at the drop point) or a MIDI strip (at the playhead).
+    function wireDrop(node, getC, timeAt){
+      node.addEventListener("dragover", (e) => {
+        if(!hasMidiDrag(e) || !getC()) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+        node.classList.add(node.id === "midi-editor" ? "drop" : "midi-drop");
+      });
+      node.addEventListener("dragleave", (e) => { if(!node.contains(e.relatedTarget)) node.classList.remove("drop", "midi-drop"); });
+      node.addEventListener("drop", async (e) => {
+        node.classList.remove("drop", "midi-drop");
+        const c = getC();
+        if(!c || !hasMidiDrag(e)) return;
+        e.preventDefault();
+        try{
+          const src = await midiFromDrop(e);
+          if(!src){ showToast("Sem patří MIDI soubor (.mid)"); return; }
+          importNotes(c, src, timeAt(e));
+        }catch(err){ showToast(err.message || "MIDI soubor se nepodařilo načíst"); }
+      });
+    }
+    wireDrop(el("midi-editor"), () => editorC, (e) => {
+      const sc = el("midi-scroll");
+      if(!sc) return currentTime();
+      const r = sc.getBoundingClientRect();
+      if(e.clientX < r.left) return 0;
+      return Math.max(0, (e.clientX - r.left + sc.scrollLeft) / edPps());
+    });
+
     function deleteSelected(){
       const c = editorC;
       if(!c || !ed || !ed.sel.size) return;
-      c.midi.notes = c.midi.notes.filter(n => !ed.sel.has(n));
-      ed.sel.clear();
-      paintEditor(); changed(c);
+      edit(c, () => { c.midi.notes = c.midi.notes.filter(n => !ed.sel.has(n)); ed.sel.clear(); });
     }
     function quantize(){
       const c = editorC;
-      if(!c) return;
+      if(!c || !ed) return;
+      if(!(edPrefs.grid ?? 2)){ showToast("Mřížka je „volně“ — vyber dobu, 1/2…"); return; }
       const list = ed.sel.size ? [...ed.sel] : c.midi.notes;
-      list.forEach(n => {
+      edit(c, () => list.forEach(n => {
         const end = qTime(n.t + n.d);
         n.t = qTime(n.t);
         // A note shorter than a grid step keeps one step, not nothing.
         const q = qStep(n.t);
         n.d = end - n.t > 0.01 ? end - n.t : (q ? q.step : n.d);
-      });
-      paintEditor(); changed(c, 10);
-      showToast(`Kvantizováno ${list.length} tónů`);
+      }), 10);
+      showToast(`Kvantizováno ${list.length} ${list.length === 1 ? "tón" : list.length < 5 ? "tóny" : "tónů"}`);
     }
 
     return {
       addTrack, render, changed, connect, noteOn, noteOff, toggleRec, setKeyboard, pickInstrument, openEditor, closeEditor,
+      importRel, pickFile, wireDrop,
       keyboardOn: () => kbd, isRecording: (c) => !!(rec && rec.c === c), instrumentName,
+      recNote, follow,
       notesOf: (c) => c.midi.notes,
     };
   })();
@@ -18962,7 +20232,7 @@ const Mixer = (() => {
     };
     act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
     act("comp").onclick = () => openCompPanel("guitar");
-    act("dbl").onclick = (e) => openDoublerPopover("guitar", e.currentTarget);
+    act("dbl").onclick = () => openDblPanel("guitar");
     act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
     paintInstrument();
     strip.querySelector("#gt-eq-btn").onclick = () => {
@@ -19386,7 +20656,6 @@ const Mixer = (() => {
 
   async function removeGuitarParts(){
     if(!currentSongName) return;
-    if(!confirm("Smazat rozdělenou kytaru a vrátit se k jedné stopě?")) return;
     try{
       await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/guitar-parts`, {method: "DELETE"});
       showToast("Rozdělení odstraněno");
@@ -19712,6 +20981,8 @@ const Mixer = (() => {
     takeRec: () => TakeRec,
     tunnel: () => Tunnel,
     midi: () => Midi,
+    // A MIDI file clicked in the library goes onto the open song's MIDI track.
+    midiImportRel: (rel, name) => Midi.importRel(rel, name),
     audioState: () => ({state: ctx().state, time: ctx().currentTime, startedAt, playFrom}),
     channelByStem: (s) => channels.find(c => c.stem === s),
     setLoop: (a, b) => { loopStart = a; loopEnd = b; loopEnabled = b > a; updateLoopVisual(); },
@@ -20258,7 +21529,6 @@ el("pb-queue-btn").onclick = () => {
 el("queue-close").onclick = () => el("queue-drawer").hidden = true;
 el("queue-clear").onclick = () => {
   if(!loadQueue().length) return;
-  if(!confirm("Opravdu vyprázdnit playlist?")) return;
   saveQueue([]);
   renderQueueBadge();
   renderQueueDrawer();
@@ -22382,9 +23652,10 @@ const Piano = (() => {
   const PC_DEGREE_HIGH = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"];
 
   const st = Object.assign({octaves: 3, low: 48, instrument: null, volume: 0.8, root: 0, scale: "none", lock: "highlight",
-    pc: "chroma", pcBase: 48, labels: true, hints: true, fret: false, tuning: "standard", frets: [null, null, null, null, null, null]},
+    pc: "chroma", pcBase: 48, labels: true, hints: true, fret: false, tuning: "standard", frets: [null, null, null, null, null, null],
+    latch: false, latched: []},
     (() => { try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } })());
-  const save = () => { try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
+  const save = () => { try{ st.latched = [...(typeof latched !== "undefined" ? latched : [])]; localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
   if(OLD_IDS[st.tuning]) st.tuning = OLD_IDS[st.tuning];
   let tunEdit = null;              // {id?, name, strings} while the editor is open
   // Strings high → low as MIDI notes (the fretboard draws the high one on top).
@@ -22401,6 +23672,9 @@ const Piano = (() => {
   let ac = null, out = null, zv = null, lib = null, built = false, layout = null, midiAccess = null;
   const sounding = new Map();       // midi → voice
   const down = new Set();           // held (for chords)
+  const liveExt = new Map();        // notes played in Steems (MIDI track keys) → count
+  const latched = new Set(st.latched || []);   // "Akord" mode: the chord tapped on the keys
+  let followNow = new Set(), followNext = new Set();   // what the MIDI track plays now / next
   const pcHeld = new Map();         // code → midi
   let history = [];                 // recent pitch classes, for the scale guess
 
@@ -22417,10 +23691,17 @@ const Piano = (() => {
     if(!st.instrument) st.instrument = lib.VYCHOZI_NASTROJ;
     return lib.najdiNastroj(st.instrument).soundfont;
   }
+  const steemsRec = (m, v, on) => { try{ Mixer.midi().recNote(m, v, on); }catch(e){} };
   async function noteOn(m, v = 0.8, quiet){
     m = constrain(m);
     if(m == null) return null;
+    if(st.latch && !quiet){
+      latched.has(m) ? latched.delete(m) : latched.add(m);
+      chordToFrets();
+      save();
+    }
     down.add(m);
+    steemsRec(m, v, true);
     paintKeys();
     if(!quiet){ history.push(m % 12); if(history.length > 32) history.shift(); }
     paintInfo();
@@ -22435,6 +23716,7 @@ const Piano = (() => {
   function noteOff(m){
     if(m == null) return;
     down.delete(m);
+    steemsRec(m, 0, false);
     const h = sounding.get(m);
     if(h && zv) zv.utni(h);
     sounding.delete(m);
@@ -22506,6 +23788,80 @@ const Piano = (() => {
     return res.sort((a, b) => b.score - a.score).slice(0, 4);
   }
 
+  // ---- chord ↔ fretboard ----
+  // A fingering for these notes on this tuning. Exactly the same pitches when
+  // the strings allow it (so it sounds the same); otherwise the same chord —
+  // every pitch class, the same bass note — wherever it sits best. Small
+  // stretches, low positions, no muted strings in the middle, win.
+  function voicing(targets, tun){
+    const T = [...new Set(targets)].sort((a, b) => a - b);
+    if(!T.length) return {frets: tun.map(() => null), exact: true};
+    const n = tun.length, MAXF = 15;
+    const score = (fr) => {
+      const on = fr.map((f, i) => f == null ? null : i).filter(i => i != null);
+      const fretted = fr.filter(f => f != null && f > 0);
+      const span = fretted.length > 1 ? Math.max(...fretted) - Math.min(...fretted) : 0;
+      let gaps = 0;
+      if(on.length) for(let i = on[0]; i <= on[on.length - 1]; i++) if(fr[i] == null) gaps++;
+      return span * 3 + Math.max(0, span - 4) * 60 + (fretted.length ? Math.min(...fretted) : 0) * 2 +
+        fretted.reduce((a, f) => a + f, 0) * 0.15 + gaps * 6;
+    };
+    // exact pitches, each once
+    let best = null;
+    const fr = new Array(n).fill(null);
+    const used = new Set();
+    (function go(s, lo, hi){
+      if(s === n){
+        if(used.size !== T.length) return;
+        const sc = score(fr);
+        if(!best || sc < best.sc) best = {sc, frets: fr.slice()};
+        return;
+      }
+      if(n - s < T.length - used.size) return;
+      fr[s] = null; go(s + 1, lo, hi);
+      for(const m of T){
+        if(used.has(m)) continue;
+        const f = m - tun[s];
+        if(f < 0 || f > MAXF) continue;
+        const nlo = f > 0 ? Math.min(lo, f) : lo, nhi = f > 0 ? Math.max(hi, f) : hi;
+        if(nhi - nlo > 6) continue;
+        used.add(m); fr[s] = f; go(s + 1, nlo, nhi); used.delete(m);
+      }
+      fr[s] = null;
+    })(0, 99, -1);
+    if(best) return {frets: best.frets, exact: true};
+    // the same chord: all pitch classes, the bass note lowest
+    const pcs = new Set(T.map(m => m % 12)), bass = T[0] % 12;
+    best = null;
+    (function go(s, lo, hi){
+      if(s === n){
+        const notes = fr.map((f, i) => f == null ? null : tun[i] + f).filter(x => x != null);
+        if(!notes.length) return;
+        const have = new Set(notes.map(m => m % 12));
+        if([...pcs].some(pc => !have.has(pc))) return;
+        const low = Math.min(...notes) % 12;
+        const sc = score(fr) + (low === bass ? 0 : 25) - notes.length * 2.5;
+        if(!best || sc < best.sc) best = {sc, frets: fr.slice()};
+        return;
+      }
+      fr[s] = null; go(s + 1, lo, hi);
+      for(let f = 0; f <= 12; f++){
+        if(!pcs.has((tun[s] + f) % 12)) continue;
+        const nlo = f > 0 ? Math.min(lo, f) : lo, nhi = f > 0 ? Math.max(hi, f) : hi;
+        if(nhi - nlo > 4) continue;
+        fr[s] = f; go(s + 1, nlo, nhi);
+      }
+      fr[s] = null;
+    })(0, 99, -1);
+    return best ? {frets: best.frets, exact: false} : null;
+  }
+  // The tapped chord, onto the fretboard.
+  function chordToFrets(){
+    if(!st.fret || !latched.size) return;
+    const v = voicing([...latched], tunMidi());
+    if(v) st.frets = v.frets;
+  }
+
   // ---- fretboard ----
   function fretNotes(){
     const tun = tunMidi();
@@ -22528,12 +23884,15 @@ const Piano = (() => {
           <select id="pk-oct">${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n} okt.</option>`).join("")}</select>
           <button type="button" id="pk-lowup" title="Posunout nahoru">›</button></span>
         <button type="button" id="pk-labels" class="${st.labels ? "on" : ""}" title="Názvy tónů na klávesách">C D E</button>
-        <button type="button" id="pk-hints" class="${st.hints ? "on" : ""}" title="Nápověda kláves počítače na klávesách">A S D</button>
+        <button type="button" id="pk-hints" class="${st.hints ? "on" : ""}" title="Ukázat na klávesách, kterou klávesou počítače se hrají">${icon("keyboard", 13)} nápověda kláves</button>
         <button type="button" id="pk-midi" title="Připojit MIDI klaviaturu">MIDI</button>
+        <span class="grp"><button type="button" id="pk-latch" class="${st.latch ? "on" : ""}" title="Akord: klik na klávesu ji přidá / odebere, akord zůstane držený — pozná se název a hmatník ukáže hmat">Akord (drž)</button>
+          <button type="button" id="pk-lplay" title="Zahrát držený akord">▶</button><button type="button" id="pk-lclear" title="Pustit všechny klávesy akordu">✕</button></span>
         <button type="button" id="pk-fret" class="${st.fret ? "on" : ""}" title="Hmatník kytary — poskládej hmat, pozná akord">Hmatník</button>
       </div>
       <div class="pk-info"><span class="pk-chord" id="pk-chord">—</span><span class="pk-notes" id="pk-notes"></span>
-        <span class="pk-sugg" id="pk-sugg"></span></div>
+        <span class="pk-sugg" id="pk-sugg"></span><span class="pk-outside" id="pk-outside" hidden title="Klikni — posunout klaviaturu na ně"></span>
+        <span class="pk-legend"><i class="lg-down"></i>hraješ <i class="lg-play"></i>MIDI stopa <i class="lg-next"></i>za chvíli</span></div>
       <div class="pk-keys" id="pk-keys"></div>
       <div class="pk-fb" id="pk-fb" ${st.fret ? "" : "hidden"}></div>`;
     const q = (id) => el(id);
@@ -22552,7 +23911,21 @@ const Piano = (() => {
     q("pk-hints").onclick = () => { st.hints = !st.hints; q("pk-hints").classList.toggle("on", st.hints); changed(); };
     q("pk-vol").oninput = (e) => { st.volume = +e.target.value; if(out) out.gain.value = st.volume; save(); };
     q("pk-midi").onclick = connectMidi;
-    q("pk-fret").onclick = () => { st.fret = !st.fret; q("pk-fret").classList.toggle("on", st.fret); q("pk-fb").hidden = !st.fret; changed(); };
+    q("pk-latch").onclick = () => { st.latch = !st.latch; q("pk-latch").classList.toggle("on", st.latch);
+      if(st.latch) showToast("Klikej na klávesy — akord zůstane, pozná se a ukáže se na hmatníku"); changed(); };
+    q("pk-lclear").onclick = () => { latched.clear(); changed(); };
+    q("pk-lplay").onclick = () => {
+      const ms = latched.size ? [...latched].sort((a, b) => a - b) : fretNotes().sort((a, b) => a - b);
+      ms.forEach((m, i) => setTimeout(() => noteOn(m, 0.75, true), i * 30));
+      setTimeout(() => ms.forEach(noteOff), 1500);
+    };
+    q("pk-outside").onclick = () => {
+      const out = [...followNow].filter(m => m < st.low || m > st.low + st.octaves * 12);
+      if(!out.length) return;
+      st.low = Math.max(12, Math.min(96, Math.floor(Math.min(...out) / 12) * 12));
+      changed();
+    };
+    q("pk-fret").onclick = () => { st.fret = !st.fret; q("pk-fret").classList.toggle("on", st.fret); q("pk-fb").hidden = !st.fret; chordToFrets(); changed(); };
     q("pk-inst").onchange = (e) => { st.instrument = e.target.value; save(); sound().then(sf => zv.nacti(sf)).catch(() => {}); };
     Mixer.guitar.instrumentLib().then(L => {
       lib = L;
@@ -22600,12 +23973,12 @@ const Piano = (() => {
       const W = 100 / whites.length;
       let html = "";
       whites.forEach(m => {
-        html += `<div class="pk-w" data-m="${m}">${hints.has(m) ? `<span class="hk">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}${Math.floor(m / 12) - 1}</span>` : ""}</div>`;
+        html += `<div class="pk-w" data-m="${m}">${hints.has(m) ? `<span class="hk" data-code="${hints.get(m)}">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}${Math.floor(m / 12) - 1}</span>` : ""}</div>`;
       });
       for(let m = lo; m <= hi; m++){
         if(!isBlack(m)) continue;
         const wi = whites.indexOf(m - 1);
-        html += `<div class="pk-b" data-m="${m}" style="left:calc(${(wi + 1) * W}% - ${W * 0.3}%);width:${W * 0.6}%">${hints.has(m) ? `<span class="hk">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}</span>` : ""}</div>`;
+        html += `<div class="pk-b" data-m="${m}" style="left:calc(${(wi + 1) * W}% - ${W * 0.3}%);width:${W * 0.6}%">${hints.has(m) ? `<span class="hk" data-code="${hints.get(m)}">${escapeHtml(keyCap(hints.get(m)))}</span>` : ""}${st.labels ? `<span>${NOTES[m % 12]}</span>` : ""}</div>`;
       }
       box.innerHTML = html;
     }
@@ -22616,17 +23989,32 @@ const Piano = (() => {
       k.classList.toggle("locked", st.lock === "lock");
       k.classList.toggle("root", !!iv && st.lock !== "off" && ((m - st.root) % 12 + 12) % 12 === 0);
       k.classList.toggle("fret", fret.has(m));
-      k.classList.toggle("down", down.has(m));
+      k.classList.toggle("down", down.has(m) || liveExt.has(m));
+      k.classList.toggle("play", followNow.has(m));
+      k.classList.toggle("latch", latched.has(m));
+      k.classList.toggle("next", !followNow.has(m) && followNext.has(m));
     });
+    // Notes the MIDI track plays outside the shown range: say which, so the
+    // range can be moved to them.
+    const outside = [...followNow].filter(m => m < lo || m > hi);
+    const ob = el("pk-outside");
+    if(ob){
+      ob.hidden = !outside.length;
+      if(outside.length){
+        ob.textContent = (outside.some(m => m < lo) ? "◀ " : "") + "mimo rozsah: " +
+          outside.slice(0, 4).map(m => NOTES[m % 12] + (Math.floor(m / 12) - 1)).join(" ") + (outside.some(m => m > hi) ? " ▶" : "");
+      }
+    }
   }
   function paintInfo(){
     const chordEl = el("pk-chord");
     if(!chordEl) return;
-    const held = [...down];
-    const src = held.length >= 2 ? held : (st.fret ? fretNotes() : []);
-    const name = src.length >= 2 ? nameChord(src) : (held.length === 1 ? NOTES[held[0] % 12] + (Math.floor(held[0] / 12) - 1) : null);
+    const held = [...down].filter(m => !latched.has(m) || !st.latch);
+    const src = held.length >= 2 ? held : latched.size ? [...latched] : (st.fret ? fretNotes() : []);
+    const name = src.length >= 2 ? nameChord(src) : (src.length === 1 ? NOTES[src[0] % 12] + (Math.floor(src[0] / 12) - 1) : null);
     chordEl.textContent = name || "—";
-    el("pk-notes").textContent = src.length >= 2 ? [...new Set(src.sort((a, b) => a - b).map(m => NOTES[m % 12]))].join(" · ") : "";
+    // How it's played on the piano: the keys from the lowest, with octaves.
+    el("pk-notes").textContent = src.length >= 2 ? "klavír: " + [...new Set(src)].sort((a, b) => a - b).map(m => NOTES[m % 12] + (Math.floor(m / 12) - 1)).join(" ") : "";
     const sugg = guessScales();
     const box = el("pk-sugg");
     box.innerHTML = sugg.length ? `<span>Hraješ asi v:</span>` + sugg.map((g, i) => `<button type="button" data-i="${i}" title="Nastavit tuhle stupnici">${escapeHtml(g.label)}</button>`).join("") +
@@ -22707,7 +24095,6 @@ const Piano = (() => {
       box.querySelector("#pk-ted-cancel").onclick = () => { tunEdit = null; paintFretboard(); };
       const del = box.querySelector("#pk-ted-del");
       if(del) del.onclick = async () => {
-        if(!confirm(`Smazat ladění „${tunEdit.name}“?`)) return;
         await Tunings.remove(tunEdit.id); tunEdit = null; setTuning("standard");
       };
       box.querySelector("#pk-ted-save").onclick = async () => {
@@ -22721,11 +24108,12 @@ const Piano = (() => {
         }catch(e){ showToast(e.message); }
       };
     }
-    box.querySelector("#pk-fclear").onclick = () => { st.frets = [null, null, null, null, null, null]; changed(); };
+    box.querySelector("#pk-fclear").onclick = () => { st.frets = [null, null, null, null, null, null]; if(st.latch) latched.clear(); changed(); };
     box.querySelector("#pk-strum").onclick = strum;
     box.querySelectorAll("td[data-s]").forEach(td => td.onclick = () => {
       const s = +td.dataset.s, f = +td.dataset.f;
       st.frets[s] = st.frets[s] === f ? null : f;
+      if(st.latch){ latched.clear(); fretNotes().forEach(m => latched.add(m)); }
       changed();
       noteOn(tun[s] + (st.frets[s] ?? f), 0.7, true).then(m => setTimeout(() => noteOff(m), 500));
     });
@@ -22735,9 +24123,20 @@ const Piano = (() => {
   }
   // A tuning picked here is the tuner's too.
   function setTuning(id){
+    const before = latched.size ? [...latched] : fretNotes();
+    const oldName = (Tunings.find(st.tuning) || {}).name;
     st.tuning = id;
     st.frets = [];
     fitFrets();
+    if(before.length){
+      const v = voicing(before, tunMidi());
+      if(v){
+        st.frets = v.frets;
+        const nm = (Tunings.find(id) || {}).name || "nové ladění";
+        showToast(v.exact ? `Hmat přepočítán na ${nm} — zní úplně stejně` :
+          `Na ${nm} nejdou stejné polohy tónů — ukazuju stejný akord (${nameChord(before) || ""}) v jiné poloze`);
+      } else showToast(`Ten akord se na ${oldName ? "tomhle" : "nové"} ladění chytit nedá`);
+    }
     const t = Tunings.find(id);
     if(t && typeof Mixer !== "undefined" && Mixer.tuner && Mixer.tuner.applyTuning) Mixer.tuner.applyTuning(t);
     changed();
@@ -22781,6 +24180,11 @@ const Piano = (() => {
     }
     return null;
   }
+  function paintHeldCaps(){
+    const box = el("pk-keys");
+    if(!box) return;
+    box.querySelectorAll(".hk").forEach(h => h.classList.toggle("on", pcHeld.has(h.dataset.code)));
+  }
   window.addEventListener("keydown", async (e) => {
     if(!FW.isOpen() || st.pc === "off" || e.metaKey || e.ctrlKey || e.altKey) return;
     if(e.target && e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
@@ -22793,6 +24197,7 @@ const Piano = (() => {
     e.preventDefault(); e.stopPropagation();
     if(e.repeat || pcHeld.has(e.code)) return;
     pcHeld.set(e.code, null);
+    paintHeldCaps();
     const played = await noteOn(m, 0.8);
     if(pcHeld.has(e.code)) pcHeld.set(e.code, played); else noteOff(played);
   }, true);
@@ -22801,6 +24206,7 @@ const Piano = (() => {
     e.stopPropagation();
     const m = pcHeld.get(e.code);
     pcHeld.delete(e.code);
+    paintHeldCaps();
     if(m != null) noteOff(m);
   }, true);
 
@@ -22837,7 +24243,19 @@ const Piano = (() => {
   }
   el("piano-float-close").onclick = () => { FW.close(); [...down].forEach(noteOff); };
   el("piano-top-btn").onclick = () => FW.isOpen() ? (FW.close(), [...down].forEach(noteOff)) : open();
+  // Shown, not played: notes played on a Steems MIDI track's keys, and what
+  // the MIDI track itself plays now / next.
+  function liveNote(m, on){
+    const n = liveExt.get(m) || 0;
+    if(on) liveExt.set(m, n + 1); else if(n <= 1) liveExt.delete(m); else liveExt.set(m, n - 1);
+    if(FW.isOpen()) paintKeys();
+  }
+  function follow(now, next){
+    followNow = now; followNext = next;
+    if(FW.isOpen()) paintKeys();
+  }
   return {open, toggle: () => (FW.isOpen() ? FW.close() : open()), nameChord, guessScales,
+    isOpen: () => FW.isOpen(), liveNote, follow,
     play: (m) => noteOn(m), stop: (m) => noteOff(m), state: st, setFrets: (f) => { st.frets = f; changed(); }};
 })();
 
@@ -23990,9 +25408,90 @@ pushNav("mode:" + state.mode, () => setMode(state.mode));
 // So this window publishes what it is doing and carries out whatever they
 // leave for it. It is the only thing that ever makes sound.
 // ======================================================================
+// ======================================================================
+// Ambient look: the cover of what plays, blurred, behind the whole app, and
+// the accent colours taken from it (see html.ambient in the styles). Pure
+// paint — it reads the player bar's artwork and sets a few CSS variables.
+// ======================================================================
+const Ambient = (() => {
+  const root = document.documentElement;
+  const DEF = ["#1ed760", "#38bdf8"];
+  let lastUrl = null;
+  const on = () => root.classList.contains("ambient");
+  function artUrl(){
+    const a = el("pb-art");
+    const m = a && (a.style.backgroundImage || "").match(/url\(["']?(.*?)["']?\)/);
+    return m ? m[1] : "";
+  }
+  function setAccent(a, b){
+    root.style.setProperty("--accent", a);
+    root.style.setProperty("--accent2", b);
+  }
+  function rgbToHsl(r, g, b){
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+    if(mx === mn) return [0, 0, l * 100];
+    const d = mx - mn, s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+    const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [Math.round(h * 60), Math.round(s * 100), l * 100];
+  }
+  // The most colourful pixel of the cover, brightened — the same pick as the
+  // mini player, so both windows wear the same colours.
+  function pick(url){
+    if(!url){ setAccent(...DEF); return; }
+    const img = new Image();
+    img.onload = () => {
+      try{
+        const c = document.createElement("canvas"); c.width = c.height = 24;
+        const g = c.getContext("2d"); g.drawImage(img, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data;
+        let best = null, bestScore = -1;
+        for(let i = 0; i < d.length; i += 4){
+          const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+          const sat = mx ? (mx - mn) / mx : 0, lum = mx / 255;
+          const score = sat * 1.4 + lum * .6 - (lum < .2 ? 1 : 0);
+          if(score > bestScore){ bestScore = score; best = [d[i], d[i + 1], d[i + 2]]; }
+        }
+        if(!best || bestScore < .55){ setAccent(...DEF); return; }
+        const [h, sat] = rgbToHsl(...best);
+        setAccent(`hsl(${h} ${Math.max(60, sat)}% 56%)`, `hsl(${(h + 28) % 360} ${Math.max(70, sat)}% 66%)`);
+      }catch(e){ setAccent(...DEF); }
+    };
+    img.onerror = () => setAccent(...DEF);
+    img.src = url;
+  }
+  function tick(){
+    if(!on()) return;
+    const raw = artUrl();
+    if(raw === lastUrl) return;
+    lastUrl = raw;
+    const url = raw ? (typeof thumbUrl === "function" ? thumbUrl(raw) : raw) : "";
+    el("amb-bg").style.backgroundImage = url ? `url("${url}")` : "";
+    pick(url);
+  }
+  function set(theme){
+    try{ localStorage.setItem("spotdl-theme", theme); }catch(e){}
+    root.classList.toggle("ambient", theme !== "classic");
+    if(theme === "classic"){ root.style.removeProperty("--accent"); root.style.removeProperty("--accent2"); }
+    lastUrl = null; tick(); paintButtons();
+  }
+  function paintButtons(){
+    const a = el("theme-ambient"), c = el("theme-classic");
+    if(a) a.classList.toggle("on", on());
+    if(c) c.classList.toggle("on", !on());
+  }
+  if(el("theme-ambient")) el("theme-ambient").onclick = () => set("ambient");
+  if(el("theme-classic")) el("theme-classic").onclick = () => set("classic");
+  paintButtons();
+  tick();
+  setInterval(tick, 1200);
+  return {set, refresh: () => { lastUrl = null; tick(); }};
+})();
+
 const RemoteAgent = (() => {
   let seq = 0;
   let lastPushed = "";
+  let lastPushAt = 0;
 
   // audio.duration is NaN until metadata loads, and JSON turns NaN into
   // null — which the server then rejected, so the state never got through.
@@ -24011,6 +25510,10 @@ const RemoteAgent = (() => {
       position: audio ? num(audio.currentTime) : 0,
       duration: audio ? num(audio.duration) : 0,
       source: mixerOn ? "mixer" : "player",
+      videoId: !mixerOn && track ? (track.videoId || null) : null,
+      key: !mixerOn && track ? (track.key || null) : null,
+      // The lyrics' per-song offset is stored under videoId || relPath || title.
+      relPath: !mixerOn && track ? (track.relPath || null) : null,
     };
   }
 
@@ -24019,8 +25522,11 @@ const RemoteAgent = (() => {
     const key = JSON.stringify(state);
     // Position moves constantly; send it at most once a second anyway, but
     // don't spam identical payloads when nothing is playing.
-    if(key === lastPushed && !state.playing) return;
+    // A paused song still says so every few seconds — otherwise the server
+    // calls it stale after 12 s and the mini player drops the song.
+    if(key === lastPushed && !state.playing && Date.now() - lastPushAt < 5000) return;
     lastPushed = key;
+    lastPushAt = Date.now();
     try{
       await fetch("/api/remote/state", {
         method: "POST",
@@ -24037,6 +25543,9 @@ const RemoteAgent = (() => {
       case "playpause":
         if(mixerOn){ Mixer.pause(); break; }
         if(audio && audio.src){ audio.paused ? audio.play().catch(()=>{}) : audio.pause(); }
+        else if(typeof Mixer !== "undefined" && Mixer.currentSong && Mixer.currentSong()) Mixer.play();
+        // Nothing loaded yet: ▶ from the menu bar or the mini player starts the queue.
+        else if(loadQueue().length) Player.playQueueFrom(loadQueue()[0]);
         else if(typeof Mixer !== "undefined" && Mixer.play) Mixer.play();
         break;
       case "play":
@@ -24066,6 +25575,11 @@ const RemoteAgent = (() => {
       case "seek":
         if(audio && isFinite(cmd.value)) audio.currentTime = Math.max(0, cmd.value);
         break;
+      case "playqueue": {          // the mini player's queue tab
+        const item = loadQueue()[Math.round(cmd.value)];
+        if(item) Player.playQueueFrom(item);
+        break;
+      }
     }
     push();
   }
