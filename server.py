@@ -2601,8 +2601,48 @@ def _folder_stats(folder: Path, _depth: int = 0):
     return tracks, size, folders
 
 
+def _all_songs_flat() -> dict:
+    """Every song of Songs/ and Playlists/, in one list — "Songs" as the one
+    place to look. A song in both (or in two playlists) shows once, the
+    Songs/ copy first."""
+    files, seen = [], set()
+    for top in ("Songs", "Playlists"):
+        base = MUSIC_ROOT / top
+        if not base.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+            for fn in sorted(filenames):
+                p = Path(dirpath) / fn
+                if fn.startswith(".") or p.suffix.lower() not in AUDIO_EXTS:
+                    continue
+                tags = _audio_tags(p)
+                guess = _guess_from_name(p.stem) if top == "Playlists" else {"artist": None, "title": p.stem}
+                artist = tags.get("artist") or guess.get("artist") or (p.parent.name if top == "Songs" and p.parent != base else "")
+                title = tags.get("title") or guess.get("title") or p.stem
+                key = (_re_mod.sub(r"\W+", "", (artist or "").lower()), _re_mod.sub(r"\W+", "", title.lower()))
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    size = p.stat().st_size
+                except OSError:
+                    continue
+                files.append({"name": p.name, "type": "file", "rel": _rel_of(p), "size_bytes": size,
+                              **tags, "stems": _stems_state_for(p),
+                              # where it lives, for the list ("Songs" or the playlist)
+                              "folder": top if p.parent == base or top == "Songs" else p.relative_to(base).parts[0]})
+    return {"rel": "Songs", "breadcrumb": [{"name": (MUSIC_ROOT.resolve().name or "Knihovna"), "rel": ""},
+                                            {"name": "Songs", "rel": "Songs"}],
+            "entries": files, "flat": True,
+            "summary": {"folders": 0, "files": len(files), "total_tracks": len(files),
+                        "total_size_bytes": sum(f["size_bytes"] for f in files)}}
+
+
 @app.get("/api/library/browse")
-def library_browse(rel: str = ""):
+def library_browse(rel: str = "", flat: bool = False):
+    if flat and rel.strip("/") == "Songs":
+        return _all_songs_flat()
     target = _resolve_under_music_root(rel)
     if target is None or not target.is_dir():
         return JSONResponse({"error": "Složka nenalezena."}, status_code=404)
@@ -5896,7 +5936,11 @@ def stems_analysis(name: str, refresh: bool = False):
     cache = stems_dir / "analysis.json"
     if cache.is_file() and not refresh:
         try:
-            return json.loads(cache.read_text(encoding="utf-8"))
+            data = json.loads(cache.read_text(encoding="utf-8"))
+            # Written before a project of the user's own files could be
+            # analysed ("chybí stopa …"): worth another go, not a final answer.
+            if not (not data.get("sections") and any("chybí stopa" in w for w in data.get("warnings") or [])):
+                return data
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -5909,7 +5953,9 @@ def stems_analysis(name: str, refresh: bool = False):
         # Another request may have finished it while this one waited.
         if cache.is_file() and not refresh:
             try:
-                return json.loads(cache.read_text(encoding="utf-8"))
+                data = json.loads(cache.read_text(encoding="utf-8"))
+                if data.get("sections") or not any("chybí stopa" in w for w in data.get("warnings") or []):
+                    return data
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -6386,6 +6432,10 @@ def _add_track_from(stems_dir: Path, src: Path, label: str):
     err = _encode_to_stem(src, stems_dir / f"{take}.mp3")
     if err:
         return JSONResponse({"error": err}, status_code=400)
+    # Sections/chords found from fewer tracks (or none) are redone next time.
+    cache = stems_dir / "analysis.json"
+    if cache.is_file() and _stem_file(stems_dir, "drums") is None:
+        cache.unlink(missing_ok=True)
     _set_track_label(stems_dir, take, label)
     return {"stem": take, "label": label, "takes": _takes_in(stems_dir)}
 
@@ -6404,6 +6454,7 @@ async def _upload_to_temp(upload: UploadFile) -> Path:
 
 class LibraryFileRequest(BaseModel):
     rel: str
+    name: str = ""          # project name (several files opened as one project)
 
 
 @app.post("/api/stems/{name}/tracks/upload")
@@ -6468,7 +6519,7 @@ def new_project_library(req: LibraryFileRequest):
     src = _resolve_under_music_root(req.rel)
     if src is None or not src.is_file():
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
-    return _new_project_from(src, src.stem)
+    return _new_project_from(src, src.stem, (req.name or "").strip()[:120])
 
 
 @app.post("/api/stems/new/upload")

@@ -94,3 +94,18 @@ def test_midi_files_are_listed_and_served(client, tmp_music_root):
     assert res.status_code == 200 and res.content == b"MThd-data"
     assert client.get("/api/library/midi", params={"rel": "MIDI/notes.txt"}).status_code == 404
     assert client.get("/api/library/midi", params={"rel": "../../etc/passwd"}).status_code == 404
+
+
+def test_songs_flat_lists_playlist_songs_too_without_duplicates(client, tmp_music_root):
+    (tmp_music_root / "Songs" / "Metallica").mkdir(parents=True)
+    (tmp_music_root / "Songs" / "Metallica" / "One.mp3").write_bytes(b"x" * 2000)
+    pl = tmp_music_root / "Playlists" / "Best Metal"
+    pl.mkdir(parents=True)
+    (pl / "Metallica - One.mp3").write_bytes(b"x" * 2000)          # the same song again
+    (pl / "Slayer - Raining Blood.mp3").write_bytes(b"x" * 2000)
+    d = client.get("/api/library/browse", params={"rel": "Songs", "flat": True}).json()
+    assert d["flat"] is True
+    rels = [e["rel"] for e in d["entries"]]
+    assert "Songs/Metallica/One.mp3" in rels and "Playlists/Best Metal/Slayer - Raining Blood.mp3" in rels
+    assert len(rels) == 2                               # "Metallica - One" in the playlist is the same song
+    assert {e["folder"] for e in d["entries"]} <= {"Songs", "Best Metal"}

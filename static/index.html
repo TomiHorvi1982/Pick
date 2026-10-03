@@ -963,7 +963,7 @@
      lanes scroll as one unit vertically; only the timeline scrolls
      horizontally, so stem names stay put while you pan through the song.
      ------------------------------------------------------------------ */
-  .nm{--nm-bg:#0b0b0d;--nm-panel:#141418;--nm-line:#232329;--nm-rail:150px;
+  .nm{--nm-bg:#0b0b0d;--nm-panel:#141418;--nm-line:#232329;--nm-rail:190px;
       --nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-gold:#e9b949;--nm-red:#ff3b30;
       --nm-blue:#3d8bfd;--nm-bar:#c8791f;
       background:var(--nm-bg);border:1px solid var(--nm-line);border-radius:12px;
@@ -1112,7 +1112,7 @@
   .nm-body-wrap.has-more::after{content:"";position:absolute;left:0;right:11px;
     bottom:0;height:26px;pointer-events:none;
     background:linear-gradient(180deg,transparent,rgba(12,12,14,.92))}
-  .nm-rail{flex:0 0 var(--nm-rail);border-right:1px solid var(--nm-line);
+  .nm-rail{flex:0 0 var(--nm-rail);width:var(--nm-rail);max-width:var(--nm-rail);overflow:hidden;border-right:1px solid var(--nm-line);
            background:var(--nm-panel);position:sticky;left:0;z-index:4}
   .nm-rail-pad{height:22px;border-bottom:1px solid var(--nm-line)}
   .nm-strip{height:62px;padding:7px 10px;border-bottom:1px solid var(--nm-line);
@@ -3317,6 +3317,66 @@
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
   html.ambient .cat:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,.4)}
   .amb-theme{display:flex;gap:6px}
+  /* downloads and separations: a slim strip beside the arrows, not a panel */
+  .job-strip{display:flex;flex-direction:column;justify-content:center;gap:3px;width:260px;margin-left:6px;cursor:pointer}
+  .job-strip[hidden]{display:none}
+  .js-row{position:relative;height:17px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:5px;padding:0 7px;font-size:10.5px;color:var(--text)}
+  .js-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent2,var(--accent)) 45%,transparent));
+    transition:width .6s ease;z-index:0}
+  .js-row.indet .js-fill{width:30% !important;animation:js-slide 1.4s ease-in-out infinite}
+  @keyframes js-slide{0%{left:-30%}100%{left:100%}}
+  .js-row.err{border-color:#ff5c5c}
+  .js-row.ok .js-fill{background:color-mix(in srgb,#3ddc97 55%,transparent)}
+  .js-row > span{position:relative;z-index:1;white-space:nowrap}
+  .js-tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .js-pc{font-variant-numeric:tabular-nums;color:var(--text);font-weight:700}
+  .js-more{font-size:10px;color:var(--sub);padding-left:4px}
+  .lib-view-seg{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid var(--border);margin:6px 0 2px}
+  .lib-view-seg[hidden]{display:none}
+  .lib-view-seg button{border:0;background:none;color:var(--sub);font-weight:600;font-size:12px;font-family:inherit;padding:5px 11px;border-radius:7px;cursor:pointer}
+  .lib-view-seg button.on{background:var(--card-hi);color:var(--text)}
+  .lib-trow .from-pl{color:var(--sub);font-size:11px}
+  /* the mixer's track list: fixed width (dragged), grip, look, rename */
+  .nm-rail .nm-strip, .nm-rail .nm-strip > *, .nm-rail .nm-strip-top > *{min-width:0;max-width:100%}
+  .nm-rail .nm-strip-top{gap:4px}
+  .nm-rail .nm-strip-name{min-width:48px}
+  /* the rarely used buttons only under the pointer — the name gets the room */
+  .nm-rail .nm-strip:not(:hover) .nm-strip-top .trk-remove,
+  .nm-rail .nm-strip:not(:hover) .nm-strip-top .trk-hide,
+  .nm-rail .nm-strip:not(:hover) .nm-strip-top .gt-unimport{display:none}
+  .nm-rail-resize{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:col-resize;z-index:6}
+  .nm-rail-resize:hover, .nm-rail-resize:active{background:color-mix(in srgb,var(--accent) 50%,transparent)}
+  .nm-grip{flex:0 0 auto;display:flex;color:var(--nm-sub);cursor:grab;opacity:.45;margin-left:-4px}
+  .nm-strip:hover .nm-grip{opacity:1}
+  .nm-grip:active{cursor:grabbing}
+  .nm-strip.dragging{opacity:.45}
+  .nm-drop-line{position:absolute;left:0;right:0;height:3px;background:var(--accent);box-shadow:0 0 8px var(--accent);z-index:7;pointer-events:none}
+  .nm-drop-line[hidden]{display:none}
+  .nm-strip-icon.look{cursor:pointer;flex:0 0 auto;border-radius:5px;padding:2px}
+  .nm-strip-icon.look:hover{background:rgba(255,255,255,.08)}
+  .nm-rename{flex:1;min-width:0;background:#0b0b0d;border:1px solid var(--accent);color:var(--nm-txt);border-radius:5px;
+    font-size:11px;font-weight:700;padding:2px 5px;outline:none}
+  .track-look{width:300px}
+  .track-look .tl-row{padding:2px 8px 6px}
+  .track-look .tl-row input{width:100%;background:#1e1e25;border:1px solid #32323c;color:var(--text);border-radius:7px;padding:6px 8px;font-size:13px}
+  .track-look .tl-colors{display:flex;flex-wrap:wrap;gap:6px;padding:2px 8px 8px}
+  .track-look .tl-colors button{width:22px;height:22px;border-radius:50%;border:2px solid transparent;padding:0;cursor:pointer}
+  .track-look .tl-colors button.on{border-color:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.6)}
+  .track-look .tl-colors button.def{background:#2a2a32;color:#ccc;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .track-look .tl-icons{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 8px 8px}
+  .track-look .tl-icons button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:8px;
+    background:#1b1b22;border:1px solid #2a2a33;color:#ddd;cursor:pointer;font-size:9.5px}
+  .track-look .tl-icons button.on{border-color:var(--accent);color:var(--accent)}
+  .track-look .tl-icons button:hover{background:#26262f}
+  .track-look .tl-reset{margin:2px 8px 8px;width:calc(100% - 16px);justify-content:center}
+  .lib-trow .c-idx .pick{display:none;margin:0;accent-color:var(--accent);cursor:pointer;width:15px;height:15px}
+  .lib-trow:hover .c-idx .pick, .lib-trow.sel .c-idx .pick, #library-list.picking .c-idx .pick{display:inline-block}
+  .lib-trow:hover .c-idx .n, .lib-trow.sel .c-idx .n, #library-list.picking .c-idx .n{display:none}
+  .lib-trow.sel{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .lib-selbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;margin:4px 0 6px;
+    border-radius:12px;background:var(--glass-strong,#1a1a20);backdrop-filter:blur(14px);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  .lib-selbar b{margin-right:6px}
   .moises-box{width:min(720px,94vw);position:relative}
   .moises-box .close-btn{position:absolute;right:14px;top:14px}
   .mo-step{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
@@ -3352,6 +3412,7 @@
   <div class="sp-nav-btns">
     <button class="sp-round" id="nav-back" title="Zpět">‹</button>
     <button class="sp-round" id="nav-fwd" title="Vpřed">›</button>
+    <div class="job-strip" id="job-strip" hidden title="Stahování a separace — klik ukáže podrobný výpis"></div>
   </div>
   <div class="sp-center">
     <button class="sp-home" id="sp-home" title="Domů" aria-label="Domů">
@@ -3625,6 +3686,8 @@
       </div>
     </div>
     <div class="breadcrumb" id="library-breadcrumb"></div>
+    <div class="lib-view-seg" id="lib-songs-view" hidden title="Songs: všechny písně najednou (i z playlistů), nebo po složkách interpretů">
+      <button type="button" data-v="all">Všechny písně</button><button type="button" data-v="dirs">Podle interpretů</button></div>
 
     <div class="lib-table" id="library-table">
       <div class="lib-thead">
@@ -7535,6 +7598,16 @@ const ICONS = (() => {
     redo:      line("M15.2 6.5l4.3 4.3-4.3 4.3M19.5 10.8H9.3a4.6 4.6 0 0 0 0 9.2h2.8"),
     eyeOff:    line("M3 12s3.3-6 9-6 9 6 9 6-3.3 6-9 6-9-6-9-6zM9.6 12a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0zM4 4l16 16"),
     magnet:    line("M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4zM6 8.2h4M14 8.2h4"),
+    elGuitar:  line("M14.5 3.5l6 6M16.5 7.5l-5.5 5.5M8.2 12.2l2.4-.9 2.6 2.6-.9 2.4c-.9 2.4-3.9 3.3-5.8 1.4s-1-4.9 1.7-5.5Z") + line("M6.6 17.4l1.2-1.2"),
+    acGuitar:  line("M14.5 3.5l6 6M16.5 7.5l-4.6 4.6") + line("M8.4 11.1a3.6 3.6 0 0 1 3.5 3.5 3.3 3.3 0 0 1-1.1 4.7 4.6 4.6 0 0 1-6.1-6.1 3.3 3.3 0 0 1 3.7-2.1Z") + line("M8.6 15.4h.01", 'stroke-width="2.6"'),
+    bass:      line("M13 2.5l8.5 8.5M17.5 6.5l-7 7M6.8 13.2l2.2-.8 3.6 3.6-.8 2.2c-.8 2.2-3.6 3-5.3 1.3s-.9-4.5 1.3-5.3Z"),
+    synth:     line("M2.5 7h19v11h-19zM6.5 12v6M10.5 12v6M14.5 12v6M18.5 12v6M5 9.5h.01M8 9.5h.01M11 9.5h.01"),
+    violin:    line("M12 2v6M10 8h4l1.2 3-1.2 2 1.2 3-1.2 3.5h-4l-1.2-3.5 1.2-3-1.2-2Z") + line("M12 12.5v6"),
+    trumpet:   line("M2.5 10h3.5v4H2.5zM6 11h8.5l6.5-4v10l-6.5-4H6M9.5 11V8M12.5 11V8"),
+    perc:      line("M9.2 5.7a4.5 4.5 0 1 1 6.4 6.4l-6.4-6.4ZM11.2 14.6 4.5 21.3M15.5 3l1-1M19 7l1.5-.5M20 11l1.5.5"),
+    fx:        line("M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"),
+    midi:      line("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z") + solid("M7.6 12.4a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM16.4 12.4a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM9.2 8.4a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM14.8 8.4a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2ZM12 7.2a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2Z") + line("M10 17h4"),
+    grip:      solid("M9 6.5a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM15 6.5a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM9 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM15 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM9 20.3a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM15 20.3a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z"),
     lock:      line("M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9h-13z"),
     unlock:    line("M7 11V8a5 5 0 0 1 9.6-2M5.5 11h13v9h-13z"),
     pencil:    line("M4.5 19.5l1-4.6L15.6 4.8a2.1 2.1 0 0 1 3 3L8.5 17.9zM13.6 6.8l3 3"),
@@ -8752,7 +8825,21 @@ function libraryTrackMeta(name, rel){
   return { artists: "", title: stem };
 }
 
+// Songs shows every song in one list (Playlists' too) unless switched to the
+// artist folders. Remembered.
+const SONGS_FLAT_KEY = "spotdl-gui-songs-flat";
+function songsFlat(){ try{ return localStorage.getItem(SONGS_FLAT_KEY) !== "0"; }catch(e){ return true; } }
+function paintSongsView(rel){
+  const seg = el("lib-songs-view");
+  seg.hidden = rel !== "Songs";
+  seg.querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.v === "all") === songsFlat()));
+}
+el("lib-songs-view").querySelectorAll("button").forEach(b => b.onclick = () => {
+  try{ localStorage.setItem(SONGS_FLAT_KEY, b.dataset.v === "all" ? "1" : "0"); }catch(e){}
+  loadLibraryFolder("Songs");
+});
 async function loadLibraryFolder(rel){
+  paintSongsView(rel);
   pushNav("library:" + rel, () => {
     setMode("library", {keepSection: true});
     loadLibraryFolder(rel);
@@ -8763,7 +8850,8 @@ async function loadLibraryFolder(rel){
 
   let data;
   try{
-    const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(rel)}`);
+    const flat = rel === "Songs" && songsFlat();
+    const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(rel)}${flat ? "&flat=1" : ""}`);
     data = await res.json();
     if(!res.ok) throw new Error(data.error || "Chyba");
   }catch(e){
@@ -8772,6 +8860,7 @@ async function loadLibraryFolder(rel){
   }
 
   libraryRailEntries = data.entries || [];
+  if(libraryCurrentRel !== rel){ libSel.clear(); libSelAnchor = null; }
   libraryCurrentRel = rel;
   libraryLoaded = true;
   el("library-folder-name").textContent =
@@ -8863,6 +8952,10 @@ function renderLibraryBreadcrumb(breadcrumb){
 // re-fetching.
 let libraryEntries = [];
 let librarySummary = null;
+// Several tracks picked at once (the number cell's checkbox, ⌘/Ctrl-click,
+// ⇧-click for a range) — then opened in the mixer, or separated, together.
+const libSel = new Set();
+let libSelAnchor = null;
 
 function renderLibraryList(entries, summary){
   libraryEntries = entries || [];
@@ -9103,22 +9196,38 @@ function paintLibraryTable(){
     list.appendChild(row);
   });
 
+  // Picked tracks that are no longer listed (filtered out) stay picked.
+  list.classList.toggle("picking", libSel.size > 0);
+  if(libSel.size){
+    const bar = document.createElement("div");
+    bar.className = "lib-selbar";
+    bar.innerHTML = `<b>Označeno ${libSel.size}</b>
+      <button type="button" class="btn secondary" data-s="all">Označit vše (${tracks.length})</button>
+      <button type="button" class="btn" data-s="mix">${icon("fader", 13)} Otevřít v mixu ▾</button>
+      <button type="button" class="btn secondary" data-s="stems">Rozdělit na stopy</button>
+      <button type="button" class="btn secondary" data-s="none">Zrušit</button>`;
+    bar.querySelector('[data-s="all"]').onclick = () => { tracks.forEach(t => libSel.add(t.rel)); paintLibraryTable(); };
+    bar.querySelector('[data-s="none"]').onclick = () => { libSel.clear(); paintLibraryTable(); };
+    bar.querySelector('[data-s="mix"]').onclick = (e) => openMultiMixMenu(e.currentTarget);
+    bar.querySelector('[data-s="stems"]').onclick = () => separateMany([...libSel]);
+    list.appendChild(bar);
+  }
   const current = Player.getCurrent();
   tracks.forEach((entry, i) => {
     const fallback = libraryTrackMeta(entry.name, entry.rel);
     const title = entry.title || fallback.title;
     const artist = entry.artist || fallback.artists || "";
     const row = document.createElement("div");
-    row.className = "lib-trow" + (current && current.relPath === entry.rel ? " playing" : "");
+    row.className = "lib-trow" + (current && current.relPath === entry.rel ? " playing" : "") + (libSel.has(entry.rel) ? " sel" : "");
     row.innerHTML = `
-      <span class="c-idx">${i + 1}</span>
+      <span class="c-idx"><span class="n">${i + 1}</span><input type="checkbox" class="pick" title="Označit (⌘/Ctrl + klik, ⇧ + klik = rozsah)" ${libSel.has(entry.rel) ? "checked" : ""}></span>
       <span class="c-title">
         <span class="art">\u266A</span>
         <span class="tx">${escapeHtml(title)}</span>
         <span class="stems-slot">${StemsQueue.badgeHtml(entry.rel, entry.stems)}</span>
       </span>
       <span class="c-artist">${escapeHtml(artist)}</span>
-      <span class="c-album">${escapeHtml(entry.album || "")}</span>
+      <span class="c-album">${escapeHtml(entry.album || "")}${entry.folder && entry.folder !== "Songs" ? `<small class="from-pl" title="Leží v playlistu „${escapeHtml(entry.folder)}“">${entry.album ? " · " : ""}▸ ${escapeHtml(entry.folder)}</small>` : ""}</span>
       <span class="c-time">${libDurationText(entry)}</span>
       <span class="c-act">
         <button class="act-stems" title="${entry.stems && entry.stems.state === "ready" ? "Stopy hotové — otevřít ve Steems" : "Rozdělit na stopy"}">\uD83C\uDF9A</button>
@@ -9133,7 +9242,22 @@ function paintLibraryTable(){
       Player.playLocal({relPath: entry.rel, title, artists: artist, album: entry.album});
       paintLibraryTable();
     };
-    row.onclick = play;
+    const pick = (e) => {
+      if(e.shiftKey && libSelAnchor != null){
+        const a = tracks.findIndex(t => t.rel === libSelAnchor), b = i;
+        if(a >= 0) for(let k = Math.min(a, b); k <= Math.max(a, b); k++) libSel.add(tracks[k].rel);
+      } else {
+        libSel.has(entry.rel) ? libSel.delete(entry.rel) : libSel.add(entry.rel);
+        libSelAnchor = entry.rel;
+      }
+      paintLibraryTable();
+    };
+    // While something is picked, a click picks; otherwise it plays.
+    row.onclick = (e) => {
+      if(e.metaKey || e.ctrlKey || e.shiftKey || libSel.size) pick(e);
+      else play();
+    };
+    row.querySelector(".pick").onclick = (e) => { e.stopPropagation(); pick(e); };
     row.dataset.rel = entry.rel;
     row.querySelector(".act-stems").onclick = (e) => {
       e.stopPropagation();
@@ -9148,7 +9272,7 @@ function paintLibraryTable(){
       e.stopPropagation();
       const st = StemsQueue.stateFor(entry.rel, entry.stems);
       if(st && st.state === "ready") openSteemsSong(st.name);
-      else if(st && st.job_id) StemsQueue.follow(st.job_id, st.name);
+      else if(st && st.job_id) StemsQueue.follow(st.job_id, st.name, true);
     };
     row.querySelector(".act-riff").onclick = (e) => {
       e.stopPropagation();
@@ -9981,6 +10105,100 @@ function toggleNamRiffManager(){
 // As one more track of the song open in the mixer, or as a project of its
 // own (Stems/<name>/ with that one track) that can be edited and mixed like
 // a separated song.
+// Several library files into the mixer at once: one project with a track per
+// file, a project per file, or tracks added to the song that is open.
+function libSelOrdered(){
+  const order = libraryEntries.filter(e => e.type === "file").map(e => e.rel);
+  const rels = [...libSel];
+  return rels.sort((a, b) => (order.indexOf(a) + 1 || 1e9) - (order.indexOf(b) + 1 || 1e9));
+}
+function openMultiMixMenu(anchor){
+  const old = el("mix-open-menu");
+  if(old){ old.remove(); return; }
+  const rels = libSelOrdered(), n = rels.length;
+  const open = Mixer.currentSong && Mixer.currentSong();
+  const box = document.createElement("div");
+  box.className = "sect-menu";
+  box.id = "mix-open-menu";
+  box.innerHTML = `<div class="ss-head">${n} ${n === 1 ? "soubor" : n < 5 ? "soubory" : "souborů"} do mixážního pultu</div>
+    <button type="button" data-a="one">${icon("stems", 12)}<span>Jeden projekt — každý soubor jako stopa</span></button>
+    <button type="button" data-a="each">${icon("fader", 12)}<span>Každý soubor jako samostatný projekt</span></button>
+    ${open ? `<button type="button" data-a="add">${icon("add", 12)}<span>Přidat jako stopy do „${escapeHtml(stemsDisplayByName(open).title)}“</span></button>` : ""}`;
+  document.body.appendChild(box);
+  const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+  box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+  box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+  const close = (ev) => { if(!box.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", close, true); } };
+  setTimeout(() => document.addEventListener("pointerdown", close, true), 0);
+  const post = async (url, body) => {
+    const res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Nepodařilo se");
+    return data;
+  };
+  const nameOf = (rel) => rel.split("/").pop().replace(/\.[^.]+$/, "");
+  box.querySelector('[data-a="one"]').onclick = async () => {
+    box.remove();
+    const folder = (libraryCurrentRel || "").split("/").pop().replace(/^@/, "") || "Projekt";
+    const name = prompt("Název projektu:", folder);
+    if(name === null) return;
+    let project = null, failed = 0;
+    for(let i = 0; i < rels.length; i++){
+      showToast(`Převádím ${i + 1}/${rels.length}: ${nameOf(rels[i])}`);
+      try{
+        if(!project) project = (await post("/api/stems/new/library", {rel: rels[i], name: name.trim() || folder})).name;
+        else await post(`/api/stems/${encodeURIComponent(project)}/tracks/library`, {rel: rels[i]});
+      }catch(e){ failed++; }
+    }
+    if(!project){ showToast("Nepodařilo se otevřít"); return; }
+    libSel.clear(); paintLibraryTable();
+    steemsSongs = await (await fetch("/api/stems")).json();
+    invalidateRailTop5("steems");
+    openSteemsSong(project);
+    showToast(`Projekt „${project}“: ${rels.length - failed} stop` + (failed ? ` · ${failed} se nepodařilo` : ""));
+  };
+  box.querySelector('[data-a="each"]').onclick = async () => {
+    box.remove();
+    let last = null, failed = 0;
+    for(let i = 0; i < rels.length; i++){
+      showToast(`Otevírám ${i + 1}/${rels.length}: ${nameOf(rels[i])}`);
+      try{ last = (await post("/api/stems/new/library", {rel: rels[i]})).name; }catch(e){ failed++; }
+    }
+    libSel.clear(); paintLibraryTable();
+    steemsSongs = await (await fetch("/api/stems")).json();
+    invalidateRailTop5("steems");
+    showToast(`${rels.length - failed} projektů je ve Steems` + (failed ? ` · ${failed} se nepodařilo` : ""));
+    if(last) openSteemsSong(last);
+  };
+  const addBtn = box.querySelector('[data-a="add"]');
+  if(addBtn) addBtn.onclick = async () => {
+    box.remove();
+    let failed = 0;
+    for(let i = 0; i < rels.length; i++){
+      showToast(`Přidávám ${i + 1}/${rels.length}: ${nameOf(rels[i])}`);
+      try{ await post(`/api/stems/${encodeURIComponent(open)}/tracks/library`, {rel: rels[i]}); }catch(e){ failed++; }
+    }
+    libSel.clear(); paintLibraryTable();
+    setMode("steems", {keepSection: true});
+    loadMixerSong(open);
+    await Mixer.reloadTracks(`Přidáno ${rels.length - failed} stop` + (failed ? ` · ${failed} se nepodařilo` : ""));
+  };
+}
+// Several songs into the separation queue at once (no jumping into Steems).
+async function separateMany(rels){
+  let queued = 0, ready = 0;
+  for(const rel of rels){
+    try{
+      const d = await (await fetch("/api/stems/separate", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({rel, format: loadSettings().stems_format || "mp3", mp3_bitrate: loadSettings().stems_bitrate || 320})})).json();
+      if(d.ready) ready++; else if(d.job_id) queued++;
+    }catch(e){}
+  }
+  StemsQueue.poke();
+  libSel.clear(); paintLibraryTable();
+  showToast(`Do fronty separací přidáno ${queued}` + (ready ? ` · ${ready} už rozdělených` : ""));
+}
+
 function openInMixerMenu(anchor, rel, title){
   const old = el("mix-open-menu");
   if(old){ old.remove(); if(old.dataset.rel === rel) return; }
@@ -10123,6 +10341,7 @@ const StemsQueue = (() => {
     let data;
     try{ data = await (await fetch("/api/stems/queue")).json(); }catch(e){ schedule(5000); return; }
     jobs = data.jobs || [];
+    JobStrip.setStems(jobs);
     jobs.forEach(j => {
       if((j.status === "done" || j.status === "error") && !seenDone.has(j.job_id)){
         seenDone.add(j.job_id);
@@ -10153,11 +10372,11 @@ const StemsQueue = (() => {
   }
 
   // The drawer shows one job's log; watching never affects the job itself.
-  function follow(jobId, name){
+  function follow(jobId, name, show){
     if(followed && followed.es) followed.es.close();
     if(currentEventSource) currentEventSource.close();
     followed = {id: jobId, name};
-    drawer.hidden = false;
+    if(show) drawer.hidden = false;
     paintDrawerTitle();
     el("dl-status").innerHTML = `<span class="spinner"></span> připravuji…`;
     el("dl-log").innerHTML = "";
@@ -10193,7 +10412,7 @@ const StemsQueue = (() => {
         poke();
         // Jump into Steems only when nothing else is still on its way —
         // with a queue running, a finished song shouldn't pull you away.
-        if(ok && !jobs.some(j => j.job_id !== jobId && (j.status === "queued" || j.status === "running"))){
+        if(ok && state.mode === "steems" && !currentSteemsName && !jobs.some(j => j.job_id !== jobId && (j.status === "queued" || j.status === "running"))){
           setTimeout(() => openSteemsSong(name, {force: true}), 600);
         }else if(ok){
           showToast(`Stopy hotové: ${name} — otevřeš je tlačítkem v liště`);
@@ -13093,6 +13312,11 @@ const Mixer = (() => {
   function stemStyle(name){
     return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
+  // A channel's colour and icon: the user's choice, else the stem's own.
+  function styleOf(c){
+    const base = stemStyle(c.stem), L = trackLook[c.stem] || {};
+    return {c: L.color || base.c, icon: L.icon || (c.midi ? "midi" : base.icon)};
+  }
 
   // Equal temperament both ways, so a stem's stored rate round-trips to the
   // semitone number the slider shows.
@@ -14676,6 +14900,9 @@ const Mixer = (() => {
   // AudioContext or are whole editors of their own.
   // ======================================================================
   let stemLabels = {};          // take-N → the imported file's own name
+  // How a track looks, set by the user per song (saved in the mix): its own
+  // name, colour and instrument icon. stem → {label?, color?, icon?}
+  let trackLook = {};
   let editedStems = new Set();  // tracks saved with edits (original kept)
   let editIdx = -1;             // the track being edited
   let clip = null;              // the clipboard, an AudioBuffer
@@ -14685,6 +14912,7 @@ const Mixer = (() => {
   let editStatus = "";
 
   function stemLabel(stem){
+    if(trackLook[stem] && trackLook[stem].label) return trackLook[stem].label;
     if(STEM_LABEL[stem] || stemLabels[stem]) return STEM_LABEL[stem] || stemLabels[stem];
     const m = /^take-(\d+)$/.exec(stem);
     return m ? `Nahrávka ${m[1]}` : stem;
@@ -14693,6 +14921,149 @@ const Mixer = (() => {
   // ---- taking a track out of the mix (×) and bringing it back ----
   // Out of `channels` entirely, so nothing plays, draws or exports it and
   // its fader goes too; kept here with its settings so it can return.
+  // ---- a track's name, colour, icon; its place in the list; the rail's width ----
+  const LOOK_COLORS = ["#ff5c5c", "#ff8a3d", "#ffd166", "#9be15d", "#3ddc97", "#2ec4b6", "#38bdf8", "#4d8cff",
+                       "#8b5cf6", "#d946ef", "#ff5c8a", "#d8d4e8", "#9aa3b5"];
+  const LOOK_ICONS = [["drums", "Bicí"], ["perc", "Perkuse"], ["bass", "Baskytara"], ["guitar", "Kytara"],
+    ["elGuitar", "El. kytara"], ["acGuitar", "Akustická"], ["mic", "Zpěv"], ["piano", "Klavír"], ["synth", "Synťák"],
+    ["violin", "Smyčce"], ["trumpet", "Dechy"], ["midi", "MIDI"], ["note", "Melodie"], ["fx", "Efekty"],
+    ["headphones", "Click"], ["sliders", "Ostatní"]];
+  function setLook(c, patch){
+    const L = {...(trackLook[c.stem] || {}), ...patch};
+    Object.keys(L).forEach(k => { if(L[k] == null || L[k] === "") delete L[k]; });
+    if(Object.keys(L).length) trackLook[c.stem] = L; else delete trackLook[c.stem];
+    renderTimeline(); renderChannels(); renderEditBar();
+    queueSessionSave();
+  }
+  function openTrackLook(c, anchor){
+    const old = el("track-look");
+    if(old){ old.remove(); if(old.dataset.stem === c.stem) return; }
+    const L = trackLook[c.stem] || {}, cur = styleOf(c);
+    const box = document.createElement("div");
+    box.className = "sect-menu track-look";
+    box.id = "track-look";
+    box.dataset.stem = c.stem;
+    box.innerHTML = `<div class="ss-head">Stopa</div>
+      <div class="tl-row"><input type="text" id="tl-name" maxlength="60" value="${escapeHtml(stemLabel(c.stem))}" placeholder="Název stopy"></div>
+      <div class="ss-head">Barva</div>
+      <div class="tl-colors">${LOOK_COLORS.map(col => `<button type="button" data-col="${col}" class="${cur.c === col ? "on" : ""}" style="background:${col}" title="${col}"></button>`).join("")}
+        <button type="button" data-col="" class="def" title="Výchozí barva">↺</button></div>
+      <div class="ss-head">Ikona</div>
+      <div class="tl-icons">${LOOK_ICONS.map(([ic, lab]) => `<button type="button" data-ic="${ic}" class="${cur.icon === ic ? "on" : ""}" title="${lab}">${icon(ic, 17)}<span>${lab}</span></button>`).join("")}</div>
+      ${L.label || L.color || L.icon ? `<button type="button" class="tl-reset">Vrátit původní vzhled</button>` : ""}`;
+    document.body.appendChild(box);
+    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    const name = box.querySelector("#tl-name");
+    name.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if(e.key === "Enter"){ setLook(c, {label: name.value.trim()}); box.remove(); }
+      if(e.key === "Escape") box.remove();
+    });
+    name.addEventListener("change", () => setLook(c, {label: name.value.trim()}));
+    box.querySelectorAll("[data-col]").forEach(b => b.onclick = () => { setLook(c, {color: b.dataset.col}); box.remove(); });
+    box.querySelectorAll("[data-ic]").forEach(b => b.onclick = () => { setLook(c, {icon: b.dataset.ic}); box.remove(); });
+    const rs = box.querySelector(".tl-reset");
+    if(rs) rs.onclick = () => { delete trackLook[c.stem]; setLook(c, {}); box.remove(); };
+    const away = (e) => {
+      if(box.isConnected && box.contains(e.target)) return;
+      document.removeEventListener("pointerdown", away, true);
+      if(box.isConnected){
+        if(name.value.trim() !== stemLabel(c.stem)) setLook(c, {label: name.value.trim()});
+        box.remove();
+      }
+    };
+    setTimeout(() => document.addEventListener("pointerdown", away, true), 0);
+  }
+  let nameClickTimer = 0;
+  function renameTrackInline(c, nameEl){
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.className = "nm-rename"; inp.maxLength = 60;
+    inp.value = stemLabel(c.stem);
+    nameEl.replaceWith(inp);
+    inp.focus(); inp.select();
+    let done = false;
+    const finish = (save) => {
+      if(done) return; done = true;
+      if(save && inp.value.trim() && inp.value.trim() !== stemLabel(c.stem)) setLook(c, {label: inp.value.trim()});
+      else renderTimeline();
+    };
+    inp.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if(e.key === "Enter") finish(true);
+      if(e.key === "Escape") finish(false);
+    });
+    inp.addEventListener("blur", () => finish(true));
+  }
+  // Drag a track by its grip to another place in the list.
+  function startTrackDrag(e, c){
+    if(e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const rail = el("nm-rail");
+    const strips = [...rail.querySelectorAll(".nm-strip[data-ch]")];
+    if(strips.length < 2) return;
+    const from = channels.indexOf(c);
+    const line = document.createElement("div");
+    line.className = "nm-drop-line";
+    rail.appendChild(line);
+    const src = strips[from];
+    src.classList.add("dragging");
+    let to = from;
+    const railTop = () => rail.getBoundingClientRect().top;
+    const move = (ev) => {
+      to = strips.length;
+      for(let i = 0; i < strips.length; i++){
+        const r = strips[i].getBoundingClientRect();
+        if(ev.clientY < r.top + r.height / 2){ to = i; break; }
+      }
+      const ref = strips[Math.min(to, strips.length - 1)].getBoundingClientRect();
+      const y = to < strips.length ? ref.top : ref.bottom;
+      line.style.top = (y - railTop() - 1) + "px";
+      line.hidden = to === from || to === from + 1;
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      line.remove(); src.classList.remove("dragging");
+      if(to === from || to === from + 1) return;
+      const sel = channels[editIdx];
+      channels.splice(from, 1);
+      channels.splice(to > from ? to - 1 : to, 0, c);
+      editIdx = sel ? channels.indexOf(sel) : editIdx;
+      channels.forEach((x, i) => { x.order = i; });
+      renderTimeline(); renderChannels(); renderEditBar();
+      queueSessionSave();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    move(e);
+  }
+  // The rail's width, dragged at its edge; remembered.
+  const RAIL_W_KEY = "spotdl-nm-rail-w";
+  function applyRailWidth(w){
+    const nm = document.querySelector("#mixer .nm");
+    if(nm && w) nm.style.setProperty("--nm-rail", Math.round(w) + "px");
+  }
+  try{ applyRailWidth(parseFloat(localStorage.getItem(RAIL_W_KEY)) || 0); }catch(e){}
+  function wireRailResize(h){
+    if(!h) return;
+    h.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const rail = el("nm-rail"), x0 = e.clientX, w0 = rail.getBoundingClientRect().width;
+      h.setPointerCapture(e.pointerId);
+      let w = w0;
+      const mv = (ev) => { w = Math.max(150, Math.min(420, w0 + ev.clientX - x0)); applyRailWidth(w); };
+      const done = () => {
+        h.removeEventListener("pointermove", mv); h.removeEventListener("pointerup", done);
+        try{ localStorage.setItem(RAIL_W_KEY, String(Math.round(w))); }catch(err){}
+        renderTimeline();
+      };
+      h.addEventListener("pointermove", mv);
+      h.addEventListener("pointerup", done);
+    });
+  }
+
   let hiddenChannels = [];
   function hideTrack(c){
     if(!channels.includes(c)) return;
@@ -15603,7 +15974,8 @@ const Mixer = (() => {
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
     const topLanes = el("mixer-top-lanes");
-    rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"></div>';
+    rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"></div><div class="nm-rail-resize" title="Táhni — šířka názvů stop"></div>';
+    wireRailResize(rail.querySelector(".nm-rail-resize"));
     lanes.innerHTML = "";
     topLanes.innerHTML = "";
     const totalPx = totalWidthPx();
@@ -15634,7 +16006,7 @@ const Mixer = (() => {
     stemsTopPx = lanes.getBoundingClientRect().top - canvasTop + lanes.scrollHeight;
 
     channels.forEach((c, idx) => {
-      const style = stemStyle(c.stem);
+      const style = styleOf(c);
 
       // ---- left rail strip: name, S/M, volume fader, pitch ----
       const strip = document.createElement("div");
@@ -15643,8 +16015,9 @@ const Mixer = (() => {
       const hasGuitarSplit = channels.some(x => x.stem === "guitar_solo");
       strip.innerHTML = `
         <div class="nm-strip-top">
-          <span class="nm-strip-icon">${icon(style.icon, 13)}</span>
-          <span class="nm-strip-name" title="${escapeHtml(stemLabel(c.stem))}">${escapeHtml(stemLabel(c.stem))}</span>
+          <span class="nm-grip" title="Táhni nahoru / dolů — pořadí stop">${icon("grip", 12)}</span>
+          <span class="nm-strip-icon look" title="Barva, ikona a název stopy" style="color:${style.c}">${icon(style.icon, 13)}</span>
+          <span class="nm-strip-name" title="${escapeHtml(stemLabel(c.stem))} — dvojklik přejmenuje">${escapeHtml(stemLabel(c.stem))}</span>
           ${c.stem === "guitar" && !hasGuitarSplit
             ? `<button class="nm-sm gt-import" title="Naimportovat sólo/rytmus kytaru (rozdělené jinde)">${icon("add", 12)}</button>` : ""}
           ${c.stem === "guitar_solo"
@@ -15706,7 +16079,13 @@ const Mixer = (() => {
         applyGains();
       };
 
-      strip.querySelector(".nm-strip-name").onclick = () => selectEditTrack(idx);
+      // One click selects the track for editing — a moment later, so a
+      // double click (rename) isn't undone by the redraw the first one causes.
+      strip.querySelector(".nm-strip-name").onclick = (e) => {
+        if(e.detail > 1) return;
+        clearTimeout(nameClickTimer);
+        nameClickTimer = setTimeout(() => selectEditTrack(idx), 260);
+      };
       strip.querySelector(".trk-hide").onclick = () => hideTrack(c);
       const rmBtn = strip.querySelector(".trk-remove");
       if(rmBtn) rmBtn.onclick = () => removeTrack(c);
@@ -15734,6 +16113,16 @@ const Mixer = (() => {
           requestTempoPitch();
         };
       });
+      strip.dataset.ch = String(idx);
+      strip.querySelector(".look").onclick = (e) => { e.stopPropagation(); openTrackLook(c, e.currentTarget); };
+      strip.querySelector(".nm-strip-top").addEventListener("contextmenu", (e) => {
+        if(e.target.closest("button")) return;
+        e.preventDefault(); openTrackLook(c, e.currentTarget);
+      });
+      strip.querySelector(".nm-strip-name").addEventListener("dblclick", (e) => {
+        e.stopPropagation(); clearTimeout(nameClickTimer); renameTrackInline(c, e.currentTarget);
+      });
+      strip.querySelector(".nm-grip").addEventListener("pointerdown", (e) => startTrackDrag(e, c));
       rail.appendChild(strip);
 
       // ---- right lane: grid + waveform on one canvas ----
@@ -15869,7 +16258,7 @@ const Mixer = (() => {
     channels.forEach(c => {
       if(c.muted) return;
       g.globalAlpha = 0.5;
-      paintWave(g, c.buffer, Math.max(1, Math.min(w, w * c.buffer.duration / Math.max(duration, 0.001))), h, stemStyle(c.stem).c);
+      paintWave(g, c.buffer, Math.max(1, Math.min(w, w * c.buffer.duration / Math.max(duration, 0.001))), h, styleOf(c).c);
     });
     g.globalAlpha = 1;
     g.globalCompositeOperation = "source-over";
@@ -15949,6 +16338,7 @@ const Mixer = (() => {
       const colorClass = stemColors[c.stem.toLowerCase()] || "other";
       const strip = document.createElement("div");
       strip.className = `fl-channel color-${colorClass}`;
+      if(trackLook[c.stem] && trackLook[c.stem].color) strip.style.setProperty("--ch-color", trackLook[c.stem].color);
       if(c.muted) strip.classList.add("muted");
       if(c.solo) strip.classList.add("solo");
       strip.innerHTML = `
@@ -16357,6 +16747,12 @@ const Mixer = (() => {
       c.midi = {instrument: m.instrument, notes: (m.notes || []).slice()};
       stemLabels[m.stem] = m.label || m.stem;
       loaded.push(c);
+    }
+    // The user's own order (dragged in the rail) and look, as saved.
+    trackLook = (saved && saved.look && typeof saved.look === "object") ? saved.look : {};
+    if(saved && Array.isArray(saved.channels)){
+      const pos = new Map(saved.channels.map((x, i) => [x.stem, i]));
+      loaded.sort((a, b) => (pos.has(a.stem) ? pos.get(a.stem) : 1e6) - (pos.has(b.stem) ? pos.get(b.stem) : 1e6));
     }
     loaded.forEach((c, i) => { c.order = i; });
     const savedHidden = new Set(((saved && saved.channels) || []).filter(x => x.hidden).map(x => x.stem));
@@ -16963,6 +17359,7 @@ const Mixer = (() => {
         fx: fxSnapshot(c.fx),
       })),
       pixelsPerSecond,
+      look: trackLook,
       midi: [...channels, ...hiddenChannels].filter(c => c.midi).map(c => ({
         stem: c.stem, label: stemLabels[c.stem] || c.stem, instrument: c.midi.instrument, notes: c.midi.notes})),
       metronome: {
@@ -21646,12 +22043,14 @@ function renderPlaylistPanel(p){
   el("dl-selected").onclick = () => {
     const ids = [...container.querySelectorAll("input.checkbox:checked")].map(cb=>cb.dataset.videoId);
     if(!ids.length) return;
+    // A single song is a song: it goes to Songs, where all songs are.
+    const one = ids.length === 1;
     startDownload({
       urls: ids.map(id => `https://music.youtube.com/watch?v=${id}`),
-      output_name: p.title,
-      kind: "playlist",
+      output_name: one ? "Songs" : p.title,
+      kind: one ? "songs" : "playlist",
       bitrate: bitrate(),
-    }, `${p.title} (výběr)`);
+    }, one ? `1 píseň z „${p.title}“ → Songs` : `${p.title} (výběr)`);
   };
   el("add-all-cart").onclick = () => {
     let n = 0;
@@ -23135,6 +23534,81 @@ const PlayerTab = (() => {
 // Download (SSE progress)
 // ======================================================================
 const drawer = el("dl-drawer");
+
+// ======================================================================
+// Job strip: every download and separation as one thin bar beside the
+// arrows — filled as it goes, with % and the time left. A click opens the
+// detailed log (the drawer), which no longer pops open by itself.
+// ======================================================================
+const JobStrip = (() => {
+  const box = el("job-strip");
+  let stems = [];
+  const sepT0 = new Map();          // job_id → {t, p} first seen running
+  const dls = new Map();            // job_id → {label, total, done, failed, t0, status}
+  let ticker = 0;
+  const clock = (sec) => { sec = Math.max(0, Math.round(sec)); return sec >= 3600 ? `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, "0")} h`
+    : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`; };
+  function setStems(jobs){ stems = jobs || []; paint(); }
+  function dlStart(id, label, total){ dls.set(id, {label, total: total || 0, done: 0, failed: 0, t0: Date.now(), status: "running"}); paint(); }
+  function dlLine(id, line){
+    const d = dls.get(id);
+    if(!d || !line) return;
+    const m = line.match(/Found (\d+) songs?/i);
+    if(m) d.total = Math.max(d.total, +m[1]);
+    if(/^\s*(Downloaded|Skipping)\b/i.test(line) || /already exists/i.test(line)) d.done++;
+    else if(/LookupError|AudioProviderError|DownloadError|Failed to download|No results found/i.test(line)){ d.done++; d.failed++; }
+    paint();
+  }
+  function dlEnd(id, ok){
+    const d = dls.get(id);
+    if(!d) return;
+    d.status = ok ? "done" : "error";
+    if(ok && d.total) d.done = d.total;
+    paint();
+    setTimeout(() => { dls.delete(id); paint(); }, ok ? 5000 : 12000);
+  }
+  function rows(){
+    const out = [];
+    const now = Date.now();
+    for(const [, d] of dls){
+      const pct = d.total ? Math.min(100, d.done / d.total * 100) : null;
+      let right;
+      if(d.status === "done") right = "hotovo";
+      else if(d.status === "error") right = "chyba";
+      else if(pct == null) right = d.done ? `${d.done} hotovo` : "začíná…";
+      else{
+        const el2 = (now - d.t0) / 1000;
+        right = `${d.done}/${d.total} · ${Math.round(pct)} %` + (d.done ? ` · ~${clock(el2 / d.done * (d.total - d.done))}` : "");
+      }
+      out.push({ic: "⬇", tx: d.label, pct: d.status === "done" ? 100 : pct, right, cls: d.status === "error" ? "err" : d.status === "done" ? "ok" : ""});
+    }
+    const running = stems.filter(j => j.status === "running");
+    const queued = stems.filter(j => j.status === "queued").length;
+    for(const j of running){
+      const p = j.progress != null ? +j.progress : null;
+      if(p != null && !sepT0.has(j.job_id)) sepT0.set(j.job_id, {t: now, p});
+      const s0 = sepT0.get(j.job_id);
+      let eta = "";
+      if(p != null && s0 && p > s0.p + 0.5) eta = ` · ~${clock((now - s0.t) / 1000 / (p - s0.p) * (100 - p))}`;
+      out.push({ic: "🎚", tx: "Separace: " + (j.name || ""), pct: p, right: (p != null ? Math.round(p) + " %" : "…") + eta + (queued ? ` · +${queued}` : ""), cls: ""});
+    }
+    if(!running.length && queued) out.push({ic: "🎚", tx: "Separace ve frontě", pct: null, right: `${queued}×`, cls: ""});
+    return out;
+  }
+  function paint(){
+    const r = rows();
+    box.hidden = !r.length;
+    if(!r.length){ clearInterval(ticker); ticker = 0; return; }
+    const show = r.slice(0, 2);
+    box.innerHTML = show.map(x => `<div class="js-row ${x.cls} ${x.pct == null && !x.cls ? "indet" : ""}">
+        <div class="js-fill" style="width:${x.pct == null ? 0 : x.pct.toFixed(1)}%"></div>
+        <span>${x.ic}</span><span class="js-tx">${escapeHtml(x.tx)}</span><span class="js-pc">${escapeHtml(x.right)}</span></div>`).join("") +
+      (r.length > 2 ? `<span class="js-more">+ ${r.length - 2} další</span>` : "");
+    if(!ticker) ticker = setInterval(paint, 1000);       // the time left keeps counting
+  }
+  box.addEventListener("click", () => { drawer.hidden = !drawer.hidden; });
+  return {setStems, dlStart, dlLine, dlEnd};
+})();
 let currentEventSource = null;
 
 // Resolves true when the job finishes successfully, false otherwise, so a
@@ -23152,7 +23626,9 @@ function startDownload(payload, label){
   })
   .then(r => r.json())
   .then(data => new Promise(resolve => {
-    drawer.hidden = false;
+    // The drawer keeps the full log but stays shut; the strip up top shows progress.
+    const single = payload.urls.length === 1 && /browse|playlist|album/i.test(payload.urls[0]);
+    JobStrip.dlStart(data.job_id, label, single ? 0 : payload.urls.length);
     el("dl-title").innerHTML = `${icon("download", 15)} ${escapeHtml(label)}`;
     el("dl-status").innerHTML = `<span class="spinner"></span> běží…`;
     el("dl-log").innerHTML = "";
@@ -23164,6 +23640,7 @@ function startDownload(payload, label){
     es.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
       if(msg.line){
+        JobStrip.dlLine(data.job_id, msg.line);
         const log = el("dl-log");
         const line = document.createElement("div");
         line.textContent = msg.line;
@@ -23173,6 +23650,8 @@ function startDownload(payload, label){
       if(msg.done){
         es.close();
         const ok = (msg.returncode === 0) || msg.status === "done";
+        JobStrip.dlEnd(data.job_id, ok);
+        if(!ok) showToast(`Stahování „${label}“ skončilo chybou — klik na proužek nahoře ukáže výpis`);
         el("dl-status").innerHTML = ok
           ? `${icon("check", 13)} hotovo` : `${icon("warning", 13)} chyba`;
         el("dl-reveal").disabled = false;
@@ -23184,7 +23663,7 @@ function startDownload(payload, label){
         resolve(ok);
       }
     };
-    es.onerror = () => { es.close(); resolve(false); };
+    es.onerror = () => { es.close(); JobStrip.dlEnd(data.job_id, false); resolve(false); };
   }))
   .catch(() => false);
 }

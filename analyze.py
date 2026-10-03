@@ -101,6 +101,42 @@ def _mix_to_wav(sources, out_path: Path, rate=44100):
     return out_path
 
 
+# ----------------------------------------------------- a project's own audio
+# A project made from the user's own files (backing tracks, takes) has no
+# Demucs stems — its tracks are called take-1, take-2… So everything in it is
+# mixed into one track, which All-In-One's own HTDemucs splits into the four
+# stems the model reads; the chords use that split too. Done once per run.
+_FALLBACK: dict = {}
+
+
+def _own_audio(stems_dir: Path):
+    return sorted(p for p in stems_dir.iterdir()
+                  if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in STEM_EXTS)
+
+
+def _fallback_stems(stems_dir: Path, work: Path):
+    """{bass, drums, other, vocals} → wav, split from the project's mix."""
+    if "stems" in _FALLBACK:
+        return _FALLBACK["stems"]
+    files = _own_audio(stems_dir)
+    if not files:
+        _FALLBACK["stems"] = None
+        return None
+    mix = _mix_to_wav(files, work / "project-mix.wav")
+    with contextlib.redirect_stdout(sys.stderr):
+        import torch
+        from allin1_infer.stems import get_stems
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+        try:
+            dirs = get_stems([mix], work / "project-demix", None, device, 0.25, False)
+        except Exception:                                    # noqa: BLE001 — MPS can refuse
+            dirs = get_stems([mix], work / "project-demix", None, "cpu", 0.25, False)
+    d = Path(dirs[0])
+    out = {s: d / f"{s}.wav" for s in ("bass", "drums", "other", "vocals")}
+    _FALLBACK["stems"] = out if all(p.is_file() for p in out.values()) else None
+    return _FALLBACK["stems"]
+
+
 # ----------------------------------------------------------------- sections
 
 def _sections(stems_dir: Path, work: Path, beats_path):
@@ -109,8 +145,14 @@ def _sections(stems_dir: Path, work: Path, beats_path):
     for target, sources in SECTION_STEMS.items():
         paths = [p for p in (_stem_path(stems_dir, s) for s in sources) if p]
         if not paths:
-            return [], "chybí stopa %s" % target
+            have = None
+            break
         have[target] = paths
+    if have is None:
+        fb = _fallback_stems(stems_dir, work)
+        if not fb:
+            return [], "projekt nemá žádný zvuk"
+        have = {t: [p] for t, p in fb.items()}
 
     demix = work / "demix"
     demix.mkdir(parents=True, exist_ok=True)
@@ -318,6 +360,11 @@ def _chords(stems_dir: Path, work: Path, beats):
     import librosa
 
     paths = [p for p in (_stem_path(stems_dir, s) for s in HARMONIC_STEMS) if p]
+    fb = None
+    if not paths:
+        fb = _fallback_stems(stems_dir, work)
+        if fb:
+            paths = [fb["other"]]
     if not paths:
         return [], "chybí harmonické stopy"
 
@@ -341,7 +388,7 @@ def _chords(stems_dir: Path, work: Path, beats):
     chroma = chroma ** CHROMA_SHARPEN
 
     bass_chroma = None
-    bass_path = _stem_path(stems_dir, "bass")
+    bass_path = _stem_path(stems_dir, "bass") or (fb["bass"] if fb else None)
     if bass_path is not None:
         yb, _ = librosa.load(str(_mix_to_wav([bass_path], work / "bass.wav", rate=sr)),
                              sr=sr, mono=True)

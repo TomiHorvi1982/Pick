@@ -111,3 +111,26 @@ def test_manual_import_puts_both_parts_in_place_or_neither(client, tmp_music_roo
                       files={"solo": ("lead.wav", wav.read_bytes()), "rhythm": ("rhythm.wav", b"x" * 4096)})
     assert bad.status_code == 400
     assert not (song / "guitar_solo.mp3").exists() and not list(song.glob(".*incoming*"))
+
+
+def test_an_analysis_that_lacked_stems_is_redone(client, tmp_music_root, monkeypatch):
+    # A project of the user's own files used to get "chybí stopa bass" and an
+    # empty result, cached for good. Such a cache is now a miss.
+    import json
+    d = tmp_music_root / "Stems" / "Vlastní"
+    d.mkdir(parents=True)
+    _tone(d / "take-1.mp3")
+    (d / "analysis.json").write_text(json.dumps({"sections": [], "chords": [], "warnings": ["sekce: chybí stopa bass"]}))
+    ran = []
+    import sys
+    monkeypatch.setattr(server, "ANALYZE_PYTHON", server.Path(sys.executable))
+    monkeypatch.setattr(server, "_beat_grid_for", lambda *a, **k: None)
+
+    class Done:
+        stdout = json.dumps({"sections": [{"start": 0, "end": 1, "name": "Intro", "kind": "intro"}], "chords": [], "warnings": []})
+        stderr = ""
+    monkeypatch.setattr(server.subprocess, "run", lambda *a, **k: ran.append(a) or Done())
+    r = client.get("/api/stems/Vlastní/analysis").json()
+    assert ran and r["sections"][0]["name"] == "Intro"
+    # a good result is kept as it is
+    assert client.get("/api/stems/Vlastní/analysis").json()["sections"] and len(ran) == 1
