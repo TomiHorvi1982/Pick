@@ -211,6 +211,56 @@
   body.wide #pane-queue{background:rgba(0,0,0,.22);border-radius:14px;padding:10px 8px;border:1px solid var(--line)}
   body.wide .lyrics{padding:30% 4px 40%}
   body.wide .ln{font-size:17px}
+  /* narrow window: only the active tab keeps its name */
+  @media (max-width: 460px){ .tab:not(.on) span{display:none} .tab{flex:0 0 auto;padding:0 9px} .tab.on{flex:1} }
+  /* the tab strip */
+  .tabbtn{width:auto;padding:0 10px;font-weight:800;font-size:11px;letter-spacing:.06em}
+  .tabbtn.on{color:var(--accent2);border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+  .tabrow{display:none;flex-direction:column;gap:5px;flex:0 0 auto}
+  body.tab-on:not(.compact) .tabrow{display:flex}
+  .tbar{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--sub);flex-wrap:wrap}
+  .tbar .tname{color:var(--text);font-size:12px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tbar .tbarlbl{color:var(--accent2);font-variant-numeric:tabular-nums;min-width:56px}
+  .tbar select{background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--text);border-radius:7px;font-size:11px;padding:3px 5px;max-width:190px}
+  .tbar .sp{flex:1}
+  .tbar .chip:disabled{opacity:.35;cursor:default}
+  .tbar .chip.on{color:#ffd166;border-color:#ffd166}
+  .tbar .chip.armed{color:#0a0a0c;background:var(--accent2);border-color:var(--accent2)}
+  .tvp{position:relative;height:170px;border-radius:12px;overflow:hidden;background:#f4f4f2;cursor:grab;touch-action:none;
+    box-shadow:0 8px 26px rgba(0,0,0,.45), 0 0 0 1px var(--line)}
+  .tvp:active{cursor:grabbing}
+  .thost{position:absolute;left:0;top:0;width:100%;will-change:transform}
+  .tmark{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--accent);opacity:.75;pointer-events:none;
+    box-shadow:0 0 10px var(--accent)}
+  .tmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:#555;font-size:12.5px;background:#f4f4f2}
+  .tmsg[hidden]{display:none}
+  body.tab-on.tabs-mode .tvp{height:140px}
+  /* search */
+  #pane-search{flex-direction:column;gap:8px}
+  .sbar{display:flex;gap:6px;align-items:center}
+  .sbar input{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:8px 11px;font:13px -apple-system,BlinkMacSystemFont,sans-serif;outline:none}
+  .sbar input:focus{border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+  .qi .acts{display:flex;gap:3px;flex:0 0 auto}
+  .qi .acts button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.3);
+    color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .qi .acts button:hover{color:var(--text);border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+  .plhead{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+  .plhead b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .plhead button{border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--text);border-radius:8px;padding:5px 9px;
+    font-size:11.5px;cursor:pointer;font-family:inherit}
+  .plhead button.go{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0a0c;border:0;font-weight:700}
+  .side-seg{display:none;gap:2px;padding:2px;border-radius:9px;background:rgba(0,0,0,.35);border:1px solid var(--line);margin-bottom:8px}
+  .side-seg button{flex:1;border:0;background:none;color:var(--sub);font-weight:600;font-size:11px;padding:5px;border-radius:7px;cursor:pointer;font-family:inherit}
+  .side-seg button.on{background:var(--glass2);color:var(--text)}
+  body.wide .side-seg{display:flex}
+  body.wide #pane-queue, body.wide #pane-search{flex-direction:column}
+  body.wide.side-search #pane-queue{display:none}
+  body.wide #pane-search{display:none}
+  body.wide.side-search #pane-search{display:flex;background:rgba(0,0,0,.22);border-radius:14px;padding:10px 8px;border:1px solid var(--line)}
+  .local-badge{display:none;font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--accent2);
+    border:1px solid color-mix(in srgb,var(--accent2) 50%,transparent);border-radius:6px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+  body.local .local-badge{display:inline-block}
   kbd{font:600 10px/1 ui-monospace,monospace;padding:2px 4px;border-radius:4px;background:var(--glass2)}
 </style>
 
@@ -224,8 +274,10 @@
       <button class="tab" data-tab="video"></button>
       <button class="tab" data-tab="lyrics"></button>
       <button class="tab" data-tab="queue"></button>
+      <button class="tab" data-tab="search"></button>
     </div>
     <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
+    <button class="iconbtn tabbtn" id="tabbtn" title="Tab k hrající písni — jedna kytara, srovnaná s hudbou">TAB</button>
     <button class="iconbtn" id="size" title="Velikost okna: malé · se záložkami · široké"></button>
   </div>
 
@@ -273,15 +325,41 @@
     </div>
 
     <div class="pane" id="pane-queue">
+      <div class="side-seg"><button data-side="queue" class="on">Fronta</button><button data-side="search">Hledat</button></div>
       <div class="queue" id="queue"></div>
     </div>
+
+    <div class="pane" id="pane-search">
+      <div class="side-seg"><button data-side="queue">Fronta</button><button data-side="search" class="on">Hledat</button></div>
+      <div class="sbar">
+        <input id="sq" type="text" placeholder="Hledat písničku, kapelu nebo playlist…" autocomplete="off">
+        <div class="seg" id="smode"><button data-m="songs" class="on">Písně</button><button data-m="playlists">Playlisty</button></div>
+      </div>
+      <div class="queue" id="sres"><div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div></div>
+    </div>
+  </div>
+
+  <div class="tabrow" id="tabrow">
+    <div class="tbar">
+      <b class="tname" id="tname">Tab</b><span class="tbarlbl" id="tbarlbl"></span>
+      <select id="tsong" title="Jiná tabulatura"></select>
+      <select id="ttrack" title="Která kytara"></select>
+      <select id="ttiming" title="Načasování: hrající nahrávka (sedí sama), nebo tempo tabu + Sync"></select>
+      <span class="sp"></span>
+      <button class="chip" id="tminus" title="Tab dřív o 0,1 s (Shift = 1 s)">−0,1</button>
+      <button class="chip" id="tplus" title="Tab později o 0,1 s (Shift = 1 s)">+0,1</button>
+      <button class="chip" id="tsync" title="Posuň tab (táhni / kolečko) tak, aby takt, který právě hraje, byl na čáře, a klikni">Sync</button>
+      <button class="chip" id="tlock" title="Zamknout synchronizaci">🔓</button>
+      <button class="chip" id="tclose" title="Skrýt tab">✕</button>
+    </div>
+    <div class="tvp" id="tvp"><div class="thost" id="thost"></div><div class="tmark"></div><div class="tmsg" id="tmsg" hidden></div></div>
   </div>
 
   <div class="meta">
     <div class="mart" id="mart"></div>
     <div class="txt">
       <div class="marquee" id="title"><span>Nic nehraje</span></div>
-      <div class="artist" id="artist">PIKO</div>
+      <div class="artist"><span id="artist">PIKO</span><span class="local-badge" title="Hraje přímo mini přehrávač (aplikace nemusí běžet)">HRAJU SÁM</span></div>
     </div>
     <div class="eq"><i></i><i></i><i></i><i></i></div>
     <button class="iconbtn mini-size" id="size2" title="Zvětšit okno"></button>
@@ -307,10 +385,12 @@
   </div>
 
   <div class="offline" id="offline" hidden>
-    Hlavní okno neběží — <a href="#" id="openMain">otevřít aplikaci</a>
+    Aplikace neběží — hraju sám · <a href="#" id="openMain">otevřít aplikaci</a>
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<audio id="lp" preload="auto"></audio>
+<iframe id="lpyt" title="YouTube přehrávač" allow="autoplay; encrypted-media" style="position:fixed;left:-10px;top:-10px;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
 
 <script>
 const line = (d) => `<path d="${d}" fill="none" stroke="currentColor"
@@ -334,6 +414,7 @@ const ICONS = {
   list: line("M9 6h11M9 12h11M9 18h11") + solid("M4.6 7.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM4.6 13.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8ZM4.6 19.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z"),
   grow: line("M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"),
   shrink: line("M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7"),
+  search: line("M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.3 15.3 20 20"),
   moon: line("M20 14.6A8.4 8.4 0 0 1 9.4 4a8.4 8.4 0 1 0 10.6 10.6Z"),
   back10: line("M4.5 12a7.5 7.5 0 1 0 2.2-5.3") + line("M4.5 4.5v3.6h3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
   fwd10: line("M19.5 12a7.5 7.5 0 1 1-2.2-5.3") + line("M19.5 4.5v3.6h-3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
@@ -355,10 +436,11 @@ const store = {
   set(k, v){ try{ localStorage.setItem("mini." + k, JSON.stringify(v)); }catch(e){} },
 };
 
-const TABS = {cover: ["disc", "Obal"], video: ["video", "Video"], lyrics: ["lyrics", "Text"], queue: ["list", "Fronta"]};
+const TABS = {cover: ["disc", "Obal"], video: ["video", "Video"], lyrics: ["lyrics", "Text"], queue: ["list", "Fronta"], search: ["search", "Hledat"]};
 document.querySelectorAll(".tab").forEach(b => {
   const [ic, label] = TABS[b.dataset.tab];
-  b.innerHTML = icon(ic, 14) + label;
+  b.innerHTML = icon(ic, 14) + `<span>${label}</span>`;
+  b.title = label;
   b.onclick = () => showTab(b.dataset.tab);
 });
 el("prev").innerHTML = icon("prev", 18);
@@ -376,12 +458,20 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1800);
 }
 
-function send(action, value){
+function sendRemote(action, value){
   return fetch("/api/remote/command", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({action, value: value === undefined ? null : value}),
   }).catch(() => {});
+}
+
+// Every control goes through here: to the app when it plays (or is there to
+// play), to the mini player's own audio when that one plays or the app isn't
+// running at all.
+function send(action, value){
+  if(LP.active || !R.live){ if(lpHandle(action, value)) return Promise.resolve(); }
+  return sendRemote(action, value);
 }
 
 // ------------------------------------------------------------- state
@@ -396,18 +486,30 @@ const nowPos = () => {
 };
 let trackKey = "";
 
+let R = {live: false, playing: false};     // what the app says it is doing
 async function refresh(){
-  let s;
-  try{ s = await (await fetch("/api/remote/state")).json(); }
-  catch(e){ el("offline").hidden = false; S.live = false; return; }
-  const live = !s.stale && !!(s.title || s.playing);
-  Object.assign(S, {
-    title: s.title || "", artists: s.artists || "", thumbnail: s.thumbnail || "",
-    playing: live && !!s.playing, volume: s.volume ?? 1, position: s.position || 0,
-    duration: s.duration || 0, at: s.at || Date.now() / 1000, videoId: s.videoId || null,
-    key: s.key || null, relPath: s.relPath || null, live,
-  });
-  el("offline").hidden = live;
+  let s = null;
+  try{ s = await (await fetch("/api/remote/state")).json(); }catch(e){}
+  const rlive = !!s && !s.stale && !!(s.title || s.playing);
+  const rplaying = rlive && !!s.playing;
+  // The app started playing while this one plays too: it wins, this stops.
+  if(LP.active && rplaying && !R.playing && !lpPaused()){
+    LP.audio.pause(); if(LP.mode === "yt") lpYt("pauseVideo");
+    LP.active = false; toast("Hraje aplikace");
+  }
+  R = {live: rlive, playing: rplaying};
+  if(LP.active) Object.assign(S, lpState());
+  else if(rlive){
+    Object.assign(S, {
+      title: s.title || "", artists: s.artists || "", thumbnail: s.thumbnail || "",
+      playing: rplaying, volume: s.volume ?? 1, position: s.position || 0,
+      duration: s.duration || 0, at: s.at || Date.now() / 1000, videoId: s.videoId || null,
+      key: s.key || null, relPath: s.relPath || null, live: true,
+    });
+  } else Object.assign(S, {live: false, playing: false});
+  const live = S.live;
+  document.body.classList.toggle("local", LP.active);
+  el("offline").hidden = rlive || LP.active;
   el("wrap").classList.toggle("playing", S.playing);
   el("play").innerHTML = icon(S.playing ? "pause" : "play", 22);
   el("mute").innerHTML = icon(S.volume > 0 ? "volume" : "volumeMuted", 16);
@@ -416,6 +518,7 @@ async function refresh(){
     el("volume").style.setProperty("--v", (S.volume * 100) + "%");
   }
   el("seek").disabled = !live;
+  if("mediaSession" in navigator && LP.active) navigator.mediaSession.playbackState = S.playing ? "playing" : "paused";
 
   const k = live ? `${S.title}|${S.artists}` : "";
   if(k !== trackKey){ trackKey = k; onTrackChange(); }
@@ -439,6 +542,7 @@ function onTrackChange(){
   if(shown("lyrics")) loadLyrics();
   if(shown("video")) loadVideo();
   if(shown("queue")) renderQueue();
+  if(TB.on){ TB.key = ""; tbLoad(); }
 }
 
 function setTitle(text){
@@ -497,13 +601,15 @@ function rgbToHsl(r, g, b){
 // From the window's size: small → compact (no panes), tall → tabs, wide →
 // video, lyrics and queue side by side.
 let mode = "";
-const shown = (t) => mode === "wide" ? ["video", "lyrics", "queue"].includes(t) : mode === "tabs" && curTab === t;
+const shown = (t) => mode === "wide" ? ["video", "lyrics", typeof wideSide === "string" ? wideSide : "queue"].includes(t) : mode === "tabs" && curTab === t;
 function applyLayout(){
   const m = innerHeight < 330 ? "compact" : innerWidth >= 720 ? "wide" : "tabs";
   if(m === mode) return;
   mode = m;
   document.body.classList.toggle("compact", m === "compact");
   document.body.classList.toggle("wide", m === "wide");
+  document.body.classList.toggle("tabs-mode", m === "tabs");
+  if(m !== "compact" && typeof TB !== "undefined" && TB.on) setTimeout(tbLoad, 0);
   el("size").innerHTML = icon(m === "wide" ? "shrink" : "grow", 16);
   el("size2").innerHTML = icon("grow", 14);
   if(!shown("video")){ el("video").pause(); ytCmd("pauseVideo"); }
@@ -514,7 +620,14 @@ function applyLayout(){
 window.addEventListener("resize", applyLayout);
 // The window's three sizes; the size button steps through them and the last
 // one is how the player opens next time (small at first).
-const SIZES = {compact: [340, 210], tabs: [400, 660], wide: [1080, 500]};
+const SIZES = {compact: [340, 210], tabs: [400, 660], wide: [1180, 760]};
+// The size the window was last left at (by hand or by the button) — it
+// opens that way next time.
+let sizeTimer = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(sizeTimer);
+  sizeTimer = setTimeout(() => store.set("winsize", {w: window.outerWidth, h: window.outerHeight}), 800);
+});
 const ORDER = ["compact", "wide", "tabs"];
 async function setSize(name){
   store.set("size", name);
@@ -662,6 +775,7 @@ function useEmbed(id){
 }
 window.addEventListener("message", (e) => {
   if(!/youtube\.com$/.test(new URL(e.origin).hostname)) return;
+  if(e.source !== el("yt").contentWindow) return;      // the video pane's player only
   let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch(err){ return; }
   if(!d) return;
   if(d.event === "onReady") yt.ready = true;
@@ -789,6 +903,543 @@ function renderQueue(){
 }
 window.addEventListener("storage", (e) => { if(e.key === QUEUE_KEY && shown("queue")) renderQueue(); });
 
+// ------------------------------------------------------- own playback
+// The mini player plays by itself when the app isn't running, or when
+// something is picked in its search: its own <audio>, the same streams the
+// app uses (YouTube via the server, files from the library).
+const LP = {audio: el("lp"), list: [], idx: -1, track: null, active: false, token: 0,
+  // "yt": the server couldn't get the stream (YouTube's bot check on yt-dlp),
+  // so YouTube's own player plays it here, hidden, with sound.
+  mode: "audio", yt: {time: 0, at: 0, state: -1, dur: 0, vol: 80, muted: false}};
+function lpYt(func, args){
+  const f = el("lpyt");
+  if(f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event: "command", func, args: args || []}), "*");
+}
+function lpUseYt(id){
+  LP.mode = "yt";
+  LP.audio.pause(); LP.audio.removeAttribute("src");
+  const y = LP.yt; y.time = 0; y.at = 0; y.state = -1; y.dur = 0;
+  const f = el("lpyt");
+  f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?enablejsapi=1&autoplay=1&controls=0&playsinline=1&rel=0` +
+    `&origin=${encodeURIComponent(location.origin)}`;
+  f.onload = () => {
+    f.contentWindow.postMessage(JSON.stringify({event: "listening", id: 2}), "*");
+    lpYt("setVolume", [Math.round(LP.audio.volume * 100)]);
+    lpYt("playVideo");
+  };
+}
+window.addEventListener("message", (e) => {
+  const f = el("lpyt");
+  if(!f || e.source !== f.contentWindow) return;
+  let d; try{ d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; }catch(err){ return; }
+  if(!d) return;
+  if(d.event === "onError"){ toast("YouTube tuhle skladbu nedovolí přehrát"); if(LP.idx + 1 < LP.list.length) lpPlay(LP.idx + 1); return; }
+  // Commands sent before the player is ready are lost: start it once it says so.
+  if(d.event === "onReady" && LP.mode === "yt" && LP.active){
+    lpYt("setVolume", [Math.round(LP.audio.volume * 100)]);
+    lpYt("playVideo");
+  }
+  const info = d.info || {};
+  const y = LP.yt;
+  if(typeof info.currentTime === "number"){ y.time = info.currentTime; y.at = performance.now(); }
+  if(typeof info.duration === "number" && info.duration > 0) y.dur = info.duration;
+  if(typeof info.playerState === "number"){
+    const was = y.state; y.state = info.playerState;
+    if(info.playerState === 0 && was !== 0 && LP.mode === "yt" && LP.active){
+      if(LP.idx + 1 < LP.list.length) lpPlay(LP.idx + 1);
+    }
+    if(was !== y.state) refresh();
+  }
+  if(typeof info.volume === "number") y.vol = info.volume;
+  if(typeof info.muted === "boolean") y.muted = info.muted;
+});
+const lpPaused = () => LP.mode === "yt" ? !(LP.yt.state === 1 || LP.yt.state === 3) : LP.audio.paused;
+const lpTime = () => LP.mode === "yt" ? LP.yt.time + (LP.yt.state === 1 && LP.yt.at ? (performance.now() - LP.yt.at) / 1000 : 0) : (LP.audio.currentTime || 0);
+LP.audio.volume = store.get("lpvol", 0.8);
+function lpState(){
+  const a = LP.audio, t = LP.track || {};
+  const yt = LP.mode === "yt";
+  return {title: t.title || "", artists: t.artists || "", thumbnail: t.thumbnail || t.image || "",
+    playing: !lpPaused(), volume: yt ? (LP.yt.muted ? 0 : LP.yt.vol / 100) : (a.muted ? 0 : a.volume), position: lpTime(),
+    duration: yt ? (LP.yt.dur || t.duration || 0) : (isFinite(a.duration) ? a.duration : (t.duration || 0)), at: Date.now() / 1000,
+    videoId: t.videoId || null, key: t.key || null, relPath: t.relPath || null, live: true};
+}
+async function lpPlayList(list, idx){
+  LP.list = list.slice(); return lpPlay(idx);
+}
+async function lpPlay(i){
+  if(i < 0 || i >= LP.list.length) return;
+  const my = ++LP.token;
+  const t = LP.list[i];
+  LP.idx = i; LP.track = t; LP.active = true;
+  if(LP.mode === "yt"){ lpYt("stopVideo"); LP.mode = "audio"; }
+  if(R.playing) sendRemote("pause");          // never two at once
+  refresh();
+  let src = null;
+  if(t.relPath) src = `/api/library/stream?rel=${encodeURIComponent(t.relPath)}`;
+  else{
+    let id = t.videoId;
+    if(!id){
+      try{
+        const q = t.spotifyQuery || `${t.artists || ""} ${t.title || ""}`.trim();
+        id = (await (await fetch(`/api/preview?q=${encodeURIComponent(q)}`)).json()).videoId;
+      }catch(e){}
+    }
+    if(my !== LP.token) return;
+    if(!id){ toast("Tuhle skladbu se nepodařilo najít"); return lpPlay(i + 1); }
+    t.videoId = id;
+    src = `/api/stream/${encodeURIComponent(id)}`;
+  }
+  LP.audio.src = src;
+  LP.audio.play().catch(() => {});
+  if("mediaSession" in navigator){
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({title: t.title || "", artist: t.artists || "",
+        artwork: t.thumbnail ? [{src: thumbUrl(t.thumbnail), sizes: "512x512"}] : []});
+    }catch(e){}
+  }
+  refresh();
+}
+LP.audio.addEventListener("ended", () => { if(LP.idx + 1 < LP.list.length) lpPlay(LP.idx + 1); else refresh(); });
+LP.audio.addEventListener("error", () => {
+  if(!LP.audio.getAttribute("src")) return;
+  const t = LP.track;
+  // A YouTube stream the server can't get: YouTube's own player instead.
+  if(t && t.videoId && !t.relPath){ lpUseYt(t.videoId); refresh(); return; }
+  toast("Skladbu se nepodařilo přehrát");
+  if(LP.idx + 1 < LP.list.length) setTimeout(() => lpPlay(LP.idx + 1), 800);
+});
+["play", "pause"].forEach(ev => LP.audio.addEventListener(ev, () => refresh()));
+// The controls, when this one plays. False = not ours (goes to the app).
+function lpHandle(action, value){
+  const a = LP.audio;
+  if(LP.mode === "yt" && LP.track){
+    switch(action){
+      case "playpause": lpPaused() ? lpYt("playVideo") : lpYt("pauseVideo"); LP.active = true; setTimeout(refresh, 200); return true;
+      case "play": lpYt("playVideo"); return true;
+      case "pause": lpYt("pauseVideo"); return true;
+      case "stop": lpYt("pauseVideo"); lpYt("seekTo", [0, true]); return true;
+      case "seek": if(isFinite(value)){ lpYt("seekTo", [Math.max(0, value), true]); LP.yt.time = value; LP.yt.at = performance.now(); } refresh(); return true;
+      case "prev": if(lpTime() > 3 || LP.idx <= 0){ lpYt("seekTo", [0, true]); return true; } break;
+      case "volume": a.volume = Math.max(0, Math.min(1, value)); store.set("lpvol", a.volume); lpYt("unMute"); lpYt("setVolume", [Math.round(a.volume * 100)]); LP.yt.vol = a.volume * 100; LP.yt.muted = false; return true;
+      case "mute": LP.yt.muted ? lpYt("unMute") : lpYt("mute"); LP.yt.muted = !LP.yt.muted; return true;
+    }
+  }
+  switch(action){
+    case "playpause":
+      if(LP.track){ a.paused ? a.play().catch(() => {}) : a.pause(); LP.active = true; return true; }
+      { const q = loadQueue();
+        if(q.length){ lpPlayList(q, 0); toast("Hraju frontu"); }
+        else { toast("Najdi hudbu v záložce Hledat"); if(mode !== "compact") showTab("search"); } }
+      return true;
+    case "play": if(LP.track) a.play().catch(() => {}); return !!LP.track;
+    case "pause": a.pause(); return true;
+    case "next": if(LP.idx + 1 < LP.list.length) lpPlay(LP.idx + 1); return true;
+    case "prev": if(a.currentTime > 3 || LP.idx <= 0) a.currentTime = 0; else lpPlay(LP.idx - 1); return true;
+    case "seek": if(isFinite(value)) a.currentTime = Math.max(0, value); refresh(); return true;
+    case "volume": a.muted = false; a.volume = Math.max(0, Math.min(1, value)); store.set("lpvol", a.volume); return true;
+    case "mute": a.muted = !a.muted; return true;
+    case "stop": a.pause(); a.currentTime = 0; return true;
+    case "playqueue": lpPlayList(loadQueue(), Math.round(value)); return true;
+  }
+  return false;
+}
+if("mediaSession" in navigator){
+  try{
+    navigator.mediaSession.setActionHandler("play", () => send("play"));
+    navigator.mediaSession.setActionHandler("pause", () => send("pause"));
+    navigator.mediaSession.setActionHandler("nexttrack", () => send("next"));
+    navigator.mediaSession.setActionHandler("previoustrack", () => send("prev"));
+  }catch(e){}
+}
+
+// -------------------------------------------------------------- search
+// Songs (Spotify's catalogue, played from YouTube) or playlists (YouTube
+// Music); ▶ plays from there on, ＋ adds to the app's queue.
+const srch = {mode: "songs", q: "", list: [], pl: null, timer: 0, token: 0};
+function addToQueue(t){
+  const q = loadQueue();
+  if(q.some(x => x.key === t.key)){ toast("Už je ve frontě"); return; }
+  const item = {key: t.key, title: t.title, artists: t.artists, thumbnail: t.thumbnail};
+  if(t.videoId) item.videoId = t.videoId;
+  if(t.spotifyQuery) item.spotifyQuery = t.spotifyQuery;
+  q.push(item);
+  try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }catch(e){}
+  toast("Přidáno do fronty");
+}
+function trackRow(t, i){
+  const th = t.thumbnail;
+  return `<div class="qi" data-i="${i}">
+    <div class="th" style="${th ? `background-image:url('${esc(thumbUrl(th))}')` : ""}">${th ? "" : icon("note", 16)}</div>
+    <div class="m"><b>${esc(t.title || "—")}</b><span>${esc(t.artists || "")}${t.dur ? " · " + esc(t.dur) : ""}</span></div>
+    <div class="acts"><button data-add="${i}" title="Přidat do fronty">＋</button><button data-play="${i}" title="Přehrát odsud">▶</button></div>
+  </div>`;
+}
+function wireTracks(box, list){
+  box.querySelectorAll("[data-play]").forEach(b => b.onclick = (e) => { e.stopPropagation(); lpPlayList(list, +b.dataset.play); });
+  box.querySelectorAll("[data-add]").forEach(b => b.onclick = (e) => { e.stopPropagation(); addToQueue(list[+b.dataset.add]); });
+  box.querySelectorAll(".qi[data-i]").forEach(r => r.onclick = () => lpPlayList(list, +r.dataset.i));
+}
+function renderSearch(){
+  const box = el("sres");
+  if(srch.pl){
+    const pl = srch.pl;
+    box.innerHTML = `<div class="plhead"><button id="plback">‹ Zpět</button><b>${esc(pl.title || "Playlist")}</b>
+      <button class="go" id="plall">▶ Přehrát vše</button></div>` + (pl.tracks.length ? pl.tracks.map(trackRow).join("") : '<div class="empty">Playlist je prázdný.</div>');
+    box.querySelector("#plback").onclick = () => { srch.pl = null; renderSearch(); };
+    box.querySelector("#plall").onclick = () => { if(pl.tracks.length) lpPlayList(pl.tracks, 0); };
+    wireTracks(box, pl.tracks);
+    return;
+  }
+  if(!srch.q){ box.innerHTML = '<div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div>'; return; }
+  if(srch.busy){ box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám…</div>'; return; }
+  if(!srch.list.length){ box.innerHTML = '<div class="empty">Nic se nenašlo.</div>'; return; }
+  if(srch.mode === "songs"){ box.innerHTML = srch.list.map(trackRow).join(""); wireTracks(box, srch.list); return; }
+  box.innerHTML = srch.list.map((p, i) => `<div class="qi" data-pl="${i}">
+    <div class="th" style="${p.thumbnail ? `background-image:url('${esc(thumbUrl(p.thumbnail))}')` : ""}">${p.thumbnail ? "" : icon("list", 16)}</div>
+    <div class="m"><b>${esc(p.title || "—")}</b><span>${esc(p.author || "Playlist")}</span></div>
+    <div class="acts"><button data-plplay="${i}" title="Přehrát celý">▶</button></div></div>`).join("");
+  const open = async (i, play) => {
+    const p = srch.list[i];
+    box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Načítám playlist…</div>';
+    try{
+      const d = await (await fetch(`/api/playlist/${encodeURIComponent(p.browseId)}?track_limit=100`)).json();
+      const tracks = (d.tracks || []).map(t => ({key: "yt:" + t.videoId, videoId: t.videoId, title: t.title, artists: t.artists,
+        thumbnail: t.thumbnail || d.thumbnail || p.thumbnail, dur: t.duration}));
+      srch.pl = {title: d.title || p.title, tracks};
+      renderSearch();
+      if(play && tracks.length) lpPlayList(tracks, 0);
+    }catch(e){ toast("Playlist se nepodařilo načíst"); srch.pl = null; renderSearch(); }
+  };
+  box.querySelectorAll("[data-plplay]").forEach(b => b.onclick = (e) => { e.stopPropagation(); open(+b.dataset.plplay, true); });
+  box.querySelectorAll(".qi[data-pl]").forEach(r => r.onclick = () => open(+r.dataset.pl, false));
+}
+async function runSearch(){
+  const q = el("sq").value.trim();
+  srch.q = q; srch.pl = null;
+  if(!q){ srch.list = []; renderSearch(); return; }
+  const my = ++srch.token;
+  srch.busy = true; renderSearch();
+  let list = [];
+  try{
+    if(srch.mode === "songs"){
+      const d = await (await fetch(`/api/tracks?q=${encodeURIComponent(q)}&limit=30`)).json();
+      list = (Array.isArray(d) ? d : []).map(t => ({key: "sp:" + t.id, title: t.title, artists: t.artists, thumbnail: t.image,
+        spotifyQuery: `${t.artists} ${t.title}`, duration: t.duration_seconds,
+        dur: t.duration_seconds ? fmt(t.duration_seconds) : ""}));
+    } else {
+      const d = await (await fetch(`/api/playlists?q=${encodeURIComponent(q)}&limit=25`)).json();
+      list = Array.isArray(d) ? d : [];
+    }
+  }catch(e){ toast("Hledání se nepovedlo"); }
+  if(my !== srch.token) return;
+  srch.busy = false; srch.list = list; renderSearch();
+}
+el("sq").addEventListener("input", () => { clearTimeout(srch.timer); srch.timer = setTimeout(runSearch, 450); });
+el("sq").addEventListener("keydown", (e) => { if(e.key === "Enter"){ clearTimeout(srch.timer); runSearch(); } e.stopPropagation(); });
+document.querySelectorAll("#smode button").forEach(b => b.onclick = () => {
+  srch.mode = b.dataset.m;
+  document.querySelectorAll("#smode button").forEach(x => x.classList.toggle("on", x === b));
+  runSearch();
+});
+// In the wide layout the third column is the queue or the search.
+let wideSide = store.get("side", "queue");
+function setSide(sd){
+  wideSide = sd; store.set("side", sd);
+  document.body.classList.toggle("side-search", sd === "search");
+  document.querySelectorAll(".side-seg button").forEach(b => b.classList.toggle("on", b.dataset.side === sd));
+  if(sd === "queue") renderQueue(); else setTimeout(() => el("sq").focus(), 50);
+}
+document.querySelectorAll(".side-seg button").forEach(b => b.onclick = () => setSide(b.dataset.side));
+document.body.classList.toggle("side-search", wideSide === "search");
+document.querySelectorAll(".side-seg button").forEach(b => b.classList.toggle("on", b.dataset.side === wideSide));
+
+// ------------------------------------------------------------- the tab
+// A small take on the app's tab dock, under the panels: the playing song's
+// tab from Songsterr, one guitar part, kept in time. Saved under the same
+// key and in the same shape as the app's dock (spotdl-gui-pb-tab-sync:…), so
+// a tab synced in one is synced in the other; the lock is shared too.
+const TB = {on: store.get("tabOn", false), key: "", songId: null, revisionId: null, trackIndex: 0,
+  data: null, results: [], tracks: [], api: null, apiP: null, bars: [], tempoBars: [], tabLen: 0,
+  timing: {list: [], sel: -1}, sync: null, stretch: 1, locked: false, held: false, cam: 0, token: 0, drag: null};
+const TB_LETTERS = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
+function tbTex(d){
+  const DUR = [1, 2, 4, 8, 16, 32, 64];
+  const dur = (x) => {
+    let num = 1, den = 4;
+    if(Array.isArray(x) && x.length === 2){ num = +x[0] || 1; den = +x[1] || 4; }
+    if(num === 1 && DUR.includes(den)) return den;
+    let best = 4, bd = Infinity;
+    DUR.forEach(v => { const df = Math.abs(1 / v - num / den); if(df < bd){ bd = df; best = v; } });
+    return best;
+  };
+  const note = (m) => TB_LETTERS[((Math.round(m) % 12) + 12) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+  const bpm = (d.tempo && d.tempo[0] && d.tempo[0].bpm) || 120;
+  const parts = [`\\title "${String(d.name || "Tab").replace(/["\\]/g, "")}"`, `\\tempo ${Math.round(bpm)}`];
+  if((d.tuning || []).length) parts.push(`\\tuning ${d.tuning.map(note).join(" ")}`);
+  parts.push(".");
+  (d.measures || []).forEach((m, mi, all) => {
+    const beats = ((m.voices || [])[0] || {}).beats || [];
+    if(!beats.length) parts.push("r.4");
+    beats.forEach(b => {
+      const v = dur(b.duration);
+      const ns = (b.notes || []).filter(n => !n.rest && n.fret !== undefined && n.string !== undefined);
+      const fx = (n) => (n.hammer || n.pull) ? "{h}" : "";
+      if(!ns.length) parts.push(`r.${v}`);
+      else if(ns.length === 1) parts.push(`${ns[0].fret}.${ns[0].string + 1}.${v}${fx(ns[0])}`);
+      else parts.push(`(${ns.map(n => `${n.fret}.${n.string + 1}${fx(n)}`).join(" ")}).${v}`);
+    });
+    if(mi < all.length - 1) parts.push("|");
+  });
+  return parts.join(" ");
+}
+function tbBarStarts(d){
+  const ev = (d.tempo || []).filter(e => e && typeof e.measure === "number" && typeof e.bpm === "number")
+    .slice().sort((a, b) => (a.measure - b.measure) || ((a.position || 0) - (b.position || 0)));
+  const bpmAt = (mi) => { let b = 120; for(const e of ev){ if(e.measure <= mi) b = e.bpm; else break; } return b; };
+  const secs = (x, bpm) => (!Array.isArray(x) || x.length !== 2 || !+x[1]) ? 60 / bpm : (+x[0] / +x[1]) * (60 / bpm) * 4;
+  const out = []; let t = 0;
+  (d.measures || []).forEach((m, mi) => {
+    out.push(t);
+    const sig = m.signature || [4, 4], bpm = bpmAt(mi);
+    let len = (((m.voices || [])[0] || {}).beats || []).reduce((a, b) => a + secs(b.duration || [1, 4], bpm), 0);
+    if(len <= 0) len = ((+sig[0] || 4) * 4 / (+sig[1] || 4)) * (60 / bpm);
+    t += len;
+  });
+  TB.tabLen = t;
+  return out;
+}
+const tbKey = () => "spotdl-gui-pb-tab-sync:" + (S.videoId || S.relPath || S.title || "");
+const tbLockKey = () => "spotdl-gui-pb-tab-lock:" + (TB.songId != null ? TB.songId : "");
+function tbMsg(t){ const m = el("tmsg"); m.innerHTML = t || ""; m.hidden = !t; }
+function tbSave(){
+  if(TB.songId == null || !TB.key) return;
+  try{
+    localStorage.setItem(TB.key, JSON.stringify({songId: TB.songId, revisionId: TB.revisionId, trackIndex: TB.trackIndex,
+      tabName: TB.data && TB.data.name || "", sync: TB.sync, stretch: TB.stretch,
+      timing: TB.timing.sel >= 0 ? TB.timing.list[TB.timing.sel].videoId : "tempo",
+      track: {title: S.title, artists: S.artists, thumbnail: S.thumbnail, relPath: S.relPath || "", videoId: S.videoId || "",
+        source: S.relPath ? "local" : ""}, savedAt: Date.now()}));
+  }catch(e){}
+}
+function tbQuery(){
+  let title = String(S.title || "").replace(/\([^)]*\)|\[[^\]]*\]/g, " ").replace(/official|video|audio|lyrics?|remaster(ed)?|hd|4k/gi, " ");
+  let artist = S.artists || "";
+  if(title.includes(" - ")){
+    const [a, b] = title.split(" - ");
+    if(!artist || a.toLowerCase().includes(artist.toLowerCase().split(",")[0].trim())) { artist = a; title = b; }
+  }
+  return `${artist.split(",")[0]} ${title}`.replace(/\s+/g, " ").trim();
+}
+async function tbEnsureApi(){
+  if(TB.api) return TB.api;
+  if(!TB.apiP) TB.apiP = (async () => {
+    if(!window.alphaTab){
+      await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "/static/alphatab/alphaTab.min.js"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+    }
+    const api = new window.alphaTab.AlphaTabApi(el("thost"), {
+      core: {fontDirectory: "/static/alphatab/font/", useWorkers: false, enableLazyLoading: false},
+      display: {staveProfile: "Tab", layoutMode: "horizontal", scale: 0.85},
+    });
+    api.renderFinished.on(() => { tbMsg(""); TB.rendered = true; });
+    TB.api = api;
+    return api;
+  })();
+  return TB.apiP;
+}
+// The song changed (or the tab was switched on): what the app's dock saved
+// for it, else a search.
+async function tbLoad(){
+  if(!TB.on || !S.live || mode === "compact") return;
+  const key = tbKey();
+  if(key === TB.key && TB.data) return;
+  TB.key = key;
+  const my = ++TB.token;
+  TB.data = null; TB.rendered = false; TB.sync = null; TB.held = false;
+  el("tname").textContent = "Tab"; el("tbarlbl").textContent = "";
+  tbMsg('<span class="spin" style="width:16px;height:16px;border-width:2px"></span> Hledám tab…');
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(key) || "null"); }catch(e){}
+  try{
+    const r = await (await fetch(`/api/tabs/search?q=${encodeURIComponent(tbQuery())}`)).json();
+    if(my !== TB.token) return;
+    TB.results = (r.tabs || []).slice(0, 10);
+  }catch(e){ TB.results = []; }
+  let pick = saved && saved.songId != null ? saved.songId : (TB.results[0] && TB.results[0].songId);
+  if(pick == null){ tbMsg("Tab k téhle písni se nenašel."); tbPaintSelects(); return; }
+  await tbOpenSong(pick, saved && saved.songId === pick ? saved : null, my);
+}
+async function tbOpenSong(songId, saved, my){
+  my = my || ++TB.token;
+  try{
+    const meta = await (await fetch(`/api/tabs/meta/${songId}`)).json();
+    if(my !== TB.token) return;
+    TB.songId = songId; TB.revisionId = meta.revisionId;
+    const res = TB.results.find(x => x.songId === songId);
+    TB.tracks = (meta.tracks || (res && res.tracks) || []).map((t, i) => ({...t, i,
+      views: ((res && res.tracks && res.tracks[i]) || {}).views || t.views || 0}));
+    if(res == null) TB.results.unshift({songId, artist: meta.artist, title: meta.title});
+    let idx = saved ? saved.trackIndex : -1;
+    if(idx < 0 || !TB.tracks[idx]){
+      const gtr = TB.tracks.filter(t => /guitar/i.test(t.instrument || "") && !/bass/i.test(t.instrument || ""));
+      idx = (gtr.sort((a, b) => b.views - a.views)[0] || TB.tracks[0] || {i: 0}).i;
+    }
+    await tbOpenTrack(idx, saved, my);
+  }catch(e){ if(my === TB.token) tbMsg("Tab se nepodařilo načíst."); }
+}
+async function tbOpenTrack(idx, saved, my){
+  my = my || ++TB.token;
+  tbMsg('<span class="spin" style="width:16px;height:16px;border-width:2px"></span> Načítám stopu…');
+  const d = await (await fetch(`/api/tabs/track/${TB.songId}/${TB.revisionId}/${idx}`)).json();
+  if(my !== TB.token) return;
+  TB.trackIndex = idx; TB.data = d;
+  try{ TB.locked = localStorage.getItem(tbLockKey()) === "1"; }catch(e){ TB.locked = false; }
+  el("tname").textContent = d.name || (TB.tracks[idx] || {}).name || "Tab";
+  TB.tempoBars = tbBarStarts(d);
+  TB.bars = TB.tempoBars.slice();
+  TB.timing = {list: [], sel: -1};
+  try{
+    const v = await (await fetch(`/api/tabs/video-points/${TB.songId}/${TB.revisionId}`)).json();
+    if(my !== TB.token) return;
+    const ok = (v.videos || []).filter(x => x.feature !== "backing" && x.points && x.points.length > 3
+      && x.points.every((p, i) => !i || p > x.points[i - 1]));
+    // Originals first (as in the app); the recording that plays always in.
+    ok.sort((a, b) => (a.feature ? 1 : 0) - (b.feature ? 1 : 0));
+    TB.timing.list = ok.slice(0, 8);
+    const mine = ok.find(x => x.videoId === S.videoId);
+    if(mine && !TB.timing.list.includes(mine)) TB.timing.list.unshift(mine);
+  }catch(e){}
+  // The recording that is playing, if Songsterr has it: in step from the
+  // first note. Otherwise what was saved, otherwise the tab's tempo.
+  let sel = -1;
+  if(saved && saved.timing && saved.timing !== "tempo") sel = TB.timing.list.findIndex(x => x.videoId === saved.timing);
+  if(sel < 0 && S.videoId && (!saved || !saved.sync)) sel = TB.timing.list.findIndex(x => x.videoId === S.videoId);
+  tbApplyTiming(sel, saved && saved.sync, saved && saved.stretch);
+  const api = await tbEnsureApi();
+  if(my !== TB.token) return;
+  TB.rendered = false;
+  api.tex(tbTex(d), [0]);
+  tbPaintSelects(); tbPaintLock();
+}
+function tbApplyTiming(sel, savedSync, savedStretch){
+  TB.timing.sel = sel;
+  if(sel < 0){ TB.bars = TB.tempoBars.slice(); TB.sync = savedSync || {audioT: 0, tabT: 0}; }
+  else{
+    const pts = TB.timing.list[sel].points, p0 = pts[0], n = Math.min(TB.tempoBars.length, pts.length);
+    TB.bars = pts.slice(0, n).map(x => x - p0);
+    TB.sync = savedSync || {audioT: Math.max(0, p0), tabT: Math.max(0, -p0)};
+  }
+  TB.stretch = savedStretch || 1;
+  TB.held = false;
+  tbSave();
+}
+function tbPaintSelects(){
+  el("tsong").innerHTML = TB.results.map(r => `<option value="${r.songId}" ${r.songId === TB.songId ? "selected" : ""}>${esc(`${r.artist || ""} — ${r.title || ""}`)}</option>`).join("")
+    || `<option>— nic —</option>`;
+  el("ttrack").innerHTML = TB.tracks.map(t => `<option value="${t.i}" ${t.i === TB.trackIndex ? "selected" : ""}>${esc(`${t.instrument || ""}${t.name ? " — " + t.name : ""}`)}</option>`).join("");
+  el("ttiming").innerHTML = `<option value="-1">podle tempa tabu</option>` + TB.timing.list.map((v, i) =>
+    `<option value="${i}" ${i === TB.timing.sel ? "selected" : ""}>${v.videoId === S.videoId ? "★ tahle nahrávka" : "nahrávka " + (i + 1)}${v.feature ? " (" + esc(v.feature) + ")" : ""}</option>`).join("");
+  el("ttiming").value = String(TB.timing.sel);
+}
+function tbPaintLock(){
+  const b = el("tlock");
+  b.classList.toggle("on", TB.locked);
+  b.innerHTML = TB.locked ? "🔒" : "🔓";
+  b.title = TB.locked ? "Synchronizace zamčená — klik odemkne" : "Zamknout synchronizaci";
+  ["tminus", "tplus", "tsync", "ttiming"].forEach(id => { el(id).disabled = TB.locked; });
+}
+const tbTime = () => TB.sync ? TB.sync.tabT + (nowPos() - TB.sync.audioT) / TB.stretch : 0;
+function tbCam(x){ TB.cam = x; el("thost").style.transform = `translateX(${-x}px)`; }
+function tbBarAt(cx){
+  const lk = TB.api && TB.api.boundsLookup;
+  if(!lk) return {bar: 0, t: 0};
+  let bar = 0;
+  for(let i = 0; i < TB.bars.length; i++){ const mb = lk.findMasterBarByIndex(i); if(!mb) break; if(mb.realBounds.x <= cx) bar = i; else break; }
+  const mb = lk.findMasterBarByIndex(bar), nx = lk.findMasterBarByIndex(bar + 1);
+  let t = TB.bars[bar] || 0;
+  if(mb){
+    const x0 = mb.realBounds.x, x1 = nx ? nx.realBounds.x : x0 + mb.realBounds.w;
+    const t1 = TB.bars[bar + 1] != null ? TB.bars[bar + 1] : t + (bar ? t - TB.bars[bar - 1] : 2);
+    if(x1 > x0) t += Math.max(0, Math.min(1, (cx - x0) / (x1 - x0))) * (t1 - t);
+  }
+  return {bar, t};
+}
+function tbFrame(){
+  if(!TB.on || !TB.data || !TB.rendered || TB.held || TB.drag) return;
+  const lk = TB.api && TB.api.boundsLookup, vp = el("tvp");
+  if(!lk || !vp.clientWidth) return;
+  const tt = Math.max(0, tbTime());
+  let bar = 0;
+  for(let i = 0; i < TB.bars.length; i++){ if(TB.bars[i] <= tt) bar = i; else break; }
+  const mb = lk.findMasterBarByIndex(bar);
+  if(!mb) return;
+  let x = mb.realBounds.x;
+  const nx = lk.findMasterBarByIndex(bar + 1);
+  if(nx && TB.bars[bar + 1] > TB.bars[bar]) x += Math.max(0, Math.min(1, (tt - TB.bars[bar]) / (TB.bars[bar + 1] - TB.bars[bar]))) * (nx.realBounds.x - x);
+  tbCam(x - vp.clientWidth / 2);
+  el("tbarlbl").textContent = "Takt " + (bar + 1);
+}
+// Moving the tab by hand (unlocked): it waits where it was put until Sync.
+{
+  const vp = el("tvp");
+  vp.addEventListener("pointerdown", (e) => {
+    if(e.button !== 0 || TB.locked || !TB.data) return;
+    TB.drag = {sx: e.clientX, cam: TB.cam, moved: false};
+    vp.setPointerCapture(e.pointerId);
+  });
+  vp.addEventListener("pointermove", (e) => {
+    if(!TB.drag) return;
+    const dx = e.clientX - TB.drag.sx;
+    if(Math.abs(dx) > 3) TB.drag.moved = true;
+    if(TB.drag.moved){ tbCam(TB.drag.cam - dx); tbHold(); }
+  });
+  const end = () => { TB.drag = null; };
+  vp.addEventListener("pointerup", end);
+  vp.addEventListener("pointercancel", end);
+  vp.addEventListener("wheel", (e) => {
+    if(TB.locked || !TB.data) return;              // locked: nothing moves
+    e.preventDefault();
+    tbCam(TB.cam + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY));
+    tbHold();
+  }, {passive: false});
+}
+function tbHold(){
+  TB.held = true;
+  el("tbarlbl").textContent = "Takt " + (tbBarAt(TB.cam + el("tvp").clientWidth / 2).bar + 1) + " · čeká na Sync";
+  el("tsync").classList.add("armed");
+}
+el("tsync").onclick = () => {
+  if(TB.locked || !TB.data) return;
+  const {bar, t} = TB.held ? tbBarAt(TB.cam + el("tvp").clientWidth / 2) : {bar: 0, t: 0};
+  TB.sync = {audioT: nowPos(), tabT: t};
+  TB.stretch = TB.stretch || 1;
+  TB.held = false; el("tsync").classList.remove("armed");
+  tbSave();
+  toast(`Takt ${bar + 1} = ${fmt(nowPos())} — synchronizováno`);
+};
+const tbNudge = (d) => { if(TB.locked || !TB.sync) return; TB.sync.audioT += d; tbSave(); };
+el("tminus").onclick = (e) => tbNudge(e.shiftKey ? -1 : -0.1);   // tab earlier
+el("tplus").onclick = (e) => tbNudge(e.shiftKey ? 1 : 0.1);      // tab later
+el("tlock").onclick = () => {
+  TB.locked = !TB.locked;
+  try{ localStorage.setItem(tbLockKey(), TB.locked ? "1" : "0"); }catch(e){}
+  if(TB.locked){ TB.held = false; el("tsync").classList.remove("armed"); }
+  tbPaintLock();
+  toast(TB.locked ? "Synchronizace tabu zamčená" : "Synchronizace odemčená");
+};
+el("ttiming").onchange = (e) => { if(TB.locked) return; tbApplyTiming(+e.target.value, null, 1); };
+el("tsong").onchange = (e) => { TB.key = tbKey(); tbOpenSong(+e.target.value, null); };
+el("ttrack").onchange = (e) => { tbOpenTrack(+e.target.value, {sync: TB.sync, stretch: TB.stretch,
+  timing: TB.timing.sel >= 0 ? TB.timing.list[TB.timing.sel].videoId : "tempo"}); };
+function tbSetOn(on){
+  TB.on = on; store.set("tabOn", on);
+  document.body.classList.toggle("tab-on", on);
+  el("tabbtn").classList.toggle("on", on);
+  if(on){ TB.key = ""; tbLoad(); }
+}
+el("tabbtn").onclick = () => tbSetOn(!TB.on);
+el("tclose").onclick = () => tbSetOn(false);
+
 // --------------------------------------------------------- sleep timer
 // Click cycles off → 15 → 30 → 60 min → end of this song → off.
 const SLEEP_STEPS = [0, 15, 30, 60, "end"];
@@ -883,18 +1534,29 @@ function frame(now){
   }
   syncLyrics();
   syncVideo();
+  tbFrame();
   requestAnimationFrame(frame);
 }
 
 applyLayout();
 showTab(curTab);
+document.body.classList.toggle("tab-on", TB.on);
+el("tabbtn").classList.toggle("on", TB.on);
 // A freshly opened window takes the size used last (small the first time).
 try{
   if(!sessionStorage.getItem("mini.opened")){
     sessionStorage.setItem("mini.opened", "1");
-    const want = store.get("size", "compact");
-    const [w, h] = SIZES[want] || SIZES.compact;
-    if(Math.abs(innerWidth - w) > 40 || Math.abs(innerHeight - h) > 60) setSize(want);
+    const ws = store.get("winsize", null);
+    if(ws && ws.w > 200 && ws.h > 120){
+      if(Math.abs(window.outerWidth - ws.w) > 30 || Math.abs(window.outerHeight - ws.h) > 30){
+        fetch("/api/mini/resize", {method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({width: ws.w, height: ws.h})}).catch(() => {});
+      }
+    } else {
+      const want = store.get("size", "compact");
+      const [w, h] = SIZES[want] || SIZES.compact;
+      if(Math.abs(innerWidth - w) > 40 || Math.abs(innerHeight - h) > 60) setSize(want);
+    }
   }
 }catch(e){}
 refresh();

@@ -6629,13 +6629,18 @@ async def _save_guitar_part(stems_dir: Path, dest_stem: str, upload: UploadFile)
     if len(data) > 600 * 1024 * 1024:
         return {"error": f"{dest_stem}: soubor je příliš velký."}
 
-    target = stems_dir / f"{dest_stem}.mp3"
+    # Hidden name until both parts are done (see import_guitar_parts): a split
+    # cut off halfway must not leave one part looking like a finished import.
+    target = stems_dir / f".{dest_stem}.incoming.mp3"
     suffix = Path(upload.filename or "").suffix or ".wav"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(data)
         tmp_path = Path(tmp.name)
     try:
-        proc = subprocess.run(
+        # In a worker thread: the whole server used to stand still while
+        # ffmpeg encoded a five-minute part.
+        proc = await asyncio.to_thread(
+            subprocess.run,
             [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error",
              "-i", str(tmp_path), "-codec:a", "libmp3lame", "-b:a", "320k",
              str(target)],
@@ -6651,6 +6656,19 @@ async def _save_guitar_part(stems_dir: Path, dest_stem: str, upload: UploadFile)
         detail = (proc.stderr or "").strip().splitlines()[-1:] or ["neznámá chyba"]
         return {"error": f"{dest_stem}: převod selhal ({detail[0][:200]})"}
     return {"stem": dest_stem, "bytes": target.stat().st_size}
+
+
+def _commit_incoming(stems_dir: Path):
+    """Both parts converted: they take their real names together."""
+    for part in GUITAR_PARTS:
+        tmp = stems_dir / f".{part}.incoming.mp3"
+        if tmp.is_file():
+            os.replace(tmp, stems_dir / f"{part}.mp3")
+
+
+def _drop_incoming(stems_dir: Path):
+    for part in GUITAR_PARTS:
+        (stems_dir / f".{part}.incoming.mp3").unlink(missing_ok=True)
 
 
 @app.post("/api/stems/{name}/guitar-parts/import")
@@ -6670,7 +6688,9 @@ async def import_guitar_parts(name: str,
     rhythm_res = await _save_guitar_part(stems_dir, "guitar_rhythm", rhythm)
     errors = [r["error"] for r in (solo_res, rhythm_res) if "error" in r]
     if errors:
+        _drop_incoming(stems_dir)
         return JSONResponse({"error": " / ".join(errors)}, status_code=400)
+    _commit_incoming(stems_dir)
     return {"saved": [solo_res["stem"], rhythm_res["stem"]],
             "guitar_parts": _guitar_parts_in(stems_dir)}
 
@@ -6690,6 +6710,358 @@ def delete_guitar_parts(name: str):
             except OSError:
                 pass
     return {"guitar_parts": _guitar_parts_in(stems_dir)}
+
+
+# ------------------------------------------------- Moises inbox (solo/rhythm)
+#
+# Nothing local splits a guitar into lead and rhythm; Moises does. Uploading
+# and downloading stays in Moises (no API in the consumer app, and driving its
+# site would break its terms) — everything around it is automated here:
+#   * the songs without a split are copied (their original audio) into
+#     <inbox>/_k_nahrani, ready to be dragged into Moises in one go;
+#   * whatever comes back is dropped into the inbox (single files, a folder
+#     per song, or the ZIP as downloaded). Files are recognised by the words in
+#     their names (lead/solo → solo, rhythm → rhythm), the song by the folder
+#     / ZIP / file name, matched against the Steems songs;
+#   * a confident match with both parts is imported (the existing
+#     guitar_solo / guitar_rhythm stems) — by hand from the panel, or by
+#     itself in the background — and the files move to <inbox>/_hotovo.
+import unicodedata as _ud
+import zipfile as _zipfile
+
+_MOISES_EVENTS: list = []          # [{t, song, label}] — recent automatic imports
+_MOISES_LOCK = threading.Lock()
+_MOISES_SKIP = {"_hotovo", "_k_nahrani"}
+_SOLO_WORDS = ("lead", "solo", "sólo", "solová", "solova", "sólová")
+_RHYTHM_WORDS = ("rhythm", "rytm", "rytmus", "rytmická", "rytmicka", "rhytm")
+_ROLE_NOISE = _re_mod.compile(
+    r"\b(lead|solo|sólo|sólová|solová|solova|rhythm|rhytm|rytmus|rytmická|rytmicka|rytm|"
+    r"electric|acoustic|guitars?|kytara|kytary|stem|stems|track|moises|hi-?fi)\b", _re_mod.I)
+
+
+def _moises_inbox() -> Path:
+    p = _read_config().get("moises_inbox")
+    return Path(p).expanduser() if p else MUSIC_ROOT / "Moises"
+
+
+def _moises_role(name: str):
+    n = name.lower()
+    if any(w in n for w in _RHYTHM_WORDS):
+        return "rhythm"
+    if any(w in n for w in _SOLO_WORDS):
+        return "solo"
+    return None
+
+
+def _norm_words(s: str) -> list:
+    s = _ud.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    s = _re_mod.sub(r"\[[^\]]*\]|\([^)]*\)", " ", s)              # [id], (Remastered)
+    s = _re_mod.sub(r"\b(official|video|audio|remaster(ed)?|lyrics?|hd|hq|live|feat|ft)\b", " ", s)
+    s = _re_mod.sub(r"^\s*\d{1,3}[\s._-]+", "", s)                # leading track number
+    return [w for w in _re_mod.split(r"[^a-z0-9]+", s) if w]
+
+
+def _song_label(path: Path, inbox: Path) -> str:
+    """Which song a file belongs to: its folder under the inbox, or else its
+    own name without the part words."""
+    rel = path.relative_to(inbox)
+    if len(rel.parts) > 1:
+        return rel.parts[0]
+    base = _ROLE_NOISE.sub(" ", path.stem)
+    base = _re_mod.sub(r"[\s_\-–—.]+$|^[\s_\-–—.]+", "", _re_mod.sub(r"\s{2,}", " ", base))
+    base = _re_mod.sub(r"\s*[-–—_]\s*$", "", base).strip()
+    return base or path.stem
+
+
+def _moises_match(label: str) -> list:
+    """Steems songs ranked by how well their name fits the label."""
+    want = set(_norm_words(label))
+    if not want:
+        return []
+    root = MUSIC_ROOT / "Stems"
+    out = []
+    try:
+        dirs = [d for d in root.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    except OSError:
+        dirs = []
+    for d in dirs:
+        meta = _stems_meta(d)
+        best = 0.0
+        for cand in (d.name, f"{meta.get('artist') or ''} {meta.get('title') or ''}", meta.get("title") or ""):
+            have = set(_norm_words(cand))
+            if not have:
+                continue
+            inter = len(want & have)
+            # how much of the shorter name is in the other one
+            score = inter / min(len(want), len(have)) * (0.6 + 0.4 * inter / max(len(want), len(have)))
+            best = max(best, score)
+        if best > 0.2:
+            out.append({"song": d.name, "score": round(best, 3)})
+    out.sort(key=lambda x: -x["score"])
+    return out
+
+
+def _moises_unzip(inbox: Path):
+    for z in list(inbox.glob("*.zip")):
+        dest = inbox / z.stem
+        try:
+            with _zipfile.ZipFile(z) as zf:
+                for m in zf.infolist():
+                    if m.is_dir() or m.filename.startswith("__MACOSX") or Path(m.filename).name.startswith("."):
+                        continue
+                    if Path(m.filename).suffix.lower() not in AUDIO_EXTS:
+                        continue
+                    dest.mkdir(parents=True, exist_ok=True)
+                    target = _unique_dest(dest, Path(m.filename).name)
+                    with zf.open(m) as src, open(target, "wb") as out:
+                        shutil.copyfileobj(src, out)
+            done = inbox / "_hotovo"
+            done.mkdir(exist_ok=True)
+            shutil.move(str(z), str(_unique_dest(done, z.name)))
+        except (OSError, _zipfile.BadZipFile):
+            continue
+
+
+def _moises_scan() -> list:
+    inbox = _moises_inbox()
+    if not inbox.is_dir():
+        return []
+    _moises_unzip(inbox)
+    groups: dict = {}
+    now = time.time()
+    for dirpath, dirnames, filenames in os.walk(inbox):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in _MOISES_SKIP]
+        for fn in filenames:
+            p = Path(dirpath) / fn
+            if fn.startswith(".") or p.suffix.lower() not in AUDIO_EXTS:
+                continue
+            role = _moises_role(fn)
+            if not role:
+                continue
+            try:
+                st = p.stat()
+            except OSError:
+                continue
+            label = _song_label(p, inbox)
+            g = groups.setdefault(label, {"label": label, "solo": None, "rhythm": None, "settled": True})
+            g[role] = str(p)
+            if now - st.st_mtime < 8:          # still being written / downloaded
+                g["settled"] = False
+    out = []
+    for g in groups.values():
+        cands = _moises_match(g["label"])
+        best = cands[0] if cands else None
+        second = cands[1]["score"] if len(cands) > 1 else 0
+        g["candidates"] = cands[:5]
+        g["match"] = best["song"] if best else None
+        g["confident"] = bool(best and best["score"] >= 0.75 and best["score"] - second >= 0.15)
+        g["complete"] = bool(g["solo"] and g["rhythm"])
+        out.append(g)
+    out.sort(key=lambda g: g["label"].lower())
+    return out
+
+
+def _convert_part(stems_dir: Path, dest_stem: str, src: Path) -> dict:
+    target = stems_dir / f".{dest_stem}.incoming.mp3"
+    try:
+        proc = subprocess.run([ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error", "-i", str(src),
+                               "-codec:a", "libmp3lame", "-b:a", "320k", str(target)],
+                              capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"error": f"{dest_stem}: převod selhal ({exc})"}
+    if proc.returncode != 0 or not target.is_file() or target.stat().st_size < 1024:
+        target.unlink(missing_ok=True)
+        return {"error": f"{dest_stem}: převod selhal"}
+    return {"stem": dest_stem}
+
+
+def _moises_import(group: dict, song: str) -> dict:
+    stems_dir = _resolve_under_music_root(f"Stems/{song}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return {"error": "Píseň ve Steems nenalezena."}
+    if not (group.get("solo") and group.get("rhythm")):
+        return {"error": "Chybí jedna z částí (sólo nebo rytmus)."}
+    with _MOISES_LOCK:
+        res = [_convert_part(stems_dir, "guitar_solo", Path(group["solo"])),
+               _convert_part(stems_dir, "guitar_rhythm", Path(group["rhythm"]))]
+        errors = [r["error"] for r in res if "error" in r]
+        if errors:
+            _drop_incoming(stems_dir)
+            return {"error": " / ".join(errors)}
+        _commit_incoming(stems_dir)
+        # Done with: out of the way, into _hotovo (the whole song folder if it had one).
+        inbox = _moises_inbox()
+        done = inbox / "_hotovo"
+        done.mkdir(parents=True, exist_ok=True)
+        for key in ("solo", "rhythm"):
+            p = Path(group[key])
+            try:
+                rel = p.relative_to(inbox)
+            except ValueError:
+                continue
+            if len(rel.parts) > 1:
+                folder = inbox / rel.parts[0]
+                if folder.is_dir():
+                    shutil.move(str(folder), str(_unique_dest(done, folder.name)))
+            elif p.is_file():
+                shutil.move(str(p), str(_unique_dest(done, p.name)))
+    return {"song": song, "guitar_parts": _guitar_parts_in(stems_dir)}
+
+
+def _moises_auto_tick():
+    if not _read_config().get("moises_auto"):
+        return
+    for g in _moises_scan():
+        if g["complete"] and g["confident"] and g["settled"]:
+            r = _moises_import(g, g["match"])
+            if "error" not in r:
+                _MOISES_EVENTS.append({"t": time.time(), "song": g["match"], "label": g["label"]})
+                del _MOISES_EVENTS[:-30]
+
+
+def _moises_watch():
+    while True:
+        time.sleep(15)
+        try:
+            _moises_auto_tick()
+        except Exception:                                    # noqa: BLE001 — never kill the watcher
+            pass
+
+
+@app.on_event("startup")
+def _moises_start():
+    if os.environ.get("SPOTDL_NO_WATCHERS"):
+        return
+    threading.Thread(target=_moises_watch, daemon=True, name="moises-inbox").start()
+
+
+@app.get("/api/moises")
+def moises_status():
+    inbox = _moises_inbox()
+    root = MUSIC_ROOT / "Stems"
+    todo = []
+    try:
+        for d in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            if not d.is_dir() or d.name.startswith("."):
+                continue
+            if _guitar_parts_in(d) or _stem_file(d, "guitar") is None:
+                continue
+            meta = _stems_meta(d)
+            todo.append({"song": d.name, "artist": meta.get("artist"), "title": meta.get("title"),
+                         "has_source": True,
+                         "from_stems": _stems_source_index().get(d.name) is None})
+    except OSError:
+        pass
+    return {"folder": str(inbox), "exists": inbox.is_dir(), "auto": bool(_read_config().get("moises_auto")),
+            "groups": _moises_scan(), "todo": todo, "events": _MOISES_EVENTS[-10:]}
+
+
+class MoisesSettings(BaseModel):
+    folder: Optional[str] = None
+    auto: Optional[bool] = None
+    pick: bool = False
+
+
+@app.post("/api/moises/settings")
+def moises_settings(body: MoisesSettings):
+    patch = {}
+    if body.pick:
+        try:
+            r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Složka pro soubory z Moises")'],
+                               capture_output=True, text=True, timeout=300)
+            if r.returncode == 0 and r.stdout.strip():
+                patch["moises_inbox"] = r.stdout.strip().rstrip("/")
+        except (OSError, subprocess.SubprocessError):
+            pass
+    elif body.folder:
+        patch["moises_inbox"] = str(Path(body.folder).expanduser())
+    if body.auto is not None:
+        patch["moises_auto"] = bool(body.auto)
+    if patch:
+        _write_config(patch)
+    inbox = _moises_inbox()
+    try:
+        inbox.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return {"folder": str(inbox), "auto": bool(_read_config().get("moises_auto"))}
+
+
+class MoisesImport(BaseModel):
+    label: str
+    song: str
+
+
+@app.post("/api/moises/import")
+def moises_import(body: MoisesImport):
+    g = next((x for x in _moises_scan() if x["label"] == body.label), None)
+    if g is None:
+        return JSONResponse({"error": "Soubory už ve složce nejsou."}, status_code=404)
+    r = _moises_import(g, body.song)
+    if "error" in r:
+        return JSONResponse(r, status_code=400)
+    return r
+
+
+class MoisesExport(BaseModel):
+    songs: List[str]
+
+
+@app.post("/api/moises/export")
+def moises_export(body: MoisesExport):
+    """The songs' original audio, copied into <inbox>/_k_nahrani — to drag into
+    Moises all at once. The folder opens in Finder."""
+    out_dir = _moises_inbox() / "_k_nahrani"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    copied, mixed, missing = [], [], []
+    index = _stems_source_index()
+    for song in body.songs[:500]:
+        src = index.get(song)
+        if src is not None and src.is_file():
+            dest = out_dir / f"{song}{src.suffix.lower()}"
+            if not dest.exists():
+                shutil.copy2(src, dest)
+            copied.append(song)
+        elif _mix_stems_to(song, out_dir / f"{song}.mp3"):
+            mixed.append(song)
+        else:
+            missing.append(song)
+    subprocess.run(["open", str(out_dir)], check=False)
+    return {"folder": str(out_dir), "copied": copied + mixed, "mixed": mixed, "missing": missing}
+
+
+def _mix_stems_to(song: str, dest: Path) -> bool:
+    """No original file any more: the separated stems summed back into the
+    whole song (what Moises needs to split the guitar from)."""
+    if dest.exists():
+        return True
+    d = _resolve_under_music_root(f"Stems/{song}")
+    if d is None or not d.is_dir():
+        return False
+    files = [f for f in (_stem_file(d, n) for n in STEM_NAMES) if f is not None]
+    if not files:
+        return False
+    cmd = [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error"]
+    for f in files:
+        cmd += ["-i", str(f)]
+    cmd += ["-filter_complex", f"amix=inputs={len(files)}:duration=longest:normalize=0",
+            "-codec:a", "libmp3lame", "-b:a", "320k", str(dest)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if r.returncode != 0 or not dest.is_file():
+        dest.unlink(missing_ok=True)
+        return False
+    return True
+
+
+@app.post("/api/moises/open")
+def moises_open():
+    inbox = _moises_inbox()
+    inbox.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["open", str(inbox)], check=False)
+    return {"ok": True}
 
 
 # ------------------------------------------------- a stem set's picture

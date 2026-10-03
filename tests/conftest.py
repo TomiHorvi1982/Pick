@@ -1,5 +1,9 @@
+import os
 import sys
 from pathlib import Path
+
+# No background watchers (the Moises inbox) in tests.
+os.environ.setdefault("SPOTDL_NO_WATCHERS", "1")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
