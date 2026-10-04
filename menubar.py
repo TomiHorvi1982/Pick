@@ -1,4 +1,4 @@
-"""Spotifylisty in the macOS menu bar.
+"""Pick in the macOS menu bar.
 
 Owns the server process and gives it three ways in: the app itself in a
 full-screen window, the mini player, and a way to quit that actually stops
@@ -31,10 +31,10 @@ import rumps
 
 APP_DIR = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("SPOTIFYLISTY_PORT", "8765"))
+PORT = int(os.environ.get("PICK_PORT", "8765"))
 BASE = f"http://{HOST}:{PORT}"
 SERVER_PYTHON = Path(os.environ.get(
-    "SPOTIFYLISTY_PYTHON", str(Path.home() / ".local/venvs/spotdl/bin/python")))
+    "PICK_PYTHON", str(Path.home() / ".local/venvs/spotdl/bin/python")))
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 MINI_SIZE = (360, 300)
@@ -100,7 +100,7 @@ def _chrome_window(url: str, size=None, position=None) -> subprocess.Popen | Non
         subprocess.Popen(["open", url])
         return None
     args = [CHROME, f"--app={url}",
-            f"--user-data-dir={Path.home()}/.spotifylisty-chrome"]
+            f"--user-data-dir={Path.home()}/.pick-chrome"]
     if size:
         args += [f"--window-size={size[0]},{size[1]}"]
     if position:
@@ -115,7 +115,7 @@ def _raise_chrome() -> None:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-class Spotifylisty(rumps.App):
+class Pick(rumps.App):
     def __init__(self):
         super().__init__(IDLE_TITLE, quit_button=None)
         self.server: subprocess.Popen | None = None
@@ -141,7 +141,7 @@ class Spotifylisty(rumps.App):
             rumps.MenuItem("Hlasitost 40 %", callback=self.on_volume(0.4)),
             rumps.MenuItem("Ztlumit", callback=self.on_mute),
             None,
-            rumps.MenuItem("Ukončit Spotifylisty", callback=self.on_quit),
+            rumps.MenuItem("Ukončit Pick", callback=self.on_quit),
         ]
 
         self.ensure_server()
@@ -153,7 +153,7 @@ class Spotifylisty(rumps.App):
         if _server_alive():
             return
         if not SERVER_PYTHON.is_file():
-            rumps.alert("Spotifylisty",
+            rumps.alert("Pick",
                         f"Chybí interpret serveru:\n{SERVER_PYTHON}")
             return
         self.server = subprocess.Popen(
@@ -245,7 +245,7 @@ def main():
     if not shutil.which("open"):
         print("Tohle běží jen na macOS.", file=sys.stderr)
         return 1
-    Spotifylisty().run()
+    Pick().run()
     return 0
 
 

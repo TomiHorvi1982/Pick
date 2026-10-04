@@ -44,7 +44,7 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
 # Wherever it happens to live. The rest of the app already looked it up on
 # PATH first and only fell back to the Homebrew path; this one didn't, so the
 # analysis was the single thing that broke on a machine laid out differently.
-FFMPEG = (os.environ.get("SPOTIFYLISTY_FFMPEG")
+FFMPEG = (os.environ.get("PICK_FFMPEG")
           or shutil.which("ffmpeg")
           or "/opt/homebrew/bin/ffmpeg")
 STEM_EXTS = (".mp3", ".wav", ".flac")

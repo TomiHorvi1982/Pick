@@ -36,7 +36,7 @@ SPOTDL_BIN = str(HOME / ".local" / "bin" / "spotdl")
 def ffmpeg_bin() -> str:
     """Where ffmpeg is. PATH first, then the environment override a packaged
     build sets, then the Homebrew path this machine happens to use."""
-    return (os.environ.get("SPOTIFYLISTY_FFMPEG")
+    return (os.environ.get("PICK_FFMPEG")
             or shutil.which("ffmpeg")
             or "/opt/homebrew/bin/ffmpeg")
 # What Chrome decodes by itself (checked against Chrome for Testing: MP3,
@@ -658,9 +658,41 @@ def search_playlists(q: str, limit: int = 40, region: str = "intl"):
                 "title": r.get("title"),
                 "author": r.get("author"),
                 "thumbnail": _best_thumb(r.get("thumbnails")),
+                "count": _int_or_none(r.get("itemCount")),
             }
         )
     return out
+
+
+def _int_or_none(v):
+    """"1,234" / "50 songs" / 50 → the number; anything else → None."""
+    m = _re_mod.search(r"\d[\d,. \u00a0]*", str(v or ""))
+    if not m:
+        return None
+    digits = _re_mod.sub(r"\D", "", m.group(0))
+    return int(digits) if digits else None
+
+
+_PL_SUMMARY: dict = {}        # browseId -> {"ts", "data"}
+
+
+@app.get("/api/playlist/{browse_id}/summary")
+def playlist_summary(browse_id: str):
+    """How many tracks a playlist has and how long it plays, for its card.
+
+    The length is the detail page's own estimate (the average of the tracks
+    it loads times the count), cached — a grid asks for dozens at once."""
+    hit = _PL_SUMMARY.get(browse_id)
+    if hit and time.time() - hit["ts"] < 6 * 3600:
+        return hit["data"]
+    d = playlist_detail(browse_id, track_limit=100)
+    if not isinstance(d, dict):
+        return d
+    data = {"count": d.get("track_count") or 0, "seconds": d.get("estimated_total_duration_sec") or 0}
+    _PL_SUMMARY[browse_id] = {"ts": time.time(), "data": data}
+    if len(_PL_SUMMARY) > 2000:
+        _PL_SUMMARY.clear()
+    return data
 
 
 def _album_as_playlist(client, browse_id: str):
@@ -1947,7 +1979,7 @@ def _resolve_chip_thumb(term: str) -> Optional[str]:
 # are a perfectly good JPEG. Serving them from our own origin sidesteps that
 # entirely, and lets us cache them in memory for the session.
 # Several of these hosts turn away clients that don't say who they are.
-APP_UA = "Spotifylisty/1.0 (local music app)"
+APP_UA = "Pick/1.0 (local music app)"
 
 _THUMB_HOSTS = ("googleusercontent.com", "ggpht.com", "ytimg.com",
                 "ytimg.googleusercontent.com",
@@ -4214,9 +4246,78 @@ def tabfiles_remove_dir(req: DiDirRequest):
     return tabfiles_dirs()
 
 
+# ------------------------------------------------- Pick Tabs (the catalog)
+#
+# Every Songsterr tab the app has opened — for a song in the mixer or for the
+# player — is remembered here: which song, which part, with what it was used.
+# Only the reference: the notation itself is fetched from Songsterr again when
+# it is opened, it is not copied to disk.
+PICK_TABS_PATH = NAM_PREVIEW_DIR / "pick_tabs.json"
+PICK_TABS_FOLDER = "Pick Tabs"
+
+
+def _pick_tabs() -> list:
+    try:
+        data = json.loads(PICK_TABS_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+
+class PickTabRequest(BaseModel):
+    songId: int
+    revisionId: Optional[int] = None
+    trackIndex: int = 0
+    title: str = ""
+    artist: str = ""
+    track: str = ""
+    usedWith: str = ""
+
+
+@app.get("/api/picktabs")
+def picktabs_list():
+    return {"tabs": _pick_tabs()}
+
+
+@app.post("/api/picktabs")
+def picktabs_add(req: PickTabRequest):
+    tabs = _pick_tabs()
+    old = next((t for t in tabs if t.get("songId") == req.songId), None)
+    now = int(time.time())
+    entry = {**(old or {"addedAt": now, "usedWith": []}),
+             "songId": req.songId, "revisionId": req.revisionId, "trackIndex": req.trackIndex,
+             "title": req.title or (old or {}).get("title", ""), "artist": req.artist or (old or {}).get("artist", ""),
+             "track": req.track or (old or {}).get("track", ""), "lastUsed": now}
+    used = [u for u in entry.get("usedWith") or [] if u != req.usedWith]
+    if req.usedWith:
+        used.insert(0, req.usedWith)
+    entry["usedWith"] = used[:5]
+    tabs = [entry] + [t for t in tabs if t.get("songId") != req.songId]
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    PICK_TABS_PATH.write_text(json.dumps(tabs, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True, "count": len(tabs)}
+
+
+@app.delete("/api/picktabs/{song_id}")
+def picktabs_remove(song_id: int):
+    tabs = [t for t in _pick_tabs() if t.get("songId") != song_id]
+    PICK_TABS_PATH.write_text(json.dumps(tabs, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True}
+
+
+def _pick_tab_rows() -> list:
+    """The catalog as rows of the Taby list, in a folder of its own."""
+    return [{"path": f"songsterr:{t['songId']}", "name": f"{t.get('artist', '')} - {t.get('title', '')}",
+             "ext": "songsterr", "size_bytes": 0, "root": "", "folder": PICK_TABS_FOLDER,
+             "artist": t.get("artist", ""), "title": t.get("title", ""),
+             "songsterr": {"songId": t["songId"], "trackIndex": t.get("trackIndex", 0), "track": t.get("track", "")},
+             "usedWith": t.get("usedWith") or []}
+            for t in _pick_tabs() if t.get("songId") is not None]
+
+
 @app.get("/api/tabfiles/list")
 def tabfiles_list(refresh: bool = False):
-    files = _scan_tab_dirs(refresh)
+    files = _pick_tab_rows() + _scan_tab_dirs(refresh)
     links = _tab_links()
     return {"files": [{**f, "linked": f["path"] in links} for f in files]}
 
@@ -4242,7 +4343,7 @@ def tabfiles_get_link(path: str):
 
 @app.put("/api/tabfiles/link")
 def tabfiles_put_link(req: TabLinkRequest):
-    if _resolve_under_tab_dirs(req.path) is None:
+    if not req.path.startswith("songsterr:") and _resolve_under_tab_dirs(req.path) is None:
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
     links = _tab_links()
     if req.link:
@@ -5034,7 +5135,7 @@ def mini_resize(body: MiniResize, request: Request):
     """Resizes the mini player's own Chrome window (its size buttons).
 
     A page can't resize a window it didn't open, so the server asks Chrome
-    through AppleScript, as PIKO does for the main window. The right edge and
+    through AppleScript, as Pick does for the main window. The right edge and
     the top stay put — the mini player sits at the right of the screen.
     """
     w = max(240, min(2400, int(body.width)))
@@ -7607,7 +7708,7 @@ def _fetch_lrclib(track_name: str, artist_name: str, album_name: str = None, dur
     if cached and cached["expires"] > time.time():
         return cached["data"]
 
-    headers = {"User-Agent": "Spotifylisty/1.0"}
+    headers = {"User-Agent": "Pick/1.0"}
     try:
         data = None
         # LRCLib's own exact lookup (matches length within ±2 s) when the album

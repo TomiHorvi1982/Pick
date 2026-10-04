@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let the user configure where Spotifylisty downloads to, browse that folder like a file manager, play what's already there (including whole folders back-to-back) in the existing player, and pop open the actual YouTube video for whatever's playing.
+**Goal:** Let the user configure where Pick downloads to, browse that folder like a file manager, play what's already there (including whole folders back-to-back) in the existing player, and pop open the actual YouTube video for whatever's playing.
 
 **Architecture:** All additive to the existing single-file FastAPI backend (`server.py`) and single-file vanilla-JS frontend (`static/index.html`) — no new services, no build step, no new frontend dependencies. New backend endpoints follow the same patterns already in the file (Pydantic request models, `JSONResponse` error bodies, module-level caches). New frontend behavior extends the existing `Player` IIFE and `setMode()` tab system rather than introducing a second UI paradigm.
 

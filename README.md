@@ -1,4 +1,4 @@
-# Spotifylisty
+# Pick
 
 Lokální GUI nad [spotdl](https://github.com/spotDL/spotify-downloader) pro
 procházení playlistů, stahování skladeb, separaci stemů (Demucs) a mixpult
@@ -21,7 +21,7 @@ app/
 |---------------|------------------------------------------------------|
 | Backend       | `~/.local/share/spotdl-helper/app/server.py`          |
 | Frontend      | `~/.local/share/spotdl-helper/app/static/index.html`  |
-| Desktop app   | `~/Desktop/Spotifylisty.app` (menubar launcher)       |
+| Desktop app   | `~/Desktop/Pick.app` (menubar launcher)       |
 | Venv          | `~/.local/venvs/spotdl/`                              |
 | Konfigurace   | `~/.local/share/spotdl-helper/config.json`            |
 | Log serveru   | `~/.local/share/spotdl-helper/server.log`             |
@@ -32,7 +32,7 @@ Kořen hudby lze změnit v Nastavení; uloží se do `config.json`.
 
 ## Spuštění
 
-Přes desktop app (`~/Desktop/Spotifylisty.app`) — ikona 🎧 v menu baru
+Přes desktop app (`~/Desktop/Pick.app`) — ikona 🎧 v menu baru
 nastartuje server a otevře Chrome v app režimu.
 
 Ručně:
@@ -77,7 +77,7 @@ zbytek mixpultu funguje dál.
 ## Lišta macOS
 
 ```bash
-open Spotifylisty.command          # nebo: ~/.local/venvs/spotdl/bin/python menubar.py
+open Pick.command          # nebo: ~/.local/venvs/spotdl/bin/python menubar.py
 ```
 
 V liště se objeví ♪ (♫ když něco hraje) a v menu je aktuální skladba,

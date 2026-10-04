@@ -91,3 +91,17 @@ def test_ten_czech_genres_each_search_all_their_styles(monkeypatch):
     server.browse_artists("Hip Hop & Rap", region="cz", offset=0, limit=3)
     assert any(" hip hop " in a for a in asked) and any(" rap " in a for a in asked)
     assert not any("&" in a for a in asked)            # the label itself is never searched
+
+
+def test_playlist_card_summary_is_counted_and_cached(monkeypatch):
+    server._PL_SUMMARY.clear()
+    calls = []
+
+    def detail(bid, track_limit=100):
+        calls.append(bid)
+        return {"track_count": 50, "estimated_total_duration_sec": 3 * 3600}
+    monkeypatch.setattr(server, "playlist_detail", detail)
+    assert server.playlist_summary("VLabc") == {"count": 50, "seconds": 10800}
+    server.playlist_summary("VLabc")
+    assert calls == ["VLabc"]
+    assert server._int_or_none("1,234 songs") == 1234 and server._int_or_none(None) is None

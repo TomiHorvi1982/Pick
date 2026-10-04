@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>PIKO — mini</title>
+<title>Pick — mini</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   /* Its own page rather than the app squeezed into a small window: all of it
@@ -359,7 +359,7 @@
     <div class="mart" id="mart"></div>
     <div class="txt">
       <div class="marquee" id="title"><span>Nic nehraje</span></div>
-      <div class="artist"><span id="artist">PIKO</span><span class="local-badge" title="Hraje přímo mini přehrávač (aplikace nemusí běžet)">HRAJU SÁM</span></div>
+      <div class="artist"><span id="artist">Pick</span><span class="local-badge" title="Hraje přímo mini přehrávač (aplikace nemusí běžet)">HRAJU SÁM</span></div>
     </div>
     <div class="eq"><i></i><i></i><i></i><i></i></div>
     <button class="iconbtn mini-size" id="size2" title="Zvětšit okno"></button>
@@ -529,7 +529,7 @@ async function refresh(){
 function onTrackChange(){
   const live = S.live;
   setTitle(live ? S.title || "Nic nehraje" : "Nic nehraje");
-  el("artist").textContent = live ? (S.artists || "") : "PIKO";
+  el("artist").textContent = live ? (S.artists || "") : "Pick";
   const art = live && S.thumbnail ? thumbUrl(S.thumbnail) : "";
   el("backdrop").style.backgroundImage = art ? `url('${art}')` : "";
   el("label").style.backgroundImage = art ? `url('${art}')` : "";

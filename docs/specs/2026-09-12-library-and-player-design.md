@@ -5,7 +5,7 @@ Stav: schváleno uživatelem, čeká na implementační plán
 
 ## Kontext
 
-Spotifylisty (spouští se přes `~/Desktop/Spotifylisty.app`, zdrojáky v
+Pick (spouští se přes `~/Desktop/Pick.app`, zdrojáky v
 `~/.local/share/spotdl-helper/app/`) je lokální FastAPI + vanilla-JS appka
 pro procházení YT Music playlistů/písní a jejich stahování přes spotdl.
 Cesta pro stažené soubory je dnes natvrdo `~/Music/spotdl` (`server.py:25`).

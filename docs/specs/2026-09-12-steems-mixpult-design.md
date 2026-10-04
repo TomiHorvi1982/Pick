@@ -23,7 +23,7 @@ cesta stahování) — Steems ukládá stopy pod stejný `MUSIC_ROOT`, a tlačí
   backend + vanilla JS frontend bez build kroku), používá stejný
   `htdemucs_6s`, má přesně tenhle DAW mixpult (fadery, mute/solo, VU
   metry, waveform, export mixu do WAV). **Rozhodnutí: přenést/adaptovat
-  jeho relevantní kód přímo do Spotifylisty** (jeden server, jedna appka),
+  jeho relevantní kód přímo do Pick** (jeden server, jedna appka),
   ne spouštět StemDeck jako druhou službu vedle. Porcované soubory dostanou
   komentář s creditem a odkazem na zdrojový repo (licence to vyžaduje/
   doporučuje).

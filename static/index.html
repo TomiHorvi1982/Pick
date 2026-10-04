@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Spotifylisty</title>
+<title>Pick</title>
 <style>
   :root{
     --bg:#12141a; --bg2:#1a1d26; --card:#1e222d; --card-hi:#262b38;
@@ -1314,6 +1314,10 @@
     cursor:grab;touch-action:none}
   .nm-tabtop-viewport.dragging{cursor:grabbing}
   .nm-tabtop-host{background:#f4f4f2;width:max-content;min-width:100%;height:200px}
+  .pick-chip.on{border-color:var(--accent);color:var(--accent)}
+  .pt-rm{border:none;background:none;color:var(--sub);cursor:pointer;padding:2px;opacity:0}
+  .lib-trow:hover .pt-rm{opacity:1}
+  .pt-rm:hover{color:#fff}
   .tab-inline{position:fixed;z-index:3000;width:26px;height:22px;padding:0;text-align:center;
     font:700 14px/22px ui-monospace,Menlo,monospace;color:#111;background:#fff8c4;
     border:2px solid var(--accent);border-radius:4px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -2920,6 +2924,10 @@
     background-position:center;display:flex;align-items:center;
     justify-content:center;font-size:34px;color:var(--sub)}
   .card .meta{padding:14px 2px 2px}
+  .card .pl-stats{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px;color:var(--sub)}
+  .card .pl-stats span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .card .pl-stats .ic-svg{opacity:.75}
+  .card .pl-stats .pl-wait{opacity:.6}
   .card .title{font-size:15px;font-weight:600;color:var(--text);line-height:1.35;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     overflow:hidden}
@@ -4777,7 +4785,7 @@ function fmtDur(sec){
 }
 function fmtSize(bytes){
   const mb = bytes/1024/1024;
-  if(mb > 1024) return (mb/1024).toFixed(2) + " GB";
+  if(mb >= 1000) return (mb/1024).toFixed(2) + " GB";
   return mb.toFixed(1) + " MB";
 }
 function estBytes(totalSec, bitrateStr){
@@ -4871,7 +4879,7 @@ const AudioBus = (() => {
   let owner = null;          // the HTMLMediaElement, or "mixer"
   const seen = new Set();    // every media element that ever played, weakly held
 
-  // A second window of the app (the PIKO app window plus a browser tab, say)
+  // A second window of the app (the Pick app window plus a browser tab, say)
   // has its own bus and knows nothing of this one — so whoever starts tells
   // the others, and they stop theirs.
   let chan = null;
@@ -6417,6 +6425,7 @@ const TabsLib = (() => {
     try{ dirs = (await (await fetch("/api/tabfiles/dirs")).json()).dirs || []; }catch(e){ dirs = []; }
     const box = el("tabs-dirs");
     box.innerHTML = "";
+    if(files.length) paintPickChip();
     dirs.forEach(d => {
       const c = document.createElement("span");
       c.className = "chip";
@@ -6431,14 +6440,36 @@ const TabsLib = (() => {
   }
   async function loadList(refresh){
     try{ files = (await (await fetch("/api/tabfiles/list" + (refresh ? "?refresh=1" : ""))).json()).files || []; }catch(e){ files = []; }
+    paintPickChip();
     paintList();
+  }
+  // Pick Tabs, the catalog of Songsterr tabs, as a folder next to the mapped
+  // ones: click it to see just the catalog, again to see everything.
+  function paintPickChip(){
+    const box = el("tabs-dirs");
+    let c = box.querySelector(".pick-chip");
+    const n = files.filter(f => f.songsterr).length;
+    if(!c){
+      c = document.createElement("span");
+      c.className = "chip pick-chip";
+      c.style.cursor = "pointer";
+      c.title = "Taby ze Songsterru, které aplikace otevřela — klikni pro zobrazení jen jich";
+      c.onclick = () => {
+        const f = el("tabs-filter");
+        f.value = f.value === "Pick Tabs" ? "" : "Pick Tabs";
+        paintList();
+        c.classList.toggle("on", f.value === "Pick Tabs");
+      };
+      box.prepend(c);
+    }
+    c.innerHTML = `${icon("star", 12)}<span>Pick Tabs (${n})</span>`;
   }
   let sortMode = ListSort.load("tabs");
   function paintList(){
     const box = el("tabs-list");
     const q = norm(el("tabs-filter").value || "");
     const shown = files.filter(f => !q || norm(`${f.artist} ${f.title} ${f.folder} ${f.name}`).includes(q));
-    if(!dirs.length){
+    if(!dirs.length && !files.length){
       box.innerHTML = `<div class="empty" style="padding:28px 10px">Namapuj složku, kde máš taby (Guitar Pro .gp/.gpx/.gp5…, MusicXML).
         Soubory zůstanou, kde jsou — aplikace je jen čte.</div>`;
       return;
@@ -6454,8 +6485,24 @@ const TabsLib = (() => {
       row.innerHTML = `<span class="c-idx">${i + 1}</span>
         <span class="c-title"><span class="art">${f.linked ? "♫" : "🎸"}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(f.title)}</span></span>
         <span class="c-artist">${escapeHtml(f.artist)}</span><span class="c-album">${escapeHtml(f.folder)}</span>
-        <span class="c-time">${escapeHtml(f.ext.toUpperCase())}</span><span class="c-act"></span>`;
+        <span class="c-time">${f.songsterr ? "Songsterr" : escapeHtml(f.ext.toUpperCase())}</span><span class="c-act"></span>`;
       if(f.linked) row.title = "Má propojenou nahrávku";
+      if(f.songsterr){
+        row.title = `Pick Tabs — ${f.songsterr.track || "tab ze Songsterru"}` +
+          (f.usedWith && f.usedWith.length ? `\nPoužito: ${f.usedWith.join(", ")}` : "");
+        const x = document.createElement("button");
+        x.type = "button";
+        x.className = "pt-rm";
+        x.title = "Odebrat z Pick Tabs";
+        x.innerHTML = icon("close", 11);
+        x.onclick = async (e) => {
+          e.stopPropagation();
+          await fetch(`/api/picktabs/${f.songsterr.songId}`, {method: "DELETE"});
+          files = files.filter(z => z !== f);
+          paintList();
+        };
+        row.querySelector(".c-act").appendChild(x);
+      }
       row.onclick = () => open(f);
       box.appendChild(row);
     });
@@ -6624,6 +6671,18 @@ const TabsLib = (() => {
     Deck.destroy();
     paintStems();
     const a = await ensureApi();
+    if(f.songsterr){
+      // A Pick Tabs entry: the notation comes from Songsterr again.
+      try{ cur.link = (await (await fetch(`/api/tabfiles/link?path=${encodeURIComponent(f.path)}`)).json()).link; }catch(e){}
+      try{
+        const meta = await Songsterr.getMeta(f.songsterr.songId);
+        const data = await Songsterr.getTrack(f.songsterr.songId, meta.revisionId, f.songsterr.trackIndex);
+        setSource("synth", true);
+        shownTrack = 0;
+        a.tex(Mixer.tabView.tracksToAlphaTex([{data, name: f.songsterr.track || data.name}]));
+      }catch(e){ showToast("Tab ze Songsterru se nepodařilo načíst"); }
+      return;
+    }
     let buf;
     try{
       const res = await fetch(`/api/tabfiles/file?path=${encodeURIComponent(f.path)}`);
@@ -6650,7 +6709,8 @@ const TabsLib = (() => {
   }
 
   function onScoreLoaded(score){
-    el("tp-title").textContent = score.title || cur.file.title || cur.file.name;
+    // A Pick Tabs entry's score is titled after its part; the song is the title.
+    el("tp-title").textContent = (cur.file.songsterr && cur.file.title) || score.title || cur.file.title || cur.file.name;
     el("tp-sub").textContent = [score.artist || cur.file.artist, cur.file.ext.toUpperCase(),
       score.tempo ? Math.round(score.tempo) + " BPM" : ""].filter(Boolean).join(" · ");
     const hasFileTrack = !!(score.backingTrack && score.backingTrack.rawAudioFile && score.backingTrack.rawAudioFile.length);
@@ -8772,7 +8832,7 @@ async function treeChildren(rel){
 // Drag payload for a MIDI file from the library (the rail tree or the main
 // list); the MIDI editor and a MIDI track's strip accept it, and files
 // dragged in straight from Finder too.
-const MIDI_DRAG = "application/x-piko-midi";
+const MIDI_DRAG = "application/x-pick-midi";
 const isMidiName = (n) => /\.midi?$/i.test(n || "");
 function makeMidiDraggable(row, entry){
   row.draggable = true;
@@ -11285,6 +11345,20 @@ const TabParts = {
   },
 };
 
+// Pick Tabs: every Songsterr tab opened goes into the catalog (Taby → Pick
+// Tabs) — a reference to it, with what it was used for.
+const PickTabs = {
+  record(meta, item, usedWith){
+    if(!meta || !item || item.songId == null) return;
+    const t = (meta.tracks || [])[item.trackIndex] || {};
+    fetch("/api/picktabs", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({
+      songId: Number(item.songId), revisionId: item.revisionId != null ? Number(item.revisionId) : null,
+      trackIndex: Number(item.trackIndex) || 0, title: meta.title || "", artist: meta.artist || "",
+      track: [t.instrument, t.name].filter(Boolean).join(" — "), usedWith: usedWith || "",
+    })}).catch(() => {});
+  },
+};
+
 const Songsterr = {
 
   async search(q) {
@@ -13476,6 +13550,7 @@ const Mixer = (() => {
 
   // A song's guitar parts, each in a lane of its own.
   function loadTabs(list, meta){
+    if(list[0] && meta) PickTabs.record(meta, list[0], currentSongName || "Mix");
     tabs = list.map(makeTab);
     tabMeta = meta || null;
     syncTabIndices(currentTime());
@@ -22140,9 +22215,11 @@ async function runSearch(more=false){
         <div class="meta">
           <div class="title">${escapeHtml(p.title||'')}</div>
           <div class="sub">${escapeHtml(p.author||'')}</div>
+          <div class="pl-stats">${plStatsHtml(p.count, null)}</div>
         </div>`;
       card.onclick = () => openPlaylist(p.browseId);
       grid.appendChild(card);
+      PlStats.watch(card, p.browseId);
     });
   } else {
     if(!state.libraryStems) await loadLibrary();
@@ -22191,6 +22268,64 @@ async function runSearch(more=false){
   el("load-more-btn").disabled = false;
   el("load-more-btn").textContent = "Načíst další výsledky";
 }
+
+// ======================================================================
+// A playlist card's three numbers — tracks, total length, size once
+// downloaded (at the bitrate set in Settings). The count comes with the
+// search; the length is asked for once the card scrolls into view, a few
+// at a time.
+// ======================================================================
+function fmtLength(sec){
+  const mins = Math.round((sec || 0) / 60);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h ? `${h} h ${m} min` : `${m} min`;
+}
+function plStatsHtml(count, seconds){
+  const bits = [];
+  if(count) bits.push(`${icon("note", 11)}${count} ${count === 1 ? "skladba" : count < 5 ? "skladby" : "skladeb"}`);
+  if(seconds){
+    bits.push(`${icon("clock", 11)}${fmtLength(seconds)}`);
+    bits.push(`${icon("download", 11)}~${fmtSize(estBytes(seconds, bitrate()))}`);
+  } else bits.push(`<span class="pl-wait">délka…</span>`);
+  return bits.map(b => `<span>${b}</span>`).join("");
+}
+const PlStats = (() => {
+  const cache = new Map();
+  const waiting = [];
+  let running = 0;
+  const io = new IntersectionObserver(entries => entries.forEach(e => {
+    if(!e.isIntersecting) return;
+    io.unobserve(e.target);
+    waiting.push(e.target);
+    pump();
+  }), {rootMargin: "200px"});
+  function paint(card, d){
+    const box = card.querySelector(".pl-stats");
+    if(box) box.innerHTML = d ? plStatsHtml(d.count, d.seconds) : "";
+  }
+  async function pump(){
+    while(running < 4 && waiting.length){
+      const card = waiting.shift();
+      const id = card._plId;
+      if(cache.has(id)){ paint(card, cache.get(id)); continue; }
+      running++;
+      fetch(`/api/playlist/${encodeURIComponent(id)}/summary`)
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+        .then(d => {
+          if(d && d.count) cache.set(id, d);
+          paint(card, d && d.count ? d : (card._plCount ? {count: card._plCount, seconds: 0} : null));
+          if(!(d && d.count)){ const w = card.querySelector(".pl-wait"); if(w) w.remove(); }
+        })
+        .finally(() => { running--; pump(); });
+    }
+  }
+  function watch(card, id){
+    if(!id) return;
+    card._plId = id;
+    if(cache.has(id)) paint(card, cache.get(id)); else io.observe(card);
+  }
+  return {watch};
+})();
 
 // ======================================================================
 // Playlist detail
@@ -23587,6 +23722,7 @@ const PlayerTab = (() => {
 
   async function loadFromSongsterr(loaded, meta){
     const entry = loaded[0];
+    { const t = Player.getCurrent(); PickTabs.record(meta, entry, t ? [t.artists, t.title].filter(Boolean).join(" - ") : "Přehrávač"); }
     tabData = entry.data;
     songId = entry.songId;
     revisionId = entry.revisionId;

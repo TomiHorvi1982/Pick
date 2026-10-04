@@ -58,7 +58,7 @@ def _load_mono(path, sr=22050):
 
     import numpy as np
 
-    ffmpeg = (os.environ.get("SPOTIFYLISTY_FFMPEG")
+    ffmpeg = (os.environ.get("PICK_FFMPEG")
               or shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg")
     proc = subprocess.run(
         [ffmpeg, "-v", "error", "-i", path,

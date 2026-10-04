@@ -82,7 +82,7 @@ def test_every_action_the_browser_handles_is_allowed(client):
 def test_the_mini_player_is_served(client):
     res = client.get("/mini")
     assert res.status_code == 200
-    assert "PIKO — mini" in res.text
+    assert "Pick — mini" in res.text
     # It must be its own page, not the app: loading the whole app in a
     # 360px window was the thing this exists to avoid.
     assert "sp-shell" not in res.text
@@ -126,7 +126,7 @@ class _Fake:
 
     def app_window_open(self):
         import menubar_under_test as mb
-        return mb.Spotifylisty.app_window_open(self)
+        return mb.Pick.app_window_open(self)
 
 
 def _refresh_with(mb, app, state):
@@ -134,7 +134,7 @@ def _refresh_with(mb, app, state):
     original = mb._get
     mb._get = lambda *a, **kw: state
     try:
-        mb.Spotifylisty.refresh(app, None)
+        mb.Pick.refresh(app, None)
     finally:
         mb._get = original
 
@@ -210,7 +210,7 @@ def test_an_open_window_is_raised_not_duplicated():
     # A window that is publishing state is a window that is open.
     mb._get = lambda *a, **kw: {"stale": False, "title": "Erased"}
     try:
-        mb.Spotifylisty.on_open_app(app, None)
+        mb.Pick.on_open_app(app, None)
     finally:
         mb._chrome_window, mb._raise_chrome, mb._get = (
             original_window, original_raise, original_get)
@@ -233,7 +233,7 @@ def test_with_no_window_open_one_is_launched():
     mb._raise_chrome = lambda: None
     mb._get = lambda *a, **kw: {"stale": True}
     try:
-        mb.Spotifylisty.on_open_app(app, None)
+        mb.Pick.on_open_app(app, None)
     finally:
         mb._chrome_window, mb._raise_chrome, mb._get = (
             original_window, original_raise, original_get)
