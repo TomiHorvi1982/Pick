@@ -244,6 +244,17 @@
 
   .cart-items{max-height:320px;overflow-y:auto;padding:6px 10px}
   .cart-item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border)}
+  .cart-item.in-group{padding-left:12px}
+  .q-group{display:flex;align-items:center;gap:7px;margin:12px 0 2px;padding:7px 8px;border-radius:7px;
+    background:color-mix(in srgb, var(--accent) 14%, transparent);border-left:3px solid var(--accent);
+    font-size:12px;font-weight:700;color:var(--text)}
+  .q-group:first-child{margin-top:2px}
+  .q-group .qg-ic{display:flex;color:var(--accent)}
+  .q-group .qg-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .q-group .qg-n{flex:0 0 auto;font-weight:500;color:var(--sub)}
+  .q-group .qg-play{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:22px;height:22px;
+    border:none;border-radius:50%;background:var(--accent);color:#000;cursor:pointer;padding:0}
+  .q-group.rail{grid-column:1/-1;margin:8px 4px 2px}
   .cart-item:last-child{border-bottom:none}
   .cart-item .info{flex:1;min-width:0}
   .cart-item .t-title{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -6671,15 +6682,36 @@ const TabsLib = (() => {
     Deck.destroy();
     paintStems();
     const a = await ensureApi();
+    // A tab file: tab staves only. A Pick Tabs entry: each part as it was
+    // declared — tab for guitars and bass, notation for voice and drums.
+    const prof = f.songsterr ? alphaTab.StaveProfile.Default : alphaTab.StaveProfile.Tab;
+    if(a.settings.display.staveProfile !== prof){ a.settings.display.staveProfile = prof; a.updateSettings(); }
     if(f.songsterr){
       // A Pick Tabs entry: the notation comes from Songsterr again.
       try{ cur.link = (await (await fetch(`/api/tabfiles/link?path=${encodeURIComponent(f.path)}`)).json()).link; }catch(e){}
       try{
         const meta = await Songsterr.getMeta(f.songsterr.songId);
-        const data = await Songsterr.getTrack(f.songsterr.songId, meta.revisionId, f.songsterr.trackIndex);
+        // Every part of the song, not just the guitar it was picked for.
+        const parts = (await Promise.all((meta.tracks || []).map(async (t, i) => {
+          if(t.isEmpty) return null;
+          try{
+            const data = await Songsterr.getTrack(f.songsterr.songId, meta.revisionId, i);
+            const id = Number(t.instrumentId);
+            const drums = id === 1024 || /drum|perc/i.test(t.instrument || "");
+            const fretted = !drums && /guitar|bass/i.test(t.instrument || "");
+            return {data, name: t.name || t.instrument || `Stopa ${i + 1}`,
+                    kind: drums ? "drums" : fretted ? "fretted" : "other", program: drums ? null : id, main: i === f.songsterr.trackIndex};
+          }catch(e){ return null; }
+        }))).filter(Boolean);
+        if(!parts.length) throw new Error("no parts");
         setSource("synth", true);
         shownTrack = 0;
-        a.tex(Mixer.tabView.tracksToAlphaTex([{data, name: f.songsterr.track || data.name}]));
+        cur.mainPart = Math.max(0, parts.findIndex(x => x.main));
+        // The score is titled after the song, not after its first part.
+        const q = (x) => String(x || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        const tex = Mixer.tabView.tracksToAlphaTex(parts)
+          .replace(/^\\title "(?:[^"\\]|\\.)*"/, `\\title "${q(f.title || meta.title)}" \\artist "${q(f.artist || meta.artist)}"`);
+        a.tex(tex);
       }catch(e){ showToast("Tab ze Songsterru se nepodařilo načíst"); }
       return;
     }
@@ -6716,10 +6748,17 @@ const TabsLib = (() => {
     const hasFileTrack = !!(score.backingTrack && score.backingTrack.rawAudioFile && score.backingTrack.rawAudioFile.length);
     el("tp-src").querySelector('[data-src="file"]').hidden = !hasFileTrack;
     // A guitar part first, if there is one — that's what this is for.
-    const g = score.tracks.findIndex(t => trackClass(t) === "guitar");
+    // (For a Pick Tabs entry: the part it was picked for.)
+    const g = cur.mainPart != null && score.tracks[cur.mainPart] ? cur.mainPart
+      : score.tracks.findIndex(t => trackClass(t) === "guitar");
     shownTrack = g >= 0 ? g : 0;
-    try{ shownExtra = new Set(JSON.parse(localStorage.getItem(extraKey()) || "[]").filter(i => score.tracks[i] && i !== shownTrack)); }
-    catch(e){ shownExtra = new Set(); }
+    try{
+      const saved = localStorage.getItem(extraKey());
+      // A Pick Tabs entry shows the whole band until told otherwise.
+      shownExtra = saved == null && cur.file.songsterr
+        ? new Set(score.tracks.map((_, i) => i).filter(i => i !== shownTrack))
+        : new Set(JSON.parse(saved || "[]").filter(i => score.tracks[i] && i !== shownTrack));
+    }catch(e){ shownExtra = new Set(); }
     renderShown();
     paintTracks();
     paintRec();
@@ -8719,7 +8758,12 @@ function renderHomeRail(list){
 
   collapsed = railSection(list, "fronta", "Fronta", queue.length);
   railRows(list, "fronta", collapsed, queue.length
-    ? queue.map(t => trackRow(t, () => Player.playQueueFrom(t)))
+    ? (() => {
+        const groups = queueGroups(queue);
+        if(!groups.some(g => g.id)) return queue.map(t => trackRow(t, () => Player.playQueueFrom(t)));
+        return groups.flatMap(g => [queueGroupHead(g, "q-group rail"),
+          ...g.items.map(t => trackRow(t, () => Player.playQueueFrom(t)))]);
+      })()
     : [libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat.")]);
 
   collapsed = railSection(list, "historie", "Historie", history.length);
@@ -17954,24 +17998,32 @@ const Mixer = (() => {
 
     // Several Songsterr parts of one song as one score, one \track each —
     // they share the bars, so they line up under each other.
+    // A part may say what it is: kind "drums" (Songsterr's frets are then
+    // General MIDI drum keys), "fretted" (guitar, bass: tab staff) or
+    // "other" (voice, keys, horns: notation), and the synth program to play
+    // it with. Without that every part is a tab staff, as before.
     function tracksToAlphaTex(list){
-      if(list.length <= 1) return measuresToAlphaTex(list[0].data);
+      if(list.length <= 1 && !list[0].kind) return measuresToAlphaTex(list[0].data);
       const head = measuresToAlphaTex(list[0].data);
       const meta = head.slice(0, head.indexOf(" . ")).split(" \\tuning ")[0];
       // Inside a \track the tuning needs the bracketed form, and the staff
       // has to be declared a tab staff — otherwise a part that opens with
       // rests is taken for percussion and its first fretted note is refused.
-      const body = list.map(({data, name}) => {
-        const tuning = (data.tuning || []).map(midiToTexNote);
-        const one = measuresToAlphaTex(data);
+      const body = list.map(({data, name, kind, program}) => {
+        const drums = kind === "drums";
+        const tuning = drums ? [] : (data.tuning || []).map(midiToTexNote);
+        const one = measuresToAlphaTex(data, {drums});
         const bars = one.slice(one.indexOf(" . ") + 3);
-        return `\\track ("${texTitle(name || data.name || "Stopa")}") \\staff {tabs}` +
+        const staff = drums ? "{score}" : kind === "other" ? "{score}" : "{tabs}";
+        const inst = drums ? " \\instrument percussion"
+          : Number.isInteger(program) && program >= 0 && program < 128 ? ` \\instrument ${program}` : "";
+        return `\\track ("${texTitle(name || data.name || "Stopa")}")${inst} \\staff ${staff}` +
           (tuning.length ? ` \\tuning (${tuning.join(" ")})` : "") + ` ${bars}`;
       }).join(" ");
       return `${meta} . ${body}`;
     }
 
-    function measuresToAlphaTex(tabData){
+    function measuresToAlphaTex(tabData, opts = {}){
       const measures = tabData.measures || [];
       const tuning = (tabData.tuning || []).map(midiToTexNote);
       const bpm = (tabData.tempo && tabData.tempo[0] && tabData.tempo[0].bpm) || 120;
@@ -17998,6 +18050,11 @@ const Mixer = (() => {
             const texString = (n) => n.string + 1;
             if(!notes.length){
               parts.push(`r.${value}`);
+            } else if(opts.drums){
+              // A drum note is its GM key alone — no string — and always in
+              // brackets: "36.8" would be read as fret 36 on string 8.
+              const keys = [...new Set(notes.map(n => n.fret))];
+              parts.push(`(${keys.join(" ")}).${value}`);
             } else if(notes.length === 1){
               parts.push(`${notes[0].fret}.${texString(notes[0])}.${value}${texNoteEffects(notes[0])}`);
             } else {
@@ -22427,8 +22484,9 @@ function renderPlaylistPanel(p){
         <span class="badge" id="size-badge">${icon("drive", 12)} ~${fmtSize(estBytesTotal)} při ${bitrate()}</span>
       </div>
       <div class="actions">
-        <button class="sp-fab" id="pl-play-all" title="Přehrát playlist">${icon("play", 22)}</button>
-        <button class="btn" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
+        <button class="sp-fab" id="pl-play-all" title="Přehrát tenhle playlist">${icon("play", 22)}</button>
+        <button class="btn" id="pl-play">${icon("play", 14)}Přehrát playlist</button>
+        <button class="btn secondary" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
         <button class="btn secondary" id="dl-selected">${icon("download", 14)}Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
         <button class="btn secondary" id="watch-videos">${icon("video", 14)}Přehrát videa</button>
         <button class="btn secondary" id="add-all-cart">${icon("add", 14)}Přidat vše do playlistu</button>
@@ -22527,7 +22585,21 @@ function renderPlaylistPanel(p){
 
   // Green FAB = play, as everywhere in the reference. The playlist's own
   // "play" is the video player, which is what this app already had.
-  el("pl-play-all").onclick = () => el("watch-videos").click();
+  // Just this playlist, from the top — nothing is added to the queue, and
+  // next/previous walk this playlist only.
+  const playThis = () => {
+    const list = (p.tracks || []).filter(t => t.videoId).map(t => ({
+      key: "yt:" + t.videoId, title: t.title, artists: t.artists, thumbnail: t.thumbnail,
+      videoId: t.videoId, duration_seconds: t.duration_seconds, source: "youtube",
+      url: `https://music.youtube.com/watch?v=${t.videoId}`,
+      sourcePlaylist: p.title, sourcePlaylistId: p.browseId,
+    }));
+    if(!list.length){ showToast("V playlistu nejsou žádné skladby k přehrání"); return; }
+    Player.playLocalQueue(list);
+    showToast(`Hraje playlist „${p.title}“ — ${list.length} skladeb`);
+  };
+  el("pl-play-all").onclick = playThis;
+  el("pl-play").onclick = playThis;
 
   el("dl-all").onclick = () => {
     startDownload({
@@ -22555,7 +22627,7 @@ function renderPlaylistPanel(p){
       if(addToQueue({
         key: "yt:"+t.videoId, title: t.title, artists: t.artists,
         duration_seconds: t.duration_seconds, url: `https://music.youtube.com/watch?v=${t.videoId}`,
-        thumbnail: t.thumbnail, source: "youtube",
+        thumbnail: t.thumbnail, source: "youtube", sourcePlaylist: p.title, sourcePlaylistId: p.browseId,
       }, true)) n++;
     });
     showToast(n ? `Přidáno ${n} skladeb do playlistu` : "Všechny už byly v playlistu");
@@ -22600,7 +22672,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
   addBtn.onclick = () => addToQueue({
     key: "yt:"+t.videoId, title: t.title, artists: t.artists,
     duration_seconds: t.duration_seconds, url: `https://music.youtube.com/watch?v=${t.videoId}`,
-    thumbnail: t.thumbnail, source: "youtube",
+    thumbnail: t.thumbnail, source: "youtube", sourcePlaylist, sourcePlaylistId,
   });
   playBtn.onclick = () => Player.play({
     key: "yt:"+t.videoId, title: t.title, artists: t.artists,
@@ -22711,6 +22783,33 @@ function renderQueueBadge(){
   el("pb-queue-count").textContent = loadQueue().length;
   refreshHomeRail();
 }
+// The queue in blocks, one per playlist its songs were added from (songs
+// added one by one form blocks of their own), so it's clear where one
+// playlist ends and the next begins. → [{id, title, items}] in queue order.
+function queueGroups(queue){
+  const groups = [];
+  queue.forEach(c => {
+    const id = c.sourcePlaylistId || "";
+    const last = groups[groups.length - 1];
+    if(last && last.id === id) last.items.push(c);
+    else groups.push({id, title: id ? (c.sourcePlaylist || "Playlist") : "Jednotlivé skladby", items: [c]});
+  });
+  return groups;
+}
+// A block's header: its playlist, how many songs and how long; ▶ plays just
+// that block, from its first song, and carries on into the rest of the queue.
+function queueGroupHead(g, cls){
+  const h = document.createElement("div");
+  h.className = cls;
+  const sec = g.items.reduce((a, c) => a + (c.duration_seconds || 0), 0);
+  h.innerHTML = `<span class="qg-ic">${icon(g.id ? "queue" : "note", 12)}</span>
+    <span class="qg-t" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</span>
+    <span class="qg-n">${g.items.length}${sec ? " · " + fmtLength(sec) : ""}</span>
+    <button type="button" class="qg-play" title="Přehrát od začátku tohohle bloku">${icon("play", 10)}</button>`;
+  h.querySelector(".qg-play").onclick = (e) => { e.stopPropagation(); Player.playQueueFrom(g.items[0]); };
+  return h;
+}
+
 function renderQueueDrawer(){
   const queue = loadQueue();
   const items = el("queue-items");
@@ -22718,7 +22817,11 @@ function renderQueueDrawer(){
     items.innerHTML = `<div class="empty" style="padding:24px 10px">Playlist je prázdný.<br>Přidávej skladby tlačítkem ${icon("add", 13)} u playlistů nebo písní.</div>`;
   } else {
     items.innerHTML = "";
-    queue.forEach(c=>{
+    const groups = queueGroups(queue);
+    const grouped = groups.some(g => g.id);
+    groups.forEach(g => {
+    if(grouped) items.appendChild(queueGroupHead(g, "q-group"));
+    g.items.forEach(c=>{
       const owned = isOwned(c.title, c.artists);
       const row = document.createElement("div");
       row.className = "cart-item";
@@ -22733,7 +22836,9 @@ function renderQueueDrawer(){
       `;
       row.querySelector(".play").onclick = () => Player.playQueueFrom(c);
       row.querySelector(".rm").onclick = () => removeFromQueue(c.key);
+      if(grouped) row.classList.add("in-group");
       items.appendChild(row);
+    });
     });
   }
   const totalSec = queue.reduce((s,c)=>s+(c.duration_seconds||0),0);
