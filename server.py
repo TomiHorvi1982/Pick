@@ -864,7 +864,137 @@ _BROWSE_CZ = ["české {q} kapely", "česká {q} hudba interpreti", "czech {q} b
               "čeští {q} zpěváci", "{q} czech artists", "české {q} legendy",
               "slovenské {q} kapely", "nejlepší čeští {q} interpreti",
               "česká {q} scéna", "mladé české {q} kapely",
-              "český {q} underground", "moravské {q} kapely"]
+              "český {q} underground", "moravské {q} kapely",
+              "české {q} skupiny", "{q} kapely z čech", "slovenské {q} skupiny",
+              "česká {q} alba", "český {q} 90. léta", "český {q} 80. léta",
+              "{q} česky", "slovak {q} band", "česká {q} klasika", "nové české {q} kapely"]
+
+# ------------------------------------------------- Bandzone (Czech bands)
+#
+# YouTube Music knows the big Czech names; Bandzone.cz knows the scene — tens
+# of thousands of Czech and Slovak bands, by genre, sorted by fans. Its genre
+# filter takes one numeric id per request (?g=31), the order is a signal
+# (orderType=fan_count&do=orderType) and pages go by &p=N. A merged genre
+# (Rock & Metal) takes turns over its ids, most-followed first in each.
+_BZ_GENRES = {
+    "rock & metal": [40, 31, 53, 27, 50, 15, 7, 32, 33, 38, 54, 36, 88, 93],
+    "rock": [40, 53, 84, 3, 54, 36], "metal": [31, 27, 50, 15, 7, 32, 33, 14, 88, 93, 95],
+    "hard rock": [53], "punk": [38, 96], "punk rock": [38, 96], "pop": [34], "indie": [29], "indie rock": [29],
+    "alternative": [3, 60], "alternative rock": [3], "hip hop": [28, 42], "rap": [42, 28], "folk": [21],
+    "country": [9, 5], "blues": [6], "jazz": [30, 97], "electronic": [17, 64, 65, 66, 16],
+    "techno": [64], "house": [65], "drum and bass": [66], "dubstep": [73], "ambient": [4], "trance": [67],
+    "reggae": [43, 47], "ska": [47], "soul": [49], "classical": [12], "acoustic": [2], "emo": [19],
+    "grunge": [23], "progressive rock": [36], "stoner rock": [54], "post-rock": [83], "hardcore punk": [26],
+    "singer-songwriter": [2, 21], "world music": [52], "funk": [22], "shoegaze": [82],
+}
+# The ten Czech genres the app offers: each one searches YouTube Music under
+# every one of its styles and draws on the matching Bandzone genres.
+_CZ_GENRES = {
+    "rock & metal": (["rock", "metal", "hard rock", "heavy metal", "punk rock", "thrash metal", "rock'n'roll",
+                      "alternative rock", "death metal", "metalcore"],
+                     [40, 31, 53, 27, 38, 50, 15, 3, 7, 32, 33, 54, 36, 23, 45, 57, 96, 14, 25, 39, 26]),
+    "pop": (["pop", "popové", "dance pop"], [34]),
+    "hip hop & rap": (["hip hop", "rap", "trap"], [28, 42]),
+    "folk & country": (["folk", "country", "trampské", "bluegrass"], [21, 9, 5]),
+    "elektronika": (["elektronická", "techno", "house", "drum and bass"], [17, 64, 65, 66, 73, 67]),
+    "jazz & blues": (["jazz", "blues", "swing"], [30, 6, 97]),
+    "písničkáři": (["písničkáři", "singer-songwriter", "šanson", "akustické"], [2, 94]),
+    "alternativa & indie": (["indie", "alternativní", "indie rock", "post-rock"], [29, 60, 83, 82]),
+    "reggae & ska": (["reggae", "ska", "dub"], [43, 47]),
+    "soul & funk": (["soul", "funk", "r&b"], [49, 22]),
+}
+_BZ_CACHE: dict = {}          # (gid, page) -> {"ts", "bands"}
+_BZ_TTL = 6 * 3600
+_BZ_LOCK = threading.Lock()
+_BZ_PAT = _re_mod.compile(
+    r'<div class="profileLink band[^"]*"><a href="(/[^"]+)" title="[^"]*"><img src="([^"]+)"[^>]*/>'
+    r'<div class="description cutter"><h4 class="title cutter">([^<]+)</h4><span class="genre cutter">([^<]*)</span>')
+
+
+def _bz_page(gid: int, page: int) -> list:
+    """One page (20 bands) of a Bandzone genre, most fans first."""
+    key = (gid, page)
+    hit = _BZ_CACHE.get(key)
+    if hit and time.time() - hit["ts"] < _BZ_TTL:
+        return hit["bands"]
+    import http.cookiejar
+    import html as _html
+    import urllib.request as _ur
+    bands = []
+    try:
+        with _BZ_LOCK:
+            op = _ur.build_opener(_ur.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            op.addheaders = [("User-Agent", _CHART_UA)]
+            url = f"https://bandzone.cz/kapely.html?g={int(gid)}&orderType=fan_count&do=orderType&p={max(1, int(page))}"
+            body = op.open(url, timeout=12).read().decode("utf-8", "ignore")
+        for href, img, name, genre in _BZ_PAT.findall(body):
+            bands.append({"name": _html.unescape(name).strip(), "image": img,
+                          "bandzone": "https://bandzone.cz" + href, "genre": _html.unescape(genre), "source": "bandzone"})
+    except Exception:                                          # noqa: BLE001 — a shelf without Bandzone is fine
+        bands = []
+    _BZ_CACHE[key] = {"ts": time.time(), "bands": bands}
+    if len(_BZ_CACHE) > 600:
+        _BZ_CACHE.clear()
+    return bands
+
+
+def _name_key(name: str) -> str:
+    """"Kabát" and "KABAT" are one band."""
+    import unicodedata
+    n = unicodedata.normalize("NFKD", (name or "").lower())
+    return _re_mod.sub(r"\W+", "", "".join(c for c in n if not unicodedata.combining(c)))
+
+
+def _bz_ids_for(q: str) -> list:
+    k = q.strip().lower()
+    if k in _CZ_GENRES:
+        return _CZ_GENRES[k][1]
+    return _BZ_GENRES.get(k) or _BZ_GENRES.get(k.replace("&", "and")) or []
+
+
+_CZ_LINKS: dict = {}
+
+
+@app.get("/api/artist/cz-links")
+def artist_cz_links(name: str):
+    """Where else this artist is: a Bandzone profile (Czech/Slovak bands) and
+    Supermusic (chords and lyrics). Only what is actually found."""
+    key = name.strip().lower()
+    if not key:
+        return {}
+    if key in _CZ_LINKS:
+        return _CZ_LINKS[key]
+    import html as _html
+    import urllib.parse as _up
+    import urllib.request as _ur
+    want = _name_key(key)
+    out = {}
+
+    def fetch(url):
+        req = _ur.Request(url, headers={"User-Agent": _CHART_UA})
+        return _ur.urlopen(req, timeout=10).read().decode("utf-8", "ignore")
+    try:
+        body = fetch("https://bandzone.cz/kapely.html?q=" + _up.quote(name.strip()))
+        for href, img, nm, genre in _BZ_PAT.findall(body):
+            if _name_key(_html.unescape(nm)) == want:
+                out["bandzone"] = "https://bandzone.cz" + href
+                out["bandzone_genre"] = _html.unescape(genre)
+                break
+    except Exception:                                          # noqa: BLE001
+        pass
+    try:
+        body = fetch("https://supermusic.cz/najdi.php?typhladania=skupina&hladane=" + _up.quote(name.strip()))
+        for sid, nm in _re_mod.findall(r'skupina\.php\?idskupiny=(\d+)[^>]*>([^<]+)', body):
+            n = _html.unescape(nm).strip()
+            # "Renčín, Vladimír" → "Vladimír Renčín" as well
+            alt = " ".join(reversed([x.strip() for x in n.split(",", 1)])) if "," in n else n
+            if want in (_name_key(n), _name_key(alt)):
+                out["supermusic"] = f"https://supermusic.cz/skupina.php?idskupiny={sid}"
+                break
+    except Exception:                                          # noqa: BLE001
+        pass
+    _CZ_LINKS[key] = out
+    return out
 
 
 @app.get("/api/artists/browse")
@@ -888,29 +1018,74 @@ def browse_artists(q: str, region: str = "intl", offset: int = 0, limit: int = 1
         _BROWSE_ARTISTS_CACHE[key] = st
 
     variants = _BROWSE_CZ if region == "cz" else _BROWSE_INTL
+    # A merged Czech genre asks under each of its styles in turn.
+    terms = _CZ_GENRES[q.lower()][0] if region == "cz" and q.lower() in _CZ_GENRES else [q]
+    variants = [v.replace("{q}", t) for v in variants for t in terms]
     need = offset + limit
     if cap:
         need = min(need, cap)
-    # Keep asking new phrasings until the page is full or they run out.
-    while len(st["items"]) < need and st["variant"] < len(variants):
-        phrase = variants[st["variant"]].format(q=q)
-        st["variant"] += 1
-        try:
-            hits = yt().search(phrase, filter="artists", limit=30)
-        except Exception:
-            continue
-        for a in hits:
-            bid = a.get("browseId")
-            if not bid or bid in st["seen"] or _NOT_AN_ARTIST.search(a.get("artist") or ""):
+    # Czech genres also draw on Bandzone, a page of each genre id in turn;
+    # the shelf takes turns between the two sources so both show up early.
+    bz_ids = _bz_ids_for(q) if region == "cz" else []
+    for k, v in (("bz_round", 0), ("bz_i", 0), ("names", set()), ("pool_bz", []), ("pool_yt", []), ("turn", 0)):
+        st.setdefault(k, v)
+    bz_done = lambda: not bz_ids or st["bz_round"] >= 15
+
+    def fill_bz():
+        # Two genres at a time, interleaved — rock, metal, rock, metal… —
+        # so one genre's page does not fill the shelf on its own.
+        while not st["pool_bz"] and not bz_done():
+            got = []
+            for _ in range(min(2, len(bz_ids))):
+                gid = bz_ids[st["bz_i"] % len(bz_ids)]
+                page = st["bz_round"] + 1
+                st["bz_i"] += 1
+                if st["bz_i"] % len(bz_ids) == 0:
+                    st["bz_round"] += 1
+                got.append(_bz_page(gid, page))
+            for i in range(max(map(len, got))):
+                st["pool_bz"].extend(g[i] for g in got if i < len(g))
+
+    def fill_yt():
+        while not st["pool_yt"] and st["variant"] < len(variants):
+            phrase = variants[st["variant"]]
+            st["variant"] += 1
+            try:
+                hits = yt().search(phrase, filter="artists", limit=30)
+            except Exception:
                 continue
-            st["seen"].add(bid)
-            st["items"].append({"name": a.get("artist"), "browseId": bid,
-                                "image": _best_thumb(a.get("thumbnails"))})
+            for a in hits:
+                bid = a.get("browseId")
+                if not bid or bid in st["seen"] or _NOT_AN_ARTIST.search(a.get("artist") or ""):
+                    continue
+                st["seen"].add(bid)
+                st["pool_yt"].append({"name": a.get("artist"), "browseId": bid,
+                                      "image": _best_thumb(a.get("thumbnails"))})
+
+    # Keep asking until the page is full or both sources run out.
+    while len(st["items"]) < need:
+        fill_yt()
+        fill_bz()
+        if not st["pool_yt"] and not st["pool_bz"]:
+            break
+        first, second = ("pool_bz", "pool_yt") if st["turn"] % 2 else ("pool_yt", "pool_bz")
+        pool = st[first] or st[second]
+        st["turn"] += 1
+        # A few at a time from each, so neither source crowds out the other.
+        for _ in range(3):
+            if not pool:
+                break
+            item = pool.pop(0)
+            nk = _name_key(item["name"])
+            if nk and nk not in st["names"]:
+                st["names"].add(nk)
+                st["items"].append(item)
 
     items = st["items"][:cap] if cap else st["items"]
     page = items[offset: offset + limit]
     more = offset + limit < len(items) or (
-        st["variant"] < len(variants) and not (cap and len(items) >= cap))
+        (st["variant"] < len(variants) or not bz_done() or st["pool_yt"] or st["pool_bz"])
+        and not (cap and len(items) >= cap))
     return {"artists": page, "hasMore": more}
 
 
