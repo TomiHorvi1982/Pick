@@ -4281,6 +4281,18 @@ def picktabs_list():
 
 @app.post("/api/picktabs")
 def picktabs_add(req: PickTabRequest):
+    return _picktab_upsert(req)
+
+
+_PICK_TABS_LOCK = threading.Lock()
+
+
+def _picktab_upsert(req: "PickTabRequest") -> dict:
+    with _PICK_TABS_LOCK:
+        return _picktab_upsert_locked(req)
+
+
+def _picktab_upsert_locked(req: "PickTabRequest") -> dict:
     tabs = _pick_tabs()
     old = next((t for t in tabs if t.get("songId") == req.songId), None)
     now = int(time.time())
@@ -4303,6 +4315,151 @@ def picktabs_remove(song_id: int):
     tabs = [t for t in _pick_tabs() if t.get("songId") != song_id]
     PICK_TABS_PATH.write_text(json.dumps(tabs, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True}
+
+
+# ------------------------------------------- Pick Tabs: favourites synced
+#
+# A song, playlist or band added to the favourites has its tabs looked up on
+# Songsterr in the background and put into the catalog. One worker thread,
+# one request at a time with a pause between — Songsterr is a guest here.
+
+_PT_SYNC = {"queue": [], "running": False, "done": 0, "total": 0, "added": 0,
+            "current": "", "label": "", "finished_at": 0}
+_PT_SYNC_LOCK = threading.Lock()
+
+
+class PickSyncRequest(BaseModel):
+    kind: str                     # "song" | "playlist" | "band"
+    title: str = ""
+    artist: str = ""
+    playlistId: str = ""
+    label: str = ""
+
+
+def _base_title(t: str) -> str:
+    """"Master of Puppets (Remastered)" → "master of puppets"."""
+    t = _re_mod.sub(r"\s*[\(\[].*?[\)\]]", "", t or "")
+    t = _re_mod.split(r"\s+[-–]\s+", t)[0]
+    return _name_key(t)
+
+
+def _songsterr_search(pattern: str, size: int = 20) -> list:
+    r = httpx.get("https://www.songsterr.com/api/songs", params={"pattern": pattern, "size": size},
+                  headers={"User-Agent": APP_UA}, timeout=15, follow_redirects=True)
+    r.raise_for_status()
+    data = r.json()
+    recs = data if isinstance(data, list) else (data.get("records", []) if isinstance(data, dict) else [])
+    return [x for x in recs if x.get("songId") is not None and not x.get("isJunk")]
+
+
+def _guitar_index(rec: dict) -> int:
+    for k in ("popularTrackGuitar", "defaultTrack", "popularTrack"):
+        if isinstance(rec.get(k), int) and rec[k] >= 0:
+            return rec[k]
+    return 0
+
+
+def _rec_to_tab(rec: dict, used: str) -> "PickTabRequest":
+    tracks = rec.get("tracks") or []
+    i = _guitar_index(rec)
+    t = tracks[i] if 0 <= i < len(tracks) else {}
+    return PickTabRequest(songId=int(rec["songId"]), trackIndex=i, title=rec.get("title") or "",
+                          artist=rec.get("artist") or "", usedWith=used,
+                          track=" — ".join(x for x in (t.get("instrument"), t.get("name")) if x))
+
+
+def _match_song(artist: str, title: str):
+    """The Songsterr tab of one song — only when artist and title both agree,
+    a wrong tab in the catalog being worse than none."""
+    want_a, want_t = _name_key(artist.split(",")[0]), _base_title(title)
+    if not want_t:
+        return None
+    for rec in _songsterr_search(f"{artist.split(',')[0]} {title}".strip(), 10):
+        rt = _base_title(rec.get("title") or "")
+        # "Kabát" is Kabát, or one of "Kabát & Friends" — not "Kabát revival".
+        parts = [_name_key(x) for x in _re_mod.split(r"\s*(?:,|&|/|\bfeat\.?|\bft\.?|\band\b|\bx\b)\s*", rec.get("artist") or "", flags=_re_mod.I)]
+        if want_a and want_a not in parts and _name_key(rec.get("artist") or "") != want_a:
+            continue
+        if rt == want_t or (len(rt) > 3 and (rt in want_t or want_t in rt)):
+            return rec
+    return None
+
+
+def _sync_jobs_for(req: PickSyncRequest) -> list:
+    """The request as a list of (label, callable returning [records])."""
+    used = req.label or "Oblíbené"
+    if req.kind == "song":
+        return [(f"{req.artist} – {req.title}", lambda: [r for r in [_match_song(req.artist, req.title)] if r], used)]
+    if req.kind == "band":
+        def band():
+            want = _name_key(req.artist)
+            seen, out = set(), []
+            for rec in _songsterr_search(req.artist, 40):
+                if _name_key(rec.get("artist") or "") != want:
+                    continue
+                bt = _base_title(rec.get("title") or "")
+                if bt and bt not in seen:
+                    seen.add(bt)
+                    out.append(rec)
+            return out[:25]
+        return [(req.artist, band, used)]
+    if req.kind == "playlist":
+        try:
+            d = playlist_detail(req.playlistId, track_limit=150)
+        except Exception:
+            return []
+        if not isinstance(d, dict):
+            return []
+        used = req.label or f"Playlist {d.get('title') or ''}".strip()
+        return [(f"{t.get('artists')} – {t.get('title')}",
+                 (lambda a=t.get("artists") or "", ti=t.get("title") or "": [r for r in [_match_song(a, ti)] if r]),
+                 used) for t in d.get("tracks") or []]
+    return []
+
+
+def _pt_sync_worker():
+    while True:
+        with _PT_SYNC_LOCK:
+            if not _PT_SYNC["queue"]:
+                _PT_SYNC.update(running=False, current="", finished_at=time.time())
+                return
+            label, fn, used = _PT_SYNC["queue"].pop(0)
+            _PT_SYNC["current"] = label
+        try:
+            have = {t.get("songId") for t in _pick_tabs()}
+            for rec in fn():
+                if int(rec["songId"]) not in have:
+                    _picktab_upsert(_rec_to_tab(rec, used))
+                    with _PT_SYNC_LOCK:
+                        _PT_SYNC["added"] += 1
+        except Exception:                                      # noqa: BLE001 — one song failing is not the sync failing
+            pass
+        with _PT_SYNC_LOCK:
+            _PT_SYNC["done"] += 1
+        time.sleep(0.6)
+
+
+@app.post("/api/picktabs/sync")
+def picktabs_sync(req: PickSyncRequest):
+    jobs = _sync_jobs_for(req)
+    with _PT_SYNC_LOCK:
+        if not _PT_SYNC["running"]:
+            _PT_SYNC.update(done=0, total=0, added=0)
+        _PT_SYNC["queue"].extend(jobs)
+        _PT_SYNC["total"] += len(jobs)
+        _PT_SYNC["label"] = req.label or req.artist or req.title
+        start = not _PT_SYNC["running"] and bool(_PT_SYNC["queue"])
+        if start:
+            _PT_SYNC["running"] = True
+    if start:
+        threading.Thread(target=_pt_sync_worker, daemon=True).start()
+    return picktabs_sync_status()
+
+
+@app.get("/api/picktabs/sync")
+def picktabs_sync_status():
+    with _PT_SYNC_LOCK:
+        return {k: _PT_SYNC[k] for k in ("running", "done", "total", "added", "current", "finished_at")}
 
 
 def _pick_tab_rows() -> list:

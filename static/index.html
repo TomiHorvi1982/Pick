@@ -1325,7 +1325,12 @@
     cursor:grab;touch-action:none}
   .nm-tabtop-viewport.dragging{cursor:grabbing}
   .nm-tabtop-host{background:#f4f4f2;width:max-content;min-width:100%;height:200px}
-  .pick-chip.on{border-color:var(--accent);color:var(--accent)}
+  .tabs-part{display:flex;align-items:center;gap:8px;padding:14px 10px 6px;font-size:12px;font-weight:700;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--sub)}
+  .tabs-part.pick{color:var(--accent)}
+  .tabs-part.local{margin-top:14px;border-top:1px solid var(--border);padding-top:18px}
+  .tabs-part .n{font-weight:500;letter-spacing:0}
+  .tabs-part-empty{padding:4px 10px 10px;color:var(--sub);font-size:13px}
   .pt-rm{border:none;background:none;color:var(--sub);cursor:pointer;padding:2px;opacity:0}
   .lib-trow:hover .pt-rm{opacity:1}
   .pt-rm:hover{color:#fff}
@@ -3387,6 +3392,10 @@
   /* downloads and separations: a slim strip beside the arrows, not a panel */
   .job-strip{display:flex;flex-direction:column;justify-content:center;gap:3px;width:260px;margin-left:6px;cursor:pointer}
   .job-strip[hidden]{display:none}
+  .pt-sync{display:flex;align-items:center;gap:6px;margin-left:8px;padding:4px 10px;border-radius:14px;font-size:12px;
+    font-weight:600;color:var(--accent);background:color-mix(in srgb, var(--accent) 14%, transparent);white-space:nowrap;cursor:default}
+  .pt-sync[hidden]{display:none}
+  .pt-sync .ic-svg{animation:spin 1.1s linear infinite}
   .js-row{position:relative;height:17px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.07);
     border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:5px;padding:0 7px;font-size:10.5px;color:var(--text)}
   .js-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 55%,transparent),color-mix(in srgb,var(--accent2,var(--accent)) 45%,transparent));
@@ -3480,6 +3489,7 @@
     <button class="sp-round" id="nav-back" title="Zpět">‹</button>
     <button class="sp-round" id="nav-fwd" title="Vpřed">›</button>
     <div class="job-strip" id="job-strip" hidden title="Stahování a separace — klik ukáže podrobný výpis"></div>
+    <div class="pt-sync" id="pt-sync" hidden></div>
   </div>
   <div class="sp-center">
     <button class="sp-home" id="sp-home" title="Domů" aria-label="Domů">
@@ -6084,6 +6094,7 @@ function toggleFavPlaylist(playlist){
   else { list.unshift(playlist); added = true; }
   saveFavPlaylists(list);
   renderFavPlaylists();
+  if(added) PickSync.request({kind: "playlist", playlistId: playlist.browseId, label: `Playlist ${playlist.title || ""}`.trim()});
   return added;
 }
 // ======================================================================
@@ -6105,6 +6116,7 @@ const FavBands = (() => {
       addToMyLibrary("artist", {id: idOf(a), name: a.name, browseId: a.browseId || a.channelId || "",
         thumbnail: a.image || a.thumbnail || "", bandzone: a.bandzone || ""});
       showToast(`${a.name} přidána do oblíbených kapel`);
+      PickSync.request({kind: "band", artist: a.name, label: `Kapela ${a.name}`});
     }
     refreshHomeRail();
   }
@@ -6133,6 +6145,7 @@ const FavSongs = (() => {
         videoId: t.videoId || "", url: t.url || "", relPath: t.relPath || "", source: t.relPath ? "local" : (t.source || ""),
         duration_seconds: t.duration_seconds, addedAt: Date.now()});
       added = true;
+      if(t.title) PickSync.request({kind: "song", artist: t.artists || "", title: t.title, label: "Oblíbené songy"});
     }
     save(l);
     refreshHomeRail();
@@ -6150,6 +6163,48 @@ const FavSongs = (() => {
   }
   function remove(favKey){ save(list().filter(x => x.favKey !== favKey)); refreshHomeRail(); syncBtn(); }
   return {list, has, toggle, syncBtn, remove};
+})();
+
+// ======================================================================
+// Favourites bring their tabs: a song, playlist or band starred is looked
+// up on Songsterr in the background (server side) and its tabs land in
+// Taby → Pick Tabs. The pill next to the job strip spins while it runs —
+// the app should stay open until it's gone.
+// ======================================================================
+const PickSync = (() => {
+  let timer = null;
+  function paint(st){
+    const box = el("pt-sync");
+    if(!box) return;
+    box.hidden = !st.running;
+    if(!st.running) return;
+    box.innerHTML = `${icon("sync", 13)}<span>Taby ${st.done}/${st.total}</span>`;
+    box.title = `Hledám taby ke tvým oblíbeným na Songsterru — nevypínej aplikaci.\n` +
+      `${st.current ? "Teď: " + st.current + "\n" : ""}Nalezeno nových: ${st.added}`;
+  }
+  async function poll(){
+    let st = null;
+    try{ st = await (await fetch("/api/picktabs/sync")).json(); }catch(e){}
+    if(!st){ timer = setTimeout(poll, 4000); return; }
+    paint(st);
+    if(st.running){ timer = setTimeout(poll, 1500); return; }
+    timer = null;
+    if(st.total){
+      showToast(st.added ? `Pick Tabs: ${st.added} nových tabů v sekci Taby` : "Pick Tabs: žádné nové taby nenalezeny");
+      try{ if(!el("tabs-section").hidden) TabsLib.reload(); }catch(e){}
+    }
+  }
+  async function request(body){
+    try{
+      const st = await (await fetch("/api/picktabs/sync", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)})).json();
+      paint(st);
+    }catch(e){ return; }
+    if(!timer){ timer = -1; poll(); }        // one watcher, however many stars
+  }
+  // A sync still running from before (the window was reloaded) shows up too.
+  fetch("/api/picktabs/sync").then(r => r.json()).then(st => { if(st.running && !timer){ timer = -1; poll(); } }).catch(() => {});
+  return {request};
 })();
 
 // Favourites (playlists, albums, artists) are listed in the library rail only;
@@ -6436,7 +6491,6 @@ const TabsLib = (() => {
     try{ dirs = (await (await fetch("/api/tabfiles/dirs")).json()).dirs || []; }catch(e){ dirs = []; }
     const box = el("tabs-dirs");
     box.innerHTML = "";
-    if(files.length) paintPickChip();
     dirs.forEach(d => {
       const c = document.createElement("span");
       c.className = "chip";
@@ -6451,29 +6505,7 @@ const TabsLib = (() => {
   }
   async function loadList(refresh){
     try{ files = (await (await fetch("/api/tabfiles/list" + (refresh ? "?refresh=1" : ""))).json()).files || []; }catch(e){ files = []; }
-    paintPickChip();
     paintList();
-  }
-  // Pick Tabs, the catalog of Songsterr tabs, as a folder next to the mapped
-  // ones: click it to see just the catalog, again to see everything.
-  function paintPickChip(){
-    const box = el("tabs-dirs");
-    let c = box.querySelector(".pick-chip");
-    const n = files.filter(f => f.songsterr).length;
-    if(!c){
-      c = document.createElement("span");
-      c.className = "chip pick-chip";
-      c.style.cursor = "pointer";
-      c.title = "Taby ze Songsterru, které aplikace otevřela — klikni pro zobrazení jen jich";
-      c.onclick = () => {
-        const f = el("tabs-filter");
-        f.value = f.value === "Pick Tabs" ? "" : "Pick Tabs";
-        paintList();
-        c.classList.toggle("on", f.value === "Pick Tabs");
-      };
-      box.prepend(c);
-    }
-    c.innerHTML = `${icon("star", 12)}<span>Pick Tabs (${n})</span>`;
   }
   let sortMode = ListSort.load("tabs");
   function paintList(){
@@ -6485,12 +6517,37 @@ const TabsLib = (() => {
         Soubory zůstanou, kde jsou — aplikace je jen čte.</div>`;
       return;
     }
-    if(!shown.length){ box.innerHTML = `<div class="empty" style="padding:28px 10px">${q ? "Nic neodpovídá hledání." : "V namapovaných složkách nejsou žádné taby."}</div>`; return; }
+    if(!shown.length && q){ box.innerHTML = `<div class="empty" style="padding:28px 10px">Nic neodpovídá hledání.</div>`; return; }
     box.innerHTML = `<div class="lib-thead tab-row"><span class="c-idx">#</span><button type="button" data-lsort="title">Píseň</button>
       <button type="button" data-lsort="artist">Interpret</button><button type="button" data-lsort="album">Složka</button>
       <span>Formát</span><span></span></div>`;
     ListSort.wire(box.querySelector(".lib-thead"), () => sortMode, (mode) => { sortMode = mode; ListSort.save("tabs", mode); paintList(); });
-    ListSort.sort(shown, sortMode, f => ({title: f.title, artist: f.artist, album: f.folder})).slice(0, 1500).forEach((f, i) => {
+    // Two parts, always in this order: the tabs from Songsterr (Pick Tabs)
+    // first, then — under a line — the files from the mapped folders. The
+    // sort applies inside each part.
+    const sortKey = f => ({title: f.title, artist: f.artist, album: f.folder});
+    const pick = ListSort.sort(shown.filter(f => f.songsterr), sortMode, sortKey);
+    const local = ListSort.sort(shown.filter(f => !f.songsterr), sortMode, sortKey);
+    const part = (title, n, cls) => {
+      const h = document.createElement("div");
+      h.className = "tabs-part " + cls;
+      h.innerHTML = `${icon(cls === "pick" ? "star" : "folder", 13)}<span>${escapeHtml(title)}</span><span class="n">${n}</span>`;
+      box.appendChild(h);
+    };
+    const rows = [];
+    part("Pick Tabs — ze Songsterru", pick.length, "pick");
+    if(!pick.length){
+      const e = document.createElement("div");
+      e.className = "tabs-part-empty";
+      e.textContent = q ? "Nic neodpovídá hledání." : "Zatím nic. Každý tab, který otevřeš ze Songsterru (v mixu nebo v přehrávači), se objeví tady.";
+      box.appendChild(e);
+    }
+    pick.forEach(f => rows.push(f));
+    const pickCount = rows.length;
+    local.slice(0, 1500).forEach(f => rows.push(f));
+    rows.forEach((f, k) => {
+      if(k === pickCount) part("Z tvého počítače", local.length, "local");
+      const i = k < pickCount ? k : k - pickCount;
       const row = document.createElement("div");
       row.className = "lib-trow tab-row";
       row.innerHTML = `<span class="c-idx">${i + 1}</span>
@@ -6517,6 +6574,7 @@ const TabsLib = (() => {
       row.onclick = () => open(f);
       box.appendChild(row);
     });
+    if(!local.length && dirs.length) part("Z tvého počítače", 0, "local");
   }
   el("tabs-filter").addEventListener("input", paintList);
   el("tabs-refresh").onclick = () => loadList(true);
@@ -7212,7 +7270,7 @@ const TabsLib = (() => {
     if(el("tabs-player").hidden || el("tabs-section").hidden) return;
     if(e.code === "Space" && !e.target.closest("input, select, textarea")){ e.preventDefault(); if(api) api.playPause(); }
   });
-  return {show, open, recent};
+  return {show, open, recent, reload: () => loadList(false)};
 })();
 
 // ======================================================================
@@ -7961,6 +8019,9 @@ const ICONS = (() => {
     moises:
       line("M3 12h2l1.2-3 1.6 6 1.4-4.5 1 1.5h1.3") +
       line("M11.5 12c2.5 0 3.3-5.6 6.4-5.6H21M11.5 12c2.5 0 3.3 5.6 6.4 5.6H21"),
+    sync:
+      line("M19.5 12a7.5 7.5 0 0 1-12.8 5.3M4.5 12a7.5 7.5 0 0 1 12.8-5.3") +
+      line("M17.6 3.4v3.6h-3.6M6.4 20.6V17h3.6"),
     starFilled:
       solid("M12 3.3l2.63 5.33 5.88.86-4.25 4.15 1 5.86L12 16.74l-5.26 2.76 1-5.86-4.25-4.15 5.88-.86Z"),
     back:
