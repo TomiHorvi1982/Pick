@@ -1593,6 +1593,10 @@
   .ab-fav{display:inline-flex;align-items:center;gap:6px;margin:4px 0 8px;padding:6px 12px;border-radius:16px;
     border:1px solid var(--line,#444);background:none;color:var(--text,#fff);font:inherit;font-size:13px;cursor:pointer}
   .ab-fav.on{color:var(--accent);border-color:var(--accent)}
+  #ab-similar-btn{margin-left:6px}
+  .grid-part{grid-column:1/-1;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);
+    font-size:20px;font-weight:700;color:var(--text)}
+  .ab-similar-why{font-size:12px;color:var(--sub);margin:-4px 0 12px}
   .ab-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
   .ab-links a{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--accent);text-decoration:none}
   .ab-links a:hover{text-decoration:underline}
@@ -3694,6 +3698,7 @@
         <div class="ab-hero-body">
           <h1 id="ab-name"></h1>
           <button type="button" class="ab-fav" id="ab-fav"></button>
+          <button type="button" class="ab-fav" id="ab-similar-btn" title="Podobné kapely a interpreti — podle posluchačů, žánru a země"></button>
           <div class="ab-stats" id="ab-stats"></div>
           <div class="ab-facts" id="ab-facts"></div>
           <div class="ab-links" id="ab-links"></div>
@@ -3706,6 +3711,8 @@
       <div class="ab-sect" id="ab-photos-sect" hidden><h2>Fotky</h2><div class="ab-strip" id="ab-photos"></div></div>
       <div class="ab-sect" id="ab-videos-sect" hidden><h2>Videa</h2><div class="ab-strip" id="ab-videos"></div></div>
       <div class="ab-sect" id="ab-albums-sect" hidden><h2>Alba a singly</h2><div class="ab-albums" id="ab-albums"></div></div>
+      <div class="ab-sect" id="ab-similar-sect" hidden><h2>Podobné kapely a interpreti</h2>
+        <div class="ab-similar-why" id="ab-similar-why"></div><div class="ab-albums" id="ab-similar"></div></div>
     </div>
   </div>
 
@@ -5779,6 +5786,38 @@ const Bands = (() => {
   let pageToken = 0;
   let pageArtist = null;
 
+  // ---- similar artists: who this artist's listeners also play (YouTube
+  // Music — that already weighs country, language, style and era), then
+  // artists of the same genre from the same country (the profile's facts).
+  let similar = {names: new Set(), why: [], token: 0};
+  const nameKey = (n) => (n || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  function addSimilar(list, why){
+    const box = el("ab-similar");
+    let n = 0;
+    (list || []).forEach(a => {
+      const k = nameKey(a.name);
+      if(!k || similar.names.has(k)) return;
+      similar.names.add(k);
+      box.appendChild(tile(a));
+      n++;
+    });
+    if(n && why){ similar.why.push(why); el("ab-similar-why").textContent = "Podle: " + similar.why.join(" · "); }
+    if(n) el("ab-similar-sect").hidden = false;
+    return n;
+  }
+  async function similarByFacts(f, mine){
+    const genres = (f.genres || []).slice(0, 2);
+    if(!genres.length) return;
+    const cz = /czech|česk|slovak|slovensk/i.test(f.origin || "");
+    for(const g of genres){
+      try{
+        const d = await (await fetch(`/api/artists/browse?q=${encodeURIComponent(g)}&region=${cz ? "cz" : "intl"}&offset=0&limit=12`)).json();
+        if(mine !== pageToken) return;
+        addSimilar(d.artists, `žánr ${g}` + (cz ? " (Česko a Slovensko)" : ""));
+      }catch(e){}
+    }
+  }
+
   function paintPageStar(){
     const b = el("ab-fav");
     if(!b || !pageArtist) return;
@@ -5824,8 +5863,11 @@ const Bands = (() => {
     photo.innerHTML = a.image ? "" : icon("mic", 44);
     el("ab-stats").textContent = "Načítám…";
     ["ab-facts", "ab-bio"].forEach(id => el(id).innerHTML = "");
-    ["ab-members", "ab-events-sect", "ab-photos-sect", "ab-videos-sect", "ab-albums-sect"]
+    ["ab-members", "ab-events-sect", "ab-photos-sect", "ab-videos-sect", "ab-albums-sect", "ab-similar-sect"]
       .forEach(id => el(id).hidden = true);
+    similar = {names: new Set([nameKey(a.name)]), why: [], token: mine};
+    el("ab-similar").innerHTML = "";
+    el("ab-similar-btn").innerHTML = icon("mic", 15) + "Podobné";
 
     let data = null;
     try{
@@ -5895,6 +5937,8 @@ const Bands = (() => {
       vb.appendChild(b);
     });
 
+    addSimilar((d.related || []).map(r => ({name: r.name, browseId: r.browseId, image: r.thumbnail})),
+      "posluchači poslouchají také");
     const rel = (d.albums || []).concat(d.singles || []);
     el("ab-albums-sect").hidden = !rel.length;
     const ab = el("ab-albums");
@@ -5958,6 +6002,7 @@ const Bands = (() => {
     });
 
     paintEvents(d.events || []);
+    similarByFacts(f, pageToken);
   }
 
   function paintEvents(events){
@@ -6068,8 +6113,13 @@ const Bands = (() => {
   }
 
   el("ab-fav").onclick = () => { if(pageArtist){ FavBands.toggle(pageArtist); paintPageStar(); } };
+  el("ab-similar-btn").onclick = () => {
+    const sect = el("ab-similar-sect");
+    if(sect.hidden){ showToast("Podobné interprety se zatím nepodařilo najít"); return; }
+    sect.scrollIntoView({behavior: "smooth", block: "start"});
+  };
 
-  return {show, open, back, topFive, jumpTo, DEC, OTHER_STYLES, CZ_GENRES, region: () => region};
+  return {show, open, back, topFive, jumpTo, tile, DEC, OTHER_STYLES, CZ_GENRES, region: () => region};
 })();
 
 // ======================================================================
@@ -22341,11 +22391,30 @@ async function runSearch(more=false){
     });
   } else {
     if(!state.libraryStems) await loadLibrary();
-    const res = await fetch(`/api/tracks?q=${encodeURIComponent(q)}&limit=${lastLimit}`);
+    // Kapely a umělci: the bands themselves come first, as round tiles that
+    // open the artist's page; the songs follow under a heading.
+    const [res, ares] = await Promise.all([
+      fetch(`/api/tracks?q=${encodeURIComponent(q)}&limit=${lastLimit}`),
+      fetch(`/api/artists?q=${encodeURIComponent(q)}&limit=12`).catch(() => null),
+    ]);
     const items = await res.json();
-    resultsTitle.textContent = `Písně — „${q}“ (${items.length})`;
-    if(!items.length){ grid.innerHTML = "<div class='empty'>Nic jsem nenašel. Zkus jiný dotaz.</div>"; el("load-more-wrap").hidden = true; return; }
+    let artists = [];
+    try{ artists = ares && ares.ok ? ((await ares.json()).artists || []) : []; }catch(e){}
+    resultsTitle.textContent = artists.length
+      ? `Kapely a umělci — „${q}“ (${artists.length})` : `Písně — „${q}“ (${items.length})`;
+    if(!items.length && !artists.length){ grid.innerHTML = "<div class='empty'>Nic jsem nenašel. Zkus jiný dotaz.</div>"; el("load-more-wrap").hidden = true; return; }
     grid.innerHTML = "";
+    artists.forEach(a => {
+      const card = Bands.tile(a);
+      card.onclick = () => { setMode("songs", {keepSection: true}); Bands.open(a); };
+      grid.appendChild(card);
+    });
+    if(artists.length && items.length){
+      const h = document.createElement("div");
+      h.className = "grid-part";
+      h.textContent = `Písně — „${q}“ (${items.length})`;
+      grid.appendChild(h);
+    }
     items.forEach(t=>{
       const owned = isOwned(t.title, t.artists);
       const card = document.createElement("div");
