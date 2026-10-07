@@ -1,0 +1,2265 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guitar Performance Analyzer</title>
+<link rel="icon" type="image/png" href="/static/pick-favicon.png">
+<style>
+  /* Guitar Performance Analyzer — a page of its own inside Pick (Tools).
+     Everything on it is measured from audio by analyzer-engine.js; what was
+     not measured says NOT AVAILABLE or LOW CONFIDENCE. */
+  :root{
+    --bg:#0e0f14; --bg2:#14161d; --panel:rgba(255,255,255,.035); --panel2:rgba(255,255,255,.06);
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --text:#eceef4; --sub:#8d93a6; --dim:#5d6377;
+    --violet:#8b5cf6; --violet2:#a78bfa; --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --info:#60a5fa;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:radial-gradient(1200px 600px at 70% -10%, rgba(139,92,246,.13), transparent 60%), var(--bg);
+    color:var(--text);font:14px/1.45 Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  button,select,input{font:inherit;color:inherit}
+  .app{display:grid;grid-template-columns:68px minmax(0,1fr) 320px;grid-template-rows:60px minmax(0,1fr);height:100%}
+  /* ---- sidebar */
+  .side{grid-row:1/3;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;border-right:1px solid var(--line);background:rgba(0,0,0,.25)}
+  .side .logo{width:38px;height:38px;margin-bottom:10px;border-radius:11px;background:linear-gradient(140deg,var(--violet),#5b21b6);display:flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.04em}
+  .side button{width:52px;height:50px;border:none;border-radius:12px;background:none;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:9.5px;font-weight:600;letter-spacing:.03em;transition:background .15s,color .15s}
+  .side button:hover{background:var(--panel);color:var(--text)}
+  .side button.on{background:rgba(139,92,246,.16);color:var(--violet2)}
+  .side svg{width:19px;height:19px}
+  .side .sp{flex:1}
+  /* ---- top bar */
+  .top{grid-column:2/4;grid-row:1;display:flex;align-items:center;gap:18px;padding:0 20px;border-bottom:1px solid var(--line);min-width:0}
+  .top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+  .top .kv{display:flex;flex-direction:column;min-width:0}
+  .top .kv span{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .top .kv b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .top select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px}
+  .top .sp{flex:1}
+  .mode{flex:0 0 auto;white-space:nowrap;font-size:10.5px;font-weight:800;letter-spacing:.12em;padding:4px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--sub)}
+  .top .speeds,.top .transport{flex:0 0 auto;white-space:nowrap}
+  .top h1{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}
+  .mode.is-demo{color:var(--warn);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.08)}
+  .mode.is-live{color:var(--ok);border-color:rgba(52,211,153,.5);background:rgba(52,211,153,.08)}
+  .transport{display:flex;gap:6px}
+  .tbtn{height:34px;min-width:38px;padding:0 11px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.06em;transition:background .15s,border-color .15s}
+  .tbtn:hover{background:var(--panel2);border-color:var(--line2)}
+  .tbtn:disabled{opacity:.4;cursor:default}
+  .tbtn svg{width:13px;height:13px}
+  .tbtn.rec{color:var(--bad)}
+  .tbtn.rec.on{background:rgba(248,113,113,.16);border-color:var(--bad);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(248,113,113,.12)}}
+  /* ---- main + pages */
+  .main{grid-column:2;grid-row:2;overflow:auto;padding:20px 22px 40px;min-width:0}
+  .page{display:none;animation:fade .25s ease}
+  .page.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(14px);padding:16px}
+  .panel + .panel,.row + .panel,.panel + .row,.row + .row{margin-top:14px}
+  .row{display:grid;gap:14px}
+  .row > .panel{margin-top:0}
+  [hidden]{display:none !important}
+  .h{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .h .sp{flex:1}
+  .btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);cursor:pointer;font-weight:650;font-size:12.5px;display:inline-flex;align-items:center;gap:7px;transition:background .15s,transform .1s}
+  .btn:hover{background:rgba(255,255,255,.1)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(140deg,var(--violet),#6d28d9);border-color:transparent}
+  .btn.small{height:28px;padding:0 10px;font-size:11.5px;border-radius:8px}
+  .btn:disabled{opacity:.4;cursor:default}
+  .muted{color:var(--sub)} .dim{color:var(--dim)}
+  .na{color:var(--dim);font-weight:700;letter-spacing:.06em;font-size:.8em}
+  /* ---- setup strip */
+  .setup{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.9fr)}
+  .setup select{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:12.5px}
+  .setup .line{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .meter{position:relative;height:12px;border-radius:6px;background:rgba(0,0,0,.4);overflow:hidden;border:1px solid var(--line)}
+  .meter i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,var(--ok) 0 65%,var(--warn) 82%,var(--bad));transition:width .06s linear}
+  .clip{font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--bad);visibility:hidden}
+  .clip.on{visibility:visible}
+  .refname{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .warnbox{margin-top:10px;padding:9px 11px;border-radius:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fcd98a;font-size:12.5px}
+  .prog{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px}
+  .prog i{display:block;height:100%;width:0;background:var(--violet);transition:width .15s}
+  /* ---- score */
+  .scorewrap{grid-template-columns:270px minmax(0,1fr)}
+  .ring{position:relative;width:170px;height:170px;margin:4px auto 0}
+  .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .ring .v{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .v b{font-size:44px;font-weight:750;letter-spacing:-.03em;line-height:1}
+  .ring .v span{font-size:10px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-top:6px}
+  .subs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .sub{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+  .sub span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800}
+  .sub b{display:block;font-size:22px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
+  .sub .bar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden}
+  .sub .bar i{display:block;height:100%;border-radius:2px;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .facts{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:12.5px;color:var(--sub)}
+  .facts b{color:var(--text);font-weight:650}
+  /* ---- timeline */
+  .tl-head{flex-wrap:wrap;row-gap:8px;gap:12px}
+  .lat{display:inline-flex;align-items:center;gap:5px;letter-spacing:0;text-transform:none;font-weight:500;font-size:12px;color:var(--sub)}
+  .lat input{width:58px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:7px;padding:4px 6px;text-align:right;color:var(--text)}
+  .lat .btn.on,#tk-loop.on{border-color:var(--violet);color:var(--violet2)}
+  .tl-head .speeds,.tl-head .transport{letter-spacing:0;text-transform:none}
+  .tl-tools{display:flex;gap:6px;align-items:center}
+  .tl-scroll{position:relative;overflow-x:auto;overflow-y:hidden;border-radius:10px;background:rgba(0,0,0,.28);border:1px solid var(--line)}
+  .tl-scroll canvas{position:sticky;left:0;display:block}
+  .tl-spacer{height:1px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11.5px;color:var(--sub)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  canvas.block{display:block;width:100%;border-radius:10px;background:rgba(0,0,0,.22);border:1px solid var(--line)}
+  .two{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+  .mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .train{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;font-size:12.5px;color:var(--sub)}
+  .train label{display:flex;align-items:center;gap:6px}
+  .rf-form{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:12px 0}
+  .rf-form label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--sub)}
+  .rf-form input,.rf-form select{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--text);font:inherit;font-size:13px}
+  #riff-list th{cursor:pointer;user-select:none} #riff-list th.on{color:var(--violet2)}
+  .train select,.train input[type=number]{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:4px 7px}
+  .sects{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+  .sects #sects{display:contents}
+  .sect{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:999px;border:1px solid var(--line2);background:rgba(0,0,0,.25);cursor:pointer;font-size:12px}
+  .sect.on{border-color:var(--violet);background:rgba(139,92,246,.18);color:#fff}
+  .sect i{font-style:normal;color:var(--sub);font-size:11px}
+  .sect input{background:rgba(0,0,0,.4);border:1px solid var(--violet);border-radius:6px;padding:1px 6px;width:120px;font-size:12px}
+  .sect button{border:none;background:none;color:var(--sub);cursor:pointer;padding:0 3px;font-size:12px;line-height:1}
+  .sect button:hover{color:#fff}
+  .take{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.2);margin-top:8px;cursor:pointer}
+  .take.on{border-color:var(--violet);background:rgba(139,92,246,.1)}
+  .take .n{font-weight:700;min-width:62px} .take .sc{font-size:18px;font-weight:750;min-width:58px}
+  .take .d{flex:1;font-size:12px;color:var(--sub)}
+  .count{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:45;pointer-events:none;font-size:180px;font-weight:800;color:#fff;text-shadow:0 10px 60px rgba(139,92,246,.8)}
+  .count.on{display:flex}
+  .mix .strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+  .mix .strip b{font-size:10.5px;letter-spacing:.12em;flex:0 0 100%}
+  .mix label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub)}
+  .mix input[type=range]{width:120px;accent-color:var(--violet)}
+  .mix input[type=number]{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:5px 7px}
+  .mix label span{min-width:44px;color:var(--text);font-variant-numeric:tabular-nums}
+  /* ---- lists */
+  .item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
+  .item + .item{margin-top:8px}
+  .item .grow{flex:1;min-width:0}
+  .item .t{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .s{font-size:12px;color:var(--sub)}
+  .pill{font-size:10px;font-weight:800;letter-spacing:.08em;padding:3px 7px;border-radius:999px;border:1px solid var(--line2)}
+  .empty{text-align:center;padding:38px 20px;color:var(--sub)}
+  .empty b{display:block;color:var(--text);font-size:13px;letter-spacing:.12em;margin-bottom:6px}
+  .empty .btn{margin-top:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:9px 8px;border-bottom:1px solid var(--line)}
+  tr:hover td{background:rgba(255,255,255,.025)}
+  /* ---- home */
+  .hero h2{font-size:11px;letter-spacing:.2em;color:var(--violet2);margin:0;font-weight:800}
+  .hero p{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:6px 0 18px}
+  .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .card{padding:16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);cursor:pointer;transition:transform .15s,border-color .15s,background .15s;text-align:left}
+  .card:hover{transform:translateY(-2px);border-color:rgba(139,92,246,.5);background:rgba(139,92,246,.07)}
+  .card b{display:block;font-size:14px;margin-bottom:4px}
+  .card canvas{display:block;width:100%;height:42px;margin:10px 0 8px;border-radius:8px;background:rgba(0,0,0,.25)}
+  /* ---- live practice */
+  .live{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;text-align:center}
+  .live .cell{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:14px;padding:16px 8px}
+  .live .cell span{font-size:10px;letter-spacing:.12em;color:var(--dim);font-weight:800}
+  .live .cell b{display:block;font-size:30px;font-weight:750;letter-spacing:-.02em;margin-top:6px;min-height:42px}
+  .verdict{text-align:center;font-size:20px;font-weight:800;letter-spacing:.06em;min-height:30px;margin-top:14px}
+  .speeds{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .speeds button{border:none;background:none;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;color:var(--sub)}
+  .speeds button.on{background:rgba(139,92,246,.2);color:var(--violet2)}
+  /* ---- inspector */
+  .insp{grid-column:3;grid-row:2;border-left:1px solid var(--line);background:rgba(0,0,0,.2);overflow:auto;padding:18px 16px}
+  .insp .type{font-size:11px;letter-spacing:.14em;font-weight:800}
+  .insp .big{font-size:25px;font-weight:750;letter-spacing:-.02em;margin:4px 0 2px}
+  .insp dl{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;margin:14px 0;font-size:12.5px}
+  .insp dt{color:var(--dim);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;padding-top:2px}
+  .insp dd{margin:0;text-align:right;font-weight:600}
+  .insp .acts{display:grid;gap:7px}
+  .insp .rel{margin-top:14px;font-size:12px}
+  .insp .rel button{display:block;width:100%;text-align:left;border:1px solid var(--line);background:rgba(0,0,0,.2);border-radius:9px;padding:7px 9px;margin-top:6px;cursor:pointer}
+  .sev-0{color:var(--ok)} .sev-1{color:var(--warn)} .sev-2{color:var(--bad)}
+  .set{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .set label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px}
+  .set input,.set select{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+  .mtr{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .mtr > span{flex:0 0 96px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:800;padding-top:3px}
+  .mtr > div{flex:1;min-width:0;line-height:1.55}
+  .mtr select,.mtr input{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .mtr .note{margin-top:6px;font-size:12.5px;color:#fcd98a} .mtr .note.bad{color:#fca5a5}
+  .mts{display:inline-block;width:58px;padding:7px 0;margin:6px 6px 0 0;border-radius:10px;border:1px dashed var(--line2);text-align:center;color:var(--sub)}
+  .mts.on{border:1px solid var(--violet);color:var(--text);background:rgba(139,92,246,.14)}
+  .mts b{display:block;font-size:16px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1d2030;border:1px solid var(--line2);padding:9px 14px;border-radius:10px;font-size:12.5px;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.on{opacity:1}
+  .pick{position:fixed;inset:0;background:rgba(5,6,10,.7);backdrop-filter:blur(6px);z-index:40;display:none;align-items:center;justify-content:center}
+  .pick.on{display:flex}
+  .pick .box{width:min(640px,92vw);max-height:80vh;overflow:auto;background:#151722;border:1px solid var(--line2);border-radius:16px;padding:18px}
+  .pick input{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:10px}
+  @media (max-width:1180px){ .app{grid-template-columns:68px minmax(0,1fr)} .top{grid-column:2} .insp{grid-column:auto;grid-row:auto;position:fixed;right:0;top:60px;bottom:0;width:320px;transform:translateX(100%);transition:transform .2s;z-index:30;background:#12141b} .insp.open{transform:none} .scorewrap,.two,.setup{grid-template-columns:1fr} .top .kv.opt{display:none} }
+  @media print{ body{background:#fff;color:#000;overflow:visible} .side,.top,.insp,.noprint{display:none!important} .app{display:block} .main{overflow:visible;padding:0} .page{display:none!important} #print{display:block!important} }
+  #print{display:none;color:#111;font-size:12px}
+  #print h1{font-size:20px} #print table td,#print table th{border-bottom:1px solid #ccc;color:#111}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="side">
+    <div class="logo" title="Guitar Performance Analyzer">GP</div>
+    <button data-page="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>Home</button>
+    <button data-page="analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg>Analyze</button>
+    <button data-page="practice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Practice</button>
+    <button data-page="recordings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><path d="M9 14h6"/></svg>Records</button>
+    <button data-page="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M9 4v16M13 5l5 15"/></svg>Library</button>
+    <span class="sp"></span>
+    <button data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.300 16.300l2.100 2.100M5.6 18.400l2.100-2.100M16.300 7.700l2.100-2.100"/></svg>Settings</button>
+  </nav>
+
+  <header class="top">
+    <h1>Guitar Performance Analyzer</h1>
+    <div class="kv"><span>Reference</span><b id="top-ref">—</b></div>
+    <div class="kv opt"><span>BPM</span><b id="top-bpm">—</b></div>
+    <div class="kv opt"><span>Tuning</span><select id="tuning"></select></div>
+    <span class="sp"></span>
+    <span class="mode" id="mode">NO INPUT</span>
+  </header>
+
+  <main class="main">
+    <!-- HOME -->
+    <section class="page on" id="p-home">
+      <div class="hero"><h2 id="greet">GOOD EVENING</h2><p>What do you want to practice?</p></div>
+      <div class="cards">
+        <button class="card" data-go="analyze"><b>Analyze Recording</b><span class="muted">Načti referenci, nahraj se a uvidíš, kde a jak moc ses odchýlil.</span></button>
+        <button class="card" data-go="practice"><b>Live Practice</b><span class="muted">Hraj s referencí a sleduj tón, ladění a nástupy naživo.</span></button>
+        <button class="card" id="demo-btn"><b>Demo Mode</b><span class="muted">Ukázka na syntetickém riffu se záměrnými chybami — analýza je skutečná, zvuk umělý.</span></button>
+      </div>
+      <div class="panel" style="margin-top:18px"><div class="h">Recent sessions</div><div id="home-recent"></div></div>
+    </section>
+
+    <!-- ANALYZE -->
+    <section class="page" id="p-analyze">
+      <div class="row setup">
+        <div class="panel">
+          <div class="h">Reference track</div>
+          <div class="refname" id="ref-name">NO REFERENCE TRACK</div>
+          <div class="muted" id="ref-meta" style="font-size:12.5px">Import a song to start analyzing your performance.</div>
+          <div class="line">
+            <button class="btn primary small" id="ref-import">IMPORT AUDIO</button>
+            <button class="btn small" id="ref-pick" title="Kytarová (nebo jiná) stopa z písní rozdělených v Picku">Ze Steems v Picku</button>
+            <input type="file" id="ref-file" accept="audio/*,.wav,.mp3,.flac,.aiff,.aif,.m4a,.ogg" hidden>
+          </div>
+          <div class="warnbox" id="ref-warn" hidden></div>
+          <div class="prog" id="ref-prog" hidden><i></i></div>
+        </div>
+        <div class="panel">
+          <div class="h">Input device</div>
+          <select id="in-dev"><option value="">— vyber vstup —</option></select>
+          <div class="line"><select id="in-ch" style="flex:0 0 150px" title="Jeden vstup (mono), nebo dvojice jako stereo — třeba mokrý signál z Nano Cortexu na 3+4">
+              <option value="0">Input 1</option><option value="1">Input 2</option><option value="2">Input 3</option><option value="3">Input 4</option>
+              <option value="0,1">Input 1+2 (stereo)</option><option value="2,3">Input 3+4 (stereo)</option><option value="4,5">Input 5+6 (stereo)</option><option value="6,7">Input 7+8 (stereo)</option></select>
+            <button class="btn small" id="in-connect">SELECT INPUT</button></div>
+          <div class="muted" id="in-state" style="font-size:12px;margin-top:8px">NO GUITAR INPUT DETECTED — connect your audio interface and select an input.</div>
+        </div>
+        <div class="panel">
+          <div class="h">Input level <span class="sp"></span><span class="clip" id="clip">CLIPPING</span></div>
+          <div class="meter"><i id="meter"></i></div>
+          <div class="muted" style="font-size:12px;margin-top:8px" id="lvl-db">— dBFS</div>
+
+        </div>
+      </div>
+
+      <div id="ref-body" hidden>
+        <div class="panel"><div class="h">Trénink úseku <span class="sp"></span><span class="muted" id="tr-range" style="letter-spacing:0;text-transform:none;font-weight:500"></span></div>
+          <div class="train">
+            <label>Odpočet <select id="tr-count"><option value="0">bez</option><option value="1" selected>1 takt</option><option value="2">2 takty</option></select></label>
+            <label><input type="checkbox" id="tr-click"> metronom i při nahrávání</label>
+            <label title="Úsek se přehrává dokola a každý průchod se uloží a vyhodnotí jako samostatný take"><input type="checkbox" id="tr-loop" checked> opakovat úsek — každý průchod je take</label>
+            <label id="tr-noguitar-l" title="Při nahrávání hraje jen zbytek kapely — kytaru hraješ ty, naslepo"><input type="checkbox" id="tr-noguitar"> vypnout kytaru originálu</label>
+            <label title="Tvoje kytara jde ze vstupu rovnou do sluchátek. Přes prohlížeč s malým zpožděním — když se slyšíš z karty, nech vypnuté."><input type="checkbox" id="tr-monitor"> slyšet svou kytaru</label>
+            <button class="btn small" id="tr-snap" title="Začátek a konec úseku na nejbližší taktové čáry">Přichytit k taktům</button>
+            <button class="btn small" id="tr-all" title="Zrušit úsek — nahrávat a hodnotit celou skladbu">Celá skladba</button>
+          </div>
+          <div class="sects"><span class="dim" style="font-size:10.5px;letter-spacing:.1em;font-weight:800">SEKCE</span><span id="sects"></span>
+            <button class="btn small primary" id="sect-save" title="Uloží označený úsek jako pojmenovanou sekci téhle skladby">+ Uložit úsek jako sekci</button>
+            <button class="btn small" id="sect-lib" hidden title="Vystřihne označený úsek reference do nového zvukového souboru (a jeho tóny do MIDI) a uloží do Knihovny → Loops/Riffs, roztříděné podle kapely a písně">Uložit riff do knihovny…</button></div>
+          <div class="muted" style="font-size:12.5px;margin-top:10px" id="tr-help">Označ úsek v časové ose (Shift + tažení) a stiskni REC: po odpočtu se nahrávání spustí samo.</div>
+          <div id="takes"></div>
+        </div>
+        <div id="slot-an"><div id="deck">
+        <div class="panel"><div class="h">Mix <span class="sp"></span><span class="muted" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500">jen pro poslech — analýzu nemění</span></div>
+          <div class="mix">
+            <div class="strip"><b style="color:var(--violet2)">REFERENCE</b>
+              <label>Volume <input type="range" id="mx-rv" min="0" max="1.5" step="0.01"><span id="mx-rv-t"></span></label>
+              <label>Pan <input type="range" id="mx-rp" min="-1" max="1" step="0.05"><span id="mx-rp-t"></span></label>
+              <label title="Přeladí referenci, tempo zůstane — ať nemusíš ladit kytaru">Pitch <input type="number" id="mx-pitch" min="-12" max="12" step="0.05" style="width:74px"> půltónů
+                <button class="btn small" id="mx-pitch-auto" title="Nastaví posun změřený mezi tvou kytarou a nahrávkou (až po první nahrávce)">Změřit z nahrávky</button>
+                <button class="btn small" id="mx-pitch-mine" title="Zjistí ladění tvé kytary z prázdných strun a navrhne posun reference a kapely — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení.">Moje ladění…</button><span id="mx-pitch-t" class="muted"></span></label></div>
+            <div class="strip" id="mx-band" hidden><b style="color:var(--info)">KAPELA <span class="muted" id="mx-band-t" style="letter-spacing:0;font-weight:500"></span></b>
+              <label>Volume <input type="range" id="mx-bv" min="0" max="1.5" step="0.01"><span id="mx-bv-t"></span></label></div>
+            <div class="strip" id="mx-drums" hidden><b style="color:#f59e0b">BICÍ</b>
+              <label>Volume <input type="range" id="mx-dv" min="0" max="1.5" step="0.01"><span id="mx-dv-t"></span></label></div>
+            <div class="strip" id="mx-vox" hidden><b style="color:#f472b6">ZPĚV</b>
+              <label>Volume <input type="range" id="mx-vv" min="0" max="1.5" step="0.01"><span id="mx-vv-t"></span></label></div>
+            <div class="strip"><b style="color:var(--sub)">METRONOM</b>
+              <label title="Kliká na doby skladby při přehrávání, v jakékoli rychlosti. Při nahrávání platí volba „metronom i při nahrávání“."><input type="checkbox" id="mx-met"> při přehrávání</label>
+              <label>Volume <input type="range" id="mx-mv" min="0" max="1.5" step="0.01"><span id="mx-mv-t"></span></label></div>
+            <div class="strip"><b style="color:var(--ok)">TY</b>
+              <label>Volume <input type="range" id="mx-pv" min="0" max="3" step="0.01"><span id="mx-pv-t"></span></label>
+              <label>Pan <input type="range" id="mx-pp" min="-1" max="1" step="0.05"><span id="mx-pp-t"></span></label></div>
+          </div>
+        </div>
+
+        <div class="panel"><div class="h tl-head">Timeline
+            <span class="speeds" id="src" title="Co hraje tlačítko PLAY"><button data-src="ref" class="on">Reference</button><button data-src="ply">Ty</button><button data-src="both">Obojí</button></span>
+            <button class="btn small" id="tk-loop" title="Přehrávaný take hraje dokola, dokud ho nezastavíš nebo nevybereš jiný. Vypnuté: dohraje a zastaví se.">⟲ Take dokola</button>
+            <div class="transport">
+      <button class="tbtn rec" id="t-rec" title="Nahrávat — Enter spustí i ukončí"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>REC</button>
+      <button class="tbtn" id="t-play" title="Přehrát"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8Z" fill="currentColor"/></svg>PLAY</button>
+      <button class="tbtn" id="t-pause" title="Pauza"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/></svg></button>
+      <button class="tbtn" id="t-stop" title="Stop"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg></button>
+    </div>
+            <button class="btn small primary" id="tk-confirm" hidden></button>
+            <span class="lat" title="O kolik je tvůj signál zpožděný za referencí (zvuková karta, prohlížeč). O tolik se tvoje stopa posune dřív — v časové ose, při poslechu i v analýze. Alt + tažení tvé stopy dělá totéž myší.">
+              Posun mé stopy <button class="btn small" id="lat-dn">−</button><input type="number" id="lat-ms" step="1" min="-100" max="500"> ms<button class="btn small" id="lat-up">+</button>
+              <button class="btn small" id="lat-auto">Auto</button></span>
+            <span class="sp"></span>
+            <span class="tl-tools noprint"><span class="muted" id="loop-info" style="font-size:11.5px"></span>
+              <button class="btn small" id="loop-clear" hidden>Zrušit smyčku</button>
+              <button class="btn small" id="z-out">−</button><button class="btn small" id="z-in">+</button><button class="btn small" id="z-fit">Fit</button></span></div>
+          <div class="train" id="hits-bar" hidden style="margin:0 0 10px">
+            <label title="Čáry v místech úderů — vidíš, kdy trsnout. Najdou se samy podle prahu; každou jde posunout, smazat, nebo přidat vlastní."><input type="checkbox" id="hits-on"> Údery <span id="hits-src" class="muted"></span></label>
+            <label title="Jak hlasitý musí úder být, aby dostal čáru: výš = jen ty nejsilnější, níž = i slabé">Práh <input type="range" id="hits-thr" min="0.02" max="0.9" step="0.01" style="width:150px;accent-color:#fbbf24"><span id="hits-thr-t" style="min-width:38px"></span></label>
+            <span class="muted" id="hits-n" style="min-width:150px"></span>
+            <button class="btn small" id="hits-reset" title="Zahodí ruční posuny, smazání a přidané čáry — zůstane, co najde práh">Vrátit úpravy</button>
+            <span class="dim" style="font-size:11.5px;white-space:nowrap">v pruhu ÚDERY: klik = přidat čáru · tažení = posun · dvojklik nebo Delete = smazat</span>
+          </div>
+          <div class="tl-scroll" id="tl-scroll"><canvas id="tl" height="372"></canvas><div class="tl-spacer" id="tl-spacer"></div></div>
+          <div class="legend"><span><i style="background:var(--ok)"></i>correct</span><span><i style="background:var(--warn)"></i>minor</span><span><i style="background:var(--bad)"></i>wrong / major</span><span><i style="background:var(--info)"></i>extra</span><span><i style="background:#6b7280"></i>missed / not readable</span>
+            <span class="dim">Enter = nahrávat / ukončit · Alt + tažení tvé stopy = posun o milisekundy · Klik = přesun · Shift + tažení = nový úsek · okraje úseku jdou tahat · klik na značku = detail · mezerník = play/pauza · ← → posun o 1 s (Shift 5 s, Alt posune smyčku) · dva prsty = zoom</span></div>
+        </div>
+        </div></div>
+
+      </div>
+
+      <div id="an-empty" class="panel empty" style="margin-top:14px"><b>NO ANALYSIS YET</b>Načti referenci, vyber vstup a stiskni REC. Každý take se zarovná s referencí a vyhodnotí.
+        <div class="prog" id="an-prog" hidden><i></i></div><div class="muted" id="an-stage" style="margin-top:8px;font-size:12px"></div></div>
+
+      <div id="an-body" hidden>
+        <div class="row scorewrap" style="margin-top:14px">
+          <div class="panel"><div class="h">Performance score</div>
+            <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="9"/><circle id="ring-arc" cx="60" cy="60" r="52" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/><defs><linearGradient id="rg"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs></svg>
+              <div class="v"><b id="score-all">—</b><span>OVERALL</span></div></div>
+          </div>
+          <div class="panel"><div class="h">Breakdown <span class="sp"></span>
+              <button class="btn small noprint" data-export="json">JSON</button><button class="btn small noprint" data-export="csv">CSV</button><button class="btn small noprint" data-export="pdf">PDF</button></div>
+            <div class="subs" id="subs"></div>
+            <div class="facts" id="facts"></div>
+            <div class="warnbox" id="an-warn" hidden></div>
+          </div>
+        </div>
+
+        <div class="row two">
+          <div class="panel"><div class="h">Performance accuracy map</div><canvas class="block" id="heat" height="168"></canvas></div>
+          <div class="panel"><div class="h">Tempo <span class="sp"></span><span class="muted" id="tempo-txt" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500"></span></div><canvas class="block" id="tempo" height="168"></canvas></div>
+        </div>
+        <div class="panel"><div class="h">Practice these</div><div id="sections"></div></div>
+      </div>
+    </section>
+
+    <!-- PRACTICE -->
+    <section class="page" id="p-practice">
+      <div class="panel"><div class="h">Live practice <span class="sp"></span><button class="btn small primary" id="live-toggle">START</button></div>
+        <div class="live">
+          <div class="cell"><span>CURRENT NOTE</span><b id="lv-cur">—</b></div>
+          <div class="cell"><span>EXPECTED</span><b id="lv-exp">—</b></div>
+          <div class="cell"><span>TIMING</span><b id="lv-tim">—</b></div>
+          <div class="cell"><span>TEMPO</span><b id="lv-bpm">—</b></div>
+          <div class="cell"><span>PERFORMANCE</span><b id="lv-perf">—</b></div>
+        </div>
+        <div class="verdict" id="lv-verdict"></div>
+        <div class="muted" style="font-size:12px;text-align:center;margin-top:6px" id="lv-note">Reference hraje, kytara se poslouchá naživo. Načasování závisí na zpoždění zvukové karty — srovnej ho v Settings (Latency).</div>
+      </div>
+      <div class="panel"><div class="h">Tempo a smyčka <span class="sp"></span>
+          <span class="speeds" id="speeds"><button data-s="0.5">50%</button><button data-s="0.75">75%</button><button data-s="1" class="on">100%</button></span></div>
+        <div class="train">
+          <label>Rychlost <button class="btn small" id="sp-dn">−5 %</button><input type="number" id="sp-pct" min="25" max="150" step="1" style="width:64px"> %<button class="btn small" id="sp-up">+5 %</button></label>
+          <label>Tempo <button class="btn small" id="bpm-dn">−5</button><input type="number" id="sp-bpm" step="0.5" style="width:76px"> BPM<button class="btn small" id="bpm-up">+5</button></label>
+          <label title="Smyčka se přehraje tolikrát, kolik nastavíš, a pak se přehrávání o krok zrychlí — až k cíli."><input type="checkbox" id="ramp-on"> po každých <input type="number" id="ramp-every" value="1" min="1" max="99" step="1" style="width:54px"> kolech smyčky zrychlit o
+            <input type="number" id="ramp-step" value="5" min="0.5" max="50" step="0.5" style="width:58px"><select id="ramp-unit"><option value="pct">%</option><option value="bpm">BPM</option></select>
+            až do <input type="number" id="ramp-to" value="100" min="25" max="150" style="width:62px"> %</label>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:10px" id="loop-state">Žádná smyčka. Vyber problémový úsek níže, nebo ji označ v časové ose (Shift + tažení). Změna rychlosti nemění výšku tónu.</div>
+      </div>
+      <div id="slot-pr"></div>
+      <div class="panel empty" id="pr-empty"><b>NO REFERENCE TRACK</b>Načti referenci v Analyze — tady pak uvidíš kytaru, bicí a doby skladby a nastavíš si tempo a hlasitosti.</div>
+      <div class="panel"><div class="h">Problem sections</div><div id="sections2"></div></div>
+    </section>
+
+    <!-- RECORDINGS -->
+    <section class="page" id="p-recordings"><div class="panel"><div class="h">Recordings</div><div id="rec-list"></div></div></section>
+
+    <!-- LIBRARY -->
+    <section class="page" id="p-library">
+      <div class="panel"><div class="h">Riffy <span class="sp"></span><span class="muted" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500">Knihovna → Loops/Riffs · klik na sloupec řadí</span></div><div id="riff-list"></div></div>
+      <div class="panel"><div class="h">Reference tracks <span class="sp"></span><button class="btn small primary" id="lib-import">IMPORT AUDIO</button><button class="btn small" id="lib-pick">Ze Steems v Picku</button></div><div id="lib-list"></div></div></section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="p-settings">
+      <div class="panel"><div class="h">Pitch tolerance (cents)</div><div class="set">
+        <div><label>Excellent do</label><input type="number" data-cfg="excellent" min="1" max="50"></div>
+        <div><label>Good do</label><input type="number" data-cfg="good" min="5" max="80"></div>
+        <div><label>Slightly off do (nad = wrong note)</label><input type="number" data-cfg="slight" min="20" max="150"></div></div></div>
+      <div class="panel"><div class="h">Timing &amp; duration</div><div class="set">
+        <div><label>On time do (ms)</label><input type="number" data-cfg="timingOk" min="5" max="150"></div>
+        <div><label>Velká chyba od (ms)</label><input type="number" data-cfg="timingMajor" min="30" max="400"></div>
+        <div><label>Okno pro spárování tónu (ms)</label><input type="number" data-cfg="matchWindow" min="80" max="600"></div>
+        <div><label>Délka: tolerance (ms)</label><input type="number" data-cfg="durMs" min="20" max="400"></div>
+        <div><label>Citlivost na nástupy (0.1 = citlivá, 0.5 = jen silné údery)</label><input type="number" data-cfg="onsetFloor" min="0.05" max="0.8" step="0.01"></div>
+        <div><label>Latency — zpoždění karty pro Live practice (ms)</label><input type="number" id="latency" min="0" max="400"></div></div></div>
+      <div class="panel"><div class="h">Custom tuning</div><div class="set"><div style="grid-column:1/3"><label>Struny od nejhlubší, např. D2 G2 C3 F3 A3 D4</label><input type="text" id="custom-tuning" placeholder="E2 A2 D3 G3 B3 E4"></div><div><label>&nbsp;</label><button class="btn" id="custom-apply">Použít</button></div></div>
+        <div class="muted" style="font-size:12px;margin-top:10px">Ladění určuje, od jak hlubokého tónu se výška hledá. Změna nastavení se projeví při další analýze.</div></div>
+      <div class="panel"><div class="h">What is measured</div><div class="muted" style="font-size:12.5px;line-height:1.7">
+        <b style="color:var(--text)">Měří se ze zvuku:</b> nástupy tónů (spectral flux), výška (YIN) a délka každého tónu, tempo a jeho vývoj, tónina, časové zarovnání obou nahrávek (DTW nad chroma), z toho chyby výšky, načasování, rytmu, tempa a délky.<br>
+        <b style="color:var(--text)">Neměří se:</b> artikulace (palm mute, hammer-on, slide, bend, vibrato) — všude je uvedeno NOT AVAILABLE.<br>
+        <b style="color:var(--text)">Omezení:</b> výška se čte jako jeden tón. Akordy a plný mix kapely se čtou nespolehlivě — takové tóny jsou označené LOW CONFIDENCE a do skóre výšky se nepočítají. Jako referenci proto ber samotnou kytaru (stopu ze Steems).</div></div>
+    </section>
+
+    <section id="print"></section>
+  </main>
+
+  <aside class="insp" id="insp"><div class="h">Inspector</div><div id="insp-body"><div class="muted" style="font-size:12.5px">Klikni na značku chyby nebo na tón v Timeline — tady uvidíš, co mělo zaznít, co zaznělo, o kolik a jak jistě.</div></div></aside>
+</div>
+<div class="pick" id="pick"><div class="box"><div class="h">Stopa ze Steems v Picku <span class="sp"></span><button class="btn small" id="pick-close">Zavřít</button></div><input id="pick-q" placeholder="Hledat píseň…"><div id="pick-list"></div></div></div>
+<div class="pick" id="mt"><div class="box" id="mt-box"></div></div>
+<div class="pick" id="rf"><div class="box" id="rf-box"></div></div>
+<div class="toast" id="toast"></div>
+<audio id="a-ref" preload="auto"></audio><audio id="a-ply" preload="auto"></audio><audio id="a-back" preload="auto"></audio><audio id="a-fix" preload="auto"></audio><audio id="a-vox" preload="auto"></audio>
+<div class="count" id="count"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const SR = 22050;
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteName = (m) => m == null ? null : NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+const fmtT = (t) => { if(t == null || !isFinite(t)) return "—"; const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, "0") + ":" + s.toFixed(3).padStart(6, "0"); };
+const fmtShort = (t) => { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + String(s).padStart(2, "0"); };
+const NA = '<span class="na">NOT AVAILABLE</span>';
+function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2800); }
+
+// ---------------------------------------------------------------- settings
+const TUNINGS = {
+  "E Standard": [40, 45, 50, 55, 59, 64], "Eb Standard": [39, 44, 49, 54, 58, 63], "D Standard": [38, 43, 48, 53, 57, 62],
+  "C# Standard": [37, 42, 47, 52, 56, 61], "C Standard": [36, 41, 46, 51, 55, 60],
+  "Drop D": [38, 45, 50, 55, 59, 64], "Drop C": [36, 43, 48, 53, 57, 62], "Drop B": [35, 42, 47, 52, 56, 61],
+};
+const CFG_KEY = "pick-analyzer-cfg";
+const DEF_CFG = {excellent: 15, good: 35, slight: 70, timingOk: 40, timingMajor: 90, matchWindow: 260, durMs: 80, onsetFloor: 0.28};
+let cfg = {...DEF_CFG}, latencyMs = 60, latencyAuto = true, tuningName = "E Standard", customTuning = null;
+try{ const s = JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); cfg = {...cfg, ...(s.cfg || {})}; latencyMs = s.latencyMs ?? latencyMs; latencyAuto = s.latencyAuto ?? latencyAuto; tuningName = s.tuningName || tuningName; customTuning = s.customTuning || null; }catch(e){}
+const saveCfg = () => { try{ localStorage.setItem(CFG_KEY, JSON.stringify({cfg, latencyMs, latencyAuto, tuningName, customTuning})); }catch(e){} };
+const tuningMidi = () => tuningName === "Custom Tuning" && customTuning ? customTuning : (TUNINGS[tuningName] || TUNINGS["E Standard"]);
+// The engine looks for pitch from a little under the lowest open string.
+const engineCfg = () => ({...cfg, fmin: Math.max(45, 440 * Math.pow(2, (Math.min(...tuningMidi()) - 69 - 2) / 12)), fmax: 1320});
+
+// ------------------------------------------------------------------ worker
+const worker = new Worker("/static/analyzer-engine.js");
+let msgId = 0; const pending = new Map();
+worker.onmessage = (e) => { const p = pending.get(e.data.id); if(!p) return;
+  if(e.data.progress != null){ p.onProgress && p.onProgress(e.data.progress); return; }
+  pending.delete(e.data.id); e.data.error ? p.reject(new Error(e.data.error)) : p.resolve(e.data.result); };
+const ask = (msg, onProgress, transfer) => new Promise((resolve, reject) => { const id = ++msgId; pending.set(id, {resolve, reject, onProgress}); worker.postMessage({...msg, id}, transfer || []); });
+
+// ---------------------------------------------------------------- database
+const DB = (() => {
+  let db = null;
+  const open = () => db ? Promise.resolve(db) : new Promise((res, rej) => { const r = indexedDB.open("pick-analyzer", 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore("refs", {keyPath: "id"}); r.result.createObjectStore("sessions", {keyPath: "id"}); };
+    r.onsuccess = () => { db = r.result; res(db); }; r.onerror = () => rej(r.error); });
+  const tx = async (store, mode, fn) => { const d = await open(); return new Promise((res, rej) => { const t = d.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out.result); t.onerror = () => rej(t.error); }); };
+  return {put: (s, v) => tx(s, "readwrite", o => o.put(v)), get: (s, k) => tx(s, "readonly", o => o.get(k)),
+          all: (s) => tx(s, "readonly", o => o.getAll()), del: (s, k) => tx(s, "readwrite", o => o.delete(k))};
+})();
+
+// -------------------------------------------------------------------- state
+const S = {ref: null, ply: null, result: null, demo: false, session: null, sel: null, loop: null, speed: 1, takes: [], take: -1,
+           pps: 40, input: null, recording: false};
+let actx = null;
+const audioCtx = () => actx || (actx = new (window.AudioContext || window.webkitAudioContext)());
+
+// Any audio → mono Float32 at the engine's rate.
+async function toMono(arrayBuffer){
+  const buf = await audioCtx().decodeAudioData(arrayBuffer.slice(0));
+  return resample(buf);
+}
+async function resample(buf){
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * SR)), SR);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+// 16-bit WAV of one channel (a Float32Array) or several (an array of them).
+function wavBlob(pcm, sr){
+  const chs = Array.isArray(pcm) ? pcm : [pcm], nc = chs.length, n = chs[0].length;
+  const b = new ArrayBuffer(44 + n * nc * 2), v = new DataView(b);
+  const w = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * nc * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, nc, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * nc * 2, true); v.setUint16(32, nc * 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * nc * 2, true);
+  let o = 44;
+  for(let i = 0; i < n; i++) for(let c = 0; c < nc; c++){ v.setInt16(o, Math.max(-1, Math.min(1, chs[c][i])) * 32767, true); o += 2; }
+  return new Blob([b], {type: "audio/wav"});
+}
+// The take as it sounded, for listening: its own channels at 44.1 kHz.
+async function listenBlob(buf){
+  const off = new OfflineAudioContext(buf.numberOfChannels, Math.max(1, Math.ceil(buf.duration * 44100)), 44100);
+  const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+  const r = await off.startRendering();
+  return wavBlob(Array.from({length: r.numberOfChannels}, (_, c) => r.getChannelData(c)), 44100);
+}
+
+// --------------------------------------------------------------- reference
+function setProg(id, x){ const p = $(id); p.hidden = x == null; if(x != null) p.firstElementChild.style.width = Math.round(x * 100) + "%"; }
+async function loadReference({title, artist, blob, pcm, demo, id, backing, grid, drums, source}){
+  $("ref-name").textContent = title; $("ref-meta").textContent = "Analyzing…"; $("ref-warn").hidden = true; setProg("ref-prog", 0);
+  try{
+    if(!pcm) pcm = await toMono(await blob.arrayBuffer());
+    if(!blob) blob = wavBlob(pcm, SR);
+    const key = "ref:" + Date.now();
+    const a = await ask({cmd: "analyze", key, pcm, cfg: engineCfg()}, x => setProg("ref-prog", x));
+    if(S.ref) ask({cmd: "forget", key: S.ref.key});
+    S.ref = {id: id || "r" + Date.now(), key, title, artist: artist || "", blob, analysis: a, demo: !!demo, pcm, peaks: makePeaks(pcm, SR), drums: drums || null,
+             orig: {key, analysis: a, peaks: null}, backing: backing || null, grid: grid || null, source: source || null};
+    S.ref.orig.peaks = S.ref.peaks;
+    S.result = null; S.ply = null; S.session = null; S.sel = null; S.takes = []; S.take = -1; S.mark = -1; S.takesOpen = false; S.live = null; setLoop(null);
+    BAND.forEach(x => x.removeAttribute("src"));
+    if(backing){ if(backing.url) aBack.src = backing.url; if(backing.drumsUrl) aFix.src = backing.drumsUrl; if(backing.voxUrl) aVox.src = backing.voxUrl; }
+    paintBand(backing);
+    $("tr-noguitar").checked = !!backing; $("tr-noguitar-l").hidden = !backing;
+    S.ref.url = URL.createObjectURL(blob);
+    $("a-ref").src = S.ref.url;
+    paintRef(); paintAnalysis(); paintInspector(); paintTakes();
+    $("ref-body").hidden = false; $("deck").hidden = false; $("pr-empty").hidden = true; requestAnimationFrame(fitTimeline); S.section = null; paintSections(); setSpeed(S.speed);
+    if(MIX.pitch) applyPitch();
+    if(!demo){ try{ await DB.put("refs", {id: S.ref.id, title, artist: artist || "", blob, tuning: tuningName, added: Date.now(),
+      bpm: a.tempo ? a.tempo.bpm : null, bpmConf: a.tempo ? a.tempo.conf : null, key: a.key ? a.key.name : null, dur: a.dur, notes: a.notes.length, pitchedShare: a.pitchedShare}); }catch(e){} paintLibrary(); }
+  }catch(e){ $("ref-meta").textContent = "Soubor se nepodařilo načíst: " + e.message; S.ref = null; }
+  setProg("ref-prog", null);
+}
+function paintRef(){
+  const r = S.ref;
+  $("top-ref").textContent = r ? r.title : "—";
+  $("top-bpm").innerHTML = r && r.analysis.tempo ? r.analysis.tempo.bpm.toFixed(1) + (r.analysis.tempo.conf < 0.4 ? ' <span class="na">LOW CONF.</span>' : "") : "—";
+  if(!r){ $("ref-name").textContent = "NO REFERENCE TRACK"; $("ref-meta").textContent = "Import a song to start analyzing your performance."; return; }
+  const a = r.analysis;
+  $("ref-name").textContent = (r.demo ? "DEMO · " : "") + r.title + (r.artist ? " — " + r.artist : "");
+  $("ref-meta").textContent = `${fmtShort(a.dur)} · ${a.notes.length} tónů · ${a.tempo ? a.tempo.bpm.toFixed(1) + " BPM" : "tempo —"} · ${a.key ? a.key.name + (a.key.conf < 0.3 ? " (nejisté)" : "") : "tónina —"}`;
+  const w = $("ref-warn");
+  if(a.notes.length < 4){ w.hidden = false; w.textContent = "V referenci se nenašly skoro žádné tóny — bez nich není co porovnávat."; }
+  else if(a.pitchedShare != null && a.pitchedShare < 0.6){ w.hidden = false;
+    w.textContent = `Jen u ${Math.round(a.pitchedShare * 100)} % tónů reference šla přečíst výška — vypadá to na akordy nebo plný mix. Načasování a rytmus se vyhodnotí, výška jen tam, kde je čitelná. Přesnější je samotná kytarová stopa (Ze Steems v Picku).`; }
+  else w.hidden = true;
+}
+$("ref-import").onclick = $("lib-import").onclick = () => $("ref-file").click();
+$("ref-file").onchange = async (e) => { const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  const base = f.name.replace(/\.[^.]+$/, ""), parts = base.split(" - ");
+  go("analyze"); await loadReference({title: parts.length > 1 ? parts.slice(1).join(" - ") : base, artist: parts.length > 1 ? parts[0] : "", blob: f}); };
+
+// A stem of a song already separated in Pick.
+let stemSongs = null;
+async function openPicker(){
+  $("pick").classList.add("on"); $("pick-list").innerHTML = '<div class="muted">Načítám…</div>';
+  if(!stemSongs){ try{ stemSongs = await (await fetch("/api/stems")).json(); }catch(e){ stemSongs = []; } }
+  paintPicker();
+}
+function paintPicker(){
+  const q = $("pick-q").value.trim().toLowerCase(), box = $("pick-list");
+  const list = (stemSongs || []).filter(s => !q || s.name.toLowerCase().includes(q)).slice(0, 60);
+  if(!list.length){ box.innerHTML = '<div class="muted">Nic. Píseň nejdřív rozděl v Picku (Steems).</div>'; return; }
+  box.innerHTML = "";
+  list.forEach(s => {
+    const d = document.createElement("div"); d.className = "item";
+    const label = (st) => (s.labels && s.labels[st]) || st;
+    const rank = (st) => st === "guitar" ? 0 : /guitar|kytar/i.test(label(st)) ? 1 : 2;
+    const pref = s.stems.slice().sort((a, b) => rank(a) - rank(b));
+    d.innerHTML = `<div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${s.stems.length} stop</div></div>
+      <select style="max-width:210px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:5px">${pref.map(st => `<option value="${esc(st)}">${esc(label(st))}</option>`).join("")}</select>
+      <button class="btn small primary">Použít</button>`;
+    d.querySelector("button").onclick = async () => {
+      const st = d.querySelector("select").value; $("pick").classList.remove("on"); go("analyze");
+      $("ref-name").textContent = s.name; $("ref-meta").textContent = "Stahuju stopu…";
+      try{
+        const base = `/api/stems/${encodeURIComponent(s.name)}`;
+        const blob = await (await fetch(`${base}/${encodeURIComponent(st)}`)).blob();
+        // The rest of the band, mixed, to play along to — and the song's bar lines.
+        let backing = null, grid = null, drums = null;
+        $("ref-meta").textContent = "Míchám zbytek kapely…";
+        try{
+          const part = async (which) => { const r = await fetch(`${base}/backing?without=${encodeURIComponent(st)}&part=${which}`); if(!r.ok) return null;
+            return {blob: await r.blob(), stems: (r.headers.get("X-Stems") || "").split(",").map(x => label(x)).filter(Boolean)}; };
+          // The kit and the voices each on their own: each has its fader, and neither follows a change of tuning.
+          const tonal = await part("tonal"), kit = await part("drums"), vox = await part("vocals");
+          if(tonal || kit || vox) backing = {blob: tonal && tonal.blob, url: tonal && URL.createObjectURL(tonal.blob), stems: [tonal, kit, vox].flatMap(x => x ? x.stems : []),
+            tonalStems: tonal ? tonal.stems : [], drumsUrl: kit && URL.createObjectURL(kit.blob), voxUrl: vox && URL.createObjectURL(vox.blob)};
+        }catch(e){}
+        try{ const g = await (await fetch(`${base}/beats`)).json(); if(g && g.downbeats && g.downbeats.length > 1) grid = {bpm: g.bpm, beats: g.beats, downbeats: g.downbeats, beatsPerBar: g.beats_per_bar || 4}; }catch(e){}
+        // The drums on their own, to see where the beats really fall.
+        if(st !== "drums" && s.stems.includes("drums")){ $("ref-meta").textContent = "Načítám bicí…";
+          try{ const dp = await toMono(await (await fetch(`${base}/drums`)).arrayBuffer()); drums = {peaks: makePeaks(dp, SR), pcm: dp}; }catch(e){} }
+        await loadReference({title: s.name + " · " + label(st), artist: (s.meta && s.meta.artist) || "", blob, backing, grid, drums,
+          source: {song: s.name, stem: st, label: label(st), title: (s.meta && s.meta.title) || ""}}); }
+      catch(e){ $("ref-meta").textContent = "Stopu se nepodařilo načíst."; }
+    };
+    box.appendChild(d);
+  });
+}
+$("ref-pick").onclick = $("lib-pick").onclick = openPicker;
+$("pick-close").onclick = () => $("pick").classList.remove("on");
+$("pick-q").oninput = paintPicker;
+
+// -------------------------------------------------------------------- input
+async function listDevices(){
+  let devs = [];
+  try{ devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); }catch(e){}
+  const sel = $("in-dev"), cur = sel.value || localStorage.getItem("pick-analyzer-dev") || "";
+  sel.innerHTML = '<option value="">— vyber vstup —</option>' + devs.map(d => `<option value="${esc(d.deviceId)}">${esc(d.label || "Audio input")}</option>`).join("");
+  if(devs.some(d => d.deviceId === cur)) sel.value = cur;
+}
+const CAPTURE = `class Cap extends AudioWorkletProcessor{ process(inp){ const i = inp[0]; if(i && i[0]) this.port.postMessage([i[0].slice(0), i[1] ? i[1].slice(0) : null]); return true; } } registerProcessor("pick-capture", Cap);`;
+async function connectInput(){
+  const id = $("in-dev").value, asked = $("in-ch").value.split(",").map(Number);
+  let want = asked, wet = null;
+  disconnectInput();
+  try{
+    // As many channels as the interface has: inputs 3 and 4 only exist for
+    // the page when the browser is asked for more than a stereo pair.
+    const stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: id ? {exact: id} : undefined,
+      echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 8}}});
+    const ctx = audioCtx(); await ctx.resume();
+    if(!connectInput.mod){ await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([CAPTURE], {type: "text/javascript"}))); connectInput.mod = true; }
+    const src = ctx.createMediaStreamSource(stream);
+    const n = stream.getAudioTracks()[0].getSettings().channelCount || src.channelCount || 1;
+    const label = stream.getAudioTracks()[0].label || "Audio input";
+    if(Math.max(...want) >= n){
+      // A page gets two channels of an interface, however many it has. The
+      // inputs past them — a modeller's processed signal — Pick records
+      // itself, beside the first input the page keeps for its clock.
+      $("in-state").textContent = `Zkouším vstup ${asked.map(c => c + 1).join("+")} přes Pick…`;
+      let err = "";
+      try{ const r = await fetch("/api/capture/probe", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({device: label, channels: asked})});
+        if(r.ok) wet = {device: label, channels: asked}; else err = (await r.json()).error || ""; }catch(e){ err = e.message; }
+      if(!wet){
+        stream.getTracks().forEach(t => t.stop());
+        $("in-state").innerHTML = `Prohlížeč pouští z ${esc(label)} jen ${n} ${n === 1 ? "kanál" : "kanály"} a Pick vstup ${asked.map(c => c + 1).join("+")} nahrát nedokázal: ${esc(err)}<br>Povol Picku mikrofon v Nastavení systému → Soukromí a zabezpečení → Mikrofon a zkus to znovu.`;
+        return;
+      }
+      want = [0];
+    }
+    const split = ctx.createChannelSplitter(Math.max(2, n)), bus = ctx.createChannelMerger(want.length);
+    src.connect(split);
+    want.forEach((c, k) => split.connect(bus, c, k));
+    const an = ctx.createAnalyser(); an.fftSize = 4096; bus.connect(an);
+    const cap = new AudioWorkletNode(ctx, "pick-capture", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: want.length, channelCountMode: "explicit", channelInterpretation: "discrete"});
+    bus.connect(cap);
+    S.input = {stream, src, an, cap, chunks: null, buf: new Float32Array(an.fftSize), clipAt: 0, stereo: want.length === 2, wet};
+    cap.port.onmessage = (e) => {
+      if(!S.input || !S.input.chunks) return;
+      S.input.chunks.push(e.data);
+      // the outline of the take as it is played, for the timeline
+      if(S.live){ let m = 0; const c = e.data[0]; for(let i = 0; i < c.length; i += 4){ const a = Math.abs(c[i]); if(a > m) m = a; } S.live.peaks.push(m); S.live.per = c.length; }
+    };
+    localStorage.setItem("pick-analyzer-dev", id); localStorage.setItem("pick-analyzer-ch", $("in-ch").value);
+    await listDevices();
+    $("in-state").textContent = wet ? `${label} · Input ${asked.map(c => c + 1).join("+")} (s efekty) nahrává Pick — uslyšíš ho při přehrání take · měřák, živá křivka a analýza jdou z Input 1 (čistá kytara) · ${ctx.sampleRate} Hz`
+      : `${label} · ${want.length === 2 ? `Input ${want[0] + 1}+${want[1] + 1} stereo` : `Input ${want[0] + 1}`} · ${n} kanálů k dispozici · ${ctx.sampleRate} Hz`;
+    $("in-connect").textContent = "ODPOJIT";
+    setMode();
+    meterLoop();
+  }catch(e){ $("in-state").textContent = "Vstup se nepodařilo otevřít: " + e.message; }
+}
+function disconnectInput(){
+  if(!S.input) return;
+  try{ S.input.stream.getTracks().forEach(t => t.stop()); S.input.src.disconnect(); S.input.cap.port.onmessage = null; }catch(e){}
+  S.input = null; $("in-connect").textContent = "SELECT INPUT";
+  $("in-state").textContent = "NO GUITAR INPUT DETECTED — connect your audio interface and select an input.";
+  $("meter").style.width = "0"; $("lvl-db").textContent = "— dBFS"; setMode();
+}
+$("in-connect").onclick = () => S.input ? disconnectInput() : connectInput();
+$("in-dev").onchange = () => { if($("in-dev").value) connectInput(); };
+$("in-ch").onchange = () => { if(S.input) connectInput(); };
+{ const c = localStorage.getItem("pick-analyzer-ch"); if(c && [...$("in-ch").options].some(o => o.value === c)) $("in-ch").value = c; }
+function meterLoop(){
+  if(!S.input) return;
+  const {an, buf} = S.input;
+  an.getFloatTimeDomainData(buf);
+  let peak = 0; for(let i = 0; i < buf.length; i += 2){ const a = Math.abs(buf[i]); if(a > peak) peak = a; }
+  const db = peak > 0 ? 20 * Math.log10(peak) : -100;
+  $("meter").style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + "%";
+  $("lvl-db").textContent = (db <= -99 ? "−∞" : db.toFixed(1)) + " dBFS";
+  if(peak >= 0.985) S.input.clipAt = performance.now();
+  $("clip").classList.toggle("on", performance.now() - S.input.clipAt < 1500);
+  requestAnimationFrame(meterLoop);
+}
+function setMode(){
+  const m = $("mode");
+  m.className = "mode" + (S.demo ? " is-demo" : S.input ? " is-live" : "");
+  m.textContent = S.demo ? "DEMO" : S.input ? "LIVE ANALYSIS" : "NO INPUT";
+}
+
+// ---------------------------------------------------------------- recording
+// ---- a click: the count-in, and the metronome while recording
+let clicks = [];
+function click(when, accent){
+  const ctx = audioCtx(), o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = accent ? 1568 : 1046; g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.5, when + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+  o.connect(g); g.connect(clickBus()); o.start(when); o.stop(when + 0.08); clicks.push(o);
+  if(clicks.length > 64) clicks.splice(0, 32);
+}
+// Every click through one fader.
+function clickBus(){ if(!clickBus.g){ clickBus.g = audioCtx().createGain(); clickBus.g.gain.value = MIX.mv; clickBus.g.connect(audioCtx().destination); } return clickBus.g; }
+function stopClicks(){ clicks.forEach(o => { try{ o.stop(); }catch(e){} }); clicks = []; MET.at = null; }
+// ---- the metronome under playback: the song's own beats, clicked where the
+// reference is — at any speed, through seeks and loops. The reference's
+// position is read from its player and carried on the audio clock between
+// readings, so each click is placed to the sample rather than to the timer.
+// (What the player reports is ahead of what has come out of it into the mix
+// by a buffer — measured, 12 ms — and the clicks wait that long.)
+const MET = {at: null, done: 0, beats: null, of: null, late: 0.012};
+function songBeats(){
+  if(MET.of !== S.ref){ MET.of = S.ref; MET.beats = beatsIn(0, S.ref.analysis.dur); }
+  return MET.beats;
+}
+function metronome(){
+  if(!MIX.met || !S.ref || S.recording || aRef.paused){ MET.at = null; return; }
+  const ctx = audioCtx(), now = ctx.currentTime, rt = aRef.currentTime, rate = aRef.playbackRate || 1;
+  let est = MET.at ? MET.at.rt + (now - MET.at.ct) * rate : null;
+  if(est == null || MET.at.rate !== rate || Math.abs(est - rt) > 0.06){
+    // a start, a seek, a loop's turn, another speed: from here, afresh
+    clicks.forEach(o => { try{ o.stop(); }catch(e){} }); clicks = [];
+    MET.at = {ct: now, rt, rate}; MET.done = rt - 0.002; est = rt;
+  } else { MET.at = {ct: now, rt: est + (rt - est) * 0.04, rate}; est = MET.at.rt; }
+  let to = est + 0.14 * rate;
+  if(S.loop && to > S.loop.b) to = S.loop.b - 1e-4;             // nothing past the turn
+  const bs = songBeats();
+  let lo = 0, hi = bs.length; while(lo < hi){ const m = (lo + hi) >> 1; if(bs[m].t <= MET.done) lo = m + 1; else hi = m; }
+  for(; lo < bs.length && bs[lo].t <= to; lo++) click(Math.max(now, now + (bs[lo].t - est) / rate + MET.late), bs[lo].accent);
+  if(to > MET.done) MET.done = to;
+}
+// The tempo and the bar the song is in: Steems' beat grid when the reference
+// came from there, the engine's own tempo otherwise (then 4 beats to a bar).
+const refBpm = () => (S.ref.grid && S.ref.grid.bpm) || (S.ref.analysis.tempo && S.ref.analysis.tempo.bpm) || 100;
+const refBpb = () => (S.ref.grid && S.ref.grid.beatsPerBar) || 4;
+// Beats inside a stretch of the reference, as seconds from its start.
+function beatsIn(a, b){
+  const out = [], g = S.ref.grid;
+  if(g && g.beats){ const db = new Set(g.downbeats.map(x => x.toFixed(3))); g.beats.forEach(t => { if(t >= a - 0.01 && t < b) out.push({t: t - a, accent: db.has(t.toFixed(3))}); }); }
+  else { const step = 60 / refBpm(); for(let k = 0; a + k * step < b; k++) out.push({t: k * step, accent: k % refBpb() === 0}); }
+  return out;
+}
+const REC = {reg: null, loop: false, started: false, timer: null, queue: Promise.resolve(), pending: 0, t0: 0, cap: null, at: 0, arming: false};
+const postJson = (url, body) => fetch(url, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body || {})});
+async function startRec(){
+  if(!S.ref){ toast("Nejdřív načti referenci"); go("analyze"); return; }
+  if(!S.input){ toast("Nejdřív vyber vstup (SELECT INPUT)"); go("analyze"); return; }
+  if(!S.ref.key){ toast("Reference se ještě připravuje — chvilku počkej"); return; }
+  if(REC.arming) return;
+  S.demo = false; setMode(); stopAll(); go("analyze");
+  const ctx = audioCtx(); await ctx.resume(); mixGraph();
+  // The inputs the page cannot hear are recorded by Pick, from before the count to after the last take.
+  REC.cap = null;
+  if(S.input.wet){ REC.arming = true;
+    try{ const r = await postJson("/api/capture/start", S.input.wet), j = await r.json(); if(!r.ok) throw new Error(j.error || "chyba"); REC.cap = j.id; }
+    catch(e){ toast(`Vstup s efekty se nenahrává (${e.message}) — take bude z Input 1`); }
+    REC.arming = false; if(!S.input) return; }
+  const reg = S.loop ? {a: S.loop.a, b: S.loop.b} : {a: 0, b: S.ref.analysis.dur};
+  // Takes of another stretch are another exercise.
+  if(S.takes.length && (Math.abs(S.takes[0].from - reg.a) > 0.05 || Math.abs(S.takes[0].to - reg.b) > 0.05)){ S.takes = []; S.take = -1; S.mark = -1; S.takesOpen = false; S.ply = null; S.result = null; paintAnalysis(); }
+  Object.assign(REC, {reg, loop: !!S.loop && $("tr-loop").checked, started: false});
+  S.recording = true; S.input.chunks = null; $("t-rec").classList.add("on");
+  // What the player hears while recording: the band, with or without the original guitar.
+  mixNodes.ref.g.gain.value = $("tr-noguitar").checked ? 0 : MIX.rv;
+  setMonitor($("tr-monitor").checked);
+  [aRef, ...BAND].forEach(x => { x.playbackRate = 1; if(x.src) x.currentTime = reg.a; });
+  const bars = +$("tr-count").value, beat = 60 / refBpm(), n = bars * refBpb(), t0 = ctx.currentTime + 0.12;
+  for(let k = 0; k < n; k++) click(t0 + k * beat, k % refBpb() === 0);
+  // the count on screen
+  const cnt = $("count");
+  for(let k = 0; k < n; k++) setTimeout(() => { if(S.recording && !REC.started){ cnt.textContent = n - k; cnt.classList.add("on"); } }, (0.12 + k * beat) * 1000);
+  REC.timer = setTimeout(beginPass, (0.12 + n * beat) * 1000);
+  paintTakes();
+}
+function beginPass(){
+  $("count").classList.remove("on");
+  if(!S.recording) return;
+  const {reg} = REC, ctx = audioCtx();
+  S.input.chunks = []; REC.started = true; REC.t0 = ctx.currentTime; REC.at = Date.now();
+  S.live = {a: reg.a, peaks: [], n: (S.takes.length ? S.takes[S.takes.length - 1].n : 0) + 1};
+  aRef.currentTime = reg.a; aRef.play().catch(() => {});
+  BAND.forEach(x => { if(x.src){ x.currentTime = reg.a; x.play().catch(() => {}); } });
+  S.playing = "ref";
+  if($("tr-click").checked) beatsIn(reg.a, reg.b).forEach(x => click(ctx.currentTime + 0.01 + x.t, x.accent));
+  paintTakes();
+}
+// The end of a pass: what was played becomes a take; in loop mode the next
+// pass starts at once and draws over the last one in the timeline.
+function endPass(final){
+  const chunks = S.input ? S.input.chunks : null, at = REC.at;
+  if(S.input) S.input.chunks = final ? null : [];
+  REC.at = Date.now();
+  const {reg} = REC;
+  if(chunks && chunks.length){
+    const sr = audioCtx().sampleRate, got = chunks.reduce((n, c) => n + c[0].length, 0) / sr;
+    // A pass stopped early counts when most of the stretch was played.
+    if(!final || got >= Math.min(4, (reg.b - reg.a) * 0.5)) storeTake(chunks, reg, at);
+  }
+  if(final){ S.live = null; return; }
+  stopClicks();
+  S.live = {a: reg.a, peaks: [], n: (S.takes.length ? S.takes[S.takes.length - 1].n : 0) + 1 + REC.pending};
+  aRef.currentTime = reg.a; BAND.forEach(x => { if(x.src) x.currentTime = reg.a; });
+  if($("tr-click").checked) beatsIn(reg.a, reg.b).forEach(x => click(audioCtx().currentTime + 0.01 + x.t, x.accent));
+}
+function stopRec(){
+  if(!S.recording) return;
+  clearTimeout(REC.timer); $("count").classList.remove("on"); stopClicks();
+  const started = REC.started;
+  S.recording = false; REC.started = false; $("t-rec").classList.remove("on");
+  stopAll(); setMonitor(false); applyMix();
+  if(started) endPass(true); else { if(S.input) S.input.chunks = null; S.live = null; }
+  // Pick's own recording ends a moment later, so the last take is whole in it.
+  const cap = REC.cap; REC.cap = null;
+  const capEnd = cap ? new Promise(r => setTimeout(r, 300)).then(() => postJson("/api/capture/stop")).then(r => r.ok ? r.json() : null).catch(() => null) : null;
+  // When the last take is stored: the last one is shown. One take needs no
+  // choosing and goes straight to analysis; several wait for the player's pick.
+  REC.queue = REC.queue.then(async () => {
+    if(capEnd) await wetTakes(cap, await capEnd);
+    if(!S.takes.length){ paintTakes(); drawTimeline(); return; }
+    const last = S.takes.length - 1;
+    if(latencyAuto) await autoLatency(last, true);
+    S.mark = last; selectTake(last); fitTimeline();
+    const fresh = S.takes.filter(t => !t.result).length;
+    if(S.takes.length === 1) await analyzeTake(0);
+    else { S.takesOpen = true; drawTimeline(); toast(`Nahráno ${fresh} ${fresh === 1 ? "nový take" : fresh < 5 ? "nové takes" : "nových takes"} — vyber v časové ose ten, který chceš, a potvrď`); }
+  });
+}
+// A pass as a take: its audio, kept, and its outline to draw. Not analysed yet.
+function storeTake(chunks, reg, at){
+  REC.pending++; paintTakes();
+  const cap = REC.cap;
+  REC.queue = REC.queue.then(async () => {
+    try{
+      const stereo = !!chunks[0][1], n = chunks.reduce((s, c) => s + c[0].length, 0), ctx = audioCtx();
+      const buf = ctx.createBuffer(stereo ? 2 : 1, n, ctx.sampleRate);
+      let o = 0, peak = 0;
+      chunks.forEach(c => { buf.getChannelData(0).set(c[0], o); if(stereo) buf.getChannelData(1).set(c[1] || c[0], o); o += c[0].length; });
+      const ch0 = buf.getChannelData(0), cols = Math.max(50, Math.min(2000, Math.round(buf.duration * 60))), per = Math.max(1, Math.floor(n / cols)), wave = new Float32Array(cols * 2);
+      for(let c = 0; c < cols; c++){ let lo = 0, hi = 0; for(let i = c * per; i < Math.min(n, (c + 1) * per); i++){ const x = ch0[i]; if(x < lo) lo = x; if(x > hi) hi = x; } wave[c * 2] = lo; wave[c * 2 + 1] = hi; if(hi > peak) peak = hi; if(-lo > peak) peak = -lo; }
+      const n0 = S.takes.length ? S.takes[S.takes.length - 1].n + 1 : 1;
+      S.takes.push({n: n0, buf, wave, peaks: makePeaks(ch0, ctx.sampleRate), shift: latencyMs / 1000, dur: buf.duration, blob: await listenBlob(buf), from: reg.a, to: reg.b, peak, quiet: peak < 0.12, clipped: peak >= 0.985, stereo, analysis: null, result: null, at, cap});
+    }catch(e){ toast("Take se nepodařilo uložit: " + e.message); }
+    REC.pending--; paintTakes(); drawTimeline();
+  });
+}
+// ---- the processed signal for the takes of one recording. Pick recorded
+// the first input too: each take is found in that by the take's own sound
+// (the same samples, taken twice), and the wanted inputs from that very
+// spot become what the take plays. Its outline and analysis stay with the
+// plain guitar — attacks and pitch read better there.
+function findIn(hay, needle, rate, expect){
+  const D = 16, thin = (x) => { const n = Math.floor(x.length / D), o = new Float32Array(n); for(let i = 0; i < n; i++){ let v = 0; for(let j = 0; j < D; j++) v += x[i * D + j]; o[i] = v / D; } return o; };
+  const h = thin(hay), nd = thin(needle), L = Math.min(nd.length, Math.round(6 * rate / D));
+  if(L < 200 || h.length < L) return null;
+  // the loudest stretch of the take is what is looked for
+  let w = 0, best = -1; const hopW = Math.max(1, L >> 2);
+  for(let a = 0; a + L <= nd.length; a += hopW){ let e = 0; for(let i = a; i < a + L; i += 4) e += nd[i] * nd[i]; if(e > best){ best = e; w = a; } }
+  let en = 0; for(let i = 0; i < L; i++) en += nd[w + i] * nd[w + i];
+  if(en <= 0) return null;
+  const mid = Math.round(expect * rate / D) + w, slack = Math.round(1.6 * rate / D);
+  let p0 = -1, top = -2;
+  for(let p = Math.max(0, mid - slack); p <= Math.min(h.length - L, mid + slack); p++){
+    let dot = 0, eh = 0; for(let i = 0; i < L; i++){ const x = h[p + i]; dot += x * nd[w + i]; eh += x * x; }
+    const c = eh > 0 ? dot / Math.sqrt(eh * en) : 0; if(c > top){ top = c; p0 = p; }
+  }
+  if(p0 < 0) return null;
+  // to the sample, on the full signal
+  const M = Math.min(L * D, Math.round(2 * rate)), n0 = w * D; let at = 0, conf = -2;
+  for(let d = -2 * D; d <= 2 * D; d++){ const a = (p0 - w) * D + d; if(a + n0 < 0 || a + n0 + M > hay.length) continue;
+    let dot = 0, eh = 0, e2 = 0; for(let i = 0; i < M; i++){ const x = hay[a + n0 + i], y = needle[n0 + i]; dot += x * y; eh += x * x; e2 += y * y; }
+    const c = eh > 0 && e2 > 0 ? dot / Math.sqrt(eh * e2) : 0; if(c > conf){ conf = c; at = a; } }
+  return {at, conf};
+}
+async function wetTakes(cap, info){
+  const mine = S.takes.filter(t => t.cap === cap && !t.wet && t.buf);
+  if(!mine.length) return;
+  let failed = !info ? mine.length : 0;
+  for(const t of (info ? mine : [])){
+    try{
+      const guess = t.at / 1000 - info.started, a = Math.max(0, guess - 1.6);
+      const r = await fetch(`/api/capture/${cap}/slice?start=${a.toFixed(3)}&dur=${(t.dur + 3.4).toFixed(3)}`); if(!r.ok) throw new Error("slice");
+      const sl = await audioCtx().decodeAudioData(await r.arrayBuffer());
+      const hit = findIn(sl.getChannelData(0), t.buf.getChannelData(0), sl.sampleRate, guess - a);
+      if(!hit || hit.conf < 0.5 || hit.at < 0) throw new Error("not found");
+      const nc = sl.numberOfChannels - 1, out = audioCtx().createBuffer(nc, t.buf.length, sl.sampleRate);
+      for(let c = 0; c < nc; c++) out.getChannelData(c).set(sl.getChannelData(c + 1).subarray(hit.at, hit.at + t.buf.length));
+      t.blob = await listenBlob(out); if(t.url){ URL.revokeObjectURL(t.url); t.url = null; }
+      t.wet = true; t.stereo = nc === 2;
+    }catch(e){ failed++; }
+  }
+  if(failed) toast(failed === mine.length ? "Zvuk s efekty se k nahrávce nepodařilo přiřadit — takes zůstaly z Input 1" : "U některého take se zvuk s efekty nepodařilo přiřadit — zůstal z Input 1");
+}
+// The take the player confirmed, measured and compared with the reference.
+async function analyzeTake(i){
+  const t = S.takes[i]; if(!t || t.busy) return;
+  if(t.result){ selectTake(i); return; }
+  if(!S.ref.key){ toast("Reference se ještě připravuje — chvilku počkej"); return; }
+  if(t.peak < 0.003){ toast("Tenhle take je tichý — není co analyzovat"); return; }
+  t.busy = true; paintTakes(); setProg("an-prog", 0); $("an-stage").textContent = `Analyzuji take ${t.n}…`;
+  try{
+    const pcm = await resample(t.buf), key = "ply:" + Date.now() + ":" + Math.random();
+    t.analysis = await ask({cmd: "analyze", key, pcm, cfg: engineCfg()}, x => setProg("an-prog", x * 0.6));
+    // Recorded on the reference's own clock, from the start of the stretch.
+    t.result = await ask({cmd: "compare", ref: S.ref.key, ply: key, cfg: engineCfg(), band: 2, range: {from: t.from, to: t.to, lag: t.shift || 0}}, x => setProg("an-prog", 0.6 + x * 0.4));
+    ask({cmd: "forget", key});
+    t.busy = false; selectTake(i);
+    if(!S.ref.demo){ await saveSession(); paintRecent(); }
+  }catch(e){ t.busy = false; toast("Analýza se nepodařila: " + e.message); }
+  setProg("an-prog", null); $("an-stage").textContent = ""; paintTakes();
+}
+// The take on show: in the performance lane, under PLAY, and — once analysed — in the analysis below.
+function selectTake(i){
+  const t = S.takes[i]; if(!t) return;
+  S.take = i; S.mark = i;
+  S.ply = {key: null, analysis: t.analysis || {wave: t.wave, dur: t.dur, notes: []}, blob: t.blob, peak: t.peak, quiet: t.quiet, clipped: t.clipped};
+  S.result = t.result || null; S.sel = null;
+  if(!t.url) t.url = URL.createObjectURL(t.blob);
+  aPly.src = t.url;
+  paintAnalysis(); paintInspector(); paintTakes(); drawTimeline();
+}
+function paintTakes(){
+  const box = $("takes"); if(!box || !S.ref) return;
+  const reg = S.loop || {a: 0, b: S.ref.analysis.dur};
+  $("tr-range").textContent = S.loop ? `Úsek ${fmtShort(reg.a)}–${fmtShort(reg.b)} · ${(reg.b - reg.a).toFixed(1)} s` : "Celá skladba";
+  $("tr-help").textContent = S.recording ? (REC.started ? (REC.loop ? "Nahrávám — úsek jede dokola, každý průchod je take. Enter, STOP nebo mezerník ukončí." : "Nahrávám — na konci úseku se zastaví samo.") : "Odpočet…")
+    : S.loop ? "REC nebo Enter: po odpočtu se nahrávání spustí samo, na konci úseku se " + ($("tr-loop").checked ? "vrátí na začátek a nahrává další take." : "zastaví.")
+    : "Označ úsek v časové ose (Shift + tažení) a stiskni REC nebo Enter: po odpočtu se nahrávání spustí samo. Bez úseku se nahrává celá skladba.";
+  const done = S.takes.filter(t => t.result);
+  const best = done.length > 1 ? S.takes.indexOf(done.reduce((b, t) => (t.result.scores.overall ?? -1) > (b.result.scores.overall ?? -1) ? t : b, done[0])) : -1;
+  box.innerHTML = S.takes.map((t, i) => { const sc = t.result && t.result.scores, c = t.result && t.result.counts;
+    return `<div class="take ${i === S.take ? "on" : ""}" data-take="${i}"><span class="n">Take ${t.n}</span>
+      ${sc ? `<span class="sc" style="color:${scoreColor(sc.overall)}">${sc.overall == null ? "—" : sc.overall + "%"}</span>
+        <span class="d">Pitch ${sc.pitch ?? "—"} · Timing ${sc.timing ?? "—"} · Rhythm ${sc.rhythm ?? "—"} · špatně ${c.wrong} · vynecháno ${c.missed} · navíc ${c.extra}</span>`
+        : `<span class="d">${t.busy ? "analyzuji…" : `nahráno · ${t.dur.toFixed(1)} s · bez analýzy`}</span>`}
+      ${t.wet ? '<span class="pill" style="color:var(--violet2)" title="Při přehrání zní vstup s efekty; křivka a analýza jsou z čisté kytary">S EFEKTY</span>' : ""}
+      ${i === best ? '<span class="pill" style="color:var(--ok)">NEJLEPŠÍ</span>' : ""}
+      ${!t.result && !t.busy ? `<button class="btn small primary" data-analyze="${i}">Analyzovat</button>` : ""}<button class="btn small" data-hear="${i}">▶</button></div>`; }).join("")
+    + (REC.pending ? `<div class="take"><span class="n">…</span><span class="d">ukládám take</span></div>` : "");
+  // the confirm button in the timeline's header: the marked take, when it has not been analysed
+  const m = S.takes[S.mark], cb = $("tk-confirm");
+  cb.hidden = !m || !!m.result || m.busy || S.recording;
+  if(m) cb.textContent = `Analyzovat take ${m.n}`;
+}
+$("tk-confirm").onclick = () => analyzeTake(S.mark);
+
+// ---- the shift of the player's track. One number for the rig: every take
+// is moved earlier by it, and an analysis made with another value is void.
+function setLatency(ms, byHand){
+  latencyMs = Math.max(-100, Math.min(500, Math.round(ms)));
+  if(byHand) latencyAuto = false;
+  saveCfg();
+  $("lat-ms").value = latencyMs; $("latency").value = latencyMs; $("lat-auto").classList.toggle("on", latencyAuto);
+  let cleared = false;
+  S.takes.forEach(t => { if(t.buf && Math.abs((t.shift || 0) * 1000 - latencyMs) > 0.5){ t.shift = latencyMs / 1000; if(t.result){ t.result = null; t.analysis = null; cleared = true; } } });
+  if(cleared && S.takes[S.take] && !S.takes[S.take].result){ S.result = null; S.ply = S.ply && {...S.ply, analysis: {wave: S.takes[S.take].wave, dur: S.takes[S.take].dur, notes: []}}; paintAnalysis(); paintInspector(); toast("Posun změněn — take analyzuj znovu"); }
+  if(S.ref){ paintTakes(); drawTimeline(); }
+}
+// Measured from a take: where its attacks line up best with the reference's.
+async function autoLatency(i, quiet){
+  const t = S.takes[i]; if(!t || !t.buf || !S.ref.key) return false;
+  let r = null;
+  try{ r = await ask({cmd: "lag", ref: S.ref.key, pcm: await resample(t.buf), from: t.from}); }catch(e){}
+  if(!r || r.confidence < 0.3){ if(!quiet) toast("Zpoždění se z tohohle take nedá spolehlivě změřit — nastav ho ručně"); return false; }
+  latencyAuto = true; setLatency(r.lag * 1000, false);
+  toast(`Zpoždění změřeno: ${Math.round(r.lag * 1000)} ms — tvoje stopa je posunutá`);
+  return true;
+}
+$("lat-dn").onclick = () => setLatency(latencyMs - 1, true);
+$("lat-up").onclick = () => setLatency(latencyMs + 1, true);
+$("lat-ms").onchange = () => setLatency(+$("lat-ms").value || 0, true);
+$("lat-auto").onclick = () => { if(!S.takes.some(t => t.buf)){ latencyAuto = true; saveCfg(); $("lat-auto").classList.add("on"); toast("Auto zapnuto — zpoždění se změří z příštího take"); return; } autoLatency(S.mark >= 0 ? S.mark : S.takes.length - 1); };
+$("lat-ms").value = latencyMs; $("lat-auto").classList.toggle("on", latencyAuto);
+document.addEventListener("click", (e) => {
+  const an = e.target.closest("[data-analyze]"); if(an){ e.stopPropagation(); analyzeTake(+an.dataset.analyze); return; }
+  const h = e.target.closest("[data-hear]"); if(h){ e.stopPropagation(); selectTake(+h.dataset.hear); playFrom("ply", S.takes[+h.dataset.hear].from); return; }
+  const t = e.target.closest("[data-take]"); if(t) selectTake(+t.dataset.take);
+});
+// The guitar from the input straight to the output, while recording.
+let monitorNode = null;
+function setMonitor(on){
+  if(monitorNode){ try{ monitorNode.disconnect(); }catch(e){} monitorNode = null; }
+  if(on && S.input){ monitorNode = audioCtx().createGain(); S.input.an.connect(monitorNode); monitorNode.connect(audioCtx().destination); }
+}
+["tr-loop", "tr-count", "tr-click"].forEach(id => $(id).addEventListener("change", paintTakes));
+
+// ---- sections: stretches of this song, named and kept, to pick from when
+// practising. Kept by the song's name (in this browser), so they are there
+// the next time the same reference is loaded.
+const SECT_KEY = "pick-analyzer-sections";
+const sectStore = () => { try{ return JSON.parse(localStorage.getItem(SECT_KEY) || "{}"); }catch(e){ return {}; } };
+const sectSong = () => (S.ref.artist || "") + "|" + S.ref.title;
+function sections(){ return S.ref ? (sectStore()[sectSong()] || []) : []; }
+function saveSections(list){ const all = sectStore(); if(list.length) all[sectSong()] = list; else delete all[sectSong()]; try{ localStorage.setItem(SECT_KEY, JSON.stringify(all)); }catch(e){} }
+function paintSections(){
+  if(!S.ref) return;
+  const list = sections();
+  $("sects").innerHTML = list.length ? list.map(x => `<span class="sect ${x.id === S.section ? "on" : ""}" data-sect="${x.id}" title="Klik = trénovat tuhle sekci · dvojklik na název = přejmenovat">
+      <b data-name>${esc(x.name)}</b><i>${fmtShort(x.a)}–${fmtShort(x.b)}</i><button data-ren title="Přejmenovat">✎</button><button data-del title="Smazat sekci">×</button></span>`).join("")
+    : '<span class="dim" style="font-size:12px">zatím žádná — označ úsek a ulož ho</span>';
+  $("sect-save").hidden = !S.loop || (S.section != null && list.some(x => x.id === S.section));
+  $("sect-lib").hidden = !S.loop || !!S.ref.demo;
+}
+function pickSection(id){
+  const x = sections().find(y => y.id === id); if(!x) return;
+  setLoop(x.a, x.b); S.section = id;
+  // into view, with a little room either side
+  const w = tlScroll.clientWidth, len = x.b - x.a;
+  if(x.a * S.pps < tlScroll.scrollLeft || x.b * S.pps > tlScroll.scrollLeft + w){ if(len * S.pps > w * 0.9){ S.pps = Math.max(4, w * 0.8 / len); sizeTimeline(); } tlScroll.scrollLeft = Math.max(0, x.a * S.pps - w * 0.1); }
+  paintSections(); drawTimeline();
+}
+function renameSection(id){
+  const chip = document.querySelector(`.sect[data-sect="${id}"]`), list = sections(), x = list.find(y => y.id === id); if(!chip || !x) return;
+  const b = chip.querySelector("[data-name]"), inp = document.createElement("input");
+  inp.value = x.name; b.replaceWith(inp); inp.focus(); inp.select();
+  let finished = false;          // Enter repaints the row, which blurs the field: once is enough
+  const done = (keep) => { if(finished) return; finished = true; if(keep && inp.value.trim()){ x.name = inp.value.trim().slice(0, 40); saveSections(list); } paintSections(); drawTimeline(); };
+  inp.onkeydown = (e) => { e.stopPropagation(); if(e.key === "Enter") done(true); else if(e.key === "Escape") done(false); };
+  inp.onblur = () => done(true); inp.onclick = (e) => e.stopPropagation();
+}
+$("sect-save").onclick = () => {
+  if(!S.loop){ toast("Nejdřív označ úsek v časové ose (Shift + tažení)"); return; }
+  const list = sections(), id = "x" + Date.now();
+  list.push({id, name: "Sekce " + (list.length + 1), a: +S.loop.a.toFixed(3), b: +S.loop.b.toFixed(3)});
+  list.sort((p, q) => p.a - q.a); saveSections(list); S.section = id; paintSections(); drawTimeline(); renameSection(id);
+};
+$("sects").addEventListener("click", (e) => {
+  const chip = e.target.closest(".sect"); if(!chip) return;
+  const id = chip.dataset.sect;
+  if(e.target.closest("[data-del]")){ saveSections(sections().filter(x => x.id !== id)); if(S.section === id) S.section = null; paintSections(); drawTimeline(); return; }
+  if(e.target.closest("[data-ren]")){ renameSection(id); return; }
+  if(e.target.tagName === "INPUT") return;
+  pickSection(id);
+});
+$("sects").addEventListener("dblclick", (e) => { const chip = e.target.closest(".sect"); if(chip && e.target.closest("[data-name]")) renameSection(chip.dataset.sect); });
+// A change to the stretch while a section is the one picked is a change to that section.
+function loopEdited(){
+  if(S.section == null || !S.loop) return;
+  const list = sections(), x = list.find(y => y.id === S.section);
+  if(x){ x.a = +S.loop.a.toFixed(3); x.b = +S.loop.b.toFixed(3); list.sort((p, q) => p.a - q.a); saveSections(list); paintSections(); }
+}
+$("tr-all").onclick = () => { setLoop(null); drawTimeline(); };
+$("tr-snap").onclick = () => {
+  const g = S.ref && S.ref.grid;
+  if(!S.loop){ toast("Nejdřív označ úsek v časové ose (Shift + tažení)"); return; }
+  if(!g){ toast("Taktové čáry má jen reference ze Steems"); return; }
+  const near = (t) => g.downbeats.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, g.downbeats[0]);
+  let a = near(S.loop.a), b = near(S.loop.b);
+  if(b <= a) b = g.downbeats.find(x => x > a + 0.05) ?? S.loop.b;
+  setLoop(a, b, true); loopEdited(); drawTimeline();
+};
+async function analyzePerformance(pcm, extra){
+  go("analyze");
+  $("an-empty").hidden = false; $("an-body").hidden = true; setProg("an-prog", 0);
+  const stage = (t) => $("an-stage").textContent = t;
+  try{
+    stage("Analyzuji tvoji nahrávku…");
+    const key = "ply:" + Date.now();
+    const a = await ask({cmd: "analyze", key, pcm, cfg: engineCfg()}, x => setProg("an-prog", x * 0.6));
+    if(S.ply) ask({cmd: "forget", key: S.ply.key});
+    S.ply = {key, analysis: a, ...(extra || {})};
+    if(!S.ply.blob) S.ply.blob = wavBlob(pcm, SR);
+    if(!S.ply.peak){ S.ply.peak = a.peak; S.ply.quiet = a.peak < 0.12; }
+    $("a-ply").src = URL.createObjectURL(S.ply.blob);
+    stage("Zarovnávám s referencí a porovnávám…");
+    S.result = await ask({cmd: "compare", ref: S.ref.key, ply: key, cfg: engineCfg(), band: extra && extra.along ? 2 : null}, x => setProg("an-prog", 0.6 + x * 0.4));
+    S.sel = null; setLoop(null);
+    S.takes = [{n: 1, analysis: a, result: S.result, blob: S.ply.blob, wave: a.wave, dur: a.dur, from: 0, to: S.ref.analysis.dur, peak: S.ply.peak}]; S.take = 0; S.mark = 0; S.takesOpen = false; paintTakes();
+    if(!S.ref.demo) await saveSession();
+    stage("");
+  }catch(e){ stage("Analýza selhala: " + e.message); S.result = null; }
+  setProg("an-prog", null);
+  paintAnalysis(); paintInspector(); paintRecent();
+}
+async function saveSession(){
+  const r = S.result, id = "s" + Date.now();
+  S.session = {id, refId: S.ref.id, song: S.ref.title, artist: S.ref.artist, date: Date.now(), scores: r.scores, counts: r.counts,
+    result: r, refAnalysis: S.ref.analysis, plyAnalysis: S.ply.analysis, refBlob: S.ref.blob, plyBlob: S.ply.blob, tuning: tuningName,
+    section: S.takes[S.take] ? {from: S.takes[S.take].from, to: S.takes[S.take].to, takes: S.takes.length} : null};
+  try{ await DB.put("sessions", S.session); }catch(e){ toast("Session se nepodařilo uložit"); }
+}
+async function openSession(id){
+  const s = await DB.get("sessions", id); if(!s) return;
+  stopAll(); S.demo = false;
+  S.ref = {id: s.refId, key: null, title: s.song, artist: s.artist, blob: s.refBlob, analysis: s.refAnalysis};
+  S.ply = {key: null, analysis: s.plyAnalysis, blob: s.plyBlob}; S.result = s.result; S.session = s; S.sel = null; setLoop(null);
+  S.ref.orig = {key: null, analysis: s.refAnalysis}; S.ref.backing = null; S.ref.grid = null;
+  BAND.forEach(x => x.removeAttribute("src")); paintBand(null); $("tr-noguitar").checked = false; $("tr-noguitar-l").hidden = true;
+  S.takes = [{n: 1, analysis: s.plyAnalysis, result: s.result, blob: s.plyBlob, wave: s.plyAnalysis.wave, dur: s.plyAnalysis.dur, from: s.section ? s.section.from : 0, to: s.section ? s.section.to : s.refAnalysis.dur}]; S.take = 0; S.mark = 0; S.takesOpen = false;
+  $("ref-body").hidden = false; $("deck").hidden = false; $("pr-empty").hidden = true;
+  S.ref.url = URL.createObjectURL(s.refBlob);
+  $("a-ref").src = S.ref.url; $("a-ply").src = URL.createObjectURL(s.plyBlob);
+  if(MIX.pitch) applyPitch();
+  // The engine needs the reference again before a new take can be compared.
+  toMono(await s.refBlob.arrayBuffer()).then(async pcm => { const key = "ref:" + Date.now(); await ask({cmd: "analyze", key, pcm, cfg: engineCfg()}); if(S.ref && S.ref.id === s.refId){ S.ref.key = key; S.ref.orig.key = key; } });
+  setMode(); paintRef(); go("analyze"); paintAnalysis(); paintInspector(); paintTakes();
+}
+
+// ------------------------------------------------------------------- demo
+$("demo-btn").onclick = async () => {
+  go("analyze"); S.demo = true; setMode(); stopAll();
+  const d = await ask({cmd: "demo"});
+  await loadReference({title: "Synthesized riff, 112 BPM", artist: "Demo", pcm: d.ref, demo: true});
+  await analyzePerformance(d.ply);
+  toast("DEMO: zvuk je syntetický, analýza skutečná");
+};
+
+// ---------------------------------------------------------------- transport
+const aRef = $("a-ref"), aPly = $("a-ply");
+[aRef, aPly, $("a-back"), $("a-fix"), $("a-vox")].forEach(a => { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; });
+function mapTo(al, t, inv){
+  const a = inv ? al.ply : al.ref, b = inv ? al.ref : al.ply, n = a.length - 1;
+  if(!a.length) return t;
+  if(t <= a[0]) return Math.max(0, b[0] + (t - a[0]));
+  if(t >= a[n]) return b[n] + (t - a[n]);
+  let lo = 0, hi = n; while(lo < hi - 1){ const m = (lo + hi) >> 1; if(a[m] <= t) lo = m; else hi = m; }
+  return b[lo] + (b[hi] - b[lo]) * ((t - a[lo]) / (a[hi] - a[lo] || 1));
+}
+// Reference time → time in the take: through the alignment once the take is
+// analysed; before that, the take simply starts where its stretch does.
+// (The take is late by its shift: what is at its start belongs that much earlier.)
+const takeFrom = () => (S.takes[S.take] ? S.takes[S.take].from - (S.takes[S.take].shift || 0) : 0);
+// Straight, not through the alignment: the take was recorded on the
+// reference's clock, and it plays back straight. Drawing it warped — each
+// note pulled under the note it was matched to — made the picture disagree
+// with the sound, and hid exactly the earliness and lateness worth seeing.
+const refToPly = (t) => t - takeFrom();
+// The band in two parts: what follows a change of tuning (bass, keys, the
+// rest) and what never does (the kit, the voices).
+const aBack = $("a-back"), aFix = $("a-fix"), aVox = $("a-vox"), BAND = [aBack, aFix, aVox];
+function stopAll(){ [aRef, aPly, ...BAND].forEach(x => x.pause()); clearTimeout(stopAll.t); stopClicks(); }
+// The faders the band has: one for what there is of it.
+function paintBand(backing){
+  $("mx-band").hidden = !(backing && backing.url); $("mx-drums").hidden = !(backing && backing.drumsUrl); $("mx-vox").hidden = !(backing && backing.voxUrl);
+  if(backing) $("mx-band-t").textContent = backing.tonalStems && backing.tonalStems.length ? "· " + backing.tonalStems.join(", ") : "";
+}
+// ---- the mix: each player through its own gain and panner. Listening only —
+// the analysis reads the recordings themselves.
+const MIX_KEY = "pick-analyzer-mix";
+const MIX = {rv: 0.9, rp: 0, pv: 1, pp: 0, bv: 0.9, dv: 0.9, vv: 0.9, mv: 0.7, met: false, pitch: 0};
+try{ Object.assign(MIX, JSON.parse(localStorage.getItem(MIX_KEY) || "{}")); }catch(e){}
+let mixNodes = null;
+function mixGraph(){
+  if(mixNodes) return mixNodes;
+  const ctx = audioCtx();
+  const chain = (el) => { const src = ctx.createMediaElementSource(el), g = ctx.createGain(), p = ctx.createStereoPanner(); src.connect(g); g.connect(p); p.connect(ctx.destination); return {g, p}; };
+  mixNodes = {ref: chain(aRef), ply: chain(aPly), back: chain(aBack), fix: chain(aFix), vox: chain(aVox)};
+  applyMix();
+  return mixNodes;
+}
+function applyMix(){
+  const pan = (v) => Math.abs(v) < 0.03 ? "střed" : (v < 0 ? "L " : "R ") + Math.round(Math.abs(v) * 100);
+  [["rv", MIX.rv], ["pv", MIX.pv], ["bv", MIX.bv], ["dv", MIX.dv], ["vv", MIX.vv], ["mv", MIX.mv]].forEach(([k, v]) => { $("mx-" + k).value = v; $("mx-" + k + "-t").textContent = Math.round(v * 100) + " %"; });
+  [["rp", MIX.rp], ["pp", MIX.pp]].forEach(([k, v]) => { $("mx-" + k).value = v; $("mx-" + k + "-t").textContent = pan(v); });
+  if(document.activeElement !== $("mx-pitch")) $("mx-pitch").value = MIX.pitch;
+  if(mixNodes){ mixNodes.ref.g.gain.value = MIX.rv; mixNodes.ref.p.pan.value = MIX.rp; mixNodes.ply.g.gain.value = MIX.pv; mixNodes.ply.p.pan.value = MIX.pp; mixNodes.back.g.gain.value = MIX.bv; mixNodes.fix.g.gain.value = MIX.dv; mixNodes.vox.g.gain.value = MIX.vv; }
+  $("mx-met").checked = !!MIX.met; if(clickBus.g) clickBus.g.gain.value = MIX.mv;
+  try{ localStorage.setItem(MIX_KEY, JSON.stringify(MIX)); }catch(e){}
+}
+$("mx-met").onchange = (e) => { MIX.met = e.target.checked; applyMix(); };
+["rv", "rp", "pv", "pp", "bv", "dv", "vv", "mv"].forEach(k => $("mx-" + k).oninput = (e) => { MIX[k] = +e.target.value; applyMix(); });
+["mx-rp", "mx-pp"].forEach(id => $(id).ondblclick = () => { MIX[id.slice(3)] = 0; applyMix(); });
+applyMix();                          // the sliders show the remembered mix from the start
+
+// ---- the reference at another pitch, same tempo: rendered once per value
+// by the stretch module Pick already carries, then played like any file.
+const pitched = new Map();          // "ref|back:refId:semitones" → {url, blob}
+let pitchJob = 0;
+async function renderPitched(blob, st){
+  const buf = await audioCtx().decodeAudioData((await blob.arrayBuffer()).slice(0)), off = new OfflineAudioContext(2, buf.length, buf.sampleRate);
+  const make = (await import("/static/stretch/SignalsmithStretch.mjs")).default;
+  const node = await make(off, {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+  await node.addBuffers([buf.getChannelData(0).slice(), buf.getChannelData(Math.min(1, buf.numberOfChannels - 1)).slice()]);
+  node.connect(off.destination);
+  node.schedule({outputTime: 0, active: true, input: 0, rate: 1, semitones: st});
+  const r = await off.startRendering();
+  return wavBlob([r.getChannelData(0), r.getChannelData(1)], r.sampleRate);
+}
+// The reference (and the band with it) at another pitch, same tempo — and
+// then measured again there: its notes, key and tempo are those of what is
+// now heard, and takes are judged against that.
+async function applyPitch(){
+  if(!S.ref) return;
+  const ref = S.ref, st = Math.round(MIX.pitch * 100) / 100, job = ++pitchJob, label = $("mx-pitch-t");
+  if(S.recording) stopRec();
+  const at = aRef.currentTime; stopAll();
+  const use = (refUrl, backUrl, key, analysis, peaks) => {
+    aRef.src = refUrl; aRef.currentTime = at; if(ref.backing && backUrl){ aBack.src = backUrl; aBack.currentTime = at; }
+    [aFix, aVox].forEach(x => { if(x.src) x.currentTime = at; });   // the kit and the voices stay as recorded
+    const changed = ref.key !== key;
+    ref.pitchApplied = st; ref.key = key; ref.analysis = analysis; if(peaks) ref.peaks = peaks;
+    if(changed){ S.takes = []; S.take = -1; S.mark = -1; S.takesOpen = false; S.ply = null; S.result = null; S.sel = null; }
+    label.textContent = ""; paintRef(); paintAnalysis(); paintInspector(); paintTakes(); drawTimeline();
+  };
+  if(!st){ if(ref.pitchApplied) use(ref.url, ref.backing && ref.backing.url, ref.orig.key, ref.orig.analysis, ref.orig.peaks); return; }
+  try{
+    const kr = "ref:" + ref.id + ":" + st, kb = "back:" + ref.id + ":" + st;
+    if(!pitched.has(kr)){
+      label.textContent = "přelaďuji referenci…";
+      const blob = await renderPitched(ref.blob, st);
+      label.textContent = "přepočítávám údaje…";
+      const key = "ref:" + Date.now() + ":" + st;
+      const mono = await toMono(await blob.arrayBuffer());
+      const analysis = await ask({cmd: "analyze", key, pcm: mono, cfg: engineCfg()});
+      pitched.set(kr, {url: URL.createObjectURL(blob), key, analysis, peaks: makePeaks(mono, SR)});
+    }
+    if(ref.backing && ref.backing.blob && !pitched.has(kb)){
+      label.textContent = "přelaďuji kapelu (bez bicích a zpěvu)…";
+      pitched.set(kb, {url: URL.createObjectURL(await renderPitched(ref.backing.blob, st))});
+    }
+    if(job !== pitchJob || S.ref !== ref) return;
+    const r = pitched.get(kr);
+    use(r.url, ref.backing && pitched.has(kb) ? pitched.get(kb).url : null, r.key, r.analysis, r.peaks);
+    toast(`Reference přeladěna o ${st} půltónu — údaje přepočítány`);
+  }catch(e){ if(job === pitchJob) label.textContent = "nepodařilo se: " + e.message; }
+}
+$("mx-pitch").onchange = () => { MIX.pitch = Math.max(-12, Math.min(12, parseFloat($("mx-pitch").value) || 0)); applyMix(); applyPitch(); };
+$("mx-pitch-auto").onclick = () => {
+  const t = S.result && S.result.tuning;
+  if(!t || t.offsetCents == null || !t.applied){ toast("Posun ladění ještě není změřený — nejdřív se nahraj"); return; }
+  // The guitar is offsetCents away from the record: bring the record to it.
+  MIX.pitch = Math.round((MIX.pitch * 100 + t.offsetCents) / 5) * 5 / 100; applyMix(); applyPitch();
+  toast(`Reference přeladěna o ${MIX.pitch} půltónu na tvoji kytaru`);
+};
+
+// ---- my tuning: what the guitar is tuned to (read from its open strings,
+// kept in the browser and shared with the rest of Pick), and from it the
+// shift that puts the reference where the guitar is. Shown, then applied
+// only when confirmed; the kit and the voices are never moved.
+const MY_KEY = "pick-my-tuning";
+const myTuning = () => { try{ const v = JSON.parse(localStorage.getItem(MY_KEY) || "null"); return v && Array.isArray(v.midi) && v.midi.length ? v : null; }catch(e){ return null; } };
+function proposeShift(mine, song){
+  const n = Math.min(mine.length, song.length), diffs = [];
+  for(let i = 0; i < n; i++) diffs.push(mine[i] - song[i]);
+  const count = {}; diffs.forEach(d => count[d] = (count[d] || 0) + 1);
+  let shift = diffs[n - 1], best = 0;
+  Object.entries(count).forEach(([d, c]) => { if(c > best || (c === best && +d === diffs[n - 1])){ best = c; shift = +d; } });
+  const odd = diffs.map((d, i) => ({string: i, extra: d - shift})).filter(x => x.extra !== 0);
+  return {shift, uniform: !odd.length, odd, strings: n};
+}
+const MT = {song: "E Standard", manual: null, listening: false, got: []};
+function openMyTuning(){
+  if(!S.ref){ toast("Nejdřív načti referenci"); return; }
+  MT.manual = null; MT.listening = false; $("mt").classList.add("on"); paintMyTuning();
+}
+function paintMyTuning(){
+  const box = $("mt-box"), mine = myTuning(), song = TUNINGS[MT.song], b = S.ref.backing;
+  if(MT.listening){
+    box.innerHTML = `<div class="h">Zjistit ladění mé kytary <span class="sp"></span><button class="btn small" id="mt-x">Zpět</button></div>
+      <div class="muted" style="font-size:13.5px">Zahraj postupně <b style="color:var(--text)">prázdné struny od nejtlustší po nejtenčí</b> a každou nech chvilku znít.</div>
+      <div style="text-align:center;font-size:50px;font-weight:750;padding:12px 0" id="mt-now">—</div>
+      <div style="text-align:center">${Array.from({length: 6}, (_, i) => MT.got[i] ? `<span class="mts on"><b>${noteName(MT.got[i])}</b></span>` : `<span class="mts"><b>${6 - i}.</b></span>`).join("")}</div>
+      <div style="display:flex;gap:10px;margin-top:16px"><button class="btn small" id="mt-again">Znovu</button><span style="flex:1"></span>
+        <button class="btn small primary" id="mt-keep" ${MT.got.length < 4 ? "disabled" : ""}>Uložit jako moje ladění</button></div>`;
+    $("mt-x").onclick = () => { MT.listening = false; paintMyTuning(); };
+    $("mt-again").onclick = () => { MT.got = []; paintMyTuning(); };
+    $("mt-keep").onclick = () => { try{ localStorage.setItem(MY_KEY, JSON.stringify({midi: MT.got, strings: MT.got.map(noteName), at: Date.now()})); }catch(e){} MT.listening = false; MT.manual = null; paintMyTuning(); };
+    return;
+  }
+  const pr = mine ? proposeShift(mine.midi, song) : null, shift = MT.manual != null ? MT.manual : pr ? pr.shift : 0, big = Math.abs(shift) > 4;
+  box.innerHTML = `<div class="h">Přeladit referenci na moji kytaru <span class="sp"></span><button class="btn small" id="mt-x">Zavřít</button></div>
+    <div class="mtr"><span>Moje kytara</span><div>${mine ? `<b>${mine.midi.map(noteName).join(" ")}</b>` : '<span class="na">ZATÍM NEZNÁMÉ</span>'}
+      <button class="btn small" id="mt-listen" style="margin-left:10px">${mine ? "Zjistit znovu" : "Zjistit z kytary"}</button>
+      ${S.input ? "" : '<div class="note">K poslechu strun nejdřív vyber vstup (Analyze → SELECT INPUT). Ladění uložené v ladičce Picku se tu použije samo.</div>'}</div></div>
+    <div class="mtr"><span>Skladba</span><div><select id="mt-song">${Object.keys(TUNINGS).map(n => `<option ${n === MT.song ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <div class="muted" style="font-size:12px;margin-top:4px">${song.map(noteName).join(" ")} — v čem je nahrávka naladěná; aplikace to z audia nepozná, vyber to.</div></div></div>
+    <div class="mtr"><span>Návrh</span><div>${!mine ? '<span class="muted">Nejdřív zjisti ladění své kytary.</span>' : `<b style="font-size:15px">${shift === 0 ? "Bez posunu — jsi v ladění skladby" : `Posunout o ${shift > 0 ? "+" : ""}${shift} ${Math.abs(shift) === 1 ? "půltón" : Math.abs(shift) < 5 ? "půltóny" : "půltónů"}`}</b>
+      <div style="margin-top:8px"><button class="btn small" id="mt-dn">−</button> <input type="number" id="mt-shift" min="-12" max="12" value="${shift}" style="width:64px;text-align:center"> <button class="btn small" id="mt-up">+</button> půltónů</div>
+      ${pr.uniform ? "" : `<div class="note">Tvar ladění se liší: ${pr.odd.map(o => `${pr.strings - o.string}. struna je u tebe o ${Math.abs(o.extra)} ${o.extra < 0 ? "níž" : "výš"}`).join(", ")}. Zvuk se posune o společných ${pr.shift}.</div>`}
+      ${big ? '<div class="note bad">Přes dva tóny už posunutá kytara nezní přirozeně. Zvaž přeladění.</div>' : ""}`}</div></div>
+    <div class="mtr"><span>Co se změní</span><div>Posune se: <b>reference${b && b.tonalStems && b.tonalStems.length ? ", " + esc(b.tonalStems.join(", ")) : ""}</b><br>
+      <span class="muted">Beze změny: ${b && b.fixedStems && b.fixedStems.length ? esc(b.fixedStems.join(", ")) : "—"}</span><br>
+      <span class="muted">Reference se pak znovu přeměří; takes nahrané proti původní výšce se zahodí.</span></div></div>
+    <div style="display:flex;gap:10px;margin-top:16px"><span style="flex:1"></span><button class="btn small" id="mt-no">Nechat být</button>
+      <button class="btn small primary" id="mt-yes" ${mine ? "" : "disabled"}>Potvrdit a přeladit</button></div>`;
+  $("mt-x").onclick = $("mt-no").onclick = () => $("mt").classList.remove("on");
+  $("mt-song").onchange = (e) => { MT.song = e.target.value; MT.manual = null; paintMyTuning(); };
+  $("mt-listen").onclick = () => { if(!S.input){ toast("Nejdřív vyber vstup (Analyze → SELECT INPUT)"); return; } MT.got = []; MT.listening = true; paintMyTuning(); listenStrings(); };
+  if(mine){ const setM = (v) => { MT.manual = Math.max(-12, Math.min(12, v)); paintMyTuning(); };
+    $("mt-dn").onclick = () => setM(shift - 1); $("mt-up").onclick = () => setM(shift + 1); $("mt-shift").onchange = (e) => { const v = parseInt(e.target.value, 10) || 0; setTimeout(() => setM(v), 0); };
+    $("mt-yes").onclick = () => { $("mt").classList.remove("on"); MIX.pitch = shift; applyMix(); applyPitch(); }; }
+}
+// The open strings, low to high: a pitch held steady for 0.4 s, above the last one taken.
+function listenStrings(){
+  let hold = null;
+  (function loop(){
+    if(!MT.listening || !S.input || !$("mt").classList.contains("on")) return;
+    const {an, buf} = S.input; an.getFloatTimeDomainData(buf);
+    let e = 0; for(let i = 0; i < buf.length; i += 4) e += buf[i] * buf[i];
+    const y = Math.sqrt(e / (buf.length / 4)) > 0.006 ? yinLive(buf, audioCtx().sampleRate, 55, 700) : null, now = $("mt-now");
+    if(y && y.conf > 0.85){
+      const midi = Math.round(69 + 12 * Math.log2(y.f / 440));
+      if(now) now.textContent = noteName(midi);
+      if(!hold || hold.midi !== midi) hold = {midi, since: performance.now()};
+      if(performance.now() - hold.since > 400 && MT.got.length < 6 && (!MT.got.length || midi > MT.got[MT.got.length - 1] + 1)){ MT.got.push(midi); paintMyTuning(); }
+    } else { hold = null; if(now) now.textContent = "—"; }
+    requestAnimationFrame(loop);
+  })();
+}
+$("mx-pitch-mine").onclick = openMyTuning;
+
+// what: "ref" | "ply" | "both"; from/len in reference time.
+function playFrom(what, from, len){
+  stopAll();
+  try{ mixGraph(); audioCtx().resume(); }catch(e){}
+  const rate = S.speed;
+  if(what !== "ply"){ aRef.playbackRate = rate; aRef.currentTime = Math.max(0, from); aRef.play().catch(() => {}); }
+  // The band plays under whatever was chosen.
+  if(S.ref && S.ref.backing) BAND.forEach(x => { if(x.src){ x.playbackRate = rate; x.currentTime = Math.max(0, from); x.play().catch(() => {}); } });
+  if(what !== "ref" && S.ply){ aPly.playbackRate = rate; aPly.currentTime = Math.max(0, refToPly(from)); aPly.play().catch(() => {}); }
+  S.playing = what;
+  if(len) stopAll.t = setTimeout(stopAll, len / rate * 1000);
+}
+const playhead = () => S.playing !== "ply" ? aRef.currentTime : aPly.currentTime + takeFrom();
+// PLAY plays on from the playhead — the reference, the performance, or both
+// together (the performance placed through the alignment), as chosen.
+S.src = "ref";
+$("src").onclick = (e) => { const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.src !== "ref" && !S.ply){ toast("Zatím není nahraný žádný výkon"); return; }
+  const at = playhead(), was = !aRef.paused || !aPly.paused;
+  S.src = b.dataset.src; [...$("src").children].forEach(x => x.classList.toggle("on", x === b));
+  if(was) playFrom(S.src, at);
+};
+$("t-play").onclick = () => {
+  if(!S.ref){ toast("Není co přehrát"); return; }
+  if(S.src !== "ref" && !S.ply){ S.src = "ref"; [...$("src").children].forEach(x => x.classList.toggle("on", x.dataset.src === "ref")); }
+  let at = S.loop ? S.loop.a : playhead();
+  // Nothing of the performance lies before the stretch that was played.
+  if(S.src !== "ref" && S.result && S.result.coverage && (at < S.result.coverage.from - 0.5 || at > S.result.coverage.to)) at = Math.max(0, S.result.coverage.from - 0.5);
+  playFrom(S.src, at);
+};
+$("t-pause").onclick = stopAll;
+$("t-stop").onclick = () => { if(S.recording) stopRec(); stopAll(); aRef.currentTime = S.loop ? S.loop.a : 0; };
+$("t-rec").onclick = () => S.recording ? stopRec() : startRec();
+// The loop: back to A when the reference passes B.
+setInterval(() => {
+  if(S.recording){
+    // The pass is over when the reference reaches the end of the stretch.
+    if(REC.started && (aRef.currentTime >= REC.reg.b - 0.005 || aRef.ended)){ if(REC.loop) endPass(false); else stopRec(); }
+    return;
+  }
+  if(S.loop && !aRef.paused && aRef.currentTime >= S.loop.b){ rampStep(); aRef.currentTime = S.loop.a; BAND.forEach(x => { if(!x.paused) x.currentTime = S.loop.a; }); if(S.playing !== "ref" && S.ply) takeTurn(S.loop.a, true); }
+  // The take with the reference, no stretch marked: round the take's own stretch.
+  else if(TKL.on && !S.loop && S.playing === "both" && !aRef.paused && S.takes[S.take] && aRef.currentTime >= S.takes[S.take].to - 0.01){ const a = S.takes[S.take].from; aRef.currentTime = a; takeTurn(a); }
+  metronome();
+  if(S.loop && aRef.paused) BAND.forEach(x => { if(!x.paused && x.currentTime >= S.loop.b) x.currentTime = S.loop.a; });
+  // The performance alone, looped: it is its own clock.
+  if(S.playing === "ply" && aRef.paused && !aPly.paused && (S.loop || TKL.on) && playhead() >= takeSpan().b) takeTurn(takeSpan().a);
+}, 30);
+// ---- a take played round and round. A take is shorter than its stretch by
+// its shift, so it runs out before the stretch's end is reached: its end is
+// a turn too.
+const TKL = {on: localStorage.getItem("pick-analyzer-takeloop") !== "0"};
+const takeSpan = () => { const t = S.takes[S.take]; return S.loop ? S.loop : {a: t ? t.from : 0, b: t ? t.to : (S.ref ? S.ref.analysis.dur : 0)}; };
+function takeTurn(a, bandMoved){
+  aPly.currentTime = Math.max(0, refToPly(a)); aPly.playbackRate = S.speed; aPly.play().catch(() => {});
+  if(!bandMoved) BAND.forEach(x => { if(x.src && !x.paused) x.currentTime = a; });
+}
+aPly.addEventListener("ended", () => { if(TKL.on && S.playing === "ply" && S.ply && !S.recording) takeTurn(takeSpan().a); });
+$("tk-loop").classList.toggle("on", TKL.on);
+$("tk-loop").onclick = () => { TKL.on = !TKL.on; $("tk-loop").classList.toggle("on", TKL.on); try{ localStorage.setItem("pick-analyzer-takeloop", TKL.on ? "1" : "0"); }catch(e){} };
+function setLoop(a, b, keepSection){
+  S.loop = a == null ? null : {a: Math.min(a, b), b: Math.max(a, b)};
+  if(!keepSection) S.section = null;
+  if(typeof RAMP !== "undefined") RAMP.n = 0;
+  $("loop-clear").hidden = !S.loop;
+  const txt = S.loop ? `Smyčka ${fmtShort(S.loop.a)}–${fmtShort(S.loop.b)}` : "";
+  $("loop-info").textContent = txt;
+  if(typeof paintTakes === "function" && S.ref){ paintTakes(); paintSections(); }
+  loopState();
+}
+$("loop-clear").onclick = () => setLoop(null);
+// ---- the speed of playback: a share of the song's tempo, or the tempo itself
+function loopState(){
+  const bpm = S.ref ? ` (${(refBpm() * S.speed).toFixed(1)} BPM)` : "";
+  const every = Math.max(1, Math.round(parseFloat($("ramp-every").value)) || 1);
+  const round = $("ramp-on").checked && every > 1 ? ` · kolo ${RAMP.n + 1} z ${every}` : "";
+  $("loop-state").textContent = S.loop ? `Smyčka ${fmtShort(S.loop.a)}–${fmtShort(S.loop.b)} · rychlost ${Math.round(S.speed * 100)} %${bpm}${round} — PLAY nebo mezerník ji spustí. Změna rychlosti nemění výšku tónu.`
+    : "Žádná smyčka. Vyber problémový úsek níže, nebo ji označ v časové ose (Shift + tažení). Změna rychlosti nemění výšku tónu.";
+}
+function setSpeed(v){
+  S.speed = Math.max(0.25, Math.min(1.5, Math.round(v * 1000) / 1000));
+  [aRef, aPly, ...BAND].forEach(x => x.playbackRate = S.speed);
+  [...$("speeds").children].forEach(x => x.classList.toggle("on", Math.abs(+x.dataset.s - S.speed) < 0.001));
+  if(document.activeElement !== $("sp-pct")) $("sp-pct").value = Math.round(S.speed * 1000) / 10;
+  if(document.activeElement !== $("sp-bpm")) $("sp-bpm").value = S.ref ? (refBpm() * S.speed).toFixed(1) : "";
+  loopState();
+}
+$("speeds").onclick = (e) => { const b = e.target.closest("button"); if(b) setSpeed(+b.dataset.s); };
+$("sp-dn").onclick = () => setSpeed((Math.ceil(S.speed * 20 - 1e-6) - 1) / 20);       // onto the 5 % grid
+$("sp-up").onclick = () => setSpeed((Math.floor(S.speed * 20 + 1e-6) + 1) / 20);
+$("sp-pct").onchange = () => { const v = parseFloat($("sp-pct").value); if(isFinite(v)) setSpeed(v / 100); $("sp-pct").blur(); setSpeed(S.speed); };
+const bpmSpeed = (bpm) => { if(S.ref && isFinite(bpm) && bpm > 0) setSpeed(bpm / refBpm()); };
+$("bpm-dn").onclick = () => S.ref && bpmSpeed(Math.round(refBpm() * S.speed) - 5);
+$("bpm-up").onclick = () => S.ref && bpmSpeed(Math.round(refBpm() * S.speed) + 5);
+$("sp-bpm").onchange = () => { bpmSpeed(parseFloat($("sp-bpm").value)); $("sp-bpm").blur(); setSpeed(S.speed); };
+// One step faster after so many rounds of the loop, up to the goal.
+const RAMP = {n: 0};
+["ramp-on", "ramp-every"].forEach(id => $(id).addEventListener("change", () => { RAMP.n = 0; loopState(); }));
+function rampStep(){
+  if(!$("ramp-on").checked || !S.ref) return;
+  const every = Math.max(1, Math.round(parseFloat($("ramp-every").value)) || 1);
+  if(++RAMP.n < every){ loopState(); return; }
+  RAMP.n = 0;
+  const goal = Math.max(0.25, Math.min(1.5, (parseFloat($("ramp-to").value) || 100) / 100)), step = Math.abs(parseFloat($("ramp-step").value)) || 5;
+  if(S.speed >= goal - 0.0005){ loopState(); return; }
+  const next = $("ramp-unit").value === "bpm" ? (refBpm() * S.speed + step) / refBpm() : S.speed + step / 100;
+  setSpeed(Math.min(goal, next));
+  toast(`Rychlost ${Math.round(S.speed * 100)} % · ${(refBpm() * S.speed).toFixed(1)} BPM`);
+}
+
+// ----------------------------------------------------------------- painting
+const scoreColor = (v) => v == null ? "var(--dim)" : v >= 90 ? "var(--ok)" : v >= 75 ? "var(--warn)" : "var(--bad)";
+const SEV = ["#34d399", "#fbbf24", "#f87171"];
+const TYPE_COLOR = {PITCH: "#f87171", TIMING: "#fbbf24", RHYTHM: "#fb923c", TEMPO: "#60a5fa", DURATION: "#c084fc", MISSED: "#9ca3af", EXTRA: "#60a5fa"};
+function paintAnalysis(){
+  const r = S.result;
+  $("an-empty").hidden = !!r; $("an-body").hidden = !r;
+  if(!r){ paintProblems(); return; }
+  const sc = r.scores;
+  $("score-all").textContent = sc.overall == null ? "—" : sc.overall + "%";
+  $("ring-arc").style.strokeDashoffset = String(326.7 * (1 - (sc.overall || 0) / 100));
+  const cats = [["Pitch", sc.pitch], ["Timing", sc.timing], ["Rhythm", sc.rhythm], ["Tempo", sc.tempo], ["Duration", sc.duration], ["Articulation", sc.articulation]];
+  $("subs").innerHTML = cats.map(([n, v]) => `<div class="sub"><span>${n}</span><b style="color:${scoreColor(v)}">${v == null ? NA : v + "%"}</b><div class="bar"><i style="width:0;background:${scoreColor(v)}" data-w="${v || 0}"></i></div></div>`).join("");
+  requestAnimationFrame(() => $("subs").querySelectorAll(".bar i").forEach(i => i.style.width = i.dataset.w + "%"));
+  const c = r.counts, t = r.tempo;
+  $("facts").innerHTML = [`<span>Tónů v referenci <b>${c.reference}</b></span>`, `<span>Zahráno <b>${c.played}</b></span>`, `<span>Spárováno <b>${c.matched}</b></span>`,
+    `<span>Špatně <b class="sev-2">${c.wrong}</b></span>`, `<span>Vynecháno <b>${c.missed}</b></span>`, `<span>Navíc <b>${c.extra}</b></span>`,
+    `<span>Zarovnání <b>${Math.round(r.alignment.confidence * 100)} %</b></span>`,
+    r.timingBias ? `<span title="Průměrně o kolik jsi před referencí nebo za ní, po odečtení posunu stopy (${latencyMs} ms). Při posunu na Auto je to z principu kolem nuly — zpoždění karty a tvoje vlastní spěchání se z jedné nahrávky rozlišit nedají.">Průměrně <b>${r.timingBias.ms === 0 ? "přesně" : Math.abs(r.timingBias.ms) + " ms " + (r.timingBias.ms > 0 ? "za" : "před")}</b></span>` : ""].join("");
+  const w = [];
+  const cov = r.coverage, tun = r.tuning;
+  if(cov && cov.share != null && cov.share < 0.9) w.push(`Hodnotí se jen úsek, který jsi zahrál: ${fmtShort(cov.from)}–${fmtShort(cov.to)} z ${fmtShort(S.ref.analysis.dur)}. Zbytek skladby se nepočítá jako vynechaný.`);
+  if(tun && tun.applied) w.push(`Tvoje kytara zní o ${Math.abs(tun.offsetCents)} centů ${tun.offsetCents < 0 ? "níž" : "výš"} než nahrávka (${(Math.abs(tun.offsetCents) / 100).toFixed(1).replace(".", ",")} půltónu) — shodne se na tom ${Math.round(tun.agree * 100)} % tónů. Výška jednotlivých tónů se hodnotí po odečtení tohohle posunu; přelaď, nebo to ber jako informaci.`);
+  else if(tun && tun.offsetCents != null && Math.abs(tun.offsetCents) >= 20) w.push(`Mezi tvou kytarou a nahrávkou vychází posun ${tun.offsetCents} centů, ale tóny se na něm neshodnou — neodečítá se.`);
+  const coarse = r.rows.filter(x => x.coarse).length;
+  if(coarse > r.counts.matched * 0.3) w.push(`U ${coarse} tónů je výška čtená ze zkresleného zvuku jen na úroveň tónu (stejný / jiný), ne na centy.`);
+  if(S.ply && S.ply.quiet) w.push(`Nahrávka je tichá (špička ${(20 * Math.log10(S.ply.peak)).toFixed(0)} dBFS). Analýza s tím počítá, ale přidej gain na kartě — ideálně špičky kolem −12 až −6 dBFS.`);
+  if(c.lowConfidence) w.push(`U ${c.lowConfidence} spárovaných tónů nešla výška přečíst (LOW CONFIDENCE) — do skóre výšky se nepočítají.`);
+  if(r.alignment.confidence < 0.5) w.push("Zarovnání nahrávek je nejisté — hrál jsi jinou část, nebo je v nahrávce hodně šumu. Výsledky ber s rezervou.");
+  if(S.ply && S.ply.clipped) w.push("Nahrávka byla přebuzená (CLIPPING) — zkreslení zhoršuje čtení výšky. Stáhni úroveň na kartě.");
+  if(sc.overall == null) w.push("Pro skóre je v nahrávkách příliš málo spárovaných tónů.");
+  $("an-warn").hidden = !w.length; $("an-warn").innerHTML = w.map(esc).join("<br><br>");
+  $("tempo-txt").innerHTML = t.reference == null ? "tempo reference NOT AVAILABLE"
+    : `reference <b>${t.reference.toFixed(1)}</b> · ty <b>${t.player.toFixed(1)}</b> BPM · ${t.deviation >= 0 ? "+" : ""}${t.deviation.toFixed(1)}`;
+  fitTimeline(); drawHeat(); drawTempo(); paintProblems();
+}
+function paintProblems(){
+  const r = S.result;
+  const html = !r ? '<div class="muted" style="font-size:12.5px">Zatím žádná analýza.</div>'
+    : !r.sections.length ? '<div class="muted" style="font-size:12.5px">Žádný úsek nevyčnívá — nic k procvičení.</div>'
+    : r.sections.map((s, k) => `<div class="item"><div class="grow"><div class="t">${fmtShort(s.from)}–${fmtShort(s.to)} <span class="pill" style="color:${TYPE_COLOR[s.worst]}">${s.worst}</span></div>
+        <div class="s">${[s.timing != null ? "Timing " + s.timing + "%" : null, s.wrong ? "Wrong notes " + s.wrong : null, s.missed ? "Missed " + s.missed : null, s.issues + " chyb"].filter(Boolean).join(" · ")}
+        · tip: ${s.issues > 5 ? "50 %" : "75 %"} rychlosti</div></div>
+        <button class="btn small" data-sec="${k}" data-act="play">PLAY</button><button class="btn small" data-sec="${k}" data-act="practice">PRACTICE</button><button class="btn small" data-sec="${k}" data-act="loop">LOOP</button></div>`).join("");
+  $("sections").innerHTML = $("sections2").innerHTML = html;
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sec]"); if(!b || !S.result) return;
+  const s = S.result.sections[+b.dataset.sec];
+  if(b.dataset.act === "play"){ playFrom("both", s.from, s.to - s.from); return; }
+  setLoop(s.from, s.to);
+  if(b.dataset.act === "practice"){ setSpeed(s.issues > 5 ? 0.5 : 0.75); go("practice"); }
+  playFrom("ref", s.from);
+});
+
+// ---- the timeline: ruler, two waveforms, two note lanes, the markers
+const TL = {H: 372, base: 372, ruler: 22, wave: 74, notes: 62, gap: 8, mark: 30, take: 44, drums: 54, hitsH: 28};
+// ---- the hits: a line where each stroke of the kit falls (or of the
+// reference itself, when there is no kit) — where to pick. Found by a
+// threshold of loudness; each can be moved or removed, and others added.
+// Kept per song: the threshold, what was removed, what was added.
+const HITS_KEY = "pick-analyzer-hits";
+const HITS = {on: false, thr: 0.25, removed: [], added: [], sel: null, cands: null, list: null, of: null};
+const hitsPcm = () => !S.ref ? null : (S.ref.drums && S.ref.drums.pcm) || S.ref.pcm || null;
+// Every stroke there could be, with its loudness (1 = the loudest): a peak
+// of the level that rose out of something quieter, placed at where its
+// attack begins.
+function hitCands(pcm){
+  const B = 64, n = Math.floor(pcm.length / B), env = new Float32Array(n); let top = 0;
+  for(let i = 0; i < n; i++){ let m = 0; for(let j = i * B, e = j + B; j < e; j++){ const a = Math.abs(pcm[j]); if(a > m) m = a; } env[i] = m; if(m > top) top = m; }
+  const out = [], R = Math.round(0.04 * SR / B);
+  if(!top) return out;
+  for(let i = 1; i < n - 1; i++){
+    const v = env[i]; if(v < top * 0.02) continue;
+    let peak = true, low = v;
+    for(let k = Math.max(0, i - R); k <= Math.min(n - 1, i + R); k++){ if(env[k] > v || (env[k] === v && k < i)){ peak = false; break; } if(k < i && env[k] < low) low = env[k]; }
+    if(!peak || v < low * 1.6) continue;
+    // back to where the attack starts, then to the sample
+    let b = i; while(b > 0 && i - b < R && env[b - 1] > v * 0.2 && env[b - 1] < env[b]) b--;
+    let at = b * B; for(let j = Math.max(0, (b - 1) * B); j < (i + 1) * B; j++) if(Math.abs(pcm[j]) >= v * 0.25){ at = j; break; }
+    out.push({t: at / SR, s: v / top});
+  }
+  return out;
+}
+function hitsStore(){ try{ return JSON.parse(localStorage.getItem(HITS_KEY) || "{}"); }catch(e){ return {}; } }
+function hitsSave(){ if(!S.ref) return; const all = hitsStore(); all[sectSong()] = {on: HITS.on, thr: HITS.thr, removed: HITS.removed, added: HITS.added}; try{ localStorage.setItem(HITS_KEY, JSON.stringify(all)); }catch(e){} }
+function hitsOpen(){              // the song's own, when another song comes
+  if(HITS.of === S.ref) return;
+  const st = (S.ref && hitsStore()[sectSong()]) || {};
+  Object.assign(HITS, {of: S.ref, on: !!st.on, thr: st.thr ?? 0.25, removed: st.removed || [], added: st.added || [], sel: null, cands: null, list: null});
+}
+function hitList(){
+  hitsOpen();
+  const pcm = hitsPcm(); if(!pcm) return [];
+  if(!HITS.cands) HITS.cands = hitCands(pcm);
+  if(!HITS.list){ const gone = new Set(HITS.removed.map(t => t.toFixed(3)));
+    HITS.list = HITS.cands.filter(c => c.s >= HITS.thr && !gone.has(c.t.toFixed(3))).map(c => ({t: c.t, s: c.s, id: "a" + c.t.toFixed(3)}))
+      .concat(HITS.added.map((t, k) => ({t, k, id: "m" + k}))).sort((a, b) => a.t - b.t); }
+  return HITS.list;
+}
+function paintHits(){
+  hitsOpen();
+  const has = !!hitsPcm(); $("hits-bar").hidden = !has; if(!has) return;
+  $("hits-on").checked = HITS.on; $("hits-thr").value = HITS.thr; $("hits-thr-t").textContent = Math.round(HITS.thr * 100) + " %";
+  $("hits-src").textContent = S.ref.drums && S.ref.drums.pcm ? "bicích" : "reference";
+  const edits = HITS.removed.length + HITS.added.length;
+  $("hits-n").textContent = HITS.on ? `${hitList().length} čar${edits ? ` · ${edits} ${edits === 1 ? "úprava" : edits < 5 ? "úpravy" : "úprav"}` : ""}` : "";
+  $("hits-reset").disabled = !edits;                   // (not hidden: the bar must not change height under the pointer)
+}
+function hitsChanged(keep){ HITS.list = null; if(!keep) HITS.sel = null; hitsSave(); paintHits(); drawTimeline(); }
+function hitRemove(h){ if(h.k != null) HITS.added.splice(h.k, 1); else HITS.removed.push(h.t); hitsChanged(); }
+// A found line that is moved becomes the player's own line.
+function hitMove(h, t){
+  if(h.k == null){ HITS.removed.push(h.t); HITS.added.push(t); h = {k: HITS.added.length - 1}; } else HITS.added[h.k] = t;
+  HITS.sel = "m" + h.k; HITS.list = null; return h;
+}
+function hitAt(x){ let best = null, d = 7; for(const h of hitList()){ const dx = Math.abs(h.t * S.pps - tlScroll.scrollLeft - x); if(dx < d){ d = dx; best = h; } } return best; }
+const tl = $("tl"), tlScroll = $("tl-scroll");
+// The view fits what was played (the whole reference when nothing was yet).
+function fitTimeline(){
+  if(!S.ref) return;
+  const dur = S.ref.analysis.dur, tk = S.takes[S.take];
+  const cov = (S.result && S.result.coverage) || (tk && tk.to - tk.from < dur - 1 ? tk : null) || (S.loop ? {from: S.loop.a, to: S.loop.b} : null);
+  const pad = cov ? Math.max(1, (cov.to - cov.from) * 0.15) : 0;
+  const a = cov ? Math.max(0, cov.from - pad) : 0, b = cov ? Math.min(dur, cov.to + pad) : dur;
+  S.pps = Math.max(4, (tlScroll.clientWidth - 2) / Math.max(1, b - a));
+  sizeTimeline(); tlScroll.scrollLeft = a * S.pps; drawTimeline();
+}
+function sizeTimeline(){ if(!S.ref) return; paintHits(); $("tl-spacer").style.width = Math.ceil(S.ref.analysis.dur * S.pps) + "px"; drawTimeline(); }
+$("z-in").onclick = () => { S.pps = Math.min(600, S.pps * 1.6); sizeTimeline(); };
+$("z-out").onclick = () => { S.pps = Math.max(4, S.pps / 1.6); sizeTimeline(); };
+$("z-fit").onclick = fitTimeline;
+tlScroll.addEventListener("scroll", drawTimeline);
+// Pinch on the trackpad (the browser reports it as a wheel with ctrl held):
+// zoom around the point under the fingers.
+tlScroll.addEventListener("wheel", (e) => {
+  if(!e.ctrlKey || !S.ref) return;
+  e.preventDefault();
+  const x = e.clientX - tlScroll.getBoundingClientRect().left, t = (x + tlScroll.scrollLeft) / S.pps;
+  S.pps = Math.max(4, Math.min(900, S.pps * Math.exp(-e.deltaY * 0.012)));
+  sizeTimeline(); tlScroll.scrollLeft = t * S.pps - x; drawTimeline();
+}, {passive: false});
+// Space plays and pauses; ← → move the playhead a second (Shift: five), or —
+// with a loop set and Alt held — slide the loop itself.
+document.addEventListener("keydown", (e) => {
+  const tg = e.target;
+  if(tg && tg.closest && tg.closest("input, select, textarea")) return;
+  if(e.key === "Enter"){
+    // Enter starts recording and Enter ends it (a focused button would also take it as a click).
+    e.preventDefault(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    S.recording ? stopRec() : startRec();
+    return;
+  }
+  if(e.code === "Space"){
+    e.preventDefault();
+    if(!S.ref) return;
+    if(S.recording){ stopRec(); return; }
+    (!aRef.paused || !aPly.paused) ? stopAll() : $("t-play").click();
+    return;
+  }
+  if(e.key !== "ArrowLeft" && e.key !== "ArrowRight" || !S.ref) return;
+  e.preventDefault();
+  const d = (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 5 : 1), dur = S.ref.analysis.dur;
+  if(e.altKey && S.loop){
+    const len = S.loop.b - S.loop.a, a = Math.max(0, Math.min(dur - len, S.loop.a + d));
+    setLoop(a, a + len, true); loopEdited(); if(!aRef.paused || !aPly.paused) playFrom(S.src, a); else aRef.currentTime = a;
+  } else {
+    const t = Math.max(0, Math.min(dur, playhead() + d)), was = !aRef.paused || !aPly.paused;
+    stopAll(); aRef.currentTime = t; if(S.ply) aPly.currentTime = Math.max(0, refToPly(t)); S.playing = "ref";
+    if(was) playFrom(S.src, t);
+  }
+  const px = playhead() * S.pps - tlScroll.scrollLeft;
+  if(px < 30 || px > tlScroll.clientWidth - 30) tlScroll.scrollLeft = playhead() * S.pps - tlScroll.clientWidth / 2;
+  drawTimeline();
+});
+window.addEventListener("resize", () => { if(S.result){ drawTimeline(); drawHeat(); drawTempo(); } });
+// The lanes, top to bottom. With the takes unfolded there is a row for each under the performance lane.
+function laneY(){
+  const y = {}; let c = TL.ruler;
+  const rows = S.takesOpen && !S.recording ? S.takes.length : 0;
+  const dr = S.ref && S.ref.drums ? TL.drums + TL.gap : 0;
+  y.mark = c; c += TL.mark; y.refW = c; c += TL.wave + TL.gap;
+  y.drums = dr ? c : null; c += dr;
+  const hl = HITS.on && hitsPcm() ? TL.hitsH + TL.gap : 0;
+  y.hits = hl ? c : null; c += hl;
+  y.plyW = c; c += TL.wave + TL.gap;
+  y.takes = c; y.rows = rows; c += rows * TL.take + (rows ? TL.gap : 0);
+  y.refN = c; c += TL.notes + TL.gap; y.plyN = c;
+  TL.H = TL.base + dr + hl + rows * TL.take + (rows ? TL.gap : 0);
+  return y;
+}
+// ---- waveforms drawn from the samples, at whatever zoom: min/max per block
+// of 64, 512 and 4096 samples are worked out once; a pixel column takes the
+// finest level that is still coarser than it, and under 64 samples per pixel
+// the samples themselves. Zoomed in, every pick stroke has its own shape.
+function makePeaks(pcm, sr){
+  const levels = [];
+  let src = null;
+  for(const block of [64, 512, 4096]){
+    const n = Math.ceil(pcm.length / block), lo = new Float32Array(n), hi = new Float32Array(n);
+    if(!src){ for(let b = 0; b < n; b++){ let l = 0, h = 0; for(let i = b * block, e = Math.min(pcm.length, i + block); i < e; i++){ const x = pcm[i]; if(x < l) l = x; if(x > h) h = x; } lo[b] = l; hi[b] = h; } }
+    else { const f = block / src.block; for(let b = 0; b < n; b++){ let l = 0, h = 0; for(let i = b * f, e = Math.min(src.lo.length, i + f); i < e; i++){ if(src.lo[i] < l) l = src.lo[i]; if(src.hi[i] > h) h = src.hi[i]; } lo[b] = l; hi[b] = h; } }
+    src = {block, lo, hi}; levels.push(src);
+  }
+  let peak = 0; const top = levels[2]; for(let i = 0; i < top.lo.length; i++){ if(top.hi[i] > peak) peak = top.hi[i]; if(-top.lo[i] > peak) peak = -top.lo[i]; }
+  return {pcm, sr, levels, peak, dur: pcm.length / sr};
+}
+// toT: reference time → time in this recording.
+function drawPeaks(g, pk, y, h, color, x0, W, toT){
+  if(!pk) return;
+  const spp = pk.sr / S.pps, k = pk.peak > 0 ? 0.95 / pk.peak : 1, mid = y + h / 2, half = h / 2;
+  const lv = spp >= 4096 ? pk.levels[2] : spp >= 512 ? pk.levels[1] : spp >= 64 ? pk.levels[0] : null;
+  g.fillStyle = color;
+  if(spp < 3){
+    // close enough to see the wave itself: a line through the samples
+    g.strokeStyle = color; g.lineWidth = 1.2; g.beginPath();
+    let started = false;
+    for(let x = 0; x <= W; x++){ const t = toT((x + x0) / S.pps); if(t < 0 || t >= pk.dur) continue; const v = pk.pcm[Math.floor(t * pk.sr)] * k; const yy = mid - Math.max(-1, Math.min(1, v)) * half; started ? g.lineTo(x, yy) : g.moveTo(x, yy); started = true; }
+    g.stroke(); return;
+  }
+  for(let x = 0; x < W; x++){
+    const t0 = toT((x + x0) / S.pps), t1 = toT((x + x0 + 1) / S.pps);
+    if(t1 <= 0 || t0 >= pk.dur) continue;
+    let lo = 0, hi = 0;
+    if(lv){ const a = Math.max(0, Math.floor(t0 * pk.sr / lv.block)), b = Math.min(lv.lo.length, Math.max(a + 1, Math.ceil(t1 * pk.sr / lv.block))); for(let i = a; i < b; i++){ if(lv.lo[i] < lo) lo = lv.lo[i]; if(lv.hi[i] > hi) hi = lv.hi[i]; } }
+    else { const a = Math.max(0, Math.floor(t0 * pk.sr)), b = Math.min(pk.pcm.length, Math.max(a + 1, Math.ceil(t1 * pk.sr))); for(let i = a; i < b; i++){ const v = pk.pcm[i]; if(v < lo) lo = v; if(v > hi) hi = v; } }
+    const top = mid - Math.min(1, hi * k) * half, bot = mid - Math.max(-1, lo * k) * half;
+    g.fillRect(x, top, 1, Math.max(1, bot - top));
+  }
+}
+// Drawn against the recording's own peak, so a quiet take is as readable as a loud one.
+// (The coarse outline kept with a saved session — the samples are not kept there.)
+function drawWave(g, wave, dur, y, h, color, x0, W, toT){
+  if(!wave) return;
+  const cols = wave.length / 2; g.fillStyle = color;
+  let pk = 0; for(let i = 0; i < wave.length; i++){ const a = Math.abs(wave[i]); if(a > pk) pk = a; }
+  const k = pk > 0 ? 0.95 / pk : 1;
+  for(let x = 0; x < W; x++){
+    const t = toT((x + x0) / S.pps); if(t < 0 || t >= dur) continue;
+    const c = Math.min(cols - 1, Math.floor(t / dur * cols)), lo = wave[c * 2], hi = wave[c * 2 + 1];
+    const a = Math.min(1, Math.max(Math.abs(lo), Math.abs(hi)) * k); g.fillRect(x, y + h / 2 - a * h / 2, 1, Math.max(1, a * h));
+  }
+}
+function noteRange(){
+  let lo = 127, hi = 0;
+  [S.ref && S.ref.analysis.notes, S.ply && S.ply.analysis.notes].forEach(ns => (ns || []).forEach(n => { if(n.midi != null){ lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); } }));
+  if(lo > hi){ lo = 40; hi = 64; }
+  return {lo: lo - 1, hi: hi + 1};
+}
+function drawTimeline(){
+  if(!S.ref) return;
+  const dpr = window.devicePixelRatio || 1, W = tlScroll.clientWidth, x0 = tlScroll.scrollLeft;
+  const Y = laneY();                                   // sets TL.H for the rows shown
+  tl.width = W * dpr; tl.height = TL.H * dpr; tl.style.width = W + "px"; tl.style.height = TL.H + "px";
+  const g = tl.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, TL.H);
+  const dur = S.ref.analysis.dur, X = (t) => t * S.pps - x0, r = S.result;
+  // ruler
+  const step = [0.5, 1, 2, 5, 10, 15, 30, 60, 120].find(s => s * S.pps >= 64) || 300;
+  g.font = "10px Inter, system-ui, sans-serif"; g.textBaseline = "middle";
+  for(let t = Math.floor(x0 / S.pps / step) * step; t <= (x0 + W) / S.pps; t += step){
+    const x = X(t); g.fillStyle = "rgba(255,255,255,.07)"; g.fillRect(x, TL.ruler, 1, TL.H - TL.ruler);
+    g.fillStyle = "#6b7186"; g.fillText(step < 1 ? t.toFixed(1) + "s" : fmtShort(t), x + 4, 11);
+  }
+  // the song's own beats and bars (Steems' grid): bar lines with their number, beats fainter once there is room
+  const grid = S.ref.grid;
+  if(grid){
+    const tA = x0 / S.pps, tB = (x0 + W) / S.pps, bars = grid.downbeats, barPx = bars.length > 1 ? (bars[1] - bars[0]) * S.pps : 0;
+    if(barPx >= 5){
+      const every = barPx >= 26 ? 1 : barPx >= 13 ? 2 : barPx >= 7 ? 4 : 8;
+      if(barPx / (grid.beatsPerBar || 4) >= 9){ g.fillStyle = "rgba(251,191,36,.16)"; grid.beats.forEach(t => { if(t >= tA && t <= tB) g.fillRect(X(t), TL.ruler, 1, TL.H - TL.ruler); }); }
+      g.font = "700 9px Inter, system-ui, sans-serif";
+      bars.forEach((t, k) => { if(t < tA || t > tB || k % every) return; g.fillStyle = "rgba(251,191,36,.5)"; g.fillRect(X(t), TL.ruler, 1, TL.H - TL.ruler);
+        g.fillStyle = "#d9a520"; g.fillText(String(k + 1), X(t) + 3, TL.ruler + TL.mark - 6); });
+    }
+  }
+  // what was not played is dimmed
+  if(r && r.coverage){ g.fillStyle = "rgba(0,0,0,.35)"; const a = X(r.coverage.from), b2 = X(r.coverage.to);
+    if(a > 0) g.fillRect(0, TL.ruler, a, TL.H - TL.ruler); if(b2 < W) g.fillRect(Math.max(0, b2), TL.ruler, W - Math.max(0, b2), TL.H - TL.ruler); }
+  // saved sections: a band under the ruler, named
+  sections().forEach(x => { const a = X(x.a), w = (x.b - x.a) * S.pps; if(a + w < 0 || a > W) return; const on = x.id === S.section;
+    g.fillStyle = on ? "rgba(167,139,250,.95)" : "rgba(148,163,184,.55)"; g.fillRect(a, TL.ruler, w, 3);
+    g.fillStyle = on ? "#ddd6fe" : "#8d93a6"; g.font = "700 9.5px Inter, system-ui, sans-serif"; g.fillText(x.name, Math.max(4, a + 4), TL.ruler + 11, Math.max(20, w - 8)); });
+  // loop region, with a handle on each edge to drag
+  if(S.loop){ g.fillStyle = "rgba(139,92,246,.13)"; g.fillRect(X(S.loop.a), TL.ruler, (S.loop.b - S.loop.a) * S.pps, TL.H - TL.ruler);
+    [S.loop.a, S.loop.b].forEach((t, k) => { const x = X(t); g.fillStyle = "#a78bfa"; g.fillRect(x - 1, TL.ruler, 2, TL.H - TL.ruler);
+      g.beginPath(); g.roundRect(k ? x - 9 : x - 1, TL.H / 2 - 16, 10, 32, 3); g.fill();
+      g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(k ? x - 6 : x + 2, TL.H / 2 - 7, 1.5, 14); g.fillRect(k ? x - 3 : x + 5, TL.H / 2 - 7, 1.5, 14); }); }
+  // lane labels + waveforms (the performance is drawn in reference time, through the alignment)
+  const label = (txt, y) => { g.fillStyle = "#5d6377"; g.font = "700 9.5px Inter, system-ui, sans-serif"; g.fillText(txt, 8, y + 9); };
+  if(S.ref.peaks) drawPeaks(g, S.ref.peaks, Y.refW, TL.wave, "rgba(167,139,250,.9)", x0, W, t => t);
+  else drawWave(g, S.ref.analysis.wave, dur, Y.refW, TL.wave, "rgba(167,139,250,.85)", x0, W, t => t);
+  if(Y.drums != null){ g.fillStyle = "rgba(255,255,255,.02)"; g.fillRect(0, Y.drums, W, TL.drums); drawPeaks(g, S.ref.drums.peaks, Y.drums, TL.drums, "rgba(251,191,36,.8)", x0, W, t => t); }
+  if(S.recording && S.live){
+    // what is being played right now, drawn as it comes in
+    const L = S.live, perSec = audioCtx().sampleRate / (L.per || 128);
+    g.fillStyle = "rgba(248,113,113,.14)"; g.fillRect(X(REC.reg.a), Y.plyW, (REC.reg.b - REC.reg.a) * S.pps, TL.wave);
+    g.fillStyle = "#f87171";
+    let pk = 0.05; for(let i = 0; i < L.peaks.length; i++) if(L.peaks[i] > pk) pk = L.peaks[i];
+    const la = L.a - latencyMs / 1000;                     // drawn where it belongs, the latency taken out
+    const xa = Math.max(0, Math.floor(X(la))), xb = Math.min(W, Math.ceil(X(la + L.peaks.length / perSec)));
+    for(let x = xa; x < xb; x++){ const k = Math.floor(((x + x0) / S.pps - la) * perSec); if(k < 0 || k >= L.peaks.length) continue;
+      const a = Math.min(1, L.peaks[k] / pk * 0.95); g.fillRect(x, Y.plyW + TL.wave / 2 - a * TL.wave / 2, 1, Math.max(1, a * TL.wave)); }
+  } else if(S.ply){
+    const tk = S.takes[S.take];
+    if(tk && tk.peaks) drawPeaks(g, tk.peaks, Y.plyW, TL.wave, "rgba(52,211,153,.85)", x0, W, refToPly);
+    else drawWave(g, S.ply.analysis.wave, S.ply.analysis.dur, Y.plyW, TL.wave, "rgba(52,211,153,.8)", x0, W, refToPly);
+  }
+  const cur = S.takes[S.take];
+  if(Y.hits != null){
+    g.fillStyle = "rgba(251,191,36,.05)"; g.fillRect(0, Y.hits, W, TL.hitsH);
+    const ta = x0 / S.pps, tb = (x0 + W) / S.pps;
+    for(const h of hitList()){ if(h.t < ta - 0.01) continue; if(h.t > tb) break;
+      const x = Math.round(X(h.t)), sel = HITS.sel === h.id, own = h.k != null;
+      // faint through the lanes above and the player's own below — where the stroke falls
+      g.fillStyle = sel ? "rgba(255,255,255,.5)" : "rgba(251,191,36,.2)"; g.fillRect(x, Y.refW, 1, Y.hits - Y.refW); g.fillRect(x, Y.plyW, 1, TL.wave);
+      g.fillStyle = sel ? "#fff" : own ? "#fde68a" : "#fbbf24"; g.fillRect(x - (sel ? 1 : 0), Y.hits + 2, sel ? 3 : 2, TL.hitsH - 4);
+      g.beginPath(); g.arc(x + 1, Y.hits + 6, sel ? 4.5 : 3.5, 0, 7); g.fill(); }
+    label("ÚDERY", Y.hits);
+  }
+  label("REFERENCE", Y.refW); if(Y.drums != null) label("DRUMS", Y.drums);
+  label(S.recording && S.live ? `● NAHRÁVÁM — TAKE ${S.live.n}` : cur && S.takes.length > 1 ? `YOUR PERFORMANCE — TAKE ${cur.n} Z ${S.takes.length} · ${Y.rows ? "KLIK = SBALIT" : "KLIK = VŠECHNY TAKES"}` : cur ? `YOUR PERFORMANCE — TAKE ${cur.n}` : "YOUR PERFORMANCE", Y.plyW);
+  // the takes, unfolded: one row each — click marks it, ▶ plays it
+  TL.rowHits = [];
+  for(let i = 0; i < Y.rows; i++){
+    const t = S.takes[i], y = Y.takes + i * TL.take, on = i === S.mark;
+    g.fillStyle = on ? "rgba(139,92,246,.22)" : "rgba(255,255,255,.03)"; g.fillRect(0, y, W, TL.take - 4);
+    if(on){ g.fillStyle = "#a78bfa"; g.fillRect(0, y, 3, TL.take - 4); }
+    if(t.peaks) drawPeaks(g, t.peaks, y + 2, TL.take - 8, t.result ? "rgba(52,211,153,.75)" : "rgba(148,163,184,.8)", x0, W, (rt) => rt - t.from + (t.shift || 0));
+    else drawWave(g, t.wave, t.dur, y + 2, TL.take - 8, t.result ? "rgba(52,211,153,.75)" : "rgba(148,163,184,.8)", x0, W, (rt) => rt - t.from + (t.shift || 0));
+    g.fillStyle = "rgba(14,15,20,.82)"; g.fillRect(0, y, 178, TL.take - 4);
+    g.fillStyle = "#fff"; g.beginPath(); g.moveTo(12, y + 12); g.lineTo(12, y + 28); g.lineTo(24, y + 20); g.fill();
+    g.fillStyle = on ? "#ddd6fe" : "#c5c9d6"; g.font = "700 11px Inter, system-ui, sans-serif"; g.fillText(`Take ${t.n}`, 34, y + 14);
+    g.fillStyle = "#8d93a6"; g.font = "10.5px Inter, system-ui, sans-serif";
+    g.fillText(t.busy ? "analyzuji…" : t.result ? `skóre ${t.result.scores.overall ?? "—"} %` : "bez analýzy", 34, y + 28);
+    TL.rowHits.push({y, h: TL.take - 4, i});
+  }
+  // notes
+  const rng = noteRange(), ny = (m, y) => y + TL.notes - 4 - (m - rng.lo) / (rng.hi - rng.lo) * (TL.notes - 12);
+  [Y.refN, Y.plyN].forEach(y => { g.fillStyle = "rgba(255,255,255,.025)"; g.fillRect(0, y, W, TL.notes); });
+  label("REFERENCE NOTES", Y.refN); label("PLAYER NOTES", Y.plyN);
+  const bar = (t, d, m, y, color, dashed) => { const x = X(t), w = Math.max(3, d * S.pps - 1); if(x + w < 0 || x > W) return;
+    const yy = m == null ? y + TL.notes / 2 : ny(m, y);
+    if(dashed){ g.strokeStyle = color; g.setLineDash([3, 3]); g.strokeRect(x + .5, yy - 2.5, w, 5); g.setLineDash([]); } else { g.fillStyle = color; g.beginPath(); g.roundRect(x, yy - 3, w, 6, 3); g.fill(); } };
+  if(r){
+    r.rows.forEach((row, k) => {
+      const sel = S.sel && S.sel.row === k;
+      const e = row.expected, sev = row.kind === "missed" ? null : Math.max(row.pitch ? row.pitch.sev : 0, row.timing !== "ON TIME" ? 1 : 0);
+      bar(e.t, e.dur, e.midi, Y.refN, row.kind === "missed" ? "#9ca3af" : e.midi == null ? "#565c70" : "rgba(167,139,250,.9)", row.kind === "missed");
+      if(row.played){ const pc = row.lowConfidence ? "#6b7280" : row.pitch && row.pitch.sev === 2 ? SEV[2] : sev ? SEV[1] : SEV[0];
+        bar(row.played.t + takeFrom(), row.played.dur, row.played.midi, Y.plyN, pc); }       // where it was really played
+      if(sel){ g.strokeStyle = "#fff"; g.lineWidth = 1; g.strokeRect(X(e.t) - 2, Y.refN + 1, Math.max(6, e.dur * S.pps) + 3, TL.notes * 2 + TL.gap - 2); }
+    });
+    r.extras.forEach(x => bar(x.played.t + takeFrom(), x.played.dur, x.played.midi, Y.plyN, "#60a5fa"));
+    // markers
+    TL.hits = [];
+    const lanes = [];
+    r.issues.forEach(is => {
+      const x = X(is.t); if(x < -10 || x > W + 10) return;
+      let lane = 0; while(lanes[lane] != null && x - lanes[lane] < 13) lane++;
+      lanes[lane] = x; if(lane > 2) return;
+      const y = Y.mark + 5 + lane * 9, c = TYPE_COLOR[is.type] || "#fff", sel = S.sel && S.sel.issue === is.id;
+      g.fillStyle = c; g.globalAlpha = is.sev === 2 ? 1 : .65; g.beginPath(); g.arc(x, y, sel ? 5.5 : 4, 0, 6.3); g.fill(); g.globalAlpha = 1;
+      if(sel){ g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke(); }
+      TL.hits.push({x, y, id: is.id});
+    });
+  } else S.ref.analysis.notes.forEach(n => bar(n.t, n.dur, n.midi, Y.refN, n.midi == null ? "#565c70" : "rgba(167,139,250,.9)"));
+  // playhead
+  const px = X(playhead()); g.fillStyle = "#fff"; g.fillRect(px, 0, 1.5, TL.H); g.beginPath(); g.moveTo(px - 5, 0); g.lineTo(px + 6, 0); g.lineTo(px + .5, 8); g.fill();
+}
+let dragLoop = null, dragEdge = null, dragShift = null, dragHit = null;
+const inHits = (y) => { const Y = laneY(); return Y.hits != null && y >= Y.hits && y < Y.hits + TL.hitsH; };
+// Which edge of the loop is under a point of the timeline, if any.
+function edgeAt(x){
+  if(!S.loop) return null;
+  const xa = S.loop.a * S.pps - tlScroll.scrollLeft, xb = S.loop.b * S.pps - tlScroll.scrollLeft;
+  const da = Math.abs(x - (xa + 3)), db = Math.abs(x - (xb - 3));
+  if(Math.min(da, db) > 9) return null;
+  return da <= db ? "a" : "b";
+}
+tl.addEventListener("pointerdown", (e) => {
+  if(!S.ref) return;
+  const rect = tl.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top, t = (x + tlScroll.scrollLeft) / S.pps;
+  if(!S.recording && !e.shiftKey && !e.altKey && inHits(y)){
+    // on a line: take hold of it; beside every line: a new one
+    let h = hitAt(x);
+    if(!h){ HITS.added.push(Math.max(0, t)); h = {k: HITS.added.length - 1, id: "m" + (HITS.added.length - 1)}; HITS.sel = h.id; hitsChanged(true); }
+    else { HITS.sel = h.id; drawTimeline(); }
+    dragHit = {h, x, moved: false}; tl.setPointerCapture(e.pointerId); return;
+  }
+  if(!S.recording && e.altKey && S.takes.some(tk => tk.buf)){
+    const Yl = laneY();
+    if(y >= Yl.plyW && y < Yl.takes + Yl.rows * TL.take){ dragShift = {x, ms: latencyMs}; tl.setPointerCapture(e.pointerId); return; }
+  }
+  if(!S.recording){
+    const edge = e.shiftKey ? null : edgeAt(x);
+    if(edge){ dragEdge = edge; tl.setPointerCapture(e.pointerId); return; }
+    if(e.shiftKey){ dragLoop = t; tl.setPointerCapture(e.pointerId); return; }
+  }
+  const hit = (TL.hits || []).find(h => Math.hypot(h.x - x, h.y - y) < 8);
+  if(hit){ selectIssue(hit.id); return; }
+  const Y = laneY();
+  if(!S.recording && S.takes.length){
+    const row = (TL.rowHits || []).find(r => y >= r.y && y < r.y + r.h);
+    if(row){
+      if(x < 30){ selectTake(row.i); playFrom("ply", S.takes[row.i].from); } else selectTake(row.i);
+      return;
+    }
+    if(S.takes.length > 1 && y >= Y.plyW && y < Y.plyW + TL.wave){ S.takesOpen = !S.takesOpen; drawTimeline(); return; }
+  }
+  if(S.result && y >= Y.refN){            // a note → its row
+    const k = S.result.rows.findIndex(r => t >= r.expected.t - 0.03 && t <= r.expected.t + Math.max(r.expected.dur, 0.08));
+    if(k >= 0){ selectRow(k); return; }
+  }
+  const was = !aRef.paused || !aPly.paused, tt = Math.max(0, Math.min(S.ref.analysis.dur, t));
+  stopAll(); aRef.currentTime = tt; if(S.ply) aPly.currentTime = Math.max(0, refToPly(tt)); S.playing = "ref";
+  if(was) playFrom(S.src, tt);
+  drawTimeline();
+});
+tl.addEventListener("pointermove", (e) => {
+  const rect = tl.getBoundingClientRect(), x = e.clientX - rect.left, t = Math.max(0, Math.min(S.ref ? S.ref.analysis.dur : 0, (x + tlScroll.scrollLeft) / S.pps));
+  if(dragHit){ if(!dragHit.moved && Math.abs(x - dragHit.x) < 3) return; dragHit.moved = true; dragHit.h = hitMove(dragHit.h, t); drawTimeline(); return; }
+  if(dragShift){ setLatency(dragShift.ms - (x - dragShift.x) / S.pps * 1000, true); return; }   // right = later = less taken out
+  if(dragEdge){
+    // An edge cannot cross the other; the stretch keeps at least a fifth of a second.
+    const a = dragEdge === "a" ? Math.min(t, S.loop.b - 0.2) : S.loop.a, b = dragEdge === "b" ? Math.max(t, S.loop.a + 0.2) : S.loop.b;
+    setLoop(a, b, true); drawTimeline(); return;
+  }
+  if(dragLoop != null){ setLoop(dragLoop, t); drawTimeline(); return; }
+  tl.style.cursor = S.ref && !S.recording && edgeAt(x) ? "ew-resize" : "";
+});
+tl.addEventListener("pointerup", () => {
+  dragShift = null;
+  if(dragHit){ if(dragHit.moved) hitsChanged(true); dragHit = null; }
+  if(dragEdge){ dragEdge = null; loopEdited(); if(!aRef.paused && S.loop && (aRef.currentTime < S.loop.a || aRef.currentTime > S.loop.b)) playFrom(S.src, S.loop.a); }
+  if(dragLoop != null && S.loop && S.loop.b - S.loop.a < 0.2) setLoop(null);
+  dragLoop = null;
+});
+tl.addEventListener("dblclick", (e) => {
+  const rect = tl.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top;
+  if(!S.ref || S.recording || !inHits(y)) return;
+  const h = hitAt(x); if(h) hitRemove(h);
+});
+document.addEventListener("keydown", (e) => {
+  if((e.key !== "Delete" && e.key !== "Backspace") || !HITS.sel || !HITS.on || (e.target.closest && e.target.closest("input, select, textarea"))) return;
+  const h = hitList().find(x => x.id === HITS.sel); if(h){ e.preventDefault(); hitRemove(h); }
+});
+$("hits-on").onchange = (e) => { HITS.on = e.target.checked; hitsChanged(); };
+$("hits-thr").oninput = (e) => { HITS.thr = +e.target.value; hitsChanged(); };
+$("hits-reset").onclick = () => { HITS.removed = []; HITS.added = []; hitsChanged(); };
+(function tick(){ if(S.ref && ($("p-analyze").classList.contains("on") || $("p-practice").classList.contains("on")) && (S.recording || !aRef.paused || !aPly.paused)){
+    const px = playhead() * S.pps - tlScroll.scrollLeft; if(px > tlScroll.clientWidth - 40 || px < 0) tlScroll.scrollLeft = playhead() * S.pps - 60; drawTimeline(); }
+  requestAnimationFrame(tick); })();
+
+// ---- heat map and tempo
+function drawHeat(){
+  const r = S.result, cv = $("heat"); if(!r) return;
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = 168; cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const rows = ["PITCH", "TIMING", "RHYTHM", "TEMPO", "DURATION", "ARTICULATION"], L = 92, rh = (H - 22) / rows.length;
+  g.font = "700 9.5px Inter, system-ui, sans-serif"; g.textBaseline = "middle";
+  rows.forEach((name, i) => {
+    g.fillStyle = "#6b7186"; g.fillText(name, 8, 6 + i * rh + rh / 2);
+    const cells = r.heat[name], cw = (W - L - 8) / cells.length;
+    cells.forEach((v, k) => { g.fillStyle = v == null ? "rgba(255,255,255,.05)" : v === 0 ? "rgba(52,211,153,.5)" : v === 1 ? "rgba(251,191,36,.8)" : "rgba(248,113,113,.92)";
+      g.beginPath(); g.roundRect(L + k * cw + 1, 6 + i * rh + 2, Math.max(1, cw - 2), rh - 4, 3); g.fill(); });
+    if(name === "ARTICULATION"){ g.fillStyle = "#5d6377"; g.fillText("NOT AVAILABLE", L + 10, 6 + i * rh + rh / 2); }
+  });
+  g.fillStyle = "#5d6377"; g.font = "10px Inter, system-ui, sans-serif";
+  const c0 = r.coverage ? r.coverage.from : 0, c1 = r.coverage ? r.coverage.to : S.ref.analysis.dur;
+  g.fillText(fmtShort(c0), L, H - 8); const end = fmtShort(c1); g.fillText(end, W - 8 - g.measureText(end).width, H - 8);
+  cv.onclick = (e) => { const x = e.clientX - cv.getBoundingClientRect().left; if(x < L) return; const t = c0 + (x - L) / (W - L - 8) * (c1 - c0); aRef.currentTime = t; S.playing = "ref"; drawTimeline(); };
+}
+function drawTempo(){
+  const r = S.result, cv = $("tempo"); if(!r) return;
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = 168; cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pts = r.tempoCurve.filter(p => p.bpm != null);
+  g.font = "10px Inter, system-ui, sans-serif"; g.textBaseline = "middle";
+  if(pts.length < 2 || r.tempo.reference == null){ g.fillStyle = "#5d6377"; g.font = "700 10px Inter, system-ui, sans-serif"; g.fillText("NOT AVAILABLE — v nahrávce není čitelný puls", 12, H / 2); return; }
+  const ref = r.tempo.reference, span = Math.max(8, ...pts.map(p => Math.abs(p.bpm - ref))) * 1.3;
+  const c0 = r.coverage ? r.coverage.from : 0, c1 = r.coverage ? r.coverage.to : S.ref.analysis.dur;
+  const X = (t) => 40 + (t - c0) / Math.max(1, c1 - c0) * (W - 52), Y = (b) => H / 2 - (b - ref) / span * (H / 2 - 16);
+  g.strokeStyle = "rgba(167,139,250,.6)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(40, Y(ref)); g.lineTo(W - 12, Y(ref)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = "#6b7186"; g.fillText(ref.toFixed(0), 8, Y(ref)); g.fillText((ref + span).toFixed(0), 8, Y(ref + span)); g.fillText((ref - span).toFixed(0), 8, Y(ref - span));
+  g.strokeStyle = "#34d399"; g.lineWidth = 2; g.lineJoin = "round"; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(X(p.t), Y(p.bpm)) : g.moveTo(X(p.t), Y(p.bpm))); g.stroke();
+}
+
+// ---------------------------------------------------------------- inspector
+function selectIssue(id){ const is = S.result.issues.find(x => x.id === id); S.sel = {issue: id, row: is.row ?? null, extra: is.extra ?? null}; aRef.currentTime = is.t; S.playing = "ref"; paintInspector(); drawTimeline(); $("insp").classList.add("open"); }
+function selectRow(k){ const is = S.result.issues.find(x => x.row === k); S.sel = {issue: is ? is.id : null, row: k}; aRef.currentTime = S.result.rows[k].t; S.playing = "ref"; paintInspector(); drawTimeline(); $("insp").classList.add("open"); }
+function paintInspector(){
+  const box = $("insp-body"), r = S.result;
+  if(!r || !S.sel){ box.innerHTML = '<div class="muted" style="font-size:12.5px">Klikni na značku chyby nebo na tón v Timeline — tady uvidíš, co mělo zaznít, co zaznělo, o kolik a jak jistě.</div>'; return; }
+  const is = S.sel.issue != null ? r.issues.find(x => x.id === S.sel.issue) : null;
+  const row = S.sel.row != null ? r.rows[S.sel.row] : null, ex = S.sel.extra != null ? r.extras[S.sel.extra] : null;
+  const type = is ? is.type : "NOTE", sev = is ? is.sev : 0, t = row ? row.t : ex ? ex.t : is.t;
+  const conf = is ? is.confidence : row.confidence;
+  const e = row && row.expected, p = row ? row.played : ex && ex.played;
+  const nm = (n) => !n ? "—" : n.midi == null ? '<span class="na">LOW CONFIDENCE</span>' : n.name;
+  const head = is ? is.text : row.kind === "missed" ? "Missed note" : "Correct";
+  const related = row ? r.issues.filter(x => x.row === S.sel.row && (!is || x.id !== is.id)) : [];
+  const tip = r.sections.find(s => t >= s.from && t < s.to);
+  box.innerHTML = `<div class="type" style="color:${TYPE_COLOR[type] || "var(--ok)"}">${type === "NOTE" ? "NOTE" : type + " ERROR"}</div>
+    <div class="big">${esc(head)}</div><div class="muted">${fmtT(t)}</div>
+    <dl>
+      <dt>Type</dt><dd>${type}</dd>
+      <dt>Expected</dt><dd>${e ? nm(e) : "—"}</dd>
+      <dt>Played</dt><dd>${p ? nm(p) : row && row.kind === "missed" ? "nothing" : "—"}</dd>
+      <dt>Timing deviation</dt><dd>${row && row.timingMs != null ? (row.timingMs > 0 ? "+" : "") + row.timingMs + " ms · " + row.timing : "—"}</dd>
+      <dt>Pitch deviation</dt><dd>${row && row.pitch ? (row.pitchCents != null ? (row.pitchCents > 0 ? "+" : "") + row.pitchCents + " cents · " : "") + row.pitch.v + (row.coarse ? " (čteno hrubě)" : "") + (row.octave ? " (o oktávu jinde)" : "") : row && row.played ? '<span class="na">LOW CONFIDENCE</span>' : "—"}</dd>
+      ${r.tuning && r.tuning.applied ? `<dt>Tuning offset</dt><dd>${r.tuning.offsetCents} cents (odečteno)</dd>` : ""}
+      <dt>Reference duration</dt><dd>${e ? Math.round(e.dur * 1000) + " ms" : "—"}</dd>
+      <dt>Player duration</dt><dd>${p ? Math.round(p.dur * 1000) + " ms" + (row && row.duration && row.duration !== "OK" ? " · " + row.duration : "") : "—"}</dd>
+      <dt>Articulation</dt><dd>${NA}</dd>
+      <dt>Confidence</dt><dd>${conf != null ? Math.round(conf * 100) + "%" + (conf < 0.6 ? ' <span class="na">LOW</span>' : "") : "—"}</dd>
+      <dt>Severity</dt><dd class="sev-${sev}">${["OK", "MEDIUM", "HIGH"][sev]}</dd>
+    </dl>
+    <div class="acts"><button class="btn" id="i-ref">PLAY REFERENCE</button><button class="btn" id="i-ply">PLAY PERFORMANCE</button><button class="btn primary" id="i-both">PLAY BOTH</button></div>
+    <div class="dim" style="font-size:11.5px;margin-top:7px">Ukázka: asi 3 s kolem tohohle místa. Souvislé přehrávání je nahoře — přepínač Reference / Ty / Obojí a PLAY.</div>
+    ${tip ? `<div class="rel"><div class="h" style="margin-top:14px">How to practice</div>Practice ${fmtShort(tip.from)}–${fmtShort(tip.to)} at ${tip.issues > 5 ? "50" : "75"}% speed.
+      <button id="i-loop">Smyčka na tenhle úsek →</button></div>` : ""}
+    ${related.length ? `<div class="rel"><div class="h" style="margin-top:14px">Related issues</div>${related.map(x => `<button data-issue="${x.id}"><span style="color:${TYPE_COLOR[x.type]}">${x.type}</span> · ${esc(x.text)}</button>`).join("")}</div>` : ""}`;
+  const from = Math.max(0, t - 0.6);
+  $("i-ref").onclick = () => playFrom("ref", from, 2.6); $("i-ply").onclick = () => playFrom("ply", from, 2.6); $("i-both").onclick = () => playFrom("both", from, 2.6);
+  if(tip) $("i-loop").onclick = () => { setLoop(tip.from, tip.to); go("practice"); playFrom("ref", tip.from); };
+  box.querySelectorAll("[data-issue]").forEach(b => b.onclick = () => selectIssue(+b.dataset.issue));
+}
+
+// ---------------------------------------------------------- live practice
+const LV = {on: false, hits: 0, passed: 0, lastOn: 0, prevRms: 0, idx: 0, taps: []};
+function yinLive(buf, sr, fmin, fmax){
+  const W = 2048, tauMax = Math.min(Math.floor(sr / fmin), buf.length - W - 1), tauMin = Math.floor(sr / fmax);
+  const d = new Float32Array(tauMax + 1); let run = 0, best = -1;
+  for(let tau = 1; tau <= tauMax; tau++){ let s = 0; for(let j = 0; j < W; j += 2){ const x = buf[j] - buf[j + tau]; s += x * x; } d[tau] = s; }
+  for(let tau = 1; tau <= tauMax; tau++){ run += d[tau]; d[tau] = run ? d[tau] * tau / run : 1; }
+  for(let tau = tauMin; tau <= tauMax; tau++) if(d[tau] < 0.15){ while(tau + 1 <= tauMax && d[tau + 1] < d[tau]) tau++; best = tau; break; }
+  if(best < 0) return null;
+  return {f: sr / best, conf: 1 - d[best]};
+}
+function liveLoop(){
+  if(!LV.on || !S.input){ return; }
+  const {an, buf} = S.input, sr = audioCtx().sampleRate, notes = S.ref.analysis.notes;
+  an.getFloatTimeDomainData(buf);
+  let e = 0; for(let i = 0; i < buf.length; i += 4) e += buf[i] * buf[i];
+  const rms = Math.sqrt(e / (buf.length / 4)), now = aRef.currentTime - latencyMs / 1000;
+  // what the reference wants now
+  while(LV.idx < notes.length && notes[LV.idx].t + Math.max(notes[LV.idx].dur, 0.12) < now){ if(notes[LV.idx].midi != null) LV.passed++; LV.idx++; }
+  const exp = notes[LV.idx] && notes[LV.idx].t - 0.12 <= now ? notes[LV.idx] : null;
+  $("lv-exp").innerHTML = exp ? (exp.midi == null ? '<span class="na">LOW CONF.</span>' : exp.name || noteName(exp.midi)) : "—";
+  let cur = null;
+  if(rms > 0.01){ const y = yinLive(buf, sr, engineCfg().fmin, 1320); if(y && y.conf > 0.75){ const m = 69 + 12 * Math.log2(y.f / 440); cur = {midi: Math.round(m), cents: Math.round((m - Math.round(m)) * 100)}; } }
+  $("lv-cur").innerHTML = cur ? noteName(cur.midi) + `<span style="font-size:12px;color:var(--sub)"> ${cur.cents >= 0 ? "+" : ""}${cur.cents}c</span>` : rms > 0.01 ? '<span class="na">LOW CONF.</span>' : "—";
+  // an attack: the level jumping up
+  const t = performance.now();
+  if(rms > 0.02 && rms > LV.prevRms * 1.8 && t - LV.lastOn > 90){
+    LV.lastOn = t; LV.taps.push(t); if(LV.taps.length > 9) LV.taps.shift();
+    let near = null; for(let k = Math.max(0, LV.idx - 2); k < Math.min(notes.length, LV.idx + 3); k++) if(!near || Math.abs(notes[k].t - now) < Math.abs(near.t - now)) near = notes[k];
+    if(near && Math.abs(near.t - now) < 0.3){
+      const ms = Math.round((now - near.t) * 1000);
+      $("lv-tim").innerHTML = `<span style="color:${Math.abs(ms) <= cfg.timingOk ? "var(--ok)" : "var(--warn)"}">${ms > 0 ? "+" : ""}${ms} ms</span>`;
+      LV.pending = {near, ms, at: t};
+    }
+  }
+  // the verdict, once the pitch of that attack has settled
+  if(LV.pending && t - LV.pending.at > 70 && cur){
+    const {near, ms} = LV.pending; LV.pending = null;
+    const v = $("lv-verdict");
+    if(near.midi == null){ v.innerHTML = '<span class="na">LOW CONFIDENCE — referenční tón nejde přečíst</span>'; }
+    else if((cur.midi - near.midi) % 12 !== 0){ v.innerHTML = `<span class="sev-2">WRONG NOTE — ${noteName(cur.midi).replace(/-?\d+$/, "")} instead of ${noteName(near.midi).replace(/-?\d+$/, "")}</span>`; }
+    else { if(!near._hit){ near._hit = true; LV.hits++; }
+      v.innerHTML = Math.abs(ms) <= cfg.timingOk ? '<span class="sev-0">PERFECT</span>' : `<span class="sev-1">${ms > 0 ? "+" : ""}${ms} ms ${ms > 0 ? "LATE" : "EARLY"}</span>`; }
+  }
+  LV.prevRms = rms * 0.5 + LV.prevRms * 0.5;
+  // tempo from the last attacks — only when they are regular enough to mean one
+  if(LV.taps.length >= 5){ const gaps = []; for(let i = 1; i < LV.taps.length; i++) gaps.push(LV.taps[i] - LV.taps[i - 1]);
+    const med = gaps.slice().sort((a, b) => a - b)[gaps.length >> 1], spread = gaps.filter(x => Math.abs(x - med) < med * 0.2).length / gaps.length;
+    let bpm = 60000 / med; const refBpm = S.ref.analysis.tempo && S.ref.analysis.tempo.bpm;
+    if(refBpm) while(bpm > refBpm * 1.5) bpm /= 2;
+    $("lv-bpm").innerHTML = spread >= 0.6 ? bpm.toFixed(1) : '<span class="na">LOW CONF.</span>'; }
+  $("lv-perf").textContent = LV.passed >= 4 ? Math.round(LV.hits / LV.passed * 100) + "%" : "—";
+  if(aRef.ended || (S.loop == null && aRef.currentTime >= S.ref.analysis.dur - 0.05)){ liveStop(); return; }
+  requestAnimationFrame(liveLoop);
+}
+function liveStart(){
+  if(!S.ref){ toast("Nejdřív načti referenci"); go("analyze"); return; }
+  if(!S.input){ toast("Nejdřív vyber vstup (Analyze → SELECT INPUT)"); go("analyze"); return; }
+  Object.assign(LV, {on: true, hits: 0, passed: 0, idx: 0, taps: [], pending: null, prevRms: 0});
+  S.ref.analysis.notes.forEach(n => { n._hit = false; n.name = noteName(n.midi); });
+  ["lv-cur", "lv-exp", "lv-tim", "lv-bpm", "lv-perf"].forEach(id => $(id).textContent = "—"); $("lv-verdict").textContent = "";
+  $("live-toggle").textContent = "STOP"; S.demo = false; setMode();
+  const from = S.loop ? S.loop.a : 0; LV.idx = S.ref.analysis.notes.findIndex(n => n.t >= from); if(LV.idx < 0) LV.idx = 0;
+  playFrom("ref", from); liveLoop();
+}
+function liveStop(){ LV.on = false; $("live-toggle").textContent = "START"; stopAll(); }
+$("live-toggle").onclick = () => LV.on ? liveStop() : liveStart();
+
+// ------------------------------------------------------- recordings, library
+const miniWave = (cv, wave, color) => { if(!wave) return; const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, g = cv.getContext("2d"), cols = wave.length / 2; g.fillStyle = color;
+  for(let x = 0; x < W; x += 3){ const c = Math.floor(x / W * cols), a = Math.max(Math.abs(wave[c * 2]), Math.abs(wave[c * 2 + 1])); g.fillRect(x, H / 2 - a * H / 2, 2, Math.max(2, a * H)); } };
+async function paintRecent(){
+  let ss = []; try{ ss = (await DB.all("sessions")).sort((a, b) => b.date - a.date); }catch(e){}
+  const home = $("home-recent"), list = $("rec-list");
+  if(!ss.length){ home.innerHTML = '<div class="muted" style="font-size:12.5px">Zatím žádné session. Nahraj se v Analyze, nebo si pusť Demo Mode.</div>';
+    list.innerHTML = '<div class="empty"><b>NO RECORDINGS</b>Každá analyzovaná nahrávka se uloží sem — s výsledkem i zvukem.</div>'; return; }
+  home.innerHTML = '<div class="cards">' + ss.slice(0, 3).map(s => `<button class="card" data-open="${s.id}"><b>${esc(s.song)}</b><span class="muted">${new Date(s.date).toLocaleDateString("cs")}</span><canvas></canvas>
+    <b style="font-size:22px;color:${scoreColor(s.scores.overall)}">${s.scores.overall == null ? "—" : s.scores.overall + "%"}</b></button>`).join("") + "</div>";
+  home.querySelectorAll(".card").forEach((c, i) => miniWave(c.querySelector("canvas"), ss[i].plyAnalysis.wave, "rgba(167,139,250,.8)"));
+  const cell = (v) => v == null ? '<span class="na">N/A</span>' : `<span style="color:${scoreColor(v)}">${v}%</span>`;
+  list.innerHTML = `<table><tr><th>Song</th><th>Date</th><th>Score</th><th>Pitch</th><th>Timing</th><th>Rhythm</th><th>Tempo</th><th>Duration</th><th>Problems</th><th></th></tr>` +
+    ss.map(s => `<tr><td><b>${esc(s.song)}</b></td><td class="muted">${new Date(s.date).toLocaleString("cs", {dateStyle: "short", timeStyle: "short"})}</td><td>${cell(s.scores.overall)}</td><td>${cell(s.scores.pitch)}</td><td>${cell(s.scores.timing)}</td><td>${cell(s.scores.rhythm)}</td><td>${cell(s.scores.tempo)}</td><td>${cell(s.scores.duration)}</td><td>${s.result.issues.length}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn small" data-open="${s.id}">Otevřít</button> <button class="btn small" data-del="${s.id}">Smazat</button></td></tr>`).join("") + "</table>";
+}
+document.addEventListener("click", async (e) => {
+  const o = e.target.closest("[data-open]"); if(o){ openSession(o.dataset.open); return; }
+  const d = e.target.closest("[data-del]"); if(d){ await DB.del("sessions", d.dataset.del); paintRecent(); return; }
+  const lr = e.target.closest("[data-ref]"); if(lr){ const r = await DB.get("refs", lr.dataset.ref); if(r){ go("analyze"); loadReference({id: r.id, title: r.title, artist: r.artist, blob: r.blob}); } return; }
+  const dr = e.target.closest("[data-refdel]"); if(dr){ await DB.del("refs", dr.dataset.refdel); paintLibrary(); }
+});
+async function paintLibrary(){
+  let rs = []; try{ rs = (await DB.all("refs")).sort((a, b) => b.added - a.added); }catch(e){}
+  $("lib-list").innerHTML = !rs.length ? '<div class="empty"><b>NO REFERENCE TRACKS</b>Import a song to start analyzing your performance.</div>'
+    : `<table><tr><th>Title</th><th>Artist</th><th>BPM</th><th>Key</th><th>Tuning</th><th>Duration</th><th>Analysis</th><th></th></tr>` + rs.map(r => `<tr><td><b>${esc(r.title)}</b></td><td class="muted">${esc(r.artist || "—")}</td>
+      <td>${r.bpm ? r.bpm.toFixed(1) + (r.bpmConf < 0.4 ? ' <span class="na">LOW</span>' : "") : NA}</td><td>${esc(r.key || "—")}</td><td class="muted">${esc(r.tuning || "—")}</td><td>${fmtShort(r.dur)}</td>
+      <td>${r.notes} tónů${r.pitchedShare != null && r.pitchedShare < 0.6 ? ' · <span class="na">výška nejistá</span>' : ""}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn small primary" data-ref="${r.id}">Použít</button> <button class="btn small" data-refdel="${r.id}">Smazat</button></td></tr>`).join("") + "</table>";
+}
+
+// ------------------------------------------------------------------- riffs
+// A stretch of the reference cut out and kept in Pick's library: its sound
+// as it is heard now (at the pitch set), its notes as a MIDI file, and what
+// is known of it — to practise from, and to loop.
+function writeMidiFile(notes, bpm, name){
+  const ppq = 480, tempo = bpm > 20 && bpm < 400 ? bpm : 120, tick = (sec) => Math.max(0, Math.round(sec * tempo / 60 * ppq));
+  const ev = [];
+  notes.forEach(n => { const m = Math.max(0, Math.min(127, Math.round(n.m))), a = tick(n.t), b = Math.max(a + 1, tick(n.t + n.d));
+    ev.push([a, 1, 0x90, m, Math.max(1, Math.min(127, Math.round((n.v ?? 0.8) * 127)))], [b, 0, 0x80, m, 0]); });
+  ev.sort((x, y) => x[0] - y[0] || x[1] - y[1]);                       // at one tick, ends before starts
+  const out = [], vlq = (v) => { const b = [v & 0x7f]; while(v >>= 7) b.unshift((v & 0x7f) | 0x80); out.push(...b); };
+  const text = [...new TextEncoder().encode(String(name || "Pick").slice(0, 60))], us = Math.round(60e6 / tempo);
+  vlq(0); out.push(0xff, 0x03); vlq(text.length); out.push(...text);
+  vlq(0); out.push(0xff, 0x51, 3, us >> 16 & 255, us >> 8 & 255, us & 255);
+  let last = 0;
+  ev.forEach(([t, , st, d1, d2]) => { vlq(t - last); last = t; out.push(st, d1, d2); });
+  vlq(0); out.push(0xff, 0x2f, 0);
+  const n = out.length;
+  return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, ppq >> 8, ppq & 255,
+                         0x4d, 0x54, 0x72, 0x6b, n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255, ...out]);
+}
+const INSTRUMENTS = ["Kytara", "Basa", "Bicí", "Klávesy", "Zpěv", "Ostatní"];
+function guessInstrument(){
+  const x = ((S.ref.source && (S.ref.source.stem + " " + S.ref.source.label)) || S.ref.title || "").toLowerCase();
+  return /bas/.test(x) ? "Basa" : /drum|bic|kick|snare/.test(x) ? "Bicí" : /piano|key|kláves|klaves|synth/.test(x) ? "Klávesy" : /vocal|zpěv|zpev|voice/.test(x) ? "Zpěv" : /other|ostatn/.test(x) ? "Ostatní" : "Kytara";
+}
+// The notes of the stretch the engine could put a pitch to, from its start.
+function riffNotes(a, b){
+  const ns = S.ref.analysis.notes.filter(n => n.midi != null && n.t >= a - 0.03 && n.t < b - 0.02);
+  const top = ns.reduce((m, n) => Math.max(m, n.level || 0), 0) || 1;
+  return ns.map(n => ({m: n.midi, t: Math.max(0, n.t - a), d: Math.max(0.04, Math.min(n.dur, b - n.t)), v: 0.45 + 0.55 * Math.min(1, (n.level || top) / top)}));
+}
+function openRiffSave(){
+  if(!S.ref || !S.loop){ toast("Nejdřív označ úsek v časové ose (Shift + tažení)"); return; }
+  const {a, b} = S.loop, src = S.ref.source, sec = sections().find(x => x.id === S.section);
+  // "Band - Song" is how Pick names what it separated
+  const name = (src && src.song) || S.ref.title || "", cut = name.indexOf(" - ");
+  const artist = S.ref.artist || (cut > 0 ? name.slice(0, cut) : ""), song = (src && src.title) || (cut > 0 ? name.slice(cut + 3) : name).replace(/ · .*$/, "");
+  const inst = guessInstrument(), bpm = refBpm(), bars = (b - a) / (60 / bpm) / refBpb(), key = S.ref.analysis.key, all = S.ref.analysis.notes.filter(n => n.t >= a - 0.03 && n.t < b - 0.02).length, notes = riffNotes(a, b);
+  const tuning = tuningName + (S.ref.pitchApplied ? ` (${S.ref.pitchApplied > 0 ? "+" : ""}${S.ref.pitchApplied} půlt.)` : "");
+  $("rf-box").innerHTML = `<div class="h">Uložit riff do knihovny <span class="sp"></span><button class="btn small" id="rf-close">Zavřít</button></div>
+    <div class="muted" style="font-size:12.5px">Úsek ${fmtShort(a)}–${fmtShort(b)} · ${(b - a).toFixed(2)} s · ${bars.toFixed(Math.abs(bars - Math.round(bars)) < 0.06 ? 0 : 1)} taktů${S.ref.pitchApplied ? " · v nastaveném přeladění" : ""}</div>
+    <div class="rf-form">
+      <label>Název riffu<input id="rf-riff" value="${esc(sec ? sec.name : "Riff " + fmtShort(a))}"></label>
+      <label>Nástroj<select id="rf-inst">${INSTRUMENTS.map(x => `<option ${x === inst ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label>Kapela<input id="rf-artist" value="${esc(artist)}"></label>
+      <label>Song<input id="rf-song" value="${esc(song)}"></label>
+      <label>BPM<input id="rf-bpm" type="number" step="0.1" value="${bpm.toFixed(1)}"></label>
+      <label>Tónina${key && key.conf < 0.3 ? " (nejistá)" : ""}<input id="rf-key" value="${esc(key ? key.name : "")}"></label>
+      <label style="grid-column:1/3">Ladění<input id="rf-tuning" value="${esc(tuning)}"></label>
+    </div>
+    <div class="muted" style="font-size:12.5px" id="rf-midi"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><span class="muted" id="rf-state" style="font-size:12.5px;margin-right:auto"></span>
+      <button class="btn" id="rf-cancel">Zrušit</button><button class="btn primary" id="rf-ok">Uložit</button></div>`;
+  const midiNote = () => { const drums = $("rf-inst").value === "Bicí";
+    $("rf-midi").innerHTML = drums ? "MIDI se u bicích neukládá — výška úderů nic neříká."
+      : !notes.length ? "MIDI se neuloží: v úseku se nepodařilo přečíst výšku žádného tónu."
+      : `MIDI: ${notes.length} z ${all} tónů úseku má čitelnou výšku a uloží se${notes.length < all * 0.7 ? ' — <span class="na">zbytek chybí</span> (akordy a zkreslená stopa se čtou jen zčásti); doladíš ve Steems v MIDI editoru' : ""}. Jeden tón najednou — akordy jako jejich nejsilnější tón.`; };
+  midiNote(); $("rf-inst").onchange = midiNote;
+  $("rf").classList.add("on");
+  $("rf-close").onclick = $("rf-cancel").onclick = () => $("rf").classList.remove("on");
+  $("rf-ok").onclick = async () => {
+    const meta = {riff: $("rf-riff").value.trim(), instrument: $("rf-inst").value, artist: $("rf-artist").value.trim(), song: $("rf-song").value.trim(),
+      bpm: parseFloat($("rf-bpm").value) || null, key: $("rf-key").value.trim(), tuning: $("rf-tuning").value.trim(), dur: b - a, bars,
+      source: {song: src ? src.song : "", stem: src ? src.stem : "", from: a, to: b}};
+    if(!meta.riff){ $("rf-riff").focus(); return; }
+    $("rf-ok").disabled = true; $("rf-state").textContent = "Stříhám úsek…";
+    try{
+      // what is heard now: the reference as it plays, at the pitch set
+      const buf = await audioCtx().decodeAudioData(await (await fetch(aRef.currentSrc || S.ref.url)).arrayBuffer());
+      const i0 = Math.max(0, Math.round(a * buf.sampleRate)), i1 = Math.min(buf.length, Math.round(b * buf.sampleRate));
+      const chs = Array.from({length: Math.min(2, buf.numberOfChannels)}, (_, c) => buf.getChannelData(c).slice(i0, i1));
+      // a few milliseconds of fade at each end, so the loop does not click
+      const f = Math.min(Math.round(0.004 * buf.sampleRate), chs[0].length >> 2);
+      chs.forEach(ch => { for(let i = 0; i < f; i++){ ch[i] *= i / f; ch[ch.length - 1 - i] *= i / f; } });
+      const fd = new FormData();
+      fd.append("audio", wavBlob(chs, buf.sampleRate), "riff.wav");
+      const withMidi = meta.instrument !== "Bicí" && notes.length;
+      if(withMidi) fd.append("midi", new Blob([writeMidiFile(notes, meta.bpm || bpm, meta.riff)], {type: "audio/midi"}), "riff.mid");
+      meta.notes = withMidi ? notes.length : 0;
+      $("rf-state").textContent = "Ukládám…";
+      const r = await fetch("/api/riffs?meta=" + encodeURIComponent(JSON.stringify(meta)), {method: "POST", body: fd}), j = await r.json();
+      if(!r.ok) throw new Error(j.error || "chyba");
+      $("rf").classList.remove("on"); toast(`Riff uložen: Knihovna → ${j.audio.replace(/\/[^/]*$/, "")}${j.midi ? " · i s MIDI" : ""}`);
+      paintRiffs();
+    }catch(e){ $("rf-state").textContent = "Nepodařilo se: " + e.message; $("rf-ok").disabled = false; }
+  };
+}
+$("sect-lib").onclick = openRiffSave;
+// ---- the riffs kept, as a table: sorted by band, song and riff unless a column is asked for
+const RF = {list: [], by: null, dir: 1, audio: null, playing: null};
+const RF_COLS = [["riff", "Riff"], ["artist", "Kapela"], ["song", "Song"], ["instrument", "Nástroj"], ["bpm", "BPM"], ["dur", "Délka"], ["key", "Tónina"], ["tuning", "Ladění"], ["midi", "MIDI"]];
+async function paintRiffs(fresh){
+  if(fresh !== false){ try{ const r = await fetch("/api/riffs"); RF.list = r.ok ? await r.json() : []; }catch(e){ RF.list = []; } }
+  const box = $("riff-list");
+  if(!RF.list.length){ box.innerHTML = '<div class="empty"><b>NO RIFFS</b>V Analyze označ úsek reference a dej „Uložit riff do knihovny…“ — vystřihne se do zvukového souboru a jeho tóny do MIDI.</div>'; return; }
+  const rows = RF.list.slice();
+  if(RF.by) rows.sort((x, y) => { const p = x[RF.by], q = y[RF.by]; return RF.dir * (typeof p === "number" || typeof q === "number" ? (p || 0) - (q || 0) : String(p || "").localeCompare(String(q || ""), "cs")); });
+  box.innerHTML = `<table><tr>${RF_COLS.map(([k, t]) => `<th data-rfsort="${k}" class="${RF.by === k ? "on" : ""}">${t}${RF.by === k ? (RF.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}<th></th></tr>` +
+    rows.map(r => `<tr><td><b>${esc(r.riff)}</b></td><td>${esc(r.artist)}</td><td>${esc(r.song)}</td><td>${esc(r.instrument)}</td><td>${r.bpm ? r.bpm.toFixed(1) : NA}</td><td>${r.dur ? r.dur.toFixed(1) + " s" + (r.bars ? ` · ${+r.bars.toFixed(1)} t.` : "") : "—"}</td>
+      <td>${esc(r.key || "—")}</td><td class="muted">${esc(r.tuning || "—")}</td><td>${r.midi ? `${r.notes || ""} tónů` : '<span class="na">není</span>'}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn small" data-rf="play" data-id="${r.id}">${RF.playing === r.id ? "■" : "▶"}</button> <button class="btn small primary" data-rf="use" data-id="${r.id}" title="Načíst jako referenci a trénovat">Trénovat</button>
+        <button class="btn small" data-rf="looper" data-id="${r.id}" title="Přidá riff jako stopu do projektu „Looper – píseň“ ve Steems">Do Looperu</button> <button class="btn small" data-rf="del" data-id="${r.id}">Smazat</button></td></tr>`).join("") + "</table>";
+}
+const riffUrl = (rel) => "/api/library/stream?rel=" + encodeURIComponent(rel);
+document.addEventListener("click", async (e) => {
+  const th = e.target.closest("[data-rfsort]");
+  if(th){ const k = th.dataset.rfsort; if(RF.by === k){ if(RF.dir > 0) RF.dir = -1; else { RF.by = null; RF.dir = 1; } } else { RF.by = k; RF.dir = 1; } paintRiffs(false); return; }
+  const b = e.target.closest("[data-rf]"); if(!b) return;
+  const r = RF.list.find(x => x.id === b.dataset.id); if(!r) return;
+  if(b.dataset.rf === "play"){
+    if(RF.audio){ RF.audio.pause(); RF.audio = null; }
+    if(RF.playing === r.id){ RF.playing = null; paintRiffs(false); return; }
+    stopAll(); RF.audio = new Audio(riffUrl(r.audio)); RF.audio.loop = true; RF.audio.play().catch(() => {}); RF.playing = r.id; paintRiffs(false);
+  }
+  if(b.dataset.rf === "use"){
+    if(RF.audio){ RF.audio.pause(); RF.audio = null; RF.playing = null; }
+    try{ const blob = await (await fetch(riffUrl(r.audio))).blob(); go("analyze");
+      await loadReference({title: `${r.song} · ${r.riff}`, artist: r.artist, blob, source: {song: `${r.artist} - ${r.song}`, stem: r.instrument, label: r.instrument, title: r.song}});
+    }catch(err){ toast("Riff se nepodařilo načíst"); }
+  }
+  if(b.dataset.rf === "looper"){
+    b.disabled = true;
+    try{
+      const name = `Looper - ${r.song}`.replace(/[^\p{L}\p{N} \-_()\[\]]/gu, "").trim().slice(0, 80), fd = new FormData();
+      fd.append("file", await (await fetch(riffUrl(r.audio))).blob(), `${r.riff} - ${r.instrument}.wav`);
+      const has = (await (await fetch("/api/stems")).json()).some(x => x.name === name);
+      const res = await fetch(has ? `/api/stems/${encodeURIComponent(name)}/tracks/upload` : `/api/stems/new/upload?name=${encodeURIComponent(name)}`, {method: "POST", body: fd}), j = await res.json();
+      if(!res.ok) throw new Error(j.error || "chyba");
+      stemSongs = null;
+      toast(`Riff je ve Steems v projektu „${j.name || name}“${r.midi ? " — jeho MIDI tam přetáhneš z Knihovny (Loops/Riffs) na MIDI stopu" : ""}`);
+    }catch(err){ toast("Odeslání do Looperu selhalo: " + err.message); }
+    b.disabled = false;
+  }
+  if(b.dataset.rf === "del"){
+    if(!confirm(`Smazat riff „${r.riff}“? Soubory půjdou do koše.`)) return;
+    for(const rel of [r.audio, r.midi]) if(rel) await fetch("/api/library/fs/delete", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({rel})}).catch(() => {});
+    if(RF.playing === r.id && RF.audio){ RF.audio.pause(); RF.audio = null; RF.playing = null; }
+    paintRiffs();
+  }
+});
+
+// ------------------------------------------------------------------- export
+function csvRows(){
+  const r = S.result, q = (v) => v == null ? "" : `"${String(v).replace(/"/g, '""')}"`;
+  const head = ["timestamp", "expected_note", "played_note", "pitch_error_cents", "timing_error_ms", "reference_duration", "played_duration", "error_type", "severity", "confidence"];
+  const lines = [head.join(",")];
+  r.rows.forEach((row, k) => { const iss = r.issues.filter(x => x.row === k);
+    lines.push([row.t.toFixed(3), row.expected.name, row.played ? row.played.name : null, row.pitchCents, row.timingMs, row.expected.dur.toFixed(3), row.played ? row.played.dur.toFixed(3) : null,
+      row.kind === "missed" ? "MISSED" : iss.map(x => x.type).join("+") || "OK", iss.length ? ["LOW", "MEDIUM", "HIGH"][Math.max(...iss.map(x => x.sev))] : "", row.confidence != null ? row.confidence.toFixed(2) : null].map(q).join(",")); });
+  r.extras.forEach(x => lines.push([x.t.toFixed(3), null, x.played.name, null, null, null, x.played.dur.toFixed(3), "EXTRA", "MEDIUM", x.confidence.toFixed(2)].map(q).join(",")));
+  return lines.join("\n");
+}
+function download(name, text, type){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); }
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-export]"); if(!b || !S.result) return;
+  const base = (S.ref.title || "analysis").replace(/[^\w\- ]+/g, "_");
+  if(b.dataset.export === "csv") download(base + ".csv", csvRows(), "text/csv");
+  if(b.dataset.export === "json") download(base + ".json", JSON.stringify({song: S.ref.title, artist: S.ref.artist, demo: !!S.ref.demo, tuning: tuningName, date: new Date().toISOString(),
+    reference: {...S.ref.analysis, wave: undefined}, performance: {...S.ply.analysis, wave: undefined}, analysis: S.result}, (k, v) => ArrayBuffer.isView(v) ? Array.from(v) : v, 1), "application/json");
+  if(b.dataset.export === "pdf"){
+    const r = S.result, sc = r.scores, v = (x) => x == null ? "NOT AVAILABLE" : x + " %";
+    $("print").innerHTML = `<h1>Guitar Performance Analyzer${S.ref.demo ? " — DEMO" : ""}</h1><p><b>${esc(S.ref.title)}</b> ${esc(S.ref.artist || "")} · ${new Date().toLocaleString("cs")} · ladění ${esc(tuningName)}</p>
+      <h2>Performance score: ${v(sc.overall)}</h2><table><tr><th>Pitch</th><th>Timing</th><th>Rhythm</th><th>Tempo</th><th>Duration</th><th>Articulation</th></tr>
+      <tr><td>${v(sc.pitch)}</td><td>${v(sc.timing)}</td><td>${v(sc.rhythm)}</td><td>${v(sc.tempo)}</td><td>${v(sc.duration)}</td><td>NOT AVAILABLE</td></tr></table>
+      <p>Tónů ${r.counts.reference}, spárováno ${r.counts.matched}, špatně ${r.counts.wrong}, vynecháno ${r.counts.missed}, navíc ${r.counts.extra}. Tempo: reference ${r.tempo.reference ? r.tempo.reference.toFixed(1) : "—"}, hráč ${r.tempo.player ? r.tempo.player.toFixed(1) : "—"} BPM.</p>
+      <h2>Problémové úseky a doporučení</h2><table><tr><th>Úsek</th><th>Hlavní problém</th><th>Chyb</th><th>Doporučení</th></tr>${r.sections.map(s => `<tr><td>${fmtShort(s.from)}–${fmtShort(s.to)}</td><td>${s.worst}</td><td>${s.issues}</td><td>Practice at ${s.issues > 5 ? 50 : 75}% speed</td></tr>`).join("")}</table>
+      <h2>Error map</h2><table><tr><th>Čas</th><th>Typ</th><th>Popis</th><th>Závažnost</th><th>Jistota</th></tr>${r.issues.map(x => `<tr><td>${fmtT(x.t)}</td><td>${x.type}</td><td>${esc(x.text)}</td><td>${["LOW", "MEDIUM", "HIGH"][x.sev]}</td><td>${Math.round(x.confidence * 100)} %</td></tr>`).join("")}</table>`;
+    window.print();
+  }
+});
+
+// ----------------------------------------------------------- pages, settings
+function go(page){
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.id === "p-" + page));
+  document.querySelectorAll(".side button").forEach(b => b.classList.toggle("on", b.dataset.page === page));
+  // The mix and the timeline are one thing, shown where the player is.
+  const slot = $(page === "practice" ? "slot-pr" : "slot-an"), deck = $("deck"), moved = deck.parentNode !== slot;
+  if(page === "practice" || page === "analyze"){ if(moved) slot.appendChild(deck); }
+  deck.hidden = !S.ref; $("pr-empty").hidden = !!S.ref;
+  if(page === "practice" && S.ref) requestAnimationFrame(() => { if(moved) fitTimeline(); else sizeTimeline(); setSpeed(S.speed); });
+  if(page === "analyze" && S.ref && moved && !S.result) requestAnimationFrame(fitTimeline);
+  if(page === "analyze" && S.result) requestAnimationFrame(() => { fitTimeline(); drawHeat(); drawTempo(); });
+  if(page !== "practice" && LV.on) liveStop();
+  if(page === "library") paintRiffs();
+  if(page !== "library" && RF.audio){ RF.audio.pause(); RF.audio = null; RF.playing = null; }
+}
+document.querySelectorAll(".side button").forEach(b => b.onclick = () => go(b.dataset.page));
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
+{ const h = new Date().getHours(); $("greet").textContent = h < 5 ? "GOOD NIGHT" : h < 12 ? "GOOD MORNING" : h < 18 ? "GOOD AFTERNOON" : "GOOD EVENING"; }
+const tsel = $("tuning");
+tsel.innerHTML = Object.keys(TUNINGS).concat(["Custom Tuning"]).map(n => `<option>${n}</option>`).join("");
+tsel.value = tuningName;
+tsel.onchange = () => { if(tsel.value === "Custom Tuning" && !customTuning){ go("settings"); $("custom-tuning").focus(); } tuningName = tsel.value; saveCfg(); };
+document.querySelectorAll("[data-cfg]").forEach(i => { i.value = cfg[i.dataset.cfg]; i.onchange = () => { const v = parseFloat(i.value); if(isFinite(v)){ cfg[i.dataset.cfg] = v; saveCfg(); toast("Uloženo — projeví se při další analýze"); } }; });
+$("latency").value = latencyMs; $("latency").onchange = () => setLatency(+$("latency").value || 0, true);
+if(customTuning) $("custom-tuning").value = customTuning.map(noteName).join(" ");
+$("custom-apply").onclick = () => {
+  const ms = $("custom-tuning").value.trim().split(/\s+/).map(s => { const m = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(s); if(!m) return null;
+    const pc = {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11}[m[1].toUpperCase()] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0); return pc + (+m[3] + 1) * 12; });
+  if(ms.length < 4 || ms.some(x => x == null)){ toast("Zadej struny jako E2 A2 D3 G3 B3 E4"); return; }
+  customTuning = ms; tuningName = "Custom Tuning"; tsel.value = tuningName; saveCfg(); toast("Vlastní ladění nastaveno");
+};
+navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener("devicechange", listDevices);
+listDevices(); paintRecent(); paintLibrary(); paintRiffs(); setMode();
+window.addEventListener("beforeunload", () => { stopAll(); disconnectInput(); });
+</script>
+</body>
+</html>

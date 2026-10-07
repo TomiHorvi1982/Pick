@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loop Studio</title>
+<link rel="icon" type="image/png" href="/static/pick-favicon.png">
+<style>
+  /* Loop Studio — a page of its own inside Pick (Tools). A song goes in, a
+     Loop Plan comes out: the facts, what to loop, the Loopy Pro setup, and
+     the loops cut to bars. The plan is built by the server (loopstudio.py);
+     this page shows it, lets it be corrected, and never fills a gap itself. */
+  :root{--bg:#0e1013;--panel:rgba(255,255,255,.035);--panel2:rgba(255,255,255,.065);--line:rgba(255,255,255,.085);--line2:rgba(255,255,255,.15);
+    --text:#eceef2;--sub:#8f96a6;--dim:#5e6575;--acc:#2dd4bf;--acc2:#5eead4;--warn:#fbbf24;--bad:#f87171;--r:14px}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1100px 520px at 20% -10%, rgba(45,212,191,.11), transparent 60%), var(--bg);color:var(--text);
+    font:14px/1.5 Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;overflow:auto}
+  button,input,select,textarea{font:inherit;color:inherit}
+  [hidden]{display:none !important}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 24px 60px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  header h1{font-size:19px;margin:0;font-weight:750;letter-spacing:-.01em}
+  header .song{color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  header .sp{flex:1}
+  .btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);cursor:pointer;font-weight:650;font-size:12.5px;display:inline-flex;align-items:center;gap:7px;transition:background .15s;text-decoration:none}
+  .btn:hover{background:rgba(255,255,255,.11)}
+  .btn.primary{background:linear-gradient(140deg,var(--acc),#0f9d8c);border-color:transparent;color:#04201c}
+  .btn.small{height:28px;padding:0 10px;font-size:11.5px;border-radius:8px}
+  .btn:disabled{opacity:.4;cursor:default}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-top:14px}
+  .h{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);font-weight:800;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .h b{color:var(--acc2);font-size:11px}
+  .h .sp{flex:1}
+  .muted{color:var(--sub)} .dim{color:var(--dim)}
+  .na{color:var(--dim);font-weight:700;letter-spacing:.05em;font-size:.82em}
+  .src{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .src .card{padding:16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);min-height:230px;display:flex;flex-direction:column}
+  .src input[type=text]{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-bottom:8px}
+  .list{overflow:auto;max-height:260px;margin:0 -6px}
+  .it{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:9px;cursor:pointer}
+  .it:hover{background:var(--panel2)}
+  .it .g{flex:1;min-width:0}
+  .it .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .it .s{font-size:11.5px;color:var(--sub)}
+  .tag{font-size:10px;font-weight:800;letter-spacing:.07em;padding:2px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--sub);white-space:nowrap}
+  .tag.ok{color:var(--acc2);border-color:rgba(45,212,191,.5)}
+  .drop{flex:1;border:1.5px dashed var(--line2);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--sub);text-align:center;padding:14px;cursor:pointer}
+  .drop.over{border-color:var(--acc);background:rgba(45,212,191,.07)}
+  .stages{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
+  .stage{padding:10px;border-radius:10px;border:1px solid var(--line);font-size:12px;color:var(--dim);text-align:center}
+  .stage.on{color:var(--text);border-color:var(--acc);background:rgba(45,212,191,.09)}
+  .stage.done{color:var(--acc2)}
+  .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:14px}
+  .bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s}
+  .facts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .fact{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .fact span{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800;display:block}
+  .fact b{font-size:20px;font-weight:720;letter-spacing:-.01em}
+  .fact small{display:block;color:var(--sub);font-size:11.5px}
+  .fact input{width:100%;background:none;border:none;border-bottom:1px dashed var(--line2);font-size:20px;font-weight:720;padding:0;outline:none}
+  .fact input:focus{border-bottom-color:var(--acc)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+  th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  td input[type=text],td input[type=number]{background:rgba(0,0,0,.25);border:1px solid transparent;border-radius:7px;padding:4px 7px;width:100%}
+  td input:hover{border-color:var(--line)} td input:focus{border-color:var(--acc);outline:none}
+  td input[type=number]{width:64px}
+  td.chords input{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(45,212,191,.12);color:var(--acc2);white-space:nowrap}
+  .chip i{font-style:normal;opacity:.6;margin-right:4px}
+  audio{height:30px;width:210px}
+  .warnbox{margin-top:12px;padding:9px 12px;border-radius:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fcd98a;font-size:12.5px}
+  .kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .notes{margin:14px 0 0;padding-left:18px;color:var(--sub);font-size:13px}
+  .notes li{margin-bottom:6px}
+  .later{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .later .panel{opacity:.7}
+  .savebar{position:sticky;bottom:14px;margin-top:16px;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;background:#161a20;border:1px solid var(--acc);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .modal{position:fixed;inset:0;background:rgba(5,7,10,.72);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:30}
+  .modal.on{display:flex}
+  .modal .box{width:min(680px,94vw);max-height:86vh;overflow:auto;background:#14171c;border:1px solid var(--line2);border-radius:16px;padding:20px}
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+  .form label{font-size:11px;color:var(--sub);display:block;margin-bottom:3px}
+  .form input[type=text],.form input[type=number]{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:9px;padding:7px 10px}
+  .form .full{grid-column:1/3}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1b1f27;border:1px solid var(--line2);padding:9px 14px;border-radius:10px;font-size:12.5px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.on{opacity:1}
+  @media (max-width:900px){ .src,.facts,.kv,.later{grid-template-columns:1fr 1fr} .stages{grid-template-columns:1fr 1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Loop Studio</h1><span class="song" id="hd-song"></span><span class="sp"></span>
+    <button class="btn small" id="hd-new" hidden>← Jiný song</button>
+    <button class="btn small" id="hd-hw">Moje vybavení</button>
+  </header>
+
+  <!-- pick a song -->
+  <section id="v-start">
+    <div class="muted" style="max-width:760px">Vlož song a dostaneš <b style="color:var(--text)">Loop Plan</b>: tempo, tóninu, strukturu po taktech a akordy, co dát do smyček a v jakém pořadí nahrávat vrstvy, nastavení pro Loopy Pro a hotové smyčky ořezané přesně na takty.</div>
+    <div class="src" style="margin-top:16px">
+      <div class="card"><div class="h">Ze Steems <span class="sp"></span><span class="dim" style="letter-spacing:0;text-transform:none;font-weight:500">už rozdělené — plán za pár sekund</span></div>
+        <input type="text" id="q-stems" placeholder="Hledat…"><div class="list" id="l-stems"></div></div>
+      <div class="card"><div class="h">Z knihovny <span class="sp"></span><span class="dim" style="letter-spacing:0;text-transform:none;font-weight:500">nejdřív se rozdělí na stopy</span></div>
+        <input type="text" id="q-lib" placeholder="Hledat píseň nebo interpreta…"><div class="list" id="l-lib"></div></div>
+      <div class="card"><div class="h">Soubor z počítače</div>
+        <div class="drop" id="drop"><b style="color:var(--text)">Přetáhni sem audio soubor</b>mp3 · wav · m4a · flac<button class="btn small" id="pick-file">Vybrat soubor</button>
+          <input type="file" id="file" accept="audio/*,.mp3,.wav,.m4a,.flac" hidden>
+          <span class="dim" style="font-size:11.5px">Uloží se do knihovny (Songs / Loop Studio). Analyzuješ vlastní soubory pro vlastní cvičení — nic se nikam neposílá.</span></div></div>
+    </div>
+    <div class="panel"><div class="h">Hotové plány</div><div id="l-plans"></div></div>
+  </section>
+
+  <!-- the job -->
+  <section id="v-job" hidden>
+    <div class="panel"><div class="h">Pracuji na plánu</div>
+      <div id="job-note" style="font-size:15px;font-weight:650"></div>
+      <div class="bar"><i id="job-bar"></i></div>
+      <div class="stages" id="job-stages"></div>
+      <div class="muted" style="font-size:12.5px;margin-top:14px">Rozdělení na stopy trvá u neznámé písně několik minut (počítá se na tomhle Macu). Sekce a akordy další zhruba minutu. Stránku můžeš nechat otevřenou a dělat něco jiného.</div>
+      <div class="warnbox" id="job-err" hidden></div>
+    </div>
+  </section>
+
+  <!-- the plan -->
+  <section id="v-plan" hidden>
+    <div class="panel"><div class="h"><b>1</b> Fakta o songu <span class="sp"></span><span class="dim" style="letter-spacing:0;text-transform:none;font-weight:500">všechno jde přepsat — odhad není neomylný</span></div>
+      <div class="facts" id="facts"></div>
+      <div class="warnbox" id="facts-warn" hidden></div>
+      <table><thead><tr><th style="width:190px">Sekce</th><th>Od taktu</th><th>Taktů</th><th>Akordy po taktech (mezerou; „-“ = neznámý)</th></tr></thead><tbody id="sections"></tbody></table>
+    </div>
+
+    <div class="panel"><div class="h"><b>2</b> Skladba smyček <span class="sp"></span>
+        <label class="muted" style="letter-spacing:0;text-transform:none;font-weight:500;display:flex;gap:6px;align-items:center" title="Smyčka se doladí na přesné tempo plánu (o zlomky procenta, bez změny výšky), aby v looperu seděla na clock. Vypnuto = takty tak, jak jsou v nahrávce."><input type="checkbox" id="fixed"> srovnat na pevné BPM</label></div>
+      <div class="muted" style="font-size:13px">Jedna smyčka za každý druh sekce. Délka je nejkratší úsek, který se v sekci opakuje (podle akordů) — když se nic neopakuje nebo akordy nejsou jisté, je to celá sekce. Vrstvy jsou v pořadí, v jakém je nahrávat.</div>
+      <table><thead><tr><th style="width:34px"></th><th style="width:150px">Smyčka</th><th>Od taktu</th><th>Taktů</th><th>Vrstvy v pořadí nahrávání</th><th style="width:230px">Poslech (všechny vrstvy)</th></tr></thead><tbody id="loops"></tbody></table>
+      <div class="warnbox" id="loops-warn" hidden></div>
+    </div>
+
+    <div class="panel"><div class="h"><b>4</b> Karta Loopy Pro <span class="sp"></span><a class="btn small primary" id="zip" download>Stáhnout smyčky (ZIP)</a></div>
+      <div class="kv" id="loopy"></div>
+      <table><thead><tr><th>Tlačítko</th><th>MIDI CC</th><th>Co dělá</th></tr></thead><tbody id="foot"></tbody></table>
+      <ul class="notes" id="loopy-notes"></ul>
+      <div class="muted" style="font-size:12.5px;margin-top:10px">Loopy Pro nemá veřejně popsaný formát projektu, takže tady nevzniká hotový projekt, ale podklady: WAV smyčky na přesný počet taktů (ZIP pošli AirDropem do iPhonu a otevři v Souborech) a tahle karta s nastavením.</div>
+    </div>
+
+    <div class="later">
+      <div class="panel"><div class="h"><b>3</b> Tón kytary</div><div class="na">FÁZE 2</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-tone"></div></div>
+      <div class="panel"><div class="h"><b>5</b> Logic Pro + Toontrack</div><div class="na">FÁZE 3</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-studio"></div></div>
+    </div>
+
+    <div class="savebar" id="savebar" hidden><span style="flex:1">Máš neuložené opravy.</span>
+      <button class="btn small" id="discard">Zahodit</button><button class="btn small primary" id="save">Uložit a nařezat smyčky znovu</button></div>
+    <div style="margin-top:16px;display:flex;gap:10px"><button class="btn small" id="remeasure" title="Zahodí ruční opravy a spočítá plán znovu z analýzy">Změřit znovu</button></div>
+  </section>
+</div>
+
+<div class="modal" id="hw"><div class="box"><div class="h">Moje vybavení <span class="sp"></span><button class="btn small" id="hw-close">Zavřít</button></div>
+  <div class="muted" style="font-size:13px;margin-bottom:14px">Doporučení v plánu se počítají z tohohle profilu (uložený jako <code>hardware-profile.json</code>).</div>
+  <div class="form">
+    <div><label>Looper (aplikace)</label><input type="text" id="hw-app"></div>
+    <div><label>Zařízení</label><input type="text" id="hw-device"></div>
+    <div><label>Klávesy / MIDI</label><input type="text" id="hw-keys"></div>
+    <div><label>Footswitch</label><input type="text" id="hw-fs"></div>
+    <div><label>Počet tlačítek footswitche</label><input type="number" id="hw-fsn" min="0" max="12"></div>
+    <div><label>První MIDI CC (další tlačítka pokračují)</label><input type="number" id="hw-cc" min="0" max="127"></div>
+    <div><label><input type="checkbox" id="hw-guitar"> Elektrická kytara</label></div>
+    <div><label><input type="checkbox" id="hw-mic"> Mikrofon (zpěv, akustika)</label></div>
+    <div><label>Modeler / tón kytary (Fáze 2)</label><input type="text" id="hw-modeler"></div>
+    <div><label>Pluginy, čárkou (Fáze 2)</label><input type="text" id="hw-plugins"></div>
+    <div><label>DAW (Fáze 3)</label><input type="text" id="hw-daw"></div>
+    <div><label>Bicí (Fáze 3)</label><input type="text" id="hw-drums"></div>
+    <div class="full"><label>Doplňkově, čárkou (zatím bez doporučení)</label><input type="text" id="hw-extras"></div>
+  </div>
+  <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end"><button class="btn primary" id="hw-save">Uložit</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const enc = encodeURIComponent;
+function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 3000); }
+const json = async (url, opt) => { const r = await fetch(url, opt); const d = await r.json().catch(() => ({})); if(!r.ok) throw new Error(d.error || "Chyba " + r.status); return d; };
+const post = (url, body, method = "POST") => json(url, {method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+const LAYER = {drums: "bicí", bass: "basa", guitar: "kytara", piano: "klávesy", other: "ostatní", vocals: "zpěv", guitar_rhythm: "kytara rytmus", guitar_solo: "kytara sólo"};
+const S = {plan: null, song: null, dirty: false, stems: [], lib: null};
+const show = (v) => { ["start", "job", "plan"].forEach(x => $("v-" + x).hidden = x !== v); $("hd-new").hidden = v === "start"; if(v === "start") $("hd-song").textContent = ""; };
+
+// ------------------------------------------------------------- pick a song
+async function loadStart(){
+  try{ S.stems = await json("/api/stems"); }catch(e){ S.stems = []; }
+  let plans = [];
+  try{ plans = (await json("/api/loopstudio/plans")).plans; }catch(e){}
+  S.planned = new Set(plans.map(p => p.song));
+  paintStems();
+  $("l-plans").innerHTML = plans.length ? plans.map(p => `<div class="it" data-song="${esc(p.song)}"><div class="g"><div class="t">${esc(p.song)}</div>
+      <div class="s">${p.bpm} BPM · ${esc(p.key || "tónina neurčena")} · ${p.loops} smyček</div></div><span class="tag ok">PLÁN</span></div>`).join("")
+    : '<div class="muted" style="font-size:13px">Zatím žádný. Vyber song nahoře.</div>';
+}
+function paintStems(){
+  const q = $("q-stems").value.trim().toLowerCase();
+  const list = S.stems.filter(s => !q || s.name.toLowerCase().includes(q)).slice(0, 80);
+  $("l-stems").innerHTML = list.length ? list.map(s => `<div class="it" data-song="${esc(s.name)}"><div class="g"><div class="t">${esc(s.name)}</div>
+      <div class="s">${s.stems.length} stop${s.duration ? " · " + Math.floor(s.duration / 60) + ":" + String(Math.round(s.duration % 60)).padStart(2, "0") : ""}</div></div>
+      ${S.planned && S.planned.has(s.name) ? '<span class="tag ok">PLÁN</span>' : ""}</div>`).join("") : '<div class="muted" style="padding:8px;font-size:13px">Nic. Píseň rozděl ve Steems, nebo ji vyber z knihovny.</div>';
+}
+async function paintLib(){
+  const q = $("q-lib").value.trim().toLowerCase(), box = $("l-lib");
+  if(q.length < 2){ box.innerHTML = '<div class="muted" style="padding:8px;font-size:13px">Napiš aspoň dvě písmena.</div>'; return; }
+  if(!S.lib){ box.innerHTML = '<div class="muted" style="padding:8px">Načítám knihovnu…</div>'; try{ S.lib = (await json("/api/library/browse?rel=Songs&flat=1")).entries.filter(e => e.type === "file"); }catch(e){ S.lib = []; } }
+  const list = S.lib.filter(e => `${e.artist || ""} ${e.title || e.name}`.toLowerCase().includes(q)).slice(0, 60);
+  box.innerHTML = list.length ? list.map(e => `<div class="it" data-rel="${esc(e.rel)}" ${e.stems && e.stems.state === "ready" ? `data-song="${esc(e.stems.name)}"` : ""}><div class="g"><div class="t">${esc(e.title || e.name)}</div>
+      <div class="s">${esc(e.artist || "")}</div></div>${e.stems && e.stems.state === "ready" ? '<span class="tag ok">STOPY</span>' : '<span class="tag">ROZDĚLÍ SE</span>'}</div>`).join("") : '<div class="muted" style="padding:8px;font-size:13px">Nic takového v knihovně.</div>';
+}
+$("q-stems").oninput = paintStems; $("q-lib").oninput = paintLib;
+document.addEventListener("click", (e) => {
+  const it = e.target.closest(".it"); if(!it) return;
+  if(it.dataset.song && S.planned && S.planned.has(it.dataset.song)) openPlan(it.dataset.song);
+  else if(it.dataset.song) startJob({song: it.dataset.song});
+  else if(it.dataset.rel) startJob({rel: it.dataset.rel});
+});
+async function upload(file){
+  if(!file) return;
+  toast("Nahrávám " + file.name + "…");
+  const fd = new FormData(); fd.append("file", file);
+  try{ const r = await json("/api/loopstudio/upload", {method: "POST", body: fd}); startJob({rel: r.rel}); }catch(e){ toast(e.message); }
+}
+$("pick-file").onclick = (e) => { e.stopPropagation(); $("file").click(); };
+$("drop").onclick = () => $("file").click();
+$("file").onchange = (e) => { upload(e.target.files[0]); e.target.value = ""; };
+["dragover", "dragleave", "drop"].forEach(ev => $("drop").addEventListener(ev, (e) => { e.preventDefault(); $("drop").classList.toggle("over", ev === "dragover"); if(ev === "drop") upload(e.dataTransfer.files[0]); }));
+
+// ------------------------------------------------------------------ the job
+const STAGES = [["separating", "Stopy"], ["analyzing", "Takty, sekce, akordy"], ["planning", "Tónina a plán"], ["cutting", "Řez smyček"], ["done", "Hotovo"]];
+async function startJob(body){
+  show("job"); $("job-err").hidden = true; $("job-bar").style.width = "0"; $("job-note").textContent = "Začínám…";
+  $("hd-song").textContent = body.song || body.rel.split("/").pop();
+  let id;
+  try{ id = (await post("/api/loopstudio/jobs", body)).job_id; }catch(e){ $("job-err").hidden = false; $("job-err").textContent = e.message; return; }
+  (async function poll(){
+    let j;
+    try{ j = await json("/api/loopstudio/jobs/" + id); }catch(e){ setTimeout(poll, 2000); return; }
+    const at = STAGES.findIndex(s => s[0] === j.state);
+    $("job-stages").innerHTML = STAGES.map((s, k) => `<div class="stage ${k === at ? "on" : at > k || j.state === "done" ? "done" : ""}">${s[1]}</div>`).join("");
+    $("job-bar").style.width = Math.round((j.progress || 0) * 100) + "%";
+    $("job-note").textContent = j.note || (j.state === "queued" ? "Ve frontě…" : "");
+    if(j.song) $("hd-song").textContent = j.song;
+    if(j.state === "error"){ $("job-err").hidden = false; $("job-err").textContent = "Nepovedlo se: " + j.error; $("job-note").textContent = ""; return; }
+    if(j.state === "done"){ openPlan(j.song); return; }
+    setTimeout(poll, 1000);
+  })();
+}
+
+// ----------------------------------------------------------------- the plan
+async function openPlan(song){
+  try{ S.plan = await json("/api/loopstudio/plan/" + enc(song)); }catch(e){ toast(e.message); show("start"); return; }
+  S.song = song; S.dirty = false; show("plan"); $("hd-song").textContent = song; paintPlan();
+}
+function dirty(){ S.dirty = true; $("savebar").hidden = false; }
+function paintPlan(){
+  const p = S.plan, f = p.facts;
+  $("savebar").hidden = !S.dirty;
+  const conf = (c) => c == null ? "" : c >= 0.6 ? "jistota vysoká" : c >= 0.3 ? "jistota střední" : "jistota nízká";
+  $("facts").innerHTML = `
+    <div class="fact"><span>BPM</span><input id="f-bpm" value="${f.bpm}"><small>změřeno ${f.bpmMeasured}${f.tempoSteady ? "" : " · tempo se v písni mění"}</small></div>
+    <div class="fact"><span>Tónina</span><input id="f-key" value="${esc(f.key || "")}" placeholder="neurčena"><small>${f.key ? (f.keyConfidence == null ? "zadáno ručně" : f.keyAgree === false ? `nejisté — zvuk říká ${esc(f.keyFromSound)}, akordy ${esc(f.keyFromChords)}` : conf(f.keyConfidence)) : '<span class="na">NEDOSTUPNÉ</span>'}</small></div>
+    <div class="fact"><span>Takt</span><b>${esc(f.timeSignature)}</b><small>${f.bars} taktů</small></div>
+    <div class="fact"><span>Délka</span><b>${Math.floor(p.song.durationSec / 60)}:${String(Math.round(p.song.durationSec % 60)).padStart(2, "0")}</b><small>${f.sections.length} sekcí</small></div>
+    <div class="fact"><span>Plán</span><b>${p.edited ? "opravený" : "změřený"}</b><small>${p.loops.filter(l => l.enabled !== false).length} smyček</small></div>`;
+  const fw = [];
+  if(p.unavailable && p.unavailable.length) fw.push("Nepodařilo se určit: " + p.unavailable.join(", ") + ". Tam, kde údaj chybí, plán nic netvrdí — doplň ho ručně.");
+  if(!f.tempoSteady) fw.push("Tempo se v písni mění (" + f.tempoSegments + " úseků). Jedno BPM pak nesedí na celou píseň — smyčky se srovnávají na BPM plánu, a kde se liší o víc než pětinu, zůstanou bez úpravy.");
+  $("facts-warn").hidden = !fw.length; $("facts-warn").innerHTML = fw.map(esc).join("<br>");
+  $("f-bpm").oninput = $("f-key").oninput = dirty;
+  $("sections").innerHTML = f.sections.map(s => {
+    const row = []; const by = Object.fromEntries(s.chords.map(c => [c.bar, c.chord]));
+    for(let b = s.startBar; b < s.startBar + s.bars; b++) row.push(by[b] || "-");
+    return `<tr data-id="${s.id}"><td><input type="text" class="s-label" value="${esc(s.label)}"></td><td><input type="number" class="s-start" min="1" value="${s.startBar}"></td>
+      <td><input type="number" class="s-bars" min="1" value="${s.bars}"></td><td class="chords"><input type="text" class="s-chords" value="${esc(row.join(" "))}"></td></tr>`; }).join("")
+    || '<tr><td colspan="4" class="na">STRUKTURU SE NEPODAŘILO URČIT</td></tr>';
+  $("fixed").checked = p.fixedTempo !== false;
+  $("loops").innerHTML = p.loops.map(l => {
+    const mix = (l.files || []).find(x => x.stem === "_mix") || (l.files || [])[0];
+    return `<tr data-id="${l.id}"><td><input type="checkbox" class="l-on" ${l.enabled !== false ? "checked" : ""}></td><td><b>${esc(l.label)}</b><div class="dim" style="font-size:11.5px">sekce má ${l.sectionBars} taktů</div></td>
+      <td><input type="number" class="l-start" min="1" value="${l.startBar}"></td><td><input type="number" class="l-bars" min="1" value="${l.bars}"></td>
+      <td><div class="chips">${l.layers.map((r, i) => `<span class="chip"><i>${i + 1}</i>${esc(LAYER[r] || r)}</span>`).join("") || '<span class="na">ŽÁDNÁ STOPA TU NEHRAJE</span>'}</div></td>
+      <td>${mix && l.enabled !== false ? `<audio controls loop preload="none" src="/api/loopstudio/file/${enc(S.song)}/${mix.path.split("/").map(enc).join("/")}?v=${Date.now()}"></audio>
+          <div class="dim" style="font-size:11px">${l.seconds ? l.seconds.toFixed(2) + " s" : ""}${l.stretch ? ` · tempo ${l.stretch > 0 ? "+" : ""}${l.stretch} %` : ""}</div>` : '<span class="dim" style="font-size:12px">—</span>'}</td></tr>`; }).join("");
+  const lw = p.loops.filter(l => l.warning).map(l => `${l.label}: ${l.warning}`);
+  $("loops-warn").hidden = !lw.length; $("loops-warn").innerHTML = lw.map(esc).join("<br>");
+  document.querySelectorAll("#sections input, #loops input, #fixed").forEach(i => i.addEventListener("input", dirty));
+  const ly = p.loopy;
+  $("loopy").innerHTML = [["BPM", ly.bpm], ["Master clock", ly.masterBars + (ly.masterBars === 1 ? " takt" : ly.masterBars < 5 ? " takty" : " taktů")], ["Smyčky", ly.phaseLocked ? "phase-locked" : "free"],
+    ["Count-in", ly.countInBars + " takt"], ["Quantizace nahrávání", "po taktech"], ["Šablona", ly.template], ["Vstupy", ly.inputs.join(" · ") || "—"], ["Klávesy", ly.keys || "—"]]
+    .map(([k, v]) => `<div class="fact"><span>${k}</span><b style="font-size:15px">${esc(v)}</b></div>`).join("")
+    + `<div class="fact" style="grid-column:1/-1"><span>Pořadí nahrávání vrstev</span><b style="font-size:15px">${esc(ly.recordOrder.join("  →  ") || "—")}</b>
+       <small>Groove první — na jeho délce visí délka všech ostatních smyček.</small></div>`;
+  $("foot").innerHTML = ly.footswitch.map(x => `<tr><td>${x.button}</td><td>CC ${x.cc}</td><td>${esc(x.action)}</td></tr>`).join("")
+    || '<tr><td colspan="3" class="muted">V profilu vybavení není footswitch.</td></tr>';
+  $("loopy-notes").innerHTML = ly.notes.map(n => `<li>${esc(n)}</li>`).join("");
+  $("zip").href = `/api/loopstudio/loops/${enc(S.song)}.zip`;
+  $("later-tone").textContent = p.later.tone + ". Z nahrávky nepůjde poznat konkrétní zesilovač — karta bude dávat typ zvuku a výchozí nastavení, ne tvrzení.";
+  $("later-studio").textContent = p.later.studio + ".";
+}
+function collectEdits(){
+  const p = S.plan;
+  const sections = [...document.querySelectorAll("#sections tr[data-id]")].map(tr => {
+    const start = +tr.querySelector(".s-start").value, bars = +tr.querySelector(".s-bars").value;
+    const chords = tr.querySelector(".s-chords").value.trim().split(/\s+/).map((c, i) => ({bar: start + i, chord: c})).filter(c => c.chord && c.chord !== "-" && c.bar < start + bars);
+    return {id: tr.dataset.id, label: tr.querySelector(".s-label").value.trim(), startBar: start, bars, chords}; });
+  const loops = [...document.querySelectorAll("#loops tr[data-id]")].map(tr => ({id: tr.dataset.id, enabled: tr.querySelector(".l-on").checked,
+    startBar: +tr.querySelector(".l-start").value, bars: +tr.querySelector(".l-bars").value}));
+  return {facts: {bpm: parseFloat($("f-bpm").value) || p.facts.bpm, key: $("f-key").value.trim(), sections}, loops, fixedTempo: $("fixed").checked};
+}
+$("save").onclick = async () => {
+  $("save").disabled = true; $("save").textContent = "Ukládám a řežu…";
+  try{ await post("/api/loopstudio/plan/" + enc(S.song), collectEdits(), "PUT"); S.plan = await post(`/api/loopstudio/plan/${enc(S.song)}/loops`, {}); S.dirty = false; paintPlan(); toast("Uloženo, smyčky nařezány znovu"); }
+  catch(e){ toast(e.message); }
+  $("save").disabled = false; $("save").textContent = "Uložit a nařezat smyčky znovu";
+};
+$("discard").onclick = () => { S.dirty = false; paintPlan(); };
+$("remeasure").onclick = () => { if(confirm("Zahodit ruční opravy a spočítat plán znovu?")) startJob({song: S.song, refresh: true}); };
+$("hd-new").onclick = () => { if(S.dirty && !confirm("Máš neuložené opravy. Odejít?")) return; show("start"); loadStart(); };
+
+// ----------------------------------------------------------------- hardware
+async function openHw(){
+  const h = await json("/api/loopstudio/hardware"), l = h.looping || {}, fs = l.footswitch || {};
+  S.hw = h;
+  $("hw-app").value = l.app || ""; $("hw-device").value = l.device || ""; $("hw-keys").value = l.keys || ""; $("hw-fs").value = fs.name || "";
+  $("hw-fsn").value = fs.buttons ?? 0; $("hw-cc").value = fs.ccStart ?? 20; $("hw-guitar").checked = !!l.guitar; $("hw-mic").checked = !!l.mic;
+  $("hw-modeler").value = (h.tone || {}).modeler || ""; $("hw-plugins").value = ((h.tone || {}).plugins || []).join(", ");
+  $("hw-daw").value = (h.studio || {}).daw || ""; $("hw-drums").value = (h.studio || {}).drums || ""; $("hw-extras").value = (h.extras || []).join(", ");
+  $("hw").classList.add("on");
+}
+$("hd-hw").onclick = openHw; $("hw-close").onclick = () => $("hw").classList.remove("on");
+$("hw-save").onclick = async () => {
+  const list = (v) => v.split(",").map(x => x.trim()).filter(Boolean), n = +$("hw-fsn").value || 0;
+  const h = {...(S.hw || {}), looping: {app: $("hw-app").value.trim(), device: $("hw-device").value.trim(), keys: $("hw-keys").value.trim(),
+      footswitch: n ? {name: $("hw-fs").value.trim(), buttons: n, ccStart: +$("hw-cc").value || 0} : null, guitar: $("hw-guitar").checked, mic: $("hw-mic").checked},
+    tone: {modeler: $("hw-modeler").value.trim(), plugins: list($("hw-plugins").value)}, studio: {daw: $("hw-daw").value.trim(), drums: $("hw-drums").value.trim()}, extras: list($("hw-extras").value)};
+  try{
+    await post("/api/loopstudio/hardware", h, "PUT"); $("hw").classList.remove("on"); toast("Vybavení uloženo");
+    // An open plan takes the new rig: saving it (with whatever is on screen) works the card out again.
+    if(S.song && !$("v-plan").hidden){ S.plan = await post("/api/loopstudio/plan/" + enc(S.song), S.dirty ? collectEdits() : {}, "PUT"); paintPlan(); }
+  }catch(e){ toast(e.message); }
+};
+loadStart();
+</script>
+</body>
+</html>

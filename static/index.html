@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Pick</title>
+<link rel="icon" type="image/png" href="/static/pick-favicon.png">
 <style>
   :root{
     --bg:#12141a; --bg2:#1a1d26; --card:#1e222d; --card-hi:#262b38;
@@ -958,6 +959,9 @@
   body.pb-collapsed .player-bar:hover > *:not(.pb-collapse-handle){opacity:1;pointer-events:auto;transition:opacity .15s ease-in .05s}
 /* Left sidebar */
 /* (the old fixed 200px rail lives on only in .sb-* leftovers below) */
+.pick-brand{display:inline-flex;align-items:center;gap:8px;margin-left:6px;font-size:17px;letter-spacing:.02em;color:var(--text)}
+.pick-brand img{display:block;filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
+body.lib-collapsed .pick-brand{display:none}
 .sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
 .sb-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;background:none;border:none;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:color .15s;border-left:2px solid transparent}
 .sb-btn:hover{color:#fff}
@@ -1594,6 +1598,41 @@
     border:1px solid var(--line,#444);background:none;color:var(--text,#fff);font:inherit;font-size:13px;cursor:pointer}
   .ab-fav.on{color:var(--accent);border-color:var(--accent)}
   #ab-similar-btn{margin-left:6px}
+  #analyzer-section,#loopstudio-section{padding:0}
+  #analyzer-frame,#loopstudio-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:0;border-radius:14px;background:#0e0f14}
+  .tuner-mine{flex-wrap:wrap}
+  .tuner-mine .mine-now{flex:0 0 100%;font-size:12px;color:var(--sub);padding-top:6px}
+  .tuner-mine .mine-now b{color:var(--text)}
+  .mt-overlay{position:fixed;inset:0;z-index:4000;background:rgba(5,6,10,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+  .mt-overlay[hidden]{display:none}
+  .mt-box{width:min(620px,94vw);max-height:88vh;overflow:auto;background:#15171d;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px;color:var(--text)}
+  .mt-box h3{margin:0 0 12px;font-size:17px}
+  .mt-hint{color:var(--sub);font-size:13.5px;line-height:1.55;margin-bottom:14px}
+  .mt-row{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-bottom:14px}
+  .mt-row select,.mt-pair select{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 8px;color:var(--text);max-width:300px}
+  .mt-live{display:flex;align-items:baseline;gap:12px;justify-content:center;padding:14px 0}
+  .mt-live span{font-size:54px;font-weight:750;letter-spacing:-.02em;min-width:110px;text-align:center}
+  .mt-live small{color:var(--sub)}
+  .mt-strings{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .mt-s{width:64px;padding:8px 0;border-radius:10px;border:1px dashed rgba(255,255,255,.18);text-align:center;color:var(--sub)}
+  .mt-s.on{border:1px solid var(--accent);color:var(--text);background:color-mix(in srgb, var(--accent) 13%, transparent)}
+  .mt-s b{display:block;font-size:17px} .mt-s small{font-size:10.5px}
+  .mt-status{text-align:center;color:var(--sub);font-size:13px;margin:12px 0 4px}
+  .mt-acts{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .mt-pair,.mt-prop,.mt-touch{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13.5px}
+  .mt-prop,.mt-touch{align-items:flex-start}
+  .mt-pair > span,.mt-prop > span,.mt-touch > span{flex:0 0 96px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);font-weight:800;padding-top:3px}
+  .mt-pair small{color:var(--sub);font-size:12px}
+  .mt-prop > div,.mt-touch > div{flex:1;min-width:0;line-height:1.55}
+  .mt-prop b{font-size:15px}
+  .mt-step{display:flex;align-items:center;gap:6px;margin-top:8px}
+  .mt-step button{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer}
+  .mt-step input{width:60px;text-align:center;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px;color:var(--text)}
+  .mt-step small{color:var(--sub)}
+  .mt-note{margin-top:8px;font-size:12.5px;color:#fcd98a}
+  .mt-note.bad{color:#fca5a5}
+  .mt-touch ul{margin:0;padding-left:18px} .mt-touch li.no{color:var(--sub)}
+  .btn.small{padding:4px 10px;font-size:12px}
   .grid-part{grid-column:1/-1;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);
     font-size:20px;font-weight:700;color:var(--text)}
   .ab-similar-why{font-size:12px;color:var(--sub);margin:-4px 0 12px}
@@ -3529,6 +3568,7 @@
     <button class="lib-title" id="sb-logo" title="Sbalit / rozbalit panel" aria-label="Sbalit / rozbalit panel">
       <span class="ic" data-icon="menu" data-size="18"></span>
     </button>
+    <span class="pick-brand" title="Pick"><img src="/static/pick-icon.png" alt="" width="30" height="30"><b>Pick</b></span>
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
@@ -3933,6 +3973,10 @@
             </div>
             <span class="cap">TÓNINA (půltóny)</span>
           </div>
+          <div class="nm-tgroup">
+            <div class="row"><button class="nm-btn round" id="nm-mytune" title="Zjistí ladění tvé kytary a navrhne, o kolik posunout kytaru a basu skladby — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení."><span data-icon="tuner" data-size="14"></span>Moje ladění</button></div>
+            <span class="cap">PŘELADIT NA MOU KYTARU</span>
+          </div>
 
           <div class="nm-tgroup">
             <div class="row">
@@ -4181,6 +4225,7 @@
           <button type="button" data-src="stems" title="Skutečná nahrávka písně rozdělená na stopy">Nahrávka</button>
           <button type="button" data-src="file" title="Doprovodná stopa uložená v souboru Guitar Pro 8" hidden>Stopa v souboru</button>
         </div>
+        <button type="button" class="btn secondary" id="tp-mytune" title="Zjistí ladění tvé kytary a navrhne, o kolik posunout kytaru, basu a melodické stopy — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení."><span data-icon="tuner" data-size="13"></span>Moje ladění</button>
         <label class="tp-ctl" title="Rychlost přehrávání">Tempo
           <select id="tp-speed"><option value="0.5">50 %</option><option value="0.6">60 %</option><option value="0.7">70 %</option>
             <option value="0.75">75 %</option><option value="0.8">80 %</option><option value="0.9">90 %</option>
@@ -4231,6 +4276,14 @@
   <div id="tools-section" hidden>
     <div class="section-title">Tools</div>
     <div class="tools-grid" id="tools-grid"></div>
+  </div>
+
+  <div id="loopstudio-section" hidden>
+    <iframe id="loopstudio-frame" title="Loop Studio"></iframe>
+  </div>
+
+  <div id="analyzer-section" hidden>
+    <iframe id="analyzer-frame" title="Guitar Performance Analyzer" allow="microphone; autoplay"></iframe>
   </div>
 
   <div id="chords-section" hidden>
@@ -4377,7 +4430,7 @@
     </div>
     <div class="panel-body" style="padding:20px">
       <div class="sp-searchbox" style="width:100%;margin-bottom:20px">
-        <span class="ic"><span data-icon="search" data-size="15"></span></span>
+        <span class="ic"><span data-icon="pick" data-size="17"></span></span>
         <input type="text" id="tab-search-input" placeholder="Název písně nebo interpret...">
         <button class="btn" id="tab-search-btn" style="margin-left:10px">Hledat</button>
       </div>
@@ -4429,7 +4482,7 @@
       <button type="button" id="pb-tab-dock-lock" class="tab-lock" title="Zamknout synchronizaci — tažení ani kolečko po tabu ji pak nerozhodí"><span data-icon="unlock" data-size="13"></span></button>
       <button type="button" id="pb-tab-dock-zoom-dn" title="Zmenšit zápis">−</button>
       <button type="button" id="pb-tab-dock-zoom-up" title="Zvětšit zápis">+</button>
-      <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="search" data-size="12"></span></button>
+      <button type="button" id="pb-tab-dock-search" title="Najít jinou tabulaturu"><span data-icon="pick" data-size="15"></span></button>
       <button type="button" id="pb-tab-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
     </div>
     <div class="pb-tab-dock-hostwrap">
@@ -6432,12 +6485,12 @@ const Loops = (() => {
       row.className = "lib-trow loop-row" + (cur && cur.relPath === f.rel ? " playing" : "");
       row.innerHTML = `
         <span class="c-idx">${i + 1}</span>
-        <span class="c-title"><span class="art">♫</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(niceTitle(f.name))}</span></span>
+        <span class="c-title"><span class="art">${icon("note", 14)}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(niceTitle(f.name))}</span></span>
         <span class="c-artist">${escapeHtml(bpmOf(f.name))}</span>
         <span class="c-album">${fmtSize(f.size_bytes || 0)}</span>
         <span class="c-time">${libDurationText(f)}</span>
         <span class="c-act">
-          <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">🎸</button>
+          <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">${icon("elGuitar", 14)}</button>
           <button class="act-reveal" title="Ukázat ve Finderu">↗</button>
           <button class="act-delete" title="Do koše">🗑</button>
         </span>`;
@@ -6601,7 +6654,7 @@ const TabsLib = (() => {
       const row = document.createElement("div");
       row.className = "lib-trow tab-row";
       row.innerHTML = `<span class="c-idx">${i + 1}</span>
-        <span class="c-title"><span class="art">${f.linked ? "♫" : "🎸"}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(f.title)}</span></span>
+        <span class="c-title"><span class="art">${icon(f.linked ? "note" : "guitar", 14)}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(f.title)}</span></span>
         <span class="c-artist">${escapeHtml(f.artist)}</span><span class="c-album">${escapeHtml(f.folder)}</span>
         <span class="c-time">${f.songsterr ? "Songsterr" : escapeHtml(f.ext.toUpperCase())}</span><span class="c-act"></span>`;
       if(f.linked) row.title = "Má propojenou nahrávku";
@@ -6719,6 +6772,23 @@ const TabsLib = (() => {
       toggleMute(k){ mutes[k] = !mutes[k]; apply(); return mutes[k]; }, muted: (k) => !!mutes[k],
       toggleSolo(k){ solos[k] = !solos[k]; apply(); return solos[k]; }, soloed: (k) => !!solos[k],
       setRate(r){ rate = r; apply(); }, get rate(){ return rate; },
+      // The stems for which pick(name) holds, at another pitch (0 = as recorded).
+      // Rendered one after another; the playhead and playing state are kept.
+      async setPitch(semitones, pick, onStep){
+        const names = Object.keys(els).filter(pick), t = currentTime(), was = isPlaying();
+        pause();
+        let k = 0;
+        for(const st of names){
+          if(onStep) onStep(++k, names.length, st);
+          const blob = semitones ? await pitchedBlob(blobs[st], semitones) : blobs[st];
+          const a = els[st], oldUrl = a.src;
+          a.src = URL.createObjectURL(blob);
+          await new Promise(r => { a.onloadedmetadata = r; a.onerror = r; });
+          try{ URL.revokeObjectURL(oldUrl); }catch(e){}
+        }
+        seek(t); if(was) play();
+        return names;
+      },
       setMaster(v){ master = v; apply(); }, get master(){ return master; },
       onEnded(fn){ Object.values(els).forEach(a => a.onended = fn); }};
   })();
@@ -7320,6 +7390,36 @@ const TabsLib = (() => {
     if(el("tabs-player").hidden || el("tabs-section").hidden) return;
     if(e.code === "Space" && !e.target.closest("input, select, textarea")){ e.preventDefault(); if(api) api.playPause(); }
   });
+  // ---- the tab player moved to the player's guitar: the synth's guitar,
+  // bass and other pitched parts, and the same stems of an attached recording.
+  el("tp-mytune").onclick = () => {
+    const score = api && api.score;
+    if(!score){ showToast("Nejdřív otevři tab"); return; }
+    const lead = score.tracks.find(t => trackClass(t) === "guitar") || score.tracks.find(t => trackClass(t) === "bass");
+    const tun = lead && lead.staves[0] && lead.staves[0].stringTuning && lead.staves[0].stringTuning.tunings;
+    const songT = tun && tun.length ? Array.from(tun).map(Math.round).sort((a, b) => a - b) : null;
+    const moved = score.tracks.filter(t => !["drums", "vocals"].includes(trackClass(t)));
+    const kept = score.tracks.filter(t => !moved.includes(t));
+    const stems = Deck.stems(), stemsMoved = stems.filter(k => !MyTuning.fixed(k));
+    const nm = (list) => list.map(t => escapeHtml(t.name || "stopa")).join(", ") || "žádná";
+    MyTuning.open({
+      title: `Přeladit „${cur && cur.file ? (cur.file.title || cur.file.name) : "tab"}“ na moji kytaru`,
+      songTuning: songT, songFrom: songT ? `podle stopy „${lead.name || "kytara"}“ v tabu` : "",
+      tabNote: "čísla v tabulatuře zůstávají, jak jsou",
+      touches: (shift) => `<ul><li>Syntezátor — posunou se: <b>${nm(moved)}</b></li><li class="no">Syntezátor — beze změny: ${nm(kept)}</li>
+        ${stems.length ? `<li>Nahrávka — posunou se stopy: <b>${stemsMoved.map(k => escapeHtml(STEM_NAMES_CZ[k] || k)).join(", ") || "žádná"}</b> (chvíli to trvá, každá se přepočítá)</li>
+          <li class="no">Nahrávka — beze změny: ${stems.filter(k => !stemsMoved.includes(k)).map(k => escapeHtml(STEM_NAMES_CZ[k] || k)).join(", ") || "žádná"}</li>` : `<li class="no">Nahrávka není připojená</li>`}
+        <li class="no">Tabulatura: čísla zůstávají — stejné prsty, jen to zní o ${shift > 0 ? "+" : ""}${shift} jinde</li></ul>`,
+      apply: async (shift) => {
+        api.changeTrackTranspositionPitch(moved, shift);
+        if(stemsMoved.length) await Deck.setPitch(shift, (k) => !MyTuning.fixed(k), (i, n, st) => showToast(`Přelaďuji nahrávku ${i}/${n}: ${STEM_NAMES_CZ[st] || st}`));
+        if(cur) cur.shift = shift;
+        el("tp-mytune").classList.toggle("on", !!shift);
+        showToast(shift ? `Přeladěno o ${shift > 0 ? "+" : ""}${shift} půltónů — bicí a zpěv beze změny` : "Zpátky v původní výšce");
+      },
+    });
+  };
+
   return {show, open, recent, reload: () => loadList(false)};
 })();
 
@@ -7372,6 +7472,8 @@ function setMode(mode, opts){
   el("tabs-section").hidden = mode !== "tabs";
   el("tools-section").hidden = mode !== "tools";
   el("chords-section").hidden = mode !== "chords";
+  el("analyzer-section").hidden = mode !== "analyzer";
+  el("loopstudio-section").hidden = mode !== "loopstudio";
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -7399,6 +7501,13 @@ function setMode(mode, opts){
     // to) when switching away and back.
     const fr = el("chords-frame");
     if(!fr.getAttribute("src")) fr.src = CHORDS_URL;
+  } else if(mode === "analyzer"){
+    // A page of its own (/analyzer), loaded the first time and kept after.
+    const fr = el("analyzer-frame");
+    if(!fr.getAttribute("src")) fr.src = "/analyzer";
+  } else if(mode === "loopstudio"){
+    const fr = el("loopstudio-frame");
+    if(!fr.getAttribute("src")) fr.src = "/loopstudio";
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -8072,6 +8181,15 @@ const ICONS = (() => {
     sync:
       line("M19.5 12a7.5 7.5 0 0 1-12.8 5.3M4.5 12a7.5 7.5 0 0 1 12.8-5.3") +
       line("M17.6 3.4v3.6h-3.6M6.4 20.6V17h3.6"),
+    file: line("M7 3.6h7l4 4v12.8H7Z") + line("M14 3.6v4h4"),
+    fileText: line("M7 3.6h7l4 4v12.8H7Z") + line("M14 3.6v4h4") + line("M9.6 12.2h4.8M9.6 15.4h4.8"),
+    image: line("M4.4 5.6h15.2v12.8H4.4Z") + line("M4.4 15.2l4.2-4 3.6 3.4 2.6-2.2 4.8 4.4") + solid("M15.6 8.2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z"),
+    archive: line("M4.4 5.2h15.2v3.6H4.4Z") + line("M5.6 8.8v9.6h12.8V8.8") + line("M10 12.4h4"),
+    folderMove: line("M3.6 7.2a1.6 1.6 0 0 1 1.6-1.6h3.9l1.9 2h7.8a1.6 1.6 0 0 1 1.6 1.6v7.6a1.6 1.6 0 0 1-1.6 1.6H5.2a1.6 1.6 0 0 1-1.6-1.6Z") + line("M9.2 13h5.6M12.6 10.8l2.2 2.2-2.2 2.2"),
+    // The app's mark, small: a guitar pick with a treble clef in it.
+    pick:
+      line("M12 2.2c5.3 0 10 1.6 10 6.9 0 6-6.2 11.8-10 13.7C8.2 20.9 2 15.1 2 9.1c0-5.3 4.7-6.9 10-6.9Z") +
+      `<text x="12" y="17.8" text-anchor="middle" font-family="Apple Symbols, Noto Music, serif" font-size="23" fill="currentColor">\u{1D11E}</text>`,
     starFilled:
       solid("M12 3.3l2.63 5.33 5.88.86-4.25 4.15 1 5.86L12 16.74l-5.26 2.76 1-5.86-4.25-4.15 5.88-.86Z"),
     back:
@@ -8130,7 +8248,7 @@ function paintPlayerIcons(){
   put("pb-np-btn", "nowPlaying", 17);
   put("pb-mute", "volume", 17);
   put("pb-add-btn", "star", 17);
-  put("search-btn", "search", 19);
+  put("search-btn", "pick", 22);
   paintStaticIcons();
   setPlayIcon(false);
 }
@@ -8625,6 +8743,8 @@ const TOOLS = [
   {key: "tabs", title: "Taby", icon: "guitar", sub: "Guitar Pro / MusicXML s nahrávkou"},
   {key: "loops", title: "Loops", icon: "note", sub: "Looperman a další weby s loopy"},
   {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
+  {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
+  {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
 ];
 
 const RAIL_SECTIONS = [
@@ -8634,10 +8754,10 @@ const RAIL_SECTIONS = [
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
   // Taby, Loops and Scales and Chords live under one heading.
-  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords"]},
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio"]},
 ];
 // Every mode the app can show, not only the rail's own headings.
-const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords"];
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -9008,7 +9128,7 @@ async function midiFromDrop(e){
     const {rel, name} = JSON.parse(own);
     const res = await fetch(`/api/library/midi?rel=${encodeURIComponent(rel)}`);
     if(!res.ok) throw new Error("Soubor se nepodařilo načíst");
-    return {buf: await res.arrayBuffer(), name};
+    return {buf: await res.arrayBuffer(), name, rel};
   }
   const f = [...(e.dataTransfer.files || [])].find(f => isMidiName(f.name));
   if(!f) return null;
@@ -9084,6 +9204,26 @@ function parseMidiFile(buf){
   const out = (melodic.length ? melodic : notes).map(({m, t, d, v}) => ({m, t, d, v}));
   out.sort((a, c) => a.t - c.t || a.m - c.m);
   return {notes: out, name, drumsSkipped: melodic.length ? notes.length - melodic.length : 0};
+}
+
+// Notes ({m, t, d, v} in seconds) → a Standard MIDI File at one tempo: what
+// parseMidiFile reads back, and what any DAW or looper opens.
+function writeMidiFile(notes, bpm, name){
+  const ppq = 480, tempo = bpm > 20 && bpm < 400 ? bpm : 120, tick = (sec) => Math.max(0, Math.round(sec * tempo / 60 * ppq));
+  const ev = [];
+  notes.forEach(n => { const m = Math.max(0, Math.min(127, Math.round(n.m))), a = tick(n.t), b = Math.max(a + 1, tick(n.t + n.d));
+    ev.push([a, 1, 0x90, m, Math.max(1, Math.min(127, Math.round((n.v ?? 0.8) * 127)))], [b, 0, 0x80, m, 0]); });
+  ev.sort((x, y) => x[0] - y[0] || x[1] - y[1]);                       // at one tick, ends before starts
+  const out = [], vlq = (v) => { const b = [v & 0x7f]; while(v >>= 7) b.unshift((v & 0x7f) | 0x80); out.push(...b); };
+  const text = [...new TextEncoder().encode(String(name || "Pick").slice(0, 60))], us = Math.round(60e6 / tempo);
+  vlq(0); out.push(0xff, 0x03); vlq(text.length); out.push(...text);
+  vlq(0); out.push(0xff, 0x51, 3, us >> 16 & 255, us >> 8 & 255, us & 255);
+  let last = 0;
+  ev.forEach(([t, , st, d1, d2]) => { vlq(t - last); last = t; out.push(st, d1, d2); });
+  vlq(0); out.push(0xff, 0x2f, 0);
+  const n = out.length;
+  return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, ppq >> 8, ppq & 255,
+                         0x4d, 0x54, 0x72, 0x6b, n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255, ...out]);
 }
 
 function treeNode(entry, depth){
@@ -9520,15 +9660,16 @@ function revealLibraryEntry(rel){
   }).then(r => { if(!r.ok) showToast("Soubor nenalezen"); }).catch(() => {});
 }
 
-const OTHER_FILE_ICON = (ext) =>
-  /^(gp|gpx|gp3|gp4|gp5|gp6|gp7|ptb|tg)$/.test(ext) ? "\uD83C\uDFBC"
-  : /^(pdf)$/.test(ext) ? "\uD83D\uDCC4"
-  : /^(jpg|jpeg|png|gif|webp|heic|bmp|tif|tiff)$/.test(ext) ? "\uD83D\uDDBC"
-  : /^(mp4|mov|mkv|avi|m4v|webm)$/.test(ext) ? "\uD83C\uDF9E"
-  : /^(mid|midi)$/.test(ext) ? "\uD83C\uDFB9"
-  : /^(txt|md|lrc|cue|log|nfo)$/.test(ext) ? "\uD83D\uDCDD"
-  : /^(zip|rar|7z|tar|gz)$/.test(ext) ? "\uD83D\uDDC3"
-  : "\uD83D\uDCCE";
+// What a file that is not music is, as one of the app's own icons.
+const OTHER_FILE_ICON = (ext) => icon(
+  /^(gp|gpx|gp3|gp4|gp5|gp6|gp7|ptb|tg)$/.test(ext) ? "guitar"
+  : /^(pdf)$/.test(ext) ? "fileText"
+  : /^(jpg|jpeg|png|gif|webp|heic|bmp|tif|tiff)$/.test(ext) ? "image"
+  : /^(mp4|mov|mkv|avi|m4v|webm)$/.test(ext) ? "video"
+  : /^(mid|midi)$/.test(ext) ? "piano"
+  : /^(txt|md|lrc|cue|log|nfo)$/.test(ext) ? "fileText"
+  : /^(zip|rar|7z|tar|gz)$/.test(ext) ? "archive"
+  : "file", 15);
 
 let libSortMode = ListSort.load("library");
 
@@ -9592,7 +9733,7 @@ function paintLibraryTable(){
         <span class="tx">${escapeHtml(entry.name)}</span>
         <span class="sub" title="${escapeHtml(entry.path)}">${entry.missing ? "nedostupná — " : "namapováno · "}${escapeHtml(entry.path)}</span>
         <span class="c-act">
-          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
+          <button class="act-reveal" title="Ukázat ve Finderu">${icon("external", 13)}</button>
           <button class="act-unmount" title="Odmapovat — složka zmizí z knihovny, soubory zůstanou, kde jsou">${icon("close", 11)} Odmapovat</button>
         </span>`;
       row.onclick = () => { if(entry.missing){ showToast("Složka teď není dostupná (odpojený disk nebo cloud?)"); return; } loadLibraryFolder(entry.rel); };
@@ -9611,12 +9752,12 @@ function paintLibraryTable(){
       return;
     }
     row.innerHTML = `
-      <span class="tree-icon">\uD83D\uDCC1</span>
+      <span class="tree-icon">${icon("folder", 15)}</span>
       <span class="tx">${escapeHtml(entry.name)}</span>
       <span class="sub">${escapeHtml(bits.join(" · ") || "prázdná")}</span>
       <span class="c-act">
-        <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
-        <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+        <button class="act-move" title="Přesunout">${icon("folderMove", 14)}</button>
+        <button class="act-delete" title="Do koše">${icon("trash", 14)}</button>
       </span>`;
     row.onclick = () => loadLibraryFolder(entry.rel);
     row.querySelector(".act-move").onclick = (e) => {
@@ -9656,20 +9797,20 @@ function paintLibraryTable(){
     row.innerHTML = `
       <span class="c-idx"><span class="n">${i + 1}</span><input type="checkbox" class="pick" title="Označit (⌘/Ctrl + klik, ⇧ + klik = rozsah)" ${libSel.has(entry.rel) ? "checked" : ""}></span>
       <span class="c-title">
-        <span class="art">\u266A</span>
+        <span class="art">${icon("note", 14)}</span>
         <span class="tx">${escapeHtml(title)}</span>
         <span class="stems-slot">${StemsQueue.badgeHtml(entry.rel, entry.stems)}</span>
       </span>
       <span class="c-artist">${escapeHtml(artist)}</span>
-      <span class="c-album">${escapeHtml(entry.album || "")}${entry.folder && entry.folder !== "Songs" ? `<small class="from-pl" title="Leží v playlistu „${escapeHtml(entry.folder)}“">${entry.album ? " · " : ""}▸ ${escapeHtml(entry.folder)}</small>` : ""}</span>
+      <span class="c-album">${escapeHtml(entry.album || "")}${entry.folder && entry.folder !== "Songs" ? `<small class="from-pl" title="Leží v playlistu „${escapeHtml(entry.folder)}“">${entry.album ? " · " : ""}▸ ${escapeHtml(entry.folder)}</small>` : ""}${entry.riff ? `<small class="from-pl" title="Riff: nástroj · tempo · tónina · ladění${entry.riff.midi ? " · má MIDI" : ""}"> · ${escapeHtml([entry.riff.instrument, entry.riff.bpm ? Math.round(entry.riff.bpm * 10) / 10 + " BPM" : "", entry.riff.key, entry.riff.tuning, entry.riff.midi ? "MIDI" : ""].filter(Boolean).join(" · "))}</small>` : ""}</span>
       <span class="c-time">${libDurationText(entry)}</span>
       <span class="c-act">
-        <button class="act-stems" title="${entry.stems && entry.stems.state === "ready" ? "Stopy hotové — otevřít ve Steems" : "Rozdělit na stopy"}">\uD83C\uDF9A</button>
+        <button class="act-stems" title="${entry.stems && entry.stems.state === "ready" ? "Stopy hotové — otevřít ve Steems" : "Rozdělit na stopy"}">${icon("stems", 14)}</button>
         <button class="act-mix" title="Otevřít v mixážním pultu — jako novou stopu otevřené písně, nebo jako samostatný projekt">${icon("fader", 14)}</button>
-        <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">\uD83C\uDFB8</button>
-        <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
-        <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
-        <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+        <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">${icon("elGuitar", 14)}</button>
+        <button class="act-reveal" title="Ukázat ve Finderu">${icon("external", 13)}</button>
+        <button class="act-move" title="Přesunout">${icon("folderMove", 14)}</button>
+        <button class="act-delete" title="Do koše">${icon("trash", 14)}</button>
       </span>`;
 
     const play = () => {
@@ -9742,13 +9883,13 @@ function paintLibraryTable(){
       const row = document.createElement("div");
       row.className = "lib-folder-row lib-midi-row";
       row.innerHTML = `
-        <span class="tree-icon">\uD83C\uDFB9</span>
+        <span class="tree-icon">${icon("piano", 15)}</span>
         <span class="tx">${escapeHtml(entry.name)}</span>
         <span class="sub">MIDI · ${fmtSize(entry.size_bytes || 0)}</span>
         <span class="c-act">
-          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
-          <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
-          <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+          <button class="act-reveal" title="Ukázat ve Finderu">${icon("external", 13)}</button>
+          <button class="act-move" title="Přesunout">${icon("folderMove", 14)}</button>
+          <button class="act-delete" title="Do koše">${icon("trash", 14)}</button>
         </span>`;
       row.title = "Klik = vložit na MIDI stopu otevřené písně ve Steems · nebo přetáhni";
       makeMidiDraggable(row, entry);
@@ -9773,9 +9914,9 @@ function paintLibraryTable(){
         <span class="tx">${escapeHtml(entry.name)}</span>
         <span class="sub">${escapeHtml((entry.ext || "soubor").toUpperCase())} · ${fmtSize(entry.size_bytes || 0)}</span>
         <span class="c-act">
-          <button class="act-reveal" title="Ukázat ve Finderu">\u2197</button>
-          <button class="act-move" title="Přesunout">\u2192\uD83D\uDCC1</button>
-          <button class="act-delete" title="Do koše">\uD83D\uDDD1</button>
+          <button class="act-reveal" title="Ukázat ve Finderu">${icon("external", 13)}</button>
+          <button class="act-move" title="Přesunout">${icon("folderMove", 14)}</button>
+          <button class="act-delete" title="Do koše">${icon("trash", 14)}</button>
         </span>`;
       row.title = "Otevřít v aplikaci Macu";
       row.onclick = () => fetch("/api/library/open", {
@@ -11304,6 +11445,7 @@ function loadMixerSong(name, opts = {}){
   Promise.resolve(Mixer.load(song)).then(() => {
     if(held === mixerHeld) held.state = "ok";
     refreshSteemsHeroStats();
+    if(held === mixerHeld) Mixer.autoExtras(song.meta || null);
   }).catch(() => {
     if(held === mixerHeld) held.state = "failed";
     el("steems-hero-stats").textContent = "Stopy se nepodařilo načíst.";
@@ -11824,7 +11966,7 @@ const TabRetune = (() => {
       document.addEventListener("pointerdown", away, true);
     }, 0);
   }
-  return {retune, restore, apply, openPicker, get};
+  return {retune, restore, apply, openPicker, get, set};
 })();
 
 const TabSearch = (() => {
@@ -12006,6 +12148,193 @@ const Tunings = (() => {
     isBuiltin: (id) => BUILTIN.some(t => t.id === id), onChange: (f) => listeners.add(f)};
 })();
 Tunings.load();
+
+// ======================================================================
+// My tuning — what the guitar in the player's hands is actually tuned to,
+// read from its open strings, and from that a proposal: by how many
+// semitones a song's guitar and bass would have to move to sit where the
+// guitar is. Nothing is moved by itself: the proposal is shown, with what
+// it would touch, and applied only when confirmed. Drums and vocals are
+// never moved — a voice two tones down is another singer.
+// Kept in this browser (pick-my-tuning) and shared by the tuner, the mix,
+// the tabs and the Performance Analyzer.
+// ======================================================================
+const MyTuning = (() => {
+  const KEY = "pick-my-tuning";
+  const NN = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+  const name = (m) => NN[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  const get = () => { try{ const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && Array.isArray(v.midi) && v.midi.length ? v : null; }catch(e){ return null; } };
+  const set = (midi) => { const v = {midi, strings: midi.map(name), at: Date.now()}; try{ localStorage.setItem(KEY, JSON.stringify(v)); }catch(e){} return v; };
+  // The name of a tuning the app knows, if these strings are one.
+  const known = (midi) => { const t = Tunings.all().find(x => x.strings.every(Tunings.valid) && x.strings.map(Tunings.midi).join() === midi.join()); return t ? t.name : null; };
+  const label = (midi) => midi.map(name).join(" ") + (known(midi) ? ` — ${known(midi)}` : "");
+
+  // mine and the song's strings, low → high. → the shift that puts the song
+  // where the guitar is, whether every string agrees on it, and which do not.
+  function propose(mine, song){
+    const n = Math.min(mine.length, song.length);
+    if(!n) return null;
+    const diffs = [];
+    for(let i = 0; i < n; i++) diffs.push(mine[i] - song[i]);
+    const count = {};
+    diffs.forEach(d => count[d] = (count[d] || 0) + 1);
+    // the shift most strings agree on (the upper strings break a tie: a drop tuning moves the lowest one only)
+    let shift = diffs[n - 1], best = 0;
+    Object.entries(count).forEach(([d, c]) => { if(c > best || (c === best && +d === diffs[n - 1])){ best = c; shift = +d; } });
+    const odd = diffs.map((d, i) => ({string: i, extra: d - shift})).filter(x => x.extra !== 0);
+    return {shift, uniform: !odd.length, odd, strings: n, sameCount: mine.length === song.length};
+  }
+
+  // ---- reading the open strings: a pitch held steady for a moment is a string
+  function yin(buf, sr, fmin, fmax){
+    const W = 2048, tauMax = Math.min(Math.floor(sr / fmin), buf.length - W - 1), tauMin = Math.floor(sr / fmax);
+    const d = new Float32Array(tauMax + 1);
+    let run = 0, best = -1;
+    for(let tau = 1; tau <= tauMax; tau++){ let v = 0; for(let j = 0; j < W; j += 2){ const x = buf[j] - buf[j + tau]; v += x * x; } d[tau] = v; }
+    for(let tau = 1; tau <= tauMax; tau++){ run += d[tau]; d[tau] = run ? d[tau] * tau / run : 1; }
+    for(let tau = tauMin; tau <= tauMax; tau++) if(d[tau] < 0.12){ while(tau + 1 <= tauMax && d[tau + 1] < d[tau]) tau++; best = tau; break; }
+    if(best < 1) return null;
+    let t = best;
+    if(best > 1 && best < tauMax){ const a = d[best - 1], b = d[best], c = d[best + 1], den = a - 2 * b + c; if(den) t = best + 0.5 * (a - c) / den; }
+    return {f: sr / t, conf: 1 - d[best]};
+  }
+  // → Promise of the saved tuning, or null when cancelled.
+  function detect(){
+    return new Promise((resolve) => {
+      const old = document.getElementById("mytune-detect"); if(old) old.remove();
+      const box = document.createElement("div");
+      box.className = "mt-overlay"; box.id = "mytune-detect";
+      box.innerHTML = `<div class="mt-box">
+        <h3>Zjistit ladění mé kytary</h3>
+        <div class="mt-hint">Zahraj postupně <b>prázdné struny od nejtlustší po nejtenčí</b> a každou nech chvilku znít. Co aplikace uslyší, to zapíše. U basy nebo sedmistrunky změň počet strun.</div>
+        <div class="mt-row"><label>Vstup <select id="mt-dev"></select></label><label>Strun <select id="mt-n"><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option></select></label></div>
+        <div class="mt-live"><span id="mt-now">—</span><small id="mt-cents"></small></div>
+        <div class="mt-strings" id="mt-strings"></div>
+        <div class="mt-status" id="mt-status">Spouštím vstup…</div>
+        <div class="mt-acts"><button type="button" class="btn secondary" id="mt-again">Znovu</button><span style="flex:1"></span>
+          <button type="button" class="btn secondary" id="mt-cancel">Zrušit</button><button type="button" class="btn" id="mt-save" disabled>Uložit jako moje ladění</button></div></div>`;
+      document.body.appendChild(box);
+      const q = (id) => box.querySelector("#" + id);
+      let stream = null, ctx = null, an = null, raf = null, got = [], hold = null, done = false;
+      const paint = () => {
+        const want = +q("mt-n").value;
+        q("mt-strings").innerHTML = Array.from({length: want}, (_, i) => got[i]
+          ? `<span class="mt-s on"><b>${name(got[i].midi)}</b><small>${got[i].cents >= 0 ? "+" : ""}${got[i].cents} c</small></span>` : `<span class="mt-s"><b>${want - i}.</b><small>struna</small></span>`).join("");
+        q("mt-save").disabled = got.length < Math.min(4, want);
+        q("mt-status").textContent = got.length >= want ? "Hotovo — zkontroluj a ulož." : got.length ? `Mám ${got.length} z ${want}. Zahraj další, tenčí strunu.` : "Poslouchám… zahraj nejtlustší strunu.";
+      };
+      const stop = () => { cancelAnimationFrame(raf); try{ stream && stream.getTracks().forEach(t => t.stop()); ctx && ctx.close(); }catch(e){} };
+      const finish = (v) => { if(done) return; done = true; stop(); box.remove(); resolve(v); };
+      async function start(){
+        stop();
+        try{
+          const id = q("mt-dev").value;
+          stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: id ? {exact: id} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+          const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");
+          q("mt-dev").innerHTML = devs.map(d => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || "Vstup")}</option>`).join("");
+          const cur = stream.getAudioTracks()[0].getSettings().deviceId; if(cur) q("mt-dev").value = cur;
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          an = ctx.createAnalyser(); an.fftSize = 8192; ctx.createMediaStreamSource(stream).connect(an);
+          const buf = new Float32Array(an.fftSize);
+          paint();
+          (function loop(){
+            raf = requestAnimationFrame(loop);
+            an.getFloatTimeDomainData(buf);
+            let e = 0; for(let i = 0; i < buf.length; i += 4) e += buf[i] * buf[i];
+            const rms = Math.sqrt(e / (buf.length / 4)), y = rms > 0.006 ? yin(buf, ctx.sampleRate, 27, 700) : null;
+            if(!y || y.conf < 0.85){ q("mt-now").textContent = "—"; q("mt-cents").textContent = ""; hold = null; return; }
+            const m = 69 + 12 * Math.log2(y.f / 440), midi = Math.round(m), cents = Math.round((m - midi) * 100);
+            q("mt-now").textContent = name(midi); q("mt-cents").textContent = `${cents >= 0 ? "+" : ""}${cents} centů · ${y.f.toFixed(1)} Hz`;
+            // steady on one note for 0.4 s, and above the last string taken
+            if(!hold || hold.midi !== midi) hold = {midi, since: performance.now(), cents: []};
+            hold.cents.push(cents);
+            const want = +q("mt-n").value;
+            if(performance.now() - hold.since > 400 && got.length < want && (!got.length || midi > got[got.length - 1].midi + 1)){
+              const c = hold.cents.slice().sort((a, b) => a - b)[hold.cents.length >> 1];
+              got.push({midi, cents: c}); paint();
+            }
+          })();
+        }catch(err){ q("mt-status").textContent = "Vstup se nepodařilo otevřít: " + err.message; }
+      }
+      q("mt-dev").onchange = start;
+      q("mt-n").onchange = paint;
+      q("mt-again").onclick = () => { got = []; hold = null; paint(); };
+      q("mt-cancel").onclick = () => finish(null);
+      q("mt-save").onclick = () => { const v = set(got.map(x => x.midi)); showToast(`Moje ladění: ${label(v.midi)}`); finish(v); };
+      start();
+    });
+  }
+
+  // The proposal, to confirm or not. opts: title, songTuning (low → high
+  // MIDI, or null when unknown), songFrom (where that came from), touches
+  // (what applying would move, in words), apply(shift, proposal) → may be async.
+  async function open(opts){
+    let mine = get();
+    if(!mine){ mine = await detect(); if(!mine) return; }
+    const old = document.getElementById("mytune-box"); if(old) old.remove();
+    const box = document.createElement("div");
+    box.className = "mt-overlay"; box.id = "mytune-box";
+    const list = Tunings.all().filter(t => t.strings.every(Tunings.valid));
+    let song = opts.songTuning ? opts.songTuning.slice() : null, manual = null;
+    const render = () => {
+      mine = get() || mine;
+      const fromList = !song || !opts.songTuning;
+      if(!song) song = list[0].strings.map(Tunings.midi);
+      const pr = propose(mine.midi, song), shift = manual != null ? manual : pr.shift, big = Math.abs(shift) > 4;
+      box.innerHTML = `<div class="mt-box">
+        <h3>${escapeHtml(opts.title || "Přeladit skladbu na moje ladění")}</h3>
+        <div class="mt-pair"><span>Moje kytara</span><b>${escapeHtml(label(mine.midi))}</b><button type="button" class="btn secondary small" id="mt-redo">Zjistit znovu</button></div>
+        <div class="mt-pair"><span>Skladba</span>${opts.songTuning && !box._changed ? `<b>${escapeHtml(label(song))}</b><small>${escapeHtml(opts.songFrom || "")}</small><button type="button" class="btn secondary small" id="mt-pick">Jiné</button>`
+          : `<select id="mt-song">${list.map(t => `<option value="${escapeHtml(t.id)}" ${t.strings.map(Tunings.midi).join() === song.join() ? "selected" : ""}>${escapeHtml(t.name)} · ${escapeHtml(t.strings.join(" "))}</option>`).join("")}</select>
+             <small>${opts.songTuning ? "" : "ladění skladby aplikace nezná — vyber ho"}</small>`}</div>
+        <div class="mt-prop ${big ? "warn" : ""}"><span>Návrh</span>
+          <div><b>${shift === 0 ? "Bez posunu — už jsi v ladění skladby" : `Posunout kytaru, basu a melodické stopy o ${shift > 0 ? "+" : ""}${shift} ${Math.abs(shift) === 1 ? "půltón" : Math.abs(shift) < 5 ? "půltóny" : "půltónů"}`}</b>
+            <div class="mt-step"><button type="button" id="mt-dn">−</button><input type="number" id="mt-shift" min="-12" max="12" value="${shift}"><button type="button" id="mt-up">+</button><small>půltónů</small></div>
+            ${pr.uniform ? "" : `<div class="mt-note">Tvar ladění se liší: ${pr.odd.map(o => `${pr.strings - o.string}. struna je u tebe o ${Math.abs(o.extra)} ${o.extra < 0 ? "níž" : "výš"}`).join(", ")}. Zvuk se posune o společných ${pr.shift}; ${opts.tabNote || "tabulatura se na tenhle rozdíl nepřepočítá"}.</div>`}
+            ${!pr.sameCount ? `<div class="mt-note">Počet strun se liší — porovnávám ${pr.strings} nejhlubších.</div>` : ""}
+            ${big ? `<div class="mt-note bad">Přes dva tóny už posunutá kytara nezní přirozeně. Zvaž přeladění.</div>` : ""}</div></div>
+        <div class="mt-touch"><span>Co se změní</span><div>${opts.touches(shift, pr)}</div></div>
+        <div class="mt-acts"><span style="flex:1"></span><button type="button" class="btn secondary" id="mt-cancel">Nechat být</button>
+          <button type="button" class="btn" id="mt-apply">${shift === 0 && pr.uniform ? "Vrátit bez posunu" : "Potvrdit a přeladit"}</button></div></div>`;
+      const q = (id) => box.querySelector("#" + id);
+      q("mt-redo").onclick = async () => { box.hidden = true; const v = await detect(); box.hidden = false; if(v){ manual = null; render(); } };
+      if(q("mt-pick")) q("mt-pick").onclick = () => { box._changed = true; render(); };
+      if(q("mt-song")) q("mt-song").onchange = (e) => { song = Tunings.find(e.target.value).strings.map(Tunings.midi); manual = null; render(); };
+      const setM = (v) => { manual = Math.max(-12, Math.min(12, v)); render(); };
+      q("mt-dn").onclick = () => setM(shift - 1); q("mt-up").onclick = () => setM(shift + 1);
+      // (after the event: redrawing the box from inside the field's own change would pull the field out from under it)
+      q("mt-shift").onchange = (e) => { const v = parseInt(e.target.value, 10) || 0; setTimeout(() => setM(v), 0); };
+      q("mt-cancel").onclick = () => box.remove();
+      q("mt-apply").onclick = async () => { const b = q("mt-apply"); b.disabled = true; b.textContent = "Přelaďuji…";
+        try{ await opts.apply(shift, {...pr, mine: mine.midi, song}); box.remove(); }catch(e){ showToast("Přeladění se nepovedlo: " + e.message); b.disabled = false; b.textContent = "Potvrdit a přeladit"; } };
+    };
+    document.body.appendChild(box);
+    render();
+  }
+  // Which stems are never moved: the kit and the voices.
+  const fixed = (label) => /drum|kick|snare|hat|cymbal|tom|perc|bic[ií]|vocal|voice|vox|zp[eě]v|metron|click/i.test(label || "");
+  return {get, set, detect, propose, open, label, name, fixed};
+})();
+
+// A recording at another pitch, same length: rendered once by the stretch
+// module the mixer already uses. → WAV blob.
+async function pitchedBlob(blob, semitones){
+  const AC = window.AudioContext || window.webkitAudioContext, tmp = new AC();
+  let buf;
+  try{ buf = await tmp.decodeAudioData((await blob.arrayBuffer()).slice(0)); } finally { tmp.close(); }
+  const off = new OfflineAudioContext(2, buf.length, buf.sampleRate);
+  const make = (await import("/static/stretch/SignalsmithStretch.mjs")).default;
+  const node = await make(off, {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+  await node.addBuffers([buf.getChannelData(0).slice(), buf.getChannelData(Math.min(1, buf.numberOfChannels - 1)).slice()]);
+  node.connect(off.destination);
+  node.schedule({outputTime: 0, active: true, input: 0, rate: 1, semitones});
+  const r = await off.startRendering(), n = r.length, L = r.getChannelData(0), R = r.getChannelData(1);
+  const out = new ArrayBuffer(44 + n * 4), v = new DataView(out), w = (o, t) => { for(let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 4, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, r.sampleRate, true); v.setUint32(28, r.sampleRate * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 4, true);
+  for(let i = 0, o = 44; i < n; i++, o += 4){ v.setInt16(o, Math.max(-1, Math.min(1, L[i])) * 32767, true); v.setInt16(o + 2, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
+  return new Blob([out], {type: "audio/wav"});
+}
 
 // ======================================================================
 // ToneRig — the iPhone's NAM pedalboard as the live guitar's amp.
@@ -13497,6 +13826,48 @@ const Mixer = (() => {
   }
 
   el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+
+  // ---- a song just opened brings its text and its tab by itself: the
+  // synced text when there is one (quietly — nothing is shown when there
+  // is not), and the tab chosen for this song before, or else the Songsterr
+  // tab whose artist and title both match. Removing the tab (×) is
+  // remembered too: it is not loaded again until one is picked by hand.
+  const tabPickKey = () => "spotdl-gui-nm-tab-pick:" + (currentSongName || "");
+  async function autoExtras(meta){
+    const name = currentSongName;
+    if(!name) return;
+    if(!lyricsOn && !lyrics){
+      fetchLyrics().then(data => {
+        if(currentSongName !== name || lyricsOn || lyrics) return;
+        if(!data || !(data.synced && data.lines && data.lines.length)) return;
+        lyrics = data;
+        try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+        lyricsOn = true;
+        paintOffset();
+        el("mixer-lyrics-bar").hidden = false;
+        el("mixer-lyrics-toggle").classList.add("active");
+        renderTimeline();
+      }).catch(() => {});
+    }
+    if(tabs.length) return;
+    let pick = null;
+    try{ pick = JSON.parse(localStorage.getItem(tabPickKey()) || "null"); }catch(e){}
+    if(pick === "none") return;
+    try{
+      if(!pick){
+        const q = new URLSearchParams({title: (meta && meta.title) || name, artist: (meta && meta.artist) || ""});
+        const m = await (await fetch("/api/tabs/match?" + q)).json();
+        if(!m || m.songId == null) return;
+        pick = {songId: m.songId, trackIndex: m.trackIndex};
+      }
+      const sm = await Songsterr.getMeta(pick.songId);
+      const idx = sm.tracks && sm.tracks[pick.trackIndex] ? pick.trackIndex : Songsterr.pickGuitarTracks(sm, 1)[0];
+      if(idx == null) return;
+      const data = await Songsterr.getTrack(pick.songId, sm.revisionId, idx);
+      if(currentSongName !== name || tabs.length) return;      // another song by now, or a tab picked by hand
+      loadTabs([{songId: pick.songId, revisionId: sm.revisionId, trackIndex: idx, data}], sm);
+    }catch(e){}
+  }
   // ---- lift the readout out into a window of its own, and put it back ----
   const FloatLyr = makeFloating("lyr-float", {defaults: {width: 560, height: 230}});
 
@@ -13638,9 +14009,17 @@ const Mixer = (() => {
             <option value="">Moje ladění${list.length ? "…" : " — zatím žádné"}</option>
             ${list.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(t.strings.join(" "))}</option>`).join("")}
           </select>
-          <button type="button" title="Uložit právě nastavené ladění pod vlastním jménem">Uložit…</button>`;
+          <button type="button" data-a="save" title="Uložit právě nastavené ladění pod vlastním jménem">Uložit…</button>
+          <button type="button" data-a="detect" title="Zahraj prázdné struny — aplikace pozná, v čem jsi naladěný">Zjistit z kytary</button>
+          <button type="button" data-a="song" title="Navrhne, o kolik posunout kytaru a basu otevřené písně, aby seděla na tvoje ladění. Nic se nezmění bez potvrzení.">Přeladit skladbu…</button>
+          <div class="mine-now">${MyTuning.get() ? "Moje kytara: <b>" + escapeHtml(MyTuning.label(MyTuning.get().midi)) + "</b>" : "Ladění tvé kytary aplikace zatím nezná."}</div>`;
         bar.querySelector("select").onchange = (e) => { const t = Tunings.find(e.target.value); if(t) applyTuning(t); };
-        bar.querySelector("button").onclick = saveCurrent;
+        bar.querySelector('[data-a="save"]').onclick = saveCurrent;
+        bar.querySelector('[data-a="detect"]').onclick = async () => {
+          const v = await MyTuning.detect();
+          if(v){ applyTuning({id: "moje-kytara", strings: v.strings}); paint(); }      // the tuner goes to what was heard
+        };
+        bar.querySelector('[data-a="song"]').onclick = () => { if(!channels.length){ showToast("Nejdřív otevři píseň ve Steems — pak ji půjde přeladit"); return; } proposeMyTuning(); };
       };
       Tunings.onChange(paint);
       paint();
@@ -13706,6 +14085,7 @@ const Mixer = (() => {
   // A song's guitar parts, each in a lane of its own.
   function loadTabs(list, meta){
     if(list[0] && meta) PickTabs.record(meta, list[0], currentSongName || "Mix");
+    if(list[0] && list[0].songId != null){ try{ localStorage.setItem("spotdl-gui-nm-tab-pick:" + (currentSongName || ""), JSON.stringify({songId: list[0].songId, trackIndex: list[0].trackIndex})); }catch(e){} }
     tabs = list.map(makeTab);
     tabMeta = meta || null;
     syncTabIndices(currentTime());
@@ -14249,6 +14629,7 @@ const Mixer = (() => {
   }
 
   el("nm-tabtop-rm").onclick = () => {
+    try{ localStorage.setItem("spotdl-gui-nm-tab-pick:" + (currentSongName || ""), JSON.stringify("none")); }catch(e){}
     tabs.length = 0;
     tabLiveKey = "";
     if(FloatTab.isOpen()) dockTab();
@@ -19250,6 +19631,41 @@ const Mixer = (() => {
 
   // Key and tempo are separate: the key moves by semitones without changing
   // the speed, and the tempo by BPM without changing the key.
+  // ---- the song moved to the player's guitar: every stem but the kit and the
+  // voices, by the shift the open strings and the song's tuning give — shown
+  // first, applied only when confirmed.
+  function proposeMyTuning(){
+    if(!channels.length){ showToast("Nejdřív otevři píseň ve Steems"); return; }
+    const tb = tabs[0];
+    const orig = tb && (tb.data._orig || tb.data).tuning;
+    const tabT = Array.isArray(orig) && orig.length ? orig.slice().reverse().map(Math.round) : null;
+    const tonal = channels.filter(c => !MyTuning.fixed(stemLabel(c.stem) + " " + c.stem));
+    const still = channels.filter(c => !tonal.includes(c));
+    const names = (list) => list.map(c => escapeHtml(stemLabel(c.stem))).join(", ") || "žádná";
+    MyTuning.open({
+      title: `Přeladit „${currentSongName || "píseň"}“ na moji kytaru`,
+      songTuning: tabT, songFrom: tabT ? "podle načtené tabulatury" : "",
+      tabNote: tb ? "tabulatura se přepočítá na tvůj tvar ladění" : "tabulatura není načtená",
+      touches: (shift, pr) => `<ul><li>Posunou se stopy: <b>${names(tonal)}</b></li><li class="no">Beze změny: ${names(still)}</li>
+        ${tb ? `<li>Tabulatura: ${pr.uniform ? "prsty zůstávají, jak jsou — jen zní jinde" : pr.sameCount ? "přepočítá se na tvůj tvar ladění" : "zůstane, jak je (jiný počet strun)"}</li>` : ""}</ul>`,
+      apply: (shift, pr) => {
+        tonal.forEach(c => { c.pitchRate = semitonesToRate(shift); });
+        if(tb){
+          // What the tab has to be written in, so that its notes — sounding
+          // `shift` away — fall under the fingers on this guitar: the
+          // guitar's strings, less the shift.
+          const want = !pr.uniform && pr.sameCount ? pr.mine.map(m => m - shift).reverse() : null;
+          if(want){ TabRetune.retune(tb.data, want); TabRetune.set(retuneKey(tb), want); }
+          else { TabRetune.restore(tb.data); TabRetune.set(retuneKey(tb), null); }
+          tb.data.notes = AlphaTabView.flattenMeasuresToNotes(tb.data.measures, tb.data.tempo);
+          tabLiveKey = null; renderTopTabPanel(); syncTabIndices(currentTime());
+        }
+        renderChannels(); renderTimeline(); queueSessionSave(); requestTempoPitch();
+        showToast(shift ? `Přeladěno o ${shift > 0 ? "+" : ""}${shift} — ${tonal.length} stop, bicí a zpěv beze změny` : "Stopy jsou zpátky v původní výšce");
+      },
+    });
+  }
+  el("nm-mytune").onclick = proposeMyTuning;
   el("nm-pitch-dn").onclick = () => setPitch(pitchSemitones - 1);
   el("nm-pitch-up").onclick = () => setPitch(pitchSemitones + 1);
   el("nm-tempo-dn").onclick = () => setSpeed((Math.round(tempoBase() * speed) - 1) / tempoBase());
@@ -20671,6 +21087,7 @@ const Mixer = (() => {
             ${tb("me-redo", "redo", "Znovu (⇧⌘Z)")}
           </span>
           <button type="button" class="nm-btn" id="midi-import" title="Vložit MIDI soubor z počítače na pozici přehrávání — nebo ho sem přetáhni (z Finderu i z Knihovny vlevo)">Vložit MIDI…</button>
+          <button type="button" class="nm-btn" id="midi-save" title="Uloží označené tóny (nebo všechny) jako MIDI soubor do Knihovny → Loops/Riffs. Tóny z riffu se pod stejným názvem uloží zpět do jeho souboru.">Uložit do knihovny…</button>
           <button type="button" class="nm-btn" id="midi-close" style="margin-left:auto">Zavřít</button>
         </div>
         <div class="midi-ed-body" id="midi-body" style="height:${edPrefs.height}px">
@@ -20689,6 +21106,7 @@ const Mixer = (() => {
       const q = (id) => box.querySelector("#" + id);
       q("midi-close").onclick = closeEditor;
       q("midi-import").onclick = () => pickFile(c);
+      q("midi-save").onclick = () => saveToLibrary(c);
       q("me-t-select").onclick = () => setEdTool("select");
       q("me-t-draw").onclick = () => setEdTool("draw");
       q("me-t-cut").onclick = () => setEdTool("cut");
@@ -21223,6 +21641,7 @@ const Mixer = (() => {
       openEditor(c, true);
       if(ed){ ed.sel = new Set(added); paintEditor(); paintToolbar(); }   // selected, ready to move
       const label = (src.name || "MIDI").replace(/\.midi?$/i, "");
+      c.midiSrc = {rel: src.rel || "", name: label};          // where "save to the library" puts it back
       const k = added.length;
       showToast(`Vloženo ${k} ${k === 1 ? "tón" : k < 5 ? "tóny" : "tónů"} z „${label}“` + (parsed.drumsSkipped ? ` (bicí vynechány: ${parsed.drumsSkipped})` : ""));
     }
@@ -21237,8 +21656,28 @@ const Mixer = (() => {
       try{
         const res = await fetch(`/api/library/midi?rel=${encodeURIComponent(rel)}`);
         if(!res.ok) throw new Error();
-        importNotes(c, {buf: await res.arrayBuffer(), name}, currentTime());
+        importNotes(c, {buf: await res.arrayBuffer(), name, rel}, currentTime());
       }catch(e){ showToast("MIDI soubor se nepodařilo načíst"); }
+    }
+    // The track's notes (the chosen ones, or all) as a MIDI file in the
+    // library, at the song's tempo, from the beat the first of them is in.
+    async function saveToLibrary(c){
+      const list = (ed && ed.sel.size ? [...ed.sel] : c.midi.notes).slice().sort((a, b) => a.t - b.t);
+      if(!list.length){ showToast("Stopa nemá žádné tóny"); return; }
+      const src = c.midiSrc || {rel: "", name: stemLabel(c.stem)};
+      const name = (prompt("Název MIDI souboru v knihovně (Loops/Riffs):", src.name) || "").trim();
+      if(!name) return;
+      let t0 = list[0].t;
+      for(const b of beatTimes){ if(b <= list[0].t + 0.001) t0 = b; else break; }
+      const bytes = writeMidiFile(list.map(n => ({...n, t: n.t - t0})), beatInterval ? 60 / beatInterval : 120, name);
+      try{
+        const res = await fetch(`/api/riffs/midi?name=${encodeURIComponent(name)}&rel=${encodeURIComponent(name === src.name ? src.rel : "")}`, {method: "POST", body: bytes});
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || "Uložení selhalo");
+        c.midiSrc = {rel: data.rel, name};
+        if(typeof treeMidiCache !== "undefined") treeMidiCache.clear();
+        showToast(`${data.replaced ? "Přepsáno" : "Uloženo"}: Knihovna → ${data.rel}`);
+      }catch(e){ showToast(e.message || "Uložení selhalo"); }
     }
     function pickFile(c){
       c = c || midiTarget();
@@ -22276,7 +22715,7 @@ const Mixer = (() => {
   }
 
   return {
-    load, saveSession, loadSession, play, pause, loadTab, loadTabs, setMasterVolume,
+    load, saveSession, loadSession, play, pause, loadTab, loadTabs, autoExtras, setMasterVolume,
     // The live input channel, so the page (and the tests) can reach it.
     guitar: Guitar,
     // Shared with the main player's lyrics overlay, which has no
@@ -22617,6 +23056,7 @@ function renderPlaylistPanel(p){
         <button class="sp-fab" id="pl-play-all" title="Přehrát tenhle playlist">${icon("play", 22)}</button>
         <button class="btn" id="pl-play">${icon("play", 14)}Přehrát playlist</button>
         <button class="btn secondary" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
+        <button class="btn secondary" id="sep-all" title="Stáhne playlist a každou píseň pak sám rozdělí na stopy (Steems) — běží na pozadí">${icon("stems", 14)}Separuj playlist</button>
         <button class="btn secondary" id="dl-selected">${icon("download", 14)}Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
         <button class="btn secondary" id="watch-videos">${icon("video", 14)}Přehrát videa</button>
         <button class="btn secondary" id="add-all-cart">${icon("add", 14)}Přidat vše do playlistu</button>
@@ -22738,6 +23178,23 @@ function renderPlaylistPanel(p){
       kind: "playlist",
       bitrate: bitrate(),
     }, p.title);
+  };
+  // Download, then every song into the separation queue — one press, the
+  // rest by itself; the strip up top shows both stages.
+  el("sep-all").onclick = async () => {
+    const b = el("sep-all");
+    b.disabled = true;
+    showToast("Stahuju playlist — po stažení se písně samy rozdělí na stopy");
+    await startDownload({urls: [`https://www.youtube.com/browse/${p.browseId}`], output_name: p.title, kind: "playlist", bitrate: bitrate()},
+      `${p.title} → Steems`);
+    try{
+      const st = loadSettings();
+      const r = await (await fetch("/api/stems/separate-playlist", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({playlist: p.title, format: st.stems_format || "mp3", mp3_bitrate: st.stems_bitrate || 320})})).json();
+      StemsQueue.poke();
+      showToast(r.error ? r.error : `Do fronty separací přidáno ${r.queued} písní` + (r.ready ? ` · ${r.ready} už rozdělených` : "") + " — hotové najdeš ve Steems");
+    }catch(e){ showToast("Separaci se nepodařilo spustit"); }
+    b.disabled = false;
   };
   el("dl-selected").onclick = () => {
     const ids = [...container.querySelectorAll("input.checkbox:checked")].map(cb=>cb.dataset.videoId);

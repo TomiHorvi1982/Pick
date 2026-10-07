@@ -60,3 +60,30 @@ def test_favourites_find_their_tabs_in_the_background(client, tmp_path, monkeypa
     _wait_sync(client)
     ids = {t["songId"] for t in client.get("/api/picktabs").json()["tabs"]}
     assert ids == {58916, 10, 13}        # same song once, other bands left out
+
+
+def test_a_song_opened_in_steems_finds_its_tab_only_on_an_exact_match(client, monkeypatch):
+    recs = [{"songId": 1, "artist": "Sepultura Tribute", "title": "Propaganda"},
+            {"songId": 77, "artist": "Sepultura", "title": "Propaganda", "popularTrackGuitar": 2}]
+    monkeypatch.setattr(server, "_songsterr_search", lambda q, size=20: recs)
+    assert client.get("/api/tabs/match", params={"title": "Sepultura - Propaganda"}).json() == {
+        "songId": 77, "artist": "Sepultura", "title": "Propaganda", "trackIndex": 2}
+    assert client.get("/api/tabs/match", params={"title": "Roots", "artist": "Sepultura"}).json() == {}
+
+
+def test_separuj_playlist_queues_every_song_of_the_downloaded_playlist(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "MUSIC_ROOT", tmp_path)
+    folder = tmp_path / "Playlists" / "Cesky rock"
+    folder.mkdir(parents=True)
+    for n in ("Kabat - Pohoda.mp3", "Arakain - Adrian.mp3", "cover.jpg", ".hidden.mp3"):
+        (folder / n).write_bytes(b"x")
+    asked = []
+
+    def fake(req):
+        asked.append(req.rel)
+        return {"job_id": "j" + str(len(asked)), "ready": False} if "Kabat" in req.rel else {"job_id": None, "ready": True}
+    monkeypatch.setattr(server, "separate_stems", fake)
+    out = client.post("/api/stems/separate-playlist", json={"playlist": "Cesky rock"}).json()
+    assert out["queued"] == 1 and out["ready"] == 1
+    assert sorted(asked) == ["Playlists/Cesky rock/Arakain - Adrian.mp3", "Playlists/Cesky rock/Kabat - Pohoda.mp3"]
+    assert client.post("/api/stems/separate-playlist", json={"playlist": "Neni"}).status_code == 404

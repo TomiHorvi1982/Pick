@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import hashlib
 import threading
 import time
 import uuid
@@ -25,7 +26,7 @@ from urllib.parse import quote, unquote
 import httpx
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 HOME = Path.home()
@@ -160,6 +161,27 @@ def _fmt_dur(total_seconds: int) -> str:
 @app.get("/", response_class=HTMLResponse)
 def index():
     return (APP_DIR / "static" / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/static/{name}")
+def app_icon(name: str):
+    """The app's own mark: the logo in the page and the tab icon."""
+    from fastapi.responses import Response
+    if name == "analyzer-engine.js":
+        # The Guitar Performance Analyzer's engine: loaded as a Worker.
+        return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
+    if name not in ("pick-icon.png", "pick-favicon.png"):
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return Response((APP_DIR / "static" / name).read_bytes(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/analyzer", response_class=HTMLResponse)
+def analyzer_page():
+    """Guitar Performance Analyzer — a page of its own, shown inside the app
+    under Tools. All of its analysis runs in the browser."""
+    return (APP_DIR / "static" / "analyzer.html").read_text(encoding="utf-8")
 
 
 @app.get("/static/stretch/{name}")
@@ -1622,6 +1644,21 @@ async def search_tabs(q: str, size: int = 20):
     return {"tabs": tabs}
 
 
+@app.get("/api/tabs/match")
+def tab_match(title: str, artist: str = ""):
+    """The Songsterr tab of one song, when artist and title both agree —
+    what a song opened in Steems loads by itself. {} when there is none."""
+    if not artist and " - " in title:
+        artist, title = [x.strip() for x in title.split(" - ", 1)]
+    try:
+        rec = _match_song(artist, title)
+    except Exception:                                          # noqa: BLE001
+        rec = None
+    if not rec:
+        return {}
+    return {"songId": rec["songId"], "artist": rec.get("artist"), "title": rec.get("title"), "trackIndex": _guitar_index(rec)}
+
+
 @app.get("/api/tabs/meta/{song_id}")
 async def tab_meta(song_id: str):
     """Get metadata for a song, including the CDN path hash ('image') and revision."""
@@ -2897,6 +2934,7 @@ def library_browse(rel: str = "", flat: bool = False):
                 "name": p.name, "type": "file", "rel": entry_rel,
                 "size_bytes": p.stat().st_size,
                 **_audio_tags(p),
+                **(_riff_tags(entry_rel) if entry_rel.startswith(RIFFS_REL + "/") else {}),
                 "stems": _stems_state_for(p),
             })
         # A NAM capture isn't playable audio (it's model weights, not a
@@ -5894,6 +5932,373 @@ def separate_stems(req: StemsSeparateRequest):
     return {"job_id": job_id, "ready": False, "name": safe_name, "position": position}
 
 
+class StemsPlaylistRequest(BaseModel):
+    playlist: str             # the name a playlist was downloaded under
+    format: str = "mp3"
+    mp3_bitrate: int = 320
+
+
+@app.post("/api/stems/separate-playlist")
+def separate_playlist(req: StemsPlaylistRequest):
+    """Every song of a downloaded playlist into the separation queue — what
+    "Separuj playlist" runs once the download has finished."""
+    folder = MUSIC_ROOT / "Playlists" / _safe_name(req.playlist)
+    if not folder.is_dir():
+        return JSONResponse({"error": "Playlist není stažený."}, status_code=404)
+    queued = ready = 0
+    for f in sorted(folder.iterdir()):
+        if not f.is_file() or f.name.startswith(".") or f.suffix.lower() not in AUDIO_EXTS:
+            continue
+        res = separate_stems(StemsSeparateRequest(rel=str(f.relative_to(MUSIC_ROOT)), format=req.format,
+                                                   mp3_bitrate=req.mp3_bitrate))
+        if isinstance(res, dict):
+            if res.get("ready"):
+                ready += 1
+            elif res.get("job_id"):
+                queued += 1
+    return {"queued": queued, "ready": ready, "folder": str(folder.relative_to(MUSIC_ROOT))}
+
+
+@app.get("/api/stems/{name}/backing")
+def stems_backing(name: str, without: str = "guitar", part: str = "all"):
+    """The band without one of its parts: every stem but `without`, mixed —
+    what a player practising that part plays along to. Mixed once by ffmpeg
+    and kept in the transcode cache.
+
+    `part` splits it in two: "tonal" is what can follow a change of tuning
+    (bass, keys, the rest), "fixed" is what must not (the kit, the voices) —
+    and "drums" and "vocals" are those two apart, each with its own fader."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    parts = sorted(f for f in stems_dir.iterdir() if f.is_file() and f.suffix.lower() in AUDIO_EXTS
+                   and not f.name.startswith(".") and f.stem != without)
+    # The two halves of a split guitar go with the guitar they were split from;
+    # and practising one half, the whole guitar (which still has that half in
+    # it) is out, the other half stays.
+    if without == "guitar":
+        parts = [f for f in parts if not f.stem.startswith("guitar_")]
+    elif without.startswith("guitar_"):
+        parts = [f for f in parts if f.stem != "guitar"]
+    still = _re_mod.compile(r"drum|kick|snare|hat|cymbal|tom|perc|vocal|voice|vox", _re_mod.I)
+    voices = _re_mod.compile(r"vocal|voice|vox", _re_mod.I)
+    if part == "tonal":
+        parts = [f for f in parts if not still.search(f.stem)]
+    elif part == "fixed":
+        parts = [f for f in parts if still.search(f.stem)]
+    elif part == "drums":
+        parts = [f for f in parts if still.search(f.stem) and not voices.search(f.stem)]
+    elif part == "vocals":
+        parts = [f for f in parts if voices.search(f.stem)]
+    if not parts:
+        return JSONResponse({"error": "Žádné další stopy."}, status_code=404)
+    key = hashlib.sha1(("|".join(f"{f}:{f.stat().st_mtime_ns}" for f in parts)).encode()).hexdigest()[:20]
+    TRANSCODE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    out = TRANSCODE_CACHE_DIR / f"backing-{key}.m4a"
+    if not out.is_file():
+        cmd = [ffmpeg_bin(), "-v", "error", "-y"]
+        for f in parts:
+            cmd += ["-i", str(f)]
+        mix = f"amix=inputs={len(parts)}:normalize=0,alimiter=limit=0.97" if len(parts) > 1 else "alimiter=limit=0.97"
+        cmd += ["-filter_complex", mix, "-c:a", "aac", "-b:a", "256k", str(out)]
+        r = subprocess.run(cmd, capture_output=True, timeout=300)
+        if r.returncode != 0 or not out.is_file():
+            return JSONResponse({"error": "Doprovod se nepodařilo smíchat."}, status_code=500)
+    return FileResponse(out, media_type="audio/mp4", headers={"X-Stems": ",".join(f.stem for f in parts)})
+
+
+# ---- recording from the audio interface, past the browser. Chrome hands a
+# page two channels of an interface however many it has, so the processed
+# signal of a modeller on inputs 3 and 4 never reaches it. ffmpeg reads them
+# all. The page keeps recording the first input itself (its clock is the one
+# the takes are timed by); this records the same input beside the wanted
+# ones, and the page finds each take in it by that shared channel.
+_CAPTURE: dict = {"proc": None, "path": None, "id": None}
+_CAPTURE_LOCK = threading.Lock()
+CAPTURE_DIR = Path(tempfile.gettempdir()) / "pick-capture"
+
+
+def _capture_devices() -> List[str]:
+    r = subprocess.run([ffmpeg_bin(), "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
+                       capture_output=True, text=True, timeout=15)
+    names, audio = [], False
+    for line in r.stderr.splitlines():
+        if "audio devices" in line:
+            audio = True
+        elif audio:
+            m = _re_mod.search(r"\]\s+\[\d+\]\s+(.+)$", line)
+            if m:
+                names.append(m.group(1).strip())
+    return names
+
+
+def _capture_device(label: str) -> Optional[str]:
+    """The device the browser calls `label` ("Nano Cortex (1234:abcd)")."""
+    hits = [n for n in _capture_devices() if n and n.lower() in (label or "").lower()]
+    return max(hits, key=len) if hits else None
+
+
+def _capture_cmd(device: str, channels: List[int], sync: int, out: Path, seconds: float) -> List[str]:
+    keep = [sync] + channels
+    pan = f"pan={len(keep)}c|" + "|".join(f"c{k}=c{c}" for k, c in enumerate(keep))
+    return [ffmpeg_bin(), "-v", "error", "-y", "-f", "avfoundation", "-i", f":{device}", "-t", str(seconds),
+            "-af", pan, "-c:a", "pcm_s24le", str(out)]
+
+
+def _capture_end() -> Optional[Path]:
+    """Stop the running capture; the file it wrote, when it wrote one."""
+    with _CAPTURE_LOCK:
+        proc, path = _CAPTURE["proc"], _CAPTURE["path"]
+        _CAPTURE["proc"] = None
+    if proc is not None and proc.poll() is None:
+        try:
+            proc.communicate(b"q", timeout=5)      # ffmpeg closes the file properly on "q"
+        except (subprocess.TimeoutExpired, OSError):
+            proc.kill()
+    return path if path and path.is_file() else None
+
+
+class CaptureRequest(BaseModel):
+    device: str
+    channels: List[int]
+    sync: int = 0
+
+
+@app.post("/api/capture/probe")
+def capture_probe(req: CaptureRequest):
+    """Can these inputs be recorded here? A third of a second, to find out."""
+    device = _capture_device(req.device)
+    if not device:
+        return JSONResponse({"error": "Zařízení se nenašlo."}, status_code=404)
+    if any(c < 0 or c > 63 for c in req.channels + [req.sync]) or not req.channels:
+        return JSONResponse({"error": "Neplatné kanály."}, status_code=400)
+    CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
+    out = CAPTURE_DIR / f"probe-{uuid.uuid4().hex[:8]}.wav"
+    try:
+        # (Opening the device fails now and then for no reason of ours: again.)
+        for _ in range(3):
+            r = subprocess.run(_capture_cmd(device, req.channels, req.sync, out, 0.3), capture_output=True, text=True, timeout=15)
+            if r.returncode == 0 and out.is_file() and out.stat().st_size >= 1000:
+                break
+        if r.returncode != 0 or not out.is_file() or out.stat().st_size < 1000:
+            lines = (r.stderr or "").strip().splitlines()
+            return JSONResponse({"error": lines[-1][:200] if lines else "Ze zařízení nepřišel žádný zvuk — Pick nejspíš nemá povolený mikrofon.",
+                                 "silent": not lines}, status_code=500)
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "Zařízení neodpovídá — nejspíš chybí povolení k mikrofonu."}, status_code=500)
+    finally:
+        out.unlink(missing_ok=True)
+    return {"device": device}
+
+
+@app.post("/api/capture/start")
+def capture_start(req: CaptureRequest):
+    device = _capture_device(req.device)
+    if not device:
+        return JSONResponse({"error": "Zařízení se nenašlo."}, status_code=404)
+    _capture_end()
+    CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
+    for f in CAPTURE_DIR.glob("*.wav"):
+        f.unlink(missing_ok=True)
+    cid = uuid.uuid4().hex[:12]
+    out = CAPTURE_DIR / f"{cid}.wav"
+    for _ in range(3):
+        proc = subprocess.Popen(_capture_cmd(device, req.channels, req.sync, out, 1800), stdin=subprocess.PIPE,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        # Running, once the file has sound in it.
+        until = time.time() + 5
+        while time.time() < until and proc.poll() is None and not (out.is_file() and out.stat().st_size > 4096):
+            time.sleep(0.02)
+        if proc.poll() is None:
+            break
+    if proc.poll() is not None or not out.is_file():
+        err = (proc.stderr.read() or b"").decode("utf-8", "replace").strip()[:200] if proc.poll() is not None else ""
+        if proc.poll() is None:
+            proc.kill()
+        return JSONResponse({"error": err or "Nahrávání se nespustilo."}, status_code=500)
+    with _CAPTURE_LOCK:
+        _CAPTURE.update(proc=proc, path=out, id=cid)
+    return {"id": cid}
+
+
+@app.post("/api/capture/stop")
+def capture_stop():
+    """End the capture. `started` is when its first sample was taken, by this
+    machine's clock — close enough for the page to know where to look."""
+    ended = time.time()
+    path = _capture_end()
+    if path is None:
+        return JSONResponse({"error": "Nic se nenahrávalo."}, status_code=404)
+    import wave
+    try:
+        with wave.open(str(path), "rb") as w:
+            dur = w.getnframes() / w.getframerate()
+    except (wave.Error, OSError, EOFError):
+        return JSONResponse({"error": "Nahrávka se nedá přečíst."}, status_code=500)
+    return {"id": _CAPTURE["id"], "duration": dur, "started": ended - dur}
+
+
+@app.get("/api/capture/{cid}/slice")
+def capture_slice(cid: str, start: float = 0.0, dur: float = 30.0):
+    """A stretch of the last capture, as a WAV: the shared input first, then
+    the wanted ones."""
+    path = _CAPTURE["path"]
+    if not path or cid != _CAPTURE["id"] or not path.is_file() or _CAPTURE["proc"] is not None:
+        return JSONResponse({"error": "Nahrávka už není."}, status_code=404)
+    import io
+    import wave
+    with wave.open(str(path), "rb") as w:
+        rate, total = w.getframerate(), w.getnframes()
+        a = max(0, min(total, int(start * rate)))
+        n = max(0, min(total - a, int(min(dur, 600) * rate)))
+        w.setpos(a)
+        frames = w.readframes(n)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as o:
+            o.setnchannels(w.getnchannels()); o.setsampwidth(w.getsampwidth()); o.setframerate(rate)
+            o.writeframes(frames)
+    from fastapi.responses import Response
+    return Response(buf.getvalue(), media_type="audio/wav", headers={"X-Start": f"{a / rate:.6f}"})
+
+
+# ---- riffs: stretches of songs cut out to practise and to loop. Each is an
+# audio file (and, when its notes could be read, a MIDI file beside it) in
+# the library under Loops/Riffs/<band>/<song>/, so the folders sort them by
+# themselves; what a file name cannot hold — tempo, key, tuning, instrument
+# — is kept in one index next to them.
+RIFFS_REL = "Loops/Riffs"
+_RIFFS_LOCK = threading.Lock()
+
+
+def _riffs_dir() -> Path:
+    return MUSIC_ROOT / "Loops" / "Riffs"
+
+
+def _riffs_load() -> List[dict]:
+    try:
+        data = json.loads((_riffs_dir() / ".riffs.json").read_text(encoding="utf-8"))
+        return [r for r in data if isinstance(r, dict) and r.get("id") and r.get("audio")] if isinstance(data, list) else []
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+
+def _riffs_save(riffs: List[dict]) -> None:
+    _riffs_dir().mkdir(parents=True, exist_ok=True)
+    tmp = _riffs_dir() / ".riffs.json.tmp"
+    tmp.write_text(json.dumps(riffs, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(_riffs_dir() / ".riffs.json")
+
+
+def _riff_name(text, fallback: str) -> str:
+    """A name fit for a file or a folder."""
+    clean = _re_mod.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", str(text or ""))
+    clean = _re_mod.sub(r"\s+", " ", clean).strip(" .")[:80].strip(" .")
+    return clean or fallback
+
+
+def _riffs_alive() -> List[dict]:
+    """The index without what has left the disk (deleted or moved in the
+    library, in Finder): a riff is its audio file."""
+    with _RIFFS_LOCK:
+        riffs = _riffs_load()
+        alive = []
+        for r in riffs:
+            if not (MUSIC_ROOT / r["audio"]).is_file():
+                continue
+            if r.get("midi") and not (MUSIC_ROOT / r["midi"]).is_file():
+                r = {**r, "midi": None}
+            alive.append(r)
+        if alive != riffs:
+            _riffs_save(alive)
+    return alive
+
+
+def _riff_tags(rel: str) -> dict:
+    """What the library shows for a riff's audio file: the riff as the title,
+    the band, the song — and the rest for its own column."""
+    for r in _riffs_load():
+        if r.get("audio") == rel:
+            return {"title": r.get("riff"), "artist": r.get("artist"), "album": r.get("song"),
+                    "riff": {k: r.get(k) for k in ("id", "instrument", "bpm", "key", "tuning", "dur", "midi")}}
+    return {}
+
+
+@app.get("/api/riffs")
+def riffs_list():
+    low = lambda v: str(v or "").lower()
+    return sorted(_riffs_alive(), key=lambda r: (low(r.get("artist")), low(r.get("song")), low(r.get("riff")), low(r.get("instrument"))))
+
+
+@app.post("/api/riffs")
+async def riffs_add(meta: str, audio: UploadFile = File(...), midi: Optional[UploadFile] = File(None)):
+    """Keep a riff: its audio, its MIDI when there is one, and what is known
+    of it (`meta`, JSON: artist, song, riff, instrument, bpm, key, tuning,
+    dur, notes, source)."""
+    try:
+        m = json.loads(meta)
+        assert isinstance(m, dict)
+    except (ValueError, AssertionError):
+        return JSONResponse({"error": "Neplatný popis riffu."}, status_code=400)
+    ext = Path(audio.filename or "").suffix.lower()
+    if ext not in AUDIO_EXTS:
+        ext = ".wav"
+    sound = await audio.read()
+    if len(sound) < 1000:
+        return JSONResponse({"error": "Prázdný zvuk."}, status_code=400)
+    notes = await midi.read() if midi is not None else b""
+    if notes and notes[:4] != b"MThd":
+        return JSONResponse({"error": "Tohle není MIDI soubor."}, status_code=400)
+    artist = _riff_name(m.get("artist"), "Neznámý interpret")
+    song = _riff_name(m.get("song"), "Bez názvu")
+    riff = _riff_name(m.get("riff"), "Riff")
+    instrument = _riff_name(m.get("instrument"), "Kytara")[:30]
+    num = lambda v: float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v else None
+    folder = _riffs_dir() / artist / song
+    folder.mkdir(parents=True, exist_ok=True)
+    base, k = f"{riff} - {instrument}", 1
+    while (folder / f"{base}{ext}").exists() or (folder / f"{base}.mid").exists():
+        k += 1
+        base = f"{riff} - {instrument} ({k})"
+    (folder / f"{base}{ext}").write_bytes(sound)
+    if notes:
+        (folder / f"{base}.mid").write_bytes(notes)
+    rel = f"{RIFFS_REL}/{artist}/{song}/{base}"
+    src = m.get("source") if isinstance(m.get("source"), dict) else {}
+    entry = {"id": uuid.uuid4().hex[:10], "artist": artist, "song": song, "riff": riff, "instrument": instrument,
+             "bpm": num(m.get("bpm")), "key": str(m.get("key") or "")[:20], "tuning": str(m.get("tuning") or "")[:40],
+             "dur": num(m.get("dur")), "bars": num(m.get("bars")), "notes": int(num(m.get("notes")) or 0),
+             "audio": rel + ext, "midi": rel + ".mid" if notes else None, "added": time.time(),
+             "source": {"song": str(src.get("song") or "")[:200], "stem": str(src.get("stem") or "")[:60],
+                        "from": num(src.get("from")), "to": num(src.get("to"))}}
+    with _RIFFS_LOCK:
+        riffs = _riffs_load()
+        riffs.append(entry)
+        _riffs_save(riffs)
+    return entry
+
+
+@app.post("/api/riffs/midi")
+async def riffs_midi_save(request: Request, name: str = "", rel: str = ""):
+    """A MIDI file into the library — notes edited in Steems. Back over the
+    riff's own file when `rel` names one, else as Loops/Riffs/MIDI/<name>.mid."""
+    data = await request.body()
+    if data[:4] != b"MThd" or len(data) > 4_000_000:
+        return JSONResponse({"error": "Tohle není MIDI soubor."}, status_code=400)
+    target = None
+    if rel:
+        hit = _resolve_under_music_root(rel)
+        if (hit is not None and hit.is_file() and hit.suffix.lower() in MIDI_EXTS
+                and _riffs_dir().resolve() in hit.resolve().parents):
+            target = hit
+    if target is None:
+        folder = _riffs_dir() / "MIDI"
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / (_riff_name(Path(name).stem if name else "", "MIDI") + ".mid")
+    replaced = target.exists()
+    target.write_bytes(data)
+    return {"rel": str(target.resolve().relative_to(MUSIC_ROOT.resolve())), "replaced": replaced}
+
+
 @app.get("/api/stems/queue")
 def stems_queue():
     """Every separation waiting, running, or finished in the last minutes."""
@@ -8212,3 +8617,244 @@ def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str
         return {"synced": False, "lines": None, "plain": None, "source": None}
 
     return _lookup_lyrics(title, artist, album, duration, video_id)
+
+
+# ======================================================================
+# Loop Studio — a song taken apart into a Loop Plan (see loopstudio.py).
+#
+# A job runs in a thread: separate (through the Steems queue, if the song is
+# not separated yet) → analyse (beat grid, sections, chords — Steems' own,
+# cached next to the stems) → plan → cut the loops. The page polls the job.
+# ======================================================================
+import loopstudio as _ls
+
+HARDWARE_PROFILE_PATH = NAM_PREVIEW_DIR / "hardware-profile.json"
+_LS_JOBS: dict = {}            # job id → {state, progress, song, error, note}
+_LS_STATES = ("queued", "separating", "analyzing", "planning", "cutting", "done", "error")
+
+
+def _hardware_profile() -> dict:
+    try:
+        data = json.loads(HARDWARE_PROFILE_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return json.loads(json.dumps(_ls.DEFAULT_PROFILE))
+
+
+def _ls_stems_dir(song: str):
+    d = _resolve_under_music_root(f"Stems/{song}")
+    return d if d is not None and d.is_dir() else None
+
+
+def _ls_run(job_id: str, rel: str, song: str, refresh: bool):
+    job = _LS_JOBS[job_id]
+
+    def step(state, progress=None, note=None):
+        job["state"] = state
+        if progress is not None:
+            job["progress"] = round(progress, 3)
+        if note is not None:
+            job["note"] = note
+
+    try:
+        if rel:
+            step("separating", 0.02, "Rozděluji píseň na stopy")
+            res = separate_stems(StemsSeparateRequest(rel=rel))
+            if not isinstance(res, dict):
+                raise RuntimeError("Zdrojový soubor nenalezen.")
+            song = res["name"]
+            job["song"] = song
+            sid = res.get("job_id")
+            while sid and JOBS.get(sid, {}).get("status") not in ("done", "error"):
+                sj = JOBS.get(sid) or {}
+                pos = next((i + 1 for i, (jid, _) in enumerate(_stems_active_jobs()) if jid == sid), None)
+                step("separating", 0.02 + 0.5 * float(sj.get("progress") or 0) / 100.0,
+                     "Čeká ve frontě separací" if sj.get("status") == "queued" and pos and pos > 1 else "Rozděluji píseň na stopy")
+                time.sleep(1.0)
+            if sid and JOBS.get(sid, {}).get("status") == "error":
+                raise RuntimeError("Separace se nepodařila — podrobnosti ve výpisu úloh.")
+        stems_dir = _ls_stems_dir(song)
+        if stems_dir is None:
+            raise RuntimeError("Stopy písně nenalezeny.")
+
+        step("analyzing", 0.55, "Hledám doby a takty")
+        grid = _beat_grid_for(stems_dir)
+        if isinstance(grid, str):
+            raise RuntimeError("Takty se nepodařilo určit: " + grid)
+        step("analyzing", 0.62, "Hledám sekce a akordy (kolem minuty)")
+        analysis = stems_analysis(song)
+        if not isinstance(analysis, dict):
+            analysis = {"sections": [], "chords": []}
+        # An analysis cached before the beat grid existed has no chords: once more.
+        if not analysis.get("chords") and any("beat grid" in w for w in analysis.get("warnings") or []):
+            again = stems_analysis(song, refresh=True)
+            if isinstance(again, dict):
+                analysis = again
+
+        step("planning", 0.86, "Počítám tóninu a sestavuji plán")
+        ff = ffmpeg_bin()
+        files = _ls.stem_files(stems_dir)
+        harmonic = [files[r] for r in ("guitar", "piano", "bass", "other") if r in files] or list(files.values())
+        mix = None
+        for f in harmonic:
+            x = _ls.decode(f, ff)
+            mix = x if mix is None else (mix[:min(len(mix), len(x))] + x[:min(len(mix), len(x))])
+        key = _ls.estimate_key(mix, chords=analysis.get("chords") or [])
+        sections = _ls.build_sections(grid, analysis)
+        activity = _ls.stem_activity(stems_dir, sections, ff)
+        meta = next((x.get("meta") for x in list_stems() if x.get("name") == song), None) if "list_stems" in globals() else None
+        old = _ls.load_plan(stems_dir)
+        plan = _ls.build_plan(song, grid, analysis, key, activity, _hardware_profile(), meta)
+        if old and old.get("edited") and not refresh:
+            plan = old                                    # the player's corrections stand
+            plan["loopy"] = _ls.loopy_card(plan["facts"], plan["loops"], _hardware_profile())
+
+        step("cutting", 0.9, "Řežu smyčky na takty")
+        _ls.cut_loops(plan, grid, stems_dir, ff, lambda x: step("cutting", 0.9 + 0.09 * x))
+        _ls.save_plan(stems_dir, plan)
+        step("done", 1.0, "")
+    except Exception as e:                                     # noqa: BLE001 — the job reports it
+        job.update(state="error", error=str(e) or e.__class__.__name__)
+
+
+class LoopJobRequest(BaseModel):
+    rel: str = ""              # a file in the library (separated first if needed)…
+    song: str = ""             # …or a song already in Steems
+    refresh: bool = False      # measure again, dropping manual corrections
+
+
+@app.post("/api/loopstudio/jobs")
+def loopstudio_start(req: LoopJobRequest):
+    if not req.rel and not req.song:
+        return JSONResponse({"error": "Chybí píseň."}, status_code=400)
+    if req.song and _ls_stems_dir(req.song) is None:
+        return JSONResponse({"error": "Píseň ve Steems nenalezena."}, status_code=404)
+    if req.rel:
+        src = _resolve_under_music_root(req.rel)
+        if src is None or not src.is_file():
+            return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    job_id = uuid.uuid4().hex[:12]
+    _LS_JOBS[job_id] = {"state": "queued", "progress": 0.0, "song": req.song, "error": None, "note": "", "started": time.time()}
+    threading.Thread(target=_ls_run, args=(job_id, req.rel, req.song, req.refresh), daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.post("/api/loopstudio/upload")
+async def loopstudio_upload(file: UploadFile = File(...)):
+    """A song from the computer: kept in the library (Songs/Loop Studio), so
+    it is there for the player and for Steems like any other."""
+    name = Path(file.filename or "song").name
+    if Path(name).suffix.lower() not in AUDIO_EXTS:
+        return JSONResponse({"error": "Tohle není zvukový soubor."}, status_code=400)
+    folder = MUSIC_ROOT / "Songs" / "Loop Studio"
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / name
+    with dest.open("wb") as fh:
+        while chunk := await file.read(1 << 20):
+            fh.write(chunk)
+    return {"rel": str(dest.relative_to(MUSIC_ROOT))}
+
+
+@app.get("/api/loopstudio/jobs/{job_id}")
+def loopstudio_job(job_id: str):
+    job = _LS_JOBS.get(job_id)
+    if job is None:
+        return JSONResponse({"error": "Úloha nenalezena."}, status_code=404)
+    return {k: job.get(k) for k in ("state", "progress", "song", "error", "note")}
+
+
+@app.get("/api/loopstudio/plans")
+def loopstudio_plans():
+    """Songs that already have a Loop Plan, newest first."""
+    out = []
+    root = MUSIC_ROOT / "Stems"
+    if root.is_dir():
+        for d in root.iterdir():
+            f = d / "loopplan.json"
+            if not f.is_file():
+                continue
+            plan = _ls.load_plan(d)
+            if plan:
+                out.append({"song": d.name, "bpm": plan["facts"]["bpm"], "key": plan["facts"]["key"],
+                            "loops": sum(1 for l in plan["loops"] if l.get("enabled", True)), "modified": f.stat().st_mtime})
+    out.sort(key=lambda x: -x["modified"])
+    return {"plans": out}
+
+
+@app.get("/api/loopstudio/plan/{song}")
+def loopstudio_plan(song: str):
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None:
+        return JSONResponse({"error": "Plán pro tuhle píseň ještě není."}, status_code=404)
+    return plan
+
+
+@app.put("/api/loopstudio/plan/{song}")
+def loopstudio_plan_edit(song: str, edits: dict):
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None:
+        return JSONResponse({"error": "Plán pro tuhle píseň ještě není."}, status_code=404)
+    grid = _beat_grid_for(d)
+    if isinstance(grid, str):
+        return JSONResponse({"error": grid}, status_code=422)
+    plan = _ls.apply_edits(plan, edits or {}, grid, _hardware_profile())
+    _ls.save_plan(d, plan)
+    return plan
+
+
+@app.post("/api/loopstudio/plan/{song}/loops")
+def loopstudio_cut(song: str):
+    """Cut the loops again — after a correction to the plan."""
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None:
+        return JSONResponse({"error": "Plán pro tuhle píseň ještě není."}, status_code=404)
+    grid = _beat_grid_for(d)
+    if isinstance(grid, str):
+        return JSONResponse({"error": grid}, status_code=422)
+    _ls.cut_loops(plan, grid, d, ffmpeg_bin())
+    _ls.save_plan(d, plan)
+    return plan
+
+
+@app.get("/api/loopstudio/file/{song}/{path:path}")
+def loopstudio_file(song: str, path: str):
+    d = _ls_stems_dir(song)
+    f = (d / path).resolve() if d else None
+    if f is None or not f.is_file() or (d / "Loops").resolve() not in f.parents or f.suffix.lower() != ".wav":
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return FileResponse(f, media_type="audio/wav")
+
+
+@app.get("/api/loopstudio/loops/{song}.zip")
+def loopstudio_zip(song: str):
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None or not any(l.get("files") for l in plan["loops"]):
+        return JSONResponse({"error": "Smyčky ještě nejsou nařezané."}, status_code=404)
+    z = _ls.zip_loops(plan, d)
+    return FileResponse(z, media_type="application/zip", filename=z.name)
+
+
+@app.get("/api/loopstudio/hardware")
+def loopstudio_hardware():
+    return _hardware_profile()
+
+
+@app.put("/api/loopstudio/hardware")
+def loopstudio_hardware_save(profile: dict):
+    if not isinstance(profile, dict) or not isinstance(profile.get("looping"), dict):
+        return JSONResponse({"error": "Profil musí obsahovat část „looping“."}, status_code=400)
+    NAM_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    HARDWARE_PROFILE_PATH.write_text(json.dumps(profile, ensure_ascii=False, indent=1), encoding="utf-8")
+    return profile
+
+
+@app.get("/loopstudio", response_class=HTMLResponse)
+def loopstudio_page():
+    return (APP_DIR / "static" / "loopstudio.html").read_text(encoding="utf-8")
+
