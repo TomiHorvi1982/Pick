@@ -10,12 +10,13 @@
      Loop Plan comes out: the facts, what to loop, the Loopy Pro setup, and
      the loops cut to bars. The plan is built by the server (loopstudio.py);
      this page shows it, lets it be corrected, and never fills a gap itself. */
-  :root{--bg:#0e1013;--panel:rgba(255,255,255,.035);--panel2:rgba(255,255,255,.065);--line:rgba(255,255,255,.085);--line2:rgba(255,255,255,.15);
-    --text:#eceef2;--sub:#8f96a6;--dim:#5e6575;--acc:#2dd4bf;--acc2:#5eead4;--warn:#fbbf24;--bad:#f87171;--r:14px}
+  :root{--bg:#0b0b0d;--panel:rgba(255,255,255,.035);--panel2:rgba(255,255,255,.065);--line:rgba(255,255,255,.085);--line2:rgba(255,255,255,.15);
+    --text:#eceef2;--sub:#8f96a6;--dim:#5e6575;--acc:#1ed760;--acc2:#3be477;--warn:#fbbf24;--bad:#f87171;--r:14px}
   *{box-sizing:border-box}
+  input[type=checkbox],input[type=radio]{accent-color:var(--acc)}
   html,body{margin:0;height:100%}
-  body{background:radial-gradient(1100px 520px at 20% -10%, rgba(45,212,191,.11), transparent 60%), var(--bg);color:var(--text);
-    font:14px/1.5 Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;overflow:auto}
+  body{background:radial-gradient(1100px 520px at 20% -10%, rgba(30,215,96,.11), transparent 60%), var(--bg);color:var(--text);
+    font:14px/1.5 "Helvetica Neue",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:auto}
   button,input,select,textarea{font:inherit;color:inherit}
   [hidden]{display:none !important}
   .wrap{max-width:1180px;margin:0 auto;padding:22px 24px 60px}
@@ -44,12 +45,12 @@
   .it .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
   .it .s{font-size:11.5px;color:var(--sub)}
   .tag{font-size:10px;font-weight:800;letter-spacing:.07em;padding:2px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--sub);white-space:nowrap}
-  .tag.ok{color:var(--acc2);border-color:rgba(45,212,191,.5)}
+  .tag.ok{color:var(--acc2);border-color:rgba(30,215,96,.5)}
   .drop{flex:1;border:1.5px dashed var(--line2);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--sub);text-align:center;padding:14px;cursor:pointer}
-  .drop.over{border-color:var(--acc);background:rgba(45,212,191,.07)}
+  .drop.over{border-color:var(--acc);background:rgba(30,215,96,.07)}
   .stages{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
   .stage{padding:10px;border-radius:10px;border:1px solid var(--line);font-size:12px;color:var(--dim);text-align:center}
-  .stage.on{color:var(--text);border-color:var(--acc);background:rgba(45,212,191,.09)}
+  .stage.on{color:var(--text);border-color:var(--acc);background:rgba(30,215,96,.09)}
   .stage.done{color:var(--acc2)}
   .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:14px}
   .bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s}
@@ -68,7 +69,7 @@
   td input[type=number]{width:64px}
   td.chords input{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
   .chips{display:flex;flex-wrap:wrap;gap:5px}
-  .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(45,212,191,.12);color:var(--acc2);white-space:nowrap}
+  .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(30,215,96,.12);color:var(--acc2);white-space:nowrap}
   .chip i{font-style:normal;opacity:.6;margin-right:4px}
   audio{height:30px;width:210px}
   .warnbox{margin-top:12px;padding:9px 12px;border-radius:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fcd98a;font-size:12.5px}
@@ -78,7 +79,7 @@
   .later{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .later .panel{opacity:.7}
   .arr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
-  .arr .a{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 10px;border-radius:10px;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.28);font-size:13px}
+  .arr .a{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 10px;border-radius:10px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.28);font-size:13px}
   .arr .a b{font-weight:650} .arr .a i{font-style:normal;color:var(--dim);font-size:11px}
   .arr .a input{width:44px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:6px;padding:2px 4px;text-align:center}
   .arr .a button{background:none;border:none;color:var(--sub);cursor:pointer;padding:0 3px;font-size:13px} .arr .a button:hover{color:var(--text)}
