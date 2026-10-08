@@ -74,6 +74,20 @@ Checkpoint (~10 MB) se stáhne z Hugging Face při prvním běhu. Server volá
 `analyze.py` pod tímhle interpretem; když venv chybí, endpoint vrátí 503 a
 zbytek mixpultu funguje dál.
 
+Hlasové ovládání (`voice.py`, mikrofon v horní liště) rozpoznává řeč přímo
+v počítači knihovnou Vosk; nic se nikam neposílá. Potřebuje malý anglický model
+(~68 MB) mimo repozitář:
+
+```bash
+mkdir -p ~/.local/share/spotdl-helper/voice && cd ~/.local/share/spotdl-helper/voice
+curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+unzip vosk-model-small-en-us-0.15.zip
+```
+
+Povel je anglicky, vždy „pick“ a jedna známá fráze v jednom dechu (seznam je v nabídce
+mikrofonu a ve `voice.COMMANDS`). Když model nebo knihovna chybí, endpoint
+vrátí 503 a zbytek aplikace funguje dál.
+
 ## Lišta macOS
 
 ```bash

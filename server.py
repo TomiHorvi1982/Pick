@@ -8694,6 +8694,75 @@ def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str
 # cached next to the stems) → plan → cut the loops. The page polls the job.
 # ======================================================================
 import loopstudio as _ls
+import voice as _voice
+
+# ---- voice commands (voice.py): the page sends what the microphone hears,
+# a quarter of a second at a time, and gets back a command when one was said.
+_voice_listener = None
+_voice_lock = threading.Lock()
+
+
+@app.get("/api/voice/commands")
+def voice_commands():
+    return {"wake": _voice.WAKE, "commands": _voice.help_rows(), "unavailable": _voice.available(),
+            "custom": _voice.load_custom()}
+
+
+class VoiceCustom(BaseModel):
+    name: str = ""
+    phrase: str
+    steps: List[str]
+
+
+@app.post("/api/voice/custom")
+def voice_custom_add(req: VoiceCustom):
+    """One of the user's own commands: a phrase, and the actions it runs in order."""
+    why = _voice.available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    try:
+        return _voice.add_custom(req.name, req.phrase, req.steps)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.delete("/api/voice/custom/{cid}")
+def voice_custom_delete(cid: str):
+    if not _voice.delete_custom(cid):
+        return JSONResponse({"error": "Povel se nenašel."}, status_code=404)
+    return {"ok": True}
+
+
+@app.post("/api/voice/start")
+def voice_start():
+    """A fresh listener — what was half-heard before is forgotten."""
+    global _voice_listener
+    why = _voice.available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    with _voice_lock:
+        _voice_listener = _voice.Listener()
+    return {"ok": True, "rate": _voice.RATE}
+
+
+@app.post("/api/voice/feed")
+async def voice_feed(request: Request):
+    pcm = await request.body()
+    lis = _voice_listener
+    if lis is None:
+        return JSONResponse({"error": "Hlasové ovládání neběží."}, status_code=409)
+    if len(pcm) > _voice.RATE * 2 * 5 or len(pcm) % 2:
+        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
+    return await asyncio.get_running_loop().run_in_executor(None, lis.feed, pcm)
+
+
+@app.post("/api/voice/stop")
+def voice_stop():
+    global _voice_listener
+    with _voice_lock:
+        _voice_listener = None
+    return {"ok": True}
+
 
 HARDWARE_PROFILE_PATH = NAM_PREVIEW_DIR / "hardware-profile.json"
 _LS_JOBS: dict = {}            # job id → {state, progress, song, error, note}

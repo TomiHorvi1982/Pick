@@ -139,7 +139,7 @@
   .mix .strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
   .mix .strip b{font-size:10.5px;letter-spacing:.12em;flex:0 0 100%}
   .mix label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub)}
-  .mix input[type=range]{width:120px;accent-color:var(--acc)}
+  .mix input[type=range]{width:120px;accent-color:var(--sc,var(--acc))}
   .mix input[type=number]{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:5px 7px}
   .mix label span{min-width:44px;color:var(--text);font-variant-numeric:tabular-nums}
   /* ---- lists */
@@ -293,22 +293,22 @@
         <div id="slot-an"><div id="deck">
         <div class="panel"><div class="h">Mix <span class="sp"></span><span class="muted" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500">jen pro poslech — analýzu nemění</span></div>
           <div class="mix">
-            <div class="strip"><b style="color:var(--violet2)">REFERENCE</b>
+            <div class="strip" style="--sc:var(--violet2)"><b style="color:var(--violet2)">REFERENCE</b>
               <label>Hlasitost <input type="range" id="mx-rv" min="0" max="1.5" step="0.01"><span id="mx-rv-t"></span></label>
               <label>Pan <input type="range" id="mx-rp" min="-1" max="1" step="0.05"><span id="mx-rp-t"></span></label>
               <label title="Přeladí referenci, tempo zůstane — ať nemusíš ladit kytaru">Výška tónu <input type="number" id="mx-pitch" min="-12" max="12" step="0.05" style="width:74px"> půltónů
                 <button class="btn small" id="mx-pitch-auto" title="Nastaví posun změřený mezi tvou kytarou a nahrávkou (až po první nahrávce)">Změřit z nahrávky</button>
                 <button class="btn small" id="mx-pitch-mine" title="Zjistí ladění tvé kytary z prázdných strun a navrhne posun reference a kapely — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení.">Moje ladění…</button><span id="mx-pitch-t" class="muted"></span></label></div>
-            <div class="strip" id="mx-band" hidden><b style="color:var(--info)">KAPELA <span class="muted" id="mx-band-t" style="letter-spacing:0;font-weight:500"></span></b>
+            <div class="strip" id="mx-band" hidden style="--sc:var(--info)"><b style="color:var(--info)">KAPELA <span class="muted" id="mx-band-t" style="letter-spacing:0;font-weight:500"></span></b>
               <label>Hlasitost <input type="range" id="mx-bv" min="0" max="1.5" step="0.01"><span id="mx-bv-t"></span></label></div>
-            <div class="strip" id="mx-drums" hidden><b style="color:#f59e0b">BICÍ</b>
+            <div class="strip" id="mx-drums" hidden style="--sc:#f59e0b"><b style="color:#f59e0b">BICÍ</b>
               <label>Hlasitost <input type="range" id="mx-dv" min="0" max="1.5" step="0.01"><span id="mx-dv-t"></span></label></div>
-            <div class="strip" id="mx-vox" hidden><b style="color:#f472b6">ZPĚV</b>
+            <div class="strip" id="mx-vox" hidden style="--sc:#f472b6"><b style="color:#f472b6">ZPĚV</b>
               <label>Hlasitost <input type="range" id="mx-vv" min="0" max="1.5" step="0.01"><span id="mx-vv-t"></span></label></div>
-            <div class="strip"><b style="color:var(--sub)">METRONOM</b>
+            <div class="strip" style="--sc:var(--sub)"><b style="color:var(--sub)">METRONOM</b>
               <label title="Kliká na doby skladby při přehrávání, v jakékoli rychlosti. Při nahrávání platí volba „metronom i při nahrávání“."><input type="checkbox" id="mx-met"> při přehrávání</label>
               <label>Hlasitost <input type="range" id="mx-mv" min="0" max="1.5" step="0.01"><span id="mx-mv-t"></span></label></div>
-            <div class="strip"><b style="color:var(--ok)">TY</b>
+            <div class="strip" style="--sc:var(--ok)"><b style="color:var(--ok)">TY</b>
               <label>Hlasitost <input type="range" id="mx-pv" min="0" max="3" step="0.01"><span id="mx-pv-t"></span></label>
               <label>Pan <input type="range" id="mx-pp" min="-1" max="1" step="0.05"><span id="mx-pp-t"></span></label></div>
           </div>
@@ -417,7 +417,7 @@
         <div><label>Výborné do</label><input type="number" data-cfg="excellent" min="1" max="50"></div>
         <div><label>Dobré do</label><input type="number" data-cfg="good" min="5" max="80"></div>
         <div><label>Slightly off do (nad = wrong note)</label><input type="number" data-cfg="slight" min="20" max="150"></div></div></div>
-      <div class="panel"><div class="h">Timing &amp; duration</div><div class="set">
+      <div class="panel"><div class="h">Načasování a délka</div><div class="set">
         <div><label>Včas do (ms)</label><input type="number" data-cfg="timingOk" min="5" max="150"></div>
         <div><label>Velká chyba od (ms)</label><input type="number" data-cfg="timingMajor" min="30" max="400"></div>
         <div><label>Okno pro spárování tónu (ms)</label><input type="number" data-cfg="matchWindow" min="80" max="600"></div>
@@ -1439,6 +1439,8 @@ function rampStep(){
 // ----------------------------------------------------------------- painting
 const scoreColor = (v) => v == null ? "var(--dim)" : v >= 90 ? "var(--ok)" : v >= 75 ? "var(--warn)" : "var(--bad)";
 const SEV = ["#34d399", "#fbbf24", "#f87171"];
+const TYPE_CS = {PITCH: "VÝŠKA", TIMING: "NAČASOVÁNÍ", RHYTHM: "RYTMUS", TEMPO: "TEMPO", DURATION: "DÉLKA", ARTICULATION: "ARTIKULACE", MISSED: "VYNECHÁNO", EXTRA: "NAVÍC"};
+const typeCs = (t) => TYPE_CS[t] || t;
 const TYPE_COLOR = {PITCH: "#f87171", TIMING: "#fbbf24", RHYTHM: "#fb923c", TEMPO: "#60a5fa", DURATION: "#c084fc", MISSED: "#9ca3af", EXTRA: "#60a5fa"};
 function paintAnalysis(){
   const r = S.result;
@@ -1447,7 +1449,7 @@ function paintAnalysis(){
   const sc = r.scores;
   $("score-all").textContent = sc.overall == null ? "—" : sc.overall + "%";
   $("ring-arc").style.strokeDashoffset = String(326.7 * (1 - (sc.overall || 0) / 100));
-  const cats = [["Pitch", sc.pitch], ["Timing", sc.timing], ["Rhythm", sc.rhythm], ["Tempo", sc.tempo], ["Duration", sc.duration], ["Articulation", sc.articulation]];
+  const cats = [["Výška tónu", sc.pitch], ["Načasování", sc.timing], ["Rytmus", sc.rhythm], ["Tempo", sc.tempo], ["Délka tónů", sc.duration], ["Artikulace", sc.articulation]];
   $("subs").innerHTML = cats.map(([n, v]) => `<div class="sub"><span>${n}</span><b style="color:${scoreColor(v)}">${v == null ? NA : v + "%"}</b><div class="bar"><i style="width:0;background:${scoreColor(v)}" data-w="${v || 0}"></i></div></div>`).join("");
   requestAnimationFrame(() => $("subs").querySelectorAll(".bar i").forEach(i => i.style.width = i.dataset.w + "%"));
   const c = r.counts, t = r.tempo;
@@ -1477,7 +1479,7 @@ function paintProblems(){
   const html = !r ? '<div class="muted" style="font-size:12.5px">Zatím žádná analýza.</div>'
     : !r.sections.length ? '<div class="muted" style="font-size:12.5px">Žádný úsek nevyčnívá — nic k procvičení.</div>'
     : r.sections.map((s, k) => `<div class="item"><div class="grow"><div class="t">${fmtShort(s.from)}–${fmtShort(s.to)} <span class="pill" style="color:${TYPE_COLOR[s.worst]}">${s.worst}</span></div>
-        <div class="s">${[s.timing != null ? "Timing " + s.timing + "%" : null, s.wrong ? "Wrong notes " + s.wrong : null, s.missed ? "Missed " + s.missed : null, s.issues + " chyb"].filter(Boolean).join(" · ")}
+        <div class="s">${[s.timing != null ? "Načasování " + s.timing + "%" : null, s.wrong ? "Špatné tóny " + s.wrong : null, s.missed ? "Vynecháno " + s.missed : null, s.issues + " chyb"].filter(Boolean).join(" · ")}
         · tip: ${s.issues > 5 ? "50 %" : "75 %"} rychlosti</div></div>
         <button class="btn small" data-sec="${k}" data-act="play">PLAY</button><button class="btn small" data-sec="${k}" data-act="practice">CVIČENÍ</button><button class="btn small" data-sec="${k}" data-act="loop">LOOP</button></div>`).join("");
   $("sections").innerHTML = $("sections2").innerHTML = html;
@@ -1949,7 +1951,7 @@ function drawHeat(){
   const rows = ["PITCH", "TIMING", "RHYTHM", "TEMPO", "DURATION", "ARTICULATION"], L = 92, rh = (H - 22) / rows.length;
   g.font = "700 9.5px Inter, system-ui, sans-serif"; g.textBaseline = "middle";
   rows.forEach((name, i) => {
-    g.fillStyle = "#6b7186"; g.fillText(name, 8, 6 + i * rh + rh / 2);
+    g.fillStyle = "#6b7186"; g.fillText(typeCs(name), 8, 6 + i * rh + rh / 2);
     const cells = r.heat[name], cw = (W - L - 8) / cells.length;
     cells.forEach((v, k) => { g.fillStyle = v == null ? "rgba(255,255,255,.05)" : v === 0 ? "rgba(52,211,153,.5)" : v === 1 ? "rgba(251,191,36,.8)" : "rgba(248,113,113,.92)";
       g.beginPath(); g.roundRect(L + k * cw + 1, 6 + i * rh + 2, Math.max(1, cw - 2), rh - 4, 3); g.fill(); });
@@ -1990,10 +1992,10 @@ function paintInspector(){
   const head = is ? is.text : row.kind === "missed" ? "Missed note" : "Correct";
   const related = row ? r.issues.filter(x => x.row === S.sel.row && (!is || x.id !== is.id)) : [];
   const tip = r.sections.find(s => t >= s.from && t < s.to);
-  box.innerHTML = `<div class="type" style="color:${TYPE_COLOR[type] || "var(--ok)"}">${type === "NOTE" ? "NOTE" : type + " ERROR"}</div>
+  box.innerHTML = `<div class="type" style="color:${TYPE_COLOR[type] || "var(--ok)"}">${type === "NOTE" ? "TÓN" : "CHYBA: " + typeCs(type)}</div>
     <div class="big">${esc(head)}</div><div class="muted">${fmtT(t)}</div>
     <dl>
-      <dt>Typ</dt><dd>${type}</dd>
+      <dt>Typ</dt><dd>${type === "NOTE" ? "tón" : typeCs(type)}</dd>
       <dt>Mělo znít</dt><dd>${e ? nm(e) : "—"}</dd>
       <dt>Zahráno</dt><dd>${p ? nm(p) : row && row.kind === "missed" ? "nothing" : "—"}</dd>
       <dt>Odchylka načasování</dt><dd>${row && row.timingMs != null ? (row.timingMs > 0 ? "+" : "") + row.timingMs + " ms · " + row.timing : "—"}</dd>
@@ -2009,7 +2011,7 @@ function paintInspector(){
     <div class="dim" style="font-size:11.5px;margin-top:7px">Ukázka: asi 3 s kolem tohohle místa. Souvislé přehrávání je nahoře — přepínač Reference / Ty / Obojí a PLAY.</div>
     ${tip ? `<div class="rel"><div class="h" style="margin-top:14px">Jak cvičit</div>Practice ${fmtShort(tip.from)}–${fmtShort(tip.to)} at ${tip.issues > 5 ? "50" : "75"}% speed.
       <button id="i-loop">Smyčka na tenhle úsek →</button></div>` : ""}
-    ${related.length ? `<div class="rel"><div class="h" style="margin-top:14px">Související chyby</div>${related.map(x => `<button data-issue="${x.id}"><span style="color:${TYPE_COLOR[x.type]}">${x.type}</span> · ${esc(x.text)}</button>`).join("")}</div>` : ""}`;
+    ${related.length ? `<div class="rel"><div class="h" style="margin-top:14px">Související chyby</div>${related.map(x => `<button data-issue="${x.id}"><span style="color:${TYPE_COLOR[x.type]}">${typeCs(x.type)}</span> · ${esc(x.text)}</button>`).join("")}</div>` : ""}`;
   const from = Math.max(0, t - 0.6);
   $("i-ref").onclick = () => playFrom("ref", from, 2.6); $("i-ply").onclick = () => playFrom("ply", from, 2.6); $("i-both").onclick = () => playFrom("both", from, 2.6);
   if(tip) $("i-loop").onclick = () => { setLoop(tip.from, tip.to); go("practice"); playFrom("ref", tip.from); };
@@ -2282,7 +2284,7 @@ document.addEventListener("click", (e) => {
       <tr><td>${v(sc.pitch)}</td><td>${v(sc.timing)}</td><td>${v(sc.rhythm)}</td><td>${v(sc.tempo)}</td><td>${v(sc.duration)}</td><td>NENÍ K DISPOZICI</td></tr></table>
       <p>Tónů ${r.counts.reference}, spárováno ${r.counts.matched}, špatně ${r.counts.wrong}, vynecháno ${r.counts.missed}, navíc ${r.counts.extra}. Tempo: reference ${r.tempo.reference ? r.tempo.reference.toFixed(1) : "—"}, hráč ${r.tempo.player ? r.tempo.player.toFixed(1) : "—"} BPM.</p>
       <h2>Problémové úseky a doporučení</h2><table><tr><th>Úsek</th><th>Hlavní problém</th><th>Chyb</th><th>Doporučení</th></tr>${r.sections.map(s => `<tr><td>${fmtShort(s.from)}–${fmtShort(s.to)}</td><td>${s.worst}</td><td>${s.issues}</td><td>Practice at ${s.issues > 5 ? 50 : 75}% speed</td></tr>`).join("")}</table>
-      <h2>Mapa chyb</h2><table><tr><th>Čas</th><th>Typ</th><th>Popis</th><th>Závažnost</th><th>Jistota</th></tr>${r.issues.map(x => `<tr><td>${fmtT(x.t)}</td><td>${x.type}</td><td>${esc(x.text)}</td><td>${["LOW", "MEDIUM", "HIGH"][x.sev]}</td><td>${Math.round(x.confidence * 100)} %</td></tr>`).join("")}</table>`;
+      <h2>Mapa chyb</h2><table><tr><th>Čas</th><th>Typ</th><th>Popis</th><th>Závažnost</th><th>Jistota</th></tr>${r.issues.map(x => `<tr><td>${fmtT(x.t)}</td><td>${typeCs(x.type)}</td><td>${esc(x.text)}</td><td>${["NÍZKÁ", "STŘEDNÍ", "VYSOKÁ"][x.sev]}</td><td>${Math.round(x.confidence * 100)} %</td></tr>`).join("")}</table>`;
     window.print();
   }
 });
@@ -2329,6 +2331,18 @@ async function refFromLink(ref){
   catch(e){ $("ref-meta").textContent = "Stopu se nepodařilo načíst."; }
 }
 window.addEventListener("message", (e) => { if(e.origin === location.origin && e.data && e.data.pick === true && e.data.ref) refFromLink(e.data.ref); });
+// Voice commands, handed down by Pick (index.html, Voice): the same words do here what they do in the mixer.
+window.addEventListener("message", (e) => {
+  if(e.origin !== location.origin || !e.data || e.data.pick !== true || !e.data.voice) return;
+  const [what, arg] = String(e.data.voice).split(":");
+  if(what === "play") $("t-play").click();
+  else if(what === "pause") $("t-stop").click();
+  else if(what === "record") $("t-rec").click();
+  else if(what === "rewind"){ stopAll(); aRef.currentTime = S.loop ? S.loop.a : 0; }
+  else if(what === "slower") setSpeed(S.speed - 0.05);
+  else if(what === "faster") setSpeed(S.speed + 0.05);
+  else if(what === "tempo") setSpeed(+arg / 100);
+});
 { const m = /[#&]ref=([^&]+)/.exec(location.hash); if(m){ try{ refFromLink(JSON.parse(decodeURIComponent(m[1]))); }catch(e){} history.replaceState(null, "", location.pathname); } }
 listDevices(); paintRecent(); paintLibrary(); paintRiffs(); setMode();
 window.addEventListener("beforeunload", () => { stopAll(); disconnectInput(); });

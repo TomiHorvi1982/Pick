@@ -3604,6 +3604,36 @@ body.lib-collapsed .pick-brand{display:none}
   .tm-item.tab-lock.on{background:none !important;border:none !important}
   .tm-item.tab-lock.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700}
   .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
+  .voice-pop{width:400px}
+  .voice-row{display:flex;align-items:center;gap:10px;padding:4px 9px;font-size:12px;color:var(--nm-sub)}
+  .voice-row select{flex:1;min-width:0;background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 6px;font-size:12px}
+  .voice-heard{padding:6px 9px 4px;font-size:12px;color:var(--nm-sub);min-height:28px}
+  .voice-heard b{color:var(--accent,#1ed760);font-weight:700}
+  .voice-list{max-height:300px;overflow:auto;padding:0 9px 4px;font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+  .voice-list{max-height:210px}
+  .voice-own{padding:0 9px;font-size:12px;display:flex;flex-direction:column;gap:4px}
+  .voice-own .row{display:flex;align-items:baseline;gap:8px}
+  .voice-own .row b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
+  .voice-own .row span{flex:1;min-width:0;color:var(--nm-sub)}
+  .voice-own .row button{flex:none;border:none;background:none;color:var(--nm-sub);cursor:pointer;font-size:13px;padding:0 4px}
+  .voice-own .row button:hover{color:#ff6b6b}
+  .voice-own .none{color:var(--nm-sub)}
+  .voice-form{padding:8px 9px 6px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+  .voice-form input,.voice-form select{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;min-width:0}
+  .voice-say{display:flex;align-items:center;gap:6px}
+  .voice-say span{color:var(--accent,#1ed760);font-weight:700}
+  .voice-say input{flex:1}
+  .voice-steps{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;align-items:center;color:var(--nm-sub)}
+  .voice-steps button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:999px;padding:3px 9px;font:inherit;font-size:11.5px;cursor:pointer}
+  .voice-steps button:hover{border-color:#ff6b6b;color:#ff6b6b}
+  .voice-add{display:flex;gap:6px}
+  .voice-add select{flex:1}
+  .voice-add button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:6px;padding:0 10px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+  .voice-add button.go{background:var(--accent,#1ed760);border-color:transparent;color:#000;font-weight:700}
+  .voice-list b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
+  .voice-list span{color:var(--nm-sub)}
+  .sp-round.tm-btn.has-on{color:var(--accent,#1ed760);border-color:var(--accent,#1ed760)}
+  #voice-top-btn.heard{box-shadow:0 0 0 3px rgba(30,215,96,.35)}
   /* Steems, readable from a playing distance: nothing under 10.5 px, and the
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
@@ -3663,6 +3693,27 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
+    <div class="tmenu" data-tmenu="voice">
+      <button type="button" class="sp-round tm-btn" id="voice-top-btn" title="Hlasové ovládání — řekni anglicky „pick play“, „pick stop“… Rozpoznává se v tomhle počítači, nic se neodesílá."><span data-icon="mic" data-size="17"></span></button>
+      <div class="tm-pop voice-pop">
+        <div class="tm-head">Hlasové ovládání</div>
+        <button type="button" class="tm-item" data-stay id="voice-toggle"><span data-icon="mic" data-size="15"></span><span class="tm-t">Poslouchat</span></button>
+        <div class="voice-row"><span>Mikrofon</span><select id="voice-mic"><option value="">výchozí</option></select></div>
+        <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem.</div>
+        <hr>
+        <div class="voice-list" id="voice-list"></div>
+        <hr>
+        <div class="tm-head">Vlastní povely</div>
+        <div class="voice-own" id="voice-own"></div>
+        <div class="voice-form">
+          <input type="text" id="voice-new-name" placeholder="Název (např. Rozcvička)" maxlength="60">
+          <label class="voice-say"><span>pick</span><input type="text" id="voice-new-phrase" placeholder="co říct, anglicky (např. warm up)" spellcheck="false"></label>
+          <div class="voice-steps" id="voice-new-steps"></div>
+          <div class="voice-add"><select id="voice-new-action"></select><button type="button" id="voice-new-add" title="Přidat krok na konec">+ krok</button>
+            <button type="button" id="voice-new-save" class="go">Uložit povel</button></div>
+        </div>
+      </div>
+    </div>
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
     <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
     <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
@@ -23410,6 +23461,7 @@ const Mixer = (() => {
     // The remote control needs to know whether the mixer is the thing
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
+    speed: () => speed, setSpeed: (v) => setSpeed(v),
     currentTime: () => currentTime(), seek: (t) => seek(t),
     takeRec: () => TakeRec,
     tunnel: () => Tunnel,
@@ -28679,6 +28731,209 @@ const RemoteAgent = (() => {
 })();
 
 
+
+// ---- Voice commands -------------------------------------------------------
+// The microphone goes to the server a quarter of a second at a time and comes
+// back as a command when one was said ("pick stop"). Recognition is voice.py —
+// on this computer. What a command does depends on what is open: the tool in
+// front (analyzer), the Steems mixer, or the player at the bottom.
+const Voice = (() => {
+  const MIC_KEY = "pick-voice-mic";
+  let on = false, stream = null, actx = null, node = null, chain = Promise.resolve(), parts = [], held = 0, listed = false;
+  const WORKLET = `registerProcessor("pick-voice", class extends AudioWorkletProcessor {
+    process(inputs){ const c = inputs[0] && inputs[0][0]; if(c) this.port.postMessage(c.slice(0)); return true; } });`;
+  const toggleBtn = el("voice-toggle"), heard = el("voice-heard");
+
+  function paint(){
+    toggleBtn.classList.toggle("on", on);
+    toggleBtn.querySelector(".tm-t").textContent = on ? "Poslouchám — klikni pro vypnutí" : "Poslouchat";
+  }
+  // Steps of a command of your own: the built-in actions, any tempo, a pause.
+  let actions = [], draft = [];
+  const stepName = (id) => {
+    const [k, n] = id.split(":");
+    if(k === "wait") return `počkat ${n} s`;
+    const a = actions.find(x => x.id === id);
+    return a ? a.does : k === "tempo" ? `tempo ${n} %` : id;
+  };
+  function paintDraft(){
+    el("voice-new-steps").innerHTML = draft.length
+      ? draft.map((x, i) => `<button type="button" data-i="${i}" title="Klik = odebrat krok">${i + 1}. ${escapeHtml(stepName(x))}</button>`).join("")
+      : "zatím žádný krok — vyber níže a přidej";
+    el("voice-new-steps").querySelectorAll("[data-i]").forEach(b => b.onclick = () => { draft.splice(+b.dataset.i, 1); paintDraft(); });
+  }
+  function paintOwn(rows){
+    el("voice-own").innerHTML = rows.length ? rows.map(c =>
+      `<div class="row"><b>pick ${escapeHtml(c.phrase)}</b><span>${escapeHtml(c.name)}: ${escapeHtml(c.steps.map(stepName).join(" → "))}</span><button type="button" data-del="${escapeHtml(c.id)}" title="Smazat povel">✕</button></div>`).join("")
+      : `<div class="none">Zatím žádné. Níže si složíš vlastní — jedna fráze může spustit víc kroků za sebou.</div>`;
+    el("voice-own").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+      await fetch("/api/voice/custom/" + encodeURIComponent(b.dataset.del), {method: "DELETE"});
+      listed = false; await listCommands(); relisten();
+    });
+  }
+  // The recogniser learns its words when listening starts.
+  function relisten(){ if(on){ stop(); start(); } }
+  async function listCommands(){
+    if(listed) return;
+    try{
+      const d = await (await fetch("/api/voice/commands")).json();
+      actions = d.commands;
+      el("voice-list").innerHTML = d.commands.map(c => `<b>${escapeHtml(c.say)}</b><span>${escapeHtml(c.does)}</span>`).join("");
+      el("voice-new-action").innerHTML = d.commands.map(c => `<option value="${c.id}">${escapeHtml(c.does)}</option>`).join("")
+        + [55, 65, 75, 85, 95].map(n => `<option value="tempo:${n}">tempo ${n} %</option>`).join("")
+        + [1, 2, 5, 10].map(n => `<option value="wait:${n}">počkat ${n} s</option>`).join("");
+      paintOwn(d.custom || []); paintDraft();
+      if(d.unavailable) heard.textContent = d.unavailable;
+      listed = true;
+    }catch(e){}
+  }
+  el("voice-new-add").onclick = () => { if(draft.length < 12){ draft.push(el("voice-new-action").value); paintDraft(); } };
+  el("voice-new-save").onclick = async () => {
+    const r = await fetch("/api/voice/custom", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name: el("voice-new-name").value, phrase: el("voice-new-phrase").value, steps: draft})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok){ heard.textContent = d.error || "Povel se nepodařilo uložit."; showToast(heard.textContent); return; }
+    el("voice-new-name").value = el("voice-new-phrase").value = ""; draft = [];
+    heard.innerHTML = `Uloženo: <b>pick ${escapeHtml(d.phrase)}</b>`;
+    listed = false; await listCommands(); relisten();
+  };
+  async function listMics(){
+    try{
+      const sel = el("voice-mic"), cur = localStorage.getItem(MIC_KEY) || "";
+      const ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput" && d.deviceId !== "default");
+      sel.innerHTML = `<option value="">výchozí</option>` + ins.map(d => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || "mikrofon")}</option>`).join("");
+      sel.value = ins.some(d => d.deviceId === cur) ? cur : "";
+    }catch(e){}
+  }
+  function send(){
+    const all = new Int16Array(held);
+    let o = 0;
+    for(const p of parts) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
+    parts = []; held = 0;
+    chain = chain.then(() => on ? fetch("/api/voice/feed", {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
+      .then(r => r && r.ok ? r.json() : null).then(r => { if(r && r.heard) got(r); }).catch(() => {});
+  }
+  // Several steps go one after another, with a breath between them.
+  async function runSteps(steps){
+    const done = [];
+    for(const st of steps){
+      if(st.startsWith("wait:")){ await new Promise(ok => setTimeout(ok, +st.slice(5) * 1000)); continue; }
+      done.push(run(st) || "—");
+      await new Promise(ok => setTimeout(ok, 350));
+    }
+    return done.join(", ");
+  }
+  function got(r){
+    if(!r.command){ heard.textContent = "slyšel jsem: " + r.heard; return; }
+    if(r.steps && r.steps.length > 1){
+      heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(r.name || "")}…`;
+      showToast("Hlas: " + r.heard + " — " + (r.name || "") + ` (${r.steps.length} kroků)`);
+      runSteps(r.steps).then(d => { heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(d)}`; });
+      return;
+    }
+    const did = run(r.steps ? r.steps[0] : r.command);
+    heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(did || "tady to nic nedělá")}`;
+    const b = el("voice-top-btn");
+    b.classList.add("heard"); setTimeout(() => b.classList.remove("heard"), 600);
+    showToast("Hlas: " + r.heard + (did ? " — " + did : " — tady to nic nedělá"));
+  }
+
+  // -- what a command does, by what is in front
+  const shown = (id) => { const n = el(id); return !!(n && n.offsetParent !== null); };
+  const click = (id) => { const n = el(id); if(!n || n.disabled || n.offsetParent === null) return false; n.click(); return true; };
+  function run(cmd){
+    const [what, arg] = cmd.split(":");
+    if(what === "tuner") return click("tuner-top-btn") ? "ladička" : null;
+    if(what === "playlist"){ setMode("playlists"); return "playlisty"; }
+    if(what === "song"){ pickSong(); return "vybírám píseň"; }
+    if(shown("analyzer-frame")){
+      el("analyzer-frame").contentWindow.postMessage({pick: true, voice: cmd}, location.origin);
+      return "analyzér";
+    }
+    if(shown("mixer")){
+      const playing = Mixer.isPlaying();
+      if(what === "play") return playing ? "už hraje" : (Mixer.play(), "přehrávám");
+      if(what === "pause") return playing ? (Mixer.pause(), "zastaveno") : "nehraje";
+      if(what === "rewind") return click("nm-rewind") ? "na začátek" : null;
+      if(what === "loop") return click("mixer-loop") ? "smyčka" : null;
+      if(what === "metronome") return click("mixer-metro") ? "metronom" : null;
+      if(what === "record") return click("gt-rec-btn") ? "nahrávání" : null;
+      const pct = () => Math.round(Mixer.speed() * 100) + " %";
+      if(what === "slower"){ Mixer.setSpeed(Mixer.speed() - 0.05); return "tempo " + pct(); }
+      if(what === "faster"){ Mixer.setSpeed(Mixer.speed() + 0.05); return "tempo " + pct(); }
+      if(what === "tempo"){ Mixer.setSpeed(+arg / 100); return "tempo " + pct(); }
+      return null;
+    }
+    const a = el("pb-audio"), vol = el("pb-volume");
+    if(what === "play") return a.paused ? (click("pb-play") ? "přehrávám" : null) : "už hraje";
+    if(what === "pause") return a.paused ? "nehraje" : (click("pb-play") ? "pauza" : null);
+    if(what === "rewind"){ a.currentTime = 0; return "na začátek"; }
+    if(what === "next") return click("pb-next") ? "další píseň" : null;
+    if(what === "prev") return click("pb-prev") ? "předchozí píseň" : null;
+    if(what === "louder" || what === "quieter"){
+      vol.value = Math.max(0, Math.min(1, +vol.value + (what === "louder" ? 0.1 : -0.1)));
+      vol.dispatchEvent(new Event("input", {bubbles: true}));
+      return "hlasitost " + Math.round(vol.value * 100) + " %";
+    }
+    return null;
+  }
+
+  // "pick a song": any one song from the library, played.
+  async function pickSong(){
+    try{
+      const d = await (await fetch("/api/library/browse?rel=Songs&flat=1")).json();
+      const files = (d.entries || []).filter(x => x.type === "file" && x.duration);
+      if(!files.length){ showToast("V knihovně není žádná píseň"); return; }
+      const f = files[Math.floor(Math.random() * files.length)];
+      Player.playLocal({relPath: f.rel, title: f.title || f.name, artists: f.artist || "", album: f.album});
+      showToast(`Pick vybral: ${f.artist ? f.artist + " — " : ""}${f.title || f.name}`);
+    }catch(e){ showToast("Píseň se nepodařilo vybrat"); }
+  }
+
+  async function start(){
+    if(on) return;
+    try{
+      const r = await fetch("/api/voice/start", {method: "POST"});
+      if(!r.ok){ const d = await r.json().catch(() => ({})); throw new Error(d.error || "Hlasové ovládání se nespustilo."); }
+      const dev = localStorage.getItem(MIC_KEY) || "";
+      // Echo cancelling takes the app's own playback out of what the microphone hears.
+      stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: dev ? {exact: dev} : undefined,
+        echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      actx = new AudioContext({sampleRate: 16000});
+      const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
+      await actx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0});
+      node.port.onmessage = (e) => { parts.push(e.data); held += e.data.length; if(held >= 4000) send(); };
+      actx.createMediaStreamSource(stream).connect(node);
+      on = true; parts = []; held = 0;
+      heard.textContent = "Poslouchám. Řekni anglicky „pick“ a hned povel, jedním dechem.";
+      listMics();
+    }catch(e){
+      stop();
+      heard.textContent = e.name === "NotAllowedError" ? "Mikrofon není povolený." : (e.message || "Mikrofon se nepodařilo otevřít.");
+      showToast(heard.textContent);
+    }
+    paint();
+  }
+  function stop(){
+    on = false;
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    if(actx) actx.close().catch(() => {});
+    stream = actx = node = null; parts = []; held = 0;
+    fetch("/api/voice/stop", {method: "POST"}).catch(() => {});
+    paint();
+  }
+
+  toggleBtn.onclick = () => on ? stop() : start();
+  el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
+  el("voice-mic").onchange = (e) => {
+    try{ localStorage.setItem(MIC_KEY, e.target.value); }catch(err){}
+    if(on){ stop(); start(); }
+  };
+  paint();
+  return {start, stop, isOn: () => on, run, runSteps};
+})();
 </script>
 </body>
 </html>

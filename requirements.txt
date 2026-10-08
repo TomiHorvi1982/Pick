@@ -15,6 +15,8 @@ spotdl==4.5.2
 spotipy==2.26.0
 spotipyFree==1.9.14
 uvicorn==0.23.2
+# hlasové ovládání (voice.py) — rozpoznávání řeči v počítači
+vosk==0.3.44
 yt-dlp-ejs==0.8.0
 yt-dlp==2026.8.19
 ytmusicapi==1.12.2
