@@ -1026,6 +1026,26 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-editbar .sel{font-size:11.5px;color:var(--nm-sub);font-variant-numeric:tabular-nums;min-width:120px}
   .nm-editbar .sel b{color:var(--nm-txt);font-weight:600}
   .nm-editbar .status{margin-left:auto;font-size:11.5px;color:var(--nm-sub);display:flex;align-items:center;gap:6px}
+  /* Tool menus: a named button that unrolls a group of related tools, so the
+     bars show a handful of categories instead of two dozen small icons. */
+  .tmenu{position:relative;display:inline-flex;flex:none}
+  .tm-btn .tm-caret{font-size:9px;opacity:.7;margin-left:3px}
+  .tmenu.open > .tm-btn{background:#2a2a33;border-color:#4a4a58}
+  .tm-btn.has-on{border-color:var(--nm-blue);color:#8fbaff}
+  .tm-btn.dim{opacity:.55}
+  .tm-pop{display:none;position:fixed;z-index:5000;min-width:210px;padding:6px;
+    background:#1c1c22;border:1px solid #33333d;border-radius:9px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+  .tm-pop.show{display:block}
+  .tm-head{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--nm-sub);padding:4px 9px 6px}
+  .tm-pop hr{border:none;border-top:1px solid #33333d;margin:5px 2px}
+  .tm-item{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:var(--nm-txt);
+    font:inherit;font-size:12.5px;padding:7px 9px;border-radius:5px;cursor:pointer;text-align:left;white-space:nowrap}
+  .tm-item:hover:not(:disabled){background:#2a2a33}
+  .tm-item:disabled{opacity:.35;cursor:default}
+  .tm-item .ic-svg{flex:none;opacity:.85}
+  .tm-item .tm-k{margin-left:auto;padding-left:22px;color:var(--nm-sub);font-size:11px;font-variant-numeric:tabular-nums}
+  .tm-item.active,.tm-item.on{color:#8fbaff}
+  .tm-item.active::after,.tm-item.on::after{content:"✓";margin-left:auto;padding-left:22px;font-weight:700}
   .nm-strip.edit-sel{box-shadow:inset 3px 0 0 #ffd166}
   .nm-strip.edit-sel .nm-strip-name{color:#ffd166}
   .nm-lane.edit-sel{box-shadow:inset 0 0 0 1px rgba(255,209,102,.55)}
@@ -3442,6 +3462,7 @@ body.lib-collapsed .pick-brand{display:none}
   .amb-theme{display:flex;gap:6px}
   /* tidier mixer: words under the icons, the rail without sliders */
   #nm-editbar .nm-btn.ib.lab{flex-direction:column;width:auto;min-width:40px;height:38px;padding:3px 6px 2px;gap:1px}
+  #nm-editbar .nm-btn.ib.lab.tm-btn{min-width:52px}
   #nm-editbar .nm-btn.ib.lab .bl{font-size:8.5px;font-weight:700;letter-spacing:.02em;line-height:1;white-space:nowrap;opacity:.85}
   .nm-transport .nm-btn.round .bl{font-size:10px;font-weight:700;margin-left:4px}
   .nm-transport .nm-btn.round:has(.bl){width:auto;padding:0 9px;border-radius:999px}
@@ -4043,13 +4064,26 @@ body.lib-collapsed .pick-brand{display:none}
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="14"></span><span class="bl">Faders</span></button>
-              <button class="nm-btn round" id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="14"></span><span class="bl">EQ</span></button>
-              <button class="nm-btn round" id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="14"></span><span class="bl">Comp</span></button>
-              <button class="nm-btn round" id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="14"></span><span class="bl">Dbl</span></button>
-              <button class="nm-btn round" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="14"></span><span class="bl">Export</span></button>
-              <button class="nm-btn round" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="14"></span><span class="bl">Save</span></button>
-              <button class="nm-btn round" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="14"></span><span class="bl">Load</span></button>
+              <div class="tmenu" data-tmenu="panels">
+                <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
+                <div class="tm-pop">
+                  <div class="tm-head">Panely mixu</div>
+                  <button type="button" class="tm-item" data-stay id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="15"></span><span class="tm-t">Fadery kanálů</span></button>
+                  <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
+                  <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
+                  <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
+                </div>
+              </div>
+              <div class="tmenu" data-tmenu="file">
+                <button type="button" class="nm-btn round tm-btn" title="Mix — uložit, vrátit uložený, exportovat"><span data-icon="save" data-size="14"></span><span class="bl">Soubor</span><span class="tm-caret">▾</span></button>
+                <div class="tm-pop">
+                  <div class="tm-head">Mix</div>
+                  <button type="button" class="tm-item" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="15"></span><span class="tm-t">Uložit mix</span></button>
+                  <button type="button" class="tm-item" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="15"></span><span class="tm-t">Vrátit uložený mix</span></button>
+                  <hr>
+                  <button type="button" class="tm-item" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="15"></span><span class="tm-t">Export do knihovny…</span></button>
+                </div>
+              </div>
               <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Close</span></button>
             </div>
             <span class="cap">MIX</span>
@@ -12571,6 +12605,64 @@ const ToneRig = (() => {
   return {load, label, select, step, openSettings, outputs};
 })();
 
+// Tool menus (.tmenu): a category button that unrolls its tools. The list is
+// lifted to <body> while open, so no scrolling bar can clip it, and goes back
+// (or away, when its bar has been redrawn meanwhile) on close.
+const TMenu = (() => {
+  let cur = null;
+  function sync(wrap, pop){
+    const btn = wrap.querySelector(":scope > .tm-btn");
+    if(btn) btn.classList.toggle("has-on", !!(pop || wrap).querySelector(".tm-item.active, .tm-item.on"));
+  }
+  function place(){
+    if(!cur) return;
+    const a = cur.wrap.getBoundingClientRect(), r = cur.pop.getBoundingClientRect();
+    cur.pop.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    const below = a.bottom + 6;
+    cur.pop.style.top = (below + r.height > window.innerHeight - 8 ? Math.max(8, a.top - r.height - 6) : below) + "px";
+  }
+  function close(){
+    if(!cur) return;
+    const {wrap, pop} = cur;
+    cur = null;
+    pop.classList.remove("show");
+    wrap.classList.remove("open");
+    if(wrap.isConnected) wrap.appendChild(pop); else pop.remove();
+  }
+  function open(wrap){
+    close();
+    const pop = wrap && wrap.querySelector(":scope > .tm-pop");
+    if(!pop) return;
+    document.body.appendChild(pop);
+    pop.classList.add("show");
+    wrap.classList.add("open");
+    cur = {wrap, pop, key: wrap.dataset.tmenu};
+    place();
+  }
+  function wire(root){
+    root.querySelectorAll(".tmenu").forEach(wrap => {
+      const btn = wrap.querySelector(":scope > .tm-btn"), pop = wrap.querySelector(":scope > .tm-pop");
+      if(!btn || !pop) return;
+      btn.onclick = () => (cur && cur.wrap === wrap ? close() : open(wrap));
+      sync(wrap, pop);
+      new MutationObserver(() => sync(wrap, pop)).observe(pop, {subtree: true, attributes: true, attributeFilter: ["class"]});
+    });
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if(cur && !cur.pop.contains(e.target) && !cur.wrap.contains(e.target)) close();
+  }, true);
+  // Capture: the tool's own handler may redraw the bar before the click gets here.
+  document.addEventListener("click", (e) => {
+    if(!cur || !cur.pop.contains(e.target)) return;
+    const it = e.target.closest(".tm-item");
+    if(it && !it.disabled && !it.hasAttribute("data-stay")) setTimeout(close, 0);
+  }, true);
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape") close(); });
+  window.addEventListener("resize", close);
+  return {wire, open, close, openIn: (root) => (cur && root.contains(cur.wrap) ? cur.key : null)};
+})();
+TMenu.wire(document);
+
 const Mixer = (() => {
   let stretchNodeFactory = null;
 
@@ -13063,7 +13155,10 @@ const Mixer = (() => {
         mono: !!(saved && saved.mono),
         comp: {...COMP_DEFAULT, ...(saved && saved.comp || {})},
         dbl: {...DBL_DEFAULT, ...(saved && saved.dbl || {})},
+        // a NAM profile on this track alone: {file, name}
+        amp: saved && saved.amp && saved.amp.file ? {file: String(saved.amp.file), name: String(saved.amp.name || "")} : null,
       },
+      ampNode: null, ampCab: null, ampToken: 0,
     };
     fx.pre.fftSize = 512;
     // Downmix to one channel; whatever follows (the panner) spreads it again.
@@ -13074,13 +13169,35 @@ const Mixer = (() => {
     applyCompParams(fx);
     wireFx(fx);
     if(fx.state.dbl.on) ensureDoubler(fx);
+    if(fx.state.amp) setFxAmp(fx, fx.state.amp).catch(() => {});
     return fx;
+  }
+  // ---- an amp on one track: a recorded guitar is the plain signal of the
+  // instrument, and this puts it through a NAM profile of the catalogue —
+  // on that track only, as it plays; the recording itself stays as it is.
+  // (The cabinet is the live guitar's, when one is chosen there.)
+  async function setFxAmp(fx, amp){
+    fx.state.amp = amp ? {file: amp.file, name: amp.name} : null;
+    const token = ++fx.ampToken;
+    if(!amp){ wireFx(fx); return; }
+    const res = await fetch(`/api/amps/${encodeURIComponent(amp.file)}`);
+    if(!res.ok) throw new Error("Profil se nepodařilo načíst");
+    const json = await res.text();
+    const eng = await Amp.engine();
+    if(!fx.ampNode) fx.ampNode = await eng.createNode();
+    await fx.ampNode.loadModel(json);
+    if(token !== fx.ampToken) return;
+    const cab = Amp.cabBuffer();
+    if(cab && (!fx.ampCab || fx.ampCab.buffer !== cab)){ fx.ampCab = ctx().createConvolver(); fx.ampCab.normalize = true; fx.ampCab.buffer = cab; }
+    if(!cab) fx.ampCab = null;
+    wireFx(fx);
   }
 
   function wireFx(fx){
-    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output, fx.ampNode, fx.ampCab].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
     fx.input.connect(fx.pre);
     let n = fx.input;
+    if(fx.state.amp && fx.ampNode){ n.connect(fx.ampNode); n = fx.ampNode; if(fx.ampCab){ n.connect(fx.ampCab); n = fx.ampCab; } }
     if(fx.state.comp.on){ n.connect(fx.comp); n = fx.makeup; }
     if(fx.state.mono){ n.connect(fx.mono); n = fx.mono; }
     if(fx.state.dbl.on && fx.dbl){ n.connect(fx.dbl.input); n = fx.dbl.output; }
@@ -13104,7 +13221,7 @@ const Mixer = (() => {
   }
 
   function fxSnapshot(fx){
-    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}} : null;
+    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null} : null;
   }
 
   // ---- the doubler ----
@@ -15139,6 +15256,59 @@ const Mixer = (() => {
   // The click as its own track at the top of the mixer: volume, pan, mute and
   // a voice picker on the left, and every click drawn on the right. Having the
   // clicks visible is what makes a loop region easy to place on a bar line.
+  // ---- what a recorded track sounds like: through a NAM profile, or as an
+  // instrument. The profiles are the catalogue's; the arrows walk it.
+  const TrackAmp = (() => {
+    let models = null, groups = null;
+    const wants = (c) => !c.midi && (/^take-/.test(c.stem) || /guitar|kytar|\bdi\b/i.test(c.stem + " " + stemLabel(c.stem)));
+    const label = (c) => c.fx && c.fx.state.amp ? c.fx.state.amp.name : "Zesilovač: žádný";
+    async function catalogue(){
+      if(models) return models;
+      const all = await (await fetch("/api/amps?category=all")).json();
+      models = all.filter(a => a.kind === "model").map(a => {
+        // library profiles sit in folders by amp; the rest have a category
+        const parts = a.file.replace(/^[a-z]+:/, "").split("/");
+        return {id: a.file, nazev: a.name, group: parts.length > 1 ? parts[parts.length - 2] : (a.category || "Ostatní")};
+      });
+      const by = new Map();
+      models.forEach(m => { if(!by.has(m.group)) by.set(m.group, []); by.get(m.group).push(m); });
+      groups = [{kategorie: "— bez zesilovače —", nastroje: [{id: "", nazev: "Zesilovač: žádný"}]}]
+        .concat([...by.entries()].sort((a, b) => a[0].localeCompare(b[0], "cs")).map(([k, v]) => ({kategorie: k, nastroje: v})));
+      return models;
+    }
+    async function set(c, id){
+      const m = id ? (models || []).find(x => x.id === id) : null;
+      const btn = [...document.querySelectorAll("#nm-rail .nm-strip[data-ch]")][channels.indexOf(c)];
+      const name = btn && btn.querySelector(".amp-name");
+      if(name) name.textContent = m ? "načítám…" : "Zesilovač: žádný";
+      try{
+        await setFxAmp(c.fx, m ? {file: m.id, name: m.nazev} : null);
+        if(name) name.textContent = label(c);
+        showToast(m ? `${stemLabel(c.stem)}: ${m.nazev}${Amp.cabBuffer() ? "" : " — bez kabinetu (vybereš ho u živé kytary)"}` : `${stemLabel(c.stem)}: bez zesilovače`);
+        queueSessionSave();
+      }catch(e){ c.fx.state.amp = null; wireFx(c.fx); if(name) name.textContent = label(c); showToast(e.message || "Profil se nepodařilo načíst"); }
+    }
+    async function pick(c, anchor){
+      try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
+      if(!models.length){ showToast("V katalogu zatím nejsou žádné NAM profily"); return; }
+      InstrPick.open(anchor, groups, c.fx.state.amp ? c.fx.state.amp.file : "", (id) => set(c, id));
+    }
+    async function step(c, d){
+      try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
+      const n = InstrPick.step(groups, c.fx.state.amp ? c.fx.state.amp.file : "", d);
+      if(n) set(c, n.id);
+    }
+    // The other way to dress a plain recording: its notes, on an instrument.
+    async function toInstrument(c){
+      const m = await Midi.addTrack();
+      if(!m) return;
+      stemLabels[m.stem] = `${stemLabel(c.stem)} (nástroj)`.slice(0, 80);
+      await Midi.fromAudio(c, m);
+      if(m.midi.notes.length && !c.muted){ c.muted = true; applyGains(); queueSessionSave(); renderTimeline(); showToast(`„${stemLabel(c.stem)}“ je ztlumená — hraje ji nástroj; ten změníš šipkami na nové MIDI stopě`); }
+    }
+    return {wants, label, pick, step, toInstrument};
+  })();
+
   // ---- the hits of the kit: a lane of lines where each stroke of the drum
   // track falls — where to pick. Found by a threshold of loudness (as in
   // the Performance Analyzer); each can be moved, removed, made an accent,
@@ -17075,12 +17245,21 @@ const Mixer = (() => {
       gainDown: "−3 dB", gainUp: "+3 dB", normalize: "Normal", reverse: "Reverse", undo: "Undo", redo: "Redo"};
     const b = (act, ic, title, enabled) =>
       `<button type="button" class="nm-btn ib lab" data-edit="${act}" title="${title}" aria-label="${title}" ${dis(enabled)}>${icon(ic, 15)}<span class="bl">${LBL[act] || ""}</span></button>`;
+    // A row in a tool menu: the full name, and the shortcut where there is one.
+    const mi = (act, ic, name, key, title, enabled, stay) =>
+      `<button type="button" class="tm-item" data-edit="${act}" ${stay ? "data-stay" : ""} title="${title}" ${dis(enabled)}>${icon(ic, 15)}<span class="tm-t">${name}</span>${key ? `<span class="tm-k">${key}</span>` : ""}</button>`;
+    const menu = (key, ic, label, title, head, rows, live = true) =>
+      `<span class="tmenu" data-tmenu="${key}"><button type="button" class="nm-btn ib lab tm-btn ${live ? "" : "dim"}" title="${title}">${icon(ic, 15)}<span class="bl">${label} ▾</span></button><div class="tm-pop"><div class="tm-head">${head}</div>${rows}</div></span>`;
+    const clipOn = !!selClipChannel();
+    const wasOpen = TMenu.openIn(bar);
     bar.innerHTML = `
-      <span class="grp">
-        <button type="button" class="nm-btn ib lab" id="nm-addtrack" title="Nová stopa ze souboru — libovolný audio soubor z počítače">${icon("fileAdd", 15)}<span class="bl">+ Audio</span></button>
-        <button type="button" class="nm-btn ib lab" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("piano", 15)}<span class="bl">+ MIDI</span></button>
-        <button type="button" class="nm-btn ib lab tool ${Midi.keyboardOn() ? "on" : ""}" id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, čárka/tečka = oktáva) — vypne ostatní zkratky">${icon("keyboard", 15)}<span class="bl">Keys</span></button>
-      </span>
+      ${menu("tracks", "stems", "Stopy", "Stopy — přidat audio nebo MIDI stopu, hrát na klávesnici, Moises, skryté stopy", "Stopy", `
+        <button type="button" class="tm-item" id="nm-addtrack" title="Nová stopa ze souboru — libovolný audio soubor z počítače">${icon("fileAdd", 15)}<span class="tm-t">Nová audio stopa ze souboru…</span></button>
+        <button type="button" class="tm-item" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("piano", 15)}<span class="tm-t">Nová MIDI stopa</span></button>
+        <button type="button" class="tm-item ${Midi.keyboardOn() ? "on" : ""}" data-stay id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, čárka/tečka = oktáva) — vypne ostatní zkratky">${icon("keyboard", 15)}<span class="tm-t">Hrát na klávesnici počítače</span></button>
+        <hr>
+        <button type="button" class="tm-item" id="nm-moises" title="Moises — rozdělit kytaru na sólo a rytmus (příprava k nahrání a automatický import výsledků)">${icon("moises", 15)}<span class="tm-t">Moises — sólo a rytmus…</span></button>
+        ${hiddenChannels.length ? `<button type="button" class="tm-item" data-stay id="nm-hidden-btn" title="Vrátit stopy odebrané křížkem">${icon("eyeOff", 15)}<span class="tm-t">Skryté stopy</span><span class="tm-k">${hiddenChannels.length}</span></button>` : ""}`)}
       <span class="sep"></span>
       <span class="grp">
         <button type="button" class="nm-btn ib lab tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr — klik na dílek ho vybere, tažením ho přesuneš">${icon("pointer", 15)}<span class="bl">Select</span></button>
@@ -17089,13 +17268,11 @@ const Mixer = (() => {
           <option value="off">vyp</option><option value="beat">doby</option><option value="bar">takty</option></select></span>
       </span>
       <span class="sep"></span>
-      <span class="cap">CLIP</span>
-      <span class="grp">
-        ${b("clipCopy", "copy", "Kopírovat vybraný dílek (⌘C)", selClipChannel())}
-        ${b("clipPaste", "paste", "Vložit zkopírovaný dílek na pozici přehrávání do vybrané stopy (⌘V)", c && clipBoard)}
-        ${b("clipDuplicate", "duplicate", "Duplikovat dílek — kopie hned za něj (⌘D)", selClipChannel())}
-        ${b("clipDelete", "trash", "Smazat vybraný dílek (Delete)", selClipChannel())}
-      </span>
+      ${menu("clip", "duplicate", "Dílek", "Dílek — kopírovat, vložit, duplikovat, smazat vystřižený kus stopy", "Vybraný dílek", `
+        ${mi("clipCopy", "copy", "Kopírovat", "⌘C", "Kopírovat vybraný dílek (⌘C)", clipOn)}
+        ${mi("clipPaste", "paste", "Vložit na pozici přehrávání", "⌘V", "Vložit zkopírovaný dílek na pozici přehrávání do vybrané stopy (⌘V)", c && clipBoard)}
+        ${mi("clipDuplicate", "duplicate", "Duplikovat", "⌘D", "Duplikovat dílek — kopie hned za něj (⌘D)", clipOn)}
+        ${mi("clipDelete", "trash", "Smazat", "Del", "Smazat vybraný dílek (Delete)", clipOn)}`, clipOn || (c && clipBoard))}
       <span class="sep"></span>
       <span class="cap">TRACK</span>
       <select id="nm-edit-track" title="Stopa, kterou upravuješ (nebo klikni na její název vlevo)">
@@ -17103,30 +17280,27 @@ const Mixer = (() => {
         ${channels.map((x, i) => `<option value="${i}" ${i === editIdx ? "selected" : ""}>${escapeHtml(stemLabel(x.stem))}${editedStems.has(x.stem) ? " ✎" : ""}</option>`).join("")}
       </select>
       <span class="sel">${hasSel ? `výběr <b>${fmtEditTime(loopStart)}–${fmtEditTime(loopEnd)}</b>` : "výběr: táhni myší po stopě"}</span>
-      <span class="grp">
-        ${b("cut", "scissors", "Vystřihnout výběr do schránky (⌘X) — zbytek stopy se posune", c && r)}
-        ${b("copy", "copy", "Kopírovat výběr (⌘C)", c && r)}
-        ${b("paste", "paste", "Vložit schránku na pozici přehrávání (⌘V) — zbytek stopy se posune", c && clip)}
-        ${b("del", "trash", "Smazat výběr (Delete) — zbytek stopy se posune", c && r)}
-        ${b("silence", "silence", "Ticho — ztlumit výběr (stopa se neposune)", c && r)}
-        ${b("crop", "crop", "Oříznout — ponechat jen výběr, zbytek ztlumit (stopa se neposune)", c && r)}
-      </span>
-      <span class="sep"></span>
-      <span class="grp">
-        ${b("fadeIn", "fadeIn", "Fade in — postupné zesílení přes výběr", c && r)}
-        ${b("fadeOut", "fadeOut", "Fade out — postupné zeslabení přes výběr", c && r)}
-        ${b("gainDown", "gainDown", "Zeslabit o 3 dB (výběr, bez výběru celou stopu)", c, "3")}
-        ${b("gainUp", "gainUp", "Zesílit o 3 dB (výběr, bez výběru celou stopu)", c, "3")}
-        ${b("normalize", "normalize", "Normalizovat — nejhlasitější místo na −0,3 dB (výběr, nebo celá stopa)", c)}
-        ${b("reverse", "reverse", "Obrátit — přehrát výběr pozpátku", c && r)}
-      </span>
+      ${menu("range", "crop", "Výběr", "Výběr ve stopě — vystřihnout, kopírovat, vložit, smazat, ticho, oříznout", "Výběr ve stopě", `
+        ${mi("cut", "scissors", "Vystřihnout", "⌘X", "Vystřihnout výběr do schránky (⌘X) — zbytek stopy se posune", c && r)}
+        ${mi("copy", "copy", "Kopírovat", "⌘C", "Kopírovat výběr (⌘C)", c && r)}
+        ${mi("paste", "paste", "Vložit na pozici přehrávání", "⌘V", "Vložit schránku na pozici přehrávání (⌘V) — zbytek stopy se posune", c && clip)}
+        ${mi("del", "trash", "Smazat", "Del", "Smazat výběr (Delete) — zbytek stopy se posune", c && r)}
+        <hr>
+        ${mi("silence", "silence", "Ticho", "", "Ticho — ztlumit výběr (stopa se neposune)", c && r)}
+        ${mi("crop", "crop", "Oříznout na výběr", "", "Oříznout — ponechat jen výběr, zbytek ztlumit (stopa se neposune)", c && r)}`, c && (r || clip))}
+      ${menu("sound", "fadeIn", "Zvuk", "Zvuk stopy — nájezd a dojezd, hlasitost, normalizace, pozpátku", "Zvuk stopy", `
+        ${mi("fadeIn", "fadeIn", "Nájezd (fade in)", "", "Fade in — postupné zesílení přes výběr", c && r)}
+        ${mi("fadeOut", "fadeOut", "Dojezd (fade out)", "", "Fade out — postupné zeslabení přes výběr", c && r)}
+        <hr>
+        ${mi("gainDown", "gainDown", "Zeslabit o 3 dB", "", "Zeslabit o 3 dB (výběr, bez výběru celou stopu)", c, true)}
+        ${mi("gainUp", "gainUp", "Zesílit o 3 dB", "", "Zesílit o 3 dB (výběr, bez výběru celou stopu)", c, true)}
+        ${mi("normalize", "normalize", "Normalizovat", "", "Normalizovat — nejhlasitější místo na −0,3 dB (výběr, nebo celá stopa)", c)}
+        ${mi("reverse", "reverse", "Pozpátku", "", "Obrátit — přehrát výběr pozpátku", c && r)}`, !!c)}
       <span class="sep"></span>
       <span class="grp">
         ${b("undo", "undo", "Zpět (⌘Z)", undoStack.length)}
         ${b("redo", "redo", "Znovu (⇧⌘Z)", redoStack.length)}
         ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn ib lab" id="nm-edit-restore" title="Obnovit původní — zahodit všechny úpravy téhle stopy">${icon("history", 15)}<span class="bl">Restore</span></button>` : ""}
-        <button type="button" class="nm-btn ib lab" id="nm-moises" title="Moises — rozdělit kytaru na sólo a rytmus (příprava k nahrání a automatický import výsledků)">${icon("moises", 15)}<span class="bl">Moises</span></button>
-        ${hiddenChannels.length ? `<button type="button" class="nm-btn ib lab" id="nm-hidden-btn" title="Skryté stopy (${hiddenChannels.length}) — vrátit stopy odebrané křížkem">${icon("eyeOff", 15)}<span class="bl">Hidden ${hiddenChannels.length}</span></button>` : ""}
       </span>
       <span class="status"></span>`;
     bar.querySelector("#nm-addtrack").onclick = () => el("nm-addtrack-file").click();
@@ -17145,6 +17319,8 @@ const Mixer = (() => {
     const hb = bar.querySelector("#nm-hidden-btn");
     if(hb) hb.onclick = (e) => openHiddenMenu(e.currentTarget);
     bar.querySelector("#nm-moises").onclick = () => MoisesPanel.open();
+    TMenu.wire(bar);
+    if(wasOpen) TMenu.open(bar.querySelector(`[data-tmenu="${wasOpen}"]`));
     paintEditStatus();
   }
 
@@ -17249,8 +17425,19 @@ const Mixer = (() => {
           <button type="button" class="inst-step inst-prev" title="Předchozí nástroj">◀</button>
           <button type="button" class="inst" title="Nástroj téhle stopy — klik: sekce nástrojů a nástroje z ní. Stopa si ho pamatuje.">${escapeHtml(Midi.instrumentName(c))}</button>
           <button type="button" class="inst-step inst-next" title="Další nástroj">▶</button>
+        </div>` : TrackAmp.wants(c) ? `<div class="midi-row inst-line amp-line">
+          <button type="button" class="inst-step amp-prev" title="Předchozí NAM profil">◀</button>
+          <button type="button" class="inst amp-name" title="Zesilovač (NAM profil) jen na téhle stopě — klik: katalog · šipky: předchozí a další. Nahrávka sama zůstává čistá.">${escapeHtml(TrackAmp.label(c))}</button>
+          <button type="button" class="inst-step amp-next" title="Další NAM profil">▶</button>
+          <button type="button" class="inst-step amp-inst" title="Zahrát tuhle stopu nástrojem: převede se na noty do nové MIDI stopy, tam si nástroj vybereš šipkami">♪</button>
         </div>` : `<div class="nm-strip-info">${railInfo(c)}</div>`}
       `;
+      if(!c.midi && TrackAmp.wants(c)){
+        strip.querySelector(".amp-name").onclick = (e) => TrackAmp.pick(c, e.currentTarget);
+        strip.querySelector(".amp-prev").onclick = (e) => { e.stopPropagation(); TrackAmp.step(c, -1); };
+        strip.querySelector(".amp-next").onclick = (e) => { e.stopPropagation(); TrackAmp.step(c, 1); };
+        strip.querySelector(".amp-inst").onclick = (e) => { e.stopPropagation(); TrackAmp.toInstrument(c); };
+      }
       if(c.midi){
         Midi.connect(true);                               // hardware keys play the chosen MIDI track straight away
         strip.querySelector(".midi-row .rec").onclick = () => Midi.toggleRec(c);
@@ -18236,7 +18423,7 @@ const Mixer = (() => {
       showToast("Export selhal");
     }finally{
       exportBtn.disabled = false;
-      exportBtn.innerHTML = icon("download", 14);
+      exportBtn.innerHTML = `${icon("download", 15)}<span class="tm-t">Export do knihovny…</span>`;
     }
   }
 
@@ -18296,7 +18483,7 @@ const Mixer = (() => {
       showToast(e && e.message ? e.message : "Export selhal");
     }finally{
       exportBtn.disabled = false;
-      exportBtn.innerHTML = icon("download", 14);
+      exportBtn.innerHTML = `${icon("download", 15)}<span class="tm-t">Export do knihovny…</span>`;
     }
   }
 
@@ -21081,11 +21268,22 @@ const Mixer = (() => {
       if(!navigator.requestMIDIAccess){ if(!quiet) showToast("Tenhle prohlížeč neumí MIDI — otevři aplikaci v Chrome"); return false; }
       try{ access = await navigator.requestMIDIAccess(); }
       catch(e){ if(!quiet) showToast("Přístup k MIDI zamítnut"); return false; }
-      const bind = () => access.inputs.forEach(inp => { inp.onmidimessage = onMsg; });
+      const bind = () => access.inputs.forEach(inp => { if(inp.onmidimessage !== onMsg) inp.onmidimessage = onMsg; });
+      // What is plugged in is known quietly. A word only when a device really
+      // comes or goes afterwards — not for every port the browser opens at
+      // the start (each of those reports a "change" of its own).
+      const seen = new Map();
+      access.inputs.forEach(inp => seen.set(inp.id, inp.state));
       bind();
+      const since = performance.now();
       access.onstatechange = (e) => {
         bind();
-        if(e.port && e.port.type === "input") showToast(`MIDI: ${e.port.name} ${e.port.state === "connected" ? "připojeno" : "odpojeno"}`);
+        const port = e.port;
+        if(!port || port.type !== "input") return;
+        const was = seen.get(port.id);
+        seen.set(port.id, port.state);
+        if(was === port.state || performance.now() - since < 3000) return;
+        showToast(`MIDI: ${port.name} ${port.state === "connected" ? "připojeno" : "odpojeno"}`);
       };
       const names = [...access.inputs.values()].map(i => i.name);
       if(!quiet) showToast(names.length ? `MIDI: ${names.join(", ")}` : "Žádné MIDI klávesy nejsou připojené");
@@ -21316,7 +21514,8 @@ const Mixer = (() => {
       box.hidden = false;
       box.innerHTML = `
         <div class="midi-ed-head">
-          <span class="midi-ed-name">${icon("piano", 14)} <b>${escapeHtml(stemLabel(c.stem))}</b> · ${escapeHtml(instrumentName(c))}</span>
+          <span class="midi-ed-name">${icon("piano", 14)} <b>${escapeHtml(stemLabel(c.stem))}</b>
+            <button type="button" class="nm-btn tx" id="me-inst-prev" title="Předchozí nástroj">◀</button><button type="button" class="nm-btn tx" id="me-inst" title="Nástroj téhle stopy — klik: sekce nástrojů a nástroje z ní" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(instrumentName(c))}</button><button type="button" class="nm-btn tx" id="me-inst-next" title="Další nástroj">▶</button></span>
           <span class="mtb">
             ${tb("me-t-select", "pointer", "Výběr (V) — klik označí, tažení po prázdnu = označit více, tažení tónu = posun, okraj = délka")}
             ${tb("me-t-draw", "pencil", "Tužka (B) — klik vloží tón, tažení = délka")}
@@ -21383,6 +21582,9 @@ const Mixer = (() => {
         <div class="midi-ed-resize" id="midi-resize" title="Táhni — výška editoru"></div>`;
       const q = (id) => box.querySelector("#" + id);
       q("midi-close").onclick = closeEditor;
+      q("me-inst").onclick = (e) => pickInstrument(c, e.currentTarget);
+      q("me-inst-prev").onclick = () => stepInstrument(c, -1);
+      q("me-inst-next").onclick = () => stepInstrument(c, 1);
       q("me-play").onclick = () => { isPlaying ? pause() : play(); setTimeout(paintTransport, 60); };
       q("me-loop").onclick = () => { toggleLoop(); paintTransport(); schedulePaint(); };
       wireRuler(q("midi-ruler"));
@@ -22863,6 +23065,7 @@ const Mixer = (() => {
     let node = null;
     let guideNode = null;
     let loading = false;
+    let cabBuf = null;        // the decoded cabinet, for the amps on single tracks too
 
     async function ensureEngine(){
       if(engine) return engine;
@@ -22918,6 +23121,7 @@ const Mixer = (() => {
       const res = await fetch(`/api/amps/${encodeURIComponent(file)}`);
       if(!res.ok) throw new Error("impuls se nepodařilo stáhnout");
       const buf = await ctx().decodeAudioData(await res.arrayBuffer());
+      cabBuf = buf;
       const conv = ctx().createConvolver();
       conv.normalize = true;
       conv.buffer = buf;
@@ -22930,9 +23134,9 @@ const Mixer = (() => {
       return buf.duration;
     }
 
-    function unloadCab(){ Guitar.setCab(null, null); Guitar.setGuideCab(null); }
+    function unloadCab(){ cabBuf = null; Guitar.setCab(null, null); Guitar.setGuideCab(null); }
 
-    return {load, unload, loadCab, unloadCab, isLoading: () => loading,
+    return {engine: ensureEngine, cabBuffer: () => cabBuf, load, unload, loadCab, unloadCab, isLoading: () => loading,
             hasEngine: () => !!engine, loadTab};
   })();
 
@@ -26129,7 +26333,14 @@ const Piano = (() => {
     return t || st.instrument;
   }
   const steemsRec = (m, v, on) => { try{ Mixer.midi().recNote(m, v, on); }catch(e){} };
-  async function noteOn(m, v = 0.8, quiet){
+  // The fretboard sounds like a guitar of its own choosing, whatever the keys are set to.
+  const GTR_DEFAULT = "electric_strat_clean";
+  const guitarGroups = () => (instGroups || []).filter(g => /kytar|bask/i.test(g.kategorie));
+  async function guitarSound(){
+    await sound();
+    try{ return lib.najdiNastroj(st.fretInstrument || GTR_DEFAULT).soundfont; }catch(e){ return lib.najdiNastroj(GTR_DEFAULT).soundfont; }
+  }
+  async function noteOn(m, v = 0.8, quiet, gtr){
     m = constrain(m);
     if(m == null) return null;
     if(st.latch && !quiet){
@@ -26144,7 +26355,7 @@ const Piano = (() => {
     if(!quiet){ history.push(m % 12); if(history.length > 32) history.shift(); liveToFrets(); }
     paintInfo();
     let sf;
-    try{ sf = await sound(); }catch(e){ return m; }
+    try{ sf = gtr ? await guitarSound() : await sound(); }catch(e){ return m; }
     if(!zv.jeNacteny(sf)){ zv.nacti(sf).catch(() => showToast("Zvuk nástroje se nepodařilo stáhnout")); }
     const prev = sounding.get(m);
     if(prev) zv.utni(prev);
@@ -26298,6 +26509,8 @@ const Piano = (() => {
   // track — onto the fretboard as it sounds: where to hold that note or
   // chord. It stays after the keys are let go, until the next thing played.
   // (A chord's notes land a few milliseconds apart: one look, once they are in.)
+  // Hardware keys are played to be seen on the guitar: the fretboard comes up by itself.
+  function showFret(){ if(!st.fret && FW.isOpen()){ const b = el("pk-fret"); if(b) b.click(); } }
   let liveFretTimer = 0;
   function liveToFrets(){
     if(!st.fret || st.latch) return;                       // "Akord" mode has its own tapped chord
@@ -26544,7 +26757,7 @@ const Piano = (() => {
       lib = L;
       if(!st.instrument) st.instrument = L.VYCHOZI_NASTROJ;
       instGroups = L.nastrojePodleKategorii();
-      paintInst();
+      paintInst(); paintFretboard();
     }).catch(() => { q("pk-inst").textContent = "nástroje se nenačetly"; });
     if(navigator.keyboard && navigator.keyboard.getLayoutMap){
       navigator.keyboard.getLayoutMap().then(m => { layout = m; paintKeys(true); }).catch(() => {});
@@ -26658,6 +26871,7 @@ const Piano = (() => {
         <option value="__new">+ Vlastní ladění…</option></select>
       ${cur && !Tunings.isBuiltin(cur.id) ? `<button type="button" id="pk-tun-edit" title="Upravit tohle ladění">Upravit</button>` : ""}
       <button type="button" id="pk-tun-tuner" title="Otevřít ladičku na tomhle ladění">Ladička</button>
+      <span class="grp" title="Zvuk hmatníku — kytary a basy. Klik na název: výběr · šipky: předchozí a další">Zvuk <button type="button" class="inst-step" id="pk-fi-prev">◀</button><button type="button" class="inst-name" id="pk-fi" style="max-width:170px">${escapeHtml(instGroups ? InstrPick.name(instGroups, st.fretInstrument || GTR_DEFAULT) : "kytara")}</button><button type="button" class="inst-step" id="pk-fi-next">▶</button></span>
       <button type="button" id="pk-strum" title="Zahrát hmat">▶ Zahrát</button><button type="button" id="pk-fclear" title="Vymazat hmat">Vymazat</button>
       <span>klik na pražec = tón · znovu = struna ztlumená (x) · 0 = prázdná struna</span></div>`;
     if(tunEdit){
@@ -26727,16 +26941,21 @@ const Piano = (() => {
     }
     box.querySelector("#pk-fclear").onclick = () => { st.frets = [null, null, null, null, null, null]; if(st.latch) latched.clear(); changed(); };
     box.querySelector("#pk-strum").onclick = strum;
+    // the guitar's sound: picked, loaded, and heard on the hold that is shown
+    const setFretInst = (id) => { if(!id) return; st.fretInstrument = id; save(); paintFretboard(); guitarSound().then(sf => zv.nacti(sf)).then(() => { if(fretNotes().length) strum(); }).catch(() => {}); };
+    box.querySelector("#pk-fi").onclick = (e) => { const g = guitarGroups(); if(g.length) InstrPick.open(e.currentTarget, g, st.fretInstrument || GTR_DEFAULT, setFretInst); };
+    box.querySelector("#pk-fi-prev").onclick = () => { const n = InstrPick.step(guitarGroups(), st.fretInstrument || GTR_DEFAULT, -1); if(n) setFretInst(n.id); };
+    box.querySelector("#pk-fi-next").onclick = () => { const n = InstrPick.step(guitarGroups(), st.fretInstrument || GTR_DEFAULT, 1); if(n) setFretInst(n.id); };
     box.querySelectorAll("td[data-s]").forEach(td => td.onclick = () => {
       const s = +td.dataset.s, f = +td.dataset.f;
       st.frets[s] = st.frets[s] === f ? null : f;
       if(cw.on){ cw.on = false; paintWheel(); }
       if(st.latch){ latched.clear(); fretNotes().forEach(m => latched.add(m)); }
       changed();
-      noteOn(tun[s] + (st.frets[s] ?? f), 0.7, true).then(m => setTimeout(() => noteOff(m), 500));
+      noteOn(tun[s] + (st.frets[s] ?? f), 0.7, true, true).then(m => setTimeout(() => noteOff(m), 500));
     });
     box.querySelectorAll("td.lbl[data-open]").forEach(td => td.onclick = () => {
-      noteOn(+td.dataset.open, 0.7, true).then(m => setTimeout(() => noteOff(m), 700));
+      noteOn(+td.dataset.open, 0.7, true, true).then(m => setTimeout(() => noteOff(m), 700));
     });
   }
   // A tuning picked here is the tuner's too.
@@ -26770,7 +26989,7 @@ const Piano = (() => {
   async function strum(){
     const tun = tunMidi();
     const ms = st.frets.map((f, s) => f == null ? null : tun[s] + f).filter(x => x != null).reverse();   // low string first
-    for(let i = 0; i < ms.length; i++){ setTimeout(() => noteOn(ms[i], 0.75, true), i * 35); }
+    for(let i = 0; i < ms.length; i++){ setTimeout(() => noteOn(ms[i], 0.75, true, true), i * 35); }
     setTimeout(() => ms.forEach(noteOff), 1600);
   }
 
@@ -26847,7 +27066,7 @@ const Piano = (() => {
       inp.addEventListener("midimessage", (ev) => {
         if(!FW.isOpen()) return;
         const [stt, d1, d2] = ev.data, cmd = stt & 0xf0;
-        if(cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127).then(m => { midiMap.set(d1, m); });
+        if(cmd === 0x90 && d2 > 0){ showFret(); noteOn(d1, d2 / 127).then(m => { midiMap.set(d1, m); }); }
         else if(cmd === 0x80 || (cmd === 0x90 && d2 === 0)){ noteOff(midiMap.get(d1) ?? d1); midiMap.delete(d1); }
       });
     });
@@ -26874,7 +27093,7 @@ const Piano = (() => {
   function liveNote(m, on){
     const n = liveExt.get(m) || 0;
     if(on) liveExt.set(m, n + 1); else if(n <= 1) liveExt.delete(m); else liveExt.set(m, n - 1);
-    if(FW.isOpen()){ paintKeys(); if(on) liveToFrets(); }
+    if(FW.isOpen()){ paintKeys(); if(on){ showFret(); liveToFrets(); } }
   }
   function follow(now, next){
     followNow = now; followNext = next;
