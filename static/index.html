@@ -1056,6 +1056,16 @@ body.lib-collapsed .pick-brand{display:none}
   .midi-row button:hover{border-color:#55556a}
   .midi-row button.rec.on{background:#ff3b3b;border-color:#ff3b3b;color:#fff}
   .midi-row .inst{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .midi-row.inst-line{margin-top:3px;padding-right:8px;gap:3px}
+  .hits-lane{position:relative;background:rgba(251,191,36,.04);cursor:copy}
+  .hits-lane .dh{position:absolute;top:6px;bottom:6px;width:2px;margin-left:-1px;background:#fbbf24;cursor:ew-resize;border-radius:1px}
+  .hits-lane .dh::before{content:"";position:absolute;left:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:inherit}
+  .hits-lane .dh::after{content:"";position:absolute;left:-6px;right:-6px;top:0;bottom:0}
+  .hits-lane.dense .dh{width:1px;opacity:.55} .hits-lane.dense .dh::before{display:none}
+  .hits-strip .nm-sm.active{border-color:#fbbf24;color:#fbbf24}
+  .hits-lane .dh.own{background:#fde68a} .hits-lane .dh.acc{background:#fb7185;width:3px} .hits-lane .dh.sel{background:#fff}
+  .nm-strip.midi-drop{outline:2px solid #ffd166;outline-offset:-2px;background:rgba(255,209,102,.1)}
+  .midi-row.inst-line .inst-step{padding:2px 5px !important}
   .midi-ed{border-top:1px solid #26262e;background:#121217}
   .midi-ed-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 12px;font-size:12px;color:var(--nm-sub)}
   .midi-ed-head b{color:var(--nm-txt)}
@@ -1071,6 +1081,10 @@ body.lib-collapsed .pick-brand{display:none}
   .midi-ed-head .mtb.vel b{min-width:22px;font-variant-numeric:tabular-nums}
   .midi-ed-head select{background:#1e1e25;color:var(--nm-txt);border:1px solid #32323c;border-radius:7px;padding:5px 6px;font-size:12px;max-width:170px}
   .midi-ed-body{display:flex;height:320px;position:relative}
+  .midi-ed-rulerrow{display:flex;height:24px;border-bottom:1px solid #26262e;background:#16161c}
+  .midi-ed-rulerrow .pad{flex:0 0 46px;border-right:1px solid #26262e;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--nm-sub);display:flex;align-items:center;justify-content:center}
+  .midi-ed-rulerrow .wrap{flex:1;min-width:0;position:relative;overflow:hidden}
+  #midi-ruler{display:block;cursor:pointer}
   .midi-ed-keys{flex:0 0 46px;overflow:hidden;position:relative;background:#18181e;border-right:1px solid #26262e}
   .midi-ed-keys canvas{display:block}
   .midi-ed-main{flex:1;position:relative;min-width:0}
@@ -2367,7 +2381,7 @@ body.lib-collapsed .pick-brand{display:none}
   .stems-group-bar{display:flex;align-items:center;gap:6px;padding:0 4px 12px;flex-wrap:wrap}
   .stems-group-bar span{font-size:12px;color:var(--sub);margin-right:2px}
   .stems-group-bar input{margin-left:auto;width:220px;max-width:100%}
-  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 64px}
+  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 84px}
   .steems-row .c-act{opacity:1}
   .steems-row .c-act button{opacity:0}
   .lib-trow.steems-row:hover .c-act button{opacity:1}
@@ -2619,6 +2633,16 @@ body.lib-collapsed .pick-brand{display:none}
   .pk-ctl .grp{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #26262e;border-radius:8px}
   .pk-ctl button{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer}
   .pk-ctl button.on{border-color:var(--accent);color:var(--accent)}
+  /* choosing an instrument: its family first, then the instruments of that family */
+  .inst-step{flex:none;padding:2px 6px !important;min-width:0;line-height:1.1}
+  .pk-ctl .inst-name{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .inst-pop{display:grid;grid-template-columns:190px 280px;gap:6px;padding:8px;max-height:min(420px,80vh);background:rgba(20,20,26,.97) !important}
+  .inst-pop .col{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:0;max-height:min(404px,76vh)}
+  .inst-pop button{all:unset;box-sizing:border-box;display:block;padding:6px 9px;border-radius:7px;font-size:12.5px;cursor:pointer;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inst-pop button:hover{background:rgba(255,255,255,.07);color:var(--text)}
+  .inst-pop button.on{background:rgba(255,255,255,.1);color:var(--text)}
+  .inst-pop .col.list button.on{color:var(--accent)}
+  .inst-pop .cat i{font-style:normal;float:right;opacity:.5;font-size:11px}
   .pk-info{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-height:26px;font-size:12.5px;color:var(--sub)}
   .pk-chord{font-size:20px;font-weight:800;color:var(--text);min-width:70px}
   .pk-cw{display:flex;gap:14px;align-items:flex-start;padding:4px 0}
@@ -7442,6 +7466,15 @@ function renderToolsGrid(){
 el("chords-home").onclick = () => { el("chords-frame").src = CHORDS_URL; };
 el("chords-out").onclick = () => window.open(CHORDS_URL, "_blank", "noopener");
 
+// One tool handing work to another part of Pick: Loop Studio opens a project
+// in Steems, or sends a loop to the Performance Analyzer as its reference.
+window.addEventListener("message", (e) => {
+  if(e.origin !== location.origin || !e.data || e.data.pick !== true) return;
+  if(e.data.open === "steems" && typeof e.data.name === "string"){
+    fetch("/api/stems").then(r => r.json()).then(list => { steemsSongs = list; openSteemsSong(e.data.name); }).catch(() => openSteemsSong(e.data.name));
+  }
+  if(e.data.open === "analyzer" && e.data.ref && typeof e.data.ref.url === "string" && e.data.ref.url.startsWith("/")){ setMode.handRef = e.data.ref; setMode("analyzer"); }
+});
 function setMode(mode, opts){
   opts = opts || {};
   // A playlist/song overlay is stacked over the stage. Unconditional: this
@@ -7505,6 +7538,11 @@ function setMode(mode, opts){
     // A page of its own (/analyzer), loaded the first time and kept after.
     const fr = el("analyzer-frame");
     if(!fr.getAttribute("src")) fr.src = "/analyzer";
+    // A reference handed over from another tool (a loop from Loop Studio).
+    if(setMode.handRef){ const ref = setMode.handRef; setMode.handRef = null;
+      if(fr.contentWindow && fr.dataset.ready) fr.contentWindow.postMessage({pick: true, ref}, location.origin);
+      else fr.src = "/analyzer#ref=" + encodeURIComponent(JSON.stringify(ref)); }
+    fr.dataset.ready = "1";
   } else if(mode === "loopstudio"){
     const fr = el("loopstudio-frame");
     if(!fr.getAttribute("src")) fr.src = "/loopstudio";
@@ -11194,14 +11232,33 @@ function paintSteemsTable(box, songs){
       <span class="c-album">${escapeHtml(d.album || "")}</span>
       <span class="c-time">${song.duration ? fmtDur(song.duration) : ""}</span>
       <span class="c-act">
+        <button type="button" class="act-preview" title="Přehrát celou píseň v přehrávači dole — poslechni si ji, než ji otevřeš">${icon("play", 13)}</button>
         <button type="button" class="act-meta" title="Upravit interpreta, název a album">${icon("tag", 14)}</button>
       </span>`;
     StemsArt.paint(row.querySelector(".art"), song.name);
     row.onclick = () => loadMixerSong(song.name);
+    row.querySelector(".act-preview").onclick = (e) => { e.stopPropagation(); previewSteemsSong(song, e.currentTarget); };
     row.querySelector(".act-meta").onclick = (e) => { e.stopPropagation(); openSteemsMetaPopover(e.currentTarget, song, box); };
     table.appendChild(row);
   });
   box.appendChild(table);
+}
+
+// A song of the list in the player below, whole and unseparated: the file it
+// was separated from, or — when the library no longer has it, or it never
+// was one song — its stems mixed together (made once, then kept).
+async function previewSteemsSong(song, btn){
+  const d = stemsDisplay(song);
+  if(btn){ btn.disabled = true; btn.style.opacity = "1"; }
+  const slow = setTimeout(() => showToast("Míchám stopy pro náhled…"), 900);
+  try{
+    const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/preview`);
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Náhled se nepodařilo připravit");
+    Player.playLocalQueue([{relPath: data.rel, title: d.title, artists: d.artist || ""}]);
+  }catch(e){ showToast(e.message || "Náhled se nepodařilo připravit"); }
+  clearTimeout(slow);
+  if(btn){ btn.disabled = false; btn.style.opacity = ""; }
 }
 
 function openSteemsMetaPopover(anchor, song, box){
@@ -11241,13 +11298,15 @@ function steemsCard(song, box){
         d.source === "name" && who ? ` <span class="guess">(odhad z názvu)</span>` : ""}</div>
       <div class="stem-chips">${chips}${gone}</div>
     </div>
+    <button type="button" class="stem-card-edit stem-card-play" title="Přehrát celou píseň v přehrávači dole — poslechni si ji, než ji otevřeš">${icon("play", 14)}</button>
     <button type="button" class="stem-card-edit" title="Upravit interpreta, název a album">${icon("tag", 15)}</button>
     <div class="stem-card-meta">
       <div>${song.stems.length} ${song.stems.length < 5 ? "stopy" : "stop"}</div>
       <div class="sub">${song.size_bytes ? fmtSize(song.size_bytes) : ""}</div>
     </div>`;
   row.onclick = (e) => { if(!row.classList.contains("editing")) loadMixerSong(song.name); };
-  row.querySelector(".stem-card-edit").onclick = (e) => { e.stopPropagation(); editSteemsMeta(row, song, box); };
+  row.querySelector(".stem-card-edit:not(.stem-card-play)").onclick = (e) => { e.stopPropagation(); editSteemsMeta(row, song, box); };
+  row.querySelector(".stem-card-play").onclick = (e) => { e.stopPropagation(); previewSteemsSong(song, e.currentTarget); };
   StemsArt.paint(row.querySelector(".stem-card-art"), song.name);
   return row;
 }
@@ -13650,6 +13709,7 @@ const Mixer = (() => {
   }
 
   function pause(){
+    setTimeout(() => { try{ Midi.paintTransport(); }catch(e){} }, 0);        // the editor's own play button
     if(!isPlaying) return;
     pausedAt = currentTime();
     logPlay(ctx().currentTime, pausedAt, 0);
@@ -15079,6 +15139,143 @@ const Mixer = (() => {
   // The click as its own track at the top of the mixer: volume, pan, mute and
   // a voice picker on the left, and every click drawn on the right. Having the
   // clicks visible is what makes a loop region easy to place on a bar line.
+  // ---- the hits of the kit: a lane of lines where each stroke of the drum
+  // track falls — where to pick. Found by a threshold of loudness (as in
+  // the Performance Analyzer); each can be moved, removed, made an accent,
+  // others added; and each can click, plain ones in one voice, accents in
+  // another. Kept per song.
+  const DrumHits = (() => {
+    const KEY = "pick-steems-hits";
+    const H = {on: false, click: false, vol: 1, thr: 0.25, v0: "tick", v1: "rim", removed: [], added: [], marks: {}, sel: null, cands: null, of: null, buf: null, list: null, done: -1, focus: false};
+    // Its own way out: the metronome's fader and mute are the metronome's.
+    let bus = null;
+    const out = () => { if(!bus){ bus = ctx().createGain(); bus.connect(masterOut()); } bus.gain.value = H.vol; return bus; };
+    const drumCh = () => channels.find(c => !c.midi && (c.stem === "drums" || /drum|bic/i.test(stemLabel(c.stem)))) || null;
+    const store = () => { try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } };
+    function save(){ if(!currentSongName) return; const all = store(); all[currentSongName] = {on: H.on, click: H.click, vol: H.vol, thr: H.thr, v0: H.v0, v1: H.v1, removed: H.removed, added: H.added, marks: H.marks}; try{ localStorage.setItem(KEY, JSON.stringify(all)); }catch(e){} }
+    function open(){
+      if(H.of === currentSongName) return;
+      const st = store()[currentSongName] || {};
+      Object.assign(H, {of: currentSongName, on: !!st.on, click: !!st.click, vol: st.vol ?? 1, thr: st.thr ?? 0.25, v0: st.v0 || "tick", v1: st.v1 || "rim", removed: st.removed || [], added: st.added || [], marks: st.marks || {}, sel: null, cands: null, buf: null, list: null});
+    }
+    // Every stroke there could be, with its loudness (1 = the loudest): a peak of the level that rose out of something quieter, placed where its attack begins.
+    function candidates(pcm, rate){
+      const B = Math.max(32, Math.round(rate / 345)), n = Math.floor(pcm.length / B), env = new Float32Array(n); let top = 0;
+      for(let i = 0; i < n; i++){ let m = 0; for(let j = i * B, e = j + B; j < e; j++){ const a = Math.abs(pcm[j]); if(a > m) m = a; } env[i] = m; if(m > top) top = m; }
+      const out = [], R = Math.round(0.04 * rate / B);
+      if(!top) return out;
+      for(let i = 1; i < n - 1; i++){
+        const v = env[i]; if(v < top * 0.02) continue;
+        let peak = true, low = v;
+        for(let k = Math.max(0, i - R); k <= Math.min(n - 1, i + R); k++){ if(env[k] > v || (env[k] === v && k < i)){ peak = false; break; } if(k < i && env[k] < low) low = env[k]; }
+        if(!peak || v < low * 1.6) continue;
+        let b = i; while(b > 0 && i - b < R && env[b - 1] > v * 0.2 && env[b - 1] < env[b]) b--;
+        let at = b * B; for(let j = Math.max(0, (b - 1) * B); j < (i + 1) * B; j++) if(Math.abs(pcm[j]) >= v * 0.25){ at = j; break; }
+        out.push({t: at / rate, s: v / top});
+      }
+      return out;
+    }
+    function list(){
+      open();
+      const c = drumCh(), buf = c && (c.srcBuf || c.buffer);
+      if(!buf) return [];
+      if(!H.cands || H.buf !== buf){ H.buf = buf; H.cands = candidates(buf.getChannelData(0), buf.sampleRate); H.list = null; }
+      if(!H.list){ const gone = new Set(H.removed.map(t => t.toFixed(3))), off = c.clipOffset || 0;
+        H.list = H.cands.filter(x => x.s >= H.thr && !gone.has(x.t.toFixed(3))).map(x => { const key = x.t.toFixed(3); return {t: x.t + off, key, id: "a" + key, a: !!(H.marks[key] || {}).a}; })
+          .concat(H.added.map((x, k) => ({t: x.t, k, id: "m" + k, a: !!x.a}))).sort((a, b) => a.t - b.t); }
+      return H.list;
+    }
+    const changed = (keepSel) => { H.list = null; if(!keepSel) H.sel = null; save(); paint(); };
+    function remove(h){ if(h.k != null) H.added.splice(h.k, 1); else { H.removed.push(+h.key); delete H.marks[h.key]; } changed(); }
+    function moveTo(h, t){
+      if(h.k == null){ H.removed.push(+h.key); delete H.marks[h.key]; H.added.push({t, a: h.a}); h = {...h, k: H.added.length - 1, key: null}; } else H.added[h.k].t = t;
+      h.t = t; h.id = "m" + h.k; H.sel = h.id; H.list = null; return h;
+    }
+    function accent(h){ if(h.k != null) H.added[h.k].a = !h.a; else { if(h.a) delete H.marks[h.key]; else H.marks[h.key] = {a: true}; } changed(true); }
+    let lane = null, info = null;
+    function paint(){
+      if(!lane) return;
+      const hs = H.on ? list() : [];
+      lane.classList.toggle("dense", pixelsPerSecond < 30);          // the whole song in view: thin lines, no heads
+      lane.innerHTML = hs.map(h => `<i class="dh${h.a ? " acc" : ""}${h.k != null ? " own" : ""}${H.sel === h.id ? " sel" : ""}" data-id="${h.id}" style="left:${(h.t * pixelsPerSecond).toFixed(1)}px"></i>`).join("");
+      if(info){ const acc = hs.filter(h => h.a).length; info.textContent = H.on ? `· ${hs.length}${acc ? ` (${acc} důraz)` : ""}` : ""; }
+    }
+    function render(rail, lanes, totalPx){
+      lane = info = null;
+      if(!drumCh()) return;
+      open();
+      const strip = document.createElement("div");
+      strip.className = "nm-strip hits-strip";
+      strip.innerHTML = `
+        <div class="nm-strip-top">
+          <span class="nm-strip-icon" style="color:#fbbf24">${icon("bell", 13)}</span>
+          <span class="nm-strip-name" title="Čáry v místech úderů bicích — vidíš, kdy trsnout. V pruhu: klik do prázdna = nová čára · klik na čáru = důraz · tažení = posun · dvojklik nebo Delete = smazat">Údery <span class="hs-n" style="font-weight:500;opacity:.7"></span></span>
+          <button class="nm-sm hs-on ${H.on ? "active" : ""}" style="width:auto;padding:0 6px" title="Najít údery v bicích a ukázat čáry">čáry</button>
+          <button class="nm-sm hs-click ${H.click ? "active" : ""}" style="width:auto;padding:0 6px" title="Každá čára při přehrávání klikne — přesně tam, kde stojí">klik</button>
+        </div>
+        <div class="nm-pitch-row" title="Práh — jak hlasitý musí úder být, aby dostal čáru"><span class="lbl">PRÁH</span>
+          <input type="range" class="nm-pitch-slider hs-thr" min="0.02" max="0.9" step="0.01" value="${H.thr}"><span class="val hs-thr-v"></span></div>
+        <div class="nm-pitch-row" title="Hlasitost klikání na čárách"><span class="lbl">HLAS</span>
+          <input type="range" class="nm-pitch-slider hs-vol" min="0" max="2" step="0.01" value="${H.vol}"><span class="val hs-vol-v"></span></div>
+        <div class="nm-pitch-row" style="gap:4px">
+          <select class="hs-v0 metro-voice" title="Zvuk základní čáry" style="flex:1;min-width:0">${METRO_VOICES.map(v => `<option value="${v.id}"${v.id === H.v0 ? " selected" : ""}>${v.label}</option>`).join("")}</select>
+          <select class="hs-v1 metro-voice" title="Zvuk čáry s důrazem (klik na čáru)" style="flex:1;min-width:0">${METRO_VOICES.map(v => `<option value="${v.id}"${v.id === H.v1 ? " selected" : ""}>${v.label}</option>`).join("")}</select>
+        </div>
+`;
+      info = strip.querySelector(".hs-n");
+      const fader = strip.querySelector(".hs-thr"), vol = strip.querySelector(".hs-vol");
+      const labels = () => { strip.querySelector(".hs-thr-v").textContent = Math.round(H.thr * 100) + "%"; strip.querySelector(".hs-vol-v").textContent = Math.round(H.vol * 100) + "%"; };
+      labels();
+      fader.oninput = () => { H.thr = +fader.value; labels(); changed(); };
+      vol.oninput = () => { H.vol = +vol.value; labels(); save(); out(); };
+      vol.onchange = () => playClick(false, ctx().currentTime + 0.02, true, H.v0, out());      // hear where it was set
+      strip.querySelector(".hs-on").onclick = (e) => { H.on = !H.on; e.currentTarget.classList.toggle("active", H.on); changed(); };
+      strip.querySelector(".hs-click").onclick = (e) => { H.click = !H.click; e.currentTarget.classList.toggle("active", H.click); H.done = -1; save(); if(H.click && !H.on) showToast("Nejdřív zapni „čáry“ — kliká se na nich"); };
+      strip.querySelector(".hs-v0").onchange = (e) => { H.v0 = e.target.value; save(); playClick(false, ctx().currentTime + 0.02, true, H.v0, out()); };
+      strip.querySelector(".hs-v1").onchange = (e) => { H.v1 = e.target.value; save(); playClick(true, ctx().currentTime + 0.02, true, H.v1, out()); };
+      rail.appendChild(strip);
+
+      lane = document.createElement("div");
+      lane.className = "nm-lane hits-lane";
+      lane.style.width = totalPx + "px";
+      lanes.appendChild(lane);
+      const tAt = (e) => Math.max(0, Math.min(duration, (e.clientX - lane.getBoundingClientRect().left) / pixelsPerSecond));
+      lane.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0 || !H.on) return;
+        e.preventDefault(); e.stopPropagation();
+        H.focus = true;
+        const node = e.target.closest(".dh");
+        let h = node ? list().find(x => x.id === node.dataset.id) : null, fresh = false;
+        if(!h){ H.added.push({t: tAt(e)}); h = {t: tAt(e), k: H.added.length - 1, id: "m" + (H.added.length - 1), a: false}; fresh = true; }
+        H.sel = h.id; changed(true);
+        const x0 = e.clientX; let moved = false;
+        const move = (ev) => { if(!moved && Math.abs(ev.clientX - x0) < 3) return; moved = true; h = moveTo(h, tAt(ev)); paint(); };
+        const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+          if(!moved && !fresh) accent(h); else changed(true); };
+        window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+      });
+      lane.addEventListener("dblclick", (e) => { const node = e.target.closest(".dh"); const h = node && list().find(x => x.id === node.dataset.id); if(h){ e.stopPropagation(); remove(h); } });
+      lane.addEventListener("click", (e) => e.stopPropagation());
+      paint();
+    }
+    document.addEventListener("pointerdown", (e) => { if(!e.target.closest || !e.target.closest(".hits-lane")) H.focus = false; }, true);
+    document.addEventListener("keydown", (e) => {
+      if((e.key !== "Delete" && e.key !== "Backspace") || !H.focus || !H.sel || !H.on || el("mixer").hidden) return;
+      if(e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+      const h = list().find(x => x.id === H.sel); if(h){ e.preventDefault(); e.stopImmediatePropagation(); remove(h); }
+    }, true);
+    // The clicks: what lies just ahead of the song's position, each at its own place on the audio clock.
+    setInterval(() => {
+      if(!H.on || !H.click || !isPlaying || el("mixer").hidden){ H.done = -1; return; }
+      const cur = currentTime(), now = ctx().currentTime, sp = runSpeed || 1;
+      if(H.done < cur - 0.05 || H.done > cur + 1.5) H.done = cur - 0.002;          // a start, a seek, the loop's turn
+      const to = cur + 0.3 * sp, bus0 = out();
+      for(const h of list()){ if(h.t <= H.done) continue; if(h.t > to) break; playClick(h.a, now + (h.t - cur) / sp, true, h.a ? H.v1 : H.v0, bus0); }
+      H.done = Math.max(H.done, to);
+    }, 100);
+    return {render, state: H, list};
+  })();
+
   function renderMetronomeLane(rail, lanes, totalPx, laneH){
     const strip = document.createElement("div");
     strip.className = "nm-strip metro-strip" + (metroMuted ? " muted" : "");
@@ -16008,9 +16205,17 @@ const Mixer = (() => {
     rail.appendChild(line);
     const src = strips[from];
     src.classList.add("dragging");
-    let to = from;
+    let to = from, into = null;
     const railTop = () => rail.getBoundingClientRect().top;
     const move = (ev) => {
+      // An audio track held over the middle of a MIDI track: not a new
+      // place in the order, but its sound written into that track as notes.
+      strips.forEach(x => x.classList.remove("midi-drop"));
+      into = null;
+      if(!c.midi) for(let i = 0; i < strips.length; i++){
+        const r = strips[i].getBoundingClientRect(), t = channels[i];
+        if(t && t.midi && t !== c && ev.clientY > r.top + r.height * 0.2 && ev.clientY < r.bottom - r.height * 0.2){ into = t; strips[i].classList.add("midi-drop"); break; }
+      }
       to = strips.length;
       for(let i = 0; i < strips.length; i++){
         const r = strips[i].getBoundingClientRect();
@@ -16019,12 +16224,14 @@ const Mixer = (() => {
       const ref = strips[Math.min(to, strips.length - 1)].getBoundingClientRect();
       const y = to < strips.length ? ref.top : ref.bottom;
       line.style.top = (y - railTop() - 1) + "px";
-      line.hidden = to === from || to === from + 1;
+      line.hidden = !!into || to === from || to === from + 1;
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       line.remove(); src.classList.remove("dragging");
+      strips.forEach(x => x.classList.remove("midi-drop"));
+      if(into){ Midi.fromAudio(c, into); return; }
       if(to === from || to === from + 1) return;
       const sel = channels[editIdx];
       channels.splice(from, 1);
@@ -16997,6 +17204,7 @@ const Mixer = (() => {
       renderGuitarLane(rail, lanes, totalPx);
       renderSectionsLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
+      DrumHits.render(rail, lanes, totalPx);
       bindSectionLabels();
     }
     requestAnimationFrame(updateLaneOverflowHint);
@@ -17036,15 +17244,22 @@ const Mixer = (() => {
           <button type="button" class="rec ${Midi.isRecording(c) ? "on" : ""}" title="Nahrát z MIDI kláves (s odpočtem)">●</button>
           <button type="button" class="notes" title="Editor tónů">Noty</button>
           <button type="button" class="midi-file" title="Vložit MIDI soubor z počítače — nebo ho na stopu přetáhni">+MIDI</button>
-          <button type="button" class="inst" title="Nástroj — klikni pro výběr">${escapeHtml(Midi.instrumentName(c))}</button>
+        </div>
+        <div class="midi-row inst-line">
+          <button type="button" class="inst-step inst-prev" title="Předchozí nástroj">◀</button>
+          <button type="button" class="inst" title="Nástroj téhle stopy — klik: sekce nástrojů a nástroje z ní. Stopa si ho pamatuje.">${escapeHtml(Midi.instrumentName(c))}</button>
+          <button type="button" class="inst-step inst-next" title="Další nástroj">▶</button>
         </div>` : `<div class="nm-strip-info">${railInfo(c)}</div>`}
       `;
       if(c.midi){
+        Midi.connect(true);                               // hardware keys play the chosen MIDI track straight away
         strip.querySelector(".midi-row .rec").onclick = () => Midi.toggleRec(c);
         strip.querySelector(".midi-row .notes").onclick = () => Midi.openEditor(c);
         strip.querySelector(".midi-row .midi-file").onclick = () => Midi.pickFile(c);
         Midi.wireDrop(strip, () => c, () => currentTime());
         strip.querySelector(".midi-row .inst").onclick = (e) => Midi.pickInstrument(c, e.currentTarget);
+        strip.querySelector(".midi-row .inst-prev").onclick = (e) => { e.stopPropagation(); Midi.stepInstrument(c, -1); };
+        strip.querySelector(".midi-row .inst-next").onclick = (e) => { e.stopPropagation(); Midi.stepInstrument(c, 1); };
       }
 
 
@@ -17496,6 +17711,7 @@ const Mixer = (() => {
     updateSeekUI(t);
     updateRulerPlayhead(t);
     drawEq();
+    Midi.onTick(t);
 
     // Virtual Guitar Guide: every part that is not muted plays, each on its own
     // set of strings.
@@ -18243,11 +18459,11 @@ const Mixer = (() => {
   }
 
   // force: sound even with the click muted (a recording's count-in).
-  function playClick(accent, when, force){
+  function playClick(accent, when, force, voiceId, dest){
     if(metroMuted && !force) return;
     const ac = ctx();
-    const voice = METRO_VOICES.find(v => v.id === metroVoice) || METRO_VOICES[0];
-    const out = metroOut();
+    const voice = METRO_VOICES.find(v => v.id === (voiceId || metroVoice)) || METRO_VOICES[0];
+    const out = dest || metroOut();                  // the hits lane has a fader of its own
     const peak = accent ? 0.9 : 0.45;
 
     if(voice.tone){
@@ -20876,6 +21092,10 @@ const Mixer = (() => {
       return true;
     }
     function onMsg(e){
+      // With the keyboard window open, it takes the keys (and plays this
+      // track's sound, and writes into a take being recorded) — not both.
+      if(typeof Piano !== "undefined" && Piano.isOpen()) return;
+      if(el("mixer").hidden || !channels.some(c => c.midi)) return;
       const [st, d1, d2] = e.data, cmd = st & 0xf0;
       if(cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127);
       else if(cmd === 0x80 || (cmd === 0x90 && d2 === 0)) noteOff(d1);
@@ -20939,29 +21159,81 @@ const Mixer = (() => {
     }
 
     // ---- instrument ----
+    // A track's audio, heard as notes, into a MIDI track (dragged there by
+    // its grip). Chords come out as chords. The notes land where the audio
+    // is in the song; what the track already holds stays (⌘Z takes it back).
+    // Which instrument a track's audio most likely is, for the MIDI track its
+    // notes go to. What the track is (bass, piano, guitar, voice) is known
+    // from its name; within that, a rough look at the sound: a guitar that
+    // is squashed flat is a distorted one, long held notes are a pad or
+    // strings. A guess to start from — not a recognition of the instrument.
+    function guessInstrument(srcC, notes){
+      const what = (srcC.stem + " " + stemLabel(srcC.stem)).toLowerCase();
+      const long = notes.length ? notes.reduce((a, n) => a + n.d, 0) / notes.length : 0;
+      if(/bas/.test(what)) return ["fender_precision_pick", "basa"];
+      if(/piano|klav|key/.test(what)) return ["grand_piano_yamaha", "piano"];
+      if(/vocal|zpěv|zpev|voice|vox/.test(what)) return ["heavenly_choir_pad", "zpěv"];
+      if(/guitar|kytar/.test(what)){
+        // how far the peaks stand above the body of the sound, where it plays
+        const buf = srcC.srcBuf || srcC.buffer, x = buf.getChannelData(0), F = 2048, crests = [];
+        let top = 0; for(let i = 0; i < x.length; i += 97){ const a = Math.abs(x[i]); if(a > top) top = a; }
+        for(let i = 0; i + F < x.length && crests.length < 4000; i += F * 4){
+          let pk = 0, e = 0; for(let j = i; j < i + F; j++){ const a = Math.abs(x[j]); if(a > pk) pk = a; e += a * a; }
+          const rms = Math.sqrt(e / F); if(rms > top * 0.08) crests.push(pk / rms);
+        }
+        crests.sort((a, b) => a - b);
+        const crest = crests.length ? crests[crests.length >> 1] : 9;
+        return crest < 2.5 ? ["heavy_metal_lead", "zkreslená kytara"] : crest < 3.3 ? ["electric_lespaul_crunch", "kytara s crunchem"] : ["electric_strat_clean", "čistá kytara"];
+      }
+      return long > 0.7 ? ["full_string_orchestra", "dlouhé držené tóny"] : long > 0.35 ? ["warm_analog_pad", "měkké tóny"] : ["juno106_warm_saw", "krátké tóny"];
+    }
+    async function fromAudio(srcC, dstC){
+      if(!srcC || !dstC || !dstC.midi || srcC.midi) return;
+      if(/drum|kick|snare|hat|cymbal|tom|perc|bic/i.test(srcC.stem + " " + stemLabel(srcC.stem))){ showToast("Bicí nemají výšku tónu — na noty se nepřevádějí"); return; }
+      showToast(`Převádím „${stemLabel(srcC.stem)}“ na noty…`);
+      try{
+        const res = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/${encodeURIComponent(srcC.stem)}/notes`, {method: "POST"});
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || "Převod se nepodařil");
+        if(!channels.includes(dstC) && !hiddenChannels.includes(dstC)) return;
+        const off = srcC.clipOffset || 0;
+        const notes = data.notes.map(n => ({m: n.m, t: Math.max(0, n.t + off), d: n.d, v: n.v}));
+        if(!notes.length){ showToast("Ve stopě se nenašly žádné tóny"); return; }
+        const wasEmpty = !dstC.midi.notes.length;
+        pushEdUndo(dstC);
+        dstC.midi.notes.push(...notes);
+        dstC.midi.notes.sort((a, b) => a.t - b.t || a.m - b.m);
+        dstC.midiSrc = {rel: "", name: stemLabel(srcC.stem)};
+        // An empty track takes the sound of what was put in; one that already plays something keeps its own.
+        let said = "";
+        if(wasEmpty){ const [id, why] = guessInstrument(srcC, notes); try{ await setInstrument(dstC, id); said = ` · nástroj: ${instrumentName(dstC)} (odhad: ${why})`; }catch(e){} }
+        renderTimeline();
+        changed(dstC, 10);
+        openEditor(dstC, true);
+        if(ed){ ed.sel = new Set(notes); paintEditor(); paintToolbar(); }
+        showToast(`${notes.length} tónů z „${stemLabel(srcC.stem)}“ je ve stopě „${stemLabel(dstC.stem)}“${said}`);
+      }catch(e){ showToast(e.message || "Převod se nepodařil"); }
+    }
+    // What the track that is played now sounds like (for the keyboard, which follows it).
+    const targetInstrument = () => { const c = rec ? rec.c : target(); return c ? c.midi.instrument : null; };
+    function setTargetInstrument(id){ const c = target(); if(c && c.midi.instrument !== id) setInstrument(c, id, true); }
     async function pickInstrument(c, anchor){
-      const old = el("midi-inst-pop");
-      if(old){ old.remove(); return; }
       let L;
       try{ ({L} = await zvuky()); }catch(e){ showToast("Knihovnu nástrojů se nepodařilo načíst"); return; }
-      const groups = L.nastrojePodleKategorii();
-      const box = document.createElement("div");
-      box.className = "sect-menu";
-      box.id = "midi-inst-pop";
-      box.innerHTML = `<div class="ss-head">Nástroj MIDI stopy</div>
-        <div style="padding:6px 10px"><select style="width:100%">${groups.map(g => `<optgroup label="${escapeHtml(g.kategorie)}">${
-          g.nastroje.map(n => `<option value="${escapeHtml(n.id)}" ${n.id === c.midi.instrument ? "selected" : ""}>${escapeHtml(n.nazev)}</option>`).join("")}</optgroup>`).join("")}</select></div>`;
-      document.body.appendChild(box);
-      const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
-      box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
-      box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
-      box.querySelector("select").onchange = (e) => setInstrument(c, e.target.value);
-      const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ box.remove(); document.removeEventListener("pointerdown", away, true); } };
-      document.addEventListener("pointerdown", away, true);
+      InstrPick.open(anchor, L.nastrojePodleKategorii(), c.midi.instrument, (id) => setInstrument(c, id));
     }
-    async function setInstrument(c, id){
+    // The next instrument, or the one before: for trying sounds on a track.
+    async function stepInstrument(c, d){
+      let L;
+      try{ ({L} = await zvuky()); }catch(e){ showToast("Knihovnu nástrojů se nepodařilo načíst"); return; }
+      const n = InstrPick.step(L.nastrojePodleKategorii(), c.midi.instrument, d);
+      if(n) setInstrument(c, n.id, true);
+    }
+    async function setInstrument(c, id, fromKeys){
       c.midi.instrument = id;
-      showToast("Načítám zvuk nástroje…");
+      showToast(`${stemLabel(c.stem)}: ${instrumentName(c)}`);
+      // the keyboard plays the same sound as the track it plays into
+      if(!fromKeys && c === target() && typeof Piano !== "undefined") Piano.setInstrument(id, true);
       try{ const {L, zv: zvs} = await zvuky(); await zvs.nacti(L.najdiNastroj(id).soundfont); }catch(e){}
       renderTimeline();
       if(editorC === c) openEditor(c, true);
@@ -21086,10 +21358,16 @@ const Mixer = (() => {
             ${tb("me-undo", "undo", "Zpět (⌘Z)")}
             ${tb("me-redo", "redo", "Znovu (⇧⌘Z)")}
           </span>
+          <span class="mtb" title="Přehrávání písně i s MIDI přímo odsud">
+            <button type="button" class="nm-btn tx" id="me-play" title="Přehrát / pauza (mezerník)">▶</button>
+            <button type="button" class="nm-btn tx" id="me-loop" title="Smyčka zap/vyp — rozsah vybereš tažením po ose taktů nad notami">⟲ smyčka</button>
+          </span>
           <button type="button" class="nm-btn" id="midi-import" title="Vložit MIDI soubor z počítače na pozici přehrávání — nebo ho sem přetáhni (z Finderu i z Knihovny vlevo)">Vložit MIDI…</button>
           <button type="button" class="nm-btn" id="midi-save" title="Uloží označené tóny (nebo všechny) jako MIDI soubor do Knihovny → Loops/Riffs. Tóny z riffu se pod stejným názvem uloží zpět do jeho souboru.">Uložit do knihovny…</button>
           <button type="button" class="nm-btn" id="midi-close" style="margin-left:auto">Zavřít</button>
         </div>
+        <div class="midi-ed-rulerrow"><div class="pad">TAKTY</div>
+          <div class="wrap" title="Klik = přesun přehrávání · tažení = smyčka (na doby; s Alt volně) · dvojklik = zrušit smyčku"><canvas id="midi-ruler"></canvas></div></div>
         <div class="midi-ed-body" id="midi-body" style="height:${edPrefs.height}px">
           <div class="midi-ed-keys"><canvas id="midi-keys"></canvas></div>
           <div class="midi-ed-main">
@@ -21105,6 +21383,10 @@ const Mixer = (() => {
         <div class="midi-ed-resize" id="midi-resize" title="Táhni — výška editoru"></div>`;
       const q = (id) => box.querySelector("#" + id);
       q("midi-close").onclick = closeEditor;
+      q("me-play").onclick = () => { isPlaying ? pause() : play(); setTimeout(paintTransport, 60); };
+      q("me-loop").onclick = () => { toggleLoop(); paintTransport(); schedulePaint(); };
+      wireRuler(q("midi-ruler"));
+      paintTransport();
       q("midi-import").onclick = () => pickFile(c);
       q("midi-save").onclick = () => saveToLibrary(c);
       q("me-t-select").onclick = () => setEdTool("select");
@@ -21202,6 +21484,78 @@ const Mixer = (() => {
       sp.style.width = Math.ceil(end * edPps()) + "px";
       sp.style.height = ((HI - LO + 1) * ROWH()) + "px";
     }
+    // ---- the editor's own axis of bars, and the song played from here ----
+    function paintTransport(){
+      const p = el("me-play"), l = el("me-loop");
+      if(p) p.textContent = isPlaying ? "❚❚" : "▶";
+      if(l) l.classList.toggle("on", loopEnabled && loopEnd > loopStart);
+    }
+    const nearBeat = (t) => { if(!beatTimes.length) return t; let best = beatTimes[0]; for(const b of beatTimes){ if(Math.abs(b - t) < Math.abs(best - t)) best = b; else if(b > t) break; } return best; };
+    function paintRuler(){
+      const cv = el("midi-ruler"), sc = el("midi-scroll");
+      if(!cv || !sc) return;
+      const W = sc.clientWidth, Hh = 24, sx = sc.scrollLeft, pps = edPps();
+      if(!W) return;
+      const g = fitCanvas(cv, W, Hh);
+      g.fillStyle = "#16161c"; g.fillRect(0, 0, W, Hh);
+      const t0 = sx / pps, t1 = (sx + W) / pps;
+      if(loopEnd > loopStart){
+        const a = loopStart * pps - sx, b = loopEnd * pps - sx;
+        g.fillStyle = loopEnabled ? "rgba(255,209,102,.3)" : "rgba(255,255,255,.1)"; g.fillRect(a, 0, b - a, Hh);
+        g.fillStyle = loopEnabled ? "#ffd166" : "#777"; g.fillRect(a, 0, 2, Hh); g.fillRect(b - 2, 0, 2, Hh);
+      }
+      g.font = "10px sans-serif"; g.textBaseline = "middle";
+      if(downbeatTimes.length){
+        const gap = (downbeatTimes.length > 1 ? downbeatTimes[1] - downbeatTimes[0] : 2) * pps;
+        let step = 1; while(step * gap < 34) step *= 2;
+        downbeatTimes.forEach((t, i) => { if(t < t0 - 1 || t > t1) return; const x = t * pps - sx;
+          g.fillStyle = "rgba(255,166,77,.55)"; g.fillRect(x, i % step ? 16 : 10, 1, Hh);
+          if(i % step === 0){ g.fillStyle = "#c9c9d2"; g.fillText(String(i + 1), x + 4, 9); } });
+      } else {
+        const sec = [1, 2, 5, 10, 15, 30, 60].find(v => v * pps >= 50) || 120;
+        for(let t = Math.floor(t0 / sec) * sec; t <= t1; t += sec){ const x = t * pps - sx; g.fillStyle = "rgba(255,255,255,.3)"; g.fillRect(x, 12, 1, Hh); g.fillStyle = "#c9c9d2"; g.fillText(fmtDur(t), x + 4, 9); }
+      }
+      const ph = currentTime() * pps - sx;
+      g.fillStyle = "#ff4d4d"; g.beginPath(); g.moveTo(ph - 5, 0); g.lineTo(ph + 6, 0); g.lineTo(ph + .5, 9); g.fill(); g.fillRect(ph, 0, 1.5, Hh);
+    }
+    function wireRuler(cv){
+      const tAt = (e) => Math.max(0, Math.min(duration, (e.clientX - cv.getBoundingClientRect().left + el("midi-scroll").scrollLeft) / edPps()));
+      cv.addEventListener("pointerdown", (e) => {
+        if(e.button !== 0) return;
+        e.preventDefault();
+        const x0 = e.clientX, a0 = tAt(e); let drag = false;
+        cv.setPointerCapture(e.pointerId);
+        const move = (ev) => {
+          if(!drag && Math.abs(ev.clientX - x0) < 5) return;
+          drag = true;
+          let a = a0, b = tAt(ev);
+          if(!ev.altKey){ a = nearBeat(a); b = nearBeat(b); }
+          loopStart = Math.min(a, b); loopEnd = Math.max(a, b);
+          loopEnabled = loopEnd - loopStart > 0.005;
+          el("mixer-loop").classList.toggle("active", loopEnabled);
+          updateLoopVisual(); paintTransport(); schedulePaint();
+        };
+        const up = () => {
+          cv.removeEventListener("pointermove", move); cv.removeEventListener("pointerup", up); cv.removeEventListener("pointercancel", up);
+          if(!drag){ seek(a0); schedulePaint(); return; }
+          queueSessionSave();
+          if(loopEnabled && (currentTime() < loopStart || currentTime() > loopEnd)) seek(loopStart);
+          schedulePaint();
+        };
+        cv.addEventListener("pointermove", move); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+      });
+      cv.addEventListener("dblclick", () => { loopEnabled = false; el("mixer-loop").classList.toggle("active", false); updateLoopVisual(); queueSessionSave(); paintTransport(); schedulePaint(); });
+    }
+    // While the song plays: the playhead moves in the editor too, and once it
+    // is half way across, the notes move under it.
+    function onTick(t){
+      if(!editorC || !ed) return;
+      const sc = el("midi-scroll"); if(!sc || !sc.clientWidth) return;
+      const W = sc.clientWidth, at = t * edPps(), px = at - sc.scrollLeft;
+      if(!ed.drag){ if(px > W / 2) sc.scrollLeft = at - W / 2; else if(px < 0) sc.scrollLeft = Math.max(0, at - 40); }
+      const p = el("me-play"); if(p && p.textContent !== "❚❚") paintTransport();
+      schedulePaint();
+    }
     function schedulePaint(){ if(!edPaintRaf) edPaintRaf = requestAnimationFrame(() => { edPaintRaf = 0; paintEditor(); }); }
     function fitCanvas(cv, w, h){
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -21262,6 +21616,12 @@ const Mixer = (() => {
           for(let k = 1; k < div; k++) g.fillRect(x + (nb - b) * pps * k / div, 0, 1, H);
         }
       }
+      // the loop, as on the axis above
+      if(loopEnd > loopStart){
+        const a = loopStart * pps - sx, b = loopEnd * pps - sx;
+        g.fillStyle = loopEnabled ? "rgba(255,209,102,.07)" : "rgba(255,255,255,.025)"; g.fillRect(a, 0, b - a, H);
+        g.fillStyle = loopEnabled ? "rgba(255,209,102,.7)" : "rgba(255,255,255,.25)"; g.fillRect(a, 0, 1, H); g.fillRect(b - 1, 0, 1, H);
+      }
       // notes, coloured by velocity
       for(const n of c.midi.notes){
         if(n.t > t1) break;
@@ -21281,6 +21641,7 @@ const Mixer = (() => {
       // playhead
       const ph = currentTime() * pps - sx;
       g.fillStyle = "#ff4d4d"; g.fillRect(ph, 0, 1.5, H);
+      paintRuler();
       // the velocity lane, in step with the notes above
       if(vc){
         const vw = vc.parentElement.clientWidth;
@@ -21739,7 +22100,7 @@ const Mixer = (() => {
     }
 
     return {
-      addTrack, render, changed, connect, noteOn, noteOff, toggleRec, setKeyboard, pickInstrument, openEditor, closeEditor,
+      addTrack, render, changed, connect, noteOn, noteOff, toggleRec, setKeyboard, pickInstrument, stepInstrument, fromAudio, targetInstrument, setTargetInstrument, onTick, paintTransport, openEditor, closeEditor,
       importRel, pickFile, wireDrop,
       keyboardOn: () => kbd, isRecording: (c) => !!(rec && rec.c === c), instrumentName,
       recNote, follow,
@@ -25643,6 +26004,47 @@ const FloatPbLyr = makeFloating("pb-lyr-float", {defaults: {width: 460, height: 
 // played, and a guitar fretboard turns a fingering into a chord shown on
 // the keys.
 // ======================================================================
+// Choosing one of two hundred instruments: the families first, and the
+// instruments of the family that is picked — not one endless list. And a
+// step to the next or the previous one, for trying sounds one after another.
+const InstrPick = (() => {
+  const flat = (groups) => groups.flatMap(g => g.nastroje);
+  function step(groups, id, d){
+    const f = flat(groups), i = f.findIndex(n => n.id === id);
+    return f.length ? f[((i < 0 ? 0 : i + d) % f.length + f.length) % f.length] : null;
+  }
+  const name = (groups, id) => { const n = flat(groups || []).find(x => x.id === id); return n ? n.nazev : (id || "Nástroj"); };
+  function open(anchor, groups, current, onPick){
+    const old = el("inst-pop");
+    if(old){ const same = old.anchor === anchor; old.remove(); if(same) return; }
+    const box = document.createElement("div");
+    box.className = "sect-menu inst-pop";
+    box.id = "inst-pop";
+    box.anchor = anchor;
+    let cat = Math.max(0, groups.findIndex(g => g.nastroje.some(n => n.id === current))), cur = current;
+    const paint = () => {
+      box.innerHTML = `<div class="col">${groups.map((g, i) => `<button type="button" class="cat ${i === cat ? "on" : ""}" data-cat="${i}">${escapeHtml(g.kategorie)}<i>${g.nastroje.length}</i></button>`).join("")}</div>
+        <div class="col list">${groups[cat].nastroje.map(n => `<button type="button" class="${n.id === cur ? "on" : ""}" data-id="${escapeHtml(n.id)}" title="${escapeHtml(n.nazev)}">${escapeHtml(n.nazev)}</button>`).join("")}</div>`;
+    };
+    paint();
+    document.body.appendChild(box);
+    const a = anchor.getBoundingClientRect(), r = box.getBoundingClientRect();
+    box.style.left = Math.max(8, Math.min(a.left, window.innerWidth - r.width - 8)) + "px";
+    box.style.top = Math.max(8, Math.min(a.bottom + 6, window.innerHeight - r.height - 8)) + "px";
+    const on = box.querySelector(".list .on"); if(on) on.scrollIntoView({block: "center"});
+    const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ close(); } };
+    const close = () => { box.remove(); document.removeEventListener("pointerdown", away, true); };
+    box.addEventListener("click", (e) => {
+      const c = e.target.closest("[data-cat]");
+      if(c){ cat = +c.dataset.cat; paint(); return; }
+      const b = e.target.closest("[data-id]");
+      if(b){ cur = b.dataset.id; onPick(cur); close(); }
+    });
+    document.addEventListener("pointerdown", away, true);
+  }
+  return {step, name, open};
+})();
+
 const Piano = (() => {
   const FW = makeFloating("piano-float", {defaults: {width: 940, height: 470}});
   const KEY = "spotdl-piano";
@@ -25717,7 +26119,14 @@ const Piano = (() => {
     if(!lib) lib = await Mixer.guitar.instrumentLib();
     if(!zv) zv = new lib.Zvuky(ac);
     if(!st.instrument) st.instrument = lib.VYCHOZI_NASTROJ;
-    return lib.najdiNastroj(st.instrument).soundfont;
+    return lib.najdiNastroj(curInstrument()).soundfont;
+  }
+  // One sound for the keys and for the MIDI track they play into: the
+  // track's, while a song with a MIDI track is open; the keyboard's own otherwise.
+  function curInstrument(){
+    let t = null;
+    try{ if(!el("mixer").hidden) t = Mixer.midi().targetInstrument(); }catch(e){}
+    return t || st.instrument;
   }
   const steemsRec = (m, v, on) => { try{ Mixer.midi().recNote(m, v, on); }catch(e){} };
   async function noteOn(m, v = 0.8, quiet){
@@ -25732,7 +26141,7 @@ const Piano = (() => {
     down.add(m);
     steemsRec(m, v, true);
     paintKeys();
-    if(!quiet){ history.push(m % 12); if(history.length > 32) history.shift(); }
+    if(!quiet){ history.push(m % 12); if(history.length > 32) history.shift(); liveToFrets(); }
     paintInfo();
     let sf;
     try{ sf = await sound(); }catch(e){ return m; }
@@ -25883,6 +26292,24 @@ const Piano = (() => {
       fr[s] = null;
     })(0, 99, -1);
     return best ? {frets: best.frets, exact: false} : null;
+  }
+  let instGroups = null, setInst = (id) => { if(id){ st.instrument = id; save(); } }, paintInst = () => {};
+  // What is being played — on these keys, on MIDI keys, on a Steems MIDI
+  // track — onto the fretboard as it sounds: where to hold that note or
+  // chord. It stays after the keys are let go, until the next thing played.
+  // (A chord's notes land a few milliseconds apart: one look, once they are in.)
+  let liveFretTimer = 0;
+  function liveToFrets(){
+    if(!st.fret || st.latch) return;                       // "Akord" mode has its own tapped chord
+    clearTimeout(liveFretTimer);
+    liveFretTimer = setTimeout(() => {
+      const ms = [...new Set([...down, ...liveExt.keys()])];
+      if(!ms.length || !FW.isOpen()) return;
+      const v = voicing(ms, tunMidi());
+      if(!v) return;
+      if(cw.on){ cw.on = false; paintWheel(); }
+      st.frets = v.frets; save(); paintFretboard(); paintInfo();
+    }, 35);
   }
   // The tapped chord, onto the fretboard.
   function chordToFrets(){
@@ -26048,7 +26475,7 @@ const Piano = (() => {
     const body = el("piano-body");
     body.innerHTML = `
       <div class="pk-ctl">
-        <span class="grp" title="Zvuk"><select id="pk-inst"><option>načítám nástroje…</option></select>
+        <span class="grp" title="Zvuk — klik na název: sekce nástrojů a nástroje z ní · šipky: předchozí a další nástroj"><button type="button" class="inst-step" id="pk-inst-prev" title="Předchozí nástroj">◀</button><button type="button" class="inst-name" id="pk-inst">načítám nástroje…</button><button type="button" class="inst-step" id="pk-inst-next" title="Další nástroj">▶</button>
           <input type="range" id="pk-vol" min="0" max="1" step="0.01" value="${st.volume}" title="Hlasitost" style="width:70px"></span>
         <span class="grp" title="Stupnice — tónina a druh">Stupnice <select id="pk-root">${NOTES.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
           <select id="pk-scale">${Object.entries(SCALES).map(([k, [n]]) => `<option value="${k}">${n}</option>`).join("")}</select>
@@ -26104,14 +26531,21 @@ const Piano = (() => {
       changed();
     };
     q("pk-fret").onclick = () => { st.fret = !st.fret; q("pk-fret").classList.toggle("on", st.fret); q("pk-fb").hidden = !st.fret; chordToFrets(); changed(); };
-    q("pk-inst").onchange = (e) => { st.instrument = e.target.value; save(); sound().then(sf => zv.nacti(sf)).catch(() => {}); };
+    // The sound: by family and instrument, or one step along.
+    setInst = (id, fromTrack) => { if(!id) return; st.instrument = id; save();
+      if(!fromTrack){ try{ if(!el("mixer").hidden) Mixer.midi().setTargetInstrument(id); }catch(e){} }
+      paintInst();
+      sound().then(sf => zv.nacti(sf)).catch(() => {}); };
+    paintInst = () => { const b = el("pk-inst"); if(!b || !instGroups) return; const n = InstrPick.name(instGroups, curInstrument()); if(b.textContent !== n){ b.textContent = n; b.title = n; } };
+    q("pk-inst").onclick = (e) => { if(instGroups) InstrPick.open(e.currentTarget, instGroups, curInstrument(), setInst); };
+    q("pk-inst-prev").onclick = () => { const n = instGroups && InstrPick.step(instGroups, curInstrument(), -1); if(n) setInst(n.id); };
+    q("pk-inst-next").onclick = () => { const n = instGroups && InstrPick.step(instGroups, curInstrument(), 1); if(n) setInst(n.id); };
     Mixer.guitar.instrumentLib().then(L => {
       lib = L;
       if(!st.instrument) st.instrument = L.VYCHOZI_NASTROJ;
-      q("pk-inst").innerHTML = L.nastrojePodleKategorii().map(g => `<optgroup label="${escapeHtml(g.kategorie)}">${
-        g.nastroje.map(n => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.nazev)}</option>`).join("")}</optgroup>`).join("");
-      q("pk-inst").value = st.instrument;
-    }).catch(() => { q("pk-inst").innerHTML = `<option>nástroje se nenačetly</option>`; });
+      instGroups = L.nastrojePodleKategorii();
+      paintInst();
+    }).catch(() => { q("pk-inst").textContent = "nástroje se nenačetly"; });
     if(navigator.keyboard && navigator.keyboard.getLayoutMap){
       navigator.keyboard.getLayoutMap().then(m => { layout = m; paintKeys(true); }).catch(() => {});
     }
@@ -26188,6 +26622,7 @@ const Piano = (() => {
   function paintInfo(){
     const chordEl = el("pk-chord");
     if(!chordEl) return;
+    paintInst();                                         // another track may have been chosen meanwhile
     const wheelOn = st.wheel && cw.on;
     // The wheel's chord: its own notes (and name), not whatever still rings
     // from the preview.
@@ -26439,7 +26874,7 @@ const Piano = (() => {
   function liveNote(m, on){
     const n = liveExt.get(m) || 0;
     if(on) liveExt.set(m, n + 1); else if(n <= 1) liveExt.delete(m); else liveExt.set(m, n - 1);
-    if(FW.isOpen()) paintKeys();
+    if(FW.isOpen()){ paintKeys(); if(on) liveToFrets(); }
   }
   function follow(now, next){
     followNow = now; followNext = next;
@@ -26447,6 +26882,7 @@ const Piano = (() => {
   }
   return {open, toggle: () => (FW.isOpen() ? FW.close() : open()), nameChord, guessScales,
     isOpen: () => FW.isOpen(), liveNote, follow,
+    setInstrument: (id, fromTrack) => setInst(id, fromTrack),
     play: (m) => noteOn(m), stop: (m) => noteOff(m), state: st, setFrets: (f) => { st.frets = f; changed(); }};
 })();
 

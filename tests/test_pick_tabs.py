@@ -87,3 +87,31 @@ def test_separuj_playlist_queues_every_song_of_the_downloaded_playlist(client, t
     assert out["queued"] == 1 and out["ready"] == 1
     assert sorted(asked) == ["Playlists/Cesky rock/Arakain - Adrian.mp3", "Playlists/Cesky rock/Kabat - Pohoda.mp3"]
     assert client.post("/api/stems/separate-playlist", json={"playlist": "Neni"}).status_code == 404
+
+
+def test_steems_preview_finds_the_original_or_mixes(tmp_path, monkeypatch):
+    """A song in the Steems list plays as the file it came from when the
+    library has it; a folder that never was one song has no original."""
+    monkeypatch.setattr(server, "MUSIC_ROOT", tmp_path)
+    monkeypatch.setitem(server._STEMS_ORIGINALS, "at", 0.0)
+    (tmp_path / "Songs" / "Kabát").mkdir(parents=True)
+    (tmp_path / "Songs" / "Kabát" / "Kabát - Dole v dole.mp3").write_bytes(b"x" * 10)
+    (tmp_path / "Stems" / "Kabát - Dole v dole").mkdir(parents=True)
+    (tmp_path / "Stems" / "Moje takes").mkdir(parents=True)
+    (tmp_path / "Stems" / "Moje takes" / "take-1.mp3").write_bytes(b"x" * 10)
+    assert server.stems_preview("Kabát - Dole v dole") == {"rel": "Songs/Kabát/Kabát - Dole v dole.mp3", "original": True}
+    assert server._stems_original("Moje takes") is None             # the stems themselves are not "the original"
+    assert server.stems_preview("nope").status_code == 404
+
+
+def test_audio_to_notes_needs_its_venv_and_a_stem(tmp_path, monkeypatch):
+    """A track's audio as notes: said plainly when the converter is not
+    installed, and never run on something that is not a stem."""
+    monkeypatch.setattr(server, "MUSIC_ROOT", tmp_path)
+    (tmp_path / "Stems" / "Song").mkdir(parents=True)
+    (tmp_path / "Stems" / "Song" / "piano.mp3").write_bytes(b"x" * 2000)
+    assert server.stem_to_notes("nope", "piano").status_code == 404
+    assert server.stem_to_notes("Song", "bass").status_code == 404
+    monkeypatch.setattr(server, "MIDI_PYTHON", tmp_path / "no-python")
+    r = server.stem_to_notes("Song", "piano")
+    assert r.status_code == 501 and "pick-midi" in r.body.decode()

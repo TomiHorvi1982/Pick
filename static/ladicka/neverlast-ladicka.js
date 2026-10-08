@@ -36,28 +36,46 @@ class G {
     this.stop();
     const e = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: !1, noiseSuppression: !1, autoGainControl: !1 }
-    }), n = new AudioContext(), i = n.createMediaStreamSource(e), s = n.createBiquadFilter(), r = n.createBiquadFilter(), l = n.createAnalyser();
-    s.type = "highpass", s.frequency.value = 38, s.Q.value = 0.7, r.type = "lowpass", r.frequency.value = 1250, r.Q.value = 0.7, l.fftSize = 8192, l.smoothingTimeConstant = 0, i.connect(s), s.connect(r), r.connect(l), this.audioContext = n, this.analyser = l, this.inputBuffer = new Float32Array(l.fftSize), this.mediaStream = e, this.lastAnalysisTime = 0, this.lastPitch = null, this.missedFrames = 0, this.recentFrequencies = [], this.runAnalysis(t);
+    }), n = new AudioContext(), i = n.createMediaStreamSource(e);
+    // Pick: each input of the interface is listened to on its own. Mixed
+    // together, a hum on one input (a modeller's second USB channel) buried
+    // the guitar on the other; apart, the one with the clear note is read.
+    const split = n.createChannelSplitter(2), chain = (c) => {
+      const s = n.createBiquadFilter(), r = n.createBiquadFilter(), l = n.createAnalyser();
+      s.type = "highpass", s.frequency.value = 38, s.Q.value = 0.7, r.type = "lowpass", r.frequency.value = 1250, r.Q.value = 0.7, l.fftSize = 8192, l.smoothingTimeConstant = 0, split.connect(s, c), s.connect(r), r.connect(l);
+      return l;
+    };
+    i.connect(split);
+    const l = chain(0);
+    this.analysers = [l, chain(1)], this.inputBuffers = this.analysers.map((a) => new Float32Array(a.fftSize));
+    this.audioContext = n, this.analyser = l, this.inputBuffer = this.inputBuffers[0], this.mediaStream = e, this.lastAnalysisTime = 0, this.lastPitch = null, this.missedFrames = 0, this.recentFrequencies = [], this.runAnalysis(t);
   }
   stop() {
     this.animationFrameId !== null && (window.cancelAnimationFrame(this.animationFrameId), this.animationFrameId = null), this.mediaStream?.getTracks().forEach((t) => t.stop()), this.mediaStream = null, this.audioContext?.close().catch(() => {
-    }), this.audioContext = null, this.analyser = null, this.inputBuffer = null, this.lastAnalysisTime = 0, this.lastPitch = null, this.missedFrames = 0, this.recentFrequencies = [];
+    }), this.audioContext = null, this.analyser = null, this.analysers = [], this.inputBuffer = null, this.inputBuffers = [], this.lastAnalysisTime = 0, this.lastPitch = null, this.missedFrames = 0, this.recentFrequencies = [];
   }
   runAnalysis(t) {
     const e = (n) => {
       if (!(!this.analyser || !this.audioContext || !this.inputBuffer)) {
         if (n - this.lastAnalysisTime >= 90) {
-          this.lastAnalysisTime = n, this.analyser.getFloatTimeDomainData(this.inputBuffer);
-          const i = H(this.inputBuffer, this.audioContext.sampleRate);
+          this.lastAnalysisTime = n;
+          // the input with the clearest note (levels are taken before H reshapes the buffer)
+          let i = null, lvl = 0;
+          this.analysers.forEach((a, k) => {
+            a.getFloatTimeDomainData(this.inputBuffers[k]);
+            lvl = Math.max(lvl, F(this.inputBuffers[k]));
+            const h = H(this.inputBuffers[k], this.audioContext.sampleRate);
+            h && (!i || h.clarity > i.clarity) && (i = h);
+          });
           if (i) {
             this.missedFrames = 0;
             const s = this.correctOctaveJump(i.frequency), r = this.smoothFrequency(s), l = q(r, this.referenceA);
             this.lastPitch = { ...l, clarity: i.clarity, inputLevel: i.inputLevel }, t({ pitch: this.lastPitch, inputLevel: i.inputLevel });
           } else if (this.missedFrames += 1, this.lastPitch && this.missedFrames <= 3) {
-            const s = F(this.inputBuffer);
+            const s = lvl;
             t({ pitch: { ...this.lastPitch, inputLevel: s }, inputLevel: s });
           } else
-            this.lastPitch = null, this.recentFrequencies = [], t({ pitch: null, inputLevel: F(this.inputBuffer) });
+            this.lastPitch = null, this.recentFrequencies = [], t({ pitch: null, inputLevel: lvl });
         }
         this.animationFrameId = window.requestAnimationFrame(e);
       }
@@ -84,7 +102,8 @@ class G {
 }
 function H(a, t) {
   const e = F(a);
-  if (e < 9e-3) return null;
+  // Pick: was 9e-3 (−41 dB) — a guitar's plain signal off a modeller's USB can sit far under that; the clarity test below keeps noise out.
+  if (e < 5e-4) return null;
   const n = Math.floor(t / 900), i = Math.min(Math.floor(t / 50), Math.floor(a.length / 2)), s = a.length - i, r = new Float32Array(i + 1);
   Q(a);
   for (let o = 1; o <= i; o += 1) {
@@ -107,6 +126,8 @@ function H(a, t) {
       break;
     }
   if (c < 0 && (c = Y(r, n, i)), c < 0) return null;
+  // Pick: a dip still falling at the longest period looked at is a tone below the range (mains hum, rumble) — not a note.
+  if (c >= i - 2) return null;
   c = X(c, r, i, t);
   const k = U(c, r), v = 1 - r[c];
   return v < 0.82 ? null : { frequency: t / k, clarity: v, inputLevel: e };

@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import wave
 
+import numpy as np
 import pytest
 
 import loopstudio as ls
@@ -100,3 +101,80 @@ def test_the_key_listens_to_the_chords_and_admits_when_it_is_unsure():
     assert k["key"] == "C moll" and k["fromChords"] == "C moll" and k["fromSound"] is None
     assert ls.estimate_key(None, chords=[]) is None                     # nothing to go on: no key, not a guess
     assert 0 <= k["confidence"] <= 1
+
+
+# ---- the arrangement and what to play
+def test_chord_becomes_notes_for_the_keys():
+    c = ls.chord_notes("Cm")
+    assert c["bassName"] == "C2" and c["names"] == ["C3", "D#3", "G3"]
+    assert ls.chord_notes("G#maj7")["names"] == ["G#2", "C3", "D#3", "G3"]      # high roots drop an octave
+    assert ls.chord_notes("Bb")["bass"] == ls.chord_notes("A#")["bass"]
+    assert ls.chord_notes("E5")["notes"] == [52, 59]
+    assert ls.chord_notes("Cweird")["known"] is False and ls.chord_notes("-") is None and ls.chord_notes("N") is None
+
+
+def _kit(rate, bars, bpm=120.0):
+    """Four on the floor with a backbeat and eighth-note hats, as sound."""
+    rng = np.random.default_rng(1)
+    bar = 4 * 60 / bpm
+    x = np.zeros(int(bars * bar * rate) + rate, np.float32)
+
+    def put(t, sig):
+        i = int(t * rate)
+        x[i:i + sig.size] += sig[: x.size - i]
+    tk = np.arange(int(0.12 * rate)) / rate
+    kick = (np.sin(2 * np.pi * (55 + 60 * np.exp(-tk * 40)) * tk) * np.exp(-tk * 28)).astype(np.float32)
+    ts = np.arange(int(0.09 * rate)) / rate
+    snare = ((rng.standard_normal(ts.size) * 0.5 + np.sin(2 * np.pi * 400 * ts) * 0.6) * np.exp(-ts * 35)).astype(np.float32)
+    th = np.arange(int(0.03 * rate)) / rate
+    hat = np.diff(rng.standard_normal(th.size + 2), 2).astype(np.float32) * np.exp(-th * 160).astype(np.float32) * 0.12
+    for b in range(bars):
+        for beat in range(4):
+            put(b * bar + beat * bar / 4, kick)
+            if beat in (1, 3):
+                put(b * bar + beat * bar / 4, snare)
+            put(b * bar + beat * bar / 4, hat)
+            put(b * bar + (beat + 0.5) * bar / 4, hat)
+    return x, [b * bar for b in range(bars + 1)]
+
+
+def test_groove_is_read_off_the_drums():
+    x, lines = _kit(22050, 8)
+    g = ls.drum_groove(x, 22050, lines, 4)
+    assert g["steps"] == 16 and g["bars"] == 8 and g["share"] > 0.9
+    assert g["kick"] == [1, 0, 0, 0] * 4
+    assert g["snare"] == [0, 0, 0, 0, 1, 0, 0, 0] * 2
+    assert [g["hat"][k] for k in (2, 6, 10, 14)] == [1, 1, 1, 1]            # the off-beats, where nothing covers them
+    assert ls.drum_groove(np.zeros(22050 * 4, np.float32), 22050, [0, 2, 4], 4) is None
+
+
+def _plan():
+    sections = [{"id": "s1", "label": "Sloka", "kind": "verse", "startBar": 1, "bars": 2, "startSec": 0.0, "endSec": 4.0,
+                 "chords": [{"bar": 1, "chord": "Am"}, {"bar": 2, "chord": "G"}]},
+                {"id": "s2", "label": "Refrén", "kind": "chorus", "startBar": 3, "bars": 1, "startSec": 4.0, "endSec": 6.0,
+                 "chords": [{"bar": 3, "chord": "C"}]}]
+    return {"facts": {"sections": sections, "bpm": 120.0, "beatsPerBar": 4, "timeSignature": "4/4", "key": None}, "loops": [], "fixedTempo": True}
+
+
+def test_arrangement_orders_and_repeats_the_sections():
+    plan = _plan()
+    assert [s["id"] for s in ls.sequence(plan)] == ["s1", "s2"]                 # the song's own order to begin with
+    plan = ls.apply_edits(plan, {"arrangement": [{"sectionId": "s2", "repeats": 2}, {"sectionId": "s1"}, {"sectionId": "nope"}]},
+                          {"downbeats": [0, 2, 4, 6]}, ls.DEFAULT_PROFILE)
+    assert [s["id"] for s in ls.sequence(plan)] == ["s2", "s2", "s1"] and plan["edited"]
+    parts = {"sections": [{"sectionId": "s1", "drums": {"steps": 16, "kick": [1] + [0] * 15, "snare": [0] * 16, "hat": [0] * 16}},
+                          {"sectionId": "s2", "drums": None}]}
+    n = ls.arrangement_notes(plan, parts)
+    assert n["seconds"] == 8.0
+    # C twice (a bar each), then Am and G: the bass plays the roots in that order
+    assert [(b["m"], b["t"]) for b in n["bass"]] == [(36, 0.0), (36, 2.0), (45, 4.0), (43, 6.0)]
+    assert [d["t"] for d in n["drums"]] == [4.0, 6.0] and all(d["m"] == 36 for d in n["drums"])
+    assert len(n["chords"]) == 12
+
+
+def test_midi_file_is_well_formed():
+    data = ls.midi_bytes([{"m": 60, "t": 0.0, "d": 0.5, "v": 0.8}, {"m": 64, "t": 0.5, "d": 0.5, "v": 0.5}], 120.0, "Zkouška", 0)
+    assert data[:4] == b"MThd" and data[14:18] == b"MTrk"
+    assert int.from_bytes(data[18:22], "big") == len(data) - 22
+    assert data.endswith(b"\xff\x2f\x00") and b"\x90\x3c" in data and b"\x80\x40" in data
+    assert b"\x99\x24" in ls.midi_bytes([{"m": 36, "t": 0, "d": 0.1}], 100.0, "kit", 9)      # the drum channel

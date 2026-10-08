@@ -6299,6 +6299,73 @@ async def riffs_midi_save(request: Request, name: str = "", rel: str = ""):
     return {"rel": str(target.resolve().relative_to(MUSIC_ROOT.resolve())), "replaced": replaced}
 
 
+# ---- a song in the Steems list, heard before it is opened: the file it was
+# separated from when the library still has it, its stems mixed otherwise
+# (a project of the player's own takes never had one).
+_STEMS_ORIGINALS: dict = {"at": 0.0, "by_name": {}}
+PREVIEW_REL = ".pick-preview"
+
+
+def _stems_original(name: str) -> Optional[str]:
+    """The library file a stems folder was made from, as a rel path."""
+    if time.time() - _STEMS_ORIGINALS["at"] > 120:
+        found: dict = {}
+        for top in sorted(MUSIC_ROOT.iterdir()) if MUSIC_ROOT.is_dir() else []:
+            if not top.is_dir() or top.name.startswith(".") or top.name in ("Stems", "Loops", "NAM", "CAP"):
+                continue
+            for f in top.rglob("*"):
+                if f.suffix.lower() in AUDIO_EXTS and not f.name.startswith(".") and f.is_file():
+                    found.setdefault(_safe_name(f.stem), str(f.relative_to(MUSIC_ROOT)))
+        _STEMS_ORIGINALS.update(at=time.time(), by_name=found)
+    rel = _STEMS_ORIGINALS["by_name"].get(name)
+    return rel if rel and (MUSIC_ROOT / rel).is_file() else None
+
+
+@app.get("/api/stems/{name}/preview")
+def stems_preview(name: str):
+    """Something to play for a song in the list: {rel, original}."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    rel = _stems_original(name)
+    if rel:
+        return {"rel": rel, "original": True}
+    mixed = stems_backing(name, without="", part="all")
+    if not isinstance(mixed, FileResponse):
+        return mixed
+    out = MUSIC_ROOT / PREVIEW_REL / f"{name}.m4a"
+    src = Path(mixed.path)
+    if not out.is_file() or out.stat().st_mtime < src.stat().st_mtime:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, out)
+    return {"rel": f"{PREVIEW_REL}/{name}.m4a", "original": False}
+
+
+# ---- a track's audio as notes: for a piano, a melody, a bass line pulled
+# onto a MIDI track. basic-pitch does the listening, in a venv of its own.
+MIDI_PYTHON = HOME / ".local" / "venvs" / "pick-midi" / "bin" / "python"
+
+
+@app.post("/api/stems/{name}/{stem}/notes")
+def stem_to_notes(name: str, stem: str):
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    src = _stem_file(stems_dir, stem)
+    if src is None:
+        return JSONResponse({"error": "Stopa nemá zvukový soubor."}, status_code=404)
+    if not MIDI_PYTHON.is_file():
+        return JSONResponse({"error": "Převod zvuku na MIDI není nainstalovaný (chybí ~/.local/venvs/pick-midi)."}, status_code=501)
+    try:
+        r = subprocess.run([str(MIDI_PYTHON), str(APP_DIR / "audio2midi.py"), str(src)], capture_output=True, text=True, timeout=600)
+        notes = json.loads(r.stdout)["notes"] if r.returncode == 0 else None
+    except (subprocess.TimeoutExpired, ValueError, KeyError):
+        notes = None
+    if notes is None:
+        return JSONResponse({"error": "Převod na MIDI se nepodařil."}, status_code=500)
+    return {"notes": notes[:20000], "stem": stem}
+
+
 @app.get("/api/stems/queue")
 def stems_queue():
     """Every separation waiting, running, or finished in the last minutes."""
@@ -8819,6 +8886,96 @@ def loopstudio_cut(song: str):
     _ls.cut_loops(plan, grid, d, ffmpeg_bin())
     _ls.save_plan(d, plan)
     return plan
+
+
+def _ls_parts(d: Path, plan: dict, grid: dict, fresh: bool = False) -> dict:
+    """What to play in the arrangement — worked out once and kept with the
+    plan until the sections, the order or the loops change."""
+    parts = plan.get("parts")
+    if fresh or not parts or parts.get("signature") != _ls.parts_signature(plan):
+        parts = _ls.build_parts(plan, grid, d, ffmpeg_bin(), _hardware_profile())
+        plan["parts"] = parts
+        _ls.save_plan(d, plan)
+    return parts
+
+
+@app.get("/api/loopstudio/plan/{song}/parts")
+def loopstudio_parts(song: str, fresh: int = 0):
+    """The arrangement taken apart: chords as notes, the kit's groove as a
+    pad pattern, an instrument for each layer."""
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None:
+        return JSONResponse({"error": "Plán pro tuhle píseň ještě není."}, status_code=404)
+    grid = _beat_grid_for(d)
+    if isinstance(grid, str):
+        return JSONResponse({"error": grid}, status_code=422)
+    parts = _ls_parts(d, plan, grid, bool(fresh))
+    notes = _ls.arrangement_notes(plan, parts)
+    return {**parts, "arrangement": _ls.arrangement_of(plan), "seconds": notes["seconds"],
+            "counts": {k: len(notes[k]) for k in ("chords", "bass", "drums")}}
+
+
+@app.get("/api/loopstudio/plan/{song}/midi/{which}.mid")
+def loopstudio_midi(song: str, which: str):
+    """The arrangement's chords, bass roots or drum pattern as a MIDI file."""
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None or which not in ("chords", "bass", "drums"):
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    grid = _beat_grid_for(d)
+    if isinstance(grid, str):
+        return JSONResponse({"error": grid}, status_code=422)
+    notes = _ls.arrangement_notes(plan, _ls_parts(d, plan, grid))[which]
+    if not notes:
+        return JSONResponse({"error": "Pro tohle v aranžmá nejsou žádné tóny."}, status_code=404)
+    label = {"chords": "akordy", "bass": "basa", "drums": "bici"}[which]
+    data = _ls.midi_bytes(notes, float(plan["facts"]["bpm"]), f"{song} {label}", 9 if which == "drums" else 0)
+    from fastapi.responses import Response
+    return Response(data, media_type="audio/midi",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(_safe_name(song) + ' - ' + label + '.mid')}"})
+
+
+@app.post("/api/loopstudio/plan/{song}/project")
+def loopstudio_project(song: str):
+    """The arrangement as a project in Steems to record into: every stem
+    with the sections in the new order, on the plan's tempo, and MIDI tracks
+    with the chords, the bass roots and the drum pattern."""
+    d = _ls_stems_dir(song)
+    plan = _ls.load_plan(d) if d else None
+    if plan is None:
+        return JSONResponse({"error": "Plán pro tuhle píseň ještě není."}, status_code=404)
+    grid = _beat_grid_for(d)
+    if isinstance(grid, str):
+        return JSONResponse({"error": grid}, status_code=422)
+    if not _ls.sequence(plan):
+        return JSONResponse({"error": "Aranžmá je prázdné."}, status_code=400)
+    parts = _ls_parts(d, plan, grid)
+    notes = _ls.arrangement_notes(plan, parts)
+    title = plan["song"].get("title") or song
+    proj = _new_project_dir(f"Looper - {title}")
+    tmp = Path(tempfile.mkdtemp(prefix="pick-arr-"))
+    try:
+        made = _ls.render_arrangement(plan, d, ffmpeg_bin(), tmp)
+        kept = []
+        for role, wav in made.items():
+            if _encode_to_stem(wav, proj / f"{role}.mp3") is None:
+                kept.append(role)
+        if not kept:
+            shutil.rmtree(proj, ignore_errors=True)
+            return JSONResponse({"error": "Stopy aranžmá se nepodařilo vytvořit."}, status_code=500)
+        tracks = []
+        for key, label, inst in (("chords", "Akordy (klávesy)", "grand_piano_yamaha"), ("bass", "Basa – základní tóny", "fender_precision_pick"),
+                                 ("drums", "Bicí – kdy uhodit (pady)", "japanese_taiko_drums")):
+            if notes[key]:
+                tracks.append({"stem": f"midi-{len(tracks) + 1}", "label": label, "instrument": inst, "notes": notes[key][:20000]})
+        (proj / "session.json").write_text(json.dumps({"channels": [], "loop": None, "pixelsPerSecond": None, "tempo": None,
+                                                       "midi": tracks or None}, ensure_ascii=False), encoding="utf-8")
+        (proj / "meta.json").write_text(json.dumps({"artist": plan["song"].get("artist"), "title": f"Looper - {title}", "album": None},
+                                                   ensure_ascii=False), encoding="utf-8")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return {"name": proj.name, "stems": kept, "midi": [t["label"] for t in tracks], "seconds": notes["seconds"]}
 
 
 @app.get("/api/loopstudio/file/{song}/{path:path}")

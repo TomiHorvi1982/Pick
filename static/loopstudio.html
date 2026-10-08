@@ -77,6 +77,25 @@
   .notes li{margin-bottom:6px}
   .later{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .later .panel{opacity:.7}
+  .arr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+  .arr .a{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 10px;border-radius:10px;background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.28);font-size:13px}
+  .arr .a b{font-weight:650} .arr .a i{font-style:normal;color:var(--dim);font-size:11px}
+  .arr .a input{width:44px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:6px;padding:2px 4px;text-align:center}
+  .arr .a button{background:none;border:none;color:var(--sub);cursor:pointer;padding:0 3px;font-size:13px} .arr .a button:hover{color:var(--text)}
+  .arr select{background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .part{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:rgba(0,0,0,.14)}
+  .part h3{margin:0 0 10px;font-size:14px;display:flex;gap:10px;align-items:baseline} .part h3 small{color:var(--sub);font-weight:500;font-size:12px}
+  .part .cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+  .part .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800;margin:0 0 6px}
+  .prog{font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.9}
+  .prog span{display:inline-block;padding:1px 7px;margin:0 4px 4px 0;border-radius:6px;background:rgba(255,255,255,.06)} .prog span i{font-style:normal;color:var(--dim);margin-left:4px;font-size:11px}
+  .chd{display:grid;grid-template-columns:70px 60px 1fr;gap:4px 10px;font-size:12.5px;align-items:baseline}
+  .chd b{font-family:ui-monospace,Menlo,monospace} .chd .n{font-family:ui-monospace,Menlo,monospace;color:var(--acc2)}
+  .grid16{display:grid;gap:3px;align-items:center;font-size:11.5px;margin-top:2px}
+  .grid16 .cell{height:18px;border-radius:4px;background:rgba(255,255,255,.05)} .grid16 .cell.beat{background:rgba(255,255,255,.1)}
+  .grid16 .cell.on{background:var(--acc)} .grid16 .cell.on.k{background:#f59e0b} .grid16 .cell.on.s{background:#fb7185}
+  .grid16 .num{color:var(--dim);text-align:center;font-size:10px}
+  a.btn{color:var(--text);text-decoration:none}
   .savebar{position:sticky;bottom:14px;margin-top:16px;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:12px;background:#161a20;border:1px solid var(--acc);box-shadow:0 10px 30px rgba(0,0,0,.5)}
   .modal{position:fixed;inset:0;background:rgba(5,7,10,.72);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:30}
   .modal.on{display:flex}
@@ -140,7 +159,25 @@
       <div class="warnbox" id="loops-warn" hidden></div>
     </div>
 
-    <div class="panel"><div class="h"><b>4</b> Karta Loopy Pro <span class="sp"></span><a class="btn small primary" id="zip" download>Stáhnout smyčky (ZIP)</a></div>
+    <div class="panel"><div class="h"><b>3</b> Aranžmá <span class="sp"></span><span class="dim" style="letter-spacing:0;text-transform:none;font-weight:500" id="arr-sum"></span></div>
+      <div class="muted" style="font-size:13px">Poskládej si sekce, jak chceš: pořadí šipkami, opakování číslem, sekci přidej víckrát nebo vyhoď. Z tohohle pořadí se počítá, co hrát, MIDI i projekt ve Steems.</div>
+      <div class="arr" id="arr"></div>
+      <div class="arr"><select id="arr-add"></select><button class="btn small" id="arr-add-btn">+ Přidat sekci</button><button class="btn small" id="arr-reset" title="Sekce v pořadí, v jakém jsou v písni">Jako v písni</button></div>
+    </div>
+
+    <div class="panel"><div class="h"><b>4</b> Co hrát <span class="sp"></span>
+        <button class="btn small" id="parts-go">Rozebrat aranžmá</button></div>
+      <div class="muted" style="font-size:13px" id="parts-intro">Pro každou sekci aranžmá: akordy rozepsané na tóny pro klávesy, vzorec bicích na pady, a čím kterou vrstvu zahrát. Vzorec bicích je odhad ze stopy bicích — kde se takty neopakují, nepřečte se, a přechody v něm nejsou.</div>
+      <div id="parts"></div>
+      <div id="parts-out" hidden style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <a class="btn small" id="mid-chords" download>MIDI akordy</a><a class="btn small" id="mid-bass" download>MIDI basa</a><a class="btn small" id="mid-drums" download>MIDI bicí</a>
+        <span class="sp" style="flex:1"></span>
+        <button class="btn small primary" id="to-steems" title="Vytvoří ve Steems projekt „Looper – píseň“: stopy přeskládané podle aranžmá na tempo plánu a MIDI stopy s akordy, basou a bicími. Tam si pustíš, co potřebuješ, a nahráváš vlastní stopy — kytarou, mikrofonem, MIDI klávesami.">Vytvořit projekt ve Steems</button>
+      </div>
+      <div class="warnbox" id="parts-note" hidden></div>
+    </div>
+
+    <div class="panel"><div class="h"><b>5</b> Karta Loopy Pro <span class="sp"></span><a class="btn small primary" id="zip" download>Stáhnout smyčky (ZIP)</a></div>
       <div class="kv" id="loopy"></div>
       <table><thead><tr><th>Tlačítko</th><th>MIDI CC</th><th>Co dělá</th></tr></thead><tbody id="foot"></tbody></table>
       <ul class="notes" id="loopy-notes"></ul>
@@ -148,8 +185,8 @@
     </div>
 
     <div class="later">
-      <div class="panel"><div class="h"><b>3</b> Tón kytary</div><div class="na">FÁZE 2</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-tone"></div></div>
-      <div class="panel"><div class="h"><b>5</b> Logic Pro + Toontrack</div><div class="na">FÁZE 3</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-studio"></div></div>
+      <div class="panel"><div class="h">Tón kytary</div><div class="na">FÁZE 2</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-tone"></div></div>
+      <div class="panel"><div class="h">Logic Pro + Toontrack</div><div class="na">FÁZE 3</div><div class="muted" style="font-size:13px;margin-top:6px" id="later-studio"></div></div>
     </div>
 
     <div class="savebar" id="savebar" hidden><span style="flex:1">Máš neuložené opravy.</span>
@@ -173,6 +210,8 @@
     <div><label>Pluginy, čárkou (Fáze 2)</label><input type="text" id="hw-plugins"></div>
     <div><label>DAW (Fáze 3)</label><input type="text" id="hw-daw"></div>
     <div><label>Bicí (Fáze 3)</label><input type="text" id="hw-drums"></div>
+    <div class="full"><label>Pady na klávesách — číslo padu pro kopák, virbl a hi-hat (MPK Mini z výroby: pad 1, 3 a 7 = noty 36, 38, 42)</label>
+      <div style="display:flex;gap:8px"><input type="number" id="hw-pk" min="1" max="16" placeholder="kopák"><input type="number" id="hw-ps" min="1" max="16" placeholder="virbl"><input type="number" id="hw-ph" min="1" max="16" placeholder="hi-hat"></div></div>
     <div class="full"><label>Doplňkově, čárkou (zatím bez doporučení)</label><input type="text" id="hw-extras"></div>
   </div>
   <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end"><button class="btn primary" id="hw-save">Uložit</button></div>
@@ -188,7 +227,7 @@ function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"
 const json = async (url, opt) => { const r = await fetch(url, opt); const d = await r.json().catch(() => ({})); if(!r.ok) throw new Error(d.error || "Chyba " + r.status); return d; };
 const post = (url, body, method = "POST") => json(url, {method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
 const LAYER = {drums: "bicí", bass: "basa", guitar: "kytara", piano: "klávesy", other: "ostatní", vocals: "zpěv", guitar_rhythm: "kytara rytmus", guitar_solo: "kytara sólo"};
-const S = {plan: null, song: null, dirty: false, stems: [], lib: null};
+const S = {plan: null, song: null, dirty: false, stems: [], lib: null, arr: [], parts: null};
 const show = (v) => { ["start", "job", "plan"].forEach(x => $("v-" + x).hidden = x !== v); $("hd-new").hidden = v === "start"; if(v === "start") $("hd-song").textContent = ""; };
 
 // ------------------------------------------------------------- pick a song
@@ -259,7 +298,7 @@ async function startJob(body){
 // ----------------------------------------------------------------- the plan
 async function openPlan(song){
   try{ S.plan = await json("/api/loopstudio/plan/" + enc(song)); }catch(e){ toast(e.message); show("start"); return; }
-  S.song = song; S.dirty = false; show("plan"); $("hd-song").textContent = song; paintPlan();
+  S.song = song; S.dirty = false; S.parts = null; show("plan"); $("hd-song").textContent = song; paintPlan();
 }
 function dirty(){ S.dirty = true; $("savebar").hidden = false; }
 function paintPlan(){
@@ -304,6 +343,8 @@ function paintPlan(){
     || '<tr><td colspan="3" class="muted">V profilu vybavení není footswitch.</td></tr>';
   $("loopy-notes").innerHTML = ly.notes.map(n => `<li>${esc(n)}</li>`).join("");
   $("zip").href = `/api/loopstudio/loops/${enc(S.song)}.zip`;
+  S.arr = (p.arrangement && p.arrangement.length ? p.arrangement : f.sections.filter(s => !["start", "end", "silence"].includes(s.kind)).map(s => ({sectionId: s.id, repeats: 1}))).map(a => ({...a}));
+  paintArr(); paintParts();
   $("later-tone").textContent = p.later.tone + ". Z nahrávky nepůjde poznat konkrétní zesilovač — karta bude dávat typ zvuku a výchozí nastavení, ne tvrzení.";
   $("later-studio").textContent = p.later.studio + ".";
 }
@@ -315,7 +356,7 @@ function collectEdits(){
     return {id: tr.dataset.id, label: tr.querySelector(".s-label").value.trim(), startBar: start, bars, chords}; });
   const loops = [...document.querySelectorAll("#loops tr[data-id]")].map(tr => ({id: tr.dataset.id, enabled: tr.querySelector(".l-on").checked,
     startBar: +tr.querySelector(".l-start").value, bars: +tr.querySelector(".l-bars").value}));
-  return {facts: {bpm: parseFloat($("f-bpm").value) || p.facts.bpm, key: $("f-key").value.trim(), sections}, loops, fixedTempo: $("fixed").checked};
+  return {facts: {bpm: parseFloat($("f-bpm").value) || p.facts.bpm, key: $("f-key").value.trim(), sections}, loops, fixedTempo: $("fixed").checked, arrangement: S.arr};
 }
 $("save").onclick = async () => {
   $("save").disabled = true; $("save").textContent = "Ukládám a řežu…";
@@ -324,6 +365,84 @@ $("save").onclick = async () => {
   $("save").disabled = false; $("save").textContent = "Uložit a nařezat smyčky znovu";
 };
 $("discard").onclick = () => { S.dirty = false; paintPlan(); };
+
+// ------------------------------------------------------------ arrangement
+function paintArr(){
+  const f = S.plan.facts, by = Object.fromEntries(f.sections.map(s => [s.id, s]));
+  S.arr = S.arr.filter(a => by[a.sectionId]);
+  $("arr").innerHTML = S.arr.map((a, i) => { const s = by[a.sectionId];
+    return `<span class="a" data-i="${i}"><i>${i + 1}</i><b>${esc(s.label)}</b><i>${s.bars} t.</i>×<input type="number" min="1" max="16" value="${a.repeats || 1}" title="Kolikrát za sebou">
+      <button data-m="-1" title="Dřív">←</button><button data-m="1" title="Později">→</button><button data-m="x" title="Vyhodit z aranžmá">✕</button></span>`; }).join("")
+    || '<span class="na">ARANŽMÁ JE PRÁZDNÉ — PŘIDEJ SEKCI</span>';
+  $("arr-add").innerHTML = f.sections.map(s => `<option value="${s.id}">${esc(s.label)} · ${s.bars} taktů</option>`).join("");
+  const bars = S.arr.reduce((n, a) => n + by[a.sectionId].bars * (a.repeats || 1), 0), sec = bars * f.beatsPerBar * 60 / f.bpm;
+  $("arr-sum").textContent = `${bars} taktů · ${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")} při ${f.bpm} BPM`;
+}
+$("arr").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if(!b) return;
+  const i = +b.closest(".a").dataset.i, m = b.dataset.m;
+  if(m === "x") S.arr.splice(i, 1);
+  else { const j = i + (+m); if(j < 0 || j >= S.arr.length) return; [S.arr[i], S.arr[j]] = [S.arr[j], S.arr[i]]; }
+  paintArr(); dirty(); partsStale();
+});
+$("arr").addEventListener("input", (e) => { const a = e.target.closest(".a"); if(!a) return; S.arr[+a.dataset.i].repeats = Math.max(1, Math.min(16, +e.target.value || 1)); dirty(); partsStale();
+  const f = S.plan.facts, by = Object.fromEntries(f.sections.map(s => [s.id, s])), bars = S.arr.reduce((n, x) => n + by[x.sectionId].bars * (x.repeats || 1), 0), sec = bars * f.beatsPerBar * 60 / f.bpm;
+  $("arr-sum").textContent = `${bars} taktů · ${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")} při ${f.bpm} BPM`; });
+$("arr-add-btn").onclick = () => { S.arr.push({sectionId: $("arr-add").value, repeats: 1}); paintArr(); dirty(); partsStale(); };
+$("arr-reset").onclick = () => { S.arr = S.plan.facts.sections.filter(s => !["start", "end", "silence"].includes(s.kind)).map(s => ({sectionId: s.id, repeats: 1})); paintArr(); dirty(); partsStale(); };
+
+// ------------------------------------------------------------ what to play
+const partsStale = () => { if(S.parts){ $("parts-note").hidden = false; $("parts-note").textContent = "Aranžmá se změnilo — ulož opravy a rozeber ho znovu."; } };
+// Out of this page: to Steems, or to the Performance Analyzer with a loop as the reference. Inside Pick the main window does it; alone, a new one.
+function hand(msg, url){ if(window.parent !== window) window.parent.postMessage({pick: true, ...msg}, location.origin); else window.open(url, "_blank"); }
+function paintParts(){
+  const P = S.parts, box = $("parts");
+  $("parts-out").hidden = !P; $("parts-note").hidden = true;
+  if(!P){ box.innerHTML = ""; return; }
+  const pad = P.pads, steps = (g) => `grid-template-columns:118px repeat(${g.steps},minmax(0,1fr))`;
+  box.innerHTML = P.sections.map(p => {
+    const g = p.drums, per = g ? g.steps / S.plan.facts.beatsPerBar : 4;
+    const row = (key, cls) => `<span><b>${esc(pad[key].name)}</b> <span class="dim">pad ${pad[key].pad}</span></span>` + g[key].map((v, i) => `<span class="cell ${i % per === 0 ? "beat" : ""} ${v ? "on " + cls : ""}"></span>`).join("");
+    return `<div class="part"><h3>${esc(p.label)} <small>${p.bars} taktů · hraje: ${p.layers.map(r => esc(LAYER[r] || r)).join(", ") || "nic"}</small></h3>
+      <div class="cols"><div>
+        <div class="lbl">Akordy po taktech</div>
+        <div class="prog">${p.progression.map(x => `<span>${esc(x.chord || "–")}<i>${x.bars > 1 ? x.bars + " t." : ""}</i></span>`).join("") || '<span class="na">AKORDY NEJSOU</span>'}</div>
+        <div class="lbl" style="margin-top:10px">Na klávesách</div>
+        <div class="chd">${p.chords.map(c => `<b>${esc(c.chord)}</b><span class="dim">bas ${esc(c.bassName)}</span><span class="n">${c.names.join(" · ")}${c.known ? "" : ' <span class="na">typ akordu neznám — beru dur</span>'}</span>`).join("") || '<span class="na">—</span>'}</div>
+      </div><div>
+        <div class="lbl">Bicí na pady — jeden takt po šestnáctinách${g ? ` <span style="letter-spacing:0;text-transform:none;font-weight:500">· sedí na ${Math.round(g.share * 100)} % z ${g.bars} taktů</span>` : ""}</div>
+        ${g ? `<div class="grid16" style="${steps(g)}"><span></span>${g.kick.map((_, i) => `<span class="num">${i % per === 0 ? i / per + 1 : ""}</span>`).join("")}${row("hat", "")}${row("snare", "s")}${row("kick", "k")}</div>`
+            : `<div class="na">VZOREC SE NEPODAŘILO PŘEČÍST</div><div class="muted" style="font-size:12px;margin-top:4px">${p.layers.includes("drums") ? "Takty se tu neopakují dost na to, aby z nich šel jeden vzorec — poslechni si smyčku bicích." : "Bicí v téhle sekci nehrají."}</div>`}
+        <div class="lbl" style="margin-top:12px">Čím to zahrát</div>
+        <div style="font-size:12.5px;line-height:1.7">${p.instruments.map(x => `<div><b>${esc(x.name)}</b> → ${esc(x.suggest)} <span class="dim">— ${esc(x.note)}</span></div>`).join("")}</div>
+        ${p.loopFiles.length ? `<div class="lbl" style="margin-top:12px">Trénovat v Performance</div><div class="chips">${p.loopFiles.map(f => `<button class="btn small" data-train="${esc(f.path)}" data-what="${esc(p.label + " · " + (LAYER[f.stem] || f.stem))}">${esc(LAYER[f.stem] || f.stem)}</button>`).join("")}</div>` : ""}
+      </div></div></div>`; }).join("");
+  ["chords", "bass", "drums"].forEach(k => { const a = $("mid-" + k); a.href = `/api/loopstudio/plan/${enc(S.song)}/midi/${k}.mid`; a.style.display = P.counts[k] ? "" : "none"; });
+}
+$("parts-go").onclick = async () => {
+  if(S.dirty){ toast("Nejdřív ulož opravy (dole)"); return; }
+  $("parts-go").disabled = true; $("parts-go").textContent = "Rozebírám…";
+  try{ S.parts = await json(`/api/loopstudio/plan/${enc(S.song)}/parts`); paintParts(); }catch(e){ toast(e.message); }
+  $("parts-go").disabled = false; $("parts-go").textContent = "Rozebrat znovu";
+};
+$("parts").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-train]"); if(!b) return;
+  const url = `/api/loopstudio/file/${enc(S.song)}/${b.dataset.train.split("/").map(enc).join("/")}`, ref = {url, title: `${S.plan.song.title || S.song} · ${b.dataset.what}`, artist: S.plan.song.artist || ""};
+  hand({open: "analyzer", ref}, "/analyzer#ref=" + enc(JSON.stringify(ref)));
+});
+$("to-steems").onclick = async () => {
+  if(S.dirty){ toast("Nejdřív ulož opravy (dole)"); return; }
+  const b = $("to-steems"); b.disabled = true; b.textContent = "Skládám stopy podle aranžmá…";
+  try{
+    const r = await post(`/api/loopstudio/plan/${enc(S.song)}/project`, {});
+    $("parts-note").hidden = false;
+    $("parts-note").innerHTML = `Projekt <b>${esc(r.name)}</b> je ve Steems: ${r.stems.length} stop v pořadí aranžmá${r.midi.length ? " a MIDI stopy: " + r.midi.map(esc).join(", ") : ""}.
+      <button class="btn small primary" id="open-steems" style="margin-left:10px">Otevřít ve Steems</button>
+      <div style="margin-top:6px">Tam: ztlum stopu, kterou chceš hrát sám, přidej novou stopu a nahraj ji — kytaru a zpěv ze vstupu, klávesy a pady přes MIDI stopu. MIDI stopa bicích nemá zvuk bicí soupravy (ukazuje, kdy uhodit) — bicí zní z klávesnice.</div>`;
+    $("open-steems").onclick = () => hand({open: "steems", name: r.name}, "/");
+  }catch(e){ toast(e.message); }
+  b.disabled = false; b.textContent = "Vytvořit projekt ve Steems";
+};
 $("remeasure").onclick = () => { if(confirm("Zahodit ruční opravy a spočítat plán znovu?")) startJob({song: S.song, refresh: true}); };
 $("hd-new").onclick = () => { if(S.dirty && !confirm("Máš neuložené opravy. Odejít?")) return; show("start"); loadStart(); };
 
@@ -334,6 +453,7 @@ async function openHw(){
   $("hw-app").value = l.app || ""; $("hw-device").value = l.device || ""; $("hw-keys").value = l.keys || ""; $("hw-fs").value = fs.name || "";
   $("hw-fsn").value = fs.buttons ?? 0; $("hw-cc").value = fs.ccStart ?? 20; $("hw-guitar").checked = !!l.guitar; $("hw-mic").checked = !!l.mic;
   $("hw-modeler").value = (h.tone || {}).modeler || ""; $("hw-plugins").value = ((h.tone || {}).plugins || []).join(", ");
+  const pd = h.pads || {}; $("hw-pk").value = pd.kick || 1; $("hw-ps").value = pd.snare || 3; $("hw-ph").value = pd.hat || 7;
   $("hw-daw").value = (h.studio || {}).daw || ""; $("hw-drums").value = (h.studio || {}).drums || ""; $("hw-extras").value = (h.extras || []).join(", ");
   $("hw").classList.add("on");
 }
@@ -342,7 +462,8 @@ $("hw-save").onclick = async () => {
   const list = (v) => v.split(",").map(x => x.trim()).filter(Boolean), n = +$("hw-fsn").value || 0;
   const h = {...(S.hw || {}), looping: {app: $("hw-app").value.trim(), device: $("hw-device").value.trim(), keys: $("hw-keys").value.trim(),
       footswitch: n ? {name: $("hw-fs").value.trim(), buttons: n, ccStart: +$("hw-cc").value || 0} : null, guitar: $("hw-guitar").checked, mic: $("hw-mic").checked},
-    tone: {modeler: $("hw-modeler").value.trim(), plugins: list($("hw-plugins").value)}, studio: {daw: $("hw-daw").value.trim(), drums: $("hw-drums").value.trim()}, extras: list($("hw-extras").value)};
+    tone: {modeler: $("hw-modeler").value.trim(), plugins: list($("hw-plugins").value)}, studio: {daw: $("hw-daw").value.trim(), drums: $("hw-drums").value.trim()}, extras: list($("hw-extras").value),
+    pads: {kick: +$("hw-pk").value || 1, snare: +$("hw-ps").value || 3, hat: +$("hw-ph").value || 7}};
   try{
     await post("/api/loopstudio/hardware", h, "PUT"); $("hw").classList.remove("on"); toast("Vybavení uloženo");
     // An open plan takes the new rig: saving it (with whatever is on screen) works the card out again.

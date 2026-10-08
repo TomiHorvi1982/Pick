@@ -363,8 +363,11 @@ def apply_edits(plan: dict, edits: dict, grid: dict, profile: dict) -> dict:
             l["startBar"] = max(1, min(int(e["startBar"]), max(1, len(starts) - 1)))
     if "fixedTempo" in edits:
         plan["fixedTempo"] = bool(edits["fixedTempo"])
+    if isinstance(edits.get("arrangement"), list):
+        plan["arrangement"] = [{"sectionId": str(a["sectionId"]), "repeats": max(1, min(16, int(a.get("repeats") or 1)))}
+                               for a in edits["arrangement"][:64] if isinstance(a, dict) and a.get("sectionId") in by_id]
     plan["loopy"] = loopy_card(facts, plan["loops"], profile)
-    if any(k in edits for k in ("facts", "loops", "fixedTempo")):
+    if any(k in edits for k in ("facts", "loops", "fixedTempo", "arrangement")):
         plan["edited"] = True                 # an empty edit only refreshes the card (a new rig)
     return plan
 
@@ -498,3 +501,319 @@ def load_plan(stems_dir: Path):
 
 def save_plan(stems_dir: Path, plan: dict) -> None:
     (stems_dir / "loopplan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+# ======================================================================
+# The arrangement, and what to play. The sections of the plan put in the
+# player's own order; then, for that structure: each chord as notes for the
+# keys, the groove of each section read off the drum stem as a pattern for
+# the pads, an instrument for every layer — and the whole thing laid out as
+# a project to record into (audio by stem, MIDI tracks with the notes).
+# ======================================================================
+DRUM_NOTES = {"kick": 36, "snare": 38, "hat": 42}          # General MIDI
+DRUM_NAMES = {"kick": "kopák", "snare": "virbl", "hat": "hi-hat"}
+DEFAULT_PADS = {"kick": 1, "snare": 3, "hat": 7}            # MPK Mini's bank A as it ships: pad n plays note 35 + n
+# layer → an instrument Steems' MIDI tracks have (id, name), and a word on it
+INSTRUMENTS = {
+    "bass": ("fender_precision_pick", "Fender Precision Bass (Trsátko)", "basová linka na klávesách, nebo vlastní basa"),
+    "piano": ("grand_piano_yamaha", "Studiové křídlo Yamaha C7", "akordy na klávesách"),
+    "guitar": ("electric_lespaul_crunch", "Gibson Les Paul (Crunch / Overdrive)", "nejlíp vlastní kytara přes modeler; na klávesách jen jako náhrada"),
+    "other": ("warm_analog_pad", "Sametový hřejivý analogový pad", "stopa „ostatní“ bývá syntezátor nebo smyčce — poslechni si ji a vyber podle ucha"),
+    "vocals": (None, "mikrofon", "zpěv se nahrává mikrofonem"),
+    "drums": (None, "pady na klávesách", "bicí zvuky klávesnice, hrané na pady podle vzorce"),
+}
+_SKIP_KINDS = ("start", "end", "silence")
+
+
+def default_arrangement(sections: list) -> list:
+    return [{"sectionId": s["id"], "repeats": 1} for s in sections if s.get("kind") not in _SKIP_KINDS]
+
+
+def arrangement_of(plan: dict) -> list:
+    """The player's order of sections, or the song's own."""
+    ids = {s["id"] for s in plan["facts"]["sections"]}
+    arr = [a for a in (plan.get("arrangement") or []) if a.get("sectionId") in ids]
+    return arr or default_arrangement(plan["facts"]["sections"])
+
+
+def sequence(plan: dict) -> list:
+    """The arrangement written out: each section as many times as it is played."""
+    by = {s["id"]: s for s in plan["facts"]["sections"]}
+    out = []
+    for a in arrangement_of(plan):
+        out += [by[a["sectionId"]]] * max(1, min(16, int(a.get("repeats") or 1)))
+    return out
+
+
+def chord_notes(name: str):
+    """A chord's name → what to press: the root low (left hand, or the bass)
+    and the chord above it. None when the name says nothing."""
+    import re
+    m = re.match(r"^([A-G])([#b]?)(.*)$", (name or "").strip())
+    if not m:
+        return None
+    pc = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}[m.group(1)] + (1 if m.group(2) == "#" else -1 if m.group(2) == "b" else 0)
+    q = m.group(3).split("/")[0].strip().lower()
+    quality = ("min7" if q in ("m7", "min7") else "maj7" if q in ("maj7", "ma7") else "min" if q in ("m", "min", "mi") else
+               q if q in _QUALITY_TONES else "maj" if q == "" else None)
+    known = quality is not None
+    tones = _QUALITY_TONES[quality or "maj"]
+    pc %= 12
+    bass = 36 + pc                                             # C2…B2
+    root = 48 + pc if pc <= 7 else 36 + pc                     # the chord around middle C, never too high
+    notes = [root + t for t in tones]
+    label = lambda n: f"{NOTE_NAMES[n % 12]}{n // 12 - 1}"
+    return {"chord": name, "bass": bass, "notes": notes, "bassName": label(bass), "names": [label(n) for n in notes], "known": known}
+
+
+def drum_groove(x: np.ndarray, rate: int, bars: list, beats_per_bar: int = 4):
+    """The pattern the kit plays in a stretch: which sixteenths of the bar the
+    kick, the snare and the hi-hat fall on — the bar that comes most often.
+
+    Three bands of the drum stem (low: kick; middle: snare; top: cymbals),
+    the attacks in each, snapped to the bar's sixteenths. A heuristic: fills
+    and ghost notes are lost, toms land on the kick or the snare."""
+    if x.size < rate or len(bars) < 2:
+        return None
+    n_fft, hop = 1024, 256
+    frames = 1 + (x.size - n_fft) // hop
+    if frames < 8:
+        return None
+    idx = np.arange(n_fft)[None, :] + hop * np.arange(frames)[:, None]
+    mag = np.abs(np.fft.rfft(x[idx] * np.hanning(n_fft), axis=1))
+    freqs = np.fft.rfftfreq(n_fft, 1 / rate)
+    bands = {"kick": (30, 130), "snare": (180, 2500), "hat": (6000, rate / 2)}
+    level = {k: mag[:, (freqs >= lo) & (freqs < hi)].sum(axis=1) for k, (lo, hi) in bands.items()}
+    # every stroke, whatever it is: where the sound as a whole jumps
+    e = np.log1p(40 * (level["kick"] + level["snare"] + level["hat"]))
+    flux = np.concatenate([[0], np.maximum(0, e[1:] - e[:-1])])
+    top = np.sort(flux)[::-1]
+    ref = float(top[min(top.size - 1, 2 * (len(bars) - 1))])
+    if ref <= 0:
+        return None
+    gap, hits = int(0.06 * rate / hop), []
+    for i in range(1, frames - 1):
+        if flux[i] >= ref * 0.2 and flux[i] >= flux[i - 1] and flux[i] > flux[i + 1] and (not hits or i - hits[-1] >= gap):
+            hits.append(i)
+    if not hits:
+        return None
+    # what each stroke is made of: its level in the three bands just after it lands
+    made = {k: np.array([level[k][i:i + 4].max() for i in hits]) for k in bands}
+    n_top = max(1, len(bars) - 1)                                   # a drum in the groove comes at least once a bar
+    strong = {k: float(np.sort(v)[::-1][min(v.size - 1, n_top - 1)]) for k, v in made.items()}
+    whole = max(strong.values())
+    onsets = {k: [] for k in bands}
+    for j, i in enumerate(hits):
+        lo, mid, hi = made["kick"][j], made["snare"][j], made["hat"][j]
+        t = i * hop / rate
+        # a kick is mostly low; a snare is at least as much middle as low; a
+        # cymbal is top with little under it (a snare's own top is the snare)
+        is_kick = lo >= 0.4 * strong["kick"] and lo >= 0.08 * whole and lo >= mid * 0.5
+        is_snare = mid >= 0.4 * strong["snare"] and mid >= 0.08 * whole and mid >= lo * 0.35 and not (is_kick and mid < lo * 1.2)
+        is_hat = hi >= 0.35 * strong["hat"] and hi >= 0.02 * whole and not is_snare and hi >= mid * 0.15
+        if is_kick:
+            onsets["kick"].append((t, 1.0))
+        if is_snare:
+            onsets["snare"].append((t, 1.0))
+        if is_hat:
+            onsets["hat"].append((t, 1.0))
+    steps = beats_per_bar * 4
+    patterns = []
+    for b0, b1 in zip(bars[:-1], bars[1:]):
+        step = (b1 - b0) / steps
+        row = {}
+        for name in bands:
+            cells = [0] * steps
+            for t, _ in onsets[name]:
+                k = int(round((t - b0) / step))
+                if 0 <= k < steps and abs(t - (b0 + k * step)) <= step * 0.45:
+                    cells[k] = 1
+            row[name] = cells
+        patterns.append(tuple(tuple(row[name]) for name in ("kick", "snare", "hat")))
+    # The groove is what most bars agree on, cell by cell: a hit belongs to
+    # it when it is there in at least half of them. (Whole bars seldom match
+    # exactly — a fill here, a missed ghost note there.)
+    live = [p for p in patterns if any(any(r) for r in p)]
+    if not live:
+        return None
+    votes = np.mean(np.array(live, dtype=float), axis=0)           # 3 × steps
+    best = (votes >= 0.5).astype(int)
+    if not best.any():
+        return None
+    agree = float(np.mean([np.mean(np.array(p) == best) for p in live]))
+    # A pattern that holds only a fraction of what is played is no pattern:
+    # the bars do not repeat (or the bar lines are not where the kit's are).
+    played = float(np.mean([np.sum(p) for p in live]))
+    if best.sum() < 2 or best.sum() < played * 0.5:
+        return None
+    return {"steps": steps, "kick": best[0].tolist(), "snare": best[1].tolist(), "hat": best[2].tolist(),
+            "share": round(agree, 2), "bars": len(live)}
+
+
+def build_parts(plan: dict, grid: dict, stems_dir: Path, ffmpeg: str, profile: dict) -> dict:
+    """What to play in each section of the arrangement."""
+    starts = bar_starts(grid)
+    facts = plan["facts"]
+    seq_ids = []
+    for a in arrangement_of(plan):
+        if a["sectionId"] not in seq_ids:
+            seq_ids.append(a["sectionId"])
+    sections = [s for s in facts["sections"] if s["id"] in seq_ids]
+    sections.sort(key=lambda s: seq_ids.index(s["id"]))
+    activity = stem_activity(stems_dir, sections, ffmpeg)
+    files = stem_files(stems_dir)
+    drums = decode(files["drums"], ffmpeg, 22050) if "drums" in files else np.zeros(0, np.float32)
+    pads = {**DEFAULT_PADS, **{k: int(v) for k, v in ((profile or {}).get("pads") or {}).items() if k in DEFAULT_PADS and str(v).isdigit()}}
+    loops = {l["sectionId"]: l for l in plan["loops"]}
+    by_kind = {l["kind"]: l for l in plan["loops"]}
+    out = []
+    for k, s in enumerate(sections):
+        a = s["startBar"] - 1
+        lines = starts[a:a + s["bars"] + 1]
+        groove = None
+        if drums.size and len(lines) >= 2:
+            i0 = int(lines[0] * 22050)
+            groove = drum_groove(drums[i0:int(lines[-1] * 22050)], 22050, [t - lines[0] for t in lines], facts["beatsPerBar"])
+        by_bar = {c["bar"]: c["chord"] for c in s["chords"]}
+        chords, prog = [], []
+        for b in range(s["startBar"], s["startBar"] + s["bars"]):
+            name = by_bar.get(b)
+            if prog and prog[-1]["chord"] == name:
+                prog[-1]["bars"] += 1
+            else:
+                prog.append({"chord": name, "bars": 1})
+        seen = set()
+        for p in prog:
+            if p["chord"] and p["chord"] not in seen:
+                seen.add(p["chord"])
+                cn = chord_notes(p["chord"])
+                if cn:
+                    chords.append(cn)
+        layers = [r for r in LAYER_ORDER if r in activity and activity[r][k]] + sorted(r for r in activity if r not in LAYER_ORDER and activity[r][k])
+        loop = loops.get(s["id"]) or by_kind.get(s["kind"])
+        out.append({"sectionId": s["id"], "label": s["label"], "kind": s["kind"], "bars": s["bars"],
+                    "progression": prog, "chords": chords, "drums": groove, "layers": layers,
+                    "instruments": [{"role": r, "name": LAYER_NAMES.get(r, r), "steems": INSTRUMENTS[r][0], "suggest": INSTRUMENTS[r][1], "note": INSTRUMENTS[r][2]}
+                                    for r in layers if r in INSTRUMENTS],
+                    "loopFiles": [f for f in (loop or {}).get("files", []) if f["stem"] != "_mix"] if loop and loop.get("enabled", True) else []})
+    return {"sections": out, "pads": {k: {"pad": pads[k], "note": DRUM_NOTES[k], "name": DRUM_NAMES[k]} for k in DRUM_NOTES},
+            "keys": ((profile or {}).get("looping") or {}).get("keys") or "MIDI klávesy",
+            "signature": parts_signature(plan)}
+
+
+def parts_signature(plan: dict) -> str:
+    """Changes when what the parts were worked out from does."""
+    import hashlib
+    import json as _json
+    f = plan["facts"]
+    return hashlib.sha1(_json.dumps([f["sections"], arrangement_of(plan), f["bpm"], [(l["id"], l.get("files")) for l in plan["loops"]]],
+                                    sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+
+
+# ---- the arrangement in time: each section on the plan's clock
+def _section_fit(s: dict, plan: dict):
+    """(seconds in the recording, seconds in the arrangement, speed ratio)."""
+    bpb, bpm = plan["facts"]["beatsPerBar"], plan["facts"]["bpm"]
+    dur = s["endSec"] - s["startSec"]
+    target = s["bars"] * bpb * 60.0 / bpm if plan.get("fixedTempo", True) else dur
+    ratio = dur / target if target > 0 else 1.0
+    if not 0.8 <= ratio <= 1.25:
+        target, ratio = dur, 1.0
+    return dur, target, ratio
+
+
+def arrangement_notes(plan: dict, parts: dict) -> dict:
+    """The arrangement as notes in seconds — {chords, bass, drums}: [{m, t, d, v}]."""
+    by = {p["sectionId"]: p for p in parts["sections"]}
+    chords, bass, drums, t0 = [], [], [], 0.0
+    for s in sequence(plan):
+        _, target, _ = _section_fit(s, plan)
+        bar = target / s["bars"]
+        by_bar = {c["bar"]: c["chord"] for c in s["chords"]}
+        for k in range(s["bars"]):
+            cn = chord_notes(by_bar.get(s["startBar"] + k))
+            at = t0 + k * bar
+            if cn:
+                chords += [{"m": n, "t": round(at, 4), "d": round(bar * 0.96, 4), "v": 0.7} for n in cn["notes"]]
+                bass.append({"m": cn["bass"], "t": round(at, 4), "d": round(bar * 0.9, 4), "v": 0.8})
+        g = (by.get(s["id"]) or {}).get("drums")
+        if g:
+            step = bar / g["steps"]
+            for k in range(s["bars"]):
+                for name in ("kick", "snare", "hat"):
+                    for i, on in enumerate(g[name]):
+                        if on:
+                            drums.append({"m": DRUM_NOTES[name], "t": round(t0 + k * bar + i * step, 4), "d": round(min(step * 0.9, 0.12), 4),
+                                          "v": 0.95 if name != "hat" else 0.6})
+        t0 += target
+    return {"chords": chords, "bass": bass, "drums": drums, "seconds": round(t0, 3)}
+
+
+def midi_bytes(notes: list, bpm: float, name: str, channel: int = 0) -> bytes:
+    """Notes in seconds → a Standard MIDI File at one tempo (channel 9 is the drum kit)."""
+    ppq = 480
+    tick = lambda sec: max(0, int(round(sec * bpm / 60.0 * ppq)))
+    ev = []
+    for n in notes:
+        a = tick(n["t"])
+        ev.append((a, 1, 0x90 | channel, n["m"], max(1, min(127, int(round(n.get("v", 0.8) * 127))))))
+        ev.append((max(a + 1, tick(n["t"] + n["d"])), 0, 0x80 | channel, n["m"], 0))
+    ev.sort(key=lambda e: (e[0], e[1]))
+
+    def vlq(v):
+        b = [v & 0x7F]
+        v >>= 7
+        while v:
+            b.insert(0, (v & 0x7F) | 0x80)
+            v >>= 7
+        return bytes(b)
+    text = "".join(c for c in name if ord(c) < 128)[:60].encode() or b"Pick"
+    us = int(round(60e6 / bpm))
+    body = vlq(0) + b"\xff\x03" + vlq(len(text)) + text + vlq(0) + b"\xff\x51\x03" + us.to_bytes(3, "big")
+    last = 0
+    for t, _, st, d1, d2 in ev:
+        body += vlq(t - last) + bytes([st, d1, d2])
+        last = t
+    body += vlq(0) + b"\xff\x2f\x00"
+    return b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + ppq.to_bytes(2, "big") + b"MTrk" + len(body).to_bytes(4, "big") + body
+
+
+def render_arrangement(plan: dict, stems_dir: Path, ffmpeg: str, out_dir: Path, on_progress=None) -> dict:
+    """Every stem with the sections in the arrangement's order, each fitted
+    to the plan's tempo: role → a WAV in `out_dir`."""
+    import wave
+    rate = 44100
+    files = stem_files(stems_dir)
+    seq = sequence(plan)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    made, total, k = {}, max(1, len(files)), 0
+    for role, src in files.items():
+        cuts = {}
+        for s in seq:
+            if s["id"] in cuts:
+                continue
+            dur, target, ratio = _section_fit(s, plan)
+            samples = int(round(target * rate))
+            dst = out_dir / f".cut-{role}-{s['id']}.wav"
+            chain = (_atempo(ratio) + "," if abs(ratio - 1) > 1e-4 else "") + f"apad,atrim=end_sample={samples}"
+            r = subprocess.run([ffmpeg, "-v", "error", "-y", "-ss", f"{s['startSec']:.6f}", "-t", f"{dur:.6f}", "-i", str(src),
+                                "-af", chain, "-ar", str(rate), "-ac", "2", "-c:a", "pcm_s16le", str(dst)], capture_output=True, timeout=180)
+            cuts[s["id"]] = dst if r.returncode == 0 and dst.is_file() else None
+        whole = out_dir / f"{role}.wav"
+        with wave.open(str(whole), "wb") as w:
+            w.setnchannels(2); w.setsampwidth(2); w.setframerate(rate)
+            for s in seq:
+                c = cuts.get(s["id"])
+                if c is None:
+                    w.writeframes(b"\x00" * 4 * int(round(_section_fit(s, plan)[1] * rate)))
+                    continue
+                with wave.open(str(c), "rb") as part:
+                    w.writeframes(part.readframes(part.getnframes()))
+        for c in cuts.values():
+            if c is not None:
+                c.unlink(missing_ok=True)
+        made[role] = whole
+        k += 1
+        if on_progress:
+            on_progress(k / total)
+    return made

@@ -334,8 +334,11 @@
             <label title="Čáry v místech úderů — vidíš, kdy trsnout. Najdou se samy podle prahu; každou jde posunout, smazat, nebo přidat vlastní."><input type="checkbox" id="hits-on"> Údery <span id="hits-src" class="muted"></span></label>
             <label title="Jak hlasitý musí úder být, aby dostal čáru: výš = jen ty nejsilnější, níž = i slabé">Práh <input type="range" id="hits-thr" min="0.02" max="0.9" step="0.01" style="width:150px;accent-color:#fbbf24"><span id="hits-thr-t" style="min-width:38px"></span></label>
             <span class="muted" id="hits-n" style="min-width:150px"></span>
+            <label title="Každá čára při přehrávání i nahrávání klikne — ne do tempa, ale přesně tam, kde je. Hlasitost má fader METRONOM v Mixu."><input type="checkbox" id="hits-click"> klikat</label>
+            <label>Základní <select id="hits-s0"></select></label>
+            <label title="Zvuk čar, které si označíš jako důraz (klik na čáru)">Důraz <select id="hits-s1"></select></label>
             <button class="btn small" id="hits-reset" title="Zahodí ruční posuny, smazání a přidané čáry — zůstane, co najde práh">Vrátit úpravy</button>
-            <span class="dim" style="font-size:11.5px;white-space:nowrap">v pruhu ÚDERY: klik = přidat čáru · tažení = posun · dvojklik nebo Delete = smazat</span>
+            <span class="dim" style="font-size:11.5px;flex:0 0 100%">v pruhu ÚDERY: klik do prázdna = nová čára · klik na čáru = základní / <b style="color:#fb7185">důraz</b> · tažení tečky do strany = posun · tažení tečky nahoru = vyšší tón a jiná barva (dolů zpět) · tažení u spodního okraje doprava = délka · dvojklik nebo Delete = smazat</span>
           </div>
           <div class="tl-scroll" id="tl-scroll"><canvas id="tl" height="372"></canvas><div class="tl-spacer" id="tl-spacer"></div></div>
           <div class="legend"><span><i style="background:var(--ok)"></i>correct</span><span><i style="background:var(--warn)"></i>minor</span><span><i style="background:var(--bad)"></i>wrong / major</span><span><i style="background:var(--info)"></i>extra</span><span><i style="background:#6b7280"></i>missed / not readable</span>
@@ -733,7 +736,7 @@ function songBeats(){
   return MET.beats;
 }
 function metronome(){
-  if(!MIX.met || !S.ref || S.recording || aRef.paused){ MET.at = null; return; }
+  if(!(MIX.met || hitsClick()) || !S.ref || S.recording || aRef.paused){ MET.at = null; return; }
   const ctx = audioCtx(), now = ctx.currentTime, rt = aRef.currentTime, rate = aRef.playbackRate || 1;
   let est = MET.at ? MET.at.rt + (now - MET.at.ct) * rate : null;
   if(est == null || MET.at.rate !== rate || Math.abs(est - rt) > 0.06){
@@ -745,7 +748,9 @@ function metronome(){
   if(S.loop && to > S.loop.b) to = S.loop.b - 1e-4;             // nothing past the turn
   const bs = songBeats();
   let lo = 0, hi = bs.length; while(lo < hi){ const m = (lo + hi) >> 1; if(bs[m].t <= MET.done) lo = m + 1; else hi = m; }
-  for(; lo < bs.length && bs[lo].t <= to; lo++) click(Math.max(now, now + (bs[lo].t - est) / rate + MET.late), bs[lo].accent);
+  if(MIX.met) for(; lo < bs.length && bs[lo].t <= to; lo++) click(Math.max(now, now + (bs[lo].t - est) / rate + MET.late), bs[lo].accent);
+  // the lines of the hits lane, each where it stands
+  if(hitsClick()) for(const h of hitList()){ if(h.t <= MET.done) continue; if(h.t > to) break; hitSound(Math.max(now, now + (h.t - est) / rate + MET.late), h.a, h.len / rate, h.p); }
   if(to > MET.done) MET.done = to;
 }
 // The tempo and the bar the song is in: Steems' beat grid when the reference
@@ -759,6 +764,7 @@ function beatsIn(a, b){
   else { const step = 60 / refBpm(); for(let k = 0; a + k * step < b; k++) out.push({t: k * step, accent: k % refBpb() === 0}); }
   return out;
 }
+function hitsAhead(reg, t0){ if(hitsClick()) hitList().forEach(h => { if(h.t >= reg.a - 0.005 && h.t < reg.b) hitSound(t0 + Math.max(0, h.t - reg.a), h.a, h.len, h.p); }); }
 const REC = {reg: null, loop: false, started: false, timer: null, queue: Promise.resolve(), pending: 0, t0: 0, cap: null, at: 0, arming: false};
 const postJson = (url, body) => fetch(url, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body || {})});
 async function startRec(){
@@ -801,6 +807,7 @@ function beginPass(){
   BAND.forEach(x => { if(x.src){ x.currentTime = reg.a; x.play().catch(() => {}); } });
   S.playing = "ref";
   if($("tr-click").checked) beatsIn(reg.a, reg.b).forEach(x => click(ctx.currentTime + 0.01 + x.t, x.accent));
+  hitsAhead(reg, ctx.currentTime + 0.01);
   paintTakes();
 }
 // The end of a pass: what was played becomes a take; in loop mode the next
@@ -820,6 +827,7 @@ function endPass(final){
   S.live = {a: reg.a, peaks: [], n: (S.takes.length ? S.takes[S.takes.length - 1].n : 0) + 1 + REC.pending};
   aRef.currentTime = reg.a; BAND.forEach(x => { if(x.src) x.currentTime = reg.a; });
   if($("tr-click").checked) beatsIn(reg.a, reg.b).forEach(x => click(audioCtx().currentTime + 0.01 + x.t, x.accent));
+  hitsAhead(reg, audioCtx().currentTime + 0.01);
 }
 function stopRec(){
   if(!S.recording) return;
@@ -1483,7 +1491,7 @@ document.addEventListener("click", (e) => {
 });
 
 // ---- the timeline: ruler, two waveforms, two note lanes, the markers
-const TL = {H: 372, base: 372, ruler: 22, wave: 74, notes: 62, gap: 8, mark: 30, take: 44, drums: 54, hitsH: 28};
+const TL = {H: 372, base: 372, ruler: 22, wave: 74, notes: 62, gap: 8, mark: 30, take: 44, drums: 54, hitsH: 64};
 // ---- the hits: a line where each stroke of the kit falls (or of the
 // reference itself, when there is no kit) — where to pick. Found by a
 // threshold of loudness; each can be moved or removed, and others added.
@@ -1512,38 +1520,68 @@ function hitCands(pcm){
   return out;
 }
 function hitsStore(){ try{ return JSON.parse(localStorage.getItem(HITS_KEY) || "{}"); }catch(e){ return {}; } }
-function hitsSave(){ if(!S.ref) return; const all = hitsStore(); all[sectSong()] = {on: HITS.on, thr: HITS.thr, removed: HITS.removed, added: HITS.added}; try{ localStorage.setItem(HITS_KEY, JSON.stringify(all)); }catch(e){} }
+function hitsSave(){ if(!S.ref) return; const all = hitsStore(); all[sectSong()] = {on: HITS.on, thr: HITS.thr, removed: HITS.removed, added: HITS.added, marks: HITS.marks}; try{ localStorage.setItem(HITS_KEY, JSON.stringify(all)); }catch(e){} }
 function hitsOpen(){              // the song's own, when another song comes
   if(HITS.of === S.ref) return;
   const st = (S.ref && hitsStore()[sectSong()]) || {};
-  Object.assign(HITS, {of: S.ref, on: !!st.on, thr: st.thr ?? 0.25, removed: st.removed || [], added: st.added || [], sel: null, cands: null, list: null});
+  // added: the player's own lines {t, a, len}; marks: what was set on found ones, by their time
+  Object.assign(HITS, {of: S.ref, on: !!st.on, thr: st.thr ?? 0.25, removed: st.removed || [], added: (st.added || []).map(x => typeof x === "number" ? {t: x} : x), marks: st.marks || {}, sel: null, cands: null, list: null});
 }
 function hitList(){
   hitsOpen();
   const pcm = hitsPcm(); if(!pcm) return [];
   if(!HITS.cands) HITS.cands = hitCands(pcm);
   if(!HITS.list){ const gone = new Set(HITS.removed.map(t => t.toFixed(3)));
-    HITS.list = HITS.cands.filter(c => c.s >= HITS.thr && !gone.has(c.t.toFixed(3))).map(c => ({t: c.t, s: c.s, id: "a" + c.t.toFixed(3)}))
-      .concat(HITS.added.map((t, k) => ({t, k, id: "m" + k}))).sort((a, b) => a.t - b.t); }
+    HITS.list = HITS.cands.filter(c => c.s >= HITS.thr && !gone.has(c.t.toFixed(3))).map(c => { const key = c.t.toFixed(3), m = HITS.marks[key] || {}; return {t: c.t, s: c.s, id: "a" + key, key, a: !!m.a, len: m.len || 0, p: m.p || 0}; })
+      .concat(HITS.added.map((x, k) => ({t: x.t, k, id: "m" + k, a: !!x.a, len: x.len || 0, p: x.p || 0}))).sort((a, b) => a.t - b.t); }
   return HITS.list;
+}
+// What is set on a line lives with the player's own line, or — for a found one — under its time.
+function hitSet(h, what){
+  if(h.k != null) Object.assign(HITS.added[h.k], what);
+  else { const m = HITS.marks[h.key] = {...(HITS.marks[h.key] || {}), ...what}; if(!m.a && !m.len && !m.p) delete HITS.marks[h.key]; }
+  Object.assign(h, what); HITS.list = null;
 }
 function paintHits(){
   hitsOpen();
   const has = !!hitsPcm(); $("hits-bar").hidden = !has; if(!has) return;
   $("hits-on").checked = HITS.on; $("hits-thr").value = HITS.thr; $("hits-thr-t").textContent = Math.round(HITS.thr * 100) + " %";
   $("hits-src").textContent = S.ref.drums && S.ref.drums.pcm ? "bicích" : "reference";
-  const edits = HITS.removed.length + HITS.added.length;
-  $("hits-n").textContent = HITS.on ? `${hitList().length} čar${edits ? ` · ${edits} ${edits === 1 ? "úprava" : edits < 5 ? "úpravy" : "úprav"}` : ""}` : "";
+  const edits = HITS.removed.length + HITS.added.length + Object.keys(HITS.marks).length, acc = HITS.on ? hitList().filter(h => h.a).length : 0;
+  $("hits-n").textContent = HITS.on ? `${hitList().length} čar${acc ? ` · ${acc} s důrazem` : ""}${edits ? ` · ${edits} ${edits === 1 ? "úprava" : edits < 5 ? "úpravy" : "úprav"}` : ""}` : "";
   $("hits-reset").disabled = !edits;                   // (not hidden: the bar must not change height under the pointer)
 }
 function hitsChanged(keep){ HITS.list = null; if(!keep) HITS.sel = null; hitsSave(); paintHits(); drawTimeline(); }
-function hitRemove(h){ if(h.k != null) HITS.added.splice(h.k, 1); else HITS.removed.push(h.t); hitsChanged(); }
-// A found line that is moved becomes the player's own line.
+function hitRemove(h){ if(h.k != null) HITS.added.splice(h.k, 1); else { HITS.removed.push(h.t); delete HITS.marks[h.key]; } hitsChanged(); }
+// A found line that is moved becomes the player's own line, with what was set on it.
 function hitMove(h, t){
-  if(h.k == null){ HITS.removed.push(h.t); HITS.added.push(t); h = {k: HITS.added.length - 1}; } else HITS.added[h.k] = t;
-  HITS.sel = "m" + h.k; HITS.list = null; return h;
+  if(h.k == null){ HITS.removed.push(h.t); delete HITS.marks[h.key]; HITS.added.push({t, a: h.a, len: h.len, p: h.p}); h = {...h, k: HITS.added.length - 1, key: null}; } else HITS.added[h.k].t = t;
+  h.t = t; h.id = "m" + h.k; HITS.sel = h.id; HITS.list = null; return h;
 }
 function hitAt(x){ let best = null, d = 7; for(const h of hitList()){ const dx = Math.abs(h.t * S.pps - tlScroll.scrollLeft - x); if(dx < d){ d = dx; best = h; } } return best; }
+// A line's height: how far its dot was pulled up — as many semitones above
+// its voice's own pitch, and as far round the colours. Down again undoes it.
+const HIT_TOP = 12;
+const hitDotY = (h) => 46 - (h.p || 0) * 3;                       // within the lane
+const hitColor = (h, alpha) => `hsla(${h.a ? 350 - (h.p || 0) * 7 : 43 + (h.p || 0) * 12}, 95%, ${h.k != null && !h.a ? 72 : 62}%, ${alpha ?? 1})`;
+// The end of a line's length under a point, to pull it further or back.
+function hitEndAt(x){ for(const h of hitList()) if(h.len && Math.abs((h.t + h.len) * S.pps - tlScroll.scrollLeft - x) < 6) return h; return null; }
+// ---- the sound of the lines: two voices, as on a metronome — but clicked
+// where the lines are, not on a beat. A line with a length sounds that long.
+const HIT_SOUNDS = {hi: ["Klik vysoký", "sine", 1568, 0.5], lo: ["Klik nízký", "sine", 1046, 0.5], wood: ["Dřívko", "triangle", 2400, 0.6], beep: ["Pípnutí", "square", 660, 0.16], low: ["Hluboký tón", "sine", 330, 0.6], cow: ["Zvonec", "square", 540, 0.2]};
+const HSND = {click: false, s0: "lo", s1: "hi"};
+try{ Object.assign(HSND, JSON.parse(localStorage.getItem("pick-analyzer-hitsound") || "{}")); }catch(e){}
+function hitSound(when, accent, len, up){
+  const [, type, f, vol] = HIT_SOUNDS[accent ? HSND.s1 : HSND.s0] || HIT_SOUNDS.lo, ctx = audioCtx(), o = ctx.createOscillator(), g = ctx.createGain();
+  const hold = Math.max(0, (len || 0) - 0.05);
+  o.type = type; o.frequency.value = f * Math.pow(2, (up || 0) / 12);
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vol, when + 0.002);
+  if(hold){ g.gain.exponentialRampToValueAtTime(vol * 0.35, when + 0.05); g.gain.setValueAtTime(vol * 0.35, when + hold); g.gain.exponentialRampToValueAtTime(0.0001, when + hold + 0.05); }
+  else g.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+  o.connect(g); g.connect(clickBus()); o.start(when); o.stop(when + hold + 0.09); clicks.push(o);
+  if(clicks.length > 96) clicks.splice(0, 32);
+}
+const hitsClick = () => HITS.on && HSND.click && !!hitsPcm();
 const tl = $("tl"), tlScroll = $("tl-scroll");
 // The view fits what was played (the whole reference when nothing was yet).
 function fitTimeline(){
@@ -1738,12 +1776,13 @@ function drawTimeline(){
   if(Y.hits != null){
     g.fillStyle = "rgba(251,191,36,.05)"; g.fillRect(0, Y.hits, W, TL.hitsH);
     const ta = x0 / S.pps, tb = (x0 + W) / S.pps;
-    for(const h of hitList()){ if(h.t < ta - 0.01) continue; if(h.t > tb) break;
-      const x = Math.round(X(h.t)), sel = HITS.sel === h.id, own = h.k != null;
+    for(const h of hitList()){ if(h.t + h.len < ta - 0.01) continue; if(h.t > tb) break;
+      const x = Math.round(X(h.t)), sel = HITS.sel === h.id, col = hitColor(h), dy = Y.hits + hitDotY(h);
       // faint through the lanes above and the player's own below — where the stroke falls
-      g.fillStyle = sel ? "rgba(255,255,255,.5)" : "rgba(251,191,36,.2)"; g.fillRect(x, Y.refW, 1, Y.hits - Y.refW); g.fillRect(x, Y.plyW, 1, TL.wave);
-      g.fillStyle = sel ? "#fff" : own ? "#fde68a" : "#fbbf24"; g.fillRect(x - (sel ? 1 : 0), Y.hits + 2, sel ? 3 : 2, TL.hitsH - 4);
-      g.beginPath(); g.arc(x + 1, Y.hits + 6, sel ? 4.5 : 3.5, 0, 7); g.fill(); }
+      g.fillStyle = sel ? "rgba(255,255,255,.5)" : hitColor(h, h.a || h.p ? 0.34 : 0.2); g.fillRect(x, Y.refW, 1, Y.hits - Y.refW); g.fillRect(x, Y.plyW, 1, TL.wave);
+      if(h.len){ const w = Math.max(3, h.len * S.pps); g.fillStyle = hitColor(h, 0.35); g.fillRect(x, Y.hits + 53, w, TL.hitsH - 56); g.fillStyle = col; g.fillRect(x + w - 2, Y.hits + 51, 3, TL.hitsH - 52); }
+      g.fillStyle = sel ? "#fff" : col; g.fillRect(x - (sel ? 1 : 0), dy, sel || h.a ? 3 : 2, TL.hitsH - 2 - hitDotY(h));
+      g.beginPath(); g.arc(x + 1, dy, sel ? 5 : h.a ? 4.5 : 3.5, 0, 7); g.fill(); }
     label("ÚDERY", Y.hits);
   }
   label("REFERENCE", Y.refW); if(Y.drums != null) label("DRUMS", Y.drums);
@@ -1810,11 +1849,15 @@ tl.addEventListener("pointerdown", (e) => {
   if(!S.ref) return;
   const rect = tl.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top, t = (x + tlScroll.scrollLeft) / S.pps;
   if(!S.recording && !e.shiftKey && !e.altKey && inHits(y)){
-    // on a line: take hold of it; beside every line: a new one
-    let h = hitAt(x);
-    if(!h){ HITS.added.push(Math.max(0, t)); h = {k: HITS.added.length - 1, id: "m" + (HITS.added.length - 1)}; HITS.sel = h.id; hitsChanged(true); }
+    // The dot at the top moves a line; the stem under it, pulled right, gives
+    // it a length (and the end of a length can be pulled again). A click
+    // on a line that moves nothing switches it between plain and accent;
+    // beside every line, a click makes a new one.
+    const low = y - laneY().hits > 50, end = low ? hitEndAt(x) : null;
+    let h = end || hitAt(x), fresh = false;
+    if(!h){ HITS.added.push({t: Math.max(0, t)}); h = {t: Math.max(0, t), k: HITS.added.length - 1, id: "m" + (HITS.added.length - 1), a: false, len: 0}; fresh = true; HITS.sel = h.id; hitsChanged(true); }
     else { HITS.sel = h.id; drawTimeline(); }
-    dragHit = {h, x, moved: false}; tl.setPointerCapture(e.pointerId); return;
+    dragHit = {h, x, y, p0: h.p || 0, moved: false, fresh, mode: !!end || (low && !fresh) ? "len" : null}; tl.setPointerCapture(e.pointerId); return;
   }
   if(!S.recording && e.altKey && S.takes.some(tk => tk.buf)){
     const Yl = laneY();
@@ -1847,7 +1890,16 @@ tl.addEventListener("pointerdown", (e) => {
 });
 tl.addEventListener("pointermove", (e) => {
   const rect = tl.getBoundingClientRect(), x = e.clientX - rect.left, t = Math.max(0, Math.min(S.ref ? S.ref.analysis.dur : 0, (x + tlScroll.scrollLeft) / S.pps));
-  if(dragHit){ if(!dragHit.moved && Math.abs(x - dragHit.x) < 3) return; dragHit.moved = true; dragHit.h = hitMove(dragHit.h, t); drawTimeline(); return; }
+  if(dragHit){ const y = e.clientY - rect.top, dx = Math.abs(x - dragHit.x), dy = Math.abs(y - dragHit.y);
+    if(!dragHit.moved && dx < 4 && dy < 4) return;
+    dragHit.moved = true;
+    // which way the pull began decides what it does, to its end
+    if(!dragHit.mode) dragHit.mode = dy > dx ? "height" : "move";
+    if(dragHit.mode === "len"){ const len = t - dragHit.h.t; hitSet(dragHit.h, {len: len < 0.02 ? 0 : +len.toFixed(3)}); }
+    else if(dragHit.mode === "height"){ const p = Math.max(0, Math.min(HIT_TOP, Math.round(dragHit.p0 + (dragHit.y - y) / 3)));
+      if(p !== (dragHit.h.p || 0)){ hitSet(dragHit.h, {p}); if(HSND.click){ try{ hitSound(audioCtx().currentTime + 0.01, dragHit.h.a, 0, p); }catch(err){} } } }
+    else dragHit.h = hitMove(dragHit.h, t);
+    drawTimeline(); return; }
   if(dragShift){ setLatency(dragShift.ms - (x - dragShift.x) / S.pps * 1000, true); return; }   // right = later = less taken out
   if(dragEdge){
     // An edge cannot cross the other; the stretch keeps at least a fifth of a second.
@@ -1859,7 +1911,7 @@ tl.addEventListener("pointermove", (e) => {
 });
 tl.addEventListener("pointerup", () => {
   dragShift = null;
-  if(dragHit){ if(dragHit.moved) hitsChanged(true); dragHit = null; }
+  if(dragHit){ if(!dragHit.moved && !dragHit.fresh) hitSet(dragHit.h, {a: !dragHit.h.a}); if(dragHit.moved || !dragHit.fresh) hitsChanged(true); dragHit = null; }
   if(dragEdge){ dragEdge = null; loopEdited(); if(!aRef.paused && S.loop && (aRef.currentTime < S.loop.a || aRef.currentTime > S.loop.b)) playFrom(S.src, S.loop.a); }
   if(dragLoop != null && S.loop && S.loop.b - S.loop.a < 0.2) setLoop(null);
   dragLoop = null;
@@ -1875,9 +1927,17 @@ document.addEventListener("keydown", (e) => {
 });
 $("hits-on").onchange = (e) => { HITS.on = e.target.checked; hitsChanged(); };
 $("hits-thr").oninput = (e) => { HITS.thr = +e.target.value; hitsChanged(); };
-$("hits-reset").onclick = () => { HITS.removed = []; HITS.added = []; hitsChanged(); };
+$("hits-reset").onclick = () => { HITS.removed = []; HITS.added = []; HITS.marks = {}; hitsChanged(); };
+["hits-s0", "hits-s1"].forEach(id => { const k = id.slice(5); $(id).innerHTML = Object.entries(HIT_SOUNDS).map(([v, [n]]) => `<option value="${v}">${n}</option>`).join(""); $(id).value = HSND[k];
+  $(id).onchange = () => { HSND[k] = $(id).value; localStorage.setItem("pick-analyzer-hitsound", JSON.stringify(HSND)); try{ audioCtx().resume(); hitSound(audioCtx().currentTime + 0.02, k === "s1", 0); }catch(e){} $(id).blur(); }; });
+$("hits-click").checked = HSND.click;
+$("hits-click").onchange = (e) => { HSND.click = e.target.checked; localStorage.setItem("pick-analyzer-hitsound", JSON.stringify(HSND)); MET.at = null; };
 (function tick(){ if(S.ref && ($("p-analyze").classList.contains("on") || $("p-practice").classList.contains("on")) && (S.recording || !aRef.paused || !aPly.paused)){
-    const px = playhead() * S.pps - tlScroll.scrollLeft; if(px > tlScroll.clientWidth - 40 || px < 0) tlScroll.scrollLeft = playhead() * S.pps - 60; drawTimeline(); }
+    // The playhead runs to the middle and stays there: from then on the
+    // tracks move under it, so the eye can rest on one spot.
+    const W = tlScroll.clientWidth, at = playhead() * S.pps, px = at - tlScroll.scrollLeft;
+    if(!dragLoop && !dragEdge && !dragHit && !dragShift){ if(px > W / 2) tlScroll.scrollLeft = at - W / 2; else if(px < 0) tlScroll.scrollLeft = at - 60; }
+    drawTimeline(); }
   requestAnimationFrame(tick); })();
 
 // ---- heat map and tempo
@@ -2258,6 +2318,17 @@ $("custom-apply").onclick = () => {
   customTuning = ms; tuningName = "Custom Tuning"; tsel.value = tuningName; saveCfg(); toast("Vlastní ladění nastaveno");
 };
 navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener("devicechange", listDevices);
+// A reference handed over by another part of Pick (a loop from Loop Studio):
+// in the address when the page is opened for it, in a message when it is open already.
+async function refFromLink(ref){
+  if(!ref || typeof ref.url !== "string" || !ref.url.startsWith("/")) return;
+  go("analyze"); $("ref-name").textContent = ref.title || "Reference"; $("ref-meta").textContent = "Stahuju stopu…";
+  try{ const r = await fetch(ref.url); if(!r.ok) throw new Error(r.status);
+    await loadReference({title: ref.title || "Reference", artist: ref.artist || "", blob: await r.blob()}); }
+  catch(e){ $("ref-meta").textContent = "Stopu se nepodařilo načíst."; }
+}
+window.addEventListener("message", (e) => { if(e.origin === location.origin && e.data && e.data.pick === true && e.data.ref) refFromLink(e.data.ref); });
+{ const m = /[#&]ref=([^&]+)/.exec(location.hash); if(m){ try{ refFromLink(JSON.parse(decodeURIComponent(m[1]))); }catch(e){} history.replaceState(null, "", location.pathname); } }
 listDevices(); paintRecent(); paintLibrary(); paintRiffs(); setMode();
 window.addEventListener("beforeunload", () => { stopAll(); disconnectInput(); });
 </script>
