@@ -3588,6 +3588,22 @@ body.lib-collapsed .pick-brand{display:none}
   .retune-pop button{display:flex;align-items:center;gap:8px;width:100%}
   .retune-pop button small{margin-left:auto;color:var(--sub);font-size:10.5px;font-family:ui-monospace,monospace}
   .retune-pop button.on{color:var(--accent)}
+  /* The player's tools as rows in a menu: the button keeps its icon and its
+     state, the name comes from its title. */
+  .tm-pop .pb-ctl.tm-item{width:100%;height:auto;border-radius:5px;justify-content:flex-start;padding:8px 9px;gap:11px;transform:none}
+  .tm-pop .pb-ctl.tm-item::after{content:attr(title);position:static;width:auto;height:auto;margin:0;background:none;border-radius:0;
+    font-size:12.5px;font-weight:400;padding:0}
+  .tm-pop .pb-ctl.tm-item.on{color:var(--accent)}
+  .tm-pop .pb-ctl.tm-item.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700;font-size:12.5px}
+  .pb-ctl.tm-btn.has-on{color:var(--accent);border:none}
+  .tm-pop{--nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-gold:#e9b949;--nm-blue:#3d8bfd}
+  .tm-row{display:flex;align-items:center;gap:6px;padding:4px 9px 6px}
+  .tm-row .nm-step{width:auto;padding:0 8px;height:28px}
+  .tm-row .nm-tabtop-off{flex:1;min-width:0;height:28px}
+  .tm-item[data-label]::after{content:attr(data-label)}
+  .tm-item.tab-lock.on{background:none !important;border:none !important}
+  .tm-item.tab-lock.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700}
+  .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
   /* Steems, readable from a playing distance: nothing under 10.5 px, and the
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
@@ -4041,12 +4057,21 @@ body.lib-collapsed .pick-brand{display:none}
             <button type="button" class="tab-more-btn" id="nm-tabtop-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
             <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
             <div class="nm-spacer"></div>
-            <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
-            <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s"
-              title="Posun tabulatury proti písni (kdy začíná první takt) — klikni a přepiš: 12,5 · -3 · 1:05,2, Enter potvrdí">
-            <button class="nm-step" id="nm-tabtop-later" title="Tab o 0,1 s později (Shift = 1 s)">+0,1</button>
-            <button class="nm-btn round" id="nm-tabtop-sync" title="Posuň tab tak, aby takt, kde se začíná hrát, byl mezi červenými šipkami, na stopě nastav nebo pusť místo, kde ten takt začíná, a klikni — od té chvíle jede tab sám podle taktů. Bez posunutí tabu: takt 1 začne teď.">Sync</button>
-            <button class="nm-btn round tab-lock" id="nm-tabtop-lock" title="Zamknout synchronizaci — tažení ani kolečko po tabu ji pak nerozhodí"><span data-icon="unlock" data-size="13"></span></button>
+            <div class="tmenu" data-tmenu="tabsync">
+              <button type="button" class="nm-btn round tm-btn" title="Synchronizace tabulatury s písní — posun, srovnání, zámek"><span data-icon="repeat" data-size="13"></span><span class="bl">Sync</span><span class="tm-caret">▾</span></button>
+              <div class="tm-pop">
+                <div class="tm-head">Posun tabu proti písni</div>
+                <div class="tm-row">
+                <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
+                <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s"
+                  title="Posun tabulatury proti písni (kdy začíná první takt) — klikni a přepiš: 12,5 · -3 · 1:05,2, Enter potvrdí">
+                <button class="nm-step" id="nm-tabtop-later" title="Tab o 0,1 s později (Shift = 1 s)">+0,1</button>
+                </div>
+                <hr>
+    <button class="tm-item" data-label="Srovnat tab s písní teď" id="nm-tabtop-sync" title="Posuň tab tak, aby takt, kde se začíná hrát, byl mezi červenými šipkami, na stopě nastav nebo pusť místo, kde ten takt začíná, a klikni — od té chvíle jede tab sám podle taktů. Bez posunutí tabu: takt 1 začne teď."><span data-icon="repeat" data-size="15"></span></button>
+                <button class="tm-item tab-lock" data-stay data-label="Zamknout synchronizaci" id="nm-tabtop-lock" title="Zamknout synchronizaci — tažení ani kolečko po tabu ji pak nerozhodí"><span data-icon="unlock" data-size="13"></span></button>
+              </div>
+            </div>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
             <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
             <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
@@ -4690,13 +4715,22 @@ body.lib-collapsed .pick-brand{display:none}
   </div>
   <div class="pb-right">
     <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně" aria-label="Text písně"></button>
-    <button class="pb-ctl pb-tab-btn" id="pb-tab-btn" title="Kytarová tabulatura" aria-label="Tabulatura"></button>
-    <button class="pb-ctl" id="pb-gtr-btn" title="Hrát živě přes NAM zesilovač" aria-label="Kytara"></button>
     <button class="pb-ctl" id="pb-queue-btn" title="Fronta" aria-label="Fronta"><span class="pb-badge" id="pb-queue-count">0</span></button>
-    <button class="pb-ctl" id="pb-video-btn" title="Video v plovoucím okně" aria-label="Video"></button>
-    <button class="pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň" aria-label="Stáhnout"></button>
-    <button class="pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy" aria-label="Rozdělit na stopy"></button>
-    <button class="pb-ctl" id="pb-history-btn" title="Historie" aria-label="Historie"></button>
+    <!-- Everything else you can do with the song playing, under one button. -->
+    <div class="tmenu" data-tmenu="song">
+      <button type="button" class="pb-ctl tm-btn" id="pb-more-btn" title="Píseň — tabulatura, hrát přes zesilovač, rozdělit na stopy, video, stáhnout, historie" aria-label="Píseň"><span data-icon="grid" data-size="17"></span></button>
+      <div class="tm-pop">
+        <div class="tm-head">Hrát s písní</div>
+        <button class="tm-item pb-ctl pb-tab-btn" id="pb-tab-btn" title="Kytarová tabulatura" aria-label="Tabulatura"></button>
+        <button class="tm-item pb-ctl" id="pb-gtr-btn" title="Hrát živě přes NAM zesilovač" aria-label="Kytara"></button>
+        <button class="tm-item pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy" aria-label="Rozdělit na stopy"></button>
+        <hr>
+        <div class="tm-head">Píseň</div>
+        <button class="tm-item pb-ctl" id="pb-video-btn" title="Video v plovoucím okně" aria-label="Video"></button>
+        <button class="tm-item pb-ctl" id="pb-dl-song-btn" title="Stáhnout tuhle píseň" aria-label="Stáhnout"></button>
+        <button class="tm-item pb-ctl" id="pb-history-btn" title="Historie" aria-label="Historie"></button>
+      </div>
+    </div>
     <!-- Kept for the video-mode logic, which other code still drives. -->
     <div class="video-mode-toggle" id="video-mode-toggle" hidden>
       <button data-mode="hidden" id="vm-hidden">skrytý</button>
@@ -12660,7 +12694,7 @@ const TMenu = (() => {
   let cur = null;
   function sync(wrap, pop){
     const btn = wrap.querySelector(":scope > .tm-btn");
-    if(btn) btn.classList.toggle("has-on", !!(pop || wrap).querySelector(".tm-item.active, .tm-item.on"));
+    if(btn) btn.classList.toggle("has-on", !!(pop || wrap).querySelector(".tm-item.active, .tm-item.on, .tm-item.armed"));
   }
   function place(){
     if(!cur) return;
