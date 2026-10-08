@@ -1026,6 +1026,32 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-editbar .sel{font-size:11.5px;color:var(--nm-sub);font-variant-numeric:tabular-nums;min-width:120px}
   .nm-editbar .sel b{color:var(--nm-txt);font-weight:600}
   .nm-editbar .status{margin-left:auto;font-size:11.5px;color:var(--nm-sub);display:flex;align-items:center;gap:6px}
+  /* Steems: the stems are the point, so everything above them is kept short —
+     the lyrics and the tab fold down to one line, the bar wraps instead of
+     running off the side. */
+  #steems-section #steems-hero .sp-hero{padding:12px 22px;gap:14px}
+  #steems-section #steems-hero .sp-hero-art{width:60px;height:60px;flex-basis:60px}
+  #steems-section #steems-hero .sp-hero-txt{gap:3px}
+  .hero-actions{--nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-blue:#3d8bfd;display:flex;align-items:center;gap:8px;flex:none;align-self:center}
+  .hero-actions .nm-btn.round{height:32px;padding:0 12px;border-radius:999px;font-size:12px}
+  .hero-actions .nm-btn.round .bl{margin-left:5px}
+  .fold-btn{width:24px;height:24px;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0;
+    border:none;border-radius:6px;background:none;color:var(--sub);cursor:pointer}
+  .fold-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+  .lyr-dock-tools .fold-btn{background:none;padding:0;border-radius:6px}
+  .fold-btn .ic-svg{transform:rotate(90deg);transition:transform .12s}
+  .folded .fold-btn .ic-svg{transform:none}
+  .lyr-dock.folded:not([hidden]){display:flex;align-items:center;gap:12px;padding:5px 14px}
+  .lyr-dock.folded .lyr-dock-tools{margin:0;flex:none}
+  .lyr-dock.folded .lyr-dock-tools > :not(.cap):not(.fold-btn){display:none}
+  .lyr-dock.folded .nm-lyr-lines{flex:1;min-width:0;text-align:left}
+  .lyr-dock.folded .nm-lyr-lines .prev,.lyr-dock.folded .nm-lyr-lines .next{display:none}
+  .lyr-dock.folded .nm-lyr-lines .cur{font-size:14px;font-weight:600;padding:0;letter-spacing:0}
+  .nm-tabtop.folded{padding:5px 12px}
+  .nm-tabtop.folded .nm-tabtop-bar{margin:0}
+  .nm-tabtop.folded .nm-tabtop-bar > :is(.nm-step,.nm-tabtop-off,.nm-tabtop-select,.tab-more-btn,#nm-tabtop-sync,#nm-tabtop-lock,.nm-tabtop-icon){display:none}
+  .nm-tabtop.folded .nm-tabtop-hostwrap{height:0;visibility:hidden}
+  .nm-tabtop.folded .nm-tabtop-pos{display:none}
   /* Tool menus: a named button that unrolls a group of related tools, so the
      bars show a handful of categories instead of two dozen small icons. */
   .tmenu{position:relative;display:inline-flex;flex:none}
@@ -3562,6 +3588,31 @@ body.lib-collapsed .pick-brand{display:none}
   .retune-pop button{display:flex;align-items:center;gap:8px;width:100%}
   .retune-pop button small{margin-left:auto;color:var(--sub);font-size:10.5px;font-family:ui-monospace,monospace}
   .retune-pop button.on{color:var(--accent)}
+  /* Steems, readable from a playing distance: nothing under 10.5 px, and the
+     small square buttons on the track strips are 24 px. Kept last so it wins
+     over the scattered sizes above. */
+  .nm .nm-transport{flex-wrap:wrap;overflow:visible;gap:10px 14px}
+  .nm{--nm-rail:214px}
+  .nm .nm-time-num,.nm .nm-bar-num{font-size:11px}
+  .nm .nm-tgroup .cap{font-size:10.5px;letter-spacing:.1em}
+  .nm .nm-transport .nm-btn.round:has(.bl){height:30px;padding:0 11px}
+  .nm .nm-transport .nm-btn.round .bl,.hero-actions .nm-btn.round .bl{font-size:11.5px}
+  #nm-editbar .nm-btn.ib.lab{height:42px;min-width:44px}
+  #nm-editbar .nm-btn.ib.lab .bl{font-size:10.5px;opacity:1}
+  .nm-editbar .cap,.lyr-dock-tools .cap{font-size:11px}
+  .tm-btn .tm-caret{font-size:10px}
+  .tm-head{font-size:10.5px}
+  .nm .nm-strip-name,.nm .nm-strip.thin .nm-strip-name{font-size:11.5px}
+  .nm .nm-strip-info,.nm .nm-strip-sub,.nm .gt-rail-preset,.nm .nm-lane-empty{font-size:11px}
+  .nm .nm-rail-pad .rp-bars,.nm .nm-rail-pad .rp-time{font-size:10.5px}
+  .nm .nm-pitch-row .lbl{font-size:10.5px}
+  .nm .nm-pitch-row .val{font-size:11px}
+  .nm .guitar-strip .nm-strip-name{letter-spacing:.03em;min-width:58px}
+  .nm .guitar-strip .nm-strip-top{gap:2px}
+  .nm .nm-sm{min-width:24px;width:auto;height:24px;font-size:11px;border-radius:5px}
+  .nm .sect-add,.nm .gt-icon-btn{width:24px;height:24px}
+  .nm .metro-voice{height:24px;font-size:11.5px}
+  .nm .midi-row .inst,.nm .midi-row .inst-step{min-height:24px;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -3896,12 +3947,37 @@ body.lib-collapsed .pick-brand{display:none}
           <h1 class="sp-hero-title" id="steems-hero-title">—</h1>
           <div class="sp-hero-stats" id="steems-hero-stats"></div>
         </div>
+        <!-- Song-level actions: which mix panels show, save / export, close. -->
+        <div class="hero-actions">
+              <div class="tmenu" data-tmenu="panels">
+                <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
+                <div class="tm-pop">
+                  <div class="tm-head">Panely mixu</div>
+                  <button type="button" class="tm-item" data-stay id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="15"></span><span class="tm-t">Fadery kanálů</span></button>
+                  <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
+                  <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
+                  <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
+                </div>
+              </div>
+              <div class="tmenu" data-tmenu="file">
+                <button type="button" class="nm-btn round tm-btn" title="Mix — uložit, vrátit uložený, exportovat"><span data-icon="save" data-size="14"></span><span class="bl">Soubor</span><span class="tm-caret">▾</span></button>
+                <div class="tm-pop">
+                  <div class="tm-head">Mix</div>
+                  <button type="button" class="tm-item" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="15"></span><span class="tm-t">Uložit mix</span></button>
+                  <button type="button" class="tm-item" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="15"></span><span class="tm-t">Vrátit uložený mix</span></button>
+                  <hr>
+                  <button type="button" class="tm-item" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="15"></span><span class="tm-t">Export do knihovny…</span></button>
+                </div>
+              </div>
+              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Close</span></button>
+        </div>
       </div>
     </div>
     <!-- The line being sung, under the song's title. It can be lifted out into
          a floating window (see detachLyrics). -->
     <div class="lyr-dock" id="mixer-lyrics-bar" hidden>
       <div class="lyr-dock-tools">
+        <button type="button" class="fold-btn" id="nm-lyr-fold" title="Sbalit / rozbalit text písně"><span data-icon="chevron" data-size="13"></span></button>
         <span class="cap">TEXT</span>
         <span class="lyr-detached-note" id="lyr-detached-note" hidden>je v plovoucím okně</span>
         <span class="sp"></span>
@@ -3956,6 +4032,7 @@ body.lib-collapsed .pick-brand{display:none}
              view. Hidden until a Songsterr tab is loaded. -->
         <div class="nm-tabtop" id="nm-tabtop" hidden>
           <div class="nm-tabtop-bar">
+            <button type="button" class="fold-btn" id="nm-tabtop-fold" title="Sbalit / rozbalit tabulaturu"><span data-icon="chevron" data-size="13"></span></button>
             <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
             <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
             <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
@@ -4015,12 +4092,9 @@ body.lib-collapsed .pick-brand{display:none}
               <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
               <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
               <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
+              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — zjistí ladění tvé kytary a navrhne, o kolik posunout kytaru a basu skladby — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
             </div>
             <span class="cap">TÓNINA (půltóny)</span>
-          </div>
-          <div class="nm-tgroup">
-            <div class="row"><button class="nm-btn round" id="nm-mytune" title="Zjistí ladění tvé kytary a navrhne, o kolik posunout kytaru a basu skladby — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení."><span data-icon="tuner" data-size="14"></span>Moje ladění</button></div>
-            <span class="cap">PŘELADIT NA MOU KYTARU</span>
           </div>
 
           <div class="nm-tgroup">
@@ -4062,32 +4136,6 @@ body.lib-collapsed .pick-brand{display:none}
             <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
           </div>
 
-          <div class="nm-tgroup">
-            <div class="row">
-              <div class="tmenu" data-tmenu="panels">
-                <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
-                <div class="tm-pop">
-                  <div class="tm-head">Panely mixu</div>
-                  <button type="button" class="tm-item" data-stay id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="15"></span><span class="tm-t">Fadery kanálů</span></button>
-                  <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
-                  <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
-                  <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
-                </div>
-              </div>
-              <div class="tmenu" data-tmenu="file">
-                <button type="button" class="nm-btn round tm-btn" title="Mix — uložit, vrátit uložený, exportovat"><span data-icon="save" data-size="14"></span><span class="bl">Soubor</span><span class="tm-caret">▾</span></button>
-                <div class="tm-pop">
-                  <div class="tm-head">Mix</div>
-                  <button type="button" class="tm-item" id="mixer-save-session" title="Uložit mix (ukládá se i sám)"><span data-icon="save" data-size="15"></span><span class="tm-t">Uložit mix</span></button>
-                  <button type="button" class="tm-item" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="15"></span><span class="tm-t">Vrátit uložený mix</span></button>
-                  <hr>
-                  <button type="button" class="tm-item" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="15"></span><span class="tm-t">Export do knihovny…</span></button>
-                </div>
-              </div>
-              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Close</span></button>
-            </div>
-            <span class="cap">MIX</span>
-          </div>
         </div>
 
         <!-- Whole song at a glance: click or drag anywhere to seek -->
@@ -12662,6 +12710,22 @@ const TMenu = (() => {
   return {wire, open, close, openIn: (root) => (cur && root.contains(cur.wrap) ? cur.key : null)};
 })();
 TMenu.wire(document);
+
+// The lyrics and the tab above the Steems mixer fold down to a single line;
+// folded is how they start, and the choice is remembered.
+(() => {
+  let st = {lyr: true, tab: true};
+  try{ st = Object.assign(st, JSON.parse(localStorage.getItem("pick-steems-fold") || "{}")); }catch(e){}
+  const parts = {lyr: ["mixer-lyrics-bar", "nm-lyr-fold"], tab: ["nm-tabtop", "nm-tabtop-fold"]};
+  const paint = () => { for(const k in parts) document.getElementById(parts[k][0]).classList.toggle("folded", !!st[k]); };
+  for(const k in parts) document.getElementById(parts[k][1]).onclick = () => {
+    st[k] = !st[k];
+    try{ localStorage.setItem("pick-steems-fold", JSON.stringify(st)); }catch(e){}
+    paint();
+    window.dispatchEvent(new Event("resize"));
+  };
+  paint();
+})();
 
 const Mixer = (() => {
   let stretchNodeFactory = null;
