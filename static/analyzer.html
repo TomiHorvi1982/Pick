@@ -210,45 +210,45 @@
 <div class="app">
   <nav class="side">
     <div class="logo" title="Guitar Performance Analyzer">GP</div>
-    <button data-page="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>Home</button>
-    <button data-page="analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg>Analyze</button>
-    <button data-page="practice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Practice</button>
-    <button data-page="recordings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><path d="M9 14h6"/></svg>Records</button>
-    <button data-page="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M9 4v16M13 5l5 15"/></svg>Library</button>
+    <button data-page="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z"/></svg>Domů</button>
+    <button data-page="analyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg>Analýza</button>
+    <button data-page="practice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Cvičení</button>
+    <button data-page="recordings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><path d="M9 14h6"/></svg>Nahrávky</button>
+    <button data-page="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M9 4v16M13 5l5 15"/></svg>Knihovna</button>
     <span class="sp"></span>
-    <button data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.300 16.300l2.100 2.100M5.6 18.400l2.100-2.100M16.300 7.700l2.100-2.100"/></svg>Settings</button>
+    <button data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.300 16.300l2.100 2.100M5.6 18.400l2.100-2.100M16.300 7.700l2.100-2.100"/></svg>Nastavení</button>
   </nav>
 
   <header class="top">
     <h1>Guitar Performance Analyzer</h1>
     <div class="kv"><span>Reference</span><b id="top-ref">—</b></div>
     <div class="kv opt"><span>BPM</span><b id="top-bpm">—</b></div>
-    <div class="kv opt"><span>Tuning</span><select id="tuning"></select></div>
+    <div class="kv opt"><span>Ladění</span><select id="tuning"></select></div>
     <span class="sp"></span>
-    <span class="mode" id="mode">NO INPUT</span>
+    <span class="mode" id="mode">BEZ VSTUPU</span>
   </header>
 
   <main class="main">
     <!-- HOME -->
     <section class="page on" id="p-home">
-      <div class="hero"><h2 id="greet">GOOD EVENING</h2><p>What do you want to practice?</p></div>
+      <div class="hero"><h2 id="greet">DOBRÝ VEČER</h2><p>Co chceš dnes cvičit?</p></div>
       <div class="cards">
-        <button class="card" data-go="analyze"><b>Analyze Recording</b><span class="muted">Načti referenci, nahraj se a uvidíš, kde a jak moc ses odchýlil.</span></button>
-        <button class="card" data-go="practice"><b>Live Practice</b><span class="muted">Hraj s referencí a sleduj tón, ladění a nástupy naživo.</span></button>
-        <button class="card" id="demo-btn"><b>Demo Mode</b><span class="muted">Ukázka na syntetickém riffu se záměrnými chybami — analýza je skutečná, zvuk umělý.</span></button>
+        <button class="card" data-go="analyze"><b>Rozbor nahrávky</b><span class="muted">Načti referenci, nahraj se a uvidíš, kde a jak moc ses odchýlil.</span></button>
+        <button class="card" data-go="practice"><b>Cvičení naživo</b><span class="muted">Hraj s referencí a sleduj tón, ladění a nástupy naživo.</span></button>
+        <button class="card" id="demo-btn"><b>Ukázka</b><span class="muted">Ukázka na syntetickém riffu se záměrnými chybami — analýza je skutečná, zvuk umělý.</span></button>
       </div>
-      <div class="panel" style="margin-top:18px"><div class="h">Recent sessions</div><div id="home-recent"></div></div>
+      <div class="panel" style="margin-top:18px"><div class="h">Poslední cvičení</div><div id="home-recent"></div></div>
     </section>
 
     <!-- ANALYZE -->
     <section class="page" id="p-analyze">
       <div class="row setup">
         <div class="panel">
-          <div class="h">Reference track</div>
-          <div class="refname" id="ref-name">NO REFERENCE TRACK</div>
+          <div class="h">Referenční stopa</div>
+          <div class="refname" id="ref-name">CHYBÍ REFERENCE</div>
           <div class="muted" id="ref-meta" style="font-size:12.5px">Import a song to start analyzing your performance.</div>
           <div class="line">
-            <button class="btn primary small" id="ref-import">IMPORT AUDIO</button>
+            <button class="btn primary small" id="ref-import">NAČÍST AUDIO</button>
             <button class="btn small" id="ref-pick" title="Kytarová (nebo jiná) stopa z písní rozdělených v Picku">Ze Steems v Picku</button>
             <input type="file" id="ref-file" accept="audio/*,.wav,.mp3,.flac,.aiff,.aif,.m4a,.ogg" hidden>
           </div>
@@ -256,16 +256,16 @@
           <div class="prog" id="ref-prog" hidden><i></i></div>
         </div>
         <div class="panel">
-          <div class="h">Input device</div>
+          <div class="h">Vstupní zařízení</div>
           <select id="in-dev"><option value="">— vyber vstup —</option></select>
           <div class="line"><select id="in-ch" style="flex:0 0 150px" title="Jeden vstup (mono), nebo dvojice jako stereo — třeba mokrý signál z Nano Cortexu na 3+4">
-              <option value="0">Input 1</option><option value="1">Input 2</option><option value="2">Input 3</option><option value="3">Input 4</option>
-              <option value="0,1">Input 1+2 (stereo)</option><option value="2,3">Input 3+4 (stereo)</option><option value="4,5">Input 5+6 (stereo)</option><option value="6,7">Input 7+8 (stereo)</option></select>
-            <button class="btn small" id="in-connect">SELECT INPUT</button></div>
-          <div class="muted" id="in-state" style="font-size:12px;margin-top:8px">NO GUITAR INPUT DETECTED — connect your audio interface and select an input.</div>
+              <option value="0">Vstup 1</option><option value="1">Vstup 2</option><option value="2">Vstup 3</option><option value="3">Vstup 4</option>
+              <option value="0,1">Vstup 1+2 (stereo)</option><option value="2,3">Vstup 3+4 (stereo)</option><option value="4,5">Vstup 5+6 (stereo)</option><option value="6,7">Vstup 7+8 (stereo)</option></select>
+            <button class="btn small" id="in-connect">VYBER VSTUP</button></div>
+          <div class="muted" id="in-state" style="font-size:12px;margin-top:8px">KYTARA NENÍ SLYŠET — připoj zvukovou kartu a vyber vstup.</div>
         </div>
         <div class="panel">
-          <div class="h">Input level <span class="sp"></span><span class="clip" id="clip">CLIPPING</span></div>
+          <div class="h">Úroveň vstupu <span class="sp"></span><span class="clip" id="clip">CLIPPING</span></div>
           <div class="meter"><i id="meter"></i></div>
           <div class="muted" style="font-size:12px;margin-top:8px" id="lvl-db">— dBFS</div>
 
@@ -293,22 +293,22 @@
         <div class="panel"><div class="h">Mix <span class="sp"></span><span class="muted" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500">jen pro poslech — analýzu nemění</span></div>
           <div class="mix">
             <div class="strip"><b style="color:var(--violet2)">REFERENCE</b>
-              <label>Volume <input type="range" id="mx-rv" min="0" max="1.5" step="0.01"><span id="mx-rv-t"></span></label>
+              <label>Hlasitost <input type="range" id="mx-rv" min="0" max="1.5" step="0.01"><span id="mx-rv-t"></span></label>
               <label>Pan <input type="range" id="mx-rp" min="-1" max="1" step="0.05"><span id="mx-rp-t"></span></label>
-              <label title="Přeladí referenci, tempo zůstane — ať nemusíš ladit kytaru">Pitch <input type="number" id="mx-pitch" min="-12" max="12" step="0.05" style="width:74px"> půltónů
+              <label title="Přeladí referenci, tempo zůstane — ať nemusíš ladit kytaru">Výška tónu <input type="number" id="mx-pitch" min="-12" max="12" step="0.05" style="width:74px"> půltónů
                 <button class="btn small" id="mx-pitch-auto" title="Nastaví posun změřený mezi tvou kytarou a nahrávkou (až po první nahrávce)">Změřit z nahrávky</button>
                 <button class="btn small" id="mx-pitch-mine" title="Zjistí ladění tvé kytary z prázdných strun a navrhne posun reference a kapely — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení.">Moje ladění…</button><span id="mx-pitch-t" class="muted"></span></label></div>
             <div class="strip" id="mx-band" hidden><b style="color:var(--info)">KAPELA <span class="muted" id="mx-band-t" style="letter-spacing:0;font-weight:500"></span></b>
-              <label>Volume <input type="range" id="mx-bv" min="0" max="1.5" step="0.01"><span id="mx-bv-t"></span></label></div>
+              <label>Hlasitost <input type="range" id="mx-bv" min="0" max="1.5" step="0.01"><span id="mx-bv-t"></span></label></div>
             <div class="strip" id="mx-drums" hidden><b style="color:#f59e0b">BICÍ</b>
-              <label>Volume <input type="range" id="mx-dv" min="0" max="1.5" step="0.01"><span id="mx-dv-t"></span></label></div>
+              <label>Hlasitost <input type="range" id="mx-dv" min="0" max="1.5" step="0.01"><span id="mx-dv-t"></span></label></div>
             <div class="strip" id="mx-vox" hidden><b style="color:#f472b6">ZPĚV</b>
-              <label>Volume <input type="range" id="mx-vv" min="0" max="1.5" step="0.01"><span id="mx-vv-t"></span></label></div>
+              <label>Hlasitost <input type="range" id="mx-vv" min="0" max="1.5" step="0.01"><span id="mx-vv-t"></span></label></div>
             <div class="strip"><b style="color:var(--sub)">METRONOM</b>
               <label title="Kliká na doby skladby při přehrávání, v jakékoli rychlosti. Při nahrávání platí volba „metronom i při nahrávání“."><input type="checkbox" id="mx-met"> při přehrávání</label>
-              <label>Volume <input type="range" id="mx-mv" min="0" max="1.5" step="0.01"><span id="mx-mv-t"></span></label></div>
+              <label>Hlasitost <input type="range" id="mx-mv" min="0" max="1.5" step="0.01"><span id="mx-mv-t"></span></label></div>
             <div class="strip"><b style="color:var(--ok)">TY</b>
-              <label>Volume <input type="range" id="mx-pv" min="0" max="3" step="0.01"><span id="mx-pv-t"></span></label>
+              <label>Hlasitost <input type="range" id="mx-pv" min="0" max="3" step="0.01"><span id="mx-pv-t"></span></label>
               <label>Pan <input type="range" id="mx-pp" min="-1" max="1" step="0.05"><span id="mx-pp-t"></span></label></div>
           </div>
         </div>
@@ -329,7 +329,7 @@
             <span class="sp"></span>
             <span class="tl-tools noprint"><span class="muted" id="loop-info" style="font-size:11.5px"></span>
               <button class="btn small" id="loop-clear" hidden>Zrušit smyčku</button>
-              <button class="btn small" id="z-out">−</button><button class="btn small" id="z-in">+</button><button class="btn small" id="z-fit">Fit</button></span></div>
+              <button class="btn small" id="z-out">−</button><button class="btn small" id="z-in">+</button><button class="btn small" id="z-fit">Celé</button></span></div>
           <div class="train" id="hits-bar" hidden style="margin:0 0 10px">
             <label title="Čáry v místech úderů — vidíš, kdy trsnout. Najdou se samy podle prahu; každou jde posunout, smazat, nebo přidat vlastní."><input type="checkbox" id="hits-on"> Údery <span id="hits-src" class="muted"></span></label>
             <label title="Jak hlasitý musí úder být, aby dostal čáru: výš = jen ty nejsilnější, níž = i slabé">Práh <input type="range" id="hits-thr" min="0.02" max="0.9" step="0.01" style="width:150px;accent-color:#fbbf24"><span id="hits-thr-t" style="min-width:38px"></span></label>
@@ -341,23 +341,23 @@
             <span class="dim" style="font-size:11.5px;flex:0 0 100%">v pruhu ÚDERY: klik do prázdna = nová čára · klik na čáru = základní / <b style="color:#fb7185">důraz</b> · tažení tečky do strany = posun · tažení tečky nahoru = vyšší tón a jiná barva (dolů zpět) · tažení u spodního okraje doprava = délka · dvojklik nebo Delete = smazat</span>
           </div>
           <div class="tl-scroll" id="tl-scroll"><canvas id="tl" height="372"></canvas><div class="tl-spacer" id="tl-spacer"></div></div>
-          <div class="legend"><span><i style="background:var(--ok)"></i>correct</span><span><i style="background:var(--warn)"></i>minor</span><span><i style="background:var(--bad)"></i>wrong / major</span><span><i style="background:var(--info)"></i>extra</span><span><i style="background:#6b7280"></i>missed / not readable</span>
+          <div class="legend"><span><i style="background:var(--ok)"></i>správně</span><span><i style="background:var(--warn)"></i>drobná</span><span><i style="background:var(--bad)"></i>špatně / velká</span><span><i style="background:var(--info)"></i>navíc</span><span><i style="background:#6b7280"></i>vynecháno / nečitelné</span>
             <span class="dim">Enter = nahrávat / ukončit · Alt + tažení tvé stopy = posun o milisekundy · Klik = přesun · Shift + tažení = nový úsek · okraje úseku jdou tahat · klik na značku = detail · mezerník = play/pauza · ← → posun o 1 s (Shift 5 s, Alt posune smyčku) · dva prsty = zoom</span></div>
         </div>
         </div></div>
 
       </div>
 
-      <div id="an-empty" class="panel empty" style="margin-top:14px"><b>NO ANALYSIS YET</b>Načti referenci, vyber vstup a stiskni REC. Každý take se zarovná s referencí a vyhodnotí.
+      <div id="an-empty" class="panel empty" style="margin-top:14px"><b>ZATÍM BEZ ANALÝZY</b>Načti referenci, vyber vstup a stiskni REC. Každý take se zarovná s referencí a vyhodnotí.
         <div class="prog" id="an-prog" hidden><i></i></div><div class="muted" id="an-stage" style="margin-top:8px;font-size:12px"></div></div>
 
       <div id="an-body" hidden>
         <div class="row scorewrap" style="margin-top:14px">
-          <div class="panel"><div class="h">Performance score</div>
+          <div class="panel"><div class="h">Skóre hry</div>
             <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="9"/><circle id="ring-arc" cx="60" cy="60" r="52" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/><defs><linearGradient id="rg"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs></svg>
-              <div class="v"><b id="score-all">—</b><span>OVERALL</span></div></div>
+              <div class="v"><b id="score-all">—</b><span>CELKEM</span></div></div>
           </div>
-          <div class="panel"><div class="h">Breakdown <span class="sp"></span>
+          <div class="panel"><div class="h">Rozpad <span class="sp"></span>
               <button class="btn small noprint" data-export="json">JSON</button><button class="btn small noprint" data-export="csv">CSV</button><button class="btn small noprint" data-export="pdf">PDF</button></div>
             <div class="subs" id="subs"></div>
             <div class="facts" id="facts"></div>
@@ -366,22 +366,22 @@
         </div>
 
         <div class="row two">
-          <div class="panel"><div class="h">Performance accuracy map</div><canvas class="block" id="heat" height="168"></canvas></div>
+          <div class="panel"><div class="h">Mapa přesnosti hry</div><canvas class="block" id="heat" height="168"></canvas></div>
           <div class="panel"><div class="h">Tempo <span class="sp"></span><span class="muted" id="tempo-txt" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500"></span></div><canvas class="block" id="tempo" height="168"></canvas></div>
         </div>
-        <div class="panel"><div class="h">Practice these</div><div id="sections"></div></div>
+        <div class="panel"><div class="h">Tohle procvič</div><div id="sections"></div></div>
       </div>
     </section>
 
     <!-- PRACTICE -->
     <section class="page" id="p-practice">
-      <div class="panel"><div class="h">Live practice <span class="sp"></span><button class="btn small primary" id="live-toggle">START</button></div>
+      <div class="panel"><div class="h">Cvičení naživo <span class="sp"></span><button class="btn small primary" id="live-toggle">START</button></div>
         <div class="live">
-          <div class="cell"><span>CURRENT NOTE</span><b id="lv-cur">—</b></div>
-          <div class="cell"><span>EXPECTED</span><b id="lv-exp">—</b></div>
-          <div class="cell"><span>TIMING</span><b id="lv-tim">—</b></div>
+          <div class="cell"><span>AKTUÁLNÍ TÓN</span><b id="lv-cur">—</b></div>
+          <div class="cell"><span>MĚLO ZNÍT</span><b id="lv-exp">—</b></div>
+          <div class="cell"><span>NAČASOVÁNÍ</span><b id="lv-tim">—</b></div>
           <div class="cell"><span>TEMPO</span><b id="lv-bpm">—</b></div>
-          <div class="cell"><span>PERFORMANCE</span><b id="lv-perf">—</b></div>
+          <div class="cell"><span>TVOJE HRA</span><b id="lv-perf">—</b></div>
         </div>
         <div class="verdict" id="lv-verdict"></div>
         <div class="muted" style="font-size:12px;text-align:center;margin-top:6px" id="lv-note">Reference hraje, kytara se poslouchá naživo. Načasování závisí na zpoždění zvukové karty — srovnej ho v Settings (Latency).</div>
@@ -398,34 +398,34 @@
         <div class="muted" style="font-size:12.5px;margin-top:10px" id="loop-state">Žádná smyčka. Vyber problémový úsek níže, nebo ji označ v časové ose (Shift + tažení). Změna rychlosti nemění výšku tónu.</div>
       </div>
       <div id="slot-pr"></div>
-      <div class="panel empty" id="pr-empty"><b>NO REFERENCE TRACK</b>Načti referenci v Analyze — tady pak uvidíš kytaru, bicí a doby skladby a nastavíš si tempo a hlasitosti.</div>
-      <div class="panel"><div class="h">Problem sections</div><div id="sections2"></div></div>
+      <div class="panel empty" id="pr-empty"><b>CHYBÍ REFERENCE</b>Načti referenci v Analyze — tady pak uvidíš kytaru, bicí a doby skladby a nastavíš si tempo a hlasitosti.</div>
+      <div class="panel"><div class="h">Problémová místa</div><div id="sections2"></div></div>
     </section>
 
     <!-- RECORDINGS -->
-    <section class="page" id="p-recordings"><div class="panel"><div class="h">Recordings</div><div id="rec-list"></div></div></section>
+    <section class="page" id="p-recordings"><div class="panel"><div class="h">Nahrávky</div><div id="rec-list"></div></div></section>
 
     <!-- LIBRARY -->
     <section class="page" id="p-library">
       <div class="panel"><div class="h">Riffy <span class="sp"></span><span class="muted" style="font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:500">Knihovna → Loops/Riffs · klik na sloupec řadí</span></div><div id="riff-list"></div></div>
-      <div class="panel"><div class="h">Reference tracks <span class="sp"></span><button class="btn small primary" id="lib-import">IMPORT AUDIO</button><button class="btn small" id="lib-pick">Ze Steems v Picku</button></div><div id="lib-list"></div></div></section>
+      <div class="panel"><div class="h">Referenční stopy <span class="sp"></span><button class="btn small primary" id="lib-import">NAČÍST AUDIO</button><button class="btn small" id="lib-pick">Ze Steems v Picku</button></div><div id="lib-list"></div></div></section>
 
     <!-- SETTINGS -->
     <section class="page" id="p-settings">
-      <div class="panel"><div class="h">Pitch tolerance (cents)</div><div class="set">
-        <div><label>Excellent do</label><input type="number" data-cfg="excellent" min="1" max="50"></div>
-        <div><label>Good do</label><input type="number" data-cfg="good" min="5" max="80"></div>
+      <div class="panel"><div class="h">Tolerance výšky (centy)</div><div class="set">
+        <div><label>Výborné do</label><input type="number" data-cfg="excellent" min="1" max="50"></div>
+        <div><label>Dobré do</label><input type="number" data-cfg="good" min="5" max="80"></div>
         <div><label>Slightly off do (nad = wrong note)</label><input type="number" data-cfg="slight" min="20" max="150"></div></div></div>
       <div class="panel"><div class="h">Timing &amp; duration</div><div class="set">
-        <div><label>On time do (ms)</label><input type="number" data-cfg="timingOk" min="5" max="150"></div>
+        <div><label>Včas do (ms)</label><input type="number" data-cfg="timingOk" min="5" max="150"></div>
         <div><label>Velká chyba od (ms)</label><input type="number" data-cfg="timingMajor" min="30" max="400"></div>
         <div><label>Okno pro spárování tónu (ms)</label><input type="number" data-cfg="matchWindow" min="80" max="600"></div>
         <div><label>Délka: tolerance (ms)</label><input type="number" data-cfg="durMs" min="20" max="400"></div>
         <div><label>Citlivost na nástupy (0.1 = citlivá, 0.5 = jen silné údery)</label><input type="number" data-cfg="onsetFloor" min="0.05" max="0.8" step="0.01"></div>
         <div><label>Latency — zpoždění karty pro Live practice (ms)</label><input type="number" id="latency" min="0" max="400"></div></div></div>
-      <div class="panel"><div class="h">Custom tuning</div><div class="set"><div style="grid-column:1/3"><label>Struny od nejhlubší, např. D2 G2 C3 F3 A3 D4</label><input type="text" id="custom-tuning" placeholder="E2 A2 D3 G3 B3 E4"></div><div><label>&nbsp;</label><button class="btn" id="custom-apply">Použít</button></div></div>
+      <div class="panel"><div class="h">Vlastní ladění</div><div class="set"><div style="grid-column:1/3"><label>Struny od nejhlubší, např. D2 G2 C3 F3 A3 D4</label><input type="text" id="custom-tuning" placeholder="E2 A2 D3 G3 B3 E4"></div><div><label>&nbsp;</label><button class="btn" id="custom-apply">Použít</button></div></div>
         <div class="muted" style="font-size:12px;margin-top:10px">Ladění určuje, od jak hlubokého tónu se výška hledá. Změna nastavení se projeví při další analýze.</div></div>
-      <div class="panel"><div class="h">What is measured</div><div class="muted" style="font-size:12.5px;line-height:1.7">
+      <div class="panel"><div class="h">Co se měří</div><div class="muted" style="font-size:12.5px;line-height:1.7">
         <b style="color:var(--text)">Měří se ze zvuku:</b> nástupy tónů (spectral flux), výška (YIN) a délka každého tónu, tempo a jeho vývoj, tónina, časové zarovnání obou nahrávek (DTW nad chroma), z toho chyby výšky, načasování, rytmu, tempa a délky.<br>
         <b style="color:var(--text)">Neměří se:</b> artikulace (palm mute, hammer-on, slide, bend, vibrato) — všude je uvedeno NOT AVAILABLE.<br>
         <b style="color:var(--text)">Omezení:</b> výška se čte jako jeden tón. Akordy a plný mix kapely se čtou nespolehlivě — takové tóny jsou označené LOW CONFIDENCE a do skóre výšky se nepočítají. Jako referenci proto ber samotnou kytaru (stopu ze Steems).</div></div>
@@ -434,7 +434,7 @@
     <section id="print"></section>
   </main>
 
-  <aside class="insp" id="insp"><div class="h">Inspector</div><div id="insp-body"><div class="muted" style="font-size:12.5px">Klikni na značku chyby nebo na tón v Timeline — tady uvidíš, co mělo zaznít, co zaznělo, o kolik a jak jistě.</div></div></aside>
+  <aside class="insp" id="insp"><div class="h">Detail</div><div id="insp-body"><div class="muted" style="font-size:12.5px">Klikni na značku chyby nebo na tón v Timeline — tady uvidíš, co mělo zaznít, co zaznělo, o kolik a jak jistě.</div></div></aside>
 </div>
 <div class="pick" id="pick"><div class="box"><div class="h">Stopa ze Steems v Picku <span class="sp"></span><button class="btn small" id="pick-close">Zavřít</button></div><input id="pick-q" placeholder="Hledat píseň…"><div id="pick-list"></div></div></div>
 <div class="pick" id="mt"><div class="box" id="mt-box"></div></div>
@@ -452,7 +452,7 @@ const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 const noteName = (m) => m == null ? null : NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 const fmtT = (t) => { if(t == null || !isFinite(t)) return "—"; const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, "0") + ":" + s.toFixed(3).padStart(6, "0"); };
 const fmtShort = (t) => { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + String(s).padStart(2, "0"); };
-const NA = '<span class="na">NOT AVAILABLE</span>';
+const NA = '<span class="na">NENÍ K DISPOZICI</span>';
 function toast(msg){ const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2800); }
 
 // ---------------------------------------------------------------- settings
@@ -555,7 +555,7 @@ async function loadReference({title, artist, blob, pcm, demo, id, backing, grid,
 function paintRef(){
   const r = S.ref;
   $("top-ref").textContent = r ? r.title : "—";
-  $("top-bpm").innerHTML = r && r.analysis.tempo ? r.analysis.tempo.bpm.toFixed(1) + (r.analysis.tempo.conf < 0.4 ? ' <span class="na">LOW CONF.</span>' : "") : "—";
+  $("top-bpm").innerHTML = r && r.analysis.tempo ? r.analysis.tempo.bpm.toFixed(1) + (r.analysis.tempo.conf < 0.4 ? ' <span class="na">NEJISTÉ</span>' : "") : "—";
   if(!r){ $("ref-name").textContent = "NO REFERENCE TRACK"; $("ref-meta").textContent = "Import a song to start analyzing your performance."; return; }
   const a = r.analysis;
   $("ref-name").textContent = (r.demo ? "DEMO · " : "") + r.title + (r.artist ? " — " + r.artist : "");
@@ -687,7 +687,7 @@ function disconnectInput(){
   if(!S.input) return;
   try{ S.input.stream.getTracks().forEach(t => t.stop()); S.input.src.disconnect(); S.input.cap.port.onmessage = null; }catch(e){}
   S.input = null; $("in-connect").textContent = "SELECT INPUT";
-  $("in-state").textContent = "NO GUITAR INPUT DETECTED — connect your audio interface and select an input.";
+  $("in-state").textContent = "KYTARA NENÍ SLYŠET — připoj zvukovou kartu a vyber vstup.";
   $("meter").style.width = "0"; $("lvl-db").textContent = "— dBFS"; setMode();
 }
 $("in-connect").onclick = () => S.input ? disconnectInput() : connectInput();
@@ -709,7 +709,7 @@ function meterLoop(){
 function setMode(){
   const m = $("mode");
   m.className = "mode" + (S.demo ? " is-demo" : S.input ? " is-live" : "");
-  m.textContent = S.demo ? "DEMO" : S.input ? "LIVE ANALYSIS" : "NO INPUT";
+  m.textContent = S.demo ? "DEMO" : S.input ? "ŽIVÁ ANALÝZA" : "BEZ VSTUPU";
 }
 
 // ---------------------------------------------------------------- recording
@@ -957,7 +957,7 @@ function paintTakes(){
   box.innerHTML = S.takes.map((t, i) => { const sc = t.result && t.result.scores, c = t.result && t.result.counts;
     return `<div class="take ${i === S.take ? "on" : ""}" data-take="${i}"><span class="n">Take ${t.n}</span>
       ${sc ? `<span class="sc" style="color:${scoreColor(sc.overall)}">${sc.overall == null ? "—" : sc.overall + "%"}</span>
-        <span class="d">Pitch ${sc.pitch ?? "—"} · Timing ${sc.timing ?? "—"} · Rhythm ${sc.rhythm ?? "—"} · špatně ${c.wrong} · vynecháno ${c.missed} · navíc ${c.extra}</span>`
+        <span class="d">Výška ${sc.pitch ?? "—"} · Načasování ${sc.timing ?? "—"} · Rytmus ${sc.rhythm ?? "—"} · špatně ${c.wrong} · vynecháno ${c.missed} · navíc ${c.extra}</span>`
         : `<span class="d">${t.busy ? "analyzuji…" : `nahráno · ${t.dur.toFixed(1)} s · bez analýzy`}</span>`}
       ${t.wet ? '<span class="pill" style="color:var(--violet2)" title="Při přehrání zní vstup s efekty; křivka a analýza jsou z čisté kytary">S EFEKTY</span>' : ""}
       ${i === best ? '<span class="pill" style="color:var(--ok)">NEJLEPŠÍ</span>' : ""}
@@ -1126,7 +1126,7 @@ async function openSession(id){
 $("demo-btn").onclick = async () => {
   go("analyze"); S.demo = true; setMode(); stopAll();
   const d = await ask({cmd: "demo"});
-  await loadReference({title: "Synthesized riff, 112 BPM", artist: "Demo", pcm: d.ref, demo: true});
+  await loadReference({title: "Syntetický riff, 112 BPM", artist: "Demo", pcm: d.ref, demo: true});
   await analyzePerformance(d.ply);
   toast("DEMO: zvuk je syntetický, analýza skutečná");
 };
@@ -1478,7 +1478,7 @@ function paintProblems(){
     : r.sections.map((s, k) => `<div class="item"><div class="grow"><div class="t">${fmtShort(s.from)}–${fmtShort(s.to)} <span class="pill" style="color:${TYPE_COLOR[s.worst]}">${s.worst}</span></div>
         <div class="s">${[s.timing != null ? "Timing " + s.timing + "%" : null, s.wrong ? "Wrong notes " + s.wrong : null, s.missed ? "Missed " + s.missed : null, s.issues + " chyb"].filter(Boolean).join(" · ")}
         · tip: ${s.issues > 5 ? "50 %" : "75 %"} rychlosti</div></div>
-        <button class="btn small" data-sec="${k}" data-act="play">PLAY</button><button class="btn small" data-sec="${k}" data-act="practice">PRACTICE</button><button class="btn small" data-sec="${k}" data-act="loop">LOOP</button></div>`).join("");
+        <button class="btn small" data-sec="${k}" data-act="play">PLAY</button><button class="btn small" data-sec="${k}" data-act="practice">CVIČENÍ</button><button class="btn small" data-sec="${k}" data-act="loop">LOOP</button></div>`).join("");
   $("sections").innerHTML = $("sections2").innerHTML = html;
 }
 document.addEventListener("click", (e) => {
@@ -1786,7 +1786,7 @@ function drawTimeline(){
     label("ÚDERY", Y.hits);
   }
   label("REFERENCE", Y.refW); if(Y.drums != null) label("DRUMS", Y.drums);
-  label(S.recording && S.live ? `● NAHRÁVÁM — TAKE ${S.live.n}` : cur && S.takes.length > 1 ? `YOUR PERFORMANCE — TAKE ${cur.n} Z ${S.takes.length} · ${Y.rows ? "KLIK = SBALIT" : "KLIK = VŠECHNY TAKES"}` : cur ? `YOUR PERFORMANCE — TAKE ${cur.n}` : "YOUR PERFORMANCE", Y.plyW);
+  label(S.recording && S.live ? `● NAHRÁVÁM — TAKE ${S.live.n}` : cur && S.takes.length > 1 ? `TVOJE HRA — TAKE ${cur.n} Z ${S.takes.length} · ${Y.rows ? "KLIK = SBALIT" : "KLIK = VŠECHNY TAKES"}` : cur ? `TVOJE HRA — TAKE ${cur.n}` : "TVOJE HRA", Y.plyW);
   // the takes, unfolded: one row each — click marks it, ▶ plays it
   TL.rowHits = [];
   for(let i = 0; i < Y.rows; i++){
@@ -1985,30 +1985,30 @@ function paintInspector(){
   const type = is ? is.type : "NOTE", sev = is ? is.sev : 0, t = row ? row.t : ex ? ex.t : is.t;
   const conf = is ? is.confidence : row.confidence;
   const e = row && row.expected, p = row ? row.played : ex && ex.played;
-  const nm = (n) => !n ? "—" : n.midi == null ? '<span class="na">LOW CONFIDENCE</span>' : n.name;
+  const nm = (n) => !n ? "—" : n.midi == null ? '<span class="na">NÍZKÁ JISTOTA</span>' : n.name;
   const head = is ? is.text : row.kind === "missed" ? "Missed note" : "Correct";
   const related = row ? r.issues.filter(x => x.row === S.sel.row && (!is || x.id !== is.id)) : [];
   const tip = r.sections.find(s => t >= s.from && t < s.to);
   box.innerHTML = `<div class="type" style="color:${TYPE_COLOR[type] || "var(--ok)"}">${type === "NOTE" ? "NOTE" : type + " ERROR"}</div>
     <div class="big">${esc(head)}</div><div class="muted">${fmtT(t)}</div>
     <dl>
-      <dt>Type</dt><dd>${type}</dd>
-      <dt>Expected</dt><dd>${e ? nm(e) : "—"}</dd>
-      <dt>Played</dt><dd>${p ? nm(p) : row && row.kind === "missed" ? "nothing" : "—"}</dd>
-      <dt>Timing deviation</dt><dd>${row && row.timingMs != null ? (row.timingMs > 0 ? "+" : "") + row.timingMs + " ms · " + row.timing : "—"}</dd>
-      <dt>Pitch deviation</dt><dd>${row && row.pitch ? (row.pitchCents != null ? (row.pitchCents > 0 ? "+" : "") + row.pitchCents + " cents · " : "") + row.pitch.v + (row.coarse ? " (čteno hrubě)" : "") + (row.octave ? " (o oktávu jinde)" : "") : row && row.played ? '<span class="na">LOW CONFIDENCE</span>' : "—"}</dd>
-      ${r.tuning && r.tuning.applied ? `<dt>Tuning offset</dt><dd>${r.tuning.offsetCents} cents (odečteno)</dd>` : ""}
-      <dt>Reference duration</dt><dd>${e ? Math.round(e.dur * 1000) + " ms" : "—"}</dd>
-      <dt>Player duration</dt><dd>${p ? Math.round(p.dur * 1000) + " ms" + (row && row.duration && row.duration !== "OK" ? " · " + row.duration : "") : "—"}</dd>
-      <dt>Articulation</dt><dd>${NA}</dd>
-      <dt>Confidence</dt><dd>${conf != null ? Math.round(conf * 100) + "%" + (conf < 0.6 ? ' <span class="na">LOW</span>' : "") : "—"}</dd>
-      <dt>Severity</dt><dd class="sev-${sev}">${["OK", "MEDIUM", "HIGH"][sev]}</dd>
+      <dt>Typ</dt><dd>${type}</dd>
+      <dt>Mělo znít</dt><dd>${e ? nm(e) : "—"}</dd>
+      <dt>Zahráno</dt><dd>${p ? nm(p) : row && row.kind === "missed" ? "nothing" : "—"}</dd>
+      <dt>Odchylka načasování</dt><dd>${row && row.timingMs != null ? (row.timingMs > 0 ? "+" : "") + row.timingMs + " ms · " + row.timing : "—"}</dd>
+      <dt>Odchylka výšky</dt><dd>${row && row.pitch ? (row.pitchCents != null ? (row.pitchCents > 0 ? "+" : "") + row.pitchCents + " cents · " : "") + row.pitch.v + (row.coarse ? " (čteno hrubě)" : "") + (row.octave ? " (o oktávu jinde)" : "") : row && row.played ? '<span class="na">NÍZKÁ JISTOTA</span>' : "—"}</dd>
+      ${r.tuning && r.tuning.applied ? `<dt>Posun ladění</dt><dd>${r.tuning.offsetCents} cents (odečteno)</dd>` : ""}
+      <dt>Délka reference</dt><dd>${e ? Math.round(e.dur * 1000) + " ms" : "—"}</dd>
+      <dt>Délka tvé hry</dt><dd>${p ? Math.round(p.dur * 1000) + " ms" + (row && row.duration && row.duration !== "OK" ? " · " + row.duration : "") : "—"}</dd>
+      <dt>Artikulace</dt><dd>${NA}</dd>
+      <dt>Jistota</dt><dd>${conf != null ? Math.round(conf * 100) + "%" + (conf < 0.6 ? ' <span class="na">NÍZKÁ</span>' : "") : "—"}</dd>
+      <dt>Závažnost</dt><dd class="sev-${sev}">${["OK", "MEDIUM", "HIGH"][sev]}</dd>
     </dl>
-    <div class="acts"><button class="btn" id="i-ref">PLAY REFERENCE</button><button class="btn" id="i-ply">PLAY PERFORMANCE</button><button class="btn primary" id="i-both">PLAY BOTH</button></div>
+    <div class="acts"><button class="btn" id="i-ref">PŘEHRÁT REFERENCI</button><button class="btn" id="i-ply">PŘEHRÁT MOU HRU</button><button class="btn primary" id="i-both">PŘEHRÁT OBOJÍ</button></div>
     <div class="dim" style="font-size:11.5px;margin-top:7px">Ukázka: asi 3 s kolem tohohle místa. Souvislé přehrávání je nahoře — přepínač Reference / Ty / Obojí a PLAY.</div>
-    ${tip ? `<div class="rel"><div class="h" style="margin-top:14px">How to practice</div>Practice ${fmtShort(tip.from)}–${fmtShort(tip.to)} at ${tip.issues > 5 ? "50" : "75"}% speed.
+    ${tip ? `<div class="rel"><div class="h" style="margin-top:14px">Jak cvičit</div>Practice ${fmtShort(tip.from)}–${fmtShort(tip.to)} at ${tip.issues > 5 ? "50" : "75"}% speed.
       <button id="i-loop">Smyčka na tenhle úsek →</button></div>` : ""}
-    ${related.length ? `<div class="rel"><div class="h" style="margin-top:14px">Related issues</div>${related.map(x => `<button data-issue="${x.id}"><span style="color:${TYPE_COLOR[x.type]}">${x.type}</span> · ${esc(x.text)}</button>`).join("")}</div>` : ""}`;
+    ${related.length ? `<div class="rel"><div class="h" style="margin-top:14px">Související chyby</div>${related.map(x => `<button data-issue="${x.id}"><span style="color:${TYPE_COLOR[x.type]}">${x.type}</span> · ${esc(x.text)}</button>`).join("")}</div>` : ""}`;
   const from = Math.max(0, t - 0.6);
   $("i-ref").onclick = () => playFrom("ref", from, 2.6); $("i-ply").onclick = () => playFrom("ply", from, 2.6); $("i-both").onclick = () => playFrom("both", from, 2.6);
   if(tip) $("i-loop").onclick = () => { setLoop(tip.from, tip.to); go("practice"); playFrom("ref", tip.from); };
@@ -2035,10 +2035,10 @@ function liveLoop(){
   // what the reference wants now
   while(LV.idx < notes.length && notes[LV.idx].t + Math.max(notes[LV.idx].dur, 0.12) < now){ if(notes[LV.idx].midi != null) LV.passed++; LV.idx++; }
   const exp = notes[LV.idx] && notes[LV.idx].t - 0.12 <= now ? notes[LV.idx] : null;
-  $("lv-exp").innerHTML = exp ? (exp.midi == null ? '<span class="na">LOW CONF.</span>' : exp.name || noteName(exp.midi)) : "—";
+  $("lv-exp").innerHTML = exp ? (exp.midi == null ? '<span class="na">NEJISTÉ</span>' : exp.name || noteName(exp.midi)) : "—";
   let cur = null;
   if(rms > 0.01){ const y = yinLive(buf, sr, engineCfg().fmin, 1320); if(y && y.conf > 0.75){ const m = 69 + 12 * Math.log2(y.f / 440); cur = {midi: Math.round(m), cents: Math.round((m - Math.round(m)) * 100)}; } }
-  $("lv-cur").innerHTML = cur ? noteName(cur.midi) + `<span style="font-size:12px;color:var(--sub)"> ${cur.cents >= 0 ? "+" : ""}${cur.cents}c</span>` : rms > 0.01 ? '<span class="na">LOW CONF.</span>' : "—";
+  $("lv-cur").innerHTML = cur ? noteName(cur.midi) + `<span style="font-size:12px;color:var(--sub)"> ${cur.cents >= 0 ? "+" : ""}${cur.cents}c</span>` : rms > 0.01 ? '<span class="na">NEJISTÉ</span>' : "—";
   // an attack: the level jumping up
   const t = performance.now();
   if(rms > 0.02 && rms > LV.prevRms * 1.8 && t - LV.lastOn > 90){
@@ -2057,7 +2057,7 @@ function liveLoop(){
     if(near.midi == null){ v.innerHTML = '<span class="na">LOW CONFIDENCE — referenční tón nejde přečíst</span>'; }
     else if((cur.midi - near.midi) % 12 !== 0){ v.innerHTML = `<span class="sev-2">WRONG NOTE — ${noteName(cur.midi).replace(/-?\d+$/, "")} instead of ${noteName(near.midi).replace(/-?\d+$/, "")}</span>`; }
     else { if(!near._hit){ near._hit = true; LV.hits++; }
-      v.innerHTML = Math.abs(ms) <= cfg.timingOk ? '<span class="sev-0">PERFECT</span>' : `<span class="sev-1">${ms > 0 ? "+" : ""}${ms} ms ${ms > 0 ? "LATE" : "EARLY"}</span>`; }
+      v.innerHTML = Math.abs(ms) <= cfg.timingOk ? '<span class="sev-0">PŘESNĚ</span>' : `<span class="sev-1">${ms > 0 ? "+" : ""}${ms} ms ${ms > 0 ? "LATE" : "EARLY"}</span>`; }
   }
   LV.prevRms = rms * 0.5 + LV.prevRms * 0.5;
   // tempo from the last attacks — only when they are regular enough to mean one
@@ -2065,7 +2065,7 @@ function liveLoop(){
     const med = gaps.slice().sort((a, b) => a - b)[gaps.length >> 1], spread = gaps.filter(x => Math.abs(x - med) < med * 0.2).length / gaps.length;
     let bpm = 60000 / med; const refBpm = S.ref.analysis.tempo && S.ref.analysis.tempo.bpm;
     if(refBpm) while(bpm > refBpm * 1.5) bpm /= 2;
-    $("lv-bpm").innerHTML = spread >= 0.6 ? bpm.toFixed(1) : '<span class="na">LOW CONF.</span>'; }
+    $("lv-bpm").innerHTML = spread >= 0.6 ? bpm.toFixed(1) : '<span class="na">NEJISTÉ</span>'; }
   $("lv-perf").textContent = LV.passed >= 4 ? Math.round(LV.hits / LV.passed * 100) + "%" : "—";
   if(aRef.ended || (S.loop == null && aRef.currentTime >= S.ref.analysis.dur - 0.05)){ liveStop(); return; }
   requestAnimationFrame(liveLoop);
@@ -2089,13 +2089,13 @@ const miniWave = (cv, wave, color) => { if(!wave) return; const W = cv.width = c
 async function paintRecent(){
   let ss = []; try{ ss = (await DB.all("sessions")).sort((a, b) => b.date - a.date); }catch(e){}
   const home = $("home-recent"), list = $("rec-list");
-  if(!ss.length){ home.innerHTML = '<div class="muted" style="font-size:12.5px">Zatím žádné session. Nahraj se v Analyze, nebo si pusť Demo Mode.</div>';
-    list.innerHTML = '<div class="empty"><b>NO RECORDINGS</b>Každá analyzovaná nahrávka se uloží sem — s výsledkem i zvukem.</div>'; return; }
+  if(!ss.length){ home.innerHTML = '<div class="muted" style="font-size:12.5px">Zatím žádné session. Nahraj se v Analýze, nebo si pusť Ukázku.</div>';
+    list.innerHTML = '<div class="empty"><b>ŽÁDNÉ NAHRÁVKY</b>Každá analyzovaná nahrávka se uloží sem — s výsledkem i zvukem.</div>'; return; }
   home.innerHTML = '<div class="cards">' + ss.slice(0, 3).map(s => `<button class="card" data-open="${s.id}"><b>${esc(s.song)}</b><span class="muted">${new Date(s.date).toLocaleDateString("cs")}</span><canvas></canvas>
     <b style="font-size:22px;color:${scoreColor(s.scores.overall)}">${s.scores.overall == null ? "—" : s.scores.overall + "%"}</b></button>`).join("") + "</div>";
   home.querySelectorAll(".card").forEach((c, i) => miniWave(c.querySelector("canvas"), ss[i].plyAnalysis.wave, "rgba(167,139,250,.8)"));
-  const cell = (v) => v == null ? '<span class="na">N/A</span>' : `<span style="color:${scoreColor(v)}">${v}%</span>`;
-  list.innerHTML = `<table><tr><th>Song</th><th>Date</th><th>Score</th><th>Pitch</th><th>Timing</th><th>Rhythm</th><th>Tempo</th><th>Duration</th><th>Problems</th><th></th></tr>` +
+  const cell = (v) => v == null ? '<span class="na">—</span>' : `<span style="color:${scoreColor(v)}">${v}%</span>`;
+  list.innerHTML = `<table><tr><th>Skladba</th><th>Datum</th><th>Skóre</th><th>Výška tónu</th><th>Načasování</th><th>Rytmus</th><th>Tempo</th><th>Délka</th><th>Problémy</th><th></th></tr>` +
     ss.map(s => `<tr><td><b>${esc(s.song)}</b></td><td class="muted">${new Date(s.date).toLocaleString("cs", {dateStyle: "short", timeStyle: "short"})}</td><td>${cell(s.scores.overall)}</td><td>${cell(s.scores.pitch)}</td><td>${cell(s.scores.timing)}</td><td>${cell(s.scores.rhythm)}</td><td>${cell(s.scores.tempo)}</td><td>${cell(s.scores.duration)}</td><td>${s.result.issues.length}</td>
       <td style="text-align:right;white-space:nowrap"><button class="btn small" data-open="${s.id}">Otevřít</button> <button class="btn small" data-del="${s.id}">Smazat</button></td></tr>`).join("") + "</table>";
 }
@@ -2107,9 +2107,9 @@ document.addEventListener("click", async (e) => {
 });
 async function paintLibrary(){
   let rs = []; try{ rs = (await DB.all("refs")).sort((a, b) => b.added - a.added); }catch(e){}
-  $("lib-list").innerHTML = !rs.length ? '<div class="empty"><b>NO REFERENCE TRACKS</b>Import a song to start analyzing your performance.</div>'
-    : `<table><tr><th>Title</th><th>Artist</th><th>BPM</th><th>Key</th><th>Tuning</th><th>Duration</th><th>Analysis</th><th></th></tr>` + rs.map(r => `<tr><td><b>${esc(r.title)}</b></td><td class="muted">${esc(r.artist || "—")}</td>
-      <td>${r.bpm ? r.bpm.toFixed(1) + (r.bpmConf < 0.4 ? ' <span class="na">LOW</span>' : "") : NA}</td><td>${esc(r.key || "—")}</td><td class="muted">${esc(r.tuning || "—")}</td><td>${fmtShort(r.dur)}</td>
+  $("lib-list").innerHTML = !rs.length ? '<div class="empty"><b>ŽÁDNÉ REFERENCE</b>Import a song to start analyzing your performance.</div>'
+    : `<table><tr><th>Název</th><th>Interpret</th><th>BPM</th><th>Tónina</th><th>Ladění</th><th>Délka</th><th>Analýza</th><th></th></tr>` + rs.map(r => `<tr><td><b>${esc(r.title)}</b></td><td class="muted">${esc(r.artist || "—")}</td>
+      <td>${r.bpm ? r.bpm.toFixed(1) + (r.bpmConf < 0.4 ? ' <span class="na">NÍZKÁ</span>' : "") : NA}</td><td>${esc(r.key || "—")}</td><td class="muted">${esc(r.tuning || "—")}</td><td>${fmtShort(r.dur)}</td>
       <td>${r.notes} tónů${r.pitchedShare != null && r.pitchedShare < 0.6 ? ' · <span class="na">výška nejistá</span>' : ""}</td>
       <td style="text-align:right;white-space:nowrap"><button class="btn small primary" data-ref="${r.id}">Použít</button> <button class="btn small" data-refdel="${r.id}">Smazat</button></td></tr>`).join("") + "</table>";
 }
@@ -2160,7 +2160,7 @@ function openRiffSave(){
       <label>Název riffu<input id="rf-riff" value="${esc(sec ? sec.name : "Riff " + fmtShort(a))}"></label>
       <label>Nástroj<select id="rf-inst">${INSTRUMENTS.map(x => `<option ${x === inst ? "selected" : ""}>${x}</option>`).join("")}</select></label>
       <label>Kapela<input id="rf-artist" value="${esc(artist)}"></label>
-      <label>Song<input id="rf-song" value="${esc(song)}"></label>
+      <label>Skladba<input id="rf-song" value="${esc(song)}"></label>
       <label>BPM<input id="rf-bpm" type="number" step="0.1" value="${bpm.toFixed(1)}"></label>
       <label>Tónina${key && key.conf < 0.3 ? " (nejistá)" : ""}<input id="rf-key" value="${esc(key ? key.name : "")}"></label>
       <label style="grid-column:1/3">Ladění<input id="rf-tuning" value="${esc(tuning)}"></label>
@@ -2209,7 +2209,7 @@ const RF_COLS = [["riff", "Riff"], ["artist", "Kapela"], ["song", "Song"], ["ins
 async function paintRiffs(fresh){
   if(fresh !== false){ try{ const r = await fetch("/api/riffs"); RF.list = r.ok ? await r.json() : []; }catch(e){ RF.list = []; } }
   const box = $("riff-list");
-  if(!RF.list.length){ box.innerHTML = '<div class="empty"><b>NO RIFFS</b>V Analyze označ úsek reference a dej „Uložit riff do knihovny…“ — vystřihne se do zvukového souboru a jeho tóny do MIDI.</div>'; return; }
+  if(!RF.list.length){ box.innerHTML = '<div class="empty"><b>ŽÁDNÉ RIFFY</b>V Analyze označ úsek reference a dej „Uložit riff do knihovny…“ — vystřihne se do zvukového souboru a jeho tóny do MIDI.</div>'; return; }
   const rows = RF.list.slice();
   if(RF.by) rows.sort((x, y) => { const p = x[RF.by], q = y[RF.by]; return RF.dir * (typeof p === "number" || typeof q === "number" ? (p || 0) - (q || 0) : String(p || "").localeCompare(String(q || ""), "cs")); });
   box.innerHTML = `<table><tr>${RF_COLS.map(([k, t]) => `<th data-rfsort="${k}" class="${RF.by === k ? "on" : ""}">${t}${RF.by === k ? (RF.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}<th></th></tr>` +
@@ -2277,11 +2277,11 @@ document.addEventListener("click", (e) => {
   if(b.dataset.export === "pdf"){
     const r = S.result, sc = r.scores, v = (x) => x == null ? "NOT AVAILABLE" : x + " %";
     $("print").innerHTML = `<h1>Guitar Performance Analyzer${S.ref.demo ? " — DEMO" : ""}</h1><p><b>${esc(S.ref.title)}</b> ${esc(S.ref.artist || "")} · ${new Date().toLocaleString("cs")} · ladění ${esc(tuningName)}</p>
-      <h2>Performance score: ${v(sc.overall)}</h2><table><tr><th>Pitch</th><th>Timing</th><th>Rhythm</th><th>Tempo</th><th>Duration</th><th>Articulation</th></tr>
-      <tr><td>${v(sc.pitch)}</td><td>${v(sc.timing)}</td><td>${v(sc.rhythm)}</td><td>${v(sc.tempo)}</td><td>${v(sc.duration)}</td><td>NOT AVAILABLE</td></tr></table>
+      <h2>Performance score: ${v(sc.overall)}</h2><table><tr><th>Výška tónu</th><th>Načasování</th><th>Rytmus</th><th>Tempo</th><th>Délka</th><th>Artikulace</th></tr>
+      <tr><td>${v(sc.pitch)}</td><td>${v(sc.timing)}</td><td>${v(sc.rhythm)}</td><td>${v(sc.tempo)}</td><td>${v(sc.duration)}</td><td>NENÍ K DISPOZICI</td></tr></table>
       <p>Tónů ${r.counts.reference}, spárováno ${r.counts.matched}, špatně ${r.counts.wrong}, vynecháno ${r.counts.missed}, navíc ${r.counts.extra}. Tempo: reference ${r.tempo.reference ? r.tempo.reference.toFixed(1) : "—"}, hráč ${r.tempo.player ? r.tempo.player.toFixed(1) : "—"} BPM.</p>
       <h2>Problémové úseky a doporučení</h2><table><tr><th>Úsek</th><th>Hlavní problém</th><th>Chyb</th><th>Doporučení</th></tr>${r.sections.map(s => `<tr><td>${fmtShort(s.from)}–${fmtShort(s.to)}</td><td>${s.worst}</td><td>${s.issues}</td><td>Practice at ${s.issues > 5 ? 50 : 75}% speed</td></tr>`).join("")}</table>
-      <h2>Error map</h2><table><tr><th>Čas</th><th>Typ</th><th>Popis</th><th>Závažnost</th><th>Jistota</th></tr>${r.issues.map(x => `<tr><td>${fmtT(x.t)}</td><td>${x.type}</td><td>${esc(x.text)}</td><td>${["LOW", "MEDIUM", "HIGH"][x.sev]}</td><td>${Math.round(x.confidence * 100)} %</td></tr>`).join("")}</table>`;
+      <h2>Mapa chyb</h2><table><tr><th>Čas</th><th>Typ</th><th>Popis</th><th>Závažnost</th><th>Jistota</th></tr>${r.issues.map(x => `<tr><td>${fmtT(x.t)}</td><td>${x.type}</td><td>${esc(x.text)}</td><td>${["LOW", "MEDIUM", "HIGH"][x.sev]}</td><td>${Math.round(x.confidence * 100)} %</td></tr>`).join("")}</table>`;
     window.print();
   }
 });
@@ -2303,7 +2303,7 @@ function go(page){
 }
 document.querySelectorAll(".side button").forEach(b => b.onclick = () => go(b.dataset.page));
 document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
-{ const h = new Date().getHours(); $("greet").textContent = h < 5 ? "GOOD NIGHT" : h < 12 ? "GOOD MORNING" : h < 18 ? "GOOD AFTERNOON" : "GOOD EVENING"; }
+{ const h = new Date().getHours(); $("greet").textContent = h < 5 ? "DOBROU NOC" : h < 12 ? "DOBRÉ RÁNO" : h < 18 ? "DOBRÉ ODPOLEDNE" : "DOBRÝ VEČER"; }
 const tsel = $("tuning");
 tsel.innerHTML = Object.keys(TUNINGS).concat(["Custom Tuning"]).map(n => `<option>${n}</option>`).join("");
 tsel.value = tuningName;

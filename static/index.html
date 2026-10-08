@@ -3591,11 +3591,11 @@ body.lib-collapsed .pick-brand{display:none}
   /* Steems, readable from a playing distance: nothing under 10.5 px, and the
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
-  .nm .nm-transport{flex-wrap:wrap;overflow:visible;gap:10px 14px}
+  .nm .nm-transport{flex-wrap:wrap;overflow:visible;gap:10px 12px}
   .nm{--nm-rail:214px}
   .nm .nm-time-num,.nm .nm-bar-num{font-size:11px}
   .nm .nm-tgroup .cap{font-size:10.5px;letter-spacing:.1em}
-  .nm .nm-transport .nm-btn.round:has(.bl){height:30px;padding:0 11px}
+  .nm .nm-transport .nm-btn.round:has(.bl){height:30px;padding:0 9px}
   .nm .nm-transport .nm-btn.round .bl,.hero-actions .nm-btn.round .bl{font-size:11.5px}
   #nm-editbar .nm-btn.ib.lab{height:42px;min-width:44px}
   #nm-editbar .nm-btn.ib.lab .bl{font-size:10.5px;opacity:1}
@@ -3969,7 +3969,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="15"></span><span class="tm-t">Export do knihovny…</span></button>
                 </div>
               </div>
-              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Close</span></button>
+              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Zavřít</span></button>
         </div>
       </div>
     </div>
@@ -4071,17 +4071,17 @@ body.lib-collapsed .pick-brand{display:none}
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span><span class="bl">Start</span></button>
-              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp — dvě čáry u stop, táhni je na začátek a konec"><span data-icon="repeat" data-size="14"></span><span class="bl">Loop</span></button>
+              <button class="nm-btn round" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span><span class="bl">Začátek</span></button>
+              <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp — dvě čáry u stop, táhni je na začátek a konec"><span data-icon="repeat" data-size="14"></span><span class="bl">Smyčka</span></button>
             </div>
             <span class="cap">PŘEHRÁVÁNÍ</span>
           </div>
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="music" data-size="14"></span>Tab</button>
-              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="music" data-size="14"></span>Alpha Tab</button>
-              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Guide</button>
+              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="search" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="music" data-size="14"></span>Noty</button>
+              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Hmatník</button>
               <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
             </div>
             <span class="cap">UČENÍ</span>
@@ -4110,7 +4110,7 @@ body.lib-collapsed .pick-brand{display:none}
 
           <div class="nm-tgroup">
             <div class="row">
-              <button class="nm-btn round" id="mixer-metro" title="Metronom"><span data-icon="bell" data-size="14"></span><span class="bl">Click</span></button>
+              <button class="nm-btn round" id="mixer-metro" title="Metronom"><span data-icon="bell" data-size="14"></span><span class="bl">Klik</span></button>
               <select class="nm-rate" id="nm-metro-rate" title="Jak často klikat vůči době">
                 <option value="0.25">÷4</option>
                 <option value="0.5">÷2</option>
@@ -4128,7 +4128,7 @@ body.lib-collapsed .pick-brand{display:none}
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-step" id="zoom-out" title="Oddálit"><span data-icon="minus" data-size="13"></span></button>
-              <button class="nm-btn" id="zoom-fit" title="Celá skladba">Fit</button>
+              <button class="nm-btn" id="zoom-fit" title="Celá skladba">Celá</button>
               <button class="nm-step" id="zoom-in" title="Přiblížit"><span data-icon="plus" data-size="13"></span></button>
               <input type="range" class="nm-tempo" id="mixer-zoom" min="1" max="400" step="1"
                      value="30" hidden>
@@ -17306,7 +17306,7 @@ const Mixer = (() => {
     // Icon buttons, DAW-style; the tooltip says what each one does.
     const LBL = {clipCopy: "Copy", clipPaste: "Paste", clipDuplicate: "Dupl", clipDelete: "Delete", cut: "Cut", copy: "Copy",
       paste: "Paste", del: "Delete", silence: "Silence", crop: "Crop", fadeIn: "Fade In", fadeOut: "Fade Out",
-      gainDown: "−3 dB", gainUp: "+3 dB", normalize: "Normal", reverse: "Reverse", undo: "Undo", redo: "Redo"};
+      gainDown: "−3 dB", gainUp: "+3 dB", normalize: "Normal", reverse: "Reverse", undo: "Zpět", redo: "Znovu"};
     const b = (act, ic, title, enabled) =>
       `<button type="button" class="nm-btn ib lab" data-edit="${act}" title="${title}" aria-label="${title}" ${dis(enabled)}>${icon(ic, 15)}<span class="bl">${LBL[act] || ""}</span></button>`;
     // A row in a tool menu: the full name, and the shortcut where there is one.
@@ -17326,8 +17326,8 @@ const Mixer = (() => {
         ${hiddenChannels.length ? `<button type="button" class="tm-item" data-stay id="nm-hidden-btn" title="Vrátit stopy odebrané křížkem">${icon("eyeOff", 15)}<span class="tm-t">Skryté stopy</span><span class="tm-k">${hiddenChannels.length}</span></button>` : ""}`)}
       <span class="sep"></span>
       <span class="grp">
-        <button type="button" class="nm-btn ib lab tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr — klik na dílek ho vybere, tažením ho přesuneš">${icon("pointer", 15)}<span class="bl">Select</span></button>
-        <button type="button" class="nm-btn ib lab tool ${tool === "scissors" ? "on" : ""}" data-edit="toolScissors" title="Nůžky (S) — kam klikneš do stopy, tam se rozstřihne">${icon("scissors", 15)}<span class="bl">Split</span></button>
+        <button type="button" class="nm-btn ib lab tool ${tool === "select" ? "on" : ""}" data-edit="toolSelect" title="Výběr — klik na dílek ho vybere, tažením ho přesuneš">${icon("pointer", 15)}<span class="bl">Ukazatel</span></button>
+        <button type="button" class="nm-btn ib lab tool ${tool === "scissors" ? "on" : ""}" data-edit="toolScissors" title="Nůžky (S) — kam klikneš do stopy, tam se rozstřihne">${icon("scissors", 15)}<span class="bl">Nůžky</span></button>
         <span class="snap" title="Přichytávání dílků a střihů k mřížce (Alt = volně)">${icon("magnet", 14)}<select id="nm-snap">
           <option value="off">vyp</option><option value="beat">doby</option><option value="bar">takty</option></select></span>
       </span>
@@ -17338,7 +17338,7 @@ const Mixer = (() => {
         ${mi("clipDuplicate", "duplicate", "Duplikovat", "⌘D", "Duplikovat dílek — kopie hned za něj (⌘D)", clipOn)}
         ${mi("clipDelete", "trash", "Smazat", "Del", "Smazat vybraný dílek (Delete)", clipOn)}`, clipOn || (c && clipBoard))}
       <span class="sep"></span>
-      <span class="cap">TRACK</span>
+      <span class="cap">STOPA</span>
       <select id="nm-edit-track" title="Stopa, kterou upravuješ (nebo klikni na její název vlevo)">
         <option value="-1">— vyber stopu —</option>
         ${channels.map((x, i) => `<option value="${i}" ${i === editIdx ? "selected" : ""}>${escapeHtml(stemLabel(x.stem))}${editedStems.has(x.stem) ? " ✎" : ""}</option>`).join("")}
@@ -17364,7 +17364,7 @@ const Mixer = (() => {
       <span class="grp">
         ${b("undo", "undo", "Zpět (⌘Z)", undoStack.length)}
         ${b("redo", "redo", "Znovu (⇧⌘Z)", redoStack.length)}
-        ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn ib lab" id="nm-edit-restore" title="Obnovit původní — zahodit všechny úpravy téhle stopy">${icon("history", 15)}<span class="bl">Restore</span></button>` : ""}
+        ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn ib lab" id="nm-edit-restore" title="Obnovit původní — zahodit všechny úpravy téhle stopy">${icon("history", 15)}<span class="bl">Obnovit</span></button>` : ""}
       </span>
       <span class="status"></span>`;
     bar.querySelector("#nm-addtrack").onclick = () => el("nm-addtrack-file").click();
