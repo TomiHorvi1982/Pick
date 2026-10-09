@@ -4974,6 +4974,8 @@ class RemoteState(BaseModel):
     videoId: Optional[str] = None
     key: Optional[str] = None
     relPath: Optional[str] = None
+    # Whether the app is listening for spoken commands (the mini player shows it).
+    voice: Optional[bool] = None
 
 
 class RemoteCommand(BaseModel):
@@ -8854,6 +8856,36 @@ end tell'''
         pass
     subprocess.Popen(["open", "-na", "Google Chrome", "--args", f"--app={url}", "--window-size=340,210"])
     return {"ok": True, "opened": True}
+
+
+@app.post("/api/window/full")
+def window_full(which: str = "app"):
+    """A Pick window over the whole screen and back — for a spoken command, which
+    a page may not do by itself (the browser wants a click for real full
+    screen). This is the window's own "zoom": everything but the menu bar."""
+    base = "http://127.0.0.1:8765", "http://localhost:8765"
+    mini = "true" if which == "mini" else "false"
+    script = f'''tell application "Google Chrome"
+  repeat with w in windows
+    repeat with t in tabs of w
+      set u to URL of t
+      if (u starts with "{base[0]}" or u starts with "{base[1]}") and ((u contains "/mini") is {mini}) then
+        if minimized of w then set minimized of w to false
+        set zoomed of w to not (zoomed of w)
+        set index of w to 1
+        return "ok"
+      end if
+    end repeat
+  end repeat
+  return "none"
+end tell'''
+    try:
+        out = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=6).stdout.strip()
+    except Exception:
+        out = ""
+    if out != "ok":
+        return JSONResponse({"error": "Okno se nenašlo."}, status_code=404)
+    return {"ok": True}
 
 
 def _voice_teach(cmd, pcm):

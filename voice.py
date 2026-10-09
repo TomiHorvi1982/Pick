@@ -58,6 +58,18 @@ COMMANDS = [
     ("section:+", ["next section"], "next section", "smyčka na další sekci"),
     ("section:-", ["previous section"], "previous section", "smyčka na předchozí sekci"),
     ("mini", ["mini player"], "mini player", "otevře minipřehrávač"),
+    # Said again and again — "pick up", "pick up": three decibels at a time.
+    ("up:1", ["up", "volume up"], "up", "hlasitost +3 dB"),
+    ("up:2", ["up up"], "up up", "hlasitost +6 dB"),
+    ("down:1", ["down", "volume down"], "down", "hlasitost −3 dB"),
+    ("down:2", ["down down"], "down down", "hlasitost −6 dB"),
+    # "play" and "stop" go by what is on and what is in front; these name it.
+    ("mixplay", ["play mix"], "play mix", "spustit Steems (mix), ať je vpředu cokoli"),
+    ("mixpause", ["stop mix"], "stop mix", "zastavit Steems (mix)"),
+    ("pbplay", ["play player"], "play player", "spustit spodní přehrávač"),
+    ("pbpause", ["stop player"], "stop player", "zastavit spodní přehrávač"),
+    ("full", ["full screen"], "full screen", "aplikace přes celou obrazovku / zpět"),
+    ("minifull", ["mini full screen"], "mini full screen", "minipřehrávač přes celou obrazovku / zpět"),
 ]
 # The same few words for every track of the mix…
 STEMS = {"drums": "bicí", "bass": "basa", "guitar": "kytara", "vocals": "zpěv", "piano": "klavír", "other": "ostatní"}

@@ -322,3 +322,18 @@ def test_an_accent_is_learned_from_a_take(tmp_path, client):
     client.delete("/api/voice/teach?cmd=slower")
     assert voice.Listener().command(said) is None
     assert not list(voice.TAKES_DIR.glob("*"))
+
+
+def test_volume_steps_and_naming_what_plays():
+    assert voice.match("pick up") == "up:1" and voice.match("pick volume up") == "up:1"
+    assert voice.match("pick up up") == "up:2" and voice.match("pick down") == "down:1"
+    assert voice.match("pick up up up") is None            # three in a row is not heard reliably
+    assert voice.match("pick guitar up") == "vol:guitar:+"                 # a track's own, as before
+    assert voice.match("pick stop mix") == "mixpause" and voice.match("pick play player") == "pbplay"
+    assert voice.match("pick full screen") == "full" and voice.match("pick mini full screen") == "minifull"
+    assert voice.match("pick mini player") == "mini"
+
+
+def test_the_app_says_whether_it_listens(client):
+    client.post("/api/remote/state", json={"playing": False, "voice": True})
+    assert client.get("/api/remote/state").json()["voice"] is True

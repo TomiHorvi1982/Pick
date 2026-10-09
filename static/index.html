@@ -3742,6 +3742,7 @@ body.lib-collapsed .pick-brand{display:none}
         </div>
       </div>
     </div>
+    <button class="sp-round" id="full-top-btn" title="Celá obrazovka (hlasem: „pick full screen“)"><span data-icon="expand" data-size="17"></span></button>
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
     <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
     <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
@@ -28801,6 +28802,7 @@ const RemoteAgent = (() => {
       key: !mixerOn && track ? (track.key || null) : null,
       // The lyrics' per-song offset is stored under videoId || relPath || title.
       relPath: !mixerOn && track ? (track.relPath || null) : null,
+      voice: Voice.isOn(),
     };
   }
 
@@ -29121,6 +29123,22 @@ const Voice = (() => {
     if(what === "playlist"){ setMode("playlists"); return "playlisty"; }
     if(what === "song"){ pickSong(); return "vybírám píseň"; }
     if(what === "mini"){ fetch("/api/mini/open", {method: "POST"}).catch(() => {}); return "minipřehrávač"; }
+    if(what === "minifull"){ fetch("/api/window/full?which=mini", {method: "POST"}).then(r => { if(!r.ok) showToast("Minipřehrávač není otevřený"); }).catch(() => {}); return "minipřehrávač přes obrazovku"; }
+    if(what === "full"){ fullScreen(); return "celá obrazovka"; }
+    // One volume for everything that plays here, three decibels a step.
+    if(what === "up" || what === "down"){
+      const vol = el("pb-volume"), db = 3 * (+arg || 1) * (what === "up" ? 1 : -1);
+      const v = +vol.value > 0 ? +vol.value * Math.pow(10, db / 20) : (db > 0 ? 0.05 : 0);
+      vol.value = Math.max(0, Math.min(1, v < 0.01 ? 0 : v));
+      vol.dispatchEvent(new Event("input", {bubbles: true}));
+      return `hlasitost ${db > 0 ? "+" : "−"}${Math.abs(db)} dB (${Math.round(vol.value * 100)} %)`;
+    }
+    // Two things can play: the Steems mix and the player at the bottom.
+    const pb = el("pb-audio"), mixSong = Mixer.currentSong(), mixOn = Mixer.isPlaying();
+    if(what === "mixplay") return !mixSong ? "ve Steems není otevřená žádná píseň" : mixOn ? "Steems už hraje" : (Mixer.play(), "Steems hraje");
+    if(what === "mixpause") return mixOn ? (Mixer.pause(), "Steems zastaveno") : "Steems nehraje";
+    if(what === "pbplay") return !pb.paused ? "přehrávač už hraje" : pb.src ? (click("pb-play"), "přehrávač hraje") : "v přehrávači není píseň — řekni „pick song“ a název";
+    if(what === "pbpause") return pb.paused ? "přehrávač nehraje" : (click("pb-play"), "přehrávač zastaven");
     if(what === "click") return pressButton(cmd.slice(6));
     if(what === "find"){ const [, kind, ...rest] = cmd.split(":"); findByName(kind, rest.join(":")); return "hledám „" + rest.join(":") + "“"; }
     if(what === "practice"){
@@ -29134,10 +29152,23 @@ const Voice = (() => {
       el("analyzer-frame").contentWindow.postMessage({pick: true, voice: cmd}, location.origin);
       return "analyzér";
     }
+    // "stop" stops whatever is playing, wherever you are looking; "play" starts
+    // what is in front — the open Steems song, otherwise the player.
+    if(what === "pause"){
+      const did = [];
+      if(mixOn){ Mixer.pause(); did.push("Steems zastaveno"); }
+      if(!pb.paused){ click("pb-play"); did.push("přehrávač zastaven"); }
+      return did.join(", ") || "nic nehraje";
+    }
+    if(what === "play"){
+      if(mixOn) return "Steems už hraje";
+      if(!pb.paused) return "přehrávač už hraje";
+      if(shown("mixer") && mixSong){ Mixer.play(); return "Steems hraje"; }
+      if(pb.src){ click("pb-play"); return "přehrávač hraje"; }
+      if(mixSong){ Mixer.play(); return "Steems hraje"; }
+      return "není co přehrát — řekni „pick song“ a název";
+    }
     if(shown("mixer")){
-      const playing = Mixer.isPlaying();
-      if(what === "play") return playing ? "už hraje" : (Mixer.play(), "přehrávám");
-      if(what === "pause") return playing ? (Mixer.pause(), "zastaveno") : "nehraje";
       if(what === "rewind") return click("nm-rewind") ? "na začátek" : null;
       if(what === "loop") return click("mixer-loop") ? "smyčka" : null;
       if(what === "metronome") return click("mixer-metro") ? "metronom" : null;
@@ -29162,11 +29193,9 @@ const Voice = (() => {
         b.click();
         return arg === "+" ? "další preset" : "předchozí preset";
       }
-      return null;
+      // next, previous, louder, quieter: the player's, also from here
     }
-    const a = el("pb-audio"), vol = el("pb-volume");
-    if(what === "play") return a.paused ? (click("pb-play") ? "přehrávám" : null) : "už hraje";
-    if(what === "pause") return a.paused ? "nehraje" : (click("pb-play") ? "pauza" : null);
+    const a = pb, vol = el("pb-volume");
     if(what === "rewind"){ a.currentTime = 0; return "na začátek"; }
     if(what === "next") return click("pb-next") ? "další píseň" : null;
     if(what === "prev") return click("pb-prev") ? "předchozí píseň" : null;
@@ -29177,6 +29206,14 @@ const Voice = (() => {
     }
     return null;
   }
+
+  // Real full screen needs a click of yours; a spoken command has none, and
+  // then the window is made as big as the screen instead.
+  function fullScreen(){
+    if(document.fullscreenElement){ document.exitFullscreen().catch(() => {}); return; }
+    document.documentElement.requestFullscreen().catch(() => fetch("/api/window/full?which=app", {method: "POST"}).catch(() => {}));
+  }
+  el("full-top-btn").onclick = fullScreen;
 
   const STEM_CZ = {drums: "bicí", bass: "basa", guitar: "kytara", vocals: "zpěv", piano: "klavír", other: "ostatní"};
   const pause = (ms) => new Promise(ok => setTimeout(ok, ms));

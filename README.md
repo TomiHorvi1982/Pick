@@ -104,6 +104,14 @@ mikrofonu se vybere zařízení a **Vstup 1 / 2**. Vstupy pak přijdou oddělen�
 (bez potlačení ozvěny) a rozpoznává se jen ten zvolený; kytara na „Automaticky“
 se vstupu s mikrofonem vyhýbá.
 
+„pick stop“ zastaví, co právě hraje (mix ve Steems i spodní přehrávač), „pick
+play“ spustí to, co je vpředu; „play/stop mix“ a „play/stop player“ to řeknou
+výslovně. „pick up“ / „pick down“ je hlasitost po 3 dB (i „up up“). „pick full
+screen“ zvětší okno přes obrazovku — skutečný fullscreen prohlížeč bez kliknutí
+nedovolí, ten je na tlačítku v horní liště a v minipřehrávači (klávesa F).
+Minipřehrávač má v Hledat i **Knihovnu** a **Složky** (hraje je sám) a mikrofon,
+který přepíná poslouchání aplikace.
+
 Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zvenku
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.

@@ -238,7 +238,8 @@
   body.tab-on.tabs-mode .tvp{height:140px}
   /* search */
   #pane-search{flex-direction:column;gap:8px}
-  .sbar{display:flex;gap:6px;align-items:center}
+  .sbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .sbar input{flex:1 1 150px}
   .sbar input{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--text);
     border-radius:10px;padding:8px 11px;font:13px -apple-system,BlinkMacSystemFont,sans-serif;outline:none}
   .sbar input:focus{border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
@@ -277,6 +278,8 @@
       <button class="tab" data-tab="queue"></button>
       <button class="tab" data-tab="search"></button>
     </div>
+    <button class="iconbtn" id="voicebtn" title="Hlasové ovládání zap / vyp — pak řekni „pick song“ a název, „pick stop“, „pick up“… (poslouchá otevřená aplikace)"></button>
+    <button class="iconbtn" id="fullbtn" title="Celá obrazovka (F)"></button>
     <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
     <button class="iconbtn tabbtn" id="tabbtn" title="Tab k hrající písni — jedna kytara, srovnaná s hudbou">TAB</button>
     <button class="iconbtn" id="size" title="Velikost okna: malé · se záložkami · široké"></button>
@@ -333,8 +336,8 @@
     <div class="pane" id="pane-search">
       <div class="side-seg"><button data-side="queue">Fronta</button><button data-side="search" class="on">Hledat</button></div>
       <div class="sbar">
-        <input id="sq" type="text" placeholder="Hledat písničku, kapelu nebo playlist…" autocomplete="off">
-        <div class="seg" id="smode"><button data-m="songs" class="on">Písně</button><button data-m="playlists">Playlisty</button></div>
+        <input id="sq" type="text" placeholder="Píseň nebo kapela z knihovny…" autocomplete="off">
+        <div class="seg" id="smode"><button data-m="library" class="on" title="Písně, které už máš v knihovně">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
       </div>
       <div class="queue" id="sres"><div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div></div>
     </div>
@@ -416,6 +419,9 @@ const ICONS = {
   grow: line("M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"),
   shrink: line("M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7"),
   search: line("M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.3 15.3 20 20"),
+  mic: line("M12 3.5a2.8 2.8 0 0 0-2.8 2.8v5a2.8 2.8 0 0 0 5.6 0v-5A2.8 2.8 0 0 0 12 3.5Z") + line("M6.2 11.2a5.8 5.8 0 0 0 11.6 0M12 17v3.5"),
+  full: line("M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"),
+  folder: line("M3.5 7.2a1.6 1.6 0 0 1 1.6-1.6h4l2 2.2h7.8a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6Z"),
   moon: line("M20 14.6A8.4 8.4 0 0 1 9.4 4a8.4 8.4 0 1 0 10.6 10.6Z"),
   back10: line("M4.5 12a7.5 7.5 0 1 0 2.2-5.3") + line("M4.5 4.5v3.6h3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
   fwd10: line("M19.5 12a7.5 7.5 0 1 1-2.2-5.3") + line("M19.5 4.5v3.6h-3.6") + `<text x="12" y="15.2" font-size="7.4" font-weight="700" text-anchor="middle" fill="currentColor" font-family="-apple-system,sans-serif">10</text>`,
@@ -451,6 +457,20 @@ el("back10").innerHTML = icon("back10", 19);
 el("fwd10").innerHTML = icon("fwd10", 19);
 el("mute").innerHTML = icon("volume", 16);
 el("sleep").innerHTML = icon("moon", 16);
+el("voicebtn").innerHTML = icon("mic", 16);
+el("fullbtn").innerHTML = icon("full", 16);
+// The microphone is the app's: this only switches its listening on and off.
+el("voicebtn").onclick = async () => {
+  try{
+    const r = await fetch("/api/voice/remote");
+    if(r.status === 409) toast("Otevři Pick — hlas poslouchá aplikace");
+    else if(!r.ok) toast("Hlasové ovládání se nepodařilo přepnout");
+  }catch(e){ toast("Aplikace neodpovídá"); }
+};
+const toggleFull = () => document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : document.documentElement.requestFullscreen().catch(() => toast("Celá obrazovka se nepovedla"));
+el("fullbtn").onclick = toggleFull;
+document.addEventListener("fullscreenchange", () => el("fullbtn").classList.toggle("on", !!document.fullscreenElement));
+document.addEventListener("keydown", (e) => { if(e.key === "f" && !e.metaKey && !e.ctrlKey && !/INPUT|TEXTAREA/.test(e.target.tagName)) toggleFull(); });
 el("label").innerHTML = icon("note", 26);
 
 let toastT = 0;
@@ -499,6 +519,11 @@ async function refresh(){
     LP.active = false; toast("Hraje aplikace");
   }
   R = {live: rlive, playing: rplaying};
+  const listening = !!s && !s.stale && !!s.voice;
+  if(el("voicebtn").classList.contains("on") !== listening){
+    el("voicebtn").classList.toggle("on", listening);
+    if(listening) toast("Poslouchám — řekni „pick song“ a název");
+  }
   if(LP.active) Object.assign(S, lpState());
   else if(rlive){
     Object.assign(S, {
@@ -1057,11 +1082,12 @@ if("mediaSession" in navigator){
 // -------------------------------------------------------------- search
 // Songs (Spotify's catalogue, played from YouTube) or playlists (YouTube
 // Music); ▶ plays from there on, ＋ adds to the app's queue.
-const srch = {mode: "songs", q: "", list: [], pl: null, timer: 0, token: 0};
+const srch = {mode: "library", q: "", list: [], pl: null, timer: 0, token: 0};
 function addToQueue(t){
   const q = loadQueue();
   if(q.some(x => x.key === t.key)){ toast("Už je ve frontě"); return; }
   const item = {key: t.key, title: t.title, artists: t.artists, thumbnail: t.thumbnail};
+  if(t.relPath) item.relPath = t.relPath;
   if(t.videoId) item.videoId = t.videoId;
   if(t.spotifyQuery) item.spotifyQuery = t.spotifyQuery;
   q.push(item);
@@ -1092,16 +1118,26 @@ function renderSearch(){
     wireTracks(box, pl.tracks);
     return;
   }
-  if(!srch.q){ box.innerHTML = '<div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div>'; return; }
+  const local = srch.mode === "library" || srch.mode === "folders";
+  if(!srch.q && !local){ box.innerHTML = '<div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div>'; return; }
   if(srch.busy){ box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám…</div>'; return; }
   if(!srch.list.length){ box.innerHTML = '<div class="empty">Nic se nenašlo.</div>'; return; }
-  if(srch.mode === "songs"){ box.innerHTML = srch.list.map(trackRow).join(""); wireTracks(box, srch.list); return; }
+  if(srch.mode === "songs" || srch.mode === "library"){
+    box.innerHTML = srch.list.map(trackRow).join("") + (srch.more ? `<div class="empty">…a dalších ${srch.more}. Napiš kus názvu nebo kapely.</div>` : "");
+    wireTracks(box, srch.list); return;
+  }
   box.innerHTML = srch.list.map((p, i) => `<div class="qi" data-pl="${i}">
-    <div class="th" style="${p.thumbnail ? `background-image:url('${esc(thumbUrl(p.thumbnail))}')` : ""}">${p.thumbnail ? "" : icon("list", 16)}</div>
+    <div class="th" style="${p.thumbnail ? `background-image:url('${esc(thumbUrl(p.thumbnail))}')` : ""}">${p.thumbnail ? "" : icon(p.tracks ? "folder" : "list", 16)}</div>
     <div class="m"><b>${esc(p.title || "—")}</b><span>${esc(p.author || "Playlist")}</span></div>
     <div class="acts"><button data-plplay="${i}" title="Přehrát celý">▶</button></div></div>`).join("");
   const open = async (i, play) => {
     const p = srch.list[i];
+    if(p.tracks){                         // a folder of the library: its songs are already here
+      srch.pl = {title: p.title, tracks: p.tracks};
+      renderSearch();
+      if(play) lpPlayList(p.tracks, 0);
+      return;
+    }
     box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Načítám playlist…</div>';
     try{
       const d = await (await fetch(`/api/playlist/${encodeURIComponent(p.browseId)}?track_limit=100`)).json();
@@ -1115,9 +1151,40 @@ function renderSearch(){
   box.querySelectorAll("[data-plplay]").forEach(b => b.onclick = (e) => { e.stopPropagation(); open(+b.dataset.plplay, true); });
   box.querySelectorAll(".qi[data-pl]").forEach(r => r.onclick = () => open(+r.dataset.pl, false));
 }
+// What is already in the library — its songs, and the folders they sit in
+// (a downloaded playlist or a discography is a folder).
+let libAll = null;
+function libSongs(){
+  if(!libAll) libAll = fetch("/api/library/browse?rel=Songs&flat=1").then(r => r.json())
+    .then(d => (d.entries || []).filter(x => x.type === "file").map(x => ({key: "lib:" + x.rel, relPath: x.rel,
+      title: x.title || x.name, artists: x.artist || "", album: x.album || "", dur: x.duration ? fmt(x.duration) : "",
+      folder: x.rel.split("/").slice(0, -1).join("/")})))
+    .catch(() => { libAll = null; return []; });
+  return libAll;
+}
+const plain = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 async function runSearch(){
   const q = el("sq").value.trim();
-  srch.q = q; srch.pl = null;
+  srch.q = q; srch.pl = null; srch.more = 0;
+  if(srch.mode === "library" || srch.mode === "folders"){
+    const my = ++srch.token;
+    srch.busy = true; renderSearch();
+    const all = await libSongs(), words = plain(q).split(/\s+/).filter(Boolean);
+    if(my !== srch.token) return;
+    const has = (text) => words.every(w => text.includes(w));
+    let list;
+    if(srch.mode === "library"){
+      list = all.filter(t => has(plain(`${t.title} ${t.artists} ${t.album}`)));
+      srch.more = Math.max(0, list.length - 300); list = list.slice(0, 300);
+    } else {
+      const by = new Map();
+      all.forEach(t => { if(!by.has(t.folder)) by.set(t.folder, []); by.get(t.folder).push(t); });
+      list = [...by].filter(([f]) => has(plain(f))).sort((a, b) => a[0].localeCompare(b[0], "cs"))
+        .map(([f, tracks]) => ({title: f.split("/").pop() || "Knihovna", author: `${tracks.length} ${tracks.length === 1 ? "píseň" : tracks.length < 5 ? "písně" : "písní"}${f.includes("/") ? " · " + f.split("/").slice(0, -1).join("/") : ""}`, tracks}));
+    }
+    srch.busy = false; srch.list = list; renderSearch();
+    return;
+  }
   if(!q){ srch.list = []; renderSearch(); return; }
   const my = ++srch.token;
   srch.busy = true; renderSearch();
@@ -1140,6 +1207,7 @@ el("sq").addEventListener("input", () => { clearTimeout(srch.timer); srch.timer 
 el("sq").addEventListener("keydown", (e) => { if(e.key === "Enter"){ clearTimeout(srch.timer); runSearch(); } e.stopPropagation(); });
 document.querySelectorAll("#smode button").forEach(b => b.onclick = () => {
   srch.mode = b.dataset.m;
+  el("sq").placeholder = srch.mode === "library" ? "Píseň nebo kapela z knihovny…" : srch.mode === "folders" ? "Složka nebo playlist z knihovny…" : "Hledat písničku, kapelu nebo playlist…";
   document.querySelectorAll("#smode button").forEach(x => x.classList.toggle("on", x === b));
   runSearch();
 });
@@ -1560,6 +1628,7 @@ try{
     }
   }
 }catch(e){}
+runSearch();          // the library, there as soon as the search opens
 refresh();
 setInterval(refresh, 700);
 setInterval(() => { if(shown("queue")) renderQueue(); }, 5000);
