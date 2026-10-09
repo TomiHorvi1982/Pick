@@ -4981,6 +4981,7 @@ class RemoteState(BaseModel):
 class RemoteCommand(BaseModel):
     action: str
     value: Optional[float] = None
+    text: Optional[str] = None      # "heard": what the menu bar's listening heard, for the window to act on
 
 
 # A song handed to the mini player by the app ("send to mini"): the mini player
@@ -5003,12 +5004,25 @@ def mini_play(body: MiniPlay):
     return {"ok": True}
 
 
+# The mini player says who it is when it asks (who=mini): that is how the
+# server knows one is open.
+_MINI_SEEN = {"at": 0.0}
+_MINI_VOICE = {"seq": 0, "at": 0.0}      # a spoken command passed on to the mini player
+_WIDGET_OPEN = {"seq": 0}                # "pick open": the launcher opens the app's window when this changes
+
+
 @app.get("/api/remote/state")
-def remote_state():
+def remote_state(who: str = ""):
     """What the playing window last said it was doing."""
     out = dict(_REMOTE_STATE)
+    if who == "mini":
+        _MINI_SEEN["at"] = time.time()
     if time.time() - _MINI_PLAY["at"] < 30:
         out["mini"] = dict(_MINI_PLAY)
+    if time.time() - _MINI_VOICE["at"] < 30:
+        out["mini_voice"] = dict(_MINI_VOICE)
+    out["widget"] = bool(_WIDGET.get("running"))
+    out["widget_open"] = _WIDGET_OPEN["seq"]
     # A window that has gone away shouldn't leave the menu bar claiming a
     # song is playing forever.
     out["stale"] = (time.time() - out.get("at", 0)) > 12
@@ -5325,7 +5339,10 @@ def push_remote_command(body: RemoteCommand):
     if body.action not in REMOTE_ACTIONS:
         return JSONResponse({"error": "Neznámý příkaz."}, status_code=400)
     _REMOTE_SEQ += 1
-    _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": body.action, "value": body.value}))
+    cmd = {"action": body.action, "value": body.value}
+    if body.text is not None:
+        cmd["text"] = body.text
+    _REMOTE_COMMANDS.append((_REMOTE_SEQ, cmd))
     del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
     return {"seq": _REMOTE_SEQ}
 
@@ -5342,6 +5359,7 @@ REMOTE_ACTIONS = {
     "volume", "seek", "stop", "mute",
     "playqueue",   # value = index into the saved queue (the mini player's Fronta)
     "voice",       # listening for spoken commands: 1 on, 0 off, nothing = the other one
+    "heard",       # text = a recognised command (JSON) from the menu bar's listening
 }
 
 
@@ -9124,6 +9142,166 @@ def voice_forget(cmd: str):
         if _voice_listener is not None:
             _voice_listener = _voice.Listener()
     return {"ok": True}
+
+
+# ---- listening from the menu bar, with no window open. The server reads the
+# microphone itself (ffmpeg, the same way it records the interface) and feeds
+# the same recogniser. A window that listens comes first — the mini player,
+# then the app; this only hears what nobody else is hearing. What it hears and
+# cannot do alone (anything but opening a window) is passed to a window, the
+# mini player being opened for it when none is there.
+_WIDGET = {"proc": None, "running": False, "error": None, "heard": "", "stop": None, "level": 0.0, "sound_at": 0.0, "since": 0.0}
+_WIDGET_LOCK = threading.Lock()
+
+
+def _window_listening():
+    return _voice_listener is not None and time.time() - _voice_owner["at"] < 6
+
+
+def _widget_again():
+    """Not understood, and no window to say so: the computer's own voice does."""
+    try:
+        subprocess.Popen(["say", "-v", "Samantha", "Again"])
+    except OSError:
+        pass
+
+
+def _widget_do(r):
+    global _REMOTE_SEQ
+    cmd = r.get("command")
+    _WIDGET["heard"] = r.get("heard", "")
+    if not cmd:
+        if r.get("again"):
+            _widget_again()
+        return
+    if cmd == "open":
+        _WIDGET_OPEN["seq"] = int(time.time() * 1000)
+        return
+    if cmd == "mini":
+        mini_open()
+        return
+    r = {k: v for k, v in r.items() if k != "pcm"}
+    mini_there = time.time() - _MINI_SEEN["at"] < 4
+    app_there = (time.time() - _REMOTE_STATE.get("at", 0)) < 12
+    if app_there and not mini_there:
+        _REMOTE_SEQ += 1
+        _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": "heard", "value": None, "text": json.dumps(r, ensure_ascii=False)}))
+        del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
+        return
+    if not mini_there:
+        mini_open()
+    _MINI_VOICE.update(seq=int(time.time() * 1000), at=time.time(), r=r)
+
+
+def _widget_loop(proc, stop):
+    lis, skipped = None, True
+    try:
+        while not stop.is_set():
+            pcm = proc.stdout.read(8000)                 # a quarter of a second
+            if not pcm:
+                break
+            # How loud the microphone is (0–1). A microphone macOS has not allowed
+            # gives perfect silence: 0, always — that is how it shows.
+            _WIDGET["level"] = max(abs(v) for v in memoryview(pcm[:len(pcm) - len(pcm) % 2]).cast("h")[::16]) / 32768 if len(pcm) > 32 else 0.0
+            if _WIDGET["level"] > 0:
+                _WIDGET["sound_at"] = time.time()
+            if _window_listening():
+                skipped = True                           # a window is listening: not ours to hear
+                continue
+            if skipped or lis is None:
+                lis, skipped = _voice.Listener(), False  # a fresh start; half a sentence from before is nothing
+            try:
+                r = _voice_heard(lis, pcm[:len(pcm) - len(pcm) % 2])
+            except Exception:
+                continue
+            if r and r.get("heard"):
+                _widget_do(r)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        err = ""
+        try:
+            err = (proc.stderr.read() or b"").decode("utf-8", "replace").strip().splitlines()[-1:]
+            err = err[0] if err else ""
+        except Exception:
+            pass
+        with _WIDGET_LOCK:
+            if _WIDGET["proc"] is proc:
+                _WIDGET.update(proc=None, running=False, error=None if stop.is_set() else (err or "Mikrofon se zavřel."))
+
+
+def _widget_start():
+    why = _voice.available()
+    if why:
+        _WIDGET["error"] = why
+        return False
+    cfg = _voice.widget_config()
+    device = _capture_device(cfg["device"]) if cfg["device"] else None
+    cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-f", "avfoundation", "-i", f":{device or 'default'}"]
+    # A two-input interface: the microphone's input alone, not mixed with the guitar's.
+    if cfg["channel"] in ("1", "2") and device:
+        cmd += ["-af", f"pan=mono|c0=c{int(cfg['channel']) - 1}"]
+    cmd += ["-ar", str(_voice.RATE), "-ac", "1", "-f", "s16le", "-"]
+    with _WIDGET_LOCK:
+        if _WIDGET["proc"] is not None:
+            return True
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+        except OSError as e:
+            _WIDGET["error"] = f"Mikrofon se nepodařilo otevřít ({e})."
+            return False
+        stop = threading.Event()
+        _WIDGET.update(proc=proc, running=True, error=None, stop=stop, since=time.time(), sound_at=0.0, level=0.0)
+    threading.Thread(target=_widget_loop, args=(proc, stop), daemon=True).start()
+    return True
+
+
+def _widget_stop():
+    with _WIDGET_LOCK:
+        proc, stop = _WIDGET["proc"], _WIDGET["stop"]
+        _WIDGET.update(proc=None, running=False, error=None)
+    if stop is not None:
+        stop.set()
+    if proc is not None and proc.poll() is None:
+        proc.kill()
+
+
+class VoiceWidget(BaseModel):
+    on: Optional[bool] = None
+    device: Optional[str] = None      # as the browser names it; "" = the system's default input
+    channel: Optional[str] = None     # "1" / "2" of a two-input interface, "" = as it comes
+
+
+@app.get("/api/voice/widget")
+def voice_widget():
+    return {**_voice.widget_config(), "running": bool(_WIDGET["running"]), "error": _WIDGET["error"], "heard": _WIDGET["heard"],
+            "level": round(_WIDGET["level"], 4) if _WIDGET["running"] else 0.0,
+            # Not one sample above zero in five seconds of listening: macOS is not letting the microphone through.
+            "silent": bool(_WIDGET["running"] and not _WIDGET["sound_at"] and time.time() - _WIDGET["since"] > 5)}
+
+
+@app.post("/api/voice/widget")
+def voice_widget_set(req: VoiceWidget):
+    before = _voice.widget_config()
+    cfg = _voice.widget_save(on=req.on, device=req.device, channel=req.channel)
+    moved = (cfg["device"], cfg["channel"]) != (before["device"], before["channel"])
+    if not cfg["on"] or moved:
+        _widget_stop()
+    if cfg["on"]:
+        _widget_start()
+        time.sleep(0.6)                # long enough for a microphone that will not open to say so
+    return voice_widget()
+
+
+@app.on_event("startup")
+def _widget_resume():
+    if _voice.widget_config()["on"]:
+        threading.Thread(target=_widget_start, daemon=True).start()
+
+
+@app.on_event("shutdown")
+def _widget_end():
+    _widget_stop()
 
 
 @app.get("/api/voice/remote")

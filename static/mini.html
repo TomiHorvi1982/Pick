@@ -529,7 +529,7 @@ let trackKey = "";
 let R = {live: false, playing: false};     // what the app says it is doing
 async function refresh(){
   let s = null;
-  try{ s = await (await fetch("/api/remote/state")).json(); }catch(e){}
+  try{ s = await (await fetch("/api/remote/state?who=mini")).json(); }catch(e){}
   const rlive = !!s && !s.stale && !!(s.title || s.playing);
   const rplaying = rlive && !!s.playing;
   // The app started playing while this one plays too: it wins, this stops.
@@ -538,7 +538,12 @@ async function refresh(){
     LP.active = false; toast("Hraje aplikace");
   }
   R = {live: rlive, playing: rplaying};
-  MiniVoice.first(!!s && !s.stale && !!s.voice);
+  MiniVoice.first(!!s && ((!s.stale && !!s.voice) || !!s.widget));
+  // A command the menu bar heard with no window listening: it opened this one for it.
+  if(s && s.mini_voice && s.mini_voice.seq && store.get("voiceseq", 0) !== s.mini_voice.seq){
+    store.set("voiceseq", s.mini_voice.seq);
+    MiniVoice.got(s.mini_voice.r).catch(() => {});
+  }
   // A song the app handed over ("play in mini"): once, also when this window only just opened.
   if(s && s.mini && s.mini.seq && store.get("playseq", 0) !== s.mini.seq){
     store.set("playseq", s.mini.seq);

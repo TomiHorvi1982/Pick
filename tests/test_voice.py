@@ -425,3 +425,72 @@ def test_pick_alone_asks_for_the_list_and_the_list_takes_bare_words(tmp_path):
     # talk that is none of Pick's words: nothing at all, or a plain "again" — never a command
     for r in hear("what a lovely day it is today my friends", True) + hear("guitar banana telephone", True):
         assert r["command"] is None and "filter" not in r
+
+
+# ---- listening from the menu bar: the server reads the microphone itself
+
+class _FakeMic:
+    """Stands in for ffmpeg: a recording instead of the microphone."""
+    def __init__(self, pcm):
+        import io
+        self.stdout, self.stderr, self.dead = io.BytesIO(pcm), io.BytesIO(b""), False
+    def poll(self):
+        return 0 if self.dead else None
+    def kill(self):
+        self.dead = True
+
+
+@needs_speech
+def test_the_menu_bar_listening_opens_windows_and_passes_the_rest_on(tmp_path, monkeypatch):
+    import threading
+    import server
+    opened = []
+    monkeypatch.setattr(server, "mini_open", lambda: opened.append("mini") or {"ok": True})
+    monkeypatch.setattr(server, "_widget_again", lambda: opened.append("again"))
+
+    def hear(text, app_open=False, mini_open=False, window_listens=False):
+        server._voice_listener = object() if window_listens else None
+        server._voice_owner.update(who="app", at=server.time.time() if window_listens else 0.0)
+        server._REMOTE_STATE["at"] = server.time.time() if app_open else 0.0
+        server._MINI_SEEN["at"] = server.time.time() if mini_open else 0.0
+        proc = _FakeMic(b"\0" * 16000 + _speak(tmp_path, text) + b"\0" * 64000)
+        server._WIDGET.update(proc=proc, running=True)
+        server._widget_loop(proc, threading.Event())
+        server._voice_listener = None
+
+    seq = server._WIDGET_OPEN["seq"]
+    hear("pick open")
+    assert server._WIDGET_OPEN["seq"] != seq and opened == []                # the launcher opens the app's window
+    hear("pick mini player")
+    assert opened == ["mini"]
+    # anything else needs a window: the mini player is opened for it and handed the command
+    opened.clear(); server._MINI_VOICE.update(seq=0, at=0.0)
+    hear("pick next")
+    assert opened == ["mini"] and server._MINI_VOICE["r"]["command"] == "next"
+    # the app's window is there (just not listening): it gets the command, nothing is opened
+    opened.clear(); n = server._REMOTE_SEQ
+    hear("pick stop", app_open=True)
+    assert opened == [] and server._REMOTE_COMMANDS[-1][1]["action"] == "heard" and server._REMOTE_SEQ == n + 1
+    assert server.json.loads(server._REMOTE_COMMANDS[-1][1]["text"])["command"] == "pause"
+    # a window that is listening itself comes first: the menu bar hears nothing
+    opened.clear(); seq = server._WIDGET_OPEN["seq"]
+    hear("pick open", window_listens=True)
+    assert server._WIDGET_OPEN["seq"] == seq and opened == []
+    # talk is nothing
+    hear("that was pretty good let's try it one more time")
+    assert opened == []
+    assert server._WIDGET["running"] is False                                # the reader ended with its microphone
+
+
+def test_the_menu_bar_listening_is_remembered(client, monkeypatch):
+    import server
+    started = []
+    monkeypatch.setattr(server, "_widget_start", lambda: started.append(1) or True)
+    monkeypatch.setattr(server.time, "sleep", lambda s: None)
+    assert client.get("/api/voice/widget").json()["on"] is False
+    r = client.post("/api/voice/widget", json={"on": True, "device": "iRig Pro Duo (1963:0046)", "channel": "2"}).json()
+    assert r["on"] is True and r["channel"] == "2" and started == [1]
+    assert voice.widget_config() == {"on": True, "device": "iRig Pro Duo (1963:0046)", "channel": "2"}
+    client.post("/api/voice/widget", json={"on": False})
+    assert voice.widget_config()["on"] is False and voice.widget_config()["channel"] == "2"
+    assert voice.match("pick open") == "open" and voice.match("pick open in mini") == "tomini"

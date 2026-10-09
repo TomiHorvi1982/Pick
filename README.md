@@ -133,6 +133,15 @@ dokud si nevybereš nebo neřekneš „nothing“; dokud je na obrazovce, povel 
 („guitar“). Čemu Pick nerozuměl, ačkoli to bylo na něj, na to odpoví nahlas
 „Again!“ — a po tu dobu neposlouchá, aby neslyšel sám sebe.
 
+**Poslouchání bez otevřeného okna** — položka „Poslouchat hlasem“ v liště. Server
+pak čte mikrofon sám (ffmpeg/avfoundation, stejné zařízení a vstup jako
+v nabídce mikrofonu) a krmí stejný rozpoznávač. Okno, které poslouchá, má
+přednost (minipřehrávač, pak aplikace). „pick open“ otevře okno Picku, „pick
+mini player“ minipřehrávač; cokoli jiného předá oknu aplikace, a když žádné
+není, otevře pro to minipřehrávač. macOS musí mít pro Pick povolený mikrofon
+(Nastavení systému → Soukromí a zabezpečení → Mikrofon) — bez toho přichází
+úplné ticho a lišta na to upozorní.
+
 Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zvenku
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.

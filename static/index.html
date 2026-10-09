@@ -28964,6 +28964,9 @@ const RemoteAgent = (() => {
       case "seek":
         if(audio && isFinite(cmd.value)) audio.currentTime = Math.max(0, cmd.value);
         break;
+      case "heard":                // the menu bar's listening heard a command while this window was not listening
+        try{ Voice.heard(JSON.parse(cmd.text)); }catch(e){}
+        break;
       case "voice":                // Siri, through a shortcut: listening on, off, or the other one
         Voice.turn(cmd.value === 1 ? true : cmd.value === 0 ? false : !Voice.isOn());
         break;
@@ -29629,6 +29632,7 @@ const Voice = (() => {
     if(what === "mini"){ fetch("/api/mini/open", {method: "POST"}).catch(() => {}); return "minipřehrávač"; }
     if(what === "minifull"){ fetch("/api/window/full?which=mini", {method: "POST"}).then(r => { if(!r.ok) showToast("Minipřehrávač není otevřený"); }).catch(() => {}); return "minipřehrávač přes obrazovku"; }
     if(what === "full"){ fullScreen(); return "celá obrazovka"; }
+    if(what === "open") return "Pick je otevřený";
     if(what === "help"){ helpOpen(); return "nabídka povelů"; }
     if(what === "nothing"){ helpClose(); return "nic"; }
     if(what === "assist"){ dictate(); return "poslouchám"; }
@@ -30115,8 +30119,15 @@ const Voice = (() => {
   el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
   el("voice-mic").onchange = (e) => {
     try{ localStorage.setItem(MIC_KEY, e.target.value); }catch(err){}
+    tellWidget();
     if(on){ stop(); start(); }
   };
+  // The menu bar's own listening (no window open) uses the same microphone and input as chosen here.
+  function tellWidget(){
+    const sel = el("voice-mic"), opt = sel.options[sel.selectedIndex];
+    fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({device: sel.value && opt ? opt.textContent : "", channel: savedCh()})}).catch(() => {});
+  }
   el("voice-ch").value = savedCh();
   el("voice-ch").onchange = (e) => {
     const ch = e.target.value;
@@ -30129,6 +30140,7 @@ const Voice = (() => {
       if(ch && Guitar.state.inputChannel === "auto") showToast(`Mikrofon na vstupu ${ch} — kytara na „Automaticky“ teď bere jen vstup ${ch === "2" ? 1 : 2}.`);
       else if(ch && Guitar.state.inputChannel === ch) showToast(`Pozor: kytara je nastavená na stejný vstup ${ch} jako mikrofon.`);
     }
+    tellWidget();
     if(on){ stop(); start(); }
   };
   paint();

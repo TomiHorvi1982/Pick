@@ -79,6 +79,7 @@ COMMANDS = [
     ("page:-", ["previous page"], "previous page", "seznam o stránku zpět (minipřehrávač)"),
     ("playall", ["play all"], "play all", "přehrát celý nalezený seznam (minipřehrávač)"),
     ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
+    ("open", ["open pick", "open"], "open pick / open", "otevře okno Picku (i když je zavřené a poslouchá jen lišta)"),
     ("help", ["help"], "help", "nabídka povelů — zůstane, dokud si nevybereš nebo neřekneš „nothing“"),
     ("nothing", ["nothing"], "nothing", "zavře nabídku povelů"),
     ("assist", ["listen", "assistant"], "listen", "asistent: pípne a poslouchá jednu českou větu (pusť…, ztlum…, zpomal…)"),
@@ -238,6 +239,22 @@ def delete_custom(cid, path=None, taught_path=None):
 # counts as that command. An accent the model stumbles over stumbles the same
 # way every time.
 TAUGHT_PATH = Path.home() / ".local/share/spotdl-helper/voice-taught.json"
+# Listening from the menu bar, with no window open: on or off, and which input.
+WIDGET_PATH = Path.home() / ".local/share/spotdl-helper/voice-widget.json"
+
+
+def widget_config():
+    try:
+        got = json.loads(WIDGET_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        got = {}
+    return {"on": bool(got.get("on")), "device": str(got.get("device") or ""), "channel": str(got.get("channel") or "")}
+
+
+def widget_save(**change):
+    cfg = {**widget_config(), **{k: v for k, v in change.items() if v is not None}}
+    _save_custom(cfg, WIDGET_PATH)
+    return cfg
 MAX_TAUGHT = 8
 
 
