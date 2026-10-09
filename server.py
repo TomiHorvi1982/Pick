@@ -6819,6 +6819,75 @@ def stems_beatgrid(name: str, refresh: bool = False):
     return grid
 
 
+# ---- the singing trainer (sing.py): the tune to hit, the words as sung, and
+# how each take went.
+import sing as _sing
+
+
+def _sing_dir(name: str):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    return d if d is not None and d.is_dir() else None
+
+
+@app.get("/api/stems/{name}/melody")
+def stems_melody(name: str, refresh: bool = False):
+    """The notes of the song's vocal line, read off the separated vocals."""
+    d = _sing_dir(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    vocals = _stem_file(d, "vocals")
+    if vocals is None:
+        return JSONResponse({"error": "Tahle píseň nemá oddělený zpěv."}, status_code=422)
+    try:
+        return _sing.melody_cached(d, vocals, refresh)
+    except Exception as e:
+        return JSONResponse({"error": f"Melodii se nepodařilo spočítat ({e})."}, status_code=500)
+
+
+@app.post("/api/sing/line")
+async def sing_line(request: Request, text: str, lang: str = "auto"):
+    """One sung line (16 kHz mono s16le) against the words it should have been."""
+    why = _voice.names_available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    pcm = await request.body()
+    if len(pcm) < _voice.RATE or len(pcm) > _voice.RATE * 2 * 30 or len(pcm) % 2:
+        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
+    if lang not in ("auto", "en", "cs"):
+        lang = "auto"
+    try:
+        heard = await asyncio.get_running_loop().run_in_executor(None, lambda: _voice.transcribe(pcm, lang=lang, prompt=""))
+    except Exception:
+        return JSONResponse({"error": "Rozpoznání se nepovedlo."}, status_code=500)
+    return _sing.compare(text, heard)
+
+
+class SingTake(BaseModel):
+    pitch: float            # share of the notes hit (0–100)
+    near: float = 0.0       # …and of those sung close
+    text: Optional[float] = None
+    octave: int = 0
+    sung: float = 0.0       # seconds of the tune that were sung at all
+    lines: List[dict] = []
+
+
+@app.get("/api/stems/{name}/sing")
+def sing_history(name: str):
+    d = _sing_dir(name)
+    return _sing.history(d) if d is not None else []
+
+
+@app.post("/api/stems/{name}/sing")
+def sing_save(name: str, take: SingTake):
+    d = _sing_dir(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    row = take.model_dump()
+    row["lines"] = row["lines"][:400]
+    row["at"] = time.time()
+    return _sing.add_history(d, row)
+
+
 # The analysis interpreter carries torch, librosa and the All-In-One
 # checkpoints; the server's venv carries none of them.
 ANALYZE_PYTHON = HOME / ".local" / "venvs" / "spotdl-analyze" / "bin" / "python"
@@ -8856,6 +8925,63 @@ end tell'''
         pass
     subprocess.Popen(["open", "-na", "Google Chrome", "--args", f"--app={url}", "--window-size=340,210"])
     return {"ok": True, "opened": True}
+
+
+# ---- the assistant (assistant.py): a Czech sentence in, the app's own actions out
+import assistant as _assistant
+
+
+class AssistSay(BaseModel):
+    session: str
+    text: str
+
+
+class AssistResults(BaseModel):
+    session: str
+    results: List[dict]
+
+
+def _assist_run(fn, *args):
+    why = _assistant.available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    return fn(*args)
+
+
+@app.get("/api/assistant")
+def assistant_status():
+    return {"unavailable": _assistant.available(), "model": _assistant.MODEL}
+
+
+@app.post("/api/assistant/say")
+async def assistant_say(req: AssistSay):
+    if not req.text.strip():
+        return JSONResponse({"error": "Prázdná věta."}, status_code=400)
+    return await asyncio.get_running_loop().run_in_executor(None, _assist_run, _assistant.say, req.session, req.text)
+
+
+@app.post("/api/assistant/hear")
+async def assistant_hear(request: Request, session: str):
+    """A spoken sentence (16 kHz mono s16le, Czech): whisper writes it down, then as /say."""
+    why = _assistant.available() or _voice.names_available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    pcm = await request.body()
+    if len(pcm) < _voice.RATE or len(pcm) > _voice.RATE * 2 * 25 or len(pcm) % 2:
+        return JSONResponse({"error": "Nic jsem neslyšel."}, status_code=400)
+
+    def work():
+        text = _voice.transcribe(pcm, lang="cs", prompt="Povely pro hudební aplikaci: píseň, kapela, kytara, bicí, basa, zpěv, stopa, tempo, smyčka, refrén, sólo, Steems.")
+        text = text.strip()
+        if len(text) < 2:
+            return {"heard": "", "error": "Nerozuměl jsem, zkus to znovu.", "done": True}
+        return {"heard": text, **_assistant.say(session, text)}
+    return await asyncio.get_running_loop().run_in_executor(None, work)
+
+
+@app.post("/api/assistant/results")
+async def assistant_results(req: AssistResults):
+    return await asyncio.get_running_loop().run_in_executor(None, _assist_run, _assistant.results, req.session, req.results)
 
 
 @app.post("/api/window/full")

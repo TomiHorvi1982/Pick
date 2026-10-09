@@ -116,6 +116,41 @@ Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zve
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
 
+## Trenér zpěvu
+
+Ve Steems, Panely → **Trenér zpěvu** (`sing.py`, modul `Sing` ve stránce). Server
+jednou přečte melodii z odděleného zpěvu (YIN v numpy, `melody.json` u stop);
+stránka čte výšku hlasu z mikrofonu (AudioWorklet, 16 kHz, čtení každých 16 ms)
+a kreslí ji přes běžící tóny originálu. Tón se hodnotí celý, podle středu toho,
+co na něm zaznělo: do ±25 centů trefa, do ±60 blízko; oktáva výš nebo níž se
+počítá. Po každém řádku textu přečte Whisper nahraný úsek a slova se porovnají
+s textem (správně / špatně / vynecháno) — pozná slova, ne výslovnost, a u zpěvu
+se plete víc než u řeči. Dozpívaný pokus se uloží do `sing-history.json` u stop;
+nejhorší řádky jdou pustit ve smyčce znovu. Mikrofon a vstup zvukovky se berou
+z nastavení hlasového ovládání. Hudba patří do sluchátek.
+
+## Asistent
+
+„pick listen“ (nebo pole Asistent v nabídce mikrofonu) vezme jednu českou větu
+— „pusť Master of Puppets, ztlum kytaru a zpomal na 80“ — a provede ji.
+Whisper ji v počítači přepíše, `assistant.py` ji pošle Claudovi (Anthropic API,
+`claude-haiku-4-5`) s popisem aplikace (`SYSTEM`) a nástroji (`TOOLS`); nástroje
+běží ve stránce (`Voice.tool`) a jejich výsledky se vracejí, dokud model
+neskončí. Když se asistent zeptá, aplikace poslouchá odpověď bez aktivačního
+slova. Odpověď se zobrazí a volitelně přečte.
+
+API klíč patří do `~/.local/share/spotdl-helper/anthropic-key.txt` (nebo
+`ANTHROPIC_API_KEY`), do prohlížeče se nedostane. Knihovna `anthropic` chce
+novější balíčky, než jaké drží server, proto má vlastní prostředí:
+
+```bash
+python3 -m venv ~/.local/venvs/pick-assistant
+~/.local/venvs/pick-assistant/bin/python -m pip install anthropic
+```
+
+Když aplikace umí něco nového, co má asistent ovládat, patří to do `SYSTEM`
+a `TOOLS` — nic jiného o aplikaci neví.
+
 ## Lišta macOS
 
 ```bash

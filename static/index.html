@@ -3604,6 +3604,40 @@ body.lib-collapsed .pick-brand{display:none}
   .tm-item.tab-lock.on{background:none !important;border:none !important}
   .tm-item.tab-lock.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700}
   .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
+  /* the assistant's words, bottom right */
+  .assist-box{position:fixed;right:18px;bottom:112px;z-index:70;max-width:380px;padding:11px 14px;border-radius:12px;background:#14141a;border:1px solid rgba(30,215,96,.45);
+    box-shadow:0 8px 26px rgba(0,0,0,.55);font-size:13.5px;line-height:1.4}
+  .assist-box[hidden]{display:none}
+  .assist-box .you{color:var(--nm-sub,#aaa);font-size:12px;margin-bottom:4px}
+  .assist-box .it{color:#fff;font-weight:600}
+  .assist-box.busy .it{color:var(--accent,#1ed760)}
+  .voice-row input[type=text]{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 7px;font:inherit;font-size:12px}
+  /* singing trainer */
+  .sing-float .float-body{background:#101014;display:flex;flex-direction:column;overflow-y:auto;font-size:13px;color:var(--nm-txt,#eee)}
+  .sing-bar{display:flex;align-items:center;gap:12px;padding:9px 12px;flex-wrap:wrap}
+  .sing-bar button{border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  #sing-go{background:var(--accent,#1ed760);border-color:transparent;color:#000}
+  #sing-go.on{background:#e5534b;color:#fff}
+  .sing-bar label{display:flex;align-items:center;gap:6px;color:var(--nm-sub,#aaa);cursor:pointer}
+  .sing-live{font-weight:700;min-width:150px}
+  .sing-live.hit{color:#1ed760}.sing-live.near{color:#e8c040}.sing-live.off{color:#e5534b}
+  .sing-score{margin-left:auto;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
+  #sing-cv{flex:1 1 220px;min-height:200px;width:100%;display:block}
+  .sing-line{padding:8px 14px 2px;text-align:center}
+  .sing-line .done{min-height:18px;font-size:13px;color:#777}
+  .sing-line .done .ok,.sing-sum .ok{color:#1ed760}.sing-line .done .bad,.sing-sum .bad{color:#e5534b;text-decoration:underline wavy}
+  .sing-line .done .miss,.sing-sum .miss{color:#6a6a76;text-decoration:line-through}
+  .sing-line .cur{font-size:20px;font-weight:700;min-height:26px}
+  .sing-line .next{font-size:13px;color:#777;min-height:18px}
+  .sing-msg{padding:4px 14px 8px;text-align:center;color:var(--nm-sub,#aaa);font-size:12px}
+  .sing-sum,.sing-hist{padding:0 14px 10px}
+  .sing-sum .big{font-size:15px;padding:6px 0}.sing-sum .big b{color:#1ed760;font-size:19px}.sing-sum .big span{color:var(--nm-sub,#aaa)}
+  .sing-sum .cap,.sing-hist .cap{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#777;padding:6px 0 4px}
+  .sing-sum .w{display:flex;align-items:baseline;gap:10px;padding:3px 0}
+  .sing-sum .w button{flex:none;border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .sing-sum .w b{flex:none;width:44px;text-align:right;font-variant-numeric:tabular-nums}
+  .sing-hist .h{display:flex;gap:14px;padding:2px 0;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
+  .sing-hist .h b{color:var(--nm-txt,#eee)}.sing-hist .none{color:#777}
   /* the song that is on, in any list */
   .np-row.np-now{box-shadow:inset 3px 0 0 var(--accent,#1ed760);background:rgba(30,215,96,.11)}
   .np-row.np-now .tx,.np-row.np-now .t-title,.np-row.np-now .lib-name,.np-row.np-now .stem-title,.np-row.np-now .c-title{color:var(--accent,#1ed760)}
@@ -3724,6 +3758,8 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="voice-row" title="Zvukovka se dvěma vstupy (kytara + mikrofon): vyber, na kterém vstupu je mikrofon. Kytara pak patří na ten druhý."><span>Vstup</span><select id="voice-ch">
           <option value="">běžný mikrofon</option><option value="1">zvukovka — vstup 1</option><option value="2">zvukovka — vstup 2</option></select>
           <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
+        <div class="voice-row"><span>Asistent</span><input type="text" id="assist-text" placeholder="napiš, nebo řekni „pick listen“ a pak česky" style="flex:1;min-width:0">
+          <label title="Odpověď asistenta přečte počítač nahlas" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="assist-tts"> nahlas</label></div>
         <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem.</div>
         <hr>
         <div class="voice-list" id="voice-list"></div>
@@ -4053,6 +4089,8 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
                   <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
+                  <hr>
+                  <button type="button" class="tm-item" id="nm-sing-open" title="Trenér zpěvu — tvoje výška proti originálu, slova a skóre"><span data-icon="mic" data-size="15"></span><span class="tm-t">Trenér zpěvu</span></button>
                 </div>
               </div>
               <div class="tmenu" data-tmenu="file">
@@ -4965,6 +5003,30 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="float-grip" id="piano-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
+<!-- The singing trainer: your pitch against the song's vocal line. -->
+<div class="float-win sing-float" id="sing-float" hidden>
+  <div class="float-head" id="sing-float-head">
+    <span class="float-title" id="sing-title">Trenér zpěvu</span>
+    <button class="float-btn" id="sing-float-close" title="Zavřít a vypnout mikrofon"><span data-icon="close" data-size="13"></span></button>
+  </div>
+  <div class="float-body sing-body">
+    <div class="sing-bar">
+      <button type="button" id="sing-go">● Zpívat</button>
+      <label title="Originální zpěv ztichne, zbytek hraje dál. Když chceš zpívat s ním, nech vypnuté."><input type="checkbox" id="sing-mute"> bez originálního zpěvu</label>
+      <button type="button" id="sing-unloop" hidden title="Přestat opakovat jeden úsek">zrušit smyčku</button>
+      <span class="sing-live" id="sing-live"></span>
+      <span class="sing-score" id="sing-score"></span>
+    </div>
+    <canvas id="sing-cv"></canvas>
+    <div class="sing-line" id="sing-line"></div>
+    <div class="sing-msg" id="sing-msg"></div>
+    <div class="sing-sum" id="sing-sum"></div>
+    <div class="sing-hist" id="sing-hist"></div>
+  </div>
+  <div class="float-grip" id="sing-float-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<div class="assist-box" id="assist-box" hidden><div class="you" id="assist-you"></div><div class="it" id="assist-it"></div></div>
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
@@ -23628,7 +23690,18 @@ const Mixer = (() => {
         },
       };
     })(),
-    currentTime: () => currentTime(), seek: (t) => seek(t),
+    currentTime: () => currentTime(), seek: (t) => seek(t), duration: () => duration,
+    // The song's timed lyric lines, for the singing trainer; fetched when asked and not here yet.
+    lyricLines: async (load) => {
+      if(!lyrics && load){
+        const d = await fetchLyrics().catch(() => null);
+        if(d && d.synced && d.lines && d.lines.length){
+          lyrics = d;
+          try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+        }
+      }
+      return lyrics && lyrics.lines ? lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || ""})) : [];
+    },
     takeRec: () => TakeRec,
     tunnel: () => Tunnel,
     midi: () => Midi,
@@ -28908,6 +28981,339 @@ const RemoteAgent = (() => {
 
 
 
+// ---- Singing trainer --------------------------------------------------------
+// The tune of the open Steems song (sing.py reads it off the separated vocals)
+// runs right to left as bars; the pitch of your own voice, heard through the
+// microphone, is the dot crossing them. Green is on the note (±25 cents),
+// yellow close, red off; an octave above or below counts as on, and is said.
+// After each lyric line whisper reads the take back and the words are marked;
+// a finished take is scored and kept, so the next one can be compared with it.
+const Sing = (() => {
+  const Win = makeFloating("sing-float", {defaults: {width: 760, height: 520}});
+  const cv = el("sing-cv"), g = cv.getContext("2d");
+  const HIT = 25, NEAR = 60;            // cents
+  const LAG = 0.045;                    // what the dot shows was sung about this long ago
+  const WORKLET = `registerProcessor("pick-sing", class extends AudioWorkletProcessor {
+    constructor(o){ super(); this.ch = (o.processorOptions && o.processorOptions.ch) || 0; this.buf = new Float32Array(1024); this.since = 0; this.cm = new Float32Array(231); }
+    process(inputs){
+      const i = inputs[0], c = i && (i[this.ch] || i[0]); if(!c) return true;
+      this.buf.copyWithin(0, c.length); this.buf.set(c, 1024 - c.length);
+      if((this.since += c.length) < 256) return true;
+      this.since = 0;
+      // YIN on the newest 46 ms: 512 samples against themselves up to 229 later (70 Hz).
+      const x = this.buf, o = 1024 - 741, W = 512, TMAX = 229, TMIN = 16, cm = this.cm;
+      let e = 0; for(let j = 0; j < W; j++) e += x[o + j] * x[o + j];
+      const rms = Math.sqrt(e / W);
+      let f = 0, conf = 0;
+      if(rms > 0.006){
+        let run = 0; cm[0] = 1;
+        for(let t = 1; t <= TMAX; t++){
+          let d = 0; for(let j = 0; j < W; j++){ const v = x[o + j] - x[o + j + t]; d += v * v; }
+          run += d; cm[t] = run > 0 ? d * t / run : 1;
+        }
+        let t = -1;
+        for(let k = TMIN; k <= TMAX; k++){ if(cm[k] < 0.15){ t = k; break; } }
+        if(t > 0){
+          while(t + 1 <= TMAX && cm[t + 1] < cm[t]) t++;
+          let s = 0;
+          if(t > 1 && t < TMAX){ const a = cm[t - 1], b = cm[t], c2 = cm[t + 1], den = a - 2 * b + c2; if(den > 0) s = Math.max(-1, Math.min(1, 0.5 * (a - c2) / den)); }
+          f = sampleRate / (t + s); conf = 1 - cm[t];
+        }
+      }
+      this.port.postMessage({f, conf, rms, pcm: x.slice(1024 - 256)});
+      return true;
+    } });`;
+  const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "H"];
+  let stream = null, actx = null, node = null, raf = 0;
+  let on = false, song = null, notes = [], lines = [], trail = [], mine = null, center = 60, lastT = -1, idle = 0, played = false;
+  let chunks = [], queue = Promise.resolve(), loopLine = -1, restoreMute = null, lang = "en", saved = false;
+  const say = (t) => { el("sing-msg").textContent = t; };
+
+  function reset(from){
+    notes.forEach(n => { if(from === undefined || n[1] > from){ n.total = n.sung = 0; n.c = []; } });
+    lines.forEach(l => { if(from === undefined || l.end > from){ l.sung = 0; l.words = null; l.sent = false; l.oct = {}; } });
+    trail = trail.filter(p => from !== undefined && p.t <= from);
+  }
+  // The note that should be sounding at t (binary search: notes are in order).
+  function noteAt(t){
+    let a = 0, b = notes.length - 1;
+    while(a <= b){ const m = (a + b) >> 1; if(notes[m][1] < t) a = m + 1; else if(notes[m][0] > t) b = m - 1; else return notes[m]; }
+    return null;
+  }
+  // A held note wobbles and slides into place, and nobody comes in on the
+  // millisecond: so a note is judged whole, by the middle of what was sung
+  // over it — "hit" within 25 cents, "near" within 60, "off", or "miss" when
+  // hardly any of it was sung. null = too short a stretch to say.
+  function verdict(n){
+    if((n.total || 0) < 3) return null;
+    if(n.sung < Math.max(2, n.total * 0.3)) return "miss";
+    const c = n.c.slice().sort((a, b) => a - b), mid = Math.abs(c[c.length >> 1]);
+    return mid <= HIT ? "hit" : mid <= NEAR ? "near" : "off";
+  }
+  function tally(list){
+    const out = {n: 0, hit: 0, near: 0};
+    list.forEach(n => { const v = verdict(n); if(!v) return; out.n++; if(v === "hit") out.hit++; else if(v === "near") out.near++; });
+    return out;
+  }
+  const notesOf = (l) => notes.filter(n => n[0] >= l.t - 0.05 && n[0] < l.end);
+  const lineAt = (t) => { for(let i = lines.length - 1; i >= 0; i--) if(t >= lines[i].t) return t <= lines[i].end ? lines[i] : null; return null; };
+
+  function heard(m){
+    if(!on) return;
+    const playing = Mixer.isPlaying();
+    const t = Mixer.currentTime() - LAG;
+    const midi = m.f > 0 && m.conf > 0.8 ? 69 + 12 * Math.log2(m.f / 440) : null;
+    mine = {t, midi, at: performance.now()};
+    if(!playing){ if(played && ++idle > 90) finish(); return; }      // about a second and a half of silence from the player
+    idle = 0; played = true;
+    if(t < lastT - 0.5) reset(t);                                     // a loop came round, or a jump back: that stretch again
+    lastT = t;
+    chunks.push({t, pcm: m.pcm});
+    if(chunks.length > 2600) chunks.splice(0, 400);                   // some forty seconds are kept
+    const n = noteAt(t), l = lineAt(t);
+    let cls = "free", shown = midi, k = 0, cents = 0;
+    if(n){
+      n.total++;
+      if(midi !== null){
+        k = Math.round((midi - n[2]) / 12); cents = (midi - n[2] - 12 * k) * 100; shown = midi - 12 * k;
+        cls = Math.abs(cents) <= HIT ? "hit" : Math.abs(cents) <= NEAR ? "near" : "off";
+        n.sung++; n.c.push(cents);
+        if(l){ l.sung++; l.oct[k] = (l.oct[k] || 0) + 1; }
+      }
+    }
+    if(midi !== null) trail.push({t, m: shown, cls});
+    if(trail.length > 700) trail.splice(0, 200);
+    advise(n, midi, cls, k, cents);
+    lines.forEach((ln, i) => { if(!ln.sent && t > ln.end + 0.25) judge(ln, i); });
+  }
+
+  const tones = (v) => { const a = Math.round(Math.abs(v)); return a === 1 ? "o půltón" : a < 5 ? `o ${a} půltóny` : `o ${a} půltónů`; };
+  function advise(n, midi, cls, k, cents){
+    const box = el("sing-live");
+    let text = "", c = "";
+    if(!n) text = midi === null ? "" : "volně";
+    else if(midi === null) text = "zpívej…";
+    else if(cls === "hit"){ text = "✓ přesně"; c = "hit"; }
+    else{
+      const up = cents < 0, far = Math.abs(cents) >= 75;
+      text = (up ? "↑ " : "↓ ") + (far ? tones(cents / 100) : "o kousek") + (up ? " výš" : " níž"); c = cls;
+    }
+    if(n && midi !== null && k) text += k < 0 ? " · o oktávu níž (počítá se)" : " · o oktávu výš (počítá se)";
+    if(box.textContent !== text) box.textContent = text;
+    box.className = "sing-live " + c;
+  }
+
+  // ---- the words of a finished line
+  function judge(ln, i){
+    ln.sent = true;
+    if(!ln.count || ln.sung < 12){ if(ln.count && notesOf(ln).length) ln.words = {words: ln.text.split(/\s+/).map(w => ({w, s: "miss"})), ok: 0, total: ln.count, silent: true}; paintLine(); return; }
+    const from = ln.t - 0.3, to = ln.end + 0.25;
+    const part = chunks.filter(c => c.t >= from && c.t <= to);
+    if(part.length < 30) return;
+    const pcm = new Int16Array(part.length * 256);
+    part.forEach((c, n) => { for(let j = 0; j < 256; j++){ const v = Math.max(-1, Math.min(1, c.pcm[j])); pcm[n * 256 + j] = v < 0 ? v * 32768 : v * 32767; } });
+    queue = queue.then(() => fetch(`/api/sing/line?lang=${lang}&text=${encodeURIComponent(ln.text)}`, {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}}))
+      .then(r => r.ok ? r.json() : null).then(d => { if(d){ ln.words = d; paintLine(); } }).catch(() => {});
+  }
+  const wordsHtml = (ln) => ln.words ? ln.words.words.map(w => `<span class="${w.s}">${escapeHtml(w.w)}</span>`).join(" ") : escapeHtml(ln.text);
+  let lineShown = "";
+  function paintLine(){
+    const t = lastT, i = lines.findIndex(l => t >= l.t && t <= l.end);
+    const cur = i >= 0 ? lines[i] : null;
+    const done = [...lines].reverse().find(l => l.words && l.end < t);
+    const next = lines.find(l => l.t > t);
+    const html = (done ? `<div class="done" title="Jak jsem slyšel tenhle řádek: ${escapeHtml(done.words.heard || "nic")}">${wordsHtml(done)}</div>` : `<div class="done"></div>`)
+      + `<div class="cur">${cur ? escapeHtml(cur.text) : (lines.length ? "♪" : "")}</div>`
+      + `<div class="next">${next && next !== cur ? escapeHtml(next.text) : ""}</div>`;
+    if(html !== lineShown){ lineShown = html; el("sing-line").innerHTML = html; }
+  }
+
+  // ---- drawing
+  function draw(){
+    raf = requestAnimationFrame(draw);
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const W = Math.max(50, Math.round(r.width)), H = Math.max(50, Math.round(r.height));
+    if(cv.width !== W * dpr || cv.height !== H * dpr){ cv.width = W * dpr; cv.height = H * dpr; }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = "#0e0e12"; g.fillRect(0, 0, W, H);
+    const t = Mixer.currentTime() - LAG, pps = W / 6, x0 = W * 0.3, SPAN = 20;
+    const X = (s) => x0 + (s - t) * pps;
+    // The height follows the tune: the middle of what is coming up, eased.
+    const near = notes.filter(n => n[1] > t - 2 && n[0] < t + 5).map(n => n[2]).sort((a, b) => a - b);
+    const want = near.length ? near[near.length >> 1] : (mine && mine.midi !== null ? mine.midi : center);
+    center += (want - center) * 0.03;
+    const row = H / SPAN, Y = (m) => H / 2 - (m - center) * row;
+    g.font = "10px -apple-system, Helvetica Neue, sans-serif"; g.textBaseline = "middle";
+    for(let m = Math.floor(center - SPAN / 2); m <= center + SPAN / 2; m++){
+      const pc = ((m % 12) + 12) % 12;
+      g.fillStyle = pc === 0 ? "#2a2a34" : "#17171d"; g.fillRect(0, Math.round(Y(m)), W, 1);
+      if([0, 4, 7, 9].includes(pc)){ g.fillStyle = "#5a5a68"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 4, Y(m) - 6); }
+    }
+    notes.forEach(n => {
+      if(n[1] < t - 2.2 || n[0] > t + 4.4) return;
+      const past = n[0] < t;
+      let col = "#474757";
+      const v = past ? verdict(n) : null;
+      if(v) col = {hit: "#1ed760", near: "#e8c040", off: "#e5534b", miss: "#5a2f35"}[v];
+      const x = X(n[0]), w = Math.max(3, (n[1] - n[0]) * pps), h = Math.max(6, row * 0.9);
+      g.fillStyle = col; g.globalAlpha = past ? 0.9 : 0.75;
+      g.beginPath(); g.roundRect(x, Y(n[2]) - h / 2, w, h, Math.min(5, h / 2)); g.fill();
+    });
+    g.globalAlpha = 1;
+    g.fillStyle = "rgba(255,255,255,.28)"; g.fillRect(Math.round(x0), 0, 1, H);
+    const COL = {hit: "#1ed760", near: "#e8c040", off: "#e5534b", free: "#d8d8e0"};
+    trail.forEach(p => { if(p.t < t - 2.2) return; g.fillStyle = COL[p.cls]; g.fillRect(X(p.t) - 1.5, Y(p.m) - 1.5, 3, 3); });
+    if(mine && mine.midi !== null && performance.now() - mine.at < 200){
+      const last = trail[trail.length - 1];
+      g.fillStyle = last ? COL[last.cls] : COL.free;
+      g.beginPath(); g.arc(x0, Y(last ? last.m : mine.midi), 6, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
+    }
+    paintLine(); score();
+  }
+  function totals(){
+    let sung = 0, ok = 0, words = 0; const oct = {};
+    lines.forEach(l => { if(l.words && !l.words.silent){ ok += l.words.ok; words += l.words.total; } Object.keys(l.oct || {}).forEach(k => oct[k] = (oct[k] || 0) + l.oct[k]); });
+    notes.forEach(n => { sung += n.sung || 0; });
+    const all = tally(notes);
+    const k = +(Object.keys(oct).sort((a, b) => oct[b] - oct[a])[0] || 0);
+    return {total: all.n, sung, pitch: all.n ? 100 * all.hit / all.n : 0, near: all.n ? 100 * all.near / all.n : 0, text: words ? 100 * ok / words : null, octave: k};
+  }
+  let scoreShown = "";
+  function score(){
+    const s = totals();
+    const text = s.total ? `tóny ${Math.round(s.pitch)} % · blízko ${Math.round(s.near)} %${s.text === null ? "" : ` · text ${Math.round(s.text)} %`}` : "";
+    if(text !== scoreShown){ scoreShown = text; el("sing-score").textContent = text; }
+  }
+
+  // ---- a finished take: the numbers, the worst places, the takes before it
+  const pct = (v) => Math.round(v) + " %";
+  const when = (at) => new Date(at * 1000).toLocaleDateString("cs-CZ", {day: "numeric", month: "numeric"}) + " " + new Date(at * 1000).toLocaleTimeString("cs-CZ", {hour: "2-digit", minute: "2-digit"});
+  function paintHistory(rows){
+    const box = el("sing-hist");
+    if(!rows.length){ box.innerHTML = `<div class="none">Zatím žádný dozpívaný pokus u téhle písně.</div>`; return; }
+    const last = rows.slice(-6).reverse(), first = rows[0], best = rows.reduce((a, b) => b.pitch > a.pitch ? b : a);
+    box.innerHTML = `<div class="cap">Moje pokusy (${rows.length}) — první ${pct(first.pitch)}, nejlepší ${pct(best.pitch)}</div>`
+      + last.map(r => `<div class="h"><span>${when(r.at)}</span><b>tóny ${pct(r.pitch)}</b><span>blízko ${pct(r.near)}</span><span>${r.text === null || r.text === undefined ? "" : "text " + pct(r.text)}</span></div>`).join("");
+  }
+  async function loadHistory(){
+    try{ paintHistory(await (await fetch(`/api/stems/${encodeURIComponent(song)}/sing`)).json()); }catch(e){}
+  }
+  async function finish(){
+    if(!on) return;
+    stop(true);
+    await queue;                                  // the last lines' words
+    const s = totals();
+    const box = el("sing-sum");
+    if(s.total < 5){ box.innerHTML = ""; say("Skoro nic jsem nezachytil — pusť píseň a zpívej do mikrofonu."); return; }
+    const judged = lines.map(l => ({l, s: tally(notesOf(l))})).filter(x => x.s.n >= 2).map(x => ({l: x.l, v: (x.s.hit + 0.5 * x.s.near) / x.s.n, p: x.s.hit / x.s.n}));
+    const worst = judged.slice().sort((a, b) => a.v - b.v).slice(0, 5);
+    box.innerHTML = `<div class="big"><b>${pct(s.pitch)}</b> tónů trefených (z ${s.total}) <span>· ${pct(s.near)} blízko${s.text === null ? "" : ` · <b>${pct(s.text)}</b> textu správně`}${s.octave ? ` · zpíváš o oktávu ${s.octave < 0 ? "níž" : "výš"}` : ""}</span></div>`
+      + (worst.length ? `<div class="cap">Kde to nejvíc ujíždělo</div>` + worst.map(w =>
+          `<div class="w"><button type="button" data-line="${lines.indexOf(w.l)}" title="Pustí jen tenhle úsek dokola, se zpěvem k porovnání">↻ znovu</button><b>${pct(100 * w.v)}</b><span>${wordsHtml(w.l)}</span></div>`).join("") : "");
+    box.querySelectorAll("[data-line]").forEach(b => b.onclick = () => again(+b.dataset.line));
+    say(loopLine >= 0 ? "Úsek dozpívaný." : "Dozpíváno.");
+    if(loopLine < 0 && !saved && s.total >= 25){
+      saved = true;
+      try{
+        const rows = await (await fetch(`/api/stems/${encodeURIComponent(song)}/sing`, {method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({pitch: +s.pitch.toFixed(1), near: +s.near.toFixed(1), text: s.text === null ? null : +s.text.toFixed(1), octave: s.octave,
+            sung: +(s.sung * 0.016).toFixed(1), lines: judged.map(x => ({t: +x.l.t.toFixed(2), p: Math.round(100 * x.p), w: x.l.words && !x.l.words.silent ? Math.round(100 * x.l.words.ok / Math.max(1, x.l.words.total)) : null}))})})).json();
+        if(Array.isArray(rows)) paintHistory(rows);
+      }catch(e){}
+    }
+  }
+  // One line round and round, until it sits.
+  async function again(i){
+    const l = lines[i]; if(!l) return;
+    loopLine = i;
+    const a = Math.max(0, l.t - 1.5), b = l.end + 0.6;
+    Mixer.setLoop(a, b); Mixer.seek(a);
+    el("sing-unloop").hidden = false;
+    await start();
+  }
+  el("sing-unloop").onclick = () => { loopLine = -1; Mixer.setLoop(0, 0); el("sing-unloop").hidden = true; };
+
+  // ---- microphone, on and off
+  async function start(){
+    const name = Mixer.currentSong();
+    if(!name){ say("Nejdřív otevři píseň ve Steems."); return; }
+    if(on) return;
+    el("sing-go").disabled = true;
+    try{
+      if(song !== name || !notes.length){
+        say("Čtu melodii z originálního zpěvu…");
+        const r = await fetch(`/api/stems/${encodeURIComponent(name)}/melody`);
+        const d = await r.json();
+        if(!r.ok) throw new Error(d.error || "Melodii se nepodařilo načíst.");
+        if(!d.notes.length) throw new Error("V téhle písni jsem nenašel zpívanou melodii (křik a mluvení výšku nemají).");
+        song = name; notes = d.notes.map(n => n.slice());
+        const ll = await Mixer.lyricLines(true);
+        const end = Mixer.duration() || d.duration;
+        lines = ll.map((l, i) => ({t: l.t, end: Math.min(i + 1 < ll.length ? ll[i + 1].t : end, l.t + 14), text: l.text || ""}))
+          .map(l => ({...l, count: l.text.replace(/[\(\[][^\)\]]*[\)\]]/g, " ").split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length}));
+        lang = /[ěščřžýáíéúůťďň]/i.test(ll.map(l => l.text).join(" ")) ? "cs" : "en";
+        center = notes[0][2];
+        loadHistory();
+      }
+      if(loopLine < 0) reset(); else reset(lines[loopLine].t - 2);
+      saved = false; chunks = []; idle = 0; played = false; lastT = Mixer.currentTime(); el("sing-sum").innerHTML = "";
+      let dev = "", ch = "";
+      try{ dev = localStorage.getItem("pick-voice-mic") || ""; ch = localStorage.getItem("pick-voice-ch") || ""; }catch(e){}
+      // The voice as it is: anything that "improves" the sound bends its pitch.
+      stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: dev ? {exact: dev} : undefined,
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}});
+      const got = stream.getAudioTracks()[0].getSettings().channelCount || 1;
+      actx = new AudioContext({sampleRate: 16000});
+      const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
+      await actx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+      node = new AudioWorkletNode(actx, "pick-sing", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit",
+        channelInterpretation: "discrete", processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
+      node.port.onmessage = (e) => heard(e.data);
+      actx.createMediaStreamSource(stream).connect(node);
+      on = true;
+      if(el("sing-mute").checked){ const c = Mixer.channelByStem("vocals"); if(c){ restoreMute = !!c.muted; Mixer.voice.mutedOn("vocals", true); } }
+      if(!Mixer.isPlaying()) Mixer.play();
+      say(lines.length ? "Zpívej. Hudbu měj ve sluchátkách, jinak mikrofon slyší i ji." : "Zpívej. K písni není text s časy, hodnotí se jen tóny. Hudbu měj ve sluchátkách.");
+    }catch(e){
+      stop(true);
+      say(e.name === "NotAllowedError" ? "Mikrofon není povolený." : (e.message || "Mikrofon se nepodařilo otevřít."));
+    }
+    el("sing-go").disabled = false; paintGo();
+  }
+  function stop(keepPlaying){
+    on = false;
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    if(actx) actx.close().catch(() => {});
+    stream = actx = node = null; mine = null;
+    if(restoreMute !== null){ Mixer.voice.mutedOn("vocals", restoreMute); restoreMute = null; }
+    if(!keepPlaying && Mixer.isPlaying()) Mixer.pause();
+    paintGo();
+  }
+  function paintGo(){ el("sing-go").textContent = on ? "■ Dozpívat a vyhodnotit" : "● Zpívat"; el("sing-go").classList.toggle("on", on); }
+  el("sing-go").onclick = () => { if(on){ if(Mixer.isPlaying()) Mixer.pause(); finish(); } else start(); };
+  el("sing-mute").onchange = (e) => { if(!on) return; const c = Mixer.channelByStem("vocals"); if(!c) return; if(restoreMute === null) restoreMute = !!c.muted; Mixer.voice.mutedOn("vocals", e.target.checked); };
+
+  function open(){
+    Win.open();
+    if(!raf) draw();
+    const name = Mixer.currentSong();
+    el("sing-title").textContent = name ? "Trenér zpěvu — " + name : "Trenér zpěvu";
+    if(name && name !== song){ notes = []; lines = []; trail = []; el("sing-sum").innerHTML = ""; el("sing-hist").innerHTML = ""; song = null; say("Klikni na „Zpívat“: pustí se píseň a mikrofon. Hudbu měj ve sluchátkách.");
+      fetch(`/api/stems/${encodeURIComponent(name)}/sing`).then(r => r.json()).then(paintHistory).catch(() => {}); }
+    else if(!name) say("Nejdřív otevři píseň ve Steems.");
+  }
+  function close(){
+    if(on) stop(false);
+    cancelAnimationFrame(raf); raf = 0;
+    Win.close();
+  }
+  el("sing-float-close").onclick = close;
+  el("nm-sing-open").onclick = () => { TMenu.close(); Win.isOpen() ? close() : open(); };
+  paintGo();
+  return {open, close, start, finish, isOn: () => on, state: () => ({on, notes: notes.length, lines: lines.length, totals: totals(), trail: trail.length, lang})};
+})();
+
 // ---- Voice commands -------------------------------------------------------
 // The microphone goes to the server a quarter of a second at a time and comes
 // back as a command when one was said ("pick stop"). Recognition is voice.py —
@@ -29125,6 +29531,7 @@ const Voice = (() => {
     if(what === "mini"){ fetch("/api/mini/open", {method: "POST"}).catch(() => {}); return "minipřehrávač"; }
     if(what === "minifull"){ fetch("/api/window/full?which=mini", {method: "POST"}).then(r => { if(!r.ok) showToast("Minipřehrávač není otevřený"); }).catch(() => {}); return "minipřehrávač přes obrazovku"; }
     if(what === "full"){ fullScreen(); return "celá obrazovka"; }
+    if(what === "assist"){ dictate(); return "poslouchám"; }
     // One volume for everything that plays here, three decibels a step.
     if(what === "up" || what === "down"){
       const vol = el("pb-volume"), db = 3 * (+arg || 1) * (what === "up" ? 1 : -1);
@@ -29206,6 +29613,165 @@ const Voice = (() => {
     }
     return null;
   }
+
+  // ---- the assistant: one free sentence in Czech, said after "pick listen"
+  // (or typed). The server has whisper write it down and Claude decide which of
+  // the tools below to call (assistant.py); they run here, where the player and
+  // the mixer are, and what each one did goes back until Claude is done.
+  const SESSION = Math.random().toString(36).slice(2);
+  let dict = null, assisting = false, hideBox = 0;
+  function bubble(you, it, busy){
+    const box = el("assist-box");
+    if(you !== null) el("assist-you").textContent = you ? "„" + you + "“" : "";
+    el("assist-it").textContent = it;
+    box.classList.toggle("busy", !!busy); box.hidden = false;
+    clearTimeout(hideBox);
+    if(!busy) hideBox = setTimeout(() => { box.hidden = true; }, 12000);
+  }
+  function beep(f){
+    try{
+      const c = new AudioContext(), o = c.createOscillator(), g = c.createGain();
+      o.frequency.value = f; g.gain.value = 0.08; o.connect(g); g.connect(c.destination);
+      o.start(); o.stop(c.currentTime + 0.12); o.onended = () => c.close();
+    }catch(e){}
+  }
+  function speak(text){
+    if(!el("assist-tts").checked || !window.speechSynthesis || !text) return Promise.resolve();
+    return new Promise(ok => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "cs-CZ";
+      const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("cs"));
+      if(v) u.voice = v;
+      u.onend = u.onerror = () => ok();
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      setTimeout(ok, 15000);
+    });
+  }
+  // A sentence ends when it has been quiet for a moment after something was said.
+  function dictHear(chunk){
+    const d = dict;
+    let e = 0; for(let i = 0; i < chunk.length; i++) e += chunk[i] * chunk[i];
+    const rms = Math.sqrt(e / chunk.length), now = performance.now();
+    if(now - d.t0 < 350){ d.floor = Math.max(d.floor, rms); return true; }       // the room, before the first word (and the beep)
+    const loud = rms > Math.max(0.012, d.floor * 3);
+    if(loud){ d.spoke = d.spoke || now; d.last = now; }
+    if(d.spoke || d.keep.length < 25){ d.keep.push(chunk); if(!d.spoke && d.keep.length > 24) d.keep.shift(); }
+    if(d.spoke) d.held += chunk.length;
+    const over = d.spoke ? (now - d.last > 1300 || now - d.spoke > 18000) : now - d.t0 > 7000;
+    if(over){ dict = null; d.ok(d.spoke ? pcm16(d.keep, d.keep.reduce((n, c) => n + c.length, 0)) : null); }
+    return true;
+  }
+  async function dictate(){
+    if(dict || assisting) return;
+    const wasOn = on;
+    if(!on) await start();
+    if(!on) return;
+    beep(880);
+    bubble("", "Poslouchám…", true);
+    const pcm = await new Promise(ok => { dict = {t0: performance.now(), floor: 0, spoke: 0, last: 0, keep: [], held: 0, ok}; });
+    parts = []; held = 0;
+    if(!wasOn) stop();
+    if(!pcm || pcm.length < 8000){ bubble("", "Nic jsem neslyšel."); return; }
+    beep(660);
+    await assist(null, pcm);
+  }
+  async function assist(text, pcm){
+    if(assisting) return;
+    assisting = true;
+    try{
+      bubble(text || "", "Přemýšlím…", true);
+      const post = (path, body, raw) => fetch(path, raw ? {method: "POST", body, headers: {"Content-Type": "application/octet-stream"}}
+        : {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}}).then(r => r.json());
+      let r = pcm ? await post("/api/assistant/hear?session=" + SESSION, pcm.buffer, true) : await post("/api/assistant/say", {session: SESSION, text});
+      if(r.heard) bubble(r.heard, "Přemýšlím…", true);
+      for(let round = 0; round < 10 && r && !r.error && !r.done; round++){
+        const out = [];
+        for(const c of r.calls || []){
+          bubble(null, (r.say ? r.say + " " : "") + "…", true);
+          let content, bad = false;
+          try{ content = await tool(c.name, c.input || {}); }catch(e){ content = "Nepovedlo se: " + (e.message || e); bad = true; }
+          out.push({id: c.id, content: String(content || "hotovo"), is_error: bad});
+        }
+        r = await post("/api/assistant/results", {session: SESSION, results: out});
+      }
+      const said = (r && (r.error || r.say)) || "Hotovo.";
+      bubble(null, said);
+      heard.textContent = "asistent: " + said;
+      await speak(said);
+      if(r && !r.error && /\?\s*$/.test(said)){ assisting = false; await dictate(); }     // it asked: the answer needs no wake word
+    }catch(e){ bubble(null, "Asistent neodpovídá."); }
+    assisting = false;
+  }
+  // The song in the Steems mixer, loaded and settled; the name it has there.
+  async function openSteems(name){
+    if(!el("pb-audio").paused) el("pb-audio").pause();
+    const stale = shown("mixer") && Mixer.currentSong() === name ? null : (Mixer.channelByStem("drums") || Mixer.channelByStem("guitar") || {});
+    if(stale){ setMode("steems", {keepSection: true}); openSteemsSong(name); }
+    const fresh = () => { const c = Mixer.channelByStem("drums") || Mixer.channelByStem("guitar") || Mixer.channelByStem("vocals"); return c && c !== stale; };
+    for(let i = 0; i < 120 && !(Mixer.currentSong() === name && fresh()); i++) await pause(500);
+    if(Mixer.currentSong() !== name) throw new Error("píseň se ve Steems nenačetla");
+    await pause(2000);
+  }
+  const stemsNow = () => (Mixer.channelInfo() || []).map(c => c.stem);
+  async function tool(name, a){
+    const find = async (kind, q) => (await fetch(`/api/voice/find?kind=${kind}&name=${encodeURIComponent(q)}`)).json();
+    if(name === "get_state"){
+      const t = Player.getCurrent(), pb = el("pb-audio"), inSteems = shown("mixer") && Mixer.currentSong();
+      return JSON.stringify({vpredu: inSteems ? "Steems" : "spodní přehrávač",
+        steems: Mixer.currentSong() ? {pisen: Mixer.currentSong(), hraje: Mixer.isPlaying(), stopy: stemsNow(), tempo_procent: Math.round(Mixer.speed() * 100)} : null,
+        prehravac: t ? {pisen: t.title || "", interpret: t.artists || "", hraje: !pb.paused} : null,
+        hlasitost_procent: Math.round(+el("pb-volume").value * 100)});
+    }
+    if(name === "open_song"){
+      const f = await find(a.where === "steems" ? "practice" : "song", a.name);
+      if(!f || f.error || !f.track) return (f && f.error) || `Píseň „${a.name}“ jsem v knihovně nenašel.`;
+      const t = f.track, who = (t.artist ? t.artist + " — " : "") + t.title;
+      if(a.where !== "steems"){ Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album}); return `Hraje ve spodním přehrávači: ${who}.`; }
+      if(!(t.stems && t.stems.state === "ready")) return `Píseň ${who} není rozdělená na stopy, ve Steems ji otevře jen nástroj practice (rozdělení trvá několik minut).`;
+      await openSteems(t.stems.name);
+      return `Otevřeno ve Steems: ${who}. Stopy: ${stemsNow().join(", ")}. Nehraje, dokud nezavoláš playback play.`;
+    }
+    if(name === "play_band"){
+      const f = await find("band", a.name);
+      if(!f || f.error || !f.tracks) return (f && f.error) || `Kapelu „${a.name}“ jsem v knihovně nenašel.`;
+      Player.playLocalQueue(f.tracks.map(t => ({relPath: t.rel, title: t.title, artists: t.artist, album: t.album})));
+      return `Hraje ${f.artist}, ${f.tracks.length} písní.`;
+    }
+    if(name === "playback") return run({play: "play", stop: "pause", restart: "rewind", next: "next", previous: "prev"}[a.action]) || "tohle teď nejde";
+    if(name === "set_tempo") return shown("mixer") && Mixer.currentSong() ? run("tempo:" + a.percent) : "Tempo jde měnit jen u písně otevřené ve Steems.";
+    if(name === "volume"){ const n = Math.round(+a.steps || 0); return n ? run((n > 0 ? "up:" : "down:") + Math.abs(n)) : "beze změny"; }
+    if(name === "practice"){
+      if(!a.name) return run("practice");
+      const f = await find("practice", a.name);
+      if(!f || f.error || !f.track) return (f && f.error) || `Píseň „${a.name}“ jsem v knihovně nenašel.`;
+      const ready = f.track.stems && f.track.stems.state === "ready";
+      found(f);
+      return ready ? `Připravuju cvičení: ${f.track.title}. Za pár vteřin bude otevřená, kytara ztlumená a tvoje zapnutá.`
+        : `Píseň ${f.track.title} se rozděluje na stopy, potrvá to několik minut; pak se otevře sama.`;
+    }
+    if(!(shown("mixer") && Mixer.currentSong())) return "Ve Steems není otevřená žádná píseň — nejdřív ji tam otevři (open_song, where steems).";
+    if(name === "loop_section"){
+      if(a.section === "off"){ Mixer.setLoop(0, 0); return "smyčka zrušená"; }
+      return run("section:" + ({current: "loop", next: "+", previous: "-"}[a.section] || a.section));
+    }
+    if(name === "stem"){
+      const c = Mixer.channelByStem(a.stem) || (Mixer.channelInfo() || []).map(x => Mixer.channelByStem(x.stem)).find(x => x && x.stem.split("_")[0] === a.stem);
+      if(!c) return `Stopa ${a.stem} v téhle písni není. Jsou tu: ${stemsNow().join(", ")}.`;
+      const cz = STEM_CZ[a.stem] || a.stem;
+      if(a.action === "mute" || a.action === "unmute"){ Mixer.voice.mutedOn(a.stem, a.action === "mute"); return `${cz} ${a.action === "mute" ? "ztlumená" : "hraje"}`; }
+      if(a.action === "solo" || a.action === "unsolo"){ if(!!c.solo !== (a.action === "solo")) Mixer.voice.solo(a.stem); return `${cz} sólo ${a.action === "solo" ? "zapnuté" : "vypnuté"}`; }
+      return run(`vol:${a.stem}:${a.action === "louder" ? "+" : "-"}`);
+    }
+    return "Takový nástroj tu není.";
+  }
+  el("assist-text").addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if(e.key !== "Enter") return;
+    const t = e.target.value.trim(); if(!t) return;
+    e.target.value = ""; TMenu.close(); assist(t, null);
+  });
+  try{ el("assist-tts").checked = localStorage.getItem("pick-assist-tts") !== "0"; }catch(e){}
+  el("assist-tts").onchange = (e) => { try{ localStorage.setItem("pick-assist-tts", e.target.checked ? "1" : "0"); }catch(err){} };
 
   // Real full screen needs a click of yours; a spoken command has none, and
   // then the window is made as big as the screen instead.
@@ -29326,6 +29892,7 @@ const Voice = (() => {
         channelCount: 2, channelCountMode: "explicit", channelInterpretation: "discrete",
         processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
       node.port.onmessage = (e) => {
+        if(dict && dictHear(e.data)) return;
         for(let i = 0; i < e.data.length; i += 8){ const v = Math.abs(e.data[i]); if(v > peak) peak = v; }
         if((lvlN += e.data.length) >= 1600){ level.style.width = Math.min(100, Math.round(Math.sqrt(peak) * 100)) + "%"; peak = lvlN = 0; }
         if(teach){                        // a take being recorded, or the gap between two
@@ -29397,7 +29964,7 @@ const Voice = (() => {
     if(on){ stop(); start(); }
   };
   paint();
-  return {start, stop, turn, isOn: () => on, run, runSteps};
+  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate};
 })();
 </script>
 </body>

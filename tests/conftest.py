@@ -47,3 +47,8 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "CUSTOM_PATH", tmp_path / "voice-commands.json")
     monkeypatch.setattr(voice, "TAUGHT_PATH", tmp_path / "voice-taught.json")
     monkeypatch.setattr(voice, "TAKES_DIR", tmp_path / "voice-takes")
+    # …and the assistant never finds a real API key, nor spends anything.
+    import assistant
+    monkeypatch.setattr(assistant, "KEY_PATH", tmp_path / "anthropic-key.txt")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assistant._sessions.clear()

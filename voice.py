@@ -68,6 +68,7 @@ COMMANDS = [
     ("mixpause", ["stop mix"], "stop mix", "zastavit Steems (mix)"),
     ("pbplay", ["play player"], "play player", "spustit spodní přehrávač"),
     ("pbpause", ["stop player"], "stop player", "zastavit spodní přehrávač"),
+    ("assist", ["listen", "assistant"], "listen", "asistent: pípne a poslouchá jednu českou větu (pusť…, ztlum…, zpomal…)"),
     ("full", ["full screen"], "full screen", "aplikace přes celou obrazovku / zpět"),
     ("minifull", ["mini full screen"], "mini full screen", "minipřehrávač přes celou obrazovku / zpět"),
 ]
@@ -351,17 +352,21 @@ def names_available():
     return None
 
 
-def transcribe(pcm, hint=""):
-    """What was said in this stretch of 16 kHz mono s16le, as text."""
+def transcribe(pcm, hint="", lang="en", prompt=None):
+    """What was said in this stretch of 16 kHz mono s16le, as text. `prompt`
+    replaces the command-shaped one (a sung line is no command)."""
     with tempfile.TemporaryDirectory() as d:
         wav = Path(d) / "u.wav"
         with wave.open(str(wav), "wb") as w:
             w.setnchannels(1); w.setsampwidth(2); w.setframerate(RATE)
             w.writeframes(b"\0" * RATE + pcm + b"\0" * RATE)      # whisper wants a little room
-        cmd = [WHISPER_BIN, "-m", str(WHISPER_MODEL), "-l", "en", "-np", "-nt", "-f", str(wav),
-               # Whisper leans on what it has "just heard": sentences of the very shape
-               # we expect, and a few of the library's bands for their spelling.
-               "--prompt", ("Pick song Wait and Bleed. Pick band Sepultura. Pick practice Duality. " + hint)[:400]]
+        cmd = [WHISPER_BIN, "-m", str(WHISPER_MODEL), "-l", lang, "-np", "-nt", "-f", str(wav)]
+        if prompt is None:
+            # Whisper leans on what it has "just heard": sentences of the very shape
+            # we expect, and a few of the library's bands for their spelling.
+            prompt = ("Pick song Wait and Bleed. Pick band Sepultura. Pick practice Duality. " + hint)[:400]
+        if prompt:
+            cmd += ["--prompt", prompt]
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     return " ".join(out.stdout.split())
 
