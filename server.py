@@ -4983,10 +4983,32 @@ class RemoteCommand(BaseModel):
     value: Optional[float] = None
 
 
+# A song handed to the mini player by the app ("send to mini"): the mini player
+# picks it up from the state it polls anyway — also when it was only just opened.
+_MINI_PLAY = {"seq": 0, "at": 0.0}
+
+
+class MiniPlay(BaseModel):
+    stems: str
+    title: str = ""
+    artists: str = ""
+
+
+@app.post("/api/mini/play")
+def mini_play(body: MiniPlay):
+    d = _resolve_under_music_root(f"Stems/{body.stems}")
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    _MINI_PLAY.update(seq=int(time.time() * 1000), at=time.time(), stems=body.stems, title=body.title or body.stems, artists=body.artists)
+    return {"ok": True}
+
+
 @app.get("/api/remote/state")
 def remote_state():
     """What the playing window last said it was doing."""
     out = dict(_REMOTE_STATE)
+    if time.time() - _MINI_PLAY["at"] < 30:
+        out["mini"] = dict(_MINI_PLAY)
     # A window that has gone away shouldn't leave the menu bar claiming a
     # song is playing forever.
     out["stale"] = (time.time() - out.get("at", 0)) > 12
@@ -5963,7 +5985,7 @@ def separate_playlist(req: StemsPlaylistRequest):
 
 
 @app.get("/api/stems/{name}/backing")
-def stems_backing(name: str, without: str = "guitar", part: str = "all"):
+def stems_backing(name: str, without: str = "guitar", part: str = "all", request: Request = None):
     """The band without one of its parts: every stem but `without`, mixed —
     what a player practising that part plays along to. Mixed once by ffmpeg
     and kept in the transcode cache.
@@ -6007,7 +6029,11 @@ def stems_backing(name: str, without: str = "guitar", part: str = "all"):
         r = subprocess.run(cmd, capture_output=True, timeout=300)
         if r.returncode != 0 or not out.is_file():
             return JSONResponse({"error": "Doprovod se nepodařilo smíchat."}, status_code=500)
-    return FileResponse(out, media_type="audio/mp4", headers={"X-Stems": ",".join(f.stem for f in parts)})
+    # With ranges, so a player can jump within it (the mini player plays this file as it is).
+    resp = _range_file_response(out, request.headers.get("range") if request is not None else None)
+    resp.headers["X-Stems"] = ",".join(f.stem for f in parts)
+    resp.headers["content-type"] = "audio/mp4"
+    return resp
 
 
 # ---- recording from the audio interface, past the browser. Chrome hands a
@@ -8772,6 +8798,17 @@ import voice as _voice
 # a quarter of a second at a time, and gets back a command when one was said.
 _voice_listener = None
 _voice_lock = threading.Lock()
+# One microphone is listened to at a time. The mini player, when it listens,
+# comes before the app's window: the app steps back until the mini player has
+# been quiet for a few seconds (closed, or switched off).
+_voice_owner = {"who": "app", "at": 0.0}
+
+
+def _voice_taken(who):
+    """The other window that holds the listening right now, or None."""
+    if who == "app" and _voice_listener is not None and _voice_owner["who"] == "mini" and time.time() - _voice_owner["at"] < 6:
+        return "mini"
+    return None
 
 
 @app.get("/api/voice/commands")
@@ -8807,26 +8844,36 @@ def voice_custom_delete(cid: str):
 
 
 @app.post("/api/voice/start")
-def voice_start():
+def voice_start(who: str = "app"):
     """A fresh listener — what was half-heard before is forgotten."""
     global _voice_listener
     why = _voice.available()
     if why:
         return JSONResponse({"error": why}, status_code=503)
+    who = "mini" if who == "mini" else "app"
     with _voice_lock:
+        if who == "app" and _voice_taken("app"):
+            return JSONResponse({"error": "Poslouchá minipřehrávač.", "taken": "mini"}, status_code=409)
         _voice_listener = _voice.Listener()
+        _voice_owner.update(who=who, at=time.time())
     return {"ok": True, "rate": _voice.RATE}
 
 
 @app.post("/api/voice/feed")
-async def voice_feed(request: Request):
+async def voice_feed(request: Request, who: str = "app", menu: bool = False):
     pcm = await request.body()
     lis = _voice_listener
     if lis is None:
         return JSONResponse({"error": "Hlasové ovládání neběží."}, status_code=409)
+    who = "mini" if who == "mini" else "app"
+    if _voice_owner["who"] != who:
+        # The mini player started listening after the app did (or the other way
+        # round, once the mini player has gone quiet): this window is not the one.
+        return JSONResponse({"error": "Poslouchá jiné okno.", "taken": _voice_owner["who"]}, status_code=409)
+    _voice_owner["at"] = time.time()
     if len(pcm) > _voice.RATE * 2 * 5 or len(pcm) % 2:
         return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
-    return await asyncio.get_running_loop().run_in_executor(None, _voice_heard, lis, pcm)
+    return await asyncio.get_running_loop().run_in_executor(None, _voice_heard, lis, pcm, menu)
 
 
 def _voice_library():
@@ -8841,6 +8888,8 @@ def _voice_library():
 
 def voice_find(kind, name):
     """The song or band in the library that `name` means, or why not."""
+    if kind == "playlist":
+        return {"kind": "playlist", "query": name}
     songs, bands = _voice_library()
     if kind == "band":
         keys = sorted(bands)
@@ -8864,14 +8913,15 @@ def voice_find(kind, name):
                       "album": e.get("album"), "stems": e.get("stems")}}
 
 
-def _voice_heard(lis, pcm):
-    r = lis.feed(pcm)
+def _voice_heard(lis, pcm, menu=False):
+    r = lis.feed(pcm, menu)
     audio = r.pop("pcm", None)
     if audio is None:
         return r
     # Whisper reads the utterance again: a name after "song" / "band" /
     # "practice", or a command the small recogniser did not catch.
-    quiet = {"heard": r["heard"], "command": None}
+    # "again": Pick was spoken to and no command came of it — the page says so aloud.
+    quiet = {"heard": r["heard"], "command": None, "again": r["command"] == "ask"}
     why = _voice.names_available()
     if why:
         return {**quiet, "find": {"error": why}} if r["command"] != "ask" else quiet
@@ -8881,6 +8931,9 @@ def _voice_heard(lis, pcm):
     except Exception:
         return quiet
     what = _voice.interpret(text, lis.custom, r["command"][5:] if r["command"].startswith("find:") else None, lis.taught)
+    # What whisper wrote, without the wake word — for a window that shows a
+    # list and takes a title said aloud as the choice.
+    quiet["said"] = " ".join(_voice._said(text))
     if not what:
         return quiet
     if what[0] == "command":
@@ -8890,7 +8943,7 @@ def _voice_heard(lis, pcm):
             return {"heard": f"{_voice.WAKE} {c['phrase']}", "command": cmd, "name": c["name"], "steps": c["steps"]}
         return {"heard": " ".join(text.lower().strip(" .!?").replace(",", "").split()), "command": cmd, "steps": [cmd]}
     _, kind, name = what
-    return {"heard": f"{_voice.WAKE} {kind} {name}", "command": f"find:{kind}", "find": voice_find(kind, name)}
+    return {"heard": f"{_voice.WAKE} {kind} {name}", "command": f"find:{kind}", "name": name, "find": voice_find(kind, name)}
 
 
 @app.get("/api/voice/find")
@@ -9087,11 +9140,26 @@ def voice_remote(on: Optional[int] = None):
 
 
 @app.post("/api/voice/stop")
-def voice_stop():
+def voice_stop(who: str = "app"):
     global _voice_listener
+    who = "mini" if who == "mini" else "app"
     with _voice_lock:
-        _voice_listener = None
+        if _voice_owner["who"] == who or not _voice_taken(who):      # not somebody else's listening
+            _voice_listener = None
+            _voice_owner.update(who="app", at=0.0)
     return {"ok": True}
+
+
+class VoiceBest(BaseModel):
+    query: str
+    names: List[str]
+
+
+@app.post("/api/voice/best")
+def voice_best(req: VoiceBest):
+    """Which of the names on screen was said: its index, or null when none is close."""
+    i, score = _voice.best_match(req.query, req.names[:400])
+    return {"index": i, "score": round(score, 2)}
 
 
 HARDWARE_PROFILE_PATH = NAM_PREVIEW_DIR / "hardware-profile.json"

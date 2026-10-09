@@ -43,8 +43,8 @@ COMMANDS = [
     ("tempo:90", ["ninety percent"], "ninety percent", "tempo 90 %"),
     ("metronome", ["metronome", "click"], "metronome / click", "metronom zap / vyp"),
     ("record", ["record"], "record", "nahrávání kytary zap / vyp"),
-    ("next", ["next"], "next", "další píseň"),
-    ("prev", ["previous"], "previous", "předchozí píseň"),
+    ("next", ["next", "next song"], "next / next song", "další píseň"),
+    ("prev", ["previous", "previous song"], "previous / previous song", "předchozí píseň"),
     ("louder", ["louder"], "louder", "hlasitost nahoru"),
     ("quieter", ["quieter"], "quieter", "hlasitost dolů"),
     ("tuner", ["tuner"], "tuner", "otevřít ladičku"),
@@ -68,6 +68,19 @@ COMMANDS = [
     ("mixpause", ["stop mix"], "stop mix", "zastavit Steems (mix)"),
     ("pbplay", ["play player"], "play player", "spustit spodní přehrávač"),
     ("pbpause", ["stop player"], "stop player", "zastavit spodní přehrávač"),
+    ("gtr:on", ["guitar on"], "guitar on", "originální kytara zpět do hraní (Steems, minipřehrávač)"),
+    ("gtr:off", ["guitar off"], "guitar off", "originální kytara pryč, hraje se dál (Steems, minipřehrávač)"),
+    ("tomini", ["play in mini", "open in mini"], "play in mini / open in mini", "hrající píseň do minipřehrávače bez kytary (rozdělí ji, když není ve Steems)"),
+    ("tabs", ["tabs", "tab"], "tabs / tab", "tabulatura k hrající písni zap / vyp"),
+    ("lyrics", ["lyrics", "text"], "lyrics / text", "text hrající písně zap / vyp"),
+    ("steems", ["mixer", "stems"], "mixer / stems", "otevře Steems se seznamem rozdělených písní"),
+    # For a list on screen — in the mini player, what a search found.
+    ("page:+", ["next page"], "next page", "seznam o stránku dál (minipřehrávač)"),
+    ("page:-", ["previous page"], "previous page", "seznam o stránku zpět (minipřehrávač)"),
+    ("playall", ["play all"], "play all", "přehrát celý nalezený seznam (minipřehrávač)"),
+    ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
+    ("help", ["help"], "help", "nabídka povelů — zůstane, dokud si nevybereš nebo neřekneš „nothing“"),
+    ("nothing", ["nothing"], "nothing", "zavře nabídku povelů"),
     ("assist", ["listen", "assistant"], "listen", "asistent: pípne a poslouchá jednu českou větu (pusť…, ztlum…, zpomal…)"),
     ("full", ["full screen"], "full screen", "aplikace přes celou obrazovku / zpět"),
     ("minifull", ["mini full screen"], "mini full screen", "minipřehrávač přes celou obrazovku / zpět"),
@@ -93,7 +106,8 @@ for _s, _cz in SECTIONS.items():
 # among the words this recogniser knows; whisper hears it (see transcribe).
 SLOTS = {"song": ("find:song", "song <název>", "najde píseň v knihovně a pustí ji"),
          "band": ("find:band", "band <jméno>", "najde kapelu v knihovně a pustí ji"),
-         "practice": ("find:practice", "practice <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou")}
+         "practice": ("find:practice", "practice <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
+         "playlist": ("find:playlist", "playlist <název>", "vyhledá playlisty toho jména")}
 
 
 def _bare(words):
@@ -385,7 +399,8 @@ def _fold(text):
 
 _WAKE_LIKE = {"pick", "pik", "peak", "pic", "big", "picks"}
 _SLOT_LIKE = {"song": "song", "songs": "song", "band": "band", "van": "band", "bend": "band", "bands": "band", "banned": "band",
-              "practice": "practice", "practise": "practice", "practices": "practice"}
+              "practice": "practice", "practise": "practice", "practices": "practice",
+              "playlist": "playlist", "playlists": "playlist"}
 
 
 def _said(text):
@@ -489,8 +504,12 @@ class Listener:
         self.rec.SetWords(True)
         self.lock = threading.Lock()
 
-    def feed(self, pcm):
-        """16 kHz mono s16le. Returns {"heard", "command"} when an utterance just ended."""
+    def feed(self, pcm, menu=False):
+        """16 kHz mono s16le. Returns {"heard", "command"} when an utterance just ended.
+
+        `menu`: the list of commands is on screen ("pick help"). While it is, a command needs no wake word, a word of the
+        vocabulary narrows the list ("filter"), and anything else is answered
+        with "again"."""
         with self.lock:
             self.audio += pcm
             self.fed += len(pcm)
@@ -505,6 +524,15 @@ class Listener:
             return {}
         confs = [w.get("conf", 0) for w in res.get("result", [])]
         cmd = match(text, confs, self.custom, self.index)
+        said = text.split()
+        bare = bool(menu and said and said[0] != WAKE)
+        if cmd is None and bare:
+            cmd = match(f"{WAKE} {text}", [1.0] + confs, self.custom, self.index)
+            if cmd is None:
+                if "[unk]" not in said and len(said) <= 3 and min(confs or [0]) >= 0.6:
+                    keep = [w for i, w in enumerate(said) if w not in FILLERS and (i == 0 or w != said[i - 1])]   # "guitar guitar" is one word, heard twice
+                    return {"heard": text, "command": None, "filter": " ".join(keep)}
+                return {"heard": text, "command": None, "again": True}
         if cmd and cmd.startswith("custom:"):
             c = next(x for x in self.custom if x["id"] == cmd[7:])
             return {"heard": text, "command": cmd, "name": c["name"], "steps": c["steps"]}
@@ -514,12 +542,15 @@ class Listener:
         # unknown words, or known ones that add up to nothing (an accent).
         unclear = (cmd is None and words[0] == WAKE and 2 <= len(words) <= 12
                    and wakes and max(wakes) >= MIN_CONF)
-        if unclear or (cmd and cmd.startswith("find:")):
+        if (unclear or (cmd and cmd.startswith("find:"))) and res.get("result"):
             # Something was asked of Pick that these few words don't cover — a
             # name, most likely. The utterance itself goes on to whisper.
             start = int(max(0.0, res["result"][0].get("start", 0) - 0.3) * RATE) * 2 - heard_from
             return {"heard": text, "command": cmd or "ask", "pcm": snapshot[max(0, start):]}
-        return {"heard": text, "command": cmd, "steps": [cmd] if cmd else None}
+        out = {"heard": text, "command": cmd, "steps": [cmd] if cmd else None}
+        if cmd is None and words[0] == WAKE and len(words) >= 2:
+            out["again"] = True                    # addressed to Pick, and not understood
+        return out
 
 
     def command(self, pcm):

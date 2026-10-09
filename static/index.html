@@ -3591,6 +3591,7 @@ body.lib-collapsed .pick-brand{display:none}
   /* The player's tools as rows in a menu: the button keeps its icon and its
      state, the name comes from its title. */
   .tm-pop .pb-ctl.tm-item{width:100%;height:auto;border-radius:5px;justify-content:flex-start;padding:8px 9px;gap:11px;transform:none}
+  .tm-pop .pb-ctl.tm-item:not([title])::after{content:attr(data-label) !important}
   .tm-pop .pb-ctl.tm-item::after{content:attr(title);position:static;width:auto;height:auto;margin:0;background:none;border-radius:0;
     font-size:12.5px;font-weight:400;padding:0}
   .tm-pop .pb-ctl.tm-item.on{color:var(--accent)}
@@ -3604,6 +3605,26 @@ body.lib-collapsed .pick-brand{display:none}
   .tm-item.tab-lock.on{background:none !important;border:none !important}
   .tm-item.tab-lock.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700}
   .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
+  /* the prompter: what can be said */
+  .voice-help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;width:min(1100px,92vw);max-height:84vh;display:flex;flex-direction:column;
+    background:rgba(16,16,20,.97);border:1px solid rgba(30,215,96,.5);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7);color:#fff}
+  .voice-help[hidden]{display:none}
+  .vh-head{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;font-weight:700;color:var(--accent,#1ed760);border-bottom:1px solid #2a2a34}
+  .vh-head span{flex:1}
+  .vh-head button{border:none;background:none;color:#aaa;font-size:16px;cursor:pointer}
+  .vh-list{overflow-y:auto;padding:12px 18px 16px;columns:3 300px;column-gap:26px}
+  .vh-list .g{break-inside:avoid;margin-bottom:12px;padding:8px 10px 8px 12px;border-radius:10px;border-left:3px solid var(--gc,#888);
+    background:color-mix(in srgb, var(--gc,#888) 9%, transparent)}
+  .vh-list h4{margin:0 0 5px;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--gc,#888);display:flex;align-items:center;gap:7px}
+  .vh-list h4 .ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:color-mix(in srgb, var(--gc,#888) 22%, transparent)}
+  .vh-list .r b{color:color-mix(in srgb, var(--gc,#fff) 55%, #fff)}
+  .vh-list h4 i{text-transform:none;letter-spacing:0;font-style:normal;color:#666}
+  .vh-list .r{display:flex;gap:10px;align-items:baseline;padding:2px 0;font-size:13px}
+  .vh-list .r b{flex:none;font-weight:700;white-space:nowrap}
+  .vh-list .r span{color:#9a9aa6;min-width:0}
+  .voice-help.narrow .vh-list{columns:2 360px}
+  .voice-help.narrow .vh-list .r{font-size:19px;padding:5px 0}
+  .voice-help.narrow .vh-list .r span{font-size:14px}
   /* the assistant's words, bottom right */
   .assist-box{position:fixed;right:18px;bottom:112px;z-index:70;max-width:380px;padding:11px 14px;border-radius:12px;background:#14141a;border:1px solid rgba(30,215,96,.45);
     box-shadow:0 8px 26px rgba(0,0,0,.55);font-size:13.5px;line-height:1.4}
@@ -5026,6 +5047,10 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="float-grip" id="sing-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
+<div class="voice-help" id="voice-help" hidden>
+  <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)">✕</button></div>
+  <div class="vh-list" id="voice-help-list"></div>
+</div>
 <div class="assist-box" id="assist-box" hidden><div class="you" id="assist-you"></div><div class="it" id="assist-it"></div></div>
 <div class="toast-wrap" id="toast-wrap"></div>
 
@@ -5343,6 +5368,8 @@ const AudioBus = (() => {
     const t = e.target instanceof Element ? e.target.closest("[title]") : null;
     if(!t || keeps(t)) return;
     if(!t.hasAttribute("aria-label")) t.setAttribute("aria-label", t.getAttribute("title"));
+    // A row of a menu is named by its title (the player's tools): the name stays when the title goes.
+    if(t.classList.contains("tm-item")) t.dataset.label = t.getAttribute("title");
     t.removeAttribute("title");
   }, true);
 })();
@@ -29487,8 +29514,10 @@ const Voice = (() => {
   function send(){
     const all = pcm16(parts, held);
     parts = []; held = 0;
-    chain = chain.then(() => on ? fetch("/api/voice/feed", {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
-      .then(r => r && r.ok ? r.json() : null).then(r => { if(r && r.heard) got(r); }).catch(() => {});
+    if(deaf){ return; }                                  // Pick itself is speaking: that is not you
+    chain = chain.then(() => on ? fetch("/api/voice/feed" + (helpOn ? "?menu=1" : ""), {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
+      .then(r => !r ? null : r.status === 409 ? r.json().then(d => { if(d.taken) yieldTo(); return null; }) : r.ok ? r.json() : null)
+      .then(r => { if(r && r.heard) got(r); }).catch(() => {});
   }
   // Several steps go one after another, with a breath between them.
   async function runSteps(steps){
@@ -29500,7 +29529,76 @@ const Voice = (() => {
     }
     return done.join(", ");
   }
+  // ---- the prompter: "pick" said by itself brings up the commands; a word
+  // narrows them ("guitar"), a command runs — no "pick" needed while it is up.
+  // And what was meant for Pick but not understood is answered aloud: "Again!"
+  let helpOn = false, helpTimer = 0, deaf = false, helpRows = [], helpMiss = 0;
+  // Each kind of command has its colour and its sign, so the eye finds it before the words are read.
+  const GROUPS = [
+    ["Přehrávání", /^(play|pause|rewind|next|prev|mixplay|mixpause|pbplay|pbpause)$/, "#1ed760", "play"],
+    ["Hledání", /^find:/, "#4aa8ff", "search"],
+    ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
+    ["Tempo", /^(slower|faster|tempo)/, "#ff7a45", "clock"],
+    ["Smyčky a sekce", /^(loop|section)/, "#b784ff", "repeat"],
+    ["Kytara", /^(gtr|myguitar|preset|record|tuner|practice)/, "#ff5c8a", "elGuitar"],
+    ["Stopy", /^(mute|solo|vol|pan):/, "#2fd6c4", "stems"],
+    ["Minipřehrávač", /^(mini|minifull|tomini|page|playall|back)/, "#ffd84a", "external"],
+    ["Vlastní", /^custom:/, "#ff9ad5", "mic"],
+    ["Aplikace", /./, "#a8b0c0", "settings"]];
+  function helpPaint(filter){
+    const box = el("voice-help"), f = (filter || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const hit = (c) => f.every(w => c.say.toLowerCase().split(/[^a-z<>]+/).includes(w));
+    let rows = helpRows.filter(c => !f.length || hit(c));
+    if(f.length && !rows.length){ el("voice-help-title").textContent = `„${f.join(" ")}“ — takový povel není`; again(); rows = []; }
+    else el("voice-help-title").textContent = f.length ? `Povely se slovem „${f.join(" ")}“` : "Řekni povel — nebo slovo, a nabídka se zúží (guitar, loop, mini, song…) — „nothing“ ji zavře";
+    // Six tracks say the same seven things: unfiltered, one of them stands for all.
+    if(!f.length) rows = rows.filter(c => !/^(mute|solo|vol|pan):(drums|bass|vocals|piano|other)/.test(c.id));
+    const left = rows.slice(), html = [];
+    GROUPS.forEach(([name, re, col, ic]) => {
+      const mine = left.filter(c => re.test(c.id)); if(!mine.length) return;
+      mine.forEach(c => left.splice(left.indexOf(c), 1));
+      html.push(`<div class="g" style="--gc:${col}"><h4><span class="ic">${icon(ic, 14)}</span>${name}${name === "Stopy" && !f.length ? " <i>(stejně: drums, bass, vocals, piano, other)</i>" : ""}</h4>` +
+        mine.map(c => `<div class="r"><b>${escapeHtml(c.say.replace(/^pick /, ""))}</b><span>${escapeHtml(c.does)}</span></div>`).join("") + `</div>`);
+    });
+    el("voice-help-list").innerHTML = html.join("");
+    box.classList.toggle("narrow", f.length > 0);
+  }
+  async function helpOpen(){
+    if(!helpRows.length){
+      try{
+        const d = await (await fetch("/api/voice/commands")).json();
+        helpRows = d.commands.concat((d.custom || []).map(c => ({id: "custom:" + c.id, say: "pick " + c.phrase, does: c.name})));
+      }catch(e){}
+    }
+    helpOn = true; el("voice-help").hidden = false; helpPaint("");
+  }
+  // It stays until a command is chosen or "nothing" is said (or Esc, or the cross).
+  function helpClose(){ helpOn = false; el("voice-help").hidden = true; }
+  el("voice-help-close").onclick = helpClose;
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
+  function again(){
+    heard.textContent = "Nerozuměl jsem — řekni to znovu.";
+    if(!window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance("Again!");
+    u.lang = "en-US"; u.rate = 1.05;
+    // While Pick talks the microphone hears Pick: nothing is sent until it is done.
+    deaf = true;
+    const done = () => { setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
+    u.onend = u.onerror = done; setTimeout(done, 2500);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
   function got(r){
+    if(r.command === "help"){ helpOpen(); heard.textContent = "nabídka povelů — řekni povel, slovo, nebo „nothing“"; return; }
+    if(r.command === "nothing"){ helpClose(); heard.textContent = "nabídka zavřená"; return; }
+    if(r.filter !== undefined && helpOn && !r.command){ helpPaint(r.filter); heard.textContent = "nabídka: " + r.filter; return; }
+    if(r.again && !r.command){
+      heard.textContent = "slyšel jsem: " + r.heard;
+      // With the list up everything is listened to: a room that keeps talking is told "again" now and then, not every time.
+      if(helpOn && performance.now() - helpMiss < 6000) return;
+      helpMiss = performance.now();
+      again(); return;
+    }
+    if(r.command && helpOn) helpClose();
     if(!r.command){ heard.textContent = "slyšel jsem: " + r.heard; return; }
     if(r.find){
       heard.innerHTML = `<b>${escapeHtml(r.heard)}</b>` + (r.find.error ? " — " + escapeHtml(r.find.error) : "");
@@ -29531,7 +29629,21 @@ const Voice = (() => {
     if(what === "mini"){ fetch("/api/mini/open", {method: "POST"}).catch(() => {}); return "minipřehrávač"; }
     if(what === "minifull"){ fetch("/api/window/full?which=mini", {method: "POST"}).then(r => { if(!r.ok) showToast("Minipřehrávač není otevřený"); }).catch(() => {}); return "minipřehrávač přes obrazovku"; }
     if(what === "full"){ fullScreen(); return "celá obrazovka"; }
+    if(what === "help"){ helpOpen(); return "nabídka povelů"; }
+    if(what === "nothing"){ helpClose(); return "nic"; }
     if(what === "assist"){ dictate(); return "poslouchám"; }
+    if(what === "steems"){ setMode("steems"); return "Steems"; }
+    if(what === "tomini"){ toMini(); return "posílám do minipřehrávače"; }
+    if(what === "lyrics") return click(shown("mixer") ? "mixer-lyrics-toggle" : "pb-lyrics-btn") ? "text" : "text teď nejde otevřít";
+    if(what === "tabs"){
+      if(shown("mixer")){ const b = el("nm-tabtop") && !el("nm-tabtop").hidden && el("nm-tabtop").querySelector(".fold-btn"); if(b){ b.click(); return "tab"; } return "tahle píseň ve Steems tab nemá"; }
+      if(!Player.getCurrent()) return "nejdřív pusť píseň";
+      PlayerTab.toggle(); return "tab";
+    }
+    if(what === "gtr"){
+      if(!(shown("mixer") && Mixer.currentSong())) return "kytaru jde vypnout jen ve Steems nebo v minipřehrávači";
+      return Mixer.voice.mutedOn("guitar", arg === "off") ? (arg === "off" ? "kytara vypnutá" : "kytara zapnutá") : "tahle píseň kytaru zvlášť nemá";
+    }
     // One volume for everything that plays here, three decibels a step.
     if(what === "up" || what === "down"){
       const vol = el("pb-volume"), db = 3 * (+arg || 1) * (what === "up" ? 1 : -1);
@@ -29806,6 +29918,7 @@ const Voice = (() => {
   }
   function found(f){
     if(!f || f.error){ showToast((f && f.error) || "Nenašel jsem to"); return; }
+    if(f.kind === "playlist"){ setMode("playlists"); searchExactly(f.query); showToast("Hledám playlisty: " + f.query); return; }
     if(f.kind === "band"){
       Player.playLocalQueue(f.tracks.map(t => ({relPath: t.rel, title: t.title, artists: t.artist, album: t.album})));
       showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
@@ -29815,6 +29928,44 @@ const Voice = (() => {
     if(f.kind === "practice"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
     Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album});
     showToast(`Hraju: ${t.artist ? t.artist + " — " : ""}${t.title}`);
+  }
+
+  // The song that is on, to the mini player: its video, text and tab there, and
+  // the band without the guitar (which "guitar on" brings back). Separated
+  // first when it is not in Steems yet.
+  let sending = 0;
+  async function toMini(){
+    const mine = ++sending;
+    try{
+      let name = shown("mixer") && Mixer.currentSong() ? Mixer.currentSong() : null, title = name || "", artists = "";
+      if(!name){
+        const cur = Player.getCurrent();
+        if(!cur){ showToast("Nic nehraje — nejdřív pusť píseň"); return; }
+        title = cur.title || ""; artists = cur.artists || "";
+        if(!cur.relPath){
+          showToast("Píseň z internetu nejdřív stahuju a rozděluju — až bude ve Steems, řekni to znovu");
+          el("pb-stems-btn").click(); return;
+        }
+        const stemsOf = async () => {
+          const d = await (await fetch("/api/library/browse?rel=Songs&flat=1")).json();
+          const e = (d.entries || []).find(x => x.rel === cur.relPath);
+          return e && e.stems && e.stems.state === "ready" ? e.stems.name : null;
+        };
+        name = await stemsOf();
+        if(!name){
+          showToast(`Rozděluji „${title}“ na stopy — pár minut, pak ji pošlu do minipřehrávače`);
+          startStemsSeparation(cur.relPath);
+          for(let i = 0; i < 240 && !name; i++){ await pause(5000); if(mine !== sending) return; name = await stemsOf(); }
+          if(!name){ showToast("Separace se nedokončila"); return; }
+        }
+      }
+      const r = await fetch("/api/mini/play", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({stems: name, title, artists})});
+      if(!r.ok){ showToast("Píseň se nepodařilo poslat"); return; }
+      if(Mixer.isPlaying()) Mixer.pause();
+      if(!el("pb-audio").paused) el("pb-audio").pause();
+      await fetch("/api/mini/open", {method: "POST"});
+      showToast(`V minipřehrávači: ${title} bez kytary („pick guitar on“ ji vrátí)`);
+    }catch(e){ showToast("Do minipřehrávače se to nepovedlo poslat"); }
   }
 
   // Practice: the song in the Steems mixer — separated first when it has to be —
@@ -29874,7 +30025,12 @@ const Voice = (() => {
     if(on) return;
     try{
       const r = await fetch("/api/voice/start", {method: "POST"});
-      if(!r.ok){ const d = await r.json().catch(() => ({})); throw new Error(d.error || "Hlasové ovládání se nespustilo."); }
+      if(!r.ok){
+        const d = await r.json().catch(() => ({}));
+        if(d.taken){ yieldTo(); return; }
+        throw new Error(d.error || "Hlasové ovládání se nespustilo.");
+      }
+      yielded = false;
       const dev = localStorage.getItem(MIC_KEY) || "", ch = savedCh();
       // Echo cancelling takes the app's own playback out of what the microphone hears.
       // It also folds the card's inputs into one — so with a chosen input it is
@@ -29921,6 +30077,18 @@ const Voice = (() => {
     }
     paint();
   }
+  // The mini player listens instead while it is open and listening; this
+  // window lets the microphone go and comes back when the mini player is done.
+  let yielded = false, yieldTimer = 0;
+  function yieldTo(){
+    const first = !yielded;
+    yielded = true;
+    if(on) stop();
+    heard.textContent = "Poslouchá minipřehrávač — povely teď platí tam.";
+    if(first) showToast(heard.textContent);
+    clearTimeout(yieldTimer);
+    yieldTimer = setTimeout(() => { if(yielded && !on && wanted()) start(); else yielded = false; }, 4000);
+  }
   function stop(){
     on = false;
     if(teach && teach.ok){ const t = teach; teach = {}; t.ok(new Int16Array(0)); }
@@ -29964,7 +30132,7 @@ const Voice = (() => {
     if(on){ stop(); start(); }
   };
   paint();
-  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate};
+  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate, heard: got};
 })();
 </script>
 </body>

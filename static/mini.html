@@ -238,6 +238,24 @@
   body.tab-on.tabs-mode .tvp{height:140px}
   /* search */
   #pane-search{flex-direction:column;gap:8px}
+  .vhelp{position:fixed;inset:10px;z-index:90;display:flex;flex-direction:column;background:rgba(14,14,18,.97);border:1px solid var(--accent);border-radius:14px;color:#fff}
+  .vhelp[hidden]{display:none}
+  .vhelp .vh-head{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--accent2);border-bottom:1px solid var(--line)}
+  .vhelp .vh-head span{flex:1}
+  .vhelp .vh-head button{border:0;background:none;color:#aaa;font-size:15px;cursor:pointer}
+  .vhelp .vh-list{overflow-y:auto;padding:10px 12px;columns:3 250px;column-gap:14px}
+  .vhelp .g{break-inside:avoid;margin-bottom:9px;padding:7px 9px 7px 10px;border-radius:9px;border-left:3px solid var(--gc);background:color-mix(in srgb, var(--gc) 9%, transparent)}
+  .vhelp h4{margin:0 0 4px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--gc);display:flex;align-items:center;gap:6px}
+  .vhelp h4 .ic{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:color-mix(in srgb, var(--gc) 22%, transparent)}
+  .vhelp .r{display:flex;gap:8px;align-items:baseline;padding:1.5px 0;font-size:12px}
+  .vhelp .r b{flex:none;white-space:nowrap;color:color-mix(in srgb, var(--gc) 55%, #fff)}
+  .vhelp .r span{color:#9a9aa6;min-width:0}
+  .vhelp.narrow .r{font-size:17px;padding:4px 0}
+  .vhelp.narrow .r span{font-size:13px}
+  .vheard{font-size:11.5px;color:var(--accent2);padding:2px 2px 0;min-height:15px}
+  .sim{display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--sub);padding:2px 0}
+  .sim button{border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--text);border-radius:999px;padding:3px 9px;font:inherit;font-size:11px;cursor:pointer}
+  .sim button:hover{border-color:var(--accent)}
   .sbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   .sbar input{flex:1 1 150px}
   .sbar input{flex:1;min-width:0;background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--text);
@@ -266,6 +284,10 @@
   kbd{font:600 10px/1 ui-monospace,monospace;padding:2px 4px;border-radius:4px;background:var(--glass2)}
 </style>
 
+<div class="vhelp" id="vhelp" hidden>
+  <div class="vh-head"><span id="vhelp-title"></span><button type="button" id="vhelp-close" title="Zavřít (Esc)">✕</button></div>
+  <div class="vh-list" id="vhelp-list"></div>
+</div>
 <div class="backdrop" id="backdrop"></div>
 <div class="shade"></div>
 
@@ -278,9 +300,10 @@
       <button class="tab" data-tab="queue"></button>
       <button class="tab" data-tab="search"></button>
     </div>
-    <button class="iconbtn" id="voicebtn" title="Hlasové ovládání zap / vyp — pak řekni „pick song“ a název, „pick stop“, „pick up“… (poslouchá otevřená aplikace)"></button>
+    <button class="iconbtn" id="voicebtn" title="Hlasové ovládání minipřehrávače zap / vyp. Řekni anglicky „pick song“ / „pick band“ / „pick playlist“ a název, pak „pick“ a název z nabídky; „pick next page“, „pick play all“, „pick next song“, „pick stop“, „pick up“."></button>
     <button class="iconbtn" id="fullbtn" title="Celá obrazovka (F)"></button>
     <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
+    <button class="iconbtn tabbtn" id="gtrbtn" hidden title="Originální kytara zap / vyp — hraje se dál (hlasem: „pick guitar on“, „pick guitar off“)">GTR</button>
     <button class="iconbtn tabbtn" id="tabbtn" title="Tab k hrající písni — jedna kytara, srovnaná s hudbou">TAB</button>
     <button class="iconbtn" id="size" title="Velikost okna: malé · se záložkami · široké"></button>
   </div>
@@ -337,8 +360,10 @@
       <div class="side-seg"><button data-side="queue">Fronta</button><button data-side="search" class="on">Hledat</button></div>
       <div class="sbar">
         <input id="sq" type="text" placeholder="Píseň nebo kapela z knihovny…" autocomplete="off">
-        <div class="seg" id="smode"><button data-m="library" class="on" title="Písně, které už máš v knihovně">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
+        <div class="seg" id="smode"><button data-m="library" class="on" title="Písně, které už máš v knihovně">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně">Složky</button><button data-m="steems" title="Písně rozdělené na stopy — hrají bez kytary, „GTR“ ji vrátí">Steems</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
       </div>
+      <div class="vheard" id="vheard" hidden></div>
+      <div class="sim" id="ssim" hidden></div>
       <div class="queue" id="sres"><div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div></div>
     </div>
   </div>
@@ -459,14 +484,8 @@ el("mute").innerHTML = icon("volume", 16);
 el("sleep").innerHTML = icon("moon", 16);
 el("voicebtn").innerHTML = icon("mic", 16);
 el("fullbtn").innerHTML = icon("full", 16);
-// The microphone is the app's: this only switches its listening on and off.
-el("voicebtn").onclick = async () => {
-  try{
-    const r = await fetch("/api/voice/remote");
-    if(r.status === 409) toast("Otevři Pick — hlas poslouchá aplikace");
-    else if(!r.ok) toast("Hlasové ovládání se nepodařilo přepnout");
-  }catch(e){ toast("Aplikace neodpovídá"); }
-};
+el("voicebtn").onclick = () => MiniVoice.toggle();
+el("gtrbtn").onclick = () => gtrSet(!GTR.on);
 const toggleFull = () => document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : document.documentElement.requestFullscreen().catch(() => toast("Celá obrazovka se nepovedla"));
 el("fullbtn").onclick = toggleFull;
 document.addEventListener("fullscreenchange", () => el("fullbtn").classList.toggle("on", !!document.fullscreenElement));
@@ -519,10 +538,15 @@ async function refresh(){
     LP.active = false; toast("Hraje aplikace");
   }
   R = {live: rlive, playing: rplaying};
-  const listening = !!s && !s.stale && !!s.voice;
-  if(el("voicebtn").classList.contains("on") !== listening){
-    el("voicebtn").classList.toggle("on", listening);
-    if(listening) toast("Poslouchám — řekni „pick song“ a název");
+  MiniVoice.first(!!s && !s.stale && !!s.voice);
+  // A song the app handed over ("play in mini"): once, also when this window only just opened.
+  if(s && s.mini && s.mini.seq && store.get("playseq", 0) !== s.mini.seq){
+    store.set("playseq", s.mini.seq);
+    lpPlayList([stemTrack(s.mini.stems, s.mini.title, s.mini.artists)], 0);
+    toast("Bez kytary: " + (s.mini.title || s.mini.stems));
+    // The whole picture for playing along: video, text and the tab.
+    if(mode === "compact") setSize("wide");
+    if(!TB.on) el("tabbtn").click();
   }
   if(LP.active) Object.assign(S, lpState());
   else if(rlive){
@@ -881,7 +905,7 @@ async function loadLyrics(){
 el("lyrics").addEventListener("wheel", () => { userScrollAt = Date.now(); }, {passive: true});
 
 function syncLyrics(){
-  if(!shown("lyrics") || !lyricEls.length) return;
+  if(!shown("lyrics") || !lyricEls.length || !lyrics || !lyrics.lines) return;   // between two songs there is no text for a moment
   const ms = (nowPos() - lyrOffset()) * 1000 + 150;
   const L = lyrics.lines;
   let i = -1;
@@ -990,6 +1014,41 @@ function lpState(){
     duration: yt ? (LP.yt.dur || t.duration || 0) : (isFinite(a.duration) ? a.duration : (t.duration || 0)), at: Date.now() / 1000,
     videoId: t.videoId || null, key: t.key || null, relPath: t.relPath || null, live: true};
 }
+// A song separated in Steems plays here as the band without its guitar, and
+// the guitar beside it on a second player kept in step — so "guitar on" and
+// "guitar off" change what is heard without anything stopping.
+const stemTrack = (name, title, artists, duration) => ({key: "stems:" + name, stems: name, title: title || name, artists: artists || "",
+  duration: duration || 0, dur: duration ? fmt(duration) : ""});
+const GTR = {audio: new Audio(), on: false, has: false};
+GTR.audio.preload = "auto";
+function gtrPaint(){
+  const b = el("gtrbtn");
+  b.hidden = !(LP.track && LP.track.stems && GTR.has);
+  b.classList.toggle("on", GTR.on);
+}
+function gtrSet(on){
+  if(!(LP.track && LP.track.stems)){ toast("Kytaru jde zapínat jen u písně ze Steems"); return; }
+  if(!GTR.has){ toast("Tahle píseň nemá kytaru zvlášť"); return; }
+  GTR.on = on; GTR.audio.muted = !on; gtrPaint();
+  toast(on ? "Originální kytara zapnutá" : "Bez kytary");
+}
+function gtrFollow(hard){
+  const a = LP.audio, g = GTR.audio;
+  if(!GTR.has || !g.src) return;
+  g.volume = a.volume; g.playbackRate = a.playbackRate;
+  // Out of step by more than a thirtieth of a second: put it back (a touch ahead, for the time the jump itself takes).
+  if(hard || Math.abs(g.currentTime - a.currentTime) > 0.03){ try{ g.currentTime = a.currentTime + (hard ? 0 : 0.012); }catch(e){} }
+  if(a.paused !== g.paused){ a.paused ? g.pause() : g.play().catch(() => {}); }
+}
+["play", "pause", "seeked", "ratechange", "volumechange"].forEach(ev => LP.audio.addEventListener(ev, () => gtrFollow(ev === "seeked" || ev === "play")));
+setInterval(() => { if(!LP.audio.paused) gtrFollow(false); }, 300);
+GTR.audio.addEventListener("error", () => { GTR.has = false; gtrPaint(); });
+GTR.audio.addEventListener("loadedmetadata", () => { GTR.has = true; gtrPaint(); gtrFollow(true); });
+function gtrLoad(t){
+  GTR.audio.pause(); GTR.has = false; GTR.on = false; GTR.audio.muted = true;
+  if(t && t.stems) GTR.audio.src = `/api/stems/${encodeURIComponent(t.stems)}/guitar`; else GTR.audio.removeAttribute("src");
+  gtrPaint();
+}
 async function lpPlayList(list, idx){
   LP.list = list.slice(); return lpPlay(idx);
 }
@@ -1002,7 +1061,9 @@ async function lpPlay(i){
   if(R.playing) sendRemote("pause");          // never two at once
   refresh();
   let src = null;
-  if(t.relPath) src = `/api/library/stream?rel=${encodeURIComponent(t.relPath)}`;
+  gtrLoad(t);
+  if(t.stems) src = `/api/stems/${encodeURIComponent(t.stems)}/backing?without=guitar`;
+  else if(t.relPath) src = `/api/library/stream?rel=${encodeURIComponent(t.relPath)}`;
   else{
     let id = t.videoId;
     if(!id){
@@ -1118,11 +1179,11 @@ function renderSearch(){
     wireTracks(box, pl.tracks);
     return;
   }
-  const local = srch.mode === "library" || srch.mode === "folders";
+  const local = srch.mode === "library" || srch.mode === "folders" || srch.mode === "steems";
   if(!srch.q && !local){ box.innerHTML = '<div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div>'; return; }
   if(srch.busy){ box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám…</div>'; return; }
   if(!srch.list.length){ box.innerHTML = '<div class="empty">Nic se nenašlo.</div>'; return; }
-  if(srch.mode === "songs" || srch.mode === "library"){
+  if(srch.mode === "songs" || srch.mode === "library" || srch.mode === "steems"){
     box.innerHTML = srch.list.map(trackRow).join("") + (srch.more ? `<div class="empty">…a dalších ${srch.more}. Napiš kus názvu nebo kapely.</div>` : "");
     wireTracks(box, srch.list); return;
   }
@@ -1130,8 +1191,13 @@ function renderSearch(){
     <div class="th" style="${p.thumbnail ? `background-image:url('${esc(thumbUrl(p.thumbnail))}')` : ""}">${p.thumbnail ? "" : icon(p.tracks ? "folder" : "list", 16)}</div>
     <div class="m"><b>${esc(p.title || "—")}</b><span>${esc(p.author || "Playlist")}</span></div>
     <div class="acts"><button data-plplay="${i}" title="Přehrát celý">▶</button></div></div>`).join("");
-  const open = async (i, play) => {
+  box.querySelectorAll("[data-plplay]").forEach(b => b.onclick = (e) => { e.stopPropagation(); plOpen(+b.dataset.plplay, true); });
+  box.querySelectorAll(".qi[data-pl]").forEach(r => r.onclick = () => plOpen(+r.dataset.pl, false));
+}
+async function plOpen(i, play){
+    const box = el("sres");
     const p = srch.list[i];
+    if(!p) return;
     if(p.tracks){                         // a folder of the library: its songs are already here
       srch.pl = {title: p.title, tracks: p.tracks};
       renderSearch();
@@ -1147,9 +1213,6 @@ function renderSearch(){
       renderSearch();
       if(play && tracks.length) lpPlayList(tracks, 0);
     }catch(e){ toast("Playlist se nepodařilo načíst"); srch.pl = null; renderSearch(); }
-  };
-  box.querySelectorAll("[data-plplay]").forEach(b => b.onclick = (e) => { e.stopPropagation(); open(+b.dataset.plplay, true); });
-  box.querySelectorAll(".qi[data-pl]").forEach(r => r.onclick = () => open(+r.dataset.pl, false));
 }
 // What is already in the library — its songs, and the folders they sit in
 // (a downloaded playlist or a discography is a folder).
@@ -1166,6 +1229,19 @@ const plain = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/
 async function runSearch(){
   const q = el("sq").value.trim();
   srch.q = q; srch.pl = null; srch.more = 0;
+  if(srch.mode === "steems"){
+    const my = ++srch.token;
+    srch.busy = true; renderSearch();
+    let all = [];
+    try{ all = (await (await fetch("/api/stems")).json()).filter(x => (x.stems || []).some(st => !/^take-|^midi/.test(st))); }catch(e){}
+    if(my !== srch.token) return;
+    const w = plain(q).split(/\s+/).filter(Boolean);
+    srch.list = all.map(x => stemTrack(x.name, (x.meta && x.meta.title) || x.name, (x.meta && x.meta.artist) || "", x.duration))
+      .filter(t => w.every(k => plain(t.title + " " + t.artists).includes(k)))
+      .sort((a, b) => (a.artists || "~").localeCompare(b.artists || "~", "cs") || a.title.localeCompare(b.title, "cs"));
+    srch.busy = false; renderSearch();
+    return;
+  }
   if(srch.mode === "library" || srch.mode === "folders"){
     const my = ++srch.token;
     srch.busy = true; renderSearch();
@@ -1207,7 +1283,7 @@ el("sq").addEventListener("input", () => { clearTimeout(srch.timer); srch.timer 
 el("sq").addEventListener("keydown", (e) => { if(e.key === "Enter"){ clearTimeout(srch.timer); runSearch(); } e.stopPropagation(); });
 document.querySelectorAll("#smode button").forEach(b => b.onclick = () => {
   srch.mode = b.dataset.m;
-  el("sq").placeholder = srch.mode === "library" ? "Píseň nebo kapela z knihovny…" : srch.mode === "folders" ? "Složka nebo playlist z knihovny…" : "Hledat písničku, kapelu nebo playlist…";
+  el("sq").placeholder = srch.mode === "steems" ? "Rozdělená píseň — hraje bez kytary…" : srch.mode === "library" ? "Píseň nebo kapela z knihovny…" : srch.mode === "folders" ? "Složka nebo playlist z knihovny…" : "Hledat písničku, kapelu nebo playlist…";
   document.querySelectorAll("#smode button").forEach(x => x.classList.toggle("on", x === b));
   runSearch();
 });
@@ -1628,6 +1704,233 @@ try{
     }
   }
 }catch(e){}
+// --------------------------------------------------------------- voice
+// The mini player listens by itself, and while it does the app's window steps
+// back (the server lets one window listen at a time, this one first). The
+// same recogniser as the app's: "pick" and a command. What is said after
+// "pick song / band / playlist" is searched for here and the finds are listed;
+// a title from the list, said after "pick", is the choice.
+const MiniVoice = (() => {
+  const WORKLET = `registerProcessor("pick-voice", class extends AudioWorkletProcessor {
+    constructor(o){ super(); this.ch = (o.processorOptions && o.processorOptions.ch) || 0; }
+    process(inputs){ const i = inputs[0], c = i && (i[this.ch] || i[0]); if(c) this.port.postMessage(c.slice(0)); return true; } });`;
+  let on = false, stream = null, actx = null, node = null, parts = [], held = 0, chain = Promise.resolve(), decided = false, similar = [];
+  const paint = () => el("voicebtn").classList.toggle("on", on);
+  const heard = (t) => { const h = el("vheard"); h.textContent = t; h.hidden = !t; };
+
+  function flush(){
+    const all = new Int16Array(held);
+    let o = 0;
+    for(const p of parts) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
+    parts = []; held = 0;
+    if(deaf) return;
+    chain = chain.then(() => on ? fetch("/api/voice/feed?who=mini" + (helpOn ? "&menu=1" : ""), {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
+      .then(r => r && r.ok ? r.json() : null).then(r => { if(r && r.heard) got(r).catch(() => {}); }).catch(() => {});
+  }
+  async function start(){
+    if(on) return;
+    try{
+      const r = await fetch("/api/voice/start?who=mini", {method: "POST"});
+      if(!r.ok){ const d = await r.json().catch(() => ({})); throw new Error(d.error || "Hlasové ovládání se nespustilo."); }
+      let dev = "", ch = "";
+      try{ dev = localStorage.getItem("pick-voice-mic") || ""; ch = localStorage.getItem("pick-voice-ch") || ""; }catch(e){}
+      stream = await navigator.mediaDevices.getUserMedia({audio: ch
+        ? {deviceId: dev ? {exact: dev} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}
+        : {deviceId: dev ? {exact: dev} : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      const got2 = stream.getAudioTracks()[0].getSettings().channelCount || 1;
+      actx = new AudioContext({sampleRate: 16000});
+      const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
+      await actx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit",
+        channelInterpretation: "discrete", processorOptions: {ch: ch === "2" && got2 > 1 ? 1 : 0}});
+      node.port.onmessage = (e) => { parts.push(e.data); held += e.data.length; if(held >= 4000) flush(); };
+      actx.createMediaStreamSource(stream).connect(node);
+      if(actx.state === "suspended"){ const c = actx, wake = () => { c.resume().catch(() => {}); removeEventListener("pointerdown", wake, true); }; c.resume().catch(() => {}); addEventListener("pointerdown", wake, true); }
+      on = true; parts = []; held = 0;
+      toast("Poslouchám — „pick song“, „pick band“, „pick playlist“ a název");
+    }catch(e){
+      stop();
+      toast(e.name === "NotAllowedError" ? "Mikrofon není povolený" : (e.message || "Mikrofon se nepodařilo otevřít"));
+    }
+    paint();
+  }
+  function stop(){
+    const was = on;
+    on = false;
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    if(actx) actx.close().catch(() => {});
+    stream = actx = node = null; parts = []; held = 0;
+    if(was) fetch("/api/voice/stop?who=mini", {method: "POST", keepalive: true}).catch(() => {});
+    paint();
+  }
+  function toggle(){ decided = true; store.set("voice", !on); on ? stop() : start(); }
+  // Opened: listen when it was left listening, or — never switched here yet — when the app is.
+  function first(appListens){
+    if(decided) return;
+    decided = true;
+    const pref = store.get("voice", null);
+    if(pref === true || (pref === null && appListens)) start();
+  }
+  addEventListener("pagehide", () => { if(on) stop(); });
+
+  // ---- what a command does here
+  function showSearch(){
+    if(mode === "compact"){ setSize("wide"); }
+    if(mode === "wide" || innerWidth >= 720) setSide("search"); else showTab("search");
+  }
+  function setMode(m){
+    srch.mode = m;
+    document.querySelectorAll("#smode button").forEach(x => x.classList.toggle("on", x.dataset.m === m));
+  }
+  async function search(m, q){
+    showSearch(); setMode(m);
+    el("sq").value = q;
+    clearTimeout(srch.timer);
+    await runSearch();
+    return srch.list.length;
+  }
+  function paintSimilar(of){
+    const box = el("ssim");
+    box.hidden = !similar.length;
+    box.innerHTML = similar.length ? `<span>Podobné jako ${esc(of)}:</span>` + similar.map((n, i) => `<button type="button" data-sim="${i}">${esc(n)}</button>`).join("") : "";
+    box.querySelectorAll("[data-sim]").forEach(b => b.onclick = () => band(similar[+b.dataset.sim]));
+  }
+  async function song(name){
+    similar = []; paintSimilar("");
+    let n = await search("library", name);
+    if(!n) n = await search("songs", name);            // not in the library: the internet
+    if(!n){ toast(`„${name}“ jsem nenašel`); return; }
+    if(n === 1){ lpPlayList(srch.list, 0); toast("Hraju: " + srch.list[0].title); return; }
+    toast(`${n} písní — řekni „pick“ a název, nebo „pick play all“`);
+  }
+  async function band(name){
+    similar = []; paintSimilar("");
+    let n = await search("library", name);
+    if(!n) n = await search("songs", name);
+    toast(n ? `${name}: ${n} písní — „pick“ a název, nebo „pick play all“` : `Kapelu „${name}“ jsem nenašel`);
+    // Who else sounds like this — from the artist's page.
+    try{
+      const a = await (await fetch("/api/artist?name=" + encodeURIComponent(name))).json();
+      similar = (a.related || []).map(r => r.name).filter(Boolean).slice(0, 8);
+      paintSimilar(a.name || name);
+    }catch(e){}
+  }
+  async function playlist(name){
+    similar = []; paintSimilar("");
+    const n = await search("playlists", name);
+    toast(n ? `${n} playlistů — řekni „pick“ a název playlistu` : `Playlist „${name}“ jsem nenašel`);
+  }
+  // A title said after "pick": which of the things on screen it was.
+  async function choose(said){
+    if(!shown("search")) return false;
+    const inPl = !!srch.pl, rows = inPl ? srch.pl.tracks : srch.list;
+    const names = rows.map(x => x.title || "").concat(similar);
+    if(!names.length) return false;
+    const r = await (await fetch("/api/voice/best", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({query: said, names})})).json();
+    if(r.index === null || r.index === undefined) return false;
+    if(r.index >= rows.length){ await band(similar[r.index - rows.length]); return true; }
+    if(inPl || srch.mode === "songs" || srch.mode === "library" || srch.mode === "steems"){ lpPlayList(rows, r.index); toast("Hraju: " + rows[r.index].title); }
+    else{ await plOpen(r.index, false); toast(`${rows[r.index].title} — řekni „pick“ a název písně, nebo „pick play all“`); }
+    return true;
+  }
+  // ---- the prompter ("pick help"): what can be said here, by kind. It stays
+  // until a command is chosen or "nothing" is said; while it is up a command
+  // needs no "pick" and one word narrows it.
+  const GROUPS = [
+    ["Přehrávání", /^(play|pause|rewind|next|prev)$/, "#1ed760", "play"],
+    ["Hledání", /^find:(song|band|playlist)/, "#4aa8ff", "search"],
+    ["Nabídka a seznam", /^(page|playall|back|help|nothing)/, "#ffd84a", "list"],
+    ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
+    ["Kytara", /^gtr/, "#ff5c8a", "note"],
+    ["Ostatní", /^(song|playlist)$/, "#a8b0c0", "disc"]];
+  let helpOn = false, helpRows = [], helpMiss = 0;
+  function helpPaint(filter){
+    const f = (filter || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let rows = helpRows.filter(c => GROUPS.some(g => g[1].test(c.id)));          // only what this window can do
+    rows = rows.filter(c => f.every(w => c.say.toLowerCase().split(/[^a-z<>]+/).includes(w)));
+    el("vhelp-title").textContent = f.length ? (rows.length ? `Povely se slovem „${f.join(" ")}“` : `„${f.join(" ")}“ — takový povel tu není`)
+      : "Řekni povel nebo slovo (song, page, guitar…) — „nothing“ nabídku zavře";
+    if(f.length && !rows.length) again();
+    const left = rows.slice(), html = [];
+    GROUPS.forEach(([name, re, col, ic]) => {
+      const mine = left.filter(c => re.test(c.id)); if(!mine.length) return;
+      mine.forEach(c => left.splice(left.indexOf(c), 1));
+      html.push(`<div class="g" style="--gc:${col}"><h4><span class="ic">${icon(ic, 13)}</span>${name}</h4>` +
+        mine.map(c => `<div class="r"><b>${esc(c.say.replace(/^pick /, ""))}</b><span>${esc(c.does.replace(/ ?\(minipřehrávač\)/, ""))}</span></div>`).join("") + `</div>`);
+    });
+    if(!f.length) html.push(`<div class="g" style="--gc:#b784ff"><h4><span class="ic">${icon("mic", 13)}</span>Výběr z nabídky</h4><div class="r"><b>pick &lt;název&gt;</b><span>píseň, playlist nebo podobná kapela, která je vypsaná</span></div></div>`);
+    el("vhelp-list").innerHTML = html.join("");
+    el("vhelp").classList.toggle("narrow", f.length > 0);
+  }
+  async function helpOpen(){
+    if(!helpRows.length){ try{ helpRows = (await (await fetch("/api/voice/commands")).json()).commands; }catch(e){} }
+    helpOn = true; el("vhelp").hidden = false; helpPaint("");
+  }
+  function helpClose(){ helpOn = false; el("vhelp").hidden = true; }
+  el("vhelp-close").onclick = helpClose;
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
+
+  // Meant for Pick and not understood: said aloud, and not listened to while it is said.
+  let deaf = false;
+  function again(){
+    if(!window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance("Again!");
+    u.lang = "en-US";
+    deaf = true;
+    const done = () => setTimeout(() => { deaf = false; parts = []; held = 0; }, 350);
+    u.onend = u.onerror = done; setTimeout(done, 2500);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+  async function got(r){
+    heard("slyšel jsem: " + r.heard + (r.said && !r.command ? " („" + r.said + "“)" : ""));
+    const cmd = r.command;
+    if(cmd === "help"){ helpOpen(); return; }
+    if(cmd === "nothing"){ helpClose(); return; }
+    if(!cmd){
+      if(r.filter !== undefined && helpOn){ helpPaint(r.filter); return; }
+      if(r.said && await choose(r.said)){ helpClose(); return; }
+      if(r.said) toast(`„${r.said}“ v nabídce není`);
+      if(r.said || r.again){
+        if(helpOn && performance.now() - helpMiss < 6000) return;      // a talking room: told "again" now and then, not every time
+        helpMiss = performance.now(); again();
+      }
+      return;
+    }
+    helpClose();
+    if(cmd.startsWith("custom:")){ toast("Vlastní povely umí jen aplikace"); return; }
+    const [what, arg] = cmd.split(":");
+    if(what === "find"){
+      const name = r.name || (r.find && (r.find.query || (r.find.track && r.find.track.title) || r.find.artist)) || "";
+      if(!name){ toast("Nerozuměl jsem názvu"); return; }
+      if(arg === "band") return band(name);
+      if(arg === "playlist") return playlist(name);
+      return song(name);
+    }
+    if(what === "next" || what === "prev"){ send(what); return; }
+    if(what === "play"){ send("play"); if(!S.playing && !LP.track) send("playpause"); return; }
+    if(what === "pause"){ send("pause"); return; }
+    if(what === "rewind"){ send("seek", 0); return; }
+    if(what === "up" || what === "down" || what === "louder" || what === "quieter"){
+      const db = what === "louder" ? 3 : what === "quieter" ? -3 : 3 * (+arg || 1) * (what === "up" ? 1 : -1);
+      const v = S.volume > 0 ? S.volume * Math.pow(10, db / 20) : (db > 0 ? 0.05 : 0);
+      send("volume", Math.max(0, Math.min(1, v < 0.01 ? 0 : v)));
+      toast(`hlasitost ${db > 0 ? "+" : "−"}${Math.abs(db)} dB`); return;
+    }
+    if(what === "gtr"){ gtrSet(arg === "on"); return; }
+    if(what === "page"){ const b = el("sres"); b.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * b.clientHeight, behavior: "smooth"}); return; }
+    if(what === "playall"){
+      const rows = srch.pl ? srch.pl.tracks : (srch.mode === "songs" || srch.mode === "library" || srch.mode === "steems" ? srch.list : []);
+      if(rows.length){ lpPlayList(rows, 0); toast(`Hraju vše (${rows.length})`); } else toast("Není co přehrát — nejdřív něco vyhledej");
+      return;
+    }
+    if(what === "back"){ if(srch.pl){ srch.pl = null; renderSearch(); } return; }
+    if(what === "playlist"){ showSearch(); setMode("folders"); el("sq").value = ""; await runSearch(); toast("Složky a playlisty v knihovně — řekni „pick“ a název"); return; }
+    if(what === "song"){ const all = await libSongs(); if(all.length){ const i = Math.floor(Math.random() * all.length); lpPlayList([all[i]], 0); toast("Hraju: " + all[i].title); } return; }
+    toast("Tenhle povel umí jen aplikace");
+  }
+  return {start, stop, toggle, first, isOn: () => on, got, choose};
+})();
+
 runSearch();          // the library, there as soon as the search opens
 refresh();
 setInterval(refresh, 700);

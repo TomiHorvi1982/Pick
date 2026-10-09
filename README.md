@@ -112,6 +112,27 @@ nedovolí, ten je na tlačítku v horní liště a v minipřehrávači (klávesa
 Minipřehrávač má v Hledat i **Knihovnu** a **Složky** (hraje je sám) a mikrofon,
 který přepíná poslouchání aplikace.
 
+Minipřehrávač poslouchá sám (mikrofon v jeho liště; při otevření se zapne, když
+poslouchala aplikace, nebo když v něm zůstal zapnutý). Poslouchá vždy jen jedno
+okno a minipřehrávač má přednost: aplikace ustoupí a vrátí se pár vteřin poté,
+co minipřehrávač zmlkne. „pick song / band / playlist <název>“ v něm hledá
+(knihovna, jinak internet) a nálezy vypíše; název z nabídky řečený po „pick“ je
+výběr (`/api/voice/best`). „pick next page“, „pick play all“, „pick back“,
+„pick next song“. U kapely se ukážou podobné (z profilu interpreta).
+
+„pick play in mini“ pošle hrající píseň do minipřehrávače (rozdělí ji, když ve
+Steems není): hraje tam doprovod bez kytary (`/api/stems/<píseň>/backing`) a
+kytara vedle něj na druhém přehrávači drženém v kroku, takže „pick guitar on /
+off“ (nebo tlačítko GTR) ji přidá a ubere bez zastavení. Rozdělené písně jsou
+v minipřehrávači i v Hledat → Steems. V aplikaci: „pick tabs“, „pick lyrics“,
+„pick mixer“.
+
+„pick help“ ukáže nabídku povelů (v aplikaci i v minipřehrávači). Zůstane,
+dokud si nevybereš nebo neřekneš „nothing“; dokud je na obrazovce, povel se
+říká bez „pick“ a jedno slovo ze slovníku nabídku zúží
+(„guitar“). Čemu Pick nerozuměl, ačkoli to bylo na něj, na to odpoví nahlas
+„Again!“ — a po tu dobu neposlouchá, aby neslyšel sám sebe.
+
 Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zvenku
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
