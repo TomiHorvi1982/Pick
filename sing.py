@@ -128,8 +128,9 @@ def melody(vocals_path):
     return {"version": VERSION, "duration": round(len(x) / RATE, 2), "notes": notes}
 
 
-def melody_cached(stems_dir, vocals_path, refresh=False):
-    """The song's melody from melody.json beside its stems, computed when missing."""
+def melody_cached(stems_dir, vocals_path, refresh=False, only_cached=False):
+    """The song's melody from melody.json beside its stems, computed when missing
+    (only_cached: not computed — None when it is not there yet)."""
     cache = Path(stems_dir) / "melody.json"
     if not refresh:
         try:
@@ -138,6 +139,8 @@ def melody_cached(stems_dir, vocals_path, refresh=False):
                 return got
         except (OSError, ValueError):
             pass
+    if only_cached:
+        return None
     got = melody(vocals_path)
     got["source_mtime"] = Path(vocals_path).stat().st_mtime
     tmp = cache.with_suffix(".tmp")

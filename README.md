@@ -120,6 +120,20 @@ co minipřehrávač zmlkne. „pick song / band / playlist <název>“ v něm hl
 výběr (`/api/voice/best`). „pick next page“, „pick play all“, „pick back“,
 „pick next song“. U kapely se ukážou podobné (z profilu interpreta).
 
+Hledat v minipřehrávači začíná seznamem **Steems** (písně připravené na
+cvičení). Seznamy se přepínají hlasem: „pick stems list“, „pick library“, „pick
+folders“, „pick internet“, „pick playlists“, „pick next list“ / „pick previous
+list“. „pick play <název>“ pustí píseň toho jména — nejdřív z toho, co je
+vypsané, pak ze seznamu, který je vybraný, a když tam není, z ostatních (Steems
+→ knihovna → internet; řekne odkud). „pick find playlist <název>“ vypíše
+playlisty (složky v knihovně i z internetu), „pick play <název> playlist“ jeden
+otevře, pak „pick play <název písně>“ nebo „pick play all“.
+
+„pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
+songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
+`GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu
+stáhne do Songs, rozdělí na stopy. Běží to na serveru, okno může být zavřené.
+
 „pick play in mini“ pošle hrající píseň do minipřehrávače (rozdělí ji, když ve
 Steems není): hraje tam doprovod bez kytary (`/api/stems/<píseň>/backing`) a
 kytara vedle něj na druhém přehrávači drženém v kroku, takže „pick guitar on /
@@ -158,6 +172,29 @@ s textem (správně / špatně / vynecháno) — pozná slova, ne výslovnost, a
 se plete víc než u řeči. Dozpívaný pokus se uloží do `sing-history.json` u stop;
 nejhorší řádky jdou pustit ve smyčce znovu. Mikrofon a vstup zvukovky se berou
 z nastavení hlasového ovládání. Hudba patří do sluchátek.
+
+**Běžící text** (`LyricRun`): text písně jako pás, který jede pod pevnou značkou
+stejně jako taby — v trenéru pod tóny, ve Steems v pruhu TEXT (tlačítko
+„Po řádcích“ vrátí tři řádky pod sebou). Každý řádek má svou přirozenou šířku
+a pás mění rychlost: řádek přejede značku přesně za dobu, kdy se zpívá. Kdy
+zpěv řádku končí a kde se nadechuje, bere z melodie (`/api/stems/<píseň>/melody/kept`
+— jen už spočítaná, nic nepočítá); bez ní to odhadne z délky textu. Řádek, který
+nesedí, se dá na stopě Text **chytit a posunout** (mezi sousedy; uloží se
+v prohlížeči k písni, „↺ řádky“ to vrátí); „−/+“ dál posouvá celý text.
+
+**Slyšet se ve sluchátkách**: mikrofon jde do zvukového kontextu mixu a ven
+s hudbou, s efekty čistě ve Web Audio — reverb (dozvuk z vygenerovaného šumu),
+delay (slapback 115 ms), echo (380 ms se zpětnou vazbou), doubler (dvě
+rozladěné kopie vlevo a vpravo) a druhý hlas (kopie posunutá o interval,
+AudioWorklet `pick-shift`). Hodnotí se pořád holý mikrofon, efekty na výsledek
+nemají vliv. Jen se sluchátky.
+
+**Mikrofon a nahrávka**: posuvník „mikrofon“ zesílí vstup až o 30 dB (pro
+hodnocení, nahrávku i sluchátka), vedle něj ukazatel úrovně. Se zaškrtnutým
+„nahrát do stopy“ se dozpívaný pokus (aspoň 8 s, ne smyčka jednoho řádku) uloží
+jako běžná nahraná stopa `take-N` s názvem „Můj zpěv …“ — bez efektů, zarovnaná
+na píseň přes `playLog` jako nahrávky kytary. Stopa je po uložení ztlumená;
+tlačítka „já / originál / oba / já s kapelou“ ve výsledku ji pustí k porovnání.
 
 ## Asistent
 

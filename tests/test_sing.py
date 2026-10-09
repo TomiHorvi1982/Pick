@@ -88,7 +88,11 @@ def _song(root, name="Zkouska"):
 @needs_ffmpeg
 def test_a_songs_melody_is_computed_once_and_kept(client, tmp_music_root):
     d = _song(tmp_music_root)
+    assert client.get("/api/stems/Zkouska/melody/kept").json() == {"notes": []}
+    assert not (d / "melody.json").exists()                  # asking for the kept one computes nothing
     r = client.get("/api/stems/Zkouska/melody").json()
+    assert client.get("/api/stems/Zkouska/melody/kept").json()["notes"] == r["notes"]
+    assert client.get("/api/stems/Neni/melody/kept").json() == {"notes": []}
     assert [round(n[2]) for n in r["notes"]] == [57, 60]
     assert (d / "melody.json").exists()
     (d / "melody.json").write_text((d / "melody.json").read_text().replace("57.0", "58.0"))

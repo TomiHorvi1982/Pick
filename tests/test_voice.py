@@ -494,3 +494,32 @@ def test_the_menu_bar_listening_is_remembered(client, monkeypatch):
     client.post("/api/voice/widget", json={"on": False})
     assert voice.widget_config()["on"] is False and voice.widget_config()["channel"] == "2"
     assert voice.match("pick open") == "open" and voice.match("pick open in mini") == "tomini"
+
+
+def test_play_with_a_name_picks_a_song_or_a_playlist():
+    # "play" alone and its own phrases stay what they were…
+    assert voice.match("pick play") == "play"
+    assert voice.match("pick play all") == "playall"
+    assert voice.match("pick play mix") == "mixplay"
+    assert voice.match("pick play in mini") == "tomini"
+    # …a name after it is a song of the list that is on, "playlist" after the name a playlist.
+    assert voice.match("pick play [unk] [unk]") == "find:play"
+    assert voice.match("pick play [unk] playlist") == "find:open"
+    assert voice.match("pick find playlist [unk]") == "find:playlist"
+    assert voice.match("pick play [unk]", [0.9, 0.5, 0.2]) is None          # "play" itself was not clear
+    assert voice.interpret("Pick play Wait and Bleed.", [], None) == ("find", "play", "Wait and Bleed")
+    assert voice.interpret("Pick, play Metallica playlist", [], "play") == ("find", "open", "Metallica")
+    assert voice.interpret("Pick find playlist heavy metal", [], "playlist") == ("find", "playlist", "heavy metal")
+    assert voice.interpret("Pick play.", [], "play") == ("command", "play")
+    assert voice.interpret("Wait and bleed", [], "play") == ("find", "play", "Wait and bleed")
+
+
+def test_lists_are_switched_and_the_song_is_saved():
+    assert voice.match("pick library") == "list:library"
+    assert voice.match("pick stems list") == "list:steems"
+    assert voice.match("pick internet") == "list:songs"
+    assert voice.match("pick next list") == "list:+"
+    assert voice.match("pick stems") == "steems"                              # the app's Steems, as before
+    assert voice.match("pick save song") == "save"
+    says = {r["say"] for r in voice.help_rows()}
+    assert {"pick play <název>", "pick play <název> playlist", "pick find playlist <název>", "pick save song"} <= says

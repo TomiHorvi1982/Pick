@@ -6002,6 +6002,141 @@ def separate_playlist(req: StemsPlaylistRequest):
     return {"queued": queued, "ready": ready, "folder": str(folder.relative_to(MUSIC_ROOT))}
 
 
+# ---- "pick save song": a song kept for practice. Whatever it takes to have
+# it ready is done here, one step after another, with no window needed: its tab
+# looked up (into Pick Tabs), its text looked up, the song downloaded when it
+# is not in the library yet, and separated into stems.
+_SAVES: dict = {}
+_SAVES_LOCK = threading.Lock()
+_SAVES_KEEP = 30
+
+
+class SaveSongRequest(BaseModel):
+    title: str
+    artists: str = ""
+    videoId: str = ""
+    url: str = ""
+    relPath: str = ""
+    stems: str = ""
+    duration: float = 0
+    bitrate: str = "192k"
+    format: str = "mp3"           # of the stems
+    mp3_bitrate: int = 320
+    cookies_browser: Optional[str] = None
+    cookie_file: Optional[str] = None
+
+
+def _save_library_rel(artist: str, title: str) -> Optional[str]:
+    """The library's own copy of a song, by its name."""
+    key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
+    want_t, want_a = key(title), key(artist.split(",")[0])
+    if not want_t:
+        return None
+    loose = None
+    for e in _all_songs_flat().get("entries", []):
+        if key(e.get("title") or Path(e["name"]).stem) != want_t:
+            continue
+        have_a = key(e.get("artist") or "")
+        if not want_a or not have_a or want_a in have_a or have_a in want_a:
+            return e["rel"]
+        loose = loose or e["rel"]
+    return None if want_a else loose
+
+
+def _save_download(req: SaveSongRequest) -> bool:
+    """The song from the internet into Songs/, the way the app's own download does it."""
+    url = req.url or (f"https://music.youtube.com/watch?v={req.videoId}" if req.videoId
+                      else f"{req.artists.split(',')[0]} - {req.title}".strip(" -"))
+    job = start_download(DownloadRequest(urls=[url], output_name="Songs", kind="songs", bitrate=req.bitrate,
+                                         cookies_browser=req.cookies_browser, cookie_file=req.cookie_file))
+    cmd = JOBS.pop(job["job_id"])["cmd"]
+    return subprocess.run(cmd, capture_output=True, timeout=900).returncode == 0
+
+
+def _save_song_run(sid: str, req: SaveSongRequest) -> None:
+    st = _SAVES[sid]
+    artist = req.artists.split(",")[0].strip()
+    try:
+        try:
+            rec = _match_song(artist, req.title)
+            if rec and int(rec["songId"]) not in {t.get("songId") for t in _pick_tabs()}:
+                _picktab_upsert(_rec_to_tab(rec, "Oblíbené songy"))
+            st["tabs"] = bool(rec)
+        except Exception:                                  # noqa: BLE001 — no tab is not a failed save
+            st["tabs"] = False
+        try:
+            got = _lookup_lyrics(req.title, artist, "", req.duration or None, req.videoId)
+            st["lyrics"] = bool(got and (got.get("lines") or got.get("plain")))
+        except Exception:                                  # noqa: BLE001
+            st["lyrics"] = False
+        if req.stems and _stems_ready(req.stems):
+            st.update(state="ready", stems=req.stems)
+            return
+        src = _resolve_under_music_root(req.relPath) if req.relPath else None
+        rel = req.relPath if src is not None and src.is_file() else _save_library_rel(artist, req.title)
+        if not rel:
+            st["state"] = "downloading"
+            before = {e["rel"] for e in _all_songs_flat().get("entries", [])}
+            if not _save_download(req):
+                st.update(state="error", error="Stažení se nepovedlo.")
+                return
+            rel = _save_library_rel(artist, req.title)
+            if not rel:                                    # saved under another spelling: the file that is new
+                new = [e["rel"] for e in _all_songs_flat().get("entries", []) if e["rel"] not in before]
+                rel = new[0] if len(new) == 1 else None
+            if not rel:
+                st.update(state="error", error="Píseň se stáhla, ale v knihovně jsem ji nenašel.")
+                return
+        st.update(state="separating", rel=rel)
+        res = separate_stems(StemsSeparateRequest(rel=rel, format=req.format, mp3_bitrate=req.mp3_bitrate))
+        if not isinstance(res, dict):
+            st.update(state="error", error="Rozdělení na stopy se nespustilo.")
+            return
+        st["stems"] = res["name"]
+        job = JOBS.get(res.get("job_id") or "")
+        while job is not None and job["status"] in ("queued", "running"):
+            st["progress"] = job.get("progress")
+            st["position"] = next((i + 1 for i, (jid, _) in enumerate(_stems_active_jobs()) if jid == res["job_id"]), None)
+            time.sleep(2)
+        if job is not None and job["status"] != "done":
+            st.update(state="error", error="Rozdělení na stopy selhalo.")
+            return
+        st.update(state="ready", progress=None, position=None)
+    except Exception as e:                                 # noqa: BLE001
+        st.update(state="error", error=str(e) or "Uložení selhalo.")
+    finally:
+        st["finished"] = time.time()
+
+
+def _save_public(st: dict) -> dict:
+    return {k: st.get(k) for k in ("id", "title", "artists", "state", "stems", "tabs", "lyrics", "error", "progress", "position")}
+
+
+@app.post("/api/practice/save")
+def practice_save(req: SaveSongRequest):
+    if not req.title.strip():
+        return JSONResponse({"error": "Nic nehraje."}, status_code=400)
+    key = (req.title.strip().lower(), req.artists.strip().lower())
+    with _SAVES_LOCK:
+        for st in _SAVES.values():
+            if st["key"] == key and st["state"] not in ("ready", "error"):
+                return {**_save_public(st), "already": True}
+        sid = uuid.uuid4().hex[:10]
+        _SAVES[sid] = {"id": sid, "key": key, "title": req.title, "artists": req.artists, "state": "looking",
+                       "started": time.time()}
+        for old in sorted(_SAVES, key=lambda k: _SAVES[k]["started"])[:-_SAVES_KEEP]:
+            if _SAVES[old].get("finished"):
+                del _SAVES[old]
+    threading.Thread(target=_save_song_run, args=(sid, req), name="save-song", daemon=True).start()
+    return _save_public(_SAVES[sid])
+
+
+@app.get("/api/practice/saves")
+def practice_saves():
+    with _SAVES_LOCK:
+        return {"saves": [_save_public(st) for st in sorted(_SAVES.values(), key=lambda s: s["started"])]}
+
+
 @app.get("/api/stems/{name}/backing")
 def stems_backing(name: str, without: str = "guitar", part: str = "all", request: Request = None):
     """The band without one of its parts: every stem but `without`, mixed —
@@ -6886,6 +7021,16 @@ def stems_melody(name: str, refresh: bool = False):
         return _sing.melody_cached(d, vocals, refresh)
     except Exception as e:
         return JSONResponse({"error": f"Melodii se nepodařilo spočítat ({e})."}, status_code=500)
+
+
+@app.get("/api/stems/{name}/melody/kept")
+def stems_melody_kept(name: str):
+    """The same notes, but only if they were worked out before: nothing is
+    computed here. The running lyrics ask this way on every song opened."""
+    d = _sing_dir(name)
+    vocals = _stem_file(d, "vocals") if d is not None else None
+    got = _sing.melody_cached(d, vocals, only_cached=True) if vocals is not None else None
+    return got or {"notes": []}
 
 
 @app.post("/api/sing/line")
@@ -8906,8 +9051,8 @@ def _voice_library():
 
 def voice_find(kind, name):
     """The song or band in the library that `name` means, or why not."""
-    if kind == "playlist":
-        return {"kind": "playlist", "query": name}
+    if kind in ("playlist", "open"):
+        return {"kind": kind, "query": name}
     songs, bands = _voice_library()
     if kind == "band":
         keys = sorted(bands)
@@ -9336,7 +9481,7 @@ class VoiceBest(BaseModel):
 @app.post("/api/voice/best")
 def voice_best(req: VoiceBest):
     """Which of the names on screen was said: its index, or null when none is close."""
-    i, score = _voice.best_match(req.query, req.names[:400])
+    i, score = _voice.best_match(req.query, req.names[:2000])
     return {"index": i, "score": round(score, 2)}
 
 

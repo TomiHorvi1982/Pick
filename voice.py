@@ -77,8 +77,17 @@ COMMANDS = [
     # For a list on screen — in the mini player, what a search found.
     ("page:+", ["next page"], "next page", "seznam o stránku dál (minipřehrávač)"),
     ("page:-", ["previous page"], "previous page", "seznam o stránku zpět (minipřehrávač)"),
-    ("playall", ["play all"], "play all", "přehrát celý nalezený seznam (minipřehrávač)"),
+    ("playall", ["play all", "play playlist"], "play all", "přehrát celý nalezený seznam nebo otevřený playlist (minipřehrávač)"),
     ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
+    # The lists of the mini player's search; "pick play <name>" chooses from the one that is on.
+    ("list:steems", ["stems list"], "stems list", "seznam: písně ze Steems (minipřehrávač)"),
+    ("list:library", ["library"], "library", "seznam: knihovna (minipřehrávač)"),
+    ("list:folders", ["folders"], "folders", "seznam: složky a playlisty v knihovně (minipřehrávač)"),
+    ("list:songs", ["internet"], "internet", "seznam: písně z internetu (minipřehrávač)"),
+    ("list:playlists", ["playlists"], "playlists", "seznam: playlisty z internetu (minipřehrávač)"),
+    ("list:+", ["next list", "switch"], "next list / switch", "další seznam (minipřehrávač)"),
+    ("list:-", ["previous list"], "previous list", "předchozí seznam (minipřehrávač)"),
+    ("save", ["save song", "save this"], "save song", "hrající píseň do oblíbených: stáhne se, rozdělí na stopy, najde tab a text"),
     ("open", ["open pick", "open"], "open pick / open", "otevře okno Picku (i když je zavřené a poslouchá jen lišta)"),
     ("help", ["help"], "help", "nabídka povelů — zůstane, dokud si nevybereš nebo neřekneš „nothing“"),
     ("nothing", ["nothing"], "nothing", "zavře nabídku povelů"),
@@ -108,7 +117,13 @@ for _s, _cz in SECTIONS.items():
 SLOTS = {"song": ("find:song", "song <název>", "najde píseň v knihovně a pustí ji"),
          "band": ("find:band", "band <jméno>", "najde kapelu v knihovně a pustí ji"),
          "practice": ("find:practice", "practice <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
-         "playlist": ("find:playlist", "playlist <název>", "vyhledá playlisty toho jména")}
+         "playlist": ("find:playlist", "find playlist <název>", "vyhledá playlisty toho jména")}
+# "pick play <name>": the song of that name from the list that is on; with
+# "playlist" after the name, the playlist of that name. ("pick play" alone,
+# "pick play all", "pick play mix" stay the commands they are.)
+NAMED = [("find:play", "play <název>", "pustí píseň toho jména ze seznamu, který je vybraný"),
+         ("find:open", "play <název> playlist", "otevře playlist toho jména z nalezených")]
+_PLAYLIST_WORDS = {"playlist", "playlists"}
 
 
 def _bare(words):
@@ -140,6 +155,17 @@ def match(text, confs=None, custom=None, taught=None):
         if sure and min(sure[:2]) < MIN_CONF:
             return None
         return SLOTS[words[1]][0]
+    # "pick find playlist <name>" — and "find" before any of the others.
+    if len(words) > 3 and words[1] == "find" and words[2] in SLOTS and len(words) <= 13:
+        if sure and min(sure[:3]) < MIN_CONF:
+            return None
+        return SLOTS[words[2]][0]
+    # "pick play <name>" — unless what follows "play" is a command of its own.
+    if (len(words) > 2 and words[1] == "play" and len(words) <= 12 and _bare(words[1:]) not in PHRASES
+            and not any(_bare(c["phrase"].split()) == _bare(words[1:]) for c in custom or [])):
+        if sure and min(sure[:2]) < MIN_CONF:
+            return None
+        return "find:open" if words[-1] in _PLAYLIST_WORDS and len(words) > 3 else "find:play"
     if sure and min(c for w, c in zip(words, sure) if w not in FILLERS) < MIN_CONF:
         return None
     said = _bare(words[1:])
@@ -365,7 +391,7 @@ def broken_takes(custom=None, taught=None, takes_dir=None):
 
 
 def help_rows():
-    return ([{"id": cid, "say": f"{WAKE} {say}", "does": does} for cid, say, does in SLOTS.values()]
+    return ([{"id": cid, "say": f"{WAKE} {say}", "does": does} for cid, say, does in list(SLOTS.values()) + NAMED]
             + [{"id": cid, "say": f"{WAKE} {say}", "does": does} for cid, _, say, does in COMMANDS])
 
 
@@ -395,7 +421,8 @@ def transcribe(pcm, hint="", lang="en", prompt=None):
         if prompt is None:
             # Whisper leans on what it has "just heard": sentences of the very shape
             # we expect, and a few of the library's bands for their spelling.
-            prompt = ("Pick song Wait and Bleed. Pick band Sepultura. Pick practice Duality. " + hint)[:400]
+            prompt = ("Pick song Wait and Bleed. Pick band Sepultura. Pick practice Duality. Pick play Roots. "
+                      "Pick find playlist Metal. " + hint)[:400]
         if prompt:
             cmd += ["--prompt", prompt]
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -445,9 +472,18 @@ def interpret(text, custom=None, kind=None, taught=None):
     cmd = match(" ".join([WAKE] + [w.lower() for w in words]), None, custom)
     if cmd and not cmd.startswith("find:"):
         return ("command", cmd)
+    if words[0].lower() in ("find", "fine", "search") and len(words) > 2 and words[1].lower() in _SLOT_LIKE:
+        words = words[1:]                                  # "find playlist metal" is "playlist metal"
     heard_kind = _SLOT_LIKE.get(words[0].lower())
     if heard_kind and len(words) > 1:
         return ("find", heard_kind, " ".join(words[1:]))
+    # "play <name>", "play <name> playlist" — the small recogniser said so, or whisper does.
+    if words[0].lower() in ("play", "played", "plays") and len(words) > 1:
+        words, kind = words[1:], kind if kind in ("play", "open") else "play"
+    if kind in ("play", "open"):
+        if words[-1].lower() in _PLAYLIST_WORDS and len(words) > 1:
+            return ("find", "open", " ".join(words[:-1]))
+        return ("find", "play", " ".join(words))
     # The way this user's voice reads, as they taught it.
     said, ok = _fold(text), ACTION_IDS | {"custom:" + c["id"] for c in custom or []}
     for cid, v in (taught or {}).items():
@@ -513,7 +549,7 @@ class Listener:
         self.taught = load_taught() if taught is None else taught
         self.index = taught_index(self.taught, self.custom)
         vocab = sorted({w for _, phrases, _, _ in COMMANDS for p in phrases for w in p.split()} | {WAKE} | FILLERS
-                       | set(SLOTS) | {w for c in self.custom for w in c["phrase"].split()}
+                       | set(SLOTS) | {"find"} | _PLAYLIST_WORDS | {w for c in self.custom for w in c["phrase"].split()}
                        | {w for h in self.index for w in h.split()})
         self.audio = bytearray()        # the last seconds heard, for a name said after a command
         self.fed = 0

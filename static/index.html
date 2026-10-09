@@ -2517,6 +2517,14 @@ body.lib-collapsed .pick-brand{display:none}
     font-size:11.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;cursor:pointer;border-left:1px solid var(--nm-line);box-sizing:border-box}
   .lyr-block:hover{color:#fff}
+  .lyr-block{cursor:grab;touch-action:none}
+  .lyr-block.drag{cursor:grabbing;color:#fff;background:rgba(233,185,73,.28);z-index:2}
+  .lyr-block.moved{border-left-color:#e9b949}
+  #nm-lyr-run{display:none;width:100%;height:66px;cursor:pointer}
+  .nm-lyr-lines.run #nm-lyr-run{display:block}
+  .nm-lyr-lines.run .prev,.nm-lyr-lines.run .cur,.nm-lyr-lines.run .next{display:none}
+  .lyr-dock.folded .nm-lyr-lines.run #nm-lyr-run{height:26px}
+  .lyr-float-body .nm-lyr-lines.run,.lyr-float-body .nm-lyr-lines.run #nm-lyr-run{height:100%}
   .lyr-block.cur{color:#111;background:rgba(233,185,73,.92);font-weight:700}
   .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
     display:flex;align-items:center;padding:0 7px;cursor:grab;
@@ -3644,12 +3652,23 @@ body.lib-collapsed .pick-brand{display:none}
   .sing-live.hit{color:#1ed760}.sing-live.near{color:#e8c040}.sing-live.off{color:#e5534b}
   .sing-score{margin-left:auto;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
   #sing-cv{flex:1 1 220px;min-height:200px;width:100%;display:block}
-  .sing-line{padding:8px 14px 2px;text-align:center}
-  .sing-line .done{min-height:18px;font-size:13px;color:#777}
-  .sing-line .done .ok,.sing-sum .ok{color:#1ed760}.sing-line .done .bad,.sing-sum .bad{color:#e5534b;text-decoration:underline wavy}
-  .sing-line .done .miss,.sing-sum .miss{color:#6a6a76;text-decoration:line-through}
-  .sing-line .cur{font-size:20px;font-weight:700;min-height:26px}
-  .sing-line .next{font-size:13px;color:#777;min-height:18px}
+  .sing-sum .ok{color:#1ed760}.sing-sum .bad{color:#e5534b;text-decoration:underline wavy}
+  .sing-sum .miss{color:#6a6a76;text-decoration:line-through}
+  #sing-run{flex:none;height:58px;width:100%;display:block;cursor:pointer;background:#0b0b0f;border-top:1px solid #1d1d25}
+  .sing-fx{display:flex;align-items:center;gap:6px 14px;padding:0 12px 9px;flex-wrap:wrap;font-size:12px;color:var(--nm-sub,#aaa)}
+  .sing-fx label{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+  .sing-fx .mon{color:#fff;font-weight:600}
+  .sing-fx input[type=range]{width:74px;accent-color:var(--accent,#1ed760)}
+  .sing-fx select{background:#1e1e25;color:#fff;border:1px solid #3a3a46;border-radius:6px;padding:2px 6px;font:inherit}
+  .sing-fx .lat{margin-left:auto;font-variant-numeric:tabular-nums;color:#777}
+  .sing-fx.off .fxk{opacity:.45}
+  .sing-fx .db{min-width:44px;font-variant-numeric:tabular-nums}
+  .sing-fx .meter{width:70px;height:8px;border-radius:4px;background:#22222a;overflow:hidden;display:inline-block}
+  .sing-fx .meter i{display:block;height:100%;width:0;background:#1ed760}
+  .sing-fx .meter i.hot{background:#e8c040}.sing-fx .meter i.clip{background:#e5534b}
+  .sing-sum .listen{display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap}
+  .sing-sum .listen button{border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .sing-sum .listen span{color:var(--nm-sub,#aaa)}
   .sing-msg{padding:4px 14px 8px;text-align:center;color:var(--nm-sub,#aaa);font-size:12px}
   .sing-sum,.sing-hist{padding:0 14px 10px}
   .sing-sum .big{font-size:15px;padding:6px 0}.sing-sum .big b{color:#1ed760;font-size:19px}.sing-sum .big span{color:var(--nm-sub,#aaa)}
@@ -4139,11 +4158,14 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
         <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
         <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
+        <button type="button" id="nm-lyr-reset" hidden title="Vrátit řádky, které jsi na stopě posunul, na původní časy">↺ řádky</button>
+        <button type="button" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
         <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
         <button type="button" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
       </div>
       <div class="nm-lyr-lines" id="nm-lyr-lines">
+        <canvas id="nm-lyr-run" title="Klik na řádek na něj skočí"></canvas>
         <div class="prev" id="nm-lyr-prev"></div>
         <div class="cur" id="nm-lyr-cur"></div>
         <div class="next" id="nm-lyr-next"></div>
@@ -5034,12 +5056,31 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="sing-bar">
       <button type="button" id="sing-go">● Zpívat</button>
       <label title="Originální zpěv ztichne, zbytek hraje dál. Když chceš zpívat s ním, nech vypnuté."><input type="checkbox" id="sing-mute"> bez originálního zpěvu</label>
+      <label title="Dozpívaný pokus se uloží jako nová stopa v mixu — s faderem, dá se pustit sama i s originálem, a smazat."><input type="checkbox" id="sing-rec"> nahrát do stopy</label>
       <button type="button" id="sing-unloop" hidden title="Přestat opakovat jeden úsek">zrušit smyčku</button>
       <span class="sing-live" id="sing-live"></span>
       <span class="sing-score" id="sing-score"></span>
     </div>
+    <div class="sing-fx off" id="sing-fx">
+      <label title="Zesílení mikrofonu: pro hodnocení, pro nahrávku i pro sluchátka. Ukazatel má při zpěvu chodit do zelené, do červené jen výjimečně.">mikrofon <input type="range" id="sing-fx-gain" min="0" max="30" step="1"><span id="sing-fx-gaindb" class="db"></span><span class="meter"><i id="sing-meter"></i></span></label>
+      <label class="mon" title="Tvůj hlas z mikrofonu přimíchaný do hudby, s efekty. Jen se sluchátky — z reproduktorů by to začalo pískat."><input type="checkbox" id="sing-mon"> slyšet se ve sluchátkách</label>
+      <label class="fxk" title="Jak hlasitě se slyšíš">hlas <input type="range" id="sing-fx-vol" min="0" max="150"></label>
+      <label class="fxk" title="Hotová nastavení efektů">zvuk <select id="sing-fx-preset">
+        <option value="clean">čistý</option><option value="room">místnost</option><option value="hall">sál</option>
+        <option value="slap">slapback</option><option value="stadium">stadion</option><option value="double">dvojitý hlas</option>
+        <option value="choir">sbor</option><option value="own">vlastní</option></select></label>
+      <label class="fxk" title="Dozvuk prostoru">reverb <input type="range" id="sing-fx-rev" min="0" max="100"></label>
+      <label class="fxk" title="Jedno krátké zopakování těsně za hlasem (slapback)">delay <input type="range" id="sing-fx-dly" min="0" max="100"></label>
+      <label class="fxk" title="Ozvěna, která se opakuje a doznívá">echo <input type="range" id="sing-fx-echo" min="0" max="100"></label>
+      <label class="fxk" title="Dvě jemně rozladěné kopie hlasu vlevo a vpravo — jako by zpívali dva">doubler <input type="range" id="sing-fx-dbl" min="0" max="100"></label>
+      <label class="fxk" title="Kopie tvého hlasu posunutá o interval — zpívá s tebou">druhý hlas <select id="sing-fx-int">
+        <option value="-12">o oktávu níž</option><option value="12">o oktávu výš</option><option value="7">o kvintu výš</option>
+        <option value="-5">o kvartu níž</option><option value="4">o tercii výš</option></select>
+        <input type="range" id="sing-fx-harm" min="0" max="100"></label>
+      <span class="lat" id="sing-fx-lat"></span>
+    </div>
     <canvas id="sing-cv"></canvas>
-    <div class="sing-line" id="sing-line"></div>
+    <canvas id="sing-run" title="Text běží pod značkou stejně jako tóny nad ním. Klik na řádek na něj skočí."></canvas>
     <div class="sing-msg" id="sing-msg"></div>
     <div class="sing-sum" id="sing-sum"></div>
     <div class="sing-hist" id="sing-hist"></div>
@@ -6574,6 +6615,8 @@ const FavSongs = (() => {
     b.setAttribute("aria-label", b.title);
   }
   function remove(favKey){ save(list().filter(x => x.favKey !== favKey)); refreshHomeRail(); syncBtn(); }
+  // The mini player's star writes the same list.
+  window.addEventListener("storage", (e) => { if(e.key === FAV_SONGS_KEY){ try{ refreshHomeRail(); syncBtn(); }catch(err){} } });
   return {list, has, toggle, syncBtn, remove};
 })();
 
@@ -14242,10 +14285,45 @@ const Mixer = (() => {
   let lyricsOn = false;
   let lyricsOffset = 0;     // seconds the text is shifted against the singing
   let lyricsIdx = -2;
+  let lyricShift = {};      // line number -> seconds: the lines moved one by one on the lane
+  let melodyNotes = null;   // the sung notes, when sing.py has read them: they say where in a line the voice is
+  let runMode = true;       // the text as a running ribbon, or as three lines
+  try{ runMode = localStorage.getItem("pick-lyrics-run") !== "0"; }catch(e){}
 
   function lyricsOffsetKey(){ return "spotdl-gui-lyrics-offset:" + (currentSongName || ""); }
+  const lyricsLinesKey = () => "spotdl-gui-lyrics-lines:" + (currentSongName || "");
+  // Moved lines belong to one text: another version of it has other lines.
+  const lyricsSig = () => lyrics.lines.length + ":" + lyrics.lines[0].timeInMs + ":" + lyrics.lines[lyrics.lines.length - 1].timeInMs;
 
-  function lyricTime(i){ return lyrics.lines[i].timeInMs / 1000 + lyricsOffset; }
+  function lyricTime(i){ return lyrics.lines[i].timeInMs / 1000 + lyricsOffset + (lyricShift[i] || 0); }
+
+  const lyrRun = LyricRun(el("nm-lyr-run"), {onSeek: (t) => seek(Math.max(0, t))});
+  try{ new ResizeObserver(() => lyrRun.draw()).observe(el("nm-lyr-run")); }catch(e){}
+  el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+  // The ribbon and the buttons that go with it, after anything about the text changed.
+  function runRefresh(){
+    lyrRun.set(lyrics ? LyricRun.build(lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || ""})), duration, melodyNotes) : []);
+    el("nm-lyr-lines").classList.toggle("run", runMode && !!lyrics);
+    el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+    el("nm-lyr-reset").hidden = !Object.keys(lyricShift).length;
+    lyrRun.draw(currentTime());
+  }
+  function saveShift(){
+    try{
+      if(Object.keys(lyricShift).length) localStorage.setItem(lyricsLinesKey(), JSON.stringify({sig: lyricsSig(), d: lyricShift}));
+      else localStorage.removeItem(lyricsLinesKey());
+    }catch(e){}
+  }
+  // A text found for the open song: with the shift and the moved lines kept for it.
+  function adoptLyrics(data){
+    lyrics = data; lyricShift = {};
+    try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+    try{ const k = JSON.parse(localStorage.getItem(lyricsLinesKey()) || "null"); if(k && k.sig === lyricsSig() && k.d) lyricShift = k.d; }catch(e){}
+    const name = currentSongName;
+    if(!melodyNotes && name) fetch(`/api/stems/${encodeURIComponent(name)}/melody/kept`).then(r => r.ok ? r.json() : null)
+      .then(d => { if(d && d.notes && d.notes.length && currentSongName === name){ melodyNotes = d.notes; runRefresh(); } }).catch(() => {});
+    runRefresh();
+  }
 
   function lyricIndexAt(t){
     if(!lyrics) return -1;
@@ -14265,6 +14343,7 @@ const Mixer = (() => {
   // Follows the playhead; called with every position update.
   function updateLyricsNow(t){
     if(!lyricsOn || !lyrics) return;
+    if(runMode) lyrRun.draw(t);
     const idx = lyricIndexAt(t);
     if(idx === lyricsIdx) return;
     lyricsIdx = idx;
@@ -14292,9 +14371,35 @@ const Mixer = (() => {
       b.dataset.i = String(i);
       b.style.left = x + "px";
       b.style.width = w + "px";
-      b.title = text;
+      b.title = text + " — klik sem skočí, tažením řádek posuneš";
       b.textContent = w >= 24 ? text : "";
-      b.onclick = (e) => { e.stopPropagation(); seek(Math.max(0, lyricTime(i))); };
+      if(lyricShift[i]) b.classList.add("moved");
+      // Dragged, a line takes a new time of its own — between its neighbours,
+      // so the text never changes order.
+      let moved = false;
+      b.onpointerdown = (e) => {
+        if(e.button) return;
+        e.stopPropagation();
+        const x0 = e.clientX, t0 = lyricTime(i);
+        const lo = i > 0 ? lyricTime(i - 1) + 0.05 : 0, hi = i + 1 < n ? lyricTime(i + 1) - 0.05 : duration;
+        let t = t0;
+        moved = false;
+        b.setPointerCapture(e.pointerId);
+        b.onpointermove = (m) => {
+          if(!moved && Math.abs(m.clientX - x0) < 4) return;
+          moved = true; b.classList.add("drag");
+          t = Math.max(lo, Math.min(hi, t0 + (m.clientX - x0) / pixelsPerSecond));
+          b.style.left = (t * pixelsPerSecond) + "px";
+        };
+        b.onpointerup = b.onpointercancel = () => {
+          b.onpointermove = b.onpointerup = b.onpointercancel = null;
+          if(!moved) return;
+          const d = Math.round(((lyricShift[i] || 0) + t - t0) * 100) / 100;
+          if(d) lyricShift[i] = d; else delete lyricShift[i];
+          saveShift(); renderTimeline(); runRefresh();
+        };
+      };
+      b.onclick = (e) => { e.stopPropagation(); if(moved){ moved = false; return; } seek(Math.max(0, lyricTime(i))); };
       lane.appendChild(b);
     }
     lyricsIdx = -2;
@@ -14333,14 +14438,15 @@ const Mixer = (() => {
         el("mixer-lyrics-toggle").classList.add("active");
         lyricsOn = true;
         lyrics = null;
+        runRefresh();
         el("nm-lyr-cur").textContent = "Text nenalezen";
         return;
       }
-      lyrics = data;
-      try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+      adoptLyrics(data);
     }
     lyricsOn = true;
     paintOffset();
+    runRefresh();
     el("mixer-lyrics-bar").hidden = false;
     el("mixer-lyrics-toggle").classList.add("active");
     renderTimeline();
@@ -14351,9 +14457,16 @@ const Mixer = (() => {
     try{ localStorage.setItem(lyricsOffsetKey(), String(lyricsOffset)); }catch(e){}
     paintOffset();
     renderTimeline();
+    runRefresh();
   }
 
   el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+  el("nm-lyr-mode").onclick = () => {
+    runMode = !runMode;
+    try{ localStorage.setItem("pick-lyrics-run", runMode ? "1" : "0"); }catch(e){}
+    lyricsIdx = -2; runRefresh(); updateLyricsNow(currentTime());
+  };
+  el("nm-lyr-reset").onclick = () => { lyricShift = {}; saveShift(); renderTimeline(); runRefresh(); };
 
   // ---- a song just opened brings its text and its tab by itself: the
   // synced text when there is one (quietly — nothing is shown when there
@@ -14368,8 +14481,7 @@ const Mixer = (() => {
       fetchLyrics().then(data => {
         if(currentSongName !== name || lyricsOn || lyrics) return;
         if(!data || !(data.synced && data.lines && data.lines.length)) return;
-        lyrics = data;
-        try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
+        adoptLyrics(data);
         lyricsOn = true;
         paintOffset();
         el("mixer-lyrics-bar").hidden = false;
@@ -14421,7 +14533,7 @@ const Mixer = (() => {
     showToast("Hledám text…");
     const data = await fetchLyrics(q.trim());
     if(data && data.synced && data.lines && data.lines.length){
-      lyrics = data;
+      adoptLyrics(data);
       lyricsOn = true;
       el("mixer-lyrics-bar").hidden = false;
       el("mixer-lyrics-toggle").classList.add("active");
@@ -14588,7 +14700,8 @@ const Mixer = (() => {
 
   // A different song has a different text.
   function resetLyrics(){
-    lyrics = null; lyricsOn = false; lyricsIdx = -2; lyricsOffset = 0;
+    lyrics = null; lyricsOn = false; lyricsIdx = -2; lyricsOffset = 0; lyricShift = {}; melodyNotes = null;
+    runRefresh();
     dockLyrics();
     el("mixer-lyrics-bar").hidden = true;
     el("mixer-lyrics-toggle").classList.remove("active");
@@ -21197,14 +21310,14 @@ const Mixer = (() => {
     }
 
     // ---- a take becomes a track ----
-    async function commitTake(buf, startSong){
+    async function commitTake(buf, startSong, label){
       if(!buf || buf.duration < 0.2){ showToast("Take je moc krátký — nic se neuložilo"); return; }
       const temp = `take-rec${++takeNo}`;
       const c = buildChannel(temp, buf, null);
       c.order = channels.length + hiddenChannels.length + 1;
       c.clips = [{src: temp, offset: 0, dur: buf.duration, start: Math.max(0, startSong)}];
       channels.push(c);
-      stemLabels[temp] = `Nahrávka ${channels.filter(x => x.stem.startsWith("take-")).length}`;
+      stemLabels[temp] = label || `Nahrávka ${channels.filter(x => x.stem.startsWith("take-")).length}`;
       c.buffer = flattenClips(c);
       duration = Math.max(duration, c.buffer.duration);
       renderTimeline();
@@ -21212,7 +21325,7 @@ const Mixer = (() => {
       applyGains();
       // Playing the loop: the new take sounds from the next pass on.
       const stem = await Guitar.uploadTake(encodeWav(buf));
-      if(!stem){ showToast("Take se nepodařilo uložit na disk — zůstává jen do zavření"); return; }
+      if(!stem){ showToast("Take se nepodařilo uložit na disk — zůstává jen do zavření"); return temp; }
       const oldLabel = stemLabels[temp];
       delete stemLabels[temp];
       c.stem = stem;
@@ -21222,6 +21335,30 @@ const Mixer = (() => {
       renderTimeline(); renderChannels(); renderEditBar();
       queueSessionSave();
       showToast(`Take uložen: ${stemLabel(stem)}`);
+      return stem;
+    }
+    // A sung take from the trainer: blocks {t (audio clock), data} of the
+    // microphone, one unbroken stretch. It starts where the song did — or,
+    // when the song was already running, where the first block fell.
+    async function voiceTake(blocks, label, wasPlaying){
+      const L = lat(), rate = ctx().sampleRate;
+      let from = 0, start = null;
+      if(wasPlaying) start = songAtCtx(blocks[0].t - L);
+      else{
+        const e = playLog.find(x => x.when >= blocks[0].t - 0.05);
+        if(!e) return null;
+        from = blocks.findIndex(b => b.t - L >= e.when);
+        if(from < 0) return null;
+        start = e.offset + (blocks[from].t - L - e.when) * e.rate;
+      }
+      if(start == null) return null;
+      const use = blocks.slice(from);
+      let n = 0; use.forEach(b => { n += b.data.length; });
+      if(n < rate) return null;
+      const buf = ctx().createBuffer(1, n, rate), d = buf.getChannelData(0);
+      let at = 0; use.forEach(b => { d.set(b.data, at); at += b.data.length; });
+      const stem = await commitTake(buf, start, label);
+      return stem ? {stem, start: Math.max(0, start), dur: buf.duration} : null;
     }
 
     // ---- start / stop ----
@@ -21448,7 +21585,7 @@ const Mixer = (() => {
 
     return {
       toggle: () => (active ? end() : begin()),
-      begin, end, nextTake, onWrap, attachLane, openOptions,
+      begin, end, nextTake, onWrap, attachLane, openOptions, voiceTake,
       isCounting: () => counting, isActive: () => active, isArmed: () => armed,
       opts,
     };
@@ -23722,13 +23859,15 @@ const Mixer = (() => {
     lyricLines: async (load) => {
       if(!lyrics && load){
         const d = await fetchLyrics().catch(() => null);
-        if(d && d.synced && d.lines && d.lines.length){
-          lyrics = d;
-          try{ lyricsOffset = parseFloat(localStorage.getItem(lyricsOffsetKey())) || 0; }catch(e){ lyricsOffset = 0; }
-        }
+        if(d && d.synced && d.lines && d.lines.length) adoptLyrics(d);
       }
       return lyrics && lyrics.lines ? lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || ""})) : [];
     },
+    // The trainer read the melody: the running text can follow the voice inside a line.
+    melodyKnown: (notes) => { melodyNotes = notes; runRefresh(); },
+    // Where the singer's own voice is mixed in: the mixer's context and its way out.
+    voiceOut: () => ({ac: ctx(), out: masterOut()}),
+    voiceTake: (blocks, label, wasPlaying) => TakeRec.voiceTake(blocks, label, wasPlaying),
     takeRec: () => TakeRec,
     tunnel: () => Tunnel,
     midi: () => Midi,
@@ -29011,6 +29150,126 @@ const RemoteAgent = (() => {
 
 
 
+// ---- Running lyrics ----------------------------------------------------------
+// A song's text as one ribbon running under a fixed mark, the way a tab does:
+// what is left of the mark has been sung, what is right of it is coming. Drawn
+// to the clock, a fast line would be squeezed into nothing and a slow one
+// stretched across the window — so every line keeps its natural width and the
+// ribbon changes speed instead: a line crosses the mark in exactly the time it
+// is sung, the gap between two lines in the time the pause lasts.
+function LyricRun(cv, opt){
+  opt = Object.assign({head: 0.3, onSeek: null}, opt || {});
+  const g = cv.getContext("2d");
+  const PPS = 90, GAP_MAX = 420;
+  const COL = {ok: "#1ed760", bad: "#e5534b", miss: "#6a6a76"}, SUNG = "#e9b949", COMING = "#f2f2f5";
+  const font = (px) => `700 ${px}px -apple-system, "Helvetica Neue", sans-serif`;
+  const plain = (w) => w.normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+  let lines = [], laid = 0, last = 0;
+
+  function layout(px){
+    g.font = font(px);
+    const space = g.measureText(" ").width;
+    lines.forEach((ln, i) => {
+      const prev = lines[i - 1];
+      let wx = 0;
+      ln.parts = ln.text.split(/\s+/).filter(Boolean).map(w => { const p = {w, x: wx, wd: g.measureText(w).width}; wx += p.wd + space; return p; });
+      ln.w = Math.max(1, wx - space);
+      ln.x = prev ? prev.x + prev.w + Math.max(px * 1.6, Math.min(GAP_MAX, (ln.t - prev.end) * PPS)) : 0;
+    });
+    laid = px;
+  }
+  // How much of a line has been sung at t, 0..1: by the notes of the voice
+  // when they are known (the text waits through a breath), by the clock otherwise.
+  function prog(ln, t){
+    const lin = Math.max(0, Math.min(1, (t - ln.t) / Math.max(0.05, ln.end - ln.t)));
+    if(!ln.v || !ln.vt) return lin;
+    let sung = 0;
+    for(const s of ln.v) sung += Math.max(0, Math.min(t, s[1]) - s[0]);
+    return 0.75 * Math.min(1, sung / ln.vt) + 0.25 * lin;
+  }
+  function xAt(t){
+    if(!lines.length) return 0;
+    let i = -1;
+    for(let k = lines.length - 1; k >= 0; k--) if(t >= lines[k].t){ i = k; break; }
+    if(i < 0) return lines[0].x - Math.min(GAP_MAX, (lines[0].t - t) * PPS);
+    const ln = lines[i], nx = lines[i + 1];
+    if(t <= ln.end) return ln.x + ln.w * prog(ln, t);
+    if(!nx) return ln.x + ln.w + Math.min(GAP_MAX, (t - ln.end) * PPS);
+    return ln.x + ln.w + (nx.x - ln.x - ln.w) * (t - ln.end) / Math.max(0.01, nx.t - ln.end);
+  }
+  // The words of a judged line (the trainer marks them), matched to what is drawn.
+  function states(ln){
+    const w = ln.src && ln.src.words;
+    if(!w) return null;
+    if(ln.jw !== w){ let j = 0; ln.jw = w; ln.js = ln.parts.map(p => { const q = w.words[j]; if(q && plain(q.w) === plain(p.w)){ j++; return q.s; } return null; }); }
+    return ln.js;
+  }
+  function draw(t){
+    if(t === undefined) t = last;
+    last = t;
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const W = Math.round(r.width), H = Math.round(r.height);
+    if(W < 10 || H < 10) return;
+    if(cv.width !== W * dpr || cv.height !== H * dpr){ cv.width = W * dpr; cv.height = H * dpr; }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const px = Math.max(12, Math.min(40, Math.round(H * 0.46)));
+    if(px !== laid) layout(px);
+    const hx = Math.round(W * opt.head), off = hx - xAt(t), y = H / 2 + 1;
+    g.font = font(px); g.textBaseline = "middle"; g.textAlign = "left";
+    const part = (text, x, a, b, col) => {           // the piece of a word between a and b
+      if(b <= a) return;
+      g.save(); g.beginPath(); g.rect(a, 0, b - a, H); g.clip(); g.fillStyle = col; g.fillText(text, x, y); g.restore();
+    };
+    lines.forEach((ln, i) => {
+      const x = ln.x + off, nx = lines[i + 1];
+      if(nx){
+        const a = x + ln.w, b = nx.x + off;
+        if(b > 0 && a < W){ g.fillStyle = "#5a5a68"; g.textAlign = "center"; g.fillText(b - a > 150 ? "♪" : "·", (a + b) / 2, y); g.textAlign = "left"; }
+      }
+      if(x > W || x + ln.w < 0) return;
+      const js = t > ln.end ? states(ln) : null;
+      ln.parts.forEach((p, k) => {
+        const wx = x + p.x;
+        if(wx > W || wx + p.wd < 0) return;
+        const done = (js && COL[js[k]]) || SUNG;
+        if(wx + p.wd <= hx){ g.fillStyle = done; g.fillText(p.w, wx, y); }
+        else if(wx >= hx){ g.fillStyle = COMING; g.fillText(p.w, wx, y); }
+        else{ part(p.w, wx, wx - 2, hx, done); part(p.w, wx, hx, wx + p.wd + 2, COMING); }
+      });
+    });
+    if(lines.length && t < lines[0].t - 1){ g.fillStyle = "#5a5a68"; g.fillText("♪", hx + 10, y); }
+    g.fillStyle = "rgba(255,255,255,.6)"; g.fillRect(hx - 1, 3, 2, H - 6);
+  }
+  cv.addEventListener("click", (e) => {
+    if(!opt.onSeek || !lines.length) return;
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left - (Math.round(r.width * opt.head) - xAt(last));
+    const ln = [...lines].reverse().find(l => l.x <= x) || lines[0];
+    opt.onSeek(ln.t);
+  });
+  return {set(list){ lines = list || []; laid = 0; }, draw, xAt: (t) => xAt(t), lines: () => lines};
+}
+// Timed lines [{t, text}] as the ribbon wants them: each with the moment its
+// singing ends — the last sung note before the next line when the notes are
+// known, else a guess by its length.
+LyricRun.build = (ll, duration, notes) => {
+  const out = [];
+  ll.forEach((l, i) => {
+    const text = (l.text || "").trim();
+    if(!text) return;
+    const next = Math.max(l.t + 0.05, i + 1 < ll.length ? ll[i + 1].t : (duration || l.t + 8));
+    let end = Math.min(next, l.t + Math.max(1.5, Math.min(12, text.length * 0.12 + 1.5))), v = null, vt = 0;
+    const mine = notes && notes.length ? notes.filter(n => n[0] >= l.t - 0.05 && n[0] < next) : [];
+    if(mine.length){
+      v = mine.map(n => [n[0], Math.min(n[1], next)]);
+      v.forEach(s => { vt += s[1] - s[0]; });
+      end = Math.min(next, v[v.length - 1][1] + 0.1);
+    }
+    out.push({t: l.t, end: Math.max(l.t + 0.05, end), text, v, vt, src: l});
+  });
+  return out;
+};
+
 // ---- Singing trainer --------------------------------------------------------
 // The tune of the open Steems song (sing.py reads it off the separated vocals)
 // runs right to left as bars; the pitch of your own voice, heard through the
@@ -29019,7 +29278,7 @@ const RemoteAgent = (() => {
 // After each lyric line whisper reads the take back and the words are marked;
 // a finished take is scored and kept, so the next one can be compared with it.
 const Sing = (() => {
-  const Win = makeFloating("sing-float", {defaults: {width: 760, height: 520}});
+  const Win = makeFloating("sing-float", {defaults: {width: 800, height: 620}});
   const cv = el("sing-cv"), g = cv.getContext("2d");
   const HIT = 25, NEAR = 60;            // cents
   const LAG = 0.045;                    // what the dot shows was sung about this long ago
@@ -29057,6 +29316,7 @@ const Sing = (() => {
   let stream = null, actx = null, node = null, raf = 0;
   let on = false, song = null, notes = [], lines = [], trail = [], mine = null, center = 60, lastT = -1, idle = 0, played = false;
   let chunks = [], queue = Promise.resolve(), loopLine = -1, restoreMute = null, lang = "en", saved = false;
+  let micGain = null, tape = [], wasPlaying = false, meterAt = 0, meterPeak = 0;
   const say = (t) => { el("sing-msg").textContent = t; };
 
   function reset(from){
@@ -29094,6 +29354,13 @@ const Sing = (() => {
     const t = Mixer.currentTime() - LAG;
     const midi = m.f > 0 && m.conf > 0.8 ? 69 + 12 * Math.log2(m.f / 440) : null;
     mine = {t, midi, at: performance.now()};
+    for(let j = 0; j < m.pcm.length; j++){ const a = Math.abs(m.pcm[j]); if(a > meterPeak) meterPeak = a; }
+    if(mine.at - meterAt > 80){                                        // the level, -48 dB … 0 across the bar
+      const db = meterPeak > 0 ? 20 * Math.log10(meterPeak) : -99, bar = el("sing-meter");
+      bar.style.width = Math.max(0, Math.min(100, (db + 48) / 48 * 100)) + "%";
+      bar.className = meterPeak >= 0.98 ? "clip" : db > -6 ? "hot" : "";
+      meterAt = mine.at; meterPeak = 0;
+    }
     if(!playing){ if(played && ++idle > 90) finish(); return; }      // about a second and a half of silence from the player
     idle = 0; played = true;
     if(t < lastT - 0.5) reset(t);                                     // a loop came round, or a jump back: that stretch again
@@ -29136,26 +29403,26 @@ const Sing = (() => {
   // ---- the words of a finished line
   function judge(ln, i){
     ln.sent = true;
-    if(!ln.count || ln.sung < 12){ if(ln.count && notesOf(ln).length) ln.words = {words: ln.text.split(/\s+/).map(w => ({w, s: "miss"})), ok: 0, total: ln.count, silent: true}; paintLine(); return; }
+    if(!ln.count || ln.sung < 12){ if(ln.count && notesOf(ln).length) ln.words = {words: ln.text.split(/\s+/).map(w => ({w, s: "miss"})), ok: 0, total: ln.count, silent: true}; return; }
     const from = ln.t - 0.3, to = ln.end + 0.25;
     const part = chunks.filter(c => c.t >= from && c.t <= to);
     if(part.length < 30) return;
     const pcm = new Int16Array(part.length * 256);
     part.forEach((c, n) => { for(let j = 0; j < 256; j++){ const v = Math.max(-1, Math.min(1, c.pcm[j])); pcm[n * 256 + j] = v < 0 ? v * 32768 : v * 32767; } });
     queue = queue.then(() => fetch(`/api/sing/line?lang=${lang}&text=${encodeURIComponent(ln.text)}`, {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}}))
-      .then(r => r.ok ? r.json() : null).then(d => { if(d){ ln.words = d; paintLine(); } }).catch(() => {});
+      .then(r => r.ok ? r.json() : null).then(d => { if(d) ln.words = d; }).catch(() => {});
   }
   const wordsHtml = (ln) => ln.words ? ln.words.words.map(w => `<span class="${w.s}">${escapeHtml(w.w)}</span>`).join(" ") : escapeHtml(ln.text);
-  let lineShown = "";
-  function paintLine(){
-    const t = lastT, i = lines.findIndex(l => t >= l.t && t <= l.end);
-    const cur = i >= 0 ? lines[i] : null;
-    const done = [...lines].reverse().find(l => l.words && l.end < t);
-    const next = lines.find(l => l.t > t);
-    const html = (done ? `<div class="done" title="Jak jsem slyšel tenhle řádek: ${escapeHtml(done.words.heard || "nic")}">${wordsHtml(done)}</div>` : `<div class="done"></div>`)
-      + `<div class="cur">${cur ? escapeHtml(cur.text) : (lines.length ? "♪" : "")}</div>`
-      + `<div class="next">${next && next !== cur ? escapeHtml(next.text) : ""}</div>`;
-    if(html !== lineShown){ lineShown = html; el("sing-line").innerHTML = html; }
+  // The text runs under the same mark as the notes above it; a line that has
+  // been judged turns green, red and grey word by word as it leaves.
+  const run = LyricRun(el("sing-run"), {head: 0.3, onSeek: (t) => Mixer.seek(Math.max(0, t - 0.5))});
+  async function loadLines(){
+    const ll = await Mixer.lyricLines(true);
+    const end = Mixer.duration() || (notes.length ? notes[notes.length - 1][1] : 0);
+    lines = ll.map((l, i) => ({t: l.t, end: Math.min(i + 1 < ll.length ? ll[i + 1].t : end, l.t + 14), text: l.text || ""}))
+      .map(l => ({...l, count: l.text.replace(/[\(\[][^\)\]]*[\)\]]/g, " ").split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length}));
+    lang = /[ěščřžýáíéúůťďň]/i.test(ll.map(l => l.text).join(" ")) ? "cs" : "en";
+    run.set(LyricRun.build(lines, end, notes));
   }
 
   // ---- drawing
@@ -29167,6 +29434,7 @@ const Sing = (() => {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#0e0e12"; g.fillRect(0, 0, W, H);
     const t = Mixer.currentTime() - LAG, pps = W / 6, x0 = W * 0.3, SPAN = 20;
+    run.draw(t);
     const X = (s) => x0 + (s - t) * pps;
     // The height follows the tune: the middle of what is coming up, eased.
     const near = notes.filter(n => n[1] > t - 2 && n[0] < t + 5).map(n => n[2]).sort((a, b) => a - b);
@@ -29199,7 +29467,7 @@ const Sing = (() => {
       g.beginPath(); g.arc(x0, Y(last ? last.m : mine.midi), 6, 0, Math.PI * 2); g.fill();
       g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
     }
-    paintLine(); score();
+    score();
   }
   function totals(){
     let sung = 0, ok = 0, words = 0; const oct = {};
@@ -29243,6 +29511,25 @@ const Sing = (() => {
           `<div class="w"><button type="button" data-line="${lines.indexOf(w.l)}" title="Pustí jen tenhle úsek dokola, se zpěvem k porovnání">↻ znovu</button><b>${pct(100 * w.v)}</b><span>${wordsHtml(w.l)}</span></div>`).join("") : "");
     box.querySelectorAll("[data-line]").forEach(b => b.onclick = () => again(+b.dataset.line));
     say(loopLine >= 0 ? "Úsek dozpívaný." : "Dozpíváno.");
+    const blocks = tape; tape = [];
+    if(fx.rec && loopLine < 0 && blocks.length * 2048 > 8 * Mixer.voiceOut().ac.sampleRate){
+      const n = new Date();
+      const take = await Mixer.voiceTake(blocks, `Můj zpěv ${n.getDate()}.${n.getMonth() + 1}. ${n.getHours()}:${String(n.getMinutes()).padStart(2, "0")}`, wasPlaying).catch(() => null);
+      if(take){
+        Mixer.voice.mutedOn(take.stem, true);         // silent until asked for: the next take is not sung over this one
+        const row = document.createElement("div");
+        row.className = "listen";
+        row.innerHTML = `<span>Nahráno do stopy v mixu (ztlumená). Poslech:</span><button type="button" data-l="me">▶ já</button><button type="button" data-l="orig">▶ originál</button><button type="button" data-l="both">▶ oba</button><button type="button" data-l="mix">▶ já s kapelou</button>`;
+        row.querySelectorAll("button").forEach(b => b.onclick = () => {
+          const w = b.dataset.l;
+          lastTake = take.stem;
+          Mixer.voice.mutedOn("vocals", w === "me" || w === "mix"); Mixer.voice.mutedOn(take.stem, w === "orig");
+          if(w === "me" || w === "orig" || w === "both") soloVoices(take.stem, true); else soloVoices(take.stem, false);
+          Mixer.seek(take.start); if(!Mixer.isPlaying()) Mixer.play();
+        });
+        box.insertBefore(row, box.children[1] || null);
+      }
+    }
     if(loopLine < 0 && !saved && s.total >= 25){
       saved = true;
       try{
@@ -29252,6 +29539,19 @@ const Sing = (() => {
         if(Array.isArray(rows)) paintHistory(rows);
       }catch(e){}
     }
+  }
+  // "Me", "the original", "both": the two voices alone, the band silent — and back.
+  let hushed = null, lastTake = null;
+  // After listening back: the band is back, the original sings, my take is silent again.
+  function listenOver(){
+    soloVoices(null, false);
+    if(lastTake){ Mixer.voice.mutedOn(lastTake, true); Mixer.voice.mutedOn("vocals", false); lastTake = null; }
+  }
+  function soloVoices(takeStem, on){
+    if(hushed){ hushed.forEach(st => Mixer.voice.mutedOn(st, false)); hushed = null; }
+    if(!on) return;
+    hushed = Mixer.channelInfo().map(c => c.stem).filter(st => st !== takeStem && st.split("_")[0] !== "vocals" && !(Mixer.channelByStem(st) || {}).muted);
+    hushed.forEach(st => Mixer.voice.mutedOn(st, true));
   }
   // One line round and round, until it sits.
   async function again(i){
@@ -29278,16 +29578,14 @@ const Sing = (() => {
         if(!r.ok) throw new Error(d.error || "Melodii se nepodařilo načíst.");
         if(!d.notes.length) throw new Error("V téhle písni jsem nenašel zpívanou melodii (křik a mluvení výšku nemají).");
         song = name; notes = d.notes.map(n => n.slice());
-        const ll = await Mixer.lyricLines(true);
-        const end = Mixer.duration() || d.duration;
-        lines = ll.map((l, i) => ({t: l.t, end: Math.min(i + 1 < ll.length ? ll[i + 1].t : end, l.t + 14), text: l.text || ""}))
-          .map(l => ({...l, count: l.text.replace(/[\(\[][^\)\]]*[\)\]]/g, " ").split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length}));
-        lang = /[ěščřžýáíéúůťďň]/i.test(ll.map(l => l.text).join(" ")) ? "cs" : "en";
+        Mixer.melodyKnown(d.notes);
         center = notes[0][2];
         loadHistory();
       }
+      await loadLines();                             // every time: a line may have been moved on the lane since
       if(loopLine < 0) reset(); else reset(lines[loopLine].t - 2);
-      saved = false; chunks = []; idle = 0; played = false; lastT = Mixer.currentTime(); el("sing-sum").innerHTML = "";
+      saved = false; chunks = []; tape = []; idle = 0; played = false; lastT = Mixer.currentTime(); el("sing-sum").innerHTML = "";
+      listenOver(); wasPlaying = Mixer.isPlaying();
       let dev = "", ch = "";
       try{ dev = localStorage.getItem("pick-voice-mic") || ""; ch = localStorage.getItem("pick-voice-ch") || ""; }catch(e){}
       // The voice as it is: anything that "improves" the sound bends its pitch.
@@ -29300,7 +29598,9 @@ const Sing = (() => {
       node = new AudioWorkletNode(actx, "pick-sing", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit",
         channelInterpretation: "discrete", processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
       node.port.onmessage = (e) => heard(e.data);
-      actx.createMediaStreamSource(stream).connect(node);
+      micGain = actx.createGain(); micGain.gain.value = Math.pow(10, fx.gain / 20);
+      actx.createMediaStreamSource(stream).connect(micGain).connect(node);
+      await fxStart(ch === "2" && got > 1 ? 1 : 0).catch(() => {});
       on = true;
       if(el("sing-mute").checked){ const c = Mixer.channelByStem("vocals"); if(c){ restoreMute = !!c.muted; Mixer.voice.mutedOn("vocals", true); } }
       if(!Mixer.isPlaying()) Mixer.play();
@@ -29315,7 +29615,8 @@ const Sing = (() => {
     on = false;
     if(stream) stream.getTracks().forEach(t => t.stop());
     if(actx) actx.close().catch(() => {});
-    stream = actx = node = null; mine = null;
+    fxStop();
+    stream = actx = node = micGain = null; mine = null; el("sing-meter").style.width = "0";
     if(restoreMute !== null){ Mixer.voice.mutedOn("vocals", restoreMute); restoreMute = null; }
     if(!keepPlaying && Mixer.isPlaying()) Mixer.pause();
     paintGo();
@@ -29324,24 +29625,151 @@ const Sing = (() => {
   el("sing-go").onclick = () => { if(on){ if(Mixer.isPlaying()) Mixer.pause(); finish(); } else start(); };
   el("sing-mute").onchange = (e) => { if(!on) return; const c = Mixer.channelByStem("vocals"); if(!c) return; if(restoreMute === null) restoreMute = !!c.muted; Mixer.voice.mutedOn("vocals", e.target.checked); };
 
+  // ---- my own voice in the headphones, with effects ----
+  // The microphone goes into the mixer's own audio context and out with the
+  // music, so both reach the same headphones. The pitch above is still read
+  // off the bare microphone: no effect ever touches what is judged.
+  //   reverb   a room: noise that dies away, made here, no file
+  //   delay    one short repeat right behind the voice (slapback)
+  //   echo     a longer repeat that feeds itself and darkens as it fades
+  //   doubler  two copies a few ms late, each drifting slightly in pitch, left and right
+  //   2nd voice  a copy shifted by an interval (two crossfading taps on a delay line)
+  const FXKEY = "pick-sing-fx";
+  const PRESETS = {clean: {rev: 0, dly: 0, echo: 0, dbl: 0, harm: 0}, room: {rev: 22, dly: 0, echo: 0, dbl: 0, harm: 0},
+    hall: {rev: 48, dly: 0, echo: 10, dbl: 0, harm: 0}, slap: {rev: 10, dly: 50, echo: 0, dbl: 0, harm: 0},
+    stadium: {rev: 38, dly: 0, echo: 42, dbl: 0, harm: 0}, double: {rev: 16, dly: 0, echo: 0, dbl: 65, harm: 0},
+    choir: {rev: 34, dly: 0, echo: 0, dbl: 55, harm: 45}};
+  const fx = {mon: false, rec: true, gain: 0, vol: 100, preset: "room", int: -12, ...PRESETS.room};
+  try{ Object.assign(fx, JSON.parse(localStorage.getItem(FXKEY) || "{}")); }catch(e){}
+  const SHIFT = `registerProcessor("pick-shift", class extends AudioWorkletProcessor {
+    constructor(){ super(); this.b = new Float32Array(8192); this.w = 0; this.ph = 0; this.ratio = 0.5; this.port.onmessage = (e) => { this.ratio = e.data; }; }
+    process(inputs, outputs){
+      const i = inputs[0][0], o = outputs[0][0]; if(!o) return true;
+      const b = this.b, M = 8191, G = Math.round(sampleRate * 0.05), step = (1 - this.ratio) / G;
+      for(let n = 0; n < o.length; n++){
+        b[this.w] = i ? i[n] : 0;
+        let ph = this.ph + step; ph -= Math.floor(ph); this.ph = ph;
+        let s = 0;
+        for(let k = 0; k < 2; k++){
+          const p = k ? (ph + 0.5) % 1 : ph, r = this.w - (p * G + 1), r0 = Math.floor(r), f = r - r0;
+          const a = b[r0 & M], c = b[(r0 + 1) & M];
+          s += (a + (c - a) * f) * (0.5 - 0.5 * Math.cos(2 * Math.PI * p));
+        }
+        o[n] = s; this.w = (this.w + 1) & M;
+      }
+      return true;
+    } });
+  registerProcessor("pick-tape", class extends AudioWorkletProcessor {
+    constructor(){ super(); this.b = new Float32Array(2048); this.n = 0; this.t = 0; }
+    process(inputs){
+      const c = inputs[0][0]; if(!c) return true;
+      if(!this.n) this.t = currentTime;
+      this.b.set(c, this.n); this.n += c.length;
+      if(this.n >= 2048){ this.port.postMessage({t: this.t, data: this.b.slice()}); this.n = 0; }
+      return true;
+    } });`;
+  let chain = null;
+  function room(ac){                                // 2.6 s of noise dying away, duller towards the end
+    const n = Math.round(ac.sampleRate * 2.6), buf = ac.createBuffer(2, n, ac.sampleRate), pre = Math.round(ac.sampleRate * 0.018);
+    for(let c = 0; c < 2; c++){
+      const d = buf.getChannelData(c); let lp = 0;
+      for(let i = pre; i < n; i++){ const k = (i - pre) / (n - pre); lp += (Math.random() * 2 - 1 - lp) * (0.75 - 0.6 * k); d[i] = lp * Math.pow(1 - k, 2.4); }
+    }
+    return buf;
+  }
+  async function fxStart(ch){
+    fxStop();
+    const {ac, out} = Mixer.voiceOut();
+    if(ac.state === "suspended") ac.resume().catch(() => {});
+    if(!ac.pickShift){
+      const url = URL.createObjectURL(new Blob([SHIFT], {type: "application/javascript"}));
+      await ac.audioWorklet.addModule(url); URL.revokeObjectURL(url); ac.pickShift = true;
+    }
+    if(!stream) return;
+    const G = (v) => { const n = ac.createGain(); n.gain.value = v; return n; };
+    const D = (t) => { const n = ac.createDelay(1); n.delayTime.value = t; return n; };
+    const src = ac.createMediaStreamSource(stream), split = ac.createChannelSplitter(2);
+    const inp = G(1), master = G(0), wet = G(1);          // wet: every voice there is, on its way to the room and the echoes
+    src.connect(split); split.connect(inp, ch);
+    inp.connect(master); inp.connect(wet);
+    const rev = G(0), conv = ac.createConvolver(); conv.buffer = room(ac);
+    wet.connect(rev).connect(conv).connect(master);
+    const dly = G(0); wet.connect(dly).connect(D(0.115)).connect(master);
+    const echo = G(0), ed = D(0.38), fb = G(0.45), dark = ac.createBiquadFilter(); dark.type = "lowpass"; dark.frequency.value = 3200;
+    wet.connect(echo).connect(ed).connect(master); ed.connect(dark).connect(fb).connect(ed);
+    const dbl = G(0), osc = [];
+    [[0.021, 0.31, -0.75], [0.033, 0.43, 0.75]].forEach(([t, hz, where]) => {
+      const d = D(t), o = ac.createOscillator(), depth = G(0.0028), pan = ac.createStereoPanner();
+      o.frequency.value = hz; pan.pan.value = where;
+      o.connect(depth).connect(d.delayTime); o.start(); osc.push(o);
+      inp.connect(dbl).connect(d); d.connect(pan).connect(master); d.connect(wet);
+    });
+    const harm = G(0), shift = new AudioWorkletNode(ac, "pick-shift", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
+    inp.connect(harm).connect(shift); shift.connect(master); shift.connect(wet);
+    master.connect(out);
+    // The take that becomes a track: the microphone after its gain, no effects.
+    const rec = new AudioWorkletNode(ac, "pick-tape", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1, channelCountMode: "explicit"});
+    rec.port.onmessage = (e) => { if(fx.rec && loopLine < 0 && tape.length < 9000) tape.push(e.data); };
+    inp.connect(rec);
+    chain = {ac, src, split, inp, master, wet, rev, conv, dly, echo, ed, fb, dark, dbl, harm, shift, osc, rec};
+    fxApply();
+  }
+  function fxApply(){
+    el("sing-fx").classList.toggle("off", !fx.mon);
+    el("sing-fx-gaindb").textContent = "+" + fx.gain + " dB";
+    const lift = Math.pow(10, fx.gain / 20);
+    if(micGain) micGain.gain.value = lift;
+    if(!chain) return;
+    chain.inp.gain.value = lift;
+    const now = chain.ac.currentTime, set = (n, v) => n.gain.setTargetAtTime(v, now, 0.03);
+    set(chain.master, fx.mon ? fx.vol / 100 : 0);
+    set(chain.rev, fx.rev / 100 * 0.9); set(chain.dly, fx.dly / 100 * 0.8); set(chain.echo, fx.echo / 100 * 0.7);
+    set(chain.dbl, fx.dbl / 100 * 0.9); set(chain.harm, fx.harm / 100);
+    chain.shift.port.postMessage(Math.pow(2, fx.int / 12));
+    const ms = Math.round(((chain.ac.baseLatency || 0) + (chain.ac.outputLatency || 0)) * 1000);
+    el("sing-fx-lat").textContent = fx.mon && ms ? `zpoždění výstupu ${ms} ms` : "";
+  }
+  function fxStop(){
+    if(!chain) return;
+    chain.osc.forEach(o => { try{ o.stop(); }catch(e){} });
+    Object.values(chain).forEach(n => { if(n && n.disconnect) try{ n.disconnect(); }catch(e){} });
+    chain = null; el("sing-fx-lat").textContent = "";
+  }
+  const KNOBS = {vol: "sing-fx-vol", rev: "sing-fx-rev", dly: "sing-fx-dly", echo: "sing-fx-echo", dbl: "sing-fx-dbl", harm: "sing-fx-harm"};
+  function fxPaint(){
+    el("sing-mon").checked = !!fx.mon; el("sing-rec").checked = !!fx.rec; el("sing-fx-gain").value = fx.gain; el("sing-fx-preset").value = fx.preset; el("sing-fx-int").value = String(fx.int);
+    Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).value = fx[k]; });
+  }
+  function fxChanged(){ try{ localStorage.setItem(FXKEY, JSON.stringify(fx)); }catch(e){} fxPaint(); fxApply(); }
+  el("sing-mon").onchange = (e) => { fx.mon = e.target.checked; fxChanged(); if(fx.mon && !on) say("Uslyšíš se, jakmile klikneš na „Zpívat“. Jen se sluchátky, jinak to začne pískat."); };
+  el("sing-rec").onchange = (e) => { fx.rec = e.target.checked; fxChanged(); };
+  el("sing-fx-gain").oninput = (e) => { fx.gain = +e.target.value; fxChanged(); };
+  el("sing-fx-preset").onchange = (e) => { fx.preset = e.target.value; if(PRESETS[fx.preset]) Object.assign(fx, PRESETS[fx.preset]); fxChanged(); };
+  el("sing-fx-int").onchange = (e) => { fx.int = +e.target.value; fxChanged(); };
+  Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).oninput = (e) => { fx[k] = +e.target.value; if(k !== "vol") fx.preset = "own"; fxChanged(); }; });
+  fxPaint(); fxApply();
+
   function open(){
     Win.open();
     if(!raf) draw();
     const name = Mixer.currentSong();
     el("sing-title").textContent = name ? "Trenér zpěvu — " + name : "Trenér zpěvu";
-    if(name && name !== song){ notes = []; lines = []; trail = []; el("sing-sum").innerHTML = ""; el("sing-hist").innerHTML = ""; song = null; say("Klikni na „Zpívat“: pustí se píseň a mikrofon. Hudbu měj ve sluchátkách.");
+    if(name && !on) loadLines().catch(() => {});
+    if(name && name !== song){ notes = []; lines = []; trail = []; run.set([]); el("sing-sum").innerHTML = ""; el("sing-hist").innerHTML = ""; song = null; say("Klikni na „Zpívat“: pustí se píseň a mikrofon. Hudbu měj ve sluchátkách.");
       fetch(`/api/stems/${encodeURIComponent(name)}/sing`).then(r => r.json()).then(paintHistory).catch(() => {}); }
     else if(!name) say("Nejdřív otevři píseň ve Steems.");
   }
   function close(){
     if(on) stop(false);
+    listenOver(); tape = [];
     cancelAnimationFrame(raf); raf = 0;
     Win.close();
   }
   el("sing-float-close").onclick = close;
   el("nm-sing-open").onclick = () => { TMenu.close(); Win.isOpen() ? close() : open(); };
   paintGo();
-  return {open, close, start, finish, isOn: () => on, state: () => ({on, notes: notes.length, lines: lines.length, totals: totals(), trail: trail.length, lang})};
+  return {open, close, start, finish, isOn: () => on, state: () => ({on, notes: notes.length, lines: lines.length, totals: totals(), trail: trail.length, lang, fx: {...fx}, chain: !!chain, run: run.lines().length}),
+    fxNodes: () => chain};
 })();
 
 // ---- Voice commands -------------------------------------------------------
@@ -29545,7 +29973,7 @@ const Voice = (() => {
     ["Smyčky a sekce", /^(loop|section)/, "#b784ff", "repeat"],
     ["Kytara", /^(gtr|myguitar|preset|record|tuner|practice)/, "#ff5c8a", "elGuitar"],
     ["Stopy", /^(mute|solo|vol|pan):/, "#2fd6c4", "stems"],
-    ["Minipřehrávač", /^(mini|minifull|tomini|page|playall|back)/, "#ffd84a", "external"],
+    ["Minipřehrávač", /^(mini|minifull|tomini|page|playall|back|list:)/, "#ffd84a", "external"],
     ["Vlastní", /^custom:/, "#ff9ad5", "mic"],
     ["Aplikace", /./, "#a8b0c0", "settings"]];
   function helpPaint(filter){
@@ -29638,6 +30066,8 @@ const Voice = (() => {
     if(what === "assist"){ dictate(); return "poslouchám"; }
     if(what === "steems"){ setMode("steems"); return "Steems"; }
     if(what === "tomini"){ toMini(); return "posílám do minipřehrávače"; }
+    if(what === "list") return "seznamy přepíná minipřehrávač („pick mini player“)";
+    if(what === "save") return saveForPractice();
     if(what === "lyrics") return click(shown("mixer") ? "mixer-lyrics-toggle" : "pb-lyrics-btn") ? "text" : "text teď nejde otevřít";
     if(what === "tabs"){
       if(shown("mixer")){ const b = el("nm-tabtop") && !el("nm-tabtop").hidden && el("nm-tabtop").querySelector(".fold-btn"); if(b){ b.click(); return "tab"; } return "tahle píseň ve Steems tab nemá"; }
@@ -29922,7 +30352,7 @@ const Voice = (() => {
   }
   function found(f){
     if(!f || f.error){ showToast((f && f.error) || "Nenašel jsem to"); return; }
-    if(f.kind === "playlist"){ setMode("playlists"); searchExactly(f.query); showToast("Hledám playlisty: " + f.query); return; }
+    if(f.kind === "playlist" || f.kind === "open"){ setMode("playlists"); searchExactly(f.query); showToast("Hledám playlisty: " + f.query); return; }
     if(f.kind === "band"){
       Player.playLocalQueue(f.tracks.map(t => ({relPath: t.rel, title: t.title, artists: t.artist, album: t.album})));
       showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
@@ -29932,6 +30362,23 @@ const Voice = (() => {
     if(f.kind === "practice"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
     Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album});
     showToast(`Hraju: ${t.artist ? t.artist + " — " : ""}${t.title}`);
+  }
+
+  // "pick save song": what plays goes among the favourite songs, and the server
+  // makes it ready to practise (downloads, separates, looks up tab and text).
+  function saveForPractice(){
+    const mix = shown("mixer") && Mixer.currentSong() ? Mixer.currentSong() : null;
+    const cur = mix ? {title: stemsDisplayByName(mix).title || mix, artists: stemsDisplayByName(mix).artist || "", stems: mix} : Player.getCurrent();
+    if(!cur || !cur.title) return "nic nehraje — není co uložit";
+    if(!mix && !FavSongs.has(cur)) FavSongs.toggle(cur);
+    const cfg = loadSettings();
+    fetch("/api/practice/save", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({title: cur.title, artists: cur.artists || "", videoId: cur.videoId || "", url: cur.url || "",
+        relPath: cur.relPath || "", stems: cur.stems || "", duration: cur.duration_seconds || 0, bitrate: bitrate(),
+        format: cfg.stems_format || "mp3", mp3_bitrate: cfg.stems_bitrate || 320,
+        cookies_browser: cfg.cookies_browser || null, cookie_file: cfg.cookie_file || null})})
+      .then(r => { if(!r.ok) showToast("Uložení se nepovedlo"); }).catch(() => showToast("Uložení se nepovedlo"));
+    return `v oblíbených: ${cur.title} — připravuji na cvičení (stažení, stopy, tab, text)`;
   }
 
   // The song that is on, to the mini player: its video, text and tab there, and
