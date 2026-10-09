@@ -3604,13 +3604,35 @@ body.lib-collapsed .pick-brand{display:none}
   .tm-item.tab-lock.on{background:none !important;border:none !important}
   .tm-item.tab-lock.on::before{content:"✓";order:3;margin-left:auto;padding-left:18px;font-weight:700}
   .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
+  /* the song that is on, in any list */
+  .np-row.np-now{box-shadow:inset 3px 0 0 var(--accent,#1ed760);background:rgba(30,215,96,.11)}
+  .np-row.np-now .tx,.np-row.np-now .t-title,.np-row.np-now .lib-name,.np-row.np-now .stem-title,.np-row.np-now .c-title{color:var(--accent,#1ed760)}
+  .np-row.np-flash{animation:np-flash 1.2s ease-out}
+  @keyframes np-flash{0%{background:rgba(30,215,96,.5)}100%{background:rgba(30,215,96,.11)}}
+  #np-jump{position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:9px;max-width:min(520px,80vw);
+    padding:9px 16px;border-radius:999px;border:1px solid rgba(30,215,96,.5);background:#14141a;color:#fff;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.5)}
+  #np-jump[hidden]{display:none}
+  #np-jump:hover{background:#1c1c24}
+  #np-jump i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,#1ed760)}
+  #np-jump span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  #np-jump b{flex:none;color:var(--accent,#1ed760);font-weight:600}
   .voice-pop{width:400px}
   .voice-row{display:flex;align-items:center;gap:10px;padding:4px 9px;font-size:12px;color:var(--nm-sub)}
   .voice-row select{flex:1;min-width:0;background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 6px;font-size:12px}
+  .voice-meter{flex:none;width:70px;height:6px;border-radius:3px;background:#26262e;overflow:hidden}
+  .voice-meter i{display:block;height:100%;width:0;background:var(--accent,#1ed760);transition:width .08s linear}
   .voice-heard{padding:6px 9px 4px;font-size:12px;color:var(--nm-sub);min-height:28px}
   .voice-heard b{color:var(--accent,#1ed760);font-weight:700}
-  .voice-list{max-height:300px;overflow:auto;padding:0 9px 4px;font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
-  .voice-list{max-height:210px}
+  .voice-list{max-height:300px;overflow:auto;padding:0 9px 4px;font-size:12px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:baseline}
+  .voice-own .row .voice-teach{flex:none}
+  .voice-teach{display:flex;gap:2px;justify-content:flex-end;white-space:nowrap}
+  .voice-pop .voice-teach button{flex:none;border:none;background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:0 3px;border-radius:4px}
+  .voice-pop .voice-teach button:hover{color:var(--nm-txt)}
+  .voice-pop .voice-teach button.has{color:var(--accent,#1ed760)}
+  .voice-pop .voice-teach button.busy{color:#ff6b6b}
+  .voice-list{max-height:180px}
+  body.voice-picking, body.voice-picking *{cursor:crosshair !important}
+  .voice-pop{max-height:calc(100vh - 80px);overflow-y:auto}
   .voice-own{padding:0 9px;font-size:12px;display:flex;flex-direction:column;gap:4px}
   .voice-own .row{display:flex;align-items:baseline;gap:8px}
   .voice-own .row b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
@@ -3699,6 +3721,9 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="tm-head">Hlasové ovládání</div>
         <button type="button" class="tm-item" data-stay id="voice-toggle"><span data-icon="mic" data-size="15"></span><span class="tm-t">Poslouchat</span></button>
         <div class="voice-row"><span>Mikrofon</span><select id="voice-mic"><option value="">výchozí</option></select></div>
+        <div class="voice-row" title="Zvukovka se dvěma vstupy (kytara + mikrofon): vyber, na kterém vstupu je mikrofon. Kytara pak patří na ten druhý."><span>Vstup</span><select id="voice-ch">
+          <option value="">běžný mikrofon</option><option value="1">zvukovka — vstup 1</option><option value="2">zvukovka — vstup 2</option></select>
+          <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
         <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem.</div>
         <hr>
         <div class="voice-list" id="voice-list"></div>
@@ -3709,7 +3734,10 @@ body.lib-collapsed .pick-brand{display:none}
           <input type="text" id="voice-new-name" placeholder="Název (např. Rozcvička)" maxlength="60">
           <label class="voice-say"><span>pick</span><input type="text" id="voice-new-phrase" placeholder="co říct, anglicky (např. warm up)" spellcheck="false"></label>
           <div class="voice-steps" id="voice-new-steps"></div>
-          <div class="voice-add"><select id="voice-new-action"></select><button type="button" id="voice-new-add" title="Přidat krok na konec">+ krok</button>
+          <div class="voice-add"><select id="voice-new-action"></select><button type="button" id="voice-new-add" title="Přidat vybranou akci jako další krok">+ krok</button></div>
+          <div class="voice-add"><select id="voice-new-kind" style="flex:none"><option value="song">pustit píseň</option><option value="band">pustit kapelu</option><option value="practice">cvičit píseň</option></select>
+            <input type="text" id="voice-new-target" placeholder="název z knihovny" style="flex:1"><button type="button" id="voice-new-name-add" title="Přidat jako další krok">+ krok</button></div>
+          <div class="voice-add"><button type="button" id="voice-new-button" style="flex:1;height:30px" title="Pak klikni na kterékoli tlačítko v aplikaci — povel ho stiskne za tebe">+ krok: stisknout tlačítko, které ukážu</button>
             <button type="button" id="voice-new-save" class="go">Uložit povel</button></div>
         </div>
       </div>
@@ -6674,6 +6702,7 @@ const Loops = (() => {
     files.forEach((f, i) => {
       const row = document.createElement("div");
       row.className = "lib-trow loop-row" + (cur && cur.relPath === f.rel ? " playing" : "");
+      NowMark.tag(row, {rel: f.rel});
       row.innerHTML = `
         <span class="c-idx">${i + 1}</span>
         <span class="c-title"><span class="art">${icon("note", 14)}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(niceTitle(f.name))}</span></span>
@@ -8135,7 +8164,7 @@ function paintNowPlayingSource(data, track){
       }),
     });
     row.classList.add("np-queue-row");
-    if(track && t.videoId && t.videoId === track.videoId) row.classList.add("playing");
+    NowMark.tag(row, {vid: t.videoId});
     box.appendChild(row);
   });
 }
@@ -8647,9 +8676,89 @@ const ChipThumbs = (() => {
 // thumbSlot: reserves a spot for ChipThumbs to paint a real preview over
 // the icon once one's found — the icon stays as the fallback underneath
 // rather than leaving a blank box while it loads or if there isn't one.
-function libRow({art, artIsUrl, name, sub, round, onClick, active, thumbSlot, song}){
+// ---- The song that is on, marked in every list it appears in ---------------
+// Rows say which song they are (tag); a tick marks the ones that match what the
+// player or the Steems mixer has. When the marked row is scrolled out of sight
+// a pill offers to jump to it — no hunting through hundreds of songs.
+const NowMark = (() => {
+  let pill = null, lastKey = "", lastSong = "";
+  function tag(row, np){
+    if(!row || !np) return;
+    if(np.rel) row.dataset.npRel = np.rel;
+    if(np.vid) row.dataset.npVid = np.vid;
+    if(np.key) row.dataset.npKey = np.key;
+    if(np.stem) row.dataset.npStem = np.stem;
+    row.classList.add("np-row");
+    lastKey = "";                      // a new row: look again on the next tick
+  }
+  function now(){
+    const audio = document.getElementById("pb-audio");
+    const mixOn = typeof Mixer !== "undefined" && Mixer.isPlaying && Mixer.isPlaying();
+    const stem = typeof Mixer !== "undefined" && Mixer.currentSong ? Mixer.currentSong() : null;
+    const t = !mixOn && typeof Player !== "undefined" && Player.getCurrent ? Player.getCurrent() : null;
+    return {stem: stem && (mixOn || !audio || audio.paused) ? stem : null, t,
+            title: mixOn ? stem : t ? (t.title || "") : (stem || "")};
+  }
+  const is = (row, n) => {
+    const d = row.dataset;
+    return !!((n.stem && d.npStem === n.stem) ||
+      (n.t && ((d.npRel && d.npRel === n.t.relPath) || (d.npVid && d.npVid === n.t.videoId) || (d.npKey && d.npKey === n.t.key))));
+  };
+  // In sight: laid out, and inside every box that scrolls it.
+  function seen(row){
+    if(!row.offsetParent) return null;                 // not shown at all (another view, a folded section)
+    const r = row.getBoundingClientRect();
+    if(r.bottom < 0 || r.top > innerHeight) return false;
+    for(let p = row.parentElement; p && p !== document.body; p = p.parentElement){
+      const o = getComputedStyle(p).overflowY;
+      if(o !== "auto" && o !== "scroll") continue;
+      const b = p.getBoundingClientRect();
+      if(r.bottom < b.top + 4 || r.top > b.bottom - 4) return false;
+    }
+    return true;
+  }
+  function jump(){
+    document.querySelectorAll(".np-row.np-now").forEach(row => {
+      if(!row.offsetParent) return;
+      row.scrollIntoView({block: "center", behavior: "smooth"});
+      row.classList.remove("np-flash"); void row.offsetWidth; row.classList.add("np-flash");
+    });
+  }
+  function tick(){
+    const n = now();
+    const rows = document.querySelectorAll(".np-row");
+    const key = [n.stem, n.t && (n.t.relPath || n.t.videoId || n.t.key), rows.length].join("|");
+    if(key !== lastKey){
+      lastKey = key;
+      rows.forEach(row => { const on = is(row, n); row.classList.toggle("np-now", on); row.classList.toggle("playing", on); });
+    }
+    const all = [...document.querySelectorAll(".np-row.np-now")];
+    // The panel on the left follows by itself when the song changes; the pill
+    // is for the big lists, where scrolling is yours.
+    const song = [n.stem, n.t && (n.t.relPath || n.t.videoId || n.t.key)].join("|");
+    if(song !== lastSong){
+      lastSong = song;
+      all.filter(r => r.closest("#sidebar-left") && seen(r) === false).forEach(r => r.scrollIntoView({block: "center"}));
+    }
+    const away = all.filter(r => !r.closest("#sidebar-left")).map(seen).some(v => v === false);
+    if(!pill){
+      pill = document.createElement("button");
+      pill.type = "button"; pill.id = "np-jump"; pill.hidden = true;
+      pill.title = "Skočit v seznamu na píseň, která je puštěná";
+      pill.onclick = jump;
+      document.body.appendChild(pill);
+    }
+    if(away) pill.innerHTML = `<i></i><span>${escapeHtml(n.title || "Puštěná píseň")}</span><b>ukázat v seznamu</b>`;
+    pill.hidden = !away;
+  }
+  addEventListener("load", () => { setInterval(tick, 600); });
+  return {tag, tick, jump};
+})();
+
+function libRow({art, artIsUrl, name, sub, round, onClick, active, thumbSlot, song, np}){
   const row = document.createElement("div");
   row.className = "lib-row" + (active ? " active" : "") + (song ? " song" : "");
+  NowMark.tag(row, np);
   if(song){
     row.innerHTML = `<div class="lib-meta"><div class="lib-name">${escapeHtml(name)}</div>` +
       (sub ? `<div class="lib-sub">${escapeHtml(sub)}</div>` : "") + `</div>`;
@@ -9001,7 +9110,7 @@ async function fetchRailTop5(key){
       const a = stemsDisplay(x), b = stemsDisplay(y);
       return cmp(a.artist, b.artist) || cmp(a.title, b.title);
     }).map(s => ({
-      song: true, name: stemsDisplay(s).title,
+      song: true, np: {stem: s.name}, name: stemsDisplay(s).title,
       sub: stemsDisplay(s).artist || `Stopy \u2022 ${(s.stems || []).length} stop`,
       onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
     }));
@@ -9164,7 +9273,7 @@ function renderHomeRail(list){
   try{ history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){}
 
   const trackRow = (t, onClick) => libRow({
-    song: true, name: t.title || t.relPath || "", sub: t.artists || "", onClick,
+    song: true, np: {rel: t.relPath, vid: t.videoId, key: t.key}, name: t.title || t.relPath || "", sub: t.artists || "", onClick,
   });
 
   // Songs with a tab already synced (PlayerTab's per-song save) — click to
@@ -9182,7 +9291,7 @@ function renderHomeRail(list){
   let collapsed = railSection(list, "ready", "Ready to play", ready.length);
   railRows(list, "ready", collapsed, ready.length
     ? ready.map(v => libRow({
-        song: true,
+        song: true, np: {rel: v.track.relPath, vid: v.track.videoId, key: v.track.key},
         name: v.track.title || v.tabName || "", sub: (v.track.artists ? v.track.artists + " • " : "") + "tab načasovaný",
         onClick: async () => {
           const t = {...v.track};
@@ -9999,6 +10108,7 @@ function paintLibraryTable(){
     const artist = entry.artist || fallback.artists || "";
     const row = document.createElement("div");
     row.className = "lib-trow" + (current && current.relPath === entry.rel ? " playing" : "") + (libSel.has(entry.rel) ? " sel" : "");
+    NowMark.tag(row, {rel: entry.rel});
     row.innerHTML = `
       <span class="c-idx"><span class="n">${i + 1}</span><input type="checkbox" class="pick" title="Označit (⌘/Ctrl + klik, ⇧ + klik = rozsah)" ${libSel.has(entry.rel) ? "checked" : ""}></span>
       <span class="c-title">
@@ -11389,6 +11499,7 @@ function paintSteemsTable(box, songs){
     const d = stemsDisplay(song);
     const row = document.createElement("div");
     row.className = "lib-trow steems-row";
+    NowMark.tag(row, {stem: song.name});
     const n = (song.stems || []).length;
     row.innerHTML = `
       <span class="c-idx">${i + 1}</span>
@@ -11451,6 +11562,7 @@ function steemsCard(song, box){
   const row = document.createElement("div");
   row.className = "stem-card" + (song.complete === false ? " incomplete" : "");
   row.dataset.name = song.name;
+  NowMark.tag(row, {stem: song.name});
   // Show which stems exist, so a partial set is obvious before you open it.
   const chips = (song.stems || []).map(st =>
     `<span class="stem-chip ${st}">${escapeHtml(st)}</span>`).join("");
@@ -20686,10 +20798,16 @@ const Mixer = (() => {
     // "auto" follows whichever input the guitar is actually on: the louder
     // one wins once it has been clearly louder (×4) for a moment, so a
     // second input with a mic or hum doesn't steal it on a quiet passage.
+    // The input the voice-control microphone sits on (Voice, "Vstup"), if any:
+    // "auto" must never follow that one — the voice would go through the amp.
+    function voiceInput(){
+      try{ const v = localStorage.getItem("pick-voice-ch"); return v === "1" ? 0 : v === "2" ? 1 : -1; }catch(e){ return -1; }
+    }
     function effectiveChannel(){
       if(state.inputChannel === "sum") return "sum";
       if(state.inputChannel === "1") return 0;
       if(state.inputChannel === "2") return state.sourceChannels > 1 ? 1 : 0;
+      if(state.sourceChannels > 1 && voiceInput() >= 0) return 1 - voiceInput();
       return state.sourceChannels > 1 ? (state.activeChannel || 0) : 0;
     }
     const chBuf = new Float32Array(512);
@@ -20700,7 +20818,7 @@ const Mixer = (() => {
       return m;
     }
     function watchInputChannels(){
-      if(!chMeters || state.inputChannel !== "auto" || state.sourceChannels < 2) return;
+      if(!chMeters || state.inputChannel !== "auto" || state.sourceChannels < 2 || voiceInput() >= 0) return;
       const p = chMeters.map(chPeak);
       state.channelPeaks = p;
       const cur = state.activeChannel || 0, other = 1 - cur;
@@ -23462,6 +23580,53 @@ const Mixer = (() => {
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
     speed: () => speed, setSpeed: (v) => setSpeed(v),
+    // Voice commands (Voice, further down): the tracks by their stem, the song by its sections.
+    voice: (() => {
+      const find = (stem) => channels.find(c => c.stem === stem) || channels.find(c => c.stem.split("_")[0] === stem);
+      const strip = (c) => document.querySelector(`#nm-rail .nm-strip[data-ch="${channels.indexOf(c)}"]`);
+      const press = (c, cls) => { const b = strip(c) && strip(c).querySelector(".nm-sm." + cls); if(b) b.click(); };
+      const KINDS = {intro: ["intro"], verse: ["verse", "sloka"], chorus: ["chorus", "refr"], bridge: ["bridge", "mezihra", "most"],
+                     solo: ["solo", "sólo"], outro: ["outro", "konec", "závěr"]};
+      const loopOn = (sec) => {
+        loopStart = sec.start; loopEnd = sec.end; loopEnabled = true;
+        el("mixer-loop").classList.add("active");
+        queueSessionSave(); seek(sec.start); renderTimeline();
+        return sec.name;
+      };
+      return {
+        mute(stem){ const c = find(stem); if(!c) return null; press(c, "mute"); return c.muted; },
+        solo(stem){ const c = find(stem); if(!c) return null; press(c, "solo"); return c.solo; },
+        mutedOn(stem, on){ const c = find(stem); if(c && !!c.muted !== on) press(c, "mute"); return !!c; },
+        vol(stem, d){
+          const c = find(stem); if(!c) return null;
+          c.faderValue = Math.max(0, Math.min(1.5, (c.faderValue || 0) + d * 0.15));
+          applyGains(); renderChannels(); renderTrackLanes();
+          return Math.round(c.faderValue * 100);
+        },
+        pan(stem, v){
+          const c = find(stem); if(!c) return null;
+          c.panValue = v * 0.8;
+          applyGains(); renderChannels();
+          return true;
+        },
+        // which: "loop" (the one playing), +1 / -1 (the neighbour), or a kind ("chorus": the next one from here)
+        section(which){
+          if(!sections.length) return false;
+          const t = loopEnabled ? loopStart + 0.01 : currentTime();
+          const at = Math.max(0, sections.findIndex(x => t >= x.start && t < x.end));
+          if(which === "loop") return loopOn(sections[at]);
+          if(which === 1 || which === -1) return loopOn(sections[(at + which + sections.length) % sections.length]);
+          const is = (x) => (KINDS[which] || [which]).some(k => String(x.kind || "").toLowerCase() === k || String(x.name || "").toLowerCase().includes(k));
+          const order = [...sections.slice(at + 1), ...sections.slice(0, at + 1)];
+          const hit = order.find(is);
+          return hit ? loopOn(hit) : null;
+        },
+        async myGuitar(on){
+          if(on === undefined || Guitar.isLive() !== on) await toggleGuitarInput();
+          return Guitar.isLive();
+        },
+      };
+    })(),
     currentTime: () => currentTime(), seek: (t) => seek(t),
     takeRec: () => TakeRec,
     tunnel: () => Tunnel,
@@ -23968,6 +24133,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
     </div>
   `;
   const inner = row.querySelector(".track-row");
+  NowMark.tag(inner, {vid: t.videoId});
   inner.dataset.title = t.title || "";
   inner.dataset.artists = t.artists || "";
   const [addBtn, playBtn] = row.querySelectorAll(".icon-btn");
@@ -24127,6 +24293,7 @@ function renderQueueDrawer(){
       const owned = isOwned(c.title, c.artists);
       const row = document.createElement("div");
       row.className = "cart-item";
+      NowMark.tag(row, {key: c.key});
       row.innerHTML = `
         <div class="thumb" style="width:32px;height:32px;border-radius:5px;background:var(--bg2) center/cover no-repeat;${c.thumbnail?`background-image:url('${thumbUrl(c.thumbnail)}')`:''}"></div>
         <div class="info">
@@ -28609,7 +28776,7 @@ const Ambient = (() => {
 })();
 
 const RemoteAgent = (() => {
-  let seq = 0;
+  let seq = 0, polled = false;
   let lastPushed = "";
   let lastPushAt = 0;
 
@@ -28695,6 +28862,9 @@ const RemoteAgent = (() => {
       case "seek":
         if(audio && isFinite(cmd.value)) audio.currentTime = Math.max(0, cmd.value);
         break;
+      case "voice":                // Siri, through a shortcut: listening on, off, or the other one
+        Voice.turn(cmd.value === 1 ? true : cmd.value === 0 ? false : !Voice.isOn());
+        break;
       case "playqueue": {          // the mini player's queue tab
         const item = loadQueue()[Math.round(cmd.value)];
         if(item) Player.playQueueFrom(item);
@@ -28708,8 +28878,12 @@ const RemoteAgent = (() => {
     try{
       const res = await fetch(`/api/remote/commands?since=${seq}`);
       const data = await res.json();
+      // The first answer after loading is everything pressed before this window
+      // existed — skipped, or a reload would press it all again.
+      const fresh = polled ? (data.commands || []) : [];
+      polled = true;
       seq = data.seq || seq;
-      (data.commands || []).forEach(run);
+      fresh.forEach(run);
     }catch(e){}
   }
 
@@ -28738,10 +28912,15 @@ const RemoteAgent = (() => {
 // on this computer. What a command does depends on what is open: the tool in
 // front (analyzer), the Steems mixer, or the player at the bottom.
 const Voice = (() => {
-  const MIC_KEY = "pick-voice-mic";
+  const MIC_KEY = "pick-voice-mic", CH_KEY = "pick-voice-ch", ON_KEY = "pick-voice-on", OWNER_KEY = "spotdl-remote-owner";
   let on = false, stream = null, actx = null, node = null, chain = Promise.resolve(), parts = [], held = 0, listed = false;
+  // One input of the sound card when it has two (guitar on one, microphone on the other).
   const WORKLET = `registerProcessor("pick-voice", class extends AudioWorkletProcessor {
-    process(inputs){ const c = inputs[0] && inputs[0][0]; if(c) this.port.postMessage(c.slice(0)); return true; } });`;
+    constructor(o){ super(); this.ch = (o.processorOptions && o.processorOptions.ch) || 0; }
+    process(inputs){ const i = inputs[0], c = i && (i[this.ch] || i[0]); if(c) this.port.postMessage(c.slice(0)); return true; } });`;
+  const level = el("voice-level");
+  let peak = 0, lvlN = 0;
+  const savedCh = () => { try{ return localStorage.getItem(CH_KEY) || ""; }catch(e){ return ""; } };
   const toggleBtn = el("voice-toggle"), heard = el("voice-heard");
 
   function paint(){
@@ -28753,6 +28932,8 @@ const Voice = (() => {
   const stepName = (id) => {
     const [k, n] = id.split(":");
     if(k === "wait") return `počkat ${n} s`;
+    if(k === "click"){ const b = buttonBy(id.slice(6)); return "stisknout: " + (b ? buttonName(b) : id.slice(6).replace(/^#/, "")); }
+    if(k === "find") return ({song: "pustit píseň", band: "pustit kapelu", practice: "cvičit píseň"}[n] || n) + " „" + id.split(":").slice(2).join(":") + "“";
     const a = actions.find(x => x.id === id);
     return a ? a.does : k === "tempo" ? `tempo ${n} %` : id;
   };
@@ -28764,12 +28945,65 @@ const Voice = (() => {
   }
   function paintOwn(rows){
     el("voice-own").innerHTML = rows.length ? rows.map(c =>
-      `<div class="row"><b>pick ${escapeHtml(c.phrase)}</b><span>${escapeHtml(c.name)}: ${escapeHtml(c.steps.map(stepName).join(" → "))}</span><button type="button" data-del="${escapeHtml(c.id)}" title="Smazat povel">✕</button></div>`).join("")
+      `<div class="row"><b>pick ${escapeHtml(c.phrase)}</b><span>${escapeHtml(c.name)}: ${escapeHtml(c.steps.map(stepName).join(" → "))}</span>${teachHtml("custom:" + c.id, "pick " + c.phrase)}<button type="button" data-del="${escapeHtml(c.id)}" title="Smazat povel">✕</button></div>`).join("")
       : `<div class="none">Zatím žádné. Níže si složíš vlastní — jedna fráze může spustit víc kroků za sebou.</div>`;
     el("voice-own").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
       await fetch("/api/voice/custom/" + encodeURIComponent(b.dataset.del), {method: "DELETE"});
       listed = false; await listCommands(); relisten();
     });
+    wireTeach(el("voice-own"));
+  }
+  // Teaching: you say a command three times, and how it sounds from you is kept
+  // for it (voice.teach). The microphone is this module's own; while a take is
+  // being recorded nothing is listened for.
+  let taughtN = {}, teach = null;
+  const TAKE_S = 3;
+  function teachHtml(id, say){
+    const n = taughtN[id] || 0;
+    return `<span class="voice-teach"><button type="button" data-teach="${escapeHtml(id)}" data-say="${escapeHtml(say)}" class="${n ? "has" : ""}" title="Naučit můj hlas: řekneš povel třikrát a Pick si zapamatuje, jak zní od tebe">🎙${n ? " " + n : ""}</button>`
+      + (n ? `<button type="button" data-forget="${escapeHtml(id)}" title="Zapomenout, co se u tohohle povelu naučil z mého hlasu">✕</button>` : "") + `</span>`;
+  }
+  function wireTeach(root){
+    root.querySelectorAll("[data-teach]").forEach(b => b.onclick = () => teachCmd(b.dataset.teach, b.dataset.say.split(" / ")[0], b));
+    root.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => {
+      await fetch("/api/voice/teach?cmd=" + encodeURIComponent(b.dataset.forget), {method: "DELETE"});
+      listed = false; await listCommands();
+    });
+  }
+  function take(){
+    return new Promise(ok => { teach = {parts: [], held: 0, need: TAKE_S * 16000, ok}; });
+  }
+  async function teachCmd(id, say, btn){
+    if(teach) return;
+    const wasOn = on;
+    teach = {};                       // from here on the microphone is not listened to for commands
+    if(!on) await start();
+    if(!on){ teach = null; return; }
+    if(btn) btn.classList.add("busy");
+    let kept = 0, last = "";
+    try{
+      for(let i = 1; i <= 3; i++){
+        heard.innerHTML = `Řekni teď (${i}/3): <b>${escapeHtml(say)}</b>`;
+        await pause(350);
+        const pcm = await take();
+        teach = {};
+        heard.textContent = "Poslouchám, co jsem slyšel…";
+        const r = await fetch("/api/voice/teach?cmd=" + encodeURIComponent(id), {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}});
+        const d = await r.json().catch(() => ({}));
+        if(!r.ok) last = d.error || "Tenhle záznam se nepovedl.";
+        else if(d.understood){ kept++; last = "Tomuhle rozumím."; }
+        else if(d.added && d.works){ kept++; last = `Slyšel jsem „${d.heard}“ — zapamatováno.`; }
+        else last = `Slyšel jsem „${d.heard}“, ale spolehlivě to nepoznám. Zkus to říct zřetelněji.`;
+        heard.textContent = last;
+        await pause(1400);
+      }
+      heard.textContent = kept ? `Hotovo: ${kept} ze 3 záznamů v pořádku.` : `Ani jeden záznam se nepovedl. ${last}`;
+    }finally{
+      teach = null; parts = []; held = 0;
+      // The recogniser learns its words when listening starts.
+      if(!wasOn) stop(); else await fetch("/api/voice/start", {method: "POST"}).catch(() => {});
+      listed = false; await listCommands();
+    }
   }
   // The recogniser learns its words when listening starts.
   function relisten(){ if(on){ stop(); start(); } }
@@ -28777,8 +29011,10 @@ const Voice = (() => {
     if(listed) return;
     try{
       const d = await (await fetch("/api/voice/commands")).json();
-      actions = d.commands;
-      el("voice-list").innerHTML = d.commands.map(c => `<b>${escapeHtml(c.say)}</b><span>${escapeHtml(c.does)}</span>`).join("");
+      actions = d.commands; taughtN = d.taught || {};
+      el("voice-list").innerHTML = d.commands.map(c => `<b>${escapeHtml(c.say)}</b><span>${escapeHtml(c.does)}</span>`
+        + (c.id.startsWith("find:") ? "<span></span>" : teachHtml(c.id, c.say))).join("");
+      wireTeach(el("voice-list"));
       el("voice-new-action").innerHTML = d.commands.map(c => `<option value="${c.id}">${escapeHtml(c.does)}</option>`).join("")
         + [55, 65, 75, 85, 95].map(n => `<option value="tempo:${n}">tempo ${n} %</option>`).join("")
         + [1, 2, 5, 10].map(n => `<option value="wait:${n}">počkat ${n} s</option>`).join("");
@@ -28788,14 +29024,43 @@ const Voice = (() => {
     }catch(e){}
   }
   el("voice-new-add").onclick = () => { if(draft.length < 12){ draft.push(el("voice-new-action").value); paintDraft(); } };
+  // "Press a button": the next button clicked anywhere in the app becomes the step (it is not pressed now).
+  el("voice-new-button").onclick = () => {
+    if(draft.length >= 12) return;
+    TMenu.close();
+    showToast("Klikni na tlačítko, které má povel stisknout (Esc = zrušit)");
+    const done = () => { document.removeEventListener("click", grab, true); document.removeEventListener("keydown", esc, true); document.body.classList.remove("voice-picking"); };
+    const reopen = () => TMenu.open(el("voice-top-btn").parentElement);
+    const esc = (e) => { if(e.key === "Escape"){ e.stopPropagation(); done(); reopen(); } };
+    const grab = (e) => {
+      const b = e.target.closest("button, [role=button]");
+      e.preventDefault(); e.stopPropagation();
+      if(!b){ showToast("Tohle není tlačítko — zkus jiné místo"); return; }
+      const how = b.id ? "#" + b.id : (b.title || b.textContent.trim());
+      done();
+      if(!how || buttonBy(how) !== b) showToast("Tohle tlačítko nejde spolehlivě najít, zkus jiné");
+      else{ draft.push("click:" + how); }
+      reopen(); paintDraft();
+    };
+    document.body.classList.add("voice-picking");
+    setTimeout(() => { document.addEventListener("click", grab, true); document.addEventListener("keydown", esc, true); }, 0);
+  };
+  el("voice-new-name-add").onclick = () => {
+    const name = el("voice-new-target").value.trim();
+    if(!name || draft.length >= 12) return;
+    draft.push(`find:${el("voice-new-kind").value}:${name}`);
+    el("voice-new-target").value = ""; paintDraft();
+  };
   el("voice-new-save").onclick = async () => {
     const r = await fetch("/api/voice/custom", {method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({name: el("voice-new-name").value, phrase: el("voice-new-phrase").value, steps: draft})});
     const d = await r.json().catch(() => ({}));
     if(!r.ok){ heard.textContent = d.error || "Povel se nepodařilo uložit."; showToast(heard.textContent); return; }
     el("voice-new-name").value = el("voice-new-phrase").value = ""; draft = [];
-    heard.innerHTML = `Uloženo: <b>pick ${escapeHtml(d.phrase)}</b>`;
-    listed = false; await listCommands(); relisten();
+    listed = false; await listCommands();
+    // Straight away, how it sounds from you.
+    await pause(300);
+    teachCmd("custom:" + d.id, "pick " + d.phrase);
   };
   async function listMics(){
     try{
@@ -28805,10 +29070,14 @@ const Voice = (() => {
       sel.value = ins.some(d => d.deviceId === cur) ? cur : "";
     }catch(e){}
   }
-  function send(){
-    const all = new Int16Array(held);
+  function pcm16(chunks, n){
+    const all = new Int16Array(n);
     let o = 0;
-    for(const p of parts) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
+    for(const p of chunks) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
+    return all;
+  }
+  function send(){
+    const all = pcm16(parts, held);
     parts = []; held = 0;
     chain = chain.then(() => on ? fetch("/api/voice/feed", {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
       .then(r => r && r.ok ? r.json() : null).then(r => { if(r && r.heard) got(r); }).catch(() => {});
@@ -28825,6 +29094,11 @@ const Voice = (() => {
   }
   function got(r){
     if(!r.command){ heard.textContent = "slyšel jsem: " + r.heard; return; }
+    if(r.find){
+      heard.innerHTML = `<b>${escapeHtml(r.heard)}</b>` + (r.find.error ? " — " + escapeHtml(r.find.error) : "");
+      found(r.find);
+      return;
+    }
     if(r.steps && r.steps.length > 1){
       heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(r.name || "")}…`;
       showToast("Hlas: " + r.heard + " — " + (r.name || "") + ` (${r.steps.length} kroků)`);
@@ -28846,6 +29120,16 @@ const Voice = (() => {
     if(what === "tuner") return click("tuner-top-btn") ? "ladička" : null;
     if(what === "playlist"){ setMode("playlists"); return "playlisty"; }
     if(what === "song"){ pickSong(); return "vybírám píseň"; }
+    if(what === "mini"){ fetch("/api/mini/open", {method: "POST"}).catch(() => {}); return "minipřehrávač"; }
+    if(what === "click") return pressButton(cmd.slice(6));
+    if(what === "find"){ const [, kind, ...rest] = cmd.split(":"); findByName(kind, rest.join(":")); return "hledám „" + rest.join(":") + "“"; }
+    if(what === "practice"){
+      const cur = Player.getCurrent();
+      if(shown("mixer") && Mixer.currentSong()){ practiceSetup(); return "cvičení: kytara ztlumená, tvoje zapnutá"; }
+      if(!cur || !cur.relPath) return "nejdřív pusť píseň z knihovny, nebo řekni její název";
+      practice({rel: cur.relPath, title: cur.title || ""});
+      return "připravuju cvičení";
+    }
     if(shown("analyzer-frame")){
       el("analyzer-frame").contentWindow.postMessage({pick: true, voice: cmd}, location.origin);
       return "analyzér";
@@ -28862,6 +29146,22 @@ const Voice = (() => {
       if(what === "slower"){ Mixer.setSpeed(Mixer.speed() - 0.05); return "tempo " + pct(); }
       if(what === "faster"){ Mixer.setSpeed(Mixer.speed() + 0.05); return "tempo " + pct(); }
       if(what === "tempo"){ Mixer.setSpeed(+arg / 100); return "tempo " + pct(); }
+      const V = Mixer.voice, stem = arg, cz = STEM_CZ[stem] || stem, third = cmd.split(":")[2];
+      if(what === "mute"){ const r = V.mute(stem); return r === null ? `stopa ${cz} tu není` : `${cz} ${r ? "ztlumená" : "hraje"}`; }
+      if(what === "solo"){ const r = V.solo(stem); return r === null ? `stopa ${cz} tu není` : `${cz} sólo ${r ? "zap" : "vyp"}`; }
+      if(what === "vol"){ const r = V.vol(stem, third === "+" ? 1 : -1); return r === null ? `stopa ${cz} tu není` : `${cz} ${r} %`; }
+      if(what === "pan"){ const r = V.pan(stem, +third); return r === null ? `stopa ${cz} tu není` : `${cz} ${+third < 0 ? "vlevo" : +third > 0 ? "vpravo" : "na střed"}`; }
+      if(what === "section"){
+        const r = V.section(arg === "loop" ? "loop" : arg === "+" ? 1 : arg === "-" ? -1 : arg);
+        return r ? "smyčka: " + r : r === false ? "tahle píseň nemá sekce" : "taková sekce tu není";
+      }
+      if(what === "myguitar"){ V.myGuitar().then(on => showToast(on ? "Tvoje kytara zapnutá" : "Tvoje kytara vypnutá")).catch(() => showToast("Kytaru se nepodařilo zapnout")); return "tvoje kytara"; }
+      if(what === "preset"){
+        const b = el(arg === "+" ? "gt-tr-next" : "gt-tr-prev") || el(arg === "+" ? "gt-preset-next" : "gt-preset-prev");
+        if(!b) return "presety nejsou po ruce (otevři panel Fadery)";
+        b.click();
+        return arg === "+" ? "další preset" : "předchozí preset";
+      }
       return null;
     }
     const a = el("pb-audio"), vol = el("pb-volume");
@@ -28876,6 +29176,83 @@ const Voice = (() => {
       return "hlasitost " + Math.round(vol.value * 100) + " %";
     }
     return null;
+  }
+
+  const STEM_CZ = {drums: "bicí", bass: "basa", guitar: "kytara", vocals: "zpěv", piano: "klavír", other: "ostatní"};
+  const pause = (ms) => new Promise(ok => setTimeout(ok, ms));
+
+  // A step that presses one of the app's own buttons. `how` is "#id", or the
+  // button's tooltip / text when it has no id.
+  function buttonBy(how){
+    if(how.startsWith("#")) return document.getElementById(how.slice(1));
+    return [...document.querySelectorAll("button, [role=button]")].find(b => (b.title || b.textContent.trim()) === how) || null;
+  }
+  function pressButton(how){
+    const b = buttonBy(how);
+    if(!b) return "tlačítko tu teď není";
+    if(b.disabled) return "tlačítko je teď vypnuté";
+    b.click();
+    return "stisknuto: " + buttonName(b);
+  }
+  const buttonName = (b) => ((b.title || b.getAttribute("aria-label") || b.textContent || "").split(" — ")[0].trim() || "tlačítko").slice(0, 40);
+
+  // A song or a band by name — spoken (the server has already looked it up) or typed into a step.
+  async function findByName(kind, name){
+    try{ found(await (await fetch(`/api/voice/find?kind=${kind}&name=${encodeURIComponent(name)}`)).json()); }
+    catch(e){ showToast("Hledání se nepovedlo"); }
+  }
+  function found(f){
+    if(!f || f.error){ showToast((f && f.error) || "Nenašel jsem to"); return; }
+    if(f.kind === "band"){
+      Player.playLocalQueue(f.tracks.map(t => ({relPath: t.rel, title: t.title, artists: t.artist, album: t.album})));
+      showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
+      return;
+    }
+    const t = f.track;
+    if(f.kind === "practice"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
+    Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album});
+    showToast(`Hraju: ${t.artist ? t.artist + " — " : ""}${t.title}`);
+  }
+
+  // Practice: the song in the Steems mixer — separated first when it has to be —
+  // with its guitar muted and yours switched on. Lyrics and tabs load themselves.
+  let practising = 0;
+  async function practice(song){
+    const mine = ++practising;
+    const stemsOf = async () => {
+      const d = await (await fetch("/api/library/browse?rel=Songs&flat=1")).json();
+      const e = (d.entries || []).find(x => x.rel === song.rel);
+      return e && e.stems && e.stems.state === "ready" ? e.stems.name : null;
+    };
+    try{
+      let name = song.stems && song.stems.state === "ready" ? song.stems.name : await stemsOf();
+      if(!name){
+        showToast(`Rozděluji „${song.title}“ na stopy — pár minut, pak ji otevřu`);
+        startStemsSeparation(song.rel);
+        for(let i = 0; i < 240 && !name; i++){            // up to twenty minutes
+          await pause(5000);
+          if(mine !== practising) return;
+          name = await stemsOf();
+        }
+        if(!name){ showToast("Separace se nedokončila"); return; }
+      }
+      if(!Player.getCurrent() || el("pb-audio").paused === false) el("pb-audio").pause();
+      // The mix restores its saved state as it loads; our changes go in once the
+      // new song's own tracks are there and that has settled.
+      const stale = shown("mixer") && Mixer.currentSong() === name ? null : (Mixer.channelByStem("drums") || Mixer.channelByStem("guitar") || {});
+      if(stale) openSteemsSong(name);
+      const fresh = () => { const c = Mixer.channelByStem("drums") || Mixer.channelByStem("guitar"); return c && c !== stale; };
+      for(let i = 0; i < 180 && !(Mixer.currentSong() === name && fresh()); i++) await pause(500);
+      await pause(2500);
+      await practiceSetup();
+      await pause(1500);
+      Mixer.voice.mutedOn("guitar", true);
+      showToast(`Cvičení: ${song.title} — kytara ztlumená, tvoje zapnutá`);
+    }catch(e){ showToast("Cvičení se nepodařilo připravit"); }
+  }
+  async function practiceSetup(){
+    Mixer.voice.mutedOn("guitar", true);
+    try{ await Mixer.voice.myGuitar(true); }catch(e){ showToast("Tvoji kytaru se nepodařilo zapnout — zkontroluj vstup"); }
   }
 
   // "pick a song": any one song from the library, played.
@@ -28895,17 +29272,41 @@ const Voice = (() => {
     try{
       const r = await fetch("/api/voice/start", {method: "POST"});
       if(!r.ok){ const d = await r.json().catch(() => ({})); throw new Error(d.error || "Hlasové ovládání se nespustilo."); }
-      const dev = localStorage.getItem(MIC_KEY) || "";
+      const dev = localStorage.getItem(MIC_KEY) || "", ch = savedCh();
       // Echo cancelling takes the app's own playback out of what the microphone hears.
-      stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: dev ? {exact: dev} : undefined,
-        echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      // It also folds the card's inputs into one — so with a chosen input it is
+      // off, and the two inputs arrive apart.
+      stream = await navigator.mediaDevices.getUserMedia({audio: ch
+        ? {deviceId: dev ? {exact: dev} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}
+        : {deviceId: dev ? {exact: dev} : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      const got = stream.getAudioTracks()[0].getSettings().channelCount || 1;
+      if(ch === "2" && got < 2) showToast("Tenhle mikrofon má jen jeden vstup — poslouchám ten.");
       actx = new AudioContext({sampleRate: 16000});
       const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
       await actx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
-      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0});
-      node.port.onmessage = (e) => { parts.push(e.data); held += e.data.length; if(held >= 4000) send(); };
+      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0,
+        channelCount: 2, channelCountMode: "explicit", channelInterpretation: "discrete",
+        processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
+      node.port.onmessage = (e) => {
+        for(let i = 0; i < e.data.length; i += 8){ const v = Math.abs(e.data[i]); if(v > peak) peak = v; }
+        if((lvlN += e.data.length) >= 1600){ level.style.width = Math.min(100, Math.round(Math.sqrt(peak) * 100)) + "%"; peak = lvlN = 0; }
+        if(teach){                        // a take being recorded, or the gap between two
+          if(!teach.ok) return;
+          teach.parts.push(e.data); teach.held += e.data.length;
+          if(teach.held >= teach.need){ const t = teach; teach = {}; t.ok(pcm16(t.parts, t.held)); }
+          return;
+        }
+        parts.push(e.data); held += e.data.length; if(held >= 4000) send();
+      };
       actx.createMediaStreamSource(stream).connect(node);
+      // Started without a click (remembered, or by Siri) the browser may hold
+      // the audio back until the page is touched.
+      if(actx.state === "suspended"){
+        const ctx = actx, wake = () => { ctx.resume().catch(() => {}); removeEventListener("pointerdown", wake, true); removeEventListener("keydown", wake, true); };
+        ctx.resume().catch(() => {});
+        addEventListener("pointerdown", wake, true); addEventListener("keydown", wake, true);
+      }
       on = true; parts = []; held = 0;
       heard.textContent = "Poslouchám. Řekni anglicky „pick“ a hned povel, jedním dechem.";
       listMics();
@@ -28918,21 +29319,48 @@ const Voice = (() => {
   }
   function stop(){
     on = false;
+    if(teach && teach.ok){ const t = teach; teach = {}; t.ok(new Int16Array(0)); }
     if(stream) stream.getTracks().forEach(t => t.stop());
     if(actx) actx.close().catch(() => {});
-    stream = actx = node = null; parts = []; held = 0;
+    stream = actx = node = null; parts = []; held = 0; level.style.width = "0";
     fetch("/api/voice/stop", {method: "POST"}).catch(() => {});
     paint();
   }
 
-  toggleBtn.onclick = () => on ? stop() : start();
+  // Listening is remembered: once on, it comes back by itself the next time
+  // Pick opens, until it is turned off here or by Siri.
+  function turn(want){
+    try{ want ? localStorage.setItem(ON_KEY, "1") : localStorage.removeItem(ON_KEY); }catch(e){}
+    return want ? start() : stop();
+  }
+  const wanted = () => { try{ return localStorage.getItem(ON_KEY) === "1"; }catch(e){ return false; } };
+  toggleBtn.onclick = () => turn(!on);
+  // One window listens — the one that answers the remote. Another Pick window
+  // taking over means this one lets the microphone go.
+  addEventListener("storage", (e) => { if(e.key === OWNER_KEY && on && !RemoteAgent.isOwner()) stop(); });
+  document.addEventListener("visibilitychange", () => { if(!document.hidden && !on && wanted()) start(); });
+  if(wanted()) start();
   el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
   el("voice-mic").onchange = (e) => {
     try{ localStorage.setItem(MIC_KEY, e.target.value); }catch(err){}
     if(on){ stop(); start(); }
   };
+  el("voice-ch").value = savedCh();
+  el("voice-ch").onchange = (e) => {
+    const ch = e.target.value;
+    try{ ch ? localStorage.setItem(CH_KEY, ch) : localStorage.removeItem(CH_KEY); }catch(err){}
+    // The guitar on "automatic" would take whichever input is louder — the
+    // voice, now and then. From here on it keeps to the other one (effectiveChannel).
+    const Guitar = typeof Mixer !== "undefined" ? Mixer.guitar : null;
+    if(Guitar && Guitar.state){
+      Guitar.setInputChannel(Guitar.state.inputChannel);
+      if(ch && Guitar.state.inputChannel === "auto") showToast(`Mikrofon na vstupu ${ch} — kytara na „Automaticky“ teď bere jen vstup ${ch === "2" ? 1 : 2}.`);
+      else if(ch && Guitar.state.inputChannel === ch) showToast(`Pozor: kytara je nastavená na stejný vstup ${ch} jako mikrofon.`);
+    }
+    if(on){ stop(); start(); }
+  };
   paint();
-  return {start, stop, isOn: () => on, run, runSteps};
+  return {start, stop, turn, isOn: () => on, run, runSteps};
 })();
 </script>
 </body>

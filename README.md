@@ -84,9 +84,29 @@ curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
 unzip vosk-model-small-en-us-0.15.zip
 ```
 
-Povel je anglicky, vždy „pick“ a jedna známá fráze v jednom dechu (seznam je v nabídce
-mikrofonu a ve `voice.COMMANDS`). Když model nebo knihovna chybí, endpoint
-vrátí 503 a zbytek aplikace funguje dál.
+Povel je anglicky, vždy „pick“ a jedna známá fráze v jednom dechu (seznam je
+v nabídce mikrofonu a ve `voice.COMMANDS`). Jména — „pick song …“, „pick band …“,
+„pick practice …“ — a věty, kterým malý model nerozuměl, čte podruhé Whisper
+(`whisper-cli` z `brew install whisper-cpp`, model
+`~/.local/share/spotdl-helper/voice/ggml-large-v3-turbo-q5_0.bin`) a jméno se
+dohledá v knihovně podle zvuku. Vlastní povely (fráze → kroky za sebou) jsou
+v `~/.local/share/spotdl-helper/voice-commands.json`. Když model nebo knihovna
+chybí, endpoint vrátí 503 a zbytek aplikace funguje dál.
+
+U každého povelu jde **naučit vlastní hlas** (mikrofon u řádku, u nového vlastního
+povelu hned po uložení): tři záznamy, a co z nich rozpoznávač slyší — správně
+nebo špatně — se k povelu uloží (`voice-taught.json`, záznamy ve `voice/takes/`).
+Nově naučené nesmí rozbít žádný dřív uložený záznam, jinak se nepřijme. Whisper
+navíc čte podruhé každou větu, která začala jasným „pick“ a povel z ní nevyšel.
+
+Zvukovka se dvěma vstupy (kytara + bezdrátový klopový mikrofon): v nabídce
+mikrofonu se vybere zařízení a **Vstup 1 / 2**. Vstupy pak přijdou odděleně
+(bez potlačení ozvěny) a rozpoznává se jen ten zvolený; kytara na „Automaticky“
+se vstupu s mikrofonem vyhýbá.
+
+Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zvenku
+(Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
+parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
 
 ## Lišta macOS
 

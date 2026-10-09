@@ -26,7 +26,7 @@ from urllib.parse import quote, unquote
 import httpx
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
 HOME = Path.home()
@@ -5317,6 +5317,7 @@ REMOTE_ACTIONS = {
     "playpause", "play", "pause", "next", "prev",
     "volume", "seek", "stop", "mute",
     "playqueue",   # value = index into the saved queue (the mini player's Fronta)
+    "voice",       # listening for spoken commands: 1 on, 0 off, nothing = the other one
 }
 
 
@@ -8705,7 +8706,8 @@ _voice_lock = threading.Lock()
 @app.get("/api/voice/commands")
 def voice_commands():
     return {"wake": _voice.WAKE, "commands": _voice.help_rows(), "unavailable": _voice.available(),
-            "custom": _voice.load_custom()}
+            "custom": _voice.load_custom(),
+            "taught": {k: len(v["heard"]) + len(v["whisper"]) for k, v in _voice.load_taught().items()}}
 
 
 class VoiceCustom(BaseModel):
@@ -8753,7 +8755,177 @@ async def voice_feed(request: Request):
         return JSONResponse({"error": "Hlasové ovládání neběží."}, status_code=409)
     if len(pcm) > _voice.RATE * 2 * 5 or len(pcm) % 2:
         return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
-    return await asyncio.get_running_loop().run_in_executor(None, lis.feed, pcm)
+    return await asyncio.get_running_loop().run_in_executor(None, _voice_heard, lis, pcm)
+
+
+def _voice_library():
+    """Songs and bands a spoken name can mean."""
+    songs = [e for e in _all_songs_flat().get("entries", []) if e.get("type") == "file"]
+    bands = {}
+    for e in songs:
+        if e.get("artist"):
+            bands.setdefault(e["artist"], []).append(e)
+    return songs, bands
+
+
+def voice_find(kind, name):
+    """The song or band in the library that `name` means, or why not."""
+    songs, bands = _voice_library()
+    if kind == "band":
+        keys = sorted(bands)
+        i, score = _voice.best_match(name, keys)
+        if i is None:
+            return {"kind": kind, "query": name, "error": f"Kapelu „{name}“ jsem v knihovně nenašel."}
+        tracks = sorted(bands[keys[i]], key=lambda e: (e.get("album") or "", e.get("track") or 0, e.get("title") or ""))
+        return {"kind": kind, "query": name, "artist": keys[i], "score": round(score, 2),
+                "tracks": [{"rel": e["rel"], "title": e.get("title") or e["name"], "artist": e.get("artist") or "",
+                            "album": e.get("album")} for e in tracks]}
+    # A title alone, or said with its band.
+    i, score = _voice.best_match(name, [e.get("title") or e["name"] for e in songs])
+    j, score2 = _voice.best_match(name, [f'{e.get("artist") or ""} {e.get("title") or e["name"]}' for e in songs])
+    if j is not None and score2 > score:
+        i, score = j, score2
+    if i is None:
+        return {"kind": kind, "query": name, "error": f"Píseň „{name}“ jsem v knihovně nenašel."}
+    e = songs[i]
+    return {"kind": kind, "query": name, "score": round(score, 2),
+            "track": {"rel": e["rel"], "title": e.get("title") or e["name"], "artist": e.get("artist") or "",
+                      "album": e.get("album"), "stems": e.get("stems")}}
+
+
+def _voice_heard(lis, pcm):
+    r = lis.feed(pcm)
+    audio = r.pop("pcm", None)
+    if audio is None:
+        return r
+    # Whisper reads the utterance again: a name after "song" / "band" /
+    # "practice", or a command the small recogniser did not catch.
+    quiet = {"heard": r["heard"], "command": None}
+    why = _voice.names_available()
+    if why:
+        return {**quiet, "find": {"error": why}} if r["command"] != "ask" else quiet
+    songs, bands = _voice_library()
+    try:
+        text = _voice.transcribe(audio, ", ".join(sorted(bands, key=lambda b: -len(bands[b]))[:12]))
+    except Exception:
+        return quiet
+    what = _voice.interpret(text, lis.custom, r["command"][5:] if r["command"].startswith("find:") else None, lis.taught)
+    if not what:
+        return quiet
+    if what[0] == "command":
+        cmd = what[1]
+        if cmd.startswith("custom:"):
+            c = next(x for x in lis.custom if x["id"] == cmd[7:])
+            return {"heard": f"{_voice.WAKE} {c['phrase']}", "command": cmd, "name": c["name"], "steps": c["steps"]}
+        return {"heard": " ".join(text.lower().strip(" .!?").replace(",", "").split()), "command": cmd, "steps": [cmd]}
+    _, kind, name = what
+    return {"heard": f"{_voice.WAKE} {kind} {name}", "command": f"find:{kind}", "find": voice_find(kind, name)}
+
+
+@app.get("/api/voice/find")
+def voice_find_api(kind: str, name: str):
+    """The same lookup for a name that was typed (a step of a command of your own)."""
+    if kind not in ("song", "band", "practice"):
+        return JSONResponse({"error": "Neznámý druh."}, status_code=400)
+    return voice_find(kind, name)
+
+
+@app.post("/api/mini/open")
+def mini_open():
+    """The mini player's window, as the menu bar opens it; brought forward when it is already there."""
+    url = "http://127.0.0.1:8765/mini"
+    script = f'''tell application "Google Chrome"
+  repeat with w in windows
+    repeat with t in tabs of w
+      if URL of t starts with "{url}" then
+        if minimized of w then set minimized of w to false
+        set index of w to 1
+        activate
+        return "found"
+      end if
+    end repeat
+  end repeat
+  return "none"
+end tell'''
+    try:
+        if subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5).stdout.strip() == "found":
+            return {"ok": True, "opened": False}
+    except Exception:
+        pass
+    subprocess.Popen(["open", "-na", "Google Chrome", "--args", f"--app={url}", "--window-size=340,210"])
+    return {"ok": True, "opened": True}
+
+
+def _voice_teach(cmd, pcm):
+    # Already understood as it is? Then the take is only kept, to be checked
+    # against whatever is learned later.
+    if _voice.Listener().command(pcm) == cmd:
+        _voice.save_take(cmd, pcm)
+        return {"heard": "", "understood": True, "added": False, "works": True}
+    text = ""
+    if not _voice.names_available():
+        try:
+            text = _voice.transcribe(pcm)
+        except Exception:
+            text = ""
+    out = _voice.teach(cmd, _voice.hear(pcm), text)
+    # The same take once more, now that its words are known — and every take
+    # kept so far: new words must not push an old command out.
+    out["works"] = _voice.Listener().command(pcm) == cmd
+    broke = _voice.broken_takes() if out["works"] else []
+    if broke or not out["works"]:
+        _voice.unteach(cmd, out["heard"])
+        if broke:
+            names = {c["id"]: c["say"] for c in _voice.help_rows()}
+            names.update({"custom:" + c["id"]: f'{_voice.WAKE} {c["phrase"]}' for c in _voice.load_custom()})
+            raise ValueError("Tohle znělo moc podobně jako „" + names.get(broke[0], broke[0]) + "“ — neuložil jsem to. Zkus to říct znovu.")
+        out["added"] = False
+    else:
+        _voice.save_take(cmd, pcm)
+    return out
+
+
+@app.post("/api/voice/teach")
+async def voice_teach(request: Request, cmd: str):
+    """One take of the user saying a command; what was heard is kept for it."""
+    global _voice_listener
+    why = _voice.available()
+    if why:
+        return JSONResponse({"error": why}, status_code=503)
+    pcm = await request.body()
+    if not pcm or len(pcm) > _voice.RATE * 2 * 8 or len(pcm) % 2:
+        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
+    try:
+        out = await asyncio.get_running_loop().run_in_executor(None, _voice_teach, cmd, pcm)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    with _voice_lock:
+        if _voice_listener is not None:
+            _voice_listener = _voice.Listener()
+    return out
+
+
+@app.delete("/api/voice/teach")
+def voice_forget(cmd: str):
+    global _voice_listener
+    _voice.forget(cmd)
+    with _voice_lock:
+        if _voice_listener is not None:
+            _voice_listener = _voice.Listener()
+    return {"ok": True}
+
+
+@app.get("/api/voice/remote")
+def voice_remote(on: Optional[int] = None):
+    """Listening on or off from outside the page — a Siri shortcut opens this
+    address. The microphone belongs to the open Pick window, so it is asked to."""
+    global _REMOTE_SEQ
+    if (time.time() - _REMOTE_STATE.get("at", 0)) > 12:
+        return PlainTextResponse("Pick is not open.", status_code=409)
+    _REMOTE_SEQ += 1
+    _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": "voice", "value": None if on is None else float(bool(on))}))
+    del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
+    return PlainTextResponse("Pick is listening." if on else "Pick stopped listening." if on is not None else "Pick listening switched.")
 
 
 @app.post("/api/voice/stop")
