@@ -230,6 +230,7 @@ def test_a_spoken_name_reaches_the_library(tmp_path):
         r = lis.feed(pcm[i:i + 8000])
         if r:
             out.append(r)
+    out = [r for r in out if r["command"]]          # the tail of the name, heard on its own, is no command
     assert len(out) == 1 and out[0]["command"] in ("find:song", "ask") and out[0]["pcm"], out
     what = voice.interpret(voice.transcribe(out[0]["pcm"]))
     assert what[:2] == ("find", "song"), what
@@ -523,3 +524,52 @@ def test_lists_are_switched_and_the_song_is_saved():
     assert voice.match("pick save song") == "save"
     says = {r["say"] for r in voice.help_rows()}
     assert {"pick play <název>", "pick play <název> playlist", "pick find playlist <název>", "pick save song"} <= says
+
+
+def test_a_number_picks_the_row_of_the_list():
+    assert voice.match("pick play twenty five") == "num:25"
+    assert voice.match("pick play number seven") == "num:7"
+    assert voice.match("pick number three hundred and twelve") == "num:312"
+    assert voice.match("pick play one hundred") == "num:100"
+    assert voice.match("pick play nineteen") == "num:19"
+    assert voice.match("pick play 25") == "num:25"
+    # one unclear word and it is not taken for a number here
+    assert voice.match("pick play twenty five", [0.9, 0.9, 0.9, 0.5]) == "find:play"      # whisper is asked
+    # a name that only begins with a number stays a name; the commands stay commands
+    assert voice.match("pick play seven [unk] [unk]") == "find:play"
+    assert voice.match("pick play twenty twenty") == "find:play"
+    assert voice.match("pick play zero") == "find:play"
+    assert voice.match("pick play all") == "playall"
+    assert voice.match("pick play") == "play"
+    assert voice.interpret("Pick play 25.") == ("command", "num:25")
+    assert voice.interpret("Pick, play twenty-five") == ("command", "num:25")
+    assert any(r["id"] == "num" for r in voice.help_rows())
+    # "pick play song seven" is the seventh song; "pick playlist twenty" the twentieth playlist
+    assert voice.match("pick play song seven") == "num:7"
+    assert voice.match("pick playlist twenty") == "plnum:20"
+    assert voice.match("pick play playlist twenty one") == "plnum:21"
+    assert voice.match("pick play playlist") == "playall"
+    assert voice.match("pick playlist [unk]") == "find:playlist"
+    assert voice.match("pick song seven") == "find:song"          # a song called "Seven"
+    assert voice.interpret("Pick playlist 20.") == ("command", "plnum:20")
+
+
+def test_show_me_walks_the_lists_and_search_takes_a_name():
+    assert voice.match("pick show me stems") == "list:steems"
+    assert voice.match("pick show me favorites") == "list:favs"
+    assert voice.match("pick show me bands") == "list:bands"
+    assert voice.match("pick show me artists") == "list:bands"
+    assert voice.match("pick show me library") == "list:library"
+    assert voice.match("pick show me playlists") == "list:playlists"
+    assert voice.match("pick show playlists") == "list:playlists"
+    assert voice.match("pick stems list") == "list:steems" and voice.match("pick library") == "list:library"
+    assert voice.match("pick stems") == "steems"                       # the app's Steems, as before
+    assert voice.match("pick search [unk] [unk]") == "find:search"
+    assert voice.match("pick find [unk]") == "find:search"
+    assert voice.match("pick find playlist [unk]") == "find:playlist"
+    assert voice.match("pick search") is None
+    assert voice.interpret("Pick search Master of Puppets.") == ("find", "search", "Master of Puppets")
+    assert voice.interpret("Pick, find Slipknot") == ("find", "search", "Slipknot")
+    assert voice.interpret("Pick search playlist metal") == ("find", "playlist", "metal")
+    assert voice.interpret("Slipknot", kind="search") == ("find", "search", "Slipknot")
+    assert voice.interpret("Pick show me favorites.") == ("command", "list:favs")

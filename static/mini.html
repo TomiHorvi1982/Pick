@@ -92,6 +92,7 @@
     border-top-color:var(--accent);animation:rot .8s linear infinite}
   @keyframes rot{to{transform:rotate(360deg)}}
   .vbar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub)}
+  #smode{flex-wrap:wrap}
   .seg{display:flex;padding:2px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid var(--line)}
   .seg button{border:0;background:none;color:var(--sub);font-weight:600;font-size:11px;line-height:1;font-family:inherit;
     padding:5px 9px;border-radius:6px;cursor:pointer}
@@ -131,6 +132,7 @@
   .qi.cur{background:color-mix(in srgb, var(--accent) 18%, transparent);
     box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent)}
   .qi .n{width:18px;text-align:right;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+  #sres .qi .n{width:24px;flex:0 0 auto;font-size:12px}
   .qi .th{width:38px;height:38px;border-radius:6px;background:#222 center/cover no-repeat;flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;color:var(--dim)}
   .qi .m{min-width:0;flex:1}
@@ -363,7 +365,7 @@
       <div class="side-seg"><button data-side="queue">Fronta</button><button data-side="search" class="on">Hledat</button></div>
       <div class="sbar">
         <input id="sq" type="text" placeholder="Rozdělená píseň — hraje bez kytary…" autocomplete="off">
-        <div class="seg" id="smode"><button data-m="steems" class="on" title="Písně rozdělené na stopy — hrají bez kytary, „GTR“ ji vrátí (hlasem: „pick stems list“)">Steems</button><button data-m="library" title="Písně, které už máš v knihovně (hlasem: „pick library“)">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně (hlasem: „pick folders“)">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
+        <div class="seg" id="smode"><button data-m="steems" class="on" title="Písně rozdělené na stopy — hrají bez kytary, „GTR“ ji vrátí (hlasem: „pick stems list“)">Steems</button><button data-m="favs" title="Oblíbené songy (hlasem: „pick show me favorites“)">Oblíbené</button><button data-m="bands" title="Kapely a umělci, které už máš (hlasem: „pick show me bands“)">Kapely</button><button data-m="library" title="Písně, které už máš v knihovně (hlasem: „pick show me library“)">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně (hlasem: „pick folders“)">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
       </div>
       <div class="vheard" id="vheard" hidden></div>
       <div class="sim" id="ssim" hidden></div>
@@ -1158,11 +1160,11 @@ if("mediaSession" in navigator){
 const srch = {mode: "steems", q: "", list: [], pl: null, timer: 0, token: 0};
 // The lists of the search, in the order they are stepped through ("pick next list").
 // Steems comes first: songs ready to be played along with.
-const SECTIONS = ["steems", "library", "folders", "songs", "playlists"];
-const SECTION_CZ = {steems: "Steems", library: "Knihovna", folders: "Složky", songs: "Internet", playlists: "Playlisty"};
-const SECTION_HINT = {steems: "Rozdělená píseň — hraje bez kytary…", library: "Píseň nebo kapela z knihovny…",
+const SECTIONS = ["steems", "favs", "bands", "library", "folders", "songs", "playlists"];
+const SECTION_CZ = {steems: "Steems", favs: "Oblíbené", bands: "Kapely", library: "Knihovna", folders: "Složky", songs: "Internet", playlists: "Playlisty"};
+const SECTION_HINT = {steems: "Rozdělená píseň — hraje bez kytary…", favs: "Oblíbená píseň…", bands: "Kapela nebo umělec, které už máš…", library: "Píseň nebo kapela z knihovny…",
   folders: "Složka nebo playlist z knihovny…", songs: "Hledat písničku nebo kapelu na internetu…", playlists: "Hledat playlist…"};
-const trackMode = () => srch.mode === "songs" || srch.mode === "library" || srch.mode === "steems";
+const trackMode = () => srch.mode === "songs" || srch.mode === "library" || srch.mode === "steems" || srch.mode === "favs";
 function setSection(m){
   srch.mode = m;
   el("sq").placeholder = SECTION_HINT[m];
@@ -1182,6 +1184,7 @@ function addToQueue(t){
 function trackRow(t, i){
   const th = t.thumbnail;
   return `<div class="qi" data-i="${i}">
+    <div class="n">${i + 1}</div>
     <div class="th" style="${th ? `background-image:url('${esc(thumbUrl(th))}')` : ""}">${th ? "" : icon("note", 16)}</div>
     <div class="m"><b>${esc(t.title || "—")}</b><span>${esc(t.artists || "")}${t.dur ? " · " + esc(t.dur) : ""}</span></div>
     <div class="acts"><button data-add="${i}" title="Přidat do fronty">＋</button><button data-play="${i}" title="Přehrát odsud">▶</button></div>
@@ -1203,15 +1206,16 @@ function renderSearch(){
     wireTracks(box, pl.tracks);
     return;
   }
-  const local = srch.mode === "library" || srch.mode === "folders" || srch.mode === "steems";
+  const local = srch.mode !== "songs";
   if(!srch.q && !local){ box.innerHTML = '<div class="empty" style="padding-top:40px">Napiš, co chceš slyšet.<br>Hraje to i bez otevřené aplikace.</div>'; return; }
   if(srch.busy){ box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám…</div>'; return; }
-  if(!srch.list.length){ box.innerHTML = '<div class="empty">Nic se nenašlo.</div>'; return; }
+  if(!srch.list.length){ box.innerHTML = `<div class="empty">${srch.q ? "Nic se nenašlo." : srch.mode === "favs" ? "Zatím žádné oblíbené — hvězdička u hrající písně nebo „pick save song“." : "Zatím tu nic není."}</div>`; return; }
   if(trackMode()){
     box.innerHTML = srch.list.map(trackRow).join("") + (srch.more ? `<div class="empty">…a dalších ${srch.more}. Napiš kus názvu nebo kapely.</div>` : "");
     wireTracks(box, srch.list); return;
   }
   box.innerHTML = srch.list.map((p, i) => `<div class="qi" data-pl="${i}">
+    <div class="n">${i + 1}</div>
     <div class="th" style="${p.thumbnail ? `background-image:url('${esc(thumbUrl(p.thumbnail))}')` : ""}">${p.thumbnail ? "" : icon(p.tracks ? "folder" : "list", 16)}</div>
     <div class="m"><b>${esc(p.title || "—")}</b><span>${esc(p.author || "Playlist")}</span></div>
     <div class="acts"><button data-plplay="${i}" title="Přehrát celý">▶</button></div></div>`).join("");
@@ -1266,9 +1270,47 @@ function folderRows(all, words){
   return [...by].filter(([f]) => words.every(w => plain(f).includes(w))).sort((a, b) => a[0].localeCompare(b[0], "cs"))
     .map(([f, tracks]) => ({title: f.split("/").pop() || "Knihovna", author: `${tracks.length} ${tracks.length === 1 ? "píseň" : tracks.length < 5 ? "písně" : "písní"}${f.includes("/") ? " · " + f.split("/").slice(0, -1).join("/") : ""}`, tracks}));
 }
+// The app's favourite songs; one that is in Steems is the Steems song (it plays without the guitar).
+async function favTracks(){
+  let favs = [];
+  try{ favs = JSON.parse(localStorage.getItem("spotdl-gui-fav-songs") || "[]"); }catch(e){}
+  const id = (t) => plain(t.artists) + "|" + plain(t.title);
+  const st = new Map((await steemsAll()).map(t => [id(t), t]));
+  return favs.filter(f => f && f.title).map(f => st.get(id(f)) || (f.relPath
+    ? {key: "lib:" + f.relPath, relPath: f.relPath, title: f.title, artists: f.artists || "", thumbnail: f.thumbnail}
+    : f.videoId ? {key: "yt:" + f.videoId, videoId: f.videoId, title: f.title, artists: f.artists || "", thumbnail: f.thumbnail}
+    : {key: "fav:" + id(f), title: f.title, artists: f.artists || "", thumbnail: f.thumbnail, spotifyQuery: `${f.artists || ""} ${f.title}`}));
+}
+// The bands there already are songs of: those of Steems first, then the rest of the library.
+async function bandRows(words){
+  const by = new Map(), seen = new Set();
+  const put = (t, ready) => {
+    const a = (t.artists || "").split(/\s*[,;]\s*/)[0].trim(); if(!a) return;
+    const k = plain(a), s = k + "|" + plain(t.title);
+    if(seen.has(s)) return; seen.add(s);
+    if(!by.has(k)) by.set(k, {title: a, tracks: [], ready: 0});
+    by.get(k).tracks.push(t); by.get(k).ready += ready;
+  };
+  (await steemsAll()).forEach(t => put(t, 1));
+  (await libSongs()).forEach(t => put(t, 0));
+  return [...by.values()].filter(b => words.every(w => plain(b.title).includes(w))).sort((a, b) => a.title.localeCompare(b.title, "cs"))
+    .map(b => ({title: b.title, tracks: b.tracks, author: `${b.tracks.length} ${b.tracks.length === 1 ? "píseň" : b.tracks.length < 5 ? "písně" : "písní"}` + (b.ready ? ` · ${b.ready} ve Steems` : "")}));
+}
+const favPlaylists = () => { try{ return JSON.parse(localStorage.getItem("spotdl-gui-fav-playlists") || "[]").filter(p => p && p.browseId); }catch(e){ return []; } };
 async function runSearch(){
   const q = el("sq").value.trim();
   srch.q = q; srch.pl = null; srch.more = 0;
+  if(srch.mode === "favs" || srch.mode === "bands" || (srch.mode === "playlists" && !q)){
+    const my = ++srch.token, m = srch.mode;
+    srch.busy = true; renderSearch();
+    const w = plain(q).split(/\s+/).filter(Boolean);
+    // No name asked for: the playlists there already are — favourites, and the folders of the library.
+    const list = m === "favs" ? (await favTracks()).filter(t => w.every(k => plain(t.title + " " + t.artists).includes(k)))
+      : m === "bands" ? await bandRows(w) : favPlaylists().concat(folderRows(await libSongs(), []));
+    if(my !== srch.token) return;
+    srch.list = list; srch.busy = false; renderSearch();
+    return;
+  }
   if(srch.mode === "steems"){
     const my = ++srch.token;
     srch.busy = true; renderSearch();
@@ -1925,7 +1967,7 @@ const MiniVoice = (() => {
   async function playlist(name){
     similar = []; paintSimilar("");
     const n = await search("playlists", name);
-    toast(n ? `${n} playlistů — řekni „pick play“, název a „playlist“` : `Playlist „${name}“ jsem nenašel`, 3500);
+    toast(n ? `${n} playlistů — řekni „pick playlist“ a číslo, nebo „pick play“, název a „playlist“` : `Playlist „${name}“ jsem nenašel`, 3500);
   }
   // Which of these names was said: its index, or -1.
   async function best(said, names){
@@ -1941,7 +1983,7 @@ const MiniVoice = (() => {
       try{ const d = await (await fetch(`/api/tracks?q=${encodeURIComponent(name)}&limit=10`)).json(); return (Array.isArray(d) ? d : []).map(spTrack); }
       catch(e){ return []; }
     }
-    const all = m === "steems" ? await steemsAll() : await libSongs();
+    const all = m === "steems" ? await steemsAll() : m === "favs" ? await favTracks() : await libSongs();
     const w = plain(name).split(/\s+/).filter(Boolean);
     const hit = all.filter(t => w.every(k => plain(t.title + " " + t.artists).includes(k)));
     if(hit.length){
@@ -1975,6 +2017,38 @@ const MiniVoice = (() => {
     }
     toast(`„${name}“ jsem nenašel`);
   }
+  // "pick search <name>": what is here already is shown and opened — Steems
+  // first, it is ready for the mix — and only what is not is looked up outside.
+  async function searchFor(name){
+    similar = []; paintSimilar("");
+    for(const m of ["steems", "favs", "library"]){
+      const got = await named(m, name);
+      if(!got.length) continue;
+      showSearch(); setMode(m); el("sq").value = name; clearTimeout(srch.timer);
+      srch.token++; srch.q = name; srch.pl = null; srch.more = 0; srch.busy = false; srch.list = got; renderSearch();
+      lpPlayList(got, 0);
+      toast(`Už máš (${SECTION_CZ[m]}): ${got[0].title}` + (got.length > 1 ? ` — a ${got.length - 1} dalších, „pick play“ a číslo` : ""), 3500);
+      return;
+    }
+    const n = await search("songs", name);
+    toast(n ? `„${name}“ ještě nemáš — ${n} z internetu, řekni „pick play“ a číslo` : `„${name}“ jsem nenašel`, 3500);
+  }
+  // "pick play twenty five": the row with that number — a song is played, a playlist opened.
+  async function playNumber(n, pl){
+    if(!shown("search")) showSearch();
+    if(pl){                                   // "pick playlist twenty": one of the playlists, also from inside one
+      if(srch.pl){ srch.pl = null; renderSearch(); }
+      if(trackMode()){ toast("Tady jsou písně — řekni „pick playlists“ nebo „pick folders“, pak „pick playlist“ a číslo", 3500); return; }
+    }
+    const inPl = !!srch.pl, rows = inPl ? srch.pl.tracks : srch.list;
+    if(!rows.length){ toast("Seznam je prázdný — nejdřív něco vyhledej"); return; }
+    if(n > rows.length){ toast(`Číslo ${n} v seznamu není — končí číslem ${rows.length}`, 3000); return; }
+    const row = rows[n - 1];
+    if(inPl || trackMode()){
+      lpPlayList(rows, n - 1); toast(`Hraju ${n}: ${row.title}`);
+      const r = el("sres").querySelector(`.qi[data-i="${n - 1}"]`); if(r) r.scrollIntoView({block: "nearest", behavior: "smooth"});
+    }else{ await plOpen(n - 1, false); toast(`${row.title} — řekni „pick play“ a číslo nebo název písně, nebo „pick play all“`, 3500); }
+  }
   // "pick play <name> playlist": one of the playlists listed, or looked up by that name.
   async function openNamed(name){
     similar = []; paintSimilar("");
@@ -2007,7 +2081,7 @@ const MiniVoice = (() => {
   // needs no "pick" and one word narrows it.
   const GROUPS = [
     ["Přehrávání", /^(play|pause|rewind|next|prev)$/, "#1ed760", "play"],
-    ["Hledání", /^find:(song|band|playlist|play|open)/, "#4aa8ff", "search"],
+    ["Hledání", /^(find:(song|band|playlist|play|open|search)|num|plnum)/, "#4aa8ff", "search"],
     ["Seznamy", /^list:/, "#4ade80", "folder"],
     ["Nabídka a seznam", /^(page|playall|back|help|nothing)/, "#ffd84a", "list"],
     ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
@@ -2075,9 +2149,11 @@ const MiniVoice = (() => {
       if(arg === "band") return band(name);
       if(arg === "playlist") return playlist(name);
       if(arg === "open") return openNamed(name);
+      if(arg === "search") return searchFor(name);
       if(arg === "play") return playNamed(name, r.find && r.find.track && r.find.track.rel);
       return song(name);
     }
+    if(what === "num" || what === "plnum"){ await playNumber(+arg, what === "plnum"); return; }
     if(what === "save"){ Saved.save(); return; }
     if(what === "list" || what === "steems"){
       const step = arg === "+" ? 1 : arg === "-" ? SECTIONS.length - 1 : 0;
@@ -2085,7 +2161,7 @@ const MiniVoice = (() => {
       if(!SECTIONS.includes(m)) return;
       showSearch(); setMode(m); el("sq").value = ""; similar = []; paintSimilar("");
       await runSearch();
-      toast(`Seznam: ${SECTION_CZ[m]}` + (trackMode() ? " — řekni „pick play“ a název" : m === "playlists" ? " — řekni „pick find playlist“ a název" : " — řekni „pick play“, název a „playlist“"), 3000);
+      toast(`Seznam: ${SECTION_CZ[m]}` + (!srch.list.length ? " — nic tu není" : trackMode() ? ` (${srch.list.length}) — řekni „pick play“ a číslo nebo název` : m === "bands" ? ` (${srch.list.length}) — řekni „pick play“ a číslo nebo jméno kapely` : ` (${srch.list.length}) — řekni „pick playlist“ a číslo` + (m === "playlists" ? ", „pick find playlist“ hledá další" : "")), 3000);
       return;
     }
     if(what === "next" || what === "prev"){ send(what); return; }

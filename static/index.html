@@ -30066,7 +30066,12 @@ const Voice = (() => {
     if(what === "assist"){ dictate(); return "poslouchám"; }
     if(what === "steems"){ setMode("steems"); return "Steems"; }
     if(what === "tomini"){ toMini(); return "posílám do minipřehrávače"; }
-    if(what === "list") return "seznamy přepíná minipřehrávač („pick mini player“)";
+    if(what === "list"){
+      if(arg === "steems"){ setMode("steems"); return "Steems"; }
+      if(arg === "playlists"){ setMode("playlists"); return "playlisty"; }
+      return "tenhle seznam ukazuje minipřehrávač („pick mini player“)";
+    }
+    if(what === "num" || what === "plnum") return "čísla písní v seznamu umí minipřehrávač („pick mini player“)";
     if(what === "save") return saveForPractice();
     if(what === "lyrics") return click(shown("mixer") ? "mixer-lyrics-toggle" : "pb-lyrics-btn") ? "text" : "text teď nejde otevřít";
     if(what === "tabs"){
@@ -30358,7 +30363,10 @@ const Voice = (() => {
       showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
       return;
     }
+    if(f.kind === "search" && f.missing){ setMode("songs"); searchExactly(f.query); showToast(`„${f.query}“ ještě nemáš — hledám`); return; }
     const t = f.track;
+    // "pick search": a song that is here already is opened, not looked up — in Steems when it is separated.
+    if(f.kind === "search" && t.stems && t.stems.state === "ready"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
     if(f.kind === "practice"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
     Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album});
     showToast(`Hraju: ${t.artist ? t.artist + " — " : ""}${t.title}`);

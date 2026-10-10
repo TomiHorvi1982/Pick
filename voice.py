@@ -80,11 +80,14 @@ COMMANDS = [
     ("playall", ["play all", "play playlist"], "play all", "přehrát celý nalezený seznam nebo otevřený playlist (minipřehrávač)"),
     ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
     # The lists of the mini player's search; "pick play <name>" chooses from the one that is on.
-    ("list:steems", ["stems list"], "stems list", "seznam: písně ze Steems (minipřehrávač)"),
-    ("list:library", ["library"], "library", "seznam: knihovna (minipřehrávač)"),
-    ("list:folders", ["folders"], "folders", "seznam: složky a playlisty v knihovně (minipřehrávač)"),
-    ("list:songs", ["internet"], "internet", "seznam: písně z internetu (minipřehrávač)"),
-    ("list:playlists", ["playlists"], "playlists", "seznam: playlisty z internetu (minipřehrávač)"),
+    # "pick show me …" walks through what is already here.
+    ("list:steems", ["show me stems", "show stems", "stems list"], "show me stems / stems list", "ukáže písně ze Steems — připravené na mix (minipřehrávač)"),
+    ("list:favs", ["show me favorites", "show favorites", "favorites"], "show me favorites", "ukáže oblíbené songy (minipřehrávač)"),
+    ("list:bands", ["show me bands", "show me artists", "show bands", "show artists", "bands", "artists"], "show me bands / artists", "ukáže kapely a umělce, které už máš (minipřehrávač)"),
+    ("list:library", ["show me library", "show library", "library"], "show me library", "ukáže knihovnu stažených písní (minipřehrávač)"),
+    ("list:folders", ["show me folders", "show folders", "folders"], "show me folders", "ukáže složky a playlisty v knihovně (minipřehrávač)"),
+    ("list:playlists", ["show me playlists", "show playlists", "playlists"], "show me playlists", "ukáže tvoje playlisty; „find playlist“ hledá další (minipřehrávač)"),
+    ("list:songs", ["show me internet", "internet"], "internet", "seznam: písně z internetu (minipřehrávač)"),
     ("list:+", ["next list", "switch"], "next list / switch", "další seznam (minipřehrávač)"),
     ("list:-", ["previous list"], "previous list", "předchozí seznam (minipřehrávač)"),
     ("save", ["save song", "save this"], "save song", "hrající píseň do oblíbených: stáhne se, rozdělí na stopy, najde tab a text"),
@@ -117,13 +120,45 @@ for _s, _cz in SECTIONS.items():
 SLOTS = {"song": ("find:song", "song <název>", "najde píseň v knihovně a pustí ji"),
          "band": ("find:band", "band <jméno>", "najde kapelu v knihovně a pustí ji"),
          "practice": ("find:practice", "practice <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
-         "playlist": ("find:playlist", "find playlist <název>", "vyhledá playlisty toho jména")}
+         "playlist": ("find:playlist", "find playlist <název>", "vyhledá playlisty toho jména"),
+         "search": ("find:search", "search <název>", "najde píseň nebo kapelu: co už máš (Steems, oblíbené, knihovna), ukáže a otevře; jinak hledá na internetu")}
 # "pick play <name>": the song of that name from the list that is on; with
 # "playlist" after the name, the playlist of that name. ("pick play" alone,
 # "pick play all", "pick play mix" stay the commands they are.)
 NAMED = [("find:play", "play <název>", "pustí píseň toho jména ze seznamu, který je vybraný"),
          ("find:open", "play <název> playlist", "otevře playlist toho jména z nalezených")]
 _PLAYLIST_WORDS = {"playlist", "playlists"}
+# "pick play twenty five": the song (or playlist) with that number in the list on screen.
+NAMED += [("num", "play <číslo> / play song <číslo>", "pustí píseň s tím číslem v seznamu — „pick play twenty five“ (minipřehrávač)"),
+          ("plnum", "playlist <číslo>", "otevře playlist s tím číslem — „pick playlist twenty“ (minipřehrávač)")]
+_UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                     "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_TENS = {w: 10 * i for i, w in enumerate("twenty thirty forty fifty sixty seventy eighty ninety".split(), 2)}
+NUMBER_WORDS = set(_UNITS) | set(_TENS) | {"hundred", "number"}
+
+
+def spoken_number(words):
+    """The number 1–999 these words say — "twenty five", "one hundred and three",
+    "25" — or None when they are anything else."""
+    words = [w for w in words if w not in ("number", "and", "a")]
+    if len(words) == 1 and words[0].isdigit():
+        n = int(words[0])
+        return n if 1 <= n <= 999 else None
+    if not words or len(words) > 4:
+        return None
+    n, rest = 0, list(words)
+    if "hundred" in rest:
+        i = rest.index("hundred")
+        if i > 1 or (i == 1 and not 1 <= _UNITS.get(rest[0], 0) <= 9):
+            return None
+        n, rest = 100 * (_UNITS[rest[0]] if i else 1), rest[i + 1:]
+    if rest and rest[0] in _TENS:
+        n, rest = n + _TENS[rest[0]], rest[1:]
+        if rest and 1 <= _UNITS.get(rest[0], 0) <= 9:
+            n, rest = n + _UNITS[rest[0]], rest[1:]
+    elif rest and rest[0] in _UNITS:
+        n, rest = n + _UNITS[rest[0]], rest[1:]
+    return n if not rest and 1 <= n <= 999 else None
 
 
 def _bare(words):
@@ -150,6 +185,16 @@ def match(text, confs=None, custom=None, taught=None):
             sure = [max(sure[0], sure[1])] + list(sure[2:])
     if len(words) < 2 or words[0] != WAKE:
         return None
+    # A number of the list on screen — "pick play twenty five", "pick play song
+    # seven", "pick playlist twenty" — every word of it clear.
+    if 2 < len(words) <= 9 and (words[1] in ("play", "number") or words[1] in _PLAYLIST_WORDS):
+        rest = words[2:] if words[1] == "play" else words[1:]
+        kind = "plnum" if rest and rest[0] in _PLAYLIST_WORDS else "num"
+        if rest and (rest[0] in _PLAYLIST_WORDS or (rest[0] == "song" and words[1] == "play")):
+            rest = rest[1:]
+        n = spoken_number(rest)
+        if n and not (sure and min(sure) < MIN_CONF):
+            return f"{kind}:{n}"
     # A name follows: only the two words before it have to be clear.
     if len(words) > 2 and words[1] in SLOTS and len(words) <= 12:
         if sure and min(sure[:2]) < MIN_CONF:
@@ -160,6 +205,10 @@ def match(text, confs=None, custom=None, taught=None):
         if sure and min(sure[:3]) < MIN_CONF:
             return None
         return SLOTS[words[2]][0]
+    if len(words) > 2 and words[1] == "find" and len(words) <= 12:       # "pick find <name>" is "pick search <name>"
+        if sure and min(sure[:2]) < MIN_CONF:
+            return None
+        return "find:search"
     # "pick play <name>" — unless what follows "play" is a command of its own.
     if (len(words) > 2 and words[1] == "play" and len(words) <= 12 and _bare(words[1:]) not in PHRASES
             and not any(_bare(c["phrase"].split()) == _bare(words[1:]) for c in custom or [])):
@@ -444,7 +493,7 @@ def _fold(text):
 _WAKE_LIKE = {"pick", "pik", "peak", "pic", "big", "picks"}
 _SLOT_LIKE = {"song": "song", "songs": "song", "band": "band", "van": "band", "bend": "band", "bands": "band", "banned": "band",
               "practice": "practice", "practise": "practice", "practices": "practice",
-              "playlist": "playlist", "playlists": "playlist"}
+              "playlist": "playlist", "playlists": "playlist", "search": "search", "searching": "search"}
 
 
 def _said(text):
@@ -474,6 +523,8 @@ def interpret(text, custom=None, kind=None, taught=None):
         return ("command", cmd)
     if words[0].lower() in ("find", "fine", "search") and len(words) > 2 and words[1].lower() in _SLOT_LIKE:
         words = words[1:]                                  # "find playlist metal" is "playlist metal"
+    elif words[0].lower() == "find" and len(words) > 1:
+        return ("find", "search", " ".join(words[1:]))     # "find metallica" is "search metallica"
     heard_kind = _SLOT_LIKE.get(words[0].lower())
     if heard_kind and len(words) > 1:
         return ("find", heard_kind, " ".join(words[1:]))
@@ -549,7 +600,7 @@ class Listener:
         self.taught = load_taught() if taught is None else taught
         self.index = taught_index(self.taught, self.custom)
         vocab = sorted({w for _, phrases, _, _ in COMMANDS for p in phrases for w in p.split()} | {WAKE} | FILLERS
-                       | set(SLOTS) | {"find"} | _PLAYLIST_WORDS | {w for c in self.custom for w in c["phrase"].split()}
+                       | set(SLOTS) | {"find"} | _PLAYLIST_WORDS | NUMBER_WORDS | {w for c in self.custom for w in c["phrase"].split()}
                        | {w for h in self.index for w in h.split()})
         self.audio = bytearray()        # the last seconds heard, for a name said after a command
         self.fed = 0
@@ -582,7 +633,8 @@ class Listener:
         if cmd is None and bare:
             cmd = match(f"{WAKE} {text}", [1.0] + confs, self.custom, self.index)
             if cmd is None:
-                if "[unk]" not in said and len(said) <= 3 and min(confs or [0]) >= 0.6:
+                if ("[unk]" not in said and len(said) <= 3 and min(confs or [0]) >= 0.6
+                        and not all(w in NUMBER_WORDS for w in said)):          # a number alone narrows nothing
                     keep = [w for i, w in enumerate(said) if w not in FILLERS and (i == 0 or w != said[i - 1])]   # "guitar guitar" is one word, heard twice
                     return {"heard": text, "command": None, "filter": " ".join(keep)}
                 return {"heard": text, "command": None, "again": True}

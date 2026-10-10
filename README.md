@@ -127,7 +127,18 @@ list“. „pick play <název>“ pustí píseň toho jména — nejdřív z toh
 vypsané, pak ze seznamu, který je vybraný, a když tam není, z ostatních (Steems
 → knihovna → internet; řekne odkud). „pick find playlist <název>“ vypíše
 playlisty (složky v knihovně i z internetu), „pick play <název> playlist“ jeden
-otevře, pak „pick play <název písně>“ nebo „pick play all“.
+otevře, pak „pick play <název písně>“ nebo „pick play all“. Každá položka
+každého seznamu má číslo a dá se vybrat i jím: „pick play twenty five“ nebo
+„pick play song seven“ pustí píseň s tím číslem, „pick playlist twenty“ otevře
+dvacátý playlist (čísla 1–999, anglicky).
+
+„pick show me stems / favorites / bands (artists) / library / folders /
+playlists“ ukáže v minipřehrávači, co už máš: Steems, oblíbené songy (ty, které
+jsou ve Steems, hrají bez kytary), kapely poskládané ze Steems a knihovny,
+knihovnu, složky a tvoje playlisty (oblíbené a složky knihovny). „pick search
+<název>“ (i „pick find <název>“) hledá nejdřív tam — Steems, oblíbené,
+knihovna — a co najde, ukáže a pustí; nic se nestahuje ani znovu nerozděluje.
+Teprve co nemáš, vyhledá na internetu a nechá vybrat.
 
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav

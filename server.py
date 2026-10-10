@@ -9069,6 +9069,8 @@ def voice_find(kind, name):
     if j is not None and score2 > score:
         i, score = j, score2
     if i is None:
+        if kind == "search":                       # not here yet: the page looks on the internet
+            return {"kind": kind, "query": name, "missing": True}
         return {"kind": kind, "query": name, "error": f"Píseň „{name}“ jsem v knihovně nenašel."}
     e = songs[i]
     return {"kind": kind, "query": name, "score": round(score, 2),
