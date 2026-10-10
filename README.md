@@ -183,6 +183,48 @@ spočítá, co z oblíbených songů a playlistů ještě chybí, zeptá se a do
 stejným tlačítkem se dá zastavit. Nalezený text se ukládá na disk
 (`lyrics/` vedle nastavení), takže je příště hned a bez internetu.
 
+V otevřeném mixu: „pick see lyrics“ dá text písně do okna přes celou stránku,
+„pick see mix“ ho vrátí a posune na stopy. „pick see more guitars“ přidá do tabu
+další kytarovou stopu, „pick show me all guitars“ všechny, „pick see only guitar
+two“ nechá jen tu s daným číslem (bez čísla hlavní). Běžící text jede plynule
+(rychlost se mezi řádky mění postupně) a pod dozpívaný řádek se píše, co trenér
+zpěvu slyšel.
+
+Co trenér zpěvu u každého řádku slyšel, se ukládá k písni (`sing-words.json` u
+stop; `/api/stems/<název>/sing/words`). V mixu je pod stopou „Text“ stopa „Můj
+zpěv“: každý zazpívaný řádek se slovy zeleně (sedí), červeně (jinak) a šedě
+(vynecháno) a s tím, co bylo slyšet místo nich; klik na blok tam skočí.
+
+„Výslovnost“ (tlačítko u textu, „pick practice words“ / „pick read lyrics“)
+otevře okno s celým textem písně. Po „Začít“ počítač řádek přečte (hlas
+systému, anglicky nebo česky podle textu), poslechne si tě, whisper napíše, co
+slyšel, a na další řádek pustí, až slova sedí (u řádku od deseti slov smí být
+jedno vedle). „Přečti“ řádek zopakuje, „Přeskočit“ nebo „pick skip“ jde dál.
+Číst může tvůj vlastní hlas naklonovaný v aplikaci Voicebox (její místní server
+na `127.0.0.1:17493`, profil se vybírá v okně): řádek mu trvá asi 20 s, takže
+server nechá každý řádek přečíst jednou na pozadí a zvuk si nechá (`tts/` vedle
+nastavení; `/api/tts/prepare`, `/api/tts/audio/…`). Co ještě není hotové — a
+české texty, které Voicebox neumí — čte hlas počítače (Samantha / Zuzana).
+Ve výběru jsou všechny profily Voiceboxu (i další naklonované hlasy). Co je v textu
+v závorkách — „(yeah)“, „[Chorus]“ — se ukáže šedě, ale nečte se ani nezkouší;
+řádek jen ze závorek se vynechá.
+Čte model Chatterbox (`VOICEBOX_ENGINE` v `server.py`): Qwen klonuje i podle přepisu
+vzorku a s nesedícím přepisem říkal před každým řádkem jeho zbytky. Hotový zvuk si
+server ještě nechá přečíst whisperem a co nesedí s textem, vyrobí jednou znovu.
+
+Když řádek nesedí, projdou se špatná slova po jednom: aplikace slovo přečte, ty ho
+zopakuješ, a teprve pak se zkouší celý řádek znovu („Přeskočit“ / „pick skip“ tu
+přeskočí jen slovo). Každé nepovedené slovo se ukládá do jednoho seznamu pro všechny
+písně (`speak-words.json` vedle nastavení; `/api/speak/words`). Tlačítko „Moje slova“
+nebo „pick practice my words“ je pustí všechna najednou; co se povede, ze seznamu
+zmizí. V okně je i zesílení mikrofonu s ukazatelem (čárka = odkud se bere, že mluvíš).
+
+**Melodie po řádcích** (Trenér zpěvu → „Po řádcích“, „pick practice melody“): řádek
+nejdřív zazpívá originál, pak ho pustí bez originálního zpěvu a zpíváš ty; hned se
+ukáže, kolik tónů sedělo. Od 60 % (blízké tóny za půl) jde dál, jinak znovu od
+poslechu. „↻ znovu“, „další ›“ / „pick skip“. Berou se jen řádky, kde je v originále
+zpívaná melodie (křik a mluvení výšku nemají). Výsledky se neukládají.
+
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
 `GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu

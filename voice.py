@@ -51,9 +51,18 @@ COMMANDS = [
     ("song", ["a song", "song"], "a song", "Pick vybere a pustí náhodnou píseň z knihovny"),
     ("playlist", ["a playlist", "playlist"], "a playlist", "otevře playlisty"),
     ("practice", ["practice"], "practice", "hrající píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
+    ("words", ["practice words", "read lyrics", "read the lyrics"], "practice words / read lyrics", "výslovnost: přečte řádek textu, poslechne si tě a pustí dál, až to sedí („pick skip“ řádek přeskočí)"),
+    ("mywords", ["practice my words", "my words", "hard words"], "practice my words", "výslovnost: slova, která se ti dřív nepovedla, všechna najednou"),
+    ("melody", ["practice melody", "sing lines", "practice singing"], "practice melody / sing lines", "zpěv po řádcích: originál řádek zazpívá, pak ty, a hned vidíš, kolik tónů sedělo („pick skip“ jde dál)"),
     ("practicethis", ["practice this song", "practice this"], "practice this song", "píseň, která hraje jako ukázka, otevře do mixu"),
     ("skip:+", ["skip", "skip forward"], "skip", "o deset vteřin dál"),
     ("skip:-", ["skip back"], "skip back", "o deset vteřin zpět"),
+    # What of the open mix is looked at.
+    ("see:mix", ["see mix", "see the mix", "show me mix"], "see mix", "mix a stopy: posune na ně (text se vrátí na místo)"),
+    ("see:lyrics", ["see lyrics", "see text", "show me lyrics"], "see lyrics", "text písně přes celé okno"),
+    ("gtrs:more", ["see more guitars", "more guitars"], "see more guitars", "přidá do tabu další kytarovou stopu"),
+    ("gtrs:all", ["show me all guitars", "see all guitars", "all guitars"], "show me all guitars", "ukáže v tabu všechny kytary pod sebou"),
+    ("gtrs:only:0", ["see only guitar", "only guitar"], "see only guitar <číslo>", "nechá v tabu jen jednu kytaru — „pick see only guitar two“; bez čísla tu hlavní"),
     ("panel:off", ["hide panel", "close panel"], "hide panel", "zúží levý panel, ať je mix vidět celý"),
     ("panel:on", ["show panel", "open panel"], "show panel", "vrátí levý panel"),
     ("myguitar", ["my guitar"], "my guitar", "tvoje kytara (živý vstup) zap / vyp"),
@@ -216,6 +225,11 @@ def match(text, confs=None, custom=None, taught=None):
         n = spoken_number(rest)
         if n and not (sure and min(sure) < MIN_CONF):
             return f"{kind}:{n}"
+    # "pick see only guitar two": one guitar of the tab, by its number.
+    if 4 <= len(words) <= 7 and words[1] in ("see", "only") and "guitar" in words[2:4] and "only" in words[1:3]:
+        n = spoken_number(words[words.index("guitar") + 1:])
+        if n and n <= 12 and not (sure and min(sure) < MIN_CONF):
+            return f"gtrs:only:{n}"
     # "pick open song <name>": the song of that name in the section that is in front.
     if len(words) > 3 and words[1] == "open" and words[2] == "song" and len(words) <= 13:
         if sure and min(sure[:3]) < MIN_CONF:

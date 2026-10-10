@@ -14,6 +14,7 @@ rather than guessed — a blank is not scored, a wrong note would be.
 import difflib
 import json
 import subprocess
+import time
 import unicodedata
 from pathlib import Path
 
@@ -221,3 +222,67 @@ def add_history(stems_dir, row, keep=200):
     tmp.write_text(json.dumps(rows, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(path)
     return rows
+
+
+# ---- what was heard of each lyric line the last time it was sung — kept beside
+# the stems, so a take can be gone through afterwards, word by word
+def sung_words(stems_dir):
+    try:
+        rows = json.loads((Path(stems_dir) / "sing-words.json").read_text(encoding="utf-8"))
+        return rows if isinstance(rows, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def keep_sung(stems_dir, key, row, keep=600):
+    rows = sung_words(stems_dir)
+    rows.pop(key, None)
+    rows[key] = row                                   # the newest last
+    for old in list(rows)[:-keep]:
+        del rows[old]
+    path = Path(stems_dir) / "sing-words.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(rows, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(path)
+    return rows
+
+
+# ---- the words that would not come out right: one list for every song, so
+# they can be practised together later
+
+def hard_words(path):
+    """{"en|word": {"word", "lang", "miss", "ok", "heard", "song", "at", "done"}}"""
+    try:
+        got = json.loads(Path(path).read_text(encoding="utf-8"))
+        return got if isinstance(got, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def hard_word(path, word, lang, ok, heard="", song="", learned=False, keep=2000):
+    """One try at one word. A miss puts it on the list (again); getting it
+    right in the practice of the list itself (`learned`) ticks it off."""
+    word = (word or "").strip().strip(".,;:!?\"“”„()[]{}…–—-").lower()     # as it is written: "can't" stays "can't"
+    if not _plain(word):
+        return hard_words(path)
+    got, key = hard_words(path), f"{lang}|{_plain(word)}"
+    row = got.pop(key, None)
+    if row is None:
+        if ok:
+            return got                                   # never was a problem
+        row = {"word": word, "lang": lang, "miss": 0, "ok": 0, "done": False}
+    if ok:
+        row["ok"] += 1
+        row["done"] = row["done"] or bool(learned)
+    else:
+        row["miss"] += 1
+        row["done"] = False
+        row["heard"], row["at"] = heard[:80], int(time.time())
+        if song:
+            row["song"] = song[:200]
+    got[key] = row                                       # the newest last
+    for k in list(got)[:max(0, len(got) - keep)]:
+        del got[k]
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
+    return got

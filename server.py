@@ -7246,8 +7246,10 @@ def stems_melody_kept(name: str):
 
 
 @app.post("/api/sing/line")
-async def sing_line(request: Request, text: str, lang: str = "auto"):
-    """One sung line (16 kHz mono s16le) against the words it should have been."""
+async def sing_line(request: Request, text: str, lang: str = "auto", song: str = "", key: str = ""):
+    """One sung line (16 kHz mono s16le) against the words it should have been.
+    With `song` and `key` (the line's own, the page's choice) what was heard
+    is kept with the song's stems, to be gone through later."""
     why = _voice.names_available()
     if why:
         return JSONResponse({"error": why}, status_code=503)
@@ -7260,7 +7262,249 @@ async def sing_line(request: Request, text: str, lang: str = "auto"):
         heard = await asyncio.get_running_loop().run_in_executor(None, lambda: _voice.transcribe(pcm, lang=lang, prompt=""))
     except Exception:
         return JSONResponse({"error": "Rozpoznání se nepovedlo."}, status_code=500)
-    return _sing.compare(text, heard)
+    got = _sing.compare(text, heard)
+    d = _sing_dir(song) if song and key else None
+    if d is not None:
+        try:
+            _sing.keep_sung(d, key[:300], {**got, "at": int(time.time())})
+        except OSError:
+            pass
+    return got
+
+
+@app.get("/api/stems/{name}/sing/words")
+def sing_words(name: str):
+    """What was heard of each lyric line the last time it was sung."""
+    d = _sing_dir(name)
+    return _sing.sung_words(d) if d is not None else {}
+
+
+@app.delete("/api/stems/{name}/sing/words")
+def sing_words_forget(name: str):
+    d = _sing_dir(name)
+    if d is not None:
+        (d / "sing-words.json").unlink(missing_ok=True)
+    return {}
+
+
+# ---- the words the pronunciation practice caught: one list across all songs
+
+def _hard_words_file() -> Path:
+    return CONFIG_PATH.parent / "speak-words.json"
+
+
+def _hard_words_rows():
+    rows = list(_sing.hard_words(_hard_words_file()).values())
+    rows.sort(key=lambda r: (r.get("done", False), -r.get("at", 0)))
+    return rows
+
+
+class HardWord(BaseModel):
+    word: str
+    lang: str = "en"
+    ok: bool = False
+    heard: str = ""
+    song: str = ""
+    learned: bool = False
+
+
+@app.get("/api/speak/words")
+def speak_words():
+    """The mispronounced words: the ones still to be learnt first, the newest of them on top."""
+    return _hard_words_rows()
+
+
+@app.post("/api/speak/words")
+def speak_word(w: HardWord):
+    lang = w.lang if w.lang in ("en", "cs") else "en"
+    try:
+        _sing.hard_word(_hard_words_file(), w.word[:60], lang, w.ok, w.heard, w.song, w.learned)
+    except OSError:
+        return JSONResponse({"error": "Slovo se nepodařilo uložit."}, status_code=500)
+    return _hard_words_rows()
+
+
+@app.delete("/api/speak/words")
+def speak_words_forget(word: str = "", lang: str = "en", done: bool = False):
+    """One word off the list — or, with `done`, every one already learnt."""
+    f = _hard_words_file()
+    got = _sing.hard_words(f)
+    left = {k: r for k, r in got.items() if not ((done and r.get("done")) or (word and k == f"{lang}|{_sing._plain(word)}"))}
+    if len(left) != len(got):
+        f.write_text(json.dumps(left, ensure_ascii=False), encoding="utf-8")
+    return _hard_words_rows()
+
+
+# ---- a voice to read the lyrics aloud: the user's own, cloned in the Voicebox
+# app (its server answers on this computer while the app is open). A line
+# takes it some twenty seconds, so every line is made once, in the background,
+# and kept; the page plays what is ready and reads the rest with the system voice.
+VOICEBOX_URL = "http://127.0.0.1:17493"
+VOICEBOX_LANGS = {"zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it", "he", "ar", "da", "el", "fi", "hi", "ms", "nl",
+                  "no", "pl", "sv", "sw", "tr"}
+_TTS_QUEUE: list = []          # (file, profile, lang, text), the next one first
+_TTS_LOCK = threading.Lock()
+_TTS = {"thread": None, "error": None, "opened": 0.0}
+
+
+# Which of Voicebox's models reads. Qwen clones from the sample *and its
+# transcript*, and with a transcript that does not fit the sample it speaks
+# leftovers of it before every line; Chatterbox goes by the sound alone.
+VOICEBOX_ENGINE = "chatterbox"
+
+
+def _tts_file(profile: str, lang: str, text: str) -> Path:
+    key = f"{VOICEBOX_ENGINE}|{profile}|{lang}|{' '.join(text.split())}"
+    return CONFIG_PATH.parent / "tts" / (hashlib.sha1(key.encode("utf-8")).hexdigest()[:24] + ".wav")
+
+
+def _voicebox_profiles():
+    """The voices of Voicebox, or None when its server does not answer."""
+    try:
+        r = httpx.get(VOICEBOX_URL + "/profiles", timeout=2.5)
+        return [{"id": p["id"], "name": p.get("name") or "?", "kind": p.get("voice_type") or ""} for p in r.json()] if r.status_code == 200 else None
+    except Exception:                                      # noqa: BLE001 — not running
+        return None
+
+
+def _voicebox_say(profile: str, lang: str, text: str) -> bytes:
+    r = httpx.post(VOICEBOX_URL + "/generate/stream", timeout=600,
+                   json={"profile_id": profile, "text": text, "language": lang, "engine": VOICEBOX_ENGINE})
+    if r.status_code != 200 or r.content[:4] != b"RIFF":
+        raise RuntimeError(f"Voicebox: {r.status_code}")
+    return r.content
+
+
+def _tts_sounds_right(audio: bytes, lang: str, text: str) -> bool:
+    """Whether the voice said the line and nothing much else — whisper's
+    reading of it against the text. Anything that cannot be checked passes."""
+    try:
+        import io
+        import wave
+        import numpy as np
+        with wave.open(io.BytesIO(audio)) as w:
+            rate, ch = w.getframerate(), w.getnchannels()
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+        if ch > 1:
+            x = x.reshape(-1, ch)[:, 0]
+        pcm = x[(np.arange(int(len(x) * _voice.RATE / rate)) * rate / _voice.RATE).astype(int)].tobytes()
+        if _voice.names_available() or len(pcm) < _voice.RATE // 2:
+            return True
+        heard = _voice.transcribe(pcm, lang=lang if lang in ("en", "cs") else "auto", prompt="")
+        got = _sing.compare(text, heard)
+        said = len(_sing.words(heard))
+        return got["total"] == 0 or (got["ok"] >= got["total"] * 0.6 and said <= got["total"] * 2 + 2)
+    except Exception:                                      # noqa: BLE001
+        return True
+
+
+def _voicebox_open() -> None:
+    """Voicebox brought up in the background, once a minute at most."""
+    if time.time() - _TTS["opened"] > 60:
+        _TTS["opened"] = time.time()
+        try:
+            subprocess.Popen(["open", "-g", "-a", "Voicebox"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+
+def _tts_drain() -> None:
+    misses = 0
+    while True:
+        with _TTS_LOCK:
+            if not _TTS_QUEUE:
+                _TTS["thread"] = None
+                return
+            f, profile, lang, text = _TTS_QUEUE[0]
+        try:
+            if not f.is_file():
+                audio = _voicebox_say(profile, lang, text)
+                if not _tts_sounds_right(audio, lang, text):   # a slip of the model: once more, and that one is kept
+                    audio = _voicebox_say(profile, lang, text)
+                f.parent.mkdir(parents=True, exist_ok=True)
+                tmp = f.with_suffix(".tmp")
+                tmp.write_bytes(audio)
+                tmp.replace(f)
+            _TTS["error"], misses = None, 0
+        except Exception as e:                             # noqa: BLE001
+            misses += 1
+            _TTS["error"] = "Voicebox neodpovídá — je otevřený?" if isinstance(e, httpx.HTTPError) else str(e)
+            if misses < 4 and isinstance(e, httpx.ConnectError):
+                _voicebox_open()
+                time.sleep(8)
+                continue                                   # the same line again, once the app is up
+            if misses >= 4:                                # it is not coming: nothing is left waiting for it
+                with _TTS_LOCK:
+                    _TTS_QUEUE.clear()
+                    _TTS["thread"] = None
+                return
+        with _TTS_LOCK:
+            if _TTS_QUEUE and _TTS_QUEUE[0][0] == f:
+                _TTS_QUEUE.pop(0)
+
+
+class TtsRequest(BaseModel):
+    lines: List[str] = []
+    lang: str = "en"
+    profile: str = ""
+    first: Optional[str] = None       # the line that is wanted now: made before the others
+
+
+@app.get("/api/tts/voices")
+def tts_voices():
+    got = _voicebox_profiles()
+    return {"voicebox": got is not None, "profiles": got or [], "installed": Path("/Applications/Voicebox.app").exists()}
+
+
+@app.post("/api/tts/open")
+def tts_open():
+    """Voicebox started in the background (its voices are there only while it runs)."""
+    _TTS["opened"] = 0.0
+    _voicebox_open()
+    return {"ok": True}
+
+
+@app.post("/api/tts/prepare")
+def tts_prepare(req: TtsRequest):
+    """Which of these lines the chosen voice has already read (each with the
+    address of its audio); the others are queued to be made."""
+    if req.lang not in VOICEBOX_LANGS:
+        return {"unsupported": True, "ready": {}, "waiting": 0, "error": None}
+    if not req.profile:
+        return JSONResponse({"error": "Chybí hlas."}, status_code=400)
+    ready, todo = {}, []
+    for text in req.lines[:400]:
+        text = " ".join((text or "").split())[:400]
+        if not text:
+            continue
+        f = _tts_file(req.profile, req.lang, text)
+        if f.is_file():
+            ready[text] = f"/api/tts/audio/{f.stem}"
+        else:
+            todo.append((f, req.profile, req.lang, text))
+    with _TTS_LOCK:
+        have = {q[0] for q in _TTS_QUEUE}
+        working = _TTS_QUEUE[:1] if _TTS["thread"] is not None else []
+        rest = [q for q in _TTS_QUEUE[len(working):]]
+        new = [q for q in todo if q[0] not in have]
+        rest = rest + new
+        want = " ".join((req.first or "").split())
+        rest.sort(key=lambda q: q[3] != want)              # stable: the wanted line first, the others as they were
+        _TTS_QUEUE[:] = working + rest
+        waiting = len(_TTS_QUEUE)
+        if _TTS_QUEUE and _TTS["thread"] is None:
+            _TTS["error"] = None
+            _TTS["thread"] = threading.Thread(target=_tts_drain, name="tts", daemon=True)
+            _TTS["thread"].start()
+    return {"ready": ready, "waiting": waiting, "mine": len(todo), "error": _TTS["error"]}
+
+
+@app.get("/api/tts/audio/{stem}")
+def tts_audio(stem: str):
+    f = CONFIG_PATH.parent / "tts" / (_re_mod.sub(r"[^0-9a-f]", "", stem) + ".wav")
+    if not f.is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return FileResponse(f, media_type="audio/wav")
 
 
 class SingTake(BaseModel):

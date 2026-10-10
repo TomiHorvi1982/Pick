@@ -639,3 +639,18 @@ def test_preview_commands_and_the_side_panel():
     assert voice.match("pick hide panel") == "panel:off" and voice.match("pick show panel") == "panel:on"
     assert voice.match("pick sort by tuning") == "sort:tuning"
     assert voice.match("pick next song") == "next"
+
+
+def test_what_of_the_mix_is_looked_at():
+    assert voice.match("pick see mix") == "see:mix"
+    assert voice.match("pick see lyrics") == "see:lyrics"
+    assert voice.match("pick see more guitars") == "gtrs:more"
+    assert voice.match("pick show me all guitars") == "gtrs:all"
+    assert voice.match("pick see only guitar two") == "gtrs:only:2"
+    assert voice.match("pick only guitar three") == "gtrs:only:3"
+    assert voice.match("pick see only guitar") == "gtrs:only:0"
+    assert voice.match("pick guitar on") == "gtr:on" and voice.match("pick mute guitar") == "mute:guitar"
+    assert voice.interpret("Pick, see only guitar 2.") == ("command", "gtrs:only:2")
+    assert voice.match("pick practice words") == "words" and voice.match("pick read lyrics") == "words"
+    assert voice.match("pick practice my words") == "mywords" and voice.match("pick hard words") == "mywords"
+    assert voice.match("pick practice melody") == "melody" and voice.match("pick sing lines") == "melody"

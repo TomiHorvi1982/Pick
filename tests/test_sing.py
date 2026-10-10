@@ -117,3 +117,76 @@ def test_takes_are_saved_with_the_song(client, tmp_music_root):
 
 def test_a_sung_line_must_be_real_audio(client):
     assert client.post("/api/sing/line?text=hello", content=b"\0" * 10).status_code in (400, 503)
+
+
+def test_what_was_heard_of_a_line_is_kept_with_the_song(tmp_path):
+    assert sing.sung_words(tmp_path) == {}
+    sing.keep_sung(tmp_path, "0|Hello world", {"heard": "hello word", "ok": 1, "total": 2})
+    sing.keep_sung(tmp_path, "1|Again", {"heard": "again", "ok": 1, "total": 1})
+    sing.keep_sung(tmp_path, "0|Hello world", {"heard": "hello world", "ok": 2, "total": 2})     # sung again: the newer one
+    got = sing.sung_words(tmp_path)
+    assert list(got) == ["1|Again", "0|Hello world"] and got["0|Hello world"]["ok"] == 2
+    for i in range(10):
+        sing.keep_sung(tmp_path, f"k{i}", {"heard": ""}, keep=4)
+    assert list(sing.sung_words(tmp_path)) == ["k6", "k7", "k8", "k9"]
+
+
+def test_lines_are_read_by_the_cloned_voice_once_and_kept(client, monkeypatch):
+    import time
+    import server
+    made = []
+    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text: made.append(text) or b"RIFF" + text.encode())
+    monkeypatch.setattr(server, "_voicebox_open", lambda: None)
+    monkeypatch.setattr(server, "_TTS_QUEUE", [])
+    ask = lambda **kw: client.post("/api/tts/prepare", json={"lines": ["One", "Two  two", "Three"], "lang": "en", "profile": "p1", **kw}).json()
+    got = ask(first="Three")
+    assert got["ready"] == {} and got["mine"] == 3
+    for _ in range(200):
+        got = ask()
+        if len(got["ready"]) == 3:
+            break
+        time.sleep(0.02)
+    assert set(got["ready"]) == {"One", "Two two", "Three"} and got["waiting"] == 0
+    assert made[0] == "Three" and sorted(made) == ["One", "Three", "Two two"]          # the wanted line first; each made once
+    assert client.get(got["ready"]["One"]).content == b"RIFFOne"
+    assert client.get("/api/tts/audio/00ff").status_code == 404
+    # another voice is another reading; Czech is not a language this voice speaks
+    assert ask(profile="p2")["ready"] == {}
+    assert client.post("/api/tts/prepare", json={"lines": ["Ahoj"], "lang": "cs", "profile": "p1"}).json()["unsupported"] is True
+
+
+def test_mispronounced_words_are_kept_until_learnt(client):
+    assert client.get("/api/speak/words").json() == []
+    client.post("/api/speak/words", json={"word": "Through,", "lang": "en", "ok": False, "heard": "true", "song": "A - B"})
+    client.post("/api/speak/words", json={"word": "fine", "lang": "en", "ok": True})                 # never missed: not kept
+    rows = client.post("/api/speak/words", json={"word": "through", "lang": "en", "ok": False, "heard": "threw"}).json()
+    assert len(rows) == 1 and rows[0]["word"] == "through" and rows[0]["miss"] == 2 and rows[0]["heard"] == "threw" and rows[0]["song"] == "A - B"
+    rows = client.post("/api/speak/words", json={"word": "through", "ok": True}).json()               # right once, inside its line
+    assert rows[0]["ok"] == 1 and rows[0]["done"] is False
+    client.post("/api/speak/words", json={"word": "world", "ok": False})
+    rows = client.post("/api/speak/words", json={"word": "through", "ok": True, "learned": True}).json()
+    assert [(r["word"], r["done"]) for r in rows] == [("world", False), ("through", True)]
+    rows = client.post("/api/speak/words", json={"word": "through", "ok": False}).json()              # wrong again: back on the list
+    assert all(not r["done"] for r in rows)
+    client.post("/api/speak/words", json={"word": "world", "ok": True, "learned": True})
+    assert [r["word"] for r in client.delete("/api/speak/words?done=true").json()] == ["through"]
+    assert client.delete("/api/speak/words?word=Through").json() == []
+
+
+def test_a_line_the_voice_got_wrong_is_read_once_more(client, monkeypatch):
+    import time
+    import server
+    made = []
+    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text: made.append(text) or b"RIFF%d" % len(made))
+    monkeypatch.setattr(server, "_tts_sounds_right", lambda audio, lang, text: audio != b"RIFF1")
+    monkeypatch.setattr(server, "_voicebox_open", lambda: None)
+    monkeypatch.setattr(server, "_TTS_QUEUE", [])
+    ask = lambda: client.post("/api/tts/prepare", json={"lines": ["One"], "lang": "en", "profile": "p1"}).json()
+    for _ in range(200):
+        got = ask()
+        if got["ready"]:
+            break
+        time.sleep(0.02)
+    assert made == ["One", "One"]
+    assert client.get(got["ready"]["One"]).content == b"RIFF2"
+    assert server._tts_sounds_right(b"not audio at all", "en", "One") is True
