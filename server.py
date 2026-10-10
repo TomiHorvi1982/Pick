@@ -9480,6 +9480,84 @@ class VoiceBest(BaseModel):
     names: List[str]
 
 
+# ---- "Again!": what is shown and shouted when Pick was spoken to and did not
+# understand — the user's own words, and their own voice (a short recording).
+AGAIN_TEXT = "Say it again!!!"
+
+
+def _again_paths():
+    d = _voice.CUSTOM_PATH.parent
+    return d / "voice-again.json", d / "voice-again.wav"
+
+
+def _again_state():
+    cfg, wav = _again_paths()
+    try:
+        text = str(json.loads(cfg.read_text(encoding="utf-8")).get("text") or "").strip()
+    except (OSError, ValueError, AttributeError):
+        text = ""
+    return {"text": text or AGAIN_TEXT, "audio": wav.is_file(), "v": int(wav.stat().st_mtime) if wav.is_file() else 0}
+
+
+class AgainText(BaseModel):
+    text: str = ""
+
+
+@app.get("/api/voice/again")
+def voice_again():
+    return _again_state()
+
+
+@app.put("/api/voice/again")
+def voice_again_text(req: AgainText):
+    cfg, _ = _again_paths()
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(json.dumps({"text": req.text.strip()[:60]}, ensure_ascii=False), encoding="utf-8")
+    return _again_state()
+
+
+@app.post("/api/voice/again/audio")
+async def voice_again_record(request: Request):
+    """The user's own shout, as the microphone took it (16 kHz mono s16le): the
+    silence before and after is cut, and it is made as loud as it goes."""
+    import wave
+    import numpy as np
+    pcm = await request.body()
+    if not pcm or len(pcm) % 2 or len(pcm) > _voice.RATE * 2 * 8:
+        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
+    x = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
+    peak = float(np.abs(x).max()) if len(x) else 0.0
+    if peak < 600:
+        return JSONResponse({"error": "Nic jsem neslyšel — zkus to znovu a hlasitěji."}, status_code=400)
+    loud = np.flatnonzero(np.abs(x) > peak * 0.08)
+    pad = int(_voice.RATE * 0.08)
+    x = x[max(0, loud[0] - pad):loud[-1] + pad]
+    x = (x * (30000.0 / peak)).astype(np.int16)
+    _, wav = _again_paths()
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    tmp = wav.with_suffix(".tmp")
+    with wave.open(str(tmp), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(_voice.RATE)
+        w.writeframes(x.tobytes())
+    tmp.replace(wav)
+    return {**_again_state(), "seconds": round(len(x) / _voice.RATE, 2)}
+
+
+@app.get("/api/voice/again/audio")
+def voice_again_audio():
+    _, wav = _again_paths()
+    if not wav.is_file():
+        return JSONResponse({"error": "Nic nahraného."}, status_code=404)
+    return FileResponse(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/api/voice/again/audio")
+def voice_again_forget():
+    _, wav = _again_paths()
+    wav.unlink(missing_ok=True)
+    return _again_state()
+
+
 @app.post("/api/voice/best")
 def voice_best(req: VoiceBest):
     """Which of the names on screen was said: its index, or null when none is close."""

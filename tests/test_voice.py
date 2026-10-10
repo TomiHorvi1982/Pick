@@ -583,3 +583,31 @@ def test_show_me_walks_the_lists_and_search_takes_a_name():
     assert voice.match("pick help") == "help" and voice.match("pick help open") == "help"
     assert voice.match("pick help close") == "nothing" and voice.match("pick nothing") == "nothing"
     assert voice.match("pick open") == "open"
+
+
+def test_the_again_shout_is_the_users_own_words_and_voice(tmp_path):
+    import math, struct, wave
+    from fastapi.testclient import TestClient
+    import server
+    c = TestClient(server.app)
+    assert c.get("/api/voice/again").json() == {"text": "Say it again!!!", "audio": False, "v": 0}
+    assert c.get("/api/voice/again/audio").status_code == 404
+    assert c.put("/api/voice/again", json={"text": "  Co?! Znovu!  "}).json()["text"] == "Co?! Znovu!"
+    assert c.put("/api/voice/again", json={"text": ""}).json()["text"] == "Say it again!!!"       # emptied: the usual words
+    # silence is no shout
+    assert c.post("/api/voice/again/audio", content=b"\0" * 32000).status_code == 400
+    assert c.post("/api/voice/again/audio", content=b"\0" * 3).status_code == 400
+    # one second of quiet, half a second of voice, quiet again: only the voice is kept, and made loud
+    tone = b"".join(struct.pack("<h", int(4000 * math.sin(i * 0.2))) for i in range(8000))
+    r = c.post("/api/voice/again/audio", content=b"\0" * 32000 + tone + b"\0" * 32000)
+    assert r.status_code == 200 and r.json()["audio"] and 0.5 <= r.json()["seconds"] <= 0.7
+    got = c.get("/api/voice/again/audio")
+    assert got.status_code == 200 and got.headers["content-type"] == "audio/wav"
+    (tmp_path / "a.wav").write_bytes(got.content)
+    with wave.open(str(tmp_path / "a.wav")) as w:
+        frames = w.readframes(w.getnframes())
+        assert w.getframerate() == 16000 and w.getnchannels() == 1
+    assert max(abs(v) for (v,) in struct.iter_unpack("<h", frames)) > 29000
+    assert c.get("/api/voice/again").json()["audio"] is True
+    assert c.delete("/api/voice/again/audio").json()["audio"] is False
+    assert c.get("/api/voice/again/audio").status_code == 404

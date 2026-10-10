@@ -93,6 +93,13 @@
   @keyframes rot{to{transform:rotate(360deg)}}
   .vbar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub)}
   #smode{flex-wrap:wrap}
+  /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
+  .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
+  .voice-again[hidden]{display:none}
+  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px rgba(30,215,96,.75)) drop-shadow(0 0 140px rgba(30,215,96,.4));animation:vagain .46s ease-in-out infinite alternate}
+  .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
+    text-shadow:0 0 28px rgba(30,215,96,.85),0 0 80px rgba(30,215,96,.5),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
+  @keyframes vagain{from{opacity:.12;transform:scale(.94)}to{opacity:.62;transform:scale(1.05)}}
   .seg{display:flex;padding:2px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid var(--line)}
   .seg button{border:0;background:none;color:var(--sub);font-weight:600;font-size:11px;line-height:1;font-family:inherit;
     padding:5px 9px;border-radius:6px;cursor:pointer}
@@ -423,6 +430,7 @@
     Aplikace neběží — hraju sám · <a href="#" id="openMain">otevřít aplikaci</a>
   </div>
 </div>
+<div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
 <div class="toast" id="toast"></div>
 <audio id="lp" preload="auto"></audio>
 <iframe id="lpyt" title="YouTube přehrávač" allow="autoplay; encrypted-media" style="position:fixed;left:-10px;top:-10px;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
@@ -2114,17 +2122,32 @@ const MiniVoice = (() => {
   el("vhelp-close").onclick = helpClose;
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
 
-  // Meant for Pick and not understood: said aloud, and not listened to while it is said.
   let deaf = false;
-  function again(){
-    if(!window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance("Again!");
-    u.lang = "en-US";
-    deaf = true;
-    const done = () => setTimeout(() => { deaf = false; parts = []; held = 0; }, 350);
-    u.onend = u.onerror = done; setTimeout(done, 2500);
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  // Meant for Pick and not understood: the logo flashes with the words, and the
+  // user's own shout is played (the computer's "Again!" when none is recorded).
+  // The microphone hears it too: nothing is listened to until it is over.
+  let againCfg = null;
+  const againLoad = async () => { try{ againCfg = await (await fetch("/api/voice/again")).json(); }catch(e){ againCfg = againCfg || {text: "Say it again!!!", audio: false}; } return againCfg; };
+  async function againShow(){
+    const c = againCfg || await againLoad(), box = el("voice-again");
+    el("voice-again-text").textContent = c.text;
+    box.hidden = false; deaf = true;
+    let over = false;
+    const done = () => { if(over) return; over = true; box.hidden = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
+    setTimeout(done, 6000);
+    const least = new Promise(r => setTimeout(r, 1700));           // the flash is seen even when the shout is short
+    const sound = new Promise(r => {
+      if(c.audio){
+        const a = new Audio("/api/voice/again/audio?v=" + c.v);
+        a.onended = a.onerror = r; a.play().catch(r);
+      }else if(window.speechSynthesis){
+        const u = new SpeechSynthesisUtterance("Again!"); u.lang = "en-US"; u.rate = 1.05;
+        u.onend = u.onerror = r; speechSynthesis.cancel(); speechSynthesis.speak(u);
+      }else r();
+    });
+    await Promise.all([least, sound]); done();
   }
+  const again = () => { againCfg = null; againShow(); };      // asked anew each time: the app may have changed it
   async function got(r){
     heard("slyšel jsem: " + r.heard + (r.said && !r.command ? " („" + r.said + "“)" : ""));
     const cmd = r.command;

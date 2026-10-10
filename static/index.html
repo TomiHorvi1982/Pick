@@ -3618,6 +3618,18 @@ body.lib-collapsed .pick-brand{display:none}
   .voice-help{position:fixed;right:10px;top:70px;bottom:104px;z-index:90;width:min(400px,36vw);display:flex;flex-direction:column;
     background:rgba(16,16,20,.97);border:1px solid rgba(30,215,96,.5);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7);color:#fff}
   .voice-help[hidden]{display:none}
+  /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
+  .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
+  .voice-again[hidden]{display:none}
+  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px rgba(30,215,96,.75)) drop-shadow(0 0 140px rgba(30,215,96,.4));animation:vagain .46s ease-in-out infinite alternate}
+  .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
+    text-shadow:0 0 28px rgba(30,215,96,.85),0 0 80px rgba(30,215,96,.5),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
+  @keyframes vagain{from{opacity:.12;transform:scale(.94)}to{opacity:.62;transform:scale(1.05)}}
+  .voice-again-row input{flex:1;min-width:0}
+  .voice-again-row button{flex:none;border:1px solid var(--nm-line,#333);background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:3px 7px;border-radius:6px}
+  .voice-again-row button:hover{color:var(--nm-txt)}
+  .voice-again-row button.has{color:var(--accent,#1ed760);border-color:var(--accent,#1ed760)}
+  .voice-again-row button.busy{color:#ff6b6b;border-color:#ff6b6b}
   .vh-head{display:flex;align-items:center;gap:12px;padding:12px 14px;font-size:13px;font-weight:700;color:var(--accent,#1ed760);border-bottom:1px solid #2a2a34}
   .vh-head span{flex:1}
   .vh-head button{border:none;background:none;color:#aaa;font-size:16px;cursor:pointer}
@@ -3799,6 +3811,11 @@ body.lib-collapsed .pick-brand{display:none}
           <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
         <div class="voice-row"><span>Asistent</span><input type="text" id="assist-text" placeholder="napiš, nebo řekni „pick listen“ a pak česky" style="flex:1;min-width:0">
           <label title="Odpověď asistenta přečte počítač nahlas" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="assist-tts"> nahlas</label></div>
+        <div class="voice-row voice-again-row" title="Když ti Pick nerozumí: uprostřed zabliká logo s tímhle nápisem a zařve tvoje nahrávka. Bez nahrávky řekne počítač „Again!“."><span>Again!!!</span>
+          <input type="text" id="voice-again-input" maxlength="60" placeholder="Say it again!!!" spellcheck="false">
+          <button type="button" id="voice-again-rec" title="Nahrát můj hlas (3 vteřiny) — zařvi, co má zaznít, když ti Pick nerozumí">● Nahrát</button>
+          <button type="button" id="voice-again-play" title="Vyzkoušet: zabliká logo a přehraje se nahrávka">▶</button>
+          <button type="button" id="voice-again-del" title="Smazat nahrávku — zase bude mluvit počítač">✕</button></div>
         <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem.</div>
         <hr>
         <div class="voice-list" id="voice-list"></div>
@@ -5087,6 +5104,7 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="float-grip" id="sing-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
+<div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
 <div class="voice-help" id="voice-help" hidden>
   <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)">✕</button></div>
   <div class="vh-list" id="voice-help-list"></div>
@@ -30009,17 +30027,76 @@ const Voice = (() => {
   function helpClose(){ helpOn = false; el("voice-help").hidden = true; }
   el("voice-help-close").onclick = helpClose;
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
+  // Meant for Pick and not understood: the logo flashes with the words, and the
+  // user's own shout is played (the computer's "Again!" when none is recorded).
+  // The microphone hears it too: nothing is listened to until it is over.
+  let againCfg = null;
+  const againLoad = async () => { try{ againCfg = await (await fetch("/api/voice/again")).json(); }catch(e){ againCfg = againCfg || {text: "Say it again!!!", audio: false}; } return againCfg; };
+  async function againShow(){
+    const c = againCfg || await againLoad(), box = el("voice-again");
+    el("voice-again-text").textContent = c.text;
+    box.hidden = false; deaf = true;
+    let over = false;
+    const done = () => { if(over) return; over = true; box.hidden = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
+    setTimeout(done, 6000);
+    const least = new Promise(r => setTimeout(r, 1700));           // the flash is seen even when the shout is short
+    const sound = new Promise(r => {
+      if(c.audio){
+        const a = new Audio("/api/voice/again/audio?v=" + c.v);
+        a.onended = a.onerror = r; a.play().catch(r);
+      }else if(window.speechSynthesis){
+        const u = new SpeechSynthesisUtterance("Again!"); u.lang = "en-US"; u.rate = 1.05;
+        u.onend = u.onerror = r; speechSynthesis.cancel(); speechSynthesis.speak(u);
+      }else r();
+    });
+    await Promise.all([least, sound]); done();
+  }
   function again(){
     heard.textContent = "Nerozuměl jsem — řekni to znovu.";
-    if(!window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance("Again!");
-    u.lang = "en-US"; u.rate = 1.05;
-    // While Pick talks the microphone hears Pick: nothing is sent until it is done.
-    deaf = true;
-    const done = () => { setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
-    u.onend = u.onerror = done; setTimeout(done, 2500);
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
+    againShow();
   }
+  // The row in the microphone's menu: the words, and the recording of them.
+  function againPaint(){
+    const c = againCfg || {};
+    if(document.activeElement !== el("voice-again-input")) el("voice-again-input").value = c.text || "";
+    el("voice-again-rec").classList.toggle("has", !!c.audio);
+    el("voice-again-rec").textContent = c.audio ? "● Nahrát znovu" : "● Nahrát";
+    el("voice-again-del").hidden = !c.audio;
+  }
+  againLoad().then(againPaint);
+  el("voice-again-input").addEventListener("change", async () => {
+    try{ againCfg = await (await fetch("/api/voice/again", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: el("voice-again-input").value})})).json(); }catch(e){}
+    againPaint();
+  });
+  el("voice-again-input").addEventListener("keydown", (e) => { e.stopPropagation(); if(e.key === "Enter") e.target.blur(); });
+  el("voice-again-play").onclick = () => againShow();
+  el("voice-again-del").onclick = async () => {
+    try{ againCfg = await (await fetch("/api/voice/again/audio", {method: "DELETE"})).json(); }catch(e){}
+    againPaint();
+  };
+  el("voice-again-rec").onclick = async () => {
+    if(teach) return;
+    const wasOn = on, btn = el("voice-again-rec");
+    teach = {};                       // the microphone is not listened to for commands meanwhile
+    if(!on) await start();
+    if(!on){ teach = null; return; }
+    btn.classList.add("busy");
+    try{
+      for(let i = 3; i >= 1; i--){ heard.textContent = `Nahrávám za ${i}…`; await pause(600); }
+      heard.innerHTML = "<b>Teď! Zařvi to.</b> (3 vteřiny)";
+      const pcm = await take();
+      teach = {};
+      const r = await fetch("/api/voice/again/audio", {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}});
+      const d = await r.json().catch(() => ({}));
+      if(r.ok){ againCfg = d; heard.textContent = `Nahráno (${d.seconds} s) — ▶ ti to přehraje.`; }
+      else heard.textContent = d.error || "Nahrávka se nepovedla.";
+    }finally{
+      btn.classList.remove("busy");
+      teach = null; parts = []; held = 0;
+      if(!wasOn) stop();
+      againPaint();
+    }
+  };
   function got(r){
     if(r.command === "help"){ helpOpen(); heard.textContent = "nabídka povelů — vpravo; „pick help close“ ji zavře"; return; }
     if(r.command === "nothing"){ helpClose(); heard.textContent = "nabídka zavřená"; return; }

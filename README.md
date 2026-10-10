@@ -149,6 +149,14 @@ při dalších povelech, listuje se v něm stejně („pick page down / up“) a
 ho „pick help close“ nebo „pick nothing“. Nabídka aplikace neukazuje povely,
 které umí jen minipřehrávač, a naopak.
 
+Když Pick nerozumí, uprostřed okna zabliká velké poloprůhledné logo s nápisem
+(výchozí „Say it again!!!“) a zazní tvoje nahrávka. Obojí se nastavuje v nabídce
+mikrofonu v řádku „Again!!!“: nápis se přepíše, „● Nahrát“ vezme 3 vteřiny
+z mikrofonu (ticho se ořízne, hlasitost se vytáhne), ▶ to vyzkouší, ✕ nahrávku
+smaže (pak řekne počítač „Again!“). Uloženo je to vedle vlastních povelů
+(`voice-again.json`, `voice-again.wav`; `/api/voice/again`), platí i pro
+minipřehrávač.
+
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
 `GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu
