@@ -2389,6 +2389,10 @@ body.lib-collapsed .pick-brand{display:none}
   .stems-summary .dot{opacity:.5}
   .stems-summary .warn{color:var(--gold)}
 
+  /* Each card has its number, to be asked for by ("pick play seven"). */
+  #steems-list{counter-reset:stc}
+  .stem-card{counter-increment:stc}
+  .stem-card::before{content:counter(stc);flex:0 0 26px;text-align:right;font-size:12px;color:var(--sub,#888);font-variant-numeric:tabular-nums}
   .stem-card{display:flex;align-items:center;gap:14px;padding:10px 12px;
     border-radius:8px;cursor:pointer;transition:background .15s}
   .stem-card:hover{background:var(--sp-hover)}
@@ -29990,18 +29994,18 @@ const Voice = (() => {
     ["Smyčky a sekce", /^(loop|section)/, "#b784ff", "repeat"],
     ["Kytara", /^(gtr|myguitar|preset|record|tuner|practice)/, "#ff5c8a", "elGuitar"],
     ["Stopy", /^(mute|solo|vol|pan):/, "#2fd6c4", "stems"],
-    ["Sekce a stránky", /^(list:|show:|page|steems$)/, "#4ade80", "library"],
+    ["Sekce a stránky", /^(list:|show:|page|helppage|sort|num|steems$)/, "#4ade80", "library"],
     ["Minipřehrávač", /^(mini|minifull|tomini)/, "#ffd84a", "external"],
     ["Vlastní", /^custom:/, "#ff9ad5", "mic"],
     ["Aplikace", /./, "#a8b0c0", "settings"]];
   // What only the mini player does is in the mini player's own list ("pick help" there), not here.
-  const MINI_ONLY = /^(playall|back|num|plnum|find:(play|open)|list:([+-]|folders|songs))$/;
+  const MINI_ONLY = /^(playall|back|plnum|find:open|list:([+-]|folders|songs))$/;
   function helpPaint(filter){
     const box = el("voice-help"), f = (filter || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
     const hit = (c) => f.every(w => c.say.toLowerCase().split(/[^a-z<>]+/).includes(w));
     let rows = helpRows.filter(c => !MINI_ONLY.test(c.id) && (!f.length || hit(c)));
     if(f.length && !rows.length){ el("voice-help-title").textContent = `„${f.join(" ")}“ — takový povel není`; again(); rows = []; }
-    else el("voice-help-title").textContent = f.length ? `Povely se slovem „${f.join(" ")}“` : "Povely — „pick page down / up“ listuje, „pick help close“ zavře";
+    else el("voice-help-title").textContent = f.length ? `Povely se slovem „${f.join(" ")}“` : "Povely — „pick help down / up“ listuje, „pick help close“ zavře";
     // Six tracks say the same seven things: unfiltered, one of them stands for all.
     if(!f.length) rows = rows.filter(c => !/^(mute|solo|vol|pan):(drums|bass|vocals|piano|other)/.test(c.id));
     const left = rows.slice(), html = [];
@@ -30161,7 +30165,8 @@ const Voice = (() => {
       const m = el("main-scroll") || document.querySelector("main"); if(m) m.scrollTo({top: 0});
       return to[1];
     }
-    if(what === "page" && helpOn){              // the list of commands is up: its pages
+    if(what === "helppage"){                    // the list of commands has pages of its own ("pick help down")
+      if(!helpOn) return "nabídka povelů není otevřená";
       const l = el("voice-help-list");
       l.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * l.clientHeight, behavior: "smooth"});
       return arg === "+" ? "nabídka o stránku dál" : "nabídka o stránku zpět";
@@ -30174,7 +30179,26 @@ const Voice = (() => {
       box.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * box.clientHeight, behavior: "smooth"});
       return arg === "+" ? "o stránku dál" : "o stránku zpět";
     }
-    if(what === "num" || what === "plnum") return "čísla písní v seznamu umí minipřehrávač („pick mini player“)";
+    if(what === "num"){ const r = hereRows().filter(x => !x.folder); const row = r.find(x => x.n === +arg) || (r.some(x => x.n) ? null : r[+arg - 1]);
+      if(!row) return r.length ? `číslo ${arg} tu není — seznam končí číslem ${r.length}` : "tady není žádný seznam písní";
+      row.go(); return `otevírám ${arg}: ${row.title}`; }
+    if(what === "plnum") return "playlisty podle čísla otevírá minipřehrávač („pick mini player“)";
+    if(what === "sort"){
+      const vis = (n) => n.offsetParent !== null, ov = el("overlay"), root = ov && !ov.hidden ? ov : document;
+      const cz = {artist: "kapely", album: "alba", title: "názvu"}[arg];
+      const b = [...root.querySelectorAll(`button[data-lsort="${arg}"]`)].find(vis);
+      if(b){
+        // The header steps through its orders; pressed until this column is the one, A–Z.
+        for(let i = 0; i < 3 && !(b.classList.contains("sorted") && (b.querySelector(".lsort-arrow") || {}).textContent === "A–Z"); i++){
+          b.click();
+          if(!b.isConnected) break;                       // the list was painted anew, in the order asked for
+        }
+        return "seřazeno podle " + cz;
+      }
+      const chip = [...document.querySelectorAll(`.stems-group-bar [data-group="${arg}"]`)].find(vis);
+      if(chip){ chip.click(); return "seřazeno podle " + cz; }
+      return "tady není co řadit";
+    }
     if(what === "save") return saveForPractice();
     if(what === "lyrics") return click(shown("mixer") ? "mixer-lyrics-toggle" : "pb-lyrics-btn") ? "text" : "text teď nejde otevřít";
     if(what === "tabs"){
@@ -30466,6 +30490,7 @@ const Voice = (() => {
       showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
       return;
     }
+    if(f.kind === "here" || f.kind === "play"){ openHere(f.query, f.track); return; }
     if(f.kind === "search" && f.missing){ setMode("songs"); searchExactly(f.query); showToast(`„${f.query}“ ještě nemáš — hledám`); return; }
     const t = f.track;
     // "pick search": a song that is here already is opened, not looked up — in Steems when it is separated.
@@ -30473,6 +30498,43 @@ const Voice = (() => {
     if(f.kind === "practice"){ practice({rel: t.rel, title: t.title, stems: t.stems}); return; }
     Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album});
     showToast(`Hraju: ${t.artist ? t.artist + " — " : ""}${t.title}`);
+  }
+
+  // The rows of the list in front — an open playlist, or the section that is
+  // shown: each with its number, its title and what opening it does.
+  function hereRows(){
+    const ov = el("overlay"), root = ov && !ov.hidden ? ov : document.querySelector("main");
+    const text = (r, sel) => { const n = r.querySelector(sel); return n ? n.textContent.trim() : ""; };
+    return [...root.querySelectorAll(".lib-trow, .stem-card, .track-row, .lib-folder-row")].filter(r => r.offsetParent !== null && !r.classList.contains("lib-thead")).map((r, i, all) => {
+      const track = r.classList.contains("track-row"), card = r.classList.contains("stem-card");
+      return {folder: r.classList.contains("lib-folder-row"),
+        n: track ? +r.dataset.idx + 1 : card ? all.filter(x => x.classList.contains("stem-card")).indexOf(r) + 1 : +text(r, ".c-idx") || 0,
+        title: text(r, track ? ".t-title" : card ? ".stem-card-title" : ".tx") || r.textContent.trim().slice(0, 80),
+        go: () => { r.scrollIntoView({block: "center"}); ((track && r.querySelector(".icon-btn.play")) || r).click(); }};
+    });
+  }
+  async function bestOf(said, names){
+    if(!names.length) return -1;
+    try{
+      const r = await (await fetch("/api/voice/best", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({query: said, names})})).json();
+      return r.index === null || r.index === undefined ? -1 : r.index;
+    }catch(e){ return -1; }
+  }
+  // "pick open song <name>" / "pick play <name>": the song of that name where
+  // you are; when the section has none, the one in Steems — into the mix — and
+  // then the one in the library.
+  async function openHere(name, track){
+    const rows = hereRows();
+    let i = await bestOf(name, rows.map(r => r.title));
+    if(i >= 0){ rows[i].go(); showToast("Otevírám: " + rows[i].title); return; }
+    let all = [];
+    try{ all = (await (await fetch("/api/stems")).json()).filter(x => (x.stems || []).some(st => !/^take-|^midi/.test(st))); }catch(e){}
+    const names = all.map(x => stemsDisplay(x));
+    i = await bestOf(name, names.map(d => d.title));
+    if(i < 0) i = await bestOf(name, names.map(d => `${d.artist || ""} ${d.title}`));
+    if(i >= 0){ setMode("steems", {keepSection: true}); loadMixerSong(all[i].name); showToast("Otevírám ve Steems: " + names[i].title); return; }
+    if(track){ Player.playLocal({relPath: track.rel, title: track.title, artists: track.artist, album: track.album}); showToast(`Hraju z knihovny: ${track.title}`); return; }
+    showToast(`„${name}“ jsem tu nenašel`);
   }
 
   // "pick save song": what plays goes among the favourite songs, and the server

@@ -157,6 +157,15 @@ smaže (pak řekne počítač „Again!“). Uloženo je to vedle vlastních pov
 (`voice-again.json`, `voice-again.wav`; `/api/voice/again`), platí i pro
 minipřehrávač.
 
+„pick page down / up“ listuje vždy stránkou (i když je nabídka povelů otevřená);
+nabídka má svoje „pick help down / up“. „pick sort by band / album / title“
+seřadí seznam, který je vidět (hlavičky tabulek, skupiny karet ve Steems,
+seznam minipřehrávače). „pick open song <název>“ i „pick play <název>“ otevřou
+píseň toho jména ze sekce, která je vidět — řádek seznamu Steems jde rovnou do
+mixu; když tam není, hledá se ve Steems a pak v knihovně. Číslem stejně: „pick
+play seven“, „pick open song seven“ (tabulky mají sloupec #, karty Steems číslo
+vlevo).
+
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
 `GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu

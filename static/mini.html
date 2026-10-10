@@ -2089,9 +2089,9 @@ const MiniVoice = (() => {
   // needs no "pick" and one word narrows it.
   const GROUPS = [
     ["Přehrávání", /^(play|pause|rewind|next|prev)$/, "#1ed760", "play"],
-    ["Hledání", /^(find:(song|band|playlist|play|open|search)|num|plnum)/, "#4aa8ff", "search"],
+    ["Hledání", /^(find:(song|band|playlist|play|open|search|here)|num|plnum)/, "#4aa8ff", "search"],
     ["Seznamy", /^list:/, "#4ade80", "folder"],
-    ["Nabídka a seznam", /^(page|playall|back|help|nothing)/, "#ffd84a", "list"],
+    ["Nabídka a seznam", /^(page|helppage|sort|playall|back|help|nothing)/, "#ffd84a", "list"],
     ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
     ["Kytara", /^gtr/, "#ff5c8a", "note"],
     ["Ostatní", /^(song|playlist|save)$/, "#a8b0c0", "disc"]];
@@ -2173,6 +2173,7 @@ const MiniVoice = (() => {
       if(arg === "playlist") return playlist(name);
       if(arg === "open") return openNamed(name);
       if(arg === "search") return searchFor(name);
+      if(arg === "here") return playNamed(name, r.find && r.find.track && r.find.track.rel);
       if(arg === "play") return playNamed(name, r.find && r.find.track && r.find.track.rel);
       return song(name);
     }
@@ -2198,6 +2199,16 @@ const MiniVoice = (() => {
       toast(`hlasitost ${db > 0 ? "+" : "−"}${Math.abs(db)} dB`); return;
     }
     if(what === "gtr"){ gtrSet(arg === "on"); return; }
+    if(what === "helppage"){ if(helpOn){ const b = el("vhelp-list"); b.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * b.clientHeight, behavior: "smooth"}); } return; }
+    if(what === "sort"){
+      const rows = srch.pl ? srch.pl.tracks : srch.list;
+      if(!rows.length){ toast("Není co řadit"); return; }
+      const tracks = !!srch.pl || trackMode(), by = (t) => plain(!tracks || arg === "title" ? t.title : arg === "album" ? t.album : t.artists);
+      rows.sort((a, b) => (!by(a) - !by(b)) || by(a).localeCompare(by(b), "cs", {numeric: true}) || plain(a.title).localeCompare(plain(b.title), "cs", {numeric: true}));
+      renderSearch(); el("sres").scrollTop = 0;
+      toast("Seřazeno podle " + (!tracks || arg === "title" ? "názvu" : arg === "album" ? "alba" : "kapely"));
+      return;
+    }
     if(what === "page"){ const b = el("sres"); b.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * b.clientHeight, behavior: "smooth"}); return; }
     if(what === "playall"){
       const rows = srch.pl ? srch.pl.tracks : (trackMode() ? srch.list : []);

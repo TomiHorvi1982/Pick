@@ -611,3 +611,19 @@ def test_the_again_shout_is_the_users_own_words_and_voice(tmp_path):
     assert c.get("/api/voice/again").json()["audio"] is True
     assert c.delete("/api/voice/again/audio").json()["audio"] is False
     assert c.get("/api/voice/again/audio").status_code == 404
+
+
+
+def test_open_song_sort_and_the_pages_of_the_help():
+    assert voice.match("pick open song [unk] [unk]") == "find:here"
+    assert voice.match("pick open song seven") == "num:7"
+    assert voice.match("pick open twenty one") == "num:21"
+    assert voice.match("pick open") == "open" and voice.match("pick open pick") == "open"
+    assert voice.match("pick open in mini") == "tomini"
+    assert voice.interpret("Pick open song Wait and Bleed.") == ("find", "here", "Wait and Bleed")
+    assert voice.interpret("Wait and Bleed", kind="here") == ("find", "here", "Wait and Bleed")
+    assert voice.match("pick sort by band") == "sort:artist" and voice.match("pick sort by artist") == "sort:artist"
+    assert voice.match("pick sort by album") == "sort:album"
+    assert voice.match("pick sort by title") == "sort:title" and voice.match("pick sort by name") == "sort:title"
+    assert voice.match("pick help down") == "helppage:+" and voice.match("pick help up") == "helppage:-"
+    assert voice.match("pick page down") == "page:+" and voice.match("pick help") == "help"

@@ -77,6 +77,12 @@ COMMANDS = [
     # For a list on screen — in the mini player, what a search found.
     ("page:+", ["next page", "page down"], "next page / page down", "o stránku dál"),
     ("page:-", ["previous page", "page up"], "previous page / page up", "o stránku zpět"),
+    ("helppage:+", ["help down", "help page down"], "help down", "nabídka povelů o stránku dál"),
+    ("helppage:-", ["help up", "help page up"], "help up", "nabídka povelů o stránku zpět"),
+    # The list in front, put in order.
+    ("sort:artist", ["sort by band", "sort by artist", "sort bands", "sort artists"], "sort by band / artist", "seřadí seznam podle kapely"),
+    ("sort:album", ["sort by album", "sort albums"], "sort by album", "seřadí seznam podle alba"),
+    ("sort:title", ["sort by title", "sort by name", "sort by song", "sort songs", "sort titles"], "sort by title / name", "seřadí seznam podle názvu písně"),
     ("playall", ["play all", "play playlist"], "play all", "přehrát celý nalezený seznam nebo otevřený playlist (minipřehrávač)"),
     ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
     # The lists of the mini player's search; "pick play <name>" chooses from the one that is on.
@@ -137,7 +143,8 @@ NAMED = [("find:play", "play <název>", "pustí píseň toho jména ze seznamu, 
          ("find:open", "play <název> playlist", "otevře playlist toho jména z nalezených")]
 _PLAYLIST_WORDS = {"playlist", "playlists"}
 # "pick play twenty five": the song (or playlist) with that number in the list on screen.
-NAMED += [("num", "play <číslo> / play song <číslo>", "pustí píseň s tím číslem v seznamu — „pick play twenty five“ (minipřehrávač)"),
+NAMED += [("find:here", "open song <název>", "otevře píseň toho jména ze sekce, která je vidět — ve Steems rovnou do mixu"),
+          ("num", "play <číslo> / open song <číslo>", "otevře píseň s tím číslem v seznamu, který je vidět — „pick play twenty five“"),
           ("plnum", "playlist <číslo>", "otevře playlist s tím číslem — „pick playlist twenty“ (minipřehrávač)")]
 _UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
                                      "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
@@ -195,14 +202,19 @@ def match(text, confs=None, custom=None, taught=None):
         return None
     # A number of the list on screen — "pick play twenty five", "pick play song
     # seven", "pick playlist twenty" — every word of it clear.
-    if 2 < len(words) <= 9 and (words[1] in ("play", "number") or words[1] in _PLAYLIST_WORDS):
-        rest = words[2:] if words[1] == "play" else words[1:]
+    if 2 < len(words) <= 9 and (words[1] in ("play", "open", "number") or words[1] in _PLAYLIST_WORDS):
+        rest = words[2:] if words[1] in ("play", "open") else words[1:]
         kind = "plnum" if rest and rest[0] in _PLAYLIST_WORDS else "num"
-        if rest and (rest[0] in _PLAYLIST_WORDS or (rest[0] == "song" and words[1] == "play")):
+        if rest and (rest[0] in _PLAYLIST_WORDS or (rest[0] == "song" and words[1] in ("play", "open"))):
             rest = rest[1:]
         n = spoken_number(rest)
         if n and not (sure and min(sure) < MIN_CONF):
             return f"{kind}:{n}"
+    # "pick open song <name>": the song of that name in the section that is in front.
+    if len(words) > 3 and words[1] == "open" and words[2] == "song" and len(words) <= 13:
+        if sure and min(sure[:3]) < MIN_CONF:
+            return None
+        return "find:here"
     # A name follows: only the two words before it have to be clear.
     if len(words) > 2 and words[1] in SLOTS and len(words) <= 12:
         if sure and min(sure[:2]) < MIN_CONF:
@@ -533,6 +545,8 @@ def interpret(text, custom=None, kind=None, taught=None):
         words = words[1:]                                  # "find playlist metal" is "playlist metal"
     elif words[0].lower() == "find" and len(words) > 1:
         return ("find", "search", " ".join(words[1:]))     # "find metallica" is "search metallica"
+    if words[0].lower() in ("open", "opens", "opened") and len(words) > 2 and words[1].lower() in ("song", "songs"):
+        return ("find", "here", " ".join(words[2:]))
     heard_kind = _SLOT_LIKE.get(words[0].lower())
     if heard_kind and len(words) > 1:
         return ("find", heard_kind, " ".join(words[1:]))
