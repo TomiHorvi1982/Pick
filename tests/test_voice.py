@@ -627,3 +627,15 @@ def test_open_song_sort_and_the_pages_of_the_help():
     assert voice.match("pick sort by title") == "sort:title" and voice.match("pick sort by name") == "sort:title"
     assert voice.match("pick help down") == "helppage:+" and voice.match("pick help up") == "helppage:-"
     assert voice.match("pick page down") == "page:+" and voice.match("pick help") == "help"
+
+
+def test_preview_commands_and_the_side_panel():
+    assert voice.match("pick skip") == "skip:+" and voice.match("pick skip back") == "skip:-"
+    assert voice.match("pick practice this song") == "practicethis"
+    assert voice.match("pick practice this") == "practicethis"
+    assert voice.match("pick practice") == "practice"
+    assert voice.match("pick practice [unk] [unk]") == "find:practice"
+    assert voice.interpret("Pick, practise this song.") == ("command", "practicethis")
+    assert voice.match("pick hide panel") == "panel:off" and voice.match("pick show panel") == "panel:on"
+    assert voice.match("pick sort by tuning") == "sort:tuning"
+    assert voice.match("pick next song") == "next"

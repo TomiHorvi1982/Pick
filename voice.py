@@ -51,6 +51,11 @@ COMMANDS = [
     ("song", ["a song", "song"], "a song", "Pick vybere a pustí náhodnou píseň z knihovny"),
     ("playlist", ["a playlist", "playlist"], "a playlist", "otevře playlisty"),
     ("practice", ["practice"], "practice", "hrající píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
+    ("practicethis", ["practice this song", "practice this"], "practice this song", "píseň, která hraje jako ukázka, otevře do mixu"),
+    ("skip:+", ["skip", "skip forward"], "skip", "o deset vteřin dál"),
+    ("skip:-", ["skip back"], "skip back", "o deset vteřin zpět"),
+    ("panel:off", ["hide panel", "close panel"], "hide panel", "zúží levý panel, ať je mix vidět celý"),
+    ("panel:on", ["show panel", "open panel"], "show panel", "vrátí levý panel"),
     ("myguitar", ["my guitar"], "my guitar", "tvoje kytara (živý vstup) zap / vyp"),
     ("preset:+", ["next preset"], "next preset", "další preset zesilovače"),
     ("preset:-", ["previous preset"], "previous preset", "předchozí preset zesilovače"),
@@ -82,6 +87,7 @@ COMMANDS = [
     # The list in front, put in order.
     ("sort:artist", ["sort by band", "sort by artist", "sort bands", "sort artists"], "sort by band / artist", "seřadí seznam podle kapely"),
     ("sort:album", ["sort by album", "sort albums"], "sort by album", "seřadí seznam podle alba"),
+    ("sort:tuning", ["sort by tuning", "sort tuning"], "sort by tuning", "seřadí seznam pod mixem podle ladění kytary"),
     ("sort:title", ["sort by title", "sort by name", "sort by song", "sort songs", "sort titles"], "sort by title / name", "seřadí seznam podle názvu písně"),
     ("playall", ["play all", "play playlist"], "play all", "přehrát celý nalezený seznam nebo otevřený playlist (minipřehrávač)"),
     ("back", ["back"], "back", "zpět z playlistu na výsledky (minipřehrávač)"),
@@ -216,6 +222,8 @@ def match(text, confs=None, custom=None, taught=None):
             return None
         return "find:here"
     # A name follows: only the two words before it have to be clear.
+    if len(words) > 2 and words[1] in SLOTS and _bare(words[1:]) in PHRASES:       # "practice this song" is no name
+        return PHRASES[_bare(words[1:])] if not (sure and min(sure) < MIN_CONF) else None
     if len(words) > 2 and words[1] in SLOTS and len(words) <= 12:
         if sure and min(sure[:2]) < MIN_CONF:
             return None
@@ -538,7 +546,7 @@ def interpret(text, custom=None, kind=None, taught=None):
     words = _said(text)
     if not words:
         return None
-    cmd = match(" ".join([WAKE] + [w.lower() for w in words]), None, custom)
+    cmd = match(" ".join([WAKE] + [{"practise": "practice", "minnie": "mini"}.get(w.lower(), w.lower()) for w in words]), None, custom)
     if cmd and not cmd.startswith("find:"):
         return ("command", cmd)
     if words[0].lower() in ("find", "fine", "search") and len(words) > 2 and words[1].lower() in _SLOT_LIKE:

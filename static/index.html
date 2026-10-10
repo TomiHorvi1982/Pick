@@ -2393,6 +2393,16 @@ body.lib-collapsed .pick-brand{display:none}
   #steems-list{counter-reset:stc}
   .stem-card{counter-increment:stc}
   .stem-card::before{content:counter(stc);flex:0 0 26px;text-align:right;font-size:12px;color:var(--sub,#888);font-variant-numeric:tabular-nums}
+  /* The other songs of Steems, under the open mix: plain rows — number, title, band, tuning, length. */
+  .steems-under{margin-top:18px;padding-bottom:20px}
+  .steems-under h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:10px}
+  .steems-under h3 button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer}
+  .steems-under .lib-trow,.steems-under .lib-thead{grid-template-columns:38px minmax(0,2.4fr) minmax(0,1.5fr) minmax(0,1.1fr) 56px 64px;height:34px}
+  .steems-under .lib-trow.cur{color:var(--accent,#1ed760)}
+  .steems-under .lib-trow.pv{background:color-mix(in srgb, var(--accent,#1ed760) 16%, transparent)}
+  .steems-under .c-tun{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub);font-size:12.5px}
+  .steems-under .c-act button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;opacity:0}
+  .steems-under .lib-trow:hover .c-act button,.steems-under .lib-trow.pv .c-act button{opacity:1}
   .stem-card{display:flex;align-items:center;gap:14px;padding:10px 12px;
     border-radius:8px;cursor:pointer;transition:background .15s}
   .stem-card:hover{background:var(--sp-hover)}
@@ -4194,6 +4204,7 @@ body.lib-collapsed .pick-brand{display:none}
 
     <div class="stems-head">
       <span class="section-title" id="steems-list-title">Rozseparované písně</span>
+      <button class="btn secondary" id="stems-prepare-favs" title="Zkontroluje oblíbené songy a playlisty: co ještě není stažené a rozdělené na stopy, stáhne, rozdělí a najde k tomu tab a text">Připravit oblíbené na cvičení</button>
       <button class="btn secondary" id="stems-convert" hidden></button>
     </div>
     <div id="steems-list" class="fs-list"></div>
@@ -6569,6 +6580,7 @@ function toggleFavPlaylist(playlist){
   saveFavPlaylists(list);
   renderFavPlaylists();
   if(added) PickSync.request({kind: "playlist", playlistId: playlist.browseId, label: `Playlist ${playlist.title || ""}`.trim()});
+  if(added) PracticeReady.playlist(playlist);
   return added;
 }
 // ======================================================================
@@ -6601,6 +6613,63 @@ const FavBands = (() => {
 // Favourite songs — the button in the player bar. A song is kept with
 // what it takes to play it again: its file in the library, or its video.
 // ======================================================================
+// What is kept among the favourites is made ready to practise by the server:
+// the audio downloaded, separated into stems, its tab and its text looked up.
+// One song goes at once; a playlist — and "everything" — one song after another.
+const PracticeReady = (() => {
+  const opts = () => { const c = (typeof loadSettings === "function" ? loadSettings() : {}) || {};
+    return {bitrate: (el("bitrate") || {}).value || "192k", format: c.stems_format || "mp3", mp3_bitrate: c.stems_bitrate || 320,
+      cookies_browser: c.cookies_browser || null, cookie_file: c.cookie_file || null}; };
+  const post = (url, body) => fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)}).then(r => r.json());
+  const one = (t) => ({title: t.title || "", artists: t.artists || "", videoId: t.videoId || "", url: t.url || "", relPath: t.relPath || "",
+    stems: t.stems || "", duration: t.duration_seconds || 0});
+  let timer = 0;
+  function song(t){
+    if(!t || !t.title) return;
+    post("/api/practice/save", {...one(t), ...opts()}).then(watch).catch(() => {});
+  }
+  function playlist(p){
+    if(!p || !p.browseId) return;
+    post("/api/practice/save-many", {playlists: [p.browseId], ...opts()})
+      .then(d => { if(d.queued) showToast(`Playlist ${p.title || ""}: ${d.queued} písní připravuji na cvičení (${d.ready} už je)`); watch(); }).catch(() => {});
+  }
+  const everything = () => ({songs: FavSongs.list().map(one), playlists: loadFavPlaylists().map(p => p.browseId).filter(Boolean)});
+  // The button in Steems: what is missing is counted first, and started only when you say so.
+  async function all(){
+    const b = el("stems-prepare-favs");
+    if(b.dataset.busy){
+      if(confirm("Zastavit přípravu oblíbených? Rozpracovaná píseň se dokončí, čekající se zruší.")) await fetch("/api/practice/save-many", {method: "DELETE"}).catch(() => {});
+      return watch();
+    }
+    b.disabled = true; b.textContent = "Kontroluji oblíbené…";
+    let d;
+    try{ d = await post("/api/practice/save-many", {...everything(), check: true}); }
+    catch(e){ showToast("Kontrola se nepovedla"); b.disabled = false; return paint(null); }
+    b.disabled = false; paint(null);
+    const lists = d.playlists.length ? ` (z toho ${d.playlists.reduce((a, p) => a + p.count, 0)} v ${d.playlists.length} playlistech)` : "";
+    if(!d.missing){ showToast(`Oblíbené: všech ${d.songs} písní${lists} je připraveno ve Steems`); return; }
+    if(!confirm(`Oblíbené: ${d.songs} písní${lists}.\n\nPřipraveno ve Steems: ${d.ready}\nChybí: ${d.missing}\n\nStáhnout a rozdělit chybějících ${d.missing}? Poběží to na pozadí po jedné písni — jedna trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h. Dá se kdykoli zastavit stejným tlačítkem.`)) return;
+    const r = await post("/api/practice/save-many", {...everything(), ...opts()}).catch(() => null);
+    showToast(r ? `Připravuji ${r.queued} písní na cvičení` : "Spuštění se nepovedlo");
+    watch();
+  }
+  function paint(d){
+    const b = el("stems-prepare-favs"); if(!b) return;
+    const left = d ? d.waiting + d.working : 0;
+    if(left){ b.dataset.busy = "1"; b.textContent = `Připravuji oblíbené — zbývá ${left}` + (d.failed ? ` · ${d.failed} se nepovedlo` : "") + " (klik = zastavit)"; }
+    else{ delete b.dataset.busy; b.textContent = "Připravit oblíbené na cvičení"; }
+  }
+  async function watch(){
+    clearTimeout(timer);
+    let d = null;
+    try{ d = await (await fetch("/api/practice/saves")).json(); }catch(e){}
+    paint(d);
+    if(d && d.waiting + d.working > 0) timer = setTimeout(watch, 5000);
+    else if(d && state.mode === "steems" && el("mixer").hidden && !el("steems-list").hidden && watch.was) loadSteemsList();
+    watch.was = !!(d && d.waiting + d.working > 0);
+  }
+  return {song, playlist, all, watch};
+})();
 const FAV_SONGS_KEY = "spotdl-gui-fav-songs";
 const FavSongs = (() => {
   function list(){
@@ -6620,6 +6689,7 @@ const FavSongs = (() => {
         duration_seconds: t.duration_seconds, addedAt: Date.now()});
       added = true;
       if(t.title) PickSync.request({kind: "song", artist: t.artists || "", title: t.title, label: "Oblíbené songy"});
+      PracticeReady.song(t);              // …and made ready to practise: downloaded, separated, its tab and text
     }
     save(l);
     refreshHomeRail();
@@ -11676,6 +11746,87 @@ function paintSteemsTable(box, songs){
   box.appendChild(table);
 }
 
+// ---- the other songs, under the open mix. A row is listened to first (the
+// whole song, in the player below — "pick play seven", "pick skip", "pick
+// next song") and taken into the mix when it is the one ("pick practice this
+// song", or the row's button).
+const UnderList = (() => {
+  let box = null, sortBy = (() => { try{ return localStorage.getItem("spotdl-sort:under") || "artist"; }catch(e){ return "artist"; } })();
+  let order = [], pv = null;                 // the rows as shown; the name of the one being listened to
+  const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
+  const tun = (s) => { const t = Array.isArray(s.tuning) && s.tuning.length ? describeTuning(s.tuning) : null; return t ? t.name : ""; };
+  const low = (s) => Array.isArray(s.tuning) && s.tuning.length ? Math.min(...s.tuning) : 999;
+  function host(){
+    if(!box){ box = document.createElement("div"); box.className = "steems-under"; box.id = "steems-under"; el("mixer").insertAdjacentElement("afterend", box); }
+    return box;
+  }
+  function sorted(){
+    const d = (s) => stemsDisplay(s), txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
+    const byArtist = (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).title, d(b).title);
+    return steemsSongs.slice().sort(sortBy === "title" ? (a, b) => txt(d(a).title, d(b).title) || byArtist(a, b)
+      : sortBy === "tuning" ? (a, b) => (low(a) - low(b)) || txt(tun(a), tun(b)) || byArtist(a, b) : byArtist);
+  }
+  function paint(){
+    const h = host();
+    el("stems-prepare-favs").hidden = !el("mixer").hidden;          // the list's own button; not the mix's
+    if(el("mixer").hidden || state.mode !== "steems"){ h.hidden = true; return; }
+    h.hidden = false;
+    order = sorted();
+    const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
+    const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? "A–Z" : ""}</span></button>`;
+    h.innerHTML = `<h3>Další písně ve Steems (${order.length}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
+        ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}</h3>
+      <div class="lib-table"><div class="lib-thead"><span class="c-idx">#</span>${head("title", "Název")}${head("artist", "Kapela")}${head("tuning", "Ladění")}
+        <span class="c-time">${icon("clock", 13)}</span><span class="c-act"></span></div>` +
+      order.map((s, i) => { const d = stemsDisplay(s);
+        return `<div class="lib-trow${s.name === Mixer.currentSong() ? " cur" : ""}${s.name === pv ? " pv" : ""}" data-name="${escapeHtml(s.name)}">
+          <span class="c-idx">${i + 1}</span><span class="c-title"><span class="tx">${escapeHtml(d.title)}</span></span>
+          <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-tun">${escapeHtml(tun(s))}</span>
+          <span class="c-time">${s.duration ? fmtDur(s.duration) : ""}</span>
+          <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("") + `</div>`;
+    h.querySelectorAll("button[data-lsort]").forEach(b => b.onclick = () => { sortBy = b.dataset.lsort; try{ localStorage.setItem("spotdl-sort:under", sortBy); }catch(e){} paint(); });
+    h.querySelectorAll(".lib-trow").forEach(r => {
+      r.onclick = (e) => { if(e.target.closest("button")) openMix(r.dataset.name); else preview(r.dataset.name); };
+    });
+    const tb = h.querySelector("#under-tunings"); if(tb) tb.onclick = fillTunings;
+  }
+  async function preview(name){
+    const s = steemsSongs.find(x => x.name === name); if(!s) return;
+    pv = name; paint();
+    await previewSteemsSong(s, null);
+  }
+  function openMix(name){ pv = null; loadMixerSong(name); }
+  // "pick next song": the row after the one being listened to (after the mix's own, when none is).
+  function next(step){
+    const at = order.findIndex(s => s.name === (pv || Mixer.currentSong()));
+    const s = order[(at + (step || 1) + order.length) % order.length];
+    if(s) preview(s.name);
+    return s ? stemsDisplay(s).title : null;
+  }
+  async function fillTunings(){
+    await fetch("/api/stems-tunings/fill", {method: "POST"}).catch(() => {});
+    const tick = async () => {
+      let d = {}; try{ d = await (await fetch("/api/stems-tunings")).json(); }catch(e){}
+      const b = document.getElementById("under-tunings"); if(b) b.textContent = d.running ? `Zjišťuji ladění… ${d.done}/${d.total}` : "Hotovo";
+      if(d.running){ setTimeout(tick, 2500); return; }
+      try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){}
+      paint();
+    };
+    tick();
+  }
+  async function refresh(){
+    if(!steemsSongs.length){ try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){} }
+    paint();
+  }
+  // Shown with the mix, gone with it; a preview that ended or was replaced is no longer "this song".
+  setTimeout(() => {
+    new MutationObserver(() => { if(el("mixer").hidden){ pv = null; paint(); } else refresh(); }).observe(el("mixer"), {attributes: true, attributeFilter: ["hidden"]});
+    el("stems-prepare-favs").onclick = () => PracticeReady.all();
+    PracticeReady.watch();
+  }, 0);
+  return {paint, refresh, preview, openMix, next, previewing: () => pv, visible: () => !!box && !box.hidden, sort: (m) => { sortBy = m; paint(); }};
+})();
+
 // A song of the list in the player below, whole and unseparated: the file it
 // was separated from, or — when the library no longer has it, or it never
 // was one song — its stems mixed together (made once, then kept).
@@ -15236,6 +15387,12 @@ const Mixer = (() => {
     el("nm-tabtop-name").textContent = tb.data.name || "Tab";
     paintTabLock();
     paintTuning("nm-tabtop-tuning", tb.data.tuning);
+    // The tuning of the song's tab is kept with its stems (the list under the mix shows and sorts by it).
+    { const nm = Mixer.currentSong && Mixer.currentSong(), sg = nm && steemsSongs.find(x => x.name === nm), tn = (tb.data._orig || tb.data).tuning;
+      if(sg && Array.isArray(tn) && tn.length && JSON.stringify(sg.tuning || []) !== JSON.stringify(tn)){
+        sg.tuning = tn.slice();
+        fetch(`/api/stems/${encodeURIComponent(nm)}/tuning`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tuning: tn})}).catch(() => {});
+      } }
     const sel = el("nm-tabtop-select");
     const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
       .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
@@ -29987,14 +30144,14 @@ const Voice = (() => {
   let helpOn = false, helpTimer = 0, deaf = false, helpRows = [], helpMiss = 0;
   // Each kind of command has its colour and its sign, so the eye finds it before the words are read.
   const GROUPS = [
-    ["Přehrávání", /^(play|pause|rewind|next|prev|mixplay|mixpause|pbplay|pbpause)$/, "#1ed760", "play"],
+    ["Přehrávání", /^(play|pause|rewind|next|prev|mixplay|mixpause|pbplay|pbpause|skip:[+-]|practicethis)$/, "#1ed760", "play"],
     ["Hledání", /^find:/, "#4aa8ff", "search"],
     ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
     ["Tempo", /^(slower|faster|tempo)/, "#ff7a45", "clock"],
     ["Smyčky a sekce", /^(loop|section)/, "#b784ff", "repeat"],
     ["Kytara", /^(gtr|myguitar|preset|record|tuner|practice)/, "#ff5c8a", "elGuitar"],
     ["Stopy", /^(mute|solo|vol|pan):/, "#2fd6c4", "stems"],
-    ["Sekce a stránky", /^(list:|show:|page|helppage|sort|num|steems$)/, "#4ade80", "library"],
+    ["Sekce a stránky", /^(list:|show:|page|helppage|sort|num|panel|steems$)/, "#4ade80", "library"],
     ["Minipřehrávač", /^(mini|minifull|tomini)/, "#ffd84a", "external"],
     ["Vlastní", /^custom:/, "#ff9ad5", "mic"],
     ["Aplikace", /./, "#a8b0c0", "settings"]];
@@ -30183,9 +30340,31 @@ const Voice = (() => {
       if(!row) return r.length ? `číslo ${arg} tu není — seznam končí číslem ${r.length}` : "tady není žádný seznam písní";
       row.go(); return `otevírám ${arg}: ${row.title}`; }
     if(what === "plnum") return "playlisty podle čísla otevírá minipřehrávač („pick mini player“)";
+    if(what === "panel"){
+      document.body.classList.toggle("lib-collapsed", arg === "off");
+      return arg === "off" ? "levý panel zúžený" : "levý panel zpět";
+    }
+    const pba = el("pb-audio");
+    if(what === "skip"){
+      const by = arg === "-" ? -10 : 10;
+      if(!pba.paused || !(shown("mixer") && Mixer.currentSong())){
+        if(!pba.src) return "nic nehraje";
+        pba.currentTime = Math.max(0, Math.min((pba.duration || 1e9) - 1, pba.currentTime + by));
+      }else Mixer.seek(Math.max(0, Mixer.currentTime() + by));
+      return by > 0 ? "o 10 s dál" : "o 10 s zpět";
+    }
+    if(what === "practicethis"){
+      const name = UnderList.previewing();
+      if(name){ pba.pause(); UnderList.openMix(name); return "otevírám do mixu: " + stemsDisplayByName(name).title; }
+      return run("practice");
+    }
+    if((what === "next" || what === "prev") && UnderList.visible() && (UnderList.previewing() || pba.paused)){
+      const t = UnderList.next(what === "next" ? 1 : -1);
+      return t ? "ukázka: " + t : null;
+    }
     if(what === "sort"){
       const vis = (n) => n.offsetParent !== null, ov = el("overlay"), root = ov && !ov.hidden ? ov : document;
-      const cz = {artist: "kapely", album: "alba", title: "názvu"}[arg];
+      const cz = {artist: "kapely", album: "alba", title: "názvu", tuning: "ladění"}[arg];
       const b = [...root.querySelectorAll(`button[data-lsort="${arg}"]`)].find(vis);
       if(b){
         // The header steps through its orders; pressed until this column is the one, A–Z.

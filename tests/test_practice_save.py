@@ -90,3 +90,58 @@ def test_a_download_that_fails_says_so(client, tmp_music_root, monkeypatch):
     st = _wait(client, sid)
     assert st["state"] == "error" and "Stažení" in st["error"]
     assert client.post("/api/practice/save", json={"title": " "}).status_code == 400
+
+
+def test_many_songs_are_checked_and_queued_one_after_another(client, tmp_music_root, monkeypatch):
+    _quiet(monkeypatch, tab={"songId": 5, "title": "Duality", "artist": "Slipknot",
+                             "tracks": [{"instrument": "Distortion Guitar", "name": "Gtr", "tuning": [62, 57, 53, 48, 43, 36]}]})
+    monkeypatch.setattr(server, "_picktab_upsert", lambda req: None)
+    monkeypatch.setattr(server, "_pick_tabs", lambda: [])
+    done = []
+    monkeypatch.setattr(server, "_save_download", lambda req: done.append(req.title) or False)
+    _stems(tmp_music_root, "Roots")
+    (tmp_music_root / "Stems" / "Roots" / "meta.json").write_text('{"artist": "Sepultura", "title": "Roots"}', encoding="utf-8")
+    songs = [{"title": "Roots", "artists": "Sepultura"}, {"title": "Duality", "artists": "Slipknot"},
+             {"title": "Duality", "artists": "Slipknot"}, {"title": "Blind", "artists": "Korn"}]
+    # only counted
+    got = client.post("/api/practice/save-many", json={"songs": songs, "check": True}).json()
+    assert (got["songs"], got["ready"], got["missing"], got["queued"]) == (3, 1, 2, 0) and not done
+    # queued: one after another; the download failing is that song's error, the next still gets its turn
+    got = client.post("/api/practice/save-many", json={"songs": songs}).json()
+    assert got["queued"] == 2
+    for _ in range(300):
+        st = client.get("/api/practice/saves").json()
+        if st["failed"] == 2 and not st["waiting"] and not st["working"]:
+            break
+        time.sleep(0.02)
+    assert done == ["Duality", "Blind"] and st["failed"] == 2
+
+
+def test_the_tuning_of_a_song_is_kept_with_its_stems(client, tmp_music_root, monkeypatch):
+    _stems(tmp_music_root, "Roots")
+    row = lambda: next(s for s in client.get("/api/stems").json() if s["name"] == "Roots")
+    assert row()["tuning"] is None
+    assert client.put("/api/stems/Roots/tuning", json={"tuning": [64, 59, 55, 50, 45, 38]}).json()["tuning"] == [64, 59, 55, 50, 45, 38]
+    assert row()["tuning"] == [64, 59, 55, 50, 45, 38]
+    assert client.put("/api/stems/Nope/tuning", json={"tuning": [1]}).status_code == 404
+    # the rest is looked up from the tabs, once
+    _stems(tmp_music_root, "Blind")
+    (tmp_music_root / "Stems" / "Blind" / "meta.json").write_text('{"artist": "Korn", "title": "Blind"}', encoding="utf-8")
+    monkeypatch.setattr(server, "_match_song", lambda a, t: {"songId": 1, "tracks": [{"instrument": "Distortion Guitar", "tuning": [62, 57, 53, 48, 43, 38, 33]}]})
+    monkeypatch.setattr(server.time, "sleep", lambda s: None)
+    server._TUNING_JOB["running"] = True
+    server._tunings_fill()
+    assert next(s for s in client.get("/api/stems").json() if s["name"] == "Blind")["tuning"] == [62, 57, 53, 48, 43, 38, 33]
+    assert row()["tuning"] == [64, 59, 55, 50, 45, 38] and server._TUNING_JOB["running"] is False
+
+
+def test_a_text_found_once_is_kept(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(server, "_lookup_lyrics_online", lambda *a, **k: calls.append(a) or {"synced": True, "lines": [{"timeInMs": 0, "text": "la"}], "plain": None})
+    a = server._lookup_lyrics("Roots", "Sepultura", "", 210)
+    b = server._lookup_lyrics("Roots", "Sepultura", "", 210)
+    assert a == b and len(calls) == 1
+    # nothing found is not kept: asked again next time
+    monkeypatch.setattr(server, "_lookup_lyrics_online", lambda *a, **k: calls.append(a) or {"synced": False, "lines": None, "plain": None})
+    server._lookup_lyrics("Nope", "Nobody", "", 0); server._lookup_lyrics("Nope", "Nobody", "", 0)
+    assert len(calls) == 3

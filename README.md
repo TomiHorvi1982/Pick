@@ -166,6 +166,23 @@ mixu; když tam není, hledá se ve Steems a pak v knihovně. Číslem stejně: 
 play seven“, „pick open song seven“ (tabulky mají sloupec #, karty Steems číslo
 vlevo).
 
+Pod otevřeným mixem ve Steems je seznam ostatních písní — číslo, název, kapela,
+ladění, délka. Klik (nebo „pick play seven“, „pick play <název>“) pustí píseň
+celou jako ukázku v přehrávači dole, „pick skip“ / „pick skip back“ skočí o 10 s,
+„pick next song“ pustí další v pořadí a „pick practice this song“ (nebo tlačítko
+Mix na řádku) ji otevře do mixu. Řadí se hlavičkou nebo „pick sort by band /
+title / tuning“. Ladění se bere z tabu písně (`tuning.json` u stop): zapíše se
+při otevření tabu, při uložení písně, a „Zjistit ladění“ ho dohledá u ostatních.
+„pick hide panel“ / „pick show panel“ zúží a vrátí levý panel.
+
+Co se uloží do oblíbených, připraví server na cvičení sám: hvězdička u písně
+(aplikace i minipřehrávač, „pick save song“) ji stáhne, rozdělí na stopy, najde
+tab a text; hvězdička u playlistu totéž pro každou jeho píseň, po jedné
+(`/api/practice/save-many`). Tlačítko „Připravit oblíbené na cvičení“ ve Steems
+spočítá, co z oblíbených songů a playlistů ještě chybí, zeptá se a doplní to;
+stejným tlačítkem se dá zastavit. Nalezený text se ukládá na disk
+(`lyrics/` vedle nastavení), takže je příště hned a bez internetu.
+
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
 `GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu

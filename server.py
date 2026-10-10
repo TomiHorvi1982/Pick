@@ -6062,6 +6062,7 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
             if rec and int(rec["songId"]) not in {t.get("songId") for t in _pick_tabs()}:
                 _picktab_upsert(_rec_to_tab(rec, "Oblíbené songy"))
             st["tabs"] = bool(rec)
+            st["tuning"] = _tab_tuning(rec)
         except Exception:                                  # noqa: BLE001 — no tab is not a failed save
             st["tabs"] = False
         try:
@@ -6071,6 +6072,7 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
             st["lyrics"] = False
         if req.stems and _stems_ready(req.stems):
             st.update(state="ready", stems=req.stems)
+            _save_finish(st, req)
             return
         src = _resolve_under_music_root(req.relPath) if req.relPath else None
         rel = req.relPath if src is not None and src.is_file() else _save_library_rel(artist, req.title)
@@ -6102,10 +6104,139 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
             st.update(state="error", error="Rozdělení na stopy selhalo.")
             return
         st.update(state="ready", progress=None, position=None)
+        _save_finish(st, req)
     except Exception as e:                                 # noqa: BLE001
         st.update(state="error", error=str(e) or "Uložení selhalo.")
     finally:
         st["finished"] = time.time()
+
+
+def _save_finish(st: dict, req: SaveSongRequest) -> None:
+    """The stems are there: the tuning is noted beside them, and the text is
+    looked up once more the way the mixer will ask for it — by the stems' own
+    title, artist and length — so that it is kept for exactly that question."""
+    try:
+        d = _stems_dir_for(st["stems"])
+        if st.get("tuning") and _stems_tuning(d) is None:
+            _stems_tuning_keep(d, st["tuning"])
+        m = _stems_meta(d)
+        dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, s) for s in STEM_NAMES[:2]) if f) if x), None)
+        got = _lookup_lyrics(m.get("title") or req.title, m.get("artist") or req.artists.split(",")[0].strip(), m.get("album") or "", dur, req.videoId)
+        st["lyrics"] = bool(st.get("lyrics") or (got and (got.get("lines") or got.get("plain"))))
+    except Exception:                                      # noqa: BLE001 — the song is ready all the same
+        pass
+
+
+# Many at once — a whole playlist, every favourite: one after another, so the
+# computer is not asked to download a hundred songs together.
+import collections as _collections
+_SAVE_QUEUE: "_collections.deque" = _collections.deque()
+_SAVE_WORKER = {"thread": None}
+
+
+def _save_drain() -> None:
+    while True:
+        with _SAVES_LOCK:
+            if not _SAVE_QUEUE:
+                _SAVE_WORKER["thread"] = None
+                return
+            sid, req = _SAVE_QUEUE.popleft()
+        if sid in _SAVES:
+            _SAVES[sid]["state"] = "looking"
+            _save_song_run(sid, req)
+
+
+def _save_have(title: str, artists: str, rel: str = "", stems_index=None) -> dict:
+    """What there already is of one song: its file, its stems."""
+    artist = (artists or "").split(",")[0].strip()
+    src = _resolve_under_music_root(rel) if rel else None
+    rel = rel if src is not None and src.is_file() else _save_library_rel(artist, title)
+    src = _resolve_under_music_root(rel) if rel else None
+    ready = bool(src is not None and (_stems_state_for(src) or {}).get("state") == "ready")
+    if not ready and stems_index is not None:
+        key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
+        ready = (key(artist), key(title)) in stems_index or ("", key(title)) in stems_index and not artist
+    return {"library": bool(rel), "stems": ready}
+
+
+def _stems_index() -> set:
+    key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
+    out = set()
+    root = MUSIC_ROOT / "Stems"
+    for d in (root.glob("*") if root.is_dir() else []):
+        if d.is_dir() and not d.name.startswith(".") and _stems_ready(d.name):
+            m = _stems_meta(d)
+            out.add((key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)))
+    return out
+
+
+class SaveManyRequest(BaseModel):
+    songs: List[SaveSongRequest] = []
+    playlists: List[str] = []
+    bitrate: str = "192k"
+    format: str = "mp3"
+    mp3_bitrate: int = 320
+    cookies_browser: Optional[str] = None
+    cookie_file: Optional[str] = None
+    check: bool = False            # only say what is missing; nothing is started
+
+
+@app.post("/api/practice/save-many")
+def practice_save_many(req: SaveManyRequest):
+    """Every song given, and every song of the playlists given: what is not
+    ready for practice yet is queued — downloaded, separated, its tab and text
+    looked up — one after another. With `check`, only counted."""
+    songs = list(req.songs[:2000])
+    lists = []
+    for bid in req.playlists[:50]:
+        try:
+            d = playlist_detail(bid, track_limit=300)
+        except Exception:                                  # noqa: BLE001
+            d = None
+        tracks = d.get("tracks", []) if isinstance(d, dict) else []
+        lists.append({"browseId": bid, "title": d.get("title") if isinstance(d, dict) else None, "count": len(tracks)})
+        songs += [SaveSongRequest(title=t.get("title") or "", artists=t.get("artists") or "", videoId=t.get("videoId") or "",
+                                  duration=t.get("duration_seconds") or 0) for t in tracks]
+    index, seen, missing, ready = _stems_index(), set(), [], 0
+    for s in songs:
+        key = (s.title.strip().lower(), s.artists.strip().lower())
+        if not key[0] or key in seen:
+            continue
+        seen.add(key)
+        if _save_have(s.title, s.artists, s.relPath, index)["stems"] or (s.stems and _stems_ready(s.stems)):
+            ready += 1
+        else:
+            missing.append(s)
+    out = {"songs": len(seen), "ready": ready, "missing": len(missing), "playlists": lists, "queued": 0}
+    if req.check:
+        return out
+    with _SAVES_LOCK:
+        busy = {st["key"] for st in _SAVES.values() if st["state"] not in ("ready", "error")}
+        for s in missing:
+            key = (s.title.strip().lower(), s.artists.strip().lower())
+            if key in busy:
+                continue
+            s = s.model_copy(update={"bitrate": req.bitrate, "format": req.format, "mp3_bitrate": req.mp3_bitrate,
+                                     "cookies_browser": req.cookies_browser, "cookie_file": req.cookie_file})
+            sid = uuid.uuid4().hex[:10]
+            _SAVES[sid] = {"id": sid, "key": key, "title": s.title, "artists": s.artists, "state": "waiting", "started": time.time()}
+            _SAVE_QUEUE.append((sid, s))
+            out["queued"] += 1
+        if _SAVE_QUEUE and _SAVE_WORKER["thread"] is None:
+            _SAVE_WORKER["thread"] = threading.Thread(target=_save_drain, name="save-many", daemon=True)
+            _SAVE_WORKER["thread"].start()
+    return out
+
+
+@app.delete("/api/practice/save-many")
+def practice_save_many_stop():
+    """Stops what is still waiting; the song being worked on is finished."""
+    with _SAVES_LOCK:
+        n = len(_SAVE_QUEUE)
+        for sid, _ in _SAVE_QUEUE:
+            _SAVES.pop(sid, None)
+        _SAVE_QUEUE.clear()
+    return {"stopped": n}
 
 
 def _save_public(st: dict) -> dict:
@@ -6124,9 +6255,8 @@ def practice_save(req: SaveSongRequest):
         sid = uuid.uuid4().hex[:10]
         _SAVES[sid] = {"id": sid, "key": key, "title": req.title, "artists": req.artists, "state": "looking",
                        "started": time.time()}
-        for old in sorted(_SAVES, key=lambda k: _SAVES[k]["started"])[:-_SAVES_KEEP]:
-            if _SAVES[old].get("finished"):
-                del _SAVES[old]
+        for old in [k for k in sorted(_SAVES, key=lambda k: _SAVES[k]["started"]) if _SAVES[k].get("finished")][:-_SAVES_KEEP]:
+            del _SAVES[old]
     threading.Thread(target=_save_song_run, args=(sid, req), name="save-song", daemon=True).start()
     return _save_public(_SAVES[sid])
 
@@ -6134,7 +6264,14 @@ def practice_save(req: SaveSongRequest):
 @app.get("/api/practice/saves")
 def practice_saves():
     with _SAVES_LOCK:
-        return {"saves": [_save_public(st) for st in sorted(_SAVES.values(), key=lambda s: s["started"])]}
+        rows = sorted(_SAVES.values(), key=lambda s: s["started"])
+        # Of a long queue only what is under way and what was done last is told; the rest is counted.
+        live = [st for st in rows if st["state"] != "waiting"][-40:]
+        return {"saves": [_save_public(st) for st in live],
+                "waiting": sum(1 for st in rows if st["state"] == "waiting"),
+                "working": sum(1 for st in rows if st["state"] not in ("waiting", "ready", "error")),
+                "done": sum(1 for st in rows if st["state"] == "ready"),
+                "failed": sum(1 for st in rows if st["state"] == "error")}
 
 
 @app.get("/api/stems/{name}/backing")
@@ -6629,6 +6766,80 @@ def _stems_meta(d: Path) -> dict:
     return {**_guess_from_name(d.name), "source": "name"}
 
 
+# ---- the guitar's tuning of a separated song: from its tab (Songsterr lists
+# the strings high to low, as MIDI notes), kept in tuning.json beside the
+# stems. An empty list is "looked for, none found" — not asked about again.
+def _stems_tuning(d: Path):
+    try:
+        t = json.loads((d / "tuning.json").read_text(encoding="utf-8")).get("tuning")
+        return [int(x) for x in t] if isinstance(t, list) else None
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
+def _stems_tuning_keep(d: Path, tuning) -> None:
+    try:
+        (d / "tuning.json").write_text(json.dumps({"tuning": [int(x) for x in tuning or []][:12]}), encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def _tab_tuning(rec) -> list:
+    tracks = (rec or {}).get("tracks") or []
+    i = _guitar_index(rec) if rec else -1
+    return list((tracks[i].get("tuning") or []) if 0 <= i < len(tracks) else [])
+
+
+_TUNING_JOB = {"running": False, "done": 0, "total": 0}
+
+
+def _tunings_fill() -> None:
+    try:
+        root = MUSIC_ROOT / "Stems"
+        todo = [d for d in sorted(root.glob("*")) if d.is_dir() and not d.name.startswith(".") and _stems_tuning(d) is None]
+        _TUNING_JOB.update(done=0, total=len(todo))
+        for d in todo:
+            m = _stems_meta(d)
+            try:
+                rec = _match_song(m.get("artist") or "", m.get("title") or "") if m.get("artist") and m.get("title") else None
+                _stems_tuning_keep(d, _tab_tuning(rec))
+            except Exception:                              # noqa: BLE001 — the internet; asked again next time
+                pass
+            _TUNING_JOB["done"] += 1
+            time.sleep(0.25)
+    finally:
+        _TUNING_JOB["running"] = False
+
+
+@app.get("/api/stems-tunings")
+def stems_tunings_state():
+    return dict(_TUNING_JOB)
+
+
+@app.post("/api/stems-tunings/fill")
+def stems_tunings_fill():
+    """Looks up the tuning of every separated song that has none yet, in the background."""
+    if not _TUNING_JOB["running"]:
+        _TUNING_JOB.update(running=True, done=0, total=0)
+        threading.Thread(target=_tunings_fill, name="stems-tunings", daemon=True).start()
+    return dict(_TUNING_JOB)
+
+
+class StemsTuning(BaseModel):
+    tuning: List[int] = []
+
+
+@app.put("/api/stems/{name}/tuning")
+def put_stems_tuning(name: str, body: StemsTuning):
+    """The tuning of the tab the song is played with — the page tells it when the tab opens."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    if body.tuning:
+        _stems_tuning_keep(d, body.tuning)
+    return {"name": name, "tuning": _stems_tuning(d)}
+
+
 class StemsMeta(BaseModel):
     artist: Optional[str] = None
     title: Optional[str] = None
@@ -6705,6 +6916,7 @@ def list_stems():
                               for f in (_stem_file(d, st) for st in present[:2]) if f) if dur), None),
             "labels": _track_labels(d),
             "edited": _edited_stems(d),
+            "tuning": _stems_tuning(d),
         })
     return out
 
@@ -8681,6 +8893,42 @@ def _lookup_lyrics(title: str, artist: str, album: str, duration, video_id: str 
     resort. Never trusts the cleaned version over a raw one that already
     worked — this only ever adds an attempt, it doesn't replace the first.
     """
+    kept = _lyrics_kept(title, artist, duration)
+    if kept:
+        return kept
+    result = _lookup_lyrics_online(title, artist, album, duration, video_id)
+    if result.get("lines") or result.get("plain"):
+        _lyrics_keep(title, artist, duration, result)
+    return result
+
+
+def _lyrics_file(title: str, artist: str, duration) -> Path:
+    """Where a text that was found once is kept — beside the app's settings, so
+    a song saved for practice has its text there without the internet."""
+    key = f"{(title or '').strip().lower()}|{(artist or '').strip().lower()}|{int(round(duration)) if duration else 0}"
+    return CONFIG_PATH.parent / "lyrics" / (hashlib.sha1(key.encode("utf-8")).hexdigest()[:20] + ".json")
+
+
+def _lyrics_kept(title: str, artist: str, duration) -> Optional[dict]:
+    try:
+        got = json.loads(_lyrics_file(title, artist, duration).read_text(encoding="utf-8"))
+        return got if isinstance(got, dict) and (got.get("lines") or got.get("plain")) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _lyrics_keep(title: str, artist: str, duration, result: dict) -> None:
+    try:
+        f = _lyrics_file(title, artist, duration)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(f)
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def _lookup_lyrics_online(title: str, artist: str, album: str, duration, video_id: str = "") -> dict:
     result = _fetch_lrclib(title, artist, album, duration)
     if not result or not (result.get("lines") or result.get("plain")):
         clean_title, clean_artist = _clean_lyrics_text(title), _clean_lyrics_text(artist)

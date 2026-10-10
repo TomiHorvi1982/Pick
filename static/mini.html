@@ -2088,7 +2088,7 @@ const MiniVoice = (() => {
   // until a command is chosen or "nothing" is said; while it is up a command
   // needs no "pick" and one word narrows it.
   const GROUPS = [
-    ["Přehrávání", /^(play|pause|rewind|next|prev)$/, "#1ed760", "play"],
+    ["Přehrávání", /^(play|pause|rewind|next|prev|skip:[+-])$/, "#1ed760", "play"],
     ["Hledání", /^(find:(song|band|playlist|play|open|search|here)|num|plnum)/, "#4aa8ff", "search"],
     ["Seznamy", /^list:/, "#4ade80", "folder"],
     ["Nabídka a seznam", /^(page|helppage|sort|playall|back|help|nothing)/, "#ffd84a", "list"],
@@ -2192,6 +2192,7 @@ const MiniVoice = (() => {
     if(what === "play"){ send("play"); if(!S.playing && !LP.track) send("playpause"); return; }
     if(what === "pause"){ send("pause"); return; }
     if(what === "rewind"){ send("seek", 0); return; }
+    if(what === "skip"){ jump(arg === "-" ? -10 : 10); return; }
     if(what === "up" || what === "down" || what === "louder" || what === "quieter"){
       const db = what === "louder" ? 3 : what === "quieter" ? -3 : 3 * (+arg || 1) * (what === "up" ? 1 : -1);
       const v = S.volume > 0 ? S.volume * Math.pow(10, db / 20) : (db > 0 ? 0.05 : 0);
