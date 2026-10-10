@@ -140,6 +140,15 @@ knihovnu, složky a tvoje playlisty (oblíbené a složky knihovny). „pick sea
 knihovna — a co najde, ukáže a pustí; nic se nestahuje ani znovu nerozděluje.
 Teprve co nemáš, vyhledá na internetu a nechá vybrat.
 
+V aplikaci „pick show me …“ otevírá její sekce: stems, playlists, bands /
+artists (Kapely a umělci), library, favorites (rozbalí Oblíbené v levém
+panelu), podcasts, tools, tabs, loops, chords, analyzer, loop studio. „pick
+page down / next page“ a „pick page up / previous page“ listují stránkou.
+„pick help“ (i „pick help open“) ukáže povely v panelu vpravo; zůstane tam i
+při dalších povelech, listuje se v něm stejně („pick page down / up“) a zavře
+ho „pick help close“ nebo „pick nothing“. Nabídka aplikace neukazuje povely,
+které umí jen minipřehrávač, a naopak.
+
 „pick save song“ (nebo hvězdička u názvu) uloží hrající píseň do oblíbených
 songů a server ji připraví na cvičení (`POST /api/practice/save`, stav
 `GET /api/practice/saves`): najde tab (do Pick Tabs) a text, píseň z internetu

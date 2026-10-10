@@ -573,3 +573,13 @@ def test_show_me_walks_the_lists_and_search_takes_a_name():
     assert voice.interpret("Pick search playlist metal") == ("find", "playlist", "metal")
     assert voice.interpret("Slipknot", kind="search") == ("find", "search", "Slipknot")
     assert voice.interpret("Pick show me favorites.") == ("command", "list:favs")
+    # the app's own sections, and its pages
+    assert voice.match("pick show me podcasts") == "show:podcasts"
+    assert voice.match("pick show me tools") == "show:tools"
+    assert voice.match("pick show me tabs") == "show:tabs" and voice.match("pick tabs") == "tabs"
+    assert voice.match("pick show me loop studio") == "show:loopstudio"
+    assert voice.match("pick page down") == "page:+" and voice.match("pick next page") == "page:+"
+    assert voice.match("pick page up") == "page:-" and voice.match("pick up") == "up:1"
+    assert voice.match("pick help") == "help" and voice.match("pick help open") == "help"
+    assert voice.match("pick help close") == "nothing" and voice.match("pick nothing") == "nothing"
+    assert voice.match("pick open") == "open"
