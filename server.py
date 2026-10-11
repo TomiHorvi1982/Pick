@@ -54,7 +54,8 @@ AUDIO_EXTS = BROWSER_AUDIO_EXTS | TRANSCODE_AUDIO_EXTS
 MIDI_EXTS = {".mid", ".midi"}
 CONFIG_PATH = HOME / ".local" / "share" / "spotdl-helper" / "config.json"
 DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
-LIBRARY_PATH = HOME / "Music" / "spotdl" / "library.json"
+# beside the settings, not in the music folder: that one may live on a card that is not always in
+LIBRARY_PATH = HOME / ".local" / "share" / "spotdl-helper" / "library.json"
 
 
 def _read_config() -> dict:
