@@ -183,6 +183,64 @@ spočítá, co z oblíbených songů a playlistů ještě chybí, zeptá se a do
 stejným tlačítkem se dá zastavit. Nalezený text se ukládá na disk
 (`lyrics/` vedle nastavení), takže je příště hned a bez internetu.
 
+Co už z písně je, ukazují čtyři značky **MP3 · STOPY · TAB · TEXT** (zelená = je,
+šedá = chybí, čárkovaná = zatím se neví): v detailu playlistu u každé písně, v
+knihovně jen TAB a TEXT (stopy tam mají svou značku). Ptá se na to
+`/api/practice/have` — nic nehledá na internetu, říká jen, co už je na disku.
+V playlistu „označit jen chybějící“ zaškrtne písně bez stop a „Připravit vybrané
+na cvičení“ je stáhne, rozdělí a dohledá tab a text; v knihovně totéž „Označit,
+co chybí“ a „Připravit na cvičení“ v liště výběru. Hotové se přeskakují; u
+rozdělených bez tabu nebo textu se jen znovu hledá tab a text
+(`save-many` s `finish`).
+
+**Píseň se ladí podle kytary.** Ladění vybrané v ladičce (nebo „Tohle je moje
+ladění“, „Zjistit z kytary“) je ladění hráčovy kytary. Každá píseň otevřená ve
+Steems, jejíž ladění je známé (z tabu nebo `tuning.json`), se o rozdíl posune
+sama: kytary, basa a melodické stopy, ne bicí, zpěv a vlastní nahrávky. Posouvá
+se jen výška (stejný stretch jako u tóniny), čas, takty a značky zůstávají.
+„Originál“ vrátí píseň do původní výšky (pamatuje se u písně), další klik ji
+zase přeladí. Kde ladění známé není, nic se neposune; „Moje ladění“ ho nechá
+vybrat ručně a uloží k písni. Odhad ladění ze zvuku basy se zkoušel a na
+známých písních se trefil v 6 z 11 — proto se nepoužívá.
+
+**Oficiální názvy** (`names.py`). Rozdělená píseň se jmenuje po souboru, často
+po videu („BeginNewLife — Slayer- Raining Blood (lyrics)“), a s takovým názvem
+se nenajde text ani tab. Každá píseň se proto jednou opraví: zeptáme se
+hudebního katalogu (YouTube Music) a jeho odpovědi věříme jen tehdy, když v ní
+je interpret i název, které jsme už měli; pak se vezme oficiální interpret,
+název a album. Jinak se název aspoň očistí — pryč jde cokoli v závorkách, „official
+video“, „with lyrics“, „HD“…, nahrávač se oddělí od kapely, jména dostanou velká
+písmena. Česká jména, která jsme měli s háčky, se nevymění za verzi bez nich.
+Výsledek je v `meta.json` u stop (`checked`, `official`, původní údaje ve `was`);
+složka se nepřejmenovává a ručně psaná jména se nemění. Nově rozdělená píseň se
+opraví sama a dohledá se jí tab a text; „Opravit názvy“ pod mixem projde ty
+zbylé (`/api/stems-names`, `DELETE` vrátí původní).
+
+Koncertní nahrávka si za názvem nechává „(Live)“ — jediná závorka, která
+zůstává — a nepovažuje se za duplicitu studiové verze. Kde první katalog nic
+neví, zeptáme se druhého: MusicBrainz (pomalu, jeden dotaz za vteřinu).
+
+**Ladění ze dvou míst.** Nejdřív tab na Songsterru; kde není, zkusí se Ultimate
+Guitar — stránka tabu tam ladění jmenuje („D A D G B E“), i u spousty českých
+písní. Kytarový tab má přednost před akordy (ty často píšou jen „Standard“),
+každé místo se u písně ptá jednou (`asked` v `tuning.json`, `from: "ug"`).
+
+**Fadery při otevření.** Píseň, která má všechny fadery na 0 dB, se při otevření
+změří (nejhlasitější místo součtu stop) a všechny fadery se stáhnou stejně, aby
+zůstala rezerva asi 5 dB. Fadery jednou pohnuté rukou se nemění.
+
+**Levý panel u otevřeného mixu** ukazuje, co je otevřené, a všechna alba toho
+interpreta s písněmi (`/api/artist/discography`): co už je ve Steems (klik
+otevře), co ne (zaškrtnout → „Stáhnout a rozdělit“ je stáhne, rozdělí a
+dohledá tab a text). Studiová alba jsou první, podle roku prvního vydání
+(co je studiové album a kdy vyšlo, říká MusicBrainz); živé nahrávky, výběry a
+ostatní pod nimi. Stejné album ve více edicích je jednou. Nadpisy sekcí nahoře zůstávají jako cesta jinam; seznam
+všech písní je dál pod mixem, nově se sloupcem Album.
+
+Tab v mixu má jedno tlačítko **Sync / Lock sync**: odemčený („Sync“) se tab
+posune rukou, klik ho připne k času písně a zamkne („Lock sync“, zámek); další
+klik odemkne.
+
 V otevřeném mixu: „pick see lyrics“ dá text písně do okna přes celou stránku,
 „pick see mix“ ho vrátí a posune na stopy. „pick see more guitars“ přidá do tabu
 další kytarovou stopu, „pick show me all guitars“ všechny, „pick see only guitar
@@ -218,6 +276,15 @@ přeskočí jen slovo). Každé nepovedené slovo se ukládá do jednoho seznamu
 písně (`speak-words.json` vedle nastavení; `/api/speak/words`). Tlačítko „Moje slova“
 nebo „pick practice my words“ je pustí všechna najednou; co se povede, ze seznamu
 zmizí. V okně je i zesílení mikrofonu s ukazatelem (čárka = odkud se bere, že mluvíš).
+
+**„hey pick“** (jen budicí slovo, nic za ním): u všeho na obrazovce, co jde ovládat
+hlasem, se objeví malý žlutý nápis s tím, co říct; nahoře je řádek povelů, které
+tlačítko nemají. Dokud nápisy svítí (asi 10 s, po každém povelu se obnoví), stačí
+nápis přečíst bez „pick“. Klik nebo Esc je schová. Co mluví místnost, se v tu chvíli
+neřeší. (`voice.wake_call`, v aplikaci `hintList()` — nový povel se přidá tam.)
+Po povelu řekne Pick jednu z deseti hlášek, při nerozumění jednu z deseti jiných —
+hlasem „Max Cavalera“ z Voiceboxu (`SAY_OK` / `SAY_BAD`, stejná cesta `/api/tts/prepare`).
+Vypíná se v nabídce mikrofonu; dokud hlášky nejsou připravené, platí „Again!!!“.
 
 **Melodie po řádcích** (Trenér zpěvu → „Po řádcích“, „pick practice melody“): řádek
 nejdřív zazpívá originál, pak ho pustí bez originálního zpěvu a zpíváš ty; hned se

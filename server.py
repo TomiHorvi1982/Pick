@@ -5794,6 +5794,7 @@ def _finalize_stems_job(job: dict) -> None:
                 "album": tags.get("album")}, ensure_ascii=False), encoding="utf-8")
         except OSError:
             pass
+    _names_soon(dest_dir)
 
 
 # ------------------------------------------------------------ separation queue
@@ -6028,7 +6029,7 @@ class SaveSongRequest(BaseModel):
 
 def _save_library_rel(artist: str, title: str) -> Optional[str]:
     """The library's own copy of a song, by its name."""
-    key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
+    key = lambda t: _names.key(t)
     want_t, want_a = key(title), key(artist.split(",")[0])
     if not want_t:
         return None
@@ -6118,7 +6119,7 @@ def _save_finish(st: dict, req: SaveSongRequest) -> None:
     try:
         d = _stems_dir_for(st["stems"])
         if st.get("tuning") and _stems_tuning(d) is None:
-            _stems_tuning_keep(d, st["tuning"])
+            _stems_tuning_keep(d, st["tuning"], "songsterr")
         m = _stems_meta(d)
         dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, s) for s in STEM_NAMES[:2]) if f) if x), None)
         got = _lookup_lyrics(m.get("title") or req.title, m.get("artist") or req.artists.split(",")[0].strip(), m.get("album") or "", dur, req.videoId)
@@ -6154,13 +6155,15 @@ def _save_have(title: str, artists: str, rel: str = "", stems_index=None) -> dic
     src = _resolve_under_music_root(rel) if rel else None
     ready = bool(src is not None and (_stems_state_for(src) or {}).get("state") == "ready")
     if not ready and stems_index is not None:
-        key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
-        ready = (key(artist), key(title)) in stems_index or ("", key(title)) in stems_index and not artist
+        key = lambda t: _names.key(t)
+        t = _names.tidy_live(artist, title)               # a video's name, read the way it would be tidied
+        ready = (key(artist), key(title)) in stems_index or ("", key(title)) in stems_index and not artist \
+            or (key(t["artist"]), key(t["title"])) in stems_index
     return {"library": bool(rel), "stems": ready}
 
 
 def _stems_index() -> set:
-    key = lambda t: _re_mod.sub(r"\W+", "", (t or "").lower())
+    key = lambda t: _names.key(t)
     out = set()
     root = MUSIC_ROOT / "Stems"
     for d in (root.glob("*") if root.is_dir() else []):
@@ -6168,6 +6171,74 @@ def _stems_index() -> set:
             m = _stems_meta(d)
             out.add((key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)))
     return out
+
+
+def _have_all() -> dict:
+    """Everything there is, looked through once: the library's songs by their
+    title, the separated ones by artist and title, the tabs that are kept."""
+    key = lambda t: _names.key(t)
+    lib: dict = {}
+    for e in _all_songs_flat().get("entries", []):
+        lib.setdefault(key(e.get("title") or Path(e["name"]).stem), []).append((key(e.get("artist") or ""), e["rel"]))
+    stems: dict = {}
+    root = MUSIC_ROOT / "Stems"
+    for d in (sorted(root.glob("*")) if root.is_dir() else []):
+        if d.is_dir() and not d.name.startswith(".") and _stems_ready(d.name):
+            m = _stems_meta(d)
+            stems.setdefault((key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)), d.name)
+    tabs = {(_name_key((t.get("artist") or "").split(",")[0]), _base_title(t.get("title") or "")) for t in _pick_tabs()}
+    return {"lib": lib, "stems": stems, "tabs": tabs}
+
+
+def _have_one(s: "SaveSongRequest", al: dict) -> dict:
+    """What there already is of one song — its file, its stems, its tab, its
+    text — found the way saving it for practice would find them."""
+    key = lambda t: _names.key(t)
+    artist = (s.artists or "").split(",")[0].strip()
+    want_t, want_a = key(s.title), key(artist)
+    src = _resolve_under_music_root(s.relPath) if s.relPath else None
+    rel = s.relPath if src is not None and src.is_file() else None
+    if not rel and want_t:
+        loose = None
+        for have_a, r in al["lib"].get(want_t, []):
+            if not want_a or not have_a or want_a in have_a or have_a in want_a:
+                rel = r
+                break
+            loose = loose or r
+        if not rel and not want_a:
+            rel = loose
+    src = _resolve_under_music_root(rel) if rel else None
+    state = (_stems_state_for(src) or {}) if src is not None else {}
+    name = s.stems if s.stems and _stems_ready(s.stems) else state.get("name") if state.get("state") == "ready" else None
+    if not name:
+        name = al["stems"].get((want_a, want_t)) or (al["stems"].get(("", want_t)) if not want_a else None)
+    if not name:                                          # a video's name, read the way it would be tidied
+        t = _names.tidy_live(artist, s.title)
+        name = al["stems"].get((key(t["artist"]), key(t["title"])))
+    title, by, dur, tuning = s.title, artist, s.duration or None, None
+    if name:
+        d = _stems_dir_for(name)
+        m = _stems_meta(d)
+        title, by = m.get("title") or title, (m.get("artist") or by)
+        dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, st) for st in STEM_NAMES[:2]) if f) if x), None)
+        tuning = _stems_tuning(d)
+    tabs = bool(tuning) or (_name_key(artist), _base_title(s.title)) in al["tabs"] \
+        or (_name_key(by.split(",")[0]), _base_title(title)) in al["tabs"]
+    return {"library": bool(rel), "stems": bool(name), "name": name, "tabs": tabs,
+            "lyrics": bool(_lyrics_kept(title, by, dur) or _lyrics_kept(s.title, artist, s.duration or None)),
+            "queued": state.get("state") in ("queued", "running")}
+
+
+class HaveRequest(BaseModel):
+    songs: List[SaveSongRequest] = []
+
+
+@app.post("/api/practice/have")
+def practice_have(req: HaveRequest):
+    """Of each song given: is it downloaded, separated, has it a tab and a text.
+    Nothing is looked up on the internet — only what is already here is told."""
+    al = _have_all()
+    return {"have": [_have_one(s, al) for s in req.songs[:3000]]}
 
 
 class SaveManyRequest(BaseModel):
@@ -6179,6 +6250,7 @@ class SaveManyRequest(BaseModel):
     cookies_browser: Optional[str] = None
     cookie_file: Optional[str] = None
     check: bool = False            # only say what is missing; nothing is started
+    finish: bool = False           # what is separated but has no tab or no text yet is looked up once more
 
 
 @app.post("/api/practice/save-many")
@@ -6197,7 +6269,8 @@ def practice_save_many(req: SaveManyRequest):
         lists.append({"browseId": bid, "title": d.get("title") if isinstance(d, dict) else None, "count": len(tracks)})
         songs += [SaveSongRequest(title=t.get("title") or "", artists=t.get("artists") or "", videoId=t.get("videoId") or "",
                                   duration=t.get("duration_seconds") or 0) for t in tracks]
-    index, seen, missing, ready = _stems_index(), set(), [], 0
+    index, seen, missing, ready, finish = _stems_index(), set(), [], 0, []
+    al = _have_all() if req.finish else None
     for s in songs:
         key = (s.title.strip().lower(), s.artists.strip().lower())
         if not key[0] or key in seen:
@@ -6205,9 +6278,14 @@ def practice_save_many(req: SaveManyRequest):
         seen.add(key)
         if _save_have(s.title, s.artists, s.relPath, index)["stems"] or (s.stems and _stems_ready(s.stems)):
             ready += 1
+            if al is not None:
+                h = _have_one(s, al)
+                if h["name"] and not (h["tabs"] and h["lyrics"]):
+                    finish.append(s.model_copy(update={"stems": h["name"]}))
         else:
             missing.append(s)
-    out = {"songs": len(seen), "ready": ready, "missing": len(missing), "playlists": lists, "queued": 0}
+    out = {"songs": len(seen), "ready": ready, "missing": len(missing), "finish": len(finish), "playlists": lists, "queued": 0}
+    missing += finish
     if req.check:
         return out
     with _SAVES_LOCK:
@@ -6754,7 +6832,7 @@ def _stems_meta(d: Path) -> dict:
             m = json.loads(meta_file.read_text(encoding="utf-8"))
             return {"artist": m.get("artist") or None, "title": m.get("title") or None,
                     "album": m.get("album") or None,
-                    "source": "manual" if m.get("manual") else "tags"}
+                    "source": "manual" if m.get("manual") else "official" if m.get("official") else "tags"}
         except (OSError, ValueError):
             pass
     src = _stems_source_index().get(d.name)
@@ -6777,11 +6855,102 @@ def _stems_tuning(d: Path):
         return None
 
 
-def _stems_tuning_keep(d: Path, tuning) -> None:
+def _stems_tuning_keep(d: Path, tuning, source: str = "") -> None:
+    """`source`: where it was read ("ug" for the second tab site) — and with
+    an empty tuning, that this place too was asked and knew nothing."""
     try:
-        (d / "tuning.json").write_text(json.dumps({"tuning": [int(x) for x in tuning or []][:12]}), encoding="utf-8")
+        old = json.loads((d / "tuning.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old = {}
+    asked = sorted(set((old.get("asked") if isinstance(old, dict) else None) or []) | ({source} if source else set()))
+    try:
+        (d / "tuning.json").write_text(json.dumps({"tuning": [int(x) for x in tuning or []][:12], "asked": asked,
+                                                   **({"from": source} if source and tuning else {})}), encoding="utf-8")
     except (OSError, TypeError, ValueError):
         pass
+
+
+def _stems_tuning_asked(d: Path) -> list:
+    try:
+        return list(json.loads((d / "tuning.json").read_text(encoding="utf-8")).get("asked") or [])
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+# A second place that knows tunings: Ultimate Guitar. Its tab pages name the
+# tuning ("D A D G B E") — also of many songs Songsterr has no tab for, Czech
+# ones among them. Read politely: one song at a time, a pause between pages,
+# and only when the first place knew nothing. A guitar tab is believed before
+# a chord sheet (those often just say "Standard").
+_UG_LOCK = threading.Lock()
+_UG_LAST = [0.0]
+_UG_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+
+
+def _ug_page(url: str, **params) -> dict:
+    import html as _html
+    with _UG_LOCK:
+        wait = 1.2 - (time.time() - _UG_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _UG_LAST[0] = time.time()
+        r = httpx.get(url, params=params or None, headers={"User-Agent": _UG_AGENT}, timeout=15, follow_redirects=True)
+    r.raise_for_status()
+    m = _re_mod.search(r'class="js-store"\s+data-content="([^"]+)"', r.text)
+    data = json.loads(_html.unescape(m.group(1))) if m else {}
+    return (((data.get("store") or {}).get("page") or {}).get("data")) or {}
+
+
+def _tuning_from_names(value: str) -> list:
+    """"D A D G B E" (low → high, no octaves) → MIDI notes high → low, each
+    string taken at the pitch nearest to where a guitar has it."""
+    tones = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11, "H": 11}
+    notes = []
+    for w in (value or "").replace(",", " ").split():
+        m = _re_mod.fullmatch(r"([A-Ha-h])([#b♯♭]?)", w)
+        if not m:
+            return []
+        notes.append((tones[m.group(1).upper()] + {"#": 1, "♯": 1, "b": -1, "♭": -1}.get(m.group(2), 0)) % 12)
+    base = {4: [28, 33, 38, 43], 5: [23, 28, 33, 38, 43], 6: [40, 45, 50, 55, 59, 64], 7: [35, 40, 45, 50, 55, 59, 64],
+            8: [30, 35, 40, 45, 50, 55, 59, 64]}.get(len(notes))
+    if not base:
+        return []
+    out = []
+    for pc, std in zip(notes, base):
+        near = std + ((pc - std) % 12)
+        out.append(near - 12 if near - std > 6 else near)
+    return out[::-1]
+
+
+def _ug_tuning(artist: str, title: str) -> list:
+    """The song's tuning as Ultimate Guitar's best tab of it says — [] when it has none."""
+    want_a, want_t = _names.key(artist.split(",")[0]), _names.key(_names.no_brackets(title))
+    if not (want_a and want_t):
+        return []
+    found = _ug_page("https://www.ultimate-guitar.com/search.php", search_type="title",
+                     value=f"{artist.split(',')[0]} {_names.no_brackets(title)}").get("results") or []
+    mine = [r for r in found if isinstance(r, dict) and r.get("tab_url") and r.get("type") in ("Tabs", "Chords", "Bass Tabs")
+            and _names.key(r.get("artist_name")) == want_a and _names.key(_names.no_brackets(r.get("song_name") or "")) == want_t]
+    mine.sort(key=lambda r: (r.get("type") != "Tabs", r.get("type") == "Bass Tabs", -(r.get("votes") or 0)))
+    for r in mine[:2]:
+        meta = (_ug_page(r["tab_url"]).get("tab_view") or {}).get("meta") or {}
+        got = _tuning_from_names((meta.get("tuning") or {}).get("value") or "") if isinstance(meta, dict) else []
+        if got and r.get("type") != "Bass Tabs":
+            return got
+    return []
+
+
+def _tuning_lookup(d: Path, artist: str, title: str, rec="?") -> None:
+    """A song's tuning from wherever it is known: its Songsterr tab first
+    (`rec`, when the caller already looked), then Ultimate Guitar — each place
+    asked once."""
+    asked = _stems_tuning_asked(d)
+    if _stems_tuning(d) is None:
+        if rec == "?":
+            rec = _match_song(artist, title)
+        _stems_tuning_keep(d, _tab_tuning(rec), "songsterr")
+    if not _stems_tuning(d) and "ug" not in asked:
+        _stems_tuning_keep(d, _ug_tuning(artist, title), "ug")
 
 
 def _tab_tuning(rec) -> list:
@@ -6796,13 +6965,16 @@ _TUNING_JOB = {"running": False, "done": 0, "total": 0}
 def _tunings_fill() -> None:
     try:
         root = MUSIC_ROOT / "Stems"
-        todo = [d for d in sorted(root.glob("*")) if d.is_dir() and not d.name.startswith(".") and _stems_tuning(d) is None]
+        todo = [d for d in sorted(root.glob("*")) if d.is_dir() and not d.name.startswith(".")
+                and (_stems_tuning(d) is None or (not _stems_tuning(d) and "ug" not in _stems_tuning_asked(d)))]
         _TUNING_JOB.update(done=0, total=len(todo))
         for d in todo:
             m = _stems_meta(d)
             try:
-                rec = _match_song(m.get("artist") or "", m.get("title") or "") if m.get("artist") and m.get("title") else None
-                _stems_tuning_keep(d, _tab_tuning(rec))
+                if m.get("artist") and m.get("title"):
+                    _tuning_lookup(d, m["artist"], m["title"])
+                else:
+                    _stems_tuning_keep(d, [], "songsterr")
             except Exception:                              # noqa: BLE001 — the internet; asked again next time
                 pass
             _TUNING_JOB["done"] += 1
@@ -6838,6 +7010,299 @@ def put_stems_tuning(name: str, body: StemsTuning):
     if body.tuning:
         _stems_tuning_keep(d, body.tuning)
     return {"name": name, "tuning": _stems_tuning(d)}
+
+
+# ---- names as they are officially written (names.py). A separated song is
+# called what its file was — often a video: an uploader for the band, "(Official
+# Video)" in the title — and with such a name neither its text nor its tab is
+# found. Each song is put right once: the music catalogue is asked, its answer
+# believed only when it names the artist and title we had; otherwise the name
+# is at least tidied. What was there before stays in meta.json ("was"), and a
+# name typed by hand is never touched.
+import names as _names
+
+
+# A second catalogue, asked where the first knows nothing or to check it:
+# MusicBrainz — open, and it tells a studio album from a concert or a best-of.
+# It wants to be asked slowly (one question a second) and to know who asks.
+_MB_LOCK = threading.Lock()
+_MB_LAST = [0.0]
+
+
+def _mb_get(path: str, **params) -> dict:
+    with _MB_LOCK:
+        wait = 1.1 - (time.time() - _MB_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _MB_LAST[0] = time.time()
+        r = httpx.get("https://musicbrainz.org/ws/2/" + path, params={**params, "fmt": "json"}, timeout=12,
+                      headers={"User-Agent": "Pick/1.0 (music practice app; local use)"})
+    r.raise_for_status()
+    return r.json()
+
+
+def _mb_song(artist: str, title: str, name: str) -> Optional[dict]:
+    """The same question as _official_song, put to MusicBrainz."""
+    t = _names.tidy(artist or "", title or name)
+    if not (t["artist"] and t["title"]):
+        return None
+    esc = lambda x: _re_mod.sub(r'(["\\])', r"\\\1", x)
+    got = _mb_get("recording", query=f'recording:"{esc(t["title"])}" AND artist:"{esc(t["artist"])}"', limit=8)
+    rows = []
+    for r in got.get("recordings") or []:
+        rels = r.get("releases") or []
+        plain = [x for x in rels if (x.get("release-group") or {}).get("primary-type") == "Album"
+                 and not (x.get("release-group") or {}).get("secondary-types")]
+        rows.append({"title": r.get("title"), "artists": [c.get("name") for c in r.get("artist-credit") or [] if isinstance(c, dict) and c.get("name")],
+                     "album": ((plain or rels or [{}])[0]).get("title")})
+    return _names.pick(rows, artist or "", title or "", name)
+
+
+def _mb_albums(artist: str) -> Optional[dict]:
+    """The artist's releases as MusicBrainz files them: title key → year and
+    kind ("studio", "live", "compilation", "other"). None when it does not
+    know the artist."""
+    want = _names.key(artist)
+    found = _mb_get("artist", query=f'artist:"{artist}"', limit=5).get("artists") or []
+    hit = next((a for a in found if _names.key(a.get("name")) == want), None)
+    if not hit:
+        return None
+    out, offset = {}, 0
+    while offset < 300:
+        page = _mb_get("release-group", artist=hit["id"], type="album|ep", limit=100, offset=offset)
+        groups = page.get("release-groups") or []
+        for g in groups:
+            second = [x.lower() for x in g.get("secondary-types") or []]
+            kind = "live" if "live" in second else "compilation" if "compilation" in second else \
+                "other" if second or g.get("primary-type") != "Album" else "studio"
+            k = _names.key(_names.no_brackets(g.get("title") or ""))
+            if k and (k not in out or kind == "studio"):
+                out[k] = {"year": (g.get("first-release-date") or "")[:4], "kind": kind}
+        offset += 100
+        if len(groups) < 100:
+            break
+    return out
+
+
+def _official_song(artist: str, title: str, name: str) -> Optional[dict]:
+    """The catalogue's own artist, title and album of one song — or None when
+    nothing it answers is this song. Raises when it cannot be asked."""
+    t = _names.tidy(artist or "", title or name)
+    queries = []
+    for q in (f"{t['artist'] or ''} {t['title'] or ''}".strip(), _names.clean(name),
+              f"{artist or ''} {_names.clean(title or '')}".strip()):
+        if q and q not in queries:
+            queries.append(q)
+    for q in queries:
+        rows = [{"title": r.get("title"), "artists": [a.get("name") for a in r.get("artists") or [] if a.get("name")],
+                 "album": (r.get("album") or {}).get("name") if isinstance(r.get("album"), dict) else None}
+                for r in yt().search(q, filter="songs", limit=5)]
+        got = _names.pick(rows, artist or "", title or "", name)
+        if got:
+            return got
+    try:
+        return _mb_song(artist, title, name)                # the first catalogue has nothing: the second is asked
+    except Exception:                                      # noqa: BLE001
+        return None
+
+
+def _stems_meta_raw(d: Path) -> dict:
+    try:
+        m = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+        return m if isinstance(m, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _names_fix_one(d: Path) -> str:
+    """One separated song's name put right. → "official", "tidied", or
+    "skipped" (typed by hand, or seen to already)."""
+    raw = _stems_meta_raw(d)
+    if raw.get("manual") or raw.get("checked"):
+        return "skipped"
+    m = _stems_meta(d)
+    got = _official_song(m.get("artist") or "", m.get("title") or "", d.name)
+    if got:
+        got["title"] = _names.with_live(got["title"], m.get("title"), d.name)
+    new = got or {**_names.tidy_live(m.get("artist") or "", m.get("title") or d.name, d.name), "album": m.get("album")}
+    if got and _names.is_live(new.get("title")):          # a concert: the catalogue's album is the studio one
+        new["album"] = m.get("album") if _names.is_live(m.get("album")) else None
+    tmp = d / "meta.json.tmp"
+    tmp.write_text(json.dumps({"artist": new.get("artist"), "title": new.get("title"), "album": new.get("album") or (None if _names.is_live(new.get("title")) else m.get("album")),
+                               "checked": True, "official": bool(got),
+                               "was": {k: m.get(k) for k in ("artist", "title", "album")}}, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(d / "meta.json")
+    return "official" if got else "tidied"
+
+
+def _names_more(d: Path) -> None:
+    """With its name right, what the song still lacks is looked for: its tab
+    (and by it the tuning), its text."""
+    m = _stems_meta(d)
+    if not (m.get("artist") and m.get("title")):
+        return
+    if _stems_tuning(d) is None:
+        rec = _match_song(m["artist"], m["title"])
+        if rec and int(rec["songId"]) not in {t.get("songId") for t in _pick_tabs()}:
+            _picktab_upsert(_rec_to_tab(rec, "Steems"))
+        _tuning_lookup(d, m["artist"], m["title"], rec)
+    dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, st) for st in STEM_NAMES[:2]) if f) if x), None)
+    if not _lyrics_kept(m["title"], m["artist"], dur):
+        _lookup_lyrics(m["title"], m["artist"], m.get("album") or "", dur)
+
+
+def _names_soon(d: Path) -> None:
+    """A song just separated: its name, tab and text, behind the scenes."""
+    if os.environ.get("SPOTDL_NO_WATCHERS"):
+        return
+
+    def run():
+        try:
+            _names_fix_one(d)
+            _names_more(d)
+        except Exception:                                  # noqa: BLE001 — the internet; the big run sees to it later
+            pass
+    threading.Thread(target=run, name="names-one", daemon=True).start()
+
+
+_NAMES_JOB = {"running": False, "done": 0, "total": 0, "official": 0, "tidied": 0, "failed": 0, "more": False}
+
+
+def _names_fix_all(more: bool) -> None:
+    try:
+        root = MUSIC_ROOT / "Stems"
+        todo = [d for d in sorted(root.glob("*")) if d.is_dir() and not d.name.startswith(".")
+                and not (_stems_meta_raw(d).get("manual") or _stems_meta_raw(d).get("checked"))]
+        _NAMES_JOB.update(done=0, total=len(todo), official=0, tidied=0, failed=0, more=more)
+        for d in todo:
+            try:
+                r = _names_fix_one(d)
+                if r in ("official", "tidied"):
+                    _NAMES_JOB[r] += 1
+            except Exception:                              # noqa: BLE001 — not marked: asked again next time
+                _NAMES_JOB["failed"] += 1
+            if more:
+                try:
+                    _names_more(d)
+                except Exception:                          # noqa: BLE001
+                    pass
+            _NAMES_JOB["done"] += 1
+            time.sleep(0.15)
+    finally:
+        _NAMES_JOB["running"] = False
+
+
+@app.get("/api/stems-names")
+def stems_names_state():
+    root = MUSIC_ROOT / "Stems"
+    dirs = [d for d in (root.glob("*") if root.is_dir() else []) if d.is_dir() and not d.name.startswith(".")]
+    left = sum(1 for d in dirs if not (_stems_meta_raw(d).get("manual") or _stems_meta_raw(d).get("checked")))
+    return {**_NAMES_JOB, "songs": len(dirs), "left": left}
+
+
+@app.post("/api/stems-names/fix")
+def stems_names_fix(more: bool = True):
+    """Every separated song whose name was not seen to yet is put right, in the
+    background; with `more`, its tab and text are looked for as well."""
+    if not _NAMES_JOB["running"]:
+        _NAMES_JOB.update(running=True, done=0, total=0)
+        threading.Thread(target=_names_fix_all, args=(more,), name="stems-names", daemon=True).start()
+    return dict(_NAMES_JOB)
+
+
+@app.delete("/api/stems-names")
+def stems_names_undo():
+    """The names as they were before they were put right (they are not asked about again)."""
+    root, n = MUSIC_ROOT / "Stems", 0
+    for d in (root.glob("*") if root.is_dir() else []):
+        raw = _stems_meta_raw(d) if d.is_dir() else {}
+        if raw.get("checked") and isinstance(raw.get("was"), dict) and not raw.get("manual"):
+            (d / "meta.json").write_text(json.dumps({**raw["was"], "checked": True, "restored": True}, ensure_ascii=False), encoding="utf-8")
+            n += 1
+    return {"restored": n}
+
+
+# ---- an artist's albums with their songs, and of each song what there
+# already is — the list beside an open mix.
+_DISCO_CACHE: dict = {}
+
+
+def _discography(name: str) -> Optional[dict]:
+    key = _name_key(name)
+    hit = _DISCO_CACHE.get(key)
+    if hit and time.time() - hit["at"] < 6 * 3600:
+        return hit["data"]
+    client = yt()
+    hits = client.search(name, filter="artists", limit=3)
+    best = next((h for h in hits if _name_key(h.get("artist") or "") == key), hits[0] if hits else None)
+    if not best or not best.get("browseId"):
+        return None
+    a = client.get_artist(best["browseId"])
+    sec = a.get("albums") or {}
+    rows = list(sec.get("results") or [])
+    if sec.get("params") and sec.get("browseId"):
+        try:
+            rows = client.get_artist_albums(sec["browseId"], sec["params"]) or rows
+        except Exception:                                  # noqa: BLE001 — the first few are there all the same
+            pass
+    rows = [r for r in rows if r.get("browseId")][:90]
+
+    def album(r):
+        try:
+            al = client.get_album(r["browseId"])
+        except Exception:                                  # noqa: BLE001
+            return None
+        return {"title": al.get("title") or r.get("title"), "year": al.get("year") or r.get("year"),
+                "browseId": r["browseId"], "thumbnail": _best_thumb(al.get("thumbnails") or r.get("thumbnails")),
+                "tracks": [{"title": t.get("title") or "", "videoId": t.get("videoId") or "",
+                            "duration_seconds": t.get("duration_seconds") or 0,
+                            "artists": ", ".join(x["name"] for x in (t.get("artists") or []) if x.get("name")) or a.get("name") or name}
+                           for t in al.get("tracks") or [] if t.get("title")]}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        albums = [x for x in pool.map(album, rows) if x and len(x["tracks"]) >= 4]     # singles are not albums
+    # The second catalogue says which of these are the studio albums, and when
+    # they first came out (the first gives the year of whatever reissue it has).
+    try:
+        known = _mb_albums(a.get("name") or name)
+    except Exception:                                      # noqa: BLE001 — without it: all in one list, as told
+        known = None
+    seen = {}
+    for x in albums:
+        k = _names.key(_names.no_brackets(x["title"] or "")) + ("|live" if _names.is_live(x["title"]) else "")
+        info = (known or {}).get(k.split("|")[0])
+        x["kind"] = "live" if _names.is_live(x["title"]) else info["kind"] if info else "studio" if known is None else "other"
+        if info and info["year"]:
+            x["year"] = info["year"]
+        # one album in several editions: the plain one, or the one with the fewest additions
+        old = seen.get(k)
+        plain = lambda y: ((1, len(y["tracks"])) if _names.no_brackets(y["title"] or "") != (y["title"] or "") else (0, -len(y["tracks"])))
+        if old is None or plain(x) < plain(old):
+            seen[k] = x
+    albums = sorted(seen.values(), key=lambda x: (x["kind"] != "studio", str(x.get("year") or "9999")))
+    data = {"artist": a.get("name") or name, "thumbnail": _best_thumb(a.get("thumbnails")), "albums": albums,
+            "checked": known is not None}
+    _DISCO_CACHE[key] = {"at": time.time(), "data": data}
+    if len(_DISCO_CACHE) > 60:
+        _DISCO_CACHE.pop(next(iter(_DISCO_CACHE)))
+    return data
+
+
+@app.get("/api/artist/discography")
+def artist_discography(name: str):
+    """The artist's albums, oldest first, each with its songs — and of every
+    song whether it is downloaded, separated, has its tab and its text."""
+    if not name.strip():
+        return JSONResponse({"error": "Chybí jméno interpreta."}, status_code=400)
+    try:
+        data = _discography(name.strip())
+    except Exception:                                      # noqa: BLE001
+        return JSONResponse({"error": "Alba se nepodařilo načíst."}, status_code=502)
+    if not data:
+        return JSONResponse({"error": "Interpret nenalezen."}, status_code=404)
+    al = _have_all()
+    return {**data, "albums": [{**x, "tracks": [{**t, "have": _have_one(SaveSongRequest(
+        title=t["title"], artists=t["artists"], videoId=t["videoId"], duration=t["duration_seconds"]), al)}
+        for t in x["tracks"]]} for x in data["albums"]]}
 
 
 class StemsMeta(BaseModel):
@@ -8383,358 +8848,6 @@ def delete_guitar_parts(name: str):
             except OSError:
                 pass
     return {"guitar_parts": _guitar_parts_in(stems_dir)}
-
-
-# ------------------------------------------------- Moises inbox (solo/rhythm)
-#
-# Nothing local splits a guitar into lead and rhythm; Moises does. Uploading
-# and downloading stays in Moises (no API in the consumer app, and driving its
-# site would break its terms) — everything around it is automated here:
-#   * the songs without a split are copied (their original audio) into
-#     <inbox>/_k_nahrani, ready to be dragged into Moises in one go;
-#   * whatever comes back is dropped into the inbox (single files, a folder
-#     per song, or the ZIP as downloaded). Files are recognised by the words in
-#     their names (lead/solo → solo, rhythm → rhythm), the song by the folder
-#     / ZIP / file name, matched against the Steems songs;
-#   * a confident match with both parts is imported (the existing
-#     guitar_solo / guitar_rhythm stems) — by hand from the panel, or by
-#     itself in the background — and the files move to <inbox>/_hotovo.
-import unicodedata as _ud
-import zipfile as _zipfile
-
-_MOISES_EVENTS: list = []          # [{t, song, label}] — recent automatic imports
-_MOISES_LOCK = threading.Lock()
-_MOISES_SKIP = {"_hotovo", "_k_nahrani"}
-_SOLO_WORDS = ("lead", "solo", "sólo", "solová", "solova", "sólová")
-_RHYTHM_WORDS = ("rhythm", "rytm", "rytmus", "rytmická", "rytmicka", "rhytm")
-_ROLE_NOISE = _re_mod.compile(
-    r"\b(lead|solo|sólo|sólová|solová|solova|rhythm|rhytm|rytmus|rytmická|rytmicka|rytm|"
-    r"electric|acoustic|guitars?|kytara|kytary|stem|stems|track|moises|hi-?fi)\b", _re_mod.I)
-
-
-def _moises_inbox() -> Path:
-    p = _read_config().get("moises_inbox")
-    return Path(p).expanduser() if p else MUSIC_ROOT / "Moises"
-
-
-def _moises_role(name: str):
-    n = name.lower()
-    if any(w in n for w in _RHYTHM_WORDS):
-        return "rhythm"
-    if any(w in n for w in _SOLO_WORDS):
-        return "solo"
-    return None
-
-
-def _norm_words(s: str) -> list:
-    s = _ud.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
-    s = _re_mod.sub(r"\[[^\]]*\]|\([^)]*\)", " ", s)              # [id], (Remastered)
-    s = _re_mod.sub(r"\b(official|video|audio|remaster(ed)?|lyrics?|hd|hq|live|feat|ft)\b", " ", s)
-    s = _re_mod.sub(r"^\s*\d{1,3}[\s._-]+", "", s)                # leading track number
-    return [w for w in _re_mod.split(r"[^a-z0-9]+", s) if w]
-
-
-def _song_label(path: Path, inbox: Path) -> str:
-    """Which song a file belongs to: its folder under the inbox, or else its
-    own name without the part words."""
-    rel = path.relative_to(inbox)
-    if len(rel.parts) > 1:
-        return rel.parts[0]
-    base = _ROLE_NOISE.sub(" ", path.stem)
-    base = _re_mod.sub(r"[\s_\-–—.]+$|^[\s_\-–—.]+", "", _re_mod.sub(r"\s{2,}", " ", base))
-    base = _re_mod.sub(r"\s*[-–—_]\s*$", "", base).strip()
-    return base or path.stem
-
-
-def _moises_match(label: str) -> list:
-    """Steems songs ranked by how well their name fits the label."""
-    want = set(_norm_words(label))
-    if not want:
-        return []
-    root = MUSIC_ROOT / "Stems"
-    out = []
-    try:
-        dirs = [d for d in root.iterdir() if d.is_dir() and not d.name.startswith(".")]
-    except OSError:
-        dirs = []
-    for d in dirs:
-        meta = _stems_meta(d)
-        best = 0.0
-        for cand in (d.name, f"{meta.get('artist') or ''} {meta.get('title') or ''}", meta.get("title") or ""):
-            have = set(_norm_words(cand))
-            if not have:
-                continue
-            inter = len(want & have)
-            # how much of the shorter name is in the other one
-            score = inter / min(len(want), len(have)) * (0.6 + 0.4 * inter / max(len(want), len(have)))
-            best = max(best, score)
-        if best > 0.2:
-            out.append({"song": d.name, "score": round(best, 3)})
-    out.sort(key=lambda x: -x["score"])
-    return out
-
-
-def _moises_unzip(inbox: Path):
-    for z in list(inbox.glob("*.zip")):
-        dest = inbox / z.stem
-        try:
-            with _zipfile.ZipFile(z) as zf:
-                for m in zf.infolist():
-                    if m.is_dir() or m.filename.startswith("__MACOSX") or Path(m.filename).name.startswith("."):
-                        continue
-                    if Path(m.filename).suffix.lower() not in AUDIO_EXTS:
-                        continue
-                    dest.mkdir(parents=True, exist_ok=True)
-                    target = _unique_dest(dest, Path(m.filename).name)
-                    with zf.open(m) as src, open(target, "wb") as out:
-                        shutil.copyfileobj(src, out)
-            done = inbox / "_hotovo"
-            done.mkdir(exist_ok=True)
-            shutil.move(str(z), str(_unique_dest(done, z.name)))
-        except (OSError, _zipfile.BadZipFile):
-            continue
-
-
-def _moises_scan() -> list:
-    inbox = _moises_inbox()
-    if not inbox.is_dir():
-        return []
-    _moises_unzip(inbox)
-    groups: dict = {}
-    now = time.time()
-    for dirpath, dirnames, filenames in os.walk(inbox):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in _MOISES_SKIP]
-        for fn in filenames:
-            p = Path(dirpath) / fn
-            if fn.startswith(".") or p.suffix.lower() not in AUDIO_EXTS:
-                continue
-            role = _moises_role(fn)
-            if not role:
-                continue
-            try:
-                st = p.stat()
-            except OSError:
-                continue
-            label = _song_label(p, inbox)
-            g = groups.setdefault(label, {"label": label, "solo": None, "rhythm": None, "settled": True})
-            g[role] = str(p)
-            if now - st.st_mtime < 8:          # still being written / downloaded
-                g["settled"] = False
-    out = []
-    for g in groups.values():
-        cands = _moises_match(g["label"])
-        best = cands[0] if cands else None
-        second = cands[1]["score"] if len(cands) > 1 else 0
-        g["candidates"] = cands[:5]
-        g["match"] = best["song"] if best else None
-        g["confident"] = bool(best and best["score"] >= 0.75 and best["score"] - second >= 0.15)
-        g["complete"] = bool(g["solo"] and g["rhythm"])
-        out.append(g)
-    out.sort(key=lambda g: g["label"].lower())
-    return out
-
-
-def _convert_part(stems_dir: Path, dest_stem: str, src: Path) -> dict:
-    target = stems_dir / f".{dest_stem}.incoming.mp3"
-    try:
-        proc = subprocess.run([ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error", "-i", str(src),
-                               "-codec:a", "libmp3lame", "-b:a", "320k", str(target)],
-                              capture_output=True, text=True, timeout=300)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return {"error": f"{dest_stem}: převod selhal ({exc})"}
-    if proc.returncode != 0 or not target.is_file() or target.stat().st_size < 1024:
-        target.unlink(missing_ok=True)
-        return {"error": f"{dest_stem}: převod selhal"}
-    return {"stem": dest_stem}
-
-
-def _moises_import(group: dict, song: str) -> dict:
-    stems_dir = _resolve_under_music_root(f"Stems/{song}")
-    if stems_dir is None or not stems_dir.is_dir():
-        return {"error": "Píseň ve Steems nenalezena."}
-    if not (group.get("solo") and group.get("rhythm")):
-        return {"error": "Chybí jedna z částí (sólo nebo rytmus)."}
-    with _MOISES_LOCK:
-        res = [_convert_part(stems_dir, "guitar_solo", Path(group["solo"])),
-               _convert_part(stems_dir, "guitar_rhythm", Path(group["rhythm"]))]
-        errors = [r["error"] for r in res if "error" in r]
-        if errors:
-            _drop_incoming(stems_dir)
-            return {"error": " / ".join(errors)}
-        _commit_incoming(stems_dir)
-        # Done with: out of the way, into _hotovo (the whole song folder if it had one).
-        inbox = _moises_inbox()
-        done = inbox / "_hotovo"
-        done.mkdir(parents=True, exist_ok=True)
-        for key in ("solo", "rhythm"):
-            p = Path(group[key])
-            try:
-                rel = p.relative_to(inbox)
-            except ValueError:
-                continue
-            if len(rel.parts) > 1:
-                folder = inbox / rel.parts[0]
-                if folder.is_dir():
-                    shutil.move(str(folder), str(_unique_dest(done, folder.name)))
-            elif p.is_file():
-                shutil.move(str(p), str(_unique_dest(done, p.name)))
-    return {"song": song, "guitar_parts": _guitar_parts_in(stems_dir)}
-
-
-def _moises_auto_tick():
-    if not _read_config().get("moises_auto"):
-        return
-    for g in _moises_scan():
-        if g["complete"] and g["confident"] and g["settled"]:
-            r = _moises_import(g, g["match"])
-            if "error" not in r:
-                _MOISES_EVENTS.append({"t": time.time(), "song": g["match"], "label": g["label"]})
-                del _MOISES_EVENTS[:-30]
-
-
-def _moises_watch():
-    while True:
-        time.sleep(15)
-        try:
-            _moises_auto_tick()
-        except Exception:                                    # noqa: BLE001 — never kill the watcher
-            pass
-
-
-@app.on_event("startup")
-def _moises_start():
-    if os.environ.get("SPOTDL_NO_WATCHERS"):
-        return
-    threading.Thread(target=_moises_watch, daemon=True, name="moises-inbox").start()
-
-
-@app.get("/api/moises")
-def moises_status():
-    inbox = _moises_inbox()
-    root = MUSIC_ROOT / "Stems"
-    todo = []
-    try:
-        for d in sorted(root.iterdir(), key=lambda p: p.name.lower()):
-            if not d.is_dir() or d.name.startswith("."):
-                continue
-            if _guitar_parts_in(d) or _stem_file(d, "guitar") is None:
-                continue
-            meta = _stems_meta(d)
-            todo.append({"song": d.name, "artist": meta.get("artist"), "title": meta.get("title"),
-                         "has_source": True,
-                         "from_stems": _stems_source_index().get(d.name) is None})
-    except OSError:
-        pass
-    return {"folder": str(inbox), "exists": inbox.is_dir(), "auto": bool(_read_config().get("moises_auto")),
-            "groups": _moises_scan(), "todo": todo, "events": _MOISES_EVENTS[-10:]}
-
-
-class MoisesSettings(BaseModel):
-    folder: Optional[str] = None
-    auto: Optional[bool] = None
-    pick: bool = False
-
-
-@app.post("/api/moises/settings")
-def moises_settings(body: MoisesSettings):
-    patch = {}
-    if body.pick:
-        try:
-            r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Složka pro soubory z Moises")'],
-                               capture_output=True, text=True, timeout=300)
-            if r.returncode == 0 and r.stdout.strip():
-                patch["moises_inbox"] = r.stdout.strip().rstrip("/")
-        except (OSError, subprocess.SubprocessError):
-            pass
-    elif body.folder:
-        patch["moises_inbox"] = str(Path(body.folder).expanduser())
-    if body.auto is not None:
-        patch["moises_auto"] = bool(body.auto)
-    if patch:
-        _write_config(patch)
-    inbox = _moises_inbox()
-    try:
-        inbox.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
-    return {"folder": str(inbox), "auto": bool(_read_config().get("moises_auto"))}
-
-
-class MoisesImport(BaseModel):
-    label: str
-    song: str
-
-
-@app.post("/api/moises/import")
-def moises_import(body: MoisesImport):
-    g = next((x for x in _moises_scan() if x["label"] == body.label), None)
-    if g is None:
-        return JSONResponse({"error": "Soubory už ve složce nejsou."}, status_code=404)
-    r = _moises_import(g, body.song)
-    if "error" in r:
-        return JSONResponse(r, status_code=400)
-    return r
-
-
-class MoisesExport(BaseModel):
-    songs: List[str]
-
-
-@app.post("/api/moises/export")
-def moises_export(body: MoisesExport):
-    """The songs' original audio, copied into <inbox>/_k_nahrani — to drag into
-    Moises all at once. The folder opens in Finder."""
-    out_dir = _moises_inbox() / "_k_nahrani"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    copied, mixed, missing = [], [], []
-    index = _stems_source_index()
-    for song in body.songs[:500]:
-        src = index.get(song)
-        if src is not None and src.is_file():
-            dest = out_dir / f"{song}{src.suffix.lower()}"
-            if not dest.exists():
-                shutil.copy2(src, dest)
-            copied.append(song)
-        elif _mix_stems_to(song, out_dir / f"{song}.mp3"):
-            mixed.append(song)
-        else:
-            missing.append(song)
-    subprocess.run(["open", str(out_dir)], check=False)
-    return {"folder": str(out_dir), "copied": copied + mixed, "mixed": mixed, "missing": missing}
-
-
-def _mix_stems_to(song: str, dest: Path) -> bool:
-    """No original file any more: the separated stems summed back into the
-    whole song (what Moises needs to split the guitar from)."""
-    if dest.exists():
-        return True
-    d = _resolve_under_music_root(f"Stems/{song}")
-    if d is None or not d.is_dir():
-        return False
-    files = [f for f in (_stem_file(d, n) for n in STEM_NAMES) if f is not None]
-    if not files:
-        return False
-    cmd = [ffmpeg_bin(), "-y", "-nostdin", "-loglevel", "error"]
-    for f in files:
-        cmd += ["-i", str(f)]
-    cmd += ["-filter_complex", f"amix=inputs={len(files)}:duration=longest:normalize=0",
-            "-codec:a", "libmp3lame", "-b:a", "320k", str(dest)]
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    if r.returncode != 0 or not dest.is_file():
-        dest.unlink(missing_ok=True)
-        return False
-    return True
-
-
-@app.post("/api/moises/open")
-def moises_open():
-    inbox = _moises_inbox()
-    inbox.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["open", str(inbox)], check=False)
-    return {"ok": True}
 
 
 # ------------------------------------------------- a stem set's picture

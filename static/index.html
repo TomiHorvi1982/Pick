@@ -1043,7 +1043,9 @@ body.lib-collapsed .pick-brand{display:none}
   .folded .fold-btn .ic-svg{transform:none}
   .lyr-dock.folded:not([hidden]){display:flex;align-items:center;gap:12px;padding:5px 14px}
   .lyr-dock.folded .lyr-dock-tools{margin:0;flex:none}
-  .lyr-dock.folded .lyr-dock-tools > :not(.cap):not(.fold-btn){display:none}
+  .lyr-dock.folded .lyr-dock-tools > :not(.cap):not(.fold-btn):not(#nm-lyr-close){display:none}
+  .lyr-dock.folded{position:relative;padding-right:54px !important}
+  .lyr-dock.folded #nm-lyr-close{position:absolute;right:10px;top:50%;transform:translateY(-50%)}
   .lyr-dock.folded .nm-lyr-lines{flex:1;min-width:0;text-align:left}
   .lyr-dock.folded .nm-lyr-lines .prev,.lyr-dock.folded .nm-lyr-lines .next{display:none}
   .lyr-dock.folded .nm-lyr-lines .cur{font-size:14px;font-weight:600;padding:0;letter-spacing:0}
@@ -1059,13 +1061,14 @@ body.lib-collapsed .pick-brand{display:none}
   .tmenu.open > .tm-btn{background:#2a2a33;border-color:#4a4a58}
   .tm-btn.has-on{border-color:var(--nm-blue);color:#8fbaff}
   .tm-btn.dim{opacity:.55}
-  .tm-pop{display:none;position:fixed;z-index:5000;min-width:210px;padding:6px;
+  .tm-pop{display:none;position:fixed;z-index:5000;min-width:168px;max-width:min(300px,calc(100vw - 16px));padding:4px;
     background:#1c1c22;border:1px solid #33333d;border-radius:9px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
   .tm-pop.show{display:block}
-  .tm-head{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--nm-sub);padding:4px 9px 6px}
+  .tm-head{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--nm-sub);padding:3px 8px 4px}
   .tm-pop hr{border:none;border-top:1px solid #33333d;margin:5px 2px}
   .tm-item{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:var(--nm-txt);
-    font:inherit;font-size:12.5px;padding:7px 9px;border-radius:5px;cursor:pointer;text-align:left;white-space:nowrap}
+    font:inherit;font-size:12px;padding:5px 8px;border-radius:5px;cursor:pointer;text-align:left;white-space:nowrap;min-width:0}
+  .tm-item .tm-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .tm-item:hover:not(:disabled){background:#2a2a33}
   .tm-item:disabled{opacity:.35;cursor:default}
   .tm-item .ic-svg{flex:none;opacity:.85}
@@ -1374,7 +1377,7 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-tabtop{border-bottom:1px solid var(--nm-line);background:var(--nm-panel);padding:8px 12px 10px}
   .nm-tabtop-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
   .nm-tabtop-icon{color:var(--nm-sub);display:flex;align-items:center}
-  .nm-tabtop-name{font-size:12px;font-weight:700;color:var(--nm-txt)}
+  .nm-tabtop-name{font-size:12px;font-weight:700;color:var(--nm-txt);min-width:70px;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .nm-tabtop-barlabel{font-size:11px;font-weight:600;color:var(--nm-gold);
     font-variant-numeric:tabular-nums;white-space:nowrap}
   .nm-tabtop-select{background:#23232b;border:1px solid #33333d;border-radius:5px;
@@ -1411,7 +1414,9 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-tabtop-off:hover{border-color:var(--nm-line, rgba(255,255,255,.18))}
   .nm-tabtop-off:focus{outline:none;border-color:var(--nm-gold);background:rgba(0,0,0,.25)}
   /* Tab moved by hand and waiting for Sync to pin it to the song. */
-  #nm-tabtop-sync.armed{border-color:#ff5c5c;color:#ff5c5c;animation:nmSyncArmed 1.1s ease-in-out infinite}
+  #nm-tabtop-lock.armed{border-color:#ff5c5c;color:#ff5c5c;animation:nmSyncArmed 1.1s ease-in-out infinite}
+  /* One button for the tab's sync: open ("Sync") the tab can be put where it belongs, a click pins it there and locks it. */
+  .tab-sync-one{gap:5px;padding:0 11px;font-size:12px;font-weight:700;white-space:nowrap;border-color:#3d8bfd;color:#8fbaff}
   @keyframes nmSyncArmed{50%{box-shadow:0 0 0 3px rgba(255,92,92,.35)}}
   .nm-tabtop-barlabel.held{color:#ff5c5c}
   .nm-tabtop-pos{width:100%;margin-top:6px;accent-color:var(--nm-sub)}
@@ -2397,7 +2402,7 @@ body.lib-collapsed .pick-brand{display:none}
   .steems-under{margin-top:18px;padding-bottom:20px}
   .steems-under h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:10px}
   .steems-under h3 button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer}
-  .steems-under .lib-trow,.steems-under .lib-thead{grid-template-columns:38px minmax(0,2.4fr) minmax(0,1.5fr) minmax(0,1.1fr) 56px 64px;height:34px}
+  .steems-under .lib-trow,.steems-under .lib-thead{grid-template-columns:38px minmax(0,2.2fr) minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,1fr) 56px 64px;height:34px}
   .steems-under .lib-trow.cur{color:var(--accent,#1ed760)}
   .steems-under .lib-trow.pv{background:color-mix(in srgb, var(--accent,#1ed760) 16%, transparent)}
   .steems-under .c-tun{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub);font-size:12.5px}
@@ -2743,13 +2748,28 @@ body.lib-collapsed .pick-brand{display:none}
   /* choosing an instrument: its family first, then the instruments of that family */
   .inst-step{flex:none;padding:2px 6px !important;min-width:0;line-height:1.1}
   .pk-ctl .inst-name{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .inst-pop{display:grid;grid-template-columns:190px 280px;gap:6px;padding:8px;max-height:min(420px,80vh);background:rgba(20,20,26,.97) !important}
-  .inst-pop .col{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:0;max-height:min(404px,76vh)}
-  .inst-pop button{all:unset;box-sizing:border-box;display:block;padding:6px 9px;border-radius:7px;font-size:12.5px;cursor:pointer;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .inst-pop button:hover{background:rgba(255,255,255,.07);color:var(--text)}
-  .inst-pop button.on{background:rgba(255,255,255,.1);color:var(--text)}
-  .inst-pop .col.list button.on{color:var(--accent)}
-  .inst-pop .cat i{font-style:normal;float:right;opacity:.5;font-size:11px}
+  /* Choosing a profile or an instrument: easy to read — a solid panel, a search, families left, their sounds right. */
+  .inst-pop{display:grid;grid-template-columns:210px 360px;grid-template-rows:auto minmax(0,1fr);gap:0;padding:0;width:570px;max-width:calc(100vw - 16px);
+    height:min(520px,84vh);background:#17171c !important;background-image:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border:1px solid #3a3a46 !important;border-radius:12px !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.75) !important;overflow:hidden;z-index:6000}
+  .inst-pop .ip-top{grid-column:1 / -1;display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #2c2c36;background:#1d1d24}
+  .inst-pop .ip-top b{font-size:13px;color:#fff;white-space:nowrap}
+  .inst-pop .ip-top input{flex:1;min-width:0;background:#101014;border:1px solid #3a3a46;border-radius:8px;color:#fff;font:inherit;font-size:13px;padding:6px 10px;outline:none}
+  .inst-pop .ip-top input:focus{border-color:var(--accent)}
+  .inst-pop .col{overflow:auto;display:flex;flex-direction:column;gap:1px;min-height:0;padding:6px}
+  .inst-pop .col.cats{border-right:1px solid #2c2c36;background:#141419}
+  .inst-pop button{all:unset;box-sizing:border-box;display:block;flex:none;padding:8px 10px;border-radius:7px;font-size:13.5px;line-height:1.3;cursor:pointer;color:#d6d6de;
+    overflow-wrap:anywhere}
+  .inst-pop button:hover{background:rgba(255,255,255,.08);color:#fff}
+  .inst-pop button.on{background:rgba(255,255,255,.11);color:#fff;font-weight:600}
+  .inst-pop .col.list button.on{color:#0b0b0d;background:#1ed760;font-weight:700}
+  .inst-pop .col.list button small{display:block;font-size:10.5px;color:#8b8b96;font-weight:400}
+  .inst-pop .col.list button.on small{color:rgba(0,0,0,.6)}
+  .inst-pop .ip-cat i{font-style:normal;float:right;color:#8b8b96;font-size:11.5px;font-weight:400;margin-left:8px}
+  .inst-pop .none{padding:16px 10px;color:#8b8b96;font-size:12.5px}
+  @media (max-width:620px){ .inst-pop{grid-template-columns:150px minmax(0,1fr);width:calc(100vw - 16px)} }
+  .gt-preset-name.pickable,.gt-rail-preset.pickable{cursor:pointer}
+  .gt-preset-name.pickable:hover,.gt-rail-preset.pickable:hover{color:var(--accent);text-decoration:underline}
   .pk-info{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-height:26px;font-size:12.5px;color:var(--sub)}
   .pk-chord{font-size:20px;font-weight:800;color:var(--text);min-width:70px}
   .pk-cw{display:flex;gap:14px;align-items:flex-start;padding:4px 0}
@@ -3682,6 +3702,70 @@ body.lib-collapsed .pick-brand{display:none}
   /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
   .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
   .voice-again[hidden]{display:none}
+  /* Beside an open mix: the song, and its artist's albums with what is there and what is not. */
+  .srail{padding:6px 4px 20px}
+  .srail-now{display:flex;gap:10px;align-items:center;padding:10px 8px;margin:6px 0 4px;border-radius:8px;background:rgba(30,215,96,.09);border:1px solid rgba(30,215,96,.28)}
+  .srail-now .lib-art{width:44px;height:44px;flex:none;border-radius:5px}
+  .srail-now .tx{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .srail-now small{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .srail-now b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srail-now span{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srail-note,.srail-sum{font-size:12px;color:var(--sub);padding:8px;line-height:1.45}
+  .srail-sum b{color:var(--text)}
+  .srail-sel{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 8px;margin:2px 0 6px;border-radius:7px;
+    background:#1d2a21;border:1px solid rgba(30,215,96,.45);font-size:12px}
+  .srail-sel[hidden]{display:none}
+  .srail-sel b{margin-right:auto}
+  .srail-sel button{border:none;border-radius:500px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--accent);color:#000}
+  .srail-sel button[data-a="none"]{background:#33333d;color:var(--text);font-weight:400}
+  .srail-al{margin-bottom:2px}
+  .srail-kind{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);padding:14px 8px 5px;border-top:1px solid #26262e;margin-top:8px}
+  .srail-al-head{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:none;background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;border-radius:6px}
+  .srail-al-head:hover{background:var(--sp-hover,#1f1f25)}
+  .srail-al-head .chev{flex:none;color:var(--sub);transition:transform .12s}
+  .srail-al.open .srail-al-head .chev{transform:rotate(90deg)}
+  .srail-al-head .art{width:30px;height:30px;flex:none;border-radius:4px;background:#26262e center/cover}
+  .srail-al-head .al-nm{min-width:0;display:flex;flex-direction:column}
+  .srail-al-head b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srail-al-head small{font-size:10.5px;color:var(--sub)}
+  .srail-al.cur .srail-al-head b{color:var(--accent)}
+  .srail-miss{margin:2px 0 3px 46px;background:none;border:none;color:var(--accent);font:inherit;font-size:11px;cursor:pointer;padding:2px 0}
+  .srail-miss:hover{text-decoration:underline}
+  .srail-tr{display:flex;align-items:center;gap:8px;padding:4px 6px 4px 22px;border-radius:5px;font-size:12.5px;cursor:pointer;color:#9c9ca8}
+  .srail-tr:hover{background:var(--sp-hover,#1f1f25)}
+  .srail-tr .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srail-tr input{flex:none;margin:0;width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+  .srail-tr .ok{flex:none;width:14px;display:inline-flex;justify-content:center;color:var(--accent)}
+  .srail-tr.have{color:var(--text)}
+  .srail-tr.now{color:var(--accent);font-weight:700;background:rgba(30,215,96,.08)}
+  .srail-tr.sel{background:rgba(30,215,96,.12);color:var(--text)}
+  body.lib-collapsed .srail{display:none}
+  /* What there already is of a song: four small marks — file, stems, tab, text. */
+  .have-marks{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px;flex:none}
+  .have-marks i{font:700 8.5px/1 -apple-system,"Helvetica Neue",sans-serif;font-style:normal;letter-spacing:.05em;padding:2px 4px;border-radius:3px;
+    color:#6a6a75;border:1px solid #34343e;white-space:nowrap}
+  .have-marks i.on{color:#1ed760;border-color:rgba(30,215,96,.45);background:rgba(30,215,96,.1)}
+  .have-marks i.wait{color:#e9b949;border-color:rgba(233,185,73,.5);background:rgba(233,185,73,.08)}
+  .have-marks i.unk{border-style:dashed}
+  .track-row .have-slot .have-marks{margin-left:0}
+  .track-list-head .have-sum{margin-left:auto;margin-right:16px;color:var(--sub)}
+  .track-list-head #pick-missing{margin-right:16px;color:var(--accent)}
+  .lib-havebar{display:flex;align-items:center;gap:10px;padding:5px 10px;font-size:12px;color:var(--sub)}
+  .lib-havebar button{background:none;border:1px solid #3a3a44;color:var(--text);border-radius:500px;padding:3px 11px;font:inherit;font-size:11.5px;cursor:pointer}
+  .lib-havebar button:hover{border-color:var(--accent);color:var(--accent)}
+  /* "hey pick": what can be said, written small at the thing it works on */
+  .voice-hints{position:fixed;inset:0;z-index:94;pointer-events:none}
+  .voice-hints[hidden]{display:none}
+  .voice-hints i{position:absolute;font:700 10px/1.25 -apple-system,"Helvetica Neue",sans-serif;font-style:normal;letter-spacing:.02em;white-space:nowrap;
+    color:#ffe27a;background:rgba(12,12,16,.78);border:1px solid rgba(255,216,74,.45);border-radius:4px;padding:0 5px;
+    box-shadow:0 0 10px rgba(255,216,74,.18);animation:vhint .22s ease-out both}
+  .voice-hints b{position:absolute;left:50%;top:56px;transform:translateX(-50%);max-width:min(92vw,980px);text-align:center;
+    font:600 11px/1.5 -apple-system,"Helvetica Neue",sans-serif;color:rgba(255,226,122,.92);background:rgba(12,12,16,.8);
+    border:1px solid rgba(255,216,74,.35);border-radius:8px;padding:4px 12px;animation:vhint .22s ease-out both}
+  .voice-hints b span{color:#9a9aa6;font-weight:400}
+  @keyframes vhint{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
+  .voice-hints b{animation-name:vhintb}
+  @keyframes vhintb{from{opacity:0}to{opacity:1}}
   .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px rgba(30,215,96,.75)) drop-shadow(0 0 140px rgba(30,215,96,.4));animation:vagain .46s ease-in-out infinite alternate}
   .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
     text-shadow:0 0 28px rgba(30,215,96,.85),0 0 80px rgba(30,215,96,.5),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
@@ -3881,7 +3965,8 @@ body.lib-collapsed .pick-brand{display:none}
           <button type="button" id="voice-again-rec" title="Nahrát můj hlas (3 vteřiny) — zařvi, co má zaznít, když ti Pick nerozumí">● Nahrát</button>
           <button type="button" id="voice-again-play" title="Vyzkoušet: zabliká logo a přehraje se nahrávka">▶</button>
           <button type="button" id="voice-again-del" title="Smazat nahrávku — zase bude mluvit počítač">✕</button></div>
-        <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem.</div>
+        <div class="voice-row" title="Když povel proběhne, nebo když ti Pick nerozumí, řekne jednu z deseti hlášek hlasem „Max Cavalera“ naklonovaným ve Voiceboxu. Hlášky se připraví jednou na pozadí (asi půl minuty každá); dokud nejsou, platí „Again!!!“ výš."><label style="display:flex;align-items:center;gap:6px;flex:1"><input type="checkbox" id="voice-replies"> Hlášky hlasem Maxe Cavalery</label><span id="voice-replies-note" style="font-size:11px;color:var(--nm-sub)"></span></div>
+        <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem. Nebo jen „hey pick“ — a u všeho, co jde ovládat, se ukáže, co říct.</div>
         <hr>
         <div class="voice-list" id="voice-list"></div>
         <hr>
@@ -4245,6 +4330,7 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
         <button type="button" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
+        <button type="button" id="nm-lyr-close" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
       </div>
       <div class="nm-lyr-lines" id="nm-lyr-lines">
         <canvas id="nm-lyr-run" title="Klik na řádek na něj skočí"></canvas>
@@ -4301,21 +4387,13 @@ body.lib-collapsed .pick-brand{display:none}
             <button type="button" class="tab-more-btn" id="nm-tabtop-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
             <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
             <div class="nm-spacer"></div>
-            <div class="tmenu" data-tmenu="tabsync">
-              <button type="button" class="nm-btn round tm-btn" title="Synchronizace tabulatury s písní — posun, srovnání, zámek"><span data-icon="repeat" data-size="13"></span><span class="bl">Sync</span><span class="tm-caret">▾</span></button>
-              <div class="tm-pop tm-small">
-                <div class="tm-head">Posun</div>
-                <div class="tm-row">
-                <button class="nm-step" id="nm-tabtop-earlier" title="Tab o 0,1 s dřív (Shift = 1 s)">−0,1</button>
-                <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s"
-                  title="Posun tabulatury proti písni (kdy začíná první takt) — klikni a přepiš: 12,5 · -3 · 1:05,2, Enter potvrdí">
-                <button class="nm-step" id="nm-tabtop-later" title="Tab o 0,1 s později (Shift = 1 s)">+0,1</button>
-                </div>
-                <hr>
-    <button class="tm-item" data-label="Nastavit" id="nm-tabtop-sync" title="Posuň tab tak, aby takt, kde se začíná hrát, byl mezi červenými šipkami, na stopě nastav nebo pusť místo, kde ten takt začíná, a klikni — od té chvíle jede tab sám podle taktů. Bez posunutí tabu: takt 1 začne teď."><span data-icon="repeat" data-size="15"></span></button>
-                <button class="tm-item tab-lock" data-stay data-label="Zamknout" id="nm-tabtop-lock" title="Zamknout synchronizaci — tažení ani kolečko po tabu ji pak nerozhodí"><span data-icon="unlock" data-size="13"></span></button>
-              </div>
-            </div>
+            <button type="button" class="nm-btn round tab-lock tab-sync-one" id="nm-tabtop-lock"></button>
+            <span hidden>
+              <button class="nm-step" id="nm-tabtop-earlier"></button>
+              <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s">
+              <button class="nm-step" id="nm-tabtop-later"></button>
+              <button id="nm-tabtop-sync"></button>
+            </span>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
             <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
             <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
@@ -4361,9 +4439,10 @@ body.lib-collapsed .pick-brand{display:none}
               <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
               <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
               <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
-              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — zjistí ladění tvé kytary a navrhne, o kolik posunout kytaru a basu skladby — bicí a zpěv zůstanou. Nic se nezmění bez potvrzení."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
+              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — píseň se sama přeladí na ladění tvé kytary (nastavíš ho v ladičce): kytary, basa a melodické stopy, bicí a zpěv zůstanou. Klik: ladění skladby vybrat ručně nebo posun změnit."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
+              <button class="nm-btn round" id="nm-tune-orig" hidden title="Originální ladění — vrátí všechny přeladěné stopy téhle písně do původní výšky. Další klik je zase přeladí na tvoji kytaru.">Originál</button>
             </div>
-            <span class="cap">TÓNINA (půltóny)</span>
+            <span class="cap" id="nm-tune-cap">TÓNINA (půltóny)</span>
           </div>
 
           <div class="nm-tgroup">
@@ -5084,7 +5163,7 @@ body.lib-collapsed .pick-brand{display:none}
       <button type="button" id="speak-say" title="Přečíst tenhle řádek znovu">🔊 Přečti</button>
       <button type="button" id="speak-prev" title="O řádek zpět">‹</button>
       <button type="button" id="speak-skip" title="Tenhle řádek přeskočit („pick skip“)">Přeskočit ›</button>
-      <label title="Čí hlas řádky čte. Hlasy z aplikace Voicebox (tvůj i další naklonované): každý řádek se připraví jednou na pozadí (asi 20 s) a pak už je hned; co ještě není, přečte hlas počítače.">hlas <select id="speak-voice"><option value="sys">počítače</option></select></label>
+      <label title="Čí hlas řádky čte. Hlasy z aplikace Voicebox (tvůj i další naklonované): každý řádek se připraví jednou na pozadí (asi 20 s) a pak už je hned; co ještě není, přečte hlas počítače.">hlas <select id="speak-voice"><option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option></select></label>
       <label title="Jak rychle počítač čte">čte <select id="speak-rate"><option value="0.7">pomalu</option><option value="0.9" selected>normálně</option><option value="1.1">rychle</option></select></label>
       <label title="Každý řádek jen jednou — refrén se neopakuje"><input type="checkbox" id="speak-uniq" checked> bez opakování</label>
       <button type="button" id="speak-words" title="Slova, která se ti nepovedla (ze všech písní), všechna najednou: přečtu slovo, ty ho zopakuješ; co se povede, ze seznamu zmizí. („pick practice my words“)">Moje slova</button>
@@ -5204,6 +5283,7 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="float-grip" id="sing-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
+<div class="voice-hints" id="voice-hints" hidden></div>
 <div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
 <div class="voice-help" id="voice-help" hidden>
   <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)">✕</button></div>
@@ -5527,7 +5607,7 @@ const AudioBus = (() => {
     if(!t || keeps(t)) return;
     if(!t.hasAttribute("aria-label")) t.setAttribute("aria-label", t.getAttribute("title"));
     // A row of a menu is named by its title (the player's tools): the name stays when the title goes.
-    if(t.classList.contains("tm-item")) t.dataset.label = t.getAttribute("title");
+    if(t.classList.contains("tm-item") && !t.querySelector(".tm-t") && !t.dataset.label) t.dataset.label = t.getAttribute("title");
     t.removeAttribute("title");
   }, true);
 })();
@@ -6738,6 +6818,26 @@ const PracticeReady = (() => {
     showToast(r ? `Připravuji ${r.queued} písní na cvičení` : "Spuštění se nepovedlo");
     watch();
   }
+  // Songs picked by hand (a playlist's rows, the library's): what they lack is
+  // counted first; then the missing are downloaded and separated, and for
+  // those already separated the tab and the text are looked up once more.
+  async function songs(list){
+    if(!list.length){ showToast("Nic není označeno"); return false; }
+    const body = {songs: list.map(one), finish: true};
+    let d;
+    try{ d = await post("/api/practice/save-many", {...body, check: true}); }
+    catch(e){ showToast("Kontrola se nepovedla"); return false; }
+    const fin = d.finish || 0;
+    if(!d.missing && !fin){ showToast(`Všech ${d.songs} označených písní už je připraveno ve Steems`); return false; }
+    if(d.missing + fin > 3 && !confirm(`Označeno ${d.songs} písní.\n\nUž rozdělených na stopy: ${d.ready}\nChybí — stáhnout a rozdělit: ${d.missing}` +
+      (fin ? `\nJen dohledat tab a text: ${fin}` : "") + `\n\nSpustit? Poběží to na pozadí po jedné písni` +
+      (d.missing ? ` — rozdělení jedné trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h` : "") +
+      `. Zastavit se to dá tlačítkem „Připravit oblíbené na cvičení“ ve Steems.`)) return false;
+    const r = await post("/api/practice/save-many", {...body, ...opts()}).catch(() => null);
+    showToast(r ? `Připravuji ${r.queued} písní — hotové najdeš ve Steems` + (d.ready ? ` (${d.ready} už rozdělených přeskakuji)` : "") : "Spuštění se nepovedlo");
+    watch();
+    return !!r;
+  }
   function paint(d){
     const b = el("stems-prepare-favs"); if(!b) return;
     const left = d ? d.waiting + d.working : 0;
@@ -6753,7 +6853,41 @@ const PracticeReady = (() => {
     else if(d && state.mode === "steems" && el("mixer").hidden && !el("steems-list").hidden && watch.was) loadSteemsList();
     watch.was = !!(d && d.waiting + d.working > 0);
   }
-  return {song, playlist, all, watch};
+  return {song, playlist, all, songs, watch, busy: () => !!watch.was};
+})();
+// What there already is of a song — its file, its stems, its tab, its text —
+// told by the server for a whole list at once, and shown as four small marks.
+const SongHave = (() => {
+  const key = (t) => (t || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+  const one = (t) => ({title: t.title || "", artists: t.artists || "", videoId: t.videoId || "", relPath: t.relPath || "", duration: t.duration_seconds || 0});
+  // A server that cannot tell yet (it runs from before): what the page knows by itself. The text it does not know.
+  function local(songs){
+    const stems = (typeof steemsSongs !== "undefined" && steemsSongs || []).map(x => { const d = stemsDisplay(x);
+      return {a: key((d.artist || "").split(",")[0]), t: key(d.title), name: x.name, tuning: x.tuning}; });
+    return songs.map(t => {
+      const a = key((t.artists || "").split(",")[0]), tt = key(t.title);
+      const st = tt ? stems.find(x => x.t === tt && (x.a === a || (!a && !x.a))) : null;
+      return {library: !!t.relPath || isOwned(t.title, t.artists), stems: !!st || !!t.ready, name: st ? st.name : null,
+        tabs: st && Array.isArray(st.tuning) ? st.tuning.length > 0 : null, lyrics: null, queued: false};
+    });
+  }
+  async function check(songs){
+    if(!songs.length) return [];
+    try{
+      const r = await fetch("/api/practice/have", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({songs: songs.map(one)})});
+      if(r.ok){ const d = await r.json(); if(Array.isArray(d.have) && d.have.length === songs.length) return d.have; }
+    }catch(e){}
+    return local(songs);
+  }
+  // only: just the tab and the text (the library's rows say the rest themselves)
+  function marks(h, only){
+    if(!h) return "";
+    const m = (v, label, yes, no) => `<i class="${v ? "on" : v == null ? "unk" : ""}" title="${v ? yes : v == null ? label + ": zatím nevím" : no}">${label}</i>`;
+    return `<span class="have-marks">` + (only ? "" : m(h.library, "MP3", "Stažená v knihovně", "Není stažená") +
+      (h.queued && !h.stems ? `<i class="wait" title="Čeká ve frontě na rozdělení">STOPY…</i>` : m(h.stems, "STOPY", "Rozdělená na stopy (je ve Steems)", "Není rozdělená na stopy"))) +
+      `${m(h.tabs, "TAB", "Má tabulaturu", "Tabulatura zatím není")}${m(h.lyrics, "TEXT", "Má text", "Text zatím není")}</span>`;
+  }
+  return {check, marks};
 })();
 const FAV_SONGS_KEY = "spotdl-gui-fav-songs";
 const FavSongs = (() => {
@@ -9099,6 +9233,8 @@ function renderLibraryRail(mode){
   const list = el("lib-list");
   if(!list) return;
   list.innerHTML = "";
+  // A song open in Steems: the rail is about that song — what it is, and its artist's albums.
+  if(mode === "steems" && currentSteemsName){ SteemsRail.paint(list, mode); return; }
 
   RAIL_SECTIONS.forEach(sec => {
     const collapsed = railModeSection(list, sec, mode);
@@ -9509,6 +9645,94 @@ function railModeSection(list, sec, mode){
   list.appendChild(head);
   return collapsed;
 }
+
+// Beside an open mix the rail tells about that song: what plays, and every
+// album of its artist with its songs — the ones already in Steems (a click
+// opens them) and the ones that are not (ticked, they are downloaded,
+// separated and given their tab and text). The headings stay, as the way to
+// the other parts of the app.
+const SteemsRail = (() => {
+  let artist = "", data = null, err = "", busy = false, at = 0, timer = 0;
+  const sel = new Map(), open = new Set();          // videoId → track; albums unfolded by hand
+  const who = (name) => ((stemsDisplayByName(name).artist || "").split(/,|;| feat\.? | ft\.? /i)[0] || "").trim();
+  async function load(a){
+    busy = true; err = "";
+    try{
+      const r = await fetch("/api/artist/discography?name=" + encodeURIComponent(a));
+      const d = await r.json().catch(() => ({}));
+      if(a !== artist) return;
+      if(r.status === 404 && !d.albums) err = d.error === "Interpret nenalezen." ? `Kapelu „${a}“ jsem v katalogu nenašel. Pomůže „Opravit názvy“ pod mixem, nebo jméno přepiš tužkou u názvu písně.`
+        : "Seznam alb umí aplikace až po restartu serveru.";
+      else if(!r.ok) err = d.error || "Alba se nepodařilo načíst.";
+      else { data = d; at = Date.now(); }
+    }catch(e){ if(a === artist) err = "Alba se nepodařilo načíst."; }
+    finally{ busy = false; if(state.mode === "steems" && currentSteemsName) renderLibraryRail("steems"); }
+  }
+  function paint(list, mode){
+    RAIL_SECTIONS.forEach(sec => railModeSection(list, sec, mode));
+    const name = currentSteemsName, d = stemsDisplayByName(name), a = who(name);
+    if(a !== artist){ artist = a; data = null; err = ""; sel.clear(); open.clear(); at = 0; }
+    if(a && !busy && (!data || Date.now() - at > 60000) && !err) load(a);
+    clearTimeout(timer);
+    // While songs are being made ready, what is marked as there keeps up.
+    if(PracticeReady.busy()) timer = setTimeout(() => { if(state.mode === "steems" && currentSteemsName){ at = 0; renderLibraryRail("steems"); } }, 30000);
+    const box = document.createElement("div");
+    box.className = "srail";
+    const all = data ? data.albums.flatMap(x => x.tracks) : [];
+    const mine = new Set(all.filter(t => t.have && t.have.stems).map(t => t.have.name));
+    box.innerHTML = `<div class="srail-now"><div class="lib-art"></div><div class="tx"><small>Otevřeno v mixu</small><b>${escapeHtml(d.title)}</b>
+        <span>${escapeHtml(d.artist || "neznámý interpret")}${d.album ? " · " + escapeHtml(d.album) : ""}</span></div></div>` +
+      (!a ? `<div class="srail-note">U téhle písně není znát interpret — doplň ho tužkou u názvu, nebo pusť „Opravit názvy“ pod mixem.</div>`
+        : err ? `<div class="srail-note">${escapeHtml(err)}</div>`
+        : !data ? `<div class="srail-note"><span class="spinner"></span> Hledám alba — ${escapeHtml(a)}…</div>`
+        : `<div class="srail-sum"><b>${escapeHtml(data.artist)}</b> · ${data.albums.length} alb · ve Steems máš ${mine.size} písní</div>
+           <div class="srail-sel" ${sel.size ? "" : "hidden"}><b>Označeno ${sel.size}</b><button type="button" data-a="go" title="Označené písně stáhne, rozdělí na stopy a dohledá k nim tab a text">Stáhnout a rozdělit</button><button type="button" data-a="none">Zrušit</button></div>` +
+          data.albums.map((al, i) => {
+            const rest = al.kind && al.kind !== "studio" && (i === 0 || data.albums[i - 1].kind === "studio") ? `<div class="srail-kind">Živě, výběry a další</div>` : "";
+            const have = al.tracks.filter(t => t.have && t.have.stems).length, cur = al.tracks.some(t => t.have && t.have.name === name);
+            const first = data.albums.findIndex(x => x.tracks.some(t => t.have && t.have.name === name));
+            const shown = open.has(al.browseId) || (cur && i === first);
+            return rest + `<div class="srail-al${shown ? " open" : ""}${cur ? " cur" : ""}" data-al="${escapeHtml(al.browseId)}">
+              <button type="button" class="srail-al-head"><span class="chev">${icon("chevron", 10)}</span>
+                <span class="art" style="${al.thumbnail ? `background-image:url('${thumbUrl(al.thumbnail)}')` : ""}"></span>
+                <span class="al-nm"><b>${escapeHtml(al.title || "")}</b><small>${escapeHtml(String(al.year || ""))} · máš ${have} z ${al.tracks.length}</small></span></button>` +
+              (shown ? (have < al.tracks.length ? `<button type="button" class="srail-miss" title="Označí písně tohohle alba, které ještě nemáš">označit, co chybí (${al.tracks.length - have})</button>` : "") +
+                al.tracks.map((t, k) => { const h = t.have || {}, on = !!h.stems;
+                  return `<div class="srail-tr${on ? " have" : ""}${h.name === name ? " now" : ""}${sel.has(t.videoId) ? " sel" : ""}" data-k="${k}" title="${on ? "Je ve Steems — klik ji otevře v mixu" : h.queued ? "Čeká ve frontě na rozdělení" : "Nemáš ji — zaškrtni a nech stáhnout a rozdělit"}">
+                    ${on ? `<span class="ok">${icon("check", 11)}</span>` : `<input type="checkbox" ${sel.has(t.videoId) ? "checked" : ""} ${h.queued ? "disabled" : ""}>`}
+                    <span class="t">${escapeHtml(t.title)}</span>${on ? SongHave.marks(h, true) : h.queued ? `<span class="have-marks"><i class="wait">ČEKÁ</i></span>` : ""}</div>`; }).join("") : "") + `</div>`;
+          }).join(""));
+    list.appendChild(box);
+    StemsArt.paint(box.querySelector(".srail-now .lib-art"), name);
+    if(!data) return;
+    box.querySelectorAll(".srail-al").forEach(node => {
+      const al = data.albums.find(x => x.browseId === node.dataset.al);
+      node.querySelector(".srail-al-head").onclick = () => {
+        // the album of the open song is shown by itself; folding it is remembered the other way round
+        if(node.classList.contains("open")){ open.delete(al.browseId); node.classList.remove("open"); node.querySelectorAll(".srail-tr,.srail-miss").forEach(x => x.remove()); }
+        else { open.add(al.browseId); renderLibraryRail("steems"); }
+      };
+      const miss = node.querySelector(".srail-miss");
+      if(miss) miss.onclick = () => { al.tracks.forEach(t => { if(!(t.have && (t.have.stems || t.have.queued)) && t.videoId) sel.set(t.videoId, t); }); open.add(al.browseId); renderLibraryRail("steems"); };
+      node.querySelectorAll(".srail-tr").forEach(row => {
+        const t = al.tracks[+row.dataset.k];
+        row.onclick = (e) => {
+          if(t.have && t.have.stems){ if(t.have.name !== name) loadMixerSong(t.have.name); return; }
+          if(!t.videoId || (t.have && t.have.queued)) return;
+          sel.has(t.videoId) ? sel.delete(t.videoId) : sel.set(t.videoId, t);
+          open.add(al.browseId);
+          renderLibraryRail("steems");
+        };
+      });
+    });
+    const bar = box.querySelector(".srail-sel");
+    bar.querySelector('[data-a="none"]').onclick = () => { sel.clear(); renderLibraryRail("steems"); };
+    bar.querySelector('[data-a="go"]').onclick = async () => {
+      if(await PracticeReady.songs([...sel.values()])){ sel.clear(); at = 0; setTimeout(() => renderLibraryRail("steems"), 3000); }
+    };
+  }
+  return {paint, stale: () => { at = 0; }};
+})();
 
 // What the rail shows below the divider \u2014 the same three lists the player's
 // buttons open (queue, history) plus favourites \u2014 now always on, not just
@@ -10152,6 +10376,28 @@ let librarySummary = null;
 // Several tracks picked at once (the number cell's checkbox, ⌘/Ctrl-click,
 // ⇧-click for a range) — then opened in the mixer, or separated, together.
 const libSel = new Set();
+// What the library's songs already have — asked once for the list that is shown, and kept while it stays the same.
+const LibHave = (() => {
+  let sig = "", at = 0, map = new Map(), busy = false;
+  const song = (e) => { const fb = libraryTrackMeta(e.name, e.rel);
+    return {title: e.title || fb.title, artists: e.artist || fb.artists || "", relPath: e.rel, ready: !!(e.stems && e.stems.state === "ready")}; };
+  function fill(tracks){
+    const list = el("library-list"); if(!list) return;
+    list.querySelectorAll(".lib-trow[data-have-rel]").forEach(r => { const slot = r.querySelector(".have-slot"); if(slot) slot.innerHTML = SongHave.marks(map.get(r.dataset.haveRel), true); });
+    const sum = list.querySelector(".lib-havebar span"), known = tracks.map(t => map.get(t.rel)).filter(Boolean), done = known.filter(h => h.stems).length;
+    if(sum) sum.textContent = known.length ? `${known.length} písní · ${done} rozdělených na stopy · ${known.length - done} chybí` : "Zjišťuji, co už máš…";
+    const b = list.querySelector(".lib-havebar button"); if(b) b.hidden = !known.length || known.length === done;
+  }
+  function ask(tracks){
+    fill(tracks);
+    const s = tracks.map(t => t.rel).join("|");
+    if(busy || (s === sig && Date.now() - at < 30000)) return;
+    busy = true;
+    SongHave.check(tracks.map(song)).then(h => { map = new Map(tracks.map((t, i) => [t.rel, h[i]])); sig = s; at = Date.now(); })
+      .catch(() => {}).finally(() => { busy = false; fill(tracks); });
+  }
+  return {ask, song, missing: (tracks) => tracks.filter(t => { const h = map.get(t.rel); return h && !h.stems; }), stale: () => { at = 0; }};
+})();
 let libSelAnchor = null;
 
 function renderLibraryList(entries, summary){
@@ -10403,12 +10649,28 @@ function paintLibraryTable(){
       <button type="button" class="btn secondary" data-s="all">Označit vše (${tracks.length})</button>
       <button type="button" class="btn" data-s="mix">${icon("fader", 13)} Otevřít v mixu ▾</button>
       <button type="button" class="btn secondary" data-s="stems">Rozdělit na stopy</button>
+      <button type="button" class="btn secondary" data-s="prep" title="Označené písně připraví na cvičení: co není rozdělené, rozdělí na stopy, a dohledá tab a text. Co už je hotové, přeskočí.">Připravit na cvičení</button>
       <button type="button" class="btn secondary" data-s="none">Zrušit</button>`;
     bar.querySelector('[data-s="all"]').onclick = () => { tracks.forEach(t => libSel.add(t.rel)); paintLibraryTable(); };
     bar.querySelector('[data-s="none"]').onclick = () => { libSel.clear(); paintLibraryTable(); };
     bar.querySelector('[data-s="mix"]').onclick = (e) => openMultiMixMenu(e.currentTarget);
     bar.querySelector('[data-s="stems"]').onclick = () => separateMany([...libSel]);
+    bar.querySelector('[data-s="prep"]').onclick = async () => {
+      if(await PracticeReady.songs(tracks.filter(t => libSel.has(t.rel)).map(LibHave.song))){ libSel.clear(); LibHave.stale(); paintLibraryTable(); }
+    };
     list.appendChild(bar);
+  }
+  if(tracks.length){
+    const hb = document.createElement("div");
+    hb.className = "lib-havebar";
+    hb.innerHTML = `<span></span><button type="button" hidden title="Označí písně, které ještě nejsou rozdělené na stopy — pak je „Připravit na cvičení“ dodělá">Označit, co chybí</button>`;
+    hb.querySelector("button").onclick = () => {
+      const miss = LibHave.missing(tracks);
+      libSel.clear(); miss.forEach(t => libSel.add(t.rel));
+      paintLibraryTable();
+      showToast(miss.length ? `Označeno ${miss.length} písní, které ještě nejsou rozdělené` : "Všechno tady už je rozdělené na stopy");
+    };
+    list.appendChild(hb);
   }
   const current = Player.getCurrent();
   tracks.forEach((entry, i) => {
@@ -10418,12 +10680,14 @@ function paintLibraryTable(){
     const row = document.createElement("div");
     row.className = "lib-trow" + (current && current.relPath === entry.rel ? " playing" : "") + (libSel.has(entry.rel) ? " sel" : "");
     NowMark.tag(row, {rel: entry.rel});
+    row.dataset.haveRel = entry.rel;
     row.innerHTML = `
       <span class="c-idx"><span class="n">${i + 1}</span><input type="checkbox" class="pick" title="Označit (⌘/Ctrl + klik, ⇧ + klik = rozsah)" ${libSel.has(entry.rel) ? "checked" : ""}></span>
       <span class="c-title">
         <span class="art">${icon("note", 14)}</span>
         <span class="tx">${escapeHtml(title)}</span>
         <span class="stems-slot">${StemsQueue.badgeHtml(entry.rel, entry.stems)}</span>
+        <span class="have-slot"></span>
       </span>
       <span class="c-artist">${escapeHtml(artist)}</span>
       <span class="c-album">${escapeHtml(entry.album || "")}${entry.folder && entry.folder !== "Songs" ? `<small class="from-pl" title="Leží v playlistu „${escapeHtml(entry.folder)}“">${entry.album ? " · " : ""}▸ ${escapeHtml(entry.folder)}</small>` : ""}${entry.riff ? `<small class="from-pl" title="Riff: nástroj · tempo · tónina · ladění${entry.riff.midi ? " · má MIDI" : ""}"> · ${escapeHtml([entry.riff.instrument, entry.riff.bpm ? Math.round(entry.riff.bpm * 10) / 10 + " BPM" : "", entry.riff.key, entry.riff.tuning, entry.riff.midi ? "MIDI" : ""].filter(Boolean).join(" · "))}</small>` : ""}</span>
@@ -10496,6 +10760,7 @@ function paintLibraryTable(){
     }
     list.appendChild(row);
   });
+  if(tracks.length) LibHave.ask(tracks);
 
   // Everything else in the folder — opens in its own Mac app on click.
   if(midis.length){
@@ -11849,6 +12114,7 @@ const UnderList = (() => {
     const d = (s) => stemsDisplay(s), txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
     const byArtist = (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).title, d(b).title);
     return steemsSongs.slice().sort(sortBy === "title" ? (a, b) => txt(d(a).title, d(b).title) || byArtist(a, b)
+      : sortBy === "album" ? (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).album, d(b).album) || txt(d(a).title, d(b).title)
       : sortBy === "tuning" ? (a, b) => (low(a) - low(b)) || txt(tun(a), tun(b)) || byArtist(a, b) : byArtist);
   }
   function paint(){
@@ -11860,13 +12126,14 @@ const UnderList = (() => {
     const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
     const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? "A–Z" : ""}</span></button>`;
     h.innerHTML = `<h3>Další písně ve Steems (${order.length}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
-        ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}</h3>
-      <div class="lib-table"><div class="lib-thead"><span class="c-idx">#</span>${head("title", "Název")}${head("artist", "Kapela")}${head("tuning", "Ladění")}
+        ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}
+        ${namesLeft || namesBusy ? `<button type="button" id="under-names" title="Projde písně a dá jim oficiální název: kapela, píseň a album podle hudebního katalogu, bez závorek a nápisů z videí. K tomu dohledá tab a text. Jména, která jsi psal ručně, nechá být.">${namesBusy || `Opravit názvy (${namesLeft})`}</button>` : ""}</h3>
+      <div class="lib-table"><div class="lib-thead"><span class="c-idx">#</span>${head("title", "Název")}${head("artist", "Kapela")}${head("album", "Album")}${head("tuning", "Ladění")}
         <span class="c-time">${icon("clock", 13)}</span><span class="c-act"></span></div>` +
       order.map((s, i) => { const d = stemsDisplay(s);
         return `<div class="lib-trow${s.name === Mixer.currentSong() ? " cur" : ""}${s.name === pv ? " pv" : ""}" data-name="${escapeHtml(s.name)}">
           <span class="c-idx">${i + 1}</span><span class="c-title"><span class="tx">${escapeHtml(d.title)}</span></span>
-          <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-tun">${escapeHtml(tun(s))}</span>
+          <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-album">${escapeHtml(d.album || "")}</span><span class="c-tun">${escapeHtml(tun(s))}</span>
           <span class="c-time">${s.duration ? fmtDur(s.duration) : ""}</span>
           <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("") + `</div>`;
     h.querySelectorAll("button[data-lsort]").forEach(b => b.onclick = () => { sortBy = b.dataset.lsort; try{ localStorage.setItem("spotdl-sort:under", sortBy); }catch(e){} paint(); });
@@ -11874,6 +12141,30 @@ const UnderList = (() => {
       r.onclick = (e) => { if(e.target.closest("button")) openMix(r.dataset.name); else preview(r.dataset.name); };
     });
     const tb = h.querySelector("#under-tunings"); if(tb) tb.onclick = fillTunings;
+    const nb = h.querySelector("#under-names"); if(nb) nb.onclick = fixNames;
+  }
+  // Names as they are officially written — how many songs still wait for theirs, and the run that gives it.
+  let namesLeft = 0, namesBusy = "", namesTimer = 0;
+  async function namesState(){
+    clearTimeout(namesTimer);
+    let d = null; try{ const r = await fetch("/api/stems-names"); d = r.ok ? await r.json() : null; }catch(e){}
+    if(!d) return;
+    const was = namesBusy;
+    namesLeft = d.left || 0;
+    namesBusy = d.running ? `Opravuji názvy… ${d.done}/${d.total}` : "";
+    if(d.running) namesTimer = setTimeout(namesState, 3000);
+    else if(was){
+      try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){}
+      showToast(`Názvy opraveny: ${d.official} podle katalogu, ${d.tidied} jen očištěno` + (d.failed ? `, ${d.failed} se nepodařilo ověřit` : ""));
+      if(typeof SteemsRail !== "undefined") SteemsRail.stale();
+      if(state.mode === "steems") renderLibraryRail("steems");
+    }
+    paint();
+  }
+  async function fixNames(){
+    await fetch("/api/stems-names/fix", {method: "POST"}).catch(() => {});
+    namesBusy = "Opravuji názvy…"; paint();
+    namesState();
   }
   async function preview(name){
     const s = steemsSongs.find(x => x.name === name); if(!s) return;
@@ -11900,6 +12191,7 @@ const UnderList = (() => {
     tick();
   }
   async function refresh(){
+    namesState();
     if(!steemsSongs.length){ try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){} }
     paint();
   }
@@ -12151,6 +12443,7 @@ function loadMixerSong(name, opts = {}){
   });
   currentSteemsName = name;
   showSteemsHero(name);
+  if(state.mode === "steems") renderLibraryRail("steems");
   if(!opts.force && mixerHeld.name === name && mixerHeld.state !== "failed" && Mixer.currentSong() === name){
     el("steems-list").hidden = true;
     el("steems-list-title").hidden = true;
@@ -12881,9 +13174,11 @@ Tunings.load();
 // My tuning — what the guitar in the player's hands is actually tuned to,
 // read from its open strings, and from that a proposal: by how many
 // semitones a song's guitar and bass would have to move to sit where the
-// guitar is. Nothing is moved by itself: the proposal is shown, with what
-// it would touch, and applied only when confirmed. Drums and vocals are
-// never moved — a voice two tones down is another singer.
+// guitar is. In the Steems mix a song whose tuning is known follows the
+// guitar by itself (and goes back with "Originál"); the proposal — shown,
+// with what it would touch, applied when confirmed — is for the rest and for
+// a shift of one's own. Drums and vocals are never moved — a voice two tones
+// down is another singer.
 // Kept in this browser (pick-my-tuning) and shared by the tuner, the mix,
 // the tabs and the Performance Analyzer.
 // ======================================================================
@@ -12892,7 +13187,9 @@ const MyTuning = (() => {
   const NN = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
   const name = (m) => NN[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
   const get = () => { try{ const v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && Array.isArray(v.midi) && v.midi.length ? v : null; }catch(e){ return null; } };
-  const set = (midi) => { const v = {midi, strings: midi.map(name), at: Date.now()}; try{ localStorage.setItem(KEY, JSON.stringify(v)); }catch(e){} return v; };
+  const listeners = new Set();
+  const set = (midi) => { const v = {midi, strings: midi.map(name), at: Date.now()}; try{ localStorage.setItem(KEY, JSON.stringify(v)); }catch(e){}
+    listeners.forEach(f => { try{ f(v); }catch(e){ console.error(e); } }); return v; };
   // The name of a tuning the app knows, if these strings are one.
   const known = (midi) => { const t = Tunings.all().find(x => x.strings.every(Tunings.valid) && x.strings.map(Tunings.midi).join() === midi.join()); return t ? t.name : null; };
   const label = (midi) => midi.map(name).join(" ") + (known(midi) ? ` — ${known(midi)}` : "");
@@ -12911,6 +13208,23 @@ const MyTuning = (() => {
     Object.entries(count).forEach(([d, c]) => { if(c > best || (c === best && +d === diffs[n - 1])){ best = c; shift = +d; } });
     const odd = diffs.map((d, i) => ({string: i, extra: d - shift})).filter(x => x.extra !== 0);
     return {shift, uniform: !odd.length, odd, strings: n, sameCount: mine.length === song.length};
+  }
+
+  // The same between tunings that need not have as many strings (a six-string
+  // and a seven, a guitar and a bass): the shorter is tried along the longer,
+  // octaves aside, and where most strings agree wins — the smaller move among
+  // equals. This is what a song is moved by on its own.
+  function fit(mine, song){
+    const short = mine.length <= song.length ? mine : song, long = short === mine ? song : mine;
+    let best = null;
+    for(let k = 0; k + short.length <= long.length; k++){
+      const part = long.slice(k, k + short.length), pr = short === mine ? propose(short, part) : propose(part, short);
+      if(!pr) continue;
+      let shift = ((pr.shift % 12) + 12) % 12; if(shift > 6) shift -= 12;
+      const agree = pr.strings - pr.odd.length;
+      if(!best || agree > best.agree || (agree === best.agree && Math.abs(shift) < Math.abs(best.shift))) best = {shift, agree, uniform: pr.uniform, strings: pr.strings};
+    }
+    return best;
   }
 
   // ---- reading the open strings: a pitch held steady for a moment is a string
@@ -13041,7 +13355,7 @@ const MyTuning = (() => {
   }
   // Which stems are never moved: the kit and the voices.
   const fixed = (label) => /drum|kick|snare|hat|cymbal|tom|perc|bic[ií]|vocal|voice|vox|zp[eě]v|metron|click/i.test(label || "");
-  return {get, set, detect, propose, open, label, name, fixed};
+  return {get, set, detect, propose, fit, open, label, name, fixed, onChange: (f) => listeners.add(f)};
 })();
 
 // A recording at another pitch, same length: rendered once by the stretch
@@ -14761,6 +15075,7 @@ const Mixer = (() => {
   }
 
   el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
+  el("nm-lyr-close").onclick = () => { if(lyricsOn) toggleLyrics(); };
   el("nm-lyr-mode").onclick = () => {
     runMode = !runMode;
     try{ localStorage.setItem("pick-lyrics-run", runMode ? "1" : "0"); }catch(e){}
@@ -14878,6 +15193,24 @@ const Mixer = (() => {
     const KEY = "spotdl-gui-tuner-ladeni";
     const KEY_CUSTOM = "spotdl-gui-tuner-custom-struny";
     let mod = null, node = null;
+    // What the tuner is set to by hand is the guitar's own tuning — the songs
+    // follow it. What a tab put it on (tabSig) is the song's, and is not.
+    let tabSig = null;
+    const stringsNow = () => { const st = currentStrings(); return st && st.length && st.every(Tunings.valid) ? st.map(Tunings.midi) : null; };
+    function mineFromTuner(force){
+      const midi = stringsNow();
+      if(!midi) return;
+      if(!force && tabSig === midi.join()) return;
+      tabSig = null;
+      const cur = MyTuning.get();
+      if(cur && cur.midi.join() === midi.join()){ if(force) showToast(`Moje ladění: ${MyTuning.label(midi)}`); return; }
+      MyTuning.set(midi);
+      showToast(`Moje ladění: ${MyTuning.label(midi)} — písně ve Steems se na něj přeladí samy`);
+    }
+    function showMine(mine){
+      const t = Tunings.BUILTIN.find(x => x.strings.map(Tunings.midi).join() === mine.midi.join());
+      applyTuning(t || {id: "moje-kytara", strings: mine.strings});
+    }
 
     // A tab that is tuned to something other than standard should open the
     // tuner on that tuning. The tab lists strings high to low as MIDI notes;
@@ -14921,13 +15254,20 @@ const Mixer = (() => {
             const cs = node.getAttribute("custom-struny");
             if(cs) localStorage.setItem(KEY_CUSTOM, cs);
           }catch(e){}
+          try{ mineFromTuner(); }catch(e){ console.error(e); }
         }).observe(node, {attributes: true, attributeFilter: ["ladeni", "custom-struny"]});
       }
-      const fromTab = tuningFromTab();
+      // The guitar's own tuning, once known — the song comes to it. A song kept
+      // in its original tuning (or no tuning of one's own yet) opens the tuner
+      // on the tab's, to tune the guitar to the song.
+      const mine = MyTuning.get(), orig = (() => { try{ return localStorage.getItem("pick-tune-mode:" + (currentSongName || "")) === "orig"; }catch(e){ return false; } })();
+      const fromTab = mine && !orig ? null : tuningFromTab();
       if(fromTab){
         if(fromTab.struny) node.setAttribute("custom-struny", fromTab.struny);
         node.setAttribute("ladeni", fromTab.id);
-      }
+        const now = stringsNow();
+        tabSig = now ? now.join() : null;
+      } else if(mine) showMine(mine);
       FloatTuner.open();
     }
 
@@ -14951,10 +15291,12 @@ const Mixer = (() => {
           </select>
           <button type="button" data-a="save" title="Uložit právě nastavené ladění pod vlastním jménem">Uložit…</button>
           <button type="button" data-a="detect" title="Zahraj prázdné struny — aplikace pozná, v čem jsi naladěný">Zjistit z kytary</button>
-          <button type="button" data-a="song" title="Navrhne, o kolik posunout kytaru a basu otevřené písně, aby seděla na tvoje ladění. Nic se nezmění bez potvrzení.">Přeladit skladbu…</button>
-          <div class="mine-now">${MyTuning.get() ? "Moje kytara: <b>" + escapeHtml(MyTuning.label(MyTuning.get().midi)) + "</b>" : "Ladění tvé kytary aplikace zatím nezná."}</div>`;
+          <button type="button" data-a="mine" title="Ladění, které je v ladičce právě vybrané, je ladění mé kytary — písně ve Steems se na něj přeladí samy">Tohle je moje ladění</button>
+          <button type="button" data-a="song" title="Ladění skladby vybrat ručně nebo změnit posun otevřené písně">Přeladit skladbu…</button>
+          <div class="mine-now">${MyTuning.get() ? "Moje kytara: <b>" + escapeHtml(MyTuning.label(MyTuning.get().midi)) + "</b> — písně ve Steems se na ni přelaďují samy (kytary a basa; bicí a zpěv ne)." : "Vyber v ladičce ladění své kytary — písně ve Steems se na něj pak přeladí samy."}</div>`;
         bar.querySelector("select").onchange = (e) => { const t = Tunings.find(e.target.value); if(t) applyTuning(t); };
         bar.querySelector('[data-a="save"]').onclick = saveCurrent;
+        bar.querySelector('[data-a="mine"]').onclick = () => { if(stringsNow()) mineFromTuner(true); else showToast("Nejdřív v ladičce vyber ladění"); };
         bar.querySelector('[data-a="detect"]').onclick = async () => {
           const v = await MyTuning.detect();
           if(v){ applyTuning({id: "moje-kytara", strings: v.strings}); paint(); }      // the tuner goes to what was heard
@@ -14962,6 +15304,7 @@ const Mixer = (() => {
         bar.querySelector('[data-a="song"]').onclick = () => { if(!channels.length){ showToast("Nejdřív otevři píseň ve Steems — pak ji půjde přeladit"); return; } proposeMyTuning(); };
       };
       Tunings.onChange(paint);
+      MyTuning.onChange(paint);
       paint();
       return bar;
     }
@@ -15080,7 +15423,7 @@ const Mixer = (() => {
     guitar_solo:   {c:"#f2c96a", icon:"guitar"},
     guitar_rhythm: {c:"#c99a3a", icon:"guitar"},
   };
-  const STEM_LABEL = {guitar_solo: "Moises Lead", guitar_rhythm: "Moises Rhythm"};
+  const STEM_LABEL = {guitar_solo: "Kytara sólo", guitar_rhythm: "Kytara rytmus"};
   function stemStyle(name){
     return STEM_STYLE[(name || "").toLowerCase()] || STEM_STYLE.other;
   }
@@ -15521,6 +15864,7 @@ const Mixer = (() => {
         sg.tuning = tn.slice();
         fetch(`/api/stems/${encodeURIComponent(nm)}/tuning`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tuning: tn})}).catch(() => {});
       } }
+    try{ autoTune(); }catch(e){ console.error("tuning:", e); }
     const sel = el("nm-tabtop-select");
     const guitarOpts = (tabMeta && Array.isArray(tabMeta.tracks) ? tabMeta.tracks : [])
       .map((t, k) => ({t, k})).filter(({t}) => /guitar|bass/i.test(t.instrument || ""));
@@ -15673,20 +16017,31 @@ const Mixer = (() => {
     try{ tabLocked = localStorage.getItem(tabLockKey()) === "1"; }catch(e){ tabLocked = false; }
     const b = el("nm-tabtop-lock");
     b.classList.toggle("on", tabLocked);
-    b.innerHTML = icon(tabLocked ? "lock" : "unlock", 13);
-    b.dataset.label = tabLocked ? "Odemknout" : "Zamknout";
-    b.title = tabLocked ? "Synchronizace zamčená — klik odemkne" : "Zamknout synchronizaci — tažení ani kolečko po tabu ji pak nerozhodí";
+    b.innerHTML = tabLocked ? icon("lock", 13) + "<span>Lock sync</span>" : "<span>Sync</span>";
+    b.title = tabLocked ? "Tab je zamčený na písni — tažení ani kolečko ho neposunou. Klik odemkne."
+      : "Posuň tab tam, kam patří (takt, který právě zní, mezi červené šipky), a klikni — tab se k písni připne a zamkne.";
     TAB_LOCK_CTLS.forEach(id => { const n = el(id); if(n){ n.classList.toggle("tab-locked-ctl", tabLocked); n.disabled = tabLocked; } });
   }
+  // Open → the tab moved by hand is pinned to the song's time, and locked; locked → open again.
   el("nm-tabtop-lock").onclick = () => {
-    try{ localStorage.setItem(tabLockKey(), tabLocked ? "0" : "1"); }catch(e){}
-    if(!tabLocked && tabHeld){ holdTab(false); syncTabToTime(currentTime()); }
+    const locking = !tabLocked;
+    let said = "Tab odemčený — posuň ho, kam potřebuješ, a klikni na Sync";
+    if(locking){
+      said = "Tab zamčený";
+      if(tabHeld){
+        const now = currentTime(), {bar, t} = tabBarAtCam();
+        holdTab(false);
+        setTabOffset(now - t);
+        said = `Takt ${bar + 1} = ${fmtDur(now)} — tab připnutý k písni a zamčený`;
+      }
+    }
+    try{ localStorage.setItem(tabLockKey(), locking ? "1" : "0"); }catch(e){}
     paintTabLock();
-    showToast(tabLocked ? "Synchronizace tabu zamčená" : "Synchronizace odemčená");
+    showToast(said);
   };
   function holdTab(on){
     tabHeld = !!on;
-    el("nm-tabtop-sync").classList.toggle("armed", tabHeld);
+    el("nm-tabtop-lock").classList.toggle("armed", tabHeld);
     el("nm-tabtop-barlabel").classList.toggle("held", tabHeld);
     if(tabHeld) el("nm-tabtop-barlabel").textContent = "Takt " + (tabBarAtCam().bar + 1) + " · čeká na Sync";
   }
@@ -16062,7 +16417,18 @@ const Mixer = (() => {
     async function pick(c, anchor){
       try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
       if(!models.length){ showToast("V katalogu zatím nejsou žádné NAM profily"); return; }
-      InstrPick.open(anchor, groups, c.fx.state.amp ? c.fx.state.amp.file : "", (id) => set(c, id));
+      InstrPick.open(anchor, groups, c.fx.state.amp ? c.fx.state.amp.file : "", (id) => set(c, id), `Zesilovač (NAM) — ${stemLabel(c.stem)}`);
+    }
+    // The same list for the guitar that is played live: whatever is picked is loaded as its amp.
+    async function pickLive(anchor){
+      try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
+      if(!models.length){ showToast("V katalogu zatím nejsou žádné NAM profily — přidej je v nastavení kytary"); return; }
+      const now = models.find(m => m.nazev === Guitar.state.ampName);
+      InstrPick.open(anchor, groups, now ? now.id : "", async (id) => {
+        const m = models.find(x => x.id === id);
+        if(m){ await ampBrowseLoad({file: m.id, name: m.nazev}); return; }
+        await Amp.unload(); showToast("Zesilovač vypnut"); renderGuitarStrip(); queueSessionSave();
+      }, "Zesilovač (NAM) — živá kytara");
     }
     async function step(c, d){
       try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
@@ -16077,7 +16443,7 @@ const Mixer = (() => {
       await Midi.fromAudio(c, m);
       if(m.midi.notes.length && !c.muted){ c.muted = true; applyGains(); queueSessionSave(); renderTimeline(); showToast(`„${stemLabel(c.stem)}“ je ztlumená — hraje ji nástroj; ten změníš šipkami na nové MIDI stopě`); }
     }
-    return {wants, label, pick, step, toInstrument};
+    return {wants, label, pick, pickLive, step, toInstrument};
   })();
 
   // ---- the hits of the kit: a lane of lines where each stroke of the drum
@@ -18024,12 +18390,11 @@ const Mixer = (() => {
     const clipOn = !!selClipChannel();
     const wasOpen = TMenu.openIn(bar);
     bar.innerHTML = `
-      ${menu("tracks", "stems", "Stopy", "Stopy — přidat audio nebo MIDI stopu, hrát na klávesnici, Moises, skryté stopy", "Stopy", `
+      ${menu("tracks", "stems", "Stopy", "Stopy — přidat audio nebo MIDI stopu, hrát na klávesnici, skryté stopy", "Stopy", `
         <button type="button" class="tm-item" id="nm-addtrack" title="Nová stopa ze souboru — libovolný audio soubor z počítače">${icon("fileAdd", 15)}<span class="tm-t">Nová audio stopa ze souboru…</span></button>
         <button type="button" class="tm-item" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("piano", 15)}<span class="tm-t">Nová MIDI stopa</span></button>
         <button type="button" class="tm-item ${Midi.keyboardOn() ? "on" : ""}" data-stay id="nm-midikbd" title="Hrát na klávesnici počítače (A W S E D F T G Z H U J K = C4…C5, čárka/tečka = oktáva) — vypne ostatní zkratky">${icon("keyboard", 15)}<span class="tm-t">Hrát na klávesnici počítače</span></button>
         <hr>
-        <button type="button" class="tm-item" id="nm-moises" title="Moises — rozdělit kytaru na sólo a rytmus (příprava k nahrání a automatický import výsledků)">${icon("moises", 15)}<span class="tm-t">Moises — sólo a rytmus…</span></button>
         ${hiddenChannels.length ? `<button type="button" class="tm-item" data-stay id="nm-hidden-btn" title="Vrátit stopy odebrané křížkem">${icon("eyeOff", 15)}<span class="tm-t">Skryté stopy</span><span class="tm-k">${hiddenChannels.length}</span></button>` : ""}`)}
       <span class="sep"></span>
       <span class="grp">
@@ -18089,7 +18454,6 @@ const Mixer = (() => {
     if(rs) rs.onclick = restoreOriginal;
     const hb = bar.querySelector("#nm-hidden-btn");
     if(hb) hb.onclick = (e) => openHiddenMenu(e.currentTarget);
-    bar.querySelector("#nm-moises").onclick = () => MoisesPanel.open();
     TMenu.wire(bar);
     if(wasOpen) TMenu.open(bar.querySelector(`[data-tmenu="${wasOpen}"]`));
     paintEditStatus();
@@ -18944,6 +19308,8 @@ const Mixer = (() => {
     // A stem's pitch was left shifted from last time — get the stretch
     // nodes ready before anything plays, the same as touching the slider
     // would, so it doesn't drift for the first few seconds while they spin up.
+    try{ autoTrim(); }catch(e){ console.error("trim:", e); }
+    try{ autoTune({load: true}); }catch(e){ console.error("tuning:", e); }
     if(channels.some(c => (c.pitchRate || 1) !== 1)) requestTempoPitch();
     // Tempo: the server's tracker runs on the isolated drums stem and returns
     // real beat *times*, so the grid follows tempo drift instead of
@@ -20808,22 +21174,120 @@ const Mixer = (() => {
   // ---- the song moved to the player's guitar: every stem but the kit and the
   // voices, by the shift the open strings and the song's tuning give — shown
   // first, applied only when confirmed.
+  // A song opened with every fader where it starts (0 dB) plays as loud as
+  // the record was mastered — the sum of its stems sits at the very top of
+  // the meters and clips as soon as anything is added. So the loudest moment
+  // of the sum is found, and all faders come down together by what it takes
+  // to leave room (about −5 dB under full scale). Faders that were ever moved
+  // by hand are a mix of one's own, and are left alone.
+  function autoTrim(){
+    const live = channels.filter(c => c.buffer && !c.muted);
+    if(!live.length || channels.some(c => Math.abs((c.faderValue == null ? 1 : c.faderValue) - 1) > 0.001)) return;
+    const n = Math.min(...live.map(c => c.buffer.length));
+    let peak = 0;
+    for(let ch = 0; ch < 2; ch++){
+      const data = live.map(c => c.buffer.getChannelData(Math.min(ch, c.buffer.numberOfChannels - 1)));
+      for(let i = 0; i < n; i += 2){
+        let v = 0;
+        for(let k = 0; k < data.length; k++) v += data[k][i];
+        if(v < 0) v = -v;
+        if(v > peak) peak = v;
+      }
+    }
+    const g = Math.min(1, 0.56 / (peak || 1));
+    if(g > 0.97) return;
+    const db = Math.round(20 * Math.log10(g) * 2) / 2, lin = Math.pow(10, db / 20);
+    channels.forEach(c => { c.faderValue = lin; });
+    showToast(`Fadery staženy o ${String(db).replace("-", "−").replace(".", ",")} dB, aby mix neklipoval`);
+  }
+  // What follows the guitar: every stem but the kit, the voices and what was played into the song here.
+  const tonalChannels = () => channels.filter(c => !MyTuning.fixed(stemLabel(c.stem) + " " + c.stem) && !/^take-/.test(c.stem));
+  // How this song stands to the guitar: "" follows it, "orig" stays as recorded, "manual:n" is a shift of one's own.
+  const tuneModeKey = () => "pick-tune-mode:" + (currentSongName || "");
+  const tuneMode = () => { try{ return localStorage.getItem(tuneModeKey()) || ""; }catch(e){ return ""; } };
+  const setTuneMode = (v) => { try{ v ? localStorage.setItem(tuneModeKey(), v) : localStorage.removeItem(tuneModeKey()); }catch(e){} };
+  // The song's own tuning, low → high: from its tab, or as kept with its stems.
+  function songTuning(){
+    const tb = tabs[0], orig = tb && (tb.data._orig || tb.data).tuning;
+    if(Array.isArray(orig) && orig.length) return {midi: orig.slice().reverse().map(Math.round), from: "tab"};
+    const sg = steemsSongs.find(x => x.name === currentSongName);
+    if(sg && Array.isArray(sg.tuning) && sg.tuning.length) return {midi: sg.tuning.slice().reverse().map(Math.round), from: "kept"};
+    return null;
+  }
+  const tuneName = (midi) => (describeTuning(midi.slice().reverse()) || {}).name || "";
+  const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n);
+  function paintTune(){
+    const b = el("nm-mytune"), o = el("nm-tune-orig"), cap = el("nm-tune-cap");
+    const on = channels.length > 0, mode = on ? tuneMode() : "", mine = MyTuning.get(), st = on ? songTuning() : null;
+    const tonal = on ? tonalChannels() : [], sh = tonal.length ? rateToSemitones(tonal[0].pitchRate || 1) : 0;
+    b.querySelector(".bl").textContent = "Moje ladění" + (sh ? " " + signed(sh) : "");
+    b.classList.toggle("active", !!sh);
+    o.hidden = !on || !(mine || sh || mode);
+    o.classList.toggle("active", mode === "orig");
+    cap.textContent = !on || !mine ? "TÓNINA (půltóny)" : mode === "orig" ? "ORIGINÁLNÍ LADĚNÍ"
+      : !st ? "LADĚNÍ SKLADBY NEZNÁM" : tuneName(st.midi) === tuneName(mine.midi) ? `${tuneName(st.midi)} — JAKO TVOJE KYTARA` : `${tuneName(st.midi)} → ${tuneName(mine.midi)}`;
+    cap.title = !on || !mine ? "" : mode === "orig" ? "Píseň hraje tak, jak byla nahraná. Tlačítko Originál ji zase přeladí na tvoji kytaru."
+      : !st ? "K písni není tab, takže aplikace neví, v čem je nahraná. Klikni na Moje ladění a vyber ladění skladby — zapamatuje se."
+      : `Skladba je v ladění ${tuneName(st.midi)}, tvoje kytara v ${tuneName(mine.midi)}: kytary, basa a melodické stopy jsou posunuté o ${signed(sh)} půltónů, bicí a zpěv ne.`;
+  }
+  // The song follows the guitar: the stems that carry pitch are moved by what
+  // lies between the song's tuning and the guitar's — in time they stay where
+  // they are, only the pitch moves. Asked for whenever a song is opened, its
+  // tab arrives, or the guitar is retuned. opts.load: the mix is still being
+  // built, so nothing is redrawn or saved from here.
+  function autoTune(opts){
+    if(!channels.length){ paintTune(); return; }
+    const mode = tuneMode(), mine = MyTuning.get(), st = songTuning(), tonal = tonalChannels();
+    let shift = null;
+    if(mode === "orig") shift = 0;
+    else if(mode.startsWith("manual:")) shift = parseInt(mode.slice(7), 10) || 0;
+    else if(mine && st){ const f = MyTuning.fit(mine.midi, st.midi); shift = f ? f.shift : null; }
+    const moved = shift != null && tonal.some(c => rateToSemitones(c.pitchRate || 1) !== shift);
+    if(moved){
+      tonal.forEach(c => { c.pitchRate = semitonesToRate(shift); });
+      if(!(opts && opts.load)){ renderChannels(); renderTimeline(); queueSessionSave(); requestTempoPitch(); }
+      if(mode === "orig") showToast("Původní ladění — stopy jsou zpátky, jak byly nahrané");
+      else if(shift) showToast(`Přeladěno na tvoji kytaru: ${signed(shift)} ${Math.abs(shift) === 1 ? "půltón" : Math.abs(shift) < 5 ? "půltóny" : "půltónů"}` + (st && !mode ? ` (skladba je v ladění ${tuneName(st.midi)})` : "") + " — bicí a zpěv beze změny");
+      else showToast("Skladba je ve tvém ladění — nic se neposouvá");
+    }
+    paintTune();
+  }
+  MyTuning.onChange(() => autoTune());
+  el("nm-tune-orig").onclick = () => {
+    if(!channels.length) return;
+    const back = tuneMode() === "orig";
+    setTuneMode(back ? "" : "orig");
+    if(back && !MyTuning.get()) showToast("Nejdřív nastav v ladičce ladění své kytary");
+    else if(back && !songTuning()) showToast("Ladění skladby neznám — klikni na Moje ladění a vyber ho");
+    autoTune();
+  };
   function proposeMyTuning(){
     if(!channels.length){ showToast("Nejdřív otevři píseň ve Steems"); return; }
     const tb = tabs[0];
-    const orig = tb && (tb.data._orig || tb.data).tuning;
-    const tabT = Array.isArray(orig) && orig.length ? orig.slice().reverse().map(Math.round) : null;
-    const tonal = channels.filter(c => !MyTuning.fixed(stemLabel(c.stem) + " " + c.stem));
+    const known = songTuning();
+    const tabT = known ? known.midi.slice() : null, fromTab = !!(known && known.from === "tab");
+    const tonal = tonalChannels();
     const still = channels.filter(c => !tonal.includes(c));
     const names = (list) => list.map(c => escapeHtml(stemLabel(c.stem))).join(", ") || "žádná";
     MyTuning.open({
       title: `Přeladit „${currentSongName || "píseň"}“ na moji kytaru`,
-      songTuning: tabT, songFrom: tabT ? "podle načtené tabulatury" : "",
+      songTuning: tabT, songFrom: fromTab ? "podle načtené tabulatury" : tabT ? "uložené u písně" : "",
       tabNote: tb ? "tabulatura se přepočítá na tvůj tvar ladění" : "tabulatura není načtená",
       touches: (shift, pr) => `<ul><li>Posunou se stopy: <b>${names(tonal)}</b></li><li class="no">Beze změny: ${names(still)}</li>
         ${tb ? `<li>Tabulatura: ${pr.uniform ? "prsty zůstávají, jak jsou — jen zní jinde" : pr.sameCount ? "přepočítá se na tvůj tvar ladění" : "zůstane, jak je (jiný počet strun)"}</li>` : ""}</ul>`,
       apply: (shift, pr) => {
         tonal.forEach(c => { c.pitchRate = semitonesToRate(shift); });
+        // A tuning picked here for a song that has no tab is kept with the song: next time it is known.
+        if(!fromTab && pr.song && pr.song.length){
+          const sg = steemsSongs.find(x => x.name === currentSongName), tn = pr.song.slice().reverse();
+          if(sg && JSON.stringify(sg.tuning || []) !== JSON.stringify(tn)){
+            sg.tuning = tn;
+            fetch(`/api/stems/${encodeURIComponent(currentSongName)}/tuning`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tuning: tn})}).catch(() => {});
+          }
+        }
+        // The shift the song would get by itself needs no note; another one is kept as this song's own.
+        const auto = MyTuning.fit(pr.mine, pr.song);
+        setTuneMode(auto && auto.shift === shift ? "" : "manual:" + shift);
         if(tb){
           // What the tab has to be written in, so that its notes — sounding
           // `shift` away — fall under the fingers on this guitar: the
@@ -20835,6 +21299,7 @@ const Mixer = (() => {
           tabLiveKey = null; renderTopTabPanel(); syncTabIndices(currentTime());
         }
         renderChannels(); renderTimeline(); queueSessionSave(); requestTempoPitch();
+        paintTune();
         showToast(shift ? `Přeladěno o ${shift > 0 ? "+" : ""}${shift} — ${tonal.length} stop, bicí a zpěv beze změny` : "Stopy jsou zpátky v původní výšce");
       },
     });
@@ -23228,8 +23693,9 @@ const Mixer = (() => {
         <div class="gt-meter-gate" id="gt-meter-gate" title="Otevření brány"></div>
       </div>
       <input type="range" class="nm-fader gt-vol" min="0" max="1.4" step="0.01" value="${g.volume}" title="Hlasitost tvé kytary">
-      <div class="gt-rail-preset" title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "bez zesilovače")}</div>`;
+      <div class="gt-rail-preset pickable" title="${escapeHtml(g.ampName || "")} — klik: vybrat NAM profil ze seznamu">${escapeHtml(g.ampName || "bez zesilovače")}</div>`;
     rail.appendChild(strip);
+    strip.querySelector(".gt-rail-preset").onclick = (e) => { e.stopPropagation(); if(!g.tunnel && !g.externalAmp) TrackAmp.pickLive(e.currentTarget); };
 
     const lane = document.createElement("div");
     lane.className = "nm-lane guitar-lane";
@@ -23385,6 +23851,10 @@ const Mixer = (() => {
       strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
       strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
       strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
+      const nm = strip.querySelector("#gt-preset-name");
+      nm.classList.add("pickable");
+      nm.title = (g.ampName || "bez zesilovače") + " — klik: vybrat NAM profil ze seznamu";
+      nm.onclick = (e) => { e.stopPropagation(); TrackAmp.pickLive(e.currentTarget); };
     }
     wireKnob(el("gt-guide-knob"), {
       min: 0, max: 1.2, get: () => g.guideVolume,
@@ -24527,6 +24997,7 @@ function renderPlaylistPanel(p){
         <button class="btn secondary" id="dl-all">${icon("download", 14)}Stáhnout celý playlist</button>
         <button class="btn secondary" id="sep-all" title="Stáhne playlist a každou píseň pak sám rozdělí na stopy (Steems) — běží na pozadí">${icon("stems", 14)}Separuj playlist</button>
         <button class="btn secondary" id="dl-selected">${icon("download", 14)}Stáhnout vybrané (<span id="sel-count">${p.tracks_shown}</span>)</button>
+        <button class="btn secondary" id="prep-selected" title="Zaškrtnuté písně připraví na cvičení: co chybí, stáhne a rozdělí na stopy, a dohledá tab a text. Co už je rozdělené, přeskočí.">${icon("stems", 14)}Připravit vybrané na cvičení</button>
         <button class="btn secondary" id="watch-videos">${icon("video", 14)}Přehrát videa</button>
         <button class="btn secondary" id="add-all-cart">${icon("add", 14)}Přidat vše do playlistu</button>
         <button class="btn secondary" id="fav-toggle">${isFavPlaylist(p.browseId)
@@ -24536,6 +25007,8 @@ function renderPlaylistPanel(p){
     <div class="track-list">
       <div class="track-list-head">
         <span>Zobrazeno ${p.tracks_shown} z ${p.track_count} · ~${fmtSize(estBytesShown)}</span>
+        <span class="have-sum" id="have-sum"></span>
+        <a id="pick-missing" hidden title="Zaškrtne jen písně, které ještě nejsou rozdělené na stopy; hotové odškrtne">označit jen chybějící</a>
         <a id="toggle-all">zrušit vše</a>
       </div>
       <div class="track-cols-head track-cols">
@@ -24574,6 +25047,7 @@ function renderPlaylistPanel(p){
       });
     }
     tracks.forEach((t, i) => container.appendChild(trackRow(t, i, p.title, p.browseId)));
+    paintHave();
     const yearBtn = panel.querySelector('.track-cols-head button[data-sort="year"]');
     yearBtn.classList.toggle("sorted", sortKey === "year");
     el("sort-arrow-year").textContent = sortKey === "year" ? "↓" : "";
@@ -24594,7 +25068,39 @@ function renderPlaylistPanel(p){
   };
 
   const container = el("tracks-container");
+  // What there already is of each song — and the ones still missing picked with one click.
+  let have = new Map();
+  function paintHave(){
+    container.querySelectorAll(".track-row").forEach(r => {
+      const cb = r.querySelector("input.checkbox"), h = cb && have.get(cb.dataset.videoId), slot = r.querySelector(".have-slot");
+      if(!slot || !h) return;
+      slot.innerHTML = SongHave.marks(h); slot.hidden = false;
+      const old = r.querySelector(".owned-tag"); if(old) old.parentElement.hidden = true;
+    });
+    const all = p.tracks.map(t => have.get(t.videoId)).filter(Boolean), done = all.filter(h => h.stems).length;
+    el("have-sum").textContent = all.length ? `${done} rozdělených na stopy · ${all.length - done} chybí` : "";
+    el("pick-missing").hidden = !all.length;
+  }
+  async function loadHave(){
+    const h = await SongHave.check(p.tracks);
+    if(!container.isConnected) return;
+    have = new Map(p.tracks.map((t, i) => [t.videoId, h[i]]));
+    paintHave();
+    // While songs are being made ready, the marks keep up.
+    if(PracticeReady.busy() || h.some(x => x.queued)) setTimeout(() => { if(container.isConnected) loadHave(); }, 20000);
+  }
   applySort();
+  loadHave();
+  el("pick-missing").onclick = () => {
+    let n = 0;
+    container.querySelectorAll("input.checkbox").forEach(cb => { const h = have.get(cb.dataset.videoId); cb.checked = !(h && h.stems); if(cb.checked) n++; });
+    updateSelCount();
+    showToast(n ? `Označeno ${n} písní, které ještě nejsou rozdělené — „Připravit vybrané na cvičení“ je dodělá` : "Všechny zobrazené písně už jsou rozdělené na stopy");
+  };
+  el("prep-selected").onclick = async () => {
+    const ids = new Set([...container.querySelectorAll("input.checkbox:checked")].map(cb => cb.dataset.videoId));
+    if(await PracticeReady.songs(p.tracks.filter(t => ids.has(t.videoId)))) setTimeout(() => { if(container.isConnected) loadHave(); }, 4000);
+  };
 
   function updateSelCount(){
     const n = container.querySelectorAll("input.checkbox:checked").length;
@@ -24711,6 +25217,7 @@ function trackRow(t, idx, sourcePlaylist, sourcePlaylistId){
         <div class="info">
           <div class="t-title">${escapeHtml(t.title||'')}</div>
           ${owned?`<div class="t-sub"><span class="owned-tag">${icon("check", 10)} máš</span></div>`:''}
+          <div class="t-sub have-slot" hidden></div>
         </div>
       </div>
       <div class="col-artist" title="${escapeHtml(t.artists||'')}">${escapeHtml(t.artists||'')}</div>
@@ -27124,17 +27631,21 @@ const InstrPick = (() => {
     return f.length ? f[((i < 0 ? 0 : i + d) % f.length + f.length) % f.length] : null;
   }
   const name = (groups, id) => { const n = flat(groups || []).find(x => x.id === id); return n ? n.nazev : (id || "Nástroj"); };
-  function open(anchor, groups, current, onPick){
+  function open(anchor, groups, current, onPick, title){
     const old = el("inst-pop");
     if(old){ const same = old.anchor === anchor; old.remove(); if(same) return; }
     const box = document.createElement("div");
     box.className = "sect-menu inst-pop";
     box.id = "inst-pop";
     box.anchor = anchor;
-    let cat = Math.max(0, groups.findIndex(g => g.nastroje.some(n => n.id === current))), cur = current;
+    let cat = Math.max(0, groups.findIndex(g => g.nastroje.some(n => n.id === current))), cur = current, q = "";
+    box.innerHTML = `<div class="ip-top"><b>${escapeHtml(title || "Vyber zvuk")}</b><input type="search" placeholder="Hledat podle názvu…" spellcheck="false"></div>
+      <div class="col cats"></div><div class="col list"></div>`;
     const paint = () => {
-      box.innerHTML = `<div class="col">${groups.map((g, i) => `<button type="button" class="cat ${i === cat ? "on" : ""}" data-cat="${i}">${escapeHtml(g.kategorie)}<i>${g.nastroje.length}</i></button>`).join("")}</div>
-        <div class="col list">${groups[cat].nastroje.map(n => `<button type="button" class="${n.id === cur ? "on" : ""}" data-id="${escapeHtml(n.id)}" title="${escapeHtml(n.nazev)}">${escapeHtml(n.nazev)}</button>`).join("")}</div>`;
+      box.querySelector(".cats").innerHTML = groups.map((g, i) => `<button type="button" class="ip-cat ${!q && i === cat ? "on" : ""}" data-cat="${i}">${escapeHtml(g.kategorie)}<i>${g.nastroje.length}</i></button>`).join("");
+      const rows = q ? groups.flatMap(g => g.nastroje.filter(n => n.nazev.toLowerCase().includes(q)).map(n => ({...n, from: g.kategorie}))).slice(0, 200) : groups[cat].nastroje;
+      box.querySelector(".list").innerHTML = rows.length ? rows.map(n => `<button type="button" class="${n.id === cur ? "on" : ""}" data-id="${escapeHtml(n.id)}">${escapeHtml(n.nazev)}${n.from ? `<small>${escapeHtml(n.from)}</small>` : ""}</button>`).join("")
+        : `<div class="none">Nic takového tu není.</div>`;
     };
     paint();
     document.body.appendChild(box);
@@ -27144,9 +27655,13 @@ const InstrPick = (() => {
     const on = box.querySelector(".list .on"); if(on) on.scrollIntoView({block: "center"});
     const away = (ev) => { if(!box.contains(ev.target) && !anchor.contains(ev.target)){ close(); } };
     const close = () => { box.remove(); document.removeEventListener("pointerdown", away, true); };
+    const find = box.querySelector("input");
+    find.oninput = () => { q = find.value.trim().toLowerCase(); paint(); };
+    find.onkeydown = (e) => { e.stopPropagation(); if(e.key === "Escape") close();
+      if(e.key === "Enter"){ const first = box.querySelector(".list [data-id]"); if(first) first.click(); } };
     box.addEventListener("click", (e) => {
       const c = e.target.closest("[data-cat]");
-      if(c){ cat = +c.dataset.cat; paint(); return; }
+      if(c){ cat = +c.dataset.cat; q = ""; find.value = ""; paint(); return; }
       const b = e.target.closest("[data-id]");
       if(b){ cur = b.dataset.id; onPick(cur); close(); }
     });
@@ -29158,133 +29673,6 @@ pushNav("mode:" + state.mode, () => setMode(state.mode));
 // ======================================================================
 
 // ======================================================================
-// Moises: the guitar split into solo and rhythm. Moises does the split (it
-// has no API in the app); everything around it happens here — the songs
-// without a split copied out to drag into Moises at once, and the results
-// dropped into one folder imported by themselves (see /api/moises).
-// ======================================================================
-const MoisesPanel = (() => {
-  let box = null, sel = new Set(), data = null, timer = 0;
-  async function load(){
-    try{ data = await (await fetch("/api/moises")).json(); }catch(e){ data = null; }
-    paint();
-  }
-  function close(){ if(box){ box.remove(); box = null; } clearInterval(timer); }
-  function open(){
-    close();
-    box = document.createElement("div");
-    box.className = "tr-modal";
-    box.innerHTML = `<div class="tr-box moises-box"><button class="close-btn" id="mo-close">${icon("close", 13)}</button>
-      <h3>🎸 Sólo a rytmus kytary přes Moises</h3>
-      <div class="hint">Moises rozdělí kytaru na sólovou a rytmickou (Premium/Pro). Tady se připraví písně k nahrání
-        a výsledky se samy vrátí do Steems jako dvě nové stopy.</div>
-      <div id="mo-body"><div class="hint" style="padding:20px 0"><span class="spinner"></span> Načítám…</div></div></div>`;
-    document.body.appendChild(box);
-    box.addEventListener("pointerdown", (e) => { if(e.target === box) close(); });
-    box.querySelector("#mo-close").onclick = close;
-    load();
-    timer = setInterval(() => { if(box) load(); }, 6000);
-  }
-  function paint(){
-    if(!box) return;
-    const body = box.querySelector("#mo-body");
-    if(!data){ body.innerHTML = `<div class="hint">Nepodařilo se načíst.</div>`; return; }
-    if(!sel.size && data.todo.length && !body.dataset.init){ data.todo.forEach(t => { if(t.has_source) sel.add(t.song); }); body.dataset.init = "1"; }
-    const groups = data.groups || [];
-    body.innerHTML = `
-      <div class="mo-step"><b>1</b><div>
-        <div class="mo-title">Složka pro výsledky z Moises</div>
-        <div class="mo-row"><code>${escapeHtml(data.folder)}</code>
-          <button class="btn secondary" id="mo-open">Otevřít</button><button class="btn secondary" id="mo-pick">Změnit…</button></div>
-        <label class="mo-row"><input type="checkbox" id="mo-auto" ${data.auto ? "checked" : ""}>
-          Importovat samo (každých 15 s, jen když je shoda s písní jistá)</label>
-      </div></div>
-      <div class="mo-step"><b>2</b><div>
-        <div class="mo-title">Písně bez rozdělené kytary · ${data.todo.length}</div>
-        ${data.todo.length ? `<div class="mo-list">${data.todo.map(t => `<label class="mo-li ${t.has_source ? "" : "dis"}">
-            <input type="checkbox" data-song="${escapeHtml(t.song)}" ${sel.has(t.song) ? "checked" : ""} ${t.has_source ? "" : "disabled"}>
-            <span>${escapeHtml(t.artist ? `${t.artist} — ${t.title || t.song}` : (t.title || t.song))}</span>
-            ${t.from_stems ? `<small title="Původní soubor už v knihovně není — k nahrání se složí ze stop">ze stop</small>` : ""}</label>`).join("")}</div>
-          <div class="mo-row"><button class="btn" id="mo-export">Připravit ${sel.size} k nahrání</button>
-            <a href="https://studio.moises.ai" target="_blank" rel="noopener" class="btn secondary" style="text-decoration:none">Otevřít Moises</a></div>
-          <div class="hint">Zkopíruje původní audio do <code>_k_nahrani</code> a otevře složku — přetáhni vše do Moises,
-            u každé písně zvol oddělení <b>Lead &amp; Rhythm Guitar</b>, pak stáhni kytary (nebo celý ZIP) do složky z kroku 1.</div>`
-          : `<div class="hint">Všechny písně ve Steems už rozdělenou kytaru mají.</div>`}
-      </div></div>
-      <div class="mo-step"><b>3</b><div>
-        <div class="mo-title">Ve složce · ${groups.length}</div>
-        ${groups.length ? groups.map((g, i) => `<div class="mo-g">
-            <div class="mo-gl"><b>${escapeHtml(g.label)}</b>
-              <small>${g.solo ? "sólo ✓" : "sólo chybí"} · ${g.rhythm ? "rytmus ✓" : "rytmus chybí"}${g.settled ? "" : " · stahuje se…"}</small></div>
-            <select data-g="${i}">${(g.candidates || []).map(c => `<option value="${escapeHtml(c.song)}" ${c.song === g.match ? "selected" : ""}>${escapeHtml(c.song)} (${Math.round(c.score * 100)} %)</option>`).join("")
-              || `<option value="">— žádná píseň nesedí —</option>`}</select>
-            <button class="btn ${g.confident ? "" : "secondary"}" data-imp="${i}" ${g.complete && g.candidates && g.candidates.length ? "" : "disabled"}>Importovat</button>
-          </div>`).join("")
-          : `<div class="hint">Zatím tu nic není. Soubory z Moises s „lead“ / „rhythm“ v názvu (i ZIP) dej do složky z kroku 1.</div>`}
-      </div></div>`;
-    body.querySelector("#mo-open").onclick = () => fetch("/api/moises/open", {method: "POST"});
-    body.querySelector("#mo-pick").onclick = async () => {
-      await fetch("/api/moises/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pick: true})});
-      load();
-    };
-    body.querySelector("#mo-auto").onchange = async (e) => {
-      await fetch("/api/moises/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({auto: e.target.checked})});
-      showToast(e.target.checked ? "Výsledky z Moises se budou importovat samy" : "Automatický import vypnut");
-    };
-    body.querySelectorAll("[data-song]").forEach(c => c.onchange = () => {
-      c.checked ? sel.add(c.dataset.song) : sel.delete(c.dataset.song);
-      const b = body.querySelector("#mo-export"); if(b) b.textContent = `Připravit ${sel.size} k nahrání`;
-    });
-    const ex = body.querySelector("#mo-export");
-    if(ex) ex.onclick = async () => {
-      if(!sel.size){ showToast("Vyber písně"); return; }
-      ex.disabled = true;
-      try{
-        const r = await (await fetch("/api/moises/export", {method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({songs: [...sel]})})).json();
-        showToast(`Připraveno ${r.copied.length} písní k nahrání do Moises` + (r.mixed && r.mixed.length ? ` (${r.mixed.length} složeno ze stop)` : "") + (r.missing.length ? ` · ${r.missing.length} nešlo` : ""));
-      }catch(e){ showToast("Nepodařilo se připravit"); }
-      ex.disabled = false;
-    };
-    body.querySelectorAll("[data-imp]").forEach(b => b.onclick = async () => {
-      const g = groups[+b.dataset.imp], song = body.querySelector(`select[data-g="${b.dataset.imp}"]`).value;
-      if(!song) return;
-      b.disabled = true; b.textContent = "Importuji…";
-      try{
-        const res = await fetch("/api/moises/import", {method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({label: g.label, song})});
-        const r = await res.json();
-        if(!res.ok) throw new Error(r.error || "Import selhal");
-        showToast(`Sólo a rytmus naimportovány do „${song}“`);
-        afterImport(song);
-      }catch(e){ showToast(e.message); }
-      load();
-    });
-  }
-  // Never pulls an open mix out from under the user: the list is refreshed
-  // only when it is what's on screen.
-  async function afterImport(song){
-    try{
-      steemsSongs = await (await fetch("/api/stems")).json();
-      invalidateRailTop5("steems");
-      if(state.mode === "steems" && !currentSteemsName) loadSteemsList();
-      else if(currentSteemsName === song) showToast(`Otevři „${song}“ znovu — načtou se stopy sólo a rytmus`);
-    }catch(e){}
-  }
-  // Imports done by the server on its own get a word too.
-  let seen = Date.now() / 1000;
-  setInterval(async () => {
-    try{
-      const d = await (await fetch("/api/moises")).json();
-      (d.events || []).filter(e => e.t > seen).forEach(e => showToast(`Moises: sólo a rytmus naimportovány do „${e.song}“`));
-      const last = (d.events || []).slice(-1)[0];
-      if(last && last.t > seen){ seen = last.t; afterImport(last.song); }
-    }catch(e){}
-  }, 30000);
-  return {open};
-})();
-
-// ======================================================================
 // Ambient look: the cover of what plays, blurred, behind the whole app, and
 // the accent colours taken from it (see html.ambient in the styles). Pure
 // paint — it reads the player bar's artwork and sets a few CSS variables.
@@ -29726,7 +30114,7 @@ const Speak = (() => {
     const sel = el("speak-voice");
     let want = ""; try{ want = localStorage.getItem(VOICE_KEY) || ""; }catch(e){}
     sel.innerHTML = (d.profiles || []).map(p => `<option value="vb:${escapeHtml(p.id)}">${escapeHtml(p.name)} (Voicebox)</option>`).join("")
-      + `<option value="sys">počítače</option>` + (!d.voicebox && d.installed ? `<option value="open">můj — otevřít Voicebox…</option>` : "");
+      + `<option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option>` + (!d.voicebox && d.installed ? `<option value="open">můj — otevřít Voicebox…</option>` : "");
     if([...sel.options].some(o => o.value === want)) sel.value = want;
     else if(d.profiles && d.profiles.length) sel.value = "vb:" + ((d.profiles.find(p => p.kind === "cloned") || d.profiles[0]).id);
     else sel.value = "sys";
@@ -29735,7 +30123,9 @@ const Speak = (() => {
     clearTimeout(vtimer);
     const note = el("speak-voice-note"), pid = profile(), sel = el("speak-voice");
     const who = "Hlas " + ((sel.selectedOptions[0] || {}).textContent || "").replace(/\s*\(Voicebox\)$/, "");
-    if(!pid || !rows.length){ note.textContent = ""; ready = {}; return; }
+    if(!pid || !rows.length){
+      note.textContent = sel.value === "sysm" && lang === "cs" ? "Český mužský hlas počítač nemá — česky čte ženský." : "";
+      ready = {}; return; }
     let d = null;
     try{ d = await (await fetch("/api/tts/prepare", {method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({lines: rows.map(r => r.text).concat([...extra]), lang, profile: pid, first: first || (rows[at] && rows[at].text) || null})})).json(); }catch(e){}
@@ -29763,6 +30153,12 @@ const Speak = (() => {
   function systemVoice(want){
     const all = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith(want));
     const by = (re) => all.find(v => re.test(v.name));
+    // A man's voice, when asked for: the good ones first (those have to be downloaded in macOS), then the ones every Mac has.
+    if(el("speak-voice").value === "sysm"){
+      const us = (re) => all.find(v => re.test(v.name) && /en-US/i.test(v.lang)) || by(re);
+      const man = by(/^(alex|tom|evan|nathan|aaron|oliver)\b/i) || by(/^daniel\b/i) || us(/^reed\b/i) || us(/^eddy\b/i) || by(/^(rishi|aman|rocko|fred|ralph)\b/i);
+      if(man) return man;
+    }
     return by(/premium|enhanced|vylepšen|prémi/i) || by(want === "cs" ? /zuzana|iveta/i : /^samantha/i) || by(/^(daniel|karen|moira|tessa|alex|ava|allison|susan|tom)\b/i)
       || all.find(v => /en-US|cs-CZ/i.test(v.lang) && !/albert|bad news|bahh|bells|boing|bubbles|cellos|wobble|good news|jester|organ|superstar|trinoids|whisper|zarvox|junior|ralph|fred|kathy|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley/i.test(v.name)) || all[0] || null;
   }
@@ -30746,7 +31142,7 @@ const Voice = (() => {
     const all = pcm16(parts, held);
     parts = []; held = 0;
     if(deaf){ return; }                                  // Pick itself is speaking: that is not you
-    chain = chain.then(() => on ? fetch("/api/voice/feed", {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
+    chain = chain.then(() => on ? fetch("/api/voice/feed" + (hintsOn ? "?menu=true" : ""), {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
       .then(r => !r ? null : r.status === 409 ? r.json().then(d => { if(d.taken) yieldTo(); return null; }) : r.ok ? r.json() : null)
       .then(r => { if(r && r.heard) got(r); }).catch(() => {});
   }
@@ -30816,8 +31212,9 @@ const Voice = (() => {
   // The microphone hears it too: nothing is listened to until it is over.
   let againCfg = null;
   const againLoad = async () => { try{ againCfg = await (await fetch("/api/voice/again")).json(); }catch(e){ againCfg = againCfg || {text: "Say it again!!!", audio: false}; } return againCfg; };
-  async function againShow(){
-    const c = againCfg || await againLoad(), box = el("voice-again");
+  async function againShow(mine){
+    const say = mine ? null : reply(false);              // one of the ten "what?" lines, when they are ready
+    const c = say ? {text: say.text, audio: true, url: say.url} : (againCfg || await againLoad()), box = el("voice-again");
     el("voice-again-text").textContent = c.text;
     box.hidden = false; deaf = true;
     let over = false;
@@ -30826,7 +31223,7 @@ const Voice = (() => {
     const least = new Promise(r => setTimeout(r, 1700));           // the flash is seen even when the shout is short
     const sound = new Promise(r => {
       if(c.audio){
-        const a = new Audio("/api/voice/again/audio?v=" + c.v);
+        const a = new Audio(c.url || "/api/voice/again/audio?v=" + c.v);
         a.onended = a.onerror = r; a.play().catch(r);
       }else if(window.speechSynthesis){
         const u = new SpeechSynthesisUtterance("Again!"); u.lang = "en-US"; u.rate = 1.05;
@@ -30835,6 +31232,127 @@ const Voice = (() => {
     });
     await Promise.all([least, sound]); done();
   }
+  // ---- what Pick says back: ten ways of "done" and ten of "what?", in the
+  // voice called "Max Cavalera" in Voicebox. Each is made once (the server
+  // keeps the audio); until one is there, nothing is said for "done" and the
+  // "Again!!!" above stands for "what?".
+  const SAY_OK = ["Hell yeah!", "You got it, brother!", "Done!", "Let's go!", "Right on!", "Here we go!", "Killer!", "No problem, man!", "That's heavy!", "Coming right up!"];
+  const SAY_BAD = ["What? Say it again!", "I can't hear you!", "Speak up, man!", "What the hell was that?", "Come on, try again!", "No idea what you said!",
+    "Louder! Say it again!", "Are you kidding me?", "That makes no sense, brother!", "Wake up and say it right!"];
+  const REPLY_KEY = "pick-voice-replies", REPLY_WHO = "pick-voice-reply-profile";
+  let replyReady = {}, replyTimer = 0, replyLast = "";
+  const repliesOn = () => { try{ return localStorage.getItem(REPLY_KEY) !== "0"; }catch(e){ return true; } };
+  async function repliesLoad(){
+    clearTimeout(replyTimer);
+    const note = (t) => { el("voice-replies-note").textContent = t; };
+    el("voice-replies").checked = repliesOn();
+    if(!repliesOn()){ replyReady = {}; note(""); return; }
+    try{
+      let who = ""; try{ who = localStorage.getItem(REPLY_WHO) || ""; }catch(e){}
+      if(!who){
+        const d = await (await fetch("/api/tts/voices")).json();
+        const p = (d.profiles || []).find(x => /cavalera/i.test(x.name));
+        if(!p){ note(d.voicebox ? "hlas „Max Cavalera“ ve Voiceboxu není" : "Voicebox neběží — hlášky až poběží"); if(!d.voicebox) replyTimer = setTimeout(repliesLoad, 60000); return; }
+        who = p.id; try{ localStorage.setItem(REPLY_WHO, who); }catch(e){}
+      }
+      const d = await (await fetch("/api/tts/prepare", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({lines: SAY_OK.concat(SAY_BAD), lang: "en", profile: who})})).json();
+      replyReady = d.ready || {};
+      const n = Object.keys(replyReady).length, all = SAY_OK.length + SAY_BAD.length;
+      note(n >= all ? "připraveno" : d.error && !d.waiting ? `${n}/${all} — ${d.error}` : `připravuje se ${n}/${all}`);
+      if(d.waiting > 0 && on) replyTimer = setTimeout(repliesLoad, 15000);
+    }catch(e){}
+  }
+  function reply(ok){
+    if(!repliesOn()) return null;
+    const list = (ok ? SAY_OK : SAY_BAD).filter(t => replyReady[t]);
+    if(!list.length) return null;
+    let t = list[Math.floor(Math.random() * list.length)];
+    if(list.length > 1) while(t === replyLast) t = list[Math.floor(Math.random() * list.length)];
+    replyLast = t;
+    return {text: t, url: replyReady[t]};
+  }
+  // "Done", said aloud. The microphone hears it too: nothing is listened to until it is over.
+  function replyOk(){
+    const r = reply(true); if(!r) return;
+    deaf = true;
+    let over = false;
+    const done = () => { if(over) return; over = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 300); };
+    const a = new Audio(r.url); a.onended = a.onerror = done; a.play().catch(done);
+    setTimeout(done, 5000);
+  }
+  el("voice-replies").checked = repliesOn();
+  el("voice-replies").onchange = (e) => { try{ localStorage.setItem(REPLY_KEY, e.target.checked ? "1" : "0"); }catch(x){} repliesLoad(); };
+
+  // ---- "hey pick" (the wake word and nothing else): at everything on screen
+  // that a command works on, what to say is written small. While it is up, a
+  // command needs no "pick" in front — the label is read out and done.
+  let hintsOn = false, hintsTimer = 0;
+  function hintList(){
+    const out = [];
+    const rect = (n) => {
+      if(!n || n.offsetParent === null) return null;
+      const r = n.getBoundingClientRect();
+      if(r.width < 5 || r.height < 5 || r.bottom < 4 || r.top > innerHeight - 4 || r.right < 4 || r.left > innerWidth - 4) return null;
+      const top = document.elementFromPoint(Math.max(1, Math.min(innerWidth - 2, r.left + Math.min(r.width / 2, 40))), Math.max(1, Math.min(innerHeight - 2, r.top + Math.min(r.height / 2, 14))));
+      return top && (n.contains(top) || top.contains(n)) ? r : null;                       // not under a window or an overlay
+    };
+    const add = (n, say) => { const r = rect(typeof n === "string" ? document.querySelector(n) : n); if(r) out.push({r, say}); };
+    add("#sidebar-left", document.body.classList.contains("lib-collapsed") ? "show panel" : "hide panel");
+    const SEC = {playlists: "playlists", songs: "bands", steems: "stems", library: "library", podcasts: "show me podcasts", tools: "show me tools"};
+    document.querySelectorAll(".lib-sec-label[data-mode]").forEach(b => { if(SEC[b.dataset.mode]) add(b, SEC[b.dataset.mode]); });
+    add([...document.querySelectorAll(".lib-sec")].find(x => x.title === "Oblíbené"), "favorites");
+    add("#search-input", "search + název");
+    add("#tuner-top-btn", "tuner"); add("#voice-top-btn", "help");
+    const pb = el("pb-audio"), mixer = shown("mixer") && Mixer.currentSong();
+    add("#pb-play", !pb.paused ? "stop" : mixer ? "play player" : "play"); add("#pb-prev", "previous"); add("#pb-next", "next");
+    add("#pb-volume", "up · down"); add("#pb-lyrics-btn", "lyrics"); add("#pb-tab-btn", "tabs");
+    if(mixer){
+      add("#mixer-play", Mixer.isPlaying() ? "stop" : "play"); add("#nm-rewind", "again"); add("#mixer-loop", "loop"); add("#mixer-metro", "click");
+      add("#mixer-lyrics-toggle", "lyrics · see lyrics"); add("#nm-tempo-dn", "slower"); add("#nm-tempo-up", "faster"); add("#nm-tempo-reset", "normal speed");
+      add("#gt-rec-btn", "record"); add("#nm-lyr-speak", "practice words"); add(".guitar-strip", "my guitar");
+      const t = el("nm-tabtop"); if(t && !t.hidden) add(t, "tabs · see more guitars");
+      Mixer.channelInfo().forEach((c, i) => { if(STEM_CZ[c.stem]) add(`.nm-strip[data-ch="${i}"]`, `mute ${c.stem} · solo ${c.stem}`); });
+      add("#steems-under", "next song · practice this song");
+    }
+    const SORT = {title: "sort by title", artist: "sort by band", album: "sort by album", tuning: "sort by tuning"};
+    document.querySelectorAll("button[data-lsort]").forEach(b => { if(SORT[b.dataset.lsort]) add(b, SORT[b.dataset.lsort]); });
+    const ov = el("overlay"), root = ov && !ov.hidden ? ov : document.querySelector("main");
+    const row = root && [...root.querySelectorAll(".lib-trow, .stem-card, .track-row")].find(r => !r.classList.contains("lib-thead") && rect(r));
+    if(row) add(row, "play + číslo · open song + název");
+    add("#speak-go", "practice words"); add("#speak-skip", "skip"); add("#speak-words", "practice my words");
+    add("#sing-lesson", "practice melody"); add("#sing-les-next", "skip");
+    if(helpOn) add("#voice-help", "help close · help down");
+    return out;
+  }
+  function hintsPaint(){
+    const box = el("voice-hints"), placed = [];
+    box.innerHTML = "";
+    // The line of what works anywhere (and, with a song in the mix, what has no button of its own) goes up first, so nothing lands on it.
+    const foot = document.createElement("b"), mix = shown("mixer") && Mixer.currentSong();
+    foot.innerHTML = `<span>stačí přečíst žlutý nápis · ${mix ? "v mixu jde i:" : "všude jde i:"}</span> `
+      + (mix ? "practice · practice melody · guitar off · guitar on · loop section · next section · see mix · fifty percent · " : "")
+      + "page down · page up · skip · skip back · louder · quieter · a song · save song · mini player · full screen · listen · help";
+    box.appendChild(foot);
+    const fr = foot.getBoundingClientRect(); placed.push({x: fr.left, y: fr.top, w: fr.width, h: fr.height});
+    hintList().forEach(h => {
+      const c = document.createElement("i"); c.textContent = h.say; box.appendChild(c);
+      const w = c.offsetWidth, hh = c.offsetHeight;
+      const x = Math.max(2, Math.min(innerWidth - w - 2, h.r.left + 2));
+      let y = Math.max(2, h.r.top - 4);
+      for(let k = 0; k < 8 && placed.some(p => x < p.x + p.w + 3 && x + w + 3 > p.x && y < p.y + p.h + 1 && y + hh + 1 > p.y); k++) y += hh + 2;
+      placed.push({x, y, w, h: hh}); c.style.left = x + "px"; c.style.top = y + "px";
+    });
+  }
+  function hintsShow(ms){
+    hintsOn = true; el("voice-hints").hidden = false; hintsPaint();
+    clearTimeout(hintsTimer); hintsTimer = setTimeout(hintsHide, ms || 10000);
+  }
+  function hintsHide(){ hintsOn = false; clearTimeout(hintsTimer); el("voice-hints").hidden = true; }
+  addEventListener("pointerdown", () => { if(hintsOn) hintsHide(); }, true);
+  addEventListener("keydown", (e) => { if(hintsOn && e.key === "Escape") hintsHide(); }, true);
+  // After a command the page has changed: the labels are written anew, and stay a little longer.
+  const hintsAfter = () => { if(hintsOn){ clearTimeout(hintsTimer); hintsTimer = setTimeout(() => { if(hintsOn) hintsShow(8000); }, 700); } };
+
   function again(){
     heard.textContent = "Nerozuměl jsem — řekni to znovu.";
     againShow();
@@ -30853,7 +31371,7 @@ const Voice = (() => {
     againPaint();
   });
   el("voice-again-input").addEventListener("keydown", (e) => { e.stopPropagation(); if(e.key === "Enter") e.target.blur(); });
-  el("voice-again-play").onclick = () => againShow();
+  el("voice-again-play").onclick = () => againShow(true);
   el("voice-again-del").onclick = async () => {
     try{ againCfg = await (await fetch("/api/voice/again/audio", {method: "DELETE"})).json(); }catch(e){}
     againPaint();
@@ -30882,6 +31400,13 @@ const Voice = (() => {
     }
   };
   function got(r){
+    if(r.wake){
+      hintsShow(); heard.textContent = "Poslouchám — přečti žlutý nápis u toho, co chceš.";
+      const b = el("voice-top-btn"); b.classList.add("heard"); setTimeout(() => b.classList.remove("heard"), 600);
+      return;
+    }
+    if(hintsOn && !r.command && !/^pick\b/.test(r.heard || "")){ heard.textContent = "slyšel jsem: " + r.heard; return; }     // talk in the room while the labels are up
+    hintsAfter();
     if(r.command === "help"){ helpOpen(); heard.textContent = "nabídka povelů — vpravo; „pick help close“ ji zavře"; return; }
     if(r.command === "nothing"){ helpClose(); heard.textContent = "nabídka zavřená"; return; }
     if(r.filter !== undefined && helpOn && !r.command){ helpPaint(r.filter); heard.textContent = "nabídka: " + r.filter; return; }
@@ -30905,6 +31430,7 @@ const Voice = (() => {
       return;
     }
     const did = run(r.steps ? r.steps[0] : r.command);
+    if(did) replyOk();
     heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(did || "tady to nic nedělá")}`;
     const b = el("voice-top-btn");
     b.classList.add("heard"); setTimeout(() => b.classList.remove("heard"), 600);
@@ -31513,7 +32039,8 @@ const Voice = (() => {
         addEventListener("pointerdown", wake, true); addEventListener("keydown", wake, true);
       }
       on = true; parts = []; held = 0;
-      heard.textContent = "Poslouchám. Řekni anglicky „pick“ a hned povel, jedním dechem.";
+      heard.textContent = "Poslouchám. Řekni „pick“ a hned povel — nebo jen „hey pick“ a ukážu, co jde říct.";
+      repliesLoad();
       listMics();
     }catch(e){
       stop();
@@ -31585,7 +32112,8 @@ const Voice = (() => {
     if(on){ stop(); start(); }
   };
   paint();
-  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate, heard: got};
+  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate, heard: got,
+    hints: {show: hintsShow, hide: hintsHide, on: () => hintsOn, list: () => hintList().map(h => h.say)}, replies: {load: repliesLoad, pick: reply}};
 })();
 </script>
 </body>

@@ -654,3 +654,14 @@ def test_what_of_the_mix_is_looked_at():
     assert voice.match("pick practice words") == "words" and voice.match("pick read lyrics") == "words"
     assert voice.match("pick practice my words") == "mywords" and voice.match("pick hard words") == "mywords"
     assert voice.match("pick practice melody") == "melody" and voice.match("pick sing lines") == "melody"
+
+
+def test_the_wake_word_alone_asks_what_can_be_said():
+    assert voice.wake_call(["pick"], [0.95]) == (["pick"], [0.95], True)
+    assert voice.wake_call(["hey", "pick"], [0.7, 0.9]) == (["pick"], [0.9], True)
+    assert voice.wake_call(["pick", "pick"], [0.9, 0.5])[2] is True
+    assert voice.wake_call(["pick"], [0.4])[2] is False                       # a mumble, or the music
+    assert voice.wake_call(["hey", "pick", "play"], [1, 1, 1]) == (["pick", "play"], [1, 1], False)
+    assert voice.wake_call(["hey"], [1.0]) == (["hey"], [1.0], False)
+    assert voice.wake_call(["hey", "play"], [0.6, 1.0]) == (["pick", "play"], [0.6, 1.0], False)   # "pick" misheard as "hey"
+    assert voice.wake_call([], []) == ([], [], False)

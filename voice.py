@@ -635,6 +635,21 @@ def _load():
         return _model
 
 
+def wake_call(words, confs):
+    """The wake word said on its own — "pick", "hey pick" — asks to be shown
+    what can be said. Returns (words, confs, wake): a leading "hey" is dropped
+    either way, and `wake` is true when nothing but a clear "pick" is left."""
+    words, confs = list(words), list(confs)
+    drop = 0
+    while drop < len(words) - 1 and words[drop] == "hey" and words[drop + 1] in ("hey", WAKE):
+        drop += 1
+    words, confs = words[drop:], confs[drop:]
+    if len(words) > 1 and words[0] == "hey":             # "pick play" heard as "hey play": it was meant for Pick
+        words[0] = WAKE
+    wake = bool(words) and all(w == WAKE for w in words) and len(words) <= 2 and max(confs or [1.0]) >= MIN_CONF
+    return words, confs, wake
+
+
 class Listener:
     """One stream of microphone audio in, commands out."""
 
@@ -644,7 +659,7 @@ class Listener:
         self.taught = load_taught() if taught is None else taught
         self.index = taught_index(self.taught, self.custom)
         vocab = sorted({w for _, phrases, _, _ in COMMANDS for p in phrases for w in p.split()} | {WAKE} | FILLERS
-                       | set(SLOTS) | {"find"} | _PLAYLIST_WORDS | NUMBER_WORDS | {w for c in self.custom for w in c["phrase"].split()}
+                       | set(SLOTS) | {"find", "hey"} | _PLAYLIST_WORDS | NUMBER_WORDS | {w for c in self.custom for w in c["phrase"].split()}
                        | {w for h in self.index for w in h.split()})
         self.audio = bytearray()        # the last seconds heard, for a name said after a command
         self.fed = 0
@@ -671,8 +686,14 @@ class Listener:
         if not text:
             return {}
         confs = [w.get("conf", 0) for w in res.get("result", [])]
+        said, confs, wake = wake_call(text.split(), confs)
+        res["result"] = res.get("result", [])[len(text.split()) - len(said):]     # "hey pick …": the "hey" is no part of it
+        text = " ".join(said)
+        if wake:
+            return {"heard": text, "command": None, "wake": True}
+        if said == ["hey"]:
+            return {}
         cmd = match(text, confs, self.custom, self.index)
-        said = text.split()
         bare = bool(menu and said and said[0] != WAKE)
         if cmd is None and bare:
             cmd = match(f"{WAKE} {text}", [1.0] + confs, self.custom, self.index)

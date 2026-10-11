@@ -145,3 +145,52 @@ def test_a_text_found_once_is_kept(client, monkeypatch):
     monkeypatch.setattr(server, "_lookup_lyrics_online", lambda *a, **k: calls.append(a) or {"synced": False, "lines": None, "plain": None})
     server._lookup_lyrics("Nope", "Nobody", "", 0); server._lookup_lyrics("Nope", "Nobody", "", 0)
     assert len(calls) == 3
+
+
+def test_what_there_is_of_each_song_is_told(client, tmp_music_root, monkeypatch):
+    _stems(tmp_music_root, "Roots")
+    (tmp_music_root / "Stems" / "Roots" / "meta.json").write_text('{"artist": "Sepultura", "title": "Roots"}', encoding="utf-8")
+    (tmp_music_root / "Songs").mkdir(exist_ok=True)
+    (tmp_music_root / "Songs" / "Korn - Blind.mp3").write_bytes(b"x")
+    monkeypatch.setattr(server, "_all_songs_flat", lambda: {"entries": [{"name": "Korn - Blind.mp3", "rel": "Songs/Korn - Blind.mp3", "title": "Blind", "artist": "Korn"}]})
+    monkeypatch.setattr(server, "_pick_tabs", lambda: [{"songId": 1, "artist": "Korn", "title": "Blind"}])
+    kept = {("roots", "sepultura")}
+    monkeypatch.setattr(server, "_lyrics_kept", lambda title, artist, dur: {"plain": "la"} if (title.lower(), artist.lower()) in kept else None)
+    songs = [{"title": "Roots", "artists": "Sepultura, Someone"}, {"title": "Blind (Official Video)", "artists": "Korn"},
+             {"title": "Duality", "artists": "Slipknot"}]
+    roots, blind, duality = client.post("/api/practice/have", json={"songs": songs}).json()["have"]
+    assert (roots["library"], roots["stems"], roots["name"], roots["tabs"], roots["lyrics"]) == (False, True, "Roots", False, True)
+    assert (blind["library"], blind["stems"], blind["tabs"], blind["lyrics"]) == (False, False, True, False)
+    assert (duality["library"], duality["stems"], duality["tabs"], duality["lyrics"], duality["queued"]) == (False, False, False, False, False)
+    # by the file itself: there it is, and its tab is known by its tuning once the stems are
+    blind = client.post("/api/practice/have", json={"songs": [{"title": "Blind", "artists": "Korn", "relPath": "Songs/Korn - Blind.mp3"}]}).json()["have"][0]
+    assert blind["library"] and not blind["stems"]
+    assert client.put("/api/stems/Roots/tuning", json={"tuning": [62, 57, 53, 48, 43, 38]}).status_code == 200
+    assert client.post("/api/practice/have", json={"songs": songs[:1]}).json()["have"][0]["tabs"]
+
+
+def test_a_separated_song_without_its_tab_or_text_is_finished_when_asked(client, tmp_music_root, monkeypatch):
+    _quiet(monkeypatch, tab={"songId": 9, "title": "Roots", "artist": "Sepultura",
+                             "tracks": [{"instrument": "Distortion Guitar", "name": "Gtr", "tuning": [62, 57, 53, 48, 43, 38]}]},
+           lyrics={"plain": "Roots bloody roots"})
+    monkeypatch.setattr(server, "_picktab_upsert", lambda req: None)
+    monkeypatch.setattr(server, "_pick_tabs", lambda: [])
+    monkeypatch.setattr(server, "_all_songs_flat", lambda: {"entries": []})
+    monkeypatch.setattr(server, "_save_download", lambda req: (_ for _ in ()).throw(AssertionError("nothing to download")))
+    _stems(tmp_music_root, "Roots")
+    (tmp_music_root / "Stems" / "Roots" / "meta.json").write_text('{"artist": "Sepultura", "title": "Roots"}', encoding="utf-8")
+    songs = [{"title": "Roots", "artists": "Sepultura"}]
+    # as it was: a separated song is ready, and left alone
+    got = client.post("/api/practice/save-many", json={"songs": songs}).json()
+    assert (got["ready"], got["missing"], got["queued"]) == (1, 0, 0)
+    got = client.post("/api/practice/save-many", json={"songs": songs, "finish": True, "check": True}).json()
+    assert (got["ready"], got["missing"], got["finish"], got["queued"]) == (1, 0, 1, 0)
+    got = client.post("/api/practice/save-many", json={"songs": songs, "finish": True}).json()
+    assert got["queued"] == 1
+    for _ in range(300):
+        st = client.get("/api/practice/saves").json()
+        if st["done"] == 1:
+            break
+        time.sleep(0.02)
+    assert st["done"] == 1 and st["saves"][-1]["tabs"] and st["saves"][-1]["lyrics"]
+    assert server._stems_tuning(tmp_music_root / "Stems" / "Roots") == [62, 57, 53, 48, 43, 38]
