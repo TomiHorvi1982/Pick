@@ -241,7 +241,42 @@ Nový hlas přidá „+ hlas“ ve Výslovnosti: soubor nebo 10 s z mikrofonu
 dalo barvy z obalu); co je „hotovo / mám“, zůstává zelené. Zelená natvrdo
 psaná ve stylech jde přes `--accent`. Dole v levém panelu jsou kytary a heslo.
 Ukazatel nad vším, na co jde kliknout, je ruka s „rohy“ — pravidla s
-`cursor:pointer` se při startu přepíšou, nikde se neopravují ručně.
+`cursor:pointer` se při startu přepíšou na `var(--horns)`, nikde se neopravují
+ručně. V Nastavení → Ukazatel jde vybrat jeden z deseti obrázků (rohy, trsátko,
+kytara, lebka, blesk, paličky, plamen, meč, netopýr, hvězda), jedna z pěti barev
+a velikost 20–56 px (`PickCursor`, volba v `localStorage` pod `pick-cursor`).
+
+**Asistent běží v počítači.** Volná česká věta („pick listen“, nebo napsaná do
+pole Asistent) se provede bez internetu a bez placení (`assistant.py`):
+
+1. *Kniha vět* (`assistant_book.py`, přes 1 700 vět vygenerovaných ze způsobů,
+   jak se co říká; věty jdou spojovat „a“) — co v ní je, udělá se hned, bez modelu.
+2. *Model* — Gemma 3 4B pod `llama-server` (soubor `pick-models/` na kartě nebo
+   `~/.local/share/spotdl-helper/models/`; spustí se při prvním povelu, po 15
+   minutách klidu uvolní paměť). Dostane stav aplikace, větu a nejpodobnější věty
+   z knihy; odpovídá jen do pevného formuláře (JSON schema). Co je o malém
+   modelu známo, že plete, opravuje `_mend` (jméno, které nikdo neřekl, mix
+   místo přehrávače, kroky navíc); mazání hlasem nejde vůbec.
+3. *Paměť* — co model udělal bez chyby, se zapíše (`assistant-learned.json`) a
+   příště je hned. Čemu nerozuměl (`assistant-unknown.json`), to se naučí z další,
+   jinak řečené věty, která se povedla. „Špatně“ poslední naučené zapomene navždy.
+
+Bez modelu (karta není připojená) poslouží nejbližší věta z knihy. Když model
+v počítači není, použije se Claude přes API jako dřív. Asistent umí i dalších
+44 povelů Picku (nástroj `command`: ladička, metronom, taby, text, výslovnost,
+zpěv, řazení, okna…). Co umí, co se naučil a čemu nerozuměl: `/assistant/book`
+(odkaz „co umí“ u pole Asistent).
+
+**Charakter a hlasitost hlasu.** Ve Výslovnosti jde zvolit, jak hlas čte
+(`TTS_STYLES`: Přirozený, Metalový, Agresivní, Naštvaný, Romantický, Klidný,
+Šeptaný) a jak hlasitě. Model klonuje hlas, ne náladu: umí jen tempo a šepot,
+zbytek charakteru dělá ffmpeg až na hotovém řádku (hloubka, zkreslení,
+komprese, ekvalizér, ozvěna) — opravdovou náladu dá jen vzorek namluvený v ní.
+Každý řádek, i přirozený, odchází stejně hlasitý (`_tts_finish`, RMS
+`TTS_LOUD`); tichý vzorek dřív dělal tichý hlas. Charakter je součást klíče
+řádku na disku; `TTS_MADE` se zvedá, když se změní výroba. Hlasu počítače se
+charakter dělá rychlostí a výškou. Řádek, před který model přidal slovo navíc
+(„Yeah, …“), se bere jako přeřeknutí a zkusí se znovu.
 
 Výslovnost se hodnotí přísně (`compare(strict=True)`): slovo projde, jen když
 bylo slyšet samo, nebo jako slovo, které zní stejně (to/too/two, runnin'/running)

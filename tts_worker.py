@@ -3,7 +3,8 @@
 Run by the interpreter of the pick-tts environment (torch lives there, not in
 the server's). One request a line on stdin, one answer a line on stdout:
 
-    {"text": "...", "lang": "en", "ref_audio": ".../ref.wav", "ref_text": "...", "out": ".../x.wav", "steps": 16}
+    {"text": "...", "lang": "en", "ref_audio": ".../ref.wav", "ref_text": "...", "out": ".../x.wav", "steps": 16,
+     "instruct": "whisper", "speed": 1.1}            (the last two only when a manner of speaking asks for them)
     → {"ok": true, "seconds": 3.9}   or   {"ok": false, "error": "..."}
 
 The model is loaded on the first line asked for; a voice's reference is
@@ -52,6 +53,7 @@ def main():
                 prompts[key] = model.create_voice_clone_prompt(ref_audio=req["ref_audio"], ref_text=req["ref_text"])
             import soundfile as sf
             audio = model.generate(text=req["text"], language=req.get("lang") or None, voice_clone_prompt=prompts[key],
+                                   instruct=req.get("instruct") or None, speed=req.get("speed") or None,
                                    generation_config=config(num_step=int(req.get("steps") or 16)))[0]
             tmp = req["out"] + ".part"
             sf.write(tmp, audio, 24000, format="WAV", subtype="PCM_16")

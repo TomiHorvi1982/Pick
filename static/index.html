@@ -3568,6 +3568,22 @@ body.lib-collapsed .pick-brand{display:none}
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.10)}
   html.ambient .cat:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,.4)}
   .amb-theme{display:flex;gap:6px}
+  .cur-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .cur-grid button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 6px;
+    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;color:var(--sub);
+    font:inherit;font-size:10.5px;line-height:1.2;min-width:0}
+  .cur-grid button img{width:30px;height:30px;display:block}
+  .cur-grid button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cur-grid button:hover{color:var(--text);border-color:var(--sub)}
+  .cur-grid button.on{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .cur-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .cur-cap{flex:0 0 62px;color:var(--sub);font-size:12.5px}
+  .cur-colors{display:flex;gap:8px}
+  .cur-colors button{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.55);padding:0;
+    box-shadow:0 0 0 1px var(--line)}
+  .cur-colors button.on{box-shadow:0 0 0 2px var(--accent)}
+  .cur-row input[type=range]{flex:1;min-width:0}
+  .cur-px{flex:0 0 44px;text-align:right;color:var(--sub);font-size:12.5px;font-variant-numeric:tabular-nums}
   /* tidier mixer: words under the icons, the rail without sliders */
   #nm-editbar .nm-btn.ib.lab{flex-direction:column;width:auto;min-width:40px;height:38px;padding:3px 6px 2px;gap:1px}
   #nm-editbar .nm-btn.ib.lab.tm-btn{min-width:52px}
@@ -3776,6 +3792,7 @@ body.lib-collapsed .pick-brand{display:none}
   .voice-add .mine button{background:none;border:1px solid #3a3d52;color:var(--sub);border-radius:500px;padding:2px 10px;font:inherit;font-size:11.5px;cursor:pointer}
   .voice-add .mine button:hover{border-color:var(--danger);color:var(--danger)}
   #speak-voice-add{white-space:nowrap}
+  #speak-vol{width:84px;vertical-align:middle}
   .voice-add .btn{padding:9px 16px;font-size:13px;border-radius:500px}
   /* What there already is of a song: four small marks — file, stems, tab, text. */
   .have-marks{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px;flex:none}
@@ -3996,6 +4013,7 @@ body.lib-collapsed .pick-brand{display:none}
           <option value="">běžný mikrofon</option><option value="1">zvukovka — vstup 1</option><option value="2">zvukovka — vstup 2</option></select>
           <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
         <div class="voice-row"><span>Asistent</span><input type="text" id="assist-text" placeholder="napiš, nebo řekni „pick listen“ a pak česky" style="flex:1;min-width:0">
+          <a href="/assistant/book" target="_blank" title="Seznam vět, kterým asistent rozumí hned, co se naučil od tebe a čemu nerozuměl" style="white-space:nowrap;color:var(--accent);font-size:12px">co umí</a>
           <label title="Odpověď asistenta přečte počítač nahlas" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="assist-tts"> nahlas</label></div>
         <div class="voice-row voice-again-row" title="Když ti Pick nerozumí: uprostřed zabliká logo s tímhle nápisem a zařve tvoje nahrávka. Bez nahrávky řekne počítač „Again!“."><span>Again!!!</span>
           <input type="text" id="voice-again-input" maxlength="60" placeholder="Say it again!!!" spellcheck="false">
@@ -4091,6 +4109,19 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" class="btn secondary" id="theme-classic">Klasický</button>
       </div>
       <div class="set-note">Ambientní: rozmazaný obal hrající písně v pozadí, skleněné panely a barva tlačítek podle obalu.</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="star"></span>Ukazatel</div>
+      <div class="cur-grid" id="cur-icons"></div>
+      <div class="cur-row">
+        <span class="cur-cap">Barva</span>
+        <div class="cur-colors" id="cur-colors"></div>
+      </div>
+      <div class="cur-row">
+        <span class="cur-cap">Velikost</span>
+        <input type="range" id="cur-size" min="20" max="56" step="4">
+        <span class="cur-px" id="cur-px"></span>
+      </div>
+      <div class="set-note">Ukazatel se mění nad vším, na co jde kliknout. Platí hned, ukládat není třeba.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="download"></span>Kvalita stahovaných písní</div>
       <select id="bitrate" style="width:100%;padding:10px">
@@ -5224,6 +5255,8 @@ body.lib-collapsed .pick-brand{display:none}
       <button type="button" id="speak-skip" title="Tenhle řádek přeskočit („pick skip“)">Přeskočit ›</button>
       <label title="Čí hlas řádky čte. Hlasy z aplikace Voicebox (tvůj i další naklonované): každý řádek se připraví jednou na pozadí (asi 20 s) a pak už je hned; co ještě není, přečte hlas počítače.">hlas <select id="speak-voice"><option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option></select></label>
       <button type="button" id="speak-voice-add" title="Přidat vlastní hlas: nahraj pár vteřin řeči (soubor nebo mikrofon) a Pick jím bude číst — v jakémkoli jazyce">+ hlas</button>
+      <label title="Jakým způsobem hlas čte. Barva a ráz hlasu (hloubka, zkreslení, tempo, prostor) — ne opravdová nálada; tu dá jen vzorek namluvený v té náladě (+ hlas). Každý charakter se u naklonovaného hlasu připraví zvlášť.">charakter <select id="speak-style"><option value="">Přirozený</option></select></label>
+      <label title="Jak hlasitě hlas čte">hlasitost <input type="range" id="speak-vol" min="0" max="100" step="5" value="100"></label>
       <label title="Jak rychle počítač čte">čte <select id="speak-rate"><option value="0.7">pomalu</option><option value="0.9" selected>normálně</option><option value="1.1">rychle</option></select></label>
       <label title="Každý řádek jen jednou — refrén se neopakuje"><input type="checkbox" id="speak-uniq" checked> bez opakování</label>
       <button type="button" id="speak-words" title="Slova, která se ti nepovedla (ze všech písní), všechna najednou: přečtu slovo, ty ho zopakuješ; co se povede, ze seznamu zmizí. („pick practice my words“)">Moje slova</button>
@@ -13614,21 +13647,115 @@ const ToneRig = (() => {
   return {load, label, select, step, openSettings, outputs};
 })();
 
-// Whatever can be clicked gets the horns for a pointer — index and little
-// finger up. The app's styles say "pointer" in hundreds of places; rather
-// than touch each, every rule that does is given the horns (the hand stays
-// as what a browser falls back to).
-(() => {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
-    <g fill='%23fff' stroke='%23111' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'>
+// Whatever can be clicked gets a pointer of the player's own choosing — the
+// horns (index and little finger up) unless Settings say otherwise. The app's
+// styles say "pointer" in hundreds of places; rather than touch each, every
+// rule that does is pointed at --horns, and choosing another picture, colour
+// or size only rewrites that one variable (the hand stays as what a browser
+// falls back to).
+const PickCursor = (() => {
+  const INK = "#111";
+  // Drawn on a 32 × 32 field; hot = the point that clicks.
+  const ICONS = [
+    {id: "horns", name: "Rohy", hot: [10, 3], draw: () => `
       <path d='M8 16V5.2a2.4 2.4 0 0 1 4.8 0V15'/>
       <path d='M20.6 15.5V8.6a2.3 2.3 0 0 1 4.6 0V19'/>
       <path d='M12.8 15v-2.2a2 2 0 0 1 4 0V15m0 0v-1.8a1.9 1.9 0 0 1 3.8 0v2.3'/>
-      <path d='M8 14.5v7.3c0 5 3.4 8.2 8.6 8.2s8.600-3.200 8.600-8.200V17H8z'/>
-      <path d='M8.200 19.800l5.600-2.900a2.200 2.200 0 0 1 2.900 1 2.100 2.100 0 0 1-.9 2.800l-4.300 2.300'/>
-    </g></svg>`.replace(/\n\s*/g, "");
-  const HORNS = `url("data:image/svg+xml,${svg}") 10 3, pointer`;
-  document.documentElement.style.setProperty("--horns", HORNS);
+      <path d='M8 14.5v7.3c0 5 3.4 8.2 8.6 8.2s8.6-3.2 8.6-8.2V17H8z'/>
+      <path d='M8.2 19.8l5.6-2.9a2.2 2.2 0 0 1 2.9 1 2.1 2.1 0 0 1-.9 2.8l-4.3 2.3'/>`},
+    {id: "pick", name: "Trsátko", hot: [7, 7], draw: () => `
+      <g transform='rotate(135 16 16)'>
+        <path d='M16 29C10 22 5 15 5 10c0-5 5-7 11-7s11 2 11 7c0 5-5 12-11 19z'/>
+        <path d='M11 9.5h10' fill='none'/></g>`},
+    {id: "guitar", name: "Kytara", hot: [5, 5], draw: () => `
+      <g transform='rotate(-45 16 16)'>
+        <path d='M16 11l9.5 15-5 1.5-4.5-7-4.5 7-5-1.5z'/>
+        <path d='M14 4.5h4V14h-4z'/>
+        <path d='M12.8 1h6.4l-1 4h-4.4z'/></g>`},
+    {id: "skull", name: "Lebka", hot: [8, 6], draw: () => `
+      <path d='M16 3C9.5 3 5 7.5 5 13.5c0 3.5 1.6 6 4 7.6V26a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.9c2.4-1.6 4-4.1 4-7.6C27 7.5 22.5 3 16 3z'/>
+      <g fill='${INK}' stroke='none'><circle cx='11.5' cy='14' r='2.9'/><circle cx='20.5' cy='14' r='2.9'/>
+        <path d='M16 17.2l-1.7 3.3h3.4z'/></g>
+      <path d='M13 23.5V28M16 23.5V28M19 23.5V28' fill='none'/>`},
+    {id: "bolt", name: "Blesk", hot: [3, 3], draw: () => `
+      <path d='M3 3l13 7-4 3 10 5-4 3 11 8-17-6 4-3-10-4 4-3z'/>`},
+    {id: "sticks", name: "Paličky", hot: [4, 4], draw: (c) => `
+      <g fill='none'>
+        <path d='M27 5L5 27' stroke='${INK}' stroke-width='5.6'/><path d='M27 5L5 27' stroke='${c}' stroke-width='2.8'/>
+        <path d='M5 5l22 22' stroke='${INK}' stroke-width='5.6'/><path d='M5 5l22 22' stroke='${c}' stroke-width='2.8'/></g>
+      <circle cx='27' cy='5' r='2.6' stroke-width='1.4'/><circle cx='5' cy='5' r='2.6' stroke-width='1.4'/>`},
+    {id: "flame", name: "Plamen", hot: [17, 2], draw: () => `
+      <path d='M17 2c.5 5 8 9 8 17a9 9 0 0 1-18 0c0-3.5 1.5-6 3.5-8 .2 2.5 1.2 4 2.8 4.8C12.5 10.5 14 5.5 17 2z'/>
+      <path d='M16 28a4 4 0 0 1-4-4c0-2.5 2-3.5 3.5-6.5 1.5 2 4.5 3.5 4.5 6.5a4 4 0 0 1-4 4z' fill='${INK}' fill-opacity='.4' stroke='none'/>`},
+    {id: "sword", name: "Meč", hot: [5, 5], draw: () => `
+      <g transform='rotate(-45 16 16)'>
+        <path d='M16 1l2.2 4v15h-4.4V5z'/>
+        <path d='M14.8 22.5h2.4v5h-2.4z'/>
+        <path d='M10 20h12v2.6H10z'/>
+        <circle cx='16' cy='29' r='1.8'/></g>`},
+    {id: "bat", name: "Netopýr", hot: [16, 12], draw: () => `
+      <g transform='translate(0 4)'>
+        <path d='M16 9l1.5-3 1 3.5c3-2.5 7-3 11.5-1-2 1-2.5 3-2.5 5-1.5-1.2-3-1.2-4 0-1-1-2.5-1-3.5.5-.5 2-2 4-4 6-2-2-3.5-4-4-6-1-1.5-2.5-1.5-3.5-.5-1-1.2-2.5-1.2-4 0 0-2-.5-4-2.5-5 4.5-2 8.5-1.5 11.5 1l1-3.5z'/></g>`},
+    {id: "star", name: "Hvězda", hot: [16, 3], draw: () => `
+      <path d='M16 3l3.3 9.5 10 .2-8 6 2.9 9.6-8.2-5.7-8.2 5.7 2.9-9.6-8-6 10-.2z'/>`},
+  ];
+  const COLORS = [
+    {id: "white", name: "Bílá", hex: "#ffffff"},
+    {id: "red", name: "Červená", hex: "#ff3b3b"},
+    {id: "gold", name: "Zlatá", hex: "#ffc53d"},
+    {id: "violet", name: "Fialová", hex: "#a98bff"},
+    {id: "green", name: "Zelená", hex: "#3ddc84"},
+  ];
+  const DEF = {icon: "horns", color: "white", size: 32};
+  const KEY = "pick-cursor";
+  const icon = (id) => ICONS.find((x) => x.id === id) || ICONS[0];
+  const color = (id) => COLORS.find((x) => x.id === id) || COLORS[0];
+  const fit = (n) => { n = Math.round(+n / 4) * 4; return n >= 20 && n <= 56 ? n : DEF.size; };
+  function get(){
+    let c = {};
+    try{ c = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){}
+    return {icon: icon(c.icon).id, color: color(c.color).id, size: fit(c.size)};
+  }
+  function svg(c, size){
+    const hex = color(c.color).hex;
+    return (`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 32 32'>` +
+      `<g fill='${hex}' stroke='${INK}' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'>` +
+      icon(c.icon).draw(hex) + `</g></svg>`).replace(/\n\s*/g, "");
+  }
+  const url = (c, size) => `url("data:image/svg+xml,${svg(c, size).replace(/#/g, "%23")}")`;
+  function apply(){
+    const c = get(), k = c.size / 32, [x, y] = icon(c.icon).hot;
+    document.documentElement.style.setProperty("--horns", `${url(c, c.size)} ${Math.round(x * k)} ${Math.round(y * k)}, pointer`);
+  }
+  function set(part){
+    const c = {...get(), ...part};
+    try{ localStorage.setItem(KEY, JSON.stringify(c)); }catch(e){}
+    apply(); paint();
+  }
+
+  // ---- the choice in Settings ----
+  function paint(){
+    const c = get(), q = (id) => document.getElementById(id);
+    if(!q("cur-icons")) return;
+    q("cur-icons").innerHTML = ICONS.map((i) =>
+      `<button type="button" data-id="${i.id}" class="${i.id === c.icon ? "on" : ""}" title="${i.name}">
+        <img alt="" src="data:image/svg+xml,${encodeURIComponent(svg({...c, icon: i.id}, 32))}"><span>${i.name}</span></button>`).join("");
+    q("cur-colors").innerHTML = COLORS.map((k) =>
+      `<button type="button" data-id="${k.id}" class="${k.id === c.color ? "on" : ""}" title="${k.name}" aria-label="${k.name}" style="background:${k.hex}"></button>`).join("");
+    q("cur-size").value = c.size;
+    q("cur-px").textContent = c.size + " px";
+  }
+  function wire(){
+    const q = (id) => document.getElementById(id);
+    if(!q("cur-icons")) return;
+    q("cur-icons").onclick = (e) => { const b = e.target.closest("button[data-id]"); if(b) set({icon: b.dataset.id}); };
+    q("cur-colors").onclick = (e) => { const b = e.target.closest("button[data-id]"); if(b) set({color: b.dataset.id}); };
+    q("cur-size").oninput = (e) => set({size: +e.target.value});
+    paint();
+  }
+
+  apply();
+  const HORNS = "var(--horns)";
   const walk = (rules) => { for(const r of rules){
     try{
       if(r.cssRules && r.cssRules.length) walk(r.cssRules);
@@ -13644,6 +13771,8 @@ const ToneRig = (() => {
     if(n.nodeType !== 1) continue;
     for(const x of [n, ...n.querySelectorAll("[style*='cursor']")]) if(x.style && x.style.cursor === "pointer") x.style.cursor = HORNS;
   } }).observe(document.body, {childList: true, subtree: true});
+  wire();
+  return {ICONS, COLORS, get, set, svg};
 })();
 
 // Tool menus (.tmenu): a category button that unrolls its tools. The list is
@@ -30206,10 +30335,22 @@ const Speak = (() => {
   const VOICE_KEY = "pick-speak-voice";
   let ready = {}, vtimer = 0, player = null;
   const profile = () => { const v = el("speak-voice").value; return v.startsWith("vb:") ? v.slice(3) : ""; };
+  // …and how: the manner (made by the server for a cloned voice, by rate and
+  // pitch for the computer's) and the loudness.
+  const STYLE_KEY = "pick-speak-style", VOL_KEY = "pick-speak-vol";
+  let styles = [];
+  const style = () => el("speak-style").value || "";
+  const vol = () => Math.max(0, Math.min(1, (+el("speak-vol").value || 0) / 100));
   async function voices(){
     let d = {};
     try{ d = await (await fetch("/api/tts/voices")).json(); }catch(e){}
     const sel = el("speak-voice");
+    if(d.styles && d.styles.length){
+      styles = d.styles;
+      let how = ""; try{ how = localStorage.getItem(STYLE_KEY) || ""; }catch(e){}
+      el("speak-style").innerHTML = styles.map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join("");
+      el("speak-style").value = styles.some(x => x.id === how) ? how : "";
+    }
     let want = ""; try{ want = localStorage.getItem(VOICE_KEY) || ""; }catch(e){}
     sel.innerHTML = (d.profiles || []).map(p => `<option value="vb:${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.engine === "pick" ? "" : " (Voicebox)"}</option>`).join("")
       + `<option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option>` + (!d.voicebox && d.installed ? `<option value="open">můj — otevřít Voicebox…</option>` : "");
@@ -30240,7 +30381,7 @@ const Speak = (() => {
       ready = {}; return; }
     let d = null;
     try{ d = await (await fetch("/api/tts/prepare", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({lines: rows.map(r => r.text).concat([...extra]), lang, profile: pid, first: first || (rows[at] && rows[at].text) || null})})).json(); }catch(e){}
+      body: JSON.stringify({lines: rows.map(r => r.text).concat([...extra]), lang, profile: pid, style: style(), first: first || (rows[at] && rows[at].text) || null})})).json(); }catch(e){}
     if(!d){ note.textContent = ""; return; }
     if(d.unsupported){ ready = {}; note.textContent = "Voicebox česky neumí — čte hlas počítače."; return; }
     ready = d.ready || {};
@@ -30255,6 +30396,7 @@ const Speak = (() => {
       const a = player = new Audio(url);
       a.playbackRate = Math.max(0.6, Math.min(1.4, (+el("speak-rate").value || 0.9) / 0.9));
       a.preservesPitch = true;
+      a.volume = vol();
       const end = () => { if(player === a) player = null; done(); };
       a.onended = a.onerror = end;
       a.play().catch(end);
@@ -30361,7 +30503,10 @@ const Speak = (() => {
       const want = lang === "cs" ? "cs" : "en";
       u.voice = systemVoice(want);
       u.lang = u.voice ? u.voice.lang : (want === "cs" ? "cs-CZ" : "en-US");
-      u.rate = +el("speak-rate").value || 0.9;
+      const how = (styles.find(x => x.id === style()) || {}).sys || [1, 1];
+      u.rate = Math.max(0.5, Math.min(1.6, (+el("speak-rate").value || 0.9) * how[0]));
+      u.pitch = how[1];
+      u.volume = vol() * (style() === "whisper" ? 0.45 : 1);
       const end = () => { clearTimeout(guard); done(); };
       const guard = setTimeout(end, 4000 + text.length * 160);
       u.onend = u.onerror = end;
@@ -30537,6 +30682,9 @@ const Speak = (() => {
     el("speak-gaindb").textContent = "+" + gainDb() + " dB";
     el("speak-gain").oninput = gainSet;
     el("speak-voice-add").onclick = () => addVoice();
+    try{ const v = localStorage.getItem(VOL_KEY); if(v !== null && v !== "") el("speak-vol").value = v; }catch(e){}
+    el("speak-vol").oninput = () => { try{ localStorage.setItem(VOL_KEY, el("speak-vol").value); }catch(e){} if(player) player.volume = vol(); };
+    el("speak-style").onchange = () => { try{ localStorage.setItem(STYLE_KEY, style()); }catch(e){} ready = {}; prepare(); };
     el("speak-voice").onchange = async () => {
       const sel = el("speak-voice");
       if(sel.value === "open"){
@@ -31830,9 +31978,10 @@ const Voice = (() => {
   }
 
   // ---- the assistant: one free sentence in Czech, said after "pick listen"
-  // (or typed). The server has whisper write it down and Claude decide which of
-  // the tools below to call (assistant.py); they run here, where the player and
-  // the mixer are, and what each one did goes back until Claude is done.
+  // (or typed). The server has whisper write it down and a model — the one in
+  // this computer, or Claude — decide which of the tools below to call
+  // (assistant.py); they run here, where the player and the mixer are, and
+  // what each one did goes back until there is nothing more to do.
   const SESSION = Math.random().toString(36).slice(2);
   let dict = null, assisting = false, hideBox = 0;
   function bubble(you, it, busy){
@@ -31882,6 +32031,7 @@ const Voice = (() => {
     if(!on) await start();
     if(!on) return;
     beep(880);
+    fetch("/api/assistant/wake", {method: "POST"}).catch(() => {});      // the model loads while the sentence is said
     bubble("", "Poslouchám…", true);
     const pcm = await new Promise(ok => { dict = {t0: performance.now(), floor: 0, spoke: 0, last: 0, keep: [], held: 0, ok}; });
     parts = []; held = 0;
@@ -31953,6 +32103,7 @@ const Voice = (() => {
       return `Hraje ${f.artist}, ${f.tracks.length} písní.`;
     }
     if(name === "playback") return run({play: "play", stop: "pause", restart: "rewind", next: "next", previous: "prev"}[a.action]) || "tohle teď nejde";
+    if(name === "command") return run(String(a.id || "")) || "tohle teď nejde";
     if(name === "set_tempo") return shown("mixer") && Mixer.currentSong() ? run("tempo:" + a.percent) : "Tempo jde měnit jen u písně otevřené ve Steems.";
     if(name === "volume"){ const n = Math.round(+a.steps || 0); return n ? run((n > 0 ? "up:" : "down:") + Math.abs(n)) : "beze změny"; }
     if(name === "practice"){
@@ -31973,7 +32124,7 @@ const Voice = (() => {
       const c = Mixer.channelByStem(a.stem) || (Mixer.channelInfo() || []).map(x => Mixer.channelByStem(x.stem)).find(x => x && x.stem.split("_")[0] === a.stem);
       if(!c) return `Stopa ${a.stem} v téhle písni není. Jsou tu: ${stemsNow().join(", ")}.`;
       const cz = STEM_CZ[a.stem] || a.stem;
-      if(a.action === "mute" || a.action === "unmute"){ Mixer.voice.mutedOn(a.stem, a.action === "mute"); return `${cz} ${a.action === "mute" ? "ztlumená" : "hraje"}`; }
+      if(a.action === "mute" || a.action === "unmute"){ Mixer.voice.mutedOn(a.stem, a.action === "mute"); return `${cz}: ${a.action === "mute" ? "ztlumeno" : "hraje"}`; }
       if(a.action === "solo" || a.action === "unsolo"){ if(!!c.solo !== (a.action === "solo")) Mixer.voice.solo(a.stem); return `${cz} sólo ${a.action === "solo" ? "zapnuté" : "vypnuté"}`; }
       return run(`vol:${a.stem}:${a.action === "louder" ? "+" : "-"}`);
     }

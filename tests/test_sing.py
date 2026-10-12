@@ -135,7 +135,7 @@ def test_lines_are_read_by_the_cloned_voice_once_and_kept(client, monkeypatch):
     import time
     import server
     made = []
-    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text: made.append(text) or b"RIFF" + text.encode())
+    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text, style="": made.append(text) or b"RIFF" + text.encode())
     monkeypatch.setattr(server, "_voicebox_open", lambda: None)
     monkeypatch.setattr(server, "_TTS_QUEUE", [])
     ask = lambda **kw: client.post("/api/tts/prepare", json={"lines": ["One", "Two  two", "Three"], "lang": "en", "profile": "p1", **kw}).json()
@@ -177,7 +177,7 @@ def test_a_line_the_voice_got_wrong_is_read_once_more(client, monkeypatch):
     import time
     import server
     made = []
-    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text: made.append(text) or b"RIFF%d" % len(made))
+    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text, style="": made.append(text) or b"RIFF%d" % len(made))
     monkeypatch.setattr(server, "_tts_sounds_right", lambda audio, lang, text: audio != b"RIFF1")
     monkeypatch.setattr(server, "_voicebox_open", lambda: None)
     monkeypatch.setattr(server, "_TTS_QUEUE", [])
@@ -215,7 +215,7 @@ def test_picks_own_voices_come_first_and_speak_any_language(client, tmp_path, mo
     monkeypatch.setattr(server, "_voicebox_only", lambda: [{"id": "me", "name": "old", "kind": "cloned"}, {"id": "other", "name": "Other", "kind": "cloned"}])
     monkeypatch.setattr(server, "_TTS_QUEUE", [])
     said = []
-    monkeypatch.setattr(server, "_own_say", lambda voice, lang, text: said.append((voice["name"], lang, text)) or _wav())
+    monkeypatch.setattr(server, "_own_say", lambda voice, lang, text, style="": said.append((voice["name"], lang, text)) or _wav())
     monkeypatch.setattr(server, "_tts_sounds_right", lambda *a: True)
     got = client.get("/api/tts/voices").json()
     assert [(p["id"], p["name"], p.get("engine")) for p in got["profiles"]] == [("me", "Já", "pick"), ("other", "Other", None)]
@@ -260,3 +260,45 @@ def test_a_new_voice_is_made_of_a_recording_and_can_be_put_right_or_removed(clie
     assert client.delete(f"/api/tts/voice/{got['id']}").json() == {"ok": True}
     assert client.get("/api/tts/voices").json()["profiles"] == []
     assert client.delete("/api/tts/voice/nope").status_code == 404
+
+
+def test_a_line_is_said_in_the_manner_asked_for_and_as_loud_as_any_other(client, tmp_path, monkeypatch):
+    import io, wave
+    import numpy as np
+    import server
+    names = [s["name"] for s in client.get("/api/tts/voices").json()["styles"]]
+    assert names[0] == "Přirozený" and {"Metalový", "Romantický", "Naštvaný", "Agresivní", "Klidný"} <= set(names)
+    # each manner is a line of its own on disk; one that is not known is the plain one
+    plain = server._tts_file("p1", "en", "One")
+    assert server._tts_file("p1", "en", "One", "metal") != plain
+    assert server._tts_file("p1", "en", "One", "nonsense") == plain
+    # the manner reaches the voice
+    asked = []
+    monkeypatch.setattr(server, "_voicebox_say", lambda profile, lang, text, style="": asked.append(style) or b"RIFF1")
+    monkeypatch.setattr(server, "_voicebox_profiles", lambda: [{"id": "p1", "name": "Me", "kind": "cloned"}])
+    monkeypatch.setattr(server, "_tts_sounds_right", lambda *a: True)
+    monkeypatch.setattr(server, "_TTS_QUEUE", [])
+    for _ in range(200):
+        if client.post("/api/tts/prepare", json={"lines": ["One"], "lang": "en", "profile": "p1", "style": "angry"}).json()["ready"]:
+            break
+        import time; time.sleep(0.02)
+    assert asked == ["angry"]
+
+    # a quiet line comes out loud, a loud one no louder; what is no sound is left alone
+    def wav(amp):
+        t = np.arange(24000) / 24000
+        out = io.BytesIO()
+        with wave.open(out, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000)
+            w.writeframes((np.sin(2 * np.pi * 220 * t) * amp * 32767).astype(np.int16).tobytes())
+        return out.getvalue()
+
+    def rms(b):
+        with wave.open(io.BytesIO(b)) as w:
+            x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16) / 32768
+        return float(np.sqrt(np.mean(x ** 2)))
+    assert rms(wav(0.01)) < 0.01
+    for amp in (0.01, 0.9):
+        assert abs(rms(server._tts_finish(wav(amp))) - server.TTS_LOUD) < 0.02
+    assert abs(rms(server._tts_finish(wav(0.01), "metal")) - server.TTS_LOUD) < 0.03
+    assert server._tts_finish(b"RIFF1", "metal") == b"RIFF1"

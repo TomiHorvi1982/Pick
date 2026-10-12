@@ -52,4 +52,10 @@ def _own_config(tmp_path, monkeypatch):
     import assistant
     monkeypatch.setattr(assistant, "KEY_PATH", tmp_path / "anthropic-key.txt")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("PICK_LLM_MODEL", raising=False)
+    monkeypatch.setattr(assistant, "LLM_PATHS", [])        # …nor a model in this computer to load
+    monkeypatch.setattr(assistant, "LLM_PID", tmp_path / "assistant-llm.pid")
+    monkeypatch.setattr(assistant, "LEARNED", tmp_path / "assistant-learned.json")
+    monkeypatch.setattr(assistant, "UNKNOWN", tmp_path / "assistant-unknown.json")
+    assistant._turns.clear(); assistant._last.update(miss=None, learned=None)
     assistant._sessions.clear()

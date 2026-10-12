@@ -7816,7 +7816,7 @@ def speak_words_forget(word: str = "", lang: str = "en", done: bool = False):
 VOICEBOX_URL = "http://127.0.0.1:17493"
 VOICEBOX_LANGS = {"zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it", "he", "ar", "da", "el", "fi", "hi", "ms", "nl",
                   "no", "pl", "sv", "sw", "tr"}
-_TTS_QUEUE: list = []          # (file, profile, lang, text), the next one first
+_TTS_QUEUE: list = []          # (file, profile, lang, text, style), the next one first
 _TTS_LOCK = threading.Lock()
 _TTS = {"thread": None, "error": None, "opened": 0.0}
 
@@ -7884,9 +7884,86 @@ def _voice_ref_make(src: Path, dest: Path, lang: str = "auto") -> str:
     return text
 
 
-def _own_say(voice: dict, lang: str, text: str) -> bytes:
+# ---- how a line is said. The model clones a voice, not a mood: what it can
+# be told is how fast to speak and to whisper, and the rest of a manner is
+# made of the sound afterwards — lower, driven, compressed, warm, with a room
+# around it. (A voice that is truly angry comes of a sample spoken in anger:
+# "+ hlas" takes one.) Every line, plain ones too, leaves at the same
+# loudness — a quiet sample used to make a quiet voice.
+def _lower(by: float) -> str:
+    return f"asetrate={24000 * by:.0f},aresample=24000,atempo={1 / by:.4f}"
+
+
+TTS_STYLES = {
+    "": {"name": "Přirozený"},
+    "metal": {"name": "Metalový", "sys": (0.95, 0.55),
+              "fx": _lower(0.9) + ",highpass=f=70,acompressor=threshold=-26dB:ratio=6:attack=3:release=90:makeup=5,"
+                    "volume=10dB,asoftclip=type=tanh,equalizer=f=150:t=q:w=1:g=4,equalizer=f=2800:t=q:w=1.2:g=3,aecho=0.8:0.5:38:0.22"},
+    "aggressive": {"name": "Agresivní", "speed": 1.15, "sys": (1.2, 0.75),
+                   "fx": _lower(0.95) + ",highpass=f=120,acompressor=threshold=-30dB:ratio=10:attack=1:release=60:makeup=8,"
+                         "volume=15dB,asoftclip=type=tanh,equalizer=f=3200:t=q:w=1.2:g=6,highshelf=f=7000:g=-3"},
+    "angry": {"name": "Naštvaný", "speed": 1.08, "sys": (1.1, 0.7),
+              "fx": _lower(0.96) + ",highpass=f=90,acompressor=threshold=-28dB:ratio=8:attack=2:release=70:makeup=6,"
+                    "volume=7dB,asoftclip=type=tanh,equalizer=f=2500:t=q:w=1.2:g=4"},
+    "romantic": {"name": "Romantický", "speed": 0.88, "sys": (0.85, 1.05),
+                 "fx": "acompressor=threshold=-22dB:ratio=2.5:attack=15:release=200:makeup=2,equalizer=f=220:t=q:w=1:g=3,"
+                       "highshelf=f=5000:g=-4,aecho=0.8:0.6:60|110:0.3|0.2"},
+    "calm": {"name": "Klidný", "speed": 0.85, "sys": (0.8, 0.9),
+             "fx": _lower(0.97) + ",acompressor=threshold=-22dB:ratio=2:attack=20:release=250:makeup=1,highshelf=f=6000:g=-3"},
+    "whisper": {"name": "Šeptaný", "instruct": "whisper", "sys": (0.9, 1.0)},
+}
+TTS_LOUD = 0.14                    # the RMS every line leaves at (about −17 dBFS)
+TTS_MADE = "2"                     # what the lines kept on disk were made by: raised when the making changes
+
+
+def _tts_style(style: str) -> dict:
+    return TTS_STYLES.get(style or "") or TTS_STYLES[""]
+
+
+def _tts_finish(audio: bytes, style: str = "") -> bytes:
+    """A line as it is kept: in the manner asked for, and as loud as every
+    other. What is no sound at all is given back as it came."""
+    try:
+        import io
+        import wave
+        import numpy as np
+        if audio[:4] != b"RIFF":
+            return audio
+        fx = _tts_style(style).get("fx")
+        if fx:
+            done = subprocess.run([ffmpeg_bin(), "-v", "error", "-f", "wav", "-i", "pipe:0", "-af", fx, "-ac", "1", "-ar", "24000",
+                                   "-f", "wav", "pipe:1"], input=audio, capture_output=True, timeout=60).stdout
+            # ffmpeg cannot go back to write the lengths into a piped header: read what follows it
+            at = done.find(b"data")
+            x, rate = (np.frombuffer(done[at + 8:len(done) - (len(done) - at - 8) % 2], dtype=np.int16), 24000) if at > 0 else (None, 0)
+        else:
+            x = None
+        if x is None or not len(x):
+            with wave.open(io.BytesIO(audio)) as w:
+                rate, ch = w.getframerate(), w.getnchannels()
+                x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+            if ch > 1:
+                x = x.reshape(-1, ch)[:, 0]
+        x = x.astype(np.float32) / 32768.0
+        loud = x[np.abs(x) > 0.004]                         # the pauses do not count
+        rms = float(np.sqrt(np.mean(loud ** 2))) if len(loud) else 0.0
+        if rms > 1e-4:
+            x = x * min(TTS_LOUD / rms, 40.0)
+            over = np.abs(x) > 0.8                           # the few peaks above are bent, not cut
+            x[over] = np.sign(x[over]) * (0.8 + 0.19 * np.tanh((np.abs(x[over]) - 0.8) / 0.19))
+        out = io.BytesIO()
+        with wave.open(out, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+            w.writeframes((x * 32767.0).astype(np.int16).tobytes())
+        return out.getvalue()
+    except Exception:                                      # noqa: BLE001 — better the line as it came than none
+        return audio
+
+
+def _own_say(voice: dict, lang: str, text: str, style: str = "") -> bytes:
     """One line in one of Pick's own voices. The worker is started when there
     is none (the first line then waits for the model to load)."""
+    how = _tts_style(style)
     out = Path(tempfile.gettempdir()) / f"pick-tts-{uuid.uuid4().hex}.wav"
     with _OWN_TTS_LOCK:
         proc = _OWN_TTS["proc"]
@@ -7896,7 +7973,8 @@ def _own_say(voice: dict, lang: str, text: str) -> bytes:
             _OWN_TTS["proc"] = proc
         try:
             proc.stdin.write(json.dumps({"text": text, "lang": lang, "ref_audio": voice["ref_audio"], "ref_text": voice["ref_text"],
-                                         "out": str(out), "steps": OWN_TTS_STEPS}, ensure_ascii=False) + "\n")
+                                         "out": str(out), "steps": OWN_TTS_STEPS, "instruct": how.get("instruct"),
+                                         "speed": how.get("speed")}, ensure_ascii=False) + "\n")
             proc.stdin.flush()
             answer = proc.stdout.readline()
         except (OSError, ValueError):
@@ -7927,8 +8005,8 @@ def _tts_engine(lang: str, profile: str = "") -> str:
     return VOICEBOX_FAST["engine"] if _TTS_FAST["have"] else VOICEBOX_ENGINE
 
 
-def _tts_file(profile: str, lang: str, text: str) -> Path:
-    key = f"{_tts_engine(lang, profile)}|{profile}|{lang}|{' '.join(text.split())}"
+def _tts_file(profile: str, lang: str, text: str, style: str = "") -> Path:
+    key = f"{_tts_engine(lang, profile)}|{TTS_MADE}|{style if style in TTS_STYLES else ''}|{profile}|{lang}|{' '.join(text.split())}"
     return CONFIG_PATH.parent / "tts" / (hashlib.sha1(key.encode("utf-8")).hexdigest()[:24] + ".wav")
 
 
@@ -7951,10 +8029,10 @@ def _voicebox_only():
         return None
 
 
-def _voicebox_say(profile: str, lang: str, text: str) -> bytes:
+def _voicebox_say(profile: str, lang: str, text: str, style: str = "") -> bytes:
     own = _own_voice(profile)
     if own:
-        return _own_say(own, lang, text)
+        return _own_say(own, lang, text, style)
     r = httpx.post(VOICEBOX_URL + "/generate/stream", timeout=600,
                    json={"profile_id": profile, "text": text, "language": lang, "engine": _tts_engine(lang)})
     if r.status_code != 200 or r.content[:4] != b"RIFF":
@@ -7979,8 +8057,10 @@ def _tts_sounds_right(audio: bytes, lang: str, text: str) -> bool:
             return True
         heard = _voice.transcribe(pcm, lang=lang if lang in ("en", "cs") else "auto", prompt="")
         got = _sing.compare(text, heard)
-        said = len(_sing.words(heard))
-        return got["total"] == 0 or (got["ok"] >= got["total"] * 0.6 and said <= got["total"] * 2 + 2)
+        said, want = [w.lower() for w in _sing.words(heard)], [w.lower() for w in _sing.words(text)]
+        # a word of its own before the line ("Yeah, …") is a slip as well
+        led = len(said) == len(want) + 1 and said[1:] == want
+        return got["total"] == 0 or (got["ok"] >= got["total"] * 0.6 and len(said) <= got["total"] * 2 + 2 and not led)
     except Exception:                                      # noqa: BLE001
         return True
 
@@ -8009,12 +8089,13 @@ def _tts_drain() -> None:
             if not _TTS_QUEUE:
                 _TTS["thread"] = None
                 return
-            f, profile, lang, text = _TTS_QUEUE[0]
+            f, profile, lang, text, style = _TTS_QUEUE[0]
         try:
             if not f.is_file():
-                audio = _voicebox_say(profile, lang, text)
+                audio = _voicebox_say(profile, lang, text, style)
                 if not _tts_sounds_right(audio, lang, text):   # a slip of the model: once more, and that one is kept
-                    audio = _voicebox_say(profile, lang, text)
+                    audio = _voicebox_say(profile, lang, text, style)
+                audio = _tts_finish(audio, style)
                 f.parent.mkdir(parents=True, exist_ok=True)
                 tmp = f.with_suffix(".tmp")
                 tmp.write_bytes(audio)
@@ -8042,6 +8123,7 @@ class TtsRequest(BaseModel):
     lang: str = "en"
     profile: str = ""
     first: Optional[str] = None       # the line that is wanted now: made before the others
+    style: str = ""                   # the manner it is said in (TTS_STYLES)
 
 
 @app.get("/api/tts/voices")
@@ -8050,6 +8132,7 @@ def tts_voices():
     own = bool(_own_voices())
     # with voices of its own Pick needs nobody: "voicebox" then only says the voices are there
     return {"voicebox": got is not None, "profiles": got or [], "own": own,
+            "styles": [{"id": k, "name": v["name"], "sys": v.get("sys")} for k, v in TTS_STYLES.items()],
             "installed": Path("/Applications/Voicebox.app").exists() and not own}
 
 
@@ -8129,15 +8212,16 @@ def tts_prepare(req: TtsRequest):
     if req.lang not in VOICEBOX_LANGS and not _own_voice(req.profile):      # Pick's own voice speaks any language
         return {"unsupported": True, "ready": {}, "waiting": 0, "error": None}
     ready, todo = {}, []
+    style = req.style if req.style in TTS_STYLES else ""
     for text in req.lines[:400]:
         text = " ".join((text or "").split())[:400]
         if not text:
             continue
-        f = _tts_file(req.profile, req.lang, text)
+        f = _tts_file(req.profile, req.lang, text, style)
         if f.is_file():
             ready[text] = f"/api/tts/audio/{f.stem}"
         else:
-            todo.append((f, req.profile, req.lang, text))
+            todo.append((f, req.profile, req.lang, text, style))
     with _TTS_LOCK:
         have = {q[0] for q in _TTS_QUEUE}
         working = _TTS_QUEUE[:1] if _TTS["thread"] is not None else []
@@ -9949,6 +10033,10 @@ end tell'''
 # ---- the assistant (assistant.py): a Czech sentence in, the app's own actions out
 import assistant as _assistant
 
+# A model left running by a Pick that has since been restarted is nobody's: it is let go.
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _assistant.llm_stop()
+
 
 class AssistSay(BaseModel):
     session: str
@@ -9969,7 +10057,20 @@ def _assist_run(fn, *args):
 
 @app.get("/api/assistant")
 def assistant_status():
-    return {"unavailable": _assistant.available(), "model": _assistant.MODEL}
+    return {"unavailable": _assistant.available(), "model": _assistant.model_name(), "brain": _assistant.brain()}
+
+
+@app.get("/assistant/book", response_class=HTMLResponse)
+def assistant_book_page():
+    return _assistant.book_page()
+
+
+@app.post("/api/assistant/wake")
+def assistant_wake():
+    """A sentence is about to be said: the model in this computer starts loading now."""
+    if _assistant.brain() == "local":
+        _assistant.llm_wake(wait=False)
+    return {"ok": True}
 
 
 @app.post("/api/assistant/say")
