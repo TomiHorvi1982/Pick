@@ -15020,10 +15020,16 @@ const Mixer = (() => {
   }
 
   async function fetchLyrics(query){
-    const q = query || currentSongName || "";
+    // The song's own name — artist and title as they are officially written —
+    // not the folder's, which is a video's ("uploader - Band- Song (lyrics)").
+    // What is typed into "Hledat" is asked for as typed.
+    const d = !query && currentSongName ? stemsDisplayByName(currentSongName) : null;
+    const q = query || (d && d.title) || currentSongName || "";
     let data = null;
     try{
       const params = new URLSearchParams({q});
+      if(d && d.title && d.artist) params.set("artist", d.artist.split(",")[0].trim());
+      if(d && d.album) params.set("album", d.album);
       if(duration) params.set("duration", String(Math.round(duration)));
       const res = await fetch(`/api/lyrics/local?${params}`);
       data = await res.json();
@@ -30113,11 +30119,25 @@ const Speak = (() => {
     try{ d = await (await fetch("/api/tts/voices")).json(); }catch(e){}
     const sel = el("speak-voice");
     let want = ""; try{ want = localStorage.getItem(VOICE_KEY) || ""; }catch(e){}
-    sel.innerHTML = (d.profiles || []).map(p => `<option value="vb:${escapeHtml(p.id)}">${escapeHtml(p.name)} (Voicebox)</option>`).join("")
+    sel.innerHTML = (d.profiles || []).map(p => `<option value="vb:${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.engine === "pick" ? "" : " (Voicebox)"}</option>`).join("")
       + `<option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option>` + (!d.voicebox && d.installed ? `<option value="open">můj — otevřít Voicebox…</option>` : "");
     if([...sel.options].some(o => o.value === want)) sel.value = want;
     else if(d.profiles && d.profiles.length) sel.value = "vb:" + ((d.profiles.find(p => p.kind === "cloned") || d.profiles[0]).id);
     else sel.value = "sys";
+    // A cloned voice was chosen last time, but Voicebox is not answering: it is woken by itself, and the voices asked for again.
+    if(!d.voicebox && d.installed && want.startsWith("vb:") && !voices.waking){
+      voices.waking = true;
+      el("speak-voice-note").textContent = "Budím Voicebox kvůli tvému hlasu — do půl minuty je tu; zatím čte hlas počítače.";
+      fetch("/api/tts/open", {method: "POST"}).catch(() => {});
+      let tries = 0;
+      const again = async () => {
+        let v = {}; try{ v = await (await fetch("/api/tts/voices")).json(); }catch(e){}
+        if(v.voicebox){ voices.waking = false; await voices(); prepare(); return; }
+        if(++tries < 8) setTimeout(again, 8000);
+        else { voices.waking = false; el("speak-voice-note").textContent = "Voicebox se nepodařilo probudit — čte hlas počítače."; }
+      };
+      setTimeout(again, 12000);
+    }
   }
   async function prepare(first){
     clearTimeout(vtimer);
@@ -30243,7 +30263,7 @@ const Speak = (() => {
     if(!parts || !on) return null;
     now("Čtu, co jsem slyšel…");
     try{
-      const res = await fetch(`/api/sing/line?lang=${lang}&text=${encodeURIComponent(text)}`, {method: "POST", body: pcm16(parts).buffer, headers: {"Content-Type": "application/octet-stream"}});
+      const res = await fetch(`/api/sing/line?strict=true&lang=${lang}&text=${encodeURIComponent(text)}`, {method: "POST", body: pcm16(parts).buffer, headers: {"Content-Type": "application/octet-stream"}});
       const d = await res.json();
       if(res.ok) return d;
       now(d.error || "Rozpoznání se nepovedlo.", "bad");

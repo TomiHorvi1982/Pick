@@ -190,3 +190,49 @@ def test_a_line_the_voice_got_wrong_is_read_once_more(client, monkeypatch):
     assert made == ["One", "One"]
     assert client.get(got["ready"]["One"]).content == b"RIFF2"
     assert server._tts_sounds_right(b"not audio at all", "en", "One") is True
+
+
+def test_pronunciation_is_judged_strictly_a_word_that_only_looks_alike_does_not_pass():
+    c = lambda want, heard: [w["s"] for w in sing.compare(want, heard, strict=True)["words"]]
+    assert c("I believe in our hate", "I believe in our fate") == ["ok", "ok", "ok", "ok", "bad"]
+    assert c("we planned it", "we plan it") == ["ok", "bad", "ok"]              # a dropped ending is a slip when spoken
+    assert c("through the night", "threw the knight") == ["ok", "ok", "ok"]     # sounds the same: not a slip
+    assert c("runnin' to you", "running too you") == ["ok", "ok", "ok"]
+    assert c("three trees", "tree trees") == ["bad", "ok"]
+    assert c("think about it", "sink about it") == ["bad", "ok", "ok"]
+    assert c("icebox", "ice box") == ["ok"]
+    # sung, the same takes are forgiven as before
+    assert [w["s"] for w in sing.compare("we planned it", "we plan it")["words"]] == ["ok", "ok", "ok"]
+
+
+def test_picks_own_voices_come_first_and_speak_any_language(client, tmp_path, monkeypatch):
+    import server
+    py = tmp_path / "python"; py.write_text("")
+    monkeypatch.setattr(server, "OWN_TTS_PYTHON", py)
+    v = tmp_path / "voices" / "me"; v.mkdir(parents=True)
+    (v / "ref.wav").write_bytes(b"RIFF"); (v / "ref.txt").write_text("ahoj"); (v / "name.txt").write_text("Já")
+    monkeypatch.setattr(server, "_own_voices_dir", lambda: tmp_path / "voices")
+    monkeypatch.setattr(server, "_voicebox_only", lambda: [{"id": "me", "name": "old", "kind": "cloned"}, {"id": "other", "name": "Other", "kind": "cloned"}])
+    monkeypatch.setattr(server, "_TTS_QUEUE", [])
+    said = []
+    monkeypatch.setattr(server, "_own_say", lambda voice, lang, text: said.append((voice["name"], lang, text)) or _wav())
+    monkeypatch.setattr(server, "_tts_sounds_right", lambda *a: True)
+    got = client.get("/api/tts/voices").json()
+    assert [(p["id"], p["name"], p.get("engine")) for p in got["profiles"]] == [("me", "Já", "pick"), ("other", "Other", None)]
+    assert got["own"] and not got["installed"]
+    # Czech: Voicebox cannot, Pick's own voice can
+    assert client.post("/api/tts/prepare", json={"lines": ["Ahoj světe"], "lang": "cs", "profile": "other"}).json()["unsupported"]
+    assert "unsupported" not in client.post("/api/tts/prepare", json={"lines": ["Ahoj světe"], "lang": "cs", "profile": "me"}).json()
+    for _ in range(200):
+        if said:
+            break
+        import time; time.sleep(0.02)
+    assert said == [("Já", "cs", "Ahoj světe")]
+
+
+def _wav():
+    import io, wave
+    b = io.BytesIO()
+    with wave.open(b, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(b"\0\0" * 2400)
+    return b.getvalue()

@@ -34,6 +34,14 @@ APP_DIR = Path(__file__).parent
 SPOTDL_BIN = str(HOME / ".local" / "bin" / "spotdl")
 
 
+# Started from the Finder (the Pick app), the server gets the bare system PATH
+# — without Homebrew, where ffmpeg lives. Everything the server starts (and
+# what those start in turn: demucs, spotdl) must find it all the same.
+for _p in ("/opt/homebrew/bin", "/usr/local/bin", str(HOME / ".local" / "bin")):
+    if _p not in os.environ.get("PATH", "").split(os.pathsep) and os.path.isdir(_p):
+        os.environ["PATH"] = _p + os.pathsep + os.environ.get("PATH", "")
+
+
 def ffmpeg_bin() -> str:
     """Where ffmpeg is. PATH first, then the environment override a packaged
     build sets, then the Homebrew path this machine happens to use."""
@@ -7712,7 +7720,7 @@ def stems_melody_kept(name: str):
 
 
 @app.post("/api/sing/line")
-async def sing_line(request: Request, text: str, lang: str = "auto", song: str = "", key: str = ""):
+async def sing_line(request: Request, text: str, lang: str = "auto", song: str = "", key: str = "", strict: bool = False):
     """One sung line (16 kHz mono s16le) against the words it should have been.
     With `song` and `key` (the line's own, the page's choice) what was heard
     is kept with the song's stems, to be gone through later."""
@@ -7728,7 +7736,7 @@ async def sing_line(request: Request, text: str, lang: str = "auto", song: str =
         heard = await asyncio.get_running_loop().run_in_executor(None, lambda: _voice.transcribe(pcm, lang=lang, prompt=""))
     except Exception:
         return JSONResponse({"error": "Rozpoznání se nepovedlo."}, status_code=500)
-    got = _sing.compare(text, heard)
+    got = _sing.compare(text, heard, strict=strict)        # strict: said, to learn the pronunciation — sung is forgiven more
     d = _sing_dir(song) if song and key else None
     if d is not None:
         try:
@@ -7819,12 +7827,122 @@ _TTS = {"thread": None, "error": None, "opened": 0.0}
 VOICEBOX_ENGINE = "chatterbox"
 
 
+# English goes through the Turbo model when Voicebox has it: measured on this
+# Mac it reads a line in about 8 s where the multilingual one takes 30–50, and
+# as cleanly. (LuxTTS is faster still but swallows the first words; Qwen talks
+# over the line.) Everything else stays with the multilingual model.
+VOICEBOX_FAST = {"engine": "chatterbox_turbo", "model": "chatterbox-turbo"}
+_TTS_FAST = {"at": 0.0, "have": False}
+
+
+# ---- Pick's own voice. A voice is a folder — voices/<id>/ with ref.wav (a few
+# seconds of the person speaking), ref.txt (what is said there) and name.txt —
+# and the model that speaks with it is OmniVoice (Apache-2.0, 600+ languages,
+# Czech among them), run by tts_worker.py in an environment of its own.
+# Nothing else has to be open. Voicebox stays as the way for voices that live
+# only there.
+OWN_TTS_PYTHON = HOME / ".local" / "venvs" / "pick-tts" / "bin" / "python"
+OWN_TTS_STEPS = 16                 # measured on an M1 Pro: about 8 s a line, and as clean as 32 steps
+_OWN_TTS = {"proc": None}
+_OWN_TTS_LOCK = threading.Lock()
+
+
+def _own_voices_dir() -> Path:
+    return CONFIG_PATH.parent / "voices"
+
+
+def _own_voice(profile: str) -> Optional[dict]:
+    d = _own_voices_dir() / profile
+    if not profile or "/" in profile or profile.startswith(".") or not (d / "ref.wav").is_file() or not OWN_TTS_PYTHON.is_file():
+        return None
+    read = lambda n: (d / n).read_text(encoding="utf-8").strip() if (d / n).is_file() else ""
+    return {"id": profile, "name": read("name.txt") or profile, "ref_audio": str(d / "ref.wav"), "ref_text": read("ref.txt")}
+
+
+def _own_voices() -> list:
+    root = _own_voices_dir()
+    return [v for v in (_own_voice(d.name) for d in (sorted(root.iterdir()) if root.is_dir() else []) if d.is_dir()) if v]
+
+
+def _voice_ref_make(src: Path, dest: Path, lang: str = "auto") -> str:
+    """A voice's reference out of any recording of it: its first few seconds,
+    cut at a pause (a clip that ends mid-word makes the voice stumble into
+    every line), and what is said in them written down. → the text."""
+    ff = ffmpeg_bin()
+    probe = subprocess.run([ff, "-hide_banner", "-i", str(src), "-t", "14", "-af", "silencedetect=noise=-32dB:d=0.25", "-f", "null", "-"],
+                           capture_output=True, text=True, timeout=60).stderr
+    pauses = [float(x) for x in _re_mod.findall(r"silence_start: ([0-9.]+)", probe)]
+    # the longest that still ends at a pause: more of the voice makes a better likeness
+    end = next((t + 0.12 for t in reversed(pauses) if 5.0 <= t <= 10.5), None) or next((t + 0.12 for t in reversed(pauses) if 3.0 <= t < 5.0), 9.0)
+    dest.mkdir(parents=True, exist_ok=True)
+    subprocess.run([ff, "-v", "error", "-y", "-i", str(src), "-t", f"{end:.2f}", "-ac", "1", "-ar", "24000", str(dest / "ref.wav")],
+                   check=True, timeout=60)
+    pcm = subprocess.run([ff, "-v", "quiet", "-i", str(dest / "ref.wav"), "-ac", "1", "-ar", str(_voice.RATE), "-f", "s16le", "-"],
+                         capture_output=True, timeout=60).stdout
+    text = _voice.transcribe(pcm, lang=lang if lang in ("en", "cs") else "auto", prompt="")
+    (dest / "ref.txt").write_text(text, encoding="utf-8")
+    return text
+
+
+def _own_say(voice: dict, lang: str, text: str) -> bytes:
+    """One line in one of Pick's own voices. The worker is started when there
+    is none (the first line then waits for the model to load)."""
+    out = Path(tempfile.gettempdir()) / f"pick-tts-{uuid.uuid4().hex}.wav"
+    with _OWN_TTS_LOCK:
+        proc = _OWN_TTS["proc"]
+        if proc is None or proc.poll() is not None:
+            proc = subprocess.Popen([str(OWN_TTS_PYTHON), str(Path(__file__).with_name("tts_worker.py"))], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+            _OWN_TTS["proc"] = proc
+        try:
+            proc.stdin.write(json.dumps({"text": text, "lang": lang, "ref_audio": voice["ref_audio"], "ref_text": voice["ref_text"],
+                                         "out": str(out), "steps": OWN_TTS_STEPS}, ensure_ascii=False) + "\n")
+            proc.stdin.flush()
+            answer = proc.stdout.readline()
+        except (OSError, ValueError):
+            answer = ""
+        if not answer:                                     # it went away mid-line: a fresh one next time
+            _OWN_TTS["proc"] = None
+            raise RuntimeError("Hlasový model se nespustil.")
+    got = json.loads(answer)
+    if not got.get("ok"):
+        raise RuntimeError(got.get("error") or "Hlas se nepodařilo vytvořit.")
+    try:
+        return out.read_bytes()
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def _tts_engine(lang: str, profile: str = "") -> str:
+    if profile and _own_voice(profile):
+        return f"omnivoice-{OWN_TTS_STEPS}"
+    if not (lang or "").lower().startswith("en") or os.environ.get("SPOTDL_NO_WATCHERS"):
+        return VOICEBOX_ENGINE
+    if time.time() - _TTS_FAST["at"] > 300:
+        try:
+            models = httpx.get(VOICEBOX_URL + "/models/status", timeout=4).json().get("models") or []
+            _TTS_FAST.update(at=time.time(), have=any(m.get("model_name") == VOICEBOX_FAST["model"] and m.get("downloaded") for m in models))
+        except Exception:                                  # noqa: BLE001 — asked again with the next line
+            pass
+    return VOICEBOX_FAST["engine"] if _TTS_FAST["have"] else VOICEBOX_ENGINE
+
+
 def _tts_file(profile: str, lang: str, text: str) -> Path:
-    key = f"{VOICEBOX_ENGINE}|{profile}|{lang}|{' '.join(text.split())}"
+    key = f"{_tts_engine(lang, profile)}|{profile}|{lang}|{' '.join(text.split())}"
     return CONFIG_PATH.parent / "tts" / (hashlib.sha1(key.encode("utf-8")).hexdigest()[:24] + ".wav")
 
 
 def _voicebox_profiles():
+    """The voices there are: Pick's own first, then Voicebox's (those it has
+    under the same id are Pick's now). None when there is neither."""
+    own = [{"id": v["id"], "name": v["name"], "kind": "cloned", "engine": "pick"} for v in _own_voices()]
+    theirs = _voicebox_only()
+    if theirs is None:
+        return own or None
+    return own + [p for p in theirs if p["id"] not in {v["id"] for v in own}]
+
+
+def _voicebox_only():
     """The voices of Voicebox, or None when its server does not answer."""
     try:
         r = httpx.get(VOICEBOX_URL + "/profiles", timeout=2.5)
@@ -7834,8 +7952,11 @@ def _voicebox_profiles():
 
 
 def _voicebox_say(profile: str, lang: str, text: str) -> bytes:
+    own = _own_voice(profile)
+    if own:
+        return _own_say(own, lang, text)
     r = httpx.post(VOICEBOX_URL + "/generate/stream", timeout=600,
-                   json={"profile_id": profile, "text": text, "language": lang, "engine": VOICEBOX_ENGINE})
+                   json={"profile_id": profile, "text": text, "language": lang, "engine": _tts_engine(lang)})
     if r.status_code != 200 or r.content[:4] != b"RIFF":
         raise RuntimeError(f"Voicebox: {r.status_code}")
     return r.content
@@ -7865,12 +7986,19 @@ def _tts_sounds_right(audio: bytes, lang: str, text: str) -> bool:
 
 
 def _voicebox_open() -> None:
-    """Voicebox brought up in the background, once a minute at most."""
+    """Voicebox brought up in the background, once a minute at most. The app
+    can be running with its voice server gone (it then answers nothing, and
+    opening an app that is open does nothing): asked a second time in a row,
+    it is closed first and started afresh."""
     if time.time() - _TTS["opened"] > 60:
+        again = time.time() - _TTS["opened"] < 300
         _TTS["opened"] = time.time()
         try:
+            if again and subprocess.run(["pgrep", "-x", "voicebox"], capture_output=True).returncode == 0:
+                subprocess.run(["osascript", "-e", 'quit app "Voicebox"'], capture_output=True, timeout=15)
+                time.sleep(2)
             subprocess.Popen(["open", "-g", "-a", "Voicebox"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
+        except (OSError, subprocess.SubprocessError):
             pass
 
 
@@ -7895,7 +8023,7 @@ def _tts_drain() -> None:
         except Exception as e:                             # noqa: BLE001
             misses += 1
             _TTS["error"] = "Voicebox neodpovídá — je otevřený?" if isinstance(e, httpx.HTTPError) else str(e)
-            if misses < 4 and isinstance(e, httpx.ConnectError):
+            if misses < 4 and isinstance(e, httpx.ConnectError) and not _own_voice(profile):
                 _voicebox_open()
                 time.sleep(8)
                 continue                                   # the same line again, once the app is up
@@ -7919,13 +8047,18 @@ class TtsRequest(BaseModel):
 @app.get("/api/tts/voices")
 def tts_voices():
     got = _voicebox_profiles()
-    return {"voicebox": got is not None, "profiles": got or [], "installed": Path("/Applications/Voicebox.app").exists()}
+    own = bool(_own_voices())
+    # with voices of its own Pick needs nobody: "voicebox" then only says the voices are there
+    return {"voicebox": got is not None, "profiles": got or [], "own": own,
+            "installed": Path("/Applications/Voicebox.app").exists() and not own}
 
 
 @app.post("/api/tts/open")
 def tts_open():
     """Voicebox started in the background (its voices are there only while it runs)."""
-    _TTS["opened"] = 0.0
+    # asked for by hand while the app runs without answering: that is the case to start it afresh
+    running = subprocess.run(["pgrep", "-x", "voicebox"], capture_output=True).returncode == 0
+    _TTS["opened"] = time.time() - 120 if running and _voicebox_profiles() is None else 0.0
     _voicebox_open()
     return {"ok": True}
 
@@ -7934,10 +8067,10 @@ def tts_open():
 def tts_prepare(req: TtsRequest):
     """Which of these lines the chosen voice has already read (each with the
     address of its audio); the others are queued to be made."""
-    if req.lang not in VOICEBOX_LANGS:
-        return {"unsupported": True, "ready": {}, "waiting": 0, "error": None}
     if not req.profile:
         return JSONResponse({"error": "Chybí hlas."}, status_code=400)
+    if req.lang not in VOICEBOX_LANGS and not _own_voice(req.profile):      # Pick's own voice speaks any language
+        return {"unsupported": True, "ready": {}, "waiting": 0, "error": None}
     ready, todo = {}, []
     for text in req.lines[:400]:
         text = " ".join((text or "").split())[:400]
@@ -9292,6 +9425,11 @@ def _lookup_lyrics_online(title: str, artist: str, album: str, duration, video_i
         clean_title, clean_artist = _clean_lyrics_text(title), _clean_lyrics_text(artist)
         if clean_title != title or clean_artist != artist:
             result = _fetch_lrclib(clean_title, clean_artist, album, duration) or result
+    if not result or not (result.get("lines") or result.get("plain")):
+        # a video's name ("uploader | Band- Song (lyrics)"), read the way song names are tidied
+        t = _names.tidy(artist or "", title or "")
+        if t["title"] and (t["title"] != title or (t["artist"] or "") != (artist or "")):
+            result = _fetch_lrclib(t["title"], t["artist"] or "", album, duration) or result
     if not result or not (result.get("lines") or result.get("plain")):
         result = _fetch_ytmusic_lyrics(title, artist, video_id) or result
     return result or {"synced": False, "lines": None, "plain": None, "source": None}

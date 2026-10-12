@@ -225,6 +225,33 @@ Guitar — stránka tabu tam ladění jmenuje („D A D G B E“), i u spousty �
 písní. Kytarový tab má přednost před akordy (ty často píšou jen „Standard“),
 každé místo se u písně ptá jednou (`asked` v `tuning.json`, `from: "ug"`).
 
+**Vlastní hlas Picku** (`tts_worker.py`). Klonovaný hlas už nepotřebuje žádný
+jiný program: mluví model OmniVoice (k2-fsa, Apache-2.0, přes 600 jazyků včetně
+češtiny) ve vlastním prostředí `~/.local/venvs/pick-tts`, který server spouští
+jako pomocný proces a po deseti minutách nečinnosti ho nechá skončit. Hlas je
+složka `voices/<id>/` vedle nastavení: `ref.wav` (pár vteřin řeči, ustřižených
+v pauze), `ref.txt` (co se tam říká) a `name.txt`. 16 kroků = asi 8 s na řádek
+na M1 Pro. Hlasy, které jsou jen ve Voiceboxu, jdou dál přes něj.
+
+Výslovnost se hodnotí přísně (`compare(strict=True)`): slovo projde, jen když
+bylo slyšet samo, nebo jako slovo, které zní stejně (to/too/two, runnin'/running)
+— ne jako slovo podobné („fate“ za „hate“). Zpěv se hodnotí shovívavěji jako dřív.
+
+**Hlas z Voiceboxu.** Anglické řádky čte model Chatterbox Turbo, když ho
+Voicebox má stažený (na M1 Pro asi 8 s na řádek; vícejazyčný Chatterbox 30–50 s
+a zůstává pro ostatní jazyky; LuxTTS je ještě rychlejší, ale polyká začátky
+vět, Qwen do řádku mluví vlastní text). Když Voicebox běží bez svého hlasového
+serveru, Pick ho sám zavře a spustí znovu; výslovnost ho při otevření sama budí.
+
+**Melodie zpěvu** (`sing.py`, verze 3): kde si YIN není jistý — chraplavý
+rockový hlas — bere se jeho nejhlubší propad místo ničeho, oktávové přeskoky
+se srovnají podle okolní melodie a tóny daleko od ní (prosakující kytara, basa)
+se zahodí. Zachytí tak zhruba dvojnásobek zpěvu.
+
+Server spuštěný ikonou dostává holou systémovou cestu bez Homebrew; přidává si
+ji sám, jinak nenajde ffmpeg (melodie zpěvu pak hlásila chybu). Text písně se v
+mixu hledá podle oficiálního interpreta a názvu, ne podle názvu složky.
+
 **Fadery při otevření.** Píseň, která má všechny fadery na 0 dB, se při otevření
 změří (nejhlasitější místo součtu stop) a všechny fadery se stáhnou stejně, aby
 zůstala rezerva asi 5 dB. Fadery jednou pohnuté rukou se nemění.

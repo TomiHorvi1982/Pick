@@ -13,6 +13,7 @@ rather than guessed — a blank is not scored, a wrong note would be.
 """
 import difflib
 import json
+import shutil
 import subprocess
 import time
 import unicodedata
@@ -24,14 +25,15 @@ RATE = 16000
 HOP = 320                 # 20 ms between pitch readings
 WIN = 800                 # 50 ms compared against itself…
 FMIN, FMAX = 70.0, 1000.0  # …for any voice from a low bass to a high scream
-YIN_SURE = 0.18           # the less periodic a frame, the higher this number; above it there is no note
-MIN_NOTE = 0.12           # shorter than this is a blip, not a note
-VERSION = 2               # bump to recompute what is cached
+YIN_SURE = 0.18           # the less periodic a frame, the higher this number; under it the pitch is sure
+YIN_ROUGH = 0.34          # a rough voice (rock is sung that way) is less periodic: up to here its best guess is taken
+MIN_NOTE = 0.10           # shorter than this is a blip, not a note
+VERSION = 3               # bump to recompute what is cached
 
 
 def decode(path):
     """Any audio file as mono float32 at RATE."""
-    out = subprocess.run(["ffmpeg", "-v", "quiet", "-i", str(path), "-ac", "1", "-ar", str(RATE), "-f", "f32le", "-"],
+    out = subprocess.run([shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg", "-v", "quiet", "-i", str(path), "-ac", "1", "-ar", str(RATE), "-f", "f32le", "-"],
                          capture_output=True, check=True).stdout
     return np.frombuffer(out, dtype=np.float32)
 
@@ -62,11 +64,16 @@ def pitch_track(x):
             # The first dip under the line, followed down to its bottom — the
             # shortest period that repeats, not an octave below it.
             under = np.flatnonzero(row[tmin:] < YIN_SURE)
-            if not len(under):
-                continue
-            t = under[0] + tmin
-            while t + 1 < tmax and row[t + 1] < row[t]:
-                t += 1
+            if len(under):
+                t = under[0] + tmin
+                while t + 1 < tmax and row[t + 1] < row[t]:
+                    t += 1
+            else:
+                # Nothing sure: a rough voice. Its deepest dip — not the first
+                # one, which under a looser line would be an octave too high.
+                t = int(np.argmin(row[tmin:])) + tmin
+                if row[t] >= YIN_ROUGH:
+                    continue
             if 0 < t < tmax - 1:                       # between two readings: a parabola through three
                 y0, y1, y2 = row[t - 1], row[t], row[t + 1]
                 den = y0 - 2 * y1 + y2
@@ -84,12 +91,30 @@ def notes_from(midi, loud):
     if not n:
         return []
     gate = max(0.004, float(np.percentile(loud, 95)) * 0.06)       # quieter than this is bleed, not singing
-    p = np.where(loud >= gate, midi, np.nan)
-    # A lone reading an octave off its neighbours is the tracker's slip, not the singer's.
-    for i in range(1, n - 1):
-        if not np.isnan(p[i]) and not np.isnan(p[i - 1]) and not np.isnan(p[i + 1]):
-            if abs(p[i] - p[i - 1]) > 5 and abs(p[i - 1] - p[i + 1]) < 1.5:
-                p[i] = (p[i - 1] + p[i + 1]) / 2
+    raw = np.where(loud >= gate, midi, np.nan)
+    # A reading an octave off the ones around it is the tracker's slip, not the singer's.
+    p = raw.copy()
+    for i in range(n):
+        if np.isnan(raw[i]):
+            continue
+        near = raw[max(0, i - 2):i + 3]
+        near = near[~np.isnan(near)]
+        if len(near) >= 3:
+            m = float(np.median(near))
+            if abs(abs(raw[i] - m) - 12) < 1.0:
+                p[i] = m
+    # A hole of a few unsure frames inside one held pitch is still that note.
+    i = 0
+    while i < n:
+        if not np.isnan(p[i]):
+            i += 1
+            continue
+        j = i
+        while j < n and np.isnan(p[j]):
+            j += 1
+        if 0 < i and j < n and j - i <= 3 and abs(p[i - 1] - p[j]) < 1.0 and loud[i:j].min() >= gate * 0.5:
+            p[i:j] = np.linspace(p[i - 1], p[j], j - i + 2)[1:-1]
+        i = j
     out, start, vals = [], None, []
 
     def close(end):
@@ -103,12 +128,34 @@ def notes_from(midi, loud):
         if np.isnan(v):
             close(i)
             continue
-        if start is not None and abs(v - float(np.median(vals[-8:]))) > 0.8:      # the tune moved on
+        if start is not None and abs(v - float(np.median(vals[-10:]))) > 1.0:     # the tune moved on (vibrato stays inside)
             close(i)
         if start is None:
             start = i
         vals.append(float(v))
     close(n)
+    # A note an octave away from the tune around it is the tracker's slip (a
+    # rough voice reads an octave off as easily as right): a voice does not
+    # leap an octave and back within a breath. It is put where its neighbours are.
+    if len(out) > 2:
+        mids = np.array([o[2] for o in out])
+        at = np.array([(o[0] + o[1]) / 2 for o in out])
+        w = np.array([o[1] - o[0] for o in out])
+        for k in range(len(mids)):
+            near = (np.abs(at - at[k]) < 2.5) & (np.arange(len(out)) != k)
+            if near.sum() < 2:
+                continue
+            order = np.argsort(mids[near])
+            cum = np.cumsum(w[near][order])
+            med = float(mids[near][order][np.searchsorted(cum, cum[-1] / 2)])     # the tune there, by time sung
+            for shift in (12.0, -12.0):
+                if abs(out[k][2] - med) > 7 and abs(out[k][2] + shift - med) < 5:
+                    out[k][2] = round(out[k][2] + shift, 2)
+                    break
+            else:
+                if abs(out[k][2] - med) > 9:              # nowhere near the tune: bleed from a guitar or the bass
+                    out[k] = None
+        out = [o for o in out if o is not None]
     # Two halves of one held note, split by a single unsure frame, are one note.
     merged = []
     for nt in out:
@@ -180,8 +227,38 @@ def _same(a, b):
     return difflib.SequenceMatcher(None, a, b).ratio() >= 0.75
 
 
-def compare(expected, heard):
-    """Each word of the lyric line: {"w": word, "s": "ok" | "bad" | "miss"}, and the share that was right."""
+# Said aloud, these are one word: whisper writes whichever spelling the
+# sentence suggests, and neither is a slip of the tongue.
+_HOMOPHONES = [set(g.split()) for g in (
+    "to too two 2", "for four 4", "one won 1", "ate eight 8", "there their theyre", "your youre yore", "its it's".replace("'", ""),
+    "no know", "new knew", "right write rite", "by buy bye", "here hear", "be bee", "see sea", "would wood", "our hour",
+    "son sun", "whole hole", "piece peace", "wait weight", "way weigh", "weak week", "break brake", "die dye", "i eye",
+    "in inn", "not knot", "night knight", "made maid", "mail male", "meet meat", "pain pane", "plain plane", "road rode",
+    "role roll", "sail sale", "seen scene", "so sew sow", "soul sole", "steal steel", "tail tale", "threw through thru",
+    "waste waist", "wear where", "whose whos", "theres theirs", "heal heel", "hole whole", "aloud allowed", "blue blew",
+    "flower flour", "great grate", "higher hire", "lead led", "passed past", "pray prey", "rain reign rein", "raise rays",
+    "read red", "sight site", "some sum", "ok okay", "alright allright", "till til until", "cause cuz coz because",
+    "yeah yea ya", "gonna gunna", "wanna wonna", "em them", "oh o", "color colour", "gray grey", "favor favour",
+    "honor honour", "center centre", "realize realise", "tonight tonite", "though tho", "you u", "are r", "love luv")]
+
+
+def _same_strict(a, b):
+    """The same word, said right: its letters, or only another way of writing
+    the same sound — never a word that merely looks alike ("fate" for "hate")."""
+    if a == b:
+        return True
+    if any(a in g and b in g for g in _HOMOPHONES):
+        return True
+    # "runnin" as the lyric writes it, "running" as whisper does — and the plural's or possessive's s written apart
+    drop = lambda w: w[:-1] if w.endswith("ing") else w
+    return drop(a) == drop(b) and (a.endswith("in") or b.endswith("in"))
+
+
+def compare(expected, heard, strict=False):
+    """Each word of the lyric line: {"w": word, "s": "ok" | "bad" | "miss"}, and the share that was right.
+    `strict` is for pronunciation: a word passes only when it was heard as
+    itself (or as a word that sounds the same) — one that resembles it does not."""
+    same = _same_strict if strict else _same
     want = words(expected)
     got = [_plain(w) for w in words(heard)]
     keys = [_plain(w) for w in want]
@@ -193,13 +270,13 @@ def compare(expected, heard):
                 state[i] = "ok"
         elif tag == "replace":
             # "icebox" heard as "ice box": the same letters, cut differently
-            if _same("".join(keys[i1:i2]), "".join(got[j1:j2])):
+            if (lambda x, y: x == y if strict else _same(x, y))("".join(keys[i1:i2]), "".join(got[j1:j2])):
                 for i in range(i1, i2):
                     state[i] = "ok"
                 continue
             for k, i in enumerate(range(i1, i2)):
                 j = j1 + k
-                state[i] = "ok" if j < j2 and _same(keys[i], got[j]) else ("bad" if j < j2 else "miss")
+                state[i] = "ok" if j < j2 and same(keys[i], got[j]) else ("bad" if j < j2 else "miss")
     ok = state.count("ok")
     return {"words": [{"w": w, "s": s} for w, s in zip(want, state)],
             "ok": ok, "total": len(want), "heard": " ".join(words(heard))}
