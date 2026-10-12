@@ -8053,6 +8053,63 @@ def tts_voices():
             "installed": Path("/Applications/Voicebox.app").exists() and not own}
 
 
+@app.post("/api/tts/voice")
+async def tts_voice_add(file: UploadFile = File(...), name: str = "", lang: str = "auto"):
+    """A new voice of Pick's own, out of any recording of someone speaking:
+    its first seconds become the reference, and what is said there is written
+    down (to be put right by hand when it was misheard)."""
+    if not OWN_TTS_PYTHON.is_file():
+        return JSONResponse({"error": "Hlasový model Picku není nainstalovaný."}, status_code=503)
+    data = await file.read()
+    if len(data) < 4000 or len(data) > 200 * 1024 * 1024:
+        return JSONResponse({"error": "Nahrávka je prázdná nebo příliš velká."}, status_code=400)
+    vid = uuid.uuid4().hex[:16]
+    dest = _own_voices_dir() / vid
+    src = Path(tempfile.gettempdir()) / f"pick-voice-{vid}{Path(file.filename or 'x.wav').suffix[:8] or '.wav'}"
+    try:
+        src.write_bytes(data)
+        text = await asyncio.get_running_loop().run_in_executor(None, lambda: _voice_ref_make(src, dest, lang))
+        if not (dest / "ref.wav").is_file() or (dest / "ref.wav").stat().st_size < 20000:
+            raise RuntimeError("v nahrávce není dost zvuku")
+        (dest / "name.txt").write_text((name or "").strip()[:60] or "Nový hlas", encoding="utf-8")
+    except Exception as e:                                 # noqa: BLE001
+        shutil.rmtree(dest, ignore_errors=True)
+        return JSONResponse({"error": f"Z nahrávky se hlas nepodařilo připravit ({e})."}, status_code=400)
+    finally:
+        src.unlink(missing_ok=True)
+    v = _own_voice(vid)
+    dur = _audio_tags(dest / "ref.wav").get("duration")
+    return {"id": vid, "name": v["name"], "ref_text": text, "seconds": dur}
+
+
+class VoiceEdit(BaseModel):
+    name: Optional[str] = None
+    ref_text: Optional[str] = None
+
+
+@app.put("/api/tts/voice/{vid}")
+def tts_voice_edit(vid: str, body: VoiceEdit):
+    """The voice's name, or what its reference really says."""
+    v = _own_voice(vid)
+    if not v:
+        return JSONResponse({"error": "Hlas nenalezen."}, status_code=404)
+    d = _own_voices_dir() / vid
+    if body.name is not None and body.name.strip():
+        (d / "name.txt").write_text(body.name.strip()[:60], encoding="utf-8")
+    if body.ref_text is not None and body.ref_text.strip():
+        (d / "ref.txt").write_text(" ".join(body.ref_text.split())[:600], encoding="utf-8")
+        os.utime(d / "ref.wav")                            # the worker works the voice out again with the new words
+    return _own_voice(vid)
+
+
+@app.delete("/api/tts/voice/{vid}")
+def tts_voice_delete(vid: str):
+    if not _own_voice(vid):
+        return JSONResponse({"error": "Hlas nenalezen."}, status_code=404)
+    shutil.rmtree(_own_voices_dir() / vid, ignore_errors=True)
+    return {"ok": True}
+
+
 @app.post("/api/tts/open")
 def tts_open():
     """Voicebox started in the background (its voices are there only while it runs)."""

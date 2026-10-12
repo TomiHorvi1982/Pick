@@ -505,14 +505,14 @@
   .tp-ctl{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--sub)}
   .tp-ctl select{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px;padding:4px 6px}
   .tp-tog{border:1px solid var(--border);background:transparent;color:var(--sub);border-radius:999px;padding:5px 10px;cursor:pointer;font:inherit;font-size:12px}
-  .tp-tog.on{background:rgba(30,215,96,.15);border-color:var(--accent);color:var(--accent)}
+  .tp-tog.on{background:color-mix(in srgb,var(--accent) 15%,transparent);border-color:var(--accent);color:var(--accent)}
   .tp-bar .ghost,.tp-rec .ghost{border:none;background:transparent;color:var(--sub);cursor:pointer;font:inherit;font-size:12px}
   .tp-bar .ghost:hover,.tp-rec .ghost:hover{color:var(--text)}
   .tp-main{flex:1;min-height:0;display:flex;gap:8px}
   .tp-tracks{width:230px;flex:0 0 230px;overflow-y:auto;background:var(--card);border-radius:10px;padding:6px}
   .tp-track{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12.5px}
   .tp-track:hover{background:var(--card-hi)}
-  .tp-track.on{background:rgba(30,215,96,.14);box-shadow:inset 3px 0 0 var(--accent)}
+  .tp-track.on{background:color-mix(in srgb,var(--accent) 14%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
   .tp-track .tp-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tp-track .cls{font-size:9.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
   .tp-track .ms{display:flex;gap:2px}
@@ -545,11 +545,11 @@
   .tp-hit img{width:40px;height:40px;border-radius:4px;object-fit:cover}
   .tp-hit .tx{flex:1;min-width:0;font-size:12.5px}
   .tp-hit .tx span{display:block;color:var(--sub);font-size:11.5px}
-  .tp-progress{font-size:12px;color:var(--text);padding:6px 8px;border-radius:8px;background:rgba(30,215,96,.08)}
+  .tp-progress{font-size:12px;color:var(--text);padding:6px 8px;border-radius:8px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .tp-stems{display:flex;flex-direction:column;gap:3px;margin-top:8px}
   .tp-stem{display:grid;grid-template-columns:120px 50px 90px 1fr;align-items:center;gap:8px;padding:3px 6px;border-radius:7px;
     border:1px solid transparent}
-  .tp-stem.focus{border-color:var(--accent);background:rgba(30,215,96,.08)}
+  .tp-stem.focus{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .tp-stem .tp-nm{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;display:flex;align-items:center;gap:6px}
   .tp-stem .tp-nm i{width:9px;height:9px;border-radius:2px;display:inline-block}
   .tp-stem .ms{display:flex;gap:3px}
@@ -1474,7 +1474,7 @@ body.lib-collapsed .pick-brand{display:none}
   }
   html,body{height:100%}
   body{background:var(--bg);font-family:var(--sp-font);overflow:hidden}
-  ::selection{background:rgba(30,215,96,.3)}
+  ::selection{background:color-mix(in srgb,var(--accent) 30%,transparent)}
 
   /* Scrollbars: Spotify's are invisible until the area is hovered. */
   .sp-scroll{overflow-y:auto;scrollbar-gutter:stable}
@@ -2230,7 +2230,7 @@ body.lib-collapsed .pick-brand{display:none}
     background:linear-gradient(90deg,var(--accent) var(--fill,100%),#4d4d4d var(--fill,100%))}
   .nm-fader::-moz-range-progress{background:var(--accent)}
   .nm-solo.active{color:var(--accent)}
-  .nm-btn.active,.nm-play.playing{background:rgba(30,215,96,.15);
+  .nm-btn.active,.nm-play.playing{background:color-mix(in srgb,var(--accent) 15%,transparent);
     border-color:var(--accent);color:var(--accent)}
 
   /* The stem list sits under the hero when no mix is open. */
@@ -2403,8 +2403,8 @@ body.lib-collapsed .pick-brand{display:none}
   .steems-under h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:10px}
   .steems-under h3 button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer}
   .steems-under .lib-trow,.steems-under .lib-thead{grid-template-columns:38px minmax(0,2.2fr) minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,1fr) 56px 64px;height:34px}
-  .steems-under .lib-trow.cur{color:var(--accent,#1ed760)}
-  .steems-under .lib-trow.pv{background:color-mix(in srgb, var(--accent,#1ed760) 16%, transparent)}
+  .steems-under .lib-trow.cur{color:var(--accent,var(--accent))}
+  .steems-under .lib-trow.pv{background:color-mix(in srgb, var(--accent,var(--accent)) 16%, transparent)}
   .steems-under .c-tun{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sub);font-size:12.5px}
   .steems-under .c-act button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;opacity:0}
   .steems-under .lib-trow:hover .c-act button,.steems-under .lib-trow.pv .c-act button{opacity:1}
@@ -2511,7 +2511,7 @@ body.lib-collapsed .pick-brand{display:none}
     padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
   /* The tuner takes the app's colours through its own CSS variables. */
   .tuner-body{background:#121214;overflow:auto;padding:10px}
-  neverlast-ladicka{--nl-lampa:#1ed760;--nl-signal:#1ed760;--nl-plocha:#26262c;--nl-vhloubeni:#0c0c0f;
+  neverlast-ladicka{--nl-lampa:var(--accent);--nl-signal:var(--accent);--nl-plocha:#26262c;--nl-vhloubeni:#0c0c0f;
     --nl-text:#f1f1f3;--nl-tlum:#a7a7ad;--nl-slaby:#8b8b92;--nl-pismo:inherit;--nl-pismo-cisla:inherit;display:block}
   .gt-tuner{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
     border:none;border-radius:5px;background:transparent;color:var(--nm-sub);cursor:pointer;padding:0}
@@ -2543,40 +2543,40 @@ body.lib-collapsed .pick-brand{display:none}
   .speak-body{display:flex;flex-direction:column;min-height:0;background:#0c0c10;padding:0}
   .speak-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #22222c;font-size:12px;color:#9a9aa6}
   .speak-bar button{border:1px solid #33333f;background:#16161c;color:#e8e8ec;border-radius:7px;padding:5px 10px;font:inherit;cursor:pointer}
-  .speak-bar button.go{background:var(--accent,#1ed760);border-color:var(--accent,#1ed760);color:#06120a;font-weight:700}
+  .speak-bar button.go{background:var(--accent,var(--accent));border-color:var(--accent,var(--accent));color:#06120a;font-weight:700}
   .speak-bar select{background:#16161c;color:#e8e8ec;border:1px solid #33333f;border-radius:6px;padding:3px}
   .speak-count{margin-left:auto;font-variant-numeric:tabular-nums}
   .speak-now{padding:10px 14px 4px;font-size:13px;color:#9ecbff;min-height:20px}
-  .speak-now.ok{color:#1ed760}.speak-now.bad{color:#ff9d6b}.speak-now.listen{color:#ffd84a}
+  .speak-now.ok{color:var(--accent)}.speak-now.bad{color:#ff9d6b}.speak-now.listen{color:#ffd84a}
   .speak-voice-note{padding:0 14px;font-size:11.5px;color:#8b8b96;min-height:15px}
   .speak-mic{display:flex;align-items:center;gap:10px;margin:4px 14px 8px;font-size:11.5px;color:#9a9aa6}
   .speak-mic label{display:flex;align-items:center;gap:6px;flex:none}
-  .speak-mic input[type=range]{width:90px;accent-color:#1ed760}
+  .speak-mic input[type=range]{width:90px;accent-color:var(--accent)}
   .speak-mic .db{width:42px;font-variant-numeric:tabular-nums;color:#c8c8d2}
   .speak-meter{position:relative;flex:1;height:8px;background:#1b1b23;border-radius:4px;overflow:hidden}
   .speak-meter i{display:block;height:100%;width:0;background:#6a6a76;transition:width .08s linear}
-  .speak-meter i.ok{background:#1ed760}.speak-meter i.clip{background:#e5534b}
+  .speak-meter i.ok{background:var(--accent)}.speak-meter i.clip{background:#e5534b}
   .speak-meter u{position:absolute;top:0;bottom:0;left:29%;width:1px;background:rgba(255,255,255,.45)}
   .speak-hear{flex:none;width:118px;text-align:right}
-  .speak-hear.ok{color:#1ed760}.speak-hear.clip{color:#ff6b6b}
+  .speak-hear.ok{color:var(--accent)}.speak-hear.clip{color:#ff6b6b}
   .speak-line .tx i.now{background:#ffd84a;color:#141414 !important;border-radius:4px;padding:0 4px;text-decoration:none !important}
   .speak-line .tx small{font-size:11.5px;font-weight:400;color:#8b8b96;margin-left:8px}
   .speak-list{flex:1;min-height:0;overflow-y:auto;padding:4px 8px 14px}
   .speak-line{padding:7px 10px;border-radius:8px;cursor:pointer;border-left:3px solid transparent}
   .speak-line:hover{background:#15151c}
   .speak-line.cur{background:#191923;border-left-color:#ffd84a}
-  .speak-line.done{border-left-color:#1ed760}.speak-line.skipped{border-left-color:#6a6a76}
+  .speak-line.done{border-left-color:var(--accent)}.speak-line.skipped{border-left-color:#6a6a76}
   .speak-line .tx{font-size:17px;font-weight:600;color:#f0f0f4;line-height:1.35}
   .speak-line .tx i{font-style:normal}
   .speak-line .tx s{text-decoration:none;color:#6a6a76;font-weight:400}
-  .speak-line .tx i.ok{color:#1ed760}.speak-line .tx i.bad{color:#ff6b6b;text-decoration:underline wavy}.speak-line .tx i.miss{color:#77778a}
+  .speak-line .tx i.ok{color:var(--accent)}.speak-line .tx i.bad{color:#ff6b6b;text-decoration:underline wavy}.speak-line .tx i.miss{color:#77778a}
   .speak-line .hd{font-size:12.5px;color:#9ecbff;margin-top:2px}
   .speak-line .hd b{color:#8b8b96;font-weight:400}
   .lyr-block.sung{cursor:pointer;gap:4px;color:#c8c8d2}
   .lyr-block.sung i{font-style:normal}
-  .lyr-block.sung i.ok{color:#1ed760}.lyr-block.sung i.bad{color:#ff6b6b;text-decoration:underline wavy}.lyr-block.sung i.miss{color:#77778a;text-decoration:line-through}
+  .lyr-block.sung i.ok{color:var(--accent)}.lyr-block.sung i.bad{color:#ff6b6b;text-decoration:underline wavy}.lyr-block.sung i.miss{color:#77778a;text-decoration:line-through}
   .lyr-block.sung .hd{margin-left:8px;color:#9ecbff;font-style:italic}
-  .lyr-block.sung.ok{background:rgba(30,215,96,.07)}.lyr-block.sung.part{background:rgba(233,185,73,.08)}
+  .lyr-block.sung.ok{background:color-mix(in srgb,var(--accent) 7%,transparent)}.lyr-block.sung.part{background:rgba(233,185,73,.08)}
   .lyr-block.sung.bad,.lyr-block.sung.none{background:rgba(229,83,75,.1)}
   #nm-lyr-run{display:none;width:100%;height:78px;cursor:pointer}
   .nm-lyr-lines.run #nm-lyr-run{display:block}
@@ -2762,7 +2762,7 @@ body.lib-collapsed .pick-brand{display:none}
     overflow-wrap:anywhere}
   .inst-pop button:hover{background:rgba(255,255,255,.08);color:#fff}
   .inst-pop button.on{background:rgba(255,255,255,.11);color:#fff;font-weight:600}
-  .inst-pop .col.list button.on{color:#0b0b0d;background:#1ed760;font-weight:700}
+  .inst-pop .col.list button.on{color:#0b0b0d;background:var(--accent);font-weight:700}
   .inst-pop .col.list button small{display:block;font-size:10.5px;color:#8b8b96;font-weight:400}
   .inst-pop .col.list button.on small{color:rgba(0,0,0,.6)}
   .inst-pop .ip-cat i{font-style:normal;float:right;color:#8b8b96;font-size:11.5px;font-weight:400;margin-left:8px}
@@ -2821,8 +2821,8 @@ body.lib-collapsed .pick-brand{display:none}
   .pk-w.out{background:linear-gradient(#cfcfcf,#bdbdbd);color:#999}
   .pk-b.out{background:linear-gradient(#2a2a2a,#1c1c1c);color:#555}
   .pk-w.out.locked,.pk-b.out.locked{cursor:not-allowed}
-  .pk-w.root{box-shadow:inset 0 -6px 0 #1ed760}
-  .pk-b.root{box-shadow:inset 0 -5px 0 #1ed760}
+  .pk-w.root{box-shadow:inset 0 -6px 0 var(--accent)}
+  .pk-b.root{box-shadow:inset 0 -5px 0 var(--accent)}
   .pk-w.fret,.pk-b.fret{background:linear-gradient(#ffe6a3,#ffd166)}
   .pk-w.down,.pk-b.down{background:linear-gradient(#7fd3ff,#3aa8ff) !important;color:#012}
   .pk-fb{flex:none;overflow-x:auto;border-top:1px solid #26262e;padding-top:6px}
@@ -2831,8 +2831,8 @@ body.lib-collapsed .pick-brand{display:none}
   .pk-fb td.nut{border-right:5px solid #ddd;width:24px}
   .pk-fb td.str::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#aaa}
   .pk-fb td .dot{position:relative;z-index:1;display:inline-block;width:15px;height:15px;line-height:15px;border-radius:50%;font-size:9px;font-weight:700}
-  .pk-fb td .dot.sc{width:8px;height:8px;background:rgba(30,215,96,.35)}
-  .pk-fb td .dot.sc.r{background:rgba(30,215,96,.8)}
+  .pk-fb td .dot.sc{width:8px;height:8px;background:color-mix(in srgb,var(--accent) 35%,transparent)}
+  .pk-fb td .dot.sc.r{background:color-mix(in srgb,var(--accent) 80%,transparent)}
   .pk-fb td .dot.on{background:#ffd166;color:#222}
   .pk-fb td.mute .dot.on{background:none;color:#ff6b6b}
   .pk-fb .lbl{color:#888;cursor:default;border:none}
@@ -2890,7 +2890,7 @@ body.lib-collapsed .pick-brand{display:none}
     padding:0 4px;cursor:pointer;outline:none}
   .metro-voice:hover{background:#1e1e25}
   .metro-voice:focus{border-color:var(--accent)}
-  .nm-lane.metro-lane{background:rgba(30,215,96,.035);border-bottom:1px solid #35353d}
+  .nm-lane.metro-lane{background:color-mix(in srgb,var(--accent) 4%,transparent);border-bottom:1px solid #35353d}
   .metro-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
   /* ---- collapsed rail: controls stack, artwork centres ----
@@ -2955,7 +2955,7 @@ body.lib-collapsed .pick-brand{display:none}
   .lib-trow{height:46px;border-radius:5px;cursor:pointer;font-size:13.5px;
     color:var(--sub)}
   .lib-trow:hover{background:var(--sp-hover)}
-  .lib-trow.playing{background:rgba(30,215,96,.12)}
+  .lib-trow.playing{background:color-mix(in srgb,var(--accent) 12%,transparent)}
   .lib-trow.playing .c-title{color:var(--accent)}
   .c-idx{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
   .c-title{display:flex;align-items:center;gap:10px;min-width:0;color:var(--text)}
@@ -2994,7 +2994,7 @@ body.lib-collapsed .pick-brand{display:none}
   .nam-row{display:flex;align-items:center;gap:10px;height:46px;
     padding:0 10px;border-radius:5px;font-size:13px;color:var(--sub)}
   .nam-row:hover{background:var(--sp-hover)}
-  .nam-row.previewing{background:rgba(30,215,96,.12)}
+  .nam-row.previewing{background:color-mix(in srgb,var(--accent) 12%,transparent)}
   .nam-thumb{flex:0 0 32px;width:32px;height:32px;border-radius:4px;position:relative;
     overflow:hidden;background:var(--card-hi);display:flex;
     align-items:center;justify-content:center;color:var(--accent)}
@@ -3312,7 +3312,7 @@ body.lib-collapsed .pick-brand{display:none}
   .np-facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .np-fact{font-size:11.5px;color:var(--text);background:rgba(255,255,255,.09);
     border-radius:999px;padding:4px 10px;white-space:nowrap}
-  .np-fact.accent{background:rgba(30,215,96,.16);color:var(--accent)}
+  .np-fact.accent{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
 
   /* The biography is clamped only when it is long enough to bury the albums;
      the toggle always reveals the whole thing. */
@@ -3360,7 +3360,7 @@ body.lib-collapsed .pick-brand{display:none}
   /* A date within reach of home is worth spotting in a list of 24. */
   .np-event.near .np-ev-day{color:var(--accent)}
   .np-ev-tag{flex:0 0 auto;font-size:10.5px;padding:2px 7px;border-radius:999px;
-    background:rgba(30,215,96,.16);color:var(--accent);font-weight:700}
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-weight:700}
   .np-ev-tag.sold{background:rgba(255,255,255,.1);color:var(--sub)}
 
   .np-videos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 10px}
@@ -3491,19 +3491,20 @@ body.lib-collapsed .pick-brand{display:none}
     --bg2: rgba(17,18,24,.80);
     --card: rgba(255,255,255,.055);
     --card-hi: rgba(255,255,255,.10);
-    --border: rgba(255,255,255,.085);
-    --sp-hover: rgba(255,255,255,.08);
+    --border: rgba(140,150,255,.13);
+    --sp-hover: rgba(140,150,255,.11);
     --sp-radius: 14px;
     --accent2: #38bdf8;
-    --glass: rgba(14,15,20,.40);
-    --glass-strong: rgba(14,15,20,.80);
+    --glass: rgba(11,14,30,.46);
+    --glass-strong: rgba(12,15,32,.86);
     --accent-dim: color-mix(in srgb, var(--accent) 70%, #000);
-    background:#06070a;
+    --accent: #8b6cff;
+    background:#060814;
   }
   html.ambient body{background:transparent}
   #amb-bg, #amb-blobs, #amb-shade{display:none}
   html.ambient #amb-bg{display:block;position:fixed;inset:-90px;z-index:-3;
-    background:#0b0c10 center/cover no-repeat;filter:blur(64px) saturate(1.7) brightness(.62);
+    background:#0a0d1c center/cover no-repeat;filter:blur(64px) saturate(1.7) brightness(.62);
     transform:scale(1.12);transition:background-image .9s ease, opacity .9s ease}
   html.ambient #amb-blobs{display:block;position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}
   html.ambient #amb-blobs i{position:absolute;width:62vmax;height:62vmax;border-radius:50%;filter:blur(70px);
@@ -3697,14 +3698,14 @@ body.lib-collapsed .pick-brand{display:none}
   /* the prompter: what can be said */
   /* Docked on the right and left there while commands are given ("pick help close" puts it away). */
   .voice-help{position:fixed;right:10px;top:70px;bottom:104px;z-index:90;width:min(400px,36vw);display:flex;flex-direction:column;
-    background:rgba(16,16,20,.97);border:1px solid rgba(30,215,96,.5);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7);color:#fff}
+    background:rgba(16,16,20,.97);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7);color:#fff}
   .voice-help[hidden]{display:none}
   /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
   .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
   .voice-again[hidden]{display:none}
   /* Beside an open mix: the song, and its artist's albums with what is there and what is not. */
   .srail{padding:6px 4px 20px}
-  .srail-now{display:flex;gap:10px;align-items:center;padding:10px 8px;margin:6px 0 4px;border-radius:8px;background:rgba(30,215,96,.09);border:1px solid rgba(30,215,96,.28)}
+  .srail-now{display:flex;gap:10px;align-items:center;padding:10px 8px;margin:6px 0 4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
   .srail-now .lib-art{width:44px;height:44px;flex:none;border-radius:5px}
   .srail-now .tx{min-width:0;display:flex;flex-direction:column;gap:1px}
   .srail-now small{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
@@ -3713,7 +3714,7 @@ body.lib-collapsed .pick-brand{display:none}
   .srail-note,.srail-sum{font-size:12px;color:var(--sub);padding:8px;line-height:1.45}
   .srail-sum b{color:var(--text)}
   .srail-sel{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 8px;margin:2px 0 6px;border-radius:7px;
-    background:#1d2a21;border:1px solid rgba(30,215,96,.45);font-size:12px}
+    background:#1d2a21;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);font-size:12px}
   .srail-sel[hidden]{display:none}
   .srail-sel b{margin-right:auto}
   .srail-sel button{border:none;border-radius:500px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--accent);color:#000}
@@ -3735,16 +3736,52 @@ body.lib-collapsed .pick-brand{display:none}
   .srail-tr:hover{background:var(--sp-hover,#1f1f25)}
   .srail-tr .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .srail-tr input{flex:none;margin:0;width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
-  .srail-tr .ok{flex:none;width:14px;display:inline-flex;justify-content:center;color:var(--accent)}
+  .srail-tr .ok{flex:none;width:14px;display:inline-flex;justify-content:center;color:var(--ok)}
   .srail-tr.have{color:var(--text)}
-  .srail-tr.now{color:var(--accent);font-weight:700;background:rgba(30,215,96,.08)}
-  .srail-tr.sel{background:rgba(30,215,96,.12);color:var(--text)}
+  .srail-tr.now{color:var(--accent);font-weight:700;background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  .srail-tr.sel{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}
   body.lib-collapsed .srail{display:none}
+  /* The night look: panels edged in violet-blue, what is active lit from within. */
+  html.ambient .sp-shell > *{border-color:rgba(140,150,255,.14) !important;box-shadow:0 0 0 1px rgba(10,12,28,.5), 0 18px 50px rgba(4,6,20,.55), inset 0 1px 0 rgba(170,180,255,.05)}
+  html.ambient .lib-sec-mode.active{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 34%,transparent),color-mix(in srgb,var(--accent2,#3d8bfd) 10%,transparent));
+    border-radius:10px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 38%,transparent), 0 6px 22px color-mix(in srgb,var(--accent) 22%,transparent)}
+  html.ambient .lib-sec-mode.active .lib-sec-label{color:#fff}
+  html.ambient .btn:not(.secondary), html.ambient .sp-fab{background:linear-gradient(135deg,var(--accent),var(--accent2,#3d8bfd));color:#fff;border:none;
+    box-shadow:0 8px 26px color-mix(in srgb,var(--accent) 34%,transparent)}
+  html.ambient .btn.secondary{border-color:rgba(140,150,255,.22);background:rgba(120,130,255,.06)}
+  html.ambient .btn.secondary:hover{border-color:color-mix(in srgb,var(--accent) 60%,transparent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  html.ambient .lib-table .lib-thead{border-bottom-color:rgba(140,150,255,.14)}
+  html.ambient .nm-btn.round, html.ambient .nm-tgroup .nm-num{border-color:rgba(140,150,255,.2)}
+  /* Guitars in the dark at the foot of the left panel. */
+  .rail-art{position:relative;flex:none;height:168px;pointer-events:none;overflow:hidden;border-top:1px solid rgba(140,150,255,.08);
+    background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--accent) 7%,transparent))}
+  .rail-art svg{position:absolute;right:-6px;top:6px;width:178px;height:202px;opacity:.55;
+    -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 98%);mask-image:linear-gradient(180deg,#000 55%,transparent 98%)}
+  .rail-art .motto{position:absolute;left:20px;bottom:42px;font:500 13px/1.38 var(--sp-font);color:#7780b0;letter-spacing:.01em}
+  .rail-art .wave{position:absolute;left:22px;bottom:14px;display:flex;align-items:center;gap:2.5px;height:18px}
+  .rail-art .wave i{width:2.5px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--accent2,#3d8bfd));opacity:.85}
+  body.lib-collapsed .rail-art{display:none}
+  html:not(.ambient) .rail-art svg{opacity:.3}
+  /* Adding a voice of one's own. */
+  .voice-add .mt-box{width:min(520px,94vw)}
+  .voice-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub);margin-top:12px}
+  .voice-add input[type=text], .voice-add select, .voice-add textarea{background:#101018;border:1px solid #33364a;border-radius:8px;color:var(--text);font:inherit;font-size:13.5px;padding:8px 10px}
+  .voice-add textarea{min-height:74px;resize:vertical;line-height:1.4}
+  .voice-add .two{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .voice-add .status{min-height:18px;margin-top:10px;font-size:12.5px;color:var(--sub)}
+  .voice-add .status.bad{color:var(--danger)}
+  .voice-add .mine{margin-top:16px;border-top:1px solid #2a2d40;padding-top:10px}
+  .voice-add .mine div{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px}
+  .voice-add .mine div span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .voice-add .mine button{background:none;border:1px solid #3a3d52;color:var(--sub);border-radius:500px;padding:2px 10px;font:inherit;font-size:11.5px;cursor:pointer}
+  .voice-add .mine button:hover{border-color:var(--danger);color:var(--danger)}
+  #speak-voice-add{white-space:nowrap}
+  .voice-add .btn{padding:9px 16px;font-size:13px;border-radius:500px}
   /* What there already is of a song: four small marks — file, stems, tab, text. */
   .have-marks{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px;flex:none}
   .have-marks i{font:700 8.5px/1 -apple-system,"Helvetica Neue",sans-serif;font-style:normal;letter-spacing:.05em;padding:2px 4px;border-radius:3px;
     color:#6a6a75;border:1px solid #34343e;white-space:nowrap}
-  .have-marks i.on{color:#1ed760;border-color:rgba(30,215,96,.45);background:rgba(30,215,96,.1)}
+  .have-marks i.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
   .have-marks i.wait{color:#e9b949;border-color:rgba(233,185,73,.5);background:rgba(233,185,73,.08)}
   .have-marks i.unk{border-style:dashed}
   .track-row .have-slot .have-marks{margin-left:0}
@@ -3766,16 +3803,16 @@ body.lib-collapsed .pick-brand{display:none}
   @keyframes vhint{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
   .voice-hints b{animation-name:vhintb}
   @keyframes vhintb{from{opacity:0}to{opacity:1}}
-  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px rgba(30,215,96,.75)) drop-shadow(0 0 140px rgba(30,215,96,.4));animation:vagain .46s ease-in-out infinite alternate}
+  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px color-mix(in srgb,var(--accent) 75%,transparent)) drop-shadow(0 0 140px color-mix(in srgb,var(--accent) 40%,transparent));animation:vagain .46s ease-in-out infinite alternate}
   .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
-    text-shadow:0 0 28px rgba(30,215,96,.85),0 0 80px rgba(30,215,96,.5),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
+    text-shadow:0 0 28px color-mix(in srgb,var(--accent) 85%,transparent),0 0 80px color-mix(in srgb,var(--accent) 50%,transparent),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
   @keyframes vagain{from{opacity:.12;transform:scale(.94)}to{opacity:.62;transform:scale(1.05)}}
   .voice-again-row input{flex:1;min-width:0}
   .voice-again-row button{flex:none;border:1px solid var(--nm-line,#333);background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:3px 7px;border-radius:6px}
   .voice-again-row button:hover{color:var(--nm-txt)}
-  .voice-again-row button.has{color:var(--accent,#1ed760);border-color:var(--accent,#1ed760)}
+  .voice-again-row button.has{color:var(--accent,var(--accent));border-color:var(--accent,var(--accent))}
   .voice-again-row button.busy{color:#ff6b6b;border-color:#ff6b6b}
-  .vh-head{display:flex;align-items:center;gap:12px;padding:12px 14px;font-size:13px;font-weight:700;color:var(--accent,#1ed760);border-bottom:1px solid #2a2a34}
+  .vh-head{display:flex;align-items:center;gap:12px;padding:12px 14px;font-size:13px;font-weight:700;color:var(--accent,var(--accent));border-bottom:1px solid #2a2a34}
   .vh-head span{flex:1}
   .vh-head button{border:none;background:none;color:#aaa;font-size:16px;cursor:pointer}
   .vh-list{overflow-y:auto;padding:12px 14px 16px;flex:1;min-height:0}
@@ -3790,79 +3827,79 @@ body.lib-collapsed .pick-brand{display:none}
   .vh-list .r span{color:#9a9aa6;min-width:0}
   .vh-list .r{flex-wrap:wrap;column-gap:10px}
   /* the assistant's words, bottom right */
-  .assist-box{position:fixed;right:18px;bottom:112px;z-index:70;max-width:380px;padding:11px 14px;border-radius:12px;background:#14141a;border:1px solid rgba(30,215,96,.45);
+  .assist-box{position:fixed;right:18px;bottom:112px;z-index:70;max-width:380px;padding:11px 14px;border-radius:12px;background:#14141a;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
     box-shadow:0 8px 26px rgba(0,0,0,.55);font-size:13.5px;line-height:1.4}
   .assist-box[hidden]{display:none}
   .assist-box .you{color:var(--nm-sub,#aaa);font-size:12px;margin-bottom:4px}
   .assist-box .it{color:#fff;font-weight:600}
-  .assist-box.busy .it{color:var(--accent,#1ed760)}
+  .assist-box.busy .it{color:var(--accent,var(--accent))}
   .voice-row input[type=text]{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 7px;font:inherit;font-size:12px}
   /* singing trainer */
   .sing-float .float-body{background:#101014;display:flex;flex-direction:column;overflow-y:auto;font-size:13px;color:var(--nm-txt,#eee)}
   .sing-bar{display:flex;align-items:center;gap:12px;padding:9px 12px;flex-wrap:wrap}
   .sing-bar button{border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-  #sing-go{background:var(--accent,#1ed760);border-color:transparent;color:#000}
+  #sing-go{background:var(--accent,var(--accent));border-color:transparent;color:#000}
   #sing-go.on{background:#e5534b;color:#fff}
   #sing-lesson.on{background:#e5534b;color:#fff}
   .sing-bar label{display:flex;align-items:center;gap:6px;color:var(--nm-sub,#aaa);cursor:pointer}
   .sing-live{font-weight:700;min-width:150px}
-  .sing-live.hit{color:#1ed760}.sing-live.near{color:#e8c040}.sing-live.off{color:#e5534b}
+  .sing-live.hit{color:var(--accent)}.sing-live.near{color:#e8c040}.sing-live.off{color:#e5534b}
   .sing-score{margin-left:auto;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
   #sing-cv{flex:1 1 220px;min-height:200px;width:100%;display:block}
-  .sing-sum .ok{color:#1ed760}.sing-sum .bad{color:#e5534b;text-decoration:underline wavy}
+  .sing-sum .ok{color:var(--accent)}.sing-sum .bad{color:#e5534b;text-decoration:underline wavy}
   .sing-sum .miss{color:#6a6a76;text-decoration:line-through}
   #sing-run{flex:none;height:84px;width:100%;display:block;cursor:pointer;background:#0b0b0f;border-top:1px solid #1d1d25}
   .sing-fx{display:flex;align-items:center;gap:6px 14px;padding:0 12px 9px;flex-wrap:wrap;font-size:12px;color:var(--nm-sub,#aaa)}
   .sing-fx label{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
   .sing-fx .mon{color:#fff;font-weight:600}
-  .sing-fx input[type=range]{width:74px;accent-color:var(--accent,#1ed760)}
+  .sing-fx input[type=range]{width:74px;accent-color:var(--accent,var(--accent))}
   .sing-fx select{background:#1e1e25;color:#fff;border:1px solid #3a3a46;border-radius:6px;padding:2px 6px;font:inherit}
   .sing-fx .lat{margin-left:auto;font-variant-numeric:tabular-nums;color:#777}
   .sing-fx.off .fxk{opacity:.45}
   .sing-fx .db{min-width:44px;font-variant-numeric:tabular-nums}
   .sing-fx .meter{width:70px;height:8px;border-radius:4px;background:#22222a;overflow:hidden;display:inline-block}
-  .sing-fx .meter i{display:block;height:100%;width:0;background:#1ed760}
+  .sing-fx .meter i{display:block;height:100%;width:0;background:var(--accent)}
   .sing-fx .meter i.hot{background:#e8c040}.sing-fx .meter i.clip{background:#e5534b}
   .sing-sum .listen{display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap}
   .sing-sum .listen button{border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}
   .sing-sum .listen span{color:var(--nm-sub,#aaa)}
   .sing-msg{padding:4px 14px 8px;text-align:center;color:var(--nm-sub,#aaa);font-size:12px}
   .sing-sum,.sing-hist{padding:0 14px 10px}
-  .sing-sum .big{font-size:15px;padding:6px 0}.sing-sum .big b{color:#1ed760;font-size:19px}.sing-sum .big span{color:var(--nm-sub,#aaa)}
+  .sing-sum .big{font-size:15px;padding:6px 0}.sing-sum .big b{color:var(--accent);font-size:19px}.sing-sum .big span{color:var(--nm-sub,#aaa)}
   .sing-sum .cap,.sing-hist .cap{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#777;padding:6px 0 4px}
   .sing-sum .w{display:flex;align-items:baseline;gap:10px;padding:3px 0}
   .sing-sum .w.cur{background:#1b1b25;border-radius:6px;box-shadow:inset 3px 0 0 #ffd84a}
-  .sing-sum .w.good b{color:#1ed760}.sing-sum .w.weak b{color:#ff9d6b}
+  .sing-sum .w.good b{color:var(--accent)}.sing-sum .w.weak b{color:#ff9d6b}
   .sing-sum .w em{font-style:normal;font-size:11.5px;color:#8b8b96;flex:none}
   .sing-sum .w button{flex:none;border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer}
   .sing-sum .w b{flex:none;width:44px;text-align:right;font-variant-numeric:tabular-nums}
   .sing-hist .h{display:flex;gap:14px;padding:2px 0;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
   .sing-hist .h b{color:var(--nm-txt,#eee)}.sing-hist .none{color:#777}
   /* the song that is on, in any list */
-  .np-row.np-now{box-shadow:inset 3px 0 0 var(--accent,#1ed760);background:rgba(30,215,96,.11)}
-  .np-row.np-now .tx,.np-row.np-now .t-title,.np-row.np-now .lib-name,.np-row.np-now .stem-title,.np-row.np-now .c-title{color:var(--accent,#1ed760)}
+  .np-row.np-now{box-shadow:inset 3px 0 0 var(--accent,var(--accent));background:color-mix(in srgb,var(--accent) 11%,transparent)}
+  .np-row.np-now .tx,.np-row.np-now .t-title,.np-row.np-now .lib-name,.np-row.np-now .stem-title,.np-row.np-now .c-title{color:var(--accent,var(--accent))}
   .np-row.np-flash{animation:np-flash 1.2s ease-out}
-  @keyframes np-flash{0%{background:rgba(30,215,96,.5)}100%{background:rgba(30,215,96,.11)}}
+  @keyframes np-flash{0%{background:color-mix(in srgb,var(--accent) 50%,transparent)}100%{background:color-mix(in srgb,var(--accent) 11%,transparent)}}
   #np-jump{position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:9px;max-width:min(520px,80vw);
-    padding:9px 16px;border-radius:999px;border:1px solid rgba(30,215,96,.5);background:#14141a;color:#fff;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.5)}
+    padding:9px 16px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);background:#14141a;color:#fff;font:inherit;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.5)}
   #np-jump[hidden]{display:none}
   #np-jump:hover{background:#1c1c24}
-  #np-jump i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,#1ed760)}
+  #np-jump i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,var(--accent))}
   #np-jump span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-  #np-jump b{flex:none;color:var(--accent,#1ed760);font-weight:600}
+  #np-jump b{flex:none;color:var(--accent,var(--accent));font-weight:600}
   .voice-pop{width:400px}
   .voice-row{display:flex;align-items:center;gap:10px;padding:4px 9px;font-size:12px;color:var(--nm-sub)}
   .voice-row select{flex:1;min-width:0;background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 6px;font-size:12px}
   .voice-meter{flex:none;width:70px;height:6px;border-radius:3px;background:#26262e;overflow:hidden}
-  .voice-meter i{display:block;height:100%;width:0;background:var(--accent,#1ed760);transition:width .08s linear}
+  .voice-meter i{display:block;height:100%;width:0;background:var(--accent,var(--accent));transition:width .08s linear}
   .voice-heard{padding:6px 9px 4px;font-size:12px;color:var(--nm-sub);min-height:28px}
-  .voice-heard b{color:var(--accent,#1ed760);font-weight:700}
+  .voice-heard b{color:var(--accent,var(--accent));font-weight:700}
   .voice-list{max-height:300px;overflow:auto;padding:0 9px 4px;font-size:12px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:baseline}
   .voice-own .row .voice-teach{flex:none}
   .voice-teach{display:flex;gap:2px;justify-content:flex-end;white-space:nowrap}
   .voice-pop .voice-teach button{flex:none;border:none;background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:0 3px;border-radius:4px}
   .voice-pop .voice-teach button:hover{color:var(--nm-txt)}
-  .voice-pop .voice-teach button.has{color:var(--accent,#1ed760)}
+  .voice-pop .voice-teach button.has{color:var(--accent,var(--accent))}
   .voice-pop .voice-teach button.busy{color:#ff6b6b}
   .voice-list{max-height:180px}
   body.voice-picking, body.voice-picking *{cursor:crosshair !important}
@@ -3877,7 +3914,7 @@ body.lib-collapsed .pick-brand{display:none}
   .voice-form{padding:8px 9px 6px;display:flex;flex-direction:column;gap:6px;font-size:12px}
   .voice-form input,.voice-form select{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;min-width:0}
   .voice-say{display:flex;align-items:center;gap:6px}
-  .voice-say span{color:var(--accent,#1ed760);font-weight:700}
+  .voice-say span{color:var(--accent,var(--accent));font-weight:700}
   .voice-say input{flex:1}
   .voice-steps{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;align-items:center;color:var(--nm-sub)}
   .voice-steps button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:999px;padding:3px 9px;font:inherit;font-size:11.5px;cursor:pointer}
@@ -3885,11 +3922,11 @@ body.lib-collapsed .pick-brand{display:none}
   .voice-add{display:flex;gap:6px}
   .voice-add select{flex:1}
   .voice-add button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:6px;padding:0 10px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
-  .voice-add button.go{background:var(--accent,#1ed760);border-color:transparent;color:#000;font-weight:700}
+  .voice-add button.go{background:var(--accent,var(--accent));border-color:transparent;color:#000;font-weight:700}
   .voice-list b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
   .voice-list span{color:var(--nm-sub)}
-  .sp-round.tm-btn.has-on{color:var(--accent,#1ed760);border-color:var(--accent,#1ed760)}
-  #voice-top-btn.heard{box-shadow:0 0 0 3px rgba(30,215,96,.35)}
+  .sp-round.tm-btn.has-on{color:var(--accent,var(--accent));border-color:var(--accent,var(--accent))}
+  #voice-top-btn.heard{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
   /* Steems, readable from a playing distance: nothing under 10.5 px, and the
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
@@ -4007,6 +4044,28 @@ body.lib-collapsed .pick-brand{display:none}
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
   <div class="riff-dock sp-scroll" id="riff-dock" hidden></div>
+  <div class="rail-art" aria-hidden="true">
+    <svg viewBox="0 0 230 260" fill="none">
+      <defs>
+        <linearGradient id="ra-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a86ff"/><stop offset="1" stop-color="#3d6bff" stop-opacity=".25"/></linearGradient>
+        <g id="ra-guitar" stroke="url(#ra-g)" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M23 3h13l4 30H20z" fill="rgba(120,110,255,.10)"/>
+          <path d="M20 9h-5M20 17h-5M20 25h-5M40 9h5M40 17h5M40 25h5"/>
+          <path d="M26 33h8v96h-8z" fill="rgba(120,110,255,.06)"/>
+          <path d="M26 46h8M26 58h8M26 69h8M26 79h8M26 88h8M26 96h8M26 103h8M26 110h8M26 116h8M26 122h8" stroke-width=".7"/>
+          <path d="M30 124c-9-1-21 1-22 14-1 8 4 12 3 18-2 9-9 13-8 27 1 16 13 24 27 24s26-8 27-24c1-14-6-18-8-27-1-6 4-10 3-18-1-13-13-15-22-14z" fill="rgba(110,100,255,.07)"/>
+          <path d="M22 150h16v7H22zM22 168h16v7H22zM20 190h20" />
+          <path d="M28 6v184M30 6v184M32 6v184" stroke-width=".5" opacity=".7"/>
+          <circle cx="46" cy="186" r="2.2"/><circle cx="46" cy="195" r="2.2"/>
+        </g>
+      </defs>
+      <use href="#ra-guitar" transform="translate(40 44) rotate(-17 30 110)" opacity=".75"/>
+      <use href="#ra-guitar" transform="translate(118 18) rotate(15 30 110) scale(.92)"/>
+    </svg>
+    <div class="motto">Better<br>Players<br>Make Better<br>Music</div>
+    <div class="wave"><i style="height:5px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:8px"></i><i style="height:14px"></i><i style="height:6px"></i><i style="height:10px"></i></div>
+  </div>
+
   <div class="lib-resize" id="lib-resize" title="Táhnutím změníš šířku"></div>
 </nav>
 
@@ -5164,6 +5223,7 @@ body.lib-collapsed .pick-brand{display:none}
       <button type="button" id="speak-prev" title="O řádek zpět">‹</button>
       <button type="button" id="speak-skip" title="Tenhle řádek přeskočit („pick skip“)">Přeskočit ›</button>
       <label title="Čí hlas řádky čte. Hlasy z aplikace Voicebox (tvůj i další naklonované): každý řádek se připraví jednou na pozadí (asi 20 s) a pak už je hned; co ještě není, přečte hlas počítače.">hlas <select id="speak-voice"><option value="sys">počítače — ženský</option><option value="sysm">počítače — mužský</option></select></label>
+      <button type="button" id="speak-voice-add" title="Přidat vlastní hlas: nahraj pár vteřin řeči (soubor nebo mikrofon) a Pick jím bude číst — v jakémkoli jazyce">+ hlas</button>
       <label title="Jak rychle počítač čte">čte <select id="speak-rate"><option value="0.7">pomalu</option><option value="0.9" selected>normálně</option><option value="1.1">rychle</option></select></label>
       <label title="Každý řádek jen jednou — refrén se neopakuje"><input type="checkbox" id="speak-uniq" checked> bez opakování</label>
       <button type="button" id="speak-words" title="Slova, která se ti nepovedla (ze všech písní), všechna najednou: přečtu slovo, ty ho zopakuješ; co se povede, ze seznamu zmizí. („pick practice my words“)">Moje slova</button>
@@ -13552,6 +13612,38 @@ const ToneRig = (() => {
   }
 
   return {load, label, select, step, openSettings, outputs};
+})();
+
+// Whatever can be clicked gets the horns for a pointer — index and little
+// finger up. The app's styles say "pointer" in hundreds of places; rather
+// than touch each, every rule that does is given the horns (the hand stays
+// as what a browser falls back to).
+(() => {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>
+    <g fill='%23fff' stroke='%23111' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'>
+      <path d='M8 16V5.2a2.4 2.4 0 0 1 4.8 0V15'/>
+      <path d='M20.6 15.5V8.6a2.3 2.3 0 0 1 4.6 0V19'/>
+      <path d='M12.8 15v-2.2a2 2 0 0 1 4 0V15m0 0v-1.8a1.9 1.9 0 0 1 3.8 0v2.3'/>
+      <path d='M8 14.5v7.3c0 5 3.4 8.2 8.6 8.2s8.600-3.200 8.600-8.200V17H8z'/>
+      <path d='M8.200 19.800l5.600-2.900a2.200 2.200 0 0 1 2.900 1 2.100 2.100 0 0 1-.9 2.800l-4.300 2.300'/>
+    </g></svg>`.replace(/\n\s*/g, "");
+  const HORNS = `url("data:image/svg+xml,${svg}") 10 3, pointer`;
+  document.documentElement.style.setProperty("--horns", HORNS);
+  const walk = (rules) => { for(const r of rules){
+    try{
+      if(r.cssRules && r.cssRules.length) walk(r.cssRules);
+      if(r.style && r.style.cursor === "pointer") r.style.setProperty("cursor", HORNS, r.style.getPropertyPriority("cursor"));
+    }catch(e){} } };
+  for(const sheet of document.styleSheets){ try{ walk(sheet.cssRules); }catch(e){} }
+  const base = document.createElement("style");
+  base.textContent = `a[href],button:not(:disabled),[role=button],summary,select,label:has(input),input[type=checkbox],input[type=radio],input[type=range],input[type=file]{cursor:${HORNS}}
+    button:disabled{cursor:default}`;
+  document.head.insertBefore(base, document.head.firstChild);
+  // …and what is styled on the element itself, as it comes
+  new MutationObserver((ms) => { for(const m of ms) for(const n of m.addedNodes){
+    if(n.nodeType !== 1) continue;
+    for(const x of [n, ...n.querySelectorAll("[style*='cursor']")]) if(x.style && x.style.cursor === "pointer") x.style.cursor = HORNS;
+  } }).observe(document.body, {childList: true, subtree: true});
 })();
 
 // Tool menus (.tmenu): a category button that unrolls its tools. The list is
@@ -29685,7 +29777,7 @@ pushNav("mode:" + state.mode, () => setMode(state.mode));
 // ======================================================================
 const Ambient = (() => {
   const root = document.documentElement;
-  const DEF = ["#1ed760", "#38bdf8"];
+  const DEF = ["#8b6cff", "#3d8bfd"];      // nothing plays: night blue and violet
   let lastUrl = null;
   const on = () => root.classList.contains("ambient");
   function artUrl(){
@@ -30168,6 +30260,83 @@ const Speak = (() => {
       a.play().catch(end);
     });
   }
+  // ---- a voice of one's own: a few seconds of someone speaking — a file, or
+  // said into the microphone — and Pick reads with it. What was understood of
+  // the recording is shown, to be put right: the voice is only as good as
+  // that text matches what is really said.
+  function addVoice(){
+    const old = document.getElementById("voice-add"); if(old) old.remove();
+    const box = document.createElement("div");
+    box.className = "mt-overlay voice-add"; box.id = "voice-add";
+    box.innerHTML = `<div class="mt-box">
+      <h3>Přidat vlastní hlas</h3>
+      <div class="mt-hint">Stačí <b>5–10 vteřin čisté řeči jednoho člověka</b> — bez hudby a šumu, klidně z telefonu. Pick si z nahrávky vezme začátek až po první pauzu.</div>
+      <label>Jméno hlasu<input type="text" id="va-name" maxlength="60" placeholder="třeba Můj hlas"></label>
+      <label>Jazyk nahrávky<select id="va-lang"><option value="auto">poznat sám</option><option value="cs">čeština</option><option value="en">angličtina</option></select></label>
+      <div class="two"><button type="button" class="btn secondary" id="va-file">Vybrat soubor…</button>
+        <button type="button" class="btn secondary" id="va-mic">● Nahrát z mikrofonu (10 s)</button></div>
+      <div class="status" id="va-status"></div>
+      <div id="va-done" hidden>
+        <label>Co je v ukázce slyšet — oprav, kdyby to nesedělo<textarea id="va-text"></textarea></label>
+        <div class="two"><button type="button" class="btn" id="va-save">Uložit text</button></div>
+      </div>
+      <div class="mine" id="va-mine"></div>
+      <div class="mt-acts"><span style="flex:1"></span><button type="button" class="btn secondary" id="va-close">Zavřít</button></div></div>`;
+    document.body.appendChild(box);
+    const q = (id) => box.querySelector("#" + id);
+    let made = null, stream = null;
+    const status = (t, bad) => { q("va-status").textContent = t; q("va-status").classList.toggle("bad", !!bad); };
+    const mine = async () => {
+      let d = {}; try{ d = await (await fetch("/api/tts/voices")).json(); }catch(e){}
+      const own = (d.profiles || []).filter(p => p.engine === "pick");
+      q("va-mine").innerHTML = own.length ? own.map(p => `<div><span>${escapeHtml(p.name)}</span><button type="button" data-id="${escapeHtml(p.id)}">smazat</button></div>`).join("") : "";
+      q("va-mine").querySelectorAll("button").forEach(b => b.onclick = async () => {
+        if(!confirm(`Smazat hlas „${b.previousElementSibling.textContent}“?`)) return;
+        await fetch("/api/tts/voice/" + encodeURIComponent(b.dataset.id), {method: "DELETE"}).catch(() => {});
+        await voices(); mine();
+      });
+    };
+    async function send(blob, filename){
+      status("Připravuji hlas — poslouchám, co se v nahrávce říká…");
+      q("va-file").disabled = q("va-mic").disabled = true;
+      try{
+        const fd = new FormData(); fd.append("file", blob, filename);
+        const res = await fetch(`/api/tts/voice?name=${encodeURIComponent(q("va-name").value.trim())}&lang=${q("va-lang").value}`, {method: "POST", body: fd});
+        const d = await res.json();
+        if(!res.ok) throw new Error(d.error || "Nepovedlo se");
+        made = d;
+        q("va-text").value = d.ref_text || ""; q("va-done").hidden = false;
+        status(`Hlas „${d.name}“ je přidaný (ukázka ${d.seconds ? d.seconds.toFixed(1).replace(".", ",") + " s" : ""}). Zkontroluj text a je hotovo.`);
+        await voices();
+        el("speak-voice").value = "vb:" + d.id; try{ localStorage.setItem(VOICE_KEY, "vb:" + d.id); }catch(e){}
+        prepare(); mine();
+      }catch(e){ status(e.message, true); }
+      q("va-file").disabled = q("va-mic").disabled = false;
+    }
+    q("va-file").onclick = () => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "audio/*,video/*,.wav,.mp3,.m4a,.aac,.flac,.ogg,.webm,.mov,.mp4";
+      inp.onchange = () => { if(inp.files[0]) send(inp.files[0], inp.files[0].name); }; inp.click(); };
+    q("va-mic").onclick = async () => {
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: true}});
+        const rec = new MediaRecorder(stream), parts = [];
+        rec.ondataavailable = (e) => { if(e.data.size) parts.push(e.data); };
+        rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); stream = null; q("va-mic").textContent = "● Nahrát z mikrofonu (10 s)";
+          send(new Blob(parts, {type: rec.mimeType || "audio/webm"}), "mikrofon.webm"); };
+        rec.start();
+        let left = 10; q("va-mic").disabled = q("va-file").disabled = true;
+        status("Mluv — souvisle, vlastními slovy nebo čti cokoli.");
+        const tick = () => { q("va-mic").textContent = `● Nahrávám… ${left} s`; if(left-- <= 0){ rec.stop(); return; } setTimeout(tick, 1000); };
+        tick();
+      }catch(e){ status("Mikrofon se nepodařilo otevřít: " + e.message, true); }
+    };
+    q("va-save").onclick = async () => {
+      if(!made) return;
+      const res = await fetch("/api/tts/voice/" + encodeURIComponent(made.id), {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ref_text: q("va-text").value})}).catch(() => null);
+      status(res && res.ok ? "Text uložen." : "Uložení se nepovedlo.", !(res && res.ok));
+    };
+    q("va-close").onclick = () => { if(stream) stream.getTracks().forEach(t => t.stop()); box.remove(); };
+    mine();
+  }
   const hush = () => { try{ speechSynthesis.cancel(); }catch(e){} if(player){ try{ player.pause(); player.onended && player.onended(); }catch(e){} player = null; } };
   // The computer's voices include toys ("Albert", "Bells"…): a plain one is asked for by name.
   function systemVoice(want){
@@ -30367,6 +30536,7 @@ const Speak = (() => {
     try{ el("speak-gain").value = localStorage.getItem(GAIN_KEY) || "0"; }catch(e){}
     el("speak-gaindb").textContent = "+" + gainDb() + " dB";
     el("speak-gain").oninput = gainSet;
+    el("speak-voice-add").onclick = () => addVoice();
     el("speak-voice").onchange = async () => {
       const sel = el("speak-voice");
       if(sel.value === "open"){

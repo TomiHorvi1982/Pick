@@ -236,3 +236,27 @@ def _wav():
     with wave.open(b, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(b"\0\0" * 2400)
     return b.getvalue()
+
+
+def test_a_new_voice_is_made_of_a_recording_and_can_be_put_right_or_removed(client, tmp_path, monkeypatch):
+    import server
+    py = tmp_path / "python"; py.write_text("")
+    monkeypatch.setattr(server, "OWN_TTS_PYTHON", py)
+    monkeypatch.setattr(server, "_own_voices_dir", lambda: tmp_path / "voices")
+    monkeypatch.setattr(server, "_voicebox_only", lambda: None)
+
+    def make(src, dest, lang="auto"):
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "ref.wav").write_bytes(b"RIFF" + b"\0" * 30000)
+        (dest / "ref.txt").write_text("hello there")
+        return "hello there"
+    monkeypatch.setattr(server, "_voice_ref_make", make)
+    got = client.post("/api/tts/voice?name=Bro&lang=en", files={"file": ("me.m4a", b"x" * 9000, "audio/mp4")}).json()
+    assert got["name"] == "Bro" and got["ref_text"] == "hello there"
+    assert [p["name"] for p in client.get("/api/tts/voices").json()["profiles"]] == ["Bro"]
+    v = client.put(f"/api/tts/voice/{got['id']}", json={"ref_text": "Hello,   there!", "name": "Brother"}).json()
+    assert (v["name"], v["ref_text"]) == ("Brother", "Hello, there!")
+    assert client.post("/api/tts/voice", files={"file": ("a.wav", b"x", "audio/wav")}).status_code == 400
+    assert client.delete(f"/api/tts/voice/{got['id']}").json() == {"ok": True}
+    assert client.get("/api/tts/voices").json()["profiles"] == []
+    assert client.delete("/api/tts/voice/nope").status_code == 404

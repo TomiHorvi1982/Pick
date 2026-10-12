@@ -233,6 +233,16 @@ složka `voices/<id>/` vedle nastavení: `ref.wav` (pár vteřin řeči, ustři�
 v pauze), `ref.txt` (co se tam říká) a `name.txt`. 16 kroků = asi 8 s na řádek
 na M1 Pro. Hlasy, které jsou jen ve Voiceboxu, jdou dál přes něj.
 
+Nový hlas přidá „+ hlas“ ve Výslovnosti: soubor nebo 10 s z mikrofonu
+(`POST /api/tts/voice`), rozpoznaný text ukázky jde opravit (`PUT`), hlas smazat
+(`DELETE`).
+
+**Vzhled.** Výchozí barvy jsou noční modrá a fialová (dokud nehraje nic, co by
+dalo barvy z obalu); co je „hotovo / mám“, zůstává zelené. Zelená natvrdo
+psaná ve stylech jde přes `--accent`. Dole v levém panelu jsou kytary a heslo.
+Ukazatel nad vším, na co jde kliknout, je ruka s „rohy“ — pravidla s
+`cursor:pointer` se při startu přepíšou, nikde se neopravují ručně.
+
 Výslovnost se hodnotí přísně (`compare(strict=True)`): slovo projde, jen když
 bylo slyšet samo, nebo jako slovo, které zní stejně (to/too/two, runnin'/running)
 — ne jako slovo podobné („fate“ za „hate“). Zpěv se hodnotí shovívavěji jako dřív.
