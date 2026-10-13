@@ -1157,7 +1157,7 @@ body.lib-collapsed .pick-brand{display:none}
                border-bottom:1px solid var(--nm-line)}
   .nm-ov-time{font-size:11.5px;color:var(--nm-sub);flex:0 0 auto;min-width:42px}
   .nm-ov-time.right{text-align:right}
-  .nm-ov-wrap{position:relative;flex:1;height:34px;cursor:pointer}
+  .nm-ov-wrap{position:relative;flex:1;height:44px;cursor:pointer}
   .nm-ov-wrap canvas{width:100%;height:100%;display:block}
   .nm-ov-head{position:absolute;top:0;bottom:0;width:1px;background:var(--nm-red);
               pointer-events:none;z-index:2}
@@ -2446,7 +2446,16 @@ body.lib-collapsed .pick-brand{display:none}
   .stems-group-bar{display:flex;align-items:center;gap:6px;padding:0 4px 12px;flex-wrap:wrap}
   .stems-group-bar span{font-size:12px;color:var(--sub);margin-right:2px}
   .stems-group-bar input{margin-left:auto;width:220px;max-width:100%}
-  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.5fr) minmax(0,1.7fr) 56px 84px}
+  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.4fr) minmax(0,1.4fr) 92px minmax(0,1.5fr) 56px 84px}
+  .steems-row .c-origin,.steems-row .c-plist{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+  .origin-mark{display:inline-block;font:600 11px/1 var(--sp-font,inherit);letter-spacing:.03em;padding:4px 8px;border-radius:500px;
+    border:1px solid #3a3d52;color:var(--sub);background:none;cursor:pointer;white-space:nowrap}
+  .origin-mark.cz{color:#ffd9d9;border-color:#b3404a;background:linear-gradient(90deg,rgba(255,255,255,.10),rgba(215,20,26,.22) 55%,rgba(17,69,126,.30))}
+  .origin-mark.typed{border-style:dashed}
+  .origin-mark:hover{border-color:var(--accent);color:var(--text)}
+  .stems-group-bar .sep{width:1px;height:18px;background:#33364a;margin:0 4px}
+  @media (max-width:1180px){ .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.4fr) minmax(0,1.3fr) 92px minmax(0,1.3fr) 56px 84px}
+    .steems-row .c-album{display:none} }
   .steems-row .c-act{opacity:1}
   .steems-row .c-act button{opacity:0}
   .lib-trow.steems-row:hover .c-act button{opacity:1}
@@ -3769,13 +3778,10 @@ body.lib-collapsed .pick-brand{display:none}
   html.ambient .lib-table .lib-thead{border-bottom-color:rgba(140,150,255,.14)}
   html.ambient .nm-btn.round, html.ambient .nm-tgroup .nm-num{border-color:rgba(140,150,255,.2)}
   /* Guitars in the dark at the foot of the left panel. */
-  .rail-art{position:relative;flex:none;height:168px;pointer-events:none;overflow:hidden;border-top:1px solid rgba(140,150,255,.08);
+  .rail-art{position:relative;flex:none;height:236px;pointer-events:none;overflow:hidden;border-top:1px solid rgba(140,150,255,.08);
     background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--accent) 7%,transparent))}
-  .rail-art svg{position:absolute;right:-6px;top:6px;width:178px;height:202px;opacity:.55;
-    -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 98%);mask-image:linear-gradient(180deg,#000 55%,transparent 98%)}
-  .rail-art .motto{position:absolute;left:20px;bottom:42px;font:500 13px/1.38 var(--sp-font);color:#7780b0;letter-spacing:.01em}
-  .rail-art .wave{position:absolute;left:22px;bottom:14px;display:flex;align-items:center;gap:2.5px;height:18px}
-  .rail-art .wave i{width:2.5px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--accent2,#3d8bfd));opacity:.85}
+  .rail-art svg{position:absolute;left:0;top:4px;width:100%;height:232px;opacity:.6;
+    -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
   body.lib-collapsed .rail-art{display:none}
   html:not(.ambient) .rail-art svg{opacity:.3}
   /* Adding a voice of one's own. */
@@ -4063,25 +4069,37 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="lib-list sp-scroll" id="lib-list"></div>
   <div class="riff-dock sp-scroll" id="riff-dock" hidden></div>
   <div class="rail-art" aria-hidden="true">
-    <svg viewBox="0 0 230 260" fill="none">
+    <svg viewBox="0 0 270 250" fill="none" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="ra-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a86ff"/><stop offset="1" stop-color="#3d6bff" stop-opacity=".25"/></linearGradient>
-        <g id="ra-guitar" stroke="url(#ra-g)" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round">
-          <path d="M23 3h13l4 30H20z" fill="rgba(120,110,255,.10)"/>
-          <path d="M20 9h-5M20 17h-5M20 25h-5M40 9h5M40 17h5M40 25h5"/>
-          <path d="M26 33h8v96h-8z" fill="rgba(120,110,255,.06)"/>
-          <path d="M26 46h8M26 58h8M26 69h8M26 79h8M26 88h8M26 96h8M26 103h8M26 110h8M26 116h8M26 122h8" stroke-width=".7"/>
-          <path d="M30 124c-9-1-21 1-22 14-1 8 4 12 3 18-2 9-9 13-8 27 1 16 13 24 27 24s26-8 27-24c1-14-6-18-8-27-1-6 4-10 3-18-1-13-13-15-22-14z" fill="rgba(110,100,255,.07)"/>
-          <path d="M22 150h16v7H22zM22 168h16v7H22zM20 190h20" />
-          <path d="M28 6v184M30 6v184M32 6v184" stroke-width=".5" opacity=".7"/>
-          <circle cx="46" cy="186" r="2.2"/><circle cx="46" cy="195" r="2.2"/>
+        <linearGradient id="ra-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a86ff"/><stop offset="1" stop-color="#3d6bff" stop-opacity=".3"/></linearGradient>
+        <g id="ra-neck" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M26 36h8v90h-8z" fill="rgba(120,110,255,.06)"/>
+          <path d="M26 48h8M26 59h8M26 69h8M26 78h8M26 86h8M26 94h8M26 101h8M26 107h8M26 113h8M26 118h8M26 122h8" stroke-width=".7"/>
+        </g>
+        <!-- superstrat: pointed headstock, two horns, two humbuckers, a whammy bar -->
+        <g id="ra-strat" stroke="url(#ra-g)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M26 36L21 12 43 1 36 36z" fill="rgba(120,110,255,.10)"/>
+          <path d="M22 15h-5M23 20h-5M24 25h-5M25 30h-5M21 10h-5M26 35h-5"/>
+          <use href="#ra-neck"/>
+          <path d="M26 130C22 123 15 111 7 107 3 118 6 132 10 142 12 150 6 158 3 170-1 190 6 213 30 214 54 214 62 191 57 172 54 160 48 152 50 142 52 134 56 124 52 115 46 118 38 124 34 130z" fill="rgba(110,100,255,.08)"/>
+          <path d="M22 140h16v8H22zM22 162h16v8H22zM21 183h18v5H21zM39 186l13 15"/>
+          <path d="M28 8v176M30 6v178M32 5v179" stroke-width=".5" opacity=".7"/>
+          <circle cx="45" cy="176" r="2.3"/><circle cx="19" cy="198" r="2.3"/>
+        </g>
+        <!-- flying V -->
+        <g id="ra-vee" stroke="url(#ra-g)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M26 36L21 12 30 0 39 12 34 36z" fill="rgba(120,110,255,.10)"/>
+          <path d="M22 14h-5M23 21h-5M24 28h-5M38 14h5M37 21h5M36 28h5"/>
+          <use href="#ra-neck"/>
+          <path d="M23 121h14L64 208 51 216 30 176 9 216-4 208z" fill="rgba(110,100,255,.08)"/>
+          <path d="M23 132h14v7H23zM23 149h14v7H23zM23 163h14v4H23z"/>
+          <path d="M28 8v156M30 6v158M32 8v156" stroke-width=".5" opacity=".7"/>
+          <circle cx="45" cy="176" r="2.2"/><circle cx="50" cy="189" r="2.2"/>
         </g>
       </defs>
-      <use href="#ra-guitar" transform="translate(40 44) rotate(-17 30 110)" opacity=".75"/>
-      <use href="#ra-guitar" transform="translate(118 18) rotate(15 30 110) scale(.92)"/>
+      <use href="#ra-strat" transform="translate(74 14) rotate(-16 30 110)" opacity=".8"/>
+      <use href="#ra-vee" transform="translate(136 14) rotate(16 30 110)"/>
     </svg>
-    <div class="motto">Better<br>Players<br>Make Better<br>Music</div>
-    <div class="wave"><i style="height:5px"></i><i style="height:11px"></i><i style="height:17px"></i><i style="height:8px"></i><i style="height:14px"></i><i style="height:6px"></i><i style="height:10px"></i></div>
   </div>
 
   <div class="lib-resize" id="lib-resize" title="Táhnutím změníš šířku"></div>
@@ -4109,6 +4127,8 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" class="btn secondary" id="theme-classic">Klasický</button>
       </div>
       <div class="set-note">Ambientní: rozmazaný obal hrající písně v pozadí, skleněné panely a barva tlačítek podle obalu.</div>
+      <button type="button" class="btn" id="look-open" style="width:100%;margin-top:10px">Upravit vzhled podrobně…</button>
+      <div class="set-note">Režim úprav: klikneš na cokoli v aplikaci a změníš barvy, písmo, pozadí, okraje, stíny, mezery. Náhled vidíš hned, natrvalo se uloží až tlačítkem Uložit.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="star"></span>Ukazatel</div>
       <div class="cur-grid" id="cur-icons"></div>
@@ -4121,7 +4141,7 @@ body.lib-collapsed .pick-brand{display:none}
         <input type="range" id="cur-size" min="20" max="56" step="4">
         <span class="cur-px" id="cur-px"></span>
       </div>
-      <div class="set-note">Ukazatel se mění nad vším, na co jde kliknout. Platí hned, ukládat není třeba.</div>
+      <div class="set-note">Ukazatel je vidět pořád; nad vším, na co jde kliknout, se rozsvítí. Platí hned, ukládat není třeba.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="download"></span>Kvalita stahovaných písní</div>
       <select id="bitrate" style="width:100%;padding:10px">
@@ -4387,6 +4407,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
                   <hr>
                   <button type="button" class="tm-item" id="nm-sing-open" title="Trenér zpěvu — tvoje výška proti originálu, slova a skóre"><span data-icon="mic" data-size="15"></span><span class="tm-t">Trenér zpěvu</span></button>
+                  <button type="button" class="tm-item" id="nm-lyr-speak" title="Celý text a trénink výslovnosti: počítač přečte řádek, ty ho řekneš po něm, a až to sedí, jde se dál („pick practice words“)"><span data-icon="volume" data-size="15"></span><span class="tm-t">Výslovnost</span></button>
                 </div>
               </div>
               <div class="tmenu" data-tmenu="file">
@@ -4415,10 +4436,18 @@ body.lib-collapsed .pick-brand{display:none}
         <span id="nm-lyr-offset" title="Posun textu proti zpěvu">0,0 s</span>
         <button type="button" id="nm-lyr-later" title="Text později o 0,5 s">+</button>
         <button type="button" id="nm-lyr-reset" hidden title="Vrátit řádky, které jsi na stopě posunul, na původní časy">↺ řádky</button>
-        <button type="button" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
-        <button type="button" id="nm-lyr-speak" title="Celý text a trénink výslovnosti: počítač přečte řádek, ty ho řekneš po něm, a až to sedí, jde se dál („pick practice words“)">Výslovnost</button>
-        <button type="button" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat</button>
-        <button type="button" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
+        <!-- What is needed once in a while sits folded away: how the text runs,
+             and where another text is looked for. -->
+        <div class="tmenu" data-tmenu="lyr">
+          <button type="button" class="tm-btn" title="Zobrazení textu a hledání jiného textu">Možnosti <span class="tm-caret">▾</span></button>
+          <div class="tm-pop">
+            <div class="tm-head">Text písně</div>
+            <button type="button" class="tm-item" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
+            <hr>
+            <button type="button" class="tm-item" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat jiný text…</button>
+            <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
+          </div>
+        </div>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
         <button type="button" id="nm-lyr-close" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
       </div>
@@ -5397,7 +5426,7 @@ const ListSort = (() => {
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
   const txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
   const no = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : 1e9; };
-  const LABEL = {title: "A–Z", titleByAlbum: "dle alba", artist: "A–Z", album: "A–Z"};
+  const LABEL = {title: "A–Z", titleByAlbum: "dle alba", artist: "A–Z", album: "A–Z", origin: "CZ první", playlist: "A–Z"};
 
   function sort(items, mode, get){
     if(!mode || !LABEL[mode]) return items.slice();
@@ -5408,6 +5437,8 @@ const ListSort = (() => {
       titleByAlbum: albumOrder,
       album: albumOrder,
       artist: (a, b) => txt(a.k.artist, b.k.artist) || albumOrder(a, b),
+      origin: (a, b) => txt(a.k.origin, b.k.origin) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
+      playlist: (a, b) => txt(a.k.playlist, b.k.playlist) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
     }[mode];
     return rows.sort((a, b) => cmp(a, b) || (a.i - b.i)).map(r => r.it);
   }
@@ -12058,8 +12089,11 @@ async function loadSteemsList(){
   const bar = document.createElement("div");
   bar.className = "stems-group-bar";
   bar.innerHTML = `<span>Seskupit:</span>` +
-    [["artist", "Interpret"], ["album", "Album"], ["title", "Název A–Z"]].map(([k, l]) =>
+    [["artist", "Interpret"], ["album", "Album"], ["playlist", "Playlist"], ["origin", "Původ"], ["title", "Název A–Z"]].map(([k, l]) =>
       `<button type="button" class="chip ${steemsGroupMode === k ? "active" : ""}" data-group="${k}">${l}</button>`).join("") +
+    `<i class="sep"></i>` +
+    [["", "Vše"], ["cz", "CZ / SK"], ["world", "Zahraniční"]].map(([k, l]) =>
+      `<button type="button" class="chip ${steemsOrigin === k ? "active" : ""}" data-origin-f="${k}" title="Ukázat jen ${k ? l.toLowerCase() + " písně" : "všechno"}">${l} <i style="font-style:normal;opacity:.6;margin-left:5px"></i></button>`).join("") +
     `<input type="text" class="stems-filter" placeholder="Hledat ve stopách" value="${escapeHtml(steemsFilter)}" autocomplete="off">` +
     `<span class="stems-view">
        <button type="button" data-view="table" class="${steemsView === "table" ? "on" : ""}" title="Seznam (jako v knihovně)">${icon("menu", 15)}</button>
@@ -12078,6 +12112,12 @@ async function loadSteemsList(){
     steemsGroupMode = b.dataset.group;
     try{ localStorage.setItem("spotdl-steems-group", steemsGroupMode); }catch(e){}
     bar.querySelectorAll("[data-group]").forEach(x => x.classList.toggle("active", x === b));
+    paintSteemsCards(body);
+  });
+  bar.querySelectorAll("[data-origin-f]").forEach(b => b.onclick = () => {
+    steemsOrigin = b.dataset.originF;
+    try{ localStorage.setItem("spotdl-steems-origin", steemsOrigin); }catch(e){}
+    bar.querySelectorAll("[data-origin-f]").forEach(x => x.classList.toggle("active", x === b));
     paintSteemsCards(body);
   });
   bar.querySelector(".stems-filter").oninput = (e) => { steemsFilter = e.target.value; paintSteemsCards(body); };
@@ -12099,15 +12139,39 @@ let steemsView = (() => { try{ return localStorage.getItem("spotdl-steems-view")
 let steemsSortMode = ListSort.load("steems") || "artist";
 let steemsGroupMode = (() => { try{ return localStorage.getItem("spotdl-steems-group") || "artist"; }catch(e){ return "artist"; } })();
 let steemsFilter = "";
+// Czech/Slovak or from abroad, and the playlist a song came in — shown, sorted
+// by, and filtered on. The origin is the server's guess; a click puts it right.
+let steemsOrigin = (() => { try{ return localStorage.getItem("spotdl-steems-origin") || ""; }catch(e){ return ""; } })();
+const ORIGIN_CZ = {cz: "CZ / SK", world: "Zahraniční"};
+const steemsPlaylist = (song) => song.playlist || "";
+function originMark(song){
+  const o = song.origin === "cz" ? "cz" : "world";
+  return `<button type="button" class="origin-mark ${o}${song.origin_typed ? " typed" : ""}" data-origin="${o}"
+    title="${song.origin_typed ? "Určeno ručně" : "Odhad podle jména, playlistu a textu"} — klikni a přepneš na ${ORIGIN_CZ[o === "cz" ? "world" : "cz"]}">${ORIGIN_CZ[o]}</button>`;
+}
+async function flipOrigin(song, box){
+  const to = song.origin === "cz" ? "world" : "cz";
+  try{
+    const got = await (await fetch(`/api/stems/${encodeURIComponent(song.name)}/origin`, {method: "PUT",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({origin: to})})).json();
+    Object.assign(song, {origin: got.origin || to, origin_typed: true});
+  }catch(e){ showToast("Nepodařilo se uložit."); return; }
+  paintSteemsCards(box);
+}
 const steemsCollator = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
 
 function paintSteemsCards(box){
   box.innerHTML = "";
   const q = norm(steemsFilter || "");
   const songs = steemsSongs.filter(song => {
+    if(steemsOrigin && (song.origin === "cz" ? "cz" : "world") !== steemsOrigin) return false;
     if(!q) return true;
     const d = stemsDisplay(song);
-    return norm(`${d.title} ${d.artist} ${d.album} ${song.name}`).includes(q);
+    return norm(`${d.title} ${d.artist} ${d.album} ${song.name} ${steemsPlaylist(song)}`).includes(q);
+  });
+  box.parentElement.querySelectorAll(".stems-group-bar [data-origin-f]").forEach(b => {
+    const k = b.dataset.originF, n = k ? steemsSongs.filter(x => (x.origin === "cz" ? "cz" : "world") === k).length : steemsSongs.length;
+    b.querySelector("i").textContent = n;
   });
   if(!songs.length){ box.innerHTML = `<div class="empty" style="padding:24px 10px">Nic neodpovídá hledání.</div>`; return; }
   // Grouping chips belong to the card view; the table sorts by its headers.
@@ -12117,23 +12181,24 @@ function paintSteemsCards(box){
   const cmp = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : steemsCollator.compare(a, b);
   const sorted = songs.slice().sort((x, y) => {
     const a = stemsDisplay(x), b = stemsDisplay(y);
+    if(steemsGroupMode === "playlist") return cmp(steemsPlaylist(x), steemsPlaylist(y)) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
+    if(steemsGroupMode === "origin") return cmp(x.origin, y.origin) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
     if(steemsGroupMode === "album") return cmp(a.album, b.album) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
     if(steemsGroupMode === "title") return cmp(a.title, b.title) || cmp(a.artist, b.artist);
     return cmp(a.artist, b.artist) || cmp(a.album, b.album) || cmp(a.title, b.title);
   });
   let lastGroup = null;
+  const groupOf = (song) => { const e = stemsDisplay(song);
+    return steemsGroupMode === "album" ? (e.album ? e.album + (e.artist ? " · " + e.artist : "") : "Bez alba")
+      : steemsGroupMode === "playlist" ? (steemsPlaylist(song) || "Mimo playlisty")
+      : steemsGroupMode === "origin" ? ORIGIN_CZ[song.origin === "cz" ? "cz" : "world"]
+      : (e.artist || "Bez interpreta"); };
   sorted.forEach(song => {
-    const d = stemsDisplay(song);
     if(steemsGroupMode !== "title"){
-      const g = steemsGroupMode === "album"
-        ? (d.album ? d.album + (d.artist ? " · " + d.artist : "") : "Bez alba")
-        : (d.artist || "Bez interpreta");
+      const g = groupOf(song);
       if(g !== lastGroup){
         lastGroup = g;
-        const n = sorted.filter(x => {
-          const e = stemsDisplay(x);
-          return (steemsGroupMode === "album" ? (e.album ? e.album + (e.artist ? " · " + e.artist : "") : "Bez alba") : (e.artist || "Bez interpreta")) === g;
-        }).length;
+        const n = sorted.filter(x => groupOf(x) === g).length;
         const head = document.createElement("div");
         head.className = "stems-group-head";
         head.innerHTML = `${escapeHtml(g)} <span class="n">${n} ${n === 1 ? "píseň" : n < 5 ? "písně" : "písní"}</span>`;
@@ -12153,6 +12218,8 @@ function paintSteemsTable(box, songs){
       <button type="button" class="c-title" data-lsort="title">Název</button>
       <button type="button" class="c-artist" data-lsort="artist">Interpret</button>
       <button type="button" class="c-album" data-lsort="album">Album</button>
+      <button type="button" class="c-origin" data-lsort="origin">Původ</button>
+      <button type="button" class="c-plist" data-lsort="playlist">Playlist</button>
       <span class="c-time" data-icon="clock" data-size="13"></span>
       <span class="c-act"></span>
     </div>`;
@@ -12161,7 +12228,8 @@ function paintSteemsTable(box, songs){
   });
   const tc = table.querySelector(".c-time[data-icon]");
   if(tc) tc.innerHTML = icon("clock", 13);
-  const sorted = ListSort.sort(songs, steemsSortMode, x => { const d = stemsDisplay(x); return {title: d.title, artist: d.artist, album: d.album}; });
+  const sorted = ListSort.sort(songs, steemsSortMode, x => { const d = stemsDisplay(x);
+    return {title: d.title, artist: d.artist, album: d.album, origin: x.origin === "cz" ? "a" : "b", playlist: steemsPlaylist(x)}; });
   sorted.forEach((song, i) => {
     const d = stemsDisplay(song);
     const row = document.createElement("div");
@@ -12175,6 +12243,8 @@ function paintSteemsTable(box, songs){
         <span class="sub">${n} ${n < 5 ? "stopy" : "stop"}${song.complete === false ? " · nekompletní" : ""}${d.source === "name" ? " · údaje odhadnuté z názvu" : ""}</span></span></span>
       <span class="c-artist">${escapeHtml(d.artist || "")}</span>
       <span class="c-album">${escapeHtml(d.album || "")}</span>
+      <span class="c-origin">${originMark(song)}</span>
+      <span class="c-plist" title="${escapeHtml(steemsPlaylist(song) || "Není z žádného staženého playlistu")}">${escapeHtml(steemsPlaylist(song) || "—")}</span>
       <span class="c-time">${song.duration ? fmtDur(song.duration) : ""}</span>
       <span class="c-act">
         <button type="button" class="act-preview" title="Přehrát celou píseň v přehrávači dole — poslechni si ji, než ji otevřeš">${icon("play", 13)}</button>
@@ -12182,6 +12252,7 @@ function paintSteemsTable(box, songs){
       </span>`;
     StemsArt.paint(row.querySelector(".art"), song.name);
     row.onclick = () => loadMixerSong(song.name);
+    row.querySelector(".origin-mark").onclick = (e) => { e.stopPropagation(); flipOrigin(song, box); };
     row.querySelector(".act-preview").onclick = (e) => { e.stopPropagation(); previewSteemsSong(song, e.currentTarget); };
     row.querySelector(".act-meta").onclick = (e) => { e.stopPropagation(); openSteemsMetaPopover(e.currentTarget, song, box); };
     table.appendChild(row);
@@ -12343,7 +12414,7 @@ function steemsCard(song, box){
     `<span class="stem-chip ${st}">${escapeHtml(st)}</span>`).join("");
   const gone = (song.missing || []).map(st =>
     `<span class="stem-chip missing" title="chybí">${escapeHtml(st)}</span>`).join("");
-  const who = [d.artist, d.album].filter(Boolean).map(escapeHtml).join(" · ");
+  const who = [d.artist, d.album, song.origin === "cz" ? "CZ / SK" : "", song.playlist ? "playlist " + song.playlist : ""].filter(Boolean).map(escapeHtml).join(" · ");
   row.innerHTML = `
     <div class="stem-card-art">\uD83C\uDF9A</div>
     <div class="stem-card-body">
@@ -13647,7 +13718,8 @@ const ToneRig = (() => {
   return {load, label, select, step, openSettings, outputs};
 })();
 
-// Whatever can be clicked gets a pointer of the player's own choosing — the
+// The pointer is of the player's own choosing everywhere (--horns-rest), and
+// lit up over whatever can be clicked (--horns) — the
 // horns (index and little finger up) unless Settings say otherwise. The app's
 // styles say "pointer" in hundreds of places; rather than touch each, every
 // rule that does is pointed at --horns, and choosing another picture, colour
@@ -13716,16 +13788,21 @@ const PickCursor = (() => {
     try{ c = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){}
     return {icon: icon(c.icon).id, color: color(c.color).id, size: fit(c.size)};
   }
-  function svg(c, size){
+  // `hot`: over something that can be clicked the same picture lights up —
+  // a glow in its own colour — so the pointer still tells what is a button.
+  function svg(c, size, hot){
     const hex = color(c.color).hex;
     return (`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 32 32'>` +
-      `<g fill='${hex}' stroke='${INK}' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'>` +
+      (hot ? `<defs><filter id='g' x='-40%' y='-40%' width='180%' height='180%'><feDropShadow dx='0' dy='0' stdDeviation='1.6' flood-color='${hex === "#ffffff" ? "#ffc53d" : hex}' flood-opacity='1'/></filter></defs>` : "") +
+      `<g fill='${hex}' stroke='${INK}' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'${hot ? " filter='url(%23g)' transform='translate(1.6 1.6) scale(.9)'" : ""}>` +
       icon(c.icon).draw(hex) + `</g></svg>`).replace(/\n\s*/g, "");
   }
-  const url = (c, size) => `url("data:image/svg+xml,${svg(c, size).replace(/#/g, "%23")}")`;
+  const url = (c, size, hot) => `url("data:image/svg+xml,${svg(c, size, hot).replace(/#/g, "%23")}")`;
   function apply(){
     const c = get(), k = c.size / 32, [x, y] = icon(c.icon).hot;
-    document.documentElement.style.setProperty("--horns", `${url(c, c.size)} ${Math.round(x * k)} ${Math.round(y * k)}, pointer`);
+    const at = `${Math.round(x * k)} ${Math.round(y * k)}`;
+    document.documentElement.style.setProperty("--horns", `${url(c, c.size, true)} ${at}, pointer`);
+    document.documentElement.style.setProperty("--horns-rest", `${url(c, c.size)} ${at}, default`);
   }
   function set(part){
     const c = {...get(), ...part};
@@ -13756,15 +13833,18 @@ const PickCursor = (() => {
 
   apply();
   const HORNS = "var(--horns)";
+  const REST = "var(--horns-rest)";
   const walk = (rules) => { for(const r of rules){
     try{
       if(r.cssRules && r.cssRules.length) walk(r.cssRules);
       if(r.style && r.style.cursor === "pointer") r.style.setProperty("cursor", HORNS, r.style.getPropertyPriority("cursor"));
+      else if(r.style && (r.style.cursor === "default" || r.style.cursor === "auto")) r.style.setProperty("cursor", REST, r.style.getPropertyPriority("cursor"));
     }catch(e){} } };
   for(const sheet of document.styleSheets){ try{ walk(sheet.cssRules); }catch(e){} }
   const base = document.createElement("style");
-  base.textContent = `a[href],button:not(:disabled),[role=button],summary,select,label:has(input),input[type=checkbox],input[type=radio],input[type=range],input[type=file]{cursor:${HORNS}}
-    button:disabled{cursor:default}`;
+  base.textContent = `html,body{cursor:${REST}}
+    a[href],button:not(:disabled),[role=button],summary,select,label:has(input),input[type=checkbox],input[type=radio],input[type=range],input[type=file]{cursor:${HORNS}}
+    button:disabled{cursor:${REST}}`;
   document.head.insertBefore(base, document.head.firstChild);
   // …and what is styled on the element itself, as it comes
   new MutationObserver((ms) => { for(const m of ms) for(const n of m.addedNodes){
@@ -14792,6 +14872,7 @@ const Mixer = (() => {
   function applyGains(){
     queueSessionSave();
     if(typeof Guitar !== "undefined") Guitar.applyGuitarGain();
+    queueOverview();                           // the strip above shows what is in the mix
     const solo = channels.some(c => c.solo);
     let anyActive = false;
     channels.forEach((c, idx) => {
@@ -15091,12 +15172,12 @@ const Mixer = (() => {
 
   const lyrRun = LyricRun(el("nm-lyr-run"), {onSeek: (t) => seek(Math.max(0, t))});
   try{ new ResizeObserver(() => lyrRun.draw()).observe(el("nm-lyr-run")); }catch(e){}
-  el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+  el("nm-lyr-mode").textContent = runMode ? "Zobrazit po řádcích" : "Zobrazit běžící text";
   // The ribbon and the buttons that go with it, after anything about the text changed.
   function runRefresh(){
     lyrRun.set(lyrics ? LyricRun.build(lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || "", get words(){ return sung[sungKey(i)] || null; }})), duration, melodyNotes) : []);
     el("nm-lyr-lines").classList.toggle("run", runMode && !!lyrics);
-    el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+    el("nm-lyr-mode").textContent = runMode ? "Zobrazit po řádcích" : "Zobrazit běžící text";
     el("nm-lyr-reset").hidden = !Object.keys(lyricShift).length;
     lyrRun.draw(currentTime());
   }
@@ -17133,8 +17214,9 @@ const Mixer = (() => {
           queueSectionSave();
           renderTrackLanes();
         } else {
-          // A click that never moved is still a click: go there.
-          seek(sections[idx].start);
+          // A click that never moved picks the section: it is marked, looped
+          // and played from its start. The same click again lets the loop go.
+          loopSection(idx);
         }
       };
       window.addEventListener("pointermove", onMove);
@@ -17147,18 +17229,24 @@ const Mixer = (() => {
       openSectionMenu(idx, e.clientX, e.clientY);
     });
 
-    // A section is the obvious thing to loop.
-    block.ondblclick = (e) => {
-      e.stopPropagation();
-      const sec = sections[idx];
-      loopStart = sec.start;
-      loopEnd = sec.end;
-      loopEnabled = true;
-      el("mixer-loop").classList.add("active");
-      queueSessionSave();
-      renderTimeline();
+  }
+
+  function loopSection(idx){
+    const sec = sections[idx];
+    if(!sec) return;
+    const same = loopEnabled && Math.abs(loopStart - sec.start) < 0.01 && Math.abs(loopEnd - sec.end) < 0.01;
+    selectedSection = idx;
+    if(same){
+      loopEnabled = false;
+      showToast("Smyčka vypnuta");
+    } else {
+      loopStart = sec.start; loopEnd = sec.end; loopEnabled = true;
+      seek(sec.start);
       showToast(`Smyčka: ${sec.name}`);
-    };
+    }
+    el("mixer-loop").classList.toggle("active", loopEnabled);
+    queueSessionSave();
+    renderTimeline();
   }
 
   function paintSectionBlock(block, sec){
@@ -17662,7 +17750,7 @@ const Mixer = (() => {
     const L = {...(trackLook[c.stem] || {}), ...patch};
     Object.keys(L).forEach(k => { if(L[k] == null || L[k] === "") delete L[k]; });
     if(Object.keys(L).length) trackLook[c.stem] = L; else delete trackLook[c.stem];
-    renderTimeline(); renderChannels(); renderEditBar();
+    renderTimeline(); renderChannels(); renderEditBar(); queueOverview();
     queueSessionSave();
   }
   function openTrackLook(c, anchor){
@@ -18882,7 +18970,9 @@ const Mixer = (() => {
       paintGrid(g, cssW, laneH);
       // At its real length: a track shorter than the song (a clip deleted at
       // the end, a short take) must not be stretched over the whole lane.
-      paintWave(g, c.buffer, Math.max(1, Math.min(cssW, cssW * c.buffer.duration / Math.max(duration, 0.001))), laneH, style.c);
+      // …and at the zoom's own scale: zoomed out past the window, the lane is
+      // wider than the song, and the wave has to end where the ruler does.
+      paintWave(g, c.buffer, Math.max(1, Math.min(cssW, c.buffer.duration * pixelsPerSecond * (cssW / totalPx))), laneH, style.c);
       lane.appendChild(cv);
 
       const guide = document.createElement("div");
@@ -18991,16 +19081,50 @@ const Mixer = (() => {
     g.scale(dpr, dpr);
     g.clearRect(0, 0, w, h);
 
-    // Stems are drawn stacked with additive blending, so the overview shows
-    // the actual density of the mix rather than just the loudest stem.
-    g.globalCompositeOperation = "lighter";
+    // Every stem in its own colour, stacked out from the middle line: the
+    // strip is the mix, and each colour's share of it. A stem that is muted
+    // (or left out by a solo) is not in the mix — its colour goes, the others
+    // close up. The scale is that of the whole song with every stem in, so
+    // taking one away never makes the rest look louder.
+    const solo = channels.some(c => c.solo);
+    const total = new Float32Array(w);
+    channels.forEach(c => { const p = ovPeaks(c, w); for(let x = 0; x < w; x++) total[x] += p[x]; });
+    let top = 0;
+    for(let x = 0; x < w; x++) if(total[x] > top) top = total[x];
+    const k = top > 0 ? (h / 2 * 0.94) / top : 0, mid = h / 2, off = new Float32Array(w);
     channels.forEach(c => {
-      if(c.muted) return;
-      g.globalAlpha = 0.5;
-      paintWave(g, c.buffer, Math.max(1, Math.min(w, w * c.buffer.duration / Math.max(duration, 0.001))), h, styleOf(c).c);
+      if(!(solo ? c.solo : !c.muted) || c.faderValue < 0.01) return;
+      const p = ovPeaks(c, w);
+      g.fillStyle = styleOf(c).c;
+      for(let x = 0; x < w; x++){
+        const seg = p[x] * k;
+        if(seg < 0.15) continue;
+        g.fillRect(x, mid - off[x] - seg, 1, seg);
+        g.fillRect(x, mid + off[x], 1, seg);
+        off[x] += seg;
+      }
     });
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = "source-over";
+  }
+  // A stem's loudest sample under each pixel of the overview (kept until the
+  // strip changes width or the stem's audio does).
+  function ovPeaks(c, w){
+    if(c._ov && c._ov.w === w && c._ov.buf === c.buffer && c._ov.d === duration) return c._ov.p;
+    const data = c.buffer.getChannelData(0), p = new Float32Array(w);
+    const n = Math.max(1, Math.min(w, Math.round(w * c.buffer.duration / Math.max(duration, 0.001)))), per = data.length / n;
+    const stride = Math.max(1, Math.floor(per / 96));
+    for(let x = 0; x < n; x++){
+      const to = Math.min(data.length, Math.floor((x + 1) * per));
+      let m = 0;
+      for(let i = Math.floor(x * per); i < to; i += stride){ const v = data[i] < 0 ? -data[i] : data[i]; if(v > m) m = v; }
+      p[x] = m;
+    }
+    c._ov = {w, buf: c.buffer, d: duration, p};
+    return p;
+  }
+  let ovFrame = 0;
+  function queueOverview(){
+    if(ovFrame) return;
+    ovFrame = requestAnimationFrame(() => { ovFrame = 0; if(channels.length) renderOverview(); });
   }
 
   // Where the stems start and end inside .nm-canvas, in pixels — set at the
@@ -32457,5 +32581,6 @@ const Voice = (() => {
     hints: {show: hintsShow, hide: hintsHide, on: () => hintsOn, list: () => hintList().map(h => h.say)}, replies: {load: repliesLoad, pick: reply}};
 })();
 </script>
+<script src="/static/look.js"></script>
 </body>
 </html>

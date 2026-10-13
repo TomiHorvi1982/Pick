@@ -239,12 +239,34 @@ Nový hlas přidá „+ hlas“ ve Výslovnosti: soubor nebo 10 s z mikrofonu
 
 **Vzhled.** Výchozí barvy jsou noční modrá a fialová (dokud nehraje nic, co by
 dalo barvy z obalu); co je „hotovo / mám“, zůstává zelené. Zelená natvrdo
-psaná ve stylech jde přes `--accent`. Dole v levém panelu jsou kytary a heslo.
-Ukazatel nad vším, na co jde kliknout, je ruka s „rohy“ — pravidla s
-`cursor:pointer` se při startu přepíšou na `var(--horns)`, nikde se neopravují
-ručně. V Nastavení → Ukazatel jde vybrat jeden z deseti obrázků (rohy, trsátko,
-kytara, lebka, blesk, paličky, plamen, meč, netopýr, hvězda), jedna z pěti barev
-a velikost 20–56 px (`PickCursor`, volba v `localStorage` pod `pick-cursor`).
+psaná ve stylech jde přes `--accent`. Dole v levém panelu jsou dvě elektrické kytary.
+Ukazatel je vidět pořád (`--horns-rest`) a nad vším, na co jde kliknout, se
+rozsvítí (`--horns`) — pravidla s `cursor:pointer` a `default` se při startu
+přepíšou na tyhle dvě proměnné, takže se žádné nepíše ručně. V Nastavení →
+Ukazatel jde vybrat jeden z deseti obrázků (rohy, trsátko, kytara, lebka, blesk,
+paličky, plamen, meč, netopýr, hvězda), pět barev a velikost.
+
+**Úpravy vzhledu** (Nastavení → Vzhled → „Upravit vzhled podrobně…“,
+`static/look.js`, server `look.py`): režim, ve kterém klikneš na cokoli v
+aplikaci a změníš text, pozadí (barva, přechod, obrázek, vzorek), okraj, stín,
+mezery, efekty, polohu, ikonu před textem nebo napíšeš vlastní CSS — pro jeden
+prvek, všechny stejné, i jen pro stav „při najetí“. Karta Aplikace mění barvy
+celé aplikace (hotové palety, každá barevná proměnná zvlášť), písmo, velikost
+a pozadí. Náhled je okamžitý; natrvalo až tlačítkem Uložit (`look.json` vedle
+nastavení, obrázky ve složce `look/`), je tu zpět/znovu, „Původní ↔ nový“,
+pojmenované vzhledy a soubor ke stažení. Vzhled je jen seznam selektorů s
+úpravami, skládaný do jednoho `<style id="look-style">` — stylů aplikace se
+nedotkne a „Výchozí vzhled“ je prázdný seznam. Zdroje zdarma a bez klíče:
+Google Fonts a Fontshare (písma), Openverse, Wikimedia Commons, Lorem Picsum,
+Art Institute of Chicago a NASA (obrázky), Iconify (ikony); vybraný obrázek se
+stáhne do Picku. Karta Vzor položí vlastní obrázek průsvitně přes aplikaci
+jako předlohu a nabere z něj barvy (i celou paletu).
+
+Ve **Steems** má seznam sloupce **Původ** (CZ / SK nebo Zahraniční) a
+**Playlist** (ve kterém staženém playlistu píseň je); podle obou jde řadit,
+seskupovat karty a nahoře filtrovat. Původ je odhad — česká a slovenská
+písmena ve jménech, název playlistu, uložený text písně, další písně téhož
+interpreta — a kliknutím na značku ho opravíš (`origin.json` u stop).
 
 **Asistent běží v počítači.** Volná česká věta („pick listen“, nebo napsaná do
 pole Asistent) se provede bez internetu a bez placení (`assistant.py`):
@@ -265,7 +287,8 @@ Bez modelu (karta není připojená) poslouží nejbližší věta z knihy. Kdy�
 v počítači není, použije se Claude přes API jako dřív. Asistent umí i dalších
 44 povelů Picku (nástroj `command`: ladička, metronom, taby, text, výslovnost,
 zpěv, řazení, okna…). Co umí, co se naučil a čemu nerozuměl: `/assistant/book`
-(odkaz „co umí“ u pole Asistent).
+(odkaz „co umí“ u pole Asistent). Na téže stránce jde větu naučit ručně (věta + jedna
+nebo dvě věci, které Pick umí; `teach`) a naučenou zapomenout.
 
 **Charakter a hlasitost hlasu.** Ve Výslovnosti jde zvolit, jak hlas čte
 (`TTS_STYLES`: Přirozený, Metalový, Agresivní, Naštvaný, Romantický, Klidný,

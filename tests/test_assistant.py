@@ -200,4 +200,25 @@ def test_with_no_model_to_ask_the_nearest_sentence_serves(monkeypatch):
 
 def test_the_page_of_what_can_be_said(client):
     page = client.get("/assistant/book").text
-    assert "Co Pick umí na slovo" in page and "ztlum bicí" in page and "Zatím nic." in page
+    assert "Co Pick umí na slovo" in page and "ztlum bicí" in page and "Zatím nic." in page and "bicí: ztlumit" in page
+
+
+def test_a_sentence_is_taught_by_hand_and_forgotten(client, monkeypatch):
+    mute = {"tool": "stem", "args": {"stem": "bass", "action": "louder"}}
+    click = {"tool": "command", "args": {"id": "metronome"}}
+    assert client.post("/api/assistant/teach", json={"text": "", "calls": [mute]}).status_code == 400
+    assert client.post("/api/assistant/teach", json={"text": "dej tam víc basy", "calls": []}).status_code == 400
+    # only what Pick does can be taught: nothing made up, nothing with a name in it
+    assert client.post("/api/assistant/teach", json={"text": "dej tam víc basy", "calls": [{"tool": "delete_song", "args": {}}]}).status_code == 400
+    assert client.post("/api/assistant/teach", json={"text": "dej tam víc basy", "calls": [{"tool": "open_song", "args": {"name": "x", "where": "player"}}]}).status_code == 400
+    assert "už Pick zná" in client.post("/api/assistant/teach", json={"text": "Ztlum bicí!", "calls": [mute]}).json()["error"]
+    assistant._missed("dej tam víc basy")
+    assert client.post("/api/assistant/teach", json={"text": "Dej tam víc basy", "calls": [mute, click]}).json() == {"ok": True}
+    assert assistant._read(assistant.UNKNOWN, []) == []          # no longer a sentence nobody understood
+    call, asked = _local(monkeypatch, [])
+    assert _play("s", "dej tam víc basy!", call)[0] == [("stem", {"stem": "bass", "action": "louder"}), ("command", {"id": "metronome"})] and asked == []
+    page = client.get("/assistant/book").text
+    assert "Naučit novou větu" in page and "basa: hlasitěji + metronom zap / vyp" in page and "data-forget" in page
+    assert client.delete("/api/assistant/learned", params={"text": "dej tam víc basy"}).json() == {"ok": True}
+    assert client.delete("/api/assistant/learned", params={"text": "dej tam víc basy"}).json() == {"ok": False}
+    assert assistant.learned() == {}

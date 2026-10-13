@@ -59,3 +59,7 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(assistant, "UNKNOWN", tmp_path / "assistant-unknown.json")
     assistant._turns.clear(); assistant._last.update(miss=None, learned=None)
     assistant._sessions.clear()
+    # …and the look of the app is the test's own too.
+    import look
+    monkeypatch.setattr(look, "LOOK_PATH", tmp_path / "look.json")
+    monkeypatch.setattr(look, "LOOK_DIR", tmp_path / "look")

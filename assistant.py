@@ -659,25 +659,125 @@ def ask_local(messages, think=None):
     return say(line)
 
 
+_STEM_CZ = {"drums": "bicí", "bass": "basa", "guitar": "kytara", "vocals": "zpěv", "piano": "klavír", "other": "ostatní"}
+_SEC_CZ = {"intro": "intro", "verse": "sloka", "chorus": "refrén", "bridge": "mezihra", "solo": "sólo", "outro": "outro",
+           "current": "část, která hraje", "next": "další část", "previous": "předchozí část", "off": "zrušit"}
+_DO_CZ = {"mute": "ztlumit", "unmute": "pustit", "solo": "jen tahle stopa", "unsolo": "zrušit sólo", "louder": "hlasitěji", "quieter": "tišeji",
+          "play": "přehrát", "stop": "zastavit", "restart": "od začátku", "next": "další píseň", "previous": "předchozí píseň"}
+
+
+def call_name(c):
+    """A call as a person reads it."""
+    t, a = c["tool"], c.get("args") or {}
+    if t == "command":
+        return COMMANDS.get(a.get("id"), a.get("id"))
+    if t == "stem":
+        return f"{_STEM_CZ.get(a.get('stem'), a.get('stem'))}: {_DO_CZ.get(a.get('action'), a.get('action'))}"
+    if t == "playback":
+        return _DO_CZ.get(a.get("action"), a.get("action"))
+    if t == "set_tempo":
+        return f"tempo {a.get('percent')} %"
+    if t == "loop_section":
+        return f"smyčka: {_SEC_CZ.get(a.get('section'), a.get('section'))}"
+    if t == "volume":
+        n = int(a.get("steps") or 0)
+        return f"hlasitost {'nahoru' if n > 0 else 'dolů'}" + (" hodně" if abs(n) > 1 else "")
+    if t == "practice":
+        return "cvičit" + (f": {a['name']}" if a.get("name") else " píseň, která hraje")
+    if t == "open_song":
+        return f"otevřít píseň {a.get('name', '')}" + (" v mixu" if a.get("where") == "steems" else "")
+    if t == "play_band":
+        return f"pustit kapelu {a.get('name', '')}"
+    return t
+
+
+def teachable():
+    """What a sentence can be taught to mean: every single thing the book does. → [(group, [call])]"""
+    seen, by = set(), {}
+    for v in _book.BOOK.values():
+        c = v["calls"][0]
+        sig = json.dumps(c, sort_keys=True)
+        if sig not in seen:
+            seen.add(sig)
+            by.setdefault(c["tool"], []).append(c)
+    return [(title, [c for t in tools for c in by.get(t, [])]) for title, tools in _book.GROUPS]
+
+
+def teach(text, calls):
+    """A sentence written in by hand, and what it is to do. → {"ok"} or {"error"}"""
+    text = " ".join(str(text or "").split())[:200]
+    key = _book.norm(text)
+    if len(key) < 2:
+        return {"error": "Napiš větu."}
+    allowed = {json.dumps(c, sort_keys=True) for _, cs in teachable() for c in cs}
+    calls = [c for c in (calls or []) if isinstance(c, dict)][:3]
+    if not calls or any(json.dumps(c, sort_keys=True) not in allowed for c in calls):
+        return {"error": "Vyber, co má věta udělat."}
+    if key in _book.BOOK:
+        return {"error": "Tuhle větu už Pick zná — znamená: " + call_name(_book.BOOK[key]["calls"][0]) + "."}
+    all_ = _read(LEARNED, {})
+    all_[key] = {"text": text, "calls": calls, "n": 1, "at": int(time.time()), "by": "hand"}     # also over one said to be wrong
+    _write(LEARNED, all_)
+    _write(UNKNOWN, [r for r in _read(UNKNOWN, []) if _book.norm(r.get("text", "")) != key])
+    return {"ok": True}
+
+
+def forget(text):
+    key, all_ = _book.norm(text), _read(LEARNED, {})
+    if key not in all_:
+        return False
+    del all_[key]
+    _write(LEARNED, all_)
+    return True
+
+
 def book_page():
-    """What can be said, what was learned and what was not understood — a page to read."""
-    esc = lambda t: str(t).replace("&", "&amp;").replace("<", "&lt;")
-    what = lambda calls: " + ".join(c["tool"] + (" " + " ".join(str(v) for v in c["args"].values()) if c["args"] else "") for c in calls)
+    """What can be said, what was learned and what was not understood — a page to read, and to teach on."""
+    esc = lambda t: str(t).replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
+    what = lambda calls: " + ".join(call_name(c) for c in calls)
     by = {}
     for v in _book.BOOK.values():
-        by.setdefault(what(v["calls"]), []).append(v["text"])
+        by.setdefault((v["calls"][0]["tool"], what(v["calls"])), []).append(v["text"])
     groups = "".join(
-        f"<h2>{esc(title)}</h2>" + "".join(f"<p><b>{esc(k)}</b><br>{esc(' · '.join(says[:14]))}{' …' if len(says) > 14 else ''}</p>"
-                                           for k, says in by.items() if k.split()[0] in tools)
+        f"<h2>{esc(title)}</h2>" + "".join(f"<p><b>{esc(k[1])}</b><br>{esc(' · '.join(says[:14]))}{' …' if len(says) > 14 else ''}</p>"
+                                           for k, says in by.items() if k[0] in tools)
         for title, tools in _book.GROUPS)
-    mine = "".join(f"<p>„{esc(v['text'])}“ → <b>{esc(what(v['calls']))}</b></p>" for v in learned().values()) or "<p>Zatím nic.</p>"
-    lost = "".join(f"<p>„{esc(r['text'])}“</p>" for r in reversed(_read(UNKNOWN, [])[-40:])) or "<p>Nic.</p>"
+    options = "".join(f'<optgroup label="{esc(title)}">' + "".join(f'<option value="{esc(json.dumps(c, ensure_ascii=False))}">{esc(call_name(c))}</option>' for c in cs) + "</optgroup>"
+                      for title, cs in teachable())
+    mine = "".join(f'<p>„{esc(v["text"])}“ → <b>{esc(what(v["calls"]))}</b> <button class=x data-forget="{esc(v["text"])}">zapomenout</button></p>'
+                   for v in learned().values()) or "<p class=n>Zatím nic.</p>"
+    lost = "".join(f'<p>„{esc(r["text"])}“ <button class=x data-fill="{esc(r["text"])}">naučit</button></p>' for r in reversed(_read(UNKNOWN, [])[-40:])) or "<p class=n>Nic.</p>"
     return ("<!doctype html><meta charset=utf-8><title>Co Pick umí na slovo</title><style>body{background:#0b0d18;color:#dfe3f5;font:15px/1.55 -apple-system,sans-serif;"
             "max-width:860px;margin:30px auto;padding:0 18px}h1{font-size:24px}h2{color:#a98bff;margin-top:30px;font-size:17px}b{color:#fff}p{margin:9px 0}"
-            ".n{color:#8f96b5}</style><h1>Co Pick umí na slovo</h1>"
+            ".n{color:#8f96b5}.teach{background:#141830;border:1px solid #2c3260;border-radius:12px;padding:14px 16px;margin:18px 0}"
+            ".teach label{display:block;color:#8f96b5;font-size:12.5px;margin:10px 0 4px}.teach input,.teach select{width:100%;box-sizing:border-box;padding:9px 10px;"
+            "background:#0b0d18;color:#fff;border:1px solid #2c3260;border-radius:8px;font:inherit}.teach button.go{margin-top:14px;padding:9px 18px;border:0;border-radius:8px;"
+            "background:linear-gradient(90deg,#8b6cff,#3d8bfd);color:#fff;font:inherit;font-weight:600;cursor:pointer}#t-msg{margin-left:12px}"
+            ".x{background:none;border:1px solid #2c3260;color:#8f96b5;border-radius:6px;padding:1px 8px;font-size:12px;cursor:pointer;margin-left:6px}.x:hover{color:#fff}"
+            "</style><h1>Co Pick umí na slovo</h1>"
             f"<p class=n>Řekni „pick listen“ a pak česky, co chceš. {len(_book.BOOK)} vět níže Pick zná hned; věty jdou spojovat pomocí „a“. "
             "Písně a kapely říkej jménem („pusť něco od Sepultury“, „otevři Blind v mixu“, „chci cvičit Roots“). "
             "Čemu nerozumí, zkusí pochopit model v počítači a co se povedlo, si zapamatuje. Po špatném pochopení řekni „špatně“.</p>"
-            f"<h2>Co se Pick naučil od tebe</h2>{mine}<h2>Čemu naposledy nerozuměl</h2>{lost}{groups}")
-
-
+            "<div class=teach><b>Naučit novou větu</b>"
+            "<label>Věta, jak ji říkáš</label><input id=t-text placeholder=\"třeba: dej tam víc basy\" maxlength=200>"
+            f"<label>Co má udělat</label><select id=t-a><option value=\"\">— vyber —</option>{options}</select>"
+            f"<label>…a potom ještě (nemusí být)</label><select id=t-b><option value=\"\">— nic —</option>{options}</select>"
+            "<button class=go id=t-go>Naučit</button><span id=t-msg class=n></span>"
+            "<p class=n style=\"margin-bottom:0\">Jde o věty s pevným významem. Věty s názvem písně nebo kapely se učit nemusí, těm rozumí model.</p></div>"
+            f"<h2>Co se Pick naučil od tebe</h2>{mine}<h2>Čemu naposledy nerozuměl</h2>{lost}{groups}"
+            """<script>
+const q = (id) => document.getElementById(id), msg = (t) => { q("t-msg").textContent = t; };
+q("t-go").onclick = async () => {
+  const calls = [q("t-a").value, q("t-b").value].filter(Boolean).map((x) => JSON.parse(x));
+  const r = await fetch("/api/assistant/teach", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: q("t-text").value, calls})}).then((x) => x.json()).catch(() => ({error: "Nepovedlo se uložit."}));
+  if(r.error){ msg(r.error); return; }
+  location.reload();
+};
+q("t-text").onkeydown = (e) => { if(e.key === "Enter") q("t-go").click(); };
+document.body.onclick = async (e) => {
+  const b = e.target.closest("button.x"); if(!b) return;
+  if(b.dataset.fill){ q("t-text").value = b.dataset.fill; q("t-a").focus(); scrollTo({top: 0, behavior: "smooth"}); return; }
+  await fetch("/api/assistant/learned?text=" + encodeURIComponent(b.dataset.forget), {method: "DELETE"}).catch(() => {});
+  location.reload();
+};
+</script>""")

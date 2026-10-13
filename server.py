@@ -180,6 +180,10 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
+    if name == "look.js":
+        # Úpravy vzhledu — the design mode, a script of its own.
+        return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
     if name not in ("pick-icon.png", "pick-favicon.png"):
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     return Response((APP_DIR / "static" / name).read_bytes(), media_type="image/png",
@@ -7006,6 +7010,110 @@ def stems_tunings_fill():
     return dict(_TUNING_JOB)
 
 
+# ---- where a separated song is from: the playlist it was downloaded in, and
+# whether it is Czech/Slovak or from abroad. Nothing in a file says the second,
+# so it is read off the names: letters only Czech and Slovak write (ě š č ř ž
+# ů ť ď ň ľ ĺ ŕ), a playlist called Czech, or an artist already known to be
+# one. A guess the player can put right — origin.json beside the stems wins.
+_STEMS_PLAYLISTS = {"at": 0.0, "map": {}, "root": ""}
+_CZ_LETTERS = set("ěščřžůťďňľĺŕ")
+_CZ_WORDS = ("cesk", "czech", "slovak", "slovens", "cesko")
+
+
+def _stems_playlists() -> dict:
+    """safe name → the downloaded playlist holding a file of that name (refreshed each minute)."""
+    now = time.time()
+    if now - _STEMS_PLAYLISTS["at"] < 60 and _STEMS_PLAYLISTS["root"] == str(MUSIC_ROOT):
+        return _STEMS_PLAYLISTS["map"]
+    found: dict = {}
+    try:
+        for folder in sorted((MUSIC_ROOT / "Playlists").iterdir(), key=lambda p: p.name.lower()):
+            if not folder.is_dir() or folder.name.startswith("."):
+                continue
+            for f in folder.iterdir():
+                if f.suffix.lower() in AUDIO_EXTS and not f.name.startswith("."):
+                    found.setdefault(_safe_name(f.stem), folder.name)
+    except OSError:
+        pass
+    _STEMS_PLAYLISTS.update(at=now, map=found, root=str(MUSIC_ROOT))
+    return found
+
+
+def _looks_czech(*texts) -> bool:
+    for t in texts:
+        low = (t or "").lower()
+        if _CZ_LETTERS & set(low) or any(w in _deaccent(low) for w in _CZ_WORDS):
+            return True
+    return False
+
+
+_TEXT_CZECH: dict = {}
+
+
+def _text_is_czech(title, artist, duration) -> bool:
+    """Whether the song's kept text is Czech or Slovak — the surest sign there is."""
+    if not title:
+        return False
+    f = _lyrics_file(title, artist or "", duration)
+    try:
+        at = f.stat().st_mtime
+    except OSError:
+        return False
+    hit = _TEXT_CZECH.get(str(f))
+    if hit is None or hit[0] != at:
+        try:
+            got = json.loads(f.read_text(encoding="utf-8"))
+            text = (got.get("plain") or "") + " ".join(l.get("text") or "" for l in got.get("lines") or [])
+        except (OSError, ValueError, AttributeError, TypeError):
+            text = ""
+        hit = _TEXT_CZECH[str(f)] = (at, sum(1 for ch in text.lower() if ch in _CZ_LETTERS) >= 4)
+    return hit[1]
+
+
+def _stems_origin_typed(d: Path) -> Optional[str]:
+    try:
+        o = json.loads((d / "origin.json").read_text(encoding="utf-8")).get("origin")
+        return o if o in ("cz", "world") else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def _stems_origins(rows: list) -> None:
+    """Fills "origin" ("cz" | "world") and "origin_typed" into the listed songs."""
+    artist = lambda r: _deaccent(((r.get("meta") or {}).get("artist") or "").split(",")[0]).lower().strip()
+    home = set()
+    for r in rows:
+        m = r.get("meta") or {}
+        r["origin_typed"] = r.pop("_origin", None)
+        r["origin"] = r["origin_typed"] or ("cz" if _looks_czech(m.get("artist"), m.get("title"), m.get("album"),
+                                                                 r.get("playlist"), r["name"])
+                                             or _text_is_czech(m.get("title"), m.get("artist"), r.get("duration"))
+                                             else "world")
+        if r["origin"] == "cz" and artist(r):
+            home.add(artist(r))
+    for r in rows:
+        if not r["origin_typed"] and artist(r) in home:
+            r["origin"] = "cz"
+        r["origin_typed"] = bool(r["origin_typed"])
+
+
+class StemsOrigin(BaseModel):
+    origin: str = ""          # "cz", "world", or "" = back to the guess
+
+
+@app.put("/api/stems/{name}/origin")
+def put_stems_origin(name: str, body: StemsOrigin):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    f = d / "origin.json"
+    if body.origin in ("cz", "world"):
+        f.write_text(json.dumps({"origin": body.origin}), encoding="utf-8")
+    elif f.is_file():
+        f.unlink()
+    return next((x for x in list_stems() if x["name"] == name), {"name": name})
+
+
 class StemsTuning(BaseModel):
     tuning: List[int] = []
 
@@ -7345,6 +7453,7 @@ def list_stems():
     if not stems_root.is_dir():
         return []
     out = []
+    playlists = _stems_playlists()
     for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
         if not d.is_dir() or d.name.startswith("."):
             continue  # ".raw" is Demucs' scratch area, not a stem set
@@ -7391,7 +7500,10 @@ def list_stems():
             "labels": _track_labels(d),
             "edited": _edited_stems(d),
             "tuning": _stems_tuning(d),
+            "playlist": playlists.get(d.name),
+            "_origin": _stems_origin_typed(d),
         })
+    _stems_origins(out)
     return out
 
 
@@ -10032,6 +10144,8 @@ end tell'''
 
 # ---- the assistant (assistant.py): a Czech sentence in, the app's own actions out
 import assistant as _assistant
+import look as _look
+app.include_router(_look.router)
 
 # A model left running by a Pick that has since been restarted is nobody's: it is let go.
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
@@ -10063,6 +10177,23 @@ def assistant_status():
 @app.get("/assistant/book", response_class=HTMLResponse)
 def assistant_book_page():
     return _assistant.book_page()
+
+
+class AssistTeach(BaseModel):
+    text: str
+    calls: List[dict] = []
+
+
+@app.post("/api/assistant/teach")
+def assistant_teach(req: AssistTeach):
+    """A sentence taught by hand on the page of what can be said."""
+    got = _assistant.teach(req.text, req.calls)
+    return JSONResponse(got, status_code=400) if got.get("error") else got
+
+
+@app.delete("/api/assistant/learned")
+def assistant_forget(text: str):
+    return {"ok": _assistant.forget(text)}
 
 
 @app.post("/api/assistant/wake")
