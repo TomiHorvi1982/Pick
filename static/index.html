@@ -3828,6 +3828,26 @@ body.lib-collapsed .pick-brand{display:none}
   .cp-empty{margin:60px auto;max-width:420px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.55}
   .cp-empty b{color:var(--text);font-size:16px}
   @media (max-width:900px){ .cp-cols{flex-direction:column} .cp-left{flex:none;border-right:none;border-bottom:1px solid #24273a} }
+  /* The player's own take of a piece of the song. */
+  .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
+  .st-range span{margin-right:auto}
+  .st-range button,.st-range select,.mv-own button{background:none;border:1px solid #3a3d52;color:var(--text);border-radius:500px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .st-range button:hover:not(:disabled),.mv-own button:hover{border-color:var(--accent)}
+  .st-range button:disabled{opacity:.4;cursor:default}
+  .st-range select{width:auto !important;padding:4px 8px !important}
+  .st-words{margin-top:12px;max-height:220px;min-height:120px;overflow-y:auto;border:1px solid #2a2d40;border-radius:12px;padding:12px 16px;background:#0f1017}
+  .st-line{font-size:19px;line-height:1.5;color:#8f93ad;transition:color .15s}
+  .st-line.now{color:#fff;font-weight:700}
+  .st-none{font-size:13px;color:var(--sub);line-height:1.5}
+  .st-plain{white-space:pre-wrap;font-size:16px;line-height:1.55;color:#d9dcf0;margin-top:8px}
+  .st-bar{height:5px;border-radius:500px;background:#23263a;overflow:hidden;margin:10px 0 4px}
+  .st-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd))}
+  .st-count{font-size:28px;font-weight:800;color:var(--accent);min-width:30px;text-align:center}
+  .mv-own{margin-top:14px;border:1px solid #2a2d40;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--sub);line-height:1.45}
+  .mv-own.has{border-color:color-mix(in srgb,var(--ok,#3ddc84) 55%,transparent)}
+  .mv-own b{color:var(--text);font-size:13px}
+  .mv-own audio{width:100%;height:32px}
+  .mv-own div{display:flex;gap:8px;flex-wrap:wrap}
   /* The guide to a new voice. */
   .voice-guide .mt-box{width:min(620px,94vw)}
   .vg-step{border:1px solid #2a2d40;border-radius:12px;padding:12px 14px;margin-top:12px}
@@ -3847,7 +3867,7 @@ body.lib-collapsed .pick-brand{display:none}
   .myvoice .mv-note,.myvoice .mv-sample{font-size:12.5px;color:var(--sub);line-height:1.45;margin-top:10px}
   .myvoice .mv-sample button{background:none;border:1px solid #3a3d52;color:var(--text);border-radius:500px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer;margin-top:6px}
   .myvoice .mv-sample button:hover{border-color:var(--accent)}
-  .myvoice label.mv-check{flex-direction:row;align-items:flex-start;gap:8px;line-height:1.4}
+  .myvoice label.mv-check,.song-take label.mv-check{flex-direction:row;align-items:flex-start;gap:8px;line-height:1.4}
   /* Adding a voice of one's own. */
   .voice-add .mt-box{width:min(520px,94vw)}
   .voice-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub);margin-top:12px}
@@ -25101,6 +25121,8 @@ const Mixer = (() => {
       }
       return lyrics && lyrics.lines ? lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || ""})) : [];
     },
+    // …and the words alone, when the text that was found has no times.
+    lyricPlain: async () => { const d = await fetchLyrics().catch(() => null); return (d && d.plain) || ""; },
     // The trainer read the melody: the running text can follow the voice inside a line.
     melodyKnown: (notes) => { melodyNotes = notes; runRefresh(); },
     // Where the singer's own voice is mixed in: the mixer's context and its way out.
@@ -25120,6 +25142,8 @@ const Mixer = (() => {
       clips: c.clips ? c.clips.map(k => ({...k})) : null})),
     currentSong: () => currentSongName,
     loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
+    play: () => { if(!isPlaying) play(); }, pause: () => { if(isPlaying) pause(); },
+    sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end})), length: () => duration,
     muteStem: (stem, on) => { const c = channels.find(x => x.stem === stem); if(!c || c.muted === on) return;
       c.muted = on; applyGains(); renderChannels(); renderTimeline(); },
     // Read-only view of the generated click track, for diagnostics.
@@ -25243,6 +25267,141 @@ const VoiceGuide = (() => {
   return {open, close};
 })();
 
+// The player's own take of a piece of the open song: the song plays (its
+// singer too, to sing along with), the words of that piece are on screen, the
+// microphone records. Heard back and agreed to, the take becomes this song's
+// model for "Zpěv mým hlasem" — the player's voice on these very notes, which
+// no general sample can give. Headphones, or the band is in the take as well.
+const SongTake = (() => {
+  let plain = "";
+  let box = null, a = 0, len = 20, lines = [], rec = null, stream = null, take = null, raf = 0, phase = "idle", guide = true, onDone = null, loopWas = null, mutedWas = false, peak = 0;
+  const song = () => Mixer.currentSong();
+  const clampA = () => { a = Math.max(0, Math.min(Math.max(0, Mixer.length() - len), a)); };
+  // where to sing: the loop, a chorus, or where the words are thickest
+  function choose(){
+    const loop = Mixer.loopNow();
+    if(loop){ a = loop.start; len = Math.max(10, Math.min(25, Math.round(loop.end - loop.start))); return; }
+    const ch = Mixer.sectionsNow().find((x) => /chorus|refr/i.test((x.kind || "") + " " + (x.name || "")));
+    if(ch){ a = ch.start; len = Math.max(12, Math.min(25, Math.round(ch.end - ch.start))); return; }
+    let best = 0, bestN = -1;
+    for(const l of lines){ const n = lines.filter((x) => x.t >= l.t && x.t < l.t + 22 && x.text.trim()).length; if(n > bestN){ bestN = n; best = l.t; } }
+    a = bestN > 0 ? Math.max(0, best - 1) : Math.min(30, Math.max(0, Mixer.length() - 25)); len = 22;
+  }
+  const inRange = () => lines.filter((l) => l.text.trim() && l.t >= a - 0.5 && l.t < a + len);
+  function stopMic(){ if(stream){ stream.getTracks().forEach((t) => t.stop()); stream = null; } rec = null; }
+  function restore(){
+    cancelAnimationFrame(raf);
+    Mixer.pause();
+    if(loopWas) Mixer.setLoop(loopWas.start, loopWas.end); loopWas = null;
+    Mixer.muteStem("vocals", mutedWas);                    // the singer as the mix had them
+  }
+  function close(){ if(phase === "rec" || phase === "listen" || phase === "count") restore(); stopMic(); if(take) URL.revokeObjectURL(take.url); take = null; phase = "idle"; if(box){ box.remove(); box = null; } }
+
+  function run(recording, hear){
+    loopWas = Mixer.loopNow(); if(loopWas) Mixer.setLoop(0, 0);
+    const v = Mixer.channelByStem("vocals"); mutedWas = !!(v && v.muted);
+    Mixer.muteStem("vocals", !hear);
+    Mixer.seek(a); Mixer.play();
+    const t0 = performance.now();
+    const tick = () => {
+      if(!box) return;
+      const t = Mixer.currentTime(), el_ = (performance.now() - t0) / 1000;
+      const bar = box.querySelector(".st-bar i"); if(bar) bar.style.width = Math.min(100, Math.max(0, (t - a) / len * 100)) + "%";
+      let cur = -1; const rows = inRange(); rows.forEach((l, i) => { if(l.t <= t + 0.15) cur = i; });
+      box.querySelectorAll(".st-line").forEach((n, i) => n.classList.toggle("now", i === cur));
+      const now = box.querySelector(".st-line.now"); if(now) now.scrollIntoView({block: "center", behavior: "smooth"});
+      if(t >= a + len || el_ > len + 3){ if(recording && rec) rec.stop(); else { restore(); phase = take ? "done" : "idle"; paint(); } return; }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  async function record(){
+    if(phase === "rec"){ if(rec) rec.stop(); return; }
+    try{ stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}}); }
+    catch(e){ showToast("Mikrofon se nepodařilo otevřít: " + e.message); return; }
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser(); an.fftSize = 1024;
+    ac.createMediaStreamSource(stream).connect(an);
+    const buf = new Float32Array(an.fftSize), parts = []; peak = 0;
+    rec = new MediaRecorder(stream);
+    rec.ondataavailable = (e) => { if(e.data.size) parts.push(e.data); };
+    rec.onstop = () => {
+      restore();
+      stopMic(); try{ ac.close(); }catch(e){}
+      const blob = new Blob(parts, {type: (parts[0] && parts[0].type) || "audio/webm"});
+      if(take) URL.revokeObjectURL(take.url);
+      take = {blob, url: URL.createObjectURL(blob), peak};
+      phase = "done"; paint();
+    };
+    // three, two, one — then the song and the microphone start together
+    phase = "count"; paint();
+    for(let n = 3; n > 0; n--){ const c = box && box.querySelector(".st-count"); if(!c) return; c.textContent = n; await new Promise((r) => setTimeout(r, 700)); }
+    if(!box || !stream){ stopMic(); return; }
+    phase = "rec"; paint();
+    rec.start();
+    const level = () => { if(phase !== "rec" || !box) return; an.getFloatTimeDomainData(buf); let m = 0; for(let i = 0; i < buf.length; i++){ const v = Math.abs(buf[i]); if(v > m) m = v; }
+      if(m > peak) peak = m; const lv = box.querySelector(".vg-level i"); if(lv){ lv.style.width = Math.min(100, m * 140) + "%"; lv.style.background = m > 0.95 ? "#ff5a5a" : m > 0.1 ? "#3ddc84" : "#e9b949"; }
+      requestAnimationFrame(level); };
+    level();
+    run(true, guide);
+  }
+  async function send(thenSing){
+    const fd = new FormData(); fd.append("file", take.blob, "zpev.webm");
+    phase = "send"; paint();
+    try{
+      const r = await fetch(`/api/stems/${encodeURIComponent(song())}/myvoice/sample`, {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(d.error || "Nepodařilo se uložit.");
+      showToast(`Tvůj zpěv k téhle písni je uložený (${String(d.seconds).replace(".", ",")} s).`);
+      const done = onDone; close(); if(done) done(thenSing);
+    }catch(e){ phase = "done"; paint(); const st = box.querySelector(".status"); st.textContent = e.message; st.classList.add("bad"); }
+  }
+  function paint(){
+    if(!box) return;
+    const rows = inRange(), busy = phase === "rec" || phase === "count" || phase === "listen" || phase === "send";
+    const quiet = take && take.peak < 0.08, loud = take && take.peak > 0.98;
+    box.innerHTML = `<div class="mt-box">
+      <h3>Zazpívej úryvek — ${escapeHtml(stemsDisplayByName(song()).title)}</h3>
+      <div class="mt-hint"><b>Vezmi si sluchátka</b>, jinak se do mikrofonu nahraje i kapela. Píseň se pustí, ty zpíváš s ní. Nemusí to být dokonalé — jde o tvoji barvu hlasu v téhle poloze; model se podle ní trefí líp než podle mluvení.</div>
+      <div class="st-range"><span>Úryvek <b>${fmtDur(a)}–${fmtDur(a + len)}</b></span>
+        <button type="button" data-shift="-5" ${busy ? "disabled" : ""}>◀ o 5 s dřív</button><button type="button" data-shift="5" ${busy ? "disabled" : ""}>o 5 s později ▶</button>
+        <select id="st-len" ${busy ? "disabled" : ""}>${[12, 15, 20, 25].map((n) => `<option value="${n}" ${Math.abs(n - len) < 2 ? "selected" : ""}>${n} s</option>`).join("")}</select>
+        <button type="button" id="st-listen" ${busy && phase !== "listen" ? "disabled" : ""}>${phase === "listen" ? "■ Stop" : "▶ Poslechnout"}</button></div>
+      <div class="st-words">${rows.length ? rows.map((l) => `<div class="st-line">${escapeHtml(l.text)}</div>`).join("")
+        : lines.length ? `<div class="st-none">V tomhle úryvku se nezpívá — posuň ho.</div>`
+        : plain ? `<div class="st-none">Text téhle písně nemá časy, proto je tu celý — najdi si v něm místo, které se v úryvku zpívá (▶ Poslechnout).</div><div class="st-plain">${escapeHtml(plain)}</div>`
+        : `<div class="st-none">K téhle písni jsem text nenašel. Zpívej podle sluchu — nebo ho najdi v mixu tlačítkem Text → Možnosti → Hledat jiný text.</div>`}</div>
+      <div class="st-bar"><i></i></div>
+      <label class="mv-check"><input type="checkbox" id="st-guide" ${guide ? "checked" : ""} ${busy ? "disabled" : ""}> Slyšet při nahrávání originální zpěv (zpívá se s ním snáz; bez něj zpíváš jen na kapelu)</label>
+      <div class="vg-row" style="margin-top:12px">
+        <button type="button" class="btn ${phase === "rec" ? "" : "secondary"}" id="st-rec" ${phase === "count" || phase === "listen" || phase === "send" ? "disabled" : ""}>${phase === "rec" ? "■ Hotovo" : take ? "● Nahrát znovu" : "● Nahrát můj zpěv"}</button>
+        ${phase === "count" ? `<span class="st-count">3</span>` : phase === "rec" ? `<span class="vg-level"><i></i></span>` : take && phase !== "listen" ? `<audio controls src="${take.url}"></audio>` : ""}
+      </div>
+      <p class="status ${quiet || loud ? "bad" : ""}">${phase === "send" ? "Ukládám…" : quiet ? "Je to hodně potichu — zkus to blíž k mikrofonu." : loud ? "Přebuzené — nahraj to raději znovu, dál od mikrofonu." : take ? "Poslechni si to. Když je to dobré, pošli to modelu." : ""}</p>
+      <div class="two">
+        ${take && !busy ? `<button type="button" class="btn" id="st-sing">Použít a hned přezpívat píseň</button><button type="button" class="btn secondary" id="st-use">Jen uložit</button>` : ""}
+        <button type="button" class="btn secondary" id="st-close">Zavřít</button></div></div>`;
+    const q = (id) => box.querySelector("#" + id), on = (id, fn) => { const n = q(id); if(n) n.onclick = fn; };
+    box.querySelectorAll("[data-shift]").forEach((b) => b.onclick = () => { a += +b.dataset.shift; clampA(); paint(); });
+    if(q("st-len")) q("st-len").onchange = (e) => { len = +e.target.value; clampA(); paint(); };
+    if(q("st-guide")) q("st-guide").onchange = (e) => { guide = e.target.checked; };
+    on("st-listen", () => { if(phase === "listen"){ restore(); phase = take ? "done" : "idle"; paint(); return; }
+      phase = "listen"; paint(); run(false, true); });
+    on("st-rec", record);
+    on("st-use", () => send(false)); on("st-sing", () => send(true));
+    on("st-close", close);
+  }
+  async function open(then){
+    if(!song()){ showToast("Nejdřív otevři píseň ve Steems."); return; }
+    close(); onDone = then || null; take = null; phase = "idle";
+    box = document.createElement("div");
+    box.className = "mt-overlay voice-add voice-guide song-take";
+    document.body.appendChild(box);
+    try{ lines = await Mixer.lyricLines(true); }catch(e){ lines = []; }
+    plain = ""; if(!lines.length){ try{ plain = await Mixer.lyricPlain(); }catch(e){} }
+    choose(); clampA(); paint();
+  }
+  return {open, close, state: () => ({a, len, phase, lines: inRange().length, plain: plain.length, take: !!take})};
+})();
+
 // "Zpěv mým hlasem": the song's vocals sung in the player's own voice — same
 // melody, timing and phrasing, another voice (server: /api/myvoice, the model
 // runs beside the app). It takes minutes, so it is a job that goes on with
@@ -25314,6 +25473,12 @@ const MyVoice = (() => {
           : `Teď se bere tvůj mluvený hlas. Když nahraješ 10–25 vteřin vlastního zpěvu (bez hudby), bude podoba věrnější. `}
           <button type="button" id="mv-sing">${v.sung ? "Jiný vzorek zpěvu…" : "Nahrát vzorek zpěvu…"}</button>
           <input type="file" id="mv-file" accept="audio/*,video/*" hidden></div>
+        <div class="mv-own ${st.sample ? "has" : ""}"><b>Můj zpěv téhle písně</b>
+          ${st.sample ? `<span>Nahraný úryvek (${String(st.sample.seconds).replace(".", ",")} s) — podle něj se píseň zpívá.</span>
+              <audio controls preload="none" src="${st.sample.url}?t=${Date.now()}"></audio>
+              <div><button type="button" id="mv-take">Nahrát znovu…</button><button type="button" id="mv-untake">Odebrat</button></div>`
+            : `<span>Nejvěrnější výsledek: pusť si kus téhle písně a zazpívej ho s ní. Model pak zná tvůj hlas přesně v těchhle tónech.</span>
+              <div><button type="button" id="mv-take">● Zazpívat úryvek téhle písně…</button></div>`}</div>
         <label>Kvalita<select id="mv-steps">${[[12, "Rychlá"], [25, "Běžná"], [40, "Nejlepší"]].map(([n, l]) => `<option value="${n}" ${n === form.steps ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label>Výška<select id="mv-shift">${[[0, "Jako originál"], [-12, "O oktávu níž"], [12, "O oktávu výš"], [-5, "O kvartu níž (−5)"], [-3, "−3 půltóny"], [-2, "−2 půltóny"], [2, "+2 půltóny"], [3, "+3 půltóny"], [5, "O kvartu výš (+5)"]]
           .map(([n, l]) => `<option value="${n}" ${n === form.shift ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -25336,6 +25501,8 @@ const MyVoice = (() => {
     on("mv-auto", "onchange", (e) => { form.auto = e.target.checked; keep(); });
     on("mv-part", "onchange", (e) => { form.part = e.target.value === "1"; paint(); });
     on("mv-new", "onclick", () => { close(); VoiceGuide.open(async (d) => { form.voice = d.id; keep(); open(); }); });
+    on("mv-take", "onclick", () => { close(); SongTake.open(async (sing) => { await open(); if(sing && q_("mv-go")) q_("mv-go").click(); }); });
+    on("mv-untake", "onclick", async () => { await fetch(`/api/stems/${encodeURIComponent(name)}/myvoice/sample`, {method: "DELETE"}); await load(); paint(); });
     on("mv-sing", "onclick", () => q("mv-file").click());
     on("mv-file", "onchange", async (e) => {
       const f = e.target.files[0]; if(!f) return;
@@ -25355,6 +25522,7 @@ const MyVoice = (() => {
       await load(); paint(); watch();
     });
   }
+  const q_ = (id) => box && box.querySelector("#" + id);
   async function open(){
     if(!song()){ showToast("Nejdřív otevři píseň ve Steems."); return; }
     close();

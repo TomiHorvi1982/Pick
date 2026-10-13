@@ -275,6 +275,16 @@ o oktávu níž) a se zapnutou smyčkou jde přezpívat jen ten úsek — vlož�
 hotové stopy. Věrnější podobu dá vzorek vlastního zpěvu (10–25 s bez hudby),
 který se nahraje v tom samém okně.
 
+**Můj zpěv téhle písně** (v okně Zpěv mým hlasem → „Zazpívat úryvek téhle
+písně“): Pick vybere kus písně — smyčku, refrén, nebo místo, kde je nejvíc
+textu; jde posunout a zkrátit — pustí ho, na obrazovce běží jeho text (řádek,
+který se právě zpívá, svítí; text bez časů je vidět celý) a mikrofon nahrává.
+Originální zpěv jde při nahrávání nechat hrát nebo vypnout. Nahrávku si
+přehraješ a teprve po odsouhlasení se uloží k písni (`myvoice-sample.wav`
+vedle stop, nejvýš 25 s, pauzy pryč, vyrovnaná hlasitost). Od té chvíle se
+tahle píseň zpívá podle ní — je to tvůj hlas přímo v jejích tónech, a proto
+věrnější vzor než obecný vzorek. Každá píseň může mít svůj. Chce to sluchátka.
+
 **Nový hlas s průvodcem** (u Výslovnosti „+ hlas“ → Průvodce, nebo v okně
 Zpěv mým hlasem → „＋ Nový hlas“): přečteš nahlas český a anglický text a —
 nepovinně, ale pro zpěv to pomůže nejvíc — kousek zazpíváš. Každou nahrávku si
@@ -291,9 +301,15 @@ tak, jak jsi ho zahrál, a kapela na něj naváže ve stejném tempu a tónině.
 S textem se song zpívá (česky, anglicky…); bez nápadu vznikne jen podle stylu
 a textu. Skládá otevřený model ACE-Step 1.5 ve vlastním prostředí
 (`~/.local/share/spotdl-helper/studio/ACE-Step-1.5`, asi 11 GB), který Pick
-spouští jako malý server jen na dobu skládání a po deseti minutách nečinnosti
+spouští jako malý server jen na dobu skládání a po třech minutách nečinnosti
 ho zase uklidí. Na M1 Pro trvá minuta hudby něco přes minutu a půl, probuzení
 modelu dvě minuty navíc; varianty jdou jedna po druhé a okno jde zavřít.
+Druhý režim, **kapela pod kytarou od začátku**: větší model
+(`acestep-v15-base`, dalších 4,5 GB) přidá k nápadu bicí a pak basu — každý
+nástroj zvlášť, aby seděl na to, co slyší — Pick je smíchá s tvou kytarou a
+zbytek songu pak rychlý model dohraje už z téhle kapely; hlasitost části pod
+nápadem se dorovná ke zbytku. Oba modely se do paměti nevejdou naráz, takže se
+mezi kroky střídají; dvacetivteřinový nápad s dohráním na 45 s trvá asi 7 minut.
 Vybraná varianta („Tuhle chci — do Steems“) se uloží do knihovny (Songs) a
 rozdělí na stopy; „…a zazpívat mým hlasem“ pak její zpěv přezpívá tvým hlasem.
 

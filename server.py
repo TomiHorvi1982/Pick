@@ -9048,6 +9048,7 @@ SVC_DIR = CONFIG_PATH.parent / "svc" / "seed-vc"
 SVC_WORKER = APP_DIR / "svc_worker.py"
 SVC_SR = 44100
 SVC_FILE = "myvoice.json"
+SVC_SONG_SAMPLE = "myvoice-sample.wav"     # the player singing a piece of this very song: the model's best model for it
 _SVC: dict = {"job": None, "proc": None}
 _SVC_LOCK = threading.Lock()
 
@@ -9071,6 +9072,14 @@ def _svc_voice_file(voice: str) -> Optional[Path]:
         return None
     d = _own_voices_dir() / voice
     return next((f for f in (d / "sing.wav", d / "ref.wav") if f.is_file()), None)
+
+
+def _svc_song_sample(d: Path) -> Optional[Path]:
+    f = d / SVC_SONG_SAMPLE
+    try:
+        return f if f.is_file() and f.stat().st_size > SVC_SR * 2 * 3 else None
+    except OSError:
+        return None
 
 
 def _svc_kept(d: Path) -> dict:
@@ -9195,13 +9204,14 @@ class MyVoiceRequest(BaseModel):
     auto: bool = False
     start: Optional[float] = None      # with `end`: only this stretch, spliced into what is already there
     end: Optional[float] = None
+    own: bool = True                   # use the player's take of this song as the model, when there is one
 
 
 def _svc_job_view() -> Optional[dict]:
     job = _SVC["job"]
     if not job:
         return None
-    out = {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "stem", "start", "end", "took")}
+    out = {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "stem", "start", "end", "took", "own")}
     out["elapsed"] = time.time() - job["started"]
     out["estimate"] = job["estimate"]
     return out
@@ -9212,6 +9222,8 @@ def myvoice_status(song: str = ""):
     d = _resolve_under_music_root(f"Stems/{song}") if song else None
     return {"ready": _svc_ready(), "voices": _svc_voices(), "job": _svc_job_view(),
             "kept": _svc_kept(d) if d is not None and d.is_dir() else {},
+            "sample": ({"url": f"/api/stems/{quote(song)}/myvoice/sample", "seconds": round((_svc_song_sample(d).stat().st_size - 44) / (SVC_SR * 2), 1)}
+                       if d is not None and d.is_dir() and _svc_song_sample(d) else None),
             "has_vocals": bool(d is not None and d.is_dir() and _stem_file(d, "vocals"))}
 
 
@@ -9228,6 +9240,9 @@ def myvoice_start(name: str, req: MyVoiceRequest):
     ref = _svc_voice_file(req.voice)
     if ref is None:
         return JSONResponse({"error": "Takový hlas tu není — přidej si ho u Výslovnosti."}, status_code=404)
+    # sung by the player to this very song: in its key and manner, a truer model than any other sample
+    own = _svc_song_sample(d) if req.own else None
+    ref = own or ref
     part = req.start is not None and req.end is not None
     if part and req.end - req.start < 1.0:
         return JSONResponse({"error": "Úsek je moc krátký (aspoň vteřina)."}, status_code=400)
@@ -9239,6 +9254,7 @@ def myvoice_start(name: str, req: MyVoiceRequest):
             return JSONResponse({"error": "Jeden zpěv se už počítá — počkej, až doběhne."}, status_code=409)
         job = {"song": name, "status": "running", "stage": "prepare", "done": 0, "of": 1, "started": time.time(),
                "voice": req.voice, "voice_name": next((v["name"] for v in _svc_voices() if v["id"] == req.voice), req.voice),
+               "own": bool(own),
                "steps": steps, "shift": max(-24, min(int(req.shift), 24)), "auto": bool(req.auto),
                "start": max(0.0, float(req.start)) if part else None, "end": float(req.end) if part else None,
                # measured on an M1 Pro: loading the model, then about 2.8 × the length at 25 steps
@@ -9246,6 +9262,45 @@ def myvoice_start(name: str, req: MyVoiceRequest):
         _SVC["job"] = job
     threading.Thread(target=_svc_run, args=(job, d, vocals, ref), daemon=True).start()
     return _svc_job_view()
+
+
+@app.post("/api/stems/{name}/myvoice/sample")
+async def myvoice_song_sample(name: str, file: UploadFile = File(...)):
+    """The player's own take of a piece of this song, sung along with it — kept beside the stems."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        tmp = await _upload_to_temp(file)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    made = d / "myvoice-sample.tmp.wav"
+    try:
+        secs = _guide_clip(tmp, made, SVC_SR, 25.0)       # rumble and pauses out, steady loudness, 25 s at the most
+        if secs < 4.0:
+            made.unlink(missing_ok=True)
+            return JSONResponse({"error": "V nahrávce je málo zpěvu — aspoň čtyři vteřiny. Zpívej blíž k mikrofonu."}, status_code=400)
+        made.replace(d / SVC_SONG_SAMPLE)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {"ok": True, "seconds": round(secs, 1), "url": f"/api/stems/{quote(name)}/myvoice/sample"}
+
+
+@app.get("/api/stems/{name}/myvoice/sample")
+def myvoice_song_sample_get(name: str):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    f = _svc_song_sample(d) if d is not None and d.is_dir() else None
+    if f is None:
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return FileResponse(f, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/api/stems/{name}/myvoice/sample")
+def myvoice_song_sample_drop(name: str):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is not None and d.is_dir():
+        (d / SVC_SONG_SAMPLE).unlink(missing_ok=True)
+    return {"ok": True}
 
 
 @app.delete("/api/myvoice/job")

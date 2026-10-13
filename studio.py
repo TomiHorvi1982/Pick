@@ -41,7 +41,9 @@ ENGINE_PID = STUDIO_DIR / "engine.pid"
 ENGINE_LOG = STUDIO_DIR / "engine.log"
 PORT = int(os.environ.get("PICK_STUDIO_PORT") or 8795)
 URL = f"http://127.0.0.1:{PORT}"
-IDLE = 600                     # seconds with nothing to make before the model is put away
+IDLE = 180                     # seconds with nothing to make before the model is put away (it crowds the memory)
+TURBO_MODEL = "acestep-v15-turbo"
+BASE_MODEL = "acestep-v15-base"        # slower; the only one that adds instruments under what is played
 COLD = 130                     # seconds the model takes to wake up
 IDEA_MAX = 60.0                # of the idea, this much is used
 LENGTHS = (45, 60, 90, 120, 180)
@@ -71,7 +73,7 @@ LANGS = {"cs": "česky", "en": "anglicky", "sk": "slovensky", "de": "německy", 
 
 router = APIRouter()
 _LOCK = threading.RLock()
-_STATE = {"proc": None, "last": 0.0, "worker": None, "now": None}
+_STATE = {"proc": None, "last": 0.0, "worker": None, "now": None, "model": None}
 
 
 # ------------------------------------------------------------------ engine
@@ -96,7 +98,8 @@ def _free_memory() -> None:
         pass
 
 
-def engine_start(wait: float = 180.0) -> bool:
+def engine_start(wait: float = 180.0, model: str = "") -> bool:
+    model = model or TURBO_MODEL
     with _LOCK:
         if engine_up():
             return True
@@ -105,11 +108,12 @@ def engine_start(wait: float = 180.0) -> bool:
         _free_memory()
         STUDIO_DIR.mkdir(parents=True, exist_ok=True)
         env = {**os.environ, "ACESTEP_LM_BACKEND": "mlx", "TOKENIZERS_PARALLELISM": "false",
-               "ACESTEP_INIT_LLM": "false"}                # the planning model stays out: twice the memory for little gain here
+               "ACESTEP_INIT_LLM": "false", "ACESTEP_CONFIG_PATH": model}                # the planning model stays out: twice the memory for little gain here
         log = open(ENGINE_LOG, "ab")
         proc = subprocess.Popen([str(ACE_DIR / ".venv" / "bin" / "acestep-api"), "--host", "127.0.0.1", "--port", str(PORT)],
                                 cwd=str(ACE_DIR), env=env, stdout=log, stderr=log, start_new_session=True)
         _STATE["proc"] = proc
+        _STATE["model"] = model
         ENGINE_PID.write_text(str(proc.pid))
     end = time.time() + wait
     while time.time() < end:
@@ -129,6 +133,7 @@ def engine_stop() -> None:
         except (OSError, ValueError):
             pass
         proc, _STATE["proc"] = _STATE["proc"], None
+        _STATE["model"] = None
         for p in filter(None, [proc.pid if proc else None, pid]):
             try:
                 os.killpg(p, signal.SIGTERM)
@@ -195,7 +200,15 @@ def variant_file(p: dict, vid: str) -> Optional[Path]:
     return f if f is not None and f.is_file() else None
 
 
-def estimate(length: float) -> float:
+def under_ready() -> bool:
+    return (ACE_DIR / "checkpoints" / BASE_MODEL).is_dir()
+
+
+def estimate(length: float, mode: str = "after", idea_len: float = 0.0) -> float:
+    if mode == "under" and idea_len:
+        # drums, then bass, each about 3.3 × the idea; then the other model is woken for the rest of the song
+        rest = COLD + 15 + length * 1.6 if length >= idea_len + 15 else 0
+        return 30 + idea_len * 6.8 + rest
     return 15 + length * 1.6
 
 
@@ -227,13 +240,12 @@ def payload(p: dict, v: dict) -> dict:
     return data
 
 
-def _make(p: dict, v: dict) -> None:
-    d = PROJECTS / p["id"]
-    data = payload(p, v)
+def _ace(data: dict, src: Optional[Path] = None) -> bytes:
+    """One piece of music asked of the model and waited for. → the MP3."""
     with httpx.Client(timeout=120.0) as c:
-        if p.get("idea"):
-            with open(d / "idea.wav", "rb") as f:
-                r = c.post(URL + "/release_task", data={k: str(x) for k, x in data.items()}, files={"src_audio": ("idea.wav", f, "audio/wav")})
+        if src is not None:
+            with open(src, "rb") as f:
+                r = c.post(URL + "/release_task", data={k: str(x) for k, x in data.items()}, files={"src_audio": (src.name, f, "audio/wav")})
         else:
             r = c.post(URL + "/release_task", json={**data, "thinking": False, "use_random_seed": True})
         r.raise_for_status()
@@ -241,8 +253,6 @@ def _make(p: dict, v: dict) -> None:
         end = time.time() + 3600
         while time.time() < end:
             time.sleep(3.0)
-            if v.get("status") == "stopped":
-                return
             q = c.post(URL + "/query_result", json={"task_id_list": [task]})
             row = json.loads(q.text, strict=False)["data"][0]
             if row.get("status") == 0:
@@ -252,10 +262,120 @@ def _make(p: dict, v: dict) -> None:
                 raise RuntimeError(res.get("error") or "model skončil bez výsledku")
             audio = c.get(URL + res["file"])
             audio.raise_for_status()
-            (d / f"{v['id']}.mp3").write_bytes(audio.content)
-            v["seed"] = str(res.get("seed_value") or "")
-            return
+            return audio.content
     raise RuntimeError("trvalo to moc dlouho")
+
+
+def engine_model(name: str) -> None:
+    """The model the engine works with: the quick one for whole songs, the big one for adding instruments.
+    One at a time — two do not fit into this computer's memory — so changing it means starting the engine again."""
+    if _STATE.get("model") == name and engine_up():
+        return
+    engine_stop()
+    time.sleep(2.0)
+    if not engine_start(model=name):
+        raise RuntimeError(f"model {name} se nepodařilo spustit")
+
+
+# ---- "kapela pod kytarou": the band plays with the idea from its first note.
+# The big model adds one instrument at a time to what it hears — the drums to
+# the guitar, then the bass to guitar and drums, so each locks to the one
+# before — and gives back that instrument alone; the three are mixed here,
+# the guitar on top. A song longer than the idea is then carried on from that
+# mix by the quick model, which now hears a whole band to go on with.
+RATE = 48000
+
+
+def _pcm(path: Path):
+    import numpy as np
+    raw = subprocess.run([FFMPEG, "-v", "error", "-nostdin", "-i", str(path), "-ac", "2", "-ar", str(RATE), "-f", "f32le", "-"],
+                         capture_output=True, timeout=300).stdout
+    return np.frombuffer(raw, dtype=np.float32).reshape(-1, 2).copy()
+
+
+def _wav(samples, path: Path) -> None:
+    import wave
+    import numpy as np
+    pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(RATE)
+        w.writeframes(pcm.tobytes())
+
+
+def mix_band(parts: list):
+    """[(samples, share)] → one mix: each part brought to the same loudness, weighed by its share, never clipping."""
+    import numpy as np
+    n = min(len(x) for x, _ in parts)
+    out = np.zeros((n, 2), dtype=np.float32)
+    for x, share in parts:
+        rms = float(np.sqrt(np.mean(np.square(x[:n])))) or 1.0
+        out += x[:n] * (0.12 / rms) * share
+    peak = float(np.max(np.abs(out))) or 1.0
+    return out * (0.92 / peak) if peak > 0.92 else out
+
+
+def even_out(song, at: int, fade: int = RATE // 2):
+    """The part under the idea brought up to the loudness of what follows it — the
+    model plays the rest of the song louder than a guitar with two instruments."""
+    import numpy as np
+    rms = lambda x: float(np.sqrt(np.mean(np.square(x)))) if len(x) else 0.0
+    head, rest = rms(song[:at]), rms(song[at:])
+    if at <= fade or len(song) - at <= fade or head < 1e-5 or rest <= head:
+        return song
+    gain = min(rest * 0.85 / head, 3.0)
+    env = np.full(len(song), gain, dtype=np.float32)
+    env[at:at + fade] = np.linspace(gain, 1.0, fade, dtype=np.float32)
+    env[at + fade:] = 1.0
+    out = song * env[:, None]
+    return np.tanh(out * 1.05) / np.tanh(1.05) * 0.97 if float(np.max(np.abs(out))) > 0.97 else out   # loud peaks rounded, not cut
+
+
+def _lego(src: Path, track: str, caption: str, steps: int = 24) -> bytes:
+    return _ace({"task_type": "lego", "instruction": f"Generate the {track.upper()} track based on the audio context:",
+                 "prompt": caption, "lyrics": "[Instrumental]", "inference_steps": steps, "guidance_scale": 7,
+                 "batch_size": 1, "thinking": "false", "audio_format": "mp3"}, src)
+
+
+def _make_under(p: dict, v: dict) -> None:
+    d = PROJECTS / p["id"]
+    tmp = d / f"{v['id']}.work"
+    tmp.mkdir(exist_ok=True)
+    try:
+        engine_model(BASE_MODEL)
+        idea = _pcm(d / "idea.wav")
+        v["stage"] = "drums"; save(p)
+        (tmp / "drums.mp3").write_bytes(_lego(d / "idea.wav", "drums", v["caption"] + ", live drum kit, kick, snare, hi-hat, cymbals"))
+        drums = _pcm(tmp / "drums.mp3")
+        _wav(mix_band([(idea, 1.0), (drums, 1.0)]), tmp / "with-drums.wav")
+        v["stage"] = "bass"; save(p)
+        (tmp / "bass.mp3").write_bytes(_lego(tmp / "with-drums.wav", "bass", v["caption"] + ", bass guitar following the chords"))
+        band = mix_band([(idea, 1.0), (drums, 1.1), (_pcm(tmp / "bass.mp3"), 0.8)])
+        _wav(band, tmp / "band.wav")
+        if v["length"] >= p["idea_len"] + 15:
+            v["stage"] = "song"; save(p)
+            engine_model(TURBO_MODEL)
+            (tmp / "song.mp3").write_bytes(_ace(payload(p, v), tmp / "band.wav"))
+            _wav(even_out(_pcm(tmp / "song.mp3"), int(p["idea_len"] * RATE)), tmp / "song.wav")
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-nostdin", "-i", str(tmp / "song.wav"), "-codec:a", "libmp3lame", "-b:a", "256k",
+                            str(d / f"{v['id']}.mp3")], capture_output=True, timeout=180)
+            if not (d / f"{v['id']}.mp3").is_file():
+                shutil.copy(tmp / "song.mp3", d / f"{v['id']}.mp3")
+        else:
+            v["length"] = int(round(p["idea_len"]))
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-nostdin", "-i", str(tmp / "band.wav"), "-codec:a", "libmp3lame", "-b:a", "256k",
+                            str(d / f"{v['id']}.mp3")], capture_output=True, timeout=120)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        v.pop("stage", None)
+
+
+def _make(p: dict, v: dict) -> None:
+    d = PROJECTS / p["id"]
+    if v.get("mode") == "under" and p.get("idea"):
+        _make_under(p, v)
+        return
+    engine_model(TURBO_MODEL)
+    (d / f"{v['id']}.mp3").write_bytes(_ace(payload(p, v), d / "idea.wav" if p.get("idea") else None))
 
 
 def _work() -> None:
@@ -277,13 +397,12 @@ def _work() -> None:
             time.sleep(2.0)
             continue
         p, v = job
-        v.update(status="running", started=time.time(), cold=not engine_up())
+        want = BASE_MODEL if v.get("mode") == "under" else TURBO_MODEL
+        v.update(status="running", started=time.time(), cold=not (engine_up() and _STATE.get("model") == want))
         _STATE["now"] = (p["id"], v["id"])
         save(p)
         try:
-            if not engine_start():
-                raise RuntimeError("model se nepodařilo spustit")
-            _make(p, v)
+            _make(p, v)                                     # starts the engine with the model the variant needs
             if v.get("status") != "stopped":
                 v.update(status="done", took=time.time() - v["started"])
         except Exception as e:                             # noqa: BLE001 — one failed variant must not stop the rest
@@ -328,10 +447,11 @@ def view(p: dict) -> dict:
     out = {k: p.get(k) for k in ("id", "name", "created", "idea", "idea_len", "lyrics", "lang")}
     out["variants"] = []
     for v in p.get("variants", []):
-        row = {k: v.get(k) for k in ("id", "style", "name", "length", "status", "error", "took", "used", "sung")}
+        row = {k: v.get(k) for k in ("id", "style", "name", "length", "status", "error", "took", "used", "sung", "mode")}
         if v.get("status") == "running":
             row["elapsed"] = time.time() - (v.get("started") or time.time())
-            row["estimate"] = estimate(v["length"]) + (COLD if v.get("cold") else 0)
+            row["estimate"] = estimate(v["length"], v.get("mode") or "after", p.get("idea_len") or 0) + (COLD if v.get("cold") else 0)
+            row["stage"] = v.get("stage")
         if v.get("status") == "done":
             row["url"] = f"/api/studio/audio/{p['id']}/{v['id']}.mp3"
         out["variants"].append(row)
@@ -343,7 +463,7 @@ def view(p: dict) -> dict:
 @router.get("/api/studio")
 def status():
     waiting = sum(1 for p in projects() for v in p.get("variants", []) if v.get("status") in ("queued", "running"))
-    return {"ready": ready(), "engine": engine_up(), "styles": [{"id": s["id"], "name": s["name"]} for s in STYLES],
+    return {"ready": ready(), "under": under_ready(), "engine": engine_up(), "styles": [{"id": s["id"], "name": s["name"]} for s in STYLES],
             "lengths": list(LENGTHS), "langs": LANGS, "waiting": waiting, "projects": [view(p) for p in projects()]}
 
 
@@ -384,6 +504,7 @@ class MakeRequest(BaseModel):
     length: int = 90
     lyrics: str = ""
     lang: str = "cs"
+    mode: str = "after"            # "after": the band comes in when the idea ends · "under": it plays with it from the start
 
 
 @router.post("/api/studio/projects/{pid}/make")
@@ -401,9 +522,13 @@ def project_make(pid: str, req: MakeRequest):
         if not wanted:
             return JSONResponse({"error": "Vyber aspoň jeden styl."}, status_code=400)
         length = min(LENGTHS, key=lambda x: abs(x - int(req.length)))
-        if p.get("idea") and length < p["idea_len"] + 20:
+        mode = "under" if req.mode == "under" and p.get("idea") else "after"
+        # after the idea there has to be room for the band; under it, the idea's own length is a song too
+        if p.get("idea") and mode == "after" and length < p["idea_len"] + 20:
             length = next((x for x in LENGTHS if x >= p["idea_len"] + 20), LENGTHS[-1])
         per = max(1, min(int(req.per), 4))
+        if mode == "under" and not under_ready():
+            return JSONResponse({"error": "Model pro kapelu pod kytarou není stažený."}, status_code=503)
         if len(wanted) * per + sum(1 for v in p["variants"] if v.get("status") in ("queued", "running")) > 16:
             return JSONResponse({"error": "To je moc najednou — nejvýš 16 variant ve frontě."}, status_code=400)
         p["lyrics"], p["lang"] = (req.lyrics or "").strip()[:4000], req.lang if req.lang in LANGS else "cs"
@@ -412,7 +537,7 @@ def project_make(pid: str, req: MakeRequest):
             for k in range(per):
                 n += 1
                 p["variants"].append({"id": uuid.uuid4().hex[:10], "style": s["id"], "name": s["name"] + (f" {k + 1}" if per > 1 else ""),
-                                      "caption": s["caption"], "length": length, "status": "queued", "n": n})
+                                      "caption": s["caption"], "length": length, "status": "queued", "n": n, "mode": mode})
         save(p)
     _kick()
     return view(p)

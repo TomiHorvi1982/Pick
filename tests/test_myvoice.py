@@ -160,3 +160,30 @@ def test_a_voice_is_made_from_two_readings_and_a_sung_take(client, tmp_path, mon
     r = client.post("/api/tts/voice-guide", files=files("cs", "en"))
     assert r.status_code == 400 and "anglickém" in r.json()["error"]
     assert len(list(server._own_voices_dir().iterdir())) == 2
+
+
+def test_my_take_of_this_song_becomes_its_model(client, song, tmp_path, monkeypatch):
+    used = []
+    real = server._svc_run
+    monkeypatch.setattr(server, "_svc_run", lambda job, d, vocals, ref: (used.append(ref.name), real(job, d, vocals, ref)))
+    assert client.get("/api/myvoice?song=Kapela - Píseň").json()["sample"] is None
+    _tone(tmp_path / "ja.wav", 30, freq=300)
+    with open(tmp_path / "ja.wav", "rb") as f:
+        got = client.post("/api/stems/Kapela - Píseň/myvoice/sample", files={"file": ("ja.wav", f, "audio/wav")}).json()
+    assert abs(got["seconds"] - 25) < 0.5                    # as much as the model takes
+    st = client.get("/api/myvoice?song=Kapela - Píseň").json()
+    assert st["sample"]["seconds"] == got["seconds"] and client.get(st["sample"]["url"]).status_code == 200
+    client.post("/api/stems/Kapela - Píseň/myvoice", json={"voice": "v1"})
+    job = _wait(client)
+    assert job["status"] == "done" and job["own"] is True and used == ["myvoice-sample.wav"]
+    # asked not to, or with the take gone, the voice's own sample is the model again
+    client.post("/api/stems/Kapela - Píseň/myvoice", json={"voice": "v1", "own": False})
+    assert _wait(client)["own"] is False and used[-1] == "ref.wav"
+    assert client.delete("/api/stems/Kapela - Píseň/myvoice/sample").json() == {"ok": True}
+    assert client.get("/api/myvoice?song=Kapela - Píseň").json()["sample"] is None
+    # the track of the song is untouched by the take: it is no stem
+    assert "myvoice-sample" not in str(next(s for s in client.get("/api/stems").json() if s["name"] == "Kapela - Píseň")["stems"])
+    _tone(tmp_path / "kratke.wav", 2)
+    with open(tmp_path / "kratke.wav", "rb") as f:
+        assert client.post("/api/stems/Kapela - Píseň/myvoice/sample", files={"file": ("k.wav", f, "audio/wav")}).status_code == 400
+    assert client.post("/api/stems/Nic/myvoice/sample", files={"file": ("k.wav", b"x" * 2000, "audio/wav")}).status_code == 404

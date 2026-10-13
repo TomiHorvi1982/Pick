@@ -27,7 +27,8 @@ def engine(monkeypatch, tmp_path):
         asked.append(studio.payload(p, v))
         shutil.copy(tmp_path / "made.mp3", studio.PROJECTS / p["id"] / f"{v['id']}.mp3")
     monkeypatch.setattr(studio, "ready", lambda: True)
-    monkeypatch.setattr(studio, "engine_start", lambda wait=0: True)
+    monkeypatch.setattr(studio, "engine_start", lambda wait=0, model="": True)
+    monkeypatch.setattr(studio, "engine_model", lambda name: None)
     monkeypatch.setattr(studio, "engine_up", lambda: True)
     monkeypatch.setattr(studio, "engine_stop", lambda: None)
     monkeypatch.setattr(studio, "_make", make)
@@ -127,3 +128,52 @@ def test_the_chosen_variant_goes_into_the_library_and_to_be_separated(client, en
     assert again["rel"] == got["rel"] and len(list((tmp_music_root / "Songs").iterdir())) == 1
     assert client.post(f"/api/studio/projects/{p['id']}/variants/{v['id']}/use", json={"voice": "nikdo"}).status_code == 404
     assert client.post(f"/api/studio/projects/{p['id']}/variants/xxxxxxxxxx/use", json={}).status_code == 404
+
+
+def test_the_band_can_play_under_the_idea_from_its_first_note(client, engine, monkeypatch, tmp_path):
+    real_make = studio.__dict__["_make_under"]
+    asked, models = [], []
+    _tone(tmp_path / "part.mp3", 12, freq=110)
+
+    def ace(data, src=None):
+        asked.append({**data, "src": src.name if src else None})
+        return (tmp_path / "part.mp3").read_bytes()
+    monkeypatch.setattr(studio, "_ace", ace)
+    monkeypatch.setattr(studio, "engine_model", models.append)
+    monkeypatch.setattr(studio, "under_ready", lambda: True)
+    monkeypatch.setattr(studio, "_make", lambda p, v: real_make(p, v) if v.get("mode") == "under" else None)
+    _tone(tmp_path / "riff.wav", 12)
+    with open(tmp_path / "riff.wav", "rb") as f:
+        p = client.post("/api/studio/projects", files={"file": ("riff.wav", f, "audio/wav")}).json()
+    assert client.get("/api/studio").json()["under"] is True
+    client.post(f"/api/studio/projects/{p['id']}/make", json={"styles": ["punk"], "length": 60, "mode": "under"})
+    v = _done(client, p["id"])["variants"][0]
+    assert v["status"] == "done" and v["mode"] == "under", v
+    # drums to the guitar, bass to guitar and drums — the big model — then the quick one carries the song on
+    assert [a["src"] for a in asked] == ["idea.wav", "with-drums.wav", "band.wav"]
+    assert "DRUMS" in asked[0]["instruction"] and "BASS" in asked[1]["instruction"] and asked[0]["task_type"] == "lego"
+    assert asked[2]["task_type"] == "repaint" and abs(asked[2]["repainting_start"] - 12) < 0.3
+    assert models == [studio.BASE_MODEL, studio.TURBO_MODEL]
+    assert not list((studio.PROJECTS / p["id"]).glob("*.work"))
+    # a song no longer than the idea is the accompaniment alone, mixed here — the quick model is not asked
+    asked.clear(); models.clear()
+    monkeypatch.setattr(studio, "LENGTHS", (20, 60))
+    client.post(f"/api/studio/projects/{p['id']}/make", json={"styles": ["funk"], "length": 20, "mode": "under"})
+    done = _done(client, p["id"])["variants"][-1]
+    assert done["status"] == "done" and done["length"] == 12 and len(asked) == 2 and models == [studio.BASE_MODEL]
+
+
+def test_parts_are_mixed_at_even_loudness_without_clipping():
+    import numpy as np
+    loud = np.ones((48000, 2), dtype=np.float32) * 0.9
+    quiet = np.ones((40000, 2), dtype=np.float32) * 0.01
+    out = studio.mix_band([(loud, 1.0), (quiet, 1.0), (loud, 0.5)])
+    assert out.shape == (40000, 2) and float(np.abs(out).max()) <= 0.921
+
+
+def test_the_part_under_the_idea_is_brought_up_to_the_rest():
+    import numpy as np
+    song = np.concatenate([np.full((96000, 2), 0.05, dtype=np.float32), np.full((96000, 2), 0.2, dtype=np.float32)])
+    out = studio.even_out(song, 96000)
+    assert abs(float(out[:90000].mean()) - 0.15) < 0.01   # three times at the most and abs(float(out[-1000:].mean()) - 0.2) < 0.001
+    assert studio.even_out(song[::-1].copy(), 96000) is not None and float(np.abs(out).max()) <= 0.97
