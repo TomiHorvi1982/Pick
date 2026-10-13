@@ -262,6 +262,41 @@ Art Institute of Chicago a NASA (obrázky), Iconify (ikony); vybraný obrázek s
 stáhne do Picku. Karta Vzor položí vlastní obrázek průsvitně přes aplikaci
 jako předlohu a nabere z něj barvy (i celou paletu).
 
+**Zpěv mým hlasem** (Steems → Panely → „Zpěv mým hlasem…“): stopa zpěvu se
+přezpívá hlasem, který sis přidal u Výslovnosti — melodie, rytmus i frázování
+zůstanou z originálu, změní se jen barva hlasu. Dělá to model Seed-VC (44 kHz,
+pro zpěv) ve vlastním prostředí `~/.local/venvs/pick-svc`, kód v
+`~/.local/share/spotdl-helper/svc/seed-vc`, váhy asi 2,3 GB; server ho nikdy
+nenačítá, pouští `svc_worker.py` jako proces na jednu práci. Na M1 Pro trvá
+zhruba třikrát déle, než je délka zpěvu (čtyřminutová píseň kolem 12 minut),
+běží na pozadí s ukazatelem průběhu a jde zastavit. Výsledek je další stopa
+písně „Můj hlas (…)“ a originální zpěv se ztlumí. Volí se kvalita, výška (třeba
+o oktávu níž) a se zapnutou smyčkou jde přezpívat jen ten úsek — vloží se do
+hotové stopy. Věrnější podobu dá vzorek vlastního zpěvu (10–25 s bez hudby),
+který se nahraje v tom samém okně.
+
+**Nový hlas s průvodcem** (u Výslovnosti „+ hlas“ → Průvodce, nebo v okně
+Zpěv mým hlasem → „＋ Nový hlas“): přečteš nahlas český a anglický text a —
+nepovinně, ale pro zpěv to pomůže nejvíc — kousek zazpíváš. Každou nahrávku si
+přehraješ a můžeš ji říct znovu; okno hlídá, jestli není moc potichu nebo
+přebuzená. Z českého čtení vznikne ukázka pro čtení (`ref.wav`, `ref.txt`), ze
+zpěvu a obou čtení 25 vteřin pro zpěv (`sing.wav`) — pauzy pryč, vyrovnaná
+hlasitost. Je to okamžitá kopie hlasu ze vzorku, ne dlouhé učení modelu.
+
+**Skladatel — song z nápadu** (Steems → „Skladatel — song z nápadu“,
+`static/studio.js`, `studio.py`): nahraješ nebo rovnou zahraješ kousek kytary
+(10–40 s), vybereš styly (16 rockových a metalových, nebo vlastní anglicky),
+počet variant a délku, a Pick dohraje celý song: tvůj nápad zůstane na začátku
+tak, jak jsi ho zahrál, a kapela na něj naváže ve stejném tempu a tónině.
+S textem se song zpívá (česky, anglicky…); bez nápadu vznikne jen podle stylu
+a textu. Skládá otevřený model ACE-Step 1.5 ve vlastním prostředí
+(`~/.local/share/spotdl-helper/studio/ACE-Step-1.5`, asi 11 GB), který Pick
+spouští jako malý server jen na dobu skládání a po deseti minutách nečinnosti
+ho zase uklidí. Na M1 Pro trvá minuta hudby něco přes minutu a půl, probuzení
+modelu dvě minuty navíc; varianty jdou jedna po druhé a okno jde zavřít.
+Vybraná varianta („Tuhle chci — do Steems“) se uloží do knihovny (Songs) a
+rozdělí na stopy; „…a zazpívat mým hlasem“ pak její zpěv přezpívá tvým hlasem.
+
 Ve **Steems** má seznam sloupce **Původ** (CZ / SK nebo Zahraniční) a
 **Playlist** (ve kterém staženém playlistu píseň je); podle obou jde řadit,
 seskupovat karty a nahoře filtrovat. Původ je odhad — česká a slovenská

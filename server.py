@@ -180,7 +180,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name == "look.js":
+    if name in ("look.js", "studio.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -8277,6 +8277,82 @@ async def tts_voice_add(file: UploadFile = File(...), name: str = "", lang: str 
     return {"id": vid, "name": v["name"], "ref_text": text, "seconds": dur}
 
 
+# ---- a voice made with the guide: the player reads a Czech text and an English
+# one, and — best of all for singing — sings a little. Reading aloud needs a
+# short clip and its words (ref.wav, ref.txt, from the Czech reading); singing
+# needs as much of the voice as the model takes, 25 seconds: what was sung
+# first, then the two readings, pauses cut out, at one steady loudness
+# (sing.wav). The readings are kept whole as well, so a better way of using
+# them later needs no new recording.
+GUIDE_TEXTS = {
+    "cs": "Příliš žluťoučký kůň úpěl ďábelské ódy. Dnes večer si vezmu kytaru, zahraju pár tichých akordů "
+          "a potom to pořádně rozjedu. Hudba mi dává sílu, radost i klid, a proto hraju každý den.",
+    "en": "The quick brown fox jumps over the lazy dog. Tonight I will pick up my guitar, play a few quiet chords "
+          "and then turn it up loud. Music gives me strength, joy and peace, and that is why I play every day.",
+}
+_GUIDE_CLEAN = "highpass=f=70,silenceremove=start_periods=1:start_threshold=-45dB:stop_periods=-1:stop_duration=0.45:stop_threshold=-45dB,loudnorm=I=-19:TP=-2:LRA=11"
+
+
+def _guide_clip(src: Path, dest: Path, rate: int = 44100, limit: float = 40.0) -> float:
+    """A take tidied — rumble and pauses out, steady loudness. → its length in seconds."""
+    subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(src), "-t", f"{limit}", "-ac", "1", "-af", _GUIDE_CLEAN,
+                    "-ar", str(rate), str(dest)], capture_output=True, timeout=120)
+    try:
+        return max(0.0, (dest.stat().st_size - 44) / (rate * 2))
+    except OSError:
+        return 0.0
+
+
+@app.get("/api/tts/voice-guide")
+def tts_voice_guide_texts():
+    return {"texts": GUIDE_TEXTS, "ready": OWN_TTS_PYTHON.is_file(), "sing": _svc_ready()}
+
+
+@app.post("/api/tts/voice-guide")
+async def tts_voice_guided(cs: UploadFile = File(...), en: UploadFile = File(...), sing: Optional[UploadFile] = File(None),
+                           name: str = ""):
+    if not OWN_TTS_PYTHON.is_file():
+        return JSONResponse({"error": "Hlasový model Picku není nainstalovaný."}, status_code=503)
+    vid = uuid.uuid4().hex[:16]
+    dest = _own_voices_dir() / vid
+    tmp = Path(tempfile.mkdtemp(prefix="pick-guide-"))
+    try:
+        dest.mkdir(parents=True)
+        lens = {}
+        for key, up in (("cs", cs), ("en", en), ("sing", sing)):
+            if up is None:
+                continue
+            data = await up.read()
+            if len(data) > 200 * 1024 * 1024:
+                raise RuntimeError("nahrávka je příliš velká")
+            raw = tmp / f"{key}{Path(up.filename or 'x.webm').suffix[:8] or '.webm'}"
+            raw.write_bytes(data)
+            lens[key] = _guide_clip(raw, dest / f"read-{key}.wav" if key != "sing" else tmp / "sung.wav")
+        for key, label in (("cs", "českém"), ("en", "anglickém")):
+            if lens.get(key, 0) < 5.0:
+                raise RuntimeError(f"v {label} čtení je málo hlasu (aspoň 5 vteřin) — zkus to blíž k mikrofonu")
+        if "sing" in lens and lens["sing"] < 3.0:
+            lens.pop("sing")                                   # too little to be of use: the readings will do
+        # for reading aloud
+        text = await asyncio.get_running_loop().run_in_executor(None, lambda: _voice_ref_make(dest / "read-cs.wav", dest, "cs"))
+        if not (dest / "ref.wav").is_file() or (dest / "ref.wav").stat().st_size < 20000:
+            raise RuntimeError("z českého čtení se nepodařilo vzít ukázku")
+        # for singing
+        parts = ([tmp / "sung.wav"] if "sing" in lens else []) + [dest / "read-cs.wav", dest / "read-en.wav"]
+        (tmp / "list.txt").write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
+        subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-f", "concat", "-safe", "0", "-i", str(tmp / "list.txt"),
+                        "-t", "25", "-ac", "1", "-ar", str(SVC_SR), str(dest / "sing.wav")], capture_output=True, timeout=120)
+        (dest / "name.txt").write_text((name or "").strip()[:60] or "Můj hlas", encoding="utf-8")
+        (dest / "guide.json").write_text(json.dumps({"at": time.time(), "seconds": lens}, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:                                 # noqa: BLE001
+        shutil.rmtree(dest, ignore_errors=True)
+        return JSONResponse({"error": f"Hlas se nepodařilo připravit: {e}."}, status_code=400)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return {"id": vid, "name": (dest / "name.txt").read_text(encoding="utf-8"), "ref_text": text, "seconds": lens,
+            "sung": "sing" in lens, "for_singing": (dest / "sing.wav").is_file()}
+
+
 class VoiceEdit(BaseModel):
     name: Optional[str] = None
     ref_text: Optional[str] = None
@@ -8957,6 +9033,324 @@ def add_track_library(name: str, req: LibraryFileRequest):
     if src is None or not src.is_file():
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
     return _add_track_from(stems_dir, src, src.stem)
+
+
+# ---- "Zpěv mým hlasem": the song's vocals sung in the player's own voice.
+# The vocals stem keeps its melody, timing and phrasing; only whose voice it is
+# changes — taken from the voice the player added for reading aloud (or, better,
+# from a sample of them singing). The model (Seed-VC) lives in an environment of
+# its own and runs as a process per job (svc_worker.py): about three times the
+# length of what it converts on this kind of computer, so one job at a time,
+# in the background, with its progress told. What comes out is a track of the
+# song like any other; a stretch of it can be done again and is spliced in.
+SVC_PYTHON = HOME / ".local" / "venvs" / "pick-svc" / "bin" / "python"
+SVC_DIR = CONFIG_PATH.parent / "svc" / "seed-vc"
+SVC_WORKER = APP_DIR / "svc_worker.py"
+SVC_SR = 44100
+SVC_FILE = "myvoice.json"
+_SVC: dict = {"job": None, "proc": None}
+_SVC_LOCK = threading.Lock()
+
+
+def _svc_ready() -> bool:
+    return SVC_PYTHON.is_file() and SVC_DIR.is_dir()
+
+
+def _svc_voices() -> list:
+    root = _own_voices_dir()
+    out = []
+    for d in (sorted(root.iterdir()) if root.is_dir() else []):
+        if d.is_dir() and not d.name.startswith(".") and (d / "ref.wav").is_file():
+            name = (d / "name.txt").read_text(encoding="utf-8").strip() if (d / "name.txt").is_file() else d.name
+            out.append({"id": d.name, "name": name, "sung": (d / "sing.wav").is_file()})
+    return out
+
+
+def _svc_voice_file(voice: str) -> Optional[Path]:
+    if not voice or "/" in voice or voice.startswith("."):
+        return None
+    d = _own_voices_dir() / voice
+    return next((f for f in (d / "sing.wav", d / "ref.wav") if f.is_file()), None)
+
+
+def _svc_kept(d: Path) -> dict:
+    try:
+        got = json.loads((d / SVC_FILE).read_text(encoding="utf-8"))
+        return got if isinstance(got, dict) and _stem_file(d, got.get("stem") or "-") else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _svc_pcm(src: Path, start: float = 0.0, length: Optional[float] = None):
+    """Mono float samples of a file at the model's rate."""
+    import numpy as np
+    cmd = [ffmpeg_bin(), "-v", "error", "-nostdin"] + (["-ss", f"{start:.3f}"] if start > 0 else []) + ["-i", str(src)]
+    cmd += (["-t", f"{length:.3f}"] if length else []) + ["-ac", "1", "-ar", str(SVC_SR), "-f", "f32le", "-"]
+    raw = subprocess.run(cmd, capture_output=True, timeout=300).stdout
+    return np.frombuffer(raw, dtype=np.float32).copy()
+
+
+def _svc_wav(samples, path: Path) -> None:
+    import wave
+    import numpy as np
+    pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SVC_SR)
+        w.writeframes(pcm.tobytes())
+
+
+def _svc_level(made, like):
+    """As loud as what it replaces, and never over full scale."""
+    import numpy as np
+    rms = lambda x: float(np.sqrt(np.mean(np.square(x)))) if len(x) else 0.0
+    if rms(made) > 1e-5 and rms(like) > 1e-5:
+        made = made * (rms(like) / rms(made))
+    peak = float(np.max(np.abs(made))) if len(made) else 0.0
+    return made * (0.97 / peak) if peak > 0.97 else made
+
+
+def _svc_splice(whole, part, at: int, fade: int = 1764):
+    """`part` put into `whole` from sample `at`, eased in and out over 40 ms."""
+    import numpy as np
+    part = part[:max(0, len(whole) - at)]
+    n = len(part)
+    if n < fade * 3:
+        return whole
+    env = np.ones(n, dtype=np.float32)
+    ramp = np.linspace(0.0, 1.0, fade, dtype=np.float32)
+    if at > 0:
+        env[:fade] = ramp
+    if at + n < len(whole):
+        env[-fade:] = ramp[::-1]
+    out = whole.copy()
+    out[at:at + n] = whole[at:at + n] * (1.0 - env) + part * env
+    return out
+
+
+def _svc_run(job: dict, d: Path, vocals: Path, ref: Path) -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="pick-svc-"))
+    try:
+        whole = job["end"] is None
+        pad = 0.0 if whole else min(0.6, job["start"])                 # a little before, so the voice is already going
+        start = 0.0 if whole else job["start"] - pad
+        length = None if whole else (job["end"] - job["start"]) + pad + 0.6
+        src = _svc_pcm(vocals, start, length)
+        if len(src) < SVC_SR:
+            raise RuntimeError("V tomhle úseku není co zpívat.")
+        _svc_wav(src, tmp / "src.wav")
+        ref_len = min(25.0, len(_svc_pcm(ref, 0, 26)) / SVC_SR)
+        job["of"] = max(1, int(-(-(len(src) / SVC_SR) // max(4.0, 30.0 - ref_len))))
+        job["stage"] = "load"
+        proc = subprocess.Popen([str(SVC_PYTHON), str(SVC_WORKER), "--source", str(tmp / "src.wav"), "--ref", str(ref),
+                                 "--out", str(tmp / "out.wav"), "--steps", str(job["steps"]), "--shift", str(job["shift"]),
+                                 "--auto", "1" if job["auto"] else "0"],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        _SVC["proc"] = proc
+        last = ""
+        for line in proc.stdout:
+            line = line.strip()
+            if line == "LOADED":
+                job["stage"] = "sing"; job["sing_at"] = time.time()
+            elif line.startswith("PROGRESS"):
+                job["done"] = min(job["of"], int(line.split()[1]))
+            elif line.startswith(("ERROR", "DONE")):
+                last = line
+        proc.wait()
+        if job.get("status") == "stopped":
+            return
+        if proc.returncode != 0 or not (tmp / "out.wav").is_file():
+            raise RuntimeError(last[6:] if last.startswith("ERROR") else "Model skončil bez výsledku.")
+        job["stage"] = "save"
+        made = _svc_pcm(tmp / "out.wav")
+        made = _svc_level(made[:len(src)], src)
+        kept = _svc_kept(d)
+        if whole or not kept:
+            full = made if whole else _svc_splice(_svc_pcm(vocals) * 0.0, made, int(start * SVC_SR))
+        else:
+            full = _svc_splice(_svc_pcm(_stem_file(d, kept["stem"])), made, int(start * SVC_SR))
+        _svc_wav(full, tmp / "full.wav")
+        stem = kept.get("stem") or _next_take_name(d)
+        for old in d.glob(f"{stem}.*"):                                # the same track, whatever it was encoded as
+            if old.suffix.lower() in STEM_READ_EXTS and old.suffix.lower() != ".mp3":
+                old.unlink()
+        err = _encode_to_stem(tmp / "full.wav", d / f"{stem}.mp3")
+        if err:
+            raise RuntimeError(err)
+        _set_track_label(d, stem, f"Můj hlas ({job['voice_name']})")
+        (d / SVC_FILE).write_text(json.dumps({"stem": stem, "voice": job["voice"], "steps": job["steps"], "shift": job["shift"],
+                                              "auto": job["auto"], "at": time.time()}, ensure_ascii=False), encoding="utf-8")
+        job.update(status="done", stem=stem, took=time.time() - job["started"])
+    except Exception as e:                                             # a job never takes the server with it
+        if job.get("status") != "stopped":
+            job.update(status="error", error=str(e)[:300])
+    finally:
+        _SVC["proc"] = None
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+class MyVoiceRequest(BaseModel):
+    voice: str
+    steps: int = 25
+    shift: int = 0
+    auto: bool = False
+    start: Optional[float] = None      # with `end`: only this stretch, spliced into what is already there
+    end: Optional[float] = None
+
+
+def _svc_job_view() -> Optional[dict]:
+    job = _SVC["job"]
+    if not job:
+        return None
+    out = {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "stem", "start", "end", "took")}
+    out["elapsed"] = time.time() - job["started"]
+    out["estimate"] = job["estimate"]
+    return out
+
+
+@app.get("/api/myvoice")
+def myvoice_status(song: str = ""):
+    d = _resolve_under_music_root(f"Stems/{song}") if song else None
+    return {"ready": _svc_ready(), "voices": _svc_voices(), "job": _svc_job_view(),
+            "kept": _svc_kept(d) if d is not None and d.is_dir() else {},
+            "has_vocals": bool(d is not None and d.is_dir() and _stem_file(d, "vocals"))}
+
+
+@app.post("/api/stems/{name}/myvoice")
+def myvoice_start(name: str, req: MyVoiceRequest):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir() or name.startswith("."):
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    if not _svc_ready():
+        return JSONResponse({"error": "Model pro zpěv mým hlasem není nainstalovaný."}, status_code=503)
+    vocals = _stem_file(d, "vocals")
+    if vocals is None:
+        return JSONResponse({"error": "Tahle píseň nemá stopu zpěvu."}, status_code=400)
+    ref = _svc_voice_file(req.voice)
+    if ref is None:
+        return JSONResponse({"error": "Takový hlas tu není — přidej si ho u Výslovnosti."}, status_code=404)
+    part = req.start is not None and req.end is not None
+    if part and req.end - req.start < 1.0:
+        return JSONResponse({"error": "Úsek je moc krátký (aspoň vteřina)."}, status_code=400)
+    dur = _audio_tags(vocals).get("duration") or 0
+    length = (req.end - req.start) if part else dur
+    steps = max(8, min(int(req.steps), 60))
+    with _SVC_LOCK:
+        if _SVC["job"] and _SVC["job"].get("status") == "running":
+            return JSONResponse({"error": "Jeden zpěv se už počítá — počkej, až doběhne."}, status_code=409)
+        job = {"song": name, "status": "running", "stage": "prepare", "done": 0, "of": 1, "started": time.time(),
+               "voice": req.voice, "voice_name": next((v["name"] for v in _svc_voices() if v["id"] == req.voice), req.voice),
+               "steps": steps, "shift": max(-24, min(int(req.shift), 24)), "auto": bool(req.auto),
+               "start": max(0.0, float(req.start)) if part else None, "end": float(req.end) if part else None,
+               # measured on an M1 Pro: loading the model, then about 2.8 × the length at 25 steps
+               "estimate": 45 + length * (0.6 + 2.2 * steps / 25)}
+        _SVC["job"] = job
+    threading.Thread(target=_svc_run, args=(job, d, vocals, ref), daemon=True).start()
+    return _svc_job_view()
+
+
+@app.delete("/api/myvoice/job")
+def myvoice_stop():
+    job, proc = _SVC["job"], _SVC["proc"]
+    if job and job.get("status") == "running":
+        job["status"] = "stopped"
+        if proc is not None:
+            proc.terminate()
+    return {"ok": True}
+
+
+@app.post("/api/myvoice/sample/{voice}")
+async def myvoice_sample(voice: str, file: UploadFile = File(...)):
+    """A recording of the player singing: a truer model for a sung voice than speech is."""
+    d = _own_voices_dir() / voice
+    if "/" in voice or voice.startswith(".") or not (d / "ref.wav").is_file():
+        return JSONResponse({"error": "Takový hlas tu není."}, status_code=404)
+    try:
+        tmp = await _upload_to_temp(file)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(tmp), "-t", "25", "-ac", "1", "-ar", str(SVC_SR),
+                        "-af", "silenceremove=start_periods=1:start_threshold=-45dB", str(d / "sing.tmp.wav")], capture_output=True, timeout=120)
+        made = d / "sing.tmp.wav"
+        if not made.is_file() or made.stat().st_size < SVC_SR * 2 * 3:
+            made.unlink(missing_ok=True)
+            return JSONResponse({"error": "Vzorek je moc krátký — aspoň pár vteřin zpěvu."}, status_code=400)
+        made.replace(d / "sing.wav")
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {"ok": True, "voices": _svc_voices()}
+
+
+@app.delete("/api/myvoice/sample/{voice}")
+def myvoice_sample_drop(voice: str):
+    d = _own_voices_dir() / voice
+    if "/" not in voice and not voice.startswith("."):
+        (d / "sing.wav").unlink(missing_ok=True)
+    return {"ok": True, "voices": _svc_voices()}
+
+
+# ---- Skladatel: a variant the player chose goes into the library as a song —
+# and, when asked, is taken apart into stems and its vocals sung again in the
+# player's own voice (the separation queue first, then the singing job).
+class StudioUse(BaseModel):
+    separate: bool = True
+    voice: str = ""            # an own voice: the song's vocals are sung again in it
+
+
+def _studio_sing_when_ready(stems_name: str, voice: str) -> None:
+    end = time.time() + 3 * 3600
+    while time.time() < end:
+        if _stems_ready(stems_name):
+            for _ in range(240):                           # one singing job at a time: wait for the other to end
+                res = myvoice_start(stems_name, MyVoiceRequest(voice=voice))
+                if not (isinstance(res, JSONResponse) and res.status_code == 409):
+                    return
+                time.sleep(30)
+            return
+        time.sleep(5)
+
+
+@app.post("/api/studio/projects/{pid}/variants/{vid}/use")
+def studio_use(pid: str, vid: str, req: StudioUse):
+    p = _studio.load(pid)
+    src = _studio.variant_file(p, vid) if p else None
+    if src is None:
+        return JSONResponse({"error": "Tahle varianta tu není."}, status_code=404)
+    if req.voice and _svc_voice_file(req.voice) is None:
+        return JSONResponse({"error": "Takový hlas tu není."}, status_code=404)
+    v = _studio.variant(p, vid)
+    folder = MUSIC_ROOT / "Songs"
+    folder.mkdir(parents=True, exist_ok=True)
+    rel = v.get("used")
+    if not rel or not (MUSIC_ROOT / rel).is_file():
+        base = _safe_name(f"{p['name']} - {v['name']}")
+        dest, n = folder / f"{base}.mp3", 2
+        while dest.exists():
+            dest = folder / f"{base} ({n}).mp3"
+            n += 1
+        done = subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(src), "-c", "copy",
+                               "-metadata", f"title={p['name']} ({v['name']})", "-metadata", "artist=Pick Skladatel",
+                               "-metadata", f"album={p['name']}", str(dest)], capture_output=True, timeout=120)
+        if done.returncode != 0 or not dest.is_file():
+            shutil.copy(src, dest)
+        rel = str(dest.relative_to(MUSIC_ROOT))
+    out = {"rel": rel, "name": Path(rel).stem}
+    if req.separate or req.voice:
+        job = separate_stems(StemsSeparateRequest(rel=rel))
+        if isinstance(job, JSONResponse):
+            return job
+        out["stems"] = job
+        if req.voice:
+            threading.Thread(target=_studio_sing_when_ready, args=(job["name"], req.voice), daemon=True).start()
+    with _studio._LOCK:
+        fresh = _studio.load(pid)
+        fv = _studio.variant(fresh, vid) if fresh else None
+        if fv is not None:
+            fv["used"] = rel
+            if req.voice:
+                fv["sung"] = next((x["name"] for x in _svc_voices() if x["id"] == req.voice), req.voice)
+            _studio.save(fresh)
+    return out
 
 
 def _new_project_dir(base: str) -> Path:
@@ -10146,6 +10540,10 @@ end tell'''
 import assistant as _assistant
 import look as _look
 app.include_router(_look.router)
+import studio as _studio
+app.include_router(_studio.router)
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _studio.resume()                       # variants that were waiting when the server last stopped
 
 # A model left running by a Pick that has since been restarted is nobody's: it is let go.
 if not os.environ.get("SPOTDL_NO_WATCHERS"):

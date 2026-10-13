@@ -3784,6 +3784,70 @@ body.lib-collapsed .pick-brand{display:none}
     -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
   body.lib-collapsed .rail-art{display:none}
   html:not(.ambient) .rail-art svg{opacity:.3}
+  /* Skladatel — a song out of an idea. */
+  .cp-overlay{position:fixed;inset:0;z-index:4000;background:rgba(5,6,10,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+  .cp-box{width:min(1180px,96vw);height:min(860px,94vh);background:#13141c;border:1px solid rgba(255,255,255,.14);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;color:var(--text)}
+  .cp-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #24273a;font-size:16px}
+  .cp-eng{font-size:12px;color:var(--sub);margin-left:auto}
+  .cp-close{background:none;border:none;color:var(--sub);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+  .cp-close:hover{color:var(--text)}
+  .cp-cols{flex:1;display:flex;min-height:0}
+  .cp-left{flex:0 0 430px;padding:14px 20px 20px;overflow-y:auto;border-right:1px solid #24273a}
+  .cp-right{flex:1;padding:14px 20px 20px;overflow-y:auto;min-width:0}
+  .cp-cap{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:16px 0 7px}
+  .cp-cap small{font-weight:400;letter-spacing:0;text-transform:none}
+  .cp-left input[type=text],.cp-left select,.cp-left textarea{width:100%;background:#0d0e15;border:1px solid #33364a;border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:9px 11px;outline:none}
+  .cp-left textarea{min-height:150px;resize:vertical;line-height:1.45}
+  .cp-left input:focus,.cp-left select:focus,.cp-left textarea:focus{border-color:var(--accent)}
+  .cp-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .cp-row .btn{flex:1;border-radius:500px;padding:10px 14px;font-size:13px}
+  .cp-row.two label{flex:1;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub)}
+  .cp-row.two span{flex:1}
+  .cp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .cp-chips button{background:#1b1d2a;border:1px solid #33364a;color:var(--text);border-radius:500px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+  .cp-chips button:hover{border-color:var(--accent)}
+  .cp-chips button.on{background:var(--accent);border-color:var(--accent);color:#0b0b14;font-weight:700}
+  .cp-note{font-size:12.5px;color:var(--sub);line-height:1.5;margin:10px 0 0}
+  .cp-note.bad,.cp-st.bad{color:var(--danger)}
+  .cp-idea{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:12.5px;color:var(--sub)}
+  .cp-idea audio,.cp-card audio{width:100%;height:36px}
+  .cp-x{background:none;border:none;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0;align-self:flex-start}
+  .cp-x:hover{color:var(--danger)}
+  .cp-card{border:1px solid #2a2d40;border-radius:13px;padding:12px 14px;margin-bottom:10px;background:#171923}
+  .cp-card.done{border-color:#343850}
+  .cp-card-head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .cp-card-head b{font-size:14.5px}
+  .cp-card-head span{font-size:12px;color:var(--sub);flex:1}
+  .cp-card-head .cp-x{font-size:18px;line-height:1}
+  .cp-st{font-size:12.5px;color:var(--sub)}
+  .cp-bar{height:6px;border-radius:500px;background:#23263a;overflow:hidden;margin-top:8px}
+  .cp-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd));transition:width 2.4s linear}
+  .cp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+  .cp-acts .btn{border-radius:500px;padding:8px 14px;font-size:12.5px}
+  .cp-used{font-size:12.5px;color:var(--ok,#3ddc84)}
+  .cp-empty{margin:60px auto;max-width:420px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.55}
+  .cp-empty b{color:var(--text);font-size:16px}
+  @media (max-width:900px){ .cp-cols{flex-direction:column} .cp-left{flex:none;border-right:none;border-bottom:1px solid #24273a} }
+  /* The guide to a new voice. */
+  .voice-guide .mt-box{width:min(620px,94vw)}
+  .vg-step{border:1px solid #2a2d40;border-radius:12px;padding:12px 14px;margin-top:12px}
+  .vg-step.done{border-color:color-mix(in srgb,var(--ok,#3ddc84) 55%,transparent)}
+  .vg-head{display:flex;align-items:center;gap:8px;font-size:13.5px}
+  .vg-head .opt{font-size:11px;color:var(--sub);border:1px solid #3a3d52;border-radius:500px;padding:1px 8px}
+  .vg-text{font-size:15.5px;line-height:1.5;margin:8px 0 4px;color:var(--text)}
+  .vg-hint{font-size:12px;color:var(--sub);line-height:1.45;margin:4px 0 8px}
+  .vg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .vg-row audio{height:32px;flex:1;min-width:180px}
+  .vg-level{flex:1;height:8px;border-radius:500px;background:#23263a;overflow:hidden;min-width:120px}
+  .vg-level i{display:block;height:100%;width:0;background:#3ddc84}
+  .vg-time{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+  /* Singing in the player's own voice. */
+  .myvoice .mv-bar{height:8px;border-radius:500px;background:#23263a;overflow:hidden;margin:10px 0}
+  .myvoice .mv-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd));transition:width 1.4s linear}
+  .myvoice .mv-note,.myvoice .mv-sample{font-size:12.5px;color:var(--sub);line-height:1.45;margin-top:10px}
+  .myvoice .mv-sample button{background:none;border:1px solid #3a3d52;color:var(--text);border-radius:500px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer;margin-top:6px}
+  .myvoice .mv-sample button:hover{border-color:var(--accent)}
+  .myvoice label.mv-check{flex-direction:row;align-items:flex-start;gap:8px;line-height:1.4}
   /* Adding a voice of one's own. */
   .voice-add .mt-box{width:min(520px,94vw)}
   .voice-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub);margin-top:12px}
@@ -4407,6 +4471,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
                   <hr>
                   <button type="button" class="tm-item" id="nm-sing-open" title="Trenér zpěvu — tvoje výška proti originálu, slova a skóre"><span data-icon="mic" data-size="15"></span><span class="tm-t">Trenér zpěvu</span></button>
+                  <button type="button" class="tm-item" id="nm-myvoice-open" title="Zpěv písně tvým vlastním hlasem — melodie a frázování z originálu, hlas tvůj. Nová stopa v mixu; úsek ve smyčce jde přezpívat zvlášť."><span data-icon="mic" data-size="15"></span><span class="tm-t">Zpěv mým hlasem…</span></button>
                   <button type="button" class="tm-item" id="nm-lyr-speak" title="Celý text a trénink výslovnosti: počítač přečte řádek, ty ho řekneš po něm, a až to sedí, jde se dál („pick practice words“)"><span data-icon="volume" data-size="15"></span><span class="tm-t">Výslovnost</span></button>
                 </div>
               </div>
@@ -12078,10 +12143,13 @@ async function loadSteemsList(){
     <span class="dot">•</span>
     <span>${fmtSize(totalBytes)} na disku</span>
     ${incomplete ? `<span class="dot">•</span><span class="warn">${incomplete} nekompletní</span>` : ""}
-    <button type="button" class="btn secondary" id="steems-open-file" style="margin-left:auto"
+    <button type="button" class="btn secondary" id="steems-composer" style="margin-left:auto"
+      title="Skladatel: nahraj kousek kytary, vyber styly a Pick dohraje celý song v několika verzích — i se zpěvem tvého textu">${icon("note", 12)} Skladatel — song z nápadu</button>
+    <button type="button" class="btn secondary" id="steems-open-file"
       title="Libovolný audio soubor z počítače jako nový projekt v pultu (jedna stopa, kterou můžeš upravovat a přidávat k ní další)">${icon("add", 12)} Otevřít soubor jako projekt</button>
     <input type="file" id="steems-open-file-input" accept="audio/*,video/*,.wav,.mp3,.flac,.m4a,.aac,.ogg,.opus,.aif,.aiff" multiple hidden>`;
   list.appendChild(summary);
+  summary.querySelector("#steems-composer").onclick = () => Composer.open();
   summary.querySelector("#steems-open-file").onclick = () => summary.querySelector("#steems-open-file-input").click();
   summary.querySelector("#steems-open-file-input").onchange = (e) => { const f = [...e.target.files]; e.target.value = ""; if(f.length) newProjectFromUpload(f); };
 
@@ -25051,6 +25119,9 @@ const Mixer = (() => {
     channelInfo: () => channels.map(c => ({stem: c.stem, label: stemLabel(c.stem), duration: c.buffer.duration, length: c.buffer.length,
       clips: c.clips ? c.clips.map(k => ({...k})) : null})),
     currentSong: () => currentSongName,
+    loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
+    muteStem: (stem, on) => { const c = channels.find(x => x.stem === stem); if(!c || c.muted === on) return;
+      c.muted = on; applyGains(); renderChannels(); renderTimeline(); },
     // Read-only view of the generated click track, for diagnostics.
     getClickTrack: () => ({
       rate: metronomeRate,
@@ -25063,6 +25134,242 @@ const Mixer = (() => {
       detectedFrom,
     }),
   };
+})();
+
+// A new voice with a guide: the player reads a Czech text and an English one
+// aloud and, when they will, sings a little — and out of the three takes the
+// server makes one voice, for reading aloud and for singing (voice-guide).
+// Each take is heard back before it counts, and can be said again.
+const VoiceGuide = (() => {
+  let box = null, texts = null, takes = {}, rec = null, stream = null, meter = 0, onDone = null, busy = false;
+  const STEPS = [
+    {k: "cs", title: "1 · Přečti česky", hint: "Čti klidně a přirozeně, jako když někomu něco vyprávíš. Asi 15 vteřin.", min: 6},
+    {k: "en", title: "2 · Přečti anglicky", hint: "Výslovnost nemusí být dokonalá — jde o barvu hlasu. Asi 15 vteřin.", min: 6},
+    {k: "sing", title: "3 · Zazpívej (doporučeno pro zpěv)", hint: "Cokoli bez hudby, 15–20 vteřin: kus refrénu, nebo táhlé „áá“ odspodu nahoru a zpátky. Zpívej naplno — tak, jak chceš znít. Bez téhle části bude zpěv znít spíš jako tvoje mluvení.", min: 4, optional: true},
+  ];
+  const fmt = (s) => s.toFixed(0) + " s";
+  function stopMic(){ cancelAnimationFrame(meter); if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; } rec = null; }
+  function close(){ stopMic(); for(const k in takes) URL.revokeObjectURL(takes[k].url); takes = {}; if(box){ box.remove(); box = null; } }
+
+  async function record(k){
+    if(rec){ rec.stop(); return; }
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+    }catch(e){ showToast("Mikrofon se nepodařilo otevřít: " + e.message); return; }
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser(); an.fftSize = 1024;
+    ac.createMediaStreamSource(stream).connect(an);
+    const buf = new Float32Array(an.fftSize), parts = [], t0 = performance.now(); let peak = 0;
+    rec = new MediaRecorder(stream);
+    rec.ondataavailable = (e) => { if(e.data.size) parts.push(e.data); };
+    rec.onstop = () => {
+      const secs = (performance.now() - t0) / 1000;
+      stopMic(); try{ ac.close(); }catch(e){}
+      const blob = new Blob(parts, {type: (parts[0] && parts[0].type) || "audio/webm"});
+      if(takes[k]) URL.revokeObjectURL(takes[k].url);
+      takes[k] = {blob, url: URL.createObjectURL(blob), secs, peak};
+      paint();
+    };
+    rec._k = k;
+    rec.start();
+    paint();
+    const tick = () => {
+      if(!rec || !box) return;
+      an.getFloatTimeDomainData(buf);
+      let m = 0; for(let i = 0; i < buf.length; i++){ const v = Math.abs(buf[i]); if(v > m) m = v; }
+      if(m > peak) peak = m;
+      const secs = (performance.now() - t0) / 1000, bar = box.querySelector(`[data-level="${k}"] i`), tm = box.querySelector(`[data-time="${k}"]`);
+      if(bar){ bar.style.width = Math.min(100, m * 140) + "%"; bar.style.background = m > 0.95 ? "#ff5a5a" : m > 0.12 ? "#3ddc84" : "#e9b949"; }
+      if(tm) tm.textContent = fmt(secs);
+      if(secs > 32){ rec.stop(); return; }
+      meter = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  function paint(){
+    if(!box) return;
+    const ready = texts && texts.ready, name = box.querySelector("#vg-name") ? box.querySelector("#vg-name").value : "";
+    const ok = (st) => takes[st.k] && takes[st.k].secs >= st.min;
+    const can = ready && ok(STEPS[0]) && ok(STEPS[1]) && !rec && !busy;
+    box.innerHTML = `<div class="mt-box">
+      <h3>Nový hlas — pro čtení i zpěv</h3>
+      <div class="mt-hint">Přečti nahlas dva krátké texty a kousek zazpívej. Z nahrávek Pick složí tvůj hlas: bude jím číst a zpívat. Nahrávej v tichu, mikrofon na dlaň od úst; sluchátka nejsou potřeba.</div>
+      ${!texts ? `<p class="status">Načítám…</p>` : !ready ? `<p class="status bad">Hlasový model Picku není nainstalovaný.</p>` : `
+      <label>Jméno hlasu<input type="text" id="vg-name" maxlength="60" placeholder="třeba Můj hlas" value="${escapeHtml(name)}"></label>
+      ${STEPS.map(st => { const t = takes[st.k], on = rec && rec._k === st.k, quiet = t && t.peak < 0.08, loud = t && t.peak > 0.98, short = t && t.secs < st.min;
+        return `<div class="vg-step ${t && !short ? "done" : ""}">
+          <div class="vg-head"><b>${st.title}</b>${st.optional ? `<span class="opt">nepovinné</span>` : ""}</div>
+          ${texts.texts[st.k] ? `<p class="vg-text">${escapeHtml(texts.texts[st.k])}</p>` : ""}
+          <p class="vg-hint">${st.hint}</p>
+          <div class="vg-row">
+            <button type="button" class="btn ${on ? "" : "secondary"}" data-rec="${st.k}" ${rec && !on ? "disabled" : ""}>${on ? "■ Hotovo" : t ? "● Nahrát znovu" : "● Nahrát"}</button>
+            ${on ? `<span class="vg-level" data-level="${st.k}"><i></i></span><span class="vg-time" data-time="${st.k}">0 s</span>`
+              : t ? `<audio controls src="${t.url}"></audio><span class="vg-time">${fmt(t.secs)}</span>` : ""}
+          </div>
+          ${short ? `<p class="status bad">Moc krátké — aspoň ${st.min} vteřin.</p>` : quiet ? `<p class="status bad">Je to hodně potichu. Zkus to blíž k mikrofonu nebo hlasitěji.</p>`
+            : loud ? `<p class="status bad">Přebuzené (moc nahlas nebo moc blízko) — nahraj to raději znovu.</p>` : ""}
+        </div>`; }).join("")}
+      <p class="status" id="vg-status">${busy ? "Skládám hlas — poslouchám, co se v nahrávkách říká… (půl minuty)" : ""}</p>`}
+      <div class="two"><button type="button" class="btn" id="vg-make" ${can ? "" : "disabled"}>Vytvořit hlas</button>
+        <button type="button" class="btn secondary" id="vg-close">Zavřít</button></div></div>`;
+    box.querySelectorAll("[data-rec]").forEach(b => b.onclick = () => record(b.dataset.rec));
+    box.querySelector("#vg-close").onclick = close;
+    box.querySelector("#vg-make").onclick = make;
+  }
+  async function make(){
+    const name = (box.querySelector("#vg-name").value || "").trim();
+    busy = true; paint(); box.querySelector("#vg-name").value = name;
+    try{
+      const fd = new FormData();
+      fd.append("cs", takes.cs.blob, "cs.webm"); fd.append("en", takes.en.blob, "en.webm");
+      if(takes.sing && takes.sing.secs >= 4) fd.append("sing", takes.sing.blob, "sing.webm");
+      const r = await fetch("/api/tts/voice-guide?name=" + encodeURIComponent(name), {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(d.error || "Nepovedlo se.");
+      showToast(`Hlas „${d.name}“ je hotový${d.sung ? " i se vzorkem zpěvu" : ""}.`);
+      const done = onDone; close();
+      if(done) done(d);
+    }catch(e){ busy = false; paint(); box.querySelector("#vg-name").value = name; const s = box.querySelector("#vg-status"); s.textContent = e.message; s.classList.add("bad"); }
+    busy = false;
+  }
+  async function open(then){
+    close(); onDone = then || null; busy = false;
+    box = document.createElement("div");
+    box.className = "mt-overlay voice-add voice-guide";
+    document.body.appendChild(box);
+    paint();
+    try{ texts = await (await fetch("/api/tts/voice-guide")).json(); }catch(e){ texts = {texts: {}, ready: false}; }
+    paint();
+  }
+  return {open, close};
+})();
+
+// "Zpěv mým hlasem": the song's vocals sung in the player's own voice — same
+// melody, timing and phrasing, another voice (server: /api/myvoice, the model
+// runs beside the app). It takes minutes, so it is a job that goes on with
+// the window closed; when it ends, the new track is in the mix and the
+// original vocals are muted. With a loop set, only that stretch is done again
+// and put into the track that is already there.
+const MyVoice = (() => {
+  let st = null, timer = 0, box = null, form = {steps: 25, shift: 0, auto: false, part: false, voice: ""};
+  try{ form = {...form, ...JSON.parse(localStorage.getItem("pick-myvoice") || "{}"), part: false}; }catch(e){}
+  const keep = () => { try{ localStorage.setItem("pick-myvoice", JSON.stringify(form)); }catch(e){} };
+  const song = () => Mixer.currentSong && Mixer.currentSong();
+  const mins = (s) => s < 90 ? `${Math.max(5, Math.round(s / 5) * 5)} s` : `${Math.round(s / 60)} min`;
+  const running = () => st && st.job && st.job.status === "running";
+
+  async function load(){
+    try{ st = await (await fetch("/api/myvoice?song=" + encodeURIComponent(song() || ""))).json(); }catch(e){ st = null; }
+    return st;
+  }
+  function watch(){
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const was = st && st.job;
+      await load();
+      const job = st && st.job;
+      if(was && was.status === "running" && job && job.status !== "running") ended(job);
+      if(box) paint();
+      if(running()) watch();
+    }, 1500);
+  }
+  function ended(job){
+    if(job.status === "done"){
+      if(song() === job.song){
+        Mixer.reloadTracks(job.end == null ? "Tvůj zpěv je ve stopách — originál jsem ztlumil." : "Úsek je přezpívaný.");
+        // …and once the reloaded mix has the new track, the original voice steps back
+        let n = 0;
+        setTimeout(() => { const t = setInterval(() => {
+          if(song() !== job.song || ++n > 240){ clearInterval(t); return; }
+          if(Mixer.channelByStem(job.stem)){ clearInterval(t); Mixer.muteStem("vocals", true); }
+        }, 500); }, 2500);
+      } else showToast(`Zpěv tvým hlasem k písni „${stemsDisplayByName(job.song).title}“ je hotový.`);
+    } else if(job.status === "error") showToast("Zpěv mým hlasem se nepovedl: " + (job.error || ""));
+  }
+
+  function paint(){
+    if(!box) return;
+    const name = song(), loop = Mixer.loopNow && Mixer.loopNow(), job = st && st.job, kept = st && st.kept && st.kept.stem;
+    let body = "";
+    if(!st) body = `<p class="status">Načítám…</p>`;
+    else if(!st.ready) body = `<p class="status bad">Model pro zpěv mým hlasem v tomhle počítači není nainstalovaný.</p>`;
+    else if(!st.voices.length) body = `<p class="status">Nejdřív si vytvoř svůj hlas: přečteš dva krátké texty a kousek zazpíváš.</p>
+      <div class="two"><button type="button" class="btn" id="mv-new">＋ Nový hlas…</button></div>`;
+    else if(!st.has_vocals) body = `<p class="status bad">Tahle píseň nemá stopu zpěvu.</p>`;
+    else if(running()){
+      const total = job.estimate || 60, done = Math.min(0.98, job.elapsed / total), left = Math.max(5, total - job.elapsed);
+      const what = job.stage === "sing" ? `Zpívám${job.of > 1 ? ` — část ${Math.min(job.of, job.done + 1)} z ${job.of}` : ""}`
+        : job.stage === "save" ? "Ukládám stopu" : "Načítám model";
+      body = `<p class="status">${what}… zbývá asi ${mins(left)}.</p>
+        <div class="mv-bar"><i style="width:${Math.round(done * 100)}%"></i></div>
+        <p class="mv-note">${job.song !== name ? `Počítá se píseň „${escapeHtml(stemsDisplayByName(job.song).title)}“. ` : ""}Okno můžeš zavřít, práce běží dál. Mezitím můžeš hrát; počítač bude jen pomalejší.</p>
+        <div class="two"><button type="button" class="btn secondary" id="mv-stop">Zastavit</button></div>`;
+    } else {
+      if(!form.voice || !st.voices.some(v => v.id === form.voice)) form.voice = st.voices[0].id;
+      const v = st.voices.find(x => x.id === form.voice), dur = (steemsSongs.find(x => x.name === name) || {}).duration || 0;
+      const len = form.part && loop ? loop.end - loop.start : dur, est = 45 + len * (0.6 + 2.2 * form.steps / 25);
+      body = `
+        <label>Hlas<select id="mv-voice">${st.voices.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === form.voice ? "selected" : ""}>${escapeHtml(x.name)}${x.sung ? " · se vzorkem zpěvu" : ""}</option>`).join("")}</select></label>
+        <div class="mv-sample"><button type="button" id="mv-new">＋ Nový hlas (přečti text a zazpívej)…</button></div>
+        <div class="mv-sample">${v.sung ? `Používám tvůj vzorek zpěvu. <button type="button" id="mv-unsing">Odebrat</button>`
+          : `Teď se bere tvůj mluvený hlas. Když nahraješ 10–25 vteřin vlastního zpěvu (bez hudby), bude podoba věrnější. `}
+          <button type="button" id="mv-sing">${v.sung ? "Jiný vzorek zpěvu…" : "Nahrát vzorek zpěvu…"}</button>
+          <input type="file" id="mv-file" accept="audio/*,video/*" hidden></div>
+        <label>Kvalita<select id="mv-steps">${[[12, "Rychlá"], [25, "Běžná"], [40, "Nejlepší"]].map(([n, l]) => `<option value="${n}" ${n === form.steps ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label>Výška<select id="mv-shift">${[[0, "Jako originál"], [-12, "O oktávu níž"], [12, "O oktávu výš"], [-5, "O kvartu níž (−5)"], [-3, "−3 půltóny"], [-2, "−2 půltóny"], [2, "+2 půltóny"], [3, "+3 půltóny"], [5, "O kvartu výš (+5)"]]
+          .map(([n, l]) => `<option value="${n}" ${n === form.shift ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="mv-check"><input type="checkbox" id="mv-auto" ${form.auto ? "checked" : ""}> Posunout melodii do polohy mého hlasu (když je originál moc vysoko nebo nízko; píseň pak nemusí ladit s kapelou)</label>
+        <label>Co zazpívat<select id="mv-part">
+          <option value="0" ${form.part ? "" : "selected"}>Celou píseň</option>
+          <option value="1" ${form.part && loop ? "selected" : ""} ${loop ? "" : "disabled"}>${loop ? `Jen smyčku ${fmtDur(loop.start)}–${fmtDur(loop.end)}${kept ? " (vloží se do hotové stopy)" : ""}` : "Jen úsek — nejdřív si v mixu označ smyčku"}</option></select></label>
+        <p class="mv-note">${kept ? "Tuhle píseň už tvým hlasem máš. Celá píseň ji přepíše; úsek opraví jen vybrané místo — zkus jinou kvalitu nebo výšku. " : ""}Potrvá to asi ${mins(est)}. Melodie, rytmus i frázování zůstanou z originálu, změní se jen hlas.</p>
+        ${job && job.status === "error" ? `<p class="status bad">Minule se to nepovedlo: ${escapeHtml(job.error || "")}</p>` : ""}
+        <div class="two"><button type="button" class="btn" id="mv-go">${form.part && loop ? "Přezpívat úsek" : "Zazpívat mým hlasem"}</button>
+          <button type="button" class="btn secondary" id="mv-close">Zavřít</button></div>`;
+    }
+    box.innerHTML = `<div class="mt-box"><h3>Zpěv mým hlasem${name ? " — " + escapeHtml(stemsDisplayByName(name).title) : ""}</h3>${body}
+      ${st && (!st.ready || !st.voices.length || !st.has_vocals) ? `<div class="two"><button type="button" class="btn secondary" id="mv-close">Zavřít</button></div>` : ""}</div>`;
+    const q = (id) => box.querySelector("#" + id), on = (id, ev, fn) => { const n = q(id); if(n) n[ev] = fn; };
+    on("mv-close", "onclick", close);
+    on("mv-voice", "onchange", (e) => { form.voice = e.target.value; keep(); paint(); });
+    on("mv-steps", "onchange", (e) => { form.steps = +e.target.value; keep(); paint(); });
+    on("mv-shift", "onchange", (e) => { form.shift = +e.target.value; keep(); });
+    on("mv-auto", "onchange", (e) => { form.auto = e.target.checked; keep(); });
+    on("mv-part", "onchange", (e) => { form.part = e.target.value === "1"; paint(); });
+    on("mv-new", "onclick", () => { close(); VoiceGuide.open(async (d) => { form.voice = d.id; keep(); open(); }); });
+    on("mv-sing", "onclick", () => q("mv-file").click());
+    on("mv-file", "onchange", async (e) => {
+      const f = e.target.files[0]; if(!f) return;
+      const fd = new FormData(); fd.append("file", f);
+      const r = await fetch("/api/myvoice/sample/" + encodeURIComponent(form.voice), {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
+      if(!r.ok){ showToast(d.error || "Vzorek se nepodařilo uložit."); return; }
+      showToast("Vzorek zpěvu uložen."); await load(); paint();
+    });
+    on("mv-unsing", "onclick", async () => { await fetch("/api/myvoice/sample/" + encodeURIComponent(form.voice), {method: "DELETE"}); await load(); paint(); });
+    on("mv-stop", "onclick", async () => { await fetch("/api/myvoice/job", {method: "DELETE"}); await load(); paint(); showToast("Zastaveno."); });
+    on("mv-go", "onclick", async () => {
+      const part = form.part && loop;
+      const r = await fetch(`/api/stems/${encodeURIComponent(name)}/myvoice`, {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({voice: form.voice, steps: form.steps, shift: form.shift, auto: form.auto, ...(part ? {start: loop.start, end: loop.end} : {})})});
+      const d = await r.json().catch(() => ({}));
+      if(!r.ok){ showToast(d.error || "Nepodařilo se spustit."); return; }
+      await load(); paint(); watch();
+    });
+  }
+  async function open(){
+    if(!song()){ showToast("Nejdřív otevři píseň ve Steems."); return; }
+    close();
+    box = document.createElement("div");
+    box.className = "mt-overlay voice-add myvoice";
+    box.onclick = (e) => { if(e.target === box) close(); };
+    document.body.appendChild(box);
+    paint(); await load(); paint();
+    if(running()) watch();
+  }
+  function close(){ if(box){ box.remove(); box = null; } }
+  if(el("nm-myvoice-open")) el("nm-myvoice-open").onclick = () => { TMenu.close(); open(); };
+  // a job started before the page was reloaded is picked up again
+  load().then(() => { if(running()) watch(); });
+  return {open, close, state: () => st};
 })();
 
 // ======================================================================
@@ -30539,6 +30846,8 @@ const Speak = (() => {
       <div class="mt-hint">Stačí <b>5–10 vteřin čisté řeči jednoho člověka</b> — bez hudby a šumu, klidně z telefonu. Pick si z nahrávky vezme začátek až po první pauzu.</div>
       <label>Jméno hlasu<input type="text" id="va-name" maxlength="60" placeholder="třeba Můj hlas"></label>
       <label>Jazyk nahrávky<select id="va-lang"><option value="auto">poznat sám</option><option value="cs">čeština</option><option value="en">angličtina</option></select></label>
+      <div class="two"><button type="button" class="btn" id="va-guide" title="Přečteš český a anglický text, kousek zazpíváš — a hlas je hotový pro čtení i zpěv">Průvodce: přečti text a zazpívej…</button></div>
+      <div class="mt-hint" style="margin-top:12px">…nebo rychle z jedné nahrávky (jen pro čtení):</div>
       <div class="two"><button type="button" class="btn secondary" id="va-file">Vybrat soubor…</button>
         <button type="button" class="btn secondary" id="va-mic">● Nahrát z mikrofonu (10 s)</button></div>
       <div class="status" id="va-status"></div>
@@ -30601,6 +30910,8 @@ const Speak = (() => {
       status(res && res.ok ? "Text uložen." : "Uložení se nepovedlo.", !(res && res.ok));
     };
     q("va-close").onclick = () => { if(stream) stream.getTracks().forEach(t => t.stop()); box.remove(); };
+    q("va-guide").onclick = () => { box.remove(); VoiceGuide.open(async (d) => {
+      await voices(); el("speak-voice").value = "vb:" + d.id; try{ localStorage.setItem(VOICE_KEY, "vb:" + d.id); }catch(e){} prepare(); }); };
     mine();
   }
   const hush = () => { try{ speechSynthesis.cancel(); }catch(e){} if(player){ try{ player.pause(); player.onended && player.onended(); }catch(e){} player = null; } };
@@ -32581,6 +32892,7 @@ const Voice = (() => {
     hints: {show: hintsShow, hide: hintsHide, on: () => hintsOn, list: () => hintList().map(h => h.say)}, replies: {load: repliesLoad, pick: reply}};
 })();
 </script>
+<script src="/static/studio.js"></script>
 <script src="/static/look.js"></script>
 </body>
 </html>

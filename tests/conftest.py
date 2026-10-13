@@ -63,3 +63,11 @@ def _own_config(tmp_path, monkeypatch):
     import look
     monkeypatch.setattr(look, "LOOK_PATH", tmp_path / "look.json")
     monkeypatch.setattr(look, "LOOK_DIR", tmp_path / "look")
+    # …and the composer's projects; its model is never started by a test.
+    import studio
+    monkeypatch.setattr(studio, "PROJECTS", tmp_path / "studio-projects")
+    monkeypatch.setattr(studio, "ACE_DIR", tmp_path / "no-ace")
+    monkeypatch.setattr(studio, "ENGINE_PID", tmp_path / "studio-engine.pid")
+    monkeypatch.setattr(studio, "ENGINE_LOG", tmp_path / "studio-engine.log")
+    monkeypatch.setattr(studio, "PORT", 1)
+    monkeypatch.setattr(studio, "URL", "http://127.0.0.1:1")
