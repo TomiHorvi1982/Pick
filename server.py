@@ -9390,6 +9390,19 @@ def studio_use(pid: str, vid: str, req: StudioUse):
             shutil.copy(src, dest)
         rel = str(dest.relative_to(MUSIC_ROOT))
     out = {"rel": rel, "name": Path(rel).stem}
+    made = _studio.stems_of(pid, vid)
+    safe = _safe_name(Path(rel).stem)
+    if (req.separate or req.voice) and len(made) == len(STEM_NAMES) and not _stems_ready(safe):
+        # Skladatel has already taken it apart: the stems are put where Steems keeps them, no second separation
+        raw = MUSIC_ROOT / "Stems" / ".raw" / "htdemucs_6s" / Path(rel).stem
+        shutil.rmtree(raw, ignore_errors=True)
+        raw.mkdir(parents=True)
+        for s in made:
+            shutil.copy(_studio.stems_dir(pid, vid) / f"{s}.mp3", raw / f"{s}.mp3")
+        try:
+            _finalize_stems_job({"stems_source": str(MUSIC_ROOT / rel), "stems_name": safe})
+        except OSError as e:
+            return JSONResponse({"error": f"Stopy se nepodařilo uložit: {e}"}, status_code=500)
     if req.separate or req.voice:
         job = separate_stems(StemsSeparateRequest(rel=rel))
         if isinstance(job, JSONResponse):
@@ -10597,6 +10610,7 @@ import look as _look
 app.include_router(_look.router)
 import studio as _studio
 app.include_router(_studio.router)
+_studio.demucs_device = _demucs_device     # Skladatel takes its variants apart the same way, on the GPU
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped
 

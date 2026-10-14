@@ -3785,49 +3785,115 @@ body.lib-collapsed .pick-brand{display:none}
   body.lib-collapsed .rail-art{display:none}
   html:not(.ambient) .rail-art svg{opacity:.3}
   /* Skladatel — a song out of an idea. */
-  .cp-overlay{position:fixed;inset:0;z-index:4000;background:rgba(5,6,10,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
-  .cp-box{width:min(1180px,96vw);height:min(860px,94vh);background:#13141c;border:1px solid rgba(255,255,255,.14);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;color:var(--text)}
-  .cp-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #24273a;font-size:16px}
-  .cp-eng{font-size:12px;color:var(--sub);margin-left:auto}
-  .cp-close{background:none;border:none;color:var(--sub);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
-  .cp-close:hover{color:var(--text)}
-  .cp-cols{flex:1;display:flex;min-height:0}
-  .cp-left{flex:0 0 430px;padding:14px 20px 20px;overflow-y:auto;border-right:1px solid #24273a}
-  .cp-right{flex:1;padding:14px 20px 20px;overflow-y:auto;min-width:0}
-  .cp-cap{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:16px 0 7px}
-  .cp-cap small{font-weight:400;letter-spacing:0;text-transform:none}
-  .cp-left input[type=text],.cp-left select,.cp-left textarea{width:100%;background:#0d0e15;border:1px solid #33364a;border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:9px 11px;outline:none}
-  .cp-left textarea{min-height:150px;resize:vertical;line-height:1.45}
+  /* Skladatel (static/studio.js): a page under Tools — the brief on the left, the songs with their players on the right */
+  #composer-section{padding:0 0 30px}
+  .cp-page{color:var(--text)}
+  .cp-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 14px}
+  .cp-title{font-size:26px;font-weight:800;margin:0}
+  .cp-eng{font-size:12px;color:var(--sub)}
+  .cp-top select{margin-left:auto;min-width:240px;max-width:100%;background:var(--bg2,#0d0e15);border:1px solid var(--border,#33364a);border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:8px 10px}
+  .cp-cols{display:grid;grid-template-columns:minmax(360px,460px) minmax(0,1fr);gap:18px;align-items:start}
+  .cp-left{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .cp-right{min-width:0}
+  .cp-sec{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:14px}
+  .cp-sec>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:baseline;gap:10px}
+  .cp-sec>summary::-webkit-details-marker{display:none}
+  .cp-sec>summary::before{content:"▸";color:var(--sub);font-size:12px;transition:transform .15s}
+  .cp-sec[open]>summary::before{transform:rotate(90deg)}
+  .cp-sec>summary b{font-size:14.5px}
+  .cp-sec>summary small{font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .cp-sec-b{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .cp-sub{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub);margin-top:6px}
+  .cp-sub small{font-weight:400;letter-spacing:0;text-transform:none}
+  .cp-sub.big{font-size:13px;margin:6px 0 8px}
+  .cp-left input[type=text],.cp-left input[type=number],.cp-left select,.cp-left textarea{width:100%;background:#0d0e15;border:1px solid #33364a;border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:8px 10px;outline:none}
+  .cp-left textarea{resize:vertical;line-height:1.45}
+  .cp-desc{min-height:76px}
+  .cp-lyrics{min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px !important}
   .cp-left input:focus,.cp-left select:focus,.cp-left textarea:focus{border-color:var(--accent)}
-  .cp-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-  .cp-row .btn{flex:1;border-radius:500px;padding:10px 14px;font-size:13px}
-  .cp-row.two label{flex:1;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub)}
-  .cp-row.two span{flex:1}
-  .cp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .cp-left input[type=range]{width:100%;accent-color:var(--accent)}
+  .cp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+  .cp-row .btn{flex:1;border-radius:500px;padding:9px 14px;font-size:13px}
+  .cp-row.two>*,.cp-row.three>*{flex:1;min-width:0}
+  .cp-lbl{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--sub)}
+  .cp-lbl b{color:var(--text);font-variant-numeric:tabular-nums}
+  .cp-lbl small{font-size:11.5px;opacity:.85}
+  .cp-lbl .cp-row{flex-wrap:nowrap}
+  .cp-lbl .cp-row .btn{flex:none}
+  .cp-check{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--sub);line-height:1.45;cursor:pointer}
+  .cp-check input{margin-top:2px;accent-color:var(--accent)}
+  .cp-check b{color:var(--text)}
+  .cp-indent{padding-left:22px;display:flex;flex-direction:column;gap:8px}
+  .cp-chips{display:flex;flex-wrap:wrap;gap:6px}
   .cp-chips button{background:#1b1d2a;border:1px solid #33364a;color:var(--text);border-radius:500px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+  .cp-chips.small button{padding:4px 10px;font-size:12px}
   .cp-chips button:hover{border-color:var(--accent)}
   .cp-chips button.on{background:var(--accent);border-color:var(--accent);color:#0b0b14;font-weight:700}
-  .cp-note{font-size:12.5px;color:var(--sub);line-height:1.5;margin:10px 0 0}
+  .cp-tabs,.cp-seg{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid #2a2d40}
+  .cp-tabs button,.cp-seg button{background:none;border:none;border-bottom:2px solid transparent;color:var(--sub);font:inherit;font-size:12px;padding:5px 8px;cursor:pointer}
+  .cp-tabs button.on,.cp-seg button.on{color:var(--text);border-bottom-color:var(--accent);font-weight:700}
+  .cp-tipbtn{background:none;border:none;color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;padding:2px 0;text-align:left}
+  .cp-tips{margin:0;padding-left:18px;font-size:12.5px;color:var(--sub);line-height:1.5;display:flex;flex-direction:column;gap:3px}
+  .cp-writer{border-top:1px dashed #33364a;padding-top:8px;display:flex;flex-direction:column;gap:8px}
+  .cp-lw-res{font-size:12.5px;color:var(--sub);display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+  .cp-lw-res b{color:var(--text);font-size:14px}
+  .cp-lw-res p{margin:0}
+  .cp-ref{display:flex;align-items:center;gap:10px;font-size:13px}
+  .cp-models{display:flex;flex-direction:column;gap:6px}
+  .cp-model{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;border:1px solid #33364a;border-radius:10px;padding:8px 10px;cursor:pointer;font-size:12.5px;color:var(--sub)}
+  .cp-model input{grid-row:span 2;accent-color:var(--accent)}
+  .cp-model b{color:var(--text);font-size:13.5px}
+  .cp-model.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+  .cp-model.off{opacity:.5;cursor:not-allowed}
+  .cp-go{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;background:color-mix(in srgb,#13141c 92%,transparent);backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px 12px;font-size:12.5px;color:var(--sub)}
+  .cp-go span{flex:1;line-height:1.45}
+  .cp-go b{color:var(--text)}
+  .cp-go .btn{border-radius:500px;padding:10px 26px;font-size:14px;font-weight:800}
+  .cp-note{font-size:12.5px;color:var(--sub);line-height:1.5;margin:0}
   .cp-note.bad,.cp-st.bad{color:var(--danger)}
-  .cp-idea{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:12.5px;color:var(--sub)}
-  .cp-idea audio,.cp-card audio{width:100%;height:36px}
-  .cp-x{background:none;border:none;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0;align-self:flex-start}
+  .cp-idea{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--sub)}
+  .cp-idea audio{width:100%;height:36px}
+  .cp-x{background:none;border:none;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0}
   .cp-x:hover{color:var(--danger)}
-  .cp-card{border:1px solid #2a2d40;border-radius:13px;padding:12px 14px;margin-bottom:10px;background:#171923}
+  .cp-card{border:1px solid #2a2d40;border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#171923}
   .cp-card.done{border-color:#343850}
   .cp-card-head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
-  .cp-card-head b{font-size:14.5px}
-  .cp-card-head span{font-size:12px;color:var(--sub);flex:1}
+  .cp-card-head b{font-size:14.5px;white-space:nowrap}
+  .cp-card-head span{font-size:12px;color:var(--sub);flex:1;min-width:0}
   .cp-card-head .cp-x{font-size:18px;line-height:1}
-  .cp-st{font-size:12.5px;color:var(--sub)}
-  .cp-bar{height:6px;border-radius:500px;background:#23263a;overflow:hidden;margin-top:8px}
+  .cp-st{font-size:12.5px;color:var(--sub);margin-top:4px}
+  .cp-bar{height:6px;border-radius:500px;background:#23263a;overflow:hidden;margin-top:6px}
   .cp-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd));transition:width 2.4s linear}
-  .cp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px}
+  .cp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
   .cp-acts .btn{border-radius:500px;padding:8px 14px;font-size:12.5px}
   .cp-used{font-size:12.5px;color:var(--ok,#3ddc84)}
-  .cp-empty{margin:60px auto;max-width:420px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.55}
+  .cp-empty{margin:60px auto;max-width:440px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.55}
   .cp-empty b{color:var(--text);font-size:16px}
-  @media (max-width:900px){ .cp-cols{flex-direction:column} .cp-left{flex:none;border-right:none;border-bottom:1px solid #24273a} }
+  .vp{display:flex;flex-direction:column;gap:7px}
+  .vp-wave{width:100%;height:72px;display:block;border-radius:8px;background:rgba(0,0,0,.28);cursor:pointer}
+  .vp-bar{display:flex;align-items:center;gap:10px}
+  .vp-play{width:36px;height:36px;border-radius:50%;border:none;background:var(--accent);color:#0b0b14;font-size:15px;font-weight:800;cursor:pointer;flex:none}
+  .vp-play:disabled{opacity:.6}
+  .vp-time{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;flex:1}
+  .vp-vol{display:flex;align-items:center;gap:6px;font-size:13px}
+  .vp-vol input{width:110px;accent-color:var(--accent)}
+  .vp-stems{display:flex;flex-wrap:wrap;gap:6px}
+  .vp-stems button{display:inline-flex;align-items:center;gap:6px;background:#1b1d2a;border:1px solid #33364a;color:var(--sub);border-radius:500px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer;opacity:.55;text-decoration:line-through}
+  .vp-stems button.on{opacity:1;color:var(--text);text-decoration:none;border-color:#4a4e68}
+  .vp-stems button i{width:9px;height:9px;border-radius:50%}
+  .vp-stems .vp-all{opacity:1;text-decoration:none}
+  /* the bar beside the arrows: Skladatel at work, wherever the player is in the app */
+  .st-pill{position:relative;overflow:hidden;display:flex;align-items:center;gap:7px;margin-left:8px;padding:5px 12px;border-radius:14px;max-width:340px;
+    border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:rgba(255,255,255,.05);color:var(--text);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+  .st-pill[hidden]{display:none}
+  .st-pill-fill{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 30%,transparent);transition:width 2.4s linear;z-index:0}
+  .st-pill>*:not(.st-pill-fill){position:relative;z-index:1}
+  .st-pill-ic{animation:spin 2.4s linear infinite;display:inline-block}
+  .st-pill-tx{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .st-pill b{font-variant-numeric:tabular-nums}
+  .st-pill-left{color:var(--sub);font-variant-numeric:tabular-nums}
+  @media (max-width:980px){ .cp-cols{grid-template-columns:1fr} }
   /* The player's own take of a piece of the song. */
   .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
   .st-range span{margin-right:auto}
@@ -4075,6 +4141,7 @@ body.lib-collapsed .pick-brand{display:none}
     <button class="sp-round" id="nav-fwd" title="Vpřed">›</button>
     <div class="job-strip" id="job-strip" hidden title="Stahování a separace — klik ukáže podrobný výpis"></div>
     <div class="pt-sync" id="pt-sync" hidden></div>
+    <button type="button" class="st-pill" id="studio-pill" hidden></button>
   </div>
   <div class="sp-center">
     <button class="sp-home" id="sp-home" title="Domů" aria-label="Domů">
@@ -4935,6 +5002,8 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="section-title">Tools</div>
     <div class="tools-grid" id="tools-grid"></div>
   </div>
+
+  <div id="composer-section" hidden></div>
 
   <div id="loopstudio-section" hidden>
     <iframe id="loopstudio-frame" title="Loop Studio"></iframe>
@@ -8355,6 +8424,8 @@ function setMode(mode, opts){
   el("chords-section").hidden = mode !== "chords";
   el("analyzer-section").hidden = mode !== "analyzer";
   el("loopstudio-section").hidden = mode !== "loopstudio";
+  el("composer-section").hidden = mode !== "composer";
+  if(mode !== "composer" && typeof Composer !== "undefined") Composer.hide();
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -8391,6 +8462,8 @@ function setMode(mode, opts){
       if(fr.contentWindow && fr.dataset.ready) fr.contentWindow.postMessage({pick: true, ref}, location.origin);
       else fr.src = "/analyzer#ref=" + encodeURIComponent(JSON.stringify(ref)); }
     fr.dataset.ready = "1";
+  } else if(mode === "composer"){
+    if(typeof Composer !== "undefined") Composer.show(el("composer-section"));   // studio.js comes last; it shows itself if this was first
   } else if(mode === "loopstudio"){
     const fr = el("loopstudio-frame");
     if(!fr.getAttribute("src")) fr.src = "/loopstudio";
@@ -9713,6 +9786,7 @@ const TOOLS = [
   {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
   {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
   {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
+  {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
 ];
 
 const RAIL_SECTIONS = [
@@ -9722,10 +9796,10 @@ const RAIL_SECTIONS = [
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
   // Taby, Loops and Scales and Chords live under one heading.
-  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio"]},
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer"]},
 ];
 // Every mode the app can show, not only the rail's own headings.
-const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio"];
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -12163,13 +12237,10 @@ async function loadSteemsList(){
     <span class="dot">•</span>
     <span>${fmtSize(totalBytes)} na disku</span>
     ${incomplete ? `<span class="dot">•</span><span class="warn">${incomplete} nekompletní</span>` : ""}
-    <button type="button" class="btn secondary" id="steems-composer" style="margin-left:auto"
-      title="Skladatel: nahraj kousek kytary, vyber styly a Pick dohraje celý song v několika verzích — i se zpěvem tvého textu">${icon("note", 12)} Skladatel — song z nápadu</button>
-    <button type="button" class="btn secondary" id="steems-open-file"
+    <button type="button" class="btn secondary" id="steems-open-file" style="margin-left:auto"
       title="Libovolný audio soubor z počítače jako nový projekt v pultu (jedna stopa, kterou můžeš upravovat a přidávat k ní další)">${icon("add", 12)} Otevřít soubor jako projekt</button>
     <input type="file" id="steems-open-file-input" accept="audio/*,video/*,.wav,.mp3,.flac,.m4a,.aac,.ogg,.opus,.aif,.aiff" multiple hidden>`;
   list.appendChild(summary);
-  summary.querySelector("#steems-composer").onclick = () => Composer.open();
   summary.querySelector("#steems-open-file").onclick = () => summary.querySelector("#steems-open-file-input").click();
   summary.querySelector("#steems-open-file-input").onchange = (e) => { const f = [...e.target.files]; e.target.value = ""; if(f.length) newProjectFromUpload(f); };
 

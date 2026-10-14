@@ -293,25 +293,44 @@ přebuzená. Z českého čtení vznikne ukázka pro čtení (`ref.wav`, `ref.tx
 zpěvu a obou čtení 25 vteřin pro zpěv (`sing.wav`) — pauzy pryč, vyrovnaná
 hlasitost. Je to okamžitá kopie hlasu ze vzorku, ne dlouhé učení modelu.
 
-**Skladatel — song z nápadu** (Steems → „Skladatel — song z nápadu“,
-`static/studio.js`, `studio.py`): nahraješ nebo rovnou zahraješ kousek kytary
-(10–40 s), vybereš styly (16 rockových a metalových, nebo vlastní anglicky),
-počet variant a délku, a Pick dohraje celý song: tvůj nápad zůstane na začátku
-tak, jak jsi ho zahrál, a kapela na něj naváže ve stejném tempu a tónině.
-S textem se song zpívá (česky, anglicky…); bez nápadu vznikne jen podle stylu
-a textu. Skládá otevřený model ACE-Step 1.5 ve vlastním prostředí
-(`~/.local/share/spotdl-helper/studio/ACE-Step-1.5`, asi 11 GB), který Pick
-spouští jako malý server jen na dobu skládání a po třech minutách nečinnosti
-ho zase uklidí. Na M1 Pro trvá minuta hudby něco přes minutu a půl, probuzení
-modelu dvě minuty navíc; varianty jdou jedna po druhé a okno jde zavřít.
-Druhý režim, **kapela pod kytarou od začátku**: větší model
-(`acestep-v15-base`, dalších 4,5 GB) přidá k nápadu bicí a pak basu — každý
-nástroj zvlášť, aby seděl na to, co slyší — Pick je smíchá s tvou kytarou a
-zbytek songu pak rychlý model dohraje už z téhle kapely; hlasitost části pod
-nápadem se dorovná ke zbytku. Oba modely se do paměti nevejdou naráz, takže se
-mezi kroky střídají; dvacetivteřinový nápad s dohráním na 45 s trvá asi 7 minut.
-Vybraná varianta („Tuhle chci — do Steems“) se uloží do knihovny (Songs) a
-rozdělí na stopy; „…a zazpívat mým hlasem“ pak její zpěv přezpívá tvým hlasem.
+**Skladatel — song z nápadu** (Tools → Skladatel, `static/studio.js`, `studio.py`,
+`studio_words.py`, `lyricist.py`): stránka v levém panelu pod Tools. Nahraješ nebo
+rovnou zahraješ kousek kytary (10–40 s) — nebo nic — a popíšeš zvuk: hotové styly
+(16 rockových a metalových), vlastní popis anglicky, slova, kterým model rozumí
+(žánr, kytary, bicí, další nástroje, zpěv, nálada, zvuk a produkce, éra, tempo,
+stavba songu — klik je přidá do popisu), a nepovinně zvukovou předlohu (nahrávka,
+jejíž barvou a mixem se má řídit, s posuvníkem síly). Pick dohraje celý song: tvůj
+nápad zůstane na začátku tak, jak jsi ho zahrál, a kapela na něj naváže ve stejném
+tempu a tónině. S textem se song zpívá; text má štítky částí a hlasu na klik a rady,
+jak psát, aby ho model dobře zazpíval.
+
+*Textař* napíše celý text z pár slov („o čem“, slova, která tam musí být, styl
+textu, rýmy), dopíše tvoje rozepsané verše, nebo je upraví — vždy v podobě, kterou
+model zpívá nejlépe (části v [závorkách], 6–10 slabik na řádek, jeden obraz, refrén
+se vrací) — a navrhne k němu popis zvuku. Píše Claude (`lyrics_worker.py` v prostředí
+asistenta, model `claude-opus-5-5`); bez klíče nebo kreditu model v počítači
+(Gemma), česky slabší — aplikace řekne proč.
+
+*Model a nastavení* (vše, co ACE-Step 1.5 před spuštěním umí): Rychlý (turbo,
+8 kroků), Podrobný (SFT, 50 kroků, víc detailu, asi třikrát pomalejší, stažený zvlášť
+4,8 GB) a Základní (base); *Přemýšlení* — plánovač 1,7B si song nejdřív rozvrhne
+(jen u songu bez nápadu); kroky, síla popisu, shift, ADG, interval vedení, postup
+ODE/SDE, tempo, tónina, takt, seed (u hotové verze se dá vzít zpět do nastavení).
+Velké modely XL mají 20 GB vah a do 16 GB paměti se nevejdou.
+
+Skládá otevřený model ACE-Step 1.5 ve vlastním prostředí
+(`~/.local/share/spotdl-helper/studio/ACE-Step-1.5`), který Pick spouští jako malý
+server jen na dobu práce a po třech minutách nečinnosti ho uklidí. Skládá se na
+serveru: stránku můžeš opustit a v horní liště vedle šipek je proužek s tím, co se
+dělá, procentem (hlásí ho přímo model) a zbývajícím časem; klik vede zpět do
+Skladatele. Každá hotová verze se — jakmile se nic neskládá — rozdělí na nástroje
+(Demucs, jako ve Steems) a v kartě verze je přehrávač: vlna v barvách nástrojů,
+klik do ní posune, hlasitost, a každý nástroj jde vypnout (dvojklik = jen ten).
+Druhý režim, **kapela pod kytarou od začátku**: model base přidá k nápadu bicí a
+pak basu — každý nástroj zvlášť — Pick je smíchá s tvou kytarou a zbytek songu pak
+dohraje vybraný model. Vybraná varianta („Tuhle chci — do Steems“) se uloží do
+knihovny (Songs) a její stopy rovnou do Steems, bez druhého rozdělování; „…a zazpívat
+mým hlasem“ pak její zpěv přezpívá tvým hlasem.
 
 Ve **Steems** má seznam sloupce **Původ** (CZ / SK nebo Zahraniční) a
 **Playlist** (ve kterém staženém playlistu píseň je); podle obou jde řadit,
