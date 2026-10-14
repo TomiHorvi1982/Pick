@@ -13,11 +13,11 @@ const Composer = (() => {
   const DEF_OPTS = {model: "turbo", think: false, cot_caption: true, lm_temperature: 0.85, lm_cfg: 2.0, steps: 0, guidance: 7.0, shift: 3.0,
     method: "ode", adg: false, cfg_start: 0.0, cfg_end: 1.0, bpm: 0, key: "", timesig: "", seed: -1, ref_strength: 0.5, use_ref: true, separate: true};
   const form = {styles: ["hardrock"], desc: "", per: 1, length: 90, lyrics: "", lang: "cs", name: "", mode: "after", opts: {...DEF_OPTS},
-    lw: {mode: "write", about: "", words: "", mood: "", rhyme: true}};
+    lw: {mode: "write", about: "", words: "", mood: "", rhyme: true}, plan: []};
   try{ const s = JSON.parse(localStorage.getItem("pick-composer") || "{}");
     Object.assign(form, s, {opts: {...DEF_OPTS, ...(s.opts || {})}, lw: {...form.lw, ...(s.lw || {})}}); }catch(e){}
   const keep = () => { try{ localStorage.setItem("pick-composer", JSON.stringify({styles: form.styles, desc: form.desc, per: form.per, length: form.length,
-    lang: form.lang, mode: form.mode, opts: form.opts, lw: form.lw, lyrics: form.lyrics})); }catch(e){} };
+    lang: form.lang, mode: form.mode, opts: form.opts, lw: form.lw, lyrics: form.lyrics, plan: form.plan})); }catch(e){} };
   const esc = (s) => escapeHtml(String(s == null ? "" : s));
   const api = async (url, opt) => { const r = await fetch(url, opt), d = await r.json().catch(() => ({})); if(!r.ok) throw new Error(d.error || "Nepodařilo se."); return d; };
   const json = (body) => ({method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
@@ -207,6 +207,7 @@ const Composer = (() => {
       <div class="cp-cols"><div class="cp-left">
         ${sec("idea", p ? esc(p.name) : "1 · Nápad", p ? "projekt" : "kytara, nebo nic", idea)}
         ${sec("sound", "2 · Zvuk", "styly, vlastní popis, předloha", sound)}
+        ${sec("sb", "Zpěvník", "zvuk a stavba tvých písní ze Steems, tvoje texty — předlohy pro nový song", `<div id="cp-sb"></div>`, false)}
         ${sec("text", "3 · Text", "nepovinné; bez textu instrumentálka", text)}
         ${sec("len", "4 · Délka a verze", "", length)}
         ${sec("set", "5 · Model a nastavení", `${esc(m.name)}${o.think && !ideaNow ? " + přemýšlení" : ""}`, settings, false)}
@@ -215,6 +216,7 @@ const Composer = (() => {
       </div><div class="cp-right" id="cp-right"></div></div></div>`;
     wire();
     paintResults();
+    paintSb();
   }
   const secState = (() => { try{ return JSON.parse(localStorage.getItem("pick-composer-sec") || "{}"); }catch(e){ return {}; } })();
   const secOpen = (id, def) => id in secState ? secState[id] : def;
@@ -297,6 +299,179 @@ const Composer = (() => {
       const b = root.querySelector("#cp-lw-sound");
       if(b) b.onclick = () => { form.desc = out.sound; keep(); paint(); showToast("Popis zvuku je doplněný."); };
     }catch(e){ writing = false; paint(); showToast(e.message); }
+  }
+
+  // ---- Zpěvník (songbook.py): how the songs in Steems sound, section by section, and how their texts are
+  // built — lines, syllables, rhymes, never the words. With the player's own texts (kept whole), pieces of
+  // them are put together into the plan of a new song: from the plan come the sound description, the
+  // parts' tags and the shape the lyricist writes its own words into.
+  let sb = null, sbBand = "", sbSong = null, sbTab = "songs", sbT = 0;
+  async function sbLoad(){ try{ sb = await api("/api/songbook"); }catch(e){ sb = null; } }
+  function sbWatch(){
+    clearTimeout(sbT);
+    if(!shown || !sb || !sb.job.running) return;
+    sbT = setTimeout(async () => { await sbLoad(); if(sbSong && !sbSong.sound) await openSong(sbSong.name, true); paintSb(); sbWatch(); }, 4000);
+  }
+  const ENERGY = /peak energy|full energy|medium energy|quiet, sparse/, DRUMS = /blast beats and double bass drumming|fast double kick drumming|half-time drums/;
+  const hintOf = (r) => ((r.desc.match(DRUMS) || r.desc.match(ENERGY) || [""])[0]).replace(" and double bass drumming", "");
+  const shapeTx = (t) => !t || !t.lines ? "bez textu" : `${t.lines} ř. · ~${Math.round(t.avg)} slabik · rým ${t.rhyme || "—"}`;
+  async function openSong(name, quiet){
+    try{ const got = await api("/api/songbook/song/" + encodeURIComponent(name)); sbSong = {name, ...got}; }
+    catch(e){ sbSong = {name}; if(!quiet) showToast(e.message); }
+  }
+  async function analyse(names, limit){
+    try{ const r = await api("/api/songbook/analyse", json({names: names || [], limit: limit || 100}));
+      showToast(r.started ? `Rozebírám ${r.started} ${r.started === 1 ? "píseň" : r.started < 5 ? "písně" : "písní"} — běží na pozadí.` : r.note || "Hotovo."); }
+    catch(e){ showToast(e.message); }
+    await sbLoad(); paintSb(); sbWatch();
+  }
+  function addRow(row){ form.plan.push(row); keep(); paintSb(); }
+  function rowFromSection(song, r){
+    return {tag: r.tag, hint: hintOf(r), desc: r.desc, shape: r.text && r.text.lines ? {lines: r.text.lines, avg: r.text.avg, rhyme: r.text.rhyme} : null,
+      own: "", from: `${song.artist} – ${song.title}`, cap: song.sound.caption, bpm: song.sound.bpm, key: song.sound.key, ts: song.sound.timesig};
+  }
+  // the plan's parts as tags: verses numbered, a chorus is the chorus each time
+  function planTags(){
+    const n = {};
+    return form.plan.map((r) => { const base = r.tag.replace(/\s+\d+$/, ""); n[base] = (n[base] || 0) + 1;
+      return /^(Verse|Pre-Chorus|Bridge|Guitar Solo|Instrumental|Interlude)$/.test(base) && form.plan.filter((x) => x.tag.replace(/\s+\d+$/, "") === base).length > 1 ? `${base} ${n[base]}` : base; });
+  }
+  function planStructure(){
+    const tags = planTags(), seen = {};
+    return form.plan.map((r, i) => {
+      const t = `[${tags[i]}${r.hint ? " - " + r.hint : ""}]`, base = tags[i].replace(/\s+\d+$/, "");
+      if(r.own) return `${t} the player's own lines (given below)`;
+      if(!r.shape) return `${t} instrumental, no lines`;
+      const again = base === "Chorus" && seen.Chorus; seen[base] = true;
+      return `${t} ${again ? "the chorus again, same words (the last one may change one line)" : `${r.shape.lines} lines, about ${Math.round(r.shape.avg)} syllables a line, rhyme scheme ${r.shape.rhyme || "free"}`}`;
+    }).join("\n");
+  }
+  function planCaption(){
+    const caps = [...new Set(form.plan.map((r) => r.cap).filter(Boolean))];
+    const words = [...new Set(caps.flatMap((c) => c.split(",").map((x) => x.trim()).filter(Boolean)))];
+    return words.slice(0, 16).join(", ");
+  }
+  function soundFrom(src){
+    grab();
+    form.desc = src.cap;
+    if(src.bpm) form.opts.bpm = src.bpm;
+    if(src.key && st.keys.includes(src.key)) form.opts.key = src.key;
+    if(src.ts && st.timesigs[src.ts]) form.opts.timesig = src.ts;
+    keep(); paint(); showToast("Popis zvuku, tempo a tónina jsou doplněné.");
+  }
+  async function writePlan(){
+    if(!form.plan.length){ showToast("Stavba je prázdná — přidej do ní části písní."); return; }
+    grab();
+    if(form.lyrics.trim() && !await Dialog.confirm("Napsat nový text podle stavby místo toho, co je v poli Text?", {ok: "Napsat"})) return;
+    const tags = planTags(), own = form.plan.map((r, i) => r.own ? `[${tags[i]}]\n${r.own}` : "").filter(Boolean).join("\n\n");
+    writing = true; paint();
+    try{
+      const p = project(), desc = [planCaption(), form.desc].filter(Boolean)[0] || "";
+      const out = await api("/api/studio/lyrics", json({mode: own ? "complete" : "write", about: form.lw.about, words: form.lw.words, mood: form.lw.mood,
+        rhyme: form.lw.rhyme, text: own, lang: form.lang, desc, length: form.length, idea: !!(p && p.idea), structure: planStructure()}));
+      form.lyrics = out.lyrics; keep(); writing = false; paint();
+      showToast(`Text podle stavby napsal ${out.by}${out.note ? " — " + out.note : ""}.`);
+    }catch(e){ writing = false; paint(); showToast(e.message); }
+  }
+  async function tagsOnly(){
+    if(!form.plan.length) return;
+    grab();
+    if(form.lyrics.trim() && !await Dialog.confirm("Nahradit pole Text značkami stavby (a tvými texty v ní)?", {ok: "Nahradit"})) return;
+    const tags = planTags();
+    form.lyrics = form.plan.map((r, i) => `[${tags[i]}${r.hint ? " - " + r.hint : ""}]` + (r.own ? "\n" + r.own : r.shape ? "\n" : "")).join("\n\n") + "\n";
+    keep(); paint();
+  }
+  async function saveMine(){
+    grab();
+    if(!form.lyrics.trim()){ showToast("Pole Text je prázdné."); return; }
+    const title = await Dialog.prompt("Název textu:", form.name || (project() || {}).name || "", {placeholder: "např. Noční jízda"});
+    if(title == null) return;
+    const band = await Dialog.prompt("Kapela nebo projekt (podle toho se texty třídí):", "", {placeholder: "např. Naše kapela"});
+    if(band == null) return;
+    try{ await api("/api/songbook/mine", json({title, band, lang: form.lang, text: form.lyrics})); await sbLoad(); sbTab = "mine"; paintSb(); showToast("Text je ve Zpěvníku."); }
+    catch(e){ showToast(e.message); }
+  }
+  async function paintSb(){
+    const box = root && root.querySelector("#cp-sb");
+    if(!box) return;
+    const det = box.closest("details");
+    if(det && !det.open){ det.addEventListener("toggle", () => { if(det.open) paintSb(); }, {once: true}); return; }
+    if(!sb){ box.innerHTML = `<p class="cp-note">Načítám Zpěvník…</p>`; await sbLoad(); if(!sb){ box.innerHTML = `<p class="cp-note bad">Zpěvník se nepodařilo načíst.</p>`; return; } sbWatch(); }
+    const all = sb.bands.reduce((n, b) => n + b.songs.length, 0), done = sb.bands.reduce((n, b) => n + b.analysed, 0), j = sb.job;
+    const band = sb.bands.find((b) => b.band === sbBand) || null;
+    const head = `<div class="sb-top"><span>Rozebráno <b>${done}</b> z ${all} písní ve Steems</span>
+      ${j.running ? `<span class="sb-run"><i style="width:${j.total ? Math.round(j.done / j.total * 100) : 0}%"></i>${j.done}/${j.total} · ${esc(j.now || "")}</span><button type="button" class="cp-x" id="sb-stop">zastavit</button>`
+        : `<button type="button" class="btn secondary" id="sb-go" title="Vezme po jedné písni z každé kapely, dokud jich nebude sto: najde sekce, poslechne stopy a změří stavbu textu">Rozebrat 100 písní (různé kapely)</button>`}</div>
+      ${j.errors && j.errors.length && !j.running ? `<p class="cp-note bad">Nepovedlo se: ${j.errors.map(esc).join(" · ")}</p>` : ""}
+      <div class="cp-seg"><button type="button" data-sbtab="songs" class="${sbTab === "songs" ? "on" : ""}">Písně ze Steems</button><button type="button" data-sbtab="mine" class="${sbTab === "mine" ? "on" : ""}">Moje texty (${sb.mine.length})</button></div>`;
+    let body = "";
+    if(sbTab === "songs"){
+      body = `<select id="sb-band"><option value="">Vyber kapelu…</option>${sb.bands.map((b) => `<option value="${esc(b.band)}" ${b.band === sbBand ? "selected" : ""}>${esc(b.band)} — ${b.analysed}/${b.songs.length}</option>`).join("")}</select>`;
+      if(band){
+        body += `${band.genres.length ? `<p class="cp-note">${esc(band.genres.join(", "))}</p>` : ""}
+          <div class="sb-songs">${band.songs.map((x) => `<button type="button" data-sbsong="${esc(x.name)}" class="${sbSong && sbSong.name === x.name ? "on" : ""} ${x.analysed ? "" : "no"}">
+            <b>${esc(x.title)}</b><small>${x.analysed ? `${x.bpm ? x.bpm + " BPM" : ""}${x.key ? " · " + esc(x.key) : ""} · ${x.sections} částí${x.text ? "" : " · bez textu"}` : "nerozebraná"}</small></button>`).join("")}</div>
+          ${band.songs.some((x) => !x.analysed) && !j.running ? `<button type="button" class="cp-x" id="sb-band-go">rozebrat celou kapelu (${band.songs.filter((x) => !x.analysed).length})</button>` : ""}`;
+      }
+      const g = sbSong;
+      if(g && g.sound){
+        const s = g.sound;
+        body += `<div class="sb-song"><div class="sb-cap"><b>${esc(g.artist)} – ${esc(g.title)}</b><small>${[s.bpm && s.bpm + " BPM", s.key, s.timesig && s.timesig + "/4", g.text ? `text: ${esc(g.text.lang)}` : "text nenalezen"].filter(Boolean).join(" · ")}</small>
+            <p>${esc(s.caption)}</p>
+            <div class="cp-row"><button type="button" class="btn secondary" id="sb-sound">Popis celé písně → Zvuk</button><button type="button" class="btn secondary" id="sb-all">Celou stavbu → Stavba</button></div></div>
+          ${s.sections.map((r, i) => `<div class="sb-sec"><span class="sb-tag">[${esc(r.tag)}]</span><span class="sb-t">${clock(r.start)}–${clock(r.end)}</span>
+            <span class="sb-d">${esc(r.desc)}<small>${esc(shapeTx(r.text))}</small></span><button type="button" class="sb-add" data-sbsec="${i}" title="Přidat tuhle část do stavby nové písně">＋</button></div>`).join("")}</div>`;
+      } else if(g){
+        body += `<p class="cp-note">Píseň ještě není rozebraná. <button type="button" class="cp-x" id="sb-one" ${j.running ? "disabled" : ""}>rozebrat ji</button></p>`;
+      }
+    } else {
+      const groups = {};
+      sb.mine.forEach((m) => (groups[m.band || "Bez kapely"] = groups[m.band || "Bez kapely"] || []).push(m));
+      body = `<div class="cp-row"><button type="button" class="btn secondary" id="sb-save">Uložit text z pole Text jako můj</button></div>
+        ${sb.mine.length ? Object.entries(groups).map(([b, ms]) => `<div class="sb-band">${esc(b)}</div>` + ms.map((m) => `<div class="sb-mine"><div class="sb-mine-h"><b>${esc(m.title)}</b><small>${esc(m.lang || "")} · ${m.sections.length} částí</small>
+            <button type="button" class="cp-x" data-sbmineall="${m.id}">celý → Stavba</button><button type="button" class="cp-x" data-sbminedel="${m.id}">smazat</button></div>
+            ${m.sections.map((x, i) => `<div class="sb-sec"><span class="sb-tag">[${esc(x.tag)}]</span><span class="sb-d">${esc(x.text.split("\n")[0] || "")}${x.text.includes("\n") ? "…" : ""}<small>${x.text ? x.text.split("\n").length + " ř." : "bez textu"}</small></span>
+              <button type="button" class="sb-add" data-sbmine="${m.id}:${i}" title="Přidat do stavby">＋</button></div>`).join("")}</div>`).join("")).join("")
+          : `<p class="cp-note">Zatím tu nic není. Napiš nebo nech napsat text v části Text a ulož ho sem — pak ho můžeš skládat po částech do dalších písní.</p>`}`;
+    }
+    const tags = planTags();
+    const plan = `<div class="sb-plan"><div class="cp-sub">Stavba nové písně <small>— části v pořadí, v jakém zazní; mohou být z různých písní</small></div>
+      ${form.plan.length ? form.plan.map((r, i) => `<div class="sb-prow"><span class="sb-tag">[${esc(tags[i])}${r.hint ? " - " + esc(r.hint) : ""}]</span>
+          <span class="sb-d">${r.own ? "tvůj text · " + esc(r.own.split("\n")[0]) : esc(shapeTx(r.shape))}<small>${esc(r.from || "")}</small></span>
+          <button type="button" data-pup="${i}" ${i ? "" : "disabled"}>↑</button><button type="button" data-pdown="${i}" ${i < form.plan.length - 1 ? "" : "disabled"}>↓</button><button type="button" data-prm="${i}">✕</button></div>`).join("")
+        : `<p class="cp-note">Prázdná. Přidej ＋ části z písní nebo ze svých textů.</p>`}
+      ${form.plan.length ? `<div class="cp-row"><button type="button" class="btn secondary" id="sb-psound" title="Spojí popisy písní, ze kterých stavba je">Popis zvuku ze stavby</button>
+        <button type="button" class="btn" id="sb-pwrite" ${st.lyricist.length && !writing ? "" : "disabled"} title="Textař napíše nový vlastní text přesně do téhle stavby: počty řádků, slabik a rýmy; tvoje texty v ní nechá">Napsat text do stavby</button>
+        <button type="button" class="btn secondary" id="sb-ptags" title="Do pole Text dá značky částí (s tvými texty) — zbytek dopíšeš sám">Jen značky do Textu</button>
+        <button type="button" class="cp-x" id="sb-pclear">vyprázdnit</button></div>` : ""}</div>`;
+    box.innerHTML = head + body + plan;
+    const q = (id) => box.querySelector("#" + id), on = (id, fn) => { const n = q(id); if(n) n.onclick = fn; };
+    on("sb-go", () => analyse([], 100));
+    on("sb-stop", async () => { try{ await api("/api/songbook/analyse", {method: "DELETE"}); }catch(e){} await sbLoad(); paintSb(); });
+    on("sb-band-go", () => analyse(band.songs.filter((x) => !x.analysed).map((x) => x.name), 300));
+    on("sb-one", () => analyse([sbSong.name], 1));
+    box.querySelectorAll("[data-sbtab]").forEach((b) => b.onclick = () => { sbTab = b.dataset.sbtab; paintSb(); });
+    const bs = q("sb-band"); if(bs) bs.onchange = () => { sbBand = bs.value; sbSong = null; paintSb(); };
+    box.querySelectorAll("[data-sbsong]").forEach((b) => b.onclick = async () => { await openSong(b.dataset.sbsong, true); paintSb(); });
+    if(sbSong && sbSong.sound){
+      const src = {cap: sbSong.sound.caption, bpm: sbSong.sound.bpm, key: sbSong.sound.key, ts: sbSong.sound.timesig};
+      on("sb-sound", () => soundFrom(src));
+      on("sb-all", () => { sbSong.sound.sections.forEach((r) => form.plan.push(rowFromSection(sbSong, r))); keep(); paintSb(); showToast("Celá stavba písně je ve Stavbě."); });
+      box.querySelectorAll("[data-sbsec]").forEach((b) => b.onclick = () => addRow(rowFromSection(sbSong, sbSong.sound.sections[+b.dataset.sbsec])));
+    }
+    on("sb-save", saveMine);
+    const mineRow = (m, x) => ({tag: x.tag.replace(/\s+-\s+.*$/, ""), hint: "", desc: "", shape: null, own: x.text, from: `${m.band ? m.band + " – " : ""}${m.title}`, cap: ""});
+    box.querySelectorAll("[data-sbmine]").forEach((b) => b.onclick = () => { const [id, i] = b.dataset.sbmine.split(":"), m = sb.mine.find((x) => x.id === id); if(m) addRow(mineRow(m, m.sections[+i])); });
+    box.querySelectorAll("[data-sbmineall]").forEach((b) => b.onclick = () => { const m = sb.mine.find((x) => x.id === b.dataset.sbmineall); if(!m) return; m.sections.forEach((x) => form.plan.push(mineRow(m, x))); keep(); paintSb(); });
+    box.querySelectorAll("[data-sbminedel]").forEach((b) => b.onclick = async () => { if(!await Dialog.confirm("Smazat tenhle text ze Zpěvníku?", {ok: "Smazat", danger: true})) return;
+      try{ await api("/api/songbook/mine/" + b.dataset.sbminedel, {method: "DELETE"}); await sbLoad(); paintSb(); }catch(e){ showToast(e.message); } });
+    box.querySelectorAll("[data-pup],[data-pdown]").forEach((b) => b.onclick = () => { const i = +(b.dataset.pup || b.dataset.pdown), k = b.dataset.pup ? i - 1 : i + 1;
+      [form.plan[i], form.plan[k]] = [form.plan[k], form.plan[i]]; keep(); paintSb(); });
+    box.querySelectorAll("[data-prm]").forEach((b) => b.onclick = () => { form.plan.splice(+b.dataset.prm, 1); keep(); paintSb(); });
+    on("sb-psound", () => { const f = form.plan.find((r) => r.cap) || {}; soundFrom({cap: planCaption(), bpm: f.bpm, key: f.key, ts: f.ts}); });
+    on("sb-pwrite", writePlan);
+    on("sb-ptags", tagsOnly);
+    on("sb-pclear", async () => { if(await Dialog.confirm("Vyprázdnit stavbu?", {ok: "Vyprázdnit"})){ form.plan = []; keep(); paintSb(); } });
   }
 
   async function make(){

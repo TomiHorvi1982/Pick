@@ -75,6 +75,11 @@ def prompt(req: dict, langs: dict) -> str:
         parts.append(f"What the song is about (the player's words): {req['about'].strip()}")
     if (req.get("words") or "").strip():
         parts.append(f"Words or lines that must appear: {req['words'].strip()}")
+    if (req.get("structure") or "").strip():
+        parts.append("Write into exactly this structure — these parts in this order, each with this many lines, about this many "
+                     "syllables a line and this rhyme scheme (X = free line); a part marked 'same as' repeats that part's words. "
+                     "The structure was measured from songs the player likes; take only their shape. Every word must be your own: "
+                     "do not quote, paraphrase or imitate the lines of any existing song.\n" + req["structure"].strip())
     parts.append("Rhyme the lines." if req.get("rhyme", True) else "No need to rhyme; rhythm and meaning first.")
     mode, text = req.get("mode") or "write", (req.get("text") or "").strip()
     if mode == "complete" and text:

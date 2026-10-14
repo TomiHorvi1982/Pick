@@ -344,6 +344,18 @@ Pod mixem jsou v seznamu dalších písní nahoře ty od kapely otevřené písn
 načtení každé písně **zamčený** (tažení ani kolečko ho neposunou); odemčený ručně zůstane
 jen do další písně. Zbalený levý panel ukazuje jen ikony sekcí.
 
+**Zpěvník ve Skladateli** (`songbook.py`, Skladatel → Zpěvník): rozbor písní ze Steems jako
+předloha pro nové. Ke každé písni (`Stems/<píseň>/songbook.json`) zvuk slovy, kterým ACE-Step
+rozumí — žánry kapely (MusicBrainz), tempo, tónina, ladění, tón kytar, jak hrají bicí, energie —
+pro celou píseň i každou sekci zvlášť; a **stavba textu** po sekcích: kolik řádků, slabik, jaké
+rýmy, co se opakuje. Samotná slova cizích písní se do Zpěvníku neukládají — text zůstává
+v karaoke liště, textař píše do změřené stavby vlastní nová slova. **Moje texty**
+(`songbook-mine.json`): tvoje texty celé, po kapelách a částech. Ze sekcí různých písní
+i svých textů složíš **Stavbu nové písně** (↑ ↓ ✕): z ní „Popis zvuku ze stavby“ (s tempem
+a tóninou), „Napsat text do stavby“, nebo „Jen značky do Textu“. „Rozebrat 100 písní“ bere
+po jedné písni z každé kapely; běží na pozadí (sekce přes analyze.py, kde ještě nejsou,
+asi půl minuty na píseň) a čeká, když běží rozdělování.
+
 **MIDI pedál** (Nastavení → MIDI pedál): nožní spínač přes MIDI — Bluetooth Ampero Switch
 se v macOS připojí v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit),
 pak ho Chrome vidí jako MIDI vstup. Funkci (přehrát/zastavit, další / předchozí sekce,

@@ -10791,6 +10791,54 @@ import studio as _studio
 app.include_router(_studio.router)
 import setlists as _setlists
 app.include_router(_setlists.router)
+
+# Zpěvník pro Skladatele (songbook.py): the sound and the text's shape of the songs in Steems.
+import songbook as _songbook
+
+
+def _songbook_analysis(name: str):
+    got = stems_analysis(name)
+    return got if isinstance(got, dict) else None
+
+
+def _songbook_lyrics(d: Path):
+    m = _stems_meta(d)
+    if not m.get("title"):
+        return None
+    dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, st) for st in STEM_NAMES[:2]) if f) if x), None)
+    kept = _lyrics_kept(m["title"], m.get("artist") or "", dur)
+    if kept and kept.get("synced"):
+        return kept
+    try:                                                   # the same search the karaoke bar makes
+        got = _lookup_lyrics(m["title"], m.get("artist") or "", m.get("album") or "", dur)
+    except Exception:                                      # noqa: BLE001
+        got = None
+    return got if got and (got.get("lines") or got.get("plain")) else kept
+
+
+def _songbook_genres(band: str) -> list:
+    """The band's genres as MusicBrainz's listeners tag them, the most agreed first."""
+    want = _names.key(band)
+    for a in _mb_get("artist", query=f'artist:"{band}"', limit=5).get("artists") or []:
+        if _names.key(a.get("name")) == want:
+            tags = sorted(a.get("tags") or [], key=lambda t: -int(t.get("count") or 0))
+            return [t["name"] for t in tags if t.get("name") and int(t.get("count") or 0) > 0][:5]
+    return []
+
+
+def _songbook_busy() -> bool:
+    with _STEMS_LOCK:
+        ids = list(_STEMS_QUEUE)
+    return any((JOBS.get(j) or {}).get("status") in ("queued", "running") for j in ids)
+
+
+_songbook.stems_root = lambda: MUSIC_ROOT / "Stems"
+_songbook.ffmpeg = ffmpeg_bin
+_songbook.analysis_for = _songbook_analysis
+_songbook.lyrics_for = _songbook_lyrics
+_songbook.busy = _songbook_busy
+_songbook.genres_lookup = _songbook_genres
+app.include_router(_songbook.router)
 _studio.demucs_device = _demucs_device     # Skladatel takes its variants apart the same way, on the GPU
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped

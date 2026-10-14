@@ -1019,12 +1019,13 @@ class LyricsRequest(BaseModel):
     length: int = 90
     rhyme: bool = True
     idea: bool = False             # the song begins with the player's own instrumental idea
+    structure: str = ""            # the shape to write into — sections, lines, syllables, rhymes (the songbook)
 
 
 @router.post("/api/studio/lyrics")
 def lyrics_write(req: LyricsRequest):
     import lyricist
-    if not (req.about.strip() or req.words.strip() or req.text.strip()):
+    if not (req.about.strip() or req.words.strip() or req.text.strip() or req.structure.strip()):
         return JSONResponse({"error": "Napiš aspoň pár slov, o čem má píseň být."}, status_code=400)
     out = lyricist.write(req.model_dump(), LANGS)
     if out.get("error"):

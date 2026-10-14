@@ -48,6 +48,10 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "TAUGHT_PATH", tmp_path / "voice-taught.json")
     monkeypatch.setattr(voice, "TAKES_DIR", tmp_path / "voice-takes")
     monkeypatch.setattr(voice, "WIDGET_PATH", tmp_path / "voice-widget.json")
+    # …and the songbook's own texts and band genres.
+    import songbook
+    monkeypatch.setattr(songbook, "MINE", tmp_path / "songbook-mine.json")
+    monkeypatch.setattr(songbook, "BANDS", tmp_path / "songbook-bands.json")
     # …and the assistant never finds a real API key, nor spends anything.
     import assistant
     monkeypatch.setattr(assistant, "KEY_PATH", tmp_path / "anthropic-key.txt")
