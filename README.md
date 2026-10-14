@@ -354,7 +354,14 @@ v karaoke liště, textař píše do změřené stavby vlastní nová slova. **M
 i svých textů složíš **Stavbu nové písně** (↑ ↓ ✕): z ní „Popis zvuku ze stavby“ (s tempem
 a tóninou), „Napsat text do stavby“, nebo „Jen značky do Textu“. „Rozebrat 100 písní“ bere
 po jedné písni z každé kapely; běží na pozadí (sekce přes analyze.py, kde ještě nejsou,
-asi půl minuty na píseň) a čeká, když běží rozdělování.
+asi půl minuty na píseň) a čeká, když běží rozdělování. Co zbývá, se po každé písni zapíše
+(`songbook-queue.json`): ⏸ pozastavit dodělá rozebíranou píseň a počká i přes vypnutí Picku,
+▶ Pokračovat naváže; běh přerušený vypnutím nebo výpadkem proudu se po startu rozběhne sám.
+Dalších 100, nebo celou knihovnu (všechny nerozebrané).
+
+**Mapa aplikace** (Nastavení → Mapa aplikace, `/mapa`): mapa všech funkcí přímo v Picku, i bez
+internetu. `static/mapa.html` je jejím zdrojem — z něj se zveřejňuje i online verze — a po každé
+nové funkci se aktualizuje.
 
 **Text odposlechnutý ze zpěvu** (`hear.py`): když k písni ve Steems není text s časy, Pick si ho
 naposlouchá ze stopy zpěvu — sám po otevření písně, nebo v liště Text → ⋯ → Odposlechnout ze

@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa Picku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a signal chain read left to right — windows → sections → server → helpers → disk —
+   then feature cards, file map, how to run, roadmap. Pick's own night blue + violet, green = hotovo. */
+:root{
+  --bg:#f3f3f8; --panel:#ffffff; --sunk:#e8e8f2; --fg:#1a1b2e; --muted:#5b5d78; --line:#d5d6e4;
+  --accent:#6b4fd8; --accent-soft:#ece7ff; --blue:#2f5fd0; --ok:#1f9d5a; --ok-soft:#dcf3e6;
+  --warn:#b7791f; --warn-soft:#fbefd9; --no:#b03a48; --no-soft:#f8e1e4;
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d0f1f; --panel:#151833; --sunk:#1c2042; --fg:#e7e8f6; --muted:#9a9dc0; --line:#2a2f5a;
+  --accent:#9d85ff; --accent-soft:#2a2456; --blue:#7fa2ff; --ok:#4fd18b; --ok-soft:#163a2a;
+  --warn:#e6b45a; --warn-soft:#3a2e15; --no:#f07a88; --no-soft:#3d1c24; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d0f1f; --panel:#151833; --sunk:#1c2042; --fg:#e7e8f6; --muted:#9a9dc0; --line:#2a2f5a;
+  --accent:#9d85ff; --accent-soft:#2a2456; --blue:#7fa2ff; --ok:#4fd18b; --ok-soft:#163a2a;
+  --warn:#e6b45a; --warn-soft:#3a2e15; --no:#f07a88; --no-soft:#3d1c24; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--f-body);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:0 64px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1}
+h2{font-size:2rem;font-weight:800;letter-spacing:.01em}
+h3{font-size:1.25rem;font-weight:700}
+a{color:var(--blue)}
+code,.mono{font-family:var(--f-mono);font-size:.84em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 .74rem/1 var(--f-body);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;gap:16px;align-items:center;padding-block:10px;flex-wrap:wrap}
+.brand{font:800 1.35rem/1 var(--f-display);letter-spacing:.02em;display:flex;align-items:center;gap:8px}
+.brand svg{width:22px;height:22px;fill:var(--accent)}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav a{padding:6px 11px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.92rem}
+.nav a:hover,.nav a.on{background:var(--accent-soft);color:var(--fg)}
+
+/* hero */
+.hero{padding-block:40px 24px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:32px;align-items:end}
+.hero h1{font-size:clamp(2.6rem,6vw,4.4rem);font-weight:800}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{max-width:62ch;color:var(--muted);margin:14px 0 0}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fact{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.fact b{display:block;font:800 1.7rem/1 var(--f-display);font-variant-numeric:tabular-nums}
+.fact span{font-size:.82rem;color:var(--muted)}
+section{padding-block:36px 8px;scroll-margin-top:70px}
+.lead{color:var(--muted);max-width:70ch;margin:8px 0 20px}
+
+/* the signal chain map */
+.chain{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;position:relative}
+.lane{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;position:relative;min-width:0}
+.lane:not(:last-child)::after{content:"";position:absolute;right:-12px;top:30px;width:10px;height:10px;border-top:2px solid var(--accent);border-right:2px solid var(--accent);transform:rotate(45deg);opacity:.7}
+.lane h3{font-size:1.05rem;display:flex;justify-content:space-between;gap:6px}
+.lane h3 small{font:600 .7rem var(--f-body);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.lane p{margin:0;font-size:.82rem;color:var(--muted)}
+.node{display:block;text-align:left;width:100%;border:1px solid var(--line);background:var(--sunk);color:var(--fg);border-radius:8px;padding:7px 9px;font:inherit;font-size:.86rem;cursor:pointer;text-decoration:none;line-height:1.3}
+.node:hover{border-color:var(--accent);background:var(--accent-soft)}
+.node small{display:block;color:var(--muted);font-size:.74rem;font-family:var(--f-mono)}
+.node.hot{border-color:var(--accent)}
+
+/* feature explorer */
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+#q{flex:1 1 260px;min-width:0;padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:6px 12px;font:600 .85rem var(--f-body);cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted);margin-bottom:14px}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font:700 .72rem var(--f-body);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.test{background:var(--warn-soft);color:var(--warn)}
+.pill.no{background:var(--no-soft);color:var(--no)}
+.group-title{margin:26px 0 10px;display:flex;align-items:baseline;gap:10px}
+.group-title h3{font-size:1.5rem}
+.group-title span{color:var(--muted);font-size:.9rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-width:0;scroll-margin-top:80px}
+.card.flash{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.card summary{list-style:none;cursor:pointer;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 10px}
+.card summary::-webkit-details-marker{display:none}
+.card summary h4{margin:0;font:700 1.08rem/1.25 var(--f-body)}
+.card summary .where{grid-column:1/-1;font-size:.84rem;color:var(--muted)}
+.card summary .what{grid-column:1/-1;font-size:.93rem;margin-top:4px}
+.card summary .more{grid-column:1/-1;font-size:.8rem;color:var(--accent);font-weight:600}
+.card[open] summary .more{display:none}
+.card .body{padding:0 16px 16px;display:grid;gap:12px;border-top:1px dashed var(--line);padding-top:12px}
+.card .body h5{margin:0 0 4px;font:700 .72rem var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card ol{margin:0;padding-left:20px}
+.card ol li{margin-block:2px}
+.card ul.refs{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.card ul.refs li{font-size:.82rem;overflow-wrap:anywhere}
+.card ul.refs code{background:var(--sunk);padding:1px 5px;border-radius:4px}
+.voice{display:flex;flex-wrap:wrap;gap:5px}
+.voice code{background:var(--accent-soft);padding:2px 7px;border-radius:5px}
+.empty{color:var(--muted);padding:20px 0}
+
+/* files */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.tree{font-family:var(--f-mono);font-size:.8rem;line-height:1.7;overflow-x:auto;margin:0;white-space:pre}
+.tree .d{color:var(--accent);font-weight:600}
+.tree .c{color:var(--muted)}
+.tree .n{color:var(--ok)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 .72rem var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+td code{white-space:nowrap}
+.modgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px}
+.mod{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:.82rem;background:var(--sunk)}
+.mod b{font-family:var(--f-mono);font-weight:600;font-size:.8rem}
+.mod span{color:var(--muted);text-align:right}
+.mod i{font-style:normal;font-family:var(--f-mono);color:var(--accent);font-size:.75rem}
+
+/* run */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.cmd{display:flex;gap:8px;align-items:stretch;margin-top:8px}
+.cmd pre{flex:1;min-width:0;margin:0;background:var(--sunk);border-radius:7px;padding:9px 11px;font:.78rem/1.5 var(--f-mono);overflow-x:auto;white-space:pre}
+.copy{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:7px;padding:0 10px;font:600 .78rem var(--f-body);cursor:pointer;flex:none}
+.copy:hover{border-color:var(--accent)}
+.box p{margin:6px 0 0;font-size:.9rem}
+.box .warnline{color:var(--warn);font-weight:600}
+.ports{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:12px}
+.port{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel)}
+.port b{font:800 1.3rem var(--f-display);color:var(--accent);font-variant-numeric:tabular-nums}
+.port span{display:block;font-size:.82rem;color:var(--muted)}
+
+/* roadmap */
+.road{position:relative;display:grid;gap:0;margin-top:8px}
+.stop{display:grid;grid-template-columns:120px 22px minmax(0,1fr);gap:12px;padding-bottom:18px}
+.stop .date{font:700 .95rem var(--f-display);color:var(--muted);text-align:right;padding-top:1px;font-variant-numeric:tabular-nums}
+.stop .dot{position:relative}
+.stop .dot::before{content:"";position:absolute;left:5px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--ok)}
+.stop .dot::after{content:"";position:absolute;left:10px;top:19px;bottom:-18px;width:2px;background:var(--line)}
+.stop:last-child .dot::after{display:none}
+.stop.now .dot::before{background:var(--warn);box-shadow:0 0 0 4px var(--warn-soft)}
+.stop.next .dot::before{background:var(--panel);border:2px dashed var(--accent)}
+.stop h4{margin:0;font:700 1.02rem var(--f-body)}
+.stop p{margin:2px 0 0;font-size:.9rem;color:var(--muted)}
+.stop ul{margin:6px 0 0;padding-left:18px;font-size:.9rem}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+
+@media (max-width:980px){.chain{grid-template-columns:1fr 1fr}.lane::after{display:none}.hero{grid-template-columns:1fr}}
+@media (max-width:640px){.chain,.split{grid-template-columns:1fr}.facts{grid-template-columns:repeat(3,minmax(0,1fr))}.cards{grid-template-columns:1fr}.stop{grid-template-columns:72px 22px minmax(0,1fr)}.wrap{padding-inline:16px}h2{font-size:1.6rem}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c4.6 0 8 2.3 8 5.6 0 4.5-4.7 11.4-7 14-.5.5-1.5.5-2 0-2.3-2.6-7-9.5-7-14C4 4.3 7.4 2 12 2z"/></svg>Pick · mapa</div>
+    <nav class="nav" aria-label="Části mapy">
+      <a href="#mapa">Mapa</a><a href="#funkce">Funkce a návod</a><a href="#soubory">Soubory a kód</a><a href="#spusteni">Spuštění</a><a href="#roadmapa">Roadmapa</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Tvoje aplikace · stav k 14. 10. 2026 · commit 1909ec9</div>
+      <h1>Co <em>Pick</em> umí a kde to leží</h1>
+      <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
+    </div>
+    <div class="facts">
+      <div class="fact"><b>37</b><span>popsaných funkcí</span></div>
+      <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
+      <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
+      <div class="fact"><b>440</b><span>automatických testů</span></div>
+      <div class="fact"><b>221</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>637</b><span>písní ve Steems</span></div>
+    </div>
+  </div>
+
+  <!-- ============ MAP ============ -->
+  <section id="mapa">
+    <div class="eyebrow">Jak to do sebe zapadá</div>
+    <h2>Mapa aplikace</h2>
+    <p class="lead">Čti zleva doprava jako signálový řetězec: okno, ve kterém klikáš → sekce aplikace → server, který dělá práci → pomocné programy a modely → soubory na disku. Klik na kteroukoli dlaždici skočí na popis funkce s návodem.</p>
+    <div class="chain" id="chain">
+      <div class="lane">
+        <h3>Okna <small>kde klikáš</small></h3>
+        <p>Spouští je ikona Pick na ploše nebo ♪ v liště.</p>
+        <a class="node" href="#f-launch">Pick.app + lišta macOS<small>pick-launcher/pick.py, menubar.py</small></a>
+        <a class="node" href="#f-home">Hlavní okno<small>localhost:8765</small></a>
+        <a class="node" href="#f-mini">Minipřehrávač<small>localhost:8765/mini</small></a>
+        <a class="node" href="#f-analyzer">Performance Analyzer<small>/analyzer</small></a>
+        <a class="node" href="#f-loopstudio">Loop Studio<small>/loopstudio</small></a>
+        <a class="node" href="#f-assistant">Co umí asistent<small>/assistant/book</small></a>
+        <a class="node" href="#f-tonerig">ToneRig v telefonu<small>síť, port 8767</small></a>
+      </div>
+      <div class="lane">
+        <h3>Sekce <small>levý panel</small></h3>
+        <p>Všechno je ve <code>static/index.html</code>, plus <code>studio.js</code> a <code>look.js</code>.</p>
+        <a class="node" href="#f-home">Domů a Hledat</a>
+        <a class="node" href="#f-playlists">Playlisty</a>
+        <a class="node" href="#f-bands">Kapely a umělci</a>
+        <a class="node hot" href="#f-steems">Steems + mixpult</a>
+        <a class="node" href="#f-library">Knihovna</a>
+        <a class="node" href="#f-podcasts">Podcasty</a>
+        <a class="node" href="#f-tabs">Tools: Taby, Loops, Akordy…</a>
+        <a class="node" href="#f-composer">Tools → Skladatel</a>
+        <a class="node" href="#f-player">Spodní přehrávač</a>
+      </div>
+      <div class="lane">
+        <h3>Server <small>:8765</small></h3>
+        <p>FastAPI, <code>server.py</code> a malé moduly vedle něj.</p>
+        <a class="node" href="#f-download">Stahování (spotdl, yt-dlp)<small>server.py · download</small></a>
+        <a class="node" href="#f-separate">Fronta separace<small>server.py · separation queue</small></a>
+        <a class="node" href="#f-sections">Mřížka, sekce, akordy<small>beatgrid.py, analyze.py</small></a>
+        <a class="node" href="#f-voice">Hlasové povely<small>voice.py</small></a>
+        <a class="node" href="#f-assistant">Asistent<small>assistant.py</small></a>
+        <a class="node" href="#f-sing">Trenér zpěvu<small>sing.py</small></a>
+        <a class="node" href="#f-composer">Skladatel<small>studio.py</small></a>
+        <a class="node" href="#f-look">Vzhled<small>look.py</small></a>
+      </div>
+      <div class="lane">
+        <h3>Pomocníci <small>modely</small></h3>
+        <p>Těžké věci běží ve vlastních prostředích, server je jen spouští.</p>
+        <a class="node" href="#f-separate">Demucs 6 stop<small>~/.local/bin/demucs</small></a>
+        <a class="node" href="#f-sections">All-In-One + beat_this<small>venvs/spotdl-analyze</small></a>
+        <a class="node" href="#f-voice">Vosk + Whisper<small>voice/, whisper-cli</small></a>
+        <a class="node" href="#f-tts">OmniVoice (můj hlas čte)<small>venvs/pick-tts</small></a>
+        <a class="node" href="#f-myvoice">Seed-VC (můj hlas zpívá)<small>venvs/pick-svc · 2,4 GB</small></a>
+        <a class="node" href="#f-composer">ACE-Step 1.5 (Turbo, SFT, Base + plánovač)<small>studio/ · 20 GB · :8795</small></a>
+        <a class="node" href="#f-composer">Textař: Claude / Gemma<small>lyricist.py</small></a>
+        <a class="node" href="#f-assistant">Gemma 3 4B<small>models/ · llama-server</small></a>
+        <a class="node" href="#f-guitar">NAM zesilovač (wasm)<small>static/nam/</small></a>
+      </div>
+      <div class="lane">
+        <h3>Disk <small>tvoje data</small></h3>
+        <p>Hudba je na kartě PickSD, nastavení v domovské složce.</p>
+        <a class="node" href="#soubory">Songs, Stems, Playlists<small>/Volumes/PickSD/spotdl</small></a>
+        <a class="node" href="#soubory">Nastavení a hlasy<small>~/.local/share/spotdl-helper</small></a>
+        <a class="node" href="#f-steems">U každé písně<small>Stems/&lt;píseň&gt;/*.mp3, *.json</small></a>
+        <a class="node" href="#f-composer">Projekty Skladatele<small>studio/projects/</small></a>
+        <a class="node" href="#f-look">Uložený vzhled<small>look.json, look/</small></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section id="funkce">
+    <div class="eyebrow">Všechno, co je hotové</div>
+    <h2>Funkce a jednoduchý návod</h2>
+    <p class="lead">Každá karta říká, kde funkci v aplikaci najdeš, co dělá, jak ji použít krok za krokem, kde je v kódu a co si ukládá. Rozklikni kartu pro návod. Hledání prohledává i povely a názvy souborů.</p>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Hledat funkci, povel nebo soubor… (např. ladění, mixer, pick play)" aria-label="Hledat funkci">
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="legend">
+      <span><span class="pill ok">funguje</span> hotovo a otestováno</span>
+      <span><span class="pill test">čeká na tebe</span> hotovo, ale ještě to nikdo nezkusil naostro (sluch, mikrofon, hardware)</span>
+    </div>
+    <div id="features"></div>
+  </section>
+
+  <!-- ============ FILES ============ -->
+  <section id="soubory">
+    <div class="eyebrow">Kde co leží</div>
+    <h2>Soubory a kód</h2>
+    <p class="lead">Aplikace je v gitu (<a href="https://github.com/TomiHorvi1982/Pick" target="_blank" rel="noopener">github.com/TomiHorvi1982/Pick</a>, větev master). Modely, hudba a tvoje nastavení jsou mimo git, aby se repozitář nenafoukl a nic soukromého neodešlo.</p>
+    <div class="split">
+      <div class="box">
+        <h3>Kód aplikace</h3>
+        <p class="mono" style="color:var(--muted);font-size:.78rem">~/.local/share/spotdl-helper/app</p>
+<pre class="tree"><span class="d">app/</span>
+├─ <span class="n">server.py</span>          <span class="c">11 373 ř. · srdce: 256 adres API, stahování, stopy…</span>
+├─ voice.py           <span class="c">hlasové povely (Vosk, Whisper)</span>
+├─ assistant.py       <span class="c">asistent: věta → akce</span>
+├─ assistant_book.py  <span class="c">kniha 1 700+ vět</span>
+├─ assistant_worker.py<span class="c"> dotaz na Claude API (záloha)</span>
+├─ sing.py            <span class="c">trenér zpěvu: melodie, slova</span>
+├─ studio.py          <span class="c">Skladatel (ACE-Step), fronta, nástroje</span>
+├─ studio_words.py    <span class="c">slova pro popis zvuku a štítky textu</span>
+├─ lyricist.py        <span class="c">textař (Claude / model v počítači)</span>
+├─ lyrics_worker.py   <span class="c">dotaz na Claude pro textaře</span>
+├─ look.py            <span class="c">Úpravy vzhledu + zdroje</span>
+├─ loopstudio.py      <span class="c">Loop Studio: Loop Plan</span>
+├─ setlists.py       <span class="c">playlisty Steems</span>
+├─ stems_import.py    <span class="c">ručně přidané stopy (Moises) do Steems</span>
+├─ names.py           <span class="c">oficiální názvy písní</span>
+├─ beatgrid.py        <span class="c">mřížka dob a taktů</span>
+├─ analyze.py         <span class="c">sekce a akordy</span>
+├─ audio2midi.py      <span class="c">zvuk → noty (basic-pitch)</span>
+├─ tts_worker.py      <span class="c">vlastní hlas čte (OmniVoice)</span>
+├─ svc_worker.py      <span class="c">vlastní hlas zpívá (Seed-VC)</span>
+├─ menubar.py         <span class="c">♪ v liště macOS</span>
+├─ Pick.command       <span class="c">spuštění lišty z Finderu</span>
+├─ README.md          <span class="c">podrobný popis všeho</span>
+├─ <span class="d">static/</span>
+│  ├─ <span class="n">index.html</span>      <span class="c">33 066 ř. · celá aplikace v prohlížeči</span>
+│  ├─ studio.js       <span class="c">stránka Skladatele + přehrávač s nástroji</span>
+│  ├─ look.js         <span class="c">režim úprav vzhledu</span>
+│  ├─ practice.js     <span class="c">playlisty Steems + MIDI pedál</span>
+│  ├─ mini.html       <span class="c">minipřehrávač</span>
+│  ├─ analyzer.html   <span class="c">Performance Analyzer</span>
+│  ├─ analyzer-engine.js
+│  ├─ loopstudio.html <span class="c">Loop Studio</span>
+│  ├─ <span class="d">nam/</span>           <span class="c">zesilovač NAM (WebAssembly)</span>
+│  ├─ <span class="d">alphatab/</span>      <span class="c">kreslení tabů + zvuky</span>
+│  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
+│  ├─ <span class="d">stretch/</span>       <span class="c">zpomalení a ladění bez změny tempa</span>
+│  └─ <span class="d">ladicka/</span>       <span class="c">ladička</span>
+├─ <span class="d">tests/</span>            <span class="c">35 souborů, 410 testů</span>
+├─ <span class="d">docs/</span>             <span class="c">plány a návrhy (září)</span>
+└─ <span class="d">vendor/</span>           <span class="c">kaset, stemdeck — jen předlohy</span></pre>
+      </div>
+      <div class="box">
+        <h3>Data, nastavení a modely</h3>
+        <p class="mono" style="color:var(--muted);font-size:.78rem">mimo git</p>
+<pre class="tree"><span class="d">/Volumes/PickSD/spotdl/</span>      <span class="c">kořen hudby (mění se v Nastavení)</span>
+├─ <span class="d">Songs/</span>                  <span class="c">stažené písně</span>
+├─ <span class="d">Stems/&lt;píseň&gt;/</span>          <span class="c">637 písní na stopy</span>
+│   ├─ vocals, drums, bass, guitar, piano, other .mp3
+│   ├─ take-N.mp3            <span class="c">tvoje nahrávky</span>
+│   ├─ session.json          <span class="c">mix (sám se ukládá)</span>
+│   ├─ beats / analysis / sections.json
+│   ├─ tuning, meta, origin.json
+│   ├─ melody, sing-words, sing-history.json
+│   ├─ myvoice.json, myvoice-sample.wav
+├─ <span class="d">Playlists/</span>  <span class="d">Loops/</span>  <span class="d">NAM/</span>  <span class="d">Moises/</span>
+
+<span class="d">~/.local/share/spotdl-helper/</span>
+├─ config.json               <span class="c">nastavení</span>
+├─ server.log                <span class="c">log serveru</span>
+├─ anthropic-key.txt         <span class="c">API klíč (jen tady, chmod 600)</span>
+├─ <span class="d">voices/</span>                 <span class="c">tvoje hlasy: ref.wav, sing.wav</span>
+├─ <span class="d">voice/</span>                  <span class="c">Vosk, Whisper, naučené záznamy · 617 MB</span>
+├─ voice-*.json, voice-again.wav
+├─ assistant-learned / unknown.json
+├─ look.json, <span class="d">look/</span>          <span class="c">tvůj vzhled</span>
+├─ <span class="d">lyrics/</span>  <span class="d">tts/</span>  <span class="d">amps/</span>  <span class="d">riffs/</span>
+├─ <span class="d">models/</span>                 <span class="c">Gemma 3 4B · 2,3 GB</span>
+├─ <span class="d">svc/seed-vc/</span>            <span class="c">Seed-VC · 2,4 GB</span>
+├─ <span class="d">studio/ACE-Step-1.5/</span>     <span class="c">Skladatel · 20 GB (Turbo, SFT, Base, plánovač)</span>
+├─ <span class="d">studio/projects/</span>        <span class="c">nápady, verze, jejich nástroje, předlohy</span>
+└─ <span class="d">pick-launcher/</span>          <span class="c">zdroj Pick.app (pick.py)</span>
+
+<span class="d">~/.local/venvs/</span>
+├─ spotdl          <span class="c">server · 236 MB</span>
+├─ spotdl-analyze  <span class="c">sekce, akordy · 981 MB</span>
+├─ pick-tts        <span class="c">OmniVoice · 999 MB</span>
+├─ pick-svc        <span class="c">Seed-VC · 951 MB</span>
+├─ pick-midi       <span class="c">audio → MIDI · 392 MB</span>
+└─ pick-assistant  <span class="c">Claude API · 51 MB</span></pre>
+      </div>
+    </div>
+
+    <div class="box" style="margin-top:16px">
+      <h3>Mapa funkcí ve stránce</h3>
+      <p style="color:var(--muted)">Moduly v <code>static/index.html</code> s číslem řádku, kde začínají. Odsazené patří dovnitř mixpultu.</p>
+      <div class="modgrid" id="mods" style="margin-top:12px"></div>
+    </div>
+
+    <div class="box" style="margin-top:16px">
+      <h3>Mapa serveru</h3>
+      <p style="color:var(--muted)">Části <code>server.py</code> podle řádků a moduly vedle něj.</p>
+      <div class="tablewrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Řádek</th><th>Část</th><th>Hlavní adresy</th></tr></thead>
+          <tbody id="srv"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RUN ============ -->
+  <section id="spusteni">
+    <div class="eyebrow">Aby všechno fungovalo</div>
+    <h2>Spuštění a údržba</h2>
+    <p class="lead">Běžně stačí ikona Pick na ploše. Zbytek je pro chvíle, kdy něco nejede. Příkazy se kopírují tlačítkem a vkládají do Terminálu.</p>
+    <div class="steps">
+      <div class="box">
+        <h3>Spustit Pick</h3>
+        <p>Dvojklik na <b>Pick</b> na ploše. Nastartuje server a otevře okno Chrome bez lišt. Hlídač server po pádu sám znovu spustí.</p>
+        <div class="cmd"><pre>open ~/Desktop/Pick.app</pre><button class="copy">Kopírovat</button></div>
+        <p>Pak v prohlížeči: <a href="http://127.0.0.1:8765" target="_blank" rel="noopener">127.0.0.1:8765</a> · <a href="http://127.0.0.1:8765/mini" target="_blank" rel="noopener">/mini</a> · <a href="http://127.0.0.1:8765/analyzer" target="_blank" rel="noopener">/analyzer</a> · <a href="http://127.0.0.1:8765/loopstudio" target="_blank" rel="noopener">/loopstudio</a> · <a href="http://127.0.0.1:8765/assistant/book" target="_blank" rel="noopener">/assistant/book</a></p>
+      </div>
+      <div class="box">
+        <h3>Běží server?</h3>
+        <p>Má poslouchat přesně jeden proces na portu 8765.</p>
+        <div class="cmd"><pre>lsof -nP -iTCP:8765 -sTCP:LISTEN</pre><button class="copy">Kopírovat</button></div>
+        <div class="cmd"><pre>curl -s localhost:8765/health</pre><button class="copy">Kopírovat</button></div>
+        <div class="cmd"><pre>tail -50 ~/.local/share/spotdl-helper/server.log</pre><button class="copy">Kopírovat</button></div>
+      </div>
+      <div class="box">
+        <h3>Restart serveru</h3>
+        <p class="warnline">Nejdřív zkontroluj, že nic neběží, jinak přerušíš rozdělování písně.</p>
+        <div class="cmd"><pre>curl -s localhost:8765/api/stems/queue</pre><button class="copy">Kopírovat</button></div>
+        <p>Restartuj jen když odpověď je <code>{"jobs":[],"active":0}</code>. Hlídač pak server zvedne sám, druhý nikdy nespouštěj.</p>
+        <div class="cmd"><pre>pkill -f "uvicorn server:app"</pre><button class="copy">Kopírovat</button></div>
+      </div>
+      <div class="box">
+        <h3>Testy</h3>
+        <p>Po každé změně. Trvají asi 8 minut, mají projít všechny (teď 410).</p>
+        <div class="cmd"><pre>cd ~/.local/share/spotdl-helper/app && ~/.local/venvs/spotdl/bin/python -m pytest -q tests</pre><button class="copy">Kopírovat</button></div>
+      </div>
+      <div class="box">
+        <h3>Spustit server ručně</h3>
+        <p>Jen když Pick.app neběží vůbec (jinak vzniknou dva servery).</p>
+        <div class="cmd"><pre>cd ~/.local/share/spotdl-helper/app && ~/.local/venvs/spotdl/bin/python -m uvicorn server:app --host 127.0.0.1 --port 8765</pre><button class="copy">Kopírovat</button></div>
+      </div>
+      <div class="box">
+        <h3>Otevřít složky ve Finderu</h3>
+        <div class="cmd"><pre>open ~/.local/share/spotdl-helper/app</pre><button class="copy">Kopírovat</button></div>
+        <div class="cmd"><pre>open ~/.local/share/spotdl-helper</pre><button class="copy">Kopírovat</button></div>
+        <div class="cmd"><pre>open /Volumes/PickSD/spotdl/Stems</pre><button class="copy">Kopírovat</button></div>
+      </div>
+    </div>
+    <h3 style="margin-top:24px">Porty, na kterých Pick mluví</h3>
+    <div class="ports">
+      <div class="port"><b>8765</b><span>aplikace (jen tento Mac)</span></div>
+      <div class="port"><b>8766</b><span>Loops: Looperman uvnitř aplikace</span></div>
+      <div class="port"><b>8767</b><span>ToneRig stránka pro telefon (síť, jen když zapneš)</span></div>
+      <div class="port"><b>8795</b><span>ACE-Step jen během skládání</span></div>
+      <div class="port"><b>17493</b><span>Voicebox (cizí aplikace s hlasy)</span></div>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section id="roadmapa">
+    <div class="eyebrow">Kudy jsme šli a kam dál</div>
+    <h2>Roadmapa</h2>
+    <p class="lead">Zelené je hotové v gitu. Oranžové je hotové, ale potřebuje tvoje vyzkoušení naostro. Čárkované jsou možné další kroky, zatím nic rozhodnutého.</p>
+    <div class="split">
+      <div class="road">
+        <div class="stop"><div class="date">12.–14. 9.</div><div class="dot"></div><div><h4>Základ</h4><p>Knihovna, Nastavení, přehrávač s videem, první mixpult Steems, testy.</p></div></div>
+        <div class="stop"><div class="date">23.–29. 9.</div><div class="dot"></div><div><h4>Kytara naživo</h4><p>NAM zesilovač a předvolby, kompresor, doubler, tab a text v přehrávači, riffy, metronom.</p></div></div>
+        <div class="stop"><div class="date">30. 9.–5. 10.</div><div class="dot"></div><div><h4>Pick</h4><p>Loops, Taby z Guitar Pro, fronta separace, ToneRig, MIDI, nový minipřehrávač, oblíbené, Pick Tabs, přejmenování na Pick.</p></div></div>
+        <div class="stop"><div class="date">7.–8. 10.</div><div class="dot"></div><div><h4>Analýza a Loop Studio</h4><p>Performance Analyzer, Loop Studio, zvuk na MIDI, nástrojové menu v Steems.</p></div></div>
+        <div class="stop"><div class="date">8.–10. 10.</div><div class="dot"></div><div><h4>Hlas</h4><p>Hlasové povely, trenér zpěvu, asistent, minipřehrávač na povel, výslovnost, poslouchání bez okna.</p></div></div>
+        <div class="stop"><div class="date">11.–12. 10.</div><div class="dot"></div><div><h4>Chytřejší Pick</h4><p>„hey pick“, oficiální názvy, alba interpreta u mixu, vlastní klonovaný hlas, asistent bez internetu.</p></div></div>
+        <div class="stop"><div class="date">13. 10.</div><div class="dot"></div><div><h4>Tvorba</h4><p>Úpravy vzhledu, CZ/SK a playlist ve Steems, zpěv mým hlasem, průvodce novým hlasem, Skladatel, kapela pod kytarou, úryvek zpěvu k písni.</p></div></div>
+        <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Skladatel v Tools</h4><p>Popis zvuku vlastními slovy i na klik, textař, všechna nastavení ACE-Step, model SFT, přemýšlení, zvuková předloha, přehrávač s vypínáním nástrojů, průběh v horní liště.</p></div></div>
+        <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Cvičení s kamarádem</h4><p>Playlisty Steems, MIDI pedál, okna Picku místo prohlížečových, výběr textu od kapely. Ručně přidané stopy z Moises se samy zaindexují (Sepultura, Death, Trivium: +100 písní). Ručně přidané písně si samy dohledají album podle diskografie kapely (sloupec Playlist: „Ručně přidáno“). Pod mixem nahoře písně otevřené kapely. Taby po načtení písně zamčené. Zbalený levý panel jen s ikonami. Kapela ve Steems, píseň bez kytar, ladění kytar a basy, start od sekce, posun smyčky o 0,5 s, zesílení mikrofonu.</p></div></div>
+        <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Zpěvník</h4><p>Rozbor písní ze Steems pro Skladatele: zvuk celé písně i sekcí slovy pro ACE-Step, stavba textu (řádky, slabiky, rýmy), vlastní texty po kapelách a částech, Stavba nové písně ze sekcí různých písní, textař píše do stavby.</p></div></div>
+        <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Text ze zpěvu, přezpívání, výkon</h4><p>Pick si naposlouchá text ze stopy zpěvu (i české písně), řádek jde opravit nebo přezpívat novými slovy hlasem zpěváka v melodii originálu, a Nastavení ukazuje paměť a procesor — náročné úlohy počkají, když je paměti málo.</p></div></div>
+        <div class="stop now"><div class="date">teď</div><div class="dot"></div><div><h4>Čeká na tvoje vyzkoušení</h4>
+          <ul>
+            <li>Poslech: přezpívané demo v „Kryštof – Intro“, projekty „Zkouška Skladatele“ a „Zkouška modelů“ (SFT a Turbo s přemýšlením)</li>
+            <li>Textař přes Clauda: na účtu Anthropic chybí kredit, zatím píše slabší model v počítači</li>
+            <li>Úryvek zpěvu a průvodce hlasem se skutečným mikrofonem a sluchátky</li>
+            <li>„Tuhle chci — do Steems“ a zazpívání na skutečné knihovně</li>
+            <li>ToneRig s telefonem a iRig (MIDI předvolby, vstup 2)</li>
+            <li>Vlastní ukazatel myši v reálném okně</li>
+          </ul></div></div>
+        <div class="stop next"><div class="date">dál?</div><div class="dot"></div><div><h4>Možné další kroky (návrhy)</h4>
+          <ul>
+            <li>Doladit výchozí kvalitu a výšku hlasu podle toho, jak ti to zní</li>
+            <li>Opravy jednotlivých úseků přezpívaného zpěvu přímo na stopě</li>
+            <li>Delší songy ze Skladatele po částech (sloka, refrén, sólo)</li>
+            <li>Export hotového mixu nebo songu do souboru</li>
+            <li>Úklid místa na disku, až rozhodneš co (teď se nic nemaže)</li>
+            <li><b>Revival večer</b>: vyber kapelu, Zpěvník dá její zvuk a stavbu, Skladatel z toho udělá nový song s vaším textem — a vy dva ho hned hrajete v Steems</li>
+            <li><b>Souboj refrénů</b>: stejná stavba pro oba, každý si nechá napsat (nebo napíše) vlastní refrén, Skladatel obě verze složí, hlasujete</li>
+            <li><b>Žánrová výměna</b>: popis jedné písně, stavba druhé („Death zvuk, AC/DC stavba“)</li>
+            <li><b>Hádej kapelu</b>: Pick přečte zvukový popis sekce, kdo první pozná píseň</li>
+            <li><b>Doprovod na cvičení</b>: Skladatel složí podle popisu sekce jen bicí a basu bez kytary, tempo o 10 % pomaleji</li>
+            <li><b>Skládání po částech</b>: každá sekce Stavby jako vlastní kus a pak spojení do jednoho songu (delší a přesnější výsledek)</li>
+            <li><b>Statistiky Zpěvníku</b>: průměrné tempo, nejčastější ladění a stavby po kapelách — co máte rádi</li>
+          </ul></div></div>
+      </div>
+      <div class="box">
+        <h3>Pravidla, na kterých jsme se dohodli</h3>
+        <ul style="padding-left:18px;font-size:.92rem;margin:10px 0 0;display:grid;gap:6px">
+          <li>Commit a push jen když řekneš „ano“ nebo „commitni“. Jde rovnou na master.</li>
+          <li>Rozdělování písně se nikdy nepřerušuje restartem.</li>
+          <li>API klíč zůstává v souboru, nikdy v prohlížeči ani v chatu.</li>
+          <li>Testy v prohlížeči nepíšou do tvých dat a uklízí po sobě.</li>
+          <li>Složka <code>~/Sepultura-Tabs</code> se nechává být.</li>
+          <li>Nic velkého se nemaže bez tvého slova (Claude vm_bundles, npx cache, modely Voiceboxu).</li>
+        </ul>
+        <h3 style="margin-top:20px">Co nebude</h3>
+        <ul style="padding-left:18px;font-size:.92rem;margin:10px 0 0;display:grid;gap:6px">
+          <li><span class="pill no">ne</span> Export ze Songsterru do Guitar Pro (SongsterrPlusPatcher)</li>
+          <li><span class="pill no">ne</span> Automatické ovládání webu Moises</li>
+        </ul>
+        <h3 style="margin-top:20px">Jak zůstane mapa aktuální</h3>
+        <p style="font-size:.92rem">Po každé nové funkci ji Claude aktualizuje na téhle stejné adrese: nová karta, soubory, řádky a zápis do roadmapy. Datum a commit nahoře říkají, ke kterému stavu patří.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>Mapa Picku · podle kódu v commitu 1909ec9 (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+</main>
+
+<script>
+const GROUPS = [
+  {k:"music", t:"Hudba a hledání", s:"najít, stáhnout, poslouchat"},
+  {k:"steems", t:"Steems a cvičení", s:"písně rozdělené na stopy"},
+  {k:"guitar", t:"Kytara", s:"tvoje kytara v aplikaci"},
+  {k:"voice", t:"Zpěv a hlas", s:"trénink, výslovnost, tvůj hlas"},
+  {k:"create", t:"Tvorba a nástroje", s:"skládání, taby, analýza"},
+  {k:"control", t:"Ovládání", s:"hlasem, asistent, okna"},
+  {k:"look", t:"Vzhled", s:"barvy, písmo, ukazatel"},
+];
+const IX = "static/index.html";
+const F = [
+ // ---------- music
+ {id:"home", g:"music", n:"Domů a Hledat", w:"Horní lišta: domeček, lupa", d:"Hledá písně, kapely, alba a playlisty na YouTube Music a hned je pouští, i s videem.", st:"ok",
+  how:["Klikni na lupu nahoře.","Napiš název nebo kapelu, našeptávač nabízí výsledky.","Klik na píseň ji pustí ve spodním přehrávači; tlačítkem ji stáhneš nebo uložíš do oblíbených."],
+  code:[[IX,"SearchSuggest ř. 6067, VirtualKeyboard ř. 6204"],["server.py","search, preview stream ř. 4696, video ř. 1396"]], data:["nic, jen dočasná cache streamu (45 min)"], v:["pick search …","pick find …"]},
+ {id:"playlists", g:"music", n:"Playlisty", w:"Levý panel → Playlisty", d:"Playlisty ze Spotify a YouTube. U každé písně značky MP3 · STOPY · TAB · TEXT ukazují, co už máš.", st:"ok",
+  how:["Otevři playlist.","„Označit jen chybějící“ zaškrtne písně bez stop.","„Připravit vybrané na cvičení“ je stáhne, rozdělí a najde tab a text."],
+  code:[[IX,"PlStats ř. 25683, SongHave ř. 7069, PracticeReady ř. 6993"],["server.py","playlist, practice/have, practice/save-many"]], data:["Playlists/ v hudbě"], v:["pick show me playlists","pick find playlist …"]},
+ {id:"bands", g:"music", n:"Kapely a umělci", w:"Levý panel → Kapely a umělci", d:"Kapely podle žánru a země, české kapely z Bandzone, žebříčky, profil interpreta s podobnými kapelami.", st:"ok",
+  how:["Vyber kritérium nebo hledej kapelu.","Na profilu jsou alba, písně a podobní interpreti.","Hvězdička uloží kapelu do Oblíbených."],
+  code:[[IX,"Bands ř. 6457, FavBands ř. 6964"],["server.py","bands & artists ř. 914, Bandzone ř. 939, charts ř. 1159, artist ř. 2164"]], data:["artist-about.json"], v:["pick show me bands"]},
+ {id:"library", g:"music", n:"Knihovna", w:"Levý panel → Knihovna", d:"Strom složek a tabulka skladeb s pravými tagy. Přesouvání, mazání, výběr více písní, připojené složky.", st:"ok",
+  how:["Rozklikni složku vlevo.","Zaškrtni písně, v liště výběru „Připravit na cvičení“.","„Označit, co chybí“ vybere písně bez tabu nebo textu."],
+  code:[[IX,"LibHave ř. 10589"],["server.py","library management ř. 1428, local files ř. 2650"]], data:["Songs/ a připojené složky"], v:["pick show me library","pick show me folders"]},
+ {id:"podcasts", g:"music", n:"Podcasty", w:"Levý panel → Podcasty", d:"České podcasty podle témat, hledá sadou českých dotazů.", st:"ok",
+  how:["Otevři Podcasty.","Vyber téma nebo hledej.","Díl pustíš klikem."], code:[["server.py","podcasts ř. 10178"]], data:[], v:["pick show me podcasts"]},
+ {id:"player", g:"music", n:"Spodní přehrávač", w:"Dole přes celou šířku", d:"Přehrává, ukazuje text, tab, video a kytaru naživo k písni. Obaly dávají aplikaci barvy.", st:"ok",
+  how:["Pusť cokoli.","Ikony vpravo otevřou text, tab nebo kytaru.","F přepne celou obrazovku."],
+  code:[[IX,"Player ř. 26281, LyricsView ř. 26813, PlayerTab ř. 27059, PlayerGuitar ř. 29579, PlayerLyricsDock ř. 29363, Ambient ř. 30506"],["server.py","lyrics ř. 9821"]], data:["lyrics/ (uložené texty)"], v:["pick play","pick stop","pick up / down","pick full screen"]},
+ {id:"download", g:"music", n:"Stahování", w:"Tlačítko stáhnout u písně nebo playlistu", d:"spotdl a yt-dlp stáhnou písně do Songs s obalem a tagy. Průběh je v pásu úloh.", st:"ok",
+  how:["U písně nebo playlistu klikni Stáhnout.","Průběh sleduj v pásu úloh.","Hotová píseň je v Knihovně."],
+  code:[[IX,"JobStrip ř. 27538"],["server.py","download ř. 5432"]], data:["Songs/"], v:[]},
+ // ---------- steems
+ {id:"steems", g:"steems", n:"Steems: seznam písní", w:"Levý panel → Steems", d:"Všechny písně rozdělené na stopy, jako karty nebo tabulka. Sloupce Původ (CZ/SK nebo Zahraniční) a Playlist, řazení, filtry, skupiny.", st:"ok",
+  how:["Otevři Steems. Písně rozdělené jinde (Moises) stačí nakopírovat do složky Stems — Pick je sám zaindexuje a dohledá k nim album.","Po otevření písně jsou v seznamu pod mixem nahoře písně téže kapely; levý panel ukáže všechna její alba a co z nich máš.","Přepni karty / tabulka vpravo nahoře.","Filtr CZ/SK nebo Zahraniční nahoře; klik na hlavičku řadí.","Špatný původ opravíš klikem na značku."],
+  code:[[IX,"SteemsRail ř. 9863, ListSort ř. 5510, UnderList ř. 12355"],["server.py","stems ř. 5648, původ ř. 7013"],["stems_import.py","ručně přidané stopy"]], data:["Stems/<píseň>/origin.json, Stems/.imported.json"], v:["pick show me stems","pick sort by band / title"]},
+ {id:"setlist", g:"steems", n:"Playlisty Steems", w:"Levý panel → Steems → Playlisty Steems", d:"Písně ze Steems v tvém pořadí; hrají jedna po druhé v mixu, každá se svým uloženým nastavením. Hlasem „pick practice playlist <název>“.", st:"test",
+  how:["＋ Nový playlist, pojmenuj ho.","Rozklikni ho: ＋ Přidat písně — napiš kapelu a klikej na písně, hledání zůstane; Hotovo zavře. ↑ ↓ pořadí, ✕ odebrat.","▶ spustí od začátku, klik na píseň od ní; ■ zastaví.","Na konci písně se sama načte a spustí další."],
+  code:[["static/practice.js","Setlist"],["setlists.py","/api/setlists"],[IX,"Mixer tick → Setlist.ended()"]], data:["steems-playlists.json"], v:["pick practice playlist <název>"]},
+ {id:"pedal", g:"steems", n:"MIDI pedál (Ampero Switch)", w:"Nastavení → MIDI pedál", d:"Nožní spínač přes Bluetooth MIDI: funkce na šlápnutí, dvojklik nebo podržení, naučené šlápnutím (MIDI learn).", st:"test",
+  how:["Pedál připoj v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit).","V Picku Nastavení → MIDI pedál → Připojit MIDI.","Vyber funkci a způsob (šlápnutí / dvojklik / podržení), dej Naučit a šlápni.","Poslední zpráva ukazuje, co pedál posílá."],
+  code:[["static/practice.js","Pedal (parse, hit, learn)"],["server.py","/api/system/midi-setup"]], data:["prohlížeč: pick-pedal"], v:[]},
+ {id:"separate", g:"steems", n:"Rozdělení na stopy", w:"Steems nebo u písně „Rozdělit“", d:"Demucs rozdělí píseň na 6 stop: zpěv, bicí, basa, kytara, klavír, ostatní. Běží ve frontě na GPU.", st:"ok",
+  how:["U písně klikni Rozdělit (nebo hvězdička = oblíbená).","Sleduj frontu ve Steems.","Hotová píseň se objeví v seznamu."],
+  code:[[IX,"StemsQueue ř. 11974"],["server.py","separation queue ř. 5813"]], data:["Stems/<píseň>/*.mp3 (320k)"], v:["pick save song"]},
+ {id:"prepare", g:"steems", n:"Připravit na cvičení", w:"Steems → „Připravit oblíbené na cvičení“", d:"Co uložíš do oblíbených, server sám stáhne, rozdělí a najde k tomu tab a text.", st:"ok",
+  how:["Dej hvězdičku písni nebo playlistu.","Ve Steems „Připravit oblíbené“ spočítá, co chybí, a zeptá se.","Stejným tlačítkem zastavíš."],
+  code:[[IX,"FavSongs ř. 7102, PracticeReady ř. 6993"],["server.py","pick save song ř. 6019"]], data:["lyrics/, pick_tabs.json"], v:["pick save song"]},
+ {id:"mixer", g:"steems", n:"Mixpult", w:"Steems → klik na píseň", d:"Každá stopa s faderem, mute, sólo, pan, vlnou ve své barvě. Nahoře souhrnná vlna ze všech barev, zoom drží vlny s pravítkem, mix se ukládá sám.", st:"ok",
+  how:["Otevři píseň ze Steems.","Mute a sólo u stop; barva zmizí i z horní vlny.","Kolečkem nebo lupou zoom, tempo a tónina nahoře.","Nic neukládej, uloží se samo po vteřině."],
+  code:[[IX,"Mixer ř. 14020 (renderOverview, loopSection), TrackAmp ř. 16783, DrumHits ř. 16850"],["server.py","stems, tracks ř. 8928, clip ř. 7639"]], data:["Stems/<píseň>/session.json"], v:["pick play mix","pick stop mix","pick practice this song"]},
+ {id:"sections", g:"steems", n:"Mřížka, sekce, akordy", w:"Mixpult → pruhy nad stopami", d:"Takty a doby z bicích, sekce (sloka, refrén…) a akordy. Klik na sekci ji označí a dá do smyčky; sekce jdou táhnout a přejmenovat.", st:"ok",
+  how:["Klik na sekci = smyčka, druhý klik smyčku vypne.","Okraj sekce táhni, Alt vypne přichytávání.","Pravým tlačítkem přejmenuješ nebo smažeš."],
+  code:[["beatgrid.py","mřížka (beat_this)"],["analyze.py","sekce (All-In-One), akordy (chroma)"],[IX,"Mixer → loopSection"]], data:["beats.json, analysis.json, sections.json"], v:[]},
+ {id:"tabinmix", g:"steems", n:"Tab a text v mixu", w:"Mixpult → stopy Tab a Text, menu Možnosti", d:"Tab běží s písní (Sync / Lock sync), text jako běžící pás nebo po řádcích. Hledání na karaoketexty.cz je v menu Možnosti.", st:"ok",
+  how:["Sync: posuň tab rukou, klik ho připne.","U textu Možnosti → po řádcích / běžící text, změnit text, karaoketexty.cz.","Řádek textu jde chytit a posunout."],
+  code:[[IX,"TabInline ř. 16046, AlphaTabView ř. 20405, TabMarkers ř. 5827"],["server.py","songsterr ř. 1612, lyrics ř. 9821"]], data:["tuning.json, lyrics/"], v:["pick see lyrics","pick see mix","pick see more guitars"]},
+ {id:"tuning", g:"steems", n:"Píseň se ladí podle kytary", w:"Mixpult → ladění; Ladička", d:"Když znáš ladění písně z tabu, posune se píseň na ladění tvé kytary (kromě bicích a zpěvu). „Originál“ vrátí.", st:"ok",
+  how:["V ladičce vyber své ladění („Tohle je moje ladění“).","Otevři píseň, sama se přeladí.","„Originál“ ji vrátí do původní výšky."],
+  code:[[IX,"MyTuning ř. 13437, Tunings ř. 13377, TabRetune ř. 13076"],["server.py","tunings ř. 5063, tuning písně ř. 6860"]], data:["tuning.json"], v:["pick sort by tuning"]},
+ {id:"names", g:"steems", n:"Oficiální názvy a alba", w:"Pod mixem „Opravit názvy“; levý panel u mixu", d:"Názvy z videí se opraví podle katalogu; vlevo u mixu jsou všechna alba interpreta a co z nich máš.", st:"ok",
+  how:["Nové písně se opraví samy.","„Opravit názvy“ projde zbylé.","Vlevo zaškrtni písně z alba → Stáhnout a rozdělit."],
+  code:[["names.py","čištění a katalog"],["server.py","names ř. 7132, alba ř. 7342"]], data:["meta.json"], v:[]},
+ // ---------- guitar
+ {id:"guitar", g:"guitar", n:"Kytara naživo + zesilovač", w:"Mixpult → kanál Kytara; spodní přehrávač → kytara", d:"Kytara ze zvukovky přes NAM zesilovač a kabinet, gate, kompresor, EQ, doubler. Nahrávka se uloží jako stopa take-N.", st:"ok",
+  how:["V kanálu Kytara vyber zvukovku a vstup.","Vyber předvolbu zesilovače (clean, crunch, hi-gain).","Nahrávej tlačítkem ●, nahrávka je nová stopa."],
+  code:[[IX,"Guitar ř. 21798, Amp ř. 24773, TakeRec ř. 22454, Tunnel ř. 24025, NamPreview ř. 11169"],["server.py","amps ř. 301, NAM preview ř. 3301"],["static/nam/","NAM engine"]], data:["amps/, Stems/<píseň>/take-N.mp3"], v:["pick guitar on / off"]},
+ {id:"tonerig", g:"guitar", n:"ToneRig z telefonu", w:"Nastavení kytary → ToneRig, tlačítko TONERIG", d:"ToneRig v iPhonu jako zesilovač; předvolby 1–8 přepínáš z Macu nebo stránkou v telefonu přes MIDI.", st:"test",
+  how:["Otevři nastavení ToneRig, projdi kroky.","Zapni stránku pro telefon a otevři odkaz v iPhonu.","Vyzkoušej tlačítka Test a MIDI Learn."],
+  code:[[IX,"ToneRig ř. 13642"],["server.py","ToneRig ř. 5116 (port 8767)"]], data:["config.json"], v:[]},
+ {id:"tuner", g:"guitar", n:"Ladička a vlastní ladění", w:"Mixpult → ladička", d:"Ladička, vlastní ladění sdílená s hmatníkem, zjištění ladění z kytary.", st:"ok",
+  how:["Otevři ladičku.","Vyber ladění nebo vytvoř vlastní.","„Zjistit z kytary“ ho pozná ze zahraných strun."],
+  code:[[IX,"Tuner ř. 15587, Tunings ř. 13377"],["static/ladicka/","neverlast-ladicka.js"]], data:["config.json"], v:[]},
+ {id:"riffs", g:"guitar", n:"Riffy, DI a metronom", w:"Levý panel → riffy; mixpult → metronom", d:"Kousky písní na cvičení ve smyčce, DI nahrávky z disku, metronom, sampler kytary.", st:"ok",
+  how:["Označ úsek a ulož jako riff.","Riff pustíš ve smyčce.","Metronom má hlasitost, zvuk a rychlost."],
+  code:[[IX,"NamRiffRecorder ř. 11381, SimpleMetronome ř. 11281, GuitarSampler ř. 12747"],["server.py","DI riffs ř. 3507, riffs ř. 6574"]], data:["riffs/, riffs.json"], v:[]},
+ // ---------- voice
+ {id:"sing", g:"voice", n:"Trenér zpěvu", w:"Steems → Panely → Trenér zpěvu", d:"Ukazuje tvou výšku hlasu přes melodii originálu, hodnotí tóny a slova, efekty do sluchátek, nahrávka do stopy.", st:"ok",
+  how:["Nasaď sluchátka, otevři Trenér zpěvu.","Zpívej, čára ukazuje, jak trefuješ tóny.","„Po řádcích“: originál zazpívá, pak ty."],
+  code:[[IX,"Sing ř. 31318"],["sing.py","melodie (YIN), slova (Whisper)"],["server.py","sing ř. 7799"]], data:["melody.json, sing-words.json, sing-history.json"], v:["pick practice melody"]},
+ {id:"speak", g:"voice", n:"Výslovnost", w:"Steems → Panely → Výslovnost", d:"Řádek přečte hlas, ty ho zopakuješ, Whisper zkontroluje slova. Špatná slova se cvičí zvlášť.", st:"ok",
+  how:["Otevři Výslovnost, vyber hlas a charakter.","Začít: poslouchej a opakuj.","„Moje slova“ procvičí všechna nepovedená."],
+  code:[[IX,"Speak ř. 30859"],["server.py","speak words ř. 7876, tts ř. 7924–8280"]], data:["speak-words.json, tts/"], v:["pick practice words","pick practice my words","pick skip"]},
+ {id:"tts", g:"voice", n:"Pick čte tvým hlasem", w:"Výslovnost → „+ hlas“", d:"OmniVoice naklonuje hlas z pár vteřin řeči a čte jím česky i anglicky. Charaktery Metalový, Šeptaný…", st:"ok",
+  how:["Výslovnost → + hlas: soubor nebo 10 s z mikrofonu.","Oprav rozpoznaný text ukázky.","Vyber hlas a charakter v okně."],
+  code:[["tts_worker.py","OmniVoice"],["server.py","Pick's own voice ř. 7950, styly ř. 7999"]], data:["voices/<id>/ref.wav, ref.txt"], v:[]},
+ {id:"guide", g:"voice", n:"Nový hlas s průvodcem", w:"Výslovnost → + hlas → Průvodce, nebo Zpěv mým hlasem → ＋ Nový hlas", d:"Přečteš český a anglický text a kousek zazpíváš; vznikne hlas pro čtení i pro zpěv.", st:"test",
+  how:["Krok 1: přečti český text, poslechni, případně znovu.","Krok 2: anglický text.","Krok 3 (doporučeno): zazpívej kousek.","Ulož hlas."],
+  code:[[IX,"VoiceGuide ř. 25167"],["server.py","guide ř. 8280"]], data:["voices/<id>/sing.wav"], v:[]},
+ {id:"myvoice", g:"voice", n:"Zpěv mým hlasem", w:"Steems → Panely → Zpěv mým hlasem…", d:"Seed-VC přezpívá zpěv písně tvým hlasem; melodie a frázování zůstanou. Výsledek je nová stopa, originál se ztlumí.", st:"test",
+  how:["Otevři píseň, Panely → Zpěv mým hlasem.","Vyber hlas, kvalitu a výšku (třeba o oktávu níž).","Celou píseň, nebo jen úsek ve smyčce.","Počkej (asi 3× délka zpěvu), pak porovnej."],
+  code:[[IX,"MyVoice ř. 25411"],["svc_worker.py","Seed-VC"],["server.py","myvoice ř. 9038"]], data:["myvoice.json, stopa Můj hlas"], v:[]},
+ {id:"songtake", g:"voice", n:"Můj zpěv téhle písně", w:"Zpěv mým hlasem → „Zazpívat úryvek téhle písně“", d:"Píseň hraje, běží text, mikrofon nahrává tvůj zpěv. Po schválení je to vzor hlasu jen pro tuhle píseň.", st:"test",
+  how:["Se sluchátky otevři úryvek (smyčka, refrén nebo nejvíc textu).","3-2-1, zpívej podle textu.","Poslechni a schval, nebo nahraj znovu."],
+  code:[[IX,"SongTake ř. 25275"],["server.py","myvoice/sample"]], data:["Stems/<píseň>/myvoice-sample.wav"], v:[]},
+ // ---------- create
+ {id:"composer", g:"create", n:"Skladatel: song z nápadu", w:"Levý panel → Tools → Skladatel", d:"Z kousku kytary nebo jen z popisu složí ACE-Step celý song v několika verzích, se zpěvem textu. Popis vlastními slovy i slovy na klik, textař, všechna nastavení modelu, přehrávač s vypínáním nástrojů a průběh v horní liště.", st:"test",
+  how:["Tools → Skladatel. Nahraj nebo zahraj nápad, nebo „Bez nápadu“.","Zvuk: vyber styly a/nebo popiš vlastními slovy, slova přidáš klikem; případně zvuková předloha.","Text: napiš sám, nebo Textař (napsat celý / dopsat / vylepšit); štítky částí na klik.","Model a nastavení: Rychlý / Podrobný (SFT), přemýšlení, tempo, tónina, seed…","Složit. Stránku můžeš opustit — průběh je nahoře v liště.","Hotovou verzi přehraj, vypínej nástroje, a „Tuhle chci — do Steems“."],
+  code:[["static/studio.js","Composer, Player"],["studio.py","MODELS, Options, payload, _work, separate, progress_now"],["studio_words.py","WORDS, LYRIC_TAGS, rady"],["lyricist.py","prompt, parse, tidy"],["server.py","studio use (stopy rovnou do Steems)"]], data:["studio/projects/<id>/ (verze .mp3, nástroje, ref.wav)"], v:[]},
+ {id:"songbook", g:"create", n:"Zpěvník ve Skladateli", w:"Tools → Skladatel → Zpěvník", d:"Rozbor písní ze Steems: žánry kapely, tempo, tónina, ladění, tón kytar, bicí a energie celé písně i každé sekce slovy, kterým ACE-Step rozumí. K tomu stavba textu po sekcích (řádky, slabiky, rýmy, co se opakuje) — bez samotných slov. Tvoje vlastní texty celé, po kapelách a částech. Ze sekcí různých písní složíš Stavbu nové písně: z ní popis zvuku, značky částí a text, který textař napíše nový do téhle stavby.", st:"test",
+  how:["Skladatel → Zpěvník → Rozebrat 100 písní (různé kapely) — běží na pozadí, čeká na rozdělování.","⏸ pozastavit a ▶ Pokračovat: rozbor naváže, kde skončil, i po vypnutí Picku; přerušený (výpadek proudu) se po startu rozběhne sám. Rozebrat dalších 100, nebo celou knihovnu.","Vyber kapelu a píseň: popis celé písně → Zvuk (i tempo a tónina), ＋ u sekce ji dá do Stavby.","Moje texty: Uložit text z pole Text jako můj; jeho části pak ＋ do Stavby, zůstanou slovo od slova.","Stavba: ↑ ↓ pořadí; Popis zvuku ze stavby, Napsat text do stavby (textař), nebo Jen značky do Textu.","Složit jako obvykle."],
+  code:[["songbook.py","shape, sound, analyse, run, left, resume_after_restart, /api/songbook"],["static/studio.js","paintSb, planStructure, writePlan"],["lyricist.py","structure v zadání"],["server.py","_songbook_* (sekce, texty karaoke, žánry z MusicBrainz)"]], data:["Stems/<píseň>/songbook.json","songbook-mine.json","songbook-bands.json","songbook-queue.json"], v:[]},
+ {id:"hear", g:"steems", n:"Text odposlechnutý ze zpěvu", w:"Steems → lišta Text → ⋯ → Odposlechnout ze zpěvu", d:"Když k písni není text s časy (české písně hlavně), Pick si ho naposlouchá ze stopy zpěvu: whisper na tomhle počítači, po úsecích, kde se zpívá, v jazyce písně. Asi minuta na píseň, pak už je text u písně uložený. Text bez časů dostane časy z odposlechu. Chybný řádek opravíš dvojklikem.", st:"test",
+  how:["Otevři píseň ve Steems — když se text nenajde, Pick ho začne poslouchat sám (lišta Text: Poslouchám zpěv… 12/34).","Nebo lišta Text → ⋯ → Odposlechnout ze zpěvu, případně Jiný text → 🎤 Odposlechnout ze zpěvu.","Špatně slyšený řádek: dvojklik na stopě Text → oprav slova → Jen opravit text."],
+  code:[["hear.py","phrases, heard, timed"],["server.py","/api/stems/{name}/hear, /api/hear, /api/lyrics/keep"],[IX,"hearLyrics, editLine"]], data:["Stems/<píseň>/heard.json","lyrics/<hash>.json"], v:[]},
+ {id:"resing", g:"steems", n:"Přezpívat řádek", w:"Steems → dvojklik na řádek na stopě Text", d:"Nová slova zazpívá hlas zpěváka v melodii řádku: OmniVoice je přečte hlasem zpěváka (nebo je namluvíš sám), vokodér WORLD je položí na tóny a rytmus řádku a Seed-VC je zazpívá barvou zpěváka. Všechny přezpívané řádky jsou v jedné stopě „Upravený zpěv“, originál zůstane. Asi minuta na řádek; výslovnost bývá místy rozmazaná.", st:"test",
+  how:["Dvojklik na řádek na stopě Text (nebo ⋯ → Upravit / přezpívat řádek).","Napiš nová slova a jazyk, ▶ řádek si ho přehraje.","Přezpívat — nebo nejdřív 🎤 Namluvit (zazní tvoje nahrávka, bývá čistší).","Po minutě je ve stopách „Upravený zpěv“ a originál zpěvu se ztlumí."],
+  code:[["resing_worker.py","units, mapování slabik na tóny, WORLD"],["server.py","_resing_run, /api/stems/{name}/resing, /resing/take"],["svc_worker.py","Seed-VC, --cfg 0.4"]], data:["Stems/<píseň>/resing.json","resing-ref.wav, resing-say.wav"], v:[]},
+ {id:"mapa", g:"control", n:"Mapa aplikace", w:"Nastavení → Mapa aplikace", d:"Tahle mapa přímo v Picku: funguje i bez internetu a bez Clauda. Je to stejný soubor jako online verze (static/mapa.html) a po každé nové funkci se aktualizuje.", st:"ok",
+  how:["Nastavení → Otevřít mapu aplikace.","Zavřít (nebo Esc) vrátí aplikaci."],
+  code:[["static/mapa.html","zdroj mapy"],["server.py","/mapa"],[IX,"map-open"]], data:[], v:[]},
+ {id:"sysload", g:"control", n:"Výkon počítače", w:"Nastavení → Výkon počítače (a upozornění nahoře)", d:"Paměť, procesor, kolik bere Pick sám, tlak na paměť a odkládání na disk, měřené každé 3 s. Náročné úlohy se ptají, jestli je místo: rozdělení a Skladatel počkají, odposlech a zpěv řeknou proč ne. Když dochází paměť, nahoře se ukáže upozornění.", st:"ok",
+  how:["Nastavení → Výkon počítače: zvládne / je vytížený / málo paměti, a co právě běží.","Upozornění v horní liště (⏳ nebo ⚠) otevře Nastavení."],
+  code:[["sysload.py","sample, room"],["server.py","_heavy_jobs, /api/system, stráže u úloh"],[IX,"SysLoad"]], data:[], v:[]},
+ {id:"tabs", g:"create", n:"Taby a Pick Tabs", w:"Tools → Taby", d:"Tvoje Guitar Pro a MusicXML soubory s nahrávkou, katalog Pick Tabs se všemi nástroji, úpravy tabu na místě.", st:"ok",
+  how:["Tools → Taby.","Otevři soubor nebo tab z katalogu.","Spáruj s nahrávkou a hraj."],
+  code:[[IX,"TabsLib ř. 7442, TabSearch ř. 13245"],["server.py","Guitar Pro ř. 4179, Pick Tabs ř. 4300"]], data:["pick_tabs.json, tab_links.json"], v:["pick show me tabs"]},
+ {id:"loops", g:"create", n:"Loops", w:"Tools → Loops", d:"Looperman a další weby se smyčkami přímo v aplikaci, stažené se samy importují.", st:"ok",
+  how:["Tools → Loops.","Najdi smyčku a stáhni.","Najdeš ji ve složce Loops."], code:[[IX,"Loops ř. 7210"],["server.py","loops ř. 3690, proxy ř. 3935 (port 8766)"]], data:["Loops/"], v:["pick show me loops"]},
+ {id:"chords", g:"create", n:"Scales and Chords, MIDI", w:"Tools → Scales and Chords", d:"Stupnice a akordy, kruh akordů, klavír, MIDI editor, zvuk na noty.", st:"ok",
+  how:["Tools → Scales and Chords.","Vyber tóninu a stupnici.","V mixu převedeš stopu na MIDI."], code:[[IX,"Piano ř. 28499, Midi ř. 22813, InstrPick ř. 28453"],["audio2midi.py","basic-pitch"]], data:["soundfonts/"], v:["pick show me chords"]},
+ {id:"analyzer", g:"create", n:"Performance Analyzer", w:"Tools → Performance Analyzer (/analyzer)", d:"Nahraješ se a porovnáš s referencí: výška, timing, rytmus.", st:"ok",
+  how:["Otevři Analyzer.","Vyber referenci a nahraj se.","Prohlédni grafy rozdílů."], code:[["static/analyzer.html",""],["static/analyzer-engine.js",""]], data:[], v:["pick show me analyzer"]},
+ {id:"loopstudio", g:"create", n:"Loop Studio", w:"Tools → Loop Studio (/loopstudio)", d:"Rozloží píseň na Loop Plan: takty, akordy, části a nastavení pro Loopy Pro.", st:"ok",
+  how:["Otevři Loop Studio.","Vyber píseň ze Steems.","Projdi plán a části."], code:[["loopstudio.py",""],["static/loopstudio.html",""]], data:[], v:["pick show me loop studio"]},
+ // ---------- control
+ {id:"voice", g:"control", n:"Hlasové povely", w:"Mikrofon v horní liště; bez okna: lišta ♪ → Poslouchat hlasem", d:"Anglické povely začínající „pick“, rozpoznané v počítači (168 povelů). Cvičení kapely s kamarádem: kapela ve Steems, píseň bez kytar, ladění kytar a basy, hlasitosti a strany, sekce, posun smyčky. Zesílení mikrofonu až +30 dB.", st:"test",
+  how:["Zapni mikrofon nahoře, vyber zvukovku, Vstup a Zesílení (ukazatel do půlky).","„pick stems sepultura“ → „pick play two“: píseň se otevře s ztlumenými kytarami.","„pick tune down“, „pick bass lower“, „pick drums quieter“, „pick guitar left“, „pick up“.","„pick from chorus“, „pick loop verse“, „pick loop end right“, „pick loop off“.","„pick lyrics“, „pick tabs“, „pick help“, „hey pick“.","Špatně slyšený povel nauč svým hlasem (🎙 u řádku, 3×)."],
+  code:[[IX,"Voice (run, found, steemsBand, afterOpen), Mixer.voice (guitars, pitch, goto, edge)"],["voice.py","Vosk, Whisper, COMMANDS, SLOTS"],["server.py","voice, bez okna (zesílení přes ffmpeg), Again"]], data:["voice/, voice-commands.json, voice-taught.json, voice-widget.json (gain)"], v:["pick stems <kapela>","pick play <číslo>","pick tune down","pick from chorus","pick loop end right","pick guitars on","hey pick","pick help"]},
+ {id:"assistant", g:"control", n:"Asistent", w:"„pick listen“ nebo pole Asistent v nabídce mikrofonu", d:"Česká věta se změní v akce aplikace. Nejdřív kniha vět, pak Gemma v počítači, nakonec Claude API. Učí se z povedených vět.", st:"ok",
+  how:["Řekni „pick listen“ a pak česky, co chceš.","Nebo napiš větu do pole Asistent.","Na /assistant/book uvidíš, co umí, a naučíš ho novou větu."],
+  code:[["assistant.py","SYSTEM, TOOLS, _mend"],["assistant_book.py","kniha vět"],["server.py","assistant ř. 10594"]], data:["assistant-learned.json, assistant-unknown.json, models/"], v:["pick listen"]},
+ {id:"mini", g:"control", n:"Minipřehrávač", w:"Lišta ♪ → Mini přehrávač, /mini", d:"Malé okno se Steems, knihovnou, složkami a hledáním; hraje doprovod bez kytary a kytaru přidá na povel.", st:"ok",
+  how:["Otevři z lišty nebo „pick mini player“.","Hledej nebo vyber číslo položky.","GTR přidá a ubere kytaru."], code:[["static/mini.html",""],["server.py","mini ř. 5423"]], data:[], v:["pick play in mini","pick play twenty five","pick next song"]},
+ {id:"launch", g:"control", n:"Pick.app a lišta macOS", w:"Plocha: Pick; lišta: ♪", d:"Spouští server, hlídá ho a otevírá okno Chrome. V liště je přehrávaná skladba, transport a hlasitost.", st:"ok",
+  how:["Dvojklik na Pick na ploše.","♪ v liště: Otevřít aplikaci / Mini přehrávač.","Ukončit v liště zastaví i server."], code:[["menubar.py",""],["~/.local/share/spotdl-helper/pick-launcher/pick.py","mimo git"],["server.py","remote control ř. 4950"]], data:["window.json"], v:["pick open","pick mini player"]},
+ // ---------- look
+ {id:"look", g:"look", n:"Úpravy vzhledu", w:"Nastavení → Vzhled → „Upravit vzhled podrobně…“", d:"Klikni na cokoli a změň barvu, pozadí, písmo, okraje, stín. Palety, přechody, vzorky, obrázky a ikony zdarma, vlastní obrázek jako předloha.", st:"ok",
+  how:["Otevři režim úprav, klikni na prvek.","Změny vidíš hned.","Karta Aplikace mění celek, Zdroje přinesou obrázky a písma.","Uložit; Zpět vrátí krok."],
+  code:[["static/look.js","PickLook"],["look.py","/api/look…"]], data:["look.json, look/"], v:[]},
+ {id:"cursor", g:"look", n:"Ukazatel a barvy", w:"Nastavení → Ukazatel; Vzhled", d:"Deset obrázků ukazatele (rohy, trsátko, kytara…), barvy a velikost; vždy vidět, nad tlačítky se rozsvítí. Barvy aplikace se berou z obalu hrající písně.", st:"test",
+  how:["Nastavení → Ukazatel.","Vyber obrázek, barvu a velikost.","Najeď na tlačítko, ukazatel se rozsvítí."], code:[[IX,"PickCursor ř. 13816, Ambient ř. 30506"]], data:["config.json"], v:[]},
+];
+
+const ST = {ok:["ok","funguje"], test:["test","čeká na tebe"]};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let group = "all";
+const chips = document.getElementById("chips");
+chips.innerHTML = [`<button class="chip on" data-g="all">Vše</button>`, ...GROUPS.map(g => `<button class="chip" data-g="${g.k}">${esc(g.t)}</button>`)].join("");
+chips.addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  group = b.dataset.g; chips.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b)); render();
+});
+const q = document.getElementById("q");
+q.addEventListener("input", () => render());
+
+function card(f){
+  const [cls, label] = ST[f.st];
+  const refs = f.code.map(([file, what]) => `<li><code>${esc(file)}</code>${what ? " · " + esc(what) : ""}</li>`).join("");
+  const data = f.data.length ? `<div><h5>Ukládá</h5><ul class="refs">${f.data.map(x => `<li><code>${esc(x)}</code></li>`).join("")}</ul></div>` : "";
+  const voice = f.v.length ? `<div><h5>Hlasem</h5><div class="voice">${f.v.map(x => `<code>${esc(x)}</code>`).join("")}</div></div>` : "";
+  return `<details class="card" id="f-${f.id}">
+    <summary><h4>${esc(f.n)}</h4><span class="pill ${cls}">${label}</span>
+      <span class="where">${esc(f.w)}</span><span class="what">${esc(f.d)}</span><span class="more">Návod a kód ›</span></summary>
+    <div class="body">
+      <div><h5>Jak na to</h5><ol>${f.how.map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>
+      <div><h5>V kódu</h5><ul class="refs">${refs}</ul></div>
+      ${data}${voice}
+    </div></details>`;
+}
+function render(){
+  const t = q.value.trim().toLowerCase();
+  const hit = f => (group === "all" || f.g === group) && (!t || JSON.stringify(f).toLowerCase().includes(t));
+  const out = GROUPS.map(g => {
+    const list = F.filter(f => f.g === g.k && hit(f));
+    if(!list.length) return "";
+    return `<div class="group-title"><h3>${esc(g.t)}</h3><span>${esc(g.s)} · ${list.length}</span></div><div class="cards">${list.map(card).join("")}</div>`;
+  }).join("");
+  document.getElementById("features").innerHTML = out || `<p class="empty">Nic takového tu není. Zkus jiné slovo.</p>`;
+}
+render();
+
+// clicking a map tile opens and highlights its card
+function openCard(id){
+  const el = document.getElementById(id); if(!el) return false;
+  el.open = true; el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600);
+  el.scrollIntoView({behavior: "smooth", block: "start"});
+  return true;
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest('a[href^="#f-"]'); if(!a) return;
+  e.preventDefault();
+  const id = a.getAttribute("href").slice(1);
+  if(!document.getElementById(id)){ group = "all"; q.value = ""; chips.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x.dataset.g === "all")); render(); }
+  openCard(id);
+});
+if(location.hash.startsWith("#f-")) setTimeout(() => openCard(location.hash.slice(1)), 50);
+
+// modules of the page
+const MODS = [["ListSort",5510,"řazení seznamů"],["AudioOut",5670,"výstup zvuku"],["AudioBus",5711,"jeden zvuk naráz"],["TabMarkers",5827,"značky tabu"],["SearchSuggest",6067,"našeptávač"],["VirtualKeyboard",6204,"klávesnice na obrazovce"],["Bands",6457,"kapely"],["FavBands",6964,"oblíbené kapely"],["PracticeReady",6993,"připravit na cvičení"],["SongHave",7069,"značky MP3·STOPY·TAB·TEXT"],["FavSongs",7102,"oblíbené písně"],["PickSync",7148,"synchronizace"],["Loops",7210,"Loops"],["TabsLib",7442,"Taby"],["ICONS",8834,"ikony"],["StemsArt",9159,"obrázky stop"],["Artwork",9186,"obaly"],["ChipThumbs",9235,"náhledy"],["NowMark",9335,"co hraje"],["SteemsRail",9863,"levý panel"],["LibHave",10589,"knihovna: co mám"],["NamPreview",11169,"poslech předvoleb"],["SimpleMetronome",11281,"metronom"],["NamRiffRecorder",11381,"riffy"],["StemsQueue",11974,"fronta separace"],["UnderList",12355,"písně pod mixem"],["GuitarSampler",12747,"zvuky hmatníku"],["TabRetune",13076,"přeladění tabu"],["TabSearch",13245,"hledání tabů"],["Tunings",13377,"ladění"],["MyTuning",13437,"moje ladění"],["ToneRig",13642,"ToneRig"],["PickCursor",13816,"ukazatel myši"],["TMenu",13949,"menu nástrojů"],["Mixer",14020,"mixpult"],["  Tuner",15587,"ladička"],["  TabInline",16046,"tab v mixu"],["  TrackAmp",16783,"zesilovač stopy"],["  DrumHits",16850,"údery bicích"],["  AlphaTabView",20405,"kreslení tabu"],["  Guitar",21798,"kytara naživo"],["  TakeRec",22454,"nahrávání"],["  Midi",22813,"MIDI"],["  Tunnel",24025,"BlackHole tunel"],["  Amp",24773,"NAM zesilovač"],["VoiceGuide",25167,"průvodce hlasem"],["SongTake",25275,"úryvek zpěvu"],["MyVoice",25411,"zpěv mým hlasem"],["PlStats",25683,"statistiky playlistu"],["Player",26281,"spodní přehrávač"],["LyricsView",26813,"text"],["PlayerTab",27059,"tab v přehrávači"],["JobStrip",27538,"pás úloh"],["InstrPick",28453,"výběr nástroje"],["Piano",28499,"klavír"],["PlayerLyricsDock",29363,"lišta textu"],["PlayerGuitar",29579,"kytara v přehrávači"],["Ambient",30506,"barvy z obalu"],["RemoteAgent",30581,"lišta a mini"],["Speak",30859,"výslovnost"],["Sing",31318,"trenér zpěvu"],["Voice",31917,"hlasové povely, asistent"]];
+document.getElementById("mods").innerHTML = MODS.map(([n, l, d]) =>
+  `<div class="mod"${n.startsWith(" ") ? ' style="margin-left:14px"' : ""}><div><b>${esc(n.trim())}</b><br><span style="text-align:left">${esc(d)}</span></div><i>ř. ${l.toLocaleString("cs-CZ")}</i></div>`).join("");
+
+const SRV = [[168,"Stránky a statické soubory","/, /mini, /analyzer, /static/…"],[301,"Zesilovače (NAM)","/api/amps"],[654,"Procházení, kapely, Bandzone, žebříčky","/api/categories, /api/artists, /api/charts"],[1396,"Video, správa knihovny, hledání","/api/video, /api/library, /api/search"],[1612,"Songsterr taby","/api/tabs"],[2164,"Vše o interpretovi","/api/artist"],[2650,"Místní soubory a připojené složky","/api/library"],[3301,"Poslech předvoleb NAM, DI riffy","/api/nam-preview, /api/di"],[3690,"Loops a proxy webů (8766)","/api/loops"],[4179,"Guitar Pro a Pick Tabs","/api/tabfiles, /api/picktabs"],[4696,"Stream ukázek","/api/stream, /api/preview"],[4950,"Dálkové ovládání (lišta, mini)","/api/remote"],[5063,"Ladění, ToneRig (8767)","/api/tunings, /api/tonerig"],[5423,"Minipřehrávač, stahování, nastavení","/mini, /api/download, /api/settings"],[5648,"Stopy a fronta separace","/api/stems/…  (46 adres)"],[6019,"Uložit na cvičení, nahrávání, riffy","/api/practice, /api/capture, /api/riffs"],[6860,"Ladění písně, původ, názvy, alba","/api/stems-tunings, /api/stems-names, /api/artist/discography"],[7639,"Klipy v mixu","/api/stems/…/clip"],[7799,"Trenér zpěvu, výslovnost, hlasy","/api/stems/…/sing, /api/speak, /api/tts"],[8928,"Stopy z libovolného zvuku","/api/stems/…/tracks"],[9038,"Zpěv mým hlasem","/api/myvoice, /api/stems/…/myvoice"],[9347,"Skladatel → Steems","/api/studio/…/use"],[9821,"Texty písní","/api/lyrics"],[10178,"Podcasty","/api/podcasts"],[10406,"Hlasové povely","/api/voice"],[10594,"Asistent","/api/assistant, /assistant/book"],[10780,"Poslouchání bez okna, Again!!!","/api/voice/remote, /api/voice/again"],[11370,"Loop Studio","/loopstudio, /api/loopstudio"]];
+document.getElementById("srv").innerHTML = SRV.map(([l, p, a]) => `<tr><td class="num">${l.toLocaleString("cs-CZ")}</td><td>${esc(p)}</td><td><code>${esc(a)}</code></td></tr>`).join("") +
+  `<tr><td class="num">look.py</td><td>Úpravy vzhledu a zdroje zdarma</td><td><code>/api/look…</code></td></tr><tr><td class="num">studio.py</td><td>Skladatel, motor ACE-Step (8795), nástroje, textař</td><td><code>/api/studio…, /api/studio/lyrics, /api/studio/progress</code></td></tr>`;
+
+// copy buttons
+document.addEventListener("click", e => {
+  const b = e.target.closest(".copy"); if(!b) return;
+  const pre = b.previousElementSibling, text = pre.textContent;
+  const done = () => { b.textContent = "Zkopírováno"; setTimeout(() => b.textContent = "Kopírovat", 1400); };
+  const pick = () => { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Označeno, ⌘C"; };
+  try{ navigator.clipboard.writeText(text).then(done, pick); }catch(_){ pick(); }
+});
+
+// highlight the nav item of the section in view
+const navLinks = [...document.querySelectorAll(".nav a")];
+const io = new IntersectionObserver(es => es.forEach(en => { if(en.isIntersecting) navLinks.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id)); }), {rootMargin: "-40% 0px -55% 0px"});
+document.querySelectorAll("main section").forEach(s => io.observe(s));
+</script>

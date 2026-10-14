@@ -5421,6 +5421,16 @@ def mini_resize(body: MiniResize, request: Request):
     return {"ok": out == "ok"}
 
 
+@app.get("/mapa")
+def app_map():
+    """The map of the app — every feature, where it is, how to use it — offline, the same page as
+    the one published online (static/mapa.html is its source, updated with every new feature)."""
+    path = APP_DIR / "static" / "mapa.html"
+    if not path.is_file():
+        return JSONResponse({"error": "Mapa chybí."}, status_code=404)
+    return HTMLResponse(path.read_text(encoding="utf-8"), headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/mini")
 def mini_player():
     """The mini player window — its own page, not the app in a small window."""
@@ -11186,6 +11196,8 @@ _songbook.lyrics_for = _songbook_lyrics
 _songbook.busy = _songbook_busy
 _songbook.genres_lookup = _songbook_genres
 app.include_router(_songbook.router)
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _songbook.resume_after_restart()        # a batch cut off by the last stop goes on
 _studio.demucs_device = _demucs_device     # Skladatel takes its variants apart the same way, on the GPU
 
 

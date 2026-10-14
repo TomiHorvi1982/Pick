@@ -400,8 +400,12 @@ const Composer = (() => {
     const all = sb.bands.reduce((n, b) => n + b.songs.length, 0), done = sb.bands.reduce((n, b) => n + b.analysed, 0), j = sb.job;
     const band = sb.bands.find((b) => b.band === sbBand) || null;
     const head = `<div class="sb-top"><span>Rozebráno <b>${done}</b> z ${all} písní ve Steems</span>
-      ${j.running ? `<span class="sb-run"><i style="width:${j.total ? Math.round(j.done / j.total * 100) : 0}%"></i>${j.done}/${j.total} · ${esc(j.now || "")}</span><button type="button" class="cp-x" id="sb-stop">zastavit</button>`
-        : `<button type="button" class="btn secondary" id="sb-go" title="Vezme po jedné písni z každé kapely, dokud jich nebude sto: najde sekce, poslechne stopy a změří stavbu textu">Rozebrat 100 písní (různé kapely)</button>`}</div>
+      ${j.running ? `<span class="sb-run"><i style="width:${j.total ? Math.round(j.done / j.total * 100) : 0}%"></i>${j.done}/${j.total} · ${esc(j.now || "")}</span><button type="button" class="cp-x" id="sb-stop" title="Dodělá rozebíranou píseň a počká — i přes vypnutí Picku. Pokračovat naváže, kde skončil.">⏸ pozastavit</button>`
+        : j.paused ? `<span class="sb-run"><i style="width:${j.total ? Math.round(j.done / j.total * 100) : 0}%"></i>pozastaveno · ${j.done}/${j.total}, zbývá ${j.left}</span>
+          <button type="button" class="btn secondary" id="sb-resume">▶ Pokračovat</button><button type="button" class="cp-x" id="sb-forget" title="Zbytek pozastaveného rozboru zahodit (rozebrané písně zůstanou)">zrušit zbytek</button>`
+        : j.todo ? `<button type="button" class="btn secondary" id="sb-go" title="Vezme po jedné písni z každé kapely, dokud jich nebude sto: najde sekce, poslechne stopy a změří stavbu textu">Rozebrat dalších ${Math.min(100, j.todo)} (různé kapely)</button>
+          ${j.todo > 100 ? `<button type="button" class="cp-x" id="sb-all" title="Všechny ještě nerozebrané písně, po kapelách na přeskáčku — asi půl minuty na píseň">celou knihovnu (${j.todo}, ~${Math.max(1, Math.round(j.todo * 35 / 3600))} h)</button>` : ""}`
+        : `<span class="cp-note">Všechno je rozebrané.</span>`}</div>
       ${j.errors && j.errors.length && !j.running ? `<p class="cp-note bad">Nepovedlo se: ${j.errors.map(esc).join(" · ")}</p>` : ""}
       <div class="cp-seg"><button type="button" data-sbtab="songs" class="${sbTab === "songs" ? "on" : ""}">Písně ze Steems</button><button type="button" data-sbtab="mine" class="${sbTab === "mine" ? "on" : ""}">Moje texty (${sb.mine.length})</button></div>`;
     let body = "";
@@ -447,7 +451,11 @@ const Composer = (() => {
     box.innerHTML = head + body + plan;
     const q = (id) => box.querySelector("#" + id), on = (id, fn) => { const n = q(id); if(n) n.onclick = fn; };
     on("sb-go", () => analyse([], 100));
-    on("sb-stop", async () => { try{ await api("/api/songbook/analyse", {method: "DELETE"}); }catch(e){} await sbLoad(); paintSb(); });
+    on("sb-stop", async () => { try{ await api("/api/songbook/analyse", {method: "DELETE"}); }catch(e){} showToast("Pozastavuji — rozebíraná píseň se ještě dodělá."); await sbLoad(); paintSb(); });
+    on("sb-all", () => analyse([], 5000));
+    on("sb-resume", async () => { try{ const r = await api("/api/songbook/analyse/resume", {method: "POST"}); showToast(`Pokračuji — zbývá ${r.started}.`); }catch(e){ showToast(e.message); }
+      await sbLoad(); paintSb(); sbWatch(); });
+    on("sb-forget", async () => { try{ await api("/api/songbook/analyse?forget=true", {method: "DELETE"}); }catch(e){} await sbLoad(); paintSb(); });
     on("sb-band-go", () => analyse(band.songs.filter((x) => !x.analysed).map((x) => x.name), 300));
     on("sb-one", () => analyse([sbSong.name], 1));
     box.querySelectorAll("[data-sbtab]").forEach((b) => b.onclick = () => { sbTab = b.dataset.sbtab; paintSb(); });

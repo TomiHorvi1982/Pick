@@ -52,6 +52,7 @@ def _own_config(tmp_path, monkeypatch):
     import songbook
     monkeypatch.setattr(songbook, "MINE", tmp_path / "songbook-mine.json")
     monkeypatch.setattr(songbook, "BANDS", tmp_path / "songbook-bands.json")
+    monkeypatch.setattr(songbook, "QUEUE", tmp_path / "songbook-queue.json")
     # …and the assistant never finds a real API key, nor spends anything.
     import assistant
     monkeypatch.setattr(assistant, "KEY_PATH", tmp_path / "anthropic-key.txt")

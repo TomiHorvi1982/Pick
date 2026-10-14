@@ -2172,6 +2172,11 @@ body.lib-collapsed .pick-brand{display:none}
   .le-recnote{font-size:12px;color:var(--sub)}
   .le-edits{font-size:12px;color:var(--sub);margin-top:10px;display:grid;gap:3px;max-height:120px;overflow:auto}
   .le-edits b{color:var(--text)}
+  #map-layer{position:fixed;inset:0;z-index:2147483000;background:#12131f;color:#fff;display:flex;flex-direction:column}
+  #map-layer[hidden]{display:none}
+  #map-layer .map-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid color-mix(in srgb,var(--sub) 25%,transparent)}
+  #map-layer .map-bar .sp{flex:1}
+  #map-layer iframe{flex:1;border:0;width:100%;background:#fff}
   .sys-box{display:grid;gap:8px;margin-top:6px}
   .sys-row{display:grid;grid-template-columns:76px 1fr auto;gap:8px;align-items:center;font-size:12.5px}
   .sys-row .cap{color:var(--sub)}
@@ -4478,6 +4483,10 @@ body.lib-collapsed .pick-brand{display:none}
       <div class="actions">
         <button class="btn" id="settings-save">Uložit</button>
       </div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="menu"></span>Mapa aplikace</div>
+      <button type="button" class="btn" id="map-open" style="width:100%">Otevřít mapu aplikace</button>
+      <div class="set-note">Všechny funkce Picku: kde jsou, jak se používají a co je kde v kódu. Je přímo v aplikaci, takže funguje i bez internetu, a po každé nové funkci se aktualizuje.</div>
 
       <div class="section-title" style="margin-top:22px"><span data-icon="note"></span>O aplikaci</div>
       <div class="set-note" id="about-credits">
@@ -28387,6 +28396,20 @@ const SysLoad = (() => {
 })();
 el("settings-btn").addEventListener("click", () => SysLoad.now());
 el("settings-close").onclick = () => settingsOverlay.hidden = true;
+// The map of the app, in a layer over everything (/mapa: the page that is published online, kept in the app).
+el("map-open").onclick = () => {
+  settingsOverlay.hidden = true;
+  let box = el("map-layer");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "map-layer";
+    box.innerHTML = `<div class="map-bar"><b>Mapa aplikace</b><span class="sp"></span><button type="button" class="btn secondary" id="map-close">Zavřít</button></div><iframe src="/mapa" title="Mapa aplikace"></iframe>`;
+    document.body.appendChild(box);
+    el("map-close").onclick = () => { box.hidden = true; };
+    document.addEventListener("keydown", (e) => { if(e.key === "Escape" && !box.hidden && !Dialog.isOpen()) box.hidden = true; });
+  }else box.querySelector("iframe").src = "/mapa";
+  box.hidden = false;
+};
 settingsOverlay.addEventListener("click", e => { if(e.target === settingsOverlay) settingsOverlay.hidden = true; });
 
 el("music-root-pick").onclick = async () => {

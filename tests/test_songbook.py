@@ -68,3 +68,40 @@ def test_the_lyricist_writes_into_a_shape(monkeypatch):
     import lyricist
     p = lyricist.prompt({"lang": "en", "structure": "[Verse 1] 4 lines, about 8 syllables a line, rhyme scheme AABB"}, {"en": "English"})
     assert "[Verse 1] 4 lines" in p and "Every word must be your own" in p
+
+
+def test_a_batch_paused_goes_on_where_it_stopped(client, tmp_path, monkeypatch):
+    import time
+    monkeypatch.setattr(sb, "stems_root", lambda: tmp_path)
+    monkeypatch.setattr(sb, "busy", lambda: False)
+    for i in range(5):
+        (tmp_path / f"A - {i}").mkdir()
+    did = []
+
+    def analyse(n):
+        did.append(n)
+        (tmp_path / n / "songbook.json").write_text(json.dumps({"version": sb.VERSION}))
+        if len(did) == 2:
+            sb.JOB["running"] = False                    # paused after the second song
+    monkeypatch.setattr(sb, "analyse", analyse)
+    sb.run([f"A - {i}" for i in range(5)])
+    left = sb.left()
+    assert did == ["A - 0", "A - 1"] and left["names"] == ["A - 2", "A - 3", "A - 4"] and left["paused"] and left["done"] == 2
+    sb.resume_after_restart()                            # a paused batch waits for Pokračovat
+    assert not sb.JOB["running"]
+    monkeypatch.setattr(sb, "analyse", lambda n: did.append(n))
+    assert client.post("/api/songbook/analyse/resume").json()["started"] == 3
+    for _ in range(100):
+        if not sb.JOB["running"]:
+            break
+        time.sleep(0.02)
+    assert did[2:] == ["A - 2", "A - 3", "A - 4"] and sb.JOB["done"] == 5 and sb.left() == {}
+    # cut off while running (a restart, the power): it goes on by itself
+    sb._left_save(["A - 4"], 5, 4, False)
+    sb.resume_after_restart()
+    for _ in range(100):
+        if not sb.JOB["running"]:
+            break
+        time.sleep(0.02)
+    assert did[-1] == "A - 4" and sb.left() == {}
+    assert client.post("/api/songbook/analyse/resume").status_code == 404

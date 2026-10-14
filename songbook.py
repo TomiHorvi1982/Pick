@@ -36,6 +36,7 @@ import loopstudio
 VERSION = 1
 MINE = Path.home() / ".local" / "share" / "spotdl-helper" / "songbook-mine.json"
 BANDS = Path.home() / ".local" / "share" / "spotdl-helper" / "songbook-bands.json"
+QUEUE = Path.home() / ".local" / "share" / "spotdl-helper" / "songbook-queue.json"   # what is left of a batch: it goes on after a restart
 router = APIRouter()
 
 # set by the server
@@ -377,23 +378,67 @@ def pick_songs(limit: int, names: list = None) -> list:
     return out
 
 
-def run(names: list) -> None:
-    JOB.update(running=True, total=len(names), done=0, now="", errors=[], started=time.time())
+def left() -> dict:
+    """The batch as it was left: {"names": still to do, "total", "done", "paused"} — or {}."""
+    got = _json(QUEUE)
+    return got if isinstance(got, dict) and got.get("names") else {}
+
+
+def _left_save(names: list, total: int, done_n: int, paused: bool) -> None:
     try:
-        for n in names:
+        if not names:
+            QUEUE.unlink(missing_ok=True)
+            return
+        QUEUE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = QUEUE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"names": names, "total": total, "done": done_n, "paused": paused}, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(QUEUE)
+    except OSError:
+        pass
+
+
+def run(names: list, total: int = 0, done_before: int = 0) -> None:
+    """One song after another. What is left is written down after every song, so a batch
+    paused, or cut off by a restart (or the power), goes on where it was."""
+    total = total or len(names)
+    JOB.update(running=True, paused=False, total=total, done=done_before, now="", errors=[], started=time.time())
+    names = list(names)
+    _left_save(names, total, done_before, False)
+    try:
+        while names:
             if not JOB["running"]:
                 break
             while JOB["running"] and (busy() or not stems_root().is_dir()):
                 JOB["now"] = "čekám, až doběhne rozdělování…" if stems_root().is_dir() else "čekám na disk s hudbou…"
                 time.sleep(5)
+            if not JOB["running"]:
+                break
+            n = names[0]
             JOB["now"] = n
             try:
-                analyse(n)
+                if not done(stems_root() / n):
+                    analyse(n)
             except Exception as e:                       # noqa: BLE001 — one song failing is not the batch failing
                 JOB["errors"].append(f"{n}: {e}"[:200])
+            names.pop(0)
             JOB["done"] += 1
+            _left_save(names, total, JOB["done"], False)
     finally:
-        JOB.update(running=False, now="")
+        paused = bool(names)
+        _left_save(names, total, JOB["done"], paused)
+        JOB.update(running=False, now="", paused=paused)
+
+
+def start(names: list, total: int = 0, done_before: int = 0) -> None:
+    JOB["running"] = True
+    threading.Thread(target=run, args=(names, total, done_before), daemon=True).start()
+
+
+def resume_after_restart() -> None:
+    """A batch that was running when Pick stopped goes on by itself; a paused one waits for Pokračovat."""
+    got = left()
+    if got and not got.get("paused") and not JOB["running"]:
+        start(got["names"], got.get("total") or 0, got.get("done") or 0)
 
 
 # ------------------------------------------------------------------ the player's own texts
@@ -456,7 +501,11 @@ def songbook_list():
     for b in out:
         b["analysed"] = sum(1 for s in b["songs"] if s["analysed"])
         b["genres"] = (_json(BANDS) or {}).get(_fold(b["band"]), {}).get("genres") or []
-    return {"bands": out, "mine": mine(), "job": {k: JOB[k] for k in ("running", "total", "done", "now")} | {"errors": JOB["errors"][-5:]}}
+    rest = left()
+    job = {k: JOB.get(k) for k in ("running", "total", "done", "now")} | {"errors": JOB["errors"][-5:]}
+    job |= {"paused": bool(rest) and not JOB["running"], "left": len(rest.get("names") or []),
+            "todo": sum(1 for b in out for x in b["songs"] if not x["analysed"])}
+    return {"bands": out, "mine": mine(), "job": job}
 
 
 @router.get("/api/songbook/song/{name}")
@@ -477,20 +526,37 @@ class AnalyseIn(BaseModel):
 
 @router.post("/api/songbook/analyse")
 def songbook_analyse(req: AnalyseIn):
+    """A new batch — a hundred more, the whole library (limit up to 5000), or the songs named."""
     with _JOB_LOCK:
         if JOB["running"]:
             return JSONResponse({"error": "Rozbor už běží."}, status_code=409)
-        names = pick_songs(max(1, min(700, req.limit)), [n for n in req.names if "/" not in n])
+        names = pick_songs(max(1, min(5000, req.limit)), [n for n in req.names if "/" not in n])
         if not names:
             return {"started": 0, "note": "Všechno je už rozebrané."}
-        JOB["running"] = True
-    threading.Thread(target=run, args=(names,), daemon=True).start()
+        start(names)
     return {"started": len(names)}
 
 
+@router.post("/api/songbook/analyse/resume")
+def songbook_resume():
+    """The paused batch, from where it stopped."""
+    with _JOB_LOCK:
+        if JOB["running"]:
+            return JSONResponse({"error": "Rozbor už běží."}, status_code=409)
+        got = left()
+        if not got:
+            return JSONResponse({"error": "Není co dokončit."}, status_code=404)
+        start(got["names"], got.get("total") or 0, got.get("done") or 0)
+    return {"started": len(got["names"])}
+
+
 @router.delete("/api/songbook/analyse")
-def songbook_stop():
+def songbook_stop(forget: bool = False):
+    """Paused: the song being analysed is finished, the rest waits (also over a restart).
+    With forget, what is left is let go."""
     JOB["running"] = False
+    if forget:
+        QUEUE.unlink(missing_ok=True)
     return {"ok": True}
 
 
