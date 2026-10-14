@@ -171,7 +171,7 @@ html{scroll-behavior:smooth}
 <main class="wrap">
   <div class="hero">
     <div>
-      <div class="eyebrow">Tvoje aplikace · stav k 14. 10. 2026 · commit 1909ec9</div>
+      <div class="eyebrow">Tvoje aplikace · stav k 14. 10. 2026 · commit e722cae</div>
       <h1>Co <em>Pick</em> umí a kde to leží</h1>
       <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
     </div>
@@ -180,7 +180,7 @@ html{scroll-behavior:smooth}
       <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
       <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
       <div class="fact"><b>440</b><span>automatických testů</span></div>
-      <div class="fact"><b>221</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>222</b><span>commitů od 12. 9.</span></div>
       <div class="fact"><b>637</b><span>písní ve Steems</span></div>
     </div>
   </div>
@@ -449,6 +449,7 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Cvičení s kamarádem</h4><p>Playlisty Steems, MIDI pedál, okna Picku místo prohlížečových, výběr textu od kapely. Ručně přidané stopy z Moises se samy zaindexují (Sepultura, Death, Trivium: +100 písní). Ručně přidané písně si samy dohledají album podle diskografie kapely (sloupec Playlist: „Ručně přidáno“). Pod mixem nahoře písně otevřené kapely. Taby po načtení písně zamčené. Zbalený levý panel jen s ikonami. Kapela ve Steems, píseň bez kytar, ladění kytar a basy, start od sekce, posun smyčky o 0,5 s, zesílení mikrofonu.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Zpěvník</h4><p>Rozbor písní ze Steems pro Skladatele: zvuk celé písně i sekcí slovy pro ACE-Step, stavba textu (řádky, slabiky, rýmy), vlastní texty po kapelách a částech, Stavba nové písně ze sekcí různých písní, textař píše do stavby.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Text ze zpěvu, přezpívání, výkon</h4><p>Pick si naposlouchá text ze stopy zpěvu (i české písně), řádek jde opravit nebo přezpívat novými slovy hlasem zpěváka v melodii originálu, a Nastavení ukazuje paměť a procesor — náročné úlohy počkají, když je paměti málo.</p></div></div>
+        <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Nastavení jako okno, noční plán</h4><p>Nastavení v plovoucím okně s kategoriemi, zavírání jako v macOS, širší panel ve Skladateli. Noční plán: 7 playlistů (977 písní, 721 nových) stáhnout bez duplicit s taby a texty a rozdělit, texty všech písní z LRCLib nebo odposlechem, celý Zpěvník.</p></div></div>
         <div class="stop now"><div class="date">teď</div><div class="dot"></div><div><h4>Čeká na tvoje vyzkoušení</h4>
           <ul>
             <li>Poslech: přezpívané demo v „Kryštof – Intro“, projekty „Zkouška Skladatele“ a „Zkouška modelů“ (SFT a Turbo s přemýšlením)</li>
@@ -495,7 +496,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu 1909ec9 (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu e722cae (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
@@ -595,7 +596,7 @@ const F = [
   how:["Se sluchátky otevři úryvek (smyčka, refrén nebo nejvíc textu).","3-2-1, zpívej podle textu.","Poslechni a schval, nebo nahraj znovu."],
   code:[[IX,"SongTake ř. 25275"],["server.py","myvoice/sample"]], data:["Stems/<píseň>/myvoice-sample.wav"], v:[]},
  // ---------- create
- {id:"composer", g:"create", n:"Skladatel: song z nápadu", w:"Levý panel → Tools → Skladatel", d:"Z kousku kytary nebo jen z popisu složí ACE-Step celý song v několika verzích, se zpěvem textu. Popis vlastními slovy i slovy na klik, textař, všechna nastavení modelu, přehrávač s vypínáním nástrojů a průběh v horní liště.", st:"test",
+ {id:"composer", g:"create", n:"Skladatel: song z nápadu", w:"Levý panel → Tools → Skladatel", d:"Z kousku kytary nebo jen z popisu složí ACE-Step celý song v několika verzích, se zpěvem textu. Popis vlastními slovy i slovy na klik, textař, všechna nastavení modelu, přehrávač s vypínáním nástrojů a průběh v horní liště. Táhlo mezi nastavením a skladbami rozšíří panel nastavení (dvojklik: široké / úzké).", st:"test",
   how:["Tools → Skladatel. Nahraj nebo zahraj nápad, nebo „Bez nápadu“.","Zvuk: vyber styly a/nebo popiš vlastními slovy, slova přidáš klikem; případně zvuková předloha.","Text: napiš sám, nebo Textař (napsat celý / dopsat / vylepšit); štítky částí na klik.","Model a nastavení: Rychlý / Podrobný (SFT), přemýšlení, tempo, tónina, seed…","Složit. Stránku můžeš opustit — průběh je nahoře v liště.","Hotovou verzi přehraj, vypínej nástroje, a „Tuhle chci — do Steems“."],
   code:[["static/studio.js","Composer, Player"],["studio.py","MODELS, Options, payload, _work, separate, progress_now"],["studio_words.py","WORDS, LYRIC_TAGS, rady"],["lyricist.py","prompt, parse, tidy"],["server.py","studio use (stopy rovnou do Steems)"]], data:["studio/projects/<id>/ (verze .mp3, nástroje, ref.wav)"], v:[]},
  {id:"songbook", g:"create", n:"Zpěvník ve Skladateli", w:"Tools → Skladatel → Zpěvník", d:"Rozbor písní ze Steems: žánry kapely, tempo, tónina, ladění, tón kytar, bicí a energie celé písně i každé sekce slovy, kterým ACE-Step rozumí. K tomu stavba textu po sekcích (řádky, slabiky, rýmy, co se opakuje) — bez samotných slov. Tvoje vlastní texty celé, po kapelách a částech. Ze sekcí různých písní složíš Stavbu nové písně: z ní popis zvuku, značky částí a text, který textař napíše nový do téhle stavby.", st:"test",
@@ -607,6 +608,9 @@ const F = [
  {id:"resing", g:"steems", n:"Přezpívat řádek", w:"Steems → dvojklik na řádek na stopě Text", d:"Nová slova zazpívá hlas zpěváka v melodii řádku: OmniVoice je přečte hlasem zpěváka (nebo je namluvíš sám), vokodér WORLD je položí na tóny a rytmus řádku a Seed-VC je zazpívá barvou zpěváka. Všechny přezpívané řádky jsou v jedné stopě „Upravený zpěv“, originál zůstane. Asi minuta na řádek; výslovnost bývá místy rozmazaná.", st:"test",
   how:["Dvojklik na řádek na stopě Text (nebo ⋯ → Upravit / přezpívat řádek).","Napiš nová slova a jazyk, ▶ řádek si ho přehraje.","Přezpívat — nebo nejdřív 🎤 Namluvit (zazní tvoje nahrávka, bývá čistší).","Po minutě je ve stopách „Upravený zpěv“ a originál zpěvu se ztlumí."],
   code:[["resing_worker.py","units, mapování slabik na tóny, WORLD"],["server.py","_resing_run, /api/stems/{name}/resing, /resing/take"],["svc_worker.py","Seed-VC, --cfg 0.4"]], data:["Stems/<píseň>/resing.json","resing-ref.wav, resing-say.wav"], v:[]},
+ {id:"settings", g:"control", n:"Nastavení", w:"Ozubené kolo vpravo nahoře", d:"Plovoucí okno, které jde přesouvat za lištu a zvětšovat za roh; vlevo kategorie Systém, Vzhled, Zvuk a MIDI, Stahování, Steems. Poloha, velikost a poslední kategorie se pamatují. Všechna zavírací tlačítka v Picku jsou červené kolečko s křížkem jako v macOS.", st:"ok",
+  how:["Ozubené kolo → vlevo vyber kategorii.","Okno přesuneš za lištu s názvem, velikost změníš v pravém dolním rohu.","Uložit je dole u Stahování a Steems."],
+  code:[[IX,"SettingsWin, ikona close"]], data:[], v:[]},
  {id:"mapa", g:"control", n:"Mapa aplikace", w:"Nastavení → Mapa aplikace", d:"Tahle mapa přímo v Picku: funguje i bez internetu a bez Clauda. Je to stejný soubor jako online verze (static/mapa.html) a po každé nové funkci se aktualizuje.", st:"ok",
   how:["Nastavení → Otevřít mapu aplikace.","Zavřít (nebo Esc) vrátí aplikaci."],
   code:[["static/mapa.html","zdroj mapy"],["server.py","/mapa"],[IX,"map-open"]], data:[], v:[]},

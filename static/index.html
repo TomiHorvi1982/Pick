@@ -2177,6 +2177,37 @@ body.lib-collapsed .pick-brand{display:none}
   #map-layer .map-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid color-mix(in srgb,var(--sub) 25%,transparent)}
   #map-layer .map-bar .sp{flex:1}
   #map-layer iframe{flex:1;border:0;width:100%;background:#fff}
+  /* the settings window: floating, nothing dimmed behind it */
+  #settings-overlay{background:none !important;backdrop-filter:none !important;pointer-events:none;display:block}
+  #settings-overlay .panel.sw{pointer-events:auto;position:fixed;display:grid;grid-template-columns:150px 1fr;grid-template-rows:auto 1fr auto;
+    max-height:none;min-width:420px;min-height:300px;resize:both;overflow:hidden;padding:0;border-radius:12px;
+    margin:0 !important;right:auto !important;bottom:auto !important;transform:none !important;
+    box-shadow:0 18px 60px rgba(0,0,0,.55);border:1px solid var(--border)}
+  #settings-overlay .sw-bar{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:grab;user-select:none;
+    border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--card-hi,#2a2a2a) 60%,transparent)}
+  #settings-overlay .sw-bar:active{cursor:grabbing}
+  #settings-overlay .sw-title{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+  #settings-overlay .sw-bar .close-btn{position:static !important;width:auto !important;height:auto !important}
+  #settings-overlay .sw-nav{display:flex;flex-direction:column;gap:2px;padding:10px 8px;border-right:1px solid var(--border);overflow:auto}
+  #settings-overlay .sw-nav button{text-align:left;border:0;background:none;color:var(--sub);padding:8px 10px;border-radius:7px;font-size:13px;cursor:pointer}
+  #settings-overlay .sw-nav button:hover{color:var(--text);background:color-mix(in srgb,var(--sub) 12%,transparent)}
+  #settings-overlay .sw-nav button.on{color:var(--text);background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:600}
+  #settings-overlay .sw-body{overflow:auto;min-height:0}
+  #settings-overlay .sw-body .panel-head{padding:4px 20px 16px}
+  #settings-overlay .sw-body .pl-title{display:none}
+  #settings-overlay .sw-sec[hidden]{display:none}
+  #settings-overlay .sw-sec > .section-title:first-child{margin-top:14px !important}
+  #settings-overlay .sw-foot{grid-column:1/-1;padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+  #settings-overlay .sw-foot[hidden]{display:none}
+  #settings-overlay .sw-foot .actions{margin:0}
+  /* every close is the red dot of a macOS window */
+  button:has(> [data-icon="close"]){background:none !important;border:0 !important;box-shadow:none !important;padding:0 !important;
+    min-width:0 !important;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  button:has(> [data-icon="close"]):hover{filter:brightness(1.12)}
+  button:has(> [data-icon="close"]):active{filter:brightness(.85)}
+  [data-icon="close"] svg{width:15px !important;height:15px !important}
+  [data-icon="close"] .mac-x{opacity:.75}
+  button:has(> [data-icon="close"]):hover .mac-x{opacity:1}
   .sys-box{display:grid;gap:8px;margin-top:6px}
   .sys-row{display:grid;grid-template-columns:76px 1fr auto;gap:8px;align-items:center;font-size:12.5px}
   .sys-row .cap{color:var(--sub)}
@@ -3877,7 +3908,10 @@ body.lib-collapsed .pick-brand{display:none}
   .cp-title{font-size:26px;font-weight:800;margin:0}
   .cp-eng{font-size:12px;color:var(--sub)}
   .cp-top select{margin-left:auto;min-width:240px;max-width:100%;background:var(--bg2,#0d0e15);border:1px solid var(--border,#33364a);border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:8px 10px}
-  .cp-cols{display:grid;grid-template-columns:minmax(360px,460px) minmax(0,1fr);gap:18px;align-items:start}
+  .cp-cols{display:grid;grid-template-columns:var(--cp-left,440px) 12px minmax(0,1fr);gap:6px;align-items:start}
+  .cp-split{align-self:stretch;cursor:col-resize;display:flex;justify-content:center;min-height:200px;border-radius:6px;touch-action:none}
+  .cp-split i{width:3px;border-radius:2px;background:color-mix(in srgb,var(--sub) 28%,transparent);transition:background .15s}
+  .cp-split:hover i,.cp-split.drag i{background:var(--accent)}
   .cp-left{display:flex;flex-direction:column;gap:10px;min-width:0}
   .cp-right{min-width:0}
   .cp-sec{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:14px}
@@ -3912,7 +3946,7 @@ body.lib-collapsed .pick-brand{display:none}
   .cp-sec>summary::before{content:"▸";color:var(--sub);font-size:12px;transition:transform .15s}
   .cp-sec[open]>summary::before{transform:rotate(90deg)}
   .cp-sec>summary b{font-size:14.5px}
-  .cp-sec>summary small{font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .cp-sec>summary small{font-size:12px;color:var(--sub);min-width:0;line-height:1.35}
   .cp-sec-b{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
   .cp-sub{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub);margin-top:6px}
   .cp-sub small{font-weight:400;letter-spacing:0;text-transform:none}
@@ -4004,7 +4038,7 @@ body.lib-collapsed .pick-brand{display:none}
   .st-pill-tx{overflow:hidden;text-overflow:ellipsis;min-width:0}
   .st-pill b{font-variant-numeric:tabular-nums}
   .st-pill-left{color:var(--sub);font-variant-numeric:tabular-nums}
-  @media (max-width:980px){ .cp-cols{grid-template-columns:1fr} }
+  @media (max-width:980px){ .cp-cols{grid-template-columns:1fr} .cp-split{display:none} }
   /* The player's own take of a piece of the song. */
   .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
   .st-range span{margin-right:auto}
@@ -5684,7 +5718,7 @@ body.lib-collapsed .pick-brand{display:none}
 <div class="voice-hints" id="voice-hints" hidden></div>
 <div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
 <div class="voice-help" id="voice-help" hidden>
-  <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)">✕</button></div>
+  <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)"><span data-icon="close" data-size="15"></span></button></div>
   <div class="vh-list" id="voice-help-list"></div>
 </div>
 <div class="assist-box" id="assist-box" hidden><div class="you" id="assist-you"></div><div class="it" id="assist-it"></div></div>
@@ -9199,7 +9233,7 @@ const ICONS = (() => {
     // ---- everything else that used to be an emoji ----
     // Same grid, same weight. Emoji rendered at whatever size and colour each
     // font decided, so a row of them never sat on one baseline; these do.
-    close:    line("M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"),
+    close:    `<circle cx="12" cy="12" r="11" fill="#ff5f57" stroke="#e0443e" stroke-width="1"/><path class="mac-x" d="M8.3 8.3l7.4 7.4M15.7 8.3l-7.4 7.4" stroke="#7d1611" stroke-width="2" stroke-linecap="round" fill="none"/>`,
     check:    line("M4.8 12.6 9.6 17.4 19.2 6.8"),
     minus:    line("M5.4 12h13.2"),
     plus:     line("M12 5.4v13.2M5.4 12h13.2"),
@@ -28332,7 +28366,7 @@ el("settings-btn").onclick = async () => {
     const data = await res.json();
     el("music-root-input").value = data.music_root || "";
   }catch(e){}
-  settingsOverlay.hidden = false;
+  SettingsWin.open();
   fillAudioOut();
 };
 
@@ -28395,6 +28429,102 @@ const SysLoad = (() => {
   return {now: () => { tick(); pace(); }, last: () => last};
 })();
 el("settings-btn").addEventListener("click", () => SysLoad.now());
+// ---- the settings as a window of their own: moved by its bar, sized at its corner,
+// the sections sorted into a few categories on the left (the ones other parts of
+// the app add later — the MIDI pedal — are sorted in when it opens).
+const SettingsWin = (() => {
+  const KEY = "pick-settings-win", CAT_KEY = "pick-settings-cat";
+  const CATS = [
+    ["system", "Systém", /Výkon počítače|Mapa aplikace|O aplikaci/],
+    ["look", "Vzhled", /Vzhled|Ukazatel/],
+    ["sound", "Zvuk a MIDI", /Výstup zvuku|MIDI/],
+    ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
+    ["steems", "Steems", /Rozdělení písně|Steems/],
+  ];
+  const panel = settingsOverlay.querySelector(".panel"), head = panel.querySelector(".panel-head");
+  let built = false, cat = "system";
+  try{ cat = localStorage.getItem(CAT_KEY) || "system"; }catch(e){}
+  function build(){
+    built = true;
+    document.body.appendChild(settingsOverlay);           // out of the shell: its glass would make "fixed" mean "within the shell"
+    panel.classList.add("sw");
+    const bar = document.createElement("div");
+    bar.className = "sw-bar";
+    bar.innerHTML = `<span class="sw-title"><span data-icon="settings" data-size="15"></span> Nastavení</span>`;
+    const close = el("settings-close");
+    bar.prepend(close);                                   // the red dot, on the left as in macOS
+    const nav = document.createElement("nav"), body = document.createElement("div"), foot = document.createElement("div");
+    nav.className = "sw-nav"; body.className = "sw-body"; foot.className = "sw-foot";
+    panel.prepend(bar);
+    panel.insertBefore(nav, head);
+    body.appendChild(head);
+    panel.appendChild(body);
+    const save = head.querySelector(".actions");
+    if(save){ foot.appendChild(save); panel.appendChild(foot); }
+    paintStaticIcons(bar);
+    // dragged by the bar
+    let drag = null;
+    bar.addEventListener("pointerdown", (e) => {
+      if(e.target.closest("button")) return;
+      const r = panel.getBoundingClientRect();
+      drag = {dx: e.clientX - r.left, dy: e.clientY - r.top};
+      bar.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    bar.addEventListener("pointermove", (e) => {
+      if(!drag) return;
+      panel.style.left = Math.max(0, Math.min(window.innerWidth - 120, e.clientX - drag.dx)) + "px";
+      panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - drag.dy)) + "px";
+    });
+    bar.addEventListener("pointerup", () => { if(drag){ drag = null; keep(); } });
+    try{ new ResizeObserver(() => { if(!settingsOverlay.hidden) keep(); }).observe(panel); }catch(e){}
+  }
+  function keep(){
+    const r = panel.getBoundingClientRect();
+    try{ localStorage.setItem(KEY, JSON.stringify({left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height)})); }catch(e){}
+  }
+  function place(){
+    let b = null;
+    try{ b = JSON.parse(localStorage.getItem(KEY) || "null"); }catch(e){}
+    const w = Math.min(b?.width || 760, window.innerWidth - 16), h = Math.min(b?.height || Math.round(window.innerHeight * 0.78), window.innerHeight - 16);
+    panel.style.width = w + "px"; panel.style.height = h + "px";
+    panel.style.left = Math.max(0, Math.min(window.innerWidth - 120, b?.left ?? (window.innerWidth - w) / 2)) + "px";
+    panel.style.top = Math.max(0, Math.min(window.innerHeight - 40, b?.top ?? 70)) + "px";
+  }
+  // every section — a title and what follows it up to the next one — in a box of its category
+  function sort(){
+    head.querySelectorAll(":scope > .sw-sec").forEach((g) => { while(g.firstChild) head.insertBefore(g.firstChild, g); g.remove(); });
+    let box = null;
+    for(const n of [...head.children]){
+      if(n.classList.contains("section-title")){
+        const t = n.textContent, c = (CATS.find(([, , re]) => re.test(t)) || ["other"])[0];
+        box = document.createElement("div");
+        box.className = "sw-sec"; box.dataset.cat = c;
+        head.insertBefore(box, n);
+      }
+      if(box && n !== box) box.appendChild(n);
+    }
+    const have = new Set([...head.querySelectorAll(":scope > .sw-sec")].map((g) => g.dataset.cat));
+    const cats = CATS.filter(([k]) => have.has(k)).concat(have.has("other") ? [["other", "Další"]] : []);
+    if(!cats.some(([k]) => k === cat)) cat = cats[0] ? cats[0][0] : "system";
+    const nav = panel.querySelector(".sw-nav");
+    nav.innerHTML = cats.map(([k, name]) => `<button type="button" data-swcat="${k}" class="${k === cat ? "on" : ""}">${name}</button>`).join("");
+    nav.querySelectorAll("[data-swcat]").forEach((b) => b.onclick = () => { cat = b.dataset.swcat; try{ localStorage.setItem(CAT_KEY, cat); }catch(e){} show(); });
+    show();
+  }
+  function show(){
+    head.querySelectorAll(":scope > .sw-sec").forEach((g) => { g.hidden = g.dataset.cat !== cat; });
+    panel.querySelectorAll(".sw-nav [data-swcat]").forEach((b) => b.classList.toggle("on", b.dataset.swcat === cat));
+    const f = panel.querySelector(".sw-foot");
+    if(f) f.hidden = cat !== "download" && cat !== "steems";        // Uložit saves what is there
+    panel.querySelector(".sw-body").scrollTop = 0;
+  }
+  function open(){
+    if(!built) build();
+    sort(); place();
+    settingsOverlay.hidden = false;
+  }
+  return {open, show: (c) => { cat = c; open(); }};
+})();
 el("settings-close").onclick = () => settingsOverlay.hidden = true;
 // The map of the app, in a layer over everything (/mapa: the page that is published online, kept in the app).
 el("map-open").onclick = () => {

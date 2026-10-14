@@ -204,7 +204,7 @@ const Composer = (() => {
       <div class="cp-top"><h2 class="cp-title">Skladatel</h2><span class="cp-eng" id="cp-eng"></span>
         <select id="cp-project"><option value="">＋ Nový song</option>${st.projects.map((x) => `<option value="${x.id}" ${x.id === pid ? "selected" : ""}>${esc(x.name)}${x.idea ? "" : " (bez nápadu)"} · ${x.variants.length}×</option>`).join("")}</select>
         ${p ? `<button type="button" class="cp-x" id="cp-drop" title="Smazat celý projekt i s variantami">smazat projekt</button>` : ""}</div>
-      <div class="cp-cols"><div class="cp-left">
+      <div class="cp-cols" id="cp-cols" style="--cp-left:${leftW()}px"><div class="cp-left">
         ${sec("idea", p ? esc(p.name) : "1 · Nápad", p ? "projekt" : "kytara, nebo nic", idea)}
         ${sec("sound", "2 · Zvuk", "styly, vlastní popis, předloha", sound)}
         ${sec("sb", "Zpěvník", "zvuk a stavba tvých písní ze Steems, tvoje texty — předlohy pro nový song", `<div id="cp-sb"></div>`, false)}
@@ -213,10 +213,28 @@ const Composer = (() => {
         ${sec("set", "5 · Model a nastavení", `${esc(m.name)}${o.think && !ideaNow ? " + přemýšlení" : ""}`, settings, false)}
         <div class="cp-go"><span>Potrvá asi <b>${mins(estimate())}</b>${st.engine ? "" : " (vč. probuzení modelu)"}. Stránku můžeš opustit — průběh je nahoře v liště.</span>
           <button type="button" class="btn" id="cp-go" ${p ? "" : "disabled"} title="${p ? "" : "Nejdřív nahraj nápad, nebo zvol Bez nápadu"}">Složit</button></div>
-      </div><div class="cp-right" id="cp-right"></div></div></div>`;
+      </div><div class="cp-split" id="cp-split" title="Táhni do strany: širší nastavení, skladby vedle se přizpůsobí. Dvojklik: široké / úzké."><i></i></div><div class="cp-right" id="cp-right"></div></div></div>`;
     wire();
+    splitter();
     paintResults();
     paintSb();
+  }
+  // How wide the settings column is: dragged at the line between it and the songs, kept.
+  const leftW = () => { let w = 440; try{ w = parseInt(localStorage.getItem("pick-composer-left"), 10) || 440; }catch(e){} return Math.max(320, w); };
+  function splitter(){
+    const cols = root.querySelector("#cp-cols"), bar = root.querySelector("#cp-split");
+    if(!cols || !bar) return;
+    const set = (w) => {
+      const r = cols.getBoundingClientRect();
+      w = Math.round(Math.max(320, Math.min(r.width - 300, w)));
+      cols.style.setProperty("--cp-left", w + "px");
+      try{ localStorage.setItem("pick-composer-left", String(w)); }catch(e){}
+    };
+    let drag = false;
+    bar.onpointerdown = (e) => { drag = true; bar.setPointerCapture(e.pointerId); bar.classList.add("drag"); e.preventDefault(); };
+    bar.onpointermove = (e) => { if(drag) set(e.clientX - cols.getBoundingClientRect().left - 5); };
+    bar.onpointerup = bar.onpointercancel = () => { drag = false; bar.classList.remove("drag"); };
+    bar.ondblclick = () => { const r = cols.getBoundingClientRect(); set(leftW() > r.width * 0.45 ? 440 : r.width * 0.62); };
   }
   const secState = (() => { try{ return JSON.parse(localStorage.getItem("pick-composer-sec") || "{}"); }catch(e){ return {}; } })();
   const secOpen = (id, def) => id in secState ? secState[id] : def;
