@@ -698,7 +698,7 @@ const PickLook = (() => {
         for(const im of mine) grid.append(h("div", {class: "tile" + (im.kind === "icon" ? " icn" : "")},
           h("img", {src: im.url, alt: "", loading: "lazy", onclick: () => useImage(im, im.kind === "icon" && srcTarget === "el")}),
           h("span", {text: im.title || im.credit || ""}),
-          h("button", {class: "del", title: "Smazat obrázek z Picku", text: "×", onclick: async () => { if(!confirm("Smazat tenhle obrázek? Kde je použitý, zmizí.")) return; await api("/api/look/image/" + im.name, {method: "DELETE"}); mine = null; paintTab(); }}))); };
+          h("button", {class: "del", title: "Smazat obrázek z Picku", text: "×", onclick: async () => { if(!await Dialog.confirm("Smazat tenhle obrázek? Kde je použitý, zmizí.", {ok: "Smazat", danger: true})) return; await api("/api/look/image/" + im.name, {method: "DELETE"}); mine = null; paintTab(); }}))); };
       draw();
       if(!mine) api("/api/look/images").then((l) => { mine = l; if(tab === "src" && srcTab === "mine") paintTab(); }).catch(() => {});
     }
@@ -810,13 +810,13 @@ const PickLook = (() => {
           try{ kept = (await api("/api/look/kept/" + encodeURIComponent(n), json("PUT", look))).kept; say(`Vzhled „${n}“ uložen.`); paintTab(); }catch(e){ say(e.message); } }})),
         kept.length ? kept.map((n) => h("div", {class: "chg"},
           h("button", {class: "lnk", title: "Načíst k náhledu (uloží se až tlačítkem Uložit)", onclick: async () => { try{ const g = await api("/api/look/kept/" + encodeURIComponent(n)); undo.push(JSON.stringify(look)); restore(JSON.stringify(g.look)); say(`Náhled vzhledu „${n}“. Líbí? Dej Uložit.`); }catch(e){ say(e.message); } }}, h("b", {text: n})),
-          h("button", {class: "x", title: "Smazat uložený vzhled", text: "×", onclick: async () => { if(!confirm(`Smazat uložený vzhled „${n}“?`)) return; kept = (await api("/api/look/kept/" + encodeURIComponent(n), {method: "DELETE"})).kept; paintTab(); }})))
+          h("button", {class: "x", title: "Smazat uložený vzhled", text: "×", onclick: async () => { if(!await Dialog.confirm(`Smazat uložený vzhled „${n}“?`, {ok: "Smazat", danger: true})) return; kept = (await api("/api/look/kept/" + encodeURIComponent(n), {method: "DELETE"})).kept; paintTab(); }})))
           : h("p", {class: "muted", text: "Vzhledů si můžeš uložit víc a přepínat mezi nimi."})),
       sect("Soubor a návrat", true,
         h("div", {class: "chips"},
           h("button", {class: "chip", text: "Stáhnout jako soubor", onclick: () => { const a_ = h("a", {href: URL.createObjectURL(new Blob([JSON.stringify(look, null, 1)], {type: "application/json"})), download: "pick-vzhled.json"}); a_.click(); }}),
           h("button", {class: "chip", text: "Načíst ze souboru", onclick: () => { const i = h("input", {type: "file", accept: ".json,application/json"}); i.onchange = async () => { try{ const t = JSON.parse(await i.files[0].text()); undo.push(JSON.stringify(look)); restore(JSON.stringify(tidy(t))); say("Vzhled ze souboru je v náhledu."); }catch(e){ say("Tohle není soubor se vzhledem."); } }; i.click(); }}),
-          h("button", {class: "chip danger", text: "Výchozí vzhled (zrušit vše)", onclick: () => { if(!confirm("Zrušit všechny úpravy vzhledu? Je to jen náhled — natrvalo až po Uložit, a jde to vrátit šipkou zpět.")) return; edit("reset", () => { look = blank(); rule = null; }); paintTab(); }})),
+          h("button", {class: "chip danger", text: "Výchozí vzhled (zrušit vše)", onclick: async () => { if(!await Dialog.confirm("Zrušit všechny úpravy vzhledu? Je to jen náhled — natrvalo až po Uložit, a jde to vrátit šipkou zpět.", {ok: "Zrušit úpravy"})) return; edit("reset", () => { look = blank(); rule = null; }); paintTab(); }})),
         h("p", {class: "muted", text: "Obrázky použité ve vzhledu jsou uložené v Picku; soubor se vzhledem na ně jen odkazuje."})),
     ];
   }
@@ -995,9 +995,12 @@ const PickLook = (() => {
     api("/api/look").then((d) => { kept = d.kept || []; if(tab === "log") paintTab(); }).catch(() => {});
     const so = document.getElementById("settings-overlay"); if(so) so.hidden = true;
   }
-  function close(){
+  async function close(){
     if(dirty()){
-      if(confirm("Máš neuložené změny vzhledu.\n\nOK = uložit a zavřít\nZrušit = zahodit je a zavřít")) save();
+      const what = await Dialog.pick({title: "Máš neuložené změny vzhledu", cancel: "Zpět k úpravám",
+        items: [{label: "Uložit a zavřít", value: "save"}, {label: "Zahodit změny a zavřít", value: "drop"}]});
+      if(!what) return;
+      if(what === "save") save();
       else { look = tidy(JSON.parse(saved)); paintLook(); }
     }
     setPicking(false); on = false; target = null; rule = null; undo = []; redo = [];

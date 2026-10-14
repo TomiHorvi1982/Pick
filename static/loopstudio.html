@@ -220,6 +220,9 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// A question asked in Pick's own window (the app around this page, same origin) — the
+// browser's confirm() opens a grey box saying "127.0.0.1 says". Alone, it falls back to that.
+const askYes = (q) => { try{ const D = window.parent !== window && window.parent.Dialog; if(D) return D.confirm(q); }catch(e){} return Promise.resolve(window.confirm(q)); };
 "use strict";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -444,8 +447,8 @@ $("to-steems").onclick = async () => {
   }catch(e){ toast(e.message); }
   b.disabled = false; b.textContent = "Vytvořit projekt ve Steems";
 };
-$("remeasure").onclick = () => { if(confirm("Zahodit ruční opravy a spočítat plán znovu?")) startJob({song: S.song, refresh: true}); };
-$("hd-new").onclick = () => { if(S.dirty && !confirm("Máš neuložené opravy. Odejít?")) return; show("start"); loadStart(); };
+$("remeasure").onclick = async () => { if(await askYes("Zahodit ruční opravy a spočítat plán znovu?")) startJob({song: S.song, refresh: true}); };
+$("hd-new").onclick = async () => { if(S.dirty && !await askYes("Máš neuložené opravy. Odejít?")) return; show("start"); loadStart(); };
 
 // ----------------------------------------------------------------- hardware
 async function openHw(){

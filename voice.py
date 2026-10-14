@@ -138,18 +138,46 @@ for _s, _cz in STEMS.items():
         (f"pan:{_s}:-1", [f"{_s} left"], f"{_s} left", f"{_cz}: doleva"),
         (f"pan:{_s}:1", [f"{_s} right"], f"{_s} right", f"{_cz}: doprava"),
         (f"pan:{_s}:0", [f"{_s} center"], f"{_s} center", f"{_cz}: na střed"),
+        (f"vol:{_s}:=", [f"{_s} normal", f"{_s} reset"], f"{_s} normal", f"{_cz}: zpět na 0 dB"),
     ]
+# Tuning to a friend's instrument: guitars and bass a half-tone at a time, each or both.
+# ("bass pitch up" is heard as "bass pitch off": the bass goes by "higher" / "lower" only)
+for _s, _cz in (("guitar", "kytary"), ("bass", "basa")):
+    _up, _down = ([f"{_s} pitch up"], [f"{_s} pitch down"]) if _s == "guitar" else ([], [])
+    COMMANDS += [
+        (f"pitch:{_s}:+", [f"{_s} higher"] + _up, f"{_s} higher", f"{_cz}: o půltón výš"),
+        (f"pitch:{_s}:-", [f"{_s} lower"] + _down, f"{_s} lower", f"{_cz}: o půltón níž"),
+        (f"pitch:{_s}:0", [f"{_s} pitch normal", f"{_s} pitch reset"], f"{_s} pitch normal", f"{_cz}: původní ladění"),
+    ]
+COMMANDS += [
+    ("pitch:strings:-", ["tune down", "half step down"], "tune down / half step down", "kytary i basa o půltón níž"),
+    ("pitch:strings:+", ["half step up"], "half step up", "kytary i basa o půltón výš"),
+    ("pitch:strings:0", ["standard tuning", "pitch reset"], "standard tuning / pitch reset", "kytary i basa v původním ladění"),
+    ("gtrall:off", ["guitars off"], "guitars off", "všechny kytary ztlumit (Steems)"),
+    ("gtrall:on", ["guitars on"], "guitars on", "všechny kytary zpět"),
+    ("pmode:on", ["practice mode on"], "practice mode on", "píseň otevřená hlasem se načte s ztlumenými kytarami"),
+    ("pmode:off", ["practice mode off"], "practice mode off", "píseň otevřená hlasem se načte se vším"),
+    # The loop's edges, half a second at a time.
+    ("edge:start:-", ["loop start left", "start left", "start earlier"], "loop start left / start earlier", "začátek smyčky o 0,5 s dřív"),
+    ("edge:start:+", ["loop start right", "start right", "start later"], "loop start right / start later", "začátek smyčky o 0,5 s později"),
+    ("edge:end:-", ["loop end left", "end left", "end earlier"], "loop end left / end earlier", "konec smyčky o 0,5 s dřív"),
+    ("edge:end:+", ["loop end right", "end right", "end later"], "loop end right / end later", "konec smyčky o 0,5 s později"),
+    ("loopset:on", ["loop on"], "loop on", "smyčka zapnout"),
+    ("loopset:off", ["loop off"], "loop off", "smyčka vypnout"),
+]
 # …and for the parts of a song.
 SECTIONS = {"intro": "intro", "verse": "sloka", "chorus": "refrén", "bridge": "mezihra", "solo": "sólo", "outro": "outro"}
 for _s, _cz in SECTIONS.items():
     _say = {"outro": "ending"}.get(_s, _s)          # the model has no "outro"
     COMMANDS.append((f"section:{_s}", [f"loop {_say}"], f"loop {_say}", f"smyčka na: {_cz} (další v pořadí)"))
+    COMMANDS.append((f"goto:{_s}", [f"from {_say}", f"go to {_say}"], f"from {_say} / go to {_say}", f"hrát od: {_cz} (další v pořadí), bez smyčky"))
 # Said with a name after them — "pick song wait and bleed". The name is not
 # among the words this recogniser knows; whisper hears it (see transcribe).
 SLOTS = {"song": ("find:song", "song <název>", "najde píseň v knihovně a pustí ji"),
          "band": ("find:band", "band <jméno>", "najde kapelu v knihovně a pustí ji"),
-         "practice": ("find:practice", "practice <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou"),
+         "practice": ("find:practice", "practice <název> / practice playlist <název>", "píseň do Steems: rozdělí, ztlumí kytaru, zapne tvou; s „playlist“ spustí playlist ze Steems"),
          "playlist": ("find:playlist", "find playlist <název>", "vyhledá playlisty toho jména"),
+         "stems": ("find:stemsband", "stems <kapela>", "ukáže ve Steems všechny rozdělené písně té kapely — pak „pick play <číslo>“"),
          "search": ("find:search", "search <název>", "najde píseň nebo kapelu: co už máš (Steems, oblíbené, knihovna), ukáže a otevře; jinak hledá na internetu")}
 # "pick play <name>": the song of that name from the list that is on; with
 # "playlist" after the name, the playlist of that name. ("pick play" alone,
@@ -365,7 +393,11 @@ def widget_config():
         got = json.loads(WIDGET_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         got = {}
-    return {"on": bool(got.get("on")), "device": str(got.get("device") or ""), "channel": str(got.get("channel") or "")}
+    try:
+        gain = max(0.0, min(30.0, float(got.get("gain") or 0)))
+    except (TypeError, ValueError):
+        gain = 0.0
+    return {"on": bool(got.get("on")), "device": str(got.get("device") or ""), "channel": str(got.get("channel") or ""), "gain": gain}
 
 
 def widget_save(**change):
@@ -535,7 +567,8 @@ def _fold(text):
 _WAKE_LIKE = {"pick", "pik", "peak", "pic", "big", "picks"}
 _SLOT_LIKE = {"song": "song", "songs": "song", "band": "band", "van": "band", "bend": "band", "bands": "band", "banned": "band",
               "practice": "practice", "practise": "practice", "practices": "practice",
-              "playlist": "playlist", "playlists": "playlist", "search": "search", "searching": "search"}
+              "playlist": "playlist", "playlists": "playlist", "search": "search", "searching": "search",
+              "stems": "stemsband", "steems": "stemsband", "stem": "stemsband", "items": "stemsband"}
 
 
 def _said(text):
@@ -560,7 +593,11 @@ def interpret(text, custom=None, kind=None, taught=None):
     words = _said(text)
     if not words:
         return None
-    cmd = match(" ".join([WAKE] + [{"practise": "practice", "minnie": "mini"}.get(w.lower(), w.lower()) for w in words]), None, custom)
+    said = [{"practise": "practice", "minnie": "mini", "base": "bass", "bays": "bass", "basse": "bass", "write": "right", "rite": "right", "wright": "right"}.get(w.lower().strip(".,!?"), w.lower().strip(".,!?")) for w in words]
+    # "loop and right" is "loop end right": an edge of the loop, not a word between two
+    said = ["end" if w in ("and", "in") and (i and said[i - 1] == "loop" or i + 1 < len(said) and said[i + 1] in ("left", "right", "earlier", "later"))
+            else w for i, w in enumerate(said)]
+    cmd = match(" ".join([WAKE] + said), None, custom)
     if cmd and not cmd.startswith("find:"):
         return ("command", cmd)
     if words[0].lower() in ("find", "fine", "search") and len(words) > 2 and words[1].lower() in _SLOT_LIKE:

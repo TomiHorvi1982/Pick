@@ -332,6 +332,51 @@ dohraje vybraný model. Vybraná varianta („Tuhle chci — do Steems“) se ul
 knihovny (Songs) a její stopy rovnou do Steems, bez druhého rozdělování; „…a zazpívat
 mým hlasem“ pak její zpěv přezpívá tvým hlasem.
 
+**Playlisty Steems** (`static/practice.js`, `setlists.py`): v levém panelu pod Steems
+si složíš playlist písní ze Steems (＋ Nový playlist, ＋ Přidat písně, ↑ ↓ pořadí, ✕
+odebrat, přejmenovat, smazat; uloženo v `steems-playlists.json` vedle nastavení). ▶ ho
+spustí: píseň se načte do mixu se vším, co sis u ní nastavil (fadery, mute, ladění, smyčka
+— to se ukládá u každé písně samo), začne hrát, a když dohraje, načte se a spustí další.
+Hlasem „pick practice playlist <název>“. Panel je vidět i při otevřeném mixu. V okně
+＋ Přidat písně zůstává hledání: klikáš na jednu píseň za druhou, Hotovo okno zavře.
+
+Pod mixem jsou v seznamu dalších písní nahoře ty od kapely otevřené písně. Tab je po
+načtení každé písně **zamčený** (tažení ani kolečko ho neposunou); odemčený ručně zůstane
+jen do další písně. Zbalený levý panel ukazuje jen ikony sekcí.
+
+**MIDI pedál** (Nastavení → MIDI pedál): nožní spínač přes MIDI — Bluetooth Ampero Switch
+se v macOS připojí v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit),
+pak ho Chrome vidí jako MIDI vstup. Funkci (přehrát/zastavit, další / předchozí sekce,
+originální kytary vyp/zap, smyčka, další píseň playlistu, ±10 s, tempo, metronom,
+nahrávání, posun smyčky) přiřadíš ke **šlápnutí**, **dvojkliku** (dvě šlápnutí do 0,3 s)
+nebo **podržení** (déle než 0,6 s): vybereš ji, dáš Naučit a šlápneš (MIDI learn — Pick
+pozná CC, notu i Program Change, a jestli spínač hlásí i uvolnění; bez něj podržení nejde).
+Uloženo v prohlížeči (`pick-pedal`).
+
+**Okna Picku místo okének prohlížeče** (`Dialog` v `index.html`): potvrzení, zadání názvu
+i výběr ze seznamu se otevírají uprostřed v barvách aplikace (Enter / Esc), ne jako šedé
+„127.0.0.1 říká…“ nahoře; i z Analyzéru a Loop Studia.
+
+**Text, který se nenašel**: když k písni není text s časy, Pick nabídne písně téže kapely,
+ke kterým text je (LRCLib, s časy nahoře, i s hledáním jiného názvu); vybraný se stáhne,
+běží v liště i ve stopě Text a uloží se k písni. Totéž dělá „⋯ → Jiný text…“. Uložený text
+bez časů se při dalším otevření zkusí najít znovu s časy (i pro délku o vteřinu dvě jinou).
+
+**Ručně přidané stopy** (`stems_import.py`): písně rozdělené jinde (Moises…) stačí
+nakopírovat do složky `Stems` — jako složku kapely se složkami písní (`Sepultura/01
+Arise/vocals.wav, lead_guitar.wav…`), jako jednu složku se soubory „01 Bass - Název.mp3“,
+nebo album / píseň / „Název-Bass-B minor-160bpm-440hz.mp3“. Při dalším načtení Steems je
+Pick najde, každou píseň dá do vlastní složky „Kapela - Název“ a soubory do ní jen
+*propojí* (hard link — žádná kopie navíc, tvoje složky zůstanou, jak jsou). Co který soubor
+je, pozná podle slov v názvu: zpěv, bicí, basa, kytara, hlavní kytara (`guitar_solo`),
+doprovodná (`guitar_rhythm`), klávesy, ostatní; celý mix, metronom a podklad vynechá.
+Píseň, kterou Pick už rozdělil sám, přibude vedle s „(Moises)“. Co bylo jednou převzato,
+je v `Stems/.imported.json` — smazaná se nevrátí.
+Album si takové písně dohledají samy: diskografie kapely se projde jednou a píseň se najde
+podle názvu na jejím studiovém albu (koncerty a „Remaster“ v názvu se vynechají; co se
+nenajde, nehledá se znovu — album jde dopsat tužkou). Ve sloupci Playlist mají „Ručně
+přidáno“ a u alb kapely vedle mixu se počítají jako „máš“.
+
 Ve **Steems** má seznam sloupce **Původ** (CZ / SK nebo Zahraniční) a
 **Playlist** (ve kterém staženém playlistu píseň je); podle obou jde řadit,
 seskupovat karty a nahoře filtrovat. Původ je odhad — česká a slovenská
@@ -441,6 +486,24 @@ přeskočí jen slovo). Každé nepovedené slovo se ukládá do jednoho seznamu
 písně (`speak-words.json` vedle nastavení; `/api/speak/words`). Tlačítko „Moje slova“
 nebo „pick practice my words“ je pustí všechna najednou; co se povede, ze seznamu
 zmizí. V okně je i zesílení mikrofonu s ukazatelem (čárka = odkud se bere, že mluvíš).
+
+**Cvičení s kamarádem hlasem.** „pick stems sepultura“ ukáže ve Steems jen písně
+té kapely (očíslované; i „pick band …“, když je Steems vpředu), „pick play two“ jednu
+otevře — v *cvičném režimu* (výchozí; „pick practice mode on / off“) se načte se
+ztlumenými kytarami, „pick guitars on / off“ je vrátí a vezme. Ladění ke kamarádovu
+nástroji: „pick tune down / half step up / standard tuning“ posune kytary i basu o půltón,
+„pick guitar lower / higher“, „pick bass lower / higher / pitch normal“ každé zvlášť.
+Hlasitost a strany: „pick drums louder / quieter / normal“, „pick guitar left / right
+/ center“, celková „pick up / down“. Text a tab: „pick lyrics“, „pick tabs“. Sekce:
+„pick from chorus“ (i „go to solo“) hraje od další takové sekce bez smyčky, „pick loop
+verse“ ji dá do smyčky; „pick loop start left / right“ a „pick loop end left / right“
+(i „start earlier / later“, „end earlier / later“) posune okraj smyčky o půl vteřiny,
+„pick loop on / off“.
+
+**Zesílení mikrofonu** (nabídka mikrofonu → Zesílení, 0–30 dB): když zvukovka dává
+mikrofon moc potichu, zesílí ho Pick sám — pro poslouchání v okně i z lišty
+(`gain` ve `voice-widget.json`, ffmpeg `volume` + `alimiter`). Ukazatel vedle Vstupu
+má při řeči skákat zhruba do půlky.
 
 **„hey pick“** (jen budicí slovo, nic za ním): u všeho na obrazovce, co jde ovládat
 hlasem, se objeví malý žlutý nápis s tím, co říct; nahoře je řádek povelů, které

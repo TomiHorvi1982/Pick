@@ -18,6 +18,7 @@ import tempfile
 import hashlib
 import threading
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 from typing import List, Optional
@@ -180,7 +181,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js"):
+    if name in ("look.js", "studio.js", "practice.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -6180,7 +6181,7 @@ def _stems_index() -> set:
     out = set()
     root = MUSIC_ROOT / "Stems"
     for d in (root.glob("*") if root.is_dir() else []):
-        if d.is_dir() and not d.name.startswith(".") and _stems_ready(d.name):
+        if d.is_dir() and not d.name.startswith(".") and (_stems_ready(d.name) or _stems_meta_raw(d).get("imported")):
             m = _stems_meta(d)
             out.add((key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)))
     return out
@@ -6196,7 +6197,7 @@ def _have_all() -> dict:
     stems: dict = {}
     root = MUSIC_ROOT / "Stems"
     for d in (sorted(root.glob("*")) if root.is_dir() else []):
-        if d.is_dir() and not d.name.startswith(".") and _stems_ready(d.name):
+        if d.is_dir() and not d.name.startswith(".") and (_stems_ready(d.name) or _stems_meta_raw(d).get("imported")):
             m = _stems_meta(d)
             stems.setdefault((key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)), d.name)
     tabs = {(_name_key((t.get("artist") or "").split(",")[0]), _base_title(t.get("title") or "")) for t in _pick_tabs()}
@@ -7447,11 +7448,88 @@ def put_stems_meta(name: str, body: StemsMeta):
     return {"name": name, "meta": _stems_meta(d)}
 
 
+# Songs separated elsewhere and put into Stems by hand (stems_import.py): taken in
+# when the list is asked for and the folder has changed since the last look.
+import stems_import as _stems_import
+_STEMS_IMPORT = {"sig": None}
+_STEMS_IMPORT_LOCK = threading.Lock()
+
+
+def _stems_take_in(stems_root: Path) -> list:
+    with _STEMS_IMPORT_LOCK:
+        sig = _stems_import.signature(stems_root)
+        if sig == _STEMS_IMPORT["sig"]:
+            return []
+        try:
+            got = _stems_import.run(stems_root, STEM_NAMES + GUITAR_PARTS)
+        except OSError:
+            return []
+        _STEMS_IMPORT["sig"] = _stems_import.signature(stems_root)
+    if not os.environ.get("SPOTDL_NO_WATCHERS"):
+        threading.Thread(target=_stems_albums_fill, args=(stems_root,), daemon=True).start()
+    return got["added"]
+
+
+# What album each song taken in belongs to: its band's albums are asked once, and the
+# song is found among them by its title — the first studio album holding it, else any.
+_STEMS_ALBUMS_LOCK = threading.Lock()
+
+
+def _stems_albums_fill(stems_root: Path) -> int:
+    if not _STEMS_ALBUMS_LOCK.acquire(blocking=False):
+        return 0
+    try:
+        bands: dict = {}
+        for d in sorted(stems_root.glob("*")):
+            raw = _stems_meta_raw(d) if d.is_dir() and not d.name.startswith(".") else {}
+            if raw.get("imported") and not raw.get("album") and not raw.get("album_looked") and raw.get("artist"):
+                bands.setdefault(raw["artist"], []).append((d, raw))
+        done = 0
+        for band, rows in bands.items():
+            try:
+                data = _discography(band)
+            except Exception:                              # noqa: BLE001 — offline: asked again next time
+                continue
+            where: dict = {}
+            for al in (data or {}).get("albums") or []:
+                if _names.is_live(al.get("title") or "") or "on:stage" in (al.get("title") or "").lower():
+                    continue                               # a concert: not the album a studio song is from
+                for t in al.get("tracks") or []:
+                    if _names.is_live(t.get("title") or ""):
+                        continue
+                    k = _names.key(_names.no_brackets(t.get("title") or ""))
+                    if k and (k not in where or (where[k]["kind"] != "studio" and al.get("kind") == "studio")):
+                        where[k] = {"title": al.get("title"), "kind": al.get("kind")}
+            for d, raw in rows:
+                hit = where.get(_names.key(_names.no_brackets(raw.get("title") or "")))
+                if not hit:                                # not on the band's own albums: the song asked for by itself
+                    try:
+                        got = _official_song(band, raw.get("title") or "", d.name)
+                    except Exception:                      # noqa: BLE001
+                        got = None
+                    if got and got.get("album") and not _names.is_live(got["album"]):
+                        hit = {"title": got["album"]}
+                album = _re_mod.sub(r"\s*[(\[][^)\]]*(remaster|deluxe|edition|reissue|expanded|anniversary)[^)\]]*[)\]]", "",
+                                    hit["title"] or "", flags=_re_mod.I).strip() if hit else None
+                raw.update(album=album or None, album_looked=True, album_auto=bool(album))
+                try:
+                    tmp = d / "meta.json.tmp"
+                    tmp.write_text(json.dumps(raw, ensure_ascii=False), encoding="utf-8")
+                    tmp.replace(d / "meta.json")
+                    done += bool(hit)
+                except OSError:
+                    pass
+        return done
+    finally:
+        _STEMS_ALBUMS_LOCK.release()
+
+
 @app.get("/api/stems")
 def list_stems():
     stems_root = MUSIC_ROOT / "Stems"
     if not stems_root.is_dir():
         return []
+    _stems_take_in(stems_root)
     out = []
     playlists = _stems_playlists()
     for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
@@ -7479,6 +7557,10 @@ def list_stems():
         # stems at all — that is what it is, not an incomplete separation.
         if not any(s in present for s in STEM_NAMES):
             missing = []
+        # A set taken in from another separator has the parts it was split into (often no piano,
+        # the guitar as lead and rhythm): that is the whole of it.
+        if missing and _stems_meta_raw(d).get("imported"):
+            missing = []
         try:
             mtime = d.stat().st_mtime
         except OSError:
@@ -7501,6 +7583,7 @@ def list_stems():
             "edited": _edited_stems(d),
             "tuning": _stems_tuning(d),
             "playlist": playlists.get(d.name),
+            "imported": bool(_stems_meta_raw(d).get("imported")),   # put into Stems by hand
             "_origin": _stems_origin_typed(d),
         })
     _stems_origins(out)
@@ -10100,9 +10183,19 @@ def _lookup_lyrics(title: str, artist: str, album: str, duration, video_id: str 
     worked — this only ever adds an attempt, it doesn't replace the first.
     """
     kept = _lyrics_kept(title, artist, duration)
-    if kept:
+    if kept and kept.get("synced"):
         return kept
+    # A text without times is looked for again: a timed one may be there now, or under a
+    # length a second off (LRCLib holds several versions of a song) — it runs with the song.
     result = _lookup_lyrics_online(title, artist, album, duration, video_id)
+    if not result.get("synced") and duration:
+        for d in (duration + 1, duration - 1, duration + 2, duration - 2):
+            near = _fetch_lrclib(title, artist, None, d)
+            if near and near.get("synced") and near.get("lines"):
+                result = near
+                break
+    if kept and not result.get("synced"):
+        return kept
     if result.get("lines") or result.get("plain"):
         _lyrics_keep(title, artist, duration, result)
     return result
@@ -10395,6 +10488,79 @@ def podcast_episodes(show_id: str, limit: int = 50):
     }
 
 
+@app.get("/api/lyrics/choices")
+def lyrics_choices(artist: str = "", q: str = ""):
+    """Songs of a band that LRCLib has texts for — to pick from when the song's own name finds none.
+    Timed ones first, each song once (the version nearest a typical length)."""
+    artist, q = (artist or "").strip(), (q or "").strip()
+    if not artist and not q:
+        return {"items": []}
+    # by the band's name as a band (a bare word search is often refused when LRCLib is busy),
+    # and what was typed as a title of it; with nothing of the band found, as typed
+    asks = []
+    if artist:
+        asks.append({"artist_name": artist, "track_name": q} if q else {"artist_name": artist, "q": artist})
+    if q:
+        asks.append({"q": f"{artist} {q}".strip()})
+    rows, failed = [], 0
+    for params in asks:
+        for attempt in range(2):
+            try:
+                r = httpx.get("https://lrclib.net/api/search", params=params, headers={"User-Agent": "Pick/1.0"}, timeout=15.0)
+            except httpx.HTTPError:
+                r = None
+            if r is not None and r.status_code == 200:
+                got = r.json()
+                rows += got if isinstance(got, list) else []
+                break
+            time.sleep(1.0)
+        else:
+            failed += 1
+        if rows:
+            break
+    if not rows and failed == len(asks):
+        return JSONResponse({"error": "LRCLib teď neodpovídá, zkus to za chvíli."}, status_code=502)
+    fold = _name_key
+    want = fold(artist)
+    seen, items = {}, []
+    for x in rows if isinstance(rows, list) else []:
+        if not isinstance(x, dict) or x.get("instrumental") or not (x.get("syncedLyrics") or x.get("plainLyrics")):
+            continue
+        band = str(x.get("artistName") or "")
+        if artist and want not in fold(band):
+            continue
+        title = str(x.get("trackName") or "").strip()
+        key = title.lower()
+        row = {"id": x.get("id"), "title": title, "artist": band, "album": x.get("albumName") or "",
+               "duration": x.get("duration"), "synced": bool(x.get("syncedLyrics"))}
+        if key not in seen or (row["synced"] and not seen[key]["synced"]):
+            seen[key] = row
+    items = sorted(seen.values(), key=lambda r: (not r["synced"], r["title"].lower()))
+    return {"items": items[:200]}
+
+
+class LyricsPick(BaseModel):
+    id: int
+    title: str = ""            # the song it is for: kept under its name, so the next time it is there at once
+    artist: str = ""
+    duration: Optional[float] = None
+
+
+@app.post("/api/lyrics/pick")
+def lyrics_pick(req: LyricsPick):
+    try:
+        r = httpx.get(f"https://lrclib.net/api/get/{int(req.id)}", headers={"User-Agent": "Pick/1.0"}, timeout=15.0)
+        got = r.json() if r.status_code == 200 else None
+    except (httpx.HTTPError, ValueError):
+        got = None
+    if not isinstance(got, dict) or not (got.get("syncedLyrics") or got.get("plainLyrics")):
+        return JSONResponse({"error": "Tenhle text se nepodařilo stáhnout."}, status_code=502)
+    data = _lrclib_to_data(got, req.duration)
+    if req.title:
+        _lyrics_keep(req.title, req.artist, req.duration, data)
+    return data
+
+
 @app.get("/api/lyrics/{video_id}")
 def get_lyrics_by_video(video_id: str, q: str = "", artist: str = "", album: str = "", duration: float = None):
     """Get lyrics for a video ID. Uses LRCLib with metadata from the caller."""
@@ -10510,7 +10676,10 @@ def _voice_library():
 
 def voice_find(kind, name):
     """The song or band in the library that `name` means, or why not."""
-    if kind in ("playlist", "open"):
+    # "pick practice playlist <name>": a playlist of Steems, played song after song
+    if kind == "practice" and _re_mod.match(r"(?i)^(the\s+)?play\s*lists?\s+\S", name or ""):
+        return {"kind": "setlist", "query": _re_mod.sub(r"(?i)^(the\s+)?play\s*lists?\s+", "", name).strip()}
+    if kind in ("playlist", "open", "stemsband"):        # a band in Steems: the page has the list and finds it there
         return {"kind": kind, "query": name}
     songs, bands = _voice_library()
     if kind == "band":
@@ -10573,9 +10742,19 @@ def _voice_heard(lis, pcm, menu=False):
 @app.get("/api/voice/find")
 def voice_find_api(kind: str, name: str):
     """The same lookup for a name that was typed (a step of a command of your own)."""
-    if kind not in ("song", "band", "practice"):
+    if kind not in ("song", "band", "practice", "stemsband"):
         return JSONResponse({"error": "Neznámý druh."}, status_code=400)
     return voice_find(kind, name)
+
+
+@app.post("/api/system/midi-setup")
+def midi_setup_open():
+    """macOS's Audio MIDI Setup, where a Bluetooth MIDI pedal is connected (Window → MIDI Studio → Bluetooth)."""
+    try:
+        subprocess.Popen(["open", "-a", "Audio MIDI Setup"])
+    except OSError as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return {"ok": True}
 
 
 @app.post("/api/mini/open")
@@ -10610,6 +10789,8 @@ import look as _look
 app.include_router(_look.router)
 import studio as _studio
 app.include_router(_studio.router)
+import setlists as _setlists
+app.include_router(_setlists.router)
 _studio.demucs_device = _demucs_device     # Skladatel takes its variants apart the same way, on the GPU
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped
@@ -10886,8 +11067,12 @@ def _widget_start():
     device = _capture_device(cfg["device"]) if cfg["device"] else None
     cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-f", "avfoundation", "-i", f":{device or 'default'}"]
     # A two-input interface: the microphone's input alone, not mixed with the guitar's.
-    if cfg["channel"] in ("1", "2") and device:
-        cmd += ["-af", f"pan=mono|c0=c{int(cfg['channel']) - 1}"]
+    # The microphone made louder, when the sound card's own gain is not enough; a limiter keeps it from clipping.
+    filters = [f"pan=mono|c0=c{int(cfg['channel']) - 1}"] if cfg["channel"] in ("1", "2") and device else []
+    if cfg.get("gain"):
+        filters += [f"volume={cfg['gain']:.1f}dB", "alimiter=limit=0.95"]
+    if filters:
+        cmd += ["-af", ",".join(filters)]
     cmd += ["-ar", str(_voice.RATE), "-ac", "1", "-f", "s16le", "-"]
     with _WIDGET_LOCK:
         if _WIDGET["proc"] is not None:
@@ -10917,6 +11102,7 @@ class VoiceWidget(BaseModel):
     on: Optional[bool] = None
     device: Optional[str] = None      # as the browser names it; "" = the system's default input
     channel: Optional[str] = None     # "1" / "2" of a two-input interface, "" = as it comes
+    gain: Optional[float] = None      # dB the microphone is made louder by (0–30)
 
 
 @app.get("/api/voice/widget")
@@ -10930,8 +11116,9 @@ def voice_widget():
 @app.post("/api/voice/widget")
 def voice_widget_set(req: VoiceWidget):
     before = _voice.widget_config()
-    cfg = _voice.widget_save(on=req.on, device=req.device, channel=req.channel)
-    moved = (cfg["device"], cfg["channel"]) != (before["device"], before["channel"])
+    gain = None if req.gain is None else max(0.0, min(30.0, float(req.gain)))
+    cfg = _voice.widget_save(on=req.on, device=req.device, channel=req.channel, gain=gain)
+    moved = (cfg["device"], cfg["channel"], cfg["gain"]) != (before["device"], before["channel"], before["gain"])
     if not cfg["on"] or moved:
         _widget_stop()
     if cfg["on"]:

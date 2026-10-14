@@ -491,7 +491,7 @@ def test_the_menu_bar_listening_is_remembered(client, monkeypatch):
     assert client.get("/api/voice/widget").json()["on"] is False
     r = client.post("/api/voice/widget", json={"on": True, "device": "iRig Pro Duo (1963:0046)", "channel": "2"}).json()
     assert r["on"] is True and r["channel"] == "2" and started == [1]
-    assert voice.widget_config() == {"on": True, "device": "iRig Pro Duo (1963:0046)", "channel": "2"}
+    assert voice.widget_config() == {"on": True, "device": "iRig Pro Duo (1963:0046)", "channel": "2", "gain": 0.0}
     client.post("/api/voice/widget", json={"on": False})
     assert voice.widget_config()["on"] is False and voice.widget_config()["channel"] == "2"
     assert voice.match("pick open") == "open" and voice.match("pick open in mini") == "tomini"
@@ -665,3 +665,27 @@ def test_the_wake_word_alone_asks_what_can_be_said():
     assert voice.wake_call(["hey"], [1.0]) == (["hey"], [1.0], False)
     assert voice.wake_call(["hey", "play"], [0.6, 1.0]) == (["pick", "play"], [0.6, 1.0], False)   # "pick" misheard as "hey"
     assert voice.wake_call([], []) == ([], [], False)
+
+
+def test_practising_a_band_with_a_friend_by_voice(client, monkeypatch):
+    """Find the band in Steems, open a song without guitars, tune to the friend, loop and nudge a part."""
+    m = voice.match
+    assert m("pick stems sepultura") == "find:stemsband"
+    assert voice.interpret("stems Sepultura", kind="stemsband") == ("find", "stemsband", "Sepultura")
+    assert client.get("/api/voice/find?kind=stemsband&name=Sepultura").json() == {"kind": "stemsband", "query": "Sepultura"}
+    assert m("pick practice mode on") == "pmode:on" and m("pick guitars off") == "gtrall:off" and m("pick guitars on") == "gtrall:on"
+    assert m("pick tune down") == "pitch:strings:-" and m("pick bass higher") == "pitch:bass:+" and m("pick bass pitch up") is None and m("pick guitar pitch normal") == "pitch:guitar:0"
+    assert m("pick drums quieter") == "vol:drums:-" and m("pick vocals normal") == "vol:vocals:="
+    assert m("pick guitar left") == "pan:guitar:-1" and m("pick up") == "up:1"
+    assert m("pick from chorus") == "goto:chorus" and m("pick go to solo") == "goto:solo" and m("pick loop verse") == "section:verse"
+    assert m("pick loop start left") == "edge:start:-" and m("pick end later") == "edge:end:+" and m("pick loop off") == "loopset:off"
+    assert m("pick start") == "play"                      # "start" alone still starts playing
+
+
+def test_the_microphone_can_be_made_louder(client, monkeypatch):
+    import server
+    monkeypatch.setattr(server, "_widget_start", lambda: True)
+    monkeypatch.setattr(server, "_widget_stop", lambda: None)
+    assert client.get("/api/voice/widget").json()["gain"] == 0
+    assert client.post("/api/voice/widget", json={"gain": 99}).json()["gain"] == 30
+    assert client.post("/api/voice/widget", json={"gain": 12}).json()["gain"] == 12 and voice.widget_config()["gain"] == 12

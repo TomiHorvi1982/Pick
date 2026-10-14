@@ -1764,6 +1764,8 @@ body.lib-collapsed .pick-brand{display:none}
   body.lib-collapsed .lib-sec{justify-content:center}
   body.lib-collapsed .lib-sec-mode .lib-sec-label{width:100%;justify-content:center;padding:0}
   body.lib-collapsed .lib-branch{display:none}
+  /* folded rail: the sections' icons only — no subsections, nothing to half-read */
+  body.lib-collapsed :is(.sl-box,.srail,.lib-tree,.lib-empty,.lib-row){display:none !important}
 
   /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
   /* Songs (Steems, Ready to play, Fronta, Historie): no picture, just the
@@ -3785,6 +3787,67 @@ body.lib-collapsed .pick-brand{display:none}
   body.lib-collapsed .rail-art{display:none}
   html:not(.ambient) .rail-art svg{opacity:.3}
   /* Skladatel — a song out of an idea. */
+  .nm-lyr-more{min-width:0 !important;padding:2px 9px !important;font-size:15px !important;letter-spacing:1px;line-height:1}
+  .nm-lyr-pop{min-width:150px !important}
+  .nm-lyr-pop .tm-item{padding:6px 12px !important;font-size:12.5px !important}
+  /* Steems playlists (static/practice.js) in the left panel, and the MIDI pedal in Settings */
+  .sl-box{margin:2px 6px 8px 34px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+  .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:4px 0 2px}
+  .sl-pl{display:flex;align-items:center;gap:6px;border-radius:8px;padding:2px 4px}
+  .sl-pl.on{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  .sl-name{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--text);font:inherit;cursor:pointer;padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sl-n{color:var(--sub);font-variant-numeric:tabular-nums;font-size:11.5px}
+  .sl-go{width:24px;height:24px;border-radius:50%;border:none;background:var(--accent);color:#0b0b14;font-size:10px;cursor:pointer;flex:none}
+  .sl-songs{display:flex;flex-direction:column;gap:1px;margin:0 0 6px 14px}
+  .sl-song{display:flex;align-items:center;gap:2px}
+  .sl-song.now .sl-t{color:var(--accent);font-weight:700}
+  .sl-t{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--text);font:inherit;font-size:12px;cursor:pointer;padding:3px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sl-song button:not(.sl-t){background:none;border:none;color:var(--sub);cursor:pointer;font-size:12px;padding:2px 4px}
+  .sl-song button:not(.sl-t):hover{color:var(--text)}
+  .sl-song button:disabled{opacity:.25;cursor:default}
+  .sl-acts{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .sl-acts button,.sl-new{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:500px;color:var(--text);font:inherit;font-size:11.5px;padding:3px 9px;cursor:pointer}
+  .sl-acts button.bad:hover{border-color:var(--danger)}
+  .sl-new{align-self:flex-start;margin-top:4px}
+  .sl-empty{color:var(--sub);font-size:12px;padding:2px 0}
+  .pd-box{display:flex;flex-direction:column;gap:8px;font-size:13px}
+  .pd-row{display:flex;align-items:center;gap:8px}
+  .pd-row select{flex:1;min-width:0;padding:7px}
+  .pd-link{background:none;border:none;color:var(--accent);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
+  .pd-last{font-size:12px;color:var(--sub)}
+  .pd-last b{color:var(--text);font-weight:600}
+  .pd-binds{display:flex;flex-direction:column;gap:4px}
+  .pd-b{display:grid;grid-template-columns:1fr auto 1.3fr auto;gap:8px;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:6px 9px;font-size:12.5px}
+  .pd-b i{font-style:normal;color:var(--sub)}
+  .pd-b button{background:none;border:none;color:var(--sub);cursor:pointer}
+  .pd-add{display:flex;gap:6px;flex-wrap:wrap}
+  .pd-add select{flex:1;min-width:120px;padding:7px}
+  /* Pick's own question window (Dialog) — in place of the browser's confirm / prompt */
+  .pk-dlg{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;
+    background:rgba(5,6,12,.62);backdrop-filter:blur(6px);animation:pkdlg-in .14s ease-out}
+  .pk-dlg.out{opacity:0;transition:opacity .14s}
+  @keyframes pkdlg-in{from{opacity:0}to{opacity:1}}
+  .pk-dlg-card{width:min(440px,100%);max-height:86vh;display:flex;flex-direction:column;gap:12px;background:#151726;color:var(--text);
+    border:1px solid color-mix(in srgb,var(--accent) 35%,rgba(255,255,255,.12));border-radius:16px;padding:18px 18px 14px;
+    box-shadow:0 24px 70px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03) inset}
+  .pk-dlg-card.wide{width:min(560px,100%)}
+  .pk-dlg-title{font-size:16px;font-weight:800}
+  .pk-dlg-text{font-size:13.5px;line-height:1.5;color:var(--sub)}
+  .pk-dlg-in{width:100%;background:#0d0e17;border:1px solid #33364a;border-radius:10px;color:var(--text);font:inherit;font-size:14px;padding:9px 11px;outline:none}
+  textarea.pk-dlg-in{resize:vertical;line-height:1.45}
+  .pk-dlg-in:focus{border-color:var(--accent)}
+  .pk-dlg-btns{display:flex;justify-content:flex-end;align-items:center;gap:8px}
+  .pk-dlg-btns .btn{border-radius:500px;padding:8px 18px;font-size:13px}
+  .pk-dlg-btns .btn.danger{background:var(--danger,#ff5c5c);border-color:var(--danger,#ff5c5c)}
+  .pk-dlg-note{flex:1;font-size:12px;color:var(--sub)}
+  .pk-dlg-list{overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:60px;max-height:52vh;margin:0 -6px;padding:0 6px}
+  .pk-dlg-row{display:flex;align-items:baseline;gap:10px;text-align:left;background:none;border:none;border-radius:9px;color:var(--text);
+    font:inherit;font-size:13.5px;padding:8px 10px;cursor:pointer}
+  .pk-dlg-row:hover,.pk-dlg-row:focus-visible{background:color-mix(in srgb,var(--accent) 16%,transparent);outline:none}
+  .pk-dlg-row:disabled{opacity:.45;cursor:default;background:none}
+  .pk-dlg-row b{font-weight:600}
+  .pk-dlg-row span{font-size:12px;color:var(--sub);margin-left:auto;white-space:nowrap}
+  .pk-dlg-empty{font-size:13px;color:var(--sub);padding:14px 4px}
   /* Skladatel (static/studio.js): a page under Tools — the brief on the left, the songs with their players on the right */
   #composer-section{padding:0 0 30px}
   .cp-page{color:var(--text)}
@@ -4169,6 +4232,8 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="voice-row" title="Zvukovka se dvěma vstupy (kytara + mikrofon): vyber, na kterém vstupu je mikrofon. Kytara pak patří na ten druhý."><span>Vstup</span><select id="voice-ch">
           <option value="">běžný mikrofon</option><option value="1">zvukovka — vstup 1</option><option value="2">zvukovka — vstup 2</option></select>
           <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
+        <div class="voice-row" title="Zesílí mikrofon pro hlasové ovládání (i pro poslouchání z lišty), když ho zvukovka sama dává moc potichu. Ukazatel vedle Vstupu má při řeči skákat zhruba do půlky."><span>Zesílení</span>
+          <input type="range" id="voice-gain" min="0" max="30" step="1" value="0" style="flex:1;min-width:0;accent-color:var(--accent)"><b id="voice-gain-v" style="min-width:52px;text-align:right;font-variant-numeric:tabular-nums">+0 dB</b></div>
         <div class="voice-row"><span>Asistent</span><input type="text" id="assist-text" placeholder="napiš, nebo řekni „pick listen“ a pak česky" style="flex:1;min-width:0">
           <a href="/assistant/book" target="_blank" title="Seznam vět, kterým asistent rozumí hned, co se naučil od tebe a čemu nerozuměl" style="white-space:nowrap;color:var(--accent);font-size:12px">co umí</a>
           <label title="Odpověď asistenta přečte počítač nahlas" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="assist-tts"> nahlas</label></div>
@@ -4591,13 +4656,11 @@ body.lib-collapsed .pick-brand{display:none}
         <!-- What is needed once in a while sits folded away: how the text runs,
              and where another text is looked for. -->
         <div class="tmenu" data-tmenu="lyr">
-          <button type="button" class="tm-btn" title="Zobrazení textu a hledání jiného textu">Možnosti <span class="tm-caret">▾</span></button>
-          <div class="tm-pop">
-            <div class="tm-head">Text písně</div>
+          <button type="button" class="tm-btn nm-lyr-more" title="Zobrazení textu, jiný text">⋯</button>
+          <div class="tm-pop nm-lyr-pop">
             <button type="button" class="tm-item" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
-            <hr>
-            <button type="button" class="tm-item" id="nm-lyr-change" title="Hledat text pod jiným názvem">Hledat jiný text…</button>
-            <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
+            <button type="button" class="tm-item" id="nm-lyr-change" title="Vybrat text z písní téže kapely, nebo ho vyhledat">Jiný text…</button>
+            <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty</button>
           </div>
         </div>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
@@ -5576,6 +5639,107 @@ body.lib-collapsed .pick-brand{display:none}
 //   Album:     A–Z (then the album's own order) → off
 // "Off" is the list's own order. A missing value sorts last; the original
 // position breaks every tie, so albums without track numbers keep theirs.
+// Pick's own small window for a question — instead of the browser's confirm()
+// and prompt(), which open a grey box at the top saying "127.0.0.1 says". In the
+// middle, in the app's colours, Enter and Esc as expected. Also a list to pick
+// from (with a search box when it can look further). Everything returns a Promise.
+const Dialog = (() => {
+  let cur = null;
+  function close(v){
+    if(!cur) return;
+    const {box, done, prev} = cur; cur = null;
+    box.classList.add("out"); setTimeout(() => box.remove(), 140);
+    document.removeEventListener("keydown", onKey, true);
+    if(prev && prev.focus) try{ prev.focus(); }catch(e){}
+    done(v);
+  }
+  function onKey(e){
+    if(!cur) return;
+    if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); close(cur.cancelValue); }
+    else if(e.key === "Enter" && !(e.target && e.target.tagName === "TEXTAREA" && !e.metaKey && !e.ctrlKey) && cur.onEnter){ e.preventDefault(); e.stopPropagation(); cur.onEnter(); }
+  }
+  function open(build, cancelValue){
+    if(cur) close(cur.cancelValue);
+    return new Promise((done) => {
+      const box = document.createElement("div");
+      box.className = "pk-dlg";
+      box.innerHTML = `<div class="pk-dlg-card" role="dialog" aria-modal="true"></div>`;
+      const card = box.firstElementChild;
+      cur = {box, done, cancelValue, prev: document.activeElement, onEnter: null};
+      box.addEventListener("mousedown", (e) => { if(e.target === box) close(cancelValue); });
+      build(card, cur);
+      document.body.appendChild(box);
+      document.addEventListener("keydown", onKey, true);
+      const f = card.querySelector("[data-focus]") || card.querySelector("input, textarea, .pk-dlg-ok");
+      if(f) setTimeout(() => { f.focus(); if(f.select) f.select(); }, 30);
+    });
+  }
+  const head = (title, text) => (title ? `<div class="pk-dlg-title">${escapeHtml(title)}</div>` : "")
+    + (text ? `<div class="pk-dlg-text">${escapeHtml(text).replace(/\n/g, "<br>")}</div>` : "");
+  function confirm(text, o = {}){
+    return open((card, c) => {
+      card.innerHTML = head(o.title || "", text) + `<div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">${escapeHtml(o.cancel || "Zrušit")}</button>
+        <button type="button" class="btn pk-dlg-ok ${o.danger ? "danger" : ""}">${escapeHtml(o.ok || "OK")}</button></div>`;
+      card.querySelector(".pk-dlg-no").onclick = () => close(false);
+      card.querySelector(".pk-dlg-ok").onclick = () => close(true);
+      c.onEnter = () => close(true);
+    }, false);
+  }
+  function prompt(text, value = "", o = {}){
+    const multi = o.multiline || /\n/.test(String(value || ""));
+    return open((card, c) => {
+      card.innerHTML = head(o.title || "", text)
+        + (multi ? `<textarea class="pk-dlg-in" rows="8" data-focus></textarea>` : `<input type="text" class="pk-dlg-in" data-focus autocomplete="off">`)
+        + `<div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">${escapeHtml(o.cancel || "Zrušit")}</button><button type="button" class="btn pk-dlg-ok">${escapeHtml(o.ok || "OK")}</button></div>`;
+      const inp = card.querySelector(".pk-dlg-in");
+      inp.value = value == null ? "" : String(value);
+      if(o.placeholder) inp.placeholder = o.placeholder;
+      card.querySelector(".pk-dlg-no").onclick = () => close(null);
+      card.querySelector(".pk-dlg-ok").onclick = () => close(inp.value);
+      c.onEnter = () => close(inp.value);
+    }, null);
+  }
+  // items: [{label, sub, value, disabled}] — or `search(q)` giving them for what is typed.
+  // With `onPick(value)` a click does not close it: one pick after another, until Zavřít.
+  function pick(o = {}){
+    return open((card) => {
+      card.classList.add("wide");
+      card.innerHTML = head(o.title || "", o.text || "")
+        + (o.search ? `<input type="text" class="pk-dlg-in" data-focus autocomplete="off" placeholder="${escapeHtml(o.placeholder || "Hledat…")}">` : "")
+        + `<div class="pk-dlg-list"></div><div class="pk-dlg-btns"><span class="pk-dlg-note"></span><button type="button" class="btn secondary pk-dlg-no">${escapeHtml(o.cancel || "Zavřít")}</button></div>`;
+      const list = card.querySelector(".pk-dlg-list"), note = card.querySelector(".pk-dlg-note"), inp = card.querySelector(".pk-dlg-in");
+      card.querySelector(".pk-dlg-no").onclick = () => close(null);
+      const paint = (items) => {
+        list.innerHTML = items.length ? items.map((x, i) => `<button type="button" class="pk-dlg-row" data-i="${i}" ${x.disabled ? "disabled" : ""}>
+          <b>${escapeHtml(x.label)}</b>${x.sub ? `<span>${escapeHtml(x.sub)}</span>` : ""}</button>`).join("")
+          : `<div class="pk-dlg-empty">${escapeHtml(o.empty || "Nic tu není.")}</div>`;
+        list.querySelectorAll("[data-i]").forEach((b) => b.onclick = async () => {
+          const it = items[+b.dataset.i];
+          if(!o.onPick){ close(it.value); return; }
+          // many picks in one go: the window, what is typed and where the list is all stay
+          const said = await o.onPick(it.value, it), top = list.scrollTop;
+          await run(inp ? inp.value.trim() : "");
+          list.scrollTop = top;
+          note.textContent = said || "";
+        });
+      };
+      let t = 0, n = 0;
+      const run = async (q) => {
+        const my = ++n; note.textContent = "Hledám…";
+        try{ const items = await o.search(q); if(my === n){ paint(items); note.textContent = ""; } }
+        catch(e){ if(my === n){ paint([]); note.textContent = e.message || "Nepodařilo se."; } }
+      };
+      if(o.items) paint(o.items);
+      if(o.search){
+        if(inp){ inp.value = o.query || ""; inp.oninput = () => { clearTimeout(t); t = setTimeout(() => run(inp.value.trim()), 450); }; }
+        if(!o.items) run(o.query || "");
+      }
+    }, null);
+  }
+  const isOpen = () => !!cur;
+  return {confirm, prompt, pick, isOpen};
+})();
+
 const ListSort = (() => {
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
   const txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
@@ -6368,8 +6532,8 @@ function renderCustomChips(){
     },
   });
 }
-el("add-custom").onclick = () => {
-  const val = prompt("Zadej vlastní vyhledávací výraz (žánr, interpret, cokoliv):");
+el("add-custom").onclick = async () => {
+  const val = await Dialog.prompt("Zadej vlastní vyhledávací výraz (žánr, interpret, cokoliv):");
   if(!val || !val.trim()) return;
   const list = loadCustomChips();
   if(list.some(v => v.toLowerCase() === val.trim().toLowerCase())){
@@ -7081,7 +7245,7 @@ const PracticeReady = (() => {
   async function all(){
     const b = el("stems-prepare-favs");
     if(b.dataset.busy){
-      if(confirm("Zastavit přípravu oblíbených? Rozpracovaná píseň se dokončí, čekající se zruší.")) await fetch("/api/practice/save-many", {method: "DELETE"}).catch(() => {});
+      if(await Dialog.confirm("Zastavit přípravu oblíbených? Rozpracovaná píseň se dokončí, čekající se zruší.")) await fetch("/api/practice/save-many", {method: "DELETE"}).catch(() => {});
       return watch();
     }
     b.disabled = true; b.textContent = "Kontroluji oblíbené…";
@@ -7091,7 +7255,7 @@ const PracticeReady = (() => {
     b.disabled = false; paint(null);
     const lists = d.playlists.length ? ` (z toho ${d.playlists.reduce((a, p) => a + p.count, 0)} v ${d.playlists.length} playlistech)` : "";
     if(!d.missing){ showToast(`Oblíbené: všech ${d.songs} písní${lists} je připraveno ve Steems`); return; }
-    if(!confirm(`Oblíbené: ${d.songs} písní${lists}.\n\nPřipraveno ve Steems: ${d.ready}\nChybí: ${d.missing}\n\nStáhnout a rozdělit chybějících ${d.missing}? Poběží to na pozadí po jedné písni — jedna trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h. Dá se kdykoli zastavit stejným tlačítkem.`)) return;
+    if(!await Dialog.confirm(`Oblíbené: ${d.songs} písní${lists}.\n\nPřipraveno ve Steems: ${d.ready}\nChybí: ${d.missing}\n\nStáhnout a rozdělit chybějících ${d.missing}? Poběží to na pozadí po jedné písni — jedna trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h. Dá se kdykoli zastavit stejným tlačítkem.`)) return;
     const r = await post("/api/practice/save-many", {...everything(), ...opts()}).catch(() => null);
     showToast(r ? `Připravuji ${r.queued} písní na cvičení` : "Spuštění se nepovedlo");
     watch();
@@ -7107,7 +7271,7 @@ const PracticeReady = (() => {
     catch(e){ showToast("Kontrola se nepovedla"); return false; }
     const fin = d.finish || 0;
     if(!d.missing && !fin){ showToast(`Všech ${d.songs} označených písní už je připraveno ve Steems`); return false; }
-    if(d.missing + fin > 3 && !confirm(`Označeno ${d.songs} písní.\n\nUž rozdělených na stopy: ${d.ready}\nChybí — stáhnout a rozdělit: ${d.missing}` +
+    if(d.missing + fin > 3 && !await Dialog.confirm(`Označeno ${d.songs} písní.\n\nUž rozdělených na stopy: ${d.ready}\nChybí — stáhnout a rozdělit: ${d.missing}` +
       (fin ? `\nJen dohledat tab a text: ${fin}` : "") + `\n\nSpustit? Poběží to na pozadí po jedné písni` +
       (d.missing ? ` — rozdělení jedné trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h` : "") +
       `. Zastavit se to dá tlačítkem „Připravit oblíbené na cvičení“ ve Steems.`)) return false;
@@ -9520,6 +9684,8 @@ function renderLibraryRail(mode){
 
   RAIL_SECTIONS.forEach(sec => {
     const collapsed = railModeSection(list, sec, mode);
+    // Steems has its playlists right under its heading (static/practice.js)
+    if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
     if(RAIL_BRANCH_SECTIONS.has(sec.key)){
       renderRailBranches(list, sec, collapsed);
       return;
@@ -9563,7 +9729,7 @@ function renderLibraryRail(mode){
           if(item && item.stemsArt && artBox) StemsArt.paint(artBox, item.stemsArt);
           return row;
         });
-      list.querySelectorAll(`[data-sec="${sec.key}"]`).forEach(n => n.remove());
+      list.querySelectorAll(`[data-sec="${sec.key}"]:not(.sl-box)`).forEach(n => n.remove());   // Steems' playlists stay
       anchor.after(...rows);
     });
   });
@@ -9952,7 +10118,10 @@ const SteemsRail = (() => {
     finally{ busy = false; if(state.mode === "steems" && currentSteemsName) renderLibraryRail("steems"); }
   }
   function paint(list, mode){
-    RAIL_SECTIONS.forEach(sec => railModeSection(list, sec, mode));
+    RAIL_SECTIONS.forEach(sec => {
+      const collapsed = railModeSection(list, sec, mode);
+      if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
+    });
     const name = currentSteemsName, d = stemsDisplayByName(name), a = who(name);
     if(a !== artist){ artist = a; data = null; err = ""; sel.clear(); open.clear(); at = 0; }
     if(a && !busy && (!data || Date.now() - at > 60000) && !err) load(a);
@@ -10580,7 +10749,7 @@ async function loadLibraryFolder(rel){
 el("library-filter").addEventListener("input", () => paintLibraryTable());
 
 el("library-new-folder-btn").onclick = async () => {
-  const name = prompt("Název nové složky:");
+  const name = await Dialog.prompt("Název nové složky:");
   if(!name || !name.trim()) return;
   try{
     const res = await fetch("/api/library/fs/mkdir", {
@@ -11887,7 +12056,7 @@ function openMultiMixMenu(anchor){
   box.querySelector('[data-a="one"]').onclick = async () => {
     box.remove();
     const folder = (libraryCurrentRel || "").split("/").pop().replace(/^@/, "") || "Projekt";
-    const name = prompt("Název projektu:", folder);
+    const name = await Dialog.prompt("Název projektu:", folder);
     if(name === null) return;
     let project = null, failed = 0;
     for(let i = 0; i < rels.length; i++){
@@ -12302,7 +12471,7 @@ let steemsFilter = "";
 // by, and filtered on. The origin is the server's guess; a click puts it right.
 let steemsOrigin = (() => { try{ return localStorage.getItem("spotdl-steems-origin") || ""; }catch(e){ return ""; } })();
 const ORIGIN_CZ = {cz: "CZ / SK", world: "Zahraniční"};
-const steemsPlaylist = (song) => song.playlist || "";
+const steemsPlaylist = (song) => song.playlist || (song.imported ? "Ručně přidáno" : "");
 function originMark(song){
   const o = song.origin === "cz" ? "cz" : "world";
   return `<button type="button" class="origin-mark ${o}${song.origin_typed ? " typed" : ""}" data-origin="${o}"
@@ -12436,9 +12605,14 @@ const UnderList = (() => {
   function sorted(){
     const d = (s) => stemsDisplay(s), txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
     const byArtist = (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).title, d(b).title);
-    return steemsSongs.slice().sort(sortBy === "title" ? (a, b) => txt(d(a).title, d(b).title) || byArtist(a, b)
+    // the open song's band comes first, whatever the order below it
+    const band = (s) => norm(((d(s).artist || "").split(/,|;| feat\.? | ft\.? /i)[0] || "").trim());
+    const mine = currentSteemsName ? band({name: currentSteemsName, ...(steemsSongs.find(s => s.name === currentSteemsName) || {})}) : "";
+    const first = (a, b) => mine ? (band(b) === mine) - (band(a) === mine) : 0;
+    const by = sortBy === "title" ? (a, b) => txt(d(a).title, d(b).title) || byArtist(a, b)
       : sortBy === "album" ? (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).album, d(b).album) || txt(d(a).title, d(b).title)
-      : sortBy === "tuning" ? (a, b) => (low(a) - low(b)) || txt(tun(a), tun(b)) || byArtist(a, b) : byArtist);
+      : sortBy === "tuning" ? (a, b) => (low(a) - low(b)) || txt(tun(a), tun(b)) || byArtist(a, b) : byArtist;
+    return steemsSongs.slice().sort((a, b) => first(a, b) || by(a, b));
   }
   function paint(){
     const h = host();
@@ -12765,6 +12939,7 @@ function loadMixerSong(name, opts = {}){
     loadMixerSong(name);
   });
   currentSteemsName = name;
+  if(!el("mixer").hidden) UnderList.paint();           // the other songs: this one's band first
   showSteemsHero(name);
   if(state.mode === "steems") renderLibraryRail("steems");
   if(!opts.force && mixerHeld.name === name && mixerHeld.state !== "failed" && Mixer.currentSong() === name){
@@ -13291,11 +13466,11 @@ const TabRetune = (() => {
       const low = orig.slice().reverse();
       const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
       const def = low.map(m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1)).join(" ");
-      const val = prompt("Struny od nejhlubší, oddělené mezerou (např. D2 A2 D3 G3 B3 E4):", def);
+      const val = await Dialog.prompt("Struny od nejhlubší, oddělené mezerou (např. D2 A2 D3 G3 B3 E4):", def);
       if(!val) return;
       const strings = val.trim().split(/[\s,]+/).filter(Boolean);
       if(strings.length < 4 || strings.length > 9 || !strings.every(Tunings.valid)){ showToast("Struny piš jako E2, F#3, Bb1"); return; }
-      const name = prompt("Pojmenovat a uložit k ostatním laděním? (prázdné = jen použít)", "");
+      const name = await Dialog.prompt("Pojmenovat a uložit k ostatním laděním? (prázdné = jen použít)", "");
       if(name && name.trim()){
         try{ await Tunings.save(name.trim(), strings); }catch(e){ showToast(e.message || "Ladění se nepodařilo uložit"); }
       }
@@ -15331,12 +15506,12 @@ const Mixer = (() => {
 
   const lyrRun = LyricRun(el("nm-lyr-run"), {onSeek: (t) => seek(Math.max(0, t))});
   try{ new ResizeObserver(() => lyrRun.draw()).observe(el("nm-lyr-run")); }catch(e){}
-  el("nm-lyr-mode").textContent = runMode ? "Zobrazit po řádcích" : "Zobrazit běžící text";
+  el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
   // The ribbon and the buttons that go with it, after anything about the text changed.
   function runRefresh(){
     lyrRun.set(lyrics ? LyricRun.build(lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || "", get words(){ return sung[sungKey(i)] || null; }})), duration, melodyNotes) : []);
     el("nm-lyr-lines").classList.toggle("run", runMode && !!lyrics);
-    el("nm-lyr-mode").textContent = runMode ? "Zobrazit po řádcích" : "Zobrazit běžící text";
+    el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
     el("nm-lyr-reset").hidden = !Object.keys(lyricShift).length;
     lyrRun.draw(currentTime());
   }
@@ -15512,9 +15687,8 @@ const Mixer = (() => {
       showToast("Hledám text…");
       const data = await fetchLyrics();
       if(!data || !(data.synced && data.lines && data.lines.length)){
-        showToast(data && data.plain
-          ? "K téhle písni je jen text bez časů — nedá se přiřadit ke zpěvu"
-          : "Text jsem nenašel — zkus tlačítko Hledat s interpretem a názvem");
+        const name = stemsDisplayByName(currentSongName).title || currentSongName;
+        if(await pickLyrics(data && data.plain ? `K „${name}“ je jen text bez časů — vyber verzi s časy` : `Text k „${name}“ jsem nenašel — vyber píseň`)) return;
         el("mixer-lyrics-bar").hidden = false;
         el("mixer-lyrics-toggle").classList.add("active");
         lyricsOn = true;
@@ -15609,21 +15783,44 @@ const Mixer = (() => {
 
   el("nm-lyr-earlier").onclick = () => nudgeLyrics(-0.5);
   el("nm-lyr-later").onclick = () => nudgeLyrics(0.5);
-  el("nm-lyr-change").onclick = async () => {
-    const q = prompt("Interpret - název písně:", currentSongName || "");
-    if(!q || !q.trim()) return;
-    showToast("Hledám text…");
-    const data = await fetchLyrics(q.trim());
-    if(data && data.synced && data.lines && data.lines.length){
-      adoptLyrics(data);
-      lyricsOn = true;
-      el("mixer-lyrics-bar").hidden = false;
-      el("mixer-lyrics-toggle").classList.add("active");
-      renderTimeline();
-    } else {
-      showToast("Pod tímhle názvem text s časy není");
-    }
-  };
+  el("nm-lyr-change").onclick = () => pickLyrics("Jiný text");
+
+  // A text picked by hand: the songs of the band that have one (timed ones can be
+  // picked — they run with the singing), or found by what is typed. The one picked is
+  // kept for this song on the server, so next time it is there at once.
+  async function pickLyrics(title){
+    if(!currentSongName) return false;
+    const d = stemsDisplayByName(currentSongName), artist = (d.artist || "").split(",")[0].trim();
+    const mmss = (s) => s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "";
+    const ask = async (q) => {
+      const get = async (a) => { const r = await fetch(`/api/lyrics/choices?${new URLSearchParams({artist: a, q})}`), d = await r.json().catch(() => ({}));
+        if(!r.ok) throw new Error(d.error || "Hledání se nepovedlo."); return d.items || []; };
+      let items = await get(artist);
+      if(!items.length && q) items = await get("");
+      return items.map((x) => ({label: x.title, value: x, disabled: !x.synced,
+        sub: [x.artist !== artist ? x.artist : "", x.album, mmss(x.duration), x.synced ? "⏱ s časy" : "bez časů"].filter(Boolean).join(" · ")}));
+    };
+    const x = await Dialog.pick({title, text: artist ? `Písně od ${artist}, ke kterým je text. Jen ty s časy (⏱) běží se zpěvem.` : "Napiš interpreta a název písně.",
+      search: ask, placeholder: "Hledat jiný název nebo interpreta…", empty: "Nic jsem nenašel — zkus napsat název jinak, nebo Karaoketexty."});
+    if(!x) return false;
+    let data = null;
+    try{
+      const r = await fetch("/api/lyrics/pick", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: x.id, title: d.title || currentSongName, artist, duration: duration ? Math.round(duration) : null})});
+      data = await r.json();
+      if(!r.ok) throw new Error(data.error || "Text se nepodařilo stáhnout.");
+    }catch(e){ showToast(e.message); return false; }
+    if(!(data.synced && data.lines && data.lines.length)){ showToast("Tenhle text nemá časy — vyber jiný"); return false; }
+    adoptLyrics(data);
+    lyricsOn = true;
+    paintOffset();
+    runRefresh();
+    el("mixer-lyrics-bar").hidden = false;
+    el("mixer-lyrics-toggle").classList.add("active");
+    renderTimeline();
+    showToast(`Text: ${x.title} — ${x.artist}`);
+    return true;
+  }
 
   // ---- Karaoketexty.cz, for the Czech songs LRCLib mostly doesn't have —
   // their own page in a window of its own. Nothing is fetched or scraped
@@ -15786,7 +15983,7 @@ const Mixer = (() => {
     async function saveCurrent(){
       const strings = currentStrings();
       if(!strings || !strings.length){ showToast("Nejdřív v ladičce nastav ladění (třeba Vlastní… a Použít)"); return; }
-      const name = prompt(`Název ladění (${strings.join(" ")}):`, "");
+      const name = await Dialog.prompt(`Název ladění (${strings.join(" ")}):`, "");
       if(!name || !name.trim()) return;
       try{ await Tunings.save(name.trim(), strings); showToast(`Ladění „${name.trim()}“ uloženo — najdeš ho i u hmatníku`); }
       catch(e){ showToast(e.message); }
@@ -16477,11 +16674,11 @@ const Mixer = (() => {
   // The sync can be locked (per song): once set, a stray swipe or drag over
   // the tab mustn't throw it off. Locked, the tab still plays along; only the
   // controls that move it are off.
-  let tabLocked = false;
-  const tabLockKey = () => "spotdl-gui-nm-tab-lock:" + (currentSongName || "");
+  // Every song opens with its tab locked; unlocked by hand, it stays so only until the next song.
+  let tabLocked = true, tabUnlocked = false;
   const TAB_LOCK_CTLS = ["nm-tabtop-earlier", "nm-tabtop-later", "nm-tabtop-off", "nm-tabtop-sync", "nm-tabtop-timing", "nm-tabtop-pos"];
   function paintTabLock(){
-    try{ tabLocked = localStorage.getItem(tabLockKey()) === "1"; }catch(e){ tabLocked = false; }
+    tabLocked = !tabUnlocked;
     const b = el("nm-tabtop-lock");
     b.classList.toggle("on", tabLocked);
     b.innerHTML = tabLocked ? icon("lock", 13) + "<span>Lock sync</span>" : "<span>Sync</span>";
@@ -16502,7 +16699,7 @@ const Mixer = (() => {
         said = `Takt ${bar + 1} = ${fmtDur(now)} — tab připnutý k písni a zamčený`;
       }
     }
-    try{ localStorage.setItem(tabLockKey(), locking ? "1" : "0"); }catch(e){}
+    tabUnlocked = !locking;
     paintTabLock();
     showToast(said);
   };
@@ -17475,8 +17672,8 @@ const Mixer = (() => {
     const rename = document.createElement("button");
     rename.type = "button";
     rename.innerHTML = `${icon("tag", 12)}Vlastní název…`;
-    rename.onclick = () => {
-      const val = prompt("Název sekce:", sec.name);
+    rename.onclick = async () => {
+      const val = await Dialog.prompt("Název sekce:", sec.name);
       closeSectionMenu();
       if(val && val.trim()){
         pushMapUndo("Sekce přejmenována");
@@ -17544,9 +17741,9 @@ const Mixer = (() => {
     if(m) m.remove();
   }
 
-  function editSectionPresets(){
+  async function editSectionPresets(){
     const current = sectionPresets.map(p => p.name).join("\n");
-    const val = prompt(
+    const val = await Dialog.prompt(
       "Nabídka názvů sekcí pro tuhle píseň — jeden na řádek:", current);
     if(val === null) return;
     const names = val.split("\n").map(x => x.trim()).filter(Boolean).slice(0, 40);
@@ -19621,6 +19818,7 @@ const Mixer = (() => {
       pausedAt = 0;
       updateSeekUI(0);
       updateRulerPlayhead(0);
+      if(typeof Setlist !== "undefined") Setlist.ended();   // a Steems playlist goes on with its next song
       return;
     }
     rafId = requestAnimationFrame(tick);
@@ -19700,6 +19898,7 @@ const Mixer = (() => {
     el("nm-stemcount").textContent = song.stems.length;
     el("nm-key").textContent = "…";
     currentSongName = song.name;
+    tabUnlocked = false;                 // a new song: its tab locked
     resetLyrics();
     loopEnabled = false; loopStart = 0; loopEnd = 0;
     el("mixer-loop").classList.remove("active");
@@ -24004,7 +24203,7 @@ const Mixer = (() => {
       const list = (ed && ed.sel.size ? [...ed.sel] : c.midi.notes).slice().sort((a, b) => a.t - b.t);
       if(!list.length){ showToast("Stopa nemá žádné tóny"); return; }
       const src = c.midiSrc || {rel: "", name: stemLabel(c.stem)};
-      const name = (prompt("Název MIDI souboru v knihovně (Loops/Riffs):", src.name) || "").trim();
+      const name = (await Dialog.prompt("Název MIDI souboru v knihovně (Loops/Riffs):", src.name) || "").trim();
       if(!name) return;
       let t0 = list[0].t;
       for(const b of beatTimes){ if(b <= list[0].t + 0.001) t0 = b; else break; }
@@ -25111,9 +25310,47 @@ const Mixer = (() => {
         mute(stem){ const c = find(stem); if(!c) return null; press(c, "mute"); return c.muted; },
         solo(stem){ const c = find(stem); if(!c) return null; press(c, "solo"); return c.solo; },
         mutedOn(stem, on){ const c = find(stem); if(c && !!c.muted !== on) press(c, "mute"); return !!c; },
+        // every guitar track of the song (a song can have more than one), all muted or all back
+        guitars(on){
+          const gs = channels.filter(c => c.stem.split("_")[0] === "guitar");
+          gs.forEach(c => { if(!!c.muted === on) press(c, "mute"); });
+          return gs.length;
+        },
+        // half-tones for the guitars, the bass, or both ("strings"); d = 0 puts them back
+        pitch(stem, d){
+          const kinds = stem === "strings" ? ["guitar", "bass"] : [stem];
+          const cs = channels.filter(c => kinds.includes(c.stem.split("_")[0]));
+          if(!cs.length) return null;
+          let st = 0;
+          cs.forEach(c => { st = d ? Math.max(-12, Math.min(12, rateToSemitones(c.pitchRate || 1) + d)) : 0; c.pitchRate = semitonesToRate(st); });
+          renderChannels(); renderTrackLanes(); queueSessionSave(); requestTempoPitch();
+          return st;
+        },
+        // play from a section, no loop: "pick from chorus"
+        goto(which){
+          if(!sections.length) return false;
+          const t = loopEnabled ? loopStart + 0.01 : currentTime();
+          const at = Math.max(0, sections.findIndex(x => t >= x.start && t < x.end));
+          const is = (x) => (KINDS[which] || [which]).some(k => String(x.kind || "").toLowerCase() === k || String(x.name || "").toLowerCase().includes(k));
+          const hit = [...sections.slice(at + 1), ...sections.slice(0, at + 1)].find(is);
+          if(!hit) return null;
+          loopEnabled = false; el("mixer-loop").classList.remove("active"); updateLoopVisual();
+          seek(hit.start); queueSessionSave(); renderTimeline();
+          if(!isPlaying) play();
+          return hit.name;
+        },
+        // an edge of the loop moved by `by` seconds: "start" or "end"
+        edge(which, by){
+          if(!(loopEnabled && loopEnd > loopStart)) return null;
+          if(which === "start") loopStart = Math.max(0, Math.min(loopEnd - 0.3, loopStart + by));
+          else loopEnd = Math.max(loopStart + 0.3, Math.min(duration || loopEnd + by, loopEnd + by));
+          updateLoopVisual(); renderTimeline(); queueSessionSave();
+          if(which === "start" && !isPlaying) seek(loopStart);
+          return {start: loopStart, end: loopEnd};
+        },
         vol(stem, d){
           const c = find(stem); if(!c) return null;
-          c.faderValue = Math.max(0, Math.min(1.5, (c.faderValue || 0) + d * 0.15));
+          c.faderValue = d === "=" ? 1 : Math.max(0, Math.min(1.5, (c.faderValue || 0) + d * 0.15));
           applyGains(); renderChannels(); renderTrackLanes();
           return Math.round(c.faderValue * 100);
         },
@@ -27095,8 +27332,8 @@ const LyricsView = (() => {
   if(karaokeBtn) karaokeBtn.onclick = () => {
     if(typeof Mixer !== "undefined" && Mixer.openKaraoke) Mixer.openKaraoke(currentQuery);
   };
-  if(fixBtn) fixBtn.onclick = () => {
-    const val = prompt("Interpret - název písně:", currentQuery);
+  if(fixBtn) fixBtn.onclick = async () => {
+    const val = await Dialog.prompt("Interpret - název písně:", currentQuery);
     if(!val || !val.trim() || val.trim() === currentQuery) return;
     showForTrack(lastTrack || Player.getCurrent() || {}, val.trim());
   };
@@ -27466,11 +27703,11 @@ const PlayerTab = (() => {
   btn.onclick = async () => { await toggle(); setTimeout(syncPlayerToggles, 0); };
   el("pb-tab-dock-close").onclick = () => { close(); syncPlayerToggles(); };
   el("pb-tab-dock-search").onclick = openSearch;
-  let dockLocked = false;
+  let dockLocked = true, dockUnlockedFor = null;      // locked with each song; unlocked by hand only for the one open
   const dockLockKey = () => "spotdl-gui-pb-tab-lock:" + (songId != null ? songId : ((tabData && tabData.name) || ""));
   const DOCK_LOCK_CTLS = ["pb-tab-dock-run", "pb-tab-dock-slower", "pb-tab-dock-faster", "pb-tab-dock-timing"];
   function paintDockLock(){
-    try{ dockLocked = localStorage.getItem(dockLockKey()) === "1"; }catch(e){ dockLocked = false; }
+    dockLocked = dockUnlockedFor !== dockLockKey();
     const b = el("pb-tab-dock-lock");
     b.classList.toggle("on", dockLocked);
     b.innerHTML = icon(dockLocked ? "lock" : "unlock", 13);
@@ -27478,7 +27715,7 @@ const PlayerTab = (() => {
     DOCK_LOCK_CTLS.forEach(id => { const n = el(id); if(n){ n.classList.toggle("tab-locked-ctl", dockLocked); n.disabled = dockLocked; } });
   }
   el("pb-tab-dock-lock").onclick = () => {
-    try{ localStorage.setItem(dockLockKey(), dockLocked ? "0" : "1"); }catch(e){}
+    dockUnlockedFor = dockLocked ? dockLockKey() : null;
     paintDockLock();
     showToast(dockLocked ? "Synchronizace tabu zamčená" : "Synchronizace odemčená");
   };
@@ -29620,8 +29857,8 @@ const PlayerLyricsDock = (() => {
 
   el("pb-lyrics-dock-earlier").onclick = () => nudge(-0.5);
   el("pb-lyrics-dock-later").onclick = () => nudge(0.5);
-  el("pb-lyrics-dock-fix").onclick = () => {
-    const val = prompt("Interpret - název písně:", lastQuery);
+  el("pb-lyrics-dock-fix").onclick = async () => {
+    const val = await Dialog.prompt("Interpret - název písně:", lastQuery);
     if(!val || !val.trim() || val.trim() === lastQuery) return;
     open(val.trim());
   };
@@ -31105,7 +31342,7 @@ const Speak = (() => {
       const own = (d.profiles || []).filter(p => p.engine === "pick");
       q("va-mine").innerHTML = own.length ? own.map(p => `<div><span>${escapeHtml(p.name)}</span><button type="button" data-id="${escapeHtml(p.id)}">smazat</button></div>`).join("") : "";
       q("va-mine").querySelectorAll("button").forEach(b => b.onclick = async () => {
-        if(!confirm(`Smazat hlas „${b.previousElementSibling.textContent}“?`)) return;
+        if(!await Dialog.confirm(`Smazat hlas „${b.previousElementSibling.textContent}“?`, {ok: "Smazat", danger: true})) return;
         await fetch("/api/tts/voice/" + encodeURIComponent(b.dataset.id), {method: "DELETE"}).catch(() => {});
         await voices(); mine();
       });
@@ -31996,6 +32233,22 @@ const Voice = (() => {
   let peak = 0, lvlN = 0;
   const savedCh = () => { try{ return localStorage.getItem(CH_KEY) || ""; }catch(e){ return ""; } };
   const toggleBtn = el("voice-toggle"), heard = el("voice-heard");
+  // The microphone made louder here when the sound card gives too little (0–30 dB); the
+  // menu bar's listening, which reads the microphone in the server, is told the same.
+  const GAIN_KEY = "pick-voice-gain";
+  let gainDb = (() => { try{ return Math.max(0, Math.min(30, +localStorage.getItem(GAIN_KEY) || 0)); }catch(e){ return 0; } })();
+  let gainLin = Math.pow(10, gainDb / 20), gainTimer = 0;
+  {
+    const r = el("voice-gain"), v = el("voice-gain-v");
+    const show = () => { r.value = gainDb; v.textContent = "+" + gainDb + " dB"; };
+    show();
+    r.oninput = () => {
+      gainDb = +r.value; gainLin = Math.pow(10, gainDb / 20); show();
+      try{ localStorage.setItem(GAIN_KEY, String(gainDb)); }catch(e){}
+      clearTimeout(gainTimer);
+      gainTimer = setTimeout(() => fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({gain: gainDb})}).catch(() => {}), 600);
+    };
+  }
 
   function paint(){
     toggleBtn.classList.toggle("on", on);
@@ -32499,8 +32752,12 @@ const Voice = (() => {
     }
     if(what === "num"){ const r = hereRows().filter(x => !x.folder); const row = r.find(x => x.n === +arg) || (r.some(x => x.n) ? null : r[+arg - 1]);
       if(!row) return r.length ? `číslo ${arg} tu není — seznam končí číslem ${r.length}` : "tady není žádný seznam písní";
-      row.go(); return `otevírám ${arg}: ${row.title}`; }
+      const steems = state.mode === "steems";
+      row.go();
+      if(steems) afterOpen();
+      return `otevírám ${arg}: ${row.title}`; }
     if(what === "plnum") return "playlisty podle čísla otevírá minipřehrávač („pick mini player“)";
+    if(what === "pmode"){ practiceMode(arg === "on"); return arg === "on" ? "cvičný režim: písně otevřené hlasem bez kytar" : "cvičný režim vypnutý: písně se otevřou se vším"; }
     if(what === "see" || what === "gtrs"){
       if(!(shown("mixer") && Mixer.currentSong())) return "nejdřív otevři píseň ve Steems";
       if(what === "see"){ if(arg === "lyrics"){ Mixer.seeLyrics(); return "text přes celé okno — „pick see mix“ ho vrátí"; } Mixer.seeMix(); return "mix a stopy"; }
@@ -32624,7 +32881,22 @@ const Voice = (() => {
       const V = Mixer.voice, stem = arg, cz = STEM_CZ[stem] || stem, third = cmd.split(":")[2];
       if(what === "mute"){ const r = V.mute(stem); return r === null ? `stopa ${cz} tu není` : `${cz} ${r ? "ztlumená" : "hraje"}`; }
       if(what === "solo"){ const r = V.solo(stem); return r === null ? `stopa ${cz} tu není` : `${cz} sólo ${r ? "zap" : "vyp"}`; }
-      if(what === "vol"){ const r = V.vol(stem, third === "+" ? 1 : -1); return r === null ? `stopa ${cz} tu není` : `${cz} ${r} %`; }
+      if(what === "vol"){ const r = V.vol(stem, third === "=" ? "=" : third === "+" ? 1 : -1); return r === null ? `stopa ${cz} tu není` : `${cz} ${r} %`; }
+      if(what === "gtrall"){ const n = V.guitars(arg === "on"); return n ? (arg === "on" ? "kytary hrají" : `kytary ztlumené (${n})`) : "tahle píseň kytaru zvlášť nemá"; }
+      if(what === "pitch"){
+        const r = V.pitch(stem, third === "0" ? 0 : third === "+" ? 1 : -1), who = {guitar: "kytary", bass: "basa", strings: "kytary a basa"}[stem] || stem;
+        return r === null ? `${who} tu nejsou` : `${who}: ${r ? (r > 0 ? "+" : "−") + Math.abs(r) + " půlt." : "původní ladění"}`;
+      }
+      if(what === "goto"){ const r = V.goto(arg); return r ? "hraju od: " + r : r === false ? "tahle píseň nemá sekce" : "taková sekce tu není"; }
+      if(what === "edge"){
+        const r = V.edge(arg, third === "+" ? 0.5 : -0.5), f = (t) => (Math.round(t * 10) / 10).toFixed(1).replace(".", ",");
+        return r ? `smyčka ${f(r.start)}–${f(r.end)} s` : "smyčka není zapnutá — řekni třeba „pick loop chorus“";
+      }
+      if(what === "loopset"){
+        const isOn = !!Mixer.loopNow();
+        if((arg === "on") !== isOn) click("mixer-loop");
+        return arg === "on" ? (Mixer.loopNow() ? "smyčka zapnutá" : "smyčka — nejdřív vyber sekci („pick loop chorus“)") : "smyčka vypnutá";
+      }
       if(what === "pan"){ const r = V.pan(stem, +third); return r === null ? `stopa ${cz} tu není` : `${cz} ${+third < 0 ? "vlevo" : +third > 0 ? "vpravo" : "na střed"}`; }
       if(what === "section"){
         const r = V.section(arg === "loop" ? "loop" : arg === "+" ? 1 : arg === "-" ? -1 : arg);
@@ -32639,6 +32911,7 @@ const Voice = (() => {
       }
       // next, previous, louder, quieter: the player's, also from here
     }
+    if(["gtrall", "pitch", "goto", "edge", "loopset"].includes(what)) return "nejdřív otevři píseň ve Steems";
     const a = pb, vol = el("pb-volume");
     if(what === "rewind"){ a.currentTime = 0; return "na začátek"; }
     if(what === "next") return click("pb-next") ? "další píseň" : null;
@@ -32840,11 +33113,45 @@ const Voice = (() => {
   const buttonName = (b) => ((b.title || b.getAttribute("aria-label") || b.textContent || "").split(" — ")[0].trim() || "tlačítko").slice(0, 40);
 
   // A song or a band by name — spoken (the server has already looked it up) or typed into a step.
+  // Practice mode: a song opened by voice in Steems comes up with its guitars muted —
+  // the band plays, the guitars are yours (and a friend's).
+  const PM_KEY = "pick-voice-practice";
+  const practiceOn = () => { try{ return localStorage.getItem(PM_KEY) !== "0"; }catch(e){ return true; } };
+  function practiceMode(v){ try{ localStorage.setItem(PM_KEY, v ? "1" : "0"); }catch(e){} }
+  function afterOpen(){
+    if(!practiceOn()) return;
+    const was = Mixer.currentSong(), t0 = Date.now();
+    const tick = () => {
+      if(Date.now() - t0 > 60000) return;
+      const now = Mixer.currentSong();
+      if(now && (now !== was || Date.now() - t0 > 1500) && Mixer.channelInfo().length){
+        setTimeout(() => { const n = Mixer.voice.guitars(false); if(n) showToast(`Cvičný režim: kytary ztlumené (${n}) — „pick guitars on“ je vrátí`); }, 400);
+        return;
+      }
+      setTimeout(tick, 300);
+    };
+    setTimeout(tick, 300);
+  }
+  // "pick stems sepultura": the Steems list with that band's songs only, numbered to pick from
+  async function steemsBand(said){
+    if(!steemsSongs.length){ try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){} }
+    const bands = [...new Set(steemsSongs.map(x => stemsDisplay(x).artist).filter(Boolean))];
+    const i = await bestOf(said, bands);
+    if(i < 0){ showToast(`Kapelu „${said}“ ve Steems nemám`); return; }
+    const band = bands[i], n = steemsSongs.filter(x => stemsDisplay(x).artist === band).length;
+    steemsFilter = band;
+    setMode("steems", {keepSection: true});
+    await loadSteemsList();
+    const m = el("main-scroll") || document.querySelector("main"); if(m) m.scrollTo({top: 0});
+    showToast(`${band}: ${n} ${n === 1 ? "píseň" : n < 5 ? "písně" : "písní"} ve Steems — řekni „pick play“ a číslo`);
+  }
   async function findByName(kind, name){
     try{ found(await (await fetch(`/api/voice/find?kind=${kind}&name=${encodeURIComponent(name)}`)).json()); }
     catch(e){ showToast("Hledání se nepovedlo"); }
   }
   function found(f){
+    if(f && f.kind === "setlist"){ Setlist.playByName(f.query); return; }
+    if(f && (f.kind === "stemsband" || (f.kind === "band" && state.mode === "steems"))){ steemsBand(f.query || f.artist); return; }
     if(!f || f.error){ showToast((f && f.error) || "Nenašel jsem to"); return; }
     if(f.kind === "playlist" || f.kind === "open"){ setMode("playlists"); searchExactly(f.query); showToast("Hledám playlisty: " + f.query); return; }
     if(f.kind === "band"){
@@ -32852,7 +33159,7 @@ const Voice = (() => {
       showToast(`Hraju kapelu ${f.artist} (${f.tracks.length} písní)`);
       return;
     }
-    if(f.kind === "here" || f.kind === "play"){ openHere(f.query, f.track); return; }
+    if(f.kind === "here" || f.kind === "play"){ const steems = state.mode === "steems"; openHere(f.query, f.track); if(steems) afterOpen(); return; }
     if(f.kind === "search" && f.missing){ setMode("songs"); searchExactly(f.query); showToast(`„${f.query}“ ještě nemáš — hledám`); return; }
     const t = f.track;
     // "pick search": a song that is here already is opened, not looked up — in Steems when it is separated.
@@ -33033,7 +33340,8 @@ const Voice = (() => {
       node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0,
         channelCount: 2, channelCountMode: "explicit", channelInterpretation: "discrete",
         processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
-      node.port.onmessage = (e) => {
+      node.port.onmessage = (ev) => {
+        const e = gainLin === 1 ? ev : {data: ev.data.map(x => x * gainLin > 1 ? 1 : x * gainLin < -1 ? -1 : x * gainLin)};
         if(dict && dictHear(e.data)) return;
         for(let i = 0; i < e.data.length; i += 8){ const v = Math.abs(e.data[i]); if(v > peak) peak = v; }
         if((lvlN += e.data.length) >= 1600){ level.style.width = Math.min(100, Math.round(Math.sqrt(peak) * 100)) + "%"; peak = lvlN = 0; }
@@ -33132,6 +33440,7 @@ const Voice = (() => {
 })();
 </script>
 <script src="/static/studio.js"></script>
+<script src="/static/practice.js"></script>
 <script src="/static/look.js"></script>
 </body>
 </html>

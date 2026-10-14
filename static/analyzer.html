@@ -445,6 +445,9 @@
 <div class="count" id="count"></div>
 
 <script>
+// A question asked in Pick's own window (the app around this page, same origin) — the
+// browser's confirm() opens a grey box saying "127.0.0.1 says". Alone, it falls back to that.
+const askYes = (q) => { try{ const D = window.parent !== window && window.parent.Dialog; if(D) return D.confirm(q); }catch(e){} return Promise.resolve(window.confirm(q)); };
 "use strict";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -2252,7 +2255,7 @@ document.addEventListener("click", async (e) => {
     b.disabled = false;
   }
   if(b.dataset.rf === "del"){
-    if(!confirm(`Smazat riff „${r.riff}“? Soubory půjdou do koše.`)) return;
+    if(!await askYes(`Smazat riff „${r.riff}“? Soubory půjdou do koše.`)) return;
     for(const rel of [r.audio, r.midi]) if(rel) await fetch("/api/library/fs/delete", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({rel})}).catch(() => {});
     if(RF.playing === r.id && RF.audio){ RF.audio.pause(); RF.audio = null; RF.playing = null; }
     paintRiffs();

@@ -233,7 +233,7 @@ const Composer = (() => {
     on("cp-file", "onclick", () => pickFile("audio/*,video/*,.wav,.mp3,.m4a,.flac,.ogg,.aif,.aiff", newProject));
     on("cp-rec", "onclick", record);
     on("cp-none", "onclick", () => newProject(null));
-    on("cp-drop", "onclick", async () => { if(!confirm("Smazat projekt i se všemi variantami? Co už je v knihovně, zůstane.")) return;
+    on("cp-drop", "onclick", async () => { if(!await Dialog.confirm("Smazat projekt i se všemi variantami? Co už je v knihovně, zůstane.", {ok: "Smazat", danger: true})) return;
       try{ await api("/api/studio/projects/" + pid, {method: "DELETE"}); pid = null; await load(); paint(); }catch(e){ showToast(e.message); } });
     on("cp-mode", "onchange", (e) => { form.mode = e.target.value; keep(); repaint(); });
     root.querySelectorAll("[data-style]").forEach((b) => b.onclick = () => { const k = b.dataset.style;
@@ -283,7 +283,7 @@ const Composer = (() => {
     grab();
     const p = project(), mode = form.lw.mode;
     if(mode !== "write" && !form.lyrics.trim()){ showToast("Nejdřív napiš do pole Text pár veršů — nebo zvol Napsat celý."); return; }
-    if(mode === "write" && form.lyrics.trim() && !confirm("Napsat nový text místo toho, co je v poli Text?")) return;
+    if(mode === "write" && form.lyrics.trim() && !await Dialog.confirm("Napsat nový text místo toho, co je v poli Text?", {ok: "Napsat nový"})) return;
     writing = true; paint();
     try{
       const desc = [form.styles.map((k) => (st.styles.find((s) => s.id === k) || {}).caption).filter(Boolean)[0], form.desc].filter(Boolean).join(", ");
@@ -325,7 +325,7 @@ const Composer = (() => {
     right.innerHTML = list.map((x) => `${p ? "" : `<div class="cp-sub big">${esc(x.name)}</div>`}` + x.variants.slice().reverse().map((v) => card(x, v)).join("")).join("");
     right.querySelectorAll("[data-use]").forEach((b) => b.onclick = () => use(b.dataset.p, b.dataset.use, b.dataset.voice === "1"));
     right.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { Player.stop(); setMode("steems"); loadMixerSong(b.dataset.open); });
-    right.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { if(!confirm("Zahodit tuhle verzi?")) return;
+    right.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { if(!await Dialog.confirm("Zahodit tuhle verzi?", {ok: "Zahodit", danger: true})) return;
       try{ await api(`/api/studio/projects/${b.dataset.p}/variants/${b.dataset.del}`, {method: "DELETE"}); await load(); paintResults(); }catch(e){ showToast(e.message); } });
     right.querySelectorAll("[data-sep]").forEach((b) => b.onclick = async () => { try{ await api(`/api/studio/projects/${b.dataset.p}/variants/${b.dataset.sep}/separate`, {method: "POST"}); await load(); paintResults(); watch(); }catch(e){ showToast(e.message); } });
     right.querySelectorAll("[data-seed]").forEach((b) => b.onclick = () => { form.opts.seed = +b.dataset.seed; keep(); secState.set = true; paint(); showToast(`Seed ${b.dataset.seed} je v nastavení — další skládání půjde stejnou cestou.`); });
@@ -378,8 +378,8 @@ const Composer = (() => {
     let voice = "";
     if(sing){
       try{ voices = (await api("/api/myvoice")).voices; }catch(e){ voices = []; }
-      if(!voices.length){ if(confirm("Ještě nemáš vlastní hlas. Vytvořit ho teď? (přečteš dva krátké texty a kousek zazpíváš)")) VoiceGuide.open(() => setMode("composer")); return; }
-      voice = voices.length === 1 ? voices[0].id : pickVoice();
+      if(!voices.length){ if(await Dialog.confirm("Ještě nemáš vlastní hlas. Vytvořit ho teď? (přečteš dva krátké texty a kousek zazpíváš)", {ok: "Vytvořit"})) VoiceGuide.open(() => setMode("composer")); return; }
+      voice = voices.length === 1 ? voices[0].id : await pickVoice();
       if(!voice) return;
     }
     try{
@@ -388,10 +388,8 @@ const Composer = (() => {
       await load(); paintResults(); watch();
     }catch(e){ showToast(e.message); }
   }
-  function pickVoice(){
-    const n = prompt("Kterým hlasem?\n" + voices.map((v, i) => `${i + 1} = ${v.name}${v.sung ? " (se vzorkem zpěvu)" : ""}`).join("\n"), "1");
-    const v = voices[parseInt(n, 10) - 1];
-    return v ? v.id : "";
+  async function pickVoice(){
+    return (await Dialog.pick({title: "Kterým hlasem zpívat?", items: voices.map((v) => ({label: v.name, sub: v.sung ? "se vzorkem zpěvu" : "", value: v.id}))})) || "";
   }
 
   // ---- the player: a waveform to click into, volume, and every instrument on its own switch.
