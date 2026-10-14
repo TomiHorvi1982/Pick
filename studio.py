@@ -49,6 +49,7 @@ ENGINE_LOG = STUDIO_DIR / "engine.log"
 PORT = int(os.environ.get("PICK_STUDIO_PORT") or 8795)
 URL = f"http://127.0.0.1:{PORT}"
 IDLE = 180                     # seconds with nothing to make before the model is put away (it crowds the memory)
+room = lambda: True            # the server says whether the memory has room for the model to be loaded
 COLD = 130                     # seconds the model takes to wake up
 IDEA_MAX = 60.0                # of the idea, this much is used
 LENGTHS = (30, 45, 60, 90, 120, 150, 180, 240, 300)
@@ -646,7 +647,11 @@ def _work() -> None:
                 _STATE["worker"] = None
                 engine_stop()
                 return
+        if job and not engine_up() and not room() and time.time() - _STATE.setdefault("room_wait", time.time()) < 300:
+            time.sleep(3.0)                    # the model is not loaded and the memory is short: a while, then anyway
+            continue
         if job:
+            _STATE.pop("room_wait", None)
             _compose(*job)
         elif sep:
             _separate_one(*sep)

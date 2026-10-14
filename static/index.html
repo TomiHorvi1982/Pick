@@ -2167,6 +2167,23 @@ body.lib-collapsed .pick-brand{display:none}
 
   /* Top bar bits that came from the old header. */
   .set-note{color:var(--sub);font-size:12.5px;line-height:1.55;margin:8px 0 10px}
+  .le-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px}
+  .le-row select{margin-left:4px}
+  .le-recnote{font-size:12px;color:var(--sub)}
+  .le-edits{font-size:12px;color:var(--sub);margin-top:10px;display:grid;gap:3px;max-height:120px;overflow:auto}
+  .le-edits b{color:var(--text)}
+  .sys-box{display:grid;gap:8px;margin-top:6px}
+  .sys-row{display:grid;grid-template-columns:76px 1fr auto;gap:8px;align-items:center;font-size:12.5px}
+  .sys-row .cap{color:var(--sub)}
+  .sys-bar{height:8px;border-radius:4px;background:color-mix(in srgb,var(--sub) 22%,transparent);overflow:hidden;position:relative}
+  .sys-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:4px}
+  .sys-bar i.pick{background:color-mix(in srgb,var(--accent) 45%,#fff)}
+  .sys-bar.busy i:not(.pick){background:#e0a030}.sys-bar.tight i:not(.pick){background:var(--danger)}
+  .sys-verdict{font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .sys-verdict.busy{background:color-mix(in srgb,#e0a030 22%,transparent)}.sys-verdict.tight{background:color-mix(in srgb,var(--danger) 22%,transparent)}
+  .sys-jobs{font-size:12px;color:var(--sub)}
+  .sys-badge{border:0;border-radius:14px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;color:#111;background:#e0a030;align-self:center}
+  .sys-badge.tight{background:var(--danger);color:#fff}
   .set-row{display:flex;align-items:center;gap:12px;margin-top:10px}
   .set-row[hidden]{display:none}
   .set-row label{flex:0 0 110px;font-size:13px;color:var(--text)}
@@ -4291,6 +4308,7 @@ body.lib-collapsed .pick-brand{display:none}
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
     <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
     <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
+    <button class="sys-badge" id="sys-badge" hidden title="Počítač je vytížený — klikni pro podrobnosti"></button>
     <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
 </div>
@@ -4362,6 +4380,10 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="panel-head">
       <button class="close-btn" id="settings-close"><span data-icon="close" data-size="13"></span></button>
       <div class="pl-title" style="margin-top:0"><span data-icon="settings" data-size="17"></span> Nastavení</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="clock"></span>Výkon počítače</div>
+      <div class="sys-box" id="sys-box"><div class="set-note">Měřím…</div></div>
+      <div class="set-note">Pick hlídá paměť a procesor. Náročná úloha (rozdělení písně, zpěv jiným hlasem, odposlech textu, Skladatel) se nespustí, když je paměti málo — počká, nebo řekne proč.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="star"></span>Vzhled</div>
       <div class="amb-theme">
@@ -4686,6 +4708,8 @@ body.lib-collapsed .pick-brand{display:none}
           <div class="tm-pop nm-lyr-pop">
             <button type="button" class="tm-item" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
             <button type="button" class="tm-item" id="nm-lyr-change" title="Vybrat text z písní téže kapely, nebo ho vyhledat">Jiný text…</button>
+            <button type="button" class="tm-item" id="nm-lyr-edit" title="Opravit text řádku, který se teď zpívá, nebo ho nechat zazpívat s novými slovy (i dvojklik na řádek na stopě Text)">Upravit / přezpívat řádek…</button>
+            <button type="button" class="tm-item" id="nm-lyr-hear" title="Pick si text naposlouchá ze stopy zpěvu (whisper, na tomhle počítači) — i české písně. Text bez časů dostane časy.">Odposlechnout ze zpěvu</button>
             <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty</button>
           </div>
         </div>
@@ -5763,7 +5787,7 @@ const Dialog = (() => {
     }, null);
   }
   const isOpen = () => !!cur;
-  return {confirm, prompt, pick, isOpen};
+  return {confirm, prompt, pick, isOpen, open, close};
 })();
 
 const ListSort = (() => {
@@ -15645,7 +15669,8 @@ const Mixer = (() => {
       b.dataset.i = String(i);
       b.style.left = x + "px";
       b.style.width = w + "px";
-      b.title = text + " — klik sem skočí, tažením řádek posuneš";
+      b.title = text + " — klik sem skočí, tažením řádek posuneš, dvojklik: opravit nebo přezpívat";
+      b.ondblclick = (e) => { e.stopPropagation(); editLine(i); };
       b.textContent = w >= 24 ? text : "";
       if(lyricShift[i]) b.classList.add("moved");
       // Dragged, a line takes a new time of its own — between its neighbours,
@@ -15699,6 +15724,188 @@ const Mixer = (() => {
     return data;
   }
 
+  // ---- the text heard off the vocals stem, for a song no lyrics site has (or
+  // has only without times): whisper listens on this computer, about a minute
+  // a song, and the server keeps it — next time it is found like any other.
+  let hearing = null;
+  function showLyricsBar(){
+    lyricsOn = true;
+    el("mixer-lyrics-bar").hidden = false;
+    el("mixer-lyrics-toggle").classList.add("active");
+  }
+  async function hearLyrics(again, quiet){
+    const name = currentSongName;
+    if(!name || hearing === name) return;
+    const d = stemsDisplayByName(name);
+    const body = {title: d.title || name, artist: (d.artist || "").split(",")[0].trim(), duration: duration ? Math.round(duration) : null, again: !!again};
+    const done = (data) => {
+      hearing = null;
+      if(currentSongName !== name || !data || !(data.lines && data.lines.length)) return;
+      adoptLyrics(data);
+      showLyricsBar(); paintOffset(); runRefresh(); renderTimeline();
+      showToast(data.source === "odposlechnuto ze zpěvu" ? "Text odposlechnutý ze zpěvu — může mít chyby, řádek opravíš kliknutím na stopě textu" : "Text má časy podle zpěvu");
+    };
+    let r, got;
+    try{
+      r = await fetch(`/api/stems/${encodeURIComponent(name)}/hear`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+      got = await r.json();
+    }catch(e){ if(!quiet) showToast("Odposlech se nepovedl spustit"); return; }
+    if(!r.ok){ if(!quiet) showToast(got.error || "Odposlech se nepovedl"); return; }
+    if(got.status === "done"){ done(got.lyrics); return; }
+    hearing = name;
+    if(!lyrics){ showLyricsBar(); el("nm-lyr-cur").textContent = "Poslouchám zpěv…"; }
+    if(!quiet) showToast("Poslouchám zpěv — zhruba minuta");
+    while(hearing === name){
+      await new Promise(res => setTimeout(res, 2000));
+      let s;
+      try{ s = await (await fetch("/api/hear")).json(); }catch(e){ continue; }
+      const j = s.job;
+      if(!j || j.song !== name){ hearing = null; return; }
+      if(j.status === "running"){
+        if(!lyrics && currentSongName === name) el("nm-lyr-cur").textContent = j.of ? `Poslouchám zpěv… ${j.done}/${j.of}` : "Poslouchám zpěv…";
+        continue;
+      }
+      if(j.status === "done") done(j.lyrics);
+      else{
+        hearing = null;
+        if(currentSongName === name && !lyrics) el("nm-lyr-cur").textContent = "Text nenalezen";
+        if(!quiet || currentSongName === name) showToast(j.error || "Odposlech se nepovedl");
+      }
+    }
+  }
+  el("nm-lyr-hear").onclick = () => hearLyrics(!!(lyrics && lyrics.heard));
+
+  // ---- one line of the text: its words corrected, or sung again with new
+  // ones — in the singer's own voice and on the line's own tune (server:
+  // /api/stems/…/resing). The new words are typed (the singer's voice reads
+  // them) or recorded by the player. Every line done goes into one track,
+  // "Upravený zpěv"; the original vocals stay as they were.
+  let resingWatch = 0;
+  const resingStage = {prepare: "připravuji", voice: "beru hlas zpěváka", say: "hlas zpěváka čte nová slova", tune: "kladu slova na melodii",
+    sing: "zpívá hlasem zpěváka", save: "ukládám stopu"};
+  async function saveLyricsText(){
+    const name = currentSongName, d = stemsDisplayByName(name);
+    try{
+      const r = await fetch("/api/lyrics/keep", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title: d.title || name, artist: (d.artist || "").split(",")[0].trim(), duration: duration ? Math.round(duration) : null, lines: lyrics.lines})});
+      if(!r.ok) throw new Error();
+    }catch(e){ showToast("Opravu se nepodařilo uložit"); return false; }
+    return true;
+  }
+  function lineSpan(i){
+    const t = lyricTime(i), next = i + 1 < lyrics.lines.length ? lyricTime(i + 1) : duration;
+    let end = Math.min(next, t + 12);
+    // where the voice ends in it: the line's last sung note, when the melody is known
+    const ns = (melodyNotes || []).filter(n => n[0] >= t - 0.2 && n[0] < next);
+    if(ns.length) end = Math.min(end, Math.max(...ns.map(n => n[1])) + 0.25);
+    return {start: Math.max(0, t - 0.1), end: Math.max(end, t + 0.6)};
+  }
+  async function editLine(i){
+    if(!lyrics || !lyrics.lines[i] || !currentSongName) return;
+    const name = currentSongName, line = lyrics.lines[i], span = lineSpan(i);
+    const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    let st = null;
+    try{ st = await (await fetch("/api/resing?song=" + encodeURIComponent(name))).json(); }catch(e){}
+    const lang0 = lyrics.lang || (/[ěščřžýáíéůúňťď]/i.test(lyrics.lines.map(l => l.text).join(" ")) ? "cs" : "en");
+    let rec = null, recChunks = [], recorded = false;
+    const edits = (st && st.kept && st.kept.edits) || [];
+    Dialog.open((card) => {
+      card.classList.add("wide");
+      card.innerHTML = `<div class="pk-dlg-title">Řádek ${i + 1} · ${mmss(span.start)}–${mmss(span.end)}</div>
+        <div class="pk-dlg-text">Oprav slova (jen text), nebo napiš nová a nech je zazpívat <b>hlasem zpěváka v melodii tohohle řádku</b>.
+          Výsledek je nová stopa „Upravený zpěv“ — originál zůstane. Trvá zhruba minutu.</div>
+        <input type="text" class="pk-dlg-in le-text" data-focus autocomplete="off">
+        <div class="le-row"><label>Jazyk <select class="le-lang"><option value="cs">čeština</option><option value="en">angličtina</option><option value="sk">slovenština</option><option value="de">němčina</option></select></label>
+          <button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button>
+          <button type="button" class="btn secondary le-rec" title="Nahraj, jak se nová slova říkají (nebo je zazpívej) — místo hlasu zpěváka, který je čte">🎤 Namluvit</button>
+          <span class="le-recnote"></span></div>
+        ${st && st.ready === false ? `<div class="pk-dlg-text" style="color:var(--danger)">Model pro zpěv tu není nainstalovaný — jde jen opravit text.</div>` : ""}
+        ${edits.length ? `<div class="le-edits"><b>Už přezpívané:</b>${edits.map(e => `<div>${mmss(e.start)} · <s>${escapeHtml(e.old || "")}</s> → ${escapeHtml(e.text || "")}</div>`).join("")}</div>` : ""}
+        <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zavřít</button>
+          <button type="button" class="btn secondary le-fix">Jen opravit text</button>
+          <button type="button" class="btn pk-dlg-ok le-sing" ${st && st.ready === false ? "disabled" : ""}>Přezpívat</button></div>`;
+      const inp = card.querySelector(".le-text"), langSel = card.querySelector(".le-lang"), note = card.querySelector(".le-recnote");
+      inp.value = line.text || ""; langSel.value = lang0;
+      card.querySelector(".pk-dlg-no").onclick = () => { if(rec && rec.state === "recording") rec.stop(); Dialog.close(null); };
+      card.querySelector(".le-play").onclick = () => { seek(span.start); if(!isPlaying) play(); setTimeout(() => { if(isPlaying && currentSongName === name) pause(); }, (span.end - span.start + 0.3) * 1000); };
+      card.querySelector(".le-fix").onclick = async () => {
+        const v = inp.value.trim();
+        if(!v || v === line.text){ Dialog.close(null); return; }
+        line.text = v;
+        if(await saveLyricsText()){ renderTimeline(); runRefresh(); lyricsIdx = -2; updateLyricsNow(currentTime()); showToast("Řádek opraven"); }
+        Dialog.close(null);
+      };
+      const recBtn = card.querySelector(".le-rec");
+      recBtn.onclick = async () => {
+        if(rec && rec.state === "recording"){ rec.stop(); return; }
+        let stream;
+        try{ stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: true}}); }
+        catch(e){ showToast("Bez povolení mikrofonu to nejde"); return; }
+        recChunks = [];
+        rec = new MediaRecorder(stream);
+        rec.ondataavailable = (e) => { if(e.data.size) recChunks.push(e.data); };
+        rec.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          recBtn.textContent = "🎤 Namluvit znovu";
+          note.textContent = "Nahrávám do Picku…";
+          const fd = new FormData();
+          fd.append("file", new Blob(recChunks, {type: rec.mimeType || "audio/webm"}), "take.webm");
+          try{
+            const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/take`, {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
+            if(!r.ok) throw new Error(d.error || "Nahrávka se nepovedla.");
+            recorded = true; note.textContent = "✓ nahráno — zazpívá se tvoje nahrávka";
+          }catch(e){ recorded = false; note.textContent = e.message; }
+        };
+        rec.start();
+        recBtn.textContent = "■ Hotovo";
+        note.textContent = "Mluv… (nebo zpívej)";
+      };
+      card.querySelector(".le-sing").onclick = async () => {
+        const v = inp.value.trim();
+        if(!v && !recorded){ showToast("Napiš nová slova, nebo je namluv"); return; }
+        let r, d;
+        try{
+          r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing`, {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({start: span.start, end: span.end, text: v === line.text && recorded ? "" : v, old: line.text || "", lang: langSel.value, take: recorded})});
+          d = await r.json();
+        }catch(e){ showToast("Přezpívání se nepovedlo spustit"); return; }
+        if(!r.ok){ showToast(d.error || "Přezpívání se nepovedlo spustit"); return; }
+        Dialog.close(null);
+        showToast(`Přezpívávám řádek — asi ${Math.max(1, Math.round(d.estimate / 60))} min, můžeš dál pracovat`);
+        watchResing(name);
+      };
+      // Enter in the words: sing them
+      inp.onkeydown = (e) => { if(e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); card.querySelector(".le-sing").click(); } };
+    }, null);
+  }
+  function watchResing(name){
+    clearTimeout(resingWatch);
+    resingWatch = setTimeout(async () => {
+      let s;
+      try{ s = await (await fetch("/api/resing")).json(); }catch(e){ watchResing(name); return; }
+      const j = s.job;
+      if(!j){ return; }
+      if(j.status === "running"){
+        if(currentSongName === name) el("nm-lyr-cur").title = "Přezpívávám: " + (resingStage[j.stage] || "");
+        watchResing(name); return;
+      }
+      if(j.status === "done"){
+        if(currentSongName === j.song){
+          Mixer.reloadTracks("Řádek je přezpívaný — stopa „Upravený zpěv“. Originál zpěvu jsem ztlumil.");
+          let n = 0;
+          setTimeout(() => { const t = setInterval(() => {
+            if(currentSongName !== j.song || ++n > 240){ clearInterval(t); return; }
+            if(Mixer.channelByStem(j.stem)){ clearInterval(t); Mixer.muteStem("vocals", true); }
+          }, 500); }, 2500);
+        } else showToast(`Řádek v písni „${stemsDisplayByName(j.song).title}“ je přezpívaný.`);
+      } else if(j.status === "error") showToast("Přezpívání se nepovedlo: " + (j.error || ""));
+    }, 2000);
+  }
+  el("nm-lyr-edit").onclick = () => {
+    if(!lyrics){ showToast("Nejdřív načti text písně"); return; }
+    editLine(Math.max(0, lyricIndexAt(currentTime())));
+  };
+
   async function toggleLyrics(force){
     if(lyricsOn && force !== true){
       lyricsOn = false;
@@ -15709,6 +15916,7 @@ const Mixer = (() => {
       return;
     }
     if(!currentSongName){ showToast("Nejdřív načti píseň"); return; }
+    if(!lyrics && hearing === currentSongName){ showLyricsBar(); el("nm-lyr-cur").textContent = "Poslouchám zpěv…"; return; }
     if(!lyrics){
       showToast("Hledám text…");
       const data = await fetchLyrics();
@@ -15762,7 +15970,7 @@ const Mixer = (() => {
     if(!lyricsOn && !lyrics){
       fetchLyrics().then(data => {
         if(currentSongName !== name || lyricsOn || lyrics) return;
-        if(!data || !(data.synced && data.lines && data.lines.length)) return;
+        if(!data || !(data.synced && data.lines && data.lines.length)){ hearLyrics(false, true); return; }   // none with times: heard off the vocals
         adoptLyrics(data);
         lyricsOn = true;
         paintOffset();
@@ -15823,12 +16031,14 @@ const Mixer = (() => {
         if(!r.ok) throw new Error(d.error || "Hledání se nepovedlo."); return d.items || []; };
       let items = await get(artist);
       if(!items.length && q) items = await get("");
-      return items.map((x) => ({label: x.title, value: x, disabled: !x.synced,
-        sub: [x.artist !== artist ? x.artist : "", x.album, mmss(x.duration), x.synced ? "⏱ s časy" : "bez časů"].filter(Boolean).join(" · ")}));
+      return [{label: "🎤 Odposlechnout ze zpěvu", value: {hear: true}, sub: "Pick si text naposlouchá ze stopy zpěvu — i české písně, asi minuta"}]
+        .concat(items.map((x) => ({label: x.title, value: x, disabled: !x.synced,
+        sub: [x.artist !== artist ? x.artist : "", x.album, mmss(x.duration), x.synced ? "⏱ s časy" : "bez časů"].filter(Boolean).join(" · ")})));
     };
     const x = await Dialog.pick({title, text: artist ? `Písně od ${artist}, ke kterým je text. Jen ty s časy (⏱) běží se zpěvem.` : "Napiš interpreta a název písně.",
       search: ask, placeholder: "Hledat jiný název nebo interpreta…", empty: "Nic jsem nenašel — zkus napsat název jinak, nebo Karaoketexty."});
     if(!x) return false;
+    if(x.hear){ hearLyrics(!!(lyrics && lyrics.heard)); return true; }
     let data = null;
     try{
       const r = await fetch("/api/lyrics/pick", {method: "POST", headers: {"Content-Type": "application/json"},
@@ -28142,6 +28352,40 @@ el("audio-out-names").onclick = async () => {
   }catch(e){ showToast("Bez povolení mikrofonu prohlížeč názvy zařízení neukáže"); }
   fillAudioOut();
 };
+// ---- how hard the computer works (/api/system): in the settings while they are
+// open, and a badge at the top whenever the memory runs short.
+const SysLoad = (() => {
+  const gb = (b) => (b / 1073741824).toFixed(1).replace(".", ",");
+  const VERDICT = {ok: "Zvládne i náročnou úlohu", busy: "Je vytížený — další náročná úloha může počkat", tight: "Málo paměti — náročné úlohy teď čekají"};
+  let last = null;
+  function paint(s){
+    last = s;
+    const badge = el("sys-badge");
+    badge.hidden = s.level === "ok";
+    badge.className = "sys-badge " + s.level;
+    badge.textContent = s.level === "tight" ? `⚠ paměť ${gb(s.avail)} GB` : `⏳ vytížený`;
+    const box = el("sys-box");
+    if(settingsOverlay.hidden || !box) return;
+    const mem = Math.min(100, s.used / s.total * 100), pick = Math.min(mem, s.pick_rss / s.total * 100);
+    const pressure = {1: "normální", 2: "zvýšený", 4: "kritický"}[s.pressure] || "?";
+    box.innerHTML = `<div class="sys-verdict ${s.level}">${VERDICT[s.level]}</div>
+      <div class="sys-row"><span class="cap">Paměť</span><div class="sys-bar ${s.level}"><i style="width:${mem}%"></i><i class="pick" style="width:${pick}%"></i></div>
+        <span>${gb(s.used)} / ${gb(s.total)} GB</span></div>
+      <div class="sys-row"><span class="cap">Procesor</span><div class="sys-bar ${s.cpu > 90 ? "busy" : ""}"><i style="width:${s.cpu}%"></i></div>
+        <span>${Math.round(s.cpu)} % z ${s.cpus} jader</span></div>
+      <div class="sys-jobs">Volno ${gb(s.avail)} GB · tlak na paměť ${pressure} · Pick sám ${gb(s.pick_rss)} GB · odkládání na disk ${gb(s.swap)} GB${s.swap_growing ? " ↑ roste" : ""}</div>
+      <div class="sys-jobs">${s.jobs && s.jobs.length ? "Teď běží: " + s.jobs.map(escapeHtml).join(", ") : "Teď neběží nic náročného."}</div>`;
+  }
+  async function tick(){
+    try{ const r = await fetch("/api/system"); if(r.ok) paint(await r.json()); }catch(e){}
+  }
+  let timer = null;
+  const pace = () => { clearTimeout(timer); timer = setTimeout(async () => { await tick(); pace(); }, settingsOverlay.hidden ? 15000 : 3000); };
+  el("sys-badge").onclick = () => el("settings-btn").click();
+  tick(); pace();
+  return {now: () => { tick(); pace(); }, last: () => last};
+})();
+el("settings-btn").addEventListener("click", () => SysLoad.now());
 el("settings-close").onclick = () => settingsOverlay.hidden = true;
 settingsOverlay.addEventListener("click", e => { if(e.target === settingsOverlay) settingsOverlay.hidden = true; });
 

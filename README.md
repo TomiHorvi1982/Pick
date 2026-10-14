@@ -356,6 +356,30 @@ a tóninou), „Napsat text do stavby“, nebo „Jen značky do Textu“. „Ro
 po jedné písni z každé kapely; běží na pozadí (sekce přes analyze.py, kde ještě nejsou,
 asi půl minuty na píseň) a čeká, když běží rozdělování.
 
+**Text odposlechnutý ze zpěvu** (`hear.py`): když k písni ve Steems není text s časy, Pick si ho
+naposlouchá ze stopy zpěvu — sám po otevření písně, nebo v liště Text → ⋯ → Odposlechnout ze
+zpěvu (i v okně Jiný text). Zpěv se rozdělí na úseky, kde se zpívá, whisper (`whisper-cli`,
+large-v3-turbo, na tomhle počítači) je přepíše najednou; jazyk písně je ten, ve kterém zazněla
+většina úseků, a úseky slyšené jinak se přečtou znovu v něm. Asi minuta na píseň; uloží se
+k stopám (`heard.json`) i jako nalezený text. Text bez časů (LRCLib ho často má) dostane časy
+z odposlechu a slova zůstanou správná. Chybně slyšený řádek opravíš dvojklikem na stopě Text
+→ Jen opravit text (`/api/lyrics/keep`).
+
+**Přezpívat řádek** (`resing_worker.py`, dvojklik na řádek na stopě Text, nebo ⋯ → Upravit /
+přezpívat řádek): nová slova zazpívá hlas zpěváka v melodii řádku. Slova přečte OmniVoice
+hlasem zpěváka (ukázka z jeho stopy, přepsaná whisperem), nebo je namluvíš sám (🎤);
+vokodér WORLD (`pyworld` v prostředí pick-svc) položí každou slabiku na tón řádku a dá jí
+jeho výšku, Seed-VC to zazpívá barvou zpěváka (ukázka ~16 s jeho nejsilnějšího zpěvu).
+Každý přezpívaný řádek jde do jedné stopy „Upravený zpěv“ (`resing.json`: co bylo a co je),
+originál zůstane a ztlumí se. Asi minuta na řádek. Výslovnost bývá místy rozmazaná — zkus
+znovu, nebo slova namluv.
+
+**Výkon počítače** (`sysload.py`, Nastavení → Výkon počítače, `/api/system`): paměť, procesor,
+kolik bere Pick sám, tlak na paměť a odkládání na disk (macOS: sysctl, vm_stat, ps), měřené
+každé 3 s; v horní liště se ukáže upozornění, když je počítač vytížený nebo dochází paměť.
+Náročná úloha se zeptá, jestli je místo: rozdělení písně ve frontě a nový model Skladatele
+počkají (nejvýš 5 minut), odposlech, zpěv jiným hlasem a přezpívání řeknou proč ne.
+
 **MIDI pedál** (Nastavení → MIDI pedál): nožní spínač přes MIDI — Bluetooth Ampero Switch
 se v macOS připojí v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit),
 pak ho Chrome vidí jako MIDI vstup. Funkci (přehrát/zastavit, další / předchozí sekce,
