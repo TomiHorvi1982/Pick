@@ -442,7 +442,7 @@ const Viz = (() => {
     await Dialog.open((card) => {
       card.classList.add("wide", "viz-find");
       card.innerHTML = `<div class="pk-dlg-title">Videa zdarma</div>
-        <div class="viz-row"><span class="seg"><button type="button" data-src="commons">Wikimedia Commons</button><button type="button" data-src="pexels">Pexels</button></span>
+        <div class="viz-row"><span class="seg"><button type="button" data-src="commons">Wikimedia Commons</button><button type="button" data-src="pixabay">Pixabay</button><button type="button" data-src="pexels">Pexels</button></span>
           <label>Uložit do <select data-to>${lib.themes.map((t) => `<option ${t.name === fto ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select></label></div>
         <div class="viz-row"><input type="text" class="pk-dlg-in" data-q placeholder="anglicky: ocean waves, fire, galaxy, city night, concert lights…" data-focus><button type="button" class="btn" data-go>Hledat</button></div>
         <div class="viz-key"></div><div class="viz-grid"></div>
@@ -450,14 +450,16 @@ const Viz = (() => {
       const q = card.querySelector("[data-q]"), grid = card.querySelector(".viz-grid"), noteEl = card.querySelector("[data-note]"), more = card.querySelector("[data-more]"), keyBox = card.querySelector(".viz-key");
       q.value = fq;
       const seg = () => { card.querySelectorAll("[data-src]").forEach((b) => b.classList.toggle("on", b.dataset.src === fsrc));
-        keyBox.innerHTML = fsrc === "pexels" && !lib.pexels ? `<div class="viz-row"><span class="pk-dlg-text">Pexels potřebuje klíč zdarma: zaregistruj se na pexels.com/api a klíč vlož sem (zůstane jen v počítači).</span>
-          <input type="text" class="pk-dlg-in" data-key placeholder="klíč k Pexels"><button type="button" class="btn secondary" data-keysave>Uložit klíč</button></div>` : "";
+        const KEYS = {pixabay: ["Pixabay", "zaregistruj se zdarma na pixabay.com a klíč najdeš na pixabay.com/api/docs (v části Parameters, „key“)"],
+          pexels: ["Pexels", "zaregistruj se na pexels.com/api (nové klíče teď Pexels nevydává — když už klíč máš, vlož ho)"]};
+        keyBox.innerHTML = KEYS[fsrc] && !lib[fsrc] ? `<div class="viz-row"><span class="pk-dlg-text">${KEYS[fsrc][0]} potřebuje klíč zdarma: ${KEYS[fsrc][1]}. Klíč zůstane jen v počítači.</span>
+          <input type="text" class="pk-dlg-in" data-key placeholder="klíč k ${KEYS[fsrc][0]}"><button type="button" class="btn secondary" data-keysave>Uložit klíč</button></div>` : "";
         const ks = keyBox.querySelector("[data-keysave]");
-        if(ks) ks.onclick = async () => { try{ const r = await fetch("/api/viz/pexels-key", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: keyBox.querySelector("[data-key]").value})});
-          const d = await r.json(); if(!r.ok) throw new Error(d.error); lib.pexels = d.pexels; seg(); go(1); }catch(e){ noteEl.textContent = e.message; } }; };
+        if(ks) ks.onclick = async () => { try{ const r = await fetch(`/api/viz/${fsrc}-key`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: keyBox.querySelector("[data-key]").value})});
+          const d = await r.json(); if(!r.ok) throw new Error(d.error); lib[fsrc] = d[fsrc]; seg(); go(1); }catch(e){ noteEl.textContent = e.message; } }; };
       const go = async (page) => {
         fq = q.value.trim(); fpage = page;
-        if(!fq || (fsrc === "pexels" && !lib.pexels)) return;
+        if(!fq || (fsrc !== "commons" && !lib[fsrc])) return;
         noteEl.textContent = "Hledám…"; if(page === 1) grid.innerHTML = "";
         let d;
         try{ const r = await fetch(`/api/viz/search?${new URLSearchParams({q: fq, source: fsrc, page})}`); d = await r.json(); if(!r.ok) throw new Error(d.error); }

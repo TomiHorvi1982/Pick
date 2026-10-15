@@ -65,7 +65,7 @@ def themes() -> list:
 def viz_list():
     with _LOCK:
         jobs = [dict(j, id=k) for k, j in JOBS.items() if j["status"] == "running" or time.time() - j["started"] < 600]
-    return {"themes": themes(), "folder": str(root()), "card": root().parent.is_dir(), "jobs": jobs, "pexels": bool(_pexels_key())}
+    return {"themes": themes(), "folder": str(root()), "card": root().parent.is_dir(), "jobs": jobs, "pexels": bool(_pexels_key()), "pixabay": bool(_key(PIXABAY_KEY))}
 
 
 @router.get("/api/viz/video/{theme}/{name}")
@@ -189,15 +189,38 @@ import html as _html
 import httpx
 
 PEXELS_KEY = Path.home() / ".local" / "share" / "spotdl-helper" / "pexels-key.txt"
+PIXABAY_KEY = Path.home() / ".local" / "share" / "spotdl-helper" / "pixabay-key.txt"
 UA = {"User-Agent": "Pick/1.0 (https://github.com/TomiHorvi1982/Pick; personal music app)"}   # Wikimedia asks for who asks
-HOSTS = ("upload.wikimedia.org", "videos.pexels.com", "player.vimeo.com")
+HOSTS = ("upload.wikimedia.org", "videos.pexels.com", "player.vimeo.com", "cdn.pixabay.com")
+
+
+def _key(f: Path) -> str:
+    try:
+        return f.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def _pexels_key() -> str:
-    try:
-        return PEXELS_KEY.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    return _key(PEXELS_KEY)
+
+
+def _pixabay(q: str, page: int) -> list:
+    r = httpx.get("https://pixabay.com/api/videos/", timeout=20, params={"key": _key(PIXABAY_KEY), "q": q, "per_page": 30, "page": page, "safesearch": "true"})
+    if r.status_code in (400, 401, 403) and "key" in r.text.lower():
+        raise PermissionError("Klíč k Pixabay nefunguje — zkontroluj ho.")
+    if r.status_code == 400:
+        return []                                    # past the last page
+    out = []
+    for v in r.json().get("hits") or []:
+        vs = v.get("videos") or {}
+        best = next((vs[k] for k in ("medium", "large", "small") if (vs.get(k) or {}).get("url")), None)
+        if not best or (best.get("width") or 0) < (best.get("height") or 0):
+            continue
+        out.append({"source": "pixabay", "title": (v.get("tags") or "").split(",")[0].strip().capitalize() or f"Pixabay {v.get('id')}",
+                    "thumb": best.get("thumbnail") or "", "url": best["url"], "w": best.get("width"), "dur": v.get("duration"),
+                    "author": v.get("user") or "", "license": "Pixabay (zdarma)", "page": v.get("pageURL")})
+    return out
 
 
 def _text(s) -> str:
@@ -250,6 +273,10 @@ def viz_search(q: str = "", source: str = "commons", page: int = 1):
     if not q:
         return {"items": []}
     try:
+        if source == "pixabay":
+            if not _key(PIXABAY_KEY):
+                return JSONResponse({"error": "Pro Pixabay vlož nejdřív svůj klíč (zdarma na pixabay.com/api/docs)."}, status_code=400)
+            return {"items": _pixabay(q, max(1, page))}
         if source == "pexels":
             if not _pexels_key():
                 return JSONResponse({"error": "Pro Pexels vlož nejdřív svůj klíč (zdarma na pexels.com/api)."}, status_code=400)
@@ -263,6 +290,20 @@ def viz_search(q: str = "", source: str = "commons", page: int = 1):
 
 class KeyIn(BaseModel):
     key: str = ""
+
+
+@router.post("/api/viz/pixabay-key")
+def viz_pixabay_key(req: KeyIn):
+    key = (req.key or "").strip()
+    if key and not re.fullmatch(r"[0-9]{3,12}-[0-9a-f]{20,40}", key):
+        return JSONResponse({"error": "Tohle nevypadá jako klíč k Pixabay (čísla, pomlčka, písmena)."}, status_code=400)
+    PIXABAY_KEY.parent.mkdir(parents=True, exist_ok=True)
+    if key:
+        PIXABAY_KEY.write_text(key, encoding="utf-8")
+        PIXABAY_KEY.chmod(0o600)
+    else:
+        PIXABAY_KEY.unlink(missing_ok=True)
+    return {"pixabay": bool(key)}
 
 
 @router.post("/api/viz/pexels-key")

@@ -124,3 +124,20 @@ def test_free_videos_search_key_and_save_guard(client, tmp_music_root, monkeypat
     import time; time.sleep(0.1)
     assert saved == [("Vesmír", "https://upload.wikimedia.org/a.webm")]
     assert client.post("/api/viz/pexels-key", json={"key": ""}).json() == {"pexels": False}
+
+
+def test_pixabay_key_and_search(client, monkeypatch):
+    assert client.get("/api/viz/search", params={"q": "fire", "source": "pixabay"}).status_code == 400
+    assert client.post("/api/viz/pixabay-key", json={"key": "AAAA"}).status_code == 400
+    assert client.post("/api/viz/pixabay-key", json={"key": "12345678-" + "a1" * 13}).json() == {"pixabay": True}
+    assert client.get("/api/viz").json()["pixabay"] is True
+
+    class R:
+        status_code, text = 200, ""
+        def json(self):
+            return {"hits": [{"id": 1, "tags": "fire, flame", "duration": 12, "user": "u", "pageURL": "p",
+                              "videos": {"medium": {"url": "https://cdn.pixabay.com/v.mp4", "width": 1280, "height": 720, "thumbnail": "t"}}},
+                             {"id": 2, "tags": "upright", "videos": {"medium": {"url": "https://cdn.pixabay.com/u.mp4", "width": 720, "height": 1280}}}]}
+    monkeypatch.setattr(viz.httpx, "get", lambda *a, **k: R())
+    items = client.get("/api/viz/search", params={"q": "fire", "source": "pixabay"}).json()["items"]
+    assert [(x["title"], x["url"]) for x in items] == [("Fire", "https://cdn.pixabay.com/v.mp4")]

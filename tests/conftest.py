@@ -60,6 +60,7 @@ def _own_config(tmp_path, monkeypatch):
     import viz, storage
     monkeypatch.setattr(viz, "CLIPS", tmp_path / "viz-clips.json")
     monkeypatch.setattr(viz, "PEXELS_KEY", tmp_path / "pexels-key.txt")
+    monkeypatch.setattr(viz, "PIXABAY_KEY", tmp_path / "pixabay-key.txt")
     monkeypatch.setattr(storage, "DISKUTIL", "/usr/bin/false")
     monkeypatch.setattr(storage, "COUNT", {"at": 0.0, "running": False, "cards": {}})
     monkeypatch.setattr(storage, "JOB", {"status": None, "disk": "", "name": "", "note": "", "at": 0.0})
