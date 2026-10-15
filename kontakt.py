@@ -154,7 +154,8 @@ def presets() -> list:
         except (OSError, ValueError):
             continue
         if (DATA / f"{f.stem}.state").is_file():
-            out.append({"id": f.stem, "name": m.get("name") or f.stem, "plugin": m.get("plugin"), "made": m.get("made")})
+            out.append({"id": f.stem, "name": m.get("name") or f.stem, "plugin": m.get("plugin"), "made": m.get("made"),
+                        "shift": int(m.get("shift") or 0)})
     return sorted(out, key=lambda x: -(x.get("made") or 0))
 
 
@@ -207,6 +208,23 @@ def preset_edit(req: PresetIn):
     return {"id": pid}
 
 
+class ShiftIn(BaseModel):
+    shift: int = 0
+
+
+@router.post("/api/kontakt/presets/{pid}/shift")
+def preset_shift(pid: str, req: ShiftIn):
+    """Octaves up or down: some instruments keep the low keys for switches, not notes (Electric Storm)."""
+    meta = DATA / f"{pid}.json"
+    if not re.fullmatch(r"[0-9a-f]{10}", pid) or not meta.is_file():
+        return JSONResponse({"error": "Takový zvuk Kontaktu není."}, status_code=404)
+    if req.shift not in (-24, -12, 0, 12, 24):
+        return JSONResponse({"error": "Posun jen po celých oktávách (−2 až +2)."}, status_code=400)
+    m = json.loads(meta.read_text(encoding="utf-8"))
+    meta.write_text(json.dumps({**m, "shift": req.shift}, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "shift": req.shift}
+
+
 @router.delete("/api/kontakt/presets/{pid}")
 def preset_delete(pid: str):
     if not re.fullmatch(r"[0-9a-f]{10}", pid):
@@ -232,18 +250,20 @@ def render(req: RenderIn):
     """Notes played through a kept Kontakt sound, into a WAV (the same notes again: the file kept)."""
     if not re.fullmatch(r"[0-9a-f]{10}", req.preset or "") or not (DATA / f"{req.preset}.state").is_file():
         return JSONResponse({"error": "Takový zvuk Kontaktu není."}, status_code=404)
+    meta = json.loads((DATA / f"{req.preset}.json").read_text(encoding="utf-8"))
+    shift = int(meta.get("shift") or 0)
     notes = []
     for n in req.notes[:4000]:
         try:
             m, t, d, v = int(n["m"]), float(n["t"]), float(n["d"]), int(n.get("v") or 100)
         except (KeyError, TypeError, ValueError):
             continue
+        m += shift
         if 0 <= m <= 127 and 0 <= t < 600 and 0 < d < 30:
             notes.append([m, round(t, 4), round(d, 4), max(1, min(127, v))])
     if not notes:
         return JSONResponse({"error": "Žádné noty."}, status_code=400)
     length = max(req.length or 0, max(t + d for _, t, d, _ in notes)) + 1.5
-    meta = json.loads((DATA / f"{req.preset}.json").read_text(encoding="utf-8"))
     import hashlib
     key = hashlib.sha1(json.dumps([notes, round(length, 2), meta.get("changed")]).encode()).hexdigest()[:16]
     out = DATA / f"render-{req.preset}-{key}.wav"

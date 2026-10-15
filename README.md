@@ -807,6 +807,8 @@ v Picku, jen v rámci tvých licencí (zašifrované vzorky se nikdy nečtou, hr
   (`~/.local/share/spotdl-helper/kontakt/<id>.state`). Virtuální kytara přes něj zahraje riff do WAV
   (`POST /api/kontakt/render`; poprvé asi půl minuty — Kontakt se načítá —, stejný riff pak hned;
   posledních 20 se pamatuje). Kontakt se nikdy nezavírá čistě, hostitel se proto ukončí sám.
+  **Oktáva** u zvuku posune noty o ±1–2 oktávy (`POST /api/kontakt/presets/{id}/shift`) — některé
+  nástroje (Electric Storm) mají dole klávesy na přepínání, ne tóny, a hluboké tóny kytary by mlčely.
 - **Živě přes MIDI**: ve virtuální kytaře výstup MIDI (třeba IAC Driver) — noty jdou živě do Kontaktu
   nebo Gig Performeru, zvuk hraje on.
 - **Smyčky a samply**: co knihovny mají jako obyčejné WAV (Riffage – Metal: 2416 smyček po tempech

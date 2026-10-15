@@ -60,8 +60,9 @@ def test_kontakt_window_and_render(client, tmp_path, monkeypatch):
             Path(args[2]).write_bytes(b"state")
         else:
             Path(args[4]).write_bytes(b"RIFF")
-            assert json.loads(Path(args[3]).read_text())["notes"][0] == [40, 0.0, 0.5, 100]
+            seen.append(json.loads(Path(args[3]).read_text())["notes"][0])
         return subprocess.CompletedProcess(args, 0, "", "")
+    seen = []
     monkeypatch.setattr(kontakt, "_host", host)
     pid = client.post("/api/kontakt/presets", json={"name": "Riffage rytmická"}).json()["id"]
     import time
@@ -75,6 +76,13 @@ def test_kontakt_window_and_render(client, tmp_path, monkeypatch):
     r = client.post("/api/kontakt/render", json={"preset": pid, "notes": [{"m": 40, "t": 0, "d": 0.5}, {"m": 999, "t": 0, "d": 1}]}).json()
     assert r["cached"] is False
     assert client.post("/api/kontakt/render", json={"preset": pid, "notes": [{"m": 40, "t": 0, "d": 0.5}]}).json() == {"file": r["file"], "cached": True}
+    assert seen == [[40, 0.0, 0.5, 100]]
+    # an octave up: the low keys of some instruments switch articulations instead of playing
+    assert client.post(f"/api/kontakt/presets/{pid}/shift", json={"shift": 7}).status_code == 400
+    assert client.post(f"/api/kontakt/presets/{pid}/shift", json={"shift": 12}).json()["shift"] == 12
+    assert client.get("/api/kontakt").json()["presets"][0]["shift"] == 12
+    up = client.post("/api/kontakt/render", json={"preset": pid, "notes": [{"m": 40, "t": 0, "d": 0.5}]}).json()
+    assert up["cached"] is False and up["file"] != r["file"] and seen[-1] == [52, 0.0, 0.5, 100]
     assert client.get(f"/api/kontakt/render/{r['file']}").status_code == 200
     assert client.get("/api/kontakt/render/..%2Fx.wav").status_code == 404
     assert client.delete(f"/api/kontakt/presets/{pid}").json()["ok"] and client.get("/api/kontakt").json()["presets"] == []

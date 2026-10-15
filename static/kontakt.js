@@ -66,6 +66,7 @@ const KontaktPage = (() => {
       ${(st.presets || []).map((p) => `<div class="kt-card"><b>${esc(p.name)}</b>
         <button type="button" class="btn secondary" data-try="${esc(p.id)}">▶ Zkusit</button>
         <button type="button" class="btn secondary" data-edit="${esc(p.id)}" data-name="${esc(p.name)}">Upravit v Kontaktu</button>
+        <label title="Některé nástroje mají dole klávesy na přepínání, ne tóny — když hluboké tóny mlčí, posuň o oktávu nahoru">Oktáva <select data-shift="${esc(p.id)}">${[-24, -12, 0, 12, 24].map((v) => `<option value="${v}" ${v === (p.shift || 0) ? "selected" : ""}>${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v / 12)}</option>`).join("")}</select></label>
         <button type="button" class="btn secondary" data-vg="${esc(p.id)}">Virtuální kytara</button>
         <button type="button" class="btn secondary" data-del="${esc(p.id)}">Smazat</button></div>`).join("")}
       ${st.plugin ? `<div class="kt-row"><button type="button" class="btn" id="kt-new" ${j.status === "running" ? "disabled" : ""}>＋ Nový zvuk — otevřít Kontakt</button></div>` : ""}
@@ -113,6 +114,10 @@ const KontaktPage = (() => {
       await load(); paint(); });
     root.querySelectorAll("[data-vg]").forEach((b) => b.onclick = () => VGuitar.withKontakt(b.dataset.vg));
     root.querySelectorAll("[data-try]").forEach((b) => b.onclick = () => tryPreset(b.dataset.try, b));
+    root.querySelectorAll("[data-shift]").forEach((s) => s.onchange = async () => {
+      try{ await api(`/api/kontakt/presets/${enc(s.dataset.shift)}/shift`, post({shift: +s.value})); showToast("Uloženo — zkus ▶ Zkusit."); }
+      catch(e){ showToast(e.message); }
+      await load(); paint(); });
     root.querySelectorAll("[data-play]").forEach((b) => b.onclick = () => playing === b.dataset.play ? stopSound() : hear(b.dataset.play));
     root.querySelectorAll("[data-steems]").forEach((b) => b.onclick = async () => {
       try{ const r = await api("/api/kontakt/to-steems", post({path: b.dataset.steems})); stopSound(); showToast("Otevírám ve Steems…");
