@@ -485,6 +485,20 @@ seskupovat karty a nahoře filtrovat. Původ je odhad — česká a slovenská
 písmena ve jménech, název playlistu, uložený text písně, další písně téhož
 interpreta — a kliknutím na značku ho opravíš (`origin.json` u stop).
 
+Sloupec **Ladění** ukazuje ladění kytar podle tabu (`tuning.json` u stop: Songsterr, jinak
+Ultimate Guitar): Standard, Drop D, Eb Standard… — noty po najetí myší, barva podle toho, jak
+hluboko jde nejnižší struna (E, Eb, D, C#, C a níž). Klik na hlavičku řadí **od E** (podle
+nejnižší struny dolů: E Standard, Eb Standard, Drop D, D Standard, Drop C#…; pojmenovaná
+ladění první, stejná vždy u sebe), druhý klik **hluboké** napřed, třetí vrátí původní pořadí
+(`tuningOrder`). Karty jde podle ladění i seskupit a hledání najde i „drop d“. „?“ = ladění se
+ještě nehledalo — **Zjistit ladění (N)** nad seznamem ho dohledá (`POST /api/stems-tunings/fill`),
+„—“ = tab se nenašel. Když měl tab jen basu, ukáže se její ladění s „(basa)“ a řadí se jako
+stejné ladění kytar. Stejně řadí i seznam dalších písní pod mixem.
+
+Levý panel má u **Steems** jen Playlisty Steems (písně jsou v hlavním seznamu) a pod čarou
+**Frontu** a **Oblíbené**; sekce Ready to play a Historie zmizely (historie přehrávání zůstává
+v přehrávači dole).
+
 **Asistent běží v počítači.** Volná česká věta („pick listen“, nebo napsaná do
 pole Asistent) se provede bez internetu a bez placení (`assistant.py`):
 

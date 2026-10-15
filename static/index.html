@@ -1767,8 +1767,8 @@ body.lib-collapsed .pick-brand{display:none}
   /* folded rail: the sections' icons only — no subsections, nothing to half-read */
   body.lib-collapsed :is(.sl-box,.srail,.lib-tree,.lib-empty,.lib-row){display:none !important}
 
-  /* Fronta/Historie/Oblíbené sit below everything else, set apart by a line. */
-  /* Songs (Steems, Ready to play, Fronta, Historie): no picture, just the
+  /* Fronta and Oblíbené sit below everything else, set apart by a line. */
+  /* Songs (Fronta, oblíbené songy): no picture, just the
      title with the band under it, one per line across the whole rail. */
   .lib-row.song{grid-column:1/-1;padding:6px 10px;gap:0;border-radius:5px}
   .lib-row.song .lib-name{font-size:14px;font-weight:600;line-height:1.3}
@@ -2604,15 +2604,23 @@ body.lib-collapsed .pick-brand{display:none}
   .stems-group-bar{display:flex;align-items:center;gap:6px;padding:0 4px 12px;flex-wrap:wrap}
   .stems-group-bar span{font-size:12px;color:var(--sub);margin-right:2px}
   .stems-group-bar input{margin-left:auto;width:220px;max-width:100%}
-  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.4fr) minmax(0,1.4fr) 92px minmax(0,1.5fr) 56px 84px}
-  .steems-row .c-origin,.steems-row .c-plist{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+  .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.6fr) minmax(0,1.4fr) minmax(0,1.4fr) 116px 92px minmax(0,1.5fr) 56px 84px}
+  .steems-row .c-origin,.steems-row .c-plist,.steems-row .c-tun{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+  /* the guitars' tuning: a chip tinted by how far down from E it goes */
+  .tun-chip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;font:600 11px/1 var(--sp-font,inherit);
+    padding:4px 8px;border-radius:500px;border:1px solid #3a3d52;color:var(--text);background:rgba(255,255,255,.04)}
+  .tun-chip.d1{border-color:#2f8f86;background:rgba(47,143,134,.16)}
+  .tun-chip.d2{border-color:#3f6fc4;background:rgba(63,111,196,.18)}
+  .tun-chip.d3{border-color:#7a52c7;background:rgba(122,82,199,.2)}
+  .tun-chip.d4{border-color:#b8572f;background:rgba(184,87,47,.22)}
+  .tun-chip.none{border-color:transparent;background:none;color:var(--sub);font-weight:400;padding-left:2px}
   .origin-mark{display:inline-block;font:600 11px/1 var(--sp-font,inherit);letter-spacing:.03em;padding:4px 8px;border-radius:500px;
     border:1px solid #3a3d52;color:var(--sub);background:none;cursor:pointer;white-space:nowrap}
   .origin-mark.cz{color:#ffd9d9;border-color:#b3404a;background:linear-gradient(90deg,rgba(255,255,255,.10),rgba(215,20,26,.22) 55%,rgba(17,69,126,.30))}
   .origin-mark.typed{border-style:dashed}
   .origin-mark:hover{border-color:var(--accent);color:var(--text)}
   .stems-group-bar .sep{width:1px;height:18px;background:#33364a;margin:0 4px}
-  @media (max-width:1180px){ .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.4fr) minmax(0,1.3fr) 92px minmax(0,1.3fr) 56px 84px}
+  @media (max-width:1180px){ .lib-trow.steems-row,.lib-thead.steems-row{grid-template-columns:30px minmax(0,2.4fr) minmax(0,1.3fr) 108px 92px minmax(0,1.3fr) 56px 84px}
     .steems-row .c-album{display:none} }
   .steems-row .c-act{opacity:1}
   .steems-row .c-act button{opacity:0}
@@ -6227,7 +6235,8 @@ const ListSort = (() => {
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
   const txt = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : coll.compare(a, b);
   const no = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : 1e9; };
-  const LABEL = {title: "A–Z", titleByAlbum: "dle alba", artist: "A–Z", album: "A–Z", origin: "CZ první", playlist: "A–Z"};
+  const LABEL = {title: "A–Z", titleByAlbum: "dle alba", artist: "A–Z", album: "A–Z", origin: "CZ první", playlist: "A–Z",
+    tuning: "od E", tuningLow: "hluboké"};
 
   function sort(items, mode, get){
     if(!mode || !LABEL[mode]) return items.slice();
@@ -6240,12 +6249,15 @@ const ListSort = (() => {
       artist: (a, b) => txt(a.k.artist, b.k.artist) || albumOrder(a, b),
       origin: (a, b) => txt(a.k.origin, b.k.origin) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
       playlist: (a, b) => txt(a.k.playlist, b.k.playlist) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
+      tuning: (a, b) => tuningOrder(a.k.tuning, b.k.tuning) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
+      tuningLow: (a, b) => tuningOrder(a.k.tuning, b.k.tuning, true) || txt(a.k.artist, b.k.artist) || txt(a.k.title, b.k.title),
     }[mode];
     return rows.sort((a, b) => cmp(a, b) || (a.i - b.i)).map(r => r.it);
   }
 
   function next(mode, col){
     if(col === "title") return mode === "title" ? "titleByAlbum" : mode === "titleByAlbum" ? null : "title";
+    if(col === "tuning") return mode === "tuning" ? "tuningLow" : mode === "tuningLow" ? null : "tuning";
     return mode === col ? null : col;
   }
 
@@ -6261,9 +6273,10 @@ const ListSort = (() => {
   function paint(head, mode){
     head.querySelectorAll("button[data-lsort]").forEach(btn => {
       const col = btn.dataset.lsort;
-      const on = mode === col || (col === "title" && mode === "titleByAlbum");
+      const on = mode === col || (col === "title" && mode === "titleByAlbum") || (col === "tuning" && mode === "tuningLow");
       btn.classList.toggle("sorted", on);
-      btn.title = col === "title" ? "Řadit: A–Z → podle alba → původní pořadí" : "Řadit A–Z (znovu = původní pořadí)";
+      btn.title = col === "title" ? "Řadit: A–Z → podle alba → původní pořadí"
+        : col === "tuning" ? "Řadit podle ladění: od E standardu dolů → nejhlubší první → původní pořadí" : "Řadit A–Z (znovu = původní pořadí)";
       const arrow = btn.querySelector(".lsort-arrow");
       if(arrow) arrow.textContent = on ? LABEL[mode] : "";
     });
@@ -10205,8 +10218,11 @@ function renderLibraryRail(mode){
 
   RAIL_SECTIONS.forEach(sec => {
     const collapsed = railModeSection(list, sec, mode);
-    // Steems has its playlists right under its heading (static/practice.js)
-    if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
+    // Steems has only its playlists under its heading (static/practice.js) — the songs are the main list
+    if(sec.key === "steems"){
+      if(typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
+      return;
+    }
     if(RAIL_BRANCH_SECTIONS.has(sec.key)){
       renderRailBranches(list, sec, collapsed);
       return;
@@ -10268,7 +10284,7 @@ function renderLibraryRail(mode){
 // them (Dek\u00E1dy/\u017D\u00E1nry/N\u00E1lady/Top) \u2014 worth reaching from the rail itself,
 // one level deeper than a flat top-5, rather than only from inside the
 // mode once you're already there. Knihovna already is a tree and Steems
-// isn't categorised, so those two keep the plain top-5 above; Podcasty gets
+// shows only its playlists there, so those two need no branches; Podcasty gets
 // its own topic branches (below) instead of playlists/songs' dec/genre/
 // mood/top set, since "a decade" or "a mood" means nothing for a show.
 const RAIL_BRANCHES = [
@@ -10515,23 +10531,6 @@ async function fetchRailTop5(key){
       onClick: () => { setMode("songs", {keepSection: true}); Bands.open(a); },
     }));
   }
-  if(key === "steems"){
-    let songs = steemsSongs;
-    if(!songs.length){
-      try{ songs = await (await fetch("/api/stems")).json(); }catch(e){ songs = []; }
-      if(!steemsSongs.length) steemsSongs = songs;
-    }
-    // All of them, not five: this is the list of what can be opened in the mixer.
-    const cmp = (a, b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : steemsCollator.compare(a, b);
-    return songs.slice().sort((x, y) => {
-      const a = stemsDisplay(x), b = stemsDisplay(y);
-      return cmp(a.artist, b.artist) || cmp(a.title, b.title);
-    }).map(s => ({
-      song: true, np: {stem: s.name}, name: stemsDisplay(s).title,
-      sub: stemsDisplay(s).artist || `Stopy \u2022 ${(s.stems || []).length} stop`,
-      onClick: () => { setMode("steems", {keepSection: true}); loadMixerSong(s.name); },
-    }));
-  }
   if(key === "library"){
     const dirs = await treeChildren("");
     return dirs.slice(0, 5).map(d => ({
@@ -10709,15 +10708,14 @@ const SteemsRail = (() => {
   return {paint, stale: () => { at = 0; }};
 })();
 
-// What the rail shows below the divider \u2014 the same three lists the player's
-// buttons open (queue, history) plus favourites \u2014 now always on, not just
-// in the playlist/artist modes.
+// What the rail shows below the divider \u2014 the queue and the favourites \u2014
+// always on, not just in the playlist/artist modes.
 function refreshHomeRail(){
   renderLibraryRail(state.mode);
 }
 
-// Collapse state for the rail's Fronta/Historie/Oblíbené sections — three
-// fixed keys, remembered across sessions.
+// Collapse state for the rail's sections (Fronta, Oblíbené and its parts, the
+// modes' own), remembered across sessions.
 const RAIL_COLLAPSE_KEY = "spotdl-gui-rail-collapsed";
 function loadCollapsedSections(){
   try{ return new Set(JSON.parse(localStorage.getItem(RAIL_COLLAPSE_KEY) || "[]")); }catch(e){ return new Set(); }
@@ -10727,10 +10725,9 @@ function saveCollapsedSections(){
 }
 let collapsedSections = loadCollapsedSections();
 
-// Fronta/Historie/Oblíbené each get one of these three fixed icons — a
-// lookup rather than a parameter, since this function only ever renders
-// these three sections.
-const RAIL_SECTION_ICONS = {ready: "guitar", fronta: "queue", historie: "history", oblibene: "star"};
+// Fronta and Oblíbené each get one of these fixed icons — a lookup rather
+// than a parameter, since this function only ever renders these sections.
+const RAIL_SECTION_ICONS = {fronta: "queue", oblibene: "star"};
 
 // A clickable header that hides/shows the rows appended after it (each row
 // tagged with the same section key) rather than wrapping them — the rail's
@@ -10776,40 +10773,14 @@ function railRows(list, key, collapsed, rows, parent){
 }
 
 function renderHomeRail(list){
-  let queue = [], history = [];
+  let queue = [];
   try{ queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }catch(e){}
-  try{ history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }catch(e){}
 
   const trackRow = (t, onClick) => libRow({
     song: true, np: {rel: t.relPath, vid: t.videoId, key: t.key}, name: t.title || t.relPath || "", sub: t.artists || "", onClick,
   });
 
-  // Songs with a tab already synced (PlayerTab's per-song save) — click to
-  // play, and the tab comes up with it, already in time.
-  const ready = [];
-  try{
-    for(let i = 0; i < localStorage.length; i++){
-      const k = localStorage.key(i);
-      if(!k || !k.startsWith("spotdl-gui-pb-tab-sync:")) continue;
-      const v = JSON.parse(localStorage.getItem(k));
-      if(v && v.sync && v.track && (v.track.relPath || v.track.videoId)) ready.push(v);
-    }
-  }catch(e){}
-  ready.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
-  let collapsed = railSection(list, "ready", "Ready to play", ready.length);
-  railRows(list, "ready", collapsed, ready.length
-    ? ready.map(v => libRow({
-        song: true, np: {rel: v.track.relPath, vid: v.track.videoId, key: v.track.key},
-        name: v.track.title || v.tabName || "", sub: (v.track.artists ? v.track.artists + " • " : "") + "tab načasovaný",
-        onClick: async () => {
-          const t = {...v.track};
-          await (t.relPath ? Player.playLocal(t) : Player.play(t));
-          if(!PlayerTab.isOpen()) PlayerTab.toggle();
-        },
-      }))
-    : [libEmpty("Zatím nic. Načti k písni tab a dej Sync — objeví se tady.")]);
-
-  collapsed = railSection(list, "fronta", "Fronta", queue.length);
+  let collapsed = railSection(list, "fronta", "Fronta", queue.length);
   railRows(list, "fronta", collapsed, queue.length
     ? (() => {
         const groups = queueGroups(queue);
@@ -10818,11 +10789,6 @@ function renderHomeRail(list){
           ...g.items.map(t => trackRow(t, () => Player.playQueueFrom(t)))]);
       })()
     : [libEmpty("Fronta je prázdná. Přidávej písně tlačítkem Přidat.")]);
-
-  collapsed = railSection(list, "historie", "Historie", history.length);
-  railRows(list, "historie", collapsed, history.length
-    ? history.map(t => trackRow(t, () => t.source === "local" ? Player.playLocal(t) : Player.play(t)))
-    : [libEmpty("Zatím jsi nic nepustil/a.")]);
 
   const lib = loadMyLibrary();
   const saved = []
@@ -12950,6 +12916,7 @@ async function loadSteemsList(){
   checkStemsConversion();
   const totalBytes = steemsSongs.reduce((a, x) => a + (x.size_bytes || 0), 0);
   const incomplete = steemsSongs.filter(x => x.complete === false).length;
+  const unlooked = steemsSongs.filter(x => !Array.isArray(x.tuning)).length;
   const summary = document.createElement("div");
   summary.className = "stems-summary";
   summary.innerHTML = `
@@ -12957,7 +12924,9 @@ async function loadSteemsList(){
     <span class="dot">•</span>
     <span>${fmtSize(totalBytes)} na disku</span>
     ${incomplete ? `<span class="dot">•</span><span class="warn">${incomplete} nekompletní</span>` : ""}
-    <button type="button" class="btn secondary" id="steems-open-file" style="margin-left:auto"
+    ${unlooked ? `<button type="button" class="btn secondary" id="steems-tunings" style="margin-left:auto"
+      title="U písní, kde ještě není, dohledá ladění kytary podle tabu">${icon("tuner", 12)} Zjistit ladění (${unlooked})</button>` : ""}
+    <button type="button" class="btn secondary" id="steems-open-file" style="${unlooked ? "" : "margin-left:auto"}"
       title="Libovolný audio soubor z počítače jako nový projekt v pultu (jedna stopa, kterou můžeš upravovat a přidávat k ní další)">${icon("add", 12)} Otevřít soubor jako projekt</button>
     <input type="file" id="steems-open-file-input" accept="audio/*,video/*,.wav,.mp3,.flac,.m4a,.aac,.ogg,.opus,.aif,.aiff" multiple hidden>`;
   list.appendChild(summary);
@@ -12968,7 +12937,7 @@ async function loadSteemsList(){
   const bar = document.createElement("div");
   bar.className = "stems-group-bar";
   bar.innerHTML = `<span>Seskupit:</span>` +
-    [["artist", "Interpret"], ["album", "Album"], ["playlist", "Playlist"], ["origin", "Původ"], ["title", "Název A–Z"]].map(([k, l]) =>
+    [["artist", "Interpret"], ["album", "Album"], ["tuning", "Ladění"], ["playlist", "Playlist"], ["origin", "Původ"], ["title", "Název A–Z"]].map(([k, l]) =>
       `<button type="button" class="chip ${steemsGroupMode === k ? "active" : ""}" data-group="${k}">${l}</button>`).join("") +
     `<i class="sep"></i>` +
     [["", "Vše"], ["cz", "CZ / SK"], ["world", "Zahraniční"]].map(([k, l]) =>
@@ -13000,6 +12969,21 @@ async function loadSteemsList(){
     paintSteemsCards(body);
   });
   bar.querySelector(".stems-filter").oninput = (e) => { steemsFilter = e.target.value; paintSteemsCards(body); };
+  const tb = summary.querySelector("#steems-tunings");
+  if(tb) tb.onclick = async () => {
+    tb.disabled = true;
+    await fetch("/api/stems-tunings/fill", {method: "POST"}).catch(() => {});
+    const tick = async () => {
+      let d = {}; try{ d = await (await fetch("/api/stems-tunings")).json(); }catch(e){}
+      if(!tb.isConnected) return;
+      if(d.running){ tb.textContent = `Zjišťuji ladění… ${d.done}/${d.total}`; setTimeout(tick, 2500); return; }
+      try{ steemsSongs = await (await fetch("/api/stems")).json(); }catch(e){}
+      const left = steemsSongs.filter(x => !Array.isArray(x.tuning)).length;
+      tb.hidden = !left; tb.disabled = false; tb.innerHTML = `${icon("tuner", 12)} Zjistit ladění (${left})`;
+      paintSteemsCards(body);
+    };
+    tick();
+  };
   paintSteemsCards(body);
 }
 
@@ -13046,7 +13030,7 @@ function paintSteemsCards(box){
     if(steemsOrigin && (song.origin === "cz" ? "cz" : "world") !== steemsOrigin) return false;
     if(!q) return true;
     const d = stemsDisplay(song);
-    return norm(`${d.title} ${d.artist} ${d.album} ${song.name} ${steemsPlaylist(song)}`).includes(q);
+    return norm(`${d.title} ${d.artist} ${d.album} ${song.name} ${steemsPlaylist(song)} ${(describeTuning(song.tuning) || {}).name || ""}`).includes(q);
   });
   box.parentElement.querySelectorAll(".stems-group-bar [data-origin-f]").forEach(b => {
     const k = b.dataset.originF, n = k ? steemsSongs.filter(x => (x.origin === "cz" ? "cz" : "world") === k).length : steemsSongs.length;
@@ -13063,6 +13047,7 @@ function paintSteemsCards(box){
     if(steemsGroupMode === "playlist") return cmp(steemsPlaylist(x), steemsPlaylist(y)) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
     if(steemsGroupMode === "origin") return cmp(x.origin, y.origin) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
     if(steemsGroupMode === "album") return cmp(a.album, b.album) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
+    if(steemsGroupMode === "tuning") return tuningOrder(x.tuning, y.tuning) || cmp(a.artist, b.artist) || cmp(a.title, b.title);
     if(steemsGroupMode === "title") return cmp(a.title, b.title) || cmp(a.artist, b.artist);
     return cmp(a.artist, b.artist) || cmp(a.album, b.album) || cmp(a.title, b.title);
   });
@@ -13071,6 +13056,7 @@ function paintSteemsCards(box){
     return steemsGroupMode === "album" ? (e.album ? e.album + (e.artist ? " · " + e.artist : "") : "Bez alba")
       : steemsGroupMode === "playlist" ? (steemsPlaylist(song) || "Mimo playlisty")
       : steemsGroupMode === "origin" ? ORIGIN_CZ[song.origin === "cz" ? "cz" : "world"]
+      : steemsGroupMode === "tuning" ? (tuningLabel(song.tuning) || "Ladění neznámé")
       : (e.artist || "Bez interpreta"); };
   sorted.forEach(song => {
     if(steemsGroupMode !== "title"){
@@ -13097,6 +13083,7 @@ function paintSteemsTable(box, songs){
       <button type="button" class="c-title" data-lsort="title">Název</button>
       <button type="button" class="c-artist" data-lsort="artist">Interpret</button>
       <button type="button" class="c-album" data-lsort="album">Album</button>
+      <button type="button" class="c-tun" data-lsort="tuning">Ladění</button>
       <button type="button" class="c-origin" data-lsort="origin">Původ</button>
       <button type="button" class="c-plist" data-lsort="playlist">Playlist</button>
       <span class="c-time" data-icon="clock" data-size="13"></span>
@@ -13108,7 +13095,7 @@ function paintSteemsTable(box, songs){
   const tc = table.querySelector(".c-time[data-icon]");
   if(tc) tc.innerHTML = icon("clock", 13);
   const sorted = ListSort.sort(songs, steemsSortMode, x => { const d = stemsDisplay(x);
-    return {title: d.title, artist: d.artist, album: d.album, origin: x.origin === "cz" ? "a" : "b", playlist: steemsPlaylist(x)}; });
+    return {title: d.title, artist: d.artist, album: d.album, origin: x.origin === "cz" ? "a" : "b", playlist: steemsPlaylist(x), tuning: x.tuning}; });
   sorted.forEach((song, i) => {
     const d = stemsDisplay(song);
     const row = document.createElement("div");
@@ -13122,6 +13109,7 @@ function paintSteemsTable(box, songs){
         <span class="sub">${n} ${n < 5 ? "stopy" : "stop"}${song.complete === false ? " · nekompletní" : ""}${d.source === "name" ? " · údaje odhadnuté z názvu" : ""}</span></span></span>
       <span class="c-artist">${escapeHtml(d.artist || "")}</span>
       <span class="c-album">${escapeHtml(d.album || "")}</span>
+      <span class="c-tun">${tuningChip(song.tuning)}</span>
       <span class="c-origin">${originMark(song)}</span>
       <span class="c-plist" title="${escapeHtml(steemsPlaylist(song) || "Není z žádného staženého playlistu")}">${escapeHtml(steemsPlaylist(song) || "—")}</span>
       <span class="c-time">${song.duration ? fmtDur(song.duration) : ""}</span>
@@ -13147,8 +13135,6 @@ const UnderList = (() => {
   let box = null, sortBy = (() => { try{ return localStorage.getItem("spotdl-sort:under") || "artist"; }catch(e){ return "artist"; } })();
   let order = [], pv = null;                 // the rows as shown; the name of the one being listened to
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
-  const tun = (s) => { const t = Array.isArray(s.tuning) && s.tuning.length ? describeTuning(s.tuning) : null; return t ? t.name : ""; };
-  const low = (s) => Array.isArray(s.tuning) && s.tuning.length ? Math.min(...s.tuning) : 999;
   function host(){
     if(!box){ box = document.createElement("div"); box.className = "steems-under"; box.id = "steems-under"; el("mixer").insertAdjacentElement("afterend", box); }
     return box;
@@ -13162,7 +13148,7 @@ const UnderList = (() => {
     const first = (a, b) => mine ? (band(b) === mine) - (band(a) === mine) : 0;
     const by = sortBy === "title" ? (a, b) => txt(d(a).title, d(b).title) || byArtist(a, b)
       : sortBy === "album" ? (a, b) => txt(d(a).artist, d(b).artist) || txt(d(a).album, d(b).album) || txt(d(a).title, d(b).title)
-      : sortBy === "tuning" ? (a, b) => (low(a) - low(b)) || txt(tun(a), tun(b)) || byArtist(a, b) : byArtist;
+      : sortBy === "tuning" ? (a, b) => tuningOrder(a.tuning, b.tuning) || byArtist(a, b) : byArtist;
     return steemsSongs.slice().sort((a, b) => first(a, b) || by(a, b));
   }
   function paint(){
@@ -13172,7 +13158,7 @@ const UnderList = (() => {
     h.hidden = false;
     order = sorted();
     const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
-    const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? "A–Z" : ""}</span></button>`;
+    const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? (col === "tuning" ? "od E" : "A–Z") : ""}</span></button>`;
     h.innerHTML = `<h3>Další písně ve Steems (${order.length}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
         ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}
         ${namesLeft || namesBusy ? `<button type="button" id="under-names" title="Projde písně a dá jim oficiální název: kapela, píseň a album podle hudebního katalogu, bez závorek a nápisů z videí. K tomu dohledá tab a text. Jména, která jsi psal ručně, nechá být.">${namesBusy || `Opravit názvy (${namesLeft})`}</button>` : ""}</h3>
@@ -13181,7 +13167,7 @@ const UnderList = (() => {
       order.map((s, i) => { const d = stemsDisplay(s);
         return `<div class="lib-trow${s.name === Mixer.currentSong() ? " cur" : ""}${s.name === pv ? " pv" : ""}" data-name="${escapeHtml(s.name)}">
           <span class="c-idx">${i + 1}</span><span class="c-title"><span class="tx">${escapeHtml(d.title)}</span></span>
-          <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-album">${escapeHtml(d.album || "")}</span><span class="c-tun">${escapeHtml(tun(s))}</span>
+          <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-album">${escapeHtml(d.album || "")}</span><span class="c-tun">${tuningChip(s.tuning)}</span>
           <span class="c-time">${s.duration ? fmtDur(s.duration) : ""}</span>
           <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("") + `</div>`;
     h.querySelectorAll("button[data-lsort]").forEach(b => b.onclick = () => { sortBy = b.dataset.lsort; try{ localStorage.setItem("spotdl-sort:under", sortBy); }catch(e){} paint(); });
@@ -13298,7 +13284,7 @@ function steemsCard(song, box){
     `<span class="stem-chip ${st}">${escapeHtml(st)}</span>`).join("");
   const gone = (song.missing || []).map(st =>
     `<span class="stem-chip missing" title="chybí">${escapeHtml(st)}</span>`).join("");
-  const who = [d.artist, d.album, song.origin === "cz" ? "CZ / SK" : "", song.playlist ? "playlist " + song.playlist : ""].filter(Boolean).map(escapeHtml).join(" · ");
+  const who = [d.artist, d.album, (describeTuning(song.tuning) || {}).name || "", song.origin === "cz" ? "CZ / SK" : "", song.playlist ? "playlist " + song.playlist : ""].filter(Boolean).map(escapeHtml).join(" · ");
   row.innerHTML = `
     <div class="stem-card-art">\uD83C\uDF9A</div>
     <div class="stem-card-body">
@@ -13853,6 +13839,45 @@ function describeTuning(tuning){
   if(name) name += extra;
   const notes = low.map(nm).join(" ");
   return {name: name || notes, notes, label: name ? `${name} · ${notes}` : notes};
+}
+// Tunings in the order a guitarist goes down — by how low the lowest string goes: E Standard,
+// Eb Standard, Drop D, D Standard, Drop Db, C# Standard, Drop C… Within one lowest note the
+// named shapes (Standard, Drop …) come first, then the one nearer standard on top, fewer
+// strings first, and the same tuning always together. With `deepest`, the lowest first.
+// Unknown ones always last.
+const tuningKeys = new WeakMap();
+// A bass tab's tuning (4–5 strings, an octave down) stands for the guitars': the same notes an octave up.
+const bassTuning = (t) => t.length <= 5 && Math.min(...t) < 36;
+function tuningKey(t){
+  if(!Array.isArray(t) || !t.length) return null;
+  let k = tuningKeys.get(t);
+  if(!k){
+    const d = describeTuning(t), up = bassTuning(t) ? 12 : 0;
+    k = [Math.min(...t) + up, d && d.name !== d.notes ? 0 : 1, Math.max(...t) + up, t.length, t.join(",")];
+    tuningKeys.set(t, k);
+  }
+  return k;
+}
+function tuningOrder(x, y, deepest){
+  const a = tuningKey(x), b = tuningKey(y);
+  if(!a || !b) return (!a) - (!b);
+  const dir = deepest ? 1 : -1;
+  return dir * (a[0] - b[0]) || (a[1] - b[1]) || dir * (a[2] - b[2]) || (a[3] - b[3]) || (a[4] < b[4] ? -1 : a[4] > b[4] ? 1 : 0);
+}
+// A song's tuning as a chip for the Steems list: named, its notes on hover, tinted by
+// how low the lowest string goes (E, Eb, D, C#, C and lower).
+function tuningChip(tuning){
+  if(!Array.isArray(tuning)) return `<span class="tun-chip none" title="Ladění se ještě nehledalo — tlačítko „Zjistit ladění“ nad seznamem">?</span>`;
+  const t = describeTuning(tuning);
+  if(!t) return `<span class="tun-chip none" title="Ladění neznám — k písni se nenašel tab">—</span>`;
+  const bass = bassTuning(tuning), depth = Math.max(0, Math.min(4, 40 - tuningKey(tuning)[0]));
+  return `<span class="tun-chip${depth ? " d" + depth : ""}" title="${escapeHtml(t.label)} (od nejhlubší struny)${bass ? " — z tabu basy; kytary bývají ve stejném ladění" : ""}">${escapeHtml(tuningLabel(tuning, true))}</span>`;
+}
+// Its name ("Drop D"), or with `short` off the notes too ("Drop D · D A D G B E"); a bass tab's marked.
+function tuningLabel(tuning, short){
+  const t = describeTuning(tuning);
+  if(!t) return "";
+  return bassTuning(tuning) ? t.name.replace(/ \(\d+ strun\)$/, "") + (short ? "" : " · " + t.notes) + " (basa)" : short ? t.name : t.label;
 }
 function paintTuning(elId, tuning){
   const box = el(elId);
@@ -28284,8 +28309,8 @@ const PlayerTab = (() => {
       return raw ? JSON.parse(raw) : null;
     }catch(e){ return null; }
   }
-  // The track itself is saved alongside, so the rail's "Ready to play" list
-  // can start the song again without anything else to look it up by.
+  // The track itself is saved alongside, so the song can be found and started
+  // again without anything else to look it up by.
   function saveAssignment(){
     if(songId == null) return;
     const t = Player.getCurrent() || {};
