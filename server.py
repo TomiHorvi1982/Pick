@@ -9997,10 +9997,10 @@ def _tone_view() -> Optional[dict]:
         "elapsed": time.time() - job["started"]}
 
 
-def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
+def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current: Optional[dict] = None) -> None:
     tmp = Path(tempfile.mkdtemp(prefix="pick-tone-"))
     try:
-        sr = int(takes[-1].get("sr") or 48000)
+        sr = int(takes[-1].get("sr") or 48000) if takes else 48000
         ref = tmp / "ref.wav"
         subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-ss", f"{job['start']:.3f}", "-t", f"{job['end'] - job['start']:.3f}",
                         "-i", str(src), "-ac", "2", "-ar", str(sr), "-c:a", "pcm_f32le", str(ref)], check=True, timeout=120)
@@ -10008,7 +10008,15 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
         spec = {"sr": sr, "ref": str(ref), "models": _tone_models(), "node": _node_bin(), "nam_js": str(TONE_NAM_JS),
                 "worklet": str(APP_DIR / "static" / "nam" / "nam-worklet.js"), "wasm": str(APP_DIR / "static" / "nam" / "nam-engine.wasm"),
                 "out": str(tmp / "out"), "procs": 3, "start_from": old if refine else None,
-                "takes": [{"path": str(d / TONE_DIR / t["file"]), "offset": float(t["start"]) - job["start"]} for t in takes]}
+                "takes": [{"path": str(d / TONE_DIR / t["file"]), "offset": float(t["start"]) - job["start"]} for t in takes],
+                "current": current}
+        gid = _guitar_active()
+        if gid:                                   # the calibrated guitar plays what the record plays
+            job["stage"] = "notes"
+            prof = _guitar_profile(gid)
+            spec.update(guitar=prof, guitar_name=(_guitar_view(gid) or {}).get("name", ""), ref_notes=_notes_of(ref))
+            if not takes and not spec["ref_notes"]:
+                raise RuntimeError("V kytaře originálu jsem na tomhle úseku neslyšel noty — zahraj ho s písní, nebo vyber jiný úsek.")
         (tmp / "job.json").write_text(json.dumps(spec), encoding="utf-8")
         proc = subprocess.Popen([str(TONE_PYTHON), str(TONE_WORKER), "--job", str(tmp / "job.json")],
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
@@ -10033,7 +10041,7 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
         dest.mkdir(parents=True, exist_ok=True)
         got = json.loads((out / "print.json").read_text(encoding="utf-8"))
         got.update(id=pid, song=d.name, stem=job["stem"], start=job["start"], end=job["end"], takes=[t["file"] for t in takes],
-                   gain_db=float(takes[-1].get("gain_db") or 0.0))
+                   gain_db=float(takes[-1].get("gain_db") or 0.0) if takes else 0.0)
         for k in ("name", "name_auto", "category", "category_auto"):     # what the player gave it stays
             if old and k in old:
                 got[k] = old[k]
@@ -10053,6 +10061,201 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
     finally:
         _TONE["proc"] = None
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---- the player's guitar, calibrated (Tónový otisk → Moje kytara): the open strings, notes up the
+# neck, chords, a riff muted and open — basic-pitch hears them (clean DI is what it hears best)
+# and tone_worker.py --profile makes a library of the player's own notes. With it a print has the
+# guitar play exactly what the record plays, on the record's clock and at its pitch — also with no
+# take at all. tone-guitars/<id>/: meta.json, steps/<kind>.wav, profile.json.
+TONE_GUITARS = HOME / ".local" / "share" / "spotdl-helper" / "tone-guitars"
+TONE_GUITAR_STEPS = ("strings", "frets", "chords", "riff")
+_re_guitar = _re_mod.compile(r"[a-z0-9][a-z0-9-]{0,39}")
+_TONE_GUITAR: dict = {"job": None}
+
+
+def _guitar_at(gid: str) -> Optional[Path]:
+    return TONE_GUITARS / gid if gid and _re_guitar.fullmatch(gid) else None
+
+
+def _guitar_profile(gid: str) -> Optional[dict]:
+    d = _guitar_at(gid)
+    try:
+        return json.loads((d / "profile.json").read_text(encoding="utf-8")) if d is not None else None
+    except (OSError, ValueError):
+        return None
+
+
+def _guitar_view(gid: str) -> Optional[dict]:
+    d = _guitar_at(gid)
+    if d is None or not d.is_dir():
+        return None
+    try:
+        meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        meta = {}
+    prof = _guitar_profile(gid)
+    steps = {}
+    for k in TONE_GUITAR_STEPS:
+        f = d / "steps" / f"{k}.wav"
+        if f.is_file():
+            steps[k] = round((f.stat().st_size - 44) / (3 * int(meta.get("sr", {}).get(k, 48000) or 48000)), 1)
+    return {"id": gid, "name": meta.get("name") or gid, "created": meta.get("created"), "steps": steps,
+            "ready": prof is not None, "summary": (prof or {}).get("summary"), "analysed": (prof or {}).get("at")}
+
+
+def _guitar_active() -> str:
+    gid = _read_config().get("tone_guitar") or ""
+    return gid if _guitar_profile(gid) is not None else ""
+
+
+def _guitar_job_view() -> Optional[dict]:
+    job = _TONE_GUITAR["job"]
+    return None if not job else {k: job.get(k) for k in ("guitar", "status", "stage", "error")} | {"elapsed": time.time() - job["started"]}
+
+
+def _notes_of(path: Path) -> list:
+    """basic-pitch's notes of a recording (pick-midi venv), [] when it cannot say."""
+    if not MIDI_PYTHON.is_file():
+        return []
+    try:
+        r = subprocess.run([str(MIDI_PYTHON), str(APP_DIR / "audio2midi.py"), str(path)], capture_output=True, text=True, timeout=600)
+        return json.loads(r.stdout)["notes"] if r.returncode == 0 else []
+    except (subprocess.SubprocessError, ValueError, KeyError, OSError):
+        return []
+
+
+def _guitar_run(job: dict, d: Path) -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="pick-guitar-"))
+    try:
+        steps = []
+        for k in TONE_GUITAR_STEPS:
+            f = d / "steps" / f"{k}.wav"
+            if not f.is_file():
+                continue
+            job["stage"] = k
+            steps.append({"kind": k, "path": str(f), "notes": _notes_of(f)})
+        if not any(s["notes"] for s in steps):
+            raise RuntimeError("V nahrávkách jsem neslyšel žádné tóny — je zapnutý vstup kytary a hraješ?")
+        job["stage"] = "profile"
+        spec = tmp / "job.json"
+        spec.write_text(json.dumps({"sr": 48000, "steps": steps, "out": str(tmp / "profile.json")}), encoding="utf-8")
+        r = subprocess.run([str(TONE_PYTHON), str(TONE_WORKER), "--profile", str(spec)], capture_output=True, text=True, timeout=600)
+        last = (r.stdout.strip().splitlines() or [""])[-1]
+        if r.returncode != 0 or not (tmp / "profile.json").is_file():
+            raise RuntimeError(last[6:] if last.startswith("ERROR") else "Kalibraci se nepodařilo vyhodnotit.")
+        prof = json.loads((tmp / "profile.json").read_text(encoding="utf-8"))
+        prof["at"] = time.time()
+        (d / "profile.json").write_text(json.dumps(prof, ensure_ascii=False), encoding="utf-8")
+        job.update(status="done", summary=prof.get("summary"))
+    except Exception as e:                                            # a job never takes the server with it
+        job.update(status="error", error=str(e)[:300])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.get("/api/tone/guitars")
+def tone_guitars():
+    TONE_GUITARS.mkdir(parents=True, exist_ok=True)
+    rows = [v for v in (_guitar_view(p.name) for p in sorted(TONE_GUITARS.iterdir()) if p.is_dir()) if v]
+    return {"guitars": rows, "active": _guitar_active(), "job": _guitar_job_view()}
+
+
+class ToneGuitarRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/tone/guitars")
+def tone_guitar_new(req: ToneGuitarRequest):
+    name = " ".join((req.name or "").split())[:60] or "Moje kytara"
+    base = _re_mod.sub(r"[^a-z0-9]+", "-", unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()).strip("-")[:30] or "kytara"
+    gid, n = base, 1
+    while (TONE_GUITARS / gid).exists():
+        n += 1
+        gid = f"{base}-{n}"
+    (TONE_GUITARS / gid / "steps").mkdir(parents=True, exist_ok=True)
+    (TONE_GUITARS / gid / "meta.json").write_text(json.dumps({"name": name, "created": time.time(), "sr": {}}, ensure_ascii=False), encoding="utf-8")
+    return _guitar_view(gid)
+
+
+@app.post("/api/tone/guitars/{gid}/step/{kind}")
+async def tone_guitar_step(gid: str, kind: str, file: UploadFile = File(...)):
+    """One part of the calibration, played clean (the guitar's DI)."""
+    import wave
+    d = _guitar_at(gid)
+    if d is None or not d.is_dir() or kind not in TONE_GUITAR_STEPS:
+        return JSONResponse({"error": "Kytara nenalezena."}, status_code=404)
+    try:
+        tmp = await _upload_to_temp(file)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    made = d / "steps" / f"{kind}.wav"
+    try:
+        r = subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(tmp), "-ac", "1", "-ar", "48000", "-c:a", "pcm_s24le", str(made)],
+                           capture_output=True, timeout=120)
+        with wave.open(str(made), "rb") as w:
+            dur = w.getnframes() / w.getframerate()
+    except (OSError, EOFError, wave.Error, subprocess.SubprocessError):
+        made.unlink(missing_ok=True)
+        return JSONResponse({"error": "Nahrávka se nedala přečíst."}, status_code=400)
+    finally:
+        tmp.unlink(missing_ok=True)
+    if r.returncode != 0 or dur < 2:
+        made.unlink(missing_ok=True)
+        return JSONResponse({"error": "Nahrávka je kratší než 2 s."}, status_code=400)
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+    meta.setdefault("sr", {})[kind] = 48000
+    (d / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return _guitar_view(gid)
+
+
+@app.post("/api/tone/guitars/{gid}/analyse")
+def tone_guitar_analyse(gid: str):
+    d = _guitar_at(gid)
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Kytara nenalezena."}, status_code=404)
+    if not (d / "steps" / "strings.wav").is_file() and not (d / "steps" / "chords.wav").is_file():
+        return JSONResponse({"error": "Nahraj aspoň prázdné struny nebo akordy."}, status_code=400)
+    if not (TONE_PYTHON.is_file() and MIDI_PYTHON.is_file()):
+        return JSONResponse({"error": "Chybí engine otisku nebo převod na noty (pick-tone, pick-midi)."}, status_code=503)
+    if (_TONE_GUITAR["job"] or {}).get("status") == "running":
+        return JSONResponse({"error": "Jedna kalibrace se už vyhodnocuje."}, status_code=409)
+    job = {"guitar": gid, "status": "running", "stage": "strings", "started": time.time()}
+    _TONE_GUITAR["job"] = job
+    threading.Thread(target=_guitar_run, args=(job, d), daemon=True).start()
+    return _guitar_job_view()
+
+
+@app.post("/api/tone/guitars/{gid}/use")
+def tone_guitar_use(gid: str):
+    gid = "" if gid == "-" else gid                     # "-": no calibration for the prints
+    if gid and _guitar_profile(gid) is None:
+        return JSONResponse({"error": "Tahle kytara ještě není vyhodnocená."}, status_code=400)
+    _write_config({"tone_guitar": gid})
+    return tone_guitars()
+
+
+@app.delete("/api/tone/guitars/{gid}")
+def tone_guitar_delete(gid: str):
+    d = _guitar_at(gid)
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Kytara nenalezena."}, status_code=404)
+    job = _TONE_GUITAR["job"] or {}
+    if job.get("status") == "running" and job.get("guitar") == gid:
+        return JSONResponse({"error": "Kalibrace se právě vyhodnocuje — chvilku."}, status_code=409)
+    shutil.rmtree(d, ignore_errors=True)
+    if _read_config().get("tone_guitar") == gid:
+        _write_config({"tone_guitar": ""})
+    return tone_guitars()
+
+
+@app.get("/api/tone/guitars/{gid}/step/{kind}.wav")
+def tone_guitar_step_file(gid: str, kind: str):
+    d = _guitar_at(gid)
+    f = d / "steps" / f"{kind}.wav" if d is not None and kind in TONE_GUITAR_STEPS else None
+    if f is None or not f.is_file():
+        return JSONResponse({"error": "Nahrávka nenalezena."}, status_code=404)
+    return FileResponse(f, media_type="audio/wav", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/tone/job")
@@ -10180,6 +10383,9 @@ class ToneFitRequest(BaseModel):
     stem: str = "guitar"
     refine: bool = False       # from the print there is ("Doladit"): only its best cores again
     print: str = ""            # …which one of the song's prints
+    current_amp: str = ""      # the amp and cabinet the live guitar has now: how it sounds before the print
+    current_cab: str = ""
+    current_name: str = ""
 
 
 @app.post("/api/tone/{name}/fit")
@@ -10195,8 +10401,13 @@ def tone_fit(name: str, req: ToneFitRequest):
     if length < 4 or length > 40:
         return JSONResponse({"error": "Úsek musí mít od 4 do 40 vteřin."}, status_code=400)
     takes = [t for t in _tone_takes(d) if min(req.end, t["start"] + t["dur"]) - max(req.start, t["start"]) >= 2][-3:]
-    if not takes:
-        return JSONResponse({"error": "Nejdřív ten úsek zahraj s písní — není co porovnat."}, status_code=400)
+    if not takes and not _guitar_active():
+        return JSONResponse({"error": "Nejdřív ten úsek zahraj s písní — nebo si v Moje kytara nahraj kalibraci, pak to jde i bez hraní."}, status_code=400)
+    current = None
+    if req.current_amp or req.current_cab:
+        model, ir = _resolve_amp_path(req.current_amp) if req.current_amp else None, _resolve_amp_path(req.current_cab) if req.current_cab else None
+        current = {"model": str(model) if model is not None and model.is_file() else None,
+                   "ir": str(ir) if ir is not None and ir.is_file() else None, "name": req.current_name[:80]}
     if req.refine and _tone_print(d, req.print) is None:
         return JSONResponse({"error": "Není co doladit — nejdřív vytvoř otisk."}, status_code=400)
     ok, why = _sysload.room(1.5, "tónový otisk")
@@ -10208,7 +10419,7 @@ def tone_fit(name: str, req: ToneFitRequest):
         job = {"song": name, "status": "running", "stage": "listen", "done": 0, "of": 0, "started": time.time(),
                "start": float(req.start), "end": float(req.end), "stem": req.stem, "print": req.print if req.refine else ""}
         _TONE["job"] = job
-    threading.Thread(target=_tone_run, args=(job, d, _stem_file(d, req.stem), takes, req.refine), daemon=True).start()
+    threading.Thread(target=_tone_run, args=(job, d, _stem_file(d, req.stem), takes, req.refine, current), daemon=True).start()
     return _tone_view()
 
 

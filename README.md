@@ -683,6 +683,20 @@ nahrávka přes otisk jako MP3) a 💿 originál ve stejném úseku (`/preview/r
 otisk zapne na živé kytaře (s kteroukoli písní), ↗ otevře píseň a její otisky, 🗑 smaže
 (dvakrát klikni).
 
+**Moje kytara — kalibrace** (záložka v okně otisku, `/api/tone/guitars…`, data v
+`~/.local/share/spotdl-helper/tone-guitars/<id>/`): jednou čtyři krátké nahrávky čisté kytary —
+prázdné struny, 5. a 12. pražec, akordy (E, A, D, G, C, E5, A5) a riff s tlumením dlaní i naplno,
+potichu i nahlas. basic-pitch (pick-midi) je převede na noty a `tone_worker.py --profile` z nich
+udělá knihovnu tvých tónů a akordů (ladění, dusané údery, obvyklá síla úhozu). Při otisku pak
+Pick převede kytaru originálu v úseku na noty a z knihovny složí **tvou kytaru hrající přesně to,
+co originál** (`pseudo_take`): ke každému úderu nejbližší tón nebo akord, posunutý na výšku
+originálu (píseň laděná o tón níž → E2 zahraje D2), dusaný tam, kde originál dusá, stejně hlasitě
+a na milisekundu ve stejnou chvíli. Fit ho má jako první nahrávku (bez posunu), tvoje nahrávky s
+písní k němu, srovnané na tvou obvyklou sílu úhozu. Otisk pak jde **i bez hraní s písní**.
+Výsledek ukáže i **tvůj zvuk teď** (zesilovač a bedna, které máš v Picku) proti otisku: „Tvůj zvuk
+teď: 41 % → s otiskem 78 %“. Ověřuje `tone_worker.py --selftest-guitar` (struny, ladění, dusání,
+údery na čase originálu, D2 z E2).
+
 Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
 napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive

@@ -55,6 +55,13 @@ def fake_engine(tmp_path, monkeypatch):
     script.write_text("""
 import json, sys, wave
 from pathlib import Path
+if sys.argv[1] == "--profile":
+    job = json.loads(Path(sys.argv[2]).read_text())
+    Path(job["out"]).write_text(json.dumps({"version": 1, "segments": [{"step": s["kind"], "pitches": [40]} for s in job["steps"]],
+        "typical_db": -14, "steps": {s["kind"]: s["path"] for s in job["steps"]}, "summary": {"strings": ["E2"], "tuning": "standardní",
+        "notes": len(job["steps"]), "chords": 0, "level": "dobrá"}}))
+    print("DONE 1", flush=True)
+    raise SystemExit(0)
 job = json.loads(Path(sys.argv[2]).read_text())
 out = Path(job["out"]); out.mkdir(parents=True, exist_ok=True)
 print("STAGE listen 0 0", flush=True)
@@ -68,7 +75,8 @@ again = bool(job.get("start_from"))
 (out / "print.json").write_text(json.dumps({"version": 1, "core": {"id": "Amp.nam", "name": "Amp"}, "drive_db": 3.0,
     "pre": {"hp": 90, "mid_db": 1, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False, "corr": 1.0},
     "match": 91 if again else 84, "takes_seen": len(job["takes"]), "offsets": [t["offset"] for t in job["takes"]],
-    "report": {"record": {"drive": 45}, "you": {"drive": 50}}}))
+    "report": {"record": {"drive": 45}, "you": {"drive": 50}},
+    "spec": {"guitar": bool(job.get("guitar")), "ref_notes": len(job.get("ref_notes") or []), "current": job.get("current")}}))
 print("DONE 84", flush=True)
 """, encoding="utf-8")
     monkeypatch.setattr(server, "TONE_PYTHON", Path(sys.executable))
@@ -237,3 +245,49 @@ def test_the_engine_finds_a_known_chain_again():
     if "SKIP" in out:
         pytest.skip(out.strip())
     assert r.returncode == 0 and "SELFTEST OK" in out, out[-2000:]
+
+
+def test_a_calibrated_guitar_makes_a_print_without_a_take(client, tmp_music_root, tmp_path, fake_engine, monkeypatch):
+    monkeypatch.setattr(server, "TONE_GUITARS", tmp_path / "guitars")
+    monkeypatch.setattr(server, "MIDI_PYTHON", Path(sys.executable))
+    monkeypatch.setattr(server, "_notes_of", lambda path: [{"m": 40, "t": 0.5, "d": 0.3, "v": 0.8}, {"m": 45, "t": 1.0, "d": 0.3, "v": 0.8}])
+    _song(tmp_music_root)
+    assert client.post("/api/tone/Kapela - Píseň/fit", json={"start": 5, "end": 15}).status_code == 400   # nothing to play it with
+    g = client.post("/api/tone/guitars", json={"name": "Moje Stratocaster"}).json()
+    assert g["id"] == "moje-stratocaster" and not g["ready"]
+    assert client.post(f"/api/tone/guitars/{g['id']}/analyse").status_code == 400                      # nothing recorded
+    f = tmp_path / "strings.wav"
+    _wav(f, _tone(6, 82.4))
+    with open(f, "rb") as fh:
+        r = client.post(f"/api/tone/guitars/{g['id']}/step/strings", files={"file": ("strings.wav", fh, "audio/wav")})
+    assert r.status_code == 200 and r.json()["steps"]["strings"] > 5
+    assert client.post(f"/api/tone/guitars/{g['id']}/step/nic", files={"file": ("x.wav", b"x" * 2000, "audio/wav")}).status_code == 404
+    assert client.post(f"/api/tone/guitars/{g['id']}/use").status_code == 400                            # not analysed yet
+    assert client.post(f"/api/tone/guitars/{g['id']}/analyse").status_code == 200
+    for _ in range(100):
+        j = client.get("/api/tone/guitars").json()["job"]
+        if j["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert j["status"] == "done", j
+    got = client.post(f"/api/tone/guitars/{g['id']}/use").json()
+    assert got["active"] == g["id"] and got["guitars"][0]["ready"] and got["guitars"][0]["summary"]["tuning"] == "standardní"
+    # a print with no take: the guitar plays what the record plays; the amp of now to compare with
+    server.AMPS_DIR.mkdir(parents=True, exist_ok=True)
+    (server.AMPS_DIR / "Amp.nam").write_text("{}")
+    r = client.post("/api/tone/Kapela - Píseň/fit", json={"start": 5, "end": 15, "current_amp": "Amp.nam", "current_name": "Amp"})
+    assert r.status_code == 200, r.text
+    got = _wait(client)
+    assert got["job"]["status"] == "done", got
+    p = client.get("/api/tone/Kapela - Píseň").json()["print"]
+    assert p["spec"]["guitar"] and p["spec"]["ref_notes"] == 2 and p["takes"] == []
+    assert p["spec"]["current"]["model"].endswith("Amp.nam") and p["spec"]["current"]["name"] == "Amp"
+    assert client.delete(f"/api/tone/guitars/{g['id']}").json()["active"] == ""
+
+
+@pytest.mark.skipif(not server.TONE_PYTHON.is_file(), reason="engine otisku tu není")
+def test_a_calibrated_guitar_plays_the_records_notes_on_its_clock():
+    """A made-up guitar in standard tuning, a riff of a song a whole step down: the library knows the
+    strings, and every stroke lands on the record's onset at the record's pitch (tone_worker.py)."""
+    r = subprocess.run([str(server.TONE_PYTHON), str(server.TONE_WORKER), "--selftest-guitar"], capture_output=True, text=True, timeout=300)
+    assert r.returncode == 0 and "SELFTEST-GUITAR OK" in r.stdout, r.stdout[-2000:]

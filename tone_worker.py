@@ -310,6 +310,13 @@ def match_of(total):
     return int(round(100 * math.exp(-total / 3.0)))
 
 
+def ltas_term(fa, fr, ear):
+    """How far a sound's long-term spectrum is from the record's, its level aside (1 = 3 dB on average)."""
+    keep = (ear.fine_c >= 100) & (ear.fine_c <= 10000)
+    d = fa["ltas"][keep] - fr["ltas"][keep]
+    return float(np.mean(np.abs(d - d.mean()))) / 3.0
+
+
 def describe(ear, f):
     """What the report shows of a sound, in plain numbers."""
     lt = f["ltas"]
@@ -352,19 +359,178 @@ def _lag(ear, r, d):
     return -lag * HOP
 
 
+# ---------------------------------------------------------------- the player's guitar
+#
+# A calibration of the guitar, once (Tónový otisk → Moje kytara): the open strings, notes up
+# the neck, chords, a riff muted and open, softly and hard — heard by basic-pitch (clean DI is
+# what it hears best) into a library of the player's own notes and chords. With it the fit has
+# the guitar play exactly what the record plays: for every note or chord basic-pitch hears in
+# the record's stretch, the nearest one of the library — moved to the record's pitch (a whole
+# step down for a song tuned to D), muted where the record chugs, as loud as the record is
+# there — put down on the record's very clock. A take that plays along can be late, early,
+# in another tuning; this one cannot.
+
+def events(notes, gap=0.05):
+    """basic-pitch's notes as what was struck together: [{t, d, p: [midi…], v}]."""
+    out = []
+    for n in sorted(notes, key=lambda x: x["t"]):
+        if out and n["t"] - out[-1]["t"] < gap:
+            e = out[-1]
+            e["p"].add(int(n["m"]))
+            e["d"] = max(e["d"], n["t"] + n["d"] - e["t"])
+            e["v"] = max(e["v"], n.get("v", 0.5))
+        else:
+            out.append({"t": float(n["t"]), "d": float(n["d"]), "p": {int(n["m"])}, "v": n.get("v", 0.5)})
+    for e in out:
+        e["p"] = sorted(e["p"])
+    return out
+
+
+NAMES = "C C# D D# E F F# G G# A A# B".split()
+
+
+def note_name(m):
+    return f"{NAMES[m % 12]}{m // 12 - 1}"
+
+
+def build_profile(job):
+    """The library of the player's notes out of the calibration takes, and what it says of the guitar."""
+    sr = int(job["sr"])
+    ear = Ear(sr)
+    segs, strings = [], []
+    for st in job["steps"]:
+        x = _read(st["path"], sr)
+        ev = events(st["notes"])
+        env = ear.env(ear.power(x))
+        for i, e in enumerate(ev):
+            a = max(0, int((e["t"] - 0.01) * sr))
+            nxt = ev[i + 1]["t"] if i + 1 < len(ev) else len(x) / sr
+            b = min(len(x), int(min(nxt, e["t"] + 2.5) * sr))
+            if b - a < int(sr * 0.08):
+                continue
+            seg = x[a:b]
+            peak = 20 * math.log10(float(np.abs(seg).max()) + 1e-9)
+            if peak < -60:
+                continue
+            f0 = a // HOP
+            top = float(env[f0:f0 + 6].max()) if f0 < len(env) else 0.0
+            after = float(env[min(len(env) - 1, f0 + 14)]) if f0 < len(env) else 0.0
+            # muted with the palm: a short note that has lost much of itself 150 ms after the pick
+            segs.append({"step": st["kind"], "start": round(a / sr, 4), "end": round(b / sr, 4), "pitches": e["p"],
+                         "peak_db": round(peak, 1), "mute": bool(top - after > 7 and (b - a) / sr < 0.6)})
+            if st["kind"] == "strings" and len(e["p"]) <= 2:
+                strings.append(e["p"][0])
+    played = [s["peak_db"] for s in segs if s["step"] in ("chords", "riff")] or [s["peak_db"] for s in segs]
+    typical = float(np.median(played)) if played else -12.0
+    opens = sorted(set(strings))[:8]
+    std = [40, 45, 50, 55, 59, 64]
+    tuning = "standardní" if opens[:6] == std else ("o půl tónu níž" if opens[:6] == [p - 1 for p in std] else
+                                                   "o celý tón níž" if opens[:6] == [p - 2 for p in std] else
+                                                   ("drop D" if opens[:6] == [38, 45, 50, 55, 59, 64] else ""))
+    chords = sum(1 for s in segs if len({p % 12 for p in s["pitches"]}) > 1)
+    level = "přebuzená" if max((s["peak_db"] for s in segs), default=-60) > -0.3 else "slabá" if typical < -30 else "dobrá"
+    return {"version": 1, "sr": sr, "segments": segs, "typical_db": round(typical, 1),
+            "steps": {st["kind"]: st["path"] for st in job["steps"]},
+            "summary": {"strings": [note_name(p) for p in opens], "tuning": tuning, "notes": len(segs) - chords, "chords": chords,
+                        "level": level, "typical_db": round(typical, 1), "muted": sum(1 for s in segs if s["mute"])}}
+
+
+def _shift(x, semis):
+    """A clean guitar note moved by `semis` (resampled: higher is a little shorter, as a capo would)."""
+    if not semis:
+        return x
+    ratio = 2 ** (semis / 12)
+    n = int(len(x) / ratio)
+    return np.interp(np.arange(n) * ratio, np.arange(len(x)), x).astype(np.float32)
+
+
+def _pick(segs, e, dur):
+    """The library's note or chord nearest to what the record strikes, and how far it is moved."""
+    low = e["p"][0]
+    shape = {(p - low) % 12 for p in e["p"]}
+    many = len(shape) > 1
+    best, best_t, best_s = None, 0, -9.0
+    for s in segs:
+        sl = s["pitches"][0]
+        t = low - sl
+        if abs(t) > (7 if many else 5):
+            continue
+        sshape = {(p - sl) % 12 for p in s["pitches"]}
+        score = len(shape & sshape) / len(shape | sshape) if many else (1.0 if len(sshape) == 1 else 0.4)
+        if dur < 0.18 and low < 52:
+            score += 0.3 if s["mute"] else 0.0          # short low notes on a record are mostly chugs
+        elif s["mute"]:
+            score -= 0.3
+        score -= 0.04 * abs(t)
+        if score > best_s:
+            best, best_t, best_s = s, t, score
+    return best, best_t
+
+
+def pseudo_take(profile, ref_notes, ref_mono, sr):
+    """The player's guitar playing what the record plays, on the record's clock (mono, as long as the stretch)."""
+    ev = events(ref_notes)
+    out = np.zeros(len(ref_mono), np.float32)
+    if not ev or not profile.get("segments"):
+        return None, {"events": len(ev), "used": 0}
+    audio = {k: _read(p, sr) for k, p in profile["steps"].items()}
+    ear = Ear(sr)
+    env = ear.env(ear.power(ref_mono))
+    top = float(env.max()) if len(env) else 0.0
+    used = 0
+    for i, e in enumerate(ev):
+        end = ev[i + 1]["t"] if i + 1 < len(ev) else len(ref_mono) / sr
+        dur = min(end - e["t"], 3.0)
+        if dur < 0.04:
+            continue
+        s, semis = _pick(profile["segments"], e, dur)
+        if s is None or s["step"] not in audio:
+            continue
+        src = _shift(audio[s["step"]][int(s["start"] * sr):int(s["end"] * sr)], semis)
+        lead = int(0.01 * sr * len(src) / max(1, int((s["end"] - s["start"]) * sr)))   # the library's 10 ms before the pick
+        n = min(len(src), lead + int(dur * sr))           # until the record's next stroke, not over it
+        if n < int(sr * 0.03):
+            continue
+        y = src[:n].copy()
+        fade = min(n, int(sr * 0.012))
+        y[-fade:] *= np.linspace(1, 0, fade)
+        f0 = int(e["t"] * sr) // HOP
+        here = float(env[f0:f0 + 6].max()) if f0 < len(env) else top
+        rel = max(-24.0, min(0.0, here - top))           # as loud as the record is there
+        y *= 10 ** ((profile["typical_db"] + rel * 0.5 - s["peak_db"]) / 20)
+        a = int(e["t"] * sr) - lead                       # the pick itself on the record's onset
+        if a < 0:
+            y, a = y[-a:], 0
+        m = min(len(y), len(out) - a)
+        if m > 0:
+            out[a:a + m] += y[:m]
+            used += 1
+    return out, {"events": len(ev), "used": used}
+
+
 def segments(job, sr):
-    """The record's stretch and the takes on it, each take moved onto the record."""
+    """The record's stretch and the takes on it, each take moved onto the record — and, with a
+    calibrated guitar, the player's guitar playing what the record plays, first of them."""
     ref2 = _read(job["ref"], sr, stereo=True)
     ear = Ear(sr)
-    rs, ds, rs2, place, lags = [], [], [], [], []
-    for t in job["takes"]:
-        x = _read(t["path"], sr)
+    rs, ds, rs2, place, lags, kinds = [], [], [], [], [], []
+    prof, info = job.get("guitar"), {}
+    takes = list(job["takes"])
+    if prof and job.get("ref_notes"):
+        pt, info = pseudo_take(prof, job["ref_notes"], ref2.mean(1), sr)
+        if pt is not None and info["used"] >= 4:
+            takes.insert(0, {"audio": pt, "offset": 0.0, "pseudo": True})
+    for t in takes:
+        x = t["audio"] if "audio" in t else _read(t["path"], sr)
+        if prof and not t.get("pseudo"):                   # played softer or harder than usual: as usual
+            pk = float(np.percentile(np.abs(x), 99.9)) + 1e-9
+            x = x * 10 ** (max(-12.0, min(12.0, prof["typical_db"] - 20 * math.log10(pk))) / 20)
         off = int(round(t.get("offset", 0.0) * sr))
         a, b = max(0, off), min(len(ref2), off + len(x))
         if b - a < sr * 2:
             continue
         r2, d = ref2[a:b], x[a - off:b - off]
-        lag = _lag(ear, r2.mean(1), d)
+        lag = 0 if t.get("pseudo") else _lag(ear, r2.mean(1), d)
         if lag > 0:
             d = np.concatenate([d[lag:], np.zeros(lag, np.float32)])
         elif lag < 0:
@@ -374,12 +540,14 @@ def segments(job, sr):
         ds.append(d)
         place.append((a, b))
         lags.append(round(1000 * lag / sr))
+        kinds.append("pseudo" if t.get("pseudo") else "take")
     if not rs:
-        raise RuntimeError("Nahrávka se s vybraným úsekem písně nepřekrývá — nahraj ji znovu.")
+        raise RuntimeError("Nahrávka se s vybraným úsekem písně nepřekrývá — nahraj ji znovu." if job["takes"] else
+                           "Z kalibrace jsem tenhle úsek nesložil — kytara originálu tu má málo not, které tvoje kytara zná. Zahraj ho s písní.")
     gap = np.zeros(int(sr * 0.25), np.float32)
     cat = lambda parts: np.concatenate([p for q in parts for p in (q, gap)])[:-len(gap)]
     return {"r": cat(rs), "d": cat(ds), "r2": np.concatenate(rs2), "place": place, "lags": lags, "len": len(ref2),
-            "seg_lens": [len(x) for x in rs]}
+            "seg_lens": [len(x) for x in rs], "pseudo": info, "kinds": kinds}
 
 
 def _window(active, frames):
@@ -554,12 +722,31 @@ class Fit:
         sf.write(str(out / "you.wav"), you, sr, subtype="FLOAT")
         # what most likely went wrong, in plain words
         rec = describe(ear, fr)
-        if parts["follow"] > 1.2:
+        if parts["follow"] > 1.2 and "take" in seg["kinds"] and "pseudo" not in seg["kinds"]:
             warnings.append("Tvoje nahrávka se s originálem v rytmu moc neshoduje — zahraj úsek přesně s písní, stejné tóny ve stejnou chvíli.")
         if rec["bright"] < 500:
             warnings.append("Kytara originálu tu zní hodně tmavě — v separované stopě je možná víc basy než kytary. Zkus úsek, kde je kytara výrazná.")
         if match_of(total) < 50 and not warnings:
             warnings.append("Shoda je nízká — zkus jiný úsek, nebo nahrávku znovu a pak Doladit.")
+        # the sound the player has now (their amp and cabinet in Pick), measured the same way: before → after
+        compare = None
+        cur = job.get("current") or {}
+        if cur.get("model") or cur.get("ir"):
+            self.stage("compare")
+            base = d.copy()
+            if cur.get("model"):
+                nam = Nam(job, 1)
+                try:
+                    base = nam.render(cur["model"], [d])[0]
+                finally:
+                    nam.close()
+            if cur.get("ir"):
+                h0 = _read(cur["ir"], sr)
+                base = convolve(base, (h0 / math.sqrt(float(np.sum(h0 * h0)) + 1e-12)).astype(np.float32))
+            fb = ear.measure(base, ctx)
+            lb, _ = loss(fb, fr)
+            compare = {"name": cur.get("name") or "", "before": match_of(lb + ltas_term(fb, fr, ear)),
+                       "after": match_of(total + ltas_term(fy, fr, ear))}
         ltas_y, ltas_r = fy["ltas"], fr["ltas"]
         show = (ear.fine_c >= 60) & (ear.fine_c <= 14000)
         result = {
@@ -569,6 +756,8 @@ class Fit:
             "ir": "print-ir.wav", "room": room, "width": width,
             "match": match_of(total), "loss": round(total, 3), "parts": {k: round(v, 3) for k, v in parts.items()},
             "ranking": ranking[:12], "lags_ms": seg["lags"], "played_s": round(played, 1), "warnings": warnings,
+            "compare": compare, "kinds": seg["kinds"],
+            "guitar": ({"name": job.get("guitar_name") or "", **seg["pseudo"]} if seg["pseudo"] else None),
             "report": {"record": rec, "you": describe(ear, fy),
                        "curve": {"hz": [int(x) for x in ear.fine_c[show]], "record": [round(float(v), 1) for v in ltas_r[show]],
                                  "you": [round(float(v), 1) for v in ltas_y[show]]}},
@@ -664,9 +853,80 @@ def selftest():
         _sh.rmtree(tmp, ignore_errors=True)
 
 
+def selftest_guitar():
+    """A made-up guitar in standard tuning calibrated, then playing a riff of a song tuned a whole
+    step down: the library has to know the strings, and the take has to hit the record's onsets at
+    the record's pitch (an E2 moved down to D2)."""
+    sr = 48000
+    rng = np.random.default_rng(5)
+    tmp = Path(tempfile.mkdtemp(prefix="pick-guitar-test-"))
+
+    def session(plan, name):
+        x, notes = np.zeros(int(sr * (plan[-1][0] + 3))), []
+        for t, pitches, dur, mute in plan:
+            for m in pitches:
+                y = _pluck(sr, 440 * 2 ** ((m - 69) / 12), dur, mute, rng)
+                a = int(t * sr)
+                x[a:a + len(y)] += y[:len(x) - a]
+                notes.append({"m": m, "t": t, "d": dur, "v": 0.8})
+        x = (0.25 * x / np.abs(x).max()).astype(np.float32)
+        f = tmp / f"{name}.wav"
+        sf.write(str(f), x, sr, subtype="FLOAT")
+        return {"kind": name, "path": str(f), "notes": notes}
+    try:
+        std = [40, 45, 50, 55, 59, 64]
+        steps = [session([(0.3 + 1.6 * i, [p], 1.4, False) for i, p in enumerate(std)], "strings"),
+                 session([(0.3 + 1.0 * i, [p + f], 0.9, False) for i, (p, f) in enumerate((p, f) for p in std for f in (5, 12))], "frets"),
+                 session([(0.3 + 1.8 * i, c, 1.6, False) for i, c in enumerate([[40, 47, 52], [45, 52, 57], [40, 47, 52, 56, 59, 64]])], "chords"),
+                 session([(0.3 + 0.22 * i, [40], 0.18, True) for i in range(10)] + [(2.8, [40, 47, 52], 1.0, False)], "riff")]
+        prof = build_profile({"sr": sr, "steps": steps})
+        sm = prof["summary"]
+        # the record: chugs on D2 and power chords Bb5, C5 — a song a whole step down
+        plan = [(0.2 + 0.22 * i, [38], 0.18, True) for i in range(8)] + [(2.0, [46, 53, 58], 0.8, False), (2.9, [48, 55, 60], 0.8, False)]
+        ref = session(plan, "record")
+        x = _read(ref["path"], sr)
+        take, info = pseudo_take(prof, ref["notes"], x, sr)
+        ok_lib = sm["strings"] == ["E2", "A2", "D3", "G3", "B3", "E4"] and sm["tuning"] == "standardní" and sm["chords"] >= 3 and sm["muted"] >= 5
+        # every struck note of the record starts in the take within 15 ms of it
+        # each stroke where the record has it: a new pick is a jump across the whole spectrum (spectral
+        # flux), even when chugs follow so close that the level hardly dips between them
+        ear = Ear(sr)
+        lp = np.log(ear.power(take)[:, ear.body] + 1e-9)
+        flux = np.concatenate([[0.0], np.maximum(0, np.diff(lp, axis=0)).sum(1)])
+        base = float(np.median(flux)) + 1e-9
+        hits = [int(p[0] * sr) // HOP for p in plan]
+        on_time = sum(1 for h in hits if flux[max(0, h - 4):h + 2].max() > 3 * base) / len(hits)
+        # the first chug is a D2 (73.4 Hz), moved down from the library's E2
+        a = int(0.2 * sr)
+        seg = take[a + int(0.02 * sr):a + int(0.15 * sr)].astype(np.float64)
+        ac = np.correlate(seg, seg, mode="full")[len(seg) - 1:]
+        lo, hi = int(sr / 110), int(sr / 55)
+        f0 = sr / (lo + int(np.argmax(ac[lo:hi])))
+        say(f"SELFTEST-GUITAR strings={sm['strings']} tuning={sm['tuning']} chords={sm['chords']} muted={sm['muted']} "
+            f"used={info['used']}/{info['events']} on_time={on_time:.2f} f0={f0:.1f}")
+        ok = ok_lib and info["used"] == len(plan) and on_time >= 0.9 and abs(f0 - 73.4) < 3
+        say("SELFTEST-GUITAR OK" if ok else "SELFTEST-GUITAR FAIL")
+        return 0 if ok else 1
+    finally:
+        import shutil as _sh
+        _sh.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     if "--selftest" in sys.argv:
         return selftest()
+    if "--selftest-guitar" in sys.argv:
+        return selftest_guitar()
+    if "--profile" in sys.argv:
+        job = json.loads(Path(sys.argv[sys.argv.index("--profile") + 1]).read_text(encoding="utf-8"))
+        try:
+            got = build_profile(job)
+        except Exception as e:                               # the server shows the reason
+            say(f"ERROR {str(e)[:300]}")
+            return 1
+        Path(job["out"]).write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
+        say(f"DONE {len(got['segments'])}")
+        return 0
     job = json.loads(Path(sys.argv[sys.argv.index("--job") + 1]).read_text(encoding="utf-8"))
     try:
         got = Fit(job).run()

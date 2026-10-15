@@ -14,7 +14,15 @@ const Tone = (() => {
   const PRE = {mid: 750, low: 250, high: 2000, hpQ: -3.0103};       // tone_worker.py has the same
   const KEEP = "pick-tone-live", POS = "pick-tone-win", TAB = "pick-tone-tab", LSORT = "pick-tone-lib-sort";
   const STAGES = {listen: "poslouchám originál a tvou nahrávku", sieve: "zkouším jádra zkreslení", sieve2: "zkouším nejlepší jádra",
-    tune: "dolaďuji drive a ekvalizér", colour: "počítám barvu", room: "hledám prostor", save: "ukládám"};
+    tune: "dolaďuji drive a ekvalizér", colour: "počítám barvu", room: "hledám prostor", save: "ukládám",
+    notes: "poslouchám noty originálu", compare: "porovnávám s tvým zvukem"};
+  // the calibration of the player's guitar (server: /api/tone/guitars; tone_worker.py --profile)
+  const STEPS = [
+    {k: "strings", title: "Prázdné struny", hint: "Od nejhlubší po nejvyšší, každou nech asi 2 s znít.", max: 20},
+    {k: "frets", title: "Tóny na hmatníku", hint: "Na každé struně 5. a 12. pražec, od nejhlubší struny.", max: 30},
+    {k: "chords", title: "Akordy", hint: "E, A, D, G, C, pak power chordy E5 a A5 — každý jednou, nech ho zaznít.", max: 30},
+    {k: "riff", title: "Riff a síla úhozu", hint: "Osm úderů s tlumením dlaní na nejhlubší struně, pak to samé naplno — jednou potichu, jednou nahlas.", max: 20}];
+  const GSTAGES = {strings: "poslouchám struny", frets: "poslouchám tóny", chords: "poslouchám akordy", riff: "poslouchám riff", profile: "skládám knihovnu tvých tónů"};
   const STEMS = {guitar: "Kytara", guitar_solo: "Sólová kytara", guitar_rhythm: "Rytmická kytara"};
   // the kinds of sound a print is filed under (server.py TONE_CATEGORIES has the same keys)
   const CATS = [["clean", "Clean", "#4fd1c5"], ["crunch", "Crunch", "#f6ad55"], ["hi_gain", "Hi-Gain", "#f56565"], ["lead", "Sólo", "#b794f4"],
@@ -37,6 +45,7 @@ const Tone = (() => {
 
   let win = null, tab = "song", song = null, state = null, pid = null, range = null, stem = "guitar", sections = [];
   let library = null, libFind = "", libSort = "band", libCat = "", editing = null, catMenu = null;
+  let guitars = null, gSel = null, gRec = null, gWatch = 0;
   let watch = 0, recording = null, playing = null, blindRun = null, armed = null;
   let live = null;            // the print in the live guitar: {song, pid, print, input, out, nodes, core, dbl}
   let restored = false;       // the print on before a reload put back (or the player chose since)
@@ -304,7 +313,10 @@ const Tone = (() => {
   }
   async function fit(refine){
     if(!range) return;
-    try{ await api(`/api/tone/${enc(song)}/fit`, post({start: range.start, end: range.end, stem, refine: !!refine, print: refine ? pid : ""})); }
+    const gs = G().state, own = !(gs.externalAmp || gs.tunnel);
+    try{ await api(`/api/tone/${enc(song)}/fit`, post({start: range.start, end: range.end, stem, refine: !!refine, print: refine ? pid : "",
+      current_amp: own ? (gs.ampFile || "") : "", current_cab: own && gs.cabName ? gs.cabName + ".wav" : "",
+      current_name: own ? [gs.ampName, gs.cabName].filter(Boolean).join(" + ") : ""})); }
     catch(e){ showToast(e.message); return; }
     await refresh();
     follow();
@@ -409,7 +421,7 @@ const Tone = (() => {
     win.className = "tone-win";
     win.innerHTML = `<div class="tw-bar"><button type="button" class="tw-close" title="Zavřít">${icon("close", 14)}</button>
       <span class="tw-title">Tónový otisk</span>
-      <span class="tw-tabs"><button type="button" data-tab="song">Tato píseň</button><button type="button" data-tab="library">Knihovna otisků</button></span></div>
+      <span class="tw-tabs"><button type="button" data-tab="song">Tato píseň</button><button type="button" data-tab="library">Knihovna otisků</button><button type="button" data-tab="guitar">Moje kytara</button></span></div>
       <div class="tw-live" hidden></div><div class="tw-body"></div>`;
     document.body.appendChild(win);
     try{ const p = JSON.parse(localStorage.getItem(POS) || "null"); if(p){ win.style.left = p.x + "px"; win.style.top = p.y + "px"; } }catch(e){}
@@ -435,6 +447,7 @@ const Tone = (() => {
     try{ localStorage.setItem(TAB, tab); }catch(e){}
     blindRun = null;
     if(tab === "library" && !library) loadLibrary();
+    if(tab === "guitar") loadGuitars();
     paint();
   }
   function close(){
@@ -451,6 +464,7 @@ const Tone = (() => {
     library = null;
     paint();
     if(tab === "library") loadLibrary();
+    loadGuitars();
     if(!song) return;
     await refresh();
     const p = state && state.print;
@@ -505,6 +519,7 @@ const Tone = (() => {
     liveLine();
     const body = win.querySelector(".tw-body");
     if(tab === "library") paintLibrary(body);
+    else if(tab === "guitar") paintGuitar(body);
     else paintSong(body);
   }
 
@@ -523,6 +538,8 @@ const Tone = (() => {
     const len = range ? range.end - range.start : 0;
     const rep = p && p.report, isLive = live && p && live.song === song && live.pid === p.id;
     const prints = state.prints || [];
+    const cal = guitars && guitars.active ? (guitars.guitars.find(x => x.id === guitars.active) || null) : null;
+    const canFit = state.ready && !state.busy && (takes.length || cal) && range && len >= 4 && len <= 40;
     return `
       ${state.ready ? "" : `<p class="tw-warn">Engine otisku tu není (prostředí pick-tone nebo Node) — nahrát jde, vytvořit otisk ne.</p>`}
       ${prints.length ? `<section class="tw-sec"><div class="tw-h">Otisky této písně</div><div class="tw-row tw-chips">${prints.map(x =>
@@ -548,9 +565,11 @@ const Tone = (() => {
         ${job ? `<div class="tw-prog"><div class="tw-stage">${escapeHtml(STAGES[job.stage] || "počítám")}${job.of ? ` · ${job.done}/${job.of}` : ""} · ${mmss(job.elapsed || 0)}</div>
             <div class="tw-pbar"><i style="width:${job.of ? Math.round(100 * job.done / job.of) : 4}%"></i></div>
             <button type="button" class="btn secondary tw-stop">Zastavit</button></div>`
-          : `<div class="tw-row"><button type="button" class="btn tw-fit" ${!state.ready || !takes.length || state.busy ? "disabled" : ""}>${p ? "Vytvořit nový otisk" : "Vytvořit otisk"}</button>
-            ${p ? `<button type="button" class="btn secondary tw-refine" ${!state.ready || !takes.length || state.busy ? "disabled" : ""} title="Vybraný otisk znovu, i s novými nahrávkami — od nejlepších jader minula">Doladit „${escapeHtml(p.name)}“</button>` : ""}
-            <span class="tw-sub">${state.busy ? "Počítá se otisk jiné písně." : "Trvá asi 2 minuty."}</span></div>`}
+          : `<div class="tw-row"><button type="button" class="btn tw-fit" ${canFit ? "" : "disabled"}>${p ? "Vytvořit nový otisk" : "Vytvořit otisk"}</button>
+            ${p ? `<button type="button" class="btn secondary tw-refine" ${canFit ? "" : "disabled"} title="Vybraný otisk znovu, i s novými nahrávkami — od nejlepších jader minula">Doladit „${escapeHtml(p.name)}“</button>` : ""}
+            <span class="tw-sub">${state.busy ? "Počítá se otisk jiné písně." : "Trvá asi 2 minuty."}</span></div>
+          <p class="tw-sub tw-calnote">${cal ? `Kalibrace <b>${escapeHtml(cal.name)}</b>: Pick nechá tvou kytaru zahrát přesně to, co originál — ve stejnou chvíli a ve stejné výšce${takes.length ? ", spolu s tvou nahrávkou" : ". Otisk jde i bez nahrávky"}.`
+            : `Přesnější otisk: v záložce <button type="button" class="tw-linkbtn tw-tocal">Moje kytara</button> nahraj jednou kalibraci kytary — pak tvoje kytara zahraje přesně to, co originál, a otisk jde i bez hraní s písní.`}</p>`}
       </section>
       ${p ? `<section class="tw-sec tw-result">
         <div class="tw-pname"><div class="tw-cname tw-big" title="Klikni a přejmenuj">${escapeHtml(p.name)}</div>${catChip(p.category, !p.category_auto)}
@@ -558,6 +577,8 @@ const Tone = (() => {
         <div class="tw-sub tw-pmeta">${escapeHtml(STEMS[p.stem] || "")} · ${mmss(p.start)}–${mmss(p.end)} · ${day(p.created)}</div>
         <div class="tw-match"><b>${p.match} %</b><span>shoda s originálem${p.before != null ? ` <small>(předtím ${p.before} %)</small>` : ""}</span>
           <button type="button" class="btn ${isLive ? "" : "secondary"} tw-live">${isLive ? "✓ Hraješ s otiskem" : "Hrát s otiskem"}</button></div>
+        ${p.compare ? `<p class="tw-compare">Tvůj zvuk teď${p.compare.name ? ` (${escapeHtml(p.compare.name)})` : ""}: <b>${p.compare.before} %</b> → s otiskem <b>${p.compare.after} %</b></p>` : ""}
+        ${p.guitar && p.guitar.used ? `<p class="tw-sub">Z kalibrace${p.guitar.name ? ` „${escapeHtml(p.guitar.name)}“` : ""}: tvoje kytara zahrála ${p.guitar.used} z ${p.guitar.events} úderů originálu.</p>` : ""}
         ${(p.warnings || []).map(w => `<p class="tw-warn">${escapeHtml(w)}</p>`).join("")}
         <canvas class="tw-curve" width="440" height="120"></canvas>
         <div class="tw-legend"><i class="rec"></i>originál <i class="you"></i>ty přes otisk</div>
@@ -628,6 +649,8 @@ const Tone = (() => {
       try{ await api(`/api/tone/${enc(song)}/take/${b.dataset.del}`, {method: "DELETE"}); }catch(e){ showToast(e.message); }
       refresh();
     });
+    const tc = qs(".tw-tocal");
+    if(tc) tc.onclick = () => show("guitar");
     const f = qs(".tw-fit"), rf = qs(".tw-refine"), st = qs(".tw-stop");
     if(f) f.onclick = () => fit(false);
     if(rf) rf.onclick = () => fit(true);
@@ -760,6 +783,127 @@ const Tone = (() => {
         }
       });
     });
+  }
+
+  // ---- Moje kytara: the calibration — four short recordings of the clean guitar, once
+  async function loadGuitars(){
+    try{ guitars = await api("/api/tone/guitars"); }catch(e){ guitars = {guitars: [], active: "", job: null}; }
+    if(!gSel || !guitars.guitars.some(g => g.id === gSel)) gSel = guitars.active || (guitars.guitars[0] || {}).id || null;
+    if(guitars.job && guitars.job.status === "running") followGuitar();
+    paint();
+  }
+  function followGuitar(){
+    clearTimeout(gWatch);
+    gWatch = setTimeout(async () => {
+      try{ guitars = await api("/api/tone/guitars"); }catch(e){ followGuitar(); return; }
+      const j = guitars.job;
+      if(j && j.status === "running"){ paint(); followGuitar(); return; }
+      if(j && j.status === "done"){
+        showToast("Kalibrace kytary je hotová");
+        if(!guitars.active && j.guitar){ try{ guitars = await api(`/api/tone/guitars/${enc(j.guitar)}/use`, {method: "POST"}); }catch(e){} }
+      } else if(j && j.status === "error") showToast("Kalibrace se nepovedla: " + (j.error || ""));
+      paint();
+    }, 1500);
+  }
+  async function recordStep(step){
+    if(gRec){ gRec.stop = true; return; }
+    if(!G().isLive()){ showToast("Nejdřív zapni vstup kytary — tlačítko s kytarou na kanálu Live kytara"); return; }
+    const c = ac(), sr = c.sampleRate, gid = gSel;
+    const rec = new AudioWorkletNode(c, "take-recorder", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
+    const sink = c.createGain();
+    sink.gain.value = 0; rec.connect(sink); sink.connect(c.destination);
+    const tap = () => { const t = G().cleanTap(); if(t) try{ t.connect(rec); }catch(e){} };
+    tap();
+    const unhook = G().onRewire(tap);
+    const parts = [];
+    let stopped, peak = 0;
+    const done = new Promise(res => { stopped = res; });
+    rec.port.onmessage = (e) => {
+      const d = e.data;
+      if(d && d.done){ stopped(); return; }
+      if(d && d.data){ const ch = d.data[0]; parts.push(ch.slice(0, d.n)); for(let i = 0; i < d.n; i += 16){ const a = Math.abs(ch[i]); if(a > peak) peak = a; } }
+    };
+    gRec = {k: step.k, stop: false, t0: performance.now()};
+    paint();
+    rec.port.postMessage("start");
+    await new Promise(res => { const t = setInterval(() => {
+      const el_ = (performance.now() - gRec.t0) / 1000, box = win && win.querySelector(`[data-step="${step.k}"] .tw-steplive`);
+      if(box) box.textContent = `${Math.floor(el_)} s · ${peak > 0.98 ? "moc nahlas — uber GAIN" : peak > 0.02 ? "slyším ✓" : "hraj…"}`;
+      if(gRec.stop || el_ >= step.max){ clearInterval(t); res(); }
+    }, 120); });
+    rec.port.postMessage("stop");
+    await Promise.race([done, wait(1500)]);
+    unhook();
+    try{ const t = G().cleanTap(); if(t) t.disconnect(rec); }catch(e){}
+    rec.disconnect(); sink.disconnect();
+    gRec = null;
+    const n = parts.reduce((a, p) => a + p.length, 0), x = new Float32Array(n);
+    let at = 0;
+    for(const p of parts){ x.set(p, at); at += p.length; }
+    if(n < sr * 2){ showToast("Nahrávka je moc krátká"); paint(); return; }
+    if(peak < 0.003){ showToast("Z kytary nic nepřišlo — je vybraný správný vstup a hraješ?"); paint(); return; }
+    const fd = new FormData();
+    fd.append("file", wav(x, sr), step.k + ".wav");
+    try{ await api(`/api/tone/guitars/${enc(gid)}/step/${step.k}`, {method: "POST", body: fd}); showToast(`${step.title}: nahráno`); }
+    catch(e){ showToast(e.message); }
+    await loadGuitars();
+  }
+  function paintGuitar(body){
+    if(!guitars){ body.innerHTML = `<p class="tw-note"><span class="spinner"></span> Načítám…</p>`; return; }
+    const g = guitars.guitars.find(x => x.id === gSel) || null, job = guitars.job && guitars.job.status === "running" ? guitars.job : null;
+    const sm = g && g.summary;
+    body.innerHTML = `<div class="tw-libtop"><div class="tw-libtitle">${icon("guitar", 16)}<b>Moje kytara</b><span>kalibrace pro přesnější otisky</span></div></div>
+      <p class="tw-sub" style="margin-top:10px">Jednou nahraj, jak zní tvoje kytara čistě: struny, tóny, akordy a riff. Pick si z toho udělá knihovnu tvých tónů a při otisku nechá tvou kytaru zahrát
+        <b>přesně to, co originál</b> — ve stejnou chvíli a ve stejné výšce (i když je píseň laděná jinak). Otisk pak jde i bez hraní s písní.</p>
+      <div class="tw-row"><select class="tw-gsel">${guitars.guitars.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === gSel ? "selected" : ""}>${escapeHtml(x.name)}${x.id === guitars.active ? " ✓" : ""}</option>`).join("")}
+        <option value="__new">+ Nová kytara…</option></select>
+        ${g && g.ready ? `<button type="button" class="btn ${g.id === guitars.active ? "" : "secondary"} tw-guse">${g.id === guitars.active ? "✓ Používá se pro otisky" : "Používat pro otisky"}</button>` : ""}</div>
+      ${!g ? `<p class="tw-note">Založ si kytaru — „+ Nová kytara…“.</p>` : `
+        ${sm ? `<div class="tw-gsum"><b>${escapeHtml(g.name)}</b> · ${sm.strings.length ? `struny ${escapeHtml(sm.strings.join(" "))}${sm.tuning ? ` (${escapeHtml(sm.tuning)} ladění)` : ""}` : "struny jsem nepoznal"}
+          · ${sm.notes} tónů · ${sm.chords} akordů${sm.muted ? ` · ${sm.muted} dusaných` : ""} · síla úhozu ${cz(sm.typical_db)} dB (${escapeHtml(sm.level)})</div>
+          ${sm.notes + sm.chords < 8 ? `<p class="tw-warn">Málo tónů na přesný otisk — nahraj kroky znovu, hraj zřetelně a nech tóny doznít.</p>` : ""}
+          ${sm.level !== "dobrá" ? `<p class="tw-warn">Signál je ${escapeHtml(sm.level)} — uprav GAIN na kanálu Live kytara a nahraj znovu.</p>` : ""}` : ""}
+        <div class="tw-steps">${STEPS.map((st, i) => `<div class="tw-step ${g.steps[st.k] ? "done" : ""}" data-step="${st.k}">
+          <div class="tw-stepn">${g.steps[st.k] ? "✓" : i + 1}</div>
+          <div class="tw-stept"><b>${st.title}</b><span class="tw-sub">${st.hint}</span>
+            <span class="tw-sub tw-steplive">${gRec && gRec.k === st.k ? "hraj…" : g.steps[st.k] ? `nahráno ${cz(g.steps[st.k])} s` : ""}</span></div>
+          <button type="button" class="btn ${gRec && gRec.k === st.k ? "" : "secondary"} tw-srec" ${gRec && gRec.k !== st.k ? "disabled" : ""}>${gRec && gRec.k === st.k ? "■ Hotovo" : g.steps[st.k] ? "● Znovu" : "● Nahrát"}</button>
+          ${g.steps[st.k] ? `<button type="button" class="tw-ib tw-splay" title="Poslechnout">${icon("headphones", 14)}</button>` : ""}</div>`).join("")}</div>
+        <div class="tw-row">${job ? `<span class="tw-stage"><span class="spinner"></span> ${escapeHtml(GSTAGES[job.stage] || "vyhodnocuji")} · ${mmss(job.elapsed || 0)}</span>`
+          : `<button type="button" class="btn tw-ganal" ${g.steps.strings || g.steps.chords ? "" : "disabled"}>${g.ready ? "Vyhodnotit znovu" : "Vyhodnotit"}</button>
+             <span class="tw-sub">Nahraj aspoň struny a akordy; čím víc kroků, tím přesnější.</span>`}</div>
+        <div class="tw-row"><button type="button" class="tw-ib tw-gdel ${armed === "g/" + g.id ? "armed" : ""}" title="Smazat kytaru">${armed === "g/" + g.id ? "Smazat?" : icon("trash", 14)}</button></div>`}`;
+    const sel = body.querySelector(".tw-gsel");
+    sel.onchange = async () => {
+      if(sel.value !== "__new"){ gSel = sel.value; paint(); return; }
+      const name = prompt("Jak se kytara jmenuje? (třeba Stratocaster)", "Moje kytara");
+      if(!name){ sel.value = gSel || ""; return; }
+      try{ const g2 = await api("/api/tone/guitars", post({name})); gSel = g2.id; }catch(e){ showToast(e.message); }
+      loadGuitars();
+    };
+    const use = body.querySelector(".tw-guse");
+    if(use) use.onclick = async () => {
+      try{ guitars = await api(`/api/tone/guitars/${g.id === guitars.active ? "-" : enc(g.id)}/use`, {method: "POST"}); }catch(e){ showToast(e.message); }
+      paint();
+    };
+    body.querySelectorAll(".tw-step").forEach(row => {
+      const st = STEPS.find(x => x.k === row.dataset.step);
+      row.querySelector(".tw-srec").onclick = () => recordStep(st);
+      const pl = row.querySelector(".tw-splay");
+      if(pl) pl.onclick = async () => { try{ sound(await buffer(`/api/tone/guitars/${enc(g.id)}/step/${st.k}.wav`)); }catch(e){ showToast(e.message); } };
+    });
+    const an = body.querySelector(".tw-ganal");
+    if(an) an.onclick = async () => {
+      try{ await api(`/api/tone/guitars/${enc(g.id)}/analyse`, {method: "POST"}); }catch(e){ showToast(e.message); return; }
+      await loadGuitars(); followGuitar();
+    };
+    const del = body.querySelector(".tw-gdel");
+    if(del) del.onclick = async () => {
+      if(armed !== "g/" + g.id){ armed = "g/" + g.id; paint(); setTimeout(() => { if(armed === "g/" + g.id){ armed = null; paint(); } }, 3000); return; }
+      armed = null;
+      try{ guitars = await api(`/api/tone/guitars/${enc(g.id)}`, {method: "DELETE"}); gSel = null; }catch(e){ showToast(e.message); }
+      loadGuitars();
+    };
   }
 
   // ---- Knihovna → Otisky zvuku in the left panel
