@@ -313,13 +313,14 @@ def match_of(total):
 def describe(ear, f):
     """What the report shows of a sound, in plain numbers."""
     lt = f["ltas"]
-    pw = 10 ** (lt / 10)
+    # a band's level is its power a bin; × its width (∝ its centre at 1/6 octave) it is all its power
+    pw = 10 ** (lt / 10) * ear.fine_c
     body = (ear.fine_c >= 250) & (ear.fine_c <= 4000)
     bass = (ear.fine_c >= 80) & (ear.fine_c < 250)
     return {"drive": int(np.clip((float(np.mean(f["flat"][3:7])) + 22) / 14 * 100, 0, 100)),
             "sustain": None if f["sustain"] is None else round(float(f["sustain"][2]), 1),
             "bright": int(np.sum(ear.fine_c * pw) / np.sum(pw)),
-            "bass": round(float(10 * np.log10(np.mean(pw[bass]) / np.mean(pw[body]))), 1),
+            "bass": round(float(10 * np.log10(np.sum(pw[bass]) / np.sum(pw[body]))), 1),
             "room": None if f["tail"] is None else round(float(f["tail"][1]), 1)}
 
 
@@ -555,7 +556,7 @@ class Fit:
         rec = describe(ear, fr)
         if parts["follow"] > 1.2:
             warnings.append("Tvoje nahrávka se s originálem v rytmu moc neshoduje — zahraj úsek přesně s písní, stejné tóny ve stejnou chvíli.")
-        if rec["bright"] < 400:
+        if rec["bright"] < 500:
             warnings.append("Kytara originálu tu zní hodně tmavě — v separované stopě je možná víc basy než kytary. Zkus úsek, kde je kytara výrazná.")
         if match_of(total) < 50 and not warnings:
             warnings.append("Shoda je nízká — zkus jiný úsek, nebo nahrávku znovu a pak Doladit.")

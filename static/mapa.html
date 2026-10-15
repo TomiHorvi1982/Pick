@@ -171,7 +171,7 @@ html{scroll-behavior:smooth}
 <main class="wrap">
   <div class="hero">
     <div>
-      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit 52c8703</div>
+      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit b7037b3</div>
       <h1>Co <em>Pick</em> umí a kde to leží</h1>
       <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
     </div>
@@ -179,8 +179,8 @@ html{scroll-behavior:smooth}
       <div class="fact"><b>37</b><span>popsaných funkcí</span></div>
       <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
       <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
-      <div class="fact"><b>460</b><span>automatických testů</span></div>
-      <div class="fact"><b>229</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>462</b><span>automatických testů</span></div>
+      <div class="fact"><b>230</b><span>commitů od 12. 9.</span></div>
       <div class="fact"><b>637</b><span>písní ve Steems</span></div>
     </div>
   </div>
@@ -300,6 +300,7 @@ html{scroll-behavior:smooth}
 ├─ svc_worker.py      <span class="c">vlastní hlas zpívá (Seed-VC)</span>
 ├─ tone_worker.py     <span class="c">tónový otisk: hledání zvuku z nahrávky</span>
 ├─ tasks.py           <span class="c">úlohy a procesy: vytížení, pauza, konec</span>
+├─ audioguard.py      <span class="c">ochrana zvuku: úlohy ustoupí, když hraje hudba</span>
 ├─ tone_nam.mjs       <span class="c">NAM offline v Node (stejný engine jako živě)</span>
 ├─ menubar.py         <span class="c">♪ v liště macOS</span>
 ├─ Pick.command       <span class="c">spuštění lišty z Finderu</span>
@@ -319,7 +320,7 @@ html{scroll-behavior:smooth}
 │  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
 │  ├─ <span class="d">stretch/</span>       <span class="c">zpomalení a ladění bez změny tempa</span>
 │  └─ <span class="d">ladicka/</span>       <span class="c">ladička</span>
-├─ <span class="d">tests/</span>            <span class="c">37 souborů, 460 testů</span>
+├─ <span class="d">tests/</span>            <span class="c">38 souborů, 462 testů</span>
 ├─ <span class="d">docs/</span>             <span class="c">plány a návrhy (září)</span>
 └─ <span class="d">vendor/</span>           <span class="c">kaset, stemdeck — jen předlohy</span></pre>
       </div>
@@ -455,11 +456,12 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Zpěvník</h4><p>Rozbor písní ze Steems pro Skladatele: zvuk celé písně i sekcí slovy pro ACE-Step, stavba textu (řádky, slabiky, rýmy), vlastní texty po kapelách a částech, Stavba nové písně ze sekcí různých písní, textař píše do stavby.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Text ze zpěvu, přezpívání, výkon</h4><p>Pick si naposlouchá text ze stopy zpěvu (i české písně), řádek jde opravit nebo přezpívat novými slovy hlasem zpěváka v melodii originálu, a Nastavení ukazuje paměť a procesor — náročné úlohy počkají, když je paměti málo.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Nastavení jako okno, noční plán</h4><p>Nastavení v plovoucím okně s kategoriemi, zavírání jako v macOS, širší panel ve Skladateli. Noční plán: 7 playlistů (977 písní, 721 nových) stáhnout bez duplicit s taby a texty a rozdělit, texty všech písní z LRCLib nebo odposlechem, celý Zpěvník.</p></div></div>
-        <div class="stop"><div class="date">15. 10.</div><div class="dot"></div><div><h4>Tónový otisk</h4><p>Živá kytara zní jako kytara z písně: zahraješ úsek s písní, Pick sám vybere jádro zkreslení z knihovny NAM, drive a ekvalizér, spočítá barvu, dozvuk a šířku, ukáže shodu a slepý test. NAM počítá offline stejným enginem jako živě. Přezpívaný řádek má nad stopou pruh Nový text. V Nastavení Úlohy a procesy: co běží a čeká, kolik bere procesoru a paměti, pauza a ukončení. Knihovna otisků s kategoriemi a jmény podle kapely a písně. Oprava: playlist ve Steems už po přechodu na další píseň nehraje dvě písně najednou; fronta ukládání písní přežije restart. Mikrofon pro zpěv a hlas v Nastavení (USB mikrofon vedle zvukovky).</p></div></div>
+        <div class="stop"><div class="date">15. 10.</div><div class="dot"></div><div><h4>Tónový otisk</h4><p>Živá kytara zní jako kytara z písně: zahraješ úsek s písní, Pick sám vybere jádro zkreslení z knihovny NAM, drive a ekvalizér, spočítá barvu, dozvuk a šířku, ukáže shodu a slepý test. NAM počítá offline stejným enginem jako živě. Přezpívaný řádek má nad stopou pruh Nový text. V Nastavení Úlohy a procesy: co běží a čeká, kolik bere procesoru a paměti, pauza a ukončení. Knihovna otisků s kategoriemi a jmény podle kapely a písně. Oprava: playlist ve Steems už po přechodu na další píseň nehraje dvě písně najednou; fronta ukládání písní přežije restart. Mikrofon pro zpěv a hlas v Nastavení (USB mikrofon vedle zvukovky). Zvuk bez výpadků: když hraje hudba nebo kytara, náročné úlohy ustoupí; vyrovnávací paměť zvuku a počítadlo výpadků.</p></div></div>
         <div class="stop now"><div class="date">teď</div><div class="dot"></div><div><h4>Čeká na tvoje vyzkoušení</h4>
           <ul>
             <li>Tónový otisk s tvou kytarou: nahrát úsek, vytvořit otisk, hrát s ním, slepý test</li>
             <li>Úlohy a procesy v Nastavení: pozastavit a pustit dál rozdělování nebo noční plán</li>
+            <li>Zvuk bez výpadků: hrát s kytarou, zatímco se něco rozděluje — trhá se zvuk?</li>
             <li>Poslech: přezpívané demo v „Kryštof – Intro“, projekty „Zkouška Skladatele“ a „Zkouška modelů“ (SFT a Turbo s přemýšlením)</li>
             <li>Textař přes Clauda: na účtu Anthropic chybí kredit, zatím píše slabší model v počítači</li>
             <li>Úryvek zpěvu a průvodce hlasem se skutečným mikrofonem a sluchátky</li>
@@ -508,7 +510,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu 52c8703 (15. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu b7037b3 (15. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
@@ -632,6 +634,9 @@ const F = [
  {id:"sysload", g:"control", n:"Výkon počítače", w:"Nastavení → Výkon počítače (a upozornění nahoře)", d:"Paměť, procesor, kolik bere Pick sám, tlak na paměť a odkládání na disk, měřené každé 3 s. Náročné úlohy se ptají, jestli je místo: rozdělení a Skladatel počkají, odposlech a zpěv řeknou proč ne. Když dochází paměť, nahoře se ukáže upozornění.", st:"ok",
   how:["Nastavení → Výkon počítače: zvládne / je vytížený / málo paměti, a co právě běží.","Upozornění v horní liště (⏳ nebo ⚠) otevře Nastavení."],
   code:[["sysload.py","sample, room"],["server.py","_heavy_jobs, /api/system, stráže u úloh"],[IX,"SysLoad"]], data:[], v:[]},
+ {id:"guard", g:"control", n:"Zvuk bez výpadků", w:"Nastavení → Zvuk a MIDI → Zvuk bez výpadků", d:"Když hraje hudba nebo kytara, náročné úlohy Picku ustoupí: běží dál na úsporných jádrech (Zpomalit), nebo počkají, až dohraješ (Pozastavit). Vyrovnávací paměť zvuku (Nejnižší pro kytaru, Vyvážená, Velká) a počítadlo výpadků zvuku.", st:"test",
+  how:["Nastavení → Zvuk a MIDI → Zvuk bez výpadků.","Nech zapnuté „náročné úlohy ustoupí“; když se zvuk přesto trhá, dej Pozastavit.","Pořád se trhá: Vyrovnávací paměť Vyvážená → Použít."],
+  code:[["audioguard.py","taskpolicy -b/-B, SIGSTOP/SIGCONT, hlášení oken"],["server.py","/api/audio/active, /api/audio/guard"],[IX,"AudioPrefs, SoundGuard, AudioBus.anyPlaying"]], data:["config.json audio_guard","localStorage pick-audio-buffer"], v:[]},
  {id:"mic", g:"control", n:"Mikrofon pro zpěv a hlas", w:"Nastavení → Zvuk a MIDI → Mikrofon pro zpěv a hlas", d:"Jeden výběr mikrofonu (třeba USB) pro trenéra zpěvu, Výslovnost, nový hlas, úryvek zpěvu, Namluvit a hlasové ovládání. Kytara jede dál ze zvukovky — Pick poslouchá obě zařízení zároveň. Vstup 1/2 zvukovky nebo 3… agregovaného zařízení, ukazatel hlasitosti, návod na agregované zařízení v macOS.", st:"test",
   how:["Nastavení → Zvuk a MIDI → Mikrofon pro zpěv a hlas.","Vyber mikrofon (USB), vstup nech „celý mikrofon“.","Vyzkoušet: mluv, ukazatel se má hýbat."],
   code:[[IX,"VoiceMic, MicSettings; Sing, Speak, VoiceGuide, SongTake, Voice"]], data:["localStorage pick-voice-mic, pick-voice-ch"], v:[]},

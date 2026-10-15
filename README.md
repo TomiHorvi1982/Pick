@@ -681,6 +681,29 @@ napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
 ±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
 
+## Zvuk bez výpadků
+
+Nastavení → Zvuk a MIDI → **Zvuk bez výpadků**. Zvuk (mix ve Steems, živá kytara) se renderuje
+v prohlížeči a trhá se, když mu procesor nebo paměť sebere něco jiného — u Picku hlavně jeho
+vlastní těžké úlohy. Proto:
+
+- **Ochrana zvuku** (`audioguard.py`, `POST /api/audio/active`, `GET|POST /api/audio/guard`):
+  každé okno Picku hlásí každé 4 s (a hned při startu mixu), jestli hraje — mix, dolní
+  přehrávač, nebo zapnutý vstup kytary. Dokud hraje (12 s bez hlášení = ticho), server pošle
+  své těžké procesy (Demucs, whisper, tónový otisk a jeho Node, Seed-VC, OmniVoice, analýzy,
+  stahování, model Skladatele) do pásma pozadí macOS (`taskpolicy -b`: úsporná jádra,
+  přiškrcený disk a síť, pod vším, co dělá hráč) a po dohrání je vrátí (`taskpolicy -B`) —
+  bez roota, nic se neztratí. Režim **Pozastavit** ty, které můžou počkat (rozdělování,
+  odposlech, otisk, analýzy, stahování), úplně zastaví (SIGSTOP) a po dohrání pustí dál.
+  Nastavení se drží v `config.json` (`audio_guard`); Úlohy a procesy u nich ukážou
+  „ustupuje hudbě“. Úloha nechaná zastavená spadlým serverem se při startu pustí.
+- **Vyrovnávací paměť zvuku** (`AudioPrefs`): Nejnižší = `latencyHint: "interactive"` (živá
+  kytara), Vyvážená = 25 ms, Velká = 60 ms (nejstabilnější, kytara opožděná) — pro kontext
+  mixu, kytary v dolním přehrávači a kláves; platí po znovunačtení (tlačítko Použít).
+- **Výpadky zvuku**: malý worklet v audiovlákně mixu (`pick-glitch`) si všimne, když mezi dvěma
+  voláními uběhlo víc času, než dovolí buffer (max(60 ms, 2,5 × baseLatency + 20 ms)) — počet
+  za posledních 30 minut je v Nastavení; při třech za dvě minuty Pick jednou poradí.
+
 ## Mikrofon pro zpěv a hlas
 
 Nastavení → Zvuk a MIDI → **Mikrofon pro zpěv a hlas**: jeden výběr mikrofonu (a jeho vstupu)

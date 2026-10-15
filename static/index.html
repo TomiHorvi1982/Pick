@@ -2218,6 +2218,13 @@ body.lib-collapsed .pick-brand{display:none}
   .sys-verdict{font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
   .sys-verdict.busy{background:color-mix(in srgb,#e0a030 22%,transparent)}.sys-verdict.tight{background:color-mix(in srgb,var(--danger) 22%,transparent)}
   .sys-jobs{font-size:12px;color:var(--sub)}
+  .guard-check{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer}
+  .guard-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .guard-row .set-note{margin:0}
+  .guard-sub{margin-top:14px;font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
+  .guard-now{margin-top:6px;font-size:12px;color:var(--sub)}
+  .guard-now b{color:var(--text)}
+  .guard-now.bad b{color:var(--gold)}
   .mic-grid{display:grid;grid-template-columns:76px 1fr;gap:8px 10px;align-items:center;margin-top:8px;font-size:13px}
   .mic-grid select{padding:8px;min-width:0}
   .mic-test{display:flex;align-items:center;gap:10px;margin-top:10px}
@@ -4676,6 +4683,17 @@ body.lib-collapsed .pick-brand{display:none}
         pak se objeví tady. Pozor: přes Bluetooth má živá kytara znatelné zpoždění.</div>
       <div class="set-note" id="audio-out-unsupported" hidden style="color:var(--danger)">Tenhle prohlížeč neumí posílat zvuk na jiné zařízení — otevři aplikaci v Chrome.</div>
 
+      <div class="section-title" style="margin-top:22px"><span data-icon="headphones"></span>Zvuk bez výpadků</div>
+      <label class="guard-check"><input type="checkbox" id="guard-on"> Když hraje hudba nebo kytara, náročné úlohy ustoupí</label>
+      <div class="guard-row"><span class="tk-sort" id="guard-mode"><button type="button" data-mode="slow">Zpomalit</button><button type="button" data-mode="pause">Pozastavit</button></span>
+        <span class="set-note" id="guard-mode-note"></span></div>
+      <div class="guard-now" id="guard-now"></div>
+      <div class="guard-sub">Vyrovnávací paměť zvuku</div>
+      <div class="guard-row"><span class="tk-sort" id="buf-mode"><button type="button" data-buf="low">Nejnižší</button><button type="button" data-buf="mid">Vyvážená</button><button type="button" data-buf="high">Velká</button></span>
+        <button type="button" class="btn secondary" id="buf-reload" hidden>Použít (načíst Pick znovu)</button></div>
+      <div class="set-note" id="buf-note"></div>
+      <div class="guard-now" id="glitch-now"></div>
+
       <div class="section-title" style="margin-top:22px"><span data-icon="mic"></span>Mikrofon pro zpěv a hlas</div>
       <div class="mic-grid">
         <label for="mic-dev">Mikrofon</label><select id="mic-dev"><option value="">výchozí mikrofon systému</option></select>
@@ -6239,6 +6257,18 @@ const AudioOut = (() => {
     supported: () => typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype};
 })();
 
+// ---- Zvuk bez výpadků: how big a buffer the sound is played with (Nastavení → Zvuk a MIDI).
+// "low" is what a guitar played live wants (a few ms); "mid" and "high" give the sound room
+// when the computer is busy, at the cost of the live guitar's delay. Read when an audio context
+// is made — the mixer's, the bottom player's guitar, the keys — so a change counts after ⌘R.
+const AudioPrefs = (() => {
+  const KEY = "pick-audio-buffer", HINTS = {low: "interactive", mid: 0.025, high: 0.06};
+  const get = () => { try{ const v = localStorage.getItem(KEY); return HINTS[v] !== undefined ? v : "low"; }catch(e){ return "low"; } };
+  let made = null;                                        // what the running sound was started with
+  return {get, set: (v) => { try{ localStorage.setItem(KEY, v); }catch(e){} },
+    hint(){ if(made === null) made = get(); return HINTS[get()]; }, made: () => made};
+})();
+
 const AudioBus = (() => {
   let mixerStop = null;
   let mixerIsPlaying = null;
@@ -6316,7 +6346,14 @@ const AudioBus = (() => {
     // The mixer hands over the way to stop it (and to ask if it's running), once.
     registerMixer(stop, isPlayingFn){ mixerStop = stop; mixerIsPlaying = isPlayingFn || null; },
     // …and claims the bus when it starts.
-    claimMixer(){ silenceOthers("mixer"); },
+    claimMixer(){ silenceOthers("mixer"); window.dispatchEvent(new Event("pick-sound")); },
+    // Whether anything sounds now: the mixer, or a media element on the page or made in script.
+    anyPlaying(){
+      if(mixerIsPlaying && mixerIsPlaying()) return true;
+      if([...document.querySelectorAll("audio, video")].some(m => !m.paused && !m.ended)) return true;
+      for(const r of seen){ const m = r.deref(); if(m && !m.paused && !m.ended) return true; }
+      return false;
+    },
     // Any other element-less player: register once, claim when it starts.
     register(id, stop){ virtuals.set(id, stop); },
     claim(id){ silenceOthers(id); },
@@ -14663,7 +14700,7 @@ const Mixer = (() => {
   function ctx(){
     // "interactive": the smallest buffer the device allows — the live guitar
     // and the guitar-as-instrument both play through this context.
-    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"}); AudioOut.adopt(audioCtx); }
+    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: AudioPrefs.hint()}); AudioOut.adopt(audioCtx); }
     return audioCtx;
   }
 
@@ -28776,6 +28813,97 @@ const VoiceMic = (() => {
   }
   return {id, ch, open, stream, index, set};
 })();
+// ---- Zvuk bez výpadků: every few seconds (and the moment the mixer starts) the window tells the
+// server whether it sounds — music in the mixer or the bottom player, or the live guitar
+// plugged in — and the server's guard (audioguard.py) sends the heavy jobs back meanwhile.
+// A little worklet in the mixer's audio thread notes when that thread was late (a gap of wall
+// clock between two render calls far past its buffer): a likely dropout, counted for the settings.
+const SoundGuard = (() => {
+  const client = (() => { try{ let c = sessionStorage.getItem("pick-client"); if(!c){ c = Math.random().toString(36).slice(2, 10); sessionStorage.setItem("pick-client", c); } return c; }catch(e){ return "okno"; } })();
+  const SRC = `class G extends AudioWorkletProcessor{constructor(){super();this.l=0;this.lim=0;this.port.onmessage=e=>{this.lim=e.data||0;this.l=0;};}
+    process(){const t=Date.now();if(this.lim&&this.l&&t-this.l>this.lim)this.port.postMessage(t-this.l);this.l=t;return true;}}registerProcessor("pick-glitch",G);`;
+  let sounding = false, last = null, node = null, nodeCtx = null, armed = 0, told = false;
+  const gaps = [];
+  const live = () => { try{ return typeof Mixer !== "undefined" && Mixer.guitar && Mixer.guitar.isLive(); }catch(e){ return false; } };
+  const playing = () => { try{ return AudioBus.anyPlaying() || live(); }catch(e){ return false; } };
+  async function watch(on){
+    let ac = null;
+    try{ ac = typeof Mixer !== "undefined" && (Mixer.isPlaying() || live()) ? Mixer.voiceOut().ac : null; }catch(e){}
+    if(on && ac && nodeCtx !== ac){
+      try{
+        const url = URL.createObjectURL(new Blob([SRC], {type: "application/javascript"}));
+        await ac.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+        node = new AudioWorkletNode(ac, "pick-glitch", {numberOfInputs: 1, numberOfOutputs: 0});
+        const keep = ac.createConstantSource(); keep.offset.value = 0; keep.connect(node); keep.start();
+        node.port.onmessage = (e) => {
+          gaps.push({at: Date.now(), ms: e.data});
+          const recent = gaps.filter(g => Date.now() - g.at < 120000).length;
+          if(recent >= 3 && !told){
+            told = true;
+            showToast("Zvuk se trhá — Nastavení → Zvuk a MIDI → Zvuk bez výpadků: zkus Pozastavit, nebo větší vyrovnávací paměť");
+          }
+          paint();
+        };
+        nodeCtx = ac;
+      }catch(e){ node = null; }
+    }
+    const lim = on && nodeCtx ? Math.round(Math.max(60, 2.5 * (nodeCtx.baseLatency || 0.01) * 1000 + 20)) : 0;
+    if(node && lim !== armed){ node.port.postMessage(lim); armed = lim; }
+  }
+  async function beat(){
+    const now = playing();
+    watch(now && (function(){ try{ return Mixer.isPlaying() || live(); }catch(e){ return false; } })());
+    if(!now && !sounding && last) return;
+    sounding = now;
+    try{
+      const r = await fetch("/api/audio/active", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({client, on: now})});
+      if(r.ok){ last = await r.json(); paint(); }
+    }catch(e){}
+  }
+  setInterval(beat, 4000);
+  window.addEventListener("pick-sound", () => setTimeout(beat, 100));
+  document.addEventListener("play", () => setTimeout(beat, 100), true);
+  document.addEventListener("pause", () => setTimeout(beat, 300), true);
+
+  // the settings
+  const LBL = {low: "Nejnižší", mid: "Vyvážená", high: "Velká"};
+  function paint(){
+    if(settingsOverlay.hidden || !last) return;
+    el("guard-on").checked = !!last.on;
+    el("guard-mode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === last.mode));
+    el("guard-mode-note").textContent = last.mode === "pause" ? "rozdělování, odposlech, otisk a stahování počkají, až dohraješ" : "běží dál na úsporných jádrech, jen pomaleji";
+    const held = last.held || [];
+    el("guard-now").innerHTML = !last.on ? "Ochrana je vypnutá."
+      : !last.active ? "Teď nic nehraje — úlohy běží naplno."
+      : held.length ? `Teď hraje — <b>${held.length === 1 ? "ustupuje" : "ustupují"}:</b> ${escapeHtml([...new Set(held.map(h => h.name))].join(", "))}`
+      : "Teď hraje — nic náročného neběží.";
+    const b = AudioPrefs.get(), made = AudioPrefs.made();
+    el("buf-mode").querySelectorAll("button").forEach(x => x.classList.toggle("on", x.dataset.buf === b));
+    let ms = "";
+    try{ if(nodeCtx || (typeof Mixer !== "undefined" && Mixer.isPlaying())){ const c = nodeCtx || Mixer.voiceOut().ac; ms = Math.round(((c.baseLatency || 0) + (c.outputLatency || 0)) * 1000); } }catch(e){}
+    el("buf-note").textContent = ({low: "Nejkratší zpoždění kytary. Když se zvuk trhá, zkus Vyvážená.",
+      mid: "Zvuk vydrží víc, kytara má o pár milisekund větší zpoždění.",
+      high: "Nejstabilnější přehrávání, ale živá kytara bude znatelně opožděná — na hraní spíš ne."})[b]
+      + (ms ? ` Zvuk teď: ~${ms} ms.` : "");
+    el("buf-reload").hidden = !made || made === b;
+    const recent = gaps.filter(g => Date.now() - g.at < 1800000);
+    el("glitch-now").className = "guard-now" + (recent.length ? " bad" : "");
+    el("glitch-now").innerHTML = node ? `Výpadky zvuku za posledních 30 minut: <b>${recent.length}</b>${recent.length ? ` (nejdelší ${Math.max(...recent.map(g => g.ms))} ms)` : ""}`
+      : "Výpadky zvuku se měří, když hraje mix ve Steems nebo kytara.";
+  }
+  async function set(patch){
+    try{ const r = await fetch("/api/audio/guard", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(patch)}); if(r.ok){ last = await r.json(); paint(); } }catch(e){}
+  }
+  el("guard-on").onchange = (e) => set({on: e.target.checked});
+  el("guard-mode").onclick = (e) => { const b = e.target.closest("[data-mode]"); if(b) set({mode: b.dataset.mode}); };
+  el("buf-mode").onclick = (e) => { const b = e.target.closest("[data-buf]"); if(!b) return; AudioPrefs.set(b.dataset.buf); paint(); };
+  el("buf-reload").onclick = () => location.reload();
+  el("settings-btn").addEventListener("click", async () => {
+    try{ const r = await fetch("/api/audio/guard"); if(r.ok) last = await r.json(); }catch(e){}
+    setTimeout(paint, 80);
+  });
+  return {beat, gaps: () => gaps.slice(), state: () => last};
+})();
 // The settings' part of it: the device, its input, a meter to try it.
 const MicSettings = (() => {
   let testing = null, raf = 0;
@@ -28960,7 +29088,7 @@ const SettingsWin = (() => {
   const CATS = [
     ["system", "Systém", /Výkon počítače|Úlohy a procesy|Mapa aplikace|O aplikaci/],
     ["look", "Vzhled", /Vzhled|Ukazatel/],
-    ["sound", "Zvuk a MIDI", /Výstup zvuku|Mikrofon pro zpěv|MIDI/],
+    ["sound", "Zvuk a MIDI", /Výstup zvuku|Zvuk bez výpadků|Mikrofon pro zpěv|MIDI/],
     ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
     ["steems", "Steems", /Rozdělení písně|Steems/],
   ];
@@ -29816,7 +29944,7 @@ const Piano = (() => {
   // ---- sound ----
   async function sound(){
     if(!ac){
-      ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"});
+      ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: AudioPrefs.hint()});
       AudioOut.adopt(ac);
       out = ac.createGain(); out.gain.value = st.volume; out.connect(ac.destination);
     }
@@ -30860,7 +30988,7 @@ const PlayerGuitar = (() => {
   let live = false, amps = [];
 
   function ctx(){
-    if(!ac){ ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: "interactive"}); AudioOut.adopt(ac); }
+    if(!ac){ ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint: AudioPrefs.hint()}); AudioOut.adopt(ac); }
     return ac;
   }
   async function ensureEngine(){

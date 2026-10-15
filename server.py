@@ -11966,6 +11966,8 @@ def _tasks_now(sort: str = "cpu") -> dict:
         procs -= used
         used.update(procs)
         held = _tasks.paused(rows, procs) if paused is None else paused
+        if not held and procs & set(_guard.STATE["held"]):
+            state = "ustupuje hudbě"
         out.append({"id": tid, "name": name, "detail": detail, "state": "pozastaveno" if held else state,
                     "cpu": round(sum(rows[p]["cpu"] for p in procs), 1), "mem": sum(rows[p]["rss"] for p in procs),
                     "procs": len(procs), "progress": progress, "queue": queue or [], "note": note,
@@ -12190,6 +12192,62 @@ def task_act(tid: str, action: str, sort: str = "cpu"):
         return err
     time.sleep(0.3)                                          # what was signalled has moved on
     return _tasks_now(sort)
+
+
+# ---- Ochrana zvuku (audioguard.py; Nastavení → Zvuk a MIDI → Zvuk bez výpadků): while music
+# or the guitar sounds in a Pick window, the heavy jobs step back — into macOS's background
+# band, or paused outright — and are given back when the sound stops.
+import audioguard as _guard
+
+
+def _studio_engine_pid() -> list:
+    try:
+        return [int(_studio.ENGINE_PID.read_text().strip())]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+_guard.extra = _studio_engine_pid
+_guard.STATE.update(on=bool((_read_config().get("audio_guard") or {}).get("on", True)),
+                    mode=(_read_config().get("audio_guard") or {}).get("mode", "slow"))
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _guard.wake_orphans()
+    _guard.start()
+
+
+@app.on_event("shutdown")
+def _guard_end():
+    _guard.release()
+
+
+class AudioActiveRequest(BaseModel):
+    client: str = ""           # which window (each sends its own)
+    on: bool = True
+
+
+@app.post("/api/audio/active")
+def audio_active(req: AudioActiveRequest):
+    _guard.ping(req.client[:40] or "page", req.on)
+    return _guard.view(_task_program)
+
+
+class AudioGuardRequest(BaseModel):
+    on: Optional[bool] = None
+    mode: Optional[str] = None         # "slow" | "pause"
+
+
+@app.get("/api/audio/guard")
+def audio_guard():
+    return _guard.view(_task_program)
+
+
+@app.post("/api/audio/guard")
+def audio_guard_set(req: AudioGuardRequest):
+    if req.mode is not None and req.mode not in ("slow", "pause"):
+        return JSONResponse({"error": "Neznámý režim."}, status_code=400)
+    _guard.configure(on=req.on, mode=req.mode)
+    _write_config({"audio_guard": {"on": _guard.STATE["on"], "mode": _guard.STATE["mode"]}})
+    return _guard.view(_task_program)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped
 
