@@ -4,15 +4,18 @@
 A riff: {id, name, bpm, div (steps a beat), tuning [high e … low E, MIDI], steps, cols:
 [{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid}}.
 
-Tabs to take riffs from: searched through Freetar (github.com/kmille/freetar — an open front end
-to the Ultimate Guitar tabs; its public instance freetar.de), opened as plain text under the guitar,
-and kept in "Moje taby" (vguitar-tabs.json) when the player wants them again.
+Tabs to take riffs from: Ultimate Guitar's own pages read as a browser reads them (the state
+each page carries, as github.com/crmne/omarchy-ultimate-guitar does), or through Freetar
+(github.com/kmille/freetar, its public instance freetar.de) when Ultimate Guitar does not answer;
+opened as plain text under the guitar, and kept in "Moje taby" (vguitar-tabs.json).
 """
+import gzip
 import hashlib
 import html as _html
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -111,10 +114,65 @@ UA = "Pick/1.0 (https://github.com/TomiHorvi1982/Pick; personal music app)"
 _SEARCHED: dict = {}                                    # (q, page) → (time, result)
 
 
+UG_SEARCH = "https://www.ultimate-guitar.com/search.php"
+UG_TABS = "https://tabs.ultimate-guitar.com"
+UG_HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/126.0.0.0 Safari/537.36", "Accept-Encoding": "gzip", "Accept-Language": "en-US,en;q=0.9"}
+
+
 def _get(url: str, timeout: float = 75) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read(3_000_000).decode("utf-8", "replace")
+    ug = urllib.parse.urlparse(url).hostname.endswith("ultimate-guitar.com")
+    req = urllib.request.Request(url, headers=UG_HEADERS if ug else {"User-Agent": UA})
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw = r.read(3_000_000)
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+                return raw.decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:              # their gateway now and then says 502 — once more, a moment later
+            if e.code < 500 or attempt == 1 or not ug:
+                raise
+            time.sleep(1.5)
+    raise OSError("unreachable")
+
+
+def _ug_store(page: str) -> dict:
+    m = re.search(r'<div class="js-store" data-content="(.*?)"></div>', page, re.S)
+    if not m:
+        raise ValueError("no page state")
+    return json.loads(_html.unescape(m.group(1)))["store"]["page"]["data"]
+
+
+SKIP_TYPES = {"Pro", "Official", "Video"}                # Ultimate Guitar's own paid or player-only kinds
+KIND = {"Bass Tabs": "Bass", "Drum Tabs": "Drums", "Ukulele Chords": "Ukulele"}   # named as Freetar names them
+
+
+def ug_search(page: str) -> dict:
+    data = _ug_store(page)
+    rows = []
+    for r in data.get("results") or []:
+        kind = r.get("type") or ""
+        if not r.get("tab_url") or kind in SKIP_TYPES or r.get("marketing_type"):
+            continue
+        rows.append({"url": urllib.parse.urlparse(r["tab_url"]).path, "artist": r.get("artist_name") or "", "song": r.get("song_name") or "",
+                     "version": int(r.get("version") or 1), "rating": round(float(r.get("rating") or 0), 1), "votes": int(r.get("votes") or 0),
+                     "type": KIND.get(kind, kind)})
+    pg = data.get("pagination") or {}
+    return {"results": rows, "pages": int(pg.get("total") or 1)}
+
+
+def ug_tab(page: str) -> dict:
+    data = _ug_store(page)
+    tab, view = data["tab"], data["tab_view"]
+    text = view["wiki_tab"]["content"].replace("\r\n", "\n")
+    text = re.sub(r"\[/?(tab|ch)\]", "", text)
+    meta = view.get("meta") if isinstance(view.get("meta"), dict) else {}
+    tun = meta.get("tuning") or {}
+    versions = [{"url": urllib.parse.urlparse(v["tab_url"]).path, "label": f"Verze {v.get('version')} ({v.get('type')}) {round(float(v.get('rating') or 0), 1)}/5 ({v.get('votes') or 0})"}
+                for v in view.get("versions") or [] if v.get("tab_url") and v.get("type") not in SKIP_TYPES]
+    return {"artist": tab.get("artist_name") or "", "song": tab.get("song_name") or "", "text": text.strip("\n"),
+            "tuning": f"{tun.get('value')} ({tun.get('name')})" if tun.get("value") else "", "versions": versions[:30]}
 
 
 def _text(h: str) -> str:
@@ -173,9 +231,21 @@ def tabs_search(q: str = "", page: int = 1):
     if hit and time.time() - hit[0] < 6 * 3600:
         return hit[1]
     try:
-        got = parse_search(_get(f"{FREETAR}/search?" + urllib.parse.urlencode({"search_term": q, "page": page})))
-    except Exception:                                   # noqa: BLE001 — the far side, said simply
-        return JSONResponse({"error": "Freetar teď neodpovídá — zkus to za chvilku (bývá pomalý, i minutu)."}, status_code=502)
+        got = ug_search(_get(f"{UG_SEARCH}?" + urllib.parse.urlencode({"search_type": "title", "value": q, "page": page}), 12))
+        got["via"] = "Ultimate Guitar"
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            got = None
+        else:                                           # nothing matched: Ultimate Guitar says it with a 404
+            got = {"results": [], "pages": 1, "via": "Ultimate Guitar"}
+    except Exception:                                   # noqa: BLE001
+        got = None
+    if got is None:
+        try:
+            got = parse_search(_get(f"{FREETAR}/search?" + urllib.parse.urlencode({"search_term": q, "page": page})))
+            got["via"] = "Freetar"
+        except Exception:                               # noqa: BLE001 — the far side, said simply
+            return JSONResponse({"error": "Ultimate Guitar ani Freetar teď neodpovídají — zkus to za chvilku."}, status_code=502)
     got.update(q=q, page=page)
     _SEARCHED[(q.lower(), page)] = (time.time(), got)
     return got
@@ -194,11 +264,14 @@ def tabs_open(url: str):
         except ValueError:
             pass
     try:
-        got = parse_tab(_get(FREETAR + path))
-    except ValueError:
-        return JSONResponse({"error": "Na té stránce tab není."}, status_code=404)
-    except Exception:                                   # noqa: BLE001
-        return JSONResponse({"error": "Freetar teď neodpovídá — zkus to za chvilku."}, status_code=502)
+        got = ug_tab(_get(UG_TABS + path, 12))
+    except Exception:                                   # noqa: BLE001 — then through Freetar
+        try:
+            got = parse_tab(_get(FREETAR + path))
+        except ValueError:
+            return JSONResponse({"error": "Na té stránce tab není."}, status_code=404)
+        except Exception:                               # noqa: BLE001
+            return JSONResponse({"error": "Ultimate Guitar ani Freetar teď neodpovídají — zkus to za chvilku."}, status_code=502)
     got["url"] = path
     TAB_CACHE.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")

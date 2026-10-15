@@ -801,9 +801,17 @@ V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvuk
 funk se škrábáním 16tin, punk power akordy, rock pentatonika v A, flamenco andaluská kadence) — jedním
 kliknutím do editoru, upravit a uložit jako vlastní.
 
-**Taby z písní** pod kytarou (`/api/vguitar/tabs/*`): hledání přes [Freetar](https://github.com/kmille/freetar)
-(otevřený front-end k tabům z Ultimate Guitar; veřejná instance freetar.de, hledání bývá pomalé, výsledky
-se pamatují 6 h, otevřené taby v `tab-cache/`). Filtr druhu (kytarové taby, basa, akordy), stránky, verze.
+**Taby z písní** pod kytarou, tři záložky:
+- **Knihovna Taby** — tvoje knihovna ze sekce Taby (Pick Tabs, `/api/tabfiles/list`) s vyhledáváním. Vybraná
+  stopa se převede na textový tab v mřížce kytary (`partText`: krok 3 znaky, nejjemnější dělení, které stopa
+  potřebuje — 1/8, 1/16, 1/32 nebo trioly; PM, hammer-ony, mrtvé noty; čtyři takty na řádek), takže
+  vybraný riff má přesný rytmus, tempo i ladění stopy.
+- **Hledat (Ultimate Guitar)** (`/api/vguitar/tabs/*`): stránky Ultimate Guitar přečtené jako v prohlížeči
+  (stav stránky `js-store`, jako to dělá [omarchy-ultimate-guitar](https://github.com/crmne/omarchy-ultimate-guitar));
+  když neodpoví (občas vrací 502 nebo mlčí), záloha přes [Freetar](https://github.com/kmille/freetar)
+  (veřejná instance freetar.de, bývá pomalá). Výsledky se pamatují 6 h, otevřené taby v `tab-cache/`.
+  Filtr druhu (kytarové taby, basa, akordy), stránky, verze, ladění.
+- **♪ K písni, co hraje** — tab k právě hrající písni: nejdřív z knihovny, jinak hledání na Ultimate Guitar.
 Tab se otevře jako text; riff se vezme **výběrem myší** přes struny od začátku po konec (stačí i na jedné
 struně — vezme se celý blok strun v tom rozsahu, i s PM nad nebo pod nimi) → „Vybraný úsek do kytary“,
 nebo „Celý tab do kytary“. **Moje taby** (`vguitar-tabs.json`) — uložené taby s vyhledáváním, i bez sítě.
