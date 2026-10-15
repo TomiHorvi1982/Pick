@@ -65,7 +65,7 @@ def themes() -> list:
 def viz_list():
     with _LOCK:
         jobs = [dict(j, id=k) for k, j in JOBS.items() if j["status"] == "running" or time.time() - j["started"] < 600]
-    return {"themes": themes(), "folder": str(root()), "card": root().parent.is_dir(), "jobs": jobs}
+    return {"themes": themes(), "folder": str(root()), "card": root().parent.is_dir(), "jobs": jobs, "pexels": bool(_pexels_key())}
 
 
 @router.get("/api/viz/video/{theme}/{name}")
@@ -179,3 +179,160 @@ def viz_clip(title: str = "", artist: str = ""):
     CLIPS.parent.mkdir(parents=True, exist_ok=True)
     CLIPS.write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
     return {"videoId": vid}
+
+
+# ------------------------------------------------------------------ free videos to choose from
+# Wikimedia Commons (public domain and Creative Commons, no key needed) and Pexels (free to use;
+# a free key of the player's own, kept here — never sent to the page). Found, looked at in the
+# page straight from there, and saved into a theme with who made it and under what licence.
+import html as _html
+import httpx
+
+PEXELS_KEY = Path.home() / ".local" / "share" / "spotdl-helper" / "pexels-key.txt"
+UA = {"User-Agent": "Pick/1.0 (https://github.com/TomiHorvi1982/Pick; personal music app)"}   # Wikimedia asks for who asks
+HOSTS = ("upload.wikimedia.org", "videos.pexels.com", "player.vimeo.com")
+
+
+def _pexels_key() -> str:
+    try:
+        return PEXELS_KEY.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _text(s) -> str:
+    return " ".join(re.sub(r"<[^>]+>", " ", _html.unescape(str(s or ""))).split())[:120]
+
+
+def _commons(q: str, page: int) -> list:
+    r = httpx.get("https://commons.wikimedia.org/w/api.php", headers=UA, timeout=20, params={
+        "action": "query", "generator": "search", "gsrsearch": f"filetype:video {q}", "gsrnamespace": 6,
+        "gsrlimit": 30, "gsroffset": (page - 1) * 30, "prop": "videoinfo", "format": "json",
+        "viprop": "url|size|mime|derivatives|extmetadata", "viurlwidth": 400})
+    out = []
+    for p in sorted((r.json().get("query") or {}).get("pages", {}).values(), key=lambda x: x.get("index", 0)):
+        v = (p.get("videoinfo") or [{}])[0]
+        w, h = v.get("width") or 0, v.get("height") or 0
+        if w < h or (v.get("duration") or 0) < 3:
+            continue                                     # upright or a moment: no background
+        webm = [d for d in v.get("derivatives") or [] if "webm" in (d.get("type") or "") and (d.get("width") or 0) <= 1920]
+        best = max(webm, key=lambda d: (d.get("width") or 0) if (d.get("width") or 0) <= 1280 else 0, default=None)
+        if not best:
+            continue
+        m = v.get("extmetadata") or {}
+        out.append({"source": "commons", "title": re.sub(r"^File:|\.\w+$", "", p.get("title") or ""), "thumb": v.get("thumburl"),
+                    "url": best["src"], "w": best.get("width"), "dur": round(v.get("duration") or 0),
+                    "author": _text((m.get("Artist") or {}).get("value")), "license": _text((m.get("LicenseShortName") or {}).get("value")),
+                    "page": v.get("descriptionurl")})
+    return out
+
+
+def _pexels(q: str, page: int) -> list:
+    r = httpx.get("https://api.pexels.com/videos/search", timeout=20, headers={"Authorization": _pexels_key()},
+                  params={"query": q, "per_page": 30, "page": page, "orientation": "landscape"})
+    if r.status_code in (401, 403):
+        raise PermissionError("Klíč k Pexels nefunguje — zkontroluj ho.")
+    out = []
+    for v in r.json().get("videos") or []:
+        files = [f for f in v.get("video_files") or [] if f.get("file_type") == "video/mp4" and (f.get("width") or 0) <= 1920]
+        best = max(files, key=lambda f: (f.get("width") or 0) if (f.get("width") or 0) <= 1280 else 0, default=None)
+        if not best:
+            continue
+        out.append({"source": "pexels", "title": re.sub(r"[-\d]+$", "", (v.get("url") or "").rstrip("/").rsplit("/", 1)[-1]).replace("-", " ").strip() or f"Pexels {v.get('id')}",
+                    "thumb": v.get("image"), "url": best.get("link"), "w": best.get("width"), "dur": v.get("duration"),
+                    "author": (v.get("user") or {}).get("name") or "", "license": "Pexels (zdarma)", "page": v.get("url")})
+    return out
+
+
+@router.get("/api/viz/search")
+def viz_search(q: str = "", source: str = "commons", page: int = 1):
+    q = " ".join(q.split())[:100]
+    if not q:
+        return {"items": []}
+    try:
+        if source == "pexels":
+            if not _pexels_key():
+                return JSONResponse({"error": "Pro Pexels vlož nejdřív svůj klíč (zdarma na pexels.com/api)."}, status_code=400)
+            return {"items": _pexels(q, max(1, page))}
+        return {"items": _commons(q, max(1, page))}
+    except PermissionError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except (httpx.HTTPError, ValueError):
+        return JSONResponse({"error": "Hledání teď nejde — jsi připojený k internetu?"}, status_code=502)
+
+
+class KeyIn(BaseModel):
+    key: str = ""
+
+
+@router.post("/api/viz/pexels-key")
+def viz_pexels_key(req: KeyIn):
+    key = (req.key or "").strip()
+    if key and not re.fullmatch(r"[A-Za-z0-9]{20,100}", key):
+        return JSONResponse({"error": "Tohle nevypadá jako klíč k Pexels."}, status_code=400)
+    PEXELS_KEY.parent.mkdir(parents=True, exist_ok=True)
+    if key:
+        PEXELS_KEY.write_text(key, encoding="utf-8")
+        PEXELS_KEY.chmod(0o600)
+    else:
+        PEXELS_KEY.unlink(missing_ok=True)
+    return {"pexels": bool(key)}
+
+
+class SaveIn(BaseModel):
+    theme: str = ""
+    url: str = ""
+    title: str = ""
+    author: str = ""
+    license: str = ""
+    page: str = ""
+
+
+def _save(jid: str, d: Path, req: SaveIn) -> None:
+    job = JOBS[jid]
+    ext = ".webm" if ".webm" in req.url.lower() else ".mp4"
+    base = re.sub(r"[^\w .,()-]+", "", req.title or "video", flags=re.U).strip()[:70] or "video"
+    f, n = d / f"{base}{ext}", 2
+    while f.exists():
+        f, n = d / f"{base} ({n}){ext}", n + 1
+    tmp = f.with_name("." + f.name + ".part")
+    try:
+        for attempt in range(4):                     # "too many requests": wait as asked, then again
+            with httpx.stream("GET", req.url, headers=UA, timeout=60, follow_redirects=True) as r:
+                if r.status_code == 429 and attempt < 3:
+                    job["note"] = "Zdroj chce chvilku počkat…"
+                    time.sleep(min(30, int(r.headers.get("retry-after") or 0) or 5 * (attempt + 1)))
+                    continue
+                r.raise_for_status()
+                with tmp.open("wb") as out:
+                    for chunk in r.iter_bytes(1 << 16):
+                        out.write(chunk)
+                break
+        tmp.replace(f)
+        credits = d / ".credits.json"
+        try:
+            got = json.loads(credits.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            got = {}
+        got[f.name] = {"author": req.author, "license": req.license, "page": req.page}
+        credits.write_text(json.dumps(got, ensure_ascii=False, indent=1), encoding="utf-8")
+        job.update(status="done", file=f.name, note="Uloženo.")
+    except (httpx.HTTPError, OSError) as e:
+        tmp.unlink(missing_ok=True)
+        job.update(status="error", note=f"Video se nepodařilo stáhnout ({str(e)[:120]}).")
+
+
+@router.post("/api/viz/save")
+def viz_save(req: SaveIn):
+    """A found video into a theme (with who made it and its licence, in the theme's .credits.json)."""
+    d = _theme_dir(req.theme)
+    if not d:
+        return JSONResponse({"error": "Takové téma není."}, status_code=404)
+    host = re.match(r"https://([^/]+)/", req.url or "")
+    if not host or host.group(1) not in HOSTS:
+        return JSONResponse({"error": "Odtud Pick videa neukládá."}, status_code=400)
+    jid = uuid.uuid4().hex[:10]
+    with _LOCK:
+        JOBS[jid] = {"theme": d.name, "url": req.url, "status": "running", "note": "Stahuji…", "file": None, "started": time.time()}
+    threading.Thread(target=_save, args=(jid, d, req), daemon=True).start()
+    return {"id": jid}

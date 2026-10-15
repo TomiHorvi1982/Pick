@@ -763,6 +763,13 @@ Témata (`static/viz.js`):
 - **Moje videa** — každé téma je složka `Vizualizace/<téma>` na kartě vedle hudby (`viz.py`); videa
   hrají bez zvuku jedno po druhém s prolnutím. ⚙︎ v okně: nové téma, otevřít složku ve Finderu,
   stáhnout video podle odkazu (yt-dlp, jen obraz, do 1080p), smazat video.
+- **Videa zdarma** (⚙︎ → Hledat videa zdarma…, `GET /api/viz/search`, `POST /api/viz/save`): hledání
+  na Wikimedia Commons (public domain a Creative Commons, bez klíče) nebo na Pexels (zdarma, potřebuje
+  vlastní klíč z pexels.com/api — zůstane v `pexels-key.txt`, do stránky se neposílá). Najetí myší
+  video pustí, Uložit ho stáhne do vybraného tématu; autor a licence se zapíšou do `.credits.json`.
+- **Mix**: dvě vrstvy smíchané ručně — A (kreslené téma nebo video) pod B (video), prolínač,
+  způsob míchání (Zesvětlit, Překrýt, Násobit, Rozdíl…), „na beat“ (prolínač skáče s basem)
+  a „samo“ (pomalu se houpe).
 
 ## Úložiště
 

@@ -174,7 +174,43 @@ const Viz = (() => {
 
   // ---- the videos: the player's own (one after another, two players crossfading), or the song's clip
   let order = [], at = 0, clip = {key: "", id: null, asked: ""};
-  const kind = () => DRAWN.some(([k]) => k === cfg.theme) ? "drawn" : cfg.theme === "clip" ? "clip" : "videos";
+  const kind = () => DRAWN.some(([k]) => k === cfg.theme) ? "drawn" : cfg.theme === "clip" || cfg.theme === "mix" ? cfg.theme : "videos";
+
+  // ---- Mix: two layers mixed by hand — A (a drawn theme or a video) under B (a video), a crossfader
+  // and a way to blend them; the fader may jump on the beat, or swing slowly by itself.
+  cfg.mix = Object.assign({a: "d:neon", b: "", fade: 50, blend: "screen", beat: false, auto: false}, cfg.mix || {});
+  const BLENDS = [["normal", "Normálně"], ["screen", "Zesvětlit"], ["overlay", "Překrýt"], ["multiply", "Násobit"], ["difference", "Rozdíl"], ["lighten", "Světlejší"]];
+  const allVideos = () => lib.themes.flatMap((t) => t.videos.map((v) => ({key: `v:${t.name}/${v}`, label: `${t.name} · ${v.replace(/\.\w+$/, "")}`})));
+  const vurl = (key) => { const i = key.indexOf("/"); return `/api/viz/video/${encodeURIComponent(key.slice(2, i))}/${encodeURIComponent(key.slice(i + 1))}`; };
+  function startMix(){
+    const m = cfg.mix, [A, B] = vids, have = allVideos().map((x) => x.key);
+    if(m.a.startsWith("v:") && !have.includes(m.a)) m.a = "d:neon";
+    if(!have.includes(m.b)) m.b = have.find((k) => k !== m.a) || have[0] || "";
+    vids.forEach((v) => { v.loop = true; v.style.transition = "opacity .15s"; v.onended = null; v.oncanplay = null; });
+    B.style.zIndex = 1;
+    if(m.a.startsWith("v:")){ A.src = vurl(m.a); A.style.opacity = 1; A.play().catch(() => {}); }
+    if(m.b){ B.src = vurl(m.b); B.play().catch(() => {}); }
+    else note("Pro Mix potřebuješ aspoň jedno video — ⚙︎ → Hledat videa zdarma.");
+    paintMix();
+  }
+  function paintMix(){
+    const box = win.querySelector(".viz-mix"), m = cfg.mix, vs = allVideos();
+    box.hidden = kind() !== "mix";
+    if(box.hidden) return;
+    const opts = (sel, withDrawn) => (withDrawn ? `<optgroup label="Kreslí Pick">${DRAWN.map(([k, l]) => `<option value="d:${k}" ${sel === "d:" + k ? "selected" : ""}>${l}</option>`).join("")}</optgroup>` : `<option value="">— nic —</option>`)
+      + `<optgroup label="Videa">${vs.map((x) => `<option value="${esc(x.key)}" ${sel === x.key ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</optgroup>`;
+    box.innerHTML = `<label>A <select data-m="a">${opts(m.a, true)}</select></label>
+      <input type="range" data-m="fade" min="0" max="100" value="${m.fade}" title="Prolínač: vlevo jen A, vpravo jen B">
+      <label>B <select data-m="b">${opts(m.b, false)}</select></label>
+      <select data-m="blend" title="Jak se B míchá s A">${BLENDS.map(([k, l]) => `<option value="${k}" ${m.blend === k ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <label title="Prolínač skočí z A na B a zpátky na každý úder basy"><input type="checkbox" data-m="beat" ${m.beat ? "checked" : ""}> na beat</label>
+      <label title="Prolínač se pomalu houpe sám"><input type="checkbox" data-m="auto" ${m.auto ? "checked" : ""}> samo</label>`;
+    box.querySelectorAll("[data-m]").forEach((x) => x.oninput = x.onchange = () => {
+      const k = x.dataset.m, was = m[k];
+      m[k] = x.type === "checkbox" ? x.checked : x.type === "range" ? +x.value : x.value; save();
+      if((k === "a" || k === "b") && was !== m[k]){ note(""); vids.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); v.style.opacity = 0; }); startMix(); }
+    });
+  }
   const folder = () => lib.themes.find((t) => "v:" + t.name === cfg.theme);
   function nextVideo(){
     const f = folder();
@@ -215,6 +251,17 @@ const Viz = (() => {
     const dt = Math.min(0.1, (ts - last) / 1000); last = ts; P.t += dt;
     listen();
     const k = kind();
+    if(k === "mix"){
+      const m = cfg.mix, drawnA = m.a.startsWith("d:"), n = now();
+      cv.style.opacity = drawnA ? 1 : 0;
+      if(drawnA){ const [w, h] = sizeCanvas(); DRAW[m.a.slice(2)](w, h); }
+      let f = m.auto ? 0.5 + 0.5 * Math.sin(P.t * 0.35) : m.fade / 100;
+      if(m.beat){ if(lv.kick >= 1 && P.t - (P.flipAt || 0) > 0.4){ P.flip = !P.flip; P.flipAt = P.t; } if(P.flip) f = 1 - f; }
+      vids[1].style.opacity = m.b ? f.toFixed(3) : 0;
+      vids[1].style.mixBlendMode = m.blend;
+      vids.forEach((v) => { if(!v.src) return; if(n && !n.playing){ if(!v.paused) v.pause(); } else if(v.paused) v.play().catch(() => {}); });
+      return;
+    }
     const showCanvas = k === "drawn" || (k === "clip" && !(vids[0].style.opacity === "1")) || (k === "videos" && !(folder() || {videos: []}).videos.length);
     cv.style.opacity = showCanvas ? 1 : 0;
     if(showCanvas){
@@ -230,12 +277,13 @@ const Viz = (() => {
   }
   let clipT = 0;
   function startTheme(){
-    vids.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); v.style.opacity = 0; });
+    vids.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); v.style.opacity = 0; v.style.transition = ""; v.style.mixBlendMode = ""; v.style.zIndex = ""; });
     clearInterval(clipT); clip = {key: "", id: null, asked: ""}; note("");
     P.sparks = []; P.blobs = [];
     const k = kind();
     if(k === "videos"){ order = []; at = 0; if(!nextVideo()) note(`Téma ${(folder() || {name: ""}).name} zatím nemá žádné video — přidáš ho přes ⚙︎.`); }
     if(k === "clip"){ clipTick(); clipT = setInterval(clipTick, 1000); }
+    if(k === "mix") startMix(); else paintMix();
     paintBar();
   }
 
@@ -243,7 +291,7 @@ const Viz = (() => {
   function paintBar(){
     const bar = win.querySelector(".viz-themes");
     bar.innerHTML = `<span class="viz-g">Kreslí Pick</span>${DRAWN.map(([k, l]) => `<button type="button" data-th="${k}" class="${cfg.theme === k ? "on" : ""}">${l}</button>`).join("")}
-      <span class="viz-g">Video</span><button type="button" data-th="clip" class="${cfg.theme === "clip" ? "on" : ""}" title="Klip hrající písně, bez zvuku a v čase písně">Klip písně</button>
+      <span class="viz-g">Video</span><button type="button" data-th="clip" class="${cfg.theme === "clip" ? "on" : ""}" title="Klip hrající písně, bez zvuku a v čase písně">Klip písně</button><button type="button" data-th="mix" class="${cfg.theme === "mix" ? "on" : ""}" title="Dvě vrstvy smíchané ručně: prolínač, způsob míchání, na beat">Mix</button>
       ${lib.themes.map((t) => `<button type="button" data-th="v:${esc(t.name)}" class="${cfg.theme === "v:" + t.name ? "on" : ""}" title="${t.videos.length} videí ve složce Vizualizace/${esc(t.name)}">${esc(t.name)} <small>${t.videos.length}</small></button>`).join("")}`;
     bar.querySelectorAll("[data-th]").forEach((b) => b.onclick = () => { cfg.theme = b.dataset.th; save(); startTheme(); });
   }
@@ -259,7 +307,23 @@ const Viz = (() => {
       #viz-win video{transform:scale(calc(1.02 + var(--pulse)));transition:opacity .8s,transform .12s}
       #viz-win .viz-head{position:absolute;left:0;right:0;top:0;z-index:2;display:flex;gap:6px;align-items:flex-start;padding:8px;
         background:linear-gradient(rgba(0,0,0,.7),rgba(0,0,0,0));transition:opacity .3s;cursor:move}
-      #viz-win.idle .viz-head{opacity:0}
+      #viz-win.idle .viz-head,#viz-win.idle .viz-mix{opacity:0}
+      #viz-win .viz-mix{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;font-size:12px;
+        background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.75));transition:opacity .3s}
+      #viz-win .viz-mix select{background:rgba(20,22,36,.85);color:var(--text);border:1px solid rgba(255,255,255,.18);border-radius:8px;font:inherit;padding:3px 6px;max-width:180px}
+      #viz-win .viz-mix input[type=range]{flex:1;min-width:90px;accent-color:var(--accent)}
+      #viz-win .viz-mix label{display:flex;gap:5px;align-items:center}
+      .pk-dlg-card.viz-find{width:min(880px,100%)}
+      .viz-find .viz-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+      .viz-find .viz-row input[type=text]{flex:1;min-width:160px}
+      .viz-find .viz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-height:50vh;overflow-y:auto;padding:2px}
+      .viz-find .viz-it{display:flex;flex-direction:column;gap:4px;font-size:12px}
+      .viz-find .viz-th{position:relative;aspect-ratio:16/9;border-radius:9px;overflow:hidden;background:#000}
+      .viz-find .viz-th img,.viz-find .viz-th video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+      .viz-find .viz-it b{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .viz-find .viz-it small{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .viz-find .seg button{border:1px solid rgba(255,255,255,.18);background:none;color:var(--text);border-radius:500px;font:inherit;font-size:12px;padding:4px 12px;cursor:pointer}
+      .viz-find .seg button.on{background:var(--accent);color:#000;border-color:var(--accent)}
       #viz-win .viz-themes{flex:1;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
       #viz-win .viz-themes button,#viz-win .viz-btn{border:1px solid rgba(255,255,255,.18);background:rgba(20,22,36,.75);color:var(--text);border-radius:500px;
         font:inherit;font-size:12px;padding:3px 10px;cursor:pointer}
@@ -288,7 +352,7 @@ const Viz = (() => {
     win.innerHTML = `<div class="viz-stage"><canvas></canvas><video muted playsinline preload="auto" style="opacity:0"></video><video muted playsinline preload="auto" style="opacity:0"></video>
       <div class="viz-head"><div class="viz-themes"></div><button type="button" class="viz-btn" data-a="mgr" title="Moje videa: témata, přidat video odkazem, otevřít složku">⚙︎</button>
         <button type="button" class="viz-btn" data-a="full" title="Na celou obrazovku (dvojklik)">⛶</button><button type="button" class="viz-btn" data-a="close" title="Zavřít">✕</button></div>
-      <div class="viz-note" hidden></div></div>`;
+      <div class="viz-mix" hidden></div><div class="viz-note" hidden></div></div>`;
     document.body.appendChild(win);
     cv = win.querySelector("canvas"); g = cv.getContext("2d"); vids = [...win.querySelectorAll("video")];
     place();
@@ -336,8 +400,9 @@ const Viz = (() => {
         <div class="viz-list">${lib.themes.map((t) => `<div class="viz-theme"><div class="viz-theme-h"><b>${esc(t.name)}</b><small>${t.videos.length} videí</small>
             <button type="button" class="viz-btn" data-fetch="${esc(t.name)}">+ video odkazem…</button><button type="button" class="viz-btn" data-open="${esc(t.name)}">složka</button></div>
             ${t.videos.map((v) => `<div class="viz-v"><span title="${esc(v)}">${esc(v)}</span><button type="button" class="cp-x" data-del="${esc(t.name)}" data-v="${esc(v)}">smazat</button></div>`).join("")}</div>`).join("")}</div>
-        <div class="pk-dlg-btns"><button type="button" class="btn secondary" data-new>Nové téma…</button><span class="pk-dlg-note"></span><button type="button" class="btn" data-done>Hotovo</button></div>`;
+        <div class="pk-dlg-btns"><button type="button" class="btn" data-find>Hledat videa zdarma…</button><button type="button" class="btn secondary" data-new>Nové téma…</button><span class="pk-dlg-note"></span><button type="button" class="btn" data-done>Hotovo</button></div>`;
       card.querySelector("[data-done]").onclick = () => Dialog.close(true);
+      card.querySelector("[data-find]").onclick = () => { Dialog.close(true); setTimeout(find, 160); };
       card.querySelector("[data-new]").onclick = async () => {
         Dialog.close(true);
         const name = await Dialog.prompt("Název nového tématu:", "", {placeholder: "např. Oceán, Město v noci, Metal koncerty"});
@@ -367,6 +432,64 @@ const Viz = (() => {
     await loadLib();
     if(win){ paintBar(); if(kind() === "videos" && !vids.some((v) => v.style.opacity === "1")) startTheme(); }
   }
+  // ---- free videos to choose from: Wikimedia Commons (no key) or Pexels (a free key of one's own);
+  // pointing at one plays it, Uložit puts it into the theme chosen above (with its author and licence).
+  let fsrc = "commons", fq = "", fpage = 1, fto = "";
+  async function find(){
+    await loadLib();
+    if(!lib.themes.length){ showToast("Nejdřív založ téma."); return; }
+    if(!lib.themes.some((t) => t.name === fto)) fto = (folder() || lib.themes[0]).name;
+    await Dialog.open((card) => {
+      card.classList.add("wide", "viz-find");
+      card.innerHTML = `<div class="pk-dlg-title">Videa zdarma</div>
+        <div class="viz-row"><span class="seg"><button type="button" data-src="commons">Wikimedia Commons</button><button type="button" data-src="pexels">Pexels</button></span>
+          <label>Uložit do <select data-to>${lib.themes.map((t) => `<option ${t.name === fto ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select></label></div>
+        <div class="viz-row"><input type="text" class="pk-dlg-in" data-q placeholder="anglicky: ocean waves, fire, galaxy, city night, concert lights…" data-focus><button type="button" class="btn" data-go>Hledat</button></div>
+        <div class="viz-key"></div><div class="viz-grid"></div>
+        <div class="pk-dlg-btns"><span class="pk-dlg-note" data-note></span><button type="button" class="btn secondary" data-more hidden>Další</button><button type="button" class="btn" data-close>Hotovo</button></div>`;
+      const q = card.querySelector("[data-q]"), grid = card.querySelector(".viz-grid"), noteEl = card.querySelector("[data-note]"), more = card.querySelector("[data-more]"), keyBox = card.querySelector(".viz-key");
+      q.value = fq;
+      const seg = () => { card.querySelectorAll("[data-src]").forEach((b) => b.classList.toggle("on", b.dataset.src === fsrc));
+        keyBox.innerHTML = fsrc === "pexels" && !lib.pexels ? `<div class="viz-row"><span class="pk-dlg-text">Pexels potřebuje klíč zdarma: zaregistruj se na pexels.com/api a klíč vlož sem (zůstane jen v počítači).</span>
+          <input type="text" class="pk-dlg-in" data-key placeholder="klíč k Pexels"><button type="button" class="btn secondary" data-keysave>Uložit klíč</button></div>` : "";
+        const ks = keyBox.querySelector("[data-keysave]");
+        if(ks) ks.onclick = async () => { try{ const r = await fetch("/api/viz/pexels-key", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: keyBox.querySelector("[data-key]").value})});
+          const d = await r.json(); if(!r.ok) throw new Error(d.error); lib.pexels = d.pexels; seg(); go(1); }catch(e){ noteEl.textContent = e.message; } }; };
+      const go = async (page) => {
+        fq = q.value.trim(); fpage = page;
+        if(!fq || (fsrc === "pexels" && !lib.pexels)) return;
+        noteEl.textContent = "Hledám…"; if(page === 1) grid.innerHTML = "";
+        let d;
+        try{ const r = await fetch(`/api/viz/search?${new URLSearchParams({q: fq, source: fsrc, page})}`); d = await r.json(); if(!r.ok) throw new Error(d.error); }
+        catch(e){ noteEl.textContent = e.message || "Hledání se nepovedlo."; return; }
+        noteEl.textContent = d.items.length ? "Najetím myší si video pustíš." : page === 1 ? "Nic se nenašlo — zkus jiné slovo (anglicky)." : "Víc už nic.";
+        more.hidden = d.items.length < 10;
+        grid.insertAdjacentHTML("beforeend", d.items.map((x) => `<div class="viz-it"><div class="viz-th" data-url="${esc(x.url)}"><img src="${esc(x.thumb || "")}" loading="lazy" alt=""></div>
+          <b title="${esc(x.title)}">${esc(x.title)}</b><small title="${esc(x.author)}">${x.dur ? x.dur + " s · " : ""}${esc(x.license || "")}${x.author ? " · " + esc(x.author) : ""}</small>
+          <button type="button" class="viz-btn" data-save='${esc(JSON.stringify(x))}'>Uložit</button></div>`).join(""));
+        grid.querySelectorAll(".viz-th:not([data-on])").forEach((t) => { t.dataset.on = 1;
+          t.onmouseenter = () => { if(t.querySelector("video")) return; const v = document.createElement("video"); v.muted = true; v.loop = true; v.playsInline = true; v.src = t.dataset.url; t.appendChild(v); v.play().catch(() => {}); };
+          t.onmouseleave = () => { const v = t.querySelector("video"); if(v){ v.pause(); v.removeAttribute("src"); v.load(); v.remove(); } }; });
+        grid.querySelectorAll("[data-save]:not([data-on])").forEach((b) => { b.dataset.on = 1; b.onclick = async () => {
+          const x = JSON.parse(b.dataset.save);
+          try{ const r = await fetch("/api/viz/save", {method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({theme: fto, url: x.url, title: x.title, author: x.author, license: x.license, page: x.page})});
+            const d2 = await r.json(); if(!r.ok) throw new Error(d2.error);
+            b.textContent = "Stahuji…"; b.disabled = true; watchJobs(); }
+          catch(e){ showToast(e.message || "Uložení se nepovedlo"); } }; });
+      };
+      card.querySelectorAll("[data-src]").forEach((b) => b.onclick = () => { fsrc = b.dataset.src; seg(); go(1); });
+      card.querySelector("[data-to]").onchange = (e) => { fto = e.target.value; };
+      card.querySelector("[data-go]").onclick = () => go(1);
+      q.onkeydown = (e) => { if(e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); go(1); } };
+      more.onclick = () => go(fpage + 1);
+      card.querySelector("[data-close]").onclick = () => Dialog.close(true);
+      seg(); if(fq) go(1);
+    }, true);
+    stopPreviews();
+    await loadLib(); if(win){ paintBar(); paintMix(); }
+  }
+  const stopPreviews = () => document.querySelectorAll(".viz-find video").forEach((v) => { v.pause(); v.removeAttribute("src"); });
   let jobsT = 0;
   function watchJobs(){
     clearTimeout(jobsT);
@@ -375,7 +498,7 @@ const Viz = (() => {
       await loadLib();
       lib.jobs.filter((j) => before.includes(j.id) && j.status !== "running").forEach((j) =>
         showToast(j.status === "done" ? `Video je v tématu ${j.theme}.` : `Video se nestáhlo: ${j.note}`));
-      if(win) paintBar();
+      if(win){ paintBar(); paintMix(); }
       if(lib.jobs.some((j) => j.status === "running")) watchJobs();
     }, 4000);
   }

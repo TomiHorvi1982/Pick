@@ -105,3 +105,22 @@ def test_viz_themes_videos_and_clip(client, tmp_music_root, monkeypatch):
     assert client.get("/api/viz/clip", params={"title": "One", "artist": "Metallica"}).json()["videoId"] == "abc123"
     assert asked == ["Metallica One official video"]                 # found once, kept
     assert client.delete("/api/viz/video/Vesmír/a.mp4").json()["ok"]
+
+
+def test_free_videos_search_key_and_save_guard(client, tmp_music_root, monkeypatch):
+    assert client.get("/api/viz/search", params={"q": ""}).json() == {"items": []}
+    assert client.get("/api/viz/search", params={"q": "ocean", "source": "pexels"}).status_code == 400   # no key yet
+    assert client.post("/api/viz/pexels-key", json={"key": "nope!"}).status_code == 400
+    assert client.post("/api/viz/pexels-key", json={"key": "A" * 56}).json() == {"pexels": True}
+    assert client.get("/api/viz").json()["pexels"] is True
+    monkeypatch.setattr(viz, "_pexels", lambda q, page: [{"source": "pexels", "title": q, "url": "https://videos.pexels.com/x.mp4"}])
+    assert client.get("/api/viz/search", params={"q": "fire", "source": "pexels"}).json()["items"][0]["title"] == "fire"
+    client.get("/api/viz")                                   # the first themes
+    r = client.post("/api/viz/save", json={"theme": "Vesmír", "url": "https://evil.example/x.mp4", "title": "x"})
+    assert r.status_code == 400                              # only from the sources it searches
+    saved = []
+    monkeypatch.setattr(viz, "_save", lambda jid, d, req: saved.append((d.name, req.url)))
+    assert client.post("/api/viz/save", json={"theme": "Vesmír", "url": "https://upload.wikimedia.org/a.webm", "title": "a"}).json()["id"]
+    import time; time.sleep(0.1)
+    assert saved == [("Vesmír", "https://upload.wikimedia.org/a.webm")]
+    assert client.post("/api/viz/pexels-key", json={"key": ""}).json() == {"pexels": False}
