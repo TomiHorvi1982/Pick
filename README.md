@@ -797,6 +797,23 @@ prostor) — nebo přes čistou kytaru. Tempo, ladění, úhoz (síla do zesilov
 mezerník přehraje od kurzoru. Riffy se ukládají; „Zkopírovat jako tab“ dá textový tab do schránky.
 V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvukem.
 
+## Kontakt
+
+Tools → Kontakt (`kontakt.py`, `kontakt_host.py`, `static/kontakt.js`) — knihovny Native Instruments
+v Picku, jen v rámci tvých licencí (zašifrované vzorky se nikdy nečtou, hrají jen přes Kontakt sám):
+- **Zvuky Kontaktu**: Kontakt 8 (VST3; AU se v takovém hostiteli při zavírání zasekne) nahraje
+  `kontakt_host.py` přes Spotify `pedalboard` ve vlastním venvu `~/.local/venvs/pick-kontakt`.
+  „Nový zvuk“ otevře okno Kontaktu — vybereš knihovnu a nástroj, zavřeš, Pick si stav uloží
+  (`~/.local/share/spotdl-helper/kontakt/<id>.state`). Virtuální kytara přes něj zahraje riff do WAV
+  (`POST /api/kontakt/render`; poprvé asi půl minuty — Kontakt se načítá —, stejný riff pak hned;
+  posledních 20 se pamatuje). Kontakt se nikdy nezavírá čistě, hostitel se proto ukončí sám.
+- **Živě přes MIDI**: ve virtuální kytaře výstup MIDI (třeba IAC Driver) — noty jdou živě do Kontaktu
+  nebo Gig Performeru, zvuk hraje on.
+- **Smyčky a samply**: co knihovny mají jako obyčejné WAV (Riffage – Metal: 2416 smyček po tempech
+  80/120/160 a tóninách A/C/D#/F#, čistá DI i přes zesilovač; Axe Machina: samply), podle knihovny,
+  tempa, tóniny a druhu (`GET /api/kontakt/sounds`). Poslech, čistá DI i přes tónový otisk písně,
+  „Do Steems“ jako projekt.
+
 ## Zvuk bez výpadků
 
 Nastavení → Zvuk a MIDI → **Zvuk bez výpadků**. Zvuk (mix ve Steems, živá kytara) se renderuje

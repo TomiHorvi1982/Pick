@@ -5,6 +5,7 @@ A riff: {id, name, bpm, div (steps a beat), tuning [high e … low E, MIDI], ste
 [{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid}}.
 """
 import json
+import re
 import time
 import uuid
 from pathlib import Path
@@ -51,7 +52,9 @@ def clean(data: dict) -> Optional[dict]:
         snd = data.get("sound") or {}
         return {"bpm": max(30, min(300, int(data.get("bpm") or 120))), "div": int(data.get("div") or 4) if int(data.get("div") or 4) in (2, 3, 4, 6, 8) else 4,
                 "tuning": tuning, "cols": cols,
-                "sound": {"song": str(snd.get("song") or "")[:300], "pid": str(snd.get("pid") or "")[:60]} if snd.get("song") else None}
+                "sound": {"song": str(snd.get("song") or "")[:300], "pid": str(snd.get("pid") or "")[:60]} if snd.get("song")
+                else {"kontakt": str(snd["kontakt"])[:10]} if re.fullmatch(r"[0-9a-f]{10}", str(snd.get("kontakt") or ""))
+                else {"midi": str(snd["midi"])[:200]} if snd.get("midi") else None}
     except (TypeError, ValueError, AttributeError):
         return None
 

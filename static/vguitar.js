@@ -21,7 +21,7 @@ const VGuitar = (() => {
   const blank = (n) => Array.from({length: n}, () => ({s: {}, pm: false, lg: []}));
   const fresh = () => ({id: "", name: "", bpm: 120, div: 4, tuning: TUNINGS[0][1].slice(), cols: blank(32), sound: null});
 
-  let riff = fresh(), cur = {c: 0, s: 5}, root = null, shown = false, prints = [], saved = [], dirty = false;
+  let riff = fresh(), cur = {c: 0, s: 5}, root = null, shown = false, prints = [], saved = [], dirty = false, kpresets = [], midiOuts = [], midi = null;
   let opts = {trim: 0, vol: 0.8, click: false, loop: true};
   try{ const k = JSON.parse(localStorage.getItem(KEY) || "{}"); if(k.riff && k.riff.cols) riff = k.riff; Object.assign(opts, k.opts || {}); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify({riff, opts})); }catch(e){} };
@@ -121,8 +121,10 @@ const VGuitar = (() => {
     out.gain.value = opts.vol;
     return ac;
   }
+  const soundKind = () => !riff.sound ? "clean" : riff.sound.kontakt ? "kontakt" : riff.sound.midi ? "midi" : "print";
   async function useSound(){
     graph();
+    if(soundKind() === "kontakt" || soundKind() === "midi") return;
     const want = riff.sound ? `${riff.sound.song}|${riff.sound.pid}` : "";
     if(want === chainKey && (chain || !want)) return;
     trim.disconnect();
@@ -161,8 +163,10 @@ const VGuitar = (() => {
         o.frequency.value = k % (riff.div * 4) === 0 ? 1600 : 1100; g.gain.setValueAtTime(0.25, play.next); g.gain.exponentialRampToValueAtTime(0.001, play.next + 0.05);
         o.connect(g); g.connect(out); o.start(play.next); o.stop(play.next + 0.06);
       }
+      const mo = soundKind() === "midi" ? midiOut() : null;
       Object.entries(c.s).forEach(([s, f]) => {
         const str = +s, dead = f === "x";
+        if(mo){ sendNote(mo, riff.tuning[str] + (dead ? 5 : f), dead ? 40 : c.pm ? 85 : c.lg.includes(str) ? 70 : 105, play.next, dead ? 0.04 : c.pm ? Math.min(0.12, stepDur()) : noteLen(k, str)); return; }
         GuitarSampler.playNote(ac, trim, str, dead ? 0 : f, play.next, riff.tuning,
           {duration: dead ? 0.04 : c.pm ? 0.11 : noteLen(k, str), staccato: dead || c.pm, hammer: c.lg.includes(str)}, 9);
       });
@@ -177,10 +181,63 @@ const VGuitar = (() => {
     if(play.ending && ac.currentTime > play.ending + 0.3){ stop(); return; }
     play.timer = setTimeout(schedule, 25);
   }
+  // ---- through Kontakt: the riff played into a file once (kontakt.py), then that file, looped
+  function riffNotes(){
+    const n = [], sd = stepDur();
+    riff.cols.forEach((c, k) => Object.entries(c.s).forEach(([s, f]) => {
+      const str = +s, open = riff.tuning[str];
+      if(open == null) return;
+      if(f === "x"){ n.push({m: open + 5, t: k * sd, d: 0.04, v: 40}); return; }
+      n.push({m: open + f, t: k * sd, d: c.pm ? Math.min(0.12, sd) : noteLen(k, str), v: c.pm ? 85 : c.lg.includes(str) ? 70 : 105});
+    }));
+    return n;
+  }
+  let rendering = false;
+  async function startKontakt(from){
+    const n = riffNotes();
+    if(!n.length){ showToast("Riff je prázdný."); return; }
+    rendering = true; paintBar();
+    const st = root && root.querySelector("#vg-sound-st"); if(st) st.textContent = "Kontakt hraje riff… (poprvé asi půl minuty, pak hned)";
+    let buf = null;
+    try{
+      const r = await api("/api/kontakt/render", post({preset: riff.sound.kontakt, notes: n, length: riff.cols.length * stepDur()}));
+      buf = await ac.decodeAudioData(await (await fetch(`/api/kontakt/render/${r.file}`)).arrayBuffer());
+    }catch(e){ showToast(e.message || "Kontakt riff nezahrál."); }
+    rendering = false; if(st) st.textContent = ""; paintBar();
+    if(!buf) return;
+    const len = riff.cols.length * stepDur(), off = Math.max(0, Math.min(len - 0.01, (from || 0) * stepDur()));
+    const src = ac.createBufferSource(); src.buffer = buf; src.connect(out);
+    if(opts.loop){ src.loop = true; src.loopStart = 0; src.loopEnd = Math.min(len, buf.duration); }
+    const t0 = ac.currentTime + 0.05;
+    src.start(t0, off);
+    AudioBus.claim("vguitar"); window.dispatchEvent(new Event("pick-sound"));
+    play = {src, t0: t0 - off, len, marks: [], timer: 0, raf: 0, kontakt: true};
+    src.onended = () => { if(play && play.src === src) stop(); };
+    const head = () => { if(!play) return; const at = (ac.currentTime - play.t0) % (opts.loop ? play.len : Infinity);
+      mark(at >= 0 && at < play.len ? Math.floor(at / stepDur()) : -1); play.raf = requestAnimationFrame(head); };
+    head(); paintBar();
+  }
+  // ---- live MIDI out (to Kontakt or Gig Performer through the IAC bus): the notes as they come
+  async function midiAccess(quiet){
+    if(midi) return midi;
+    if(!navigator.requestMIDIAccess) return null;
+    try{ midi = await navigator.requestMIDIAccess(); midi.onstatechange = () => { midiOuts = [...midi.outputs.values()]; }; midiOuts = [...midi.outputs.values()]; }
+    catch(e){ if(!quiet) showToast("Přístup k MIDI zamítnut"); }
+    return midi;
+  }
+  const midiOut = () => midiOuts.find((o) => o.id === (riff.sound || {}).midi) || null;
+  const perf = (t) => performance.now() + (t - ac.currentTime) * 1000;
+  function sendNote(o, m, v, t, d){
+    if(m < 0 || m > 127) return;
+    try{ o.send([0x90, m, v], perf(t)); o.send([0x80, m, 0], perf(t + d)); }catch(e){}
+  }
+
   async function start(from){
     if(play) stop();
     graph();
     if(ac.state === "suspended") await ac.resume();
+    if(soundKind() === "kontakt"){ await startKontakt(from); return; }
+    if(soundKind() === "midi" && !midiOut()){ await midiAccess(); if(!midiOut()){ showToast("Ten MIDI výstup teď není připojený."); return; } }
     await useSound();
     AudioBus.claim("vguitar");
     window.dispatchEvent(new Event("pick-sound"));
@@ -195,8 +252,10 @@ const VGuitar = (() => {
   function stop(){
     if(!play) return;
     clearTimeout(play.timer); cancelAnimationFrame(play.raf);
+    if(play.src){ try{ play.src.stop(); }catch(e){} }
     play = null;
     if(ac) GuitarSampler.stopAll(ac);
+    const mo = midiOut(); if(mo){ try{ mo.send([0xB0, 123, 0]); mo.send([0xB0, 120, 0]); }catch(e){} }
     mark(-1); paintBar();
     window.dispatchEvent(new Event("pick-sound"));
   }
@@ -242,15 +301,19 @@ const VGuitar = (() => {
     root = container; shown = true; css();
     try{ prints = await Tone.prints(); }catch(e){ prints = []; }
     try{ saved = (await api("/api/vguitar/riffs")).riffs; }catch(e){ saved = []; }
+    try{ kpresets = typeof KontaktPage !== "undefined" ? await KontaktPage.presets() : []; }catch(e){ kpresets = []; }
+    await midiAccess(true);
     paint();
   }
   function hide(){ shown = false; stop(); }
   function soundOptions(){
-    const sel = riff.sound ? `${riff.sound.song}|${riff.sound.pid}` : "";
+    const sel = !riff.sound ? "" : riff.sound.kontakt ? "k:" + riff.sound.kontakt : riff.sound.midi ? "m:" + riff.sound.midi : `${riff.sound.song}|${riff.sound.pid}`;
     const bands = {};
     prints.forEach((p) => (bands[p.artist || "Bez kapely"] = bands[p.artist || "Bez kapely"] || []).push(p));
     return `<option value="">Čistá kytara (bez otisku)</option>` + Object.entries(bands).map(([b, ps]) => `<optgroup label="${esc(b)}">${ps.map((p) =>
-      `<option value="${esc(p.song + "|" + p.id)}" ${sel === p.song + "|" + p.id ? "selected" : ""}>${esc(p.title || p.song)} · ${esc(p.name)}${p.match ? ` (${p.match} %)` : ""}</option>`).join("")}</optgroup>`).join("");
+      `<option value="${esc(p.song + "|" + p.id)}" ${sel === p.song + "|" + p.id ? "selected" : ""}>${esc(p.title || p.song)} · ${esc(p.name)}${p.match ? ` (${p.match} %)` : ""}</option>`).join("")}</optgroup>`).join("")
+      + (kpresets.length ? `<optgroup label="Kontakt">${kpresets.map((k) => `<option value="k:${esc(k.id)}" ${sel === "k:" + k.id ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>` : "")
+      + (midiOuts.length ? `<optgroup label="Živě přes MIDI (Kontakt, Gig Performer…)">${midiOuts.map((o) => `<option value="m:${esc(o.id)}" ${sel === "m:" + o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</optgroup>` : "");
   }
   function paint(){
     if(!root || !shown) return;
@@ -310,12 +373,13 @@ const VGuitar = (() => {
     nowCol = k;
     if(k >= 0) root.querySelectorAll(`.vg-cell[data-c="${k}"]`).forEach((x) => x.classList.add("now"));
   }
-  function paintBar(){ const b = root && root.querySelector("#vg-play"); if(b) b.textContent = play ? "■ Stop" : "▶ Přehrát"; }
+  function paintBar(){ const b = root && root.querySelector("#vg-play"); if(b){ b.textContent = rendering ? "Kontakt hraje…" : play ? "■ Stop" : "▶ Přehrát"; b.disabled = rendering; } }
   function paintSound(){
     const st = root && root.querySelector("#vg-sound-st");
     if(!st) return;
     const p = riff.sound && prints.find((x) => x.song === riff.sound.song && x.id === riff.sound.pid);
-    st.textContent = loading ? "Načítám zvuk otisku…" : p ? `jádro: ${p.core || "bez jádra"}` : prints.length ? "" : "Otisky zatím nemáš — udělej si je ve Steems (kanál Live kytara → OTISK).";
+    st.textContent = loading ? "Načítám zvuk otisku…" : soundKind() === "kontakt" ? "Kontakt zahraje celý riff do souboru — poprvé to trvá asi půl minuty, pak hraje hned."
+      : soundKind() === "midi" ? "Noty jdou živě do MIDI výstupu — zvuk hraje Kontakt (nebo Gig Performer), ne Pick." : p ? `jádro: ${p.core || "bez jádra"}` : prints.length ? "" : "Otisky zatím nemáš — udělej si je ve Steems (kanál Live kytara → OTISK).";
   }
   function changed(){ dirty = true; keep(); }
   function setCell(v){
@@ -327,6 +391,8 @@ const VGuitar = (() => {
   }
   async function preview(k, s){
     graph(); if(ac.state === "suspended") await ac.resume();
+    if(soundKind() === "kontakt") return;                 // a note at a time would mean half a minute each
+    if(soundKind() === "midi"){ const mo = midiOut(), f0 = riff.cols[k].s[s]; if(mo && f0 != null) sendNote(mo, riff.tuning[s] + (f0 === "x" ? 5 : f0), 100, ac.currentTime + 0.01, 0.5); return; }
     await useSound();
     const c = riff.cols[k], f = c.s[s];
     if(f == null) return;
@@ -373,7 +439,11 @@ const VGuitar = (() => {
     q("vg-name").oninput = (e) => { riff.name = e.target.value; changed(); };
     q("vg-play").onclick = () => { if(play) stop(); else start(0); };
     q("vg-sound").onchange = async (e) => {
-      const [song, pid] = e.target.value ? [e.target.value.slice(0, e.target.value.lastIndexOf("|")), e.target.value.slice(e.target.value.lastIndexOf("|") + 1)] : [];
+      const v = e.target.value;
+      stop();
+      if(v.startsWith("k:")){ riff.sound = {kontakt: v.slice(2)}; changed(); paintSound(); return; }
+      if(v.startsWith("m:")){ riff.sound = {midi: v.slice(2)}; changed(); paintSound(); return; }
+      const [song, pid] = v ? [v.slice(0, v.lastIndexOf("|")), v.slice(v.lastIndexOf("|") + 1)] : [];
       riff.sound = song ? {song, pid} : null; changed();
       await useSound();
       const s = riff.cols.findIndex((c) => Object.keys(c.s).length);
@@ -436,6 +506,7 @@ const VGuitar = (() => {
   }
   // From the tone print library: this print's sound, right away.
   function withPrint(song, pid){ riff.sound = {song, pid}; keep(); setMode("vguitar"); }
+  function withKontakt(id){ riff.sound = {kontakt: id}; keep(); setMode("vguitar"); }
 
-  return {show, hide, withPrint, parseTab, isPlaying: () => !!play};
+  return {show, hide, withPrint, withKontakt, parseTab, isPlaying: () => !!play};
 })();

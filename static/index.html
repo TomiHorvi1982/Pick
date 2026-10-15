@@ -5520,6 +5520,7 @@ body.lib-collapsed .pick-brand{display:none}
 
   <div id="composer-section" hidden></div>
   <div id="vguitar-section" hidden></div>
+  <div id="kontakt-section" hidden></div>
 
   <div id="loopstudio-section" hidden>
     <iframe id="loopstudio-frame" title="Loop Studio"></iframe>
@@ -9149,6 +9150,8 @@ function setMode(mode, opts){
   if(mode !== "composer" && typeof Composer !== "undefined") Composer.hide();
   el("vguitar-section").hidden = mode !== "vguitar";
   if(mode !== "vguitar" && typeof VGuitar !== "undefined") VGuitar.hide();
+  el("kontakt-section").hidden = mode !== "kontakt";
+  if(mode !== "kontakt" && typeof KontaktPage !== "undefined") KontaktPage.hide();
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -9189,6 +9192,8 @@ function setMode(mode, opts){
     if(typeof Composer !== "undefined") Composer.show(el("composer-section"));   // studio.js comes last; it shows itself if this was first
   } else if(mode === "vguitar"){
     if(typeof VGuitar !== "undefined") VGuitar.show(el("vguitar-section"));
+  } else if(mode === "kontakt"){
+    if(typeof KontaktPage !== "undefined") KontaktPage.show(el("kontakt-section"));
   } else if(mode === "loopstudio"){
     const fr = el("loopstudio-frame");
     if(!fr.getAttribute("src")) fr.src = "/loopstudio";
@@ -10522,6 +10527,7 @@ const TOOLS = [
   {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
   {key: "vguitar", title: "Virtuální kytara", icon: "elGuitar", sub: "Napiš nebo vlož tab — zahraje ho zvukem kytary z písně (tónový otisk)"},
+  {key: "kontakt", title: "Kontakt", icon: "library", sub: "Tvoje knihovny Native Instruments: nástroje pro virtuální kytaru, smyčky a samply"},
 ];
 
 const RAIL_SECTIONS = [
@@ -10531,10 +10537,10 @@ const RAIL_SECTIONS = [
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
   // Taby, Loops and Scales and Chords live under one heading.
-  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar"]},
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar", "kontakt"]},
 ];
 // Every mode the app can show, not only the rail's own headings.
-const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar"];
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar", "kontakt"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -35036,5 +35042,6 @@ const Voice = (() => {
 <script src="/static/tone.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
+<script src="/static/kontakt.js"></script>
 </body>
 </html>

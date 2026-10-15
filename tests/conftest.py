@@ -60,6 +60,13 @@ def _own_config(tmp_path, monkeypatch):
     import viz, storage
     monkeypatch.setattr(viz, "CLIPS", tmp_path / "viz-clips.json")
     import vguitar
+    import kontakt                                          # the player's NI libraries and Kontakt itself: never the real ones
+    monkeypatch.setattr(kontakt, "LIBS", tmp_path / "ni-libraries")
+    monkeypatch.setattr(kontakt, "DATA", tmp_path / "kontakt")
+    monkeypatch.setattr(kontakt, "HOST_PY", tmp_path / "no-kontakt-python")
+    monkeypatch.setattr(kontakt, "PLUGINS", [])
+    monkeypatch.setattr(kontakt, "_INDEX", {"at": 0.0, "sig": None, "items": [], "libs": []})
+    monkeypatch.setattr(kontakt, "JOB", {"status": None, "what": "", "note": "", "id": "", "at": 0.0})
     monkeypatch.setattr(vguitar, "FILE", tmp_path / "vguitar.json")
     monkeypatch.setattr(viz, "PEXELS_KEY", tmp_path / "pexels-key.txt")
     monkeypatch.setattr(viz, "PIXABAY_KEY", tmp_path / "pixabay-key.txt")
