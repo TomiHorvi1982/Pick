@@ -2218,6 +2218,16 @@ body.lib-collapsed .pick-brand{display:none}
   .sys-verdict{font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
   .sys-verdict.busy{background:color-mix(in srgb,#e0a030 22%,transparent)}.sys-verdict.tight{background:color-mix(in srgb,var(--danger) 22%,transparent)}
   .sys-jobs{font-size:12px;color:var(--sub)}
+  .mic-grid{display:grid;grid-template-columns:76px 1fr;gap:8px 10px;align-items:center;margin-top:8px;font-size:13px}
+  .mic-grid select{padding:8px;min-width:0}
+  .mic-test{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .mic-test .btn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .mic-test .sys-bar{flex:1}
+  .mic-test .sys-bar i{transition:width .08s}
+  .mic-note{font-size:12px;color:var(--sub);white-space:nowrap}
+  .mic-agg{margin-top:8px;font-size:12.5px;color:var(--sub)}
+  .mic-agg summary{cursor:pointer;color:var(--text)}
+  .mic-agg ol{margin:8px 0;padding-left:20px;display:grid;gap:4px}
   .tk-head{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:12px;color:var(--sub)}
   .tk-total{flex:1}
   .tk-sort{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
@@ -4665,6 +4675,23 @@ body.lib-collapsed .pick-brand{display:none}
         Bluetooth reproduktor nebo sluchátka nejdřív spáruj a připoj v Nastavení systému —
         pak se objeví tady. Pozor: přes Bluetooth má živá kytara znatelné zpoždění.</div>
       <div class="set-note" id="audio-out-unsupported" hidden style="color:var(--danger)">Tenhle prohlížeč neumí posílat zvuk na jiné zařízení — otevři aplikaci v Chrome.</div>
+
+      <div class="section-title" style="margin-top:22px"><span data-icon="mic"></span>Mikrofon pro zpěv a hlas</div>
+      <div class="mic-grid">
+        <label for="mic-dev">Mikrofon</label><select id="mic-dev"><option value="">výchozí mikrofon systému</option></select>
+        <label for="mic-ch">Vstup</label><select id="mic-ch"><option value="">celý mikrofon</option><option value="1">vstup 1</option><option value="2">vstup 2</option></select>
+      </div>
+      <div class="mic-test"><button type="button" class="btn secondary" id="mic-test"><span data-icon="mic" data-size="14"></span>Vyzkoušet</button>
+        <div class="sys-bar" id="mic-level"><i style="width:0"></i></div><span class="mic-note" id="mic-note"></span></div>
+      <div class="set-note">Používá ho trenér zpěvu, Výslovnost, nový hlas, úryvek zpěvu k písni, přezpívání řádku (Namluvit) a hlasové ovládání.
+        <span id="mic-guitar"></span> Pick poslouchá obě zařízení zároveň — USB mikrofon a zvukovku nemusíš nijak spojovat.</div>
+      <details class="mic-agg"><summary>Spojit zvukovku a mikrofon v macOS do jednoho zařízení (agregované zařízení)</summary>
+        <ol><li>Otevři <b>Nastavení Audio MIDI</b> (Aplikace → Utility, nebo ⌘ mezerník a napiš „Audio MIDI“).</li>
+          <li>Vlevo dole klikni na <b>+</b> → <b>Vytvořit agregované zařízení</b>.</li>
+          <li>V pravé části zaškrtni <b>zvukovku</b> (iRig PRO DUO) a <b>USB mikrofon</b>. Jako „Hodiny“ (Clock Source) nech zvukovku a u mikrofonu zapni <b>Korekci posunu</b> (Drift Correction).</li>
+          <li>Zařízení si přejmenuj (dvojklik na název), třeba „Kytara + mikrofon“. Vstupy jsou za sebou: 1–2 zvukovka, 3 mikrofon.</li>
+          <li>V Picku pak u kytary vyber to zařízení a vstup 1 nebo 2, a tady to samé zařízení a vstup 3.</li></ol>
+        Hodí se pro aplikace, které umí jen jeden vstup (nahrávací programy). Pick ho nepotřebuje.</details>
 
       <div class="section-title" style="margin-top:22px"><span data-icon="folder"></span>Kam se stahují songy</div>
       <div style="display:flex;gap:8px">
@@ -16067,7 +16094,7 @@ const Mixer = (() => {
       recBtn.onclick = async () => {
         if(rec && rec.state === "recording"){ rec.stop(); return; }
         let stream;
-        try{ stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: true}}); }
+        try{ stream = await VoiceMic.stream({noise: true}); }
         catch(e){ showToast("Bez povolení mikrofonu to nejde"); return; }
         recChunks = [];
         rec = new MediaRecorder(stream);
@@ -26072,7 +26099,7 @@ const VoiceGuide = (() => {
   async function record(k){
     if(rec){ rec.stop(); return; }
     try{
-      stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+      stream = await VoiceMic.stream();
     }catch(e){ showToast("Mikrofon se nepodařilo otevřít: " + e.message); return; }
     const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser(); an.fftSize = 1024;
     ac.createMediaStreamSource(stream).connect(an);
@@ -26211,7 +26238,7 @@ const SongTake = (() => {
   }
   async function record(){
     if(phase === "rec"){ if(rec) rec.stop(); return; }
-    try{ stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}}); }
+    try{ stream = await VoiceMic.stream(); }
     catch(e){ showToast("Mikrofon se nepodařilo otevřít: " + e.message); return; }
     const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser(); an.fftSize = 1024;
     ac.createMediaStreamSource(stream).connect(an);
@@ -28702,6 +28729,117 @@ el("audio-out-names").onclick = async () => {
   }catch(e){ showToast("Bez povolení mikrofonu prohlížeč názvy zařízení neukáže"); }
   fillAudioOut();
 };
+// ---- the microphone for the voice (Nastavení → Zvuk a MIDI → Mikrofon pro zpěv a hlas): one
+// choice for the singing trainer, Výslovnost, a new voice, a song take, a line sung again and
+// the voice control (pick-voice-mic / pick-voice-ch, the keys they read already). The guitar
+// keeps its own input on the sound card — the browser listens to both devices at once. A
+// chosen input (a sound card's 1 or 2, an aggregate device's 3…) is taken alone; a microphone
+// unplugged since falls back to the system's default, said once.
+const VoiceMic = (() => {
+  const MIC = "pick-voice-mic", CH = "pick-voice-ch";
+  const get = (k) => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
+  const id = () => get(MIC), ch = () => get(CH);
+  let warned = false;
+  // the device as it is: every input it has (the caller takes the one it wants)
+  async function open(opts = {}){
+    const want = (dev) => ({audio: {deviceId: dev ? {exact: dev} : undefined, echoCancellation: !!opts.echo, noiseSuppression: !!opts.noise,
+      autoGainControl: !!opts.agc, channelCount: {ideal: opts.channels || (ch() ? 8 : 1)}}});
+    try{ return await navigator.mediaDevices.getUserMedia(want(id())); }
+    catch(e){
+      if(!id() || !/Overconstrained|NotFound|NotReadable/.test(e.name || "")) throw e;
+      if(!warned){ warned = true; showToast("Vybraný mikrofon není připojený — beru výchozí mikrofon systému"); }
+      return navigator.mediaDevices.getUserMedia(want(""));
+    }
+  }
+  // the chosen input as a stream of its own; stopping its track lets the microphone go too
+  async function stream(opts = {}){
+    const raw = await open(opts);
+    const n = raw.getAudioTracks()[0].getSettings().channelCount || 1, c = parseInt(ch(), 10) || 0;
+    if(!c || n < 2) return raw;
+    const ac = new AudioContext(), split = ac.createChannelSplitter(n), dst = ac.createMediaStreamDestination();
+    dst.channelCount = 1;
+    ac.createMediaStreamSource(raw).connect(split);
+    split.connect(dst, Math.min(c, n) - 1);
+    const tr = dst.stream.getAudioTracks()[0], stop = tr.stop.bind(tr);
+    tr.stop = () => { stop(); raw.getTracks().forEach(t => t.stop()); ac.close().catch(() => {}); };
+    return dst.stream;
+  }
+  // which input of `got` channels to listen to (0-based), for the worklets that take the device whole
+  const index = (got) => { const c = (parseInt(ch(), 10) || 0) - 1; return c >= 0 && c < got ? c : 0; };
+  function set(dev, chan){
+    try{
+      dev ? localStorage.setItem(MIC, dev) : localStorage.removeItem(MIC);
+      chan ? localStorage.setItem(CH, chan) : localStorage.removeItem(CH);
+    }catch(e){}
+    warned = false;
+    window.dispatchEvent(new CustomEvent("pick-mic-changed"));
+  }
+  return {id, ch, open, stream, index, set};
+})();
+// The settings' part of it: the device, its input, a meter to try it.
+const MicSettings = (() => {
+  let testing = null, raf = 0;
+  const dev = el("mic-dev"), chSel = el("mic-ch"), note = el("mic-note"), bar = el("mic-level").querySelector("i");
+  async function fill(){
+    let ins = [];
+    try{ ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput" && d.deviceId !== "default"); }catch(e){}
+    const cur = VoiceMic.id();
+    dev.innerHTML = `<option value="">výchozí mikrofon systému</option>` + ins.map(d => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || "mikrofon")}</option>`).join("")
+      + (cur && !ins.some(d => d.deviceId === cur) ? `<option value="${escapeHtml(cur)}">(odpojený mikrofon)</option>` : "");
+    dev.value = cur;
+    channels(Math.max(2, parseInt(VoiceMic.ch(), 10) || 0));
+    const g = typeof Mixer !== "undefined" && Mixer.guitar ? Mixer.guitar.state : null;
+    el("mic-guitar").textContent = g && g.live ? `Kytara jde ze zařízení „${g.deviceLabel || "vstup"}“${g.inputChannel && g.inputChannel !== "auto" ? ", vstup " + g.inputChannel : ""}.`
+      : "Kytara má svůj vstup v nastavení kytary (kanál Live kytara).";
+  }
+  function channels(n){
+    const cur = VoiceMic.ch();
+    chSel.innerHTML = `<option value="">celý mikrofon</option>` + Array.from({length: n}, (_, i) => `<option value="${i + 1}">vstup ${i + 1}</option>`).join("");
+    chSel.value = cur && +cur <= n ? cur : "";
+  }
+  function stopTest(){
+    cancelAnimationFrame(raf);
+    if(testing){ try{ testing.stream.getTracks().forEach(t => t.stop()); testing.ac.close(); }catch(e){} testing = null; }
+    bar.style.width = "0";
+    el("mic-test").lastChild.textContent = "Vyzkoušet";
+  }
+  async function test(){
+    if(testing){ stopTest(); note.textContent = ""; return; }
+    let raw;
+    try{ raw = await VoiceMic.open({channels: 8}); }catch(e){ note.textContent = "Mikrofon se nepodařilo otevřít"; return; }
+    const n = raw.getAudioTracks()[0].getSettings().channelCount || 1;
+    raw.getTracks().forEach(t => t.stop());
+    if(n > 2 || chSel.options.length - 1 < n) channels(n);
+    const stream = await VoiceMic.stream({});
+    const ac = new AudioContext(), an = ac.createAnalyser();
+    an.fftSize = 1024;
+    ac.createMediaStreamSource(stream).connect(an);
+    testing = {stream, ac};
+    el("mic-test").lastChild.textContent = "Zastavit";
+    const buf = new Float32Array(an.fftSize), t0 = performance.now();
+    let held = 0;
+    const tick = () => {
+      if(!testing) return;
+      an.getFloatTimeDomainData(buf);
+      let pk = 0;
+      for(let i = 0; i < buf.length; i++){ const a = Math.abs(buf[i]); if(a > pk) pk = a; }
+      held = Math.max(pk, held * 0.92);
+      bar.style.width = Math.min(100, Math.round(Math.sqrt(held) * 100)) + "%";
+      const opt = dev.options[dev.selectedIndex];
+      note.textContent = held > 0.98 ? "moc nahlas" : held > 0.02 ? "slyším ✓" : `${n === 1 ? "1 vstup" : n + " vstupy"} · mluv`;
+      if(performance.now() - t0 > 20000) stopTest();
+      else raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  dev.onchange = () => { stopTest(); VoiceMic.set(dev.value, ""); channels(2); note.textContent = ""; };
+  chSel.onchange = () => { stopTest(); VoiceMic.set(dev.value, chSel.value); };
+  el("mic-test").onclick = test;
+  el("settings-btn").addEventListener("click", () => setTimeout(fill, 80));
+  navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener("devicechange", () => { if(!settingsOverlay.hidden) fill(); });
+  window.addEventListener("pick-mic-changed", () => { if(!settingsOverlay.hidden){ dev.value = VoiceMic.id(); chSel.value = VoiceMic.ch(); } });
+  return {fill, stop: stopTest};
+})();
 // ---- how hard the computer works (/api/system): in the settings while they are
 // open, and a badge at the top whenever the memory runs short.
 const SysLoad = (() => {
@@ -28822,7 +28960,7 @@ const SettingsWin = (() => {
   const CATS = [
     ["system", "Systém", /Výkon počítače|Úlohy a procesy|Mapa aplikace|O aplikaci/],
     ["look", "Vzhled", /Vzhled|Ukazatel/],
-    ["sound", "Zvuk a MIDI", /Výstup zvuku|MIDI/],
+    ["sound", "Zvuk a MIDI", /Výstup zvuku|Mikrofon pro zpěv|MIDI/],
     ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
     ["steems", "Steems", /Rozdělení písně|Steems/],
   ];
@@ -32176,7 +32314,7 @@ const Speak = (() => {
       inp.onchange = () => { if(inp.files[0]) send(inp.files[0], inp.files[0].name); }; inp.click(); };
     q("va-mic").onclick = async () => {
       try{
-        stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: true}});
+        stream = await VoiceMic.stream({agc: true});
         const rec = new MediaRecorder(stream), parts = [];
         rec.ondataavailable = (e) => { if(e.data.size) parts.push(e.data); };
         rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); stream = null; q("va-mic").textContent = "● Nahrát z mikrofonu (10 s)";
@@ -32237,8 +32375,7 @@ const Speak = (() => {
   async function mic(){
     if(stream) return true;
     try{
-      const dev = localStorage.getItem("pick-voice-mic") || "";
-      stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: dev ? {exact: dev} : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      stream = await VoiceMic.stream({echo: true, noise: true, agc: true});
       ac = new AudioContext({sampleRate: 16000});
       node = ac.createScriptProcessor(2048, 1, 1);
       lift = ac.createGain(); lift.gain.value = Math.pow(10, gainDb() / 20);
@@ -32830,21 +32967,18 @@ const Sing = (() => {
       if(loopLine < 0) reset(); else reset(lines[loopLine].t - 2);
       saved = false; chunks = []; tape = []; idle = 0; played = false; lastT = Mixer.currentTime(); el("sing-sum").innerHTML = "";
       listenOver(); wasPlaying = Mixer.isPlaying();
-      let dev = "", ch = "";
-      try{ dev = localStorage.getItem("pick-voice-mic") || ""; ch = localStorage.getItem("pick-voice-ch") || ""; }catch(e){}
       // The voice as it is: anything that "improves" the sound bends its pitch.
-      stream = await navigator.mediaDevices.getUserMedia({audio: {deviceId: dev ? {exact: dev} : undefined,
-        echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}});
-      const got = stream.getAudioTracks()[0].getSettings().channelCount || 1;
+      stream = await VoiceMic.open({channels: 8});
+      const got = stream.getAudioTracks()[0].getSettings().channelCount || 1, pickCh = VoiceMic.index(got);
       actx = new AudioContext({sampleRate: 16000});
       const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
       await actx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
-      node = new AudioWorkletNode(actx, "pick-sing", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit",
-        channelInterpretation: "discrete", processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
+      node = new AudioWorkletNode(actx, "pick-sing", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: Math.max(2, got), channelCountMode: "explicit",
+        channelInterpretation: "discrete", processorOptions: {ch: pickCh}});
       node.port.onmessage = (e) => heard(e.data);
       micGain = actx.createGain(); micGain.gain.value = Math.pow(10, fx.gain / 20);
       actx.createMediaStreamSource(stream).connect(micGain).connect(node);
-      await fxStart(ch === "2" && got > 1 ? 1 : 0).catch(() => {});
+      await fxStart(pickCh).catch(() => {});
       on = true;
       if(!lesson && el("sing-mute").checked){ const c = Mixer.channelByStem("vocals"); if(c){ restoreMute = !!c.muted; Mixer.voice.mutedOn("vocals", true); } }
       if(!lesson && !Mixer.isPlaying()) Mixer.play();
@@ -34132,22 +34266,20 @@ const Voice = (() => {
         throw new Error(d.error || "Hlasové ovládání se nespustilo.");
       }
       yielded = false;
-      const dev = localStorage.getItem(MIC_KEY) || "", ch = savedCh();
+      const ch = savedCh();
       // Echo cancelling takes the app's own playback out of what the microphone hears.
       // It also folds the card's inputs into one — so with a chosen input it is
-      // off, and the two inputs arrive apart.
-      stream = await navigator.mediaDevices.getUserMedia({audio: ch
-        ? {deviceId: dev ? {exact: dev} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}
-        : {deviceId: dev ? {exact: dev} : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
+      // off, and the inputs arrive apart.
+      stream = await VoiceMic.open(ch ? {channels: 8} : {echo: true, noise: true, agc: true, channels: 1});
       const got = stream.getAudioTracks()[0].getSettings().channelCount || 1;
-      if(ch === "2" && got < 2) showToast("Tenhle mikrofon má jen jeden vstup — poslouchám ten.");
+      if(ch && +ch > got) showToast(`Tenhle mikrofon má jen ${got === 1 ? "jeden vstup" : got + " vstupy"} — poslouchám vstup 1.`);
       actx = new AudioContext({sampleRate: 16000});
       const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
       await actx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
       node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0,
-        channelCount: 2, channelCountMode: "explicit", channelInterpretation: "discrete",
-        processorOptions: {ch: ch === "2" && got > 1 ? 1 : 0}});
+        channelCount: Math.max(2, got), channelCountMode: "explicit", channelInterpretation: "discrete",
+        processorOptions: {ch: VoiceMic.index(got)}});
       node.port.onmessage = (ev) => {
         const e = gainLin === 1 ? ev : {data: ev.data.map(x => x * gainLin > 1 ? 1 : x * gainLin < -1 ? -1 : x * gainLin)};
         if(dict && dictHear(e.data)) return;
@@ -34216,11 +34348,16 @@ const Voice = (() => {
   document.addEventListener("visibilitychange", () => { if(!document.hidden && !on && wanted()) start(); });
   if(wanted()) start();
   el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
-  el("voice-mic").onchange = (e) => {
-    try{ localStorage.setItem(MIC_KEY, e.target.value); }catch(err){}
+  el("voice-mic").onchange = (e) => VoiceMic.set(e.target.value, savedCh());
+  // chosen here or in the settings (Mikrofon pro zpěv a hlas): both pickers show it, the menu bar hears of it
+  window.addEventListener("pick-mic-changed", () => {
+    listMics();
+    const sel = el("voice-ch"), c = savedCh();
+    if(c && ![...sel.options].some(o => o.value === c)) sel.insertAdjacentHTML("beforeend", `<option value="${c}">${c}</option>`);
+    sel.value = c;
     tellWidget();
     if(on){ stop(); start(); }
-  };
+  });
   // The menu bar's own listening (no window open) uses the same microphone and input as chosen here.
   function tellWidget(){
     const sel = el("voice-mic"), opt = sel.options[sel.selectedIndex];
@@ -34230,7 +34367,7 @@ const Voice = (() => {
   el("voice-ch").value = savedCh();
   el("voice-ch").onchange = (e) => {
     const ch = e.target.value;
-    try{ ch ? localStorage.setItem(CH_KEY, ch) : localStorage.removeItem(CH_KEY); }catch(err){}
+    VoiceMic.set(VoiceMic.id(), ch);
     // The guitar on "automatic" would take whichever input is louder — the
     // voice, now and then. From here on it keeps to the other one (effectiveChannel).
     const Guitar = typeof Mixer !== "undefined" ? Mixer.guitar : null;
@@ -34239,8 +34376,6 @@ const Voice = (() => {
       if(ch && Guitar.state.inputChannel === "auto") showToast(`Mikrofon na vstupu ${ch} — kytara na „Automaticky“ teď bere jen vstup ${ch === "2" ? 1 : 2}.`);
       else if(ch && Guitar.state.inputChannel === ch) showToast(`Pozor: kytara je nastavená na stejný vstup ${ch} jako mikrofon.`);
     }
-    tellWidget();
-    if(on){ stop(); start(); }
   };
   paint();
   return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate, heard: got,

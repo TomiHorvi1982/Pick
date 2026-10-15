@@ -681,6 +681,18 @@ napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
 ±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
 
+## Mikrofon pro zpěv a hlas
+
+Nastavení → Zvuk a MIDI → **Mikrofon pro zpěv a hlas**: jeden výběr mikrofonu (a jeho vstupu)
+pro trenéra zpěvu, Výslovnost, nový hlas, úryvek zpěvu k písni, Namluvit u přezpívání řádku a
+hlasové ovládání (klíče `pick-voice-mic` / `pick-voice-ch`, stejné ukazuje i výběr v horní liště).
+Kytara má svůj vstup dál v nastavení kytary — prohlížeč poslouchá obě zařízení zároveň (USB
+mikrofon i zvukovku), nic se spojovat nemusí. `VoiceMic.stream()` vezme zvolený vstup samotný
+(zvukovka 1/2, agregované zařízení 3…; zastavení jeho stopy pustí i mikrofon), `VoiceMic.open()`
+celé zařízení pro worklety trenéra a ovládání, odpojený mikrofon nahradí výchozím. Vyzkoušet:
+ukazatel hlasitosti a počet vstupů zařízení. Návod na agregované zařízení v macOS (Nastavení
+Audio MIDI) je v sekci rozbalovací — pro aplikace, které umí jen jeden vstup.
+
 ## Trenér zpěvu
 
 Ve Steems, Panely → **Trenér zpěvu** (`sing.py`, modul `Sing` ve stránce). Server
