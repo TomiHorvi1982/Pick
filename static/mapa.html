@@ -171,7 +171,7 @@ html{scroll-behavior:smooth}
 <main class="wrap">
   <div class="hero">
     <div>
-      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit 6bf0f78</div>
+      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit 3666514</div>
       <h1>Co <em>Pick</em> umí a kde to leží</h1>
       <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
     </div>
@@ -179,8 +179,8 @@ html{scroll-behavior:smooth}
       <div class="fact"><b>37</b><span>popsaných funkcí</span></div>
       <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
       <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
-      <div class="fact"><b>441</b><span>automatických testů</span></div>
-      <div class="fact"><b>224</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>448</b><span>automatických testů</span></div>
+      <div class="fact"><b>225</b><span>commitů od 12. 9.</span></div>
       <div class="fact"><b>637</b><span>písní ve Steems</span></div>
     </div>
   </div>
@@ -298,6 +298,8 @@ html{scroll-behavior:smooth}
 ├─ audio2midi.py      <span class="c">zvuk → noty (basic-pitch)</span>
 ├─ tts_worker.py      <span class="c">vlastní hlas čte (OmniVoice)</span>
 ├─ svc_worker.py      <span class="c">vlastní hlas zpívá (Seed-VC)</span>
+├─ tone_worker.py     <span class="c">tónový otisk: hledání zvuku z nahrávky</span>
+├─ tone_nam.mjs       <span class="c">NAM offline v Node (stejný engine jako živě)</span>
 ├─ menubar.py         <span class="c">♪ v liště macOS</span>
 ├─ Pick.command       <span class="c">spuštění lišty z Finderu</span>
 ├─ README.md          <span class="c">podrobný popis všeho</span>
@@ -306,6 +308,7 @@ html{scroll-behavior:smooth}
 │  ├─ studio.js       <span class="c">stránka Skladatele + přehrávač s nástroji</span>
 │  ├─ look.js         <span class="c">režim úprav vzhledu</span>
 │  ├─ practice.js     <span class="c">playlisty Steems + MIDI pedál</span>
+│  ├─ tone.js         <span class="c">tónový otisk na živé kytaře</span>
 │  ├─ mini.html       <span class="c">minipřehrávač</span>
 │  ├─ analyzer.html   <span class="c">Performance Analyzer</span>
 │  ├─ analyzer-engine.js
@@ -315,7 +318,7 @@ html{scroll-behavior:smooth}
 │  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
 │  ├─ <span class="d">stretch/</span>       <span class="c">zpomalení a ladění bez změny tempa</span>
 │  └─ <span class="d">ladicka/</span>       <span class="c">ladička</span>
-├─ <span class="d">tests/</span>            <span class="c">35 souborů, 441 testů</span>
+├─ <span class="d">tests/</span>            <span class="c">36 souborů, 448 testů</span>
 ├─ <span class="d">docs/</span>             <span class="c">plány a návrhy (září)</span>
 └─ <span class="d">vendor/</span>           <span class="c">kaset, stemdeck — jen předlohy</span></pre>
       </div>
@@ -327,6 +330,7 @@ html{scroll-behavior:smooth}
 ├─ <span class="d">Stems/&lt;píseň&gt;/</span>          <span class="c">637 písní na stopy</span>
 │   ├─ vocals, drums, bass, guitar, piano, other .mp3
 │   ├─ take-N.mp3            <span class="c">tvoje nahrávky</span>
+│   ├─ <span class="d">tone/</span>                <span class="c">tónový otisk: nahrávky, print.json, IR</span>
 │   ├─ session.json          <span class="c">mix (sám se ukládá)</span>
 │   ├─ beats / analysis / sections.json
 │   ├─ tuning, meta, origin.json
@@ -450,8 +454,10 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Zpěvník</h4><p>Rozbor písní ze Steems pro Skladatele: zvuk celé písně i sekcí slovy pro ACE-Step, stavba textu (řádky, slabiky, rýmy), vlastní texty po kapelách a částech, Stavba nové písně ze sekcí různých písní, textař píše do stavby.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Text ze zpěvu, přezpívání, výkon</h4><p>Pick si naposlouchá text ze stopy zpěvu (i české písně), řádek jde opravit nebo přezpívat novými slovy hlasem zpěváka v melodii originálu, a Nastavení ukazuje paměť a procesor — náročné úlohy počkají, když je paměti málo.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Nastavení jako okno, noční plán</h4><p>Nastavení v plovoucím okně s kategoriemi, zavírání jako v macOS, širší panel ve Skladateli. Noční plán: 7 playlistů (977 písní, 721 nových) stáhnout bez duplicit s taby a texty a rozdělit, texty všech písní z LRCLib nebo odposlechem, celý Zpěvník.</p></div></div>
+        <div class="stop"><div class="date">15. 10.</div><div class="dot"></div><div><h4>Tónový otisk</h4><p>Živá kytara zní jako kytara z písně: zahraješ úsek s písní, Pick sám vybere jádro zkreslení z knihovny NAM, drive a ekvalizér, spočítá barvu, dozvuk a šířku, ukáže shodu a slepý test. NAM počítá offline stejným enginem jako živě. Přezpívaný řádek má nad stopou pruh Nový text.</p></div></div>
         <div class="stop now"><div class="date">teď</div><div class="dot"></div><div><h4>Čeká na tvoje vyzkoušení</h4>
           <ul>
+            <li>Tónový otisk s tvou kytarou: nahrát úsek, vytvořit otisk, hrát s ním, slepý test (po restartu Picku)</li>
             <li>Poslech: přezpívané demo v „Kryštof – Intro“, projekty „Zkouška Skladatele“ a „Zkouška modelů“ (SFT a Turbo s přemýšlením)</li>
             <li>Textař přes Clauda: na účtu Anthropic chybí kredit, zatím píše slabší model v počítači</li>
             <li>Úryvek zpěvu a průvodce hlasem se skutečným mikrofonem a sluchátky</li>
@@ -461,6 +467,10 @@ html{scroll-behavior:smooth}
           </ul></div></div>
         <div class="stop next"><div class="date">dál?</div><div class="dot"></div><div><h4>Možné další kroky (návrhy)</h4>
           <ul>
+            <li><b>Přesný otisk</b>: vlastní NAM model natrénovaný z tvých nahrávek proti originálu, export do ToneRigu a NAM pluginu</li>
+            <li><b>Kytara → taby</b>: ze stopy kytary nebo z tvého hraní tab do Pick Tabs (struny, pražce, takty)</li>
+            <li><b>Virtuální kytara</b>: napsaný nebo vložený riff zahraný zvukem otisku</li>
+            <li>Nativní engine kytary (~5–8 ms), kdyby zpoždění v prohlížeči nestačilo</li>
             <li>Doladit výchozí kvalitu a výšku hlasu podle toho, jak ti to zní</li>
             <li>Opravy jednotlivých úseků přezpívaného zpěvu přímo na stopě</li>
             <li>Delší songy ze Skladatele po částech (sloka, refrén, sólo)</li>
@@ -496,7 +506,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu 6bf0f78 (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu 3666514 (15. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
@@ -570,6 +580,9 @@ const F = [
  {id:"tonerig", g:"guitar", n:"ToneRig z telefonu", w:"Nastavení kytary → ToneRig, tlačítko TONERIG", d:"ToneRig v iPhonu jako zesilovač; předvolby 1–8 přepínáš z Macu nebo stránkou v telefonu přes MIDI.", st:"test",
   how:["Otevři nastavení ToneRig, projdi kroky.","Zapni stránku pro telefon a otevři odkaz v iPhonu.","Vyzkoušej tlačítka Test a MIDI Learn."],
   code:[[IX,"ToneRig ř. 13642"],["server.py","ToneRig ř. 5116 (port 8767)"]], data:["config.json"], v:[]},
+ {id:"tone", g:"guitar", n:"Tónový otisk", w:"Kanál Live kytara → OTISK", d:"Tvoje živá kytara zní jako kytara z vybrané písně. Zahraješ úsek s písní, Pick si nahraje čistý signál kytary a sám najde řetězec, který zní jako originál: jádro zkreslení z tvých 86 NAM modelů, drive, ekvalizér před jádrem, barvu (IR spočítaná přímo ze spektra originálu), dozvuk a šířku. Ukáže shodu v %, křivky spekter a porovnání; slepý test řekne, jestli poznáš originál od sebe. Otisk jedné písně jde použít u kterékoli jiné.", st:"test",
+  how:["Otevři píseň ve Steems, na kanálu Live kytara klikni OTISK.","Vyber úsek, kde kytara hraje (návrh nebo smyčka z mixu), zapni vstup kytary.","● Nahrát: píseň začne 3 s před úsekem, zahraj ho s ní.","Vytvořit otisk (asi 2 minuty), pak Hrát s otiskem.","▶ Originál / ▶ Ty a Slepý test; Doladit s další nahrávkou, Vrátit předchozí."],
+  code:[["tone_worker.py","Fit: měření, síto jader, Nelder–Mead, barva → IR, dozvuk, selftest"],["tone_nam.mjs","NAM offline v Node — stejný wasm jako živě"],["static/tone.js","okno, nahrávka na hodinách písně, řetězec v živé kytaře, slepý test"],["server.py","/api/tone/… (take, fit, sections, abx, prints, undo)"],[IX,"Guitar.setPrint, cleanTap, onRewire; tlačítko OTISK"]], data:["Stems/<píseň>/tone/ (take-N.wav, print.json, print-ir.wav, you.wav)","~/.local/venvs/pick-tone"], v:[]},
  {id:"tuner", g:"guitar", n:"Ladička a vlastní ladění", w:"Mixpult → ladička", d:"Ladička, vlastní ladění sdílená s hmatníkem, zjištění ladění z kytary.", st:"ok",
   how:["Otevři ladičku.","Vyber ladění nebo vytvoř vlastní.","„Zjistit z kytary“ ho pozná ze zahraných strun."],
   code:[[IX,"Tuner ř. 15587, Tunings ř. 13377"],["static/ladicka/","neverlast-ladicka.js"]], data:["config.json"], v:[]},

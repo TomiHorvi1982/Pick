@@ -3847,6 +3847,56 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-lyr-more{min-width:0 !important;padding:2px 9px !important;font-size:15px !important;letter-spacing:1px;line-height:1}
   .nm-lyr-pop{min-width:150px !important}
   .nm-lyr-pop .tm-item{padding:6px 12px !important;font-size:12.5px !important}
+  /* Tónový otisk (static/tone.js): a floating window out of the live guitar's OTISK button */
+  .tone-win{position:fixed;left:calc(50% - 250px);top:90px;width:500px;max-width:calc(100vw - 16px);max-height:calc(100vh - 110px);
+    display:flex;flex-direction:column;z-index:1200;background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);
+    border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.55);font-size:13px}
+  .tone-win[hidden]{display:none}
+  .tw-bar{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:grab;user-select:none;border-bottom:1px solid var(--border);
+    background:color-mix(in srgb,var(--card-hi) 60%,transparent);border-radius:12px 12px 0 0}
+  .tw-bar:active{cursor:grabbing}
+  .tw-close{border:0;background:none;padding:0;cursor:pointer;display:flex}
+  .tw-title{font-weight:700}
+  .tw-song{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .tw-body{overflow-y:auto;padding:4px 14px 14px}
+  .tw-sec{padding:10px 0;border-bottom:1px solid var(--border)}
+  .tw-sec:last-child{border-bottom:0}
+  .tw-h{font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .tw-h select,.tw-prints{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px}
+  .tw-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+  .tw-row .btn{padding:5px 11px;font-size:12px}
+  .tw-sub{color:var(--sub);font-size:12px;line-height:1.45}
+  .tw-note{color:var(--sub);padding:14px 0}
+  .tw-warn{color:var(--gold);font-size:12px;margin:6px 0}
+  .tw-chip{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer}
+  .tw-chip.on,.tw-chip:hover{border-color:var(--accent);color:var(--accent)}
+  .tw-takes{display:flex;flex-direction:column;gap:3px}
+  .tw-take{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+  .tw-take span{flex:1}
+  .tw-mini{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:6px;padding:1px 7px;cursor:pointer;font-size:11px}
+  .tw-recnote{color:var(--sub);font-size:12px}
+  .tw-prog{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+  .tw-stage{font-size:12px}
+  .tw-pbar{width:100%;height:6px;border-radius:3px;background:var(--card);overflow:hidden}
+  .tw-pbar i{display:block;height:100%;background:var(--accent);transition:width .4s}
+  .tw-match{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tw-match b{font-size:28px;color:var(--accent)}
+  .tw-match span{color:var(--sub);flex:1}
+  .tw-curve{width:100%;height:120px;background:linear-gradient(var(--bg),var(--bg)),#101118;border:1px solid var(--border);border-radius:8px;margin-top:8px}
+  .tw-legend{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--sub);margin:2px 0 6px}
+  .tw-legend i{display:inline-block;width:14px;height:3px;border-radius:2px}
+  .tw-legend i.rec,.tw-track i.rec{background:var(--accent)}
+  .tw-legend i.you,.tw-track i.you{background:var(--gold)}
+  .tw-meter{display:grid;grid-template-columns:72px 1fr 120px;gap:8px;align-items:center;font-size:12px;margin:3px 0}
+  .tw-ml{color:var(--sub)}
+  .tw-track{position:relative;height:6px;border-radius:3px;background:var(--card)}
+  .tw-track i{position:absolute;top:-3px;width:4px;height:12px;border-radius:2px;margin-left:-2px}
+  .tw-mv{text-align:right;color:var(--sub);white-space:nowrap}
+  .tw-mv b{color:var(--gold);font-weight:600}
+  .tw-blind{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:8px 10px;border-radius:8px;
+    background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .tw-more{margin-top:6px}
+  .tw-more summary{cursor:pointer;color:var(--sub);font-size:12px}
   /* Steems playlists (static/practice.js) in the left panel, and the MIDI pedal in Settings */
   .sl-box{margin:2px 6px 8px 34px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
   .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:4px 0 2px}
@@ -22455,6 +22505,8 @@ const Mixer = (() => {
     let compNode = null;      // native DynamicsCompressorNode, gate -> comp -> amp
     let compMakeup = null;    // its make-up gain
     let fxChain = null;       // mono / doubler after the EQ (see makeFx)
+    let printChain = null;    // a tone print (static/tone.js): in place of comp, amp and cab
+    const rewireHooks = [];
     let ampNode = null;       // NAM worklet, when a model is loaded
     let cabNode = null;       // ConvolverNode
     let recNode = null;       // take-recorder
@@ -22671,7 +22723,7 @@ const Mixer = (() => {
       if(!gainNode || !pannerNode || !analyser) return;
       const audioCtx = ctxRef();
       [source, splitter, inSel, inGain, gateNode, compNode, compMakeup, ampNode, cabNode, recNode, dryGain, instrOut, gainNode, pannerNode, analyser, virtualSource,
-       guideAmp, guideCab, guideOut, fxChain && fxChain.output,
+       guideAmp, guideCab, guideOut, fxChain && fxChain.output, printChain && printChain.output,
        ...(guitarEq && guitarEq.eqFilters ? guitarEq.eqFilters : [])]
         .forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
 
@@ -22694,12 +22746,17 @@ const Mixer = (() => {
         // but still clean — before the gate and the amp.
         if(instrTap) node.connect(instrTap);
         node.connect(gateNode); node = gateNode;
-        if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
         // An external amp (ToneRig on the phone) has already shaped the
         // sound — ours would be a second amp on top of it.
         const ext = state.externalAmp || state.tunnel;
-        if(ampNode && !ext){ node.connect(ampNode); node = ampNode; }
-        if(cabNode && !ext){ node.connect(cabNode); node = cabNode; }
+        // A tone print is a whole amp of its own (drive, EQ, core, colour,
+        // room) — fitted on the clean signal, so the compressor stays out too.
+        if(printChain && !ext){ node.connect(printChain.input); node = printChain.output; }
+        else {
+          if(compNode && state.compOn){ node.connect(compNode); compNode.connect(compMakeup); node = compMakeup; }
+          if(ampNode && !ext){ node.connect(ampNode); node = ampNode; }
+          if(cabNode && !ext){ node.connect(cabNode); node = cabNode; }
+        }
         node.connect(recNode); node = recNode;
         if(dryGain){ node.connect(dryGain); node = dryGain; }
         node.connect(gainNode);
@@ -22730,6 +22787,7 @@ const Mixer = (() => {
       outNode.connect(analyser);
       analyser.connect(pannerNode);
       pannerNode.connect(masterOut());
+      rewireHooks.forEach(f => { try{ f(); }catch(e){} });
     }
 
     // Lazily builds the live guitar's own EQ the first time it's needed —
@@ -23054,6 +23112,13 @@ const Mixer = (() => {
         if(guideOut) guideOut.gain.value = state.guideVolume;
       },
       setCab(node, name){ cabNode = node; state.cabName = name; if(gainNode) rewire(); },
+      // A tone print's chain ({input, output}), or null for the amp and cab again.
+      setPrint(chain){ printChain = chain; if(gainNode) rewire(); },
+      hasPrint: () => !!printChain,
+      // The guitar clean — the right input with GAIN, before gate and amp — and a
+      // word after every rewire (it drops whatever was listening there).
+      cleanTap: () => inGain || inSel || source,
+      onRewire(fn){ rewireHooks.push(fn); return () => { const i = rewireHooks.indexOf(fn); if(i >= 0) rewireHooks.splice(i, 1); }; },
       analyserNode: () => analyser,
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
@@ -24867,7 +24932,7 @@ const Mixer = (() => {
         <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
       </div>
       <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
-        title="${escapeHtml(g.ampName || "")}">${escapeHtml(g.ampName || "—")}</span>`}
+        title="${escapeHtml(g.ampName || "")}">${escapeHtml(typeof Tone !== "undefined" && Tone.on() ? "Otisk · " + Tone.label() : (g.ampName || "—"))}</span>`}
       <div class="fl-fx-row">
         <button class="fl-fx-btn ${fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${fx.state.mono ? "MONO" : "ST"}</button>
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
@@ -24875,6 +24940,8 @@ const Mixer = (() => {
       </div>
       <button class="fl-fx-btn fl-instr-btn" id="gt-instr-btn" data-act="instr"
         title="Kytara jako nástroj — tvoje hraní zahraje klavír, smyčce, píšťala…">NÁSTROJ</button>
+      <button class="fl-fx-btn fl-instr-btn ${typeof Tone !== "undefined" && Tone.on() ? "on" : ""}" id="gt-tone-btn" data-act="tone"
+        title="${typeof Tone !== "undefined" && Tone.on() ? escapeHtml("Hraješ s otiskem: " + Tone.label()) : "Tónový otisk — tvoje kytara zní jako kytara z písně"}">OTISK</button>
       <button type="button" class="fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
         id="gt-eq-btn" title="Ekvalizér tvé živé kytary"><span class="dot"></span>EQ</button>`;
   }
@@ -24916,6 +24983,7 @@ const Mixer = (() => {
     act("comp").onclick = () => openCompPanel("guitar");
     act("dbl").onclick = () => openDblPanel("guitar");
     act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
+    act("tone").onclick = () => { if(typeof Tone !== "undefined") Tone.open(); };
     paintInstrument();
     strip.querySelector("#gt-eq-btn").onclick = () => {
       Guitar.ensureEq();
@@ -25666,6 +25734,13 @@ const Mixer = (() => {
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
     speed: () => speed, setSpeed: (v) => setSpeed(v),
+    // The tone print (static/tone.js): the song's clock for a take, the NAM engine, the
+    // take latency, the live guitar's doubler.
+    songAt: (t) => songAtCtx(t),
+    namEngine: () => Amp.engine(),
+    takeLatency: () => (TakeRec.opts.latencyMs != null ? TakeRec.opts.latencyMs : (Guitar.state.latencyMs || 0)) / 1000,
+    guitarDoubler: (on) => { const fx = Guitar.fx(); if(!!fx.state.dbl.on !== !!on) return setDoubler(fx, {on: !!on}).then(() => renderLiveGuitarFader()); },
+    guitarFaderRepaint: () => renderLiveGuitarFader(),
     // Voice commands (Voice, further down): the tracks by their stem, the song by its sections.
     voice: (() => {
       const find = (stem) => channels.find(c => c.stem === stem) || channels.find(c => c.stem.split("_")[0] === stem);
@@ -33959,5 +34034,6 @@ const Voice = (() => {
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
 <script src="/static/look.js"></script>
+<script src="/static/tone.js"></script>
 </body>
 </html>

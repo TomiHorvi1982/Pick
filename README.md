@@ -74,6 +74,15 @@ Checkpoint (~10 MB) se stáhne z Hugging Face při prvním běhu. Server volá
 `analyze.py` pod tímhle interpretem; když venv chybí, endpoint vrátí 503 a
 zbytek mixpultu funguje dál.
 
+Tónový otisk (`tone_worker.py`) má **vlastní malý** venv bez torche a NAM
+pouští přes Node (`/opt/homebrew/bin/node`) stejným WebAssembly enginem, jaký
+hraje živá kytara (`tone_nam.mjs` načte `static/nam/nam-worklet.js`):
+
+```bash
+uv venv --python 3.12 ~/.local/venvs/pick-tone
+uv pip install --python ~/.local/venvs/pick-tone/bin/python numpy scipy soundfile
+```
+
 Hlasové ovládání (`voice.py`, mikrofon v horní liště) rozpoznává řeč přímo
 v počítači knihovnou Vosk; nic se nikam neposílá. Potřebuje malý anglický model
 (~68 MB) mimo repozitář:
@@ -598,6 +607,48 @@ není, otevře pro to minipřehrávač. macOS musí mít pro Pick povolený mikr
 Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zvenku
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
+
+## Tónový otisk
+
+Tvoje živá kytara zní jako kytara z písně (tlačítko **OTISK** na kanálu Live
+kytara; návrh v `docs/specs/2026-10-15-tonovy-otisk-design.md`). Aparáty ani
+efekty neřešíš — engine si z knihovny NAM modelů (`amps/`) sám vybere jádro
+zkreslení a zbytek dopočítá.
+
+1. **Úsek** — smyčka z mixu, nebo jeden z návrhů `GET /api/tone/{song}/sections`
+   (kde kytara hraje nejvíc a ostatní nejméně; u rozdělené kytary sólová/rytmická).
+2. **Kalibrace** — píseň začne 3 s před úsekem a ty ho zahraješ s ní. Nahrává
+   se čistý signál kytary (za GAIN, před gate a zesilovačem) a přes hodiny
+   písně a latenci se zarovná na čas písně → `Stems/<píseň>/tone/take-N.wav`
+   (`POST /api/tone/{song}/take?start=…&gain_db=…`, drží se posledních 8).
+3. **Otisk** (`POST /api/tone/{song}/fit`, ~2 min, hlídá paměť) — `tone_worker.py`:
+   dorovná zpoždění nahrávky proti originálu, změří, co barva spravit neumí
+   (rozptyl hlasitosti v pásmech, plochost spektra mezi harmonickými, crest,
+   sustain po úderu, souběh obálek), a zkouší jádra: všechna × 2 drive na 4 s,
+   nejlepších 20 × 4 drive na 8 s, nejlepší 4 doladí Nelder–Meadem (drive,
+   ořez basů, středy, sklon před jádrem). **Barvu nehledá** — pro každé jádro
+   ji spočítá přímo (dlouhodobé spektrum originálu / jádra po 1/6 oktávy →
+   minimální-fázová IR `print-ir.wav`, i s hlasitostí). Dozvuk odhadne z toho,
+   jak tóny originálu doznívají tam, kde jsi přestal hrát; šířku z korelace L/P
+   (zapne doubler). Výsledek `print.json`: řetězec, shoda v %, porovnání
+   (zkreslení, sustain, jas, basy, prostor), křivky spekter, pořadí jader.
+4. **Živě** — `static/tone.js` postaví v řetězci kytary totéž, co slyšel fit:
+   drive → highpass/peaking/shelfy (vzorce Web Audio, stejné v Pythonu) →
+   NAM jádro → `ConvolverNode` (IR, `normalize = false`) → dozvuk (IR ze
+   stejného generátoru šumu mulberry32 jako v Pythonu) → doubler. Kompresor
+   kytary je s otiskem obejitý. Změnu GAIN od nahrávky vyrovná drive. Otisk
+   jedné písně jde zapnout u kterékoli jiné (`GET /api/tone/prints`) a po
+   znovunačtení se vrátí, jakmile zapneš vstup kytary.
+5. **Kontrola** — ▶ Originál / ▶ Ty a **slepý test** (5 kol) z mixů úseku,
+   které složí server (`POST /api/tone/{song}/abx`: kapela + originální
+   kytara, nebo kapela + `you.wav`). **Doladit** = nový fit i s novými
+   nahrávkami, jen z 12 nejlepších jader minula; **Vrátit předchozí**
+   (`POST /api/tone/{song}/undo`).
+
+Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
+napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
+pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
+±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
 
 ## Trenér zpěvu
 
