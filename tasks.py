@@ -41,9 +41,12 @@ def table() -> dict:
         p = line.split(None, 6)
         if len(p) < 6:
             continue
+        args = p[6] if len(p) > 6 else ""
+        if args.startswith("/bin/ps ") and p[1] == str(os.getpid()):
+            continue                                       # this very look (and the load meter's), not a job
         try:
             rows[int(p[0])] = {"ppid": int(p[1]), "rss": int(p[2]) * 1024, "avg": float(p[3].replace(",", ".")),
-                               "ct": _seconds(p[4]), "stat": p[5], "args": p[6] if len(p) > 6 else ""}
+                               "ct": _seconds(p[4]), "stat": p[5], "args": args}
         except ValueError:
             continue
     with _LOCK:
