@@ -103,6 +103,7 @@ def _load_music_root() -> Path:
 
 
 MUSIC_ROOT = _load_music_root()
+import storage as _storage                  # the cards (Nastavení → Úložiště); hooks set further down
 
 # Only ever a plain file name from our own worklets folder.
 import re as _re_mod
@@ -181,7 +182,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "tone.js"):
+    if name in ("look.js", "studio.js", "practice.js", "tone.js", "viz.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -2721,8 +2722,8 @@ def _resolve_under_music_root(rel: str) -> Optional[Path]:
         # OSError: other filesystem-related errors during resolve
         return None
     root = MUSIC_ROOT.resolve()
-    if candidate != root and root not in candidate.parents:
-        return None
+    if candidate != root and root not in candidate.parents and not _storage.under_card(candidate):
+        return None                         # (a song on another card Pick uses comes through its link)
     return candidate
 
 
@@ -5711,6 +5712,26 @@ STEM_EXT = ".mp3"
 STEM_READ_EXTS = (".mp3", ".wav", ".flac")
 
 
+def _library_rel(d: Path) -> Optional[Path]:
+    """d as a path within the music folder — also a song on another card Pick uses, reached
+    through its link (Stems/<name>) or by where it really is (<card>/Stems/<name>)."""
+    try:
+        return d.resolve().relative_to(MUSIC_ROOT.resolve())
+    except (ValueError, OSError):
+        pass
+    try:
+        rel = d.relative_to(MUSIC_ROOT)
+        return rel if _storage.under_card(d.resolve()) else None
+    except (ValueError, OSError):
+        pass
+    for c in _storage.cards():
+        try:
+            return d.resolve().relative_to(c.resolve())
+        except (ValueError, OSError):
+            pass
+    return None
+
+
 def _stem_file(stems_dir: Path, stem: str) -> Optional[Path]:
     """The file for one stem, whatever format it was written in.
 
@@ -5718,9 +5739,8 @@ def _stem_file(stems_dir: Path, stem: str) -> Optional[Path]:
     is_file() here would happily follow a symlink out of the library, which is
     precisely what _resolve_under_music_root exists to stop.
     """
-    try:
-        rel_dir = stems_dir.resolve().relative_to(MUSIC_ROOT.resolve())
-    except (ValueError, OSError):
+    rel_dir = _library_rel(stems_dir)
+    if rel_dir is None:
         return None
     for ext in STEM_READ_EXTS:
         candidate = _resolve_under_music_root(f"{rel_dir}/{stem}{ext}")
@@ -5805,9 +5825,14 @@ def _finalize_stems_job(job: dict) -> None:
     if not raw_track_dir.is_dir():
         raise FileNotFoundError(f"Demucs nevytvořil očekávaný výstup ({raw_track_dir})")
     dest_dir.parent.mkdir(parents=True, exist_ok=True)
-    if dest_dir.exists():
+    if dest_dir.is_symlink():               # separated again: the old set was on another card
+        shutil.rmtree(dest_dir.resolve(), ignore_errors=True)
+        dest_dir.unlink()
+    elif dest_dir.exists():
         shutil.rmtree(dest_dir)
-    shutil.move(str(raw_track_dir), str(dest_dir))
+    real_dir = _storage.place_song(dest_dir)   # the card chosen for new songs (Nastavení → Úložiště)
+    shutil.move(str(raw_track_dir), str(real_dir))
+    _storage.link_song(dest_dir, real_dir)
     # Who and what this is, while the source file is still known — it may
     # be moved or renamed later.
     tags = _audio_tags(source) if source.is_file() else {}
@@ -7609,6 +7634,10 @@ def list_stems():
     if not stems_root.is_dir():
         return []
     _stems_take_in(stems_root)
+    try:
+        _storage.link_sync()                # a card put in since: its songs are listed too
+    except OSError:
+        pass
     out = []
     playlists = _stems_playlists()
     for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
@@ -12112,6 +12141,19 @@ _songbook.kept_text = _songbook_kept_text
 _songbook.busy = _songbook_busy
 _songbook.genres_lookup = _songbook_genres
 app.include_router(_songbook.router)
+
+# ---- Úložiště: the cards, what fills them, a new card made ready, where new songs go
+_storage.main = lambda: MUSIC_ROOT
+_storage.config = lambda: dict(_read_config().get("storage") or {})
+_storage.set_config = lambda cfg: _write_config({"storage": cfg})
+app.include_router(_storage.router)
+
+# ---- Vizualizace: the player's own videos by theme (Vizualizace/ beside the music), the song's clip
+import viz as _viz
+_viz.root = lambda: MUSIC_ROOT / "Vizualizace"
+_viz.ytdlp = lambda: shutil.which("yt-dlp") or str(Path.home() / ".local" / "venvs" / "spotdl" / "bin" / "yt-dlp")
+_viz.search_videos = lambda q: yt().search(q, filter="videos", limit=3)
+app.include_router(_viz.router)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _songbook.resume_after_restart()        # a batch cut off by the last stop goes on
     _saves_resume()                         # …and the songs that were waiting to be saved

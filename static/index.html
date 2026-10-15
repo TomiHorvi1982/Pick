@@ -2284,6 +2284,16 @@ body.lib-collapsed .pick-brand{display:none}
   .pl-acts button:disabled{opacity:.35;cursor:default}
   .pl-empty{font-size:12.5px;color:var(--sub);padding:12px;border:1px dashed var(--border);border-radius:9px;text-align:center}
   .pl-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .st-card{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 12px;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .st-card.main{border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+  .st-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.st-h b{font-size:14px}.st-h small{color:var(--sub);font-size:12px}
+  .st-tag{font-size:10.5px;border-radius:500px;padding:1px 8px;background:color-mix(in srgb,var(--accent) 22%,transparent)}
+  .st-bar{height:9px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;display:flex}
+  .st-bar i{display:block;height:100%}
+  .st-parts{display:grid;grid-template-columns:12px 1fr auto auto;gap:3px 8px;font-size:12.5px;align-items:center}
+  .st-parts .dot{width:9px;height:9px;border-radius:3px}.st-parts .n{color:var(--sub);text-align:right}.st-parts .g{text-align:right;font-variant-numeric:tabular-nums}
+  .st-acts{display:flex;gap:8px;flex-wrap:wrap}.st-acts .btn{border-radius:500px;padding:5px 12px;font-size:12px}
+  .st-warn{color:var(--danger,#ff6b6b);font-size:12.5px}
   .pl-tools .btn{border-radius:500px;padding:6px 14px;font-size:12.5px}
   .pl-hist{margin-top:10px;font-size:12px}
   .pl-hist summary{cursor:pointer;color:var(--sub)}
@@ -4728,6 +4738,12 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" class="pl-x" id="pl-hist-clear">Smazat historii</button></details>
       <div class="set-note">Když spustíš něco náročného — rozdělení na stopy, stažení a přípravu playlistu nebo oblíbených, rozbor Zpěvníku, zpěv jiným hlasem, tónový otisk — Pick se zeptá, jestli hned, nebo v noci. Naplánované se v noci spustí jedna po druhé: další až když předchozí doběhne a nic těžkého neběží; když zrovna hraje hudba, počkají. ↑ ↓ mění pořadí, ▶ spustí jednu hned, ✕ ji zruší. Mac přitom neusne, ale musí být zapnutý a Pick spuštěný.</div>
 
+      <div class="section-title" style="margin-top:20px"><span data-icon="drive"></span>Úložiště</div>
+      <div class="st-list" id="st-list"><div class="set-note">Načítám…</div></div>
+      <div class="pl-tools"><button type="button" class="btn secondary" id="st-recount">Přepočítat</button><span class="set-note" id="st-when" style="margin:0"></span></div>
+      <div class="st-disks" id="st-disks"></div>
+      <div class="set-note">Hlavní karta je ta, ze které Pick čte všechno. Další kartu přidáš tlačítkem „Ukládat sem taky“: Pick na ní založí složku spotdl a její písně ve Steems uvidíš spolu s ostatními (když kartu vytáhneš, její písně se jen schovají). „Nové písně sem“ určí, kam půjdou nově rozdělené písně. Nová karta, která není pro Mac, se dá naformátovat — smaže se tím celá.</div>
+
       <div class="section-title" style="margin-top:20px"><span data-icon="pencil"></span>Poznámky a nápady</div>
       <div class="nt-add">
         <div class="nt-kinds" id="nt-kinds"><button type="button" data-kind="chyba">Chyba</button><button type="button" data-kind="napad">Nápad</button><button type="button" data-kind="poznamka">Poznámka</button></div>
@@ -5810,6 +5826,7 @@ body.lib-collapsed .pick-brand{display:none}
   </div>
   <div class="pb-right">
     <button class="pb-ctl pb-lyrics-btn" id="pb-lyrics-btn" title="Text písně" aria-label="Text písně"></button>
+    <button class="pb-ctl" id="pb-viz-btn" title="Vizualizace — obraz, který hraje s hudbou (Pick ho kreslí, klip písně, nebo tvoje videa)" aria-label="Vizualizace"></button>
     <button class="pb-ctl" id="pb-queue-btn" title="Fronta" aria-label="Fronta"><span class="pb-badge" id="pb-queue-count">0</span></button>
     <!-- Everything else you can do with the song playing, under one button. -->
     <div class="tmenu" data-tmenu="song">
@@ -9842,6 +9859,7 @@ const ICONS = (() => {
       line("M17.6 3.4v3.6h-3.6M6.4 20.6V17h3.6"),
     file: line("M7 3.6h7l4 4v12.8H7Z") + line("M14 3.6v4h4"),
     fileText: line("M7 3.6h7l4 4v12.8H7Z") + line("M14 3.6v4h4") + line("M9.6 12.2h4.8M9.6 15.4h4.8"),
+    viz: line("M3.6 5.6h16.8v12.8H3.6Z") + line("M6.2 12.4h2.2l1.5-3.6 2.3 7 2.2-5.2 1.4 1.8h2"),
     image: line("M4.4 5.6h15.2v12.8H4.4Z") + line("M4.4 15.2l4.2-4 3.6 3.4 2.6-2.2 4.8 4.4") + solid("M15.6 8.2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z"),
     archive: line("M4.4 5.2h15.2v3.6H4.4Z") + line("M5.6 8.8v9.6h12.8V8.8") + line("M10 12.4h4"),
     folderMove: line("M3.6 7.2a1.6 1.6 0 0 1 1.6-1.6h3.9l1.9 2h7.8a1.6 1.6 0 0 1 1.6 1.6v7.6a1.6 1.6 0 0 1-1.6 1.6H5.2a1.6 1.6 0 0 1-1.6-1.6Z") + line("M9.2 13h5.6M12.6 10.8l2.2 2.2-2.2 2.2"),
@@ -9897,6 +9915,7 @@ function paintPlayerIcons(){
   put("pb-next", "next", 17);
   put("pb-repeat", "repeat", 17);
   put("pb-lyrics-btn", "lyrics", 17);
+  put("pb-viz-btn", "viz", 17);
   put("pb-tab-btn", "note", 17);
   put("pb-gtr-btn", "guitar", 17);
   put("pb-queue-btn", "queue", 17);
@@ -26340,6 +26359,8 @@ const Mixer = (() => {
     channelInfo: () => channels.map(c => ({stem: c.stem, label: stemLabel(c.stem), duration: c.buffer.duration, length: c.buffer.length,
       clips: c.clips ? c.clips.map(k => ({...k})) : null})),
     currentSong: () => currentSongName,
+    // Vizualizace (static/viz.js): where in the song, and the output to listen to (a tap; the sound goes on as it was).
+    position: () => currentTime(), vizTap: () => masterGain ? {ctx: audioCtx, node: masterGain} : null,
     loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
     play: () => { if(!isPlaying) play(); }, pause: () => { if(isPlaying) pause(); },
     sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end})), length: () => duration,
@@ -29411,6 +29432,81 @@ const PlanList = (() => {
 // ---- Poznámky a nápady (/api/notes): what does not work in Pick and what to make better —
 // kept on the server (notes.json), so Claude can read them too; "Zkopírovat pro Clauda" puts
 // the open ones on the clipboard as one message.
+// ---- Úložiště (storage.py): how full each card is and what fills it, another card taken into use,
+// where new songs go, and a new card made a Mac card (erased — only with SMAZAT typed in).
+const StoragePane = (() => {
+  const list = el("st-list"), disksBox = el("st-disks");
+  const COLORS = ["#7c5cff", "#2fb7a0", "#f0a030", "#e0507a", "#4aa8ff", "#a0c040", "#c070e0", "#888"];
+  const gb = (b) => b >= 1e9 ? (b / 1e9).toFixed(b >= 1e11 ? 0 : 1).replace(".", ",") + " GB" : Math.max(1, Math.round(b / 1e6)) + " MB";
+  const call = async (url, body) => {
+    const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.error || "Nepodařilo se.");
+    return d;
+  };
+  let st = null, timer = null;
+  function card(v){
+    const parts = v.parts || [], other = v.pick_bytes != null ? Math.max(0, v.used - v.pick_bytes) : 0;
+    const segs = parts.map((p, i) => [p.name, p.bytes, COLORS[Math.min(i, COLORS.length - 2)], `${p.items} ${p.unit}`]);
+    if(v.pick_bytes != null) segs.push(["Ostatní na kartě (mimo Pick)", other, COLORS[COLORS.length - 1], ""]);
+    else segs.push(["Obsazeno", v.used, COLORS[COLORS.length - 1], ""]);
+    const pct = (b) => (b / v.total * 100).toFixed(2) + "%";
+    const low = v.free < 15e9;
+    return `<div class="st-card ${v.main ? "main" : ""}">
+      <div class="st-h"><b>${escapeHtml(v.name)}</b>${v.main ? `<span class="st-tag">hlavní karta</span>` : v.pick ? `<span class="st-tag">Pick ji používá</span>` : ""}
+        ${v.save ? `<span class="st-tag">sem jdou nové písně</span>` : ""}<small>${escapeHtml(v.fs)} · ${escapeHtml(v.bus)}</small></div>
+      <div class="st-bar">${segs.map(([n, b, c]) => `<i style="width:${pct(b)};background:${c}" title="${escapeHtml(n)}: ${gb(b)}"></i>`).join("")}</div>
+      <div class="st-h"><span><b>${gb(v.free)}</b> volno</span><small>z ${gb(v.total)} · obsazeno ${gb(v.used)}</small>${low ? `<span class="st-warn">Dochází místo</span>` : ""}</div>
+      ${v.pick ? (parts.length ? `<div class="st-parts">${segs.map(([n, b, c, items]) => `<span class="dot" style="background:${c}"></span><span>${escapeHtml(n)}</span><span class="n">${escapeHtml(items)}</span><span class="g">${gb(b)}</span>`).join("")}</div>`
+        : `<div class="set-note" style="margin:0">${st.counting ? "Počítám, co na ní je…" : "Ještě nespočítáno."}</div>`) : ""}
+      <div class="st-acts">
+        ${v.pick && !v.save ? `<button type="button" class="btn secondary" data-save="${escapeHtml(v.pick)}">Nové písně sem</button>` : ""}
+        ${!v.pick && v.mac && v.writable ? `<button type="button" class="btn secondary" data-use="${escapeHtml(v.mount)}">Ukládat sem taky</button>` : ""}
+        ${!v.pick && !(v.mac && v.writable) ? `<span class="set-note" style="margin:0">Karta není pro Mac (${escapeHtml(v.fs)}) — níž ji můžeš naformátovat.</span>` : ""}
+        ${v.pick && !v.main ? `<button type="button" class="btn secondary" data-forget="${escapeHtml(v.pick)}">Přestat používat</button>` : ""}
+      </div></div>`;
+  }
+  function paint(){
+    if(!st) return;
+    list.innerHTML = st.volumes.map(card).join("") + st.missing.map((m) => `<div class="st-card"><div class="st-h"><b>${escapeHtml(m)}</b><span class="st-tag">není připojená</span></div>
+        <div class="set-note" style="margin:0">Písně z ní se ve Steems ukážou, až kartu zase vložíš.</div>
+        <div class="st-acts"><button type="button" class="btn secondary" data-forget="${escapeHtml(m)}">Přestat používat</button></div></div>`).join("");
+    el("st-when").textContent = st.counting ? "počítám…" : st.counted ? "spočítáno " + new Date(st.counted * 1000).toLocaleTimeString("cs", {hour: "2-digit", minute: "2-digit"}) : "";
+    const free = st.disks.filter((d) => !st.volumes.some((v) => v.disk === d.disk && v.pick));
+    const job = st.job && st.job.status ? `<div class="set-note" style="margin:0">${st.job.status === "running" ? "⏳ Formátuji kartu " + escapeHtml(st.job.name) + "…" : (st.job.status === "done" ? "✓ " : "⚠︎ ") + escapeHtml(st.job.note)}</div>` : "";
+    disksBox.innerHTML = job + (free.length ? `<div class="st-card"><div class="st-h"><b>Připravit kartu pro Mac</b><small>smaže celou kartu</small></div>
+      ${free.map((d) => `<div class="st-h"><span>${escapeHtml(d.volumes.join(", ") || "karta bez svazku")} · ${gb(d.size)}</span><small>${escapeHtml(d.media)} (${escapeHtml(d.disk)})</small>
+        <button type="button" class="btn secondary" data-format="${escapeHtml(d.disk)}" ${st.job && st.job.status === "running" ? "disabled" : ""}>Naformátovat…</button></div>`).join("")}</div>` : "");
+    list.querySelectorAll("[data-save]").forEach((b) => b.onclick = () => act(() => call("/api/storage/save-to", {root: b.dataset.save}), "Nové písně půjdou na tuhle kartu."));
+    list.querySelectorAll("[data-use]").forEach((b) => b.onclick = () => act(() => call("/api/storage/use", {mount: b.dataset.use}), "Pick kartu používá — založil na ní složku spotdl."));
+    list.querySelectorAll("[data-forget]").forEach((b) => b.onclick = async () => {
+      if(!await Dialog.confirm("Přestat kartu používat? Písně na ní zůstanou, jen je Pick přestane ukazovat.", {ok: "Přestat"})) return;
+      act(() => call("/api/storage/forget", {root: b.dataset.forget}), "Pick kartu už nepoužívá.");
+    });
+    disksBox.querySelectorAll("[data-format]").forEach((b) => b.onclick = () => format(st.disks.find((d) => d.disk === b.dataset.format)));
+  }
+  async function format(d){
+    if(!d) return;
+    const name = await Dialog.prompt(`Karta ${d.volumes.join(", ") || d.disk} (${gb(d.size)}) se naformátuje pro Mac (APFS). Jak se má nová karta jmenovat?`, "PickSD2",
+      {title: "Naformátovat kartu", placeholder: "např. PickSD2"});
+    if(name == null) return;
+    const ok = await Dialog.prompt(`Všechno na kartě ${d.volumes.join(", ") || d.disk} se SMAŽE a nepůjde vrátit. Pro potvrzení napiš SMAZAT.`, "", {title: "Opravdu smazat celou kartu?", ok: "Naformátovat"});
+    if(ok == null) return;
+    act(() => call("/api/storage/format", {disk: d.disk, name: name.trim(), confirm: ok.trim()}), "Formátuji kartu — chvilku to potrvá.");
+  }
+  async function act(fn, msg){
+    try{ await fn(); if(msg) showToast(msg); }catch(e){ showToast(e.message); }
+    tick();
+  }
+  async function tick(){
+    if(settingsOverlay.hidden) return;
+    try{ st = await (await fetch("/api/storage")).json(); paint(); }catch(e){ list.innerHTML = `<div class="set-note">Úložiště se nepodařilo načíst.</div>`; }
+  }
+  el("st-recount").onclick = () => act(() => call("/api/storage/recount"), "");
+  const pace = () => { clearTimeout(timer); timer = setTimeout(async () => { await tick(); if(!settingsOverlay.hidden) pace(); }, st && (st.counting || (st.job && st.job.status === "running")) ? 2500 : 15000); };
+  el("settings-btn").addEventListener("click", () => { setTimeout(tick, 80); pace(); });
+  return {now: tick};
+})();
 const NotesPad = (() => {
   const KINDS = {chyba: "Chyba", napad: "Nápad", poznamka: "Poznámka"}, KEY = "pick-notes-kind";
   let kind = "chyba", show = "open", notes = [];
@@ -29504,6 +29600,7 @@ const SettingsWin = (() => {
     ["sound", "Zvuk a MIDI", /Výstup zvuku|Zvuk bez výpadků|Mikrofon pro zpěv|MIDI/],
     ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
     ["steems", "Steems", /Rozdělení písně|Steems/],
+    ["storage", "Úložiště", /Úložiště/],
     ["notes", "Poznámky", /Poznámky a nápady/],
   ];
   const panel = settingsOverlay.querySelector(".panel"), head = panel.querySelector(".panel-head");
@@ -34928,5 +35025,6 @@ const Voice = (() => {
 <script src="/static/practice.js"></script>
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
+<script src="/static/viz.js"></script>
 </body>
 </html>

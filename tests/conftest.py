@@ -56,6 +56,12 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "TAUGHT_PATH", tmp_path / "voice-taught.json")
     monkeypatch.setattr(voice, "TAKES_DIR", tmp_path / "voice-takes")
     monkeypatch.setattr(voice, "WIDGET_PATH", tmp_path / "voice-widget.json")
+    # …and the clips found for songs; no test ever reaches the real diskutil (formatting!).
+    import viz, storage
+    monkeypatch.setattr(viz, "CLIPS", tmp_path / "viz-clips.json")
+    monkeypatch.setattr(storage, "DISKUTIL", "/usr/bin/false")
+    monkeypatch.setattr(storage, "COUNT", {"at": 0.0, "running": False, "cards": {}})
+    monkeypatch.setattr(storage, "JOB", {"status": None, "disk": "", "name": "", "note": "", "at": 0.0})
     # …and the songbook's own texts and band genres.
     import songbook
     monkeypatch.setattr(songbook, "MINE", tmp_path / "songbook-mine.json")
