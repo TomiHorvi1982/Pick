@@ -42,6 +42,7 @@ def _own_config(tmp_path, monkeypatch):
     """Every test gets an empty config of its own — the user's real one
     (mapped folders, ToneRig, …) must neither leak in nor be written to."""
     monkeypatch.setattr(server, "CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr(server, "SAVES_QUEUE_FILE", tmp_path / "saves-queue.json")
     # …and so do the user's own voice commands and what they taught by voice.
     import voice
     monkeypatch.setattr(voice, "CUSTOM_PATH", tmp_path / "voice-commands.json")

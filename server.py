@@ -5832,6 +5832,7 @@ def _finalize_stems_job(job: dict) -> None:
 _STEMS_QUEUE: list = []                 # job ids, oldest first
 _STEMS_LOCK = threading.Lock()
 _STEMS_WAKE = threading.Event()
+_STEMS_PAUSED = {"on": False}           # held in Úlohy a procesy: nothing new starts
 _STEMS_WORKER: dict = {}
 
 
@@ -5882,7 +5883,10 @@ def _run_stems_job(job: dict) -> None:
             job["_seq"] = job.get("_seq", 0) + 1
     rc = proc.wait()
     job["returncode"] = rc
-    if rc == 0:
+    if job.get("stopped"):                       # ended by hand in Úlohy a procesy
+        job["lines"].append("Zastaveno v Úlohách a procesech.")
+        job["status"] = "stopped"
+    elif rc == 0:
         try:
             _finalize_stems_job(job)
             job["status"] = "done"
@@ -5909,7 +5913,7 @@ def _stems_worker_loop() -> None:
             _STEMS_QUEUE[:] = [jid for jid in _STEMS_QUEUE if jid in JOBS and (
                 JOBS[jid]["status"] in ("queued", "running")
                 or now - JOBS[jid].get("finished", now) < 600)]
-        if job is None:
+        if job is None or _STEMS_PAUSED["on"]:
             _STEMS_WAKE.wait(5)
             _STEMS_WAKE.clear()
             continue
@@ -6134,7 +6138,7 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
             st["position"] = next((i + 1 for i, (jid, _) in enumerate(_stems_active_jobs()) if jid == res["job_id"]), None)
             time.sleep(2)
         if job is not None and job["status"] != "done":
-            st.update(state="error", error="Rozdělení na stopy selhalo.")
+            st.update(state="error", error="Rozdělení na stopy zastaveno." if job["status"] in ("stopped", "cancelled") else "Rozdělení na stopy selhalo.")
             return
         st.update(state="ready", progress=None, position=None)
         _save_finish(st, req)
@@ -6165,18 +6169,70 @@ def _save_finish(st: dict, req: SaveSongRequest) -> None:
 import collections as _collections
 _SAVE_QUEUE: "_collections.deque" = _collections.deque()
 _SAVE_WORKER = {"thread": None}
+_SAVES_PAUSED = {"on": False}           # held in Úlohy a procesy: the song under way is finished, no new one starts
+# What waits is written down (the song under way first), so a restart of Pick goes on with it.
+SAVES_QUEUE_FILE = HOME / ".local" / "share" / "spotdl-helper" / "saves-queue.json"
+_SAVES_NOW: dict = {"req": None}
+
+
+def _saves_keep() -> None:
+    with _SAVES_LOCK:
+        reqs = ([_SAVES_NOW["req"]] if _SAVES_NOW["req"] is not None else []) + [r for _, r in _SAVE_QUEUE if r is not None]
+    try:
+        if reqs:
+            SAVES_QUEUE_FILE.write_text(json.dumps([r.model_dump() for r in reqs], ensure_ascii=False), encoding="utf-8")
+        else:
+            SAVES_QUEUE_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _saves_resume() -> int:
+    """After a restart: what was waiting goes on, the song that was under way first."""
+    try:
+        rows = json.loads(SAVES_QUEUE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    n = 0
+    with _SAVES_LOCK:
+        busy = {st["key"] for st in _SAVES.values() if st["state"] not in ("ready", "error")}
+        for d in rows if isinstance(rows, list) else []:
+            try:
+                req = SaveSongRequest(**d)
+            except Exception:                                 # noqa: BLE001 — a broken row is let go
+                continue
+            key = (req.title.strip().lower(), req.artists.strip().lower())
+            if key in busy:
+                continue
+            busy.add(key)
+            sid = uuid.uuid4().hex[:10]
+            _SAVES[sid] = {"id": sid, "key": key, "title": req.title, "artists": req.artists, "state": "waiting", "started": time.time() + n / 1000}
+            _SAVE_QUEUE.append((sid, req))
+            n += 1
+        if n and _SAVE_WORKER["thread"] is None:
+            _SAVE_WORKER["thread"] = threading.Thread(target=_save_drain, name="save-many", daemon=True)
+            _SAVE_WORKER["thread"].start()
+    return n
 
 
 def _save_drain() -> None:
     while True:
+        while _SAVES_PAUSED["on"]:
+            time.sleep(1)
         with _SAVES_LOCK:
             if not _SAVE_QUEUE:
                 _SAVE_WORKER["thread"] = None
                 return
             sid, req = _SAVE_QUEUE.popleft()
-        if sid in _SAVES:
-            _SAVES[sid]["state"] = "looking"
-            _save_song_run(sid, req)
+            _SAVES_NOW["req"] = req
+        _saves_keep()
+        try:
+            if sid in _SAVES:
+                _SAVES[sid]["state"] = "looking"
+                _save_song_run(sid, req)
+        finally:
+            _SAVES_NOW["req"] = None
+            _saves_keep()
 
 
 def _save_have(title: str, artists: str, rel: str = "", stems_index=None) -> dict:
@@ -6335,6 +6391,7 @@ def practice_save_many(req: SaveManyRequest):
         if _SAVE_QUEUE and _SAVE_WORKER["thread"] is None:
             _SAVE_WORKER["thread"] = threading.Thread(target=_save_drain, name="save-many", daemon=True)
             _SAVE_WORKER["thread"].start()
+    _saves_keep()
     return out
 
 
@@ -6346,6 +6403,7 @@ def practice_save_many_stop():
         for sid, _ in _SAVE_QUEUE:
             _SAVES.pop(sid, None)
         _SAVE_QUEUE.clear()
+    _saves_keep()
     return {"stopped": n}
 
 
@@ -11324,13 +11382,16 @@ def _hear_run(job: dict, d: Path, vocals: Path, req: HearRequest) -> None:
         known = _lyrics_kept(req.title, req.artist, req.duration) if req.title else None
         prompt = ((known or {}).get("plain") or "") if known and not known.get("heard") else ""
         got = _hear.heard(vocals, req.lang if req.lang in ("auto", "cs", "en", "sk", "de") else "auto", prompt,
-                          progress=lambda n, of: job.update(done=n, of=of))
+                          progress=lambda n, of: job.update(done=n, of=of), stop=lambda: job.get("status") == "stopped")
         if not got["lines"]:
             raise RuntimeError("Ve stopě zpěvu jsem neslyšel žádná slova.")
         _hear.keep(d, got)
         job.update(status="done", lyrics=_hear_lyrics(got, req), took=time.time() - job["started"])
+    except InterruptedError:
+        job["status"] = "stopped"
     except Exception as e:                                             # a job never takes the server with it
-        job.update(status="error", error=str(e)[:300])
+        if job.get("status") != "stopped":
+            job.update(status="error", error=str(e)[:300])
 
 
 @app.post("/api/stems/{name}/hear")
@@ -11359,6 +11420,16 @@ def stems_hear(name: str, req: HearRequest):
         _HEAR["job"] = job
     threading.Thread(target=_hear_run, args=(job, d, vocals, req), daemon=True).start()
     return _hear_view()
+
+
+@app.delete("/api/hear/job")
+def hear_stop():
+    job = _HEAR["job"]
+    if job and job.get("status") == "running":
+        job["status"] = "stopped"
+        rows = _tasks.table()
+        _tasks.end(_tasks.matching(rows, _tasks.tree(rows, os.getpid()), "whisper-cli"))
+    return {"ok": True}
 
 
 @app.get("/api/hear")
@@ -11639,6 +11710,7 @@ _songbook.genres_lookup = _songbook_genres
 app.include_router(_songbook.router)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _songbook.resume_after_restart()        # a batch cut off by the last stop goes on
+    _saves_resume()                         # …and the songs that were waiting to be saved
 _studio.demucs_device = _demucs_device     # Skladatel takes its variants apart the same way, on the GPU
 
 
@@ -11679,6 +11751,273 @@ if not os.environ.get("SPOTDL_NO_WATCHERS"):
 @app.get("/api/system")
 def system_load():
     return _sysload.now()
+
+
+# ---- Úlohy a procesy (Nastavení → Systém): what Pick is doing and has lined up, what each
+# of it takes of the processor and the memory — the busiest first — and a hand on it: pause,
+# go on, stop. tasks.py reads the processes; here they are put to Pick's own jobs, each
+# process counted once (the first job that claims it), the rest of what the server started
+# shown by its program.
+import tasks as _tasks
+
+NIGHT_DIR = HOME / ".local" / "share" / "spotdl-helper" / "night"
+_TASK_PROGRAMS = [("demucs", "Rozdělení na stopy"), ("whisper-cli", "Odposlech textu"), ("tone_worker.py", "Tónový otisk"),
+                  ("tone_nam.mjs", "Tónový otisk"), ("svc_worker.py", "Zpěv jiným hlasem"), ("tts_worker.py", "Hlas OmniVoice"),
+                  ("resing_worker.py", "Přezpívání"), ("analyze.py", "Analýza písně"), ("audio2midi.py", "Převod na noty"),
+                  ("assistant_worker.py", "Asistent"), ("lyrics_worker.py", "Hledání textu"), ("/bin/spotdl", "Stahování"),
+                  ("yt-dlp", "Stahování"), ("yt_dlp", "Stahování"), ("ffmpeg", "Převod zvuku (ffmpeg)"), ("ffprobe", "Čtení zvuku (ffprobe)")]
+_SAVE_STATES = {"looking": "hledá tab a text", "downloading": "stahuje", "separating": "rozděluje na stopy"}
+
+
+def _task_program(args: str) -> str:
+    for word, name in _TASK_PROGRAMS:
+        if word in args:
+            return name
+    return Path(args.split()[0]).name if args else "?"
+
+
+def _night_pids(rows: dict, script: str) -> list:
+    return [pid for pid, r in rows.items() if r["args"].endswith(script) or f"/night/{script}" in r["args"]]
+
+
+def _tasks_now(sort: str = "cpu") -> dict:
+    rows = _tasks.table()
+    me = os.getpid()
+    mine = _tasks.tree(rows, me)
+    used: set = set()
+    out = []
+
+    def add(tid, name, detail="", state="běží", pids=(), can=(), progress=None, queue=None, note="", paused=None):
+        procs = set()
+        for p in pids:
+            procs |= _tasks.tree(rows, p)
+        procs -= used
+        used.update(procs)
+        held = _tasks.paused(rows, procs) if paused is None else paused
+        out.append({"id": tid, "name": name, "detail": detail, "state": "pozastaveno" if held else state,
+                    "cpu": round(sum(rows[p]["cpu"] for p in procs), 1), "mem": sum(rows[p]["rss"] for p in procs),
+                    "procs": len(procs), "progress": progress, "queue": queue or [], "note": note,
+                    "can": [c for c in can if not (c == "pause" and held) and not (c == "resume" and not held)]})
+
+    # separations: the one running, and the queue
+    with _STEMS_LOCK:
+        ids = list(_STEMS_QUEUE)
+    waiting = []
+    for jid in ids:
+        job = JOBS.get(jid) or {}
+        if job.get("status") == "running":
+            proc = job.get("proc")
+            add(f"stems:{jid}", "Rozdělení na stopy", job.get("stems_name") or "", pids=[proc.pid] if proc else [],
+                can=("pause", "resume", "stop"), progress=(job.get("progress") or 0) / 100,
+                note="Pozastavené drží paměť; Ukončit ji uvolní a píseň zůstane nerozdělená.")
+        elif job.get("status") == "queued":
+            waiting.append(job.get("stems_name") or "")
+    if waiting or _STEMS_PAUSED["on"]:
+        add("stems-queue", "Fronta rozdělování", f"čeká {len(waiting)}" if waiting else "nic nečeká", state="čeká", queue=waiting,
+            can=("pause", "resume", "stop") if waiting else ("resume",), paused=_STEMS_PAUSED["on"],
+            note="Pozastavení: další píseň se nezačne rozdělovat. Ukončit: čekající se zruší.")
+    # songs being saved (download → tab and text → separation), one after another
+    with _SAVES_LOCK:
+        saves = sorted(_SAVES.values(), key=lambda x: x["started"])
+    working = [x for x in saves if x["state"] not in ("waiting", "ready", "error")]
+    queued = [x for x in saves if x["state"] == "waiting"]
+    if working or queued or _SAVES_PAUSED["on"]:
+        cur = working[0] if working else None
+        add("saves", "Ukládání písní", (f"{cur['artists']} – {cur['title']} ({_SAVE_STATES.get(cur['state'], cur['state'])})" if cur else "")
+            + (f" · čeká {len(queued)}" if queued else ""), state="běží" if working else "čeká",
+            pids=sorted(_tasks.matching(rows, mine, "/bin/spotdl", "yt-dlp", "yt_dlp")), can=("pause", "resume", "stop") if queued or _SAVES_PAUSED["on"] else (),
+            queue=[f"{x['artists']} – {x['title']}" for x in queued[:40]] + ([f"… a dalších {len(queued) - 40}"] if len(queued) > 40 else []),
+            paused=_SAVES_PAUSED["on"], note="Pozastavení: rozdělaná píseň se dodělá, další se nezačne. Ukončit: čekající se zruší.")
+    # the songbook batch
+    sb, left = _songbook.JOB, _songbook.left() or {}
+    if sb.get("running") or left.get("names"):
+        run = bool(sb.get("running"))
+        add("songbook", "Rozbor Zpěvníku", f"{sb.get('done', 0)}/{sb.get('total', 0)} · {sb.get('now') or ''}" if run
+            else f"zbývá {len(left.get('names') or [])} písní", state="běží",
+            pids=sorted(_tasks.matching(rows, mine, "analyze.py")) if run else [], can=("pause", "stop") if run else ("resume", "stop"),
+            progress=(sb.get("done", 0) / sb["total"]) if run and sb.get("total") else None, paused=not run,
+            note="Pozastavení počká na dokončení písně; zbytek pokračuje i po restartu, až dáš Pokračovat.")
+    # the one-at-a-time jobs
+    j = _HEAR["job"] or {}
+    if j.get("status") == "running":
+        add("hear", "Odposlech textu", f"{j.get('song')} · {j.get('done', 0)}/{j.get('of', 0)}",
+            pids=sorted(_tasks.matching(rows, mine, "whisper-cli")), can=("pause", "resume", "stop"),
+            progress=(j.get("done", 0) / j["of"]) if j.get("of") else None)
+    j = _TONE["job"] or {}
+    if j.get("status") == "running":
+        proc = _TONE["proc"]
+        add("tone", "Tónový otisk", f"{j.get('song')} · {j.get('stage') or ''} {j.get('done', 0)}/{j.get('of', 0)}".strip(),
+            pids=[proc.pid] if proc else [], can=("pause", "resume", "stop"), progress=(j.get("done", 0) / j["of"]) if j.get("of") else None)
+    j = _RESING["job"] or {}
+    if j.get("status") == "running":
+        proc = _RESING["proc"]
+        add("resing", "Přezpívání řádku", f"{j.get('song')} · {j.get('stage') or ''}", pids=[proc.pid] if proc else [], can=("stop",))
+    j = _SVC["job"] or {}
+    if j.get("status") == "running":
+        proc = _SVC["proc"]
+        add("myvoice", "Zpěv jiným hlasem", str(j.get("song") or ""), pids=[proc.pid] if proc else [], can=("stop",))
+    # Skladatel and its model
+    try:
+        pr = _studio.progress_now()
+    except Exception:                                        # noqa: BLE001
+        pr = None
+    try:
+        epid = int(_studio.ENGINE_PID.read_text().strip())
+    except (OSError, ValueError):
+        epid = None
+    if pr or (epid and epid in rows):
+        now = (pr or {}).get("now") or {}
+        add("studio", "Skladatel", f"{now.get('project_name', '')} · {now.get('name', '')}" if now
+            else f"ve frontě {pr['count']}" if pr else "model připravený, nic neskládá",
+            state="běží" if now else "čeká" if pr else "připraveno", pids=[epid] if epid and epid in rows else [],
+            can=() if pr else ("stop",), progress=now.get("pct"),
+            note="Skládání se ovládá ve Skladateli." if pr else "Model drží paměť; Ukončit ho uvolní (při dalším skládání se spustí sám).")
+    proc = _OWN_TTS["proc"]
+    if proc is not None and proc.poll() is None:
+        add("tts", "Hlas OmniVoice", "model připravený v paměti", state="připraveno", pids=[proc.pid], can=("stop",),
+            note="Ukončit uvolní paměť; při dalším použití se spustí sám.")
+    # what runs beside Pick, started by hand
+    night = _night_pids(rows, "night.py")
+    if night:
+        try:
+            st = json.loads((NIGHT_DIR / "status.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            st = {}
+        add("night", "Noční plán", f"playlisty {st.get('A', '?')} · texty {st.get('B', '?')} · Zpěvník {st.get('C', '?')}", pids=night,
+            can=("pause", "resume", "stop"), note="Řídí stahování, texty a Zpěvník. Písně, které už zařadil, se ukládají dál (Ukládání písní).")
+    watch = _night_pids(rows, "restart-when-idle.py")
+    if watch:
+        add("watch", "Hlídač restartu Picku", "restartuje Pick, až nic nepoběží", pids=watch, can=("stop",))
+    # the rest the server started, by program
+    for pid in sorted(p for p in mine if rows[p]["ppid"] == me and p not in used):
+        add(f"proc:{pid}", _task_program(rows[pid]["args"]), rows[pid]["args"][:140], pids=[pid], can=("pause", "resume", "stop"),
+            note="Proces, který si Pick spustil; ukončení může přerušit, co právě dělá.")
+    add("server", "Server Picku", "obsluha aplikace", pids=[me])
+    parent = rows.get(me, {}).get("ppid")
+    if parent and parent in rows and "Pick" in rows[parent]["args"]:
+        add("app", "Aplikace Pick (okno)", "", pids=[parent])
+    key = "mem" if sort == "mem" else "cpu"
+    out.sort(key=lambda t: (t["procs"] == 0, -t[key], -t["mem"] if key == "cpu" else -t["cpu"]))
+    s = _sysload.now()
+    return {"tasks": out, "cpus": s.get("cpus") or os.cpu_count() or 1, "total_mem": s.get("total"),
+            "cpu": round(sum(t["cpu"] for t in out), 1), "mem": sum(t["mem"] for t in out), "sort": key}
+
+
+@app.get("/api/tasks")
+def tasks_list(sort: str = "cpu"):
+    return _tasks_now(sort)
+
+
+@app.post("/api/tasks/{tid}/{action}")
+def task_act(tid: str, action: str, sort: str = "cpu"):
+    """Pause, go on with or stop one of them (as listed by /api/tasks)."""
+    if action not in ("pause", "resume", "stop"):
+        return JSONResponse({"error": "Neznámý pokyn."}, status_code=404)
+    rows = _tasks.table()
+    me = os.getpid()
+    mine = _tasks.tree(rows, me)
+    kind, _, key = tid.partition(":")
+    gone = JSONResponse({"error": "Tahle úloha už neběží."}, status_code=404)
+
+    def tree_of(pids):
+        got = set()
+        for p in pids:
+            got |= _tasks.tree(rows, p)
+        return got
+
+    def by_signal(pids):
+        if not pids:
+            return gone
+        if action == "pause":
+            _tasks.pause(pids)
+        elif action == "resume":
+            _tasks.resume(pids)
+        else:
+            _tasks.end(pids)
+        return None
+
+    err = None
+    if kind == "stems":
+        job = JOBS.get(key) or {}
+        proc = job.get("proc")
+        if job.get("status") != "running" or proc is None:
+            return gone
+        if action == "stop":
+            job["stopped"] = True
+        err = by_signal(tree_of([proc.pid]))
+    elif kind == "stems-queue":
+        if action == "pause":
+            _STEMS_PAUSED["on"] = True
+        elif action == "resume":
+            _STEMS_PAUSED["on"] = False
+            _STEMS_WAKE.set()
+        else:
+            with _STEMS_LOCK:
+                for jid in _STEMS_QUEUE:
+                    j = JOBS.get(jid)
+                    if j and j["status"] == "queued":
+                        j.update(status="cancelled", finished=time.time())
+            _STEMS_PAUSED["on"] = False
+    elif kind == "saves":
+        if action == "pause":
+            _SAVES_PAUSED["on"] = True
+        elif action == "resume":
+            _SAVES_PAUSED["on"] = False
+        else:
+            practice_save_many_stop()
+            _SAVES_PAUSED["on"] = False
+    elif kind == "songbook":
+        if action == "resume":
+            got = _songbook.songbook_resume()
+            if isinstance(got, JSONResponse):
+                return got
+        else:
+            _songbook.songbook_stop(forget=action == "stop")
+    elif kind == "hear":
+        if (_HEAR["job"] or {}).get("status") != "running":
+            return gone
+        if action == "stop":
+            hear_stop()
+        else:
+            err = by_signal(_tasks.matching(rows, mine, "whisper-cli"))
+    elif kind == "tone":
+        proc = _TONE["proc"]
+        if (_TONE["job"] or {}).get("status") != "running":
+            return gone
+        if action == "stop":
+            pids = tree_of([proc.pid]) if proc else set()
+            tone_stop()
+            _tasks.end(pids)
+        else:
+            err = by_signal(tree_of([proc.pid]) if proc else set())
+    elif kind in ("resing", "myvoice") and action == "stop":
+        resing_stop() if kind == "resing" else myvoice_stop()
+    elif kind == "studio" and action == "stop":
+        got = _studio.stop_engine()
+        if isinstance(got, JSONResponse):
+            return got
+    elif kind == "tts" and action == "stop":
+        with _OWN_TTS_LOCK:
+            proc = _OWN_TTS["proc"]
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+            _OWN_TTS["proc"] = None
+    elif kind in ("night", "watch"):
+        err = by_signal(tree_of(_night_pids(rows, "night.py" if kind == "night" else "restart-when-idle.py")))
+    elif kind == "proc":
+        try:
+            pid = int(key)
+        except ValueError:
+            return gone
+        if pid not in mine or pid == me:
+            return gone
+        err = by_signal(tree_of([pid]))
+    else:
+        return JSONResponse({"error": "Tohle se ovládat nedá."}, status_code=400)
+    if err is not None:
+        return err
+    time.sleep(0.3)                                          # what was signalled has moved on
+    return _tasks_now(sort)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped
 

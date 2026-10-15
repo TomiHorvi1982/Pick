@@ -57,7 +57,7 @@ def test_a_text_is_heard_once_and_kept(client, tmp_music_root, monkeypatch):
     d = _song(tmp_music_root)
     calls = []
 
-    def heard(vocals, lang="auto", prompt="", progress=None):
+    def heard(vocals, lang="auto", prompt="", progress=None, stop=None):
         calls.append(prompt)
         return {"lang": "cs", "lines": [{"timeInMs": 1000, "text": "první řádek"}, {"timeInMs": 5000, "text": "druhý řádek"}], "phrases": 2}
     monkeypatch.setattr(hear, "heard", heard)

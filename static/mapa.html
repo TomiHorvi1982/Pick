@@ -171,7 +171,7 @@ html{scroll-behavior:smooth}
 <main class="wrap">
   <div class="hero">
     <div>
-      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit 3666514</div>
+      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit f85d517</div>
       <h1>Co <em>Pick</em> umí a kde to leží</h1>
       <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
     </div>
@@ -179,8 +179,8 @@ html{scroll-behavior:smooth}
       <div class="fact"><b>37</b><span>popsaných funkcí</span></div>
       <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
       <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
-      <div class="fact"><b>448</b><span>automatických testů</span></div>
-      <div class="fact"><b>225</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>458</b><span>automatických testů</span></div>
+      <div class="fact"><b>226</b><span>commitů od 12. 9.</span></div>
       <div class="fact"><b>637</b><span>písní ve Steems</span></div>
     </div>
   </div>
@@ -299,6 +299,7 @@ html{scroll-behavior:smooth}
 ├─ tts_worker.py      <span class="c">vlastní hlas čte (OmniVoice)</span>
 ├─ svc_worker.py      <span class="c">vlastní hlas zpívá (Seed-VC)</span>
 ├─ tone_worker.py     <span class="c">tónový otisk: hledání zvuku z nahrávky</span>
+├─ tasks.py           <span class="c">úlohy a procesy: vytížení, pauza, konec</span>
 ├─ tone_nam.mjs       <span class="c">NAM offline v Node (stejný engine jako živě)</span>
 ├─ menubar.py         <span class="c">♪ v liště macOS</span>
 ├─ Pick.command       <span class="c">spuštění lišty z Finderu</span>
@@ -318,7 +319,7 @@ html{scroll-behavior:smooth}
 │  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
 │  ├─ <span class="d">stretch/</span>       <span class="c">zpomalení a ladění bez změny tempa</span>
 │  └─ <span class="d">ladicka/</span>       <span class="c">ladička</span>
-├─ <span class="d">tests/</span>            <span class="c">36 souborů, 448 testů</span>
+├─ <span class="d">tests/</span>            <span class="c">37 souborů, 458 testů</span>
 ├─ <span class="d">docs/</span>             <span class="c">plány a návrhy (září)</span>
 └─ <span class="d">vendor/</span>           <span class="c">kaset, stemdeck — jen předlohy</span></pre>
       </div>
@@ -454,10 +455,11 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Zpěvník</h4><p>Rozbor písní ze Steems pro Skladatele: zvuk celé písně i sekcí slovy pro ACE-Step, stavba textu (řádky, slabiky, rýmy), vlastní texty po kapelách a částech, Stavba nové písně ze sekcí různých písní, textař píše do stavby.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Text ze zpěvu, přezpívání, výkon</h4><p>Pick si naposlouchá text ze stopy zpěvu (i české písně), řádek jde opravit nebo přezpívat novými slovy hlasem zpěváka v melodii originálu, a Nastavení ukazuje paměť a procesor — náročné úlohy počkají, když je paměti málo.</p></div></div>
         <div class="stop"><div class="date">14. 10.</div><div class="dot"></div><div><h4>Nastavení jako okno, noční plán</h4><p>Nastavení v plovoucím okně s kategoriemi, zavírání jako v macOS, širší panel ve Skladateli. Noční plán: 7 playlistů (977 písní, 721 nových) stáhnout bez duplicit s taby a texty a rozdělit, texty všech písní z LRCLib nebo odposlechem, celý Zpěvník.</p></div></div>
-        <div class="stop"><div class="date">15. 10.</div><div class="dot"></div><div><h4>Tónový otisk</h4><p>Živá kytara zní jako kytara z písně: zahraješ úsek s písní, Pick sám vybere jádro zkreslení z knihovny NAM, drive a ekvalizér, spočítá barvu, dozvuk a šířku, ukáže shodu a slepý test. NAM počítá offline stejným enginem jako živě. Přezpívaný řádek má nad stopou pruh Nový text.</p></div></div>
+        <div class="stop"><div class="date">15. 10.</div><div class="dot"></div><div><h4>Tónový otisk</h4><p>Živá kytara zní jako kytara z písně: zahraješ úsek s písní, Pick sám vybere jádro zkreslení z knihovny NAM, drive a ekvalizér, spočítá barvu, dozvuk a šířku, ukáže shodu a slepý test. NAM počítá offline stejným enginem jako živě. Přezpívaný řádek má nad stopou pruh Nový text. V Nastavení Úlohy a procesy: co běží a čeká, kolik bere procesoru a paměti, pauza a ukončení.</p></div></div>
         <div class="stop now"><div class="date">teď</div><div class="dot"></div><div><h4>Čeká na tvoje vyzkoušení</h4>
           <ul>
-            <li>Tónový otisk s tvou kytarou: nahrát úsek, vytvořit otisk, hrát s ním, slepý test (po restartu Picku)</li>
+            <li>Tónový otisk s tvou kytarou: nahrát úsek, vytvořit otisk, hrát s ním, slepý test</li>
+            <li>Úlohy a procesy v Nastavení: pozastavit a pustit dál rozdělování nebo noční plán</li>
             <li>Poslech: přezpívané demo v „Kryštof – Intro“, projekty „Zkouška Skladatele“ a „Zkouška modelů“ (SFT a Turbo s přemýšlením)</li>
             <li>Textař přes Clauda: na účtu Anthropic chybí kredit, zatím píše slabší model v počítači</li>
             <li>Úryvek zpěvu a průvodce hlasem se skutečným mikrofonem a sluchátky</li>
@@ -506,7 +508,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu 3666514 (15. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu f85d517 (15. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
@@ -630,6 +632,9 @@ const F = [
  {id:"sysload", g:"control", n:"Výkon počítače", w:"Nastavení → Výkon počítače (a upozornění nahoře)", d:"Paměť, procesor, kolik bere Pick sám, tlak na paměť a odkládání na disk, měřené každé 3 s. Náročné úlohy se ptají, jestli je místo: rozdělení a Skladatel počkají, odposlech a zpěv řeknou proč ne. Když dochází paměť, nahoře se ukáže upozornění.", st:"ok",
   how:["Nastavení → Výkon počítače: zvládne / je vytížený / málo paměti, a co právě běží.","Upozornění v horní liště (⏳ nebo ⚠) otevře Nastavení."],
   code:[["sysload.py","sample, room"],["server.py","_heavy_jobs, /api/system, stráže u úloh"],[IX,"SysLoad"]], data:[], v:[]},
+ {id:"tasks", g:"control", n:"Úlohy a procesy", w:"Nastavení → Systém → Úlohy a procesy", d:"Co Pick právě dělá a co má ve frontě, seřazené od nejvytíženějšího: kolik každá úloha bere procesoru a paměti. Rozdělování, ukládání písní, Zpěvník, odposlech, tónový otisk, noční plán a další jdou pozastavit, pustit dál nebo ukončit.", st:"test",
+  how:["Nastavení → Systém → Úlohy a procesy.","Řadit podle procesoru, nebo paměti.","⏸ pozastaví, ▶ pustí dál, ✕ ukončí (dvakrát klikni). Fronta ukáže, co čeká."],
+  code:[["tasks.py","procesy z ps, procesor z času, pauza a konec signálem"],["server.py","_tasks_now, /api/tasks, /api/tasks/{id}/{akce}, pauza front"],[IX,"Tasks"]], data:[], v:[]},
  {id:"tabs", g:"create", n:"Taby a Pick Tabs", w:"Tools → Taby", d:"Tvoje Guitar Pro a MusicXML soubory s nahrávkou, katalog Pick Tabs se všemi nástroji, úpravy tabu na místě.", st:"ok",
   how:["Tools → Taby.","Otevři soubor nebo tab z katalogu.","Spáruj s nahrávkou a hraj."],
   code:[[IX,"TabsLib ř. 7442, TabSearch ř. 13245"],["server.py","Guitar Pro ř. 4179, Pick Tabs ř. 4300"]], data:["pick_tabs.json, tab_links.json"], v:["pick show me tabs"]},

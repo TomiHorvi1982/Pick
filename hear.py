@@ -83,8 +83,11 @@ def _write(path, samples):
         w.writeframes((np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes())
 
 
-def _whisper(files, lang, prompt="", on_done=None):
-    """{file: (language, [(from s, to s, text)])} — one whisper for all of them, the model loaded once."""
+def _whisper(files, lang, prompt="", on_done=None, stop=None):
+    """{file: (language, [(from s, to s, text)])} — one whisper for all of them, the model loaded once.
+    `stop()` true: whisper is ended and InterruptedError raised."""
+    if stop and stop():
+        raise InterruptedError("zastaveno")
     cmd = [WHISPER_BIN, "-m", str(WHISPER_MODEL), "-l", lang, "-np", "-ojf", "-sns", "-t", "4"]
     if prompt:
         cmd += ["--prompt", prompt[:600]]
@@ -93,6 +96,10 @@ def _whisper(files, lang, prompt="", on_done=None):
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     done = 0
     for line in proc.stderr:
+        if stop and stop():
+            proc.terminate()
+            proc.wait()
+            raise InterruptedError("zastaveno")
         if "output_json: saving" in line:
             done += 1
             if on_done:
@@ -116,8 +123,9 @@ def _worth(text):
     return letters >= 2 and not JUNK.search(text)
 
 
-def heard(vocals, lang="auto", prompt="", progress=None):
-    """{"lang", "lines": [{"timeInMs", "text"}], "phrases": n} — what is sung, as whisper hears it."""
+def heard(vocals, lang="auto", prompt="", progress=None, stop=None):
+    """{"lang", "lines": [{"timeInMs", "text"}], "phrases": n} — what is sung, as whisper hears it.
+    `stop()` true ends it (InterruptedError)."""
     x = decode(vocals)
     spans = phrases(x)
     if not spans:
@@ -133,7 +141,9 @@ def heard(vocals, lang="auto", prompt="", progress=None):
             files.append((f, a0 / RATE - 0.5))
         total = len(files)
         tell = (lambda n, of=total: progress(n, of)) if progress else None
-        got = _whisper([f for f, _ in files], lang, prompt, tell)
+        got = _whisper([f for f, _ in files], lang, prompt, tell, stop)
+        if stop and stop():
+            raise InterruptedError("zastaveno")
         if lang == "auto":
             # the song's language: what most of its sung seconds were heard as
             weight = Counter()
@@ -144,7 +154,7 @@ def heard(vocals, lang="auto", prompt="", progress=None):
             lang = weight.most_common(1)[0][0] if weight else "en"
             again = [f for f, _ in files if got.get(str(f)) and got[str(f)][0] != lang]
             if again:
-                got.update(_whisper(again, lang, prompt))
+                got.update(_whisper(again, lang, prompt, stop=stop))
         lines = []
         for f, off in files:
             for a, b, text in (got.get(str(f)) or ("", []))[1]:

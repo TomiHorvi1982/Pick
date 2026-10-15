@@ -401,6 +401,19 @@ každé 3 s; v horní liště se ukáže upozornění, když je počítač vytí
 Náročná úloha se zeptá, jestli je místo: rozdělení písně ve frontě a nový model Skladatele
 počkají (nejvýš 5 minut), odposlech, zpěv jiným hlasem a přezpívání řeknou proč ne.
 
+**Úlohy a procesy** (`tasks.py`, Nastavení → Systém, `GET /api/tasks?sort=cpu|mem`): co Pick
+právě dělá a co má ve frontě, od nejvytíženějšího — rozdělení na stopy (běžící a fronta),
+ukládání písní, rozbor Zpěvníku, odposlech, tónový otisk, přezpívání, zpěv jiným hlasem,
+Skladatel a jeho model, hlas OmniVoice, noční plán, další procesy, které server spustil,
+server a okno Picku. Procesor se měří z času, který proces spotřeboval od minulého pohledu
+(ps, 100 % = jedno jádro; v okně přepočteno na celý počítač), paměť je RSS; každý proces se
+počítá jen u jedné úlohy. `POST /api/tasks/{id}/pause|resume|stop`: fronty rozdělování a
+ukládání se pozastaví příznakem (rozdělaná píseň se dodělá, další nezačne; Ukončit zruší
+čekající), Zpěvník svým vlastním pozastavením, běžící procesy (Demucs, whisper, otisk,
+noční plán) signálem SIGSTOP/SIGCONT (pozastavené drží paměť), ukončení je SIGTERM
+(a SIGKILL, když nepomůže); přezpívání, zpěv jiným hlasem a otisk mají vlastní zastavení,
+odposlech nové `DELETE /api/hear/job`. Ukončit chce v okně dvě kliknutí.
+
 **MIDI pedál** (Nastavení → MIDI pedál): nožní spínač přes MIDI — Bluetooth Ampero Switch
 se v macOS připojí v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit),
 pak ho Chrome vidí jako MIDI vstup. Funkci (přehrát/zastavit, další / předchozí sekce,
