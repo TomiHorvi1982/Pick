@@ -44,7 +44,7 @@ outcome = lambda task, answer: (True, "")      # how the job just done ended, wi
 
 
 def send(method: str, path: str, body) -> tuple:
-    r = httpx.request(method, API + path, json=body, timeout=900)
+    r = httpx.request(method, API + path, json=body, timeout=3600)          # a playlist batch is counted for minutes
     try:
         return r.status_code, r.json()
     except ValueError:
