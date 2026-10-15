@@ -337,7 +337,12 @@ const Composer = (() => {
     try{ const got = await api("/api/songbook/song/" + encodeURIComponent(name)); sbSong = {name, ...got}; }
     catch(e){ sbSong = {name}; if(!quiet) showToast(e.message); }
   }
-  async function analyse(names, limit){
+  async function analyse(names, limit, label){
+    if(label){                                  // a batch: now, or tonight?
+      const how = await Plan.ask({kind: "songbook", label, path: "/api/songbook/analyse", body: {names: names || [], limit: limit || 100},
+        what: "Rozbor jedné písně (tempo, tónina, části, zvuk, text) trvá asi minutu; běží na pozadí a dá se pozastavit."});
+      if(how !== "now") return;
+    }
     try{ const r = await api("/api/songbook/analyse", json({names: names || [], limit: limit || 100}));
       showToast(r.started ? `Rozebírám ${r.started} ${r.started === 1 ? "píseň" : r.started < 5 ? "písně" : "písní"} — běží na pozadí.` : r.note || "Hotovo."); }
     catch(e){ showToast(e.message); }
@@ -468,13 +473,13 @@ const Composer = (() => {
         <button type="button" class="cp-x" id="sb-pclear">vyprázdnit</button></div>` : ""}</div>`;
     box.innerHTML = head + body + plan;
     const q = (id) => box.querySelector("#" + id), on = (id, fn) => { const n = q(id); if(n) n.onclick = fn; };
-    on("sb-go", () => analyse([], 100));
+    on("sb-go", () => analyse([], 100, "Zpěvník: rozebrat dalších 100 písní"));
     on("sb-stop", async () => { try{ await api("/api/songbook/analyse", {method: "DELETE"}); }catch(e){} showToast("Pozastavuji — rozebíraná píseň se ještě dodělá."); await sbLoad(); paintSb(); });
-    on("sb-all", () => analyse([], 5000));
+    on("sb-all", () => analyse([], 5000, "Zpěvník: rozebrat celou knihovnu"));
     on("sb-resume", async () => { try{ const r = await api("/api/songbook/analyse/resume", {method: "POST"}); showToast(`Pokračuji — zbývá ${r.started}.`); }catch(e){ showToast(e.message); }
       await sbLoad(); paintSb(); sbWatch(); });
     on("sb-forget", async () => { try{ await api("/api/songbook/analyse?forget=true", {method: "DELETE"}); }catch(e){} await sbLoad(); paintSb(); });
-    on("sb-band-go", () => analyse(band.songs.filter((x) => !x.analysed).map((x) => x.name), 300));
+    on("sb-band-go", () => analyse(band.songs.filter((x) => !x.analysed).map((x) => x.name), 300, `Zpěvník: rozebrat písně kapely ${band.band}`));
     on("sb-one", () => analyse([sbSong.name], 1));
     box.querySelectorAll("[data-sbtab]").forEach((b) => b.onclick = () => { sbTab = b.dataset.sbtab; paintSb(); });
     const bs = q("sb-band"); if(bs) bs.onchange = () => { sbBand = bs.value; sbSong = null; paintSb(); };

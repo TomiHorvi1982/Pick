@@ -5957,6 +5957,7 @@ class StemsSeparateRequest(BaseModel):
     rel: str
     format: str = "mp3"       # "mp3" or "wav"
     mp3_bitrate: int = 320    # 128 / 192 / 256 / 320, MP3 only
+    check: bool = False       # only say whether a new separation would start (asked "now or tonight?" first)
 
 
 @app.post("/api/stems/separate")
@@ -5973,6 +5974,8 @@ def separate_stems(req: StemsSeparateRequest):
         if job.get("stems_name") == safe_name:
             return {"job_id": jid, "ready": False, "name": safe_name,
                     "position": pos + 1, "already": True}
+    if req.check:
+        return {"job_id": None, "ready": False, "name": safe_name, "check": True}
 
     job_id = uuid.uuid4().hex[:12]
     raw_dir = MUSIC_ROOT / "Stems" / ".raw"
@@ -12148,7 +12151,8 @@ _TASK_PROGRAMS = [("demucs", "Rozdělení na stopy"), ("whisper-cli", "Odposlech
                   ("tone_nam.mjs", "Tónový otisk"), ("svc_worker.py", "Zpěv jiným hlasem"), ("tts_worker.py", "Hlas OmniVoice"),
                   ("resing_worker.py", "Přezpívání"), ("analyze.py", "Analýza písně"), ("audio2midi.py", "Převod na noty"),
                   ("assistant_worker.py", "Asistent"), ("lyrics_worker.py", "Hledání textu"), ("/bin/spotdl", "Stahování"),
-                  ("yt-dlp", "Stahování"), ("yt_dlp", "Stahování"), ("ffmpeg", "Převod zvuku (ffmpeg)"), ("ffprobe", "Čtení zvuku (ffprobe)")]
+                  ("yt-dlp", "Stahování"), ("yt_dlp", "Stahování"), ("ffmpeg", "Převod zvuku (ffmpeg)"), ("ffprobe", "Čtení zvuku (ffprobe)"),
+                  ("caffeinate", "Počítač nespí (naplánované úlohy)")]
 _SAVE_STATES = {"looking": "hledá tab a text", "downloading": "stahuje", "separating": "rozděluje na stopy"}
 
 
@@ -12261,6 +12265,14 @@ def _tasks_now(sort: str = "cpu") -> dict:
     if proc is not None and proc.poll() is None:
         add("tts", "Hlas OmniVoice", "model připravený v paměti", state="připraveno", pids=[proc.pid], can=("stop",),
             note="Ukončit uvolní paměť; při dalším použití se spustí sám.")
+    # what is put off to the night (Naplánované úlohy)
+    plan = [t for t in _planner.tasks()["tasks"] if t["status"] in ("waiting", "running")]
+    if plan:
+        cur = next((t for t in plan if t["status"] == "running"), None)
+        rest = [t["label"] for t in plan if t["status"] == "waiting"]
+        add("plan", "Naplánované úlohy", (f"teď: {cur['label']}" if cur else f"na noc od {(_read_config().get('plan') or {}).get('start', '23:00')}")
+            + (f" · čeká {len(rest)}" if rest else ""), state="běží" if cur else "čeká", queue=rest,
+            note="Spouštějí se jedna po druhé, když nic těžkého neběží; upravíš je v Naplánovaných úlohách níž.")
     # what runs beside Pick, started by hand
     night = _night_pids(rows, "night.py")
     if night:
@@ -12494,6 +12506,189 @@ def audio_guard_set(req: AudioGuardRequest):
     _guard.configure(on=req.on, mode=req.mode)
     _write_config({"audio_guard": {"on": _guard.STATE["on"], "mode": _guard.STATE["mode"]}})
     return _guard.view(_task_program)
+
+
+# ---- Naplánované úlohy (planner.py; Nastavení → Systém): a heavy job put off to the night is
+# the very request the page would have sent; the planner sends it to this server in the night
+# window, one after another, each when nothing heavy runs and no music plays.
+import planner as _planner
+
+
+def _plan_idle() -> bool:
+    if _heavy_jobs() or _songbook_busy():
+        return False
+    with _SAVES_LOCK:
+        return not _SAVE_QUEUE and _SAVES_NOW["req"] is None
+
+
+def _plan_outcome(t: dict, answer: dict) -> tuple:
+    """How a planned job ended, with a word for the list."""
+    kind = t.get("kind")
+    if kind in ("hear", "myvoice", "tone"):
+        j = {"hear": _HEAR, "myvoice": _SVC, "tone": _TONE}[kind]["job"] or {}
+        if j.get("status") == "error":
+            return False, str(j.get("error") or "Skončilo chybou.")
+        if j.get("status") == "stopped":
+            return False, "Zastaveno."
+        return True, ""
+    if kind == "separate" and "queued" in answer:              # a whole playlist
+        return True, f"Rozděleno {answer.get('queued', 0)} písní" + (f", {answer['ready']} už bylo hotových" if answer.get("ready") else "") + "."
+    if kind == "separate":
+        if answer.get("ready"):
+            return True, "Stopy už byly hotové."
+        j = JOBS.get(answer.get("job_id") or "") or {}
+        if j.get("status") in ("error", "stopped"):
+            return False, str(j.get("error") or "Rozdělení se nepovedlo.")
+        return True, ""
+    if kind == "saves":
+        return True, f"Připraveno {answer.get('queued', 0)} písní" + (f", {answer['ready']} už bylo hotových" if answer.get("ready") else "") + "."
+    if kind == "songbook":
+        errs = len(_songbook.JOB.get("errors") or [])
+        return True, (answer.get("note") or f"Rozebráno {answer.get('started', 0)} písní") + (f", {errs} se nepovedlo." if errs else "")
+    return True, ""
+
+
+_planner.idle = _plan_idle
+_planner.quiet = lambda: not _guard.sounding()
+_planner.settings = lambda: _read_config().get("plan") or {}
+_planner.outcome = _plan_outcome
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _planner.start()
+
+
+@app.on_event("shutdown")
+def _planner_end():
+    _planner.STATE["stop"] = True
+
+
+class PlanAddRequest(BaseModel):
+    kind: str = "other"
+    label: str = ""
+    path: str
+    body: Optional[dict] = None
+
+
+class PlanSettingsRequest(BaseModel):
+    on: Optional[bool] = None
+    ask: Optional[bool] = None         # asked "now or tonight?" before a heavy job
+    start: Optional[str] = None        # "23:00"
+    end: Optional[str] = None
+
+
+class PlanNowRequest(BaseModel):
+    id: str = ""                       # "" = everything that waits
+
+
+class PlanMoveRequest(BaseModel):
+    delta: int
+
+
+@app.get("/api/plan")
+def plan_view():
+    return _planner.view()
+
+
+@app.post("/api/plan")
+def plan_add(req: PlanAddRequest):
+    if not _planner.allowed(req.path):
+        return JSONResponse({"error": "Tohle se naplánovat nedá."}, status_code=400)
+    t = _planner.add(req.kind, req.label, "POST", req.path, req.body)
+    return {"task": t, **_planner.view()}
+
+
+@app.post("/api/plan/settings")
+def plan_settings(req: PlanSettingsRequest):
+    cfg = dict(_read_config().get("plan") or {})
+    for k in ("start", "end"):
+        v = getattr(req, k)
+        if v is not None:
+            if not _re_mod.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", v.strip()):
+                return JSONResponse({"error": "Čas zadej jako 23:00."}, status_code=400)
+            h, m = v.strip().split(":")
+            cfg[k] = f"{int(h):02d}:{m}"
+    if req.on is not None:
+        cfg["on"] = bool(req.on)
+    if req.ask is not None:
+        cfg["ask"] = bool(req.ask)
+    _write_config({"plan": cfg})
+    return _planner.view()
+
+
+@app.post("/api/plan/now")
+def plan_now(req: PlanNowRequest):
+    if not _planner.now(req.id):
+        return JSONResponse({"error": "Taková úloha nečeká."}, status_code=404)
+    return _planner.view()
+
+
+@app.delete("/api/plan/history")
+def plan_history_clear():
+    _planner.clear_history()
+    return _planner.view()
+
+
+@app.post("/api/plan/{tid}/move")
+def plan_move(tid: str, req: PlanMoveRequest):
+    if not _planner.move(tid, max(-50, min(50, req.delta))):
+        return JSONResponse({"error": "Taková úloha tu není."}, status_code=404)
+    return _planner.view()
+
+
+@app.delete("/api/plan/{tid}")
+def plan_remove(tid: str):
+    if not _planner.remove(tid):
+        return JSONResponse({"error": "Taková úloha nečeká (běžící zastavíš v Úlohách a procesech)."}, status_code=404)
+    return _planner.view()
+
+
+# ---- Poznámky (notes.py; Nastavení → Další): bugs, ideas and notes about Pick, kept in
+# notes.json and copied for Claude in one go.
+import notes as _notes
+
+
+class NoteRequest(BaseModel):
+    text: Optional[str] = None
+    kind: Optional[str] = None         # chyba | napad | poznamka
+    done: Optional[bool] = None
+
+
+@app.get("/api/notes")
+def notes_list():
+    return {"notes": _notes.listing(), "kinds": _notes.KINDS}
+
+
+@app.get("/api/notes/markdown")
+def notes_markdown(all: bool = False):
+    return {"text": _notes.markdown(all)}
+
+
+@app.post("/api/notes")
+def notes_add(req: NoteRequest):
+    try:
+        n = _notes.add(req.text or "", req.kind or "poznamka")
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"note": n, "notes": _notes.listing()}
+
+
+@app.patch("/api/notes/{nid}")
+def notes_edit(nid: str, req: NoteRequest):
+    try:
+        n = _notes.edit(nid, text=req.text, kind=req.kind, done=req.done)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    if n is None:
+        return JSONResponse({"error": "Taková poznámka tu není."}, status_code=404)
+    return {"note": n, "notes": _notes.listing()}
+
+
+@app.delete("/api/notes/{nid}")
+def notes_remove(nid: str):
+    if not _notes.remove(nid):
+        return JSONResponse({"error": "Taková poznámka tu není."}, status_code=404)
+    return {"notes": _notes.listing()}
+
+
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _studio.resume()                       # variants that were waiting when the server last stopped
 

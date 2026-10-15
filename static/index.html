@@ -2263,6 +2263,64 @@ body.lib-collapsed .pick-brand{display:none}
     padding:0 7px;font-size:12px;cursor:pointer}
   .tk-acts button:hover{border-color:var(--accent)}
   .tk-acts button.armed{background:var(--danger);border-color:var(--danger);color:#fff}
+  /* Naplánované úlohy (PlanList) */
+  .pl-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:13px}
+  .pl-check{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--text)}
+  .pl-win{display:inline-flex;align-items:center;gap:6px;color:var(--sub);font-size:12.5px}
+  .pl-win input{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--text);font:inherit;font-size:12.5px;padding:3px 6px;color-scheme:dark}
+  .pl-state{font-size:12px;color:var(--sub);margin-top:6px}
+  .pl-state b{color:var(--text);font-weight:600}
+  .pl-list{display:grid;gap:6px;margin-top:8px}
+  .pl-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;
+    background:color-mix(in srgb,var(--sub) 8%,transparent);border:1px solid transparent}
+  .pl-row.run{border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .pl-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--text)}
+  .pl-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-sub{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .pl-row.run .pl-sub{color:var(--text)}
+  .pl-acts{display:flex;gap:4px}
+  .pl-acts button{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:7px;min-width:28px;height:26px;padding:0 7px;font-size:12px;cursor:pointer}
+  .pl-acts button:hover:not(:disabled){border-color:var(--accent)}
+  .pl-acts button:disabled{opacity:.35;cursor:default}
+  .pl-empty{font-size:12.5px;color:var(--sub);padding:12px;border:1px dashed var(--border);border-radius:9px;text-align:center}
+  .pl-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .pl-tools .btn{border-radius:500px;padding:6px 14px;font-size:12.5px}
+  .pl-hist{margin-top:10px;font-size:12px}
+  .pl-hist summary{cursor:pointer;color:var(--sub)}
+  .pl-hrow{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;padding:5px 2px;border-bottom:1px solid color-mix(in srgb,var(--sub) 12%,transparent)}
+  .pl-hrow .ok{color:#4cc38a}
+  .pl-hrow .bad{color:var(--danger)}
+  .pl-hrow small{display:block;color:var(--sub)}
+  .pl-x{background:none;border:0;color:var(--sub);font-size:12px;cursor:pointer;text-decoration:underline;padding:6px 0}
+  /* Poznámky a nápady (NotesPad) */
+  .nt-add{display:grid;gap:8px;margin-top:6px;padding:10px;border-radius:12px;background:color-mix(in srgb,var(--sub) 8%,transparent)}
+  .nt-kinds,.nt-filter{display:flex;gap:6px;flex-wrap:wrap}
+  .nt-kinds button,.nt-filter button{border:1px solid var(--border);background:none;color:var(--sub);border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer}
+  .nt-kinds button.on{color:#111;font-weight:700;border-color:transparent}
+  .nt-kinds button.on[data-kind="chyba"]{background:#ff7a7a}
+  .nt-kinds button.on[data-kind="napad"]{background:#f2c94c}
+  .nt-kinds button.on[data-kind="poznamka"]{background:#7ab8ff}
+  .nt-filter button.on{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text);font-weight:600;border-color:transparent}
+  .nt-add textarea{width:100%;min-height:64px;resize:vertical;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);
+    font:inherit;font-size:13px;line-height:1.45;padding:8px 10px;outline:none}
+  .nt-add textarea:focus{border-color:var(--accent)}
+  .nt-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .nt-row .sp{flex:1}
+  .nt-row .btn{border-radius:500px;padding:6px 14px;font-size:12.5px}
+  .nt-filter{margin-top:10px}
+  .nt-list{display:grid;gap:6px;margin-top:8px}
+  .nt-item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:10px;padding:8px 10px 8px 0;border-radius:9px;background:color-mix(in srgb,var(--sub) 8%,transparent);overflow:hidden}
+  .nt-item::before{content:"";border-radius:0 3px 3px 0;background:#7ab8ff}
+  .nt-item[data-kind="chyba"]::before{background:#ff7a7a}
+  .nt-item[data-kind="napad"]::before{background:#f2c94c}
+  .nt-item.done{opacity:.55}
+  .nt-item.done .nt-text{text-decoration:line-through}
+  .nt-text{font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+  .nt-meta{font-size:11px;color:var(--sub);margin-top:3px}
+  .nt-acts{display:flex;gap:4px;align-items:flex-start}
+  .nt-acts button{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:7px;min-width:28px;height:26px;padding:0 7px;font-size:12px;cursor:pointer}
+  .nt-acts button:hover{border-color:var(--accent)}
+  .nt-empty{font-size:12.5px;color:var(--sub);padding:12px;text-align:center}
   .sys-badge{border:0;border-radius:14px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;color:#111;background:#e0a030;align-self:center}
   .sys-badge.tight{background:var(--danger);color:#fff}
   .set-row{display:flex;align-items:center;gap:12px;margin-top:10px}
@@ -4105,6 +4163,17 @@ body.lib-collapsed .pick-brand{display:none}
   .pk-dlg-row b{font-weight:600}
   .pk-dlg-row span{font-size:12px;color:var(--sub);margin-left:auto;white-space:nowrap}
   .pk-dlg-empty{font-size:13px;color:var(--sub);padding:14px 4px}
+  /* Naplánované úlohy: now, or tonight? (Plan.ask) */
+  .plan-what{color:var(--text);font-weight:700}
+  .plan-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .plan-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:#0d0e17;border:1px solid #33364a;
+    border-radius:12px;color:var(--text);font:inherit;padding:12px 13px 13px;cursor:pointer;transition:border-color .12s,background .12s}
+  .plan-opt:hover,.plan-opt:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,#0d0e17);outline:none}
+  .plan-opt i{font-style:normal;font-size:17px;line-height:1;color:var(--accent);margin-bottom:3px}
+  .plan-opt b{font-size:14px;font-weight:700}
+  .plan-opt span{font-size:12px;line-height:1.4;color:var(--sub)}
+  .plan-skip{flex:1;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--sub);cursor:pointer}
+  @media (max-width:520px){.plan-choice{grid-template-columns:1fr}}
   /* Skladatel (static/studio.js): a page under Tools — the brief on the left, the songs with their players on the right */
   #composer-section{padding:0 0 30px}
   .cp-page{color:var(--text)}
@@ -4633,6 +4702,32 @@ body.lib-collapsed .pick-brand{display:none}
         <span class="tk-sort" id="tk-sort"><button type="button" data-sort="cpu">Procesor</button><button type="button" data-sort="mem">Paměť</button></span></div>
       <div class="tk-list" id="tk-list"><div class="set-note">Načítám…</div></div>
       <div class="set-note">Co Pick právě dělá a co má ve frontě, od nejvytíženějšího. ⏸ pozastaví, ▶ pustí dál, ✕ ukončí (klikni dvakrát). Procesor 100 % = celý počítač.</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="hourglass"></span>Naplánované úlohy</div>
+      <div class="pl-bar">
+        <label class="pl-check"><input type="checkbox" id="pl-on"> Spouštět v noci</label>
+        <span class="pl-win">od <input type="time" id="pl-start" value="23:00"> do <input type="time" id="pl-end" value="07:00"></span>
+      </div>
+      <div class="pl-state" id="pl-state"></div>
+      <div class="pl-list" id="pl-list"><div class="set-note">Načítám…</div></div>
+      <div class="pl-tools">
+        <button type="button" class="btn secondary" id="pl-run">▶ Spustit vše teď</button>
+        <label class="pl-check"><input type="checkbox" id="pl-ask"> Před náročnou úlohou se ptát „hned, nebo v noci?“</label>
+      </div>
+      <details class="pl-hist" id="pl-hist"><summary>Hotové <span id="pl-hist-n"></span></summary><div id="pl-hist-list"></div>
+        <button type="button" class="pl-x" id="pl-hist-clear">Smazat historii</button></details>
+      <div class="set-note">Když spustíš něco náročného — rozdělení na stopy, stažení a přípravu playlistu nebo oblíbených, rozbor Zpěvníku, zpěv jiným hlasem, tónový otisk — Pick se zeptá, jestli hned, nebo v noci. Naplánované se v noci spustí jedna po druhé: další až když předchozí doběhne a nic těžkého neběží; když zrovna hraje hudba, počkají. ↑ ↓ mění pořadí, ▶ spustí jednu hned, ✕ ji zruší. Mac přitom neusne, ale musí být zapnutý a Pick spuštěný.</div>
+
+      <div class="section-title" style="margin-top:20px"><span data-icon="pencil"></span>Poznámky a nápady</div>
+      <div class="nt-add">
+        <div class="nt-kinds" id="nt-kinds"><button type="button" data-kind="chyba">Chyba</button><button type="button" data-kind="napad">Nápad</button><button type="button" data-kind="poznamka">Poznámka</button></div>
+        <textarea id="nt-text" rows="3" placeholder="Co nefunguje, nebo co vylepšit… (⌘↵ přidá)"></textarea>
+        <div class="nt-row"><button type="button" class="btn" id="nt-save">Přidat</button><span class="sp"></span>
+          <button type="button" class="btn secondary" id="nt-copy">Zkopírovat pro Clauda</button></div>
+      </div>
+      <div class="nt-filter" id="nt-filter"></div>
+      <div class="nt-list" id="nt-list"></div>
+      <div class="set-note">Piš sem, co v Picku nefunguje nebo co chceš vylepšit. „Zkopírovat pro Clauda“ dá otevřené poznámky do schránky jako jednu zprávu — vložíš ji do chatu. Claude si je umí přečíst i sám, stačí mu napsat „přečti poznámky z Picku“. Hotové odškrtni ✓.</div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="star"></span>Vzhled</div>
       <div class="amb-theme">
@@ -6069,6 +6164,63 @@ const Dialog = (() => {
   }
   const isOpen = () => !!cur;
   return {confirm, prompt, pick, isOpen, open, close};
+})();
+
+// ======================================================================
+// Naplánované úlohy — before a heavy job: now, or tonight? Tonight keeps the very
+// request (path and body) on the server, which sends it in the night window, one
+// job after another, each when nothing heavy runs (planner.py; Nastavení → Systém).
+// ======================================================================
+const Plan = (() => {
+  let cfg = null, cfgAt = 0;
+  async function settings(){
+    if(cfg && Date.now() - cfgAt < 20000) return cfg;
+    try{ const r = await fetch("/api/plan"); if(r.ok){ cfg = (await r.json()).settings; cfgAt = Date.now(); } }catch(e){}
+    return cfg || {on: true, ask: true, start: "23:00", end: "07:00"};
+  }
+  const when = (s) => s.on === false ? "až v Nastavení zapneš noční spouštění" : `dnes v noci od ${s.start}`;
+  // o: {kind, label, path, body, what: a sentence on what it does, long: how long now} → "now" | "plan" | null
+  async function ask(o){
+    const s = await settings();
+    if(s.ask === false) return !o.confirm || await Dialog.confirm(o.what || o.label, {title: o.label, ok: "Spustit"}) ? "now" : null;
+    let skip = false;
+    const v = await Dialog.open((card, c) => {
+      card.classList.add("wide");
+      card.innerHTML = `<div class="pk-dlg-title">Spustit hned, nebo v noci?</div>
+        <div class="pk-dlg-text"><b class="plan-what">${escapeHtml(o.label)}</b>${o.what ? "<br>" + escapeHtml(o.what).replace(/\n/g, "<br>") : ""}</div>
+        <div class="plan-choice">
+          <button type="button" class="plan-opt pk-dlg-ok" data-v="now"><i>▶</i><b>Spustit hned</b><span>Začne teď${o.long ? " · " + escapeHtml(o.long) : ""}.</span></button>
+          <button type="button" class="plan-opt" data-v="plan"><i>☾</i><b>Naplánovat na noc</b><span>Spustí se ${escapeHtml(when(s))}, až nic jiného nepoběží.</span></button>
+        </div>
+        <div class="pk-dlg-btns"><label class="plan-skip"><input type="checkbox"> Příště se neptat a spouštět hned</label>
+          <button type="button" class="btn secondary pk-dlg-no">Zrušit</button></div>`;
+      card.querySelectorAll("[data-v]").forEach(b => b.onclick = () => Dialog.close(b.dataset.v));
+      card.querySelector(".pk-dlg-no").onclick = () => Dialog.close(null);
+      const box = card.querySelector(".plan-skip input");
+      box.onchange = () => { skip = box.checked; };
+      c.onEnter = () => Dialog.close("now");
+    }, null);
+    if(v && skip){
+      fetch("/api/plan/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ask: false})}).catch(() => {});
+      cfg = null;
+      if(v === "now") showToast("Už se nebudu ptát — zapneš to v Nastavení → Systém → Naplánované úlohy");
+    }
+    if(v === "plan") return o.manual || await add(o) ? "plan" : null;      // manual: the caller plans it (several at once)
+    return v;
+  }
+  async function add(o, quiet){
+    try{
+      const r = await fetch("/api/plan", {method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({kind: o.kind || "other", label: o.label || "", path: o.path, body: o.body || null})});
+      const d = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(d.error || "Naplánovat se nepovedlo.");
+      const s = await settings();
+      if(!quiet) showToast(`Naplánováno${s.on === false ? "" : ` na noc (od ${s.start})`}: ${o.label}`);
+      document.dispatchEvent(new CustomEvent("pick-plan-changed"));
+      return true;
+    }catch(e){ showToast(e.message); return false; }
+  }
+  return {ask, add, settings, forget: () => { cfg = null; }};
 })();
 
 const ListSort = (() => {
@@ -7585,9 +7737,21 @@ const PracticeReady = (() => {
     if(!t || !t.title) return;
     post("/api/practice/save", {...one(t), ...opts()}).then(watch).catch(() => {});
   }
-  function playlist(p){
+  const songsTx = (n) => `${n} ${n === 1 ? "píseň" : n > 1 && n < 5 ? "písně" : "písní"}`;
+  const hours = (n) => Math.max(1, Math.round(n * 4 / 60));
+  // a playlist starred: what it lacks is counted, then — now or tonight — downloaded and separated
+  async function playlist(p){
     if(!p || !p.browseId) return;
-    post("/api/practice/save-many", {playlists: [p.browseId], ...opts()})
+    const body = {playlists: [p.browseId], ...opts()};
+    let d = null;
+    try{ d = await post("/api/practice/save-many", {...body, check: true}); }catch(e){}
+    if(d && !d.missing) return;
+    const how = await Plan.ask({kind: "saves", label: `Playlist ${p.title || ""}: stáhnout a rozdělit` + (d ? ` ${songsTx(d.missing)}` : ""),
+      path: "/api/practice/save-many", body,
+      what: (d ? `Připraveno ve Steems: ${d.ready}, chybí: ${d.missing}. ` : "") + "Písně se stáhnou, rozdělí na stopy a dohledá se k nim tab a text — po jedné, každá pár minut.",
+      long: d ? `celé asi ${hours(d.missing)} h` : ""});
+    if(how !== "now") return;
+    post("/api/practice/save-many", body)
       .then(d => { if(d.queued) showToast(`Playlist ${p.title || ""}: ${d.queued} písní připravuji na cvičení (${d.ready} už je)`); watch(); }).catch(() => {});
   }
   const everything = () => ({songs: FavSongs.list().map(one), playlists: loadFavPlaylists().map(p => p.browseId).filter(Boolean)});
@@ -7605,8 +7769,12 @@ const PracticeReady = (() => {
     b.disabled = false; paint(null);
     const lists = d.playlists.length ? ` (z toho ${d.playlists.reduce((a, p) => a + p.count, 0)} v ${d.playlists.length} playlistech)` : "";
     if(!d.missing){ showToast(`Oblíbené: všech ${d.songs} písní${lists} je připraveno ve Steems`); return; }
-    if(!await Dialog.confirm(`Oblíbené: ${d.songs} písní${lists}.\n\nPřipraveno ve Steems: ${d.ready}\nChybí: ${d.missing}\n\nStáhnout a rozdělit chybějících ${d.missing}? Poběží to na pozadí po jedné písni — jedna trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h. Dá se kdykoli zastavit stejným tlačítkem.`)) return;
-    const r = await post("/api/practice/save-many", {...everything(), ...opts()}).catch(() => null);
+    const body = {...everything(), ...opts()};
+    const how = await Plan.ask({kind: "saves", label: `Oblíbené: stáhnout a rozdělit ${songsTx(d.missing)}`, path: "/api/practice/save-many", body, confirm: true,
+      what: `Oblíbené: ${d.songs} písní${lists}. Připraveno ve Steems: ${d.ready}, chybí: ${d.missing}.\nPoběží to na pozadí po jedné písni — jedna trvá několik minut. Zastavit se to dá stejným tlačítkem.`,
+      long: `celé asi ${hours(d.missing)} h`});
+    if(how !== "now") return;
+    const r = await post("/api/practice/save-many", body).catch(() => null);
     showToast(r ? `Připravuji ${r.queued} písní na cvičení` : "Spuštění se nepovedlo");
     watch();
   }
@@ -7621,10 +7789,13 @@ const PracticeReady = (() => {
     catch(e){ showToast("Kontrola se nepovedla"); return false; }
     const fin = d.finish || 0;
     if(!d.missing && !fin){ showToast(`Všech ${d.songs} označených písní už je připraveno ve Steems`); return false; }
-    if(d.missing + fin > 3 && !await Dialog.confirm(`Označeno ${d.songs} písní.\n\nUž rozdělených na stopy: ${d.ready}\nChybí — stáhnout a rozdělit: ${d.missing}` +
-      (fin ? `\nJen dohledat tab a text: ${fin}` : "") + `\n\nSpustit? Poběží to na pozadí po jedné písni` +
-      (d.missing ? ` — rozdělení jedné trvá několik minut, takže celé asi ${Math.max(1, Math.round(d.missing * 4 / 60))} h` : "") +
-      `. Zastavit se to dá tlačítkem „Připravit oblíbené na cvičení“ ve Steems.`)) return false;
+    const how = await Plan.ask({kind: "saves", label: d.missing ? `Označené: stáhnout a rozdělit ${songsTx(d.missing)}` + (fin ? `, dohledat ${fin}` : "")
+        : `Označené: dohledat tab a text k ${fin}`, path: "/api/practice/save-many", body: {...body, ...opts()}, confirm: d.missing + fin > 3,
+      what: `Označeno ${d.songs} písní. Už rozdělených na stopy: ${d.ready}, chybí — stáhnout a rozdělit: ${d.missing}` + (fin ? `, jen dohledat tab a text: ${fin}` : "") +
+        `.\nPoběží to na pozadí po jedné písni. Zastavit se to dá tlačítkem „Připravit oblíbené na cvičení“ ve Steems.`,
+      long: d.missing ? `celé asi ${hours(d.missing)} h` : ""});
+    if(how === "plan") return true;
+    if(how !== "now") return false;
     const r = await post("/api/practice/save-many", {...body, ...opts()}).catch(() => null);
     showToast(r ? `Připravuji ${r.queued} písní — hotové najdeš ve Steems` + (d.ready ? ` (${d.ready} už rozdělených přeskakuji)` : "") : "Spuštění se nepovedlo");
     watch();
@@ -7645,7 +7816,7 @@ const PracticeReady = (() => {
     else if(d && state.mode === "steems" && el("mixer").hidden && !el("steems-list").hidden && watch.was) loadSteemsList();
     watch.was = !!(d && d.waiting + d.working > 0);
   }
-  return {song, playlist, all, songs, watch, busy: () => !!watch.was};
+  return {song, playlist, all, songs, watch, opts, busy: () => !!watch.was};
 })();
 // What there already is of a song — its file, its stems, its tab, its text —
 // told by the server for a whole list at once, and shown as four small marks.
@@ -11528,7 +11699,7 @@ function paintLibraryTable(){
     row.dataset.rel = entry.rel;
     row.querySelector(".act-stems").onclick = (e) => {
       e.stopPropagation();
-      startStemsSeparation(entry.rel);
+      startStemsSeparation(entry.rel, {ask: true, title});
     };
     row.querySelector(".act-mix").onclick = (e) => {
       e.stopPropagation();
@@ -12452,8 +12623,30 @@ function openMultiMixMenu(anchor){
     await Mixer.reloadTracks(`Přidáno ${rels.length - failed} stop` + (failed ? ` · ${failed} se nepodařilo` : ""));
   };
 }
-// Several songs into the separation queue at once (no jumping into Steems).
+// Several songs into the separation queue at once (no jumping into Steems) — or, said so, tonight.
+const relTitle = (rel) => String(rel || "").split("/").pop().replace(/\.[^.]+$/, "");
+const stemsBody = (rel) => ({rel, format: loadSettings().stems_format || "mp3", mp3_bitrate: loadSettings().stems_bitrate || 320});
+async function stemsCheck(rel){
+  try{ return await (await fetch("/api/stems/separate", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({...stemsBody(rel), check: true})})).json(); }catch(e){ return {}; }
+}
 async function separateMany(rels){
+  const fresh = [];
+  for(const rel of rels) if((await stemsCheck(rel)).check) fresh.push(rel);
+  if(fresh.length){
+    const how = await Plan.ask({kind: "separate", label: fresh.length === 1 ? `Rozdělit na stopy: ${relTitle(fresh[0])}` : `Rozdělit na stopy ${fresh.length} písní`,
+      path: "/api/stems/separate", body: stemsBody(fresh[0]), what: "Rozdělení jedné písně trvá pár minut a vytíží procesor i paměť; písně jdou po jedné.",
+      long: fresh.length > 1 ? `celé asi ${Math.max(1, Math.round(fresh.length * 3))} min` : "", manual: true});
+    if(how === "plan"){
+      let n = 0;
+      for(const rel of fresh) if(await Plan.add({kind: "separate", label: `Rozdělit na stopy: ${relTitle(rel)}`, path: "/api/stems/separate", body: stemsBody(rel)}, true)) n++;
+      const s = await Plan.settings();
+      showToast(`Naplánováno rozdělení ${n} písní${s.on === false ? "" : ` na noc (od ${s.start})`}`);
+      libSel.clear(); paintLibraryTable();
+      return;
+    }
+    if(how !== "now") return;
+  }
   let queued = 0, ready = 0;
   for(const rel of rels){
     try{
@@ -12530,7 +12723,13 @@ async function newProjectFromUpload(files){
   if(state.mode === "steems" && !currentSteemsName) loadSteemsList();
 }
 
-function startStemsSeparation(rel){
+// With {ask}: a song not separated yet is asked about first — now, or tonight.
+async function startStemsSeparation(rel, o = {}){
+  if(o.ask && (await stemsCheck(rel)).check){
+    const how = await Plan.ask({kind: "separate", label: `Rozdělit na stopy: ${o.title || relTitle(rel)}`, path: "/api/stems/separate", body: stemsBody(rel),
+      what: "Rozdělení na zpěv, bicí, baskytaru, kytaru, klavír a ostatní trvá pár minut a vytíží procesor i paměť.", long: "asi 2–4 min"});
+    if(how !== "now") return;
+  }
   fetch("/api/stems/separate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -26488,8 +26687,14 @@ const MyVoice = (() => {
     on("mv-stop", "onclick", async () => { await fetch("/api/myvoice/job", {method: "DELETE"}); await load(); paint(); showToast("Zastaveno."); });
     on("mv-go", "onclick", async () => {
       const part = form.part && loop;
+      const body = {voice: form.voice, steps: form.steps, shift: form.shift, auto: form.auto, ...(part ? {start: loop.start, end: loop.end} : {})};
+      const how = await Plan.ask({kind: "myvoice", label: `Zpěv jiným hlasem: ${stemsDisplayByName(name).title || name}${part ? " (úsek)" : ""}`,
+        path: `/api/stems/${encodeURIComponent(name)}/myvoice`, body,
+        what: "Model přezpívá stopu zpěvu vybraným hlasem a uloží ji jako novou stopu. Celá píseň trvá i přes deset minut a vytíží počítač."});
+      if(how === "plan"){ close(); return; }
+      if(how !== "now") return;
       const r = await fetch(`/api/stems/${encodeURIComponent(name)}/myvoice`, {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({voice: form.voice, steps: form.steps, shift: form.shift, auto: form.auto, ...(part ? {start: loop.start, end: loop.end} : {})})});
+        body: JSON.stringify(body)});
       const d = await r.json().catch(() => ({}));
       if(!r.ok){ showToast(d.error || "Nepodařilo se spustit."); return; }
       await load(); paint(); watch();
@@ -26956,6 +27161,10 @@ function renderPlaylistPanel(p){
   // Download, then every song into the separation queue — one press, the
   // rest by itself; the strip up top shows both stages.
   el("sep-all").onclick = async () => {
+    const how = await Plan.ask({kind: "saves", label: `Playlist ${p.title}: stáhnout a rozdělit na stopy`, path: "/api/practice/save-many",
+      body: {playlists: [p.browseId], ...PracticeReady.opts()},
+      what: "Hned: stáhne se celý playlist a písně se pak rozdělí na stopy. V noci: písně se stáhnou a rozdělí po jedné (i s tabem a textem); hotové najdeš ve Steems."});
+    if(how !== "now") return;
     const b = el("sep-all");
     b.disabled = true;
     showToast("Stahuju playlist — po stažení se písně samy rozdělí na stopy");
@@ -27685,7 +27894,7 @@ const Player = (() => {
   // separate whatever lands.
   function separateCurrentSong(){
     if(!current){ showToast("Nic nehraje"); return; }
-    if(current.relPath){ startStemsSeparation(current.relPath); return; }
+    if(current.relPath){ startStemsSeparation(current.relPath, {ask: true, title: current.title}); return; }
     if(!current.url){ showToast("U téhle položky není URL ke stažení"); return; }
     downloadThenSeparate(current);
   }
@@ -29095,17 +29304,180 @@ const Tasks = (() => {
   pace();
   return {now: tick};
 })();
+// ---- Naplánované úlohy (/api/plan): what waits for the night, in its order — ↑ ↓ move it,
+// ▶ runs one now, ✕ lets it go — the night window, asking first, and what is done.
+const PlanList = (() => {
+  const IC = {separate: "✂", saves: "⤓", songbook: "♪", hear: "◎", tone: "◉", myvoice: "♫", other: "•"};
+  const list = el("pl-list");
+  let hover = false, waiting = null, busy = false;
+  const when = (t) => new Date(t * 1000).toLocaleString("cs", {day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit"});
+  const call = async (url, method = "POST", body) => {
+    const r = await fetch(url, {method, headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.error || "Nepodařilo se.");
+    return d;
+  };
+  function rowHtml(t, i, n){
+    const run = t.status === "running";
+    const sub = run ? "běží teď" : t.now ? "spustí se hned, jak bude volno" : `čeká · naplánováno ${when(t.added)}`;
+    return `<div class="pl-row ${run ? "run" : ""}" data-id="${escapeHtml(t.id)}"><span class="pl-ic">${IC[t.kind] || "•"}</span>
+      <div><div class="pl-name" title="${escapeHtml(t.label)}">${escapeHtml(t.label)}</div>
+        <div class="pl-sub">${escapeHtml(sub)}${t.note ? " · " + escapeHtml(t.note) : ""}</div></div>
+      <div class="pl-acts">${run ? "" : `<button type="button" data-a="up" title="Dřív" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" data-a="down" title="Později" ${i === n - 1 ? "disabled" : ""}>↓</button>
+        <button type="button" data-a="now" title="Spustit teď">▶</button><button type="button" data-a="del" title="Zrušit">✕</button>`}</div></div>`;
+  }
+  function paint(d){
+    if(hover && !busy){ waiting = d; return; }
+    waiting = null; busy = false;
+    const s = d.settings, ts = d.tasks, open = ts.filter(t => t.status === "waiting").length;
+    if(document.activeElement !== el("pl-start")) el("pl-start").value = s.start;
+    if(document.activeElement !== el("pl-end")) el("pl-end").value = s.end;
+    el("pl-on").checked = s.on; el("pl-ask").checked = s.ask;
+    const cur = ts.find(t => t.status === "running");
+    el("pl-state").innerHTML = cur ? `Běží: <b>${escapeHtml(cur.label)}</b>${open ? ` · čeká ${open}` : ""}`
+      : !open ? "" : !s.on ? "Noční spouštění je vypnuté — naplánované počkají, nebo je spusť ručně."
+      : d.window ? (d.quiet ? "Je noc — spustí se, jakmile nic těžkého nepoběží." : "Je noc, ale hraje hudba — počkají, až dohraje.")
+      : `Spustí se dnes od <b>${escapeHtml(s.start)}</b> (čeká ${open}).`;
+    list.innerHTML = ts.length ? ts.map((t, i) => rowHtml(t, i, ts.length)).join("")
+      : `<div class="pl-empty">Nic není naplánované. Když spustíš něco náročného, vybereš „Naplánovat na noc“.</div>`;
+    el("pl-run").disabled = !open;
+    const h = d.history || [];
+    el("pl-hist").hidden = !h.length;
+    el("pl-hist-n").textContent = h.length ? `(${h.length})` : "";
+    el("pl-hist-list").innerHTML = h.map(t => `<div class="pl-hrow"><span class="${t.status === "done" ? "ok" : "bad"}">${t.status === "done" ? "✓" : "✕"}</span>
+      <div>${escapeHtml(t.label)}<small>${t.finished ? when(t.finished) : ""}${t.note ? " · " + escapeHtml(t.note) : ""}</small></div></div>`).join("");
+  }
+  async function tick(){
+    if(settingsOverlay.hidden) return;
+    try{ paint(await call("/api/plan", "GET")); }catch(e){}
+  }
+  async function act(fn){
+    busy = true;
+    try{ paint(await fn()); }catch(e){ busy = false; showToast(e.message); tick(); }
+  }
+  list.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-a]");
+    if(!b || b.disabled) return;
+    const id = b.closest(".pl-row").dataset.id, a = b.dataset.a;
+    b.disabled = true;
+    if(a === "up" || a === "down") act(() => call(`/api/plan/${encodeURIComponent(id)}/move`, "POST", {delta: a === "up" ? -1 : 1}));
+    else if(a === "now") act(async () => { const d = await call("/api/plan/now", "POST", {id}); showToast("Spustí se, jakmile nic těžkého nepoběží"); return d; });
+    else if(a === "del") act(() => call(`/api/plan/${encodeURIComponent(id)}`, "DELETE"));
+  });
+  list.addEventListener("mouseenter", () => { hover = true; });
+  list.addEventListener("mouseleave", () => { hover = false; if(waiting) paint(waiting); });
+  const set = (body) => act(async () => { const d = await call("/api/plan/settings", "POST", body); Plan.forget(); return d; });
+  el("pl-on").onchange = (e) => set({on: e.target.checked});
+  el("pl-ask").onchange = (e) => set({ask: e.target.checked});
+  el("pl-start").onchange = (e) => { if(e.target.value) set({start: e.target.value}); };
+  el("pl-end").onchange = (e) => { if(e.target.value) set({end: e.target.value}); };
+  el("pl-run").onclick = () => act(async () => { const d = await call("/api/plan/now", "POST", {}); showToast("Naplánované se spustí jedna po druhé, jakmile nic těžkého nepoběží"); return d; });
+  el("pl-hist-clear").onclick = () => act(() => call("/api/plan/history", "DELETE"));
+  document.addEventListener("pick-plan-changed", tick);
+  let timer = null;
+  const pace = () => { clearTimeout(timer); timer = setTimeout(async () => { await tick(); pace(); }, 5000); };
+  el("settings-btn").addEventListener("click", () => { setTimeout(tick, 60); pace(); });
+  pace();
+  return {now: tick};
+})();
+// ---- Poznámky a nápady (/api/notes): what does not work in Pick and what to make better —
+// kept on the server (notes.json), so Claude can read them too; "Zkopírovat pro Clauda" puts
+// the open ones on the clipboard as one message.
+const NotesPad = (() => {
+  const KINDS = {chyba: "Chyba", napad: "Nápad", poznamka: "Poznámka"}, KEY = "pick-notes-kind";
+  let kind = "chyba", show = "open", notes = [];
+  try{ kind = localStorage.getItem(KEY) || "chyba"; }catch(e){}
+  const txt = el("nt-text"), list = el("nt-list");
+  const when = (t) => new Date(t * 1000).toLocaleString("cs", {day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit"});
+  const call = async (url, method = "GET", body) => {
+    const r = await fetch(url, {method, headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.error || "Nepodařilo se.");
+    return d;
+  };
+  function paint(){
+    el("nt-kinds").querySelectorAll("[data-kind]").forEach(b => b.classList.toggle("on", b.dataset.kind === kind));
+    const open = notes.filter(n => !n.done), done = notes.length - open.length;
+    el("nt-filter").innerHTML = [["open", `Otevřené ${open.length}`], ["done", `Hotové ${done}`], ["all", "Vše"]]
+      .map(([k, t]) => `<button type="button" data-show="${k}" class="${k === show ? "on" : ""}">${t}</button>`).join("");
+    const rows = notes.filter(n => show === "all" || (show === "done") === !!n.done);
+    list.innerHTML = rows.length ? rows.map(n => `<div class="nt-item ${n.done ? "done" : ""}" data-id="${escapeHtml(n.id)}" data-kind="${escapeHtml(n.kind)}"><div>
+        <div class="nt-text">${escapeHtml(n.text)}</div><div class="nt-meta">${KINDS[n.kind] || "Poznámka"} · ${when(n.added)}</div></div>
+      <div class="nt-acts"><button type="button" data-a="done" title="${n.done ? "Znovu otevřít" : "Hotovo"}">${n.done ? "↺" : "✓"}</button>
+        <button type="button" data-a="edit" title="Upravit">✎</button><button type="button" data-a="del" title="Smazat">✕</button></div></div>`).join("")
+      : `<div class="nt-empty">${show === "done" ? "Nic hotového." : notes.length ? "Všechno je hotové." : "Zatím žádné poznámky."}</div>`;
+    el("nt-copy").disabled = !open.length;
+  }
+  async function load(){
+    try{ notes = (await call("/api/notes")).notes; }catch(e){}
+    paint();
+  }
+  async function add(){
+    const text = txt.value.trim();
+    if(!text){ txt.focus(); return; }
+    el("nt-save").disabled = true;
+    try{ notes = (await call("/api/notes", "POST", {text, kind})).notes; txt.value = ""; show = "open"; paint(); showToast("Poznámka uložena"); }
+    catch(e){ showToast(e.message); }
+    el("nt-save").disabled = false;
+  }
+  async function copy(){
+    let text = "";
+    try{ text = (await call("/api/notes/markdown")).text; }catch(e){ showToast(e.message); return; }
+    if(!text){ showToast("Žádné otevřené poznámky"); return; }
+    try{ await navigator.clipboard.writeText(text); }
+    catch(e){
+      const t = document.createElement("textarea");
+      t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try{ document.execCommand("copy"); }catch(e2){}
+      t.remove();
+    }
+    showToast("Zkopírováno — vlož to do chatu s Claudem (⌘V)");
+  }
+  el("nt-kinds").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-kind]"); if(!b) return;
+    kind = b.dataset.kind;
+    try{ localStorage.setItem(KEY, kind); }catch(e2){}
+    paint(); txt.focus();
+  });
+  el("nt-filter").addEventListener("click", (e) => { const b = e.target.closest("[data-show]"); if(b){ show = b.dataset.show; paint(); } });
+  el("nt-save").onclick = add;
+  el("nt-copy").onclick = copy;
+  txt.addEventListener("keydown", (e) => { if(e.key === "Enter" && (e.metaKey || e.ctrlKey)){ e.preventDefault(); add(); } });
+  list.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-a]"); if(!b) return;
+    const id = b.closest(".nt-item").dataset.id, n = notes.find(x => x.id === id); if(!n) return;
+    try{
+      if(b.dataset.a === "done") notes = (await call(`/api/notes/${encodeURIComponent(id)}`, "PATCH", {done: !n.done})).notes;
+      else if(b.dataset.a === "edit"){
+        const t = await Dialog.prompt("Upravit poznámku:", n.text, {multiline: true, ok: "Uložit"});
+        if(t == null || t.trim() === n.text) return;
+        notes = (await call(`/api/notes/${encodeURIComponent(id)}`, "PATCH", {text: t})).notes;
+      }else if(b.dataset.a === "del"){
+        if(!await Dialog.confirm("Smazat tuhle poznámku?", {ok: "Smazat", danger: true})) return;
+        notes = (await call(`/api/notes/${encodeURIComponent(id)}`, "DELETE")).notes;
+      }
+      paint();
+    }catch(err){ showToast(err.message); }
+  });
+  el("settings-btn").addEventListener("click", () => setTimeout(load, 60));
+  document.addEventListener("click", (e) => { if(e.target.closest && e.target.closest('[data-swcat="notes"]')) load(); });
+  load();
+  return {load};
+})();
 // ---- the settings as a window of their own: moved by its bar, sized at its corner,
 // the sections sorted into a few categories on the left (the ones other parts of
 // the app add later — the MIDI pedal — are sorted in when it opens).
 const SettingsWin = (() => {
   const KEY = "pick-settings-win", CAT_KEY = "pick-settings-cat";
   const CATS = [
-    ["system", "Systém", /Výkon počítače|Úlohy a procesy|Mapa aplikace|O aplikaci/],
+    ["system", "Systém", /Výkon počítače|Úlohy a procesy|Naplánované úlohy|Mapa aplikace|O aplikaci/],
     ["look", "Vzhled", /Vzhled|Ukazatel/],
     ["sound", "Zvuk a MIDI", /Výstup zvuku|Zvuk bez výpadků|Mikrofon pro zpěv|MIDI/],
     ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
     ["steems", "Steems", /Rozdělení písně|Steems/],
+    ["notes", "Poznámky", /Poznámky a nápady/],
   ];
   const panel = settingsOverlay.querySelector(".panel"), head = panel.querySelector(".panel-head");
   let built = false, cat = "system";

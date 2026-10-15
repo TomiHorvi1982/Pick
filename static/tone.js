@@ -314,9 +314,14 @@ const Tone = (() => {
   async function fit(refine){
     if(!range) return;
     const gs = G().state, own = !(gs.externalAmp || gs.tunnel);
-    try{ await api(`/api/tone/${enc(song)}/fit`, post({start: range.start, end: range.end, stem, refine: !!refine, print: refine ? pid : "",
+    const body = {start: range.start, end: range.end, stem, refine: !!refine, print: refine ? pid : "",
       current_amp: own ? (gs.ampFile || "") : "", current_cab: own && gs.cabName ? gs.cabName + ".wav" : "",
-      current_name: own ? [gs.ampName, gs.cabName].filter(Boolean).join(" + ") : ""})); }
+      current_name: own ? [gs.ampName, gs.cabName].filter(Boolean).join(" + ") : ""};
+    const how = await Plan.ask({kind: "tone", label: `Tónový otisk: ${title(song)}${refine ? " (zpřesnit)" : ""}`, path: `/api/tone/${enc(song)}/fit`, body,
+      what: "Výpočet zkouší modely zesilovačů na tvých nahrávkách a originálu — trvá pár minut a vytíží procesor. Hotový otisk najdeš u písně a v knihovně otisků.",
+      long: "asi 2–5 min"});
+    if(how !== "now") return;
+    try{ await api(`/api/tone/${enc(song)}/fit`, post(body)); }
     catch(e){ showToast(e.message); return; }
     await refresh();
     follow();

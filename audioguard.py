@@ -54,6 +54,13 @@ def active() -> bool:
         return bool(STATE["on"] and STATE["clients"])
 
 
+def sounding() -> bool:
+    """Whether music plays in a Pick window now, the protection on or off (the planner waits for it)."""
+    now = time.time()
+    with _LOCK:
+        return any(t > now for t in STATE["clients"].values())
+
+
 def configure(on=None, mode=None) -> None:
     if on is not None:
         STATE["on"] = bool(on)

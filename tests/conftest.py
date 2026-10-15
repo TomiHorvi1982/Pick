@@ -43,6 +43,13 @@ def _own_config(tmp_path, monkeypatch):
     (mapped folders, ToneRig, …) must neither leak in nor be written to."""
     monkeypatch.setattr(server, "CONFIG_PATH", tmp_path / "config.json")
     monkeypatch.setattr(server, "SAVES_QUEUE_FILE", tmp_path / "saves-queue.json")
+    # …and the jobs planned for the night, and the player's notes.
+    import planner, notes
+    monkeypatch.setattr(planner, "FILE", tmp_path / "plan.json")
+    monkeypatch.setattr(planner, "STATE", {"run_now": False, "current": None, "stop": False})
+    monkeypatch.setattr(planner, "CAFFEINATE", "/usr/bin/true")          # the Mac's sleep is not the tests' business
+    monkeypatch.setattr(planner, "_AWAKE", {"proc": None})
+    monkeypatch.setattr(notes, "FILE", tmp_path / "notes.json")
     # …and so do the user's own voice commands and what they taught by voice.
     import voice
     monkeypatch.setattr(voice, "CUSTOM_PATH", tmp_path / "voice-commands.json")

@@ -414,6 +414,31 @@ noční plán) signálem SIGSTOP/SIGCONT (pozastavené drží paměť), ukončen
 (a SIGKILL, když nepomůže); přezpívání, zpěv jiným hlasem a otisk mají vlastní zastavení,
 odposlech nové `DELETE /api/hear/job`. Ukončit chce v okně dvě kliknutí.
 
+**Naplánované úlohy** (`planner.py`, Nastavení → Systém, `GET|POST /api/plan`): před náročnou
+úlohou se Pick zeptá „Spustit hned, nebo v noci?“ (`Plan.ask` ve stránce) — u rozdělení na
+stopy (jedné písně i označených), přípravy oblíbených, označených písní a hvězdičkou
+přidaného playlistu, „stáhnout a rozdělit“ playlistu (v noci jde přes přípravu po písních),
+rozboru Zpěvníku, zpěvu jiným hlasem a tónového otisku. V noci uloží přesně ten požadavek,
+který by stránka poslala (cesta a tělo; jen z povoleného seznamu cest), do
+`~/.local/share/spotdl-helper/plan.json`. Plánovač na serveru (vlákno, každých 20 s) je
+v nočním okně (výchozí 23:00–07:00, přes půlnoc; `POST /api/plan/settings` — `on`, `start`,
+`end`, `ask`) pošle serveru samotnému jeden po druhém: další až když předchozí doběhl a nic
+těžkého neběží (fronta rozdělování prázdná, žádná ukládaná píseň, žádný model) a když
+v žádném okně nehraje hudba. Úloha odmítnutá pro málo paměti (503) nebo proto, že něco
+běží (409), se vrátí do fronty a zkusí se za 10 minut, po třetím pokusu skončí chybou;
+úloha přerušená restartem se spustí znovu. `POST /api/plan/now` spustí jednu (`id`) nebo
+všechny hned, `POST /api/plan/{id}/move` mění pořadí, `DELETE /api/plan/{id}` zruší čekající,
+historie hotových (s výsledkem, např. „Připraveno 12 písní“) má posledních 40. Dokud jsou
+úlohy na řadě, drží `caffeinate -i -w <pid serveru>`, takže Mac neusne (zapnutý být musí).
+Úlohy a procesy je ukazují jako „Naplánované úlohy“.
+
+**Poznámky a nápady** (`notes.py`, Nastavení → Poznámky, `GET|POST /api/notes`,
+`PATCH|DELETE /api/notes/{id}`): blok na to, co v Picku nefunguje nebo co vylepšit — druh
+chyba / nápad / poznámka, upravit, odškrtnout hotové, smazat. Ukládá se do
+`~/.local/share/spotdl-helper/notes.json`, takže si je Claude přečte sám („přečti poznámky
+z Picku“); **Zkopírovat pro Clauda** dá otevřené do schránky jako jednu zprávu po druzích
+(`GET /api/notes/markdown`, `?all=true` i s hotovými).
+
 **MIDI pedál** (Nastavení → MIDI pedál): nožní spínač přes MIDI — Bluetooth Ampero Switch
 se v macOS připojí v Nastavení Audio MIDI (Okno → MIDI studio → Bluetooth → Připojit),
 pak ho Chrome vidí jako MIDI vstup. Funkci (přehrát/zastavit, další / předchozí sekce,
