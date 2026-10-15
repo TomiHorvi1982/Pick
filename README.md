@@ -797,6 +797,19 @@ prostor) — nebo přes čistou kytaru. Tempo, ladění, úhoz (síla do zesilov
 mezerník přehraje od kurzoru. Riffy se ukládají; „Zkopírovat jako tab“ dá textový tab do schránky.
 V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvukem.
 
+**Ukázky**: šest riffů pro Pick, každý v jiném stylu (metal – cval v Drop D, blues shuffle v trioletách,
+funk se škrábáním 16tin, punk power akordy, rock pentatonika v A, flamenco andaluská kadence) — jedním
+kliknutím do editoru, upravit a uložit jako vlastní.
+
+**Taby z písní** pod kytarou (`/api/vguitar/tabs/*`): hledání přes [Freetar](https://github.com/kmille/freetar)
+(otevřený front-end k tabům z Ultimate Guitar; veřejná instance freetar.de, hledání bývá pomalé, výsledky
+se pamatují 6 h, otevřené taby v `tab-cache/`). Filtr druhu (kytarové taby, basa, akordy), stránky, verze.
+Tab se otevře jako text; riff se vezme **výběrem myší** přes struny od začátku po konec (stačí i na jedné
+struně — vezme se celý blok strun v tom rozsahu, i s PM nad nebo pod nimi) → „Vybraný úsek do kytary“,
+nebo „Celý tab do kytary“. **Moje taby** (`vguitar-tabs.json`) — uložené taby s vyhledáváním, i bez sítě.
+UltimateTab a ultimate-guitar-scraper Pick nepoužívá: první obchází ochranu Cloudflare proti robotům,
+druhý se vydává za mobilní aplikaci Ultimate Guitar s odvozeným API klíčem.
+
 ## Kontakt
 
 Tools → Kontakt (`kontakt.py`, `kontakt_host.py`, `static/kontakt.js`) — knihovny Native Instruments

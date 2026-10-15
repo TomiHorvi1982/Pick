@@ -32,14 +32,15 @@ const VGuitar = (() => {
   // "e|---0---3---|" lines, six (or four to eight) together; a run of digits is one fret; x a dead
   // note; h / p before a note makes it legato; a "PM----" line over the strings mutes those columns.
   // The tightest distance between two notes is one step.
+  const isTab = (l) => /\|/.test(l) && (l.match(/-/g) || []).length >= 4 && /^\s*([A-Ga-g][#b]?)?\s*[|:-]/.test(l);
   function parseTab(text){
     const lines = String(text || "").replace(/\t/g, "    ").split(/\r?\n/);
-    const isTab = (l) => /\|/.test(l) && (l.match(/-/g) || []).length >= 4 && /^\s*([A-Ga-g][#b]?)?\s*[|:-]/.test(l);
     const blocks = [];
     for(let i = 0; i < lines.length; i++){
       if(!isTab(lines[i])) continue;
       const b = {lines: [], above: i > 0 && !isTab(lines[i - 1]) ? lines[i - 1] : ""};
-      while(i < lines.length && isTab(lines[i])) b.lines.push(lines[i++]);
+      while(i < lines.length && isTab(lines[i])) b.lines.push(lines[i++].replace(/\|\s+\S.*$/, "|"));   // "|  x3" after the bar: a note, not notes
+      b.below = i < lines.length ? lines[i] : ""; i--;
       if(b.lines.length >= 4 && b.lines.length <= 8) blocks.push(b);
     }
     if(!blocks.length) return null;
@@ -71,8 +72,8 @@ const VGuitar = (() => {
       const steps = Math.max(1, Math.round((len - at[0]) / unit));
       const mine = blank(steps);
       events.forEach((e) => { const k = Math.min(steps - 1, Math.round((eff(e.pos) - at[0]) / unit)); mine[k].s[e.str] = e.fret; if(e.lg) mine[k].lg.push(e.str); });
-      // palm mute over the strings: "PM----" (or "P.M. - - -")
-      const pm = b.above || "", m = pm.match(/P\.?\s?M\.?/i);
+      // palm mute over the strings: "PM----" (or "P.M. - - -"), or under them
+      const pm = /P\.?\s?M/i.test(b.above) ? b.above : b.below || "", m = pm.match(/P\.?\s?M\.?/i);
       if(m){                                             // its columns counted as the strings' are (from their first |)
         let endp = m.index + m[0].length;
         while(endp < pm.length && /[-.=_~|]/.test(pm[endp])) endp++;
@@ -99,6 +100,49 @@ const VGuitar = (() => {
     });
     const pm = riff.cols.some((c) => c.pm) ? "PM " + riff.cols.map((c, k) => { const w = Math.max(1, ...t.map((_, s) => String(c.s[s] == null ? "" : c.s[s]).length)) + 1; return (c.pm ? "=" : " ").repeat(w) + ((k + 1) % (riff.div * 4) === 0 ? " " : ""); }).join("") + "\n" : "";
     return pm + lines.map((l) => l.endsWith("|") ? l : l + "|").join("\n");
+  }
+
+  // ---------------------------------------------------------------- example riffs, a style each
+  // A step a token: "." rests, notes "string:fret" (1 = high e … 6 = low E) joined by "+",
+  // "!" after a step palm mutes it, "~" after a note plays it legato. Written for Pick, not taken from songs.
+  const PC = (a, b) => `6:${a}+5:${b}+4:${b}`;            // a power chord on the low strings (b = a + 2 in standard)
+  const EXAMPLES = [
+    {name: "Metal – cval", style: "metal", bpm: 150, div: 4, tuning: [64, 59, 55, 50, 45, 38], steps: (() => {
+      const g = "6:0! . 6:0! 6:0!";
+      return [g, g, g, g, g, "6:5+5:5+4:5 . . .", g, "6:3+5:3+4:3 . 6:1+5:1+4:1 .",
+        g, g, g, g, "6:7+5:7+4:7 . . 6:0!", "6:0! . 6:5+5:5+4:5 .", "6:3+5:3+4:3 . . .", ". . . ."].join(" "); })()},
+    {name: "Blues – shuffle v E", style: "blues", bpm: 92, div: 3, tuning: [64, 59, 55, 50, 45, 40], steps: (() => {
+      const e = "6:0+5:2 . 6:0+5:2 6:0+5:4 . 6:0+5:4", a = "5:0+4:2 . 5:0+4:2 5:0+4:4 . 5:0+4:4";
+      return [e, e, e, e, a, a, e, e, "6:0+5:2 . 6:0+5:2 6:0+5:4 . 6:0+5:2", "5:2 . 5:0 6:3 . 6:0", "6:0+5:2+4:2 . . . . .", ". . . . . ."].join(" "); })()},
+    {name: "Funk – škrábání 16tin", style: "funk", bpm: 98, div: 4, tuning: [64, 59, 55, 50, 45, 40], steps: (() => {
+      const C = "5:7+4:6+3:7+2:7", X = "5:x+4:x+3:x+2:x";
+      return [C, ".", X, C, X, C, X, ".", C, ".", X, X, C, X, C, X,
+        C, ".", X, C, X, C, X, ".", "6:0", ".", "6:0", "6:3~", "6:5", ".", X, X].join(" "); })()},
+    {name: "Punk – power akordy", style: "punk", bpm: 176, div: 2, tuning: [64, 59, 55, 50, 45, 40], steps: (() => {
+      const G = "6:3+5:5", C = "5:3+4:5", D = "5:5+4:7";
+      return [...Array(8).fill(G + "!"), ...Array(4).fill(C + "!"), D, D, D, D, ...Array(8).fill(G + "!"), C + "!", C + "!", C + "!", C + "!", D, ".", D, "."].join(" "); })()},
+    {name: "Rock – pentatonika v A", style: "rock", bpm: 112, div: 4, tuning: [64, 59, 55, 50, 45, 40], steps: [
+      "6:5 . 6:5 6:8", ". 6:5 5:5 .", "5:7 . 5:5 5:7~", "4:5 . 4:7 .",
+      "5:7 5:5~ 6:8 .", "6:5 . . .", PC(5, 7) + " . . .", ". . . .",
+      "6:5 . 6:5 6:8", ". 6:5 5:5 .", "5:7 . 5:5 5:7~", "4:5 . 4:7 4:5~",
+      "3:7 . 3:5 .", "4:7 . 4:5 5:7", PC(5, 7) + " . . .", PC(3, 5) + " . " + PC(5, 7) + " ."].join(" ")},
+    {name: "Flamenco – andaluská kadence", style: "flamenco", bpm: 104, div: 2, tuning: [64, 59, 55, 50, 45, 40], steps: [
+      "5:0 4:2 3:2 2:1 1:0 2:1 3:2 4:2", "6:3 5:2 4:0 3:0 2:0 3:0 4:0 5:2",
+      "6:1 5:3 4:3 3:2 2:1 1:1 2:1 3:2", "6:0 5:2 4:2 3:1 2:0 1:0 2:0 3:1",
+      "5:0 4:2 3:2 2:1 1:0 2:1 3:2 4:2", "6:3 5:2 4:0 3:0 2:0 3:0 4:0 5:2",
+      "6:1 5:3 4:3 3:2 2:1 1:1 2:1 3:2", "6:0+5:2+4:2+3:1+2:0+1:0 . . . . . . ."].join(" ")},
+  ];
+  function exampleRiff(ex){
+    const cols = ex.steps.trim().split(/\s+/).map((tok) => {
+      const c = {s: {}, pm: tok.endsWith("!"), lg: []}, body = tok.replace("!", "");
+      if(body !== ".") body.split("+").forEach((nt) => {
+        const [str, f] = nt.split(":"), si = +str - 1, v = f.replace("~", "");   // string 1 = the grid's top row
+        c.s[si] = v === "x" ? "x" : +v;
+        if(f.endsWith("~")) c.lg.push(si);
+      });
+      return c;
+    });
+    return {id: "", name: ex.name, bpm: ex.bpm, div: ex.div, tuning: ex.tuning.slice(), cols, sound: riff.sound};
   }
 
   // ---------------------------------------------------------------- the sound
@@ -294,7 +338,19 @@ const VGuitar = (() => {
       .vg-riffs{display:flex;flex-wrap:wrap;gap:6px}
       .vg-riffs button{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:var(--text);border-radius:500px;font:inherit;font-size:12px;padding:4px 10px;cursor:pointer}
       .vg-riffs button.on{border-color:var(--accent)}
-      .vg-riffs .del{opacity:.6;padding:4px 7px}`;
+      .vg-riffs .del{opacity:.6;padding:4px 7px}
+      .vg-riffs .ex{border-style:dashed}
+      .vg-sec{border-top:1px solid rgba(255,255,255,.1);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+      .vg-sec h3{margin:0;font-size:16px}
+      .vg-tabsw{display:flex;gap:6px}.vg-tabsw button{border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--sub);border-radius:500px;font:inherit;font-size:12.5px;padding:5px 12px;cursor:pointer}
+      .vg-tabsw button.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+      .vg-res{display:flex;flex-direction:column;max-height:260px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:10px}
+      .vg-res button{display:grid;grid-template-columns:1fr auto auto;gap:10px;text-align:left;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text);font:inherit;font-size:13px;padding:7px 10px;cursor:pointer}
+      .vg-res button:hover,.vg-res button.on{background:rgba(255,255,255,.06)}
+      .vg-res .m{color:var(--sub);font-size:12px}
+      .vg-res .row{display:flex}.vg-res .row button:first-child{flex:1}.vg-res .row .del{flex:0 0 auto;display:block;opacity:.6}
+      .vg-tabtext{margin:0;max-height:520px;overflow:auto;background:#0b0c14;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;font:12.5px/1.35 ui-monospace,Menlo,monospace;white-space:pre;user-select:text;cursor:text}
+      .vg-tabtext::selection,.vg-tabtext *::selection{background:color-mix(in srgb,var(--accent) 45%,transparent)}`;
     document.head.appendChild(s);
   }
   async function show(container){
@@ -303,6 +359,7 @@ const VGuitar = (() => {
     try{ saved = (await api("/api/vguitar/riffs")).riffs; }catch(e){ saved = []; }
     try{ kpresets = typeof KontaktPage !== "undefined" ? await KontaktPage.presets() : []; }catch(e){ kpresets = []; }
     await midiAccess(true);
+    await loadMine();
     paint();
   }
   function hide(){ shown = false; stop(); }
@@ -329,6 +386,7 @@ const VGuitar = (() => {
         <button type="button" class="btn secondary" id="vg-copy">Zkopírovat jako tab</button>
       </div>
       ${saved.length ? `<div class="vg-riffs">${saved.map((r) => `<span><button type="button" data-load="${esc(r.id)}" class="${r.id === riff.id ? "on" : ""}">${esc(r.name)}</button><button type="button" class="del" data-del="${esc(r.id)}" title="Smazat riff">✕</button></span>`).join("")}</div>` : ""}
+      <div class="vg-riffs"><span class="vg-sub" style="margin:0;align-self:center">Ukázky:</span>${EXAMPLES.map((e, i) => `<button type="button" class="ex${riff.name === e.name && !riff.id ? " on" : ""}" data-ex="${i}" title="${e.bpm} BPM · ${esc(tuningName(e.tuning))}">${esc(e.name)}</button>`).join("")}</div>
       <div class="vg-bar">
         <button type="button" class="btn vg-play" id="vg-play">${play ? "■ Stop" : "▶ Přehrát"}</button>
         <label>Zvuk <select id="vg-sound">${soundOptions()}</select></label><span id="vg-sound-st" class="vg-sub" style="margin:0"></span>
@@ -349,8 +407,9 @@ const VGuitar = (() => {
       <div class="vg-keys"><b>Klikni do tabu</b> a piš: <b>číslo</b> = pražec (dvouciferné rychle za sebou), <b>x</b> = mrtvá nota, <b>Backspace</b> smaže,
         <b>šipky</b> posouvají, <b>p</b> = tlumení dlaní (PM) celého kroku, <b>h</b> = legato (hammer-on / pull-off), <b>mezerník</b> = přehrát / zastavit od kurzoru.
         Vložený textový tab (třeba zkopírovaný ze stránky s taby) se převede sám — nejkratší vzdálenost mezi dvěma tóny je jeden krok.</div>
+      <div class="vg-sec" id="vg-tabs"></div>
     </div>`;
-    paintGrid(); wire(); paintSound();
+    paintGrid(); wire(); paintSound(); paintTabs();
   }
   function paintGrid(){
     const g = root && root.querySelector("#vg-grid");
@@ -469,18 +528,13 @@ const VGuitar = (() => {
     q("vg-paste").onclick = async () => {
       const text = await Dialog.prompt("Vlož textový tab — řádky strun jako e|---0---3---| (klidně víc řádků pod sebou, i s PM nad nimi):", "",
         {title: "Vložit tab", multiline: true, ok: "Převést"});
-      if(!text) return;
-      const got = parseTab(text);
-      if(!got){ showToast("V textu jsem nenašel tab — řádky strun musí obsahovat | a pomlčky."); return; }
-      stop();
-      const keepRiff = riff.cols.some((c) => Object.keys(c.s).length) && await Dialog.confirm("Přidat vložený tab na konec, nebo nahradit ten, co je v editoru?", {ok: "Přidat na konec", cancel: "Nahradit"});
-      if(got.tuning) riff.tuning = got.tuning;
-      else if(got.strings !== riff.tuning.length) riff.tuning = (TUNINGS.find(([, t]) => t.length === got.strings) || TUNINGS[0])[1].slice();
-      if(!keepRiff){ riff.cols = got.cols; riff.div = 2; riff.id = ""; }
-      else riff.cols.push(...got.cols);
-      cur = {c: 0, s: riff.tuning.length - 1}; changed(); paint();
-      showToast(`Převedeno: ${got.cols.length} kroků${got.tuning ? `, ladění ${tuningName(got.tuning)}` : ""}. Krok je teď 1/8 — když to hraje moc rychle nebo pomalu, změň Krok nebo Tempo.`);
+      if(text) await takeTab(text);
     };
+    root.querySelectorAll("[data-ex]").forEach((b) => b.onclick = async () => {
+      if(dirty && riff.cols.some((c) => Object.keys(c.s).length) && !await Dialog.confirm("Otevřít ukázku? Neuložené změny se ztratí.", {ok: "Otevřít"})) return;
+      stop(); riff = exampleRiff(EXAMPLES[+b.dataset.ex]); cur = {c: 0, s: riff.tuning.length - 1}; dirty = false; keep(); paint();
+      showToast(`Ukázka „${riff.name}“ — ▶ Přehrát. Když ji upravíš, ulož si ji jako vlastní riff.`);
+    });
     q("vg-copy").onclick = async () => { try{ await navigator.clipboard.writeText(toText()); showToast("Tab je ve schránce."); }catch(e){ await Dialog.prompt("Tab:", toText(), {multiline: true, ok: "Zavřít"}); } };
     q("vg-save").onclick = async () => {
       if(!riff.cols.some((c) => Object.keys(c.s).length)){ showToast("Riff je prázdný."); return; }
@@ -504,9 +558,141 @@ const VGuitar = (() => {
       catch(e){ showToast(e.message); }
     });
   }
+  // A text tab into the editor: added at the end, or in place of what is there.
+  async function takeTab(text, name){
+    const got = parseTab(text);
+    if(!got){ showToast(name ? "V tomhle úseku nejsou řádky strun (e|---0---|). Tab typu Akordy riff nemá — zkus verzi Tabs." : "V textu jsem nenašel tab — řádky strun musí obsahovat | a pomlčky."); return false; }
+    stop();
+    const keepRiff = riff.cols.some((c) => Object.keys(c.s).length) && await Dialog.confirm("Přidat tab na konec riffu, nebo nahradit ten, co je v editoru?", {ok: "Přidat na konec", cancel: "Nahradit"});
+    if(got.tuning) riff.tuning = got.tuning;
+    else if(got.strings !== riff.tuning.length) riff.tuning = (TUNINGS.find(([, t]) => t.length === got.strings) || TUNINGS[0])[1].slice();
+    if(!keepRiff){ riff.cols = got.cols; riff.div = 2; riff.id = ""; if(name) riff.name = name; }
+    else riff.cols.push(...got.cols);
+    cur = {c: 0, s: riff.tuning.length - 1}; changed(); paint();
+    showToast(`Převedeno: ${got.cols.length} kroků${got.tuning ? `, ladění ${tuningName(got.tuning)}` : ""}. Krok je teď 1/8 — když to hraje moc rychle nebo pomalu, změň Krok nebo Tempo.`);
+    root.querySelector("#vg-wrap").scrollIntoView({behavior: "smooth", block: "center"});
+    return true;
+  }
+
+  // ---------------------------------------------------------------- tabs of songs, under the guitar
+  // Searched through Freetar (the Ultimate Guitar tabs), or the ones kept in Moje taby. A riff is
+  // taken by selecting it in the tab: across the strings, from where it starts to where it ends.
+  const TKEY = "pick-vguitar-tabs";
+  const KINDS = [["Tabs", "Kytarové taby"], ["Bass", "Basa"], ["Chords", "Akordy"], ["", "Vše"]];
+  let tb = {mode: "find", q: "", kind: "Tabs", page: 1, res: null, busy: false, mq: "", mine: [], open: null, opening: false};
+  try{ Object.assign(tb, JSON.parse(localStorage.getItem(TKEY) || "{}")); tb.busy = tb.opening = false; }catch(e){}
+  const keepTabs = () => { try{ localStorage.setItem(TKEY, JSON.stringify({mode: tb.mode, q: tb.q, kind: tb.kind, page: tb.page, res: tb.res, mq: tb.mq, open: tb.open})); }catch(e){} };
+  async function loadMine(){ try{ tb.mine = (await api("/api/vguitar/tabs/mine?q=" + enc(tb.mq))).tabs; }catch(e){ tb.mine = []; } }
+  function paintTabs(){
+    const box = root && root.querySelector("#vg-tabs");
+    if(!box) return;
+    const rows = tb.res ? tb.res.results.filter((r) => !tb.kind || r.type === tb.kind) : [];
+    const o = tb.open;
+    box.innerHTML = `<h3>Taby z písní</h3>
+      <div class="vg-tabsw"><button type="button" data-tm="find" class="${tb.mode === "find" ? "on" : ""}">Hledat (Freetar · Ultimate Guitar)</button>
+        <button type="button" data-tm="mine" class="${tb.mode === "mine" ? "on" : ""}">Moje taby${tb.mine.length ? ` (${tb.mine.length})` : ""}</button></div>
+      ${tb.mode === "find" ? `<div class="vg-bar">
+          <input type="text" id="vg-tq" placeholder="Kapela nebo píseň…" value="${esc(tb.q)}">
+          <label>Druh <select id="vg-tk">${KINDS.map(([k, l]) => `<option value="${k}" ${k === tb.kind ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          <button type="button" class="btn" id="vg-tgo" ${tb.busy ? "disabled" : ""}>${tb.busy ? "Hledám…" : "Hledat"}</button>
+          ${tb.busy ? `<span class="vg-sub" style="margin:0">Freetar bývá pomalý — klidně i minutu.</span>` : ""}</div>
+        ${tb.res ? `<div class="vg-res">${rows.map((r) => `<button type="button" data-turl="${esc(r.url)}" class="${o && o.url === r.url ? "on" : ""}"><span>${esc(r.artist)} – ${esc(r.song)}${r.version > 1 ? ` <span class="m">ver ${r.version}</span>` : ""}</span>
+            <span class="m">★ ${r.rating} (${r.votes})</span><span class="m">${esc(r.type)}</span></button>`).join("") || `<p class="vg-sub" style="padding:8px 10px;margin:0">Nic${tb.kind ? " tohoto druhu — zkus Druh: Vše" : ""}.</p>`}</div>
+          ${tb.res.pages > 1 ? `<div class="vg-bar"><button type="button" class="btn secondary" id="vg-tprev" ${tb.page > 1 && !tb.busy ? "" : "disabled"}>← Předchozí</button>
+            <span class="vg-sub" style="margin:0">stránka ${tb.page} z ${tb.res.pages}</span>
+            <button type="button" class="btn secondary" id="vg-tnext" ${tb.page < tb.res.pages && !tb.busy ? "" : "disabled"}>Další →</button></div>` : ""}` : ""}`
+      : `<div class="vg-bar"><input type="text" id="vg-tmq" placeholder="Hledat v mých tabech…" value="${esc(tb.mq)}"></div>
+        <div class="vg-res">${tb.mine.map((t) => `<div class="row"><button type="button" data-tid="${esc(t.id)}" class="${o && o.id === t.id ? "on" : ""}"><span>${esc(t.artist ? t.artist + " – " : "")}${esc(t.song)}</span><span></span><span></span></button>
+          <button type="button" class="del" data-tdel="${esc(t.id)}" title="Odebrat z Mých tabů">✕</button></div>`).join("")
+          || `<p class="vg-sub" style="padding:8px 10px;margin:0">${tb.mq ? "Nic tomu neodpovídá." : "Zatím žádné — otevři tab v Hledat a dej Uložit do Mých tabů."}</p>`}</div>`}
+      ${tb.opening ? `<p class="vg-sub" style="margin:0">Otevírám tab…</p>` : o ? `<div class="vg-bar"><b>${esc(o.artist ? o.artist + " – " : "")}${esc(o.song)}</b>
+          ${(o.versions || []).length ? `<label>Verze <select id="vg-tver"><option value="">tahle</option>${o.versions.map((v) => `<option value="${esc(v.url)}">${esc(v.label)}</option>`).join("")}</select></label>` : ""}</div>
+        <div class="vg-bar"><button type="button" class="btn" id="vg-tsel">Vybraný úsek do kytary</button>
+          <button type="button" class="btn secondary" id="vg-tall">Celý tab do kytary</button>
+          ${o.id ? `<span class="vg-sub" style="margin:0">✓ v Mých tabech</span>` : `<button type="button" class="btn secondary" id="vg-tkeep">Uložit do Mých tabů</button>`}
+          <button type="button" class="btn secondary" id="vg-tclose">Zavřít</button></div>
+        <p class="vg-sub" style="margin:0">Riff vybereš myší: táhni přes struny od začátku riffu po jeho konec (stačí i na jedné struně — vezme se celý blok strun v tom rozsahu).</p>
+        <pre class="vg-tabtext" id="vg-tabtext">${esc(o.text)}</pre>` : ""}`;
+    wireTabs();
+  }
+  async function findTabs(page){
+    if(tb.q.trim().length < 2){ showToast("Napiš aspoň dvě písmena."); return; }
+    tb.busy = true; tb.page = page || 1; paintTabs();
+    try{ tb.res = await api(`/api/vguitar/tabs/search?q=${enc(tb.q)}&page=${tb.page}`); }catch(e){ showToast(e.message); }
+    tb.busy = false; keepTabs(); paintTabs();
+  }
+  async function openTab(url){
+    tb.opening = true; paintTabs();
+    try{ const t = await api("/api/vguitar/tabs/open?url=" + enc(url)); const kept = tb.mine.find((m) => m.url === t.url); tb.open = {...t, id: kept ? kept.id : ""}; }
+    catch(e){ showToast(e.message); }
+    tb.opening = false; keepTabs(); paintTabs();
+  }
+  // the selection in the tab, as a tab again: the rows of its strings cut where it starts and ends
+  function selectedTab(pre){
+    const sel = getSelection();
+    if(!sel.rangeCount || sel.isCollapsed || !pre.contains(sel.anchorNode) || !pre.contains(sel.focusNode)) return null;
+    const rg = sel.getRangeAt(0), off = (node, o) => { const r = document.createRange(); r.setStart(pre, 0); r.setEnd(node, o); return r.toString().length; };
+    const a = off(rg.startContainer, rg.startOffset), b = off(rg.endContainer, rg.endOffset);
+    const lines = pre.textContent.split("\n"), starts = [];
+    let acc = 0; lines.forEach((l) => { starts.push(acc); acc += l.length + 1; });
+    const lineOf = (x) => { let i = 0; while(i + 1 < starts.length && starts[i + 1] <= x) i++; return i; };
+    const la = lineOf(a), lb = lineOf(Math.max(a, b - 1)), ca = a - starts[la], cb = b - starts[lb];
+    let top = la, bot = lb;
+    while(top > 0 && isTab(lines[top]) && isTab(lines[top - 1])) top--;
+    while(bot + 1 < lines.length && isTab(lines[bot]) && isTab(lines[bot + 1])) bot++;
+    const block = lines.slice(top, bot + 1);
+    if(!block.every(isTab)) return block.join("\n");            // across more blocks: their whole rows
+    const x0 = Math.min(ca, cb), x1 = Math.max(ca, cb);
+    const head = (l) => (l.match(/^\s*[A-Ga-g]?[#b]?\s*\|/) || [""])[0];
+    const ispm = (l) => /P\.?\s?M/i.test(l || "");
+    const above = top > 0 && ispm(lines[top - 1]) ? lines[top - 1] : "", below = bot + 1 < lines.length && ispm(lines[bot + 1]) ? lines[bot + 1] : "";
+    if(x1 - x0 < 2) return [above, ...block, below].filter(Boolean).join("\n");
+    const cut = block.map((l) => { const h = head(l); return h + l.slice(Math.max(x0, h.length), x1); });
+    const pmCut = (line) => {                                     // palm mute over or under the strings, cut the same way
+      const w = head(block[0]).length, seg = line.slice(Math.max(x0, w), x1);
+      if(!/[^\s|]/.test(seg)) return "";
+      return " ".repeat(w) + (ispm(seg) ? seg : /^[-=._~ ]/.test(seg) && /[-=._~]/.test(seg) ? "PM" + seg.slice(2) : seg);
+    };
+    const pa = above && pmCut(above), pb = below && pmCut(below);
+    return [pa, ...cut, pb].filter(Boolean).join("\n");
+  }
+  function wireTabs(){
+    const box = root.querySelector("#vg-tabs"), q = (id) => box.querySelector("#" + id);
+    box.querySelectorAll("[data-tm]").forEach((b) => b.onclick = async () => { tb.mode = b.dataset.tm; if(tb.mode === "mine") await loadMine(); keepTabs(); paintTabs(); });
+    if(q("vg-tq")){ q("vg-tq").oninput = (e) => { tb.q = e.target.value; }; q("vg-tq").onkeydown = (e) => { if(e.key === "Enter") findTabs(1); }; }
+    if(q("vg-tk")) q("vg-tk").onchange = (e) => { tb.kind = e.target.value; keepTabs(); paintTabs(); };
+    if(q("vg-tgo")) q("vg-tgo").onclick = () => findTabs(1);
+    if(q("vg-tprev")) q("vg-tprev").onclick = () => findTabs(tb.page - 1);
+    if(q("vg-tnext")) q("vg-tnext").onclick = () => findTabs(tb.page + 1);
+    let t = 0;
+    if(q("vg-tmq")) q("vg-tmq").oninput = (e) => { tb.mq = e.target.value; clearTimeout(t); t = setTimeout(async () => { await loadMine(); paintTabs(); const i = q("vg-tmq") || box.querySelector("#vg-tmq"); if(i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); };
+    box.querySelectorAll("[data-turl]").forEach((b) => b.onclick = () => openTab(b.dataset.turl));
+    box.querySelectorAll("[data-tid]").forEach((b) => b.onclick = () => { const m = tb.mine.find((x) => x.id === b.dataset.tid); if(m){ tb.open = {...m, versions: []}; keepTabs(); paintTabs(); } });
+    box.querySelectorAll("[data-tdel]").forEach((b) => b.onclick = async () => {
+      const m = tb.mine.find((x) => x.id === b.dataset.tdel);
+      if(!m || !await Dialog.confirm(`Odebrat „${m.song}“ z Mých tabů?`, {ok: "Odebrat", danger: true})) return;
+      try{ await api("/api/vguitar/tabs/mine/" + enc(m.id), {method: "DELETE"}); }catch(e){ showToast(e.message); }
+      if(tb.open && tb.open.id === m.id) tb.open.id = "";
+      await loadMine(); keepTabs(); paintTabs();
+    });
+    const o = tb.open, name = o ? `${o.artist ? o.artist + " – " : ""}${o.song}` : "";
+    if(q("vg-tver")) q("vg-tver").onchange = (e) => { if(e.target.value) openTab(e.target.value); };
+    if(q("vg-tclose")) q("vg-tclose").onclick = () => { tb.open = null; keepTabs(); paintTabs(); };
+    if(q("vg-tall")) q("vg-tall").onclick = () => takeTab(o.text, name);
+    if(q("vg-tsel")) q("vg-tsel").onclick = () => {
+      const part = selectedTab(q("vg-tabtext"));
+      if(!part){ showToast("Nejdřív v tabu myší označ riff — přes struny od začátku po konec."); return; }
+      takeTab(part, name);
+    };
+    if(q("vg-tkeep")) q("vg-tkeep").onclick = async () => {
+      try{ const r = await api("/api/vguitar/tabs/mine", post({artist: o.artist, song: o.song, text: o.text, url: o.url || ""})); o.id = r.id; await loadMine(); keepTabs(); paintTabs(); showToast("Uloženo do Mých tabů."); }
+      catch(e){ showToast(e.message); }
+    };
+  }
+
   // From the tone print library: this print's sound, right away.
   function withPrint(song, pid){ riff.sound = {song, pid}; keep(); setMode("vguitar"); }
   function withKontakt(id){ riff.sound = {kontakt: id}; keep(); setMode("vguitar"); }
 
-  return {show, hide, withPrint, withKontakt, parseTab, isPlaying: () => !!play};
+  return {show, hide, withPrint, withKontakt, parseTab, EXAMPLES, exampleRiff, isPlaying: () => !!play};
 })();
