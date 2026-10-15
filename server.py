@@ -182,7 +182,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "tone.js", "viz.js"):
+    if name in ("look.js", "studio.js", "practice.js", "tone.js", "viz.js", "vguitar.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -12147,6 +12147,10 @@ _storage.main = lambda: MUSIC_ROOT
 _storage.config = lambda: dict(_read_config().get("storage") or {})
 _storage.set_config = lambda cfg: _write_config({"storage": cfg})
 app.include_router(_storage.router)
+
+# ---- Virtuální kytara: riffs written or pasted as a tab (vguitar.py; the page plays them)
+import vguitar as _vguitar
+app.include_router(_vguitar.router)
 
 # ---- Vizualizace: the player's own videos by theme (Vizualizace/ beside the music), the song's clip
 import viz as _viz

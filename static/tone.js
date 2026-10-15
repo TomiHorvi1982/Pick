@@ -83,8 +83,9 @@ const Tone = (() => {
   }
   setInterval(() => { if(live) setDrive(); }, 400);
 
-  async function apply(name, which, quiet){
-    restored = true;                       // what the player does now counts, not what was on before a reload
+  // A print's chain, in the mixer's context: input → drive → EQ → the NAM core → the print's IR → room.
+  // The live guitar plays through one, the virtual guitar (static/vguitar.js) through one of its own.
+  async function buildChain(name, which){
     const p = (await api(`/api/tone/${enc(name)}?${q(which)}`)).print;
     if(!p) throw new Error("Tahle píseň otisk nemá.");
     const c = ac();
@@ -112,6 +113,13 @@ const Tone = (() => {
       colour.connect(wet); wet.connect(mix); mix.connect(out);
       nodes.push(wet, mix);
     }
+    const dispose = () => { nodes.forEach(n => { try{ n.disconnect(); }catch(e){} }); if(core){ try{ core.unloadModel(); }catch(e){} } };
+    return {print: p, input, out, nodes, core, dispose};
+  }
+
+  async function apply(name, which, quiet){
+    restored = true;                       // what the player does now counts, not what was on before a reload
+    const {print: p, input, out, nodes, core} = await buildChain(name, which);
     const dblBefore = live ? live.dbl : !!G().fx().state.dbl.on;
     remove(true);
     live = {song: name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore};
@@ -739,6 +747,7 @@ const Tone = (() => {
           <button type="button" class="tw-ib" data-act="record" title="Poslechnout kytaru originálu">${icon("disc", 14)}</button>
           <button type="button" class="tw-ib" data-act="hush" title="Zastavit poslech">${icon("pause", 14)}</button>
           <span class="tw-sp"></span>
+          <button type="button" class="tw-ib" data-act="vg" title="Virtuální kytara: zahrát tab tímhle zvukem">${icon("note", 14)}</button>
           <button type="button" class="tw-ib" data-act="open" title="Otevřít píseň a její otisky">${icon("external", 14)}</button>
           <button type="button" class="tw-ib ${armed === key ? "armed" : ""}" data-act="del" title="${armed === key ? "Klikni znovu — otisk se smaže" : "Smazat otisk"}">${armed === key ? "Smazat?" : icon("trash", 14)}</button>
           <button type="button" class="tw-play ${isLive ? "on" : ""}" data-act="use">${icon("guitar", 13)}<span>${isLive ? "Hraješ" : "Hrát"}</span></button>
@@ -770,6 +779,7 @@ const Tone = (() => {
         const act = b.dataset.act;
         if(act === "you" || act === "record"){ b.dataset.pid = x.id; preview(x.song, act, b); }
         else if(act === "hush") stopSound();
+        else if(act === "vg"){ stopSound(); close(); VGuitar.withPrint(x.song, x.id); }
         else if(act === "del") forget(x.song, x.id, b);
         else if(act === "use"){
           if(live && live.song === x.song && live.pid === x.id){ remove(); return; }
@@ -928,5 +938,5 @@ const Tone = (() => {
     return row;
   }
 
-  return {open, close, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove};
+  return {open, close, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints")};
 })();

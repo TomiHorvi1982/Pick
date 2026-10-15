@@ -59,6 +59,8 @@ def _own_config(tmp_path, monkeypatch):
     # …and the clips found for songs; no test ever reaches the real diskutil (formatting!).
     import viz, storage
     monkeypatch.setattr(viz, "CLIPS", tmp_path / "viz-clips.json")
+    import vguitar
+    monkeypatch.setattr(vguitar, "FILE", tmp_path / "vguitar.json")
     monkeypatch.setattr(viz, "PEXELS_KEY", tmp_path / "pexels-key.txt")
     monkeypatch.setattr(viz, "PIXABAY_KEY", tmp_path / "pixabay-key.txt")
     monkeypatch.setattr(storage, "DISKUTIL", "/usr/bin/false")

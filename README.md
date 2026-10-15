@@ -785,6 +785,18 @@ i soubor uložený dvakrát), a co je na kartě mimo Pick.
   (`diskutil eraseDisk APFS <název> GPT <disk>`) — nikdy disk Macu ani karta, kterou Pick používá,
   a jen po napsání SMAZAT. Testy skutečný diskutil nikdy nespustí.
 
+## Virtuální kytara
+
+Tools → Virtuální kytara (`static/vguitar.js`, riffy ve `vguitar.json` přes `vguitar.py`,
+`/api/vguitar/riffs`): tab napsaný v mřížce (struny × kroky; krok 1/8, 1/16 nebo trioly) nebo vložený
+jako textový tab (`e|---0---3---|`, víc soustav pod sebou, `PM----` nad strunami, `h`/`p` legato;
+nejkratší vzdálenost dvou tónů je jeden krok, ladění se pozná podle jmen strun). Struny se drnkají
+stejně jako u virtuální kytary v mixu (`GuitarSampler`, Karplus-Strong) a jdou přes **tónový otisk**
+vybrané písně — stejný řetězec jako živá kytara (`Tone.buildChain`: drive, EQ, NAM jádro, barva,
+prostor) — nebo přes čistou kytaru. Tempo, ladění, úhoz (síla do zesilovače), metronom, dokola;
+mezerník přehraje od kurzoru. Riffy se ukládají; „Zkopírovat jako tab“ dá textový tab do schránky.
+V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvukem.
+
 ## Zvuk bez výpadků
 
 Nastavení → Zvuk a MIDI → **Zvuk bez výpadků**. Zvuk (mix ve Steems, živá kytara) se renderuje

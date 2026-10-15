@@ -5519,6 +5519,7 @@ body.lib-collapsed .pick-brand{display:none}
   </div>
 
   <div id="composer-section" hidden></div>
+  <div id="vguitar-section" hidden></div>
 
   <div id="loopstudio-section" hidden>
     <iframe id="loopstudio-frame" title="Loop Studio"></iframe>
@@ -6491,6 +6492,7 @@ const AudioBus = (() => {
   // that belong to one of those (data-bus-owner, e.g. the tab player's
   // stems, which play together) never silence each other or their owner.
   const virtuals = new Map();    // id -> stop()
+  const sounding = new Map();    // id -> isPlaying(), for those that say
   const ownerOf = (x) => (x instanceof HTMLMediaElement ? (x.dataset.busOwner || x) : x);
 
   function pauseMedia(except){
@@ -6549,12 +6551,14 @@ const AudioBus = (() => {
     // Whether anything sounds now: the mixer, or a media element on the page or made in script.
     anyPlaying(){
       if(mixerIsPlaying && mixerIsPlaying()) return true;
-      if([...document.querySelectorAll("audio, video")].some(m => !m.paused && !m.ended)) return true;
-      for(const r of seen){ const m = r.deref(); if(m && !m.paused && !m.ended) return true; }
+      // a muted picture (Vizualizace) makes no sound
+      if([...document.querySelectorAll("audio, video")].some(m => !m.paused && !m.ended && !m.muted)) return true;
+      for(const r of seen){ const m = r.deref(); if(m && !m.paused && !m.ended && !m.muted) return true; }
+      for(const f of sounding.values()){ try{ if(f()) return true; }catch(e){} }
       return false;
     },
-    // Any other element-less player: register once, claim when it starts.
-    register(id, stop){ virtuals.set(id, stop); },
+    // Any other element-less player: register once, claim when it starts (and say whether it sounds).
+    register(id, stop, isPlayingFn){ virtuals.set(id, stop); if(isPlayingFn) sounding.set(id, isPlayingFn); },
     claim(id){ silenceOthers(id); },
     release(who){ if(owner === who) owner = null; },
     owner(){ return owner; },
@@ -9143,6 +9147,8 @@ function setMode(mode, opts){
   el("loopstudio-section").hidden = mode !== "loopstudio";
   el("composer-section").hidden = mode !== "composer";
   if(mode !== "composer" && typeof Composer !== "undefined") Composer.hide();
+  el("vguitar-section").hidden = mode !== "vguitar";
+  if(mode !== "vguitar" && typeof VGuitar !== "undefined") VGuitar.hide();
   el("my-library-section").hidden = true;
   if(mode === "library"){
     renderMyLibrary();
@@ -9181,6 +9187,8 @@ function setMode(mode, opts){
     fr.dataset.ready = "1";
   } else if(mode === "composer"){
     if(typeof Composer !== "undefined") Composer.show(el("composer-section"));   // studio.js comes last; it shows itself if this was first
+  } else if(mode === "vguitar"){
+    if(typeof VGuitar !== "undefined") VGuitar.show(el("vguitar-section"));
   } else if(mode === "loopstudio"){
     const fr = el("loopstudio-frame");
     if(!fr.getAttribute("src")) fr.src = "/loopstudio";
@@ -10513,6 +10521,7 @@ const TOOLS = [
   {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
   {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
+  {key: "vguitar", title: "Virtuální kytara", icon: "elGuitar", sub: "Napiš nebo vlož tab — zahraje ho zvukem kytary z písně (tónový otisk)"},
 ];
 
 const RAIL_SECTIONS = [
@@ -10522,10 +10531,10 @@ const RAIL_SECTIONS = [
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
   // Taby, Loops and Scales and Chords live under one heading.
-  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer"]},
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar"]},
 ];
 // Every mode the app can show, not only the rail's own headings.
-const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer"];
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -35026,5 +35035,6 @@ const Voice = (() => {
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
 <script src="/static/viz.js"></script>
+<script src="/static/vguitar.js"></script>
 </body>
 </html>
