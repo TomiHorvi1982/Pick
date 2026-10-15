@@ -12220,6 +12220,41 @@ def _guard_end():
     _guard.release()
 
 
+# ---- Bluetooth MIDI (tools/midi_bt.swift): macOS keeps a pedal it once connected (FS-1-WL,
+# Ampero Control…) but after a sleep or a restart often does not connect it again by itself —
+# the MIDI pedal's "Připojit / Obnovit" asks it to. Built once with swiftc (Command Line Tools).
+MIDI_BT = HOME / ".local" / "share" / "spotdl-helper" / "bin" / "midi-bt"
+MIDI_BT_SRC = APP_DIR / "tools" / "midi_bt.swift"
+
+
+def _midi_bt(cmd: str) -> dict:
+    if not MIDI_BT.is_file() or MIDI_BT.stat().st_mtime < MIDI_BT_SRC.stat().st_mtime:
+        MIDI_BT.parent.mkdir(parents=True, exist_ok=True)
+        r = subprocess.run(["/usr/bin/swiftc", "-O", "-o", str(MIDI_BT), str(MIDI_BT_SRC)], capture_output=True, text=True, timeout=300)
+        if r.returncode != 0:
+            raise RuntimeError("Pomocníka pro Bluetooth MIDI se nepodařilo sestavit (chybí nástroje pro vývojáře macOS).")
+    out = subprocess.run([str(MIDI_BT), cmd], capture_output=True, text=True, timeout=30).stdout
+    return json.loads(out or "{}")
+
+
+@app.get("/api/midi/system")
+def midi_system():
+    """What MIDI macOS has now: its inputs, and the Bluetooth MIDI devices it knows (on or off)."""
+    try:
+        return _midi_bt("list")
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as e:
+        return JSONResponse({"error": str(e) or "Bluetooth MIDI se nepodařilo zjistit."}, status_code=503)
+
+
+@app.post("/api/midi/bluetooth")
+def midi_bluetooth():
+    """Every Bluetooth MIDI device macOS knows, asked to connect again (a switched-on pedal comes back)."""
+    try:
+        return _midi_bt("connect")
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as e:
+        return JSONResponse({"error": str(e) or "Bluetooth MIDI se nepodařilo připojit."}, status_code=503)
+
+
 class AudioActiveRequest(BaseModel):
     client: str = ""           # which window (each sends its own)
     on: bool = True

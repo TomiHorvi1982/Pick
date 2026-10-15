@@ -421,7 +421,14 @@ originální kytary vyp/zap, smyčka, další píseň playlistu, ±10 s, tempo, 
 nahrávání, posun smyčky) přiřadíš ke **šlápnutí**, **dvojkliku** (dvě šlápnutí do 0,3 s)
 nebo **podržení** (déle než 0,6 s): vybereš ji, dáš Naučit a šlápneš (MIDI learn — Pick
 pozná CC, notu i Program Change, a jestli spínač hlásí i uvolnění; bez něj podržení nejde).
-Uloženo v prohlížeči (`pick-pedal`).
+Uloženo v prohlížeči (`pick-pedal`). Pick MIDI poslouchá hned, když je „Pedál ovládá Pick“
+zapnuté, a vidí i pedál, který se připojí později. macOS Bluetooth MIDI pedál, který už jednou
+znal (BOSS FS-1-WL, Ampero Control…), po uspání nebo restartu sám znovu nepřipojí: **Připojit
+MIDI / Obnovit** ho o to požádá (`POST /api/midi/bluetooth` → `tools/midi_bt.swift`,
+`MIDIBluetoothDriverActivateAllConnections`, sestaví se jednou přes `swiftc` do
+`~/.local/share/spotdl-helper/bin/midi-bt`) a nastavení ukazuje, které Bluetooth MIDI
+zařízení macOS zná a jestli je připojené (`GET /api/midi/system`). Pedál spojený s jiným
+zařízením (telefon) nevysílá a Mac ho nevidí — tam ho odpoj.
 
 **Okna Picku místo okének prohlížeče** (`Dialog` v `index.html`): potvrzení, zadání názvu
 i výběr ze seznamu se otevírají uprostřed v barvách aplikace (Enter / Esc), ne jako šedé

@@ -184,6 +184,7 @@ const Pedal = (() => {
   const GESTURES = {single: "šlápnutí", double: "dvojklik", long: "podržení"};
   const LONG_MS = 600, DOUBLE_MS = 320;
   let cfg = {on: true, input: "", binds: []};
+  let bt = null, btAsked = false;           // the Bluetooth MIDI devices macOS knows (/api/midi/system)
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   let access = null, learning = null, last = "", root = null;
@@ -287,13 +288,19 @@ const Pedal = (() => {
   // ---- Settings → MIDI pedál
   function paint(){
     if(!root) return;
+    if(!btAsked){
+      btAsked = true;
+      fetch("/api/midi/system").then((r) => (r.ok ? r.json() : null)).then((d) => { if(d){ bt = d.bluetooth || []; paint(); } }).catch(() => {});
+    }
     const ins = access ? [...access.inputs.values()] : [];
     root.innerHTML = `
       <label class="pd-row"><input type="checkbox" id="pd-on" ${cfg.on ? "checked" : ""}> Pedál ovládá Pick</label>
       <div class="pd-row"><span>Vstup</span><select id="pd-in"><option value="">všechny MIDI vstupy</option>${ins.map((i) => `<option ${i.name === cfg.input ? "selected" : ""}>${escapeHtml(i.name)}</option>`).join("")}</select>
         <button type="button" class="btn secondary" id="pd-conn">${access ? "Obnovit" : "Připojit MIDI"}</button></div>
       <div class="set-note">${access ? (ins.length ? `Vidím: ${ins.map((i) => escapeHtml(i.name)).join(", ")}.` : "Žádné MIDI zařízení nevidím.") : "Pick zatím MIDI neposlouchá — klikni Připojit MIDI."}
-        Bluetooth pedál (Ampero Switch): zapni ho, pak v <b>Nastavení Audio MIDI → Okno → MIDI studio → ikona Bluetooth</b> klikni u něj na <b>Připojit</b>. Potom Obnovit.
+        ${bt ? `<br>Bluetooth MIDI v macOS: ${bt.map((d) => `${escapeHtml(d.name)} ${d.online ? "✓ připojený" : "— nepřipojený"}`).join(" · ")}.` : ""}
+        Bluetooth pedál zapni a klikni ${access ? "Obnovit" : "Připojit MIDI"} — Pick požádá macOS, ať ho připojí. Když nenaskočí, nesmí být spojený s jiným zařízením (telefon, tablet):
+        tam ho odpoj, nebo v <b>Nastavení Audio MIDI → Okno → MIDI studio → ikona Bluetooth</b> klikni u něj na <b>Připojit</b>.
         <button type="button" class="pd-link" id="pd-setup">Otevřít Nastavení Audio MIDI</button></div>
       <div class="pd-last">Poslední zpráva: <b id="pd-last">${escapeHtml(last || "—")}</b></div>
       <div class="pd-binds">${cfg.binds.length ? cfg.binds.map((b, i) => `<div class="pd-b"><span>${escapeHtml(b.label)}</span><i>${GESTURES[b.gesture]}</i><b>${escapeHtml(name(b.action))}</b>
@@ -305,7 +312,14 @@ const Pedal = (() => {
     const q = (id) => root.querySelector("#" + id);
     q("pd-on").onchange = (e) => { cfg.on = e.target.checked; keep(); };
     q("pd-in").onchange = (e) => { cfg.input = e.target.value; keep(); };
-    q("pd-conn").onclick = async () => { if(access){ paint(); return; } if(await connect()) cfg.on = true, keep(); paint(); };
+    q("pd-conn").onclick = async (e) => {
+      // a Bluetooth pedal switched on after a sleep: macOS is asked to connect it first (it does not by itself)
+      const b = e.currentTarget;
+      b.disabled = true; b.textContent = "Hledám pedál…";
+      try{ const r = await fetch("/api/midi/bluetooth", {method: "POST"}); if(r.ok) bt = (await r.json()).bluetooth || bt; }catch(err){}
+      if(!access && await connect()){ cfg.on = true; keep(); }
+      paint();
+    };
     q("pd-setup").onclick = () => fetch("/api/system/midi-setup", {method: "POST"}).catch(() => {});
     q("pd-learn").onclick = async () => {
       if(learning){ clearTimeout(learning.t); learning = null; paint(); return; }
@@ -329,6 +343,7 @@ const Pedal = (() => {
   }
   mount();
   // A pedal set up before is listened to from the start (Chrome remembers the MIDI permission).
-  if(cfg.on && cfg.binds.length) connect(true);
+  // listening from the start whenever the pedal is meant to work — the last message shows, learning works at once
+  if(cfg.on) connect(true);
   return {connect, run, parse, actions: ACTIONS, config: () => cfg, feed: (data, from = "") => onMsg({data, target: {name: from}})};
 })();
