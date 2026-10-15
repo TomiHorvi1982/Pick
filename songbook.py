@@ -13,6 +13,10 @@ For each separated song, written once beside its stems (Stems/<song>/songbook.js
 Beside them the player's own texts (songbook-mine.json), whole and tagged, by band and
 section, to put into a new song as they are or in pieces.
 
+And the songs' own texts, for the player to take one into the Skladatel's Text (texts):
+the one the karaoke bar keeps, nothing searched for, its parts named — [Verse 1], [Chorus]…
+— by the sections the mixer shows, or by its stanzas where those are not known yet.
+
 A batch (a hundred songs across bands, say) runs in the background: the sections are
 found first where a song has none yet (analyze.py, half a minute a song), then the
 stems are listened through. It waits while a separation is running.
@@ -44,6 +48,7 @@ stems_root = lambda: Path(".")                       # noqa: E731
 ffmpeg = lambda: "ffmpeg"                           # noqa: E731
 analysis_for = lambda name: None                     # noqa: E731 — the song's sections and chords, found if missing
 lyrics_for = lambda d: None                          # noqa: E731 — the text kept for the karaoke bar
+kept_text = lambda d: None                           # noqa: E731 — {artist, title, album, lyrics} as kept, nothing searched for
 busy = lambda: False                                 # noqa: E731 — a separation is running
 genres_lookup = lambda band: []                      # noqa: E731
 
@@ -151,6 +156,81 @@ def shape(lyrics: Optional[dict], sections: list) -> Optional[dict]:
         for k, r in enumerate(out):
             r["kind"] = "chorus" if r["repeat_of"] is not None or any(x["repeat_of"] == k for x in out) else "verse"
     return {"lang": _lang(all_text), "synced": synced, "sections": out}
+
+
+# ------------------------------------------------------------------ the song's own text, its parts named
+NUMBERED = ("Verse", "Pre-Chorus", "Bridge", "Guitar Solo", "Instrumental", "Interlude", "Breakdown")
+
+
+def _alike(a: list, b: list) -> bool:
+    """Two stanzas that are one sung again — word for word, or all but a line or two."""
+    x, y = {_fold(s) for s in a}, {_fold(s) for s in b}
+    return bool(x and y) and len(x & y) / len(x | y) >= 0.6
+
+
+def _by_pauses(lines: list) -> list:
+    """Timed lines in one run, split where the singing stops for a while: the stanzas."""
+    gaps = sorted(b[0] - a[0] for a, b in zip(lines, lines[1:]))
+    long = max(6.0, 2.2 * gaps[len(gaps) // 2]) if gaps else 0
+    out = [[lines[0][1]]]
+    for (t0, _), (t1, s) in zip(lines, lines[1:]):
+        if t1 - t0 > long:
+            out.append([])
+        out[-1].append(s)
+    return out
+
+
+def tagged(lyrics: Optional[dict], sections: list) -> Optional[dict]:
+    """The song's own text with its parts named the way the Skladatel's Text has them: [Intro],
+    [Verse 1], [Chorus]… Timed lines go to the section they are sung in, and a section with no
+    singing stays a bare tag — the model plays it without words. An untimed text, or a song whose
+    sections were not found yet, is split into its stanzas; the one that comes back is the chorus.
+    → {text, parts: [{tag, lines}], by: "sections" | "stanzas", lang} — or None, no words in it."""
+    if not lyrics:
+        return None
+    lines = [(float(x.get("timeInMs") or 0) / 1000, (x.get("text") or "").strip()) for x in lyrics.get("lines") or [] if isinstance(x, dict)]
+    lines = [(t, s) for t, s in lines if s]
+    secs = [s for s in sections or [] if s.get("kind") != "song"]
+    if lyrics.get("synced") and lines and len(secs) >= 2:
+        rows = [[] for _ in secs]
+        for t, s in lines:                               # sung a moment early still belongs to its section
+            at = [k for k, sec in enumerate(secs) if float(sec["start"]) - 0.4 <= t]
+            rows[at[-1] if at else 0].append(s)
+        parts = [{"tag": KIND_EN.get(sec.get("kind"), "Interlude"), "lines": ls} for sec, ls in zip(secs, rows)]
+        by = "sections"
+    else:
+        text = lyrics.get("plain") or "\n".join(s for _, s in lines)
+        blocks = [[ln.strip() for ln in b.splitlines() if ln.strip()] for b in re.split(r"\n\s*\n", text or "")]
+        blocks = [b for b in blocks if b]
+        if len(blocks) < 2 and len(lines) > 1 and lyrics.get("synced"):
+            blocks = _by_pauses(lines)
+        parts = []
+        for k, b in enumerate(blocks):
+            tag = "Chorus" if any(j != k and _alike(b, c) for j, c in enumerate(blocks)) else "Verse"
+            if tag == "Verse" and len(b) <= 2 and parts and parts[-1]["tag"] == "Verse":
+                parts[-1]["lines"] += b                  # a line or two on their own: the verse's end, not a verse
+            else:
+                parts.append({"tag": tag, "lines": list(b)})
+        by = "stanzas"
+    if not any(p["lines"] for p in parts):
+        return None
+    many, n = {}, {}
+    for p in parts:
+        many[p["tag"]] = many.get(p["tag"], 0) + 1
+    for p in parts:                                      # verses numbered, a chorus is the chorus each time
+        base = p["tag"]
+        if base in NUMBERED and many[base] > 1:
+            n[base] = n.get(base, 0) + 1
+            p["tag"] = f"{base} {n[base]}"
+    text = "\n\n".join(f"[{p['tag']}]" + "".join("\n" + s for s in p["lines"]) for p in parts) + "\n"
+    return {"text": text, "parts": parts, "by": by, "lang": lyrics.get("lang") or _lang(" ".join(s for p in parts for s in p["lines"]))}
+
+
+def sections_of(d: Path) -> list:
+    """The song's sections as the mixer shows them — only when they were found already: finding
+    them takes half a minute, too long for a text being looked at."""
+    got = _json(d / "analysis.json") or {}
+    return [s for s in got.get("sections") or [] if isinstance(s, dict) and float(s.get("end") or 0) > float(s.get("start") or 0)]
 
 
 # ------------------------------------------------------------------ the sound
@@ -585,3 +665,49 @@ def mine_add(req: MineIn):
 def mine_delete(mid: str):
     _mine_save([x for x in mine() if x.get("id") != mid])
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ the songs' own texts, for the Skladatel
+_TEXTS = {"at": 0.0, "songs": []}
+
+
+@router.get("/api/songbook/texts")
+def songbook_texts(fresh: bool = False):
+    """The songs in Steems whose text Pick keeps (the karaoke bar's), to take one into the
+    Skladatel's Text. Counted once a minute: opened again within it, it costs nothing."""
+    root = stems_root()
+    if not fresh and time.time() - _TEXTS["at"] < 60 and _TEXTS["songs"]:
+        return {"songs": _TEXTS["songs"], "all": _TEXTS["all"]}
+    rows, all_n = [], 0
+    for d in sorted(root.glob("*")) if root.is_dir() else []:
+        if not d.is_dir() or d.name.startswith(".") or not loopstudio.stem_files(d):
+            continue
+        all_n += 1
+        got = kept_text(d)
+        lyr = got and got.get("lyrics")
+        if not lyr:
+            continue
+        sung = [x for x in lyr.get("lines") or [] if isinstance(x, dict) and (x.get("text") or "").strip()]
+        rows.append({"name": d.name, "band": got.get("artist") or "", "title": got.get("title") or d.name,
+                     "album": got.get("album") or "", "source": lyr.get("source") or "", "synced": bool(lyr.get("synced")),
+                     "lines": len(sung) or sum(1 for ln in (lyr.get("plain") or "").splitlines() if ln.strip()),
+                     "parts": (d / "analysis.json").is_file()})
+    rows.sort(key=lambda x: (_fold(x["band"]) or "~", _fold(x["title"])))
+    _TEXTS.update(at=time.time(), songs=rows, all=all_n)
+    return {"songs": rows, "all": all_n}
+
+
+@router.get("/api/songbook/texts/{name}")
+def songbook_text(name: str):
+    """One song's text with its parts named, ready for the Text field."""
+    d = stems_root() / name
+    if "/" in name or name.startswith(".") or not d.is_dir():
+        return JSONResponse({"error": "Taková píseň ve Steems není."}, status_code=404)
+    got = kept_text(d) or {}
+    out = tagged(got.get("lyrics"), sections_of(d))
+    if not out:
+        return JSONResponse({"error": "Pick u téhle písně text nemá. Pusť ji ve Steems a zapni text — najde ho, nebo ho odposlechne ze zpěvu."},
+                            status_code=404)
+    lyr = got["lyrics"]
+    return {"name": name, "band": got.get("artist") or "", "title": got.get("title") or name,
+            "source": lyr.get("source") or "", "synced": bool(lyr.get("synced")), **out}

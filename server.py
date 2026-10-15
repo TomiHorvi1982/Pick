@@ -12071,6 +12071,23 @@ def _songbook_lyrics(d: Path):
     return got if got and (got.get("lines") or got.get("plain")) else kept
 
 
+def _songbook_kept_text(d: Path):
+    """The song's text as the karaoke bar keeps it, nothing searched for — asked the way the mixer
+    asks: its title, its first artist, its length in whole seconds (a second either way: the player
+    and the file's tags round it each their own way)."""
+    m = _stems_meta(d)
+    if not m.get("title"):
+        return None
+    dur = next((x for x in (_audio_tags(f).get("duration") for f in (_stem_file(d, st) for st in STEM_NAMES[:2]) if f) if x), None)
+    secs = [int(round(dur)) + k for k in (0, -1, 1)] if dur else [0]
+    for a in dict.fromkeys(((m.get("artist") or "").split(",")[0].strip(), m.get("artist") or "")):
+        for n in secs:
+            got = _lyrics_kept(m["title"], a, n)
+            if got:
+                return {"artist": m.get("artist") or "", "title": m["title"], "album": m.get("album") or "", "lyrics": got}
+    return None
+
+
 def _songbook_genres(band: str) -> list:
     """The band's genres as MusicBrainz's listeners tag them, the most agreed first."""
     want = _names.key(band)
@@ -12091,6 +12108,7 @@ _songbook.stems_root = lambda: MUSIC_ROOT / "Stems"
 _songbook.ffmpeg = ffmpeg_bin
 _songbook.analysis_for = _songbook_analysis
 _songbook.lyrics_for = _songbook_lyrics
+_songbook.kept_text = _songbook_kept_text
 _songbook.busy = _songbook_busy
 _songbook.genres_lookup = _songbook_genres
 app.include_router(_songbook.router)

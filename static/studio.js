@@ -159,6 +159,7 @@ const Composer = (() => {
         : `<p class="cp-note">Předlohu přidáš, až bude projekt.</p>`}`;
     const text = `
       <textarea id="cp-lyrics" class="cp-lyrics" placeholder="Text písně. Části označ [Verse] [Chorus] [Bridge] [Guitar Solo]… Prázdný text = instrumentálka.">${esc(form.lyrics || (p && p.lyrics) || "")}</textarea>
+      <div class="cp-row"><button type="button" class="btn secondary" id="cp-song-text" title="Vybereš píseň ze Steems; její text — s částmi [Verse], [Chorus]… podle písně — uvidíš, můžeš upravit a vloží se sem">Text z písně ze Steems…</button></div>
       <div class="cp-tabs">${st.tags.map((c) => `<button type="button" data-ttab="${c.id}" class="${c.id === tags.id ? "on" : ""}">${esc(c.name)}</button>`).join("")}</div>
       <div class="cp-chips small">${tags.tags.map(([t, cs]) => `<button type="button" data-tag="${esc(t)}" title="${esc(cs)}">${esc(t)}</button>`).join("")}</div>
       <label class="cp-lbl">Jazyk zpěvu<select id="cp-lang">${Object.entries(st.langs).map(([k, l]) => `<option value="${k}" ${k === form.lang ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
@@ -268,6 +269,7 @@ const Composer = (() => {
     on("cp-ref-drop", "onclick", async () => { try{ await api(`/api/studio/projects/${pid}/reference`, {method: "DELETE"}); await load(); paint(); }catch(e){ showToast(e.message); } });
     on("cp-refs", "oninput", (e) => { opt("ref_strength", +e.target.value); q("cp-refs-v").textContent = Math.round(e.target.value * 100) + " %"; });
     on("cp-lyrics", "oninput", (e) => { form.lyrics = e.target.value; keep(); });
+    on("cp-song-text", "onclick", () => songText());
     root.querySelectorAll("[data-ttab]").forEach((b) => b.onclick = () => { tagTab = b.dataset.ttab; repaint(); });
     root.querySelectorAll("[data-tag]").forEach((b) => b.onclick = () => insertTag(b.dataset.tag));
     on("cp-lang", "onchange", (e) => { form.lang = e.target.value; keep(); });
@@ -317,6 +319,57 @@ const Composer = (() => {
       const b = root.querySelector("#cp-lw-sound");
       if(b) b.onclick = () => { form.desc = out.sound; keep(); paint(); showToast("Popis zvuku je doplněný."); };
     }catch(e){ writing = false; paint(); showToast(e.message); }
+  }
+
+  // ---- a song's own text (songbook.py, texts): the one the karaoke bar keeps, its parts named by the song's
+  // sections. Picked from the songs in Steems, looked over — and changed, if need be — and put into the Text.
+  let textsQ = "";
+  const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const textFrom = (x) => /odposlech/.test(x.source) ? "odposlechnutý ze zpěvu" : /časy ze zpěvu/.test(x.source) ? "časy ze zpěvu" : x.source || "uložený";
+  async function songText(name){
+    if(!name){
+      let all;
+      try{ all = await api("/api/songbook/texts"); }catch(e){ showToast(e.message); return; }
+      name = await Dialog.pick({title: "Text z písně", text: `Text má ${all.songs.length} z ${all.all} písní ve Steems. Vybraný uvidíš celý a můžeš ho upravit, než se vloží.`,
+        placeholder: "Hledat kapelu nebo píseň…", query: textsQ, empty: "Žádná píseň s textem tomu neodpovídá.",
+        search: async (q) => {
+          textsQ = q;
+          const words = fold(q).split(/\s+/).filter(Boolean);
+          const hit = all.songs.filter((x) => { const h = fold(`${x.band} ${x.title} ${x.album}`); return words.every((w) => h.includes(w)); });
+          const rows = hit.slice(0, 150).map((x) => ({label: `${x.band ? x.band + " – " : ""}${x.title}`, value: x.name,
+            sub: `${x.lines} ř. · ${textFrom(x)}${x.parts ? " · části podle písně" : ""}`}));
+          return hit.length > 150 ? [...rows, {label: `… a dalších ${hit.length - 150}`, sub: "zúžíš hledáním", disabled: true}] : rows;
+        }});
+      if(!name) return;
+    }
+    let got;
+    try{ got = await api("/api/songbook/texts/" + encodeURIComponent(name)); }catch(e){ showToast(e.message); return; }
+    grab();
+    const had = !!form.lyrics.trim();
+    const v = await Dialog.open((card, c) => {
+      card.classList.add("wide", "cp-songtext");
+      card.innerHTML = `<div class="pk-dlg-title">${esc(got.band ? got.band + " – " : "")}${esc(got.title)}</div>
+        <div class="pk-dlg-text">Text ${esc(textFrom(got))} · ${got.by === "sections" ? "části podle sekcí písně" : "části podle slok (refrén je sloka, která se opakuje)"}. Upravit ho můžeš přímo tady.</div>
+        <textarea class="pk-dlg-in" rows="16" spellcheck="false" data-focus></textarea>
+        <div class="pk-dlg-btns"><button type="button" class="btn secondary" data-v="back">← Jiná píseň</button><span class="pk-dlg-note"></span>
+          ${had ? `<button type="button" class="btn secondary" data-v="add">Přidat za text v poli</button><button type="button" class="btn" data-v="put">Nahradit text v poli</button>`
+            : `<button type="button" class="btn" data-v="put">Vložit do pole Text</button>`}</div>`;
+      const ta = card.querySelector("textarea");
+      ta.value = got.text;
+      card.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => Dialog.close({how: b.dataset.v, text: ta.value}));
+      c.onEnter = () => Dialog.close({how: "put", text: ta.value});      // ⌘↩ in the text
+      setTimeout(() => { ta.scrollTop = 0; ta.setSelectionRange(0, 0); }, 120);   // the dialog selects all of it when it focuses
+    }, null);
+    if(!v) return;
+    if(v.how === "back"){ songText(); return; }
+    if(!v.text.trim()){ showToast("Text je prázdný — nic jsem nevložil."); return; }
+    form.lyrics = v.how === "add" ? form.lyrics.replace(/\s+$/, "") + "\n\n" + v.text.trim() + "\n" : v.text.trim() + "\n";
+    const lang = st.langs[got.lang] && form.lang !== got.lang ? got.lang : "";
+    if(lang) form.lang = lang;
+    keep(); paint();
+    const t = root && root.querySelector("#cp-lyrics");
+    if(t){ t.scrollIntoView({block: "nearest", behavior: "smooth"}); t.scrollTop = 0; }
+    showToast(`Text písně ${got.title} je v poli Text${lang ? ` · jazyk zpěvu: ${st.langs[lang]}` : ""}.`);
   }
 
   // ---- Zpěvník (songbook.py): how the songs in Steems sound, section by section, and how their texts are
@@ -445,7 +498,8 @@ const Composer = (() => {
         const s = g.sound;
         body += `<div class="sb-song"><div class="sb-cap"><b>${esc(g.artist)} – ${esc(g.title)}</b><small>${[s.bpm && s.bpm + " BPM", s.key, s.timesig && s.timesig + "/4", g.text ? `text: ${esc(g.text.lang)}` : "text nenalezen"].filter(Boolean).join(" · ")}</small>
             <p>${esc(s.caption)}</p>
-            <div class="cp-row"><button type="button" class="btn secondary" id="sb-sound">Popis celé písně → Zvuk</button><button type="button" class="btn secondary" id="sb-all">Celou stavbu → Stavba</button></div></div>
+            <div class="cp-row"><button type="button" class="btn secondary" id="sb-sound">Popis celé písně → Zvuk</button><button type="button" class="btn secondary" id="sb-all">Celou stavbu → Stavba</button>
+              ${g.text ? `<button type="button" class="btn secondary" id="sb-text" title="Text téhle písně s jejími částmi — uvidíš ho a vloží se do pole Text">Text písně → Text</button>` : ""}</div></div>
           ${s.sections.map((r, i) => `<div class="sb-sec"><span class="sb-tag">[${esc(r.tag)}]</span><span class="sb-t">${clock(r.start)}–${clock(r.end)}</span>
             <span class="sb-d">${esc(r.desc)}<small>${esc(shapeTx(r.text))}</small></span><button type="button" class="sb-add" data-sbsec="${i}" title="Přidat tuhle část do stavby nové písně">＋</button></div>`).join("")}</div>`;
       } else if(g){
@@ -487,6 +541,7 @@ const Composer = (() => {
     if(sbSong && sbSong.sound){
       const src = {cap: sbSong.sound.caption, bpm: sbSong.sound.bpm, key: sbSong.sound.key, ts: sbSong.sound.timesig};
       on("sb-sound", () => soundFrom(src));
+      on("sb-text", () => songText(sbSong.name));
       on("sb-all", () => { sbSong.sound.sections.forEach((r) => form.plan.push(rowFromSection(sbSong, r))); keep(); paintSb(); showToast("Celá stavba písně je ve Stavbě."); });
       box.querySelectorAll("[data-sbsec]").forEach((b) => b.onclick = () => addRow(rowFromSection(sbSong, sbSong.sound.sections[+b.dataset.sbsec])));
     }
