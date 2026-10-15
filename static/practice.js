@@ -125,7 +125,8 @@ const Setlist = (() => {
     const t0 = Date.now();
     const go = () => {
       if(!active || active.id !== p.id || active.idx !== idx) return;
-      if(Mixer.currentSong() === name && Mixer.channelInfo().length && Mixer.length() > 0){ setTimeout(() => Mixer.play(), 600); return; }
+      // all its tracks in — before that the mix still holds the last song's, and play would start that one again
+      if(Mixer.currentSong() === name && (Mixer.ready ? Mixer.ready() : Mixer.channelInfo().length && Mixer.length() > 0)){ setTimeout(() => { if(Mixer.currentSong() === name) Mixer.play(); }, 600); return; }
       if(Date.now() - t0 < 60000) waitT = setTimeout(go, 400);
     };
     waitT = setTimeout(go, 400);

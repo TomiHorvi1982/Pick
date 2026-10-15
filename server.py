@@ -9797,14 +9797,22 @@ def resing_stop():
 # along with it; what came out of the guitar clean (tone/take-N.wav, on the song's clock)
 # and the record's guitar on that stretch go to tone_worker.py (its own venv), which plays
 # them through every NAM core of the library in Node (tone_nam.mjs — the very engine the
-# live guitar runs) and keeps the chain that sounds the most like the record:
-# tone/print.json, print-ir.wav and you.wav (the take through it, for the A/B).
+# live guitar runs) and keeps the chain that sounds the most like the record. A song can have
+# many prints (its rhythm guitar, its solo, another stretch): tone/prints/<id>/ each — print.json
+# (with its name), print-ir.wav, you.wav (the take through it, for the A/B), and what "Doladit"
+# replaced (prev-*). All of them make the library of prints (Knihovna → Otisky zvuku).
 TONE_PYTHON = HOME / ".local" / "venvs" / "pick-tone" / "bin" / "python"
 TONE_WORKER = APP_DIR / "tone_worker.py"
 TONE_NAM_JS = APP_DIR / "tone_nam.mjs"
 TONE_DIR = "tone"
-TONE_FILES = ("print-ir.wav", "you.wav", "abx-record.wav", "abx-you.wav", "prev-print-ir.wav")
+TONE_FILES = ("print-ir.wav", "you.wav", "abx-record.wav", "abx-you.wav", "prev-print-ir.wav", "you.mp3", "record.mp3")
+TONE_STEM_LABELS = {"guitar": "Kytara", "guitar_solo": "Sólová kytara", "guitar_rhythm": "Rytmická kytara"}
+TONE_PART = {"guitar_solo": "sólo", "guitar_rhythm": "rytmika"}
+# The kinds of sound a print is filed under (static/tone.js shows them); the app picks one
+# from the measured distortion of the record, the player can say otherwise.
+TONE_CATEGORIES = ("clean", "crunch", "hi_gain", "lead", "acoustic", "ambient", "fuzz", "other")
 _re_tone_take = _re_mod.compile(r"take-\d{1,4}\.wav")
+_re_tone_print = _re_mod.compile(r"\d{8}-\d{6}(-\d{1,3})?")
 _TONE: dict = {"job": None, "proc": None}
 
 
@@ -9830,12 +9838,88 @@ def _tone_takes(d: Path) -> list:
         return []
 
 
-def _tone_print(d: Path, prefix: str = "") -> Optional[dict]:
+def _tone_at(d: Path, pid: str) -> Path:
+    return d / TONE_DIR / "prints" / pid
+
+
+def _tone_new_id(d: Path, at: Optional[float] = None) -> str:
+    base = time.strftime("%Y%m%d-%H%M%S", time.localtime(at or time.time()))
+    pid, n = base, 1
+    while _tone_at(d, pid).exists():
+        n += 1
+        pid = f"{base}-{n}"
+    return pid
+
+
+def _tone_auto_category(p: dict) -> str:
+    drive = ((p.get("report") or {}).get("record") or {}).get("drive")
+    if drive is None:
+        return "other"
+    return "clean" if drive < 30 else "crunch" if drive < 60 else "hi_gain"
+
+
+def _tone_named(d: Path, prints: list) -> list:
+    """What the player has not named or filed themselves: the band and the song (with the part
+    and the stretch's start when the song has more prints of it), and the kind of sound."""
+    m = _stems_meta(d)
+    song = f"{m['artist']} – {m.get('title') or d.name}" if m.get("artist") else (m.get("title") or d.name)
+    mm = lambda x: f"{int(float(x or 0) // 60)}:{int(float(x or 0) % 60):02d}"
+    base = {p["id"]: song + (f" · {TONE_PART[p['stem']]}" if p.get("stem") in TONE_PART else "") for p in prints}
+    count = {b: list(base.values()).count(b) for b in base.values()}
+    for p in prints:
+        if p.get("name_auto", True) or not p.get("name"):
+            p["name"] = base[p["id"]] + (f" · {mm(p.get('start'))}" if count[base[p["id"]]] > 1 else "")
+            p["name_auto"] = True
+        if p.get("category") not in TONE_CATEGORIES:
+            p["category"], p["category_auto"] = _tone_auto_category(p), True
+    return prints
+
+
+def _tone_migrate(d: Path) -> None:
+    """A print from before a song could have more (tone/print.json) moves into prints/<its id>/."""
+    t = d / TONE_DIR
+    if not (t / "print.json").is_file():
+        return
     try:
-        got = json.loads((d / TONE_DIR / f"{prefix}print.json").read_text(encoding="utf-8"))
-        return got if isinstance(got, dict) and (d / TONE_DIR / f"{prefix}print-ir.wav").is_file() else None
+        p = json.loads((t / "print.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    pid = _tone_new_id(d, p.get("created"))
+    dest = _tone_at(d, pid)
+    dest.mkdir(parents=True, exist_ok=True)
+    for f in ("print-ir.wav", "you.wav", "prev-print.json", "prev-print-ir.wav", "abx-record.wav", "abx-you.wav"):
+        if (t / f).is_file():
+            (t / f).replace(dest / f)
+    p.update(id=pid, name_auto=True)
+    (dest / "print.json").write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
+    (t / "print.json").unlink(missing_ok=True)
+
+
+def _tone_print(d: Path, pid: str, prefix: str = "") -> Optional[dict]:
+    if not pid or not _re_tone_print.fullmatch(pid):
+        return None
+    f = _tone_at(d, pid)
+    try:
+        got = json.loads((f / f"{prefix}print.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if not isinstance(got, dict) or not (f / f"{prefix}print-ir.wav").is_file():
+        return None
+    got["id"] = pid
+    return got
+
+
+def _tone_prints_of(d: Path) -> list:
+    """The song's prints, the newest first."""
+    _tone_migrate(d)
+    base = d / TONE_DIR / "prints"
+    found = [p for p in (_tone_print(d, f.name) for f in sorted(base.iterdir(), reverse=True) if f.is_dir()) if p] if base.is_dir() else []
+    return _tone_named(d, found)
+
+
+def _tone_summary(p: dict) -> dict:
+    return {k: p.get(k) for k in ("id", "name", "name_auto", "category", "category_auto", "match", "stem", "start", "end", "created")} | {
+        "core": (p.get("core") or {}).get("name")}
 
 
 def _tone_stems(d: Path) -> list:
@@ -9909,7 +9993,7 @@ def _tone_view() -> Optional[dict]:
     job = _TONE["job"]
     if not job:
         return None
-    return {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "match", "took")} | {
+    return {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "match", "took", "print")} | {
         "elapsed": time.time() - job["started"]}
 
 
@@ -9920,7 +10004,7 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
         ref = tmp / "ref.wav"
         subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-ss", f"{job['start']:.3f}", "-t", f"{job['end'] - job['start']:.3f}",
                         "-i", str(src), "-ac", "2", "-ar", str(sr), "-c:a", "pcm_f32le", str(ref)], check=True, timeout=120)
-        old = _tone_print(d)
+        old = _tone_print(d, job.get("print") or "") if refine else None
         spec = {"sr": sr, "ref": str(ref), "models": _tone_models(), "node": _node_bin(), "nam_js": str(TONE_NAM_JS),
                 "worklet": str(APP_DIR / "static" / "nam" / "nam-worklet.js"), "wasm": str(APP_DIR / "static" / "nam" / "nam-engine.wasm"),
                 "out": str(tmp / "out"), "procs": 3, "start_from": old if refine else None,
@@ -9943,20 +10027,26 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool) -> None:
             return
         if proc.returncode != 0 or not last.startswith("DONE"):
             raise RuntimeError(last[6:] if last.startswith("ERROR") else "Otisk se nepovedl.")
-        out, dest = tmp / "out", d / TONE_DIR
+        out = tmp / "out"
+        pid = old["id"] if old else _tone_new_id(d)
+        dest = _tone_at(d, pid)
+        dest.mkdir(parents=True, exist_ok=True)
         got = json.loads((out / "print.json").read_text(encoding="utf-8"))
-        got.update(song=d.name, stem=job["stem"], start=job["start"], end=job["end"], takes=[t["file"] for t in takes],
+        got.update(id=pid, song=d.name, stem=job["stem"], start=job["start"], end=job["end"], takes=[t["file"] for t in takes],
                    gain_db=float(takes[-1].get("gain_db") or 0.0))
+        for k in ("name", "name_auto", "category", "category_auto"):     # what the player gave it stays
+            if old and k in old:
+                got[k] = old[k]
         if old:                                   # the one before stays, to go back to
             got["before"] = old.get("match")
             (dest / "prev-print.json").write_text(json.dumps(old, ensure_ascii=False), encoding="utf-8")
             shutil.copyfile(dest / "print-ir.wav", dest / "prev-print-ir.wav")
         for f in ("print-ir.wav", "you.wav"):
             shutil.move(str(out / f), str(dest / f))
-        for f in ("abx-record.wav", "abx-you.wav"):
+        for f in ("abx-record.wav", "abx-you.wav", "you.mp3", "record.mp3"):
             (dest / f).unlink(missing_ok=True)
         (dest / "print.json").write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
-        job.update(status="done", match=got["match"], took=time.time() - job["started"])
+        job.update(status="done", match=got["match"], took=time.time() - job["started"], print=pid)
     except Exception as e:                                           # a job never takes the server with it
         if job.get("status") != "stopped":
             job.update(status="error", error=str(e)[:300])
@@ -9982,25 +10072,37 @@ def tone_stop():
 
 @app.get("/api/tone/prints")
 def tone_prints():
-    """Every print made, for the live guitar to put on with any song."""
+    """The library of prints: every one of every song, with its band and song, the match, the core
+    and its sound in numbers and curves — the newest first."""
     root = _resolve_under_music_root("Stems")
     out = []
-    for f in sorted(root.glob(f"*/{TONE_DIR}/print.json")) if root is not None and root.is_dir() else []:
-        p = _tone_print(f.parent.parent)
-        if p:
-            out.append({"song": f.parent.parent.name, "match": p.get("match"), "core": (p.get("core") or {}).get("name"),
-                        "stem": p.get("stem"), "created": p.get("created")})
+    for t in sorted(root.glob(f"*/{TONE_DIR}")) if root is not None and root.is_dir() else []:
+        d = t.parent
+        prints = _tone_prints_of(d)
+        if not prints:
+            continue
+        m = _stems_meta(d)
+        for p in prints:
+            rep_ = p.get("report") or {}
+            out.append(_tone_summary(p) | {"song": d.name, "artist": m.get("artist") or "", "title": m.get("title") or d.name,
+                                           "album": m.get("album") or "", "drive_db": p.get("drive_db"), "room": p.get("room"),
+                                           "width": (p.get("width") or {}).get("on"), "record": rep_.get("record"), "you": rep_.get("you"),
+                                           "curve": rep_.get("curve")})
     return sorted(out, key=lambda x: -(x.get("created") or 0))
 
 
 @app.get("/api/tone/{name}")
-def tone_state(name: str):
+def tone_state(name: str, print: str = ""):
     d = _tone_song(name)
     if d is None:
         return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
     job = _tone_view()
-    return {"ready": _tone_ready(), "stems": _tone_stems(d), "takes": _tone_takes(d), "print": _tone_print(d),
-            "prev": _tone_print(d, "prev-") is not None, "job": job if job and job["song"] == name else None, "busy": bool(job and job["status"] == "running")}
+    prints = _tone_prints_of(d)
+    sel = next((p for p in prints if p["id"] == print), prints[0] if prints else None)
+    if sel is not None:
+        sel = sel | {"prev": _tone_print(d, sel["id"], "prev-") is not None}
+    return {"ready": _tone_ready(), "stems": _tone_stems(d), "takes": _tone_takes(d), "prints": [_tone_summary(p) for p in prints],
+            "print": sel, "job": job if job and job["song"] == name else None, "busy": bool(job and job["status"] == "running")}
 
 
 @app.get("/api/tone/{name}/sections")
@@ -10077,6 +10179,7 @@ class ToneFitRequest(BaseModel):
     end: float
     stem: str = "guitar"
     refine: bool = False       # from the print there is ("Doladit"): only its best cores again
+    print: str = ""            # …which one of the song's prints
 
 
 @app.post("/api/tone/{name}/fit")
@@ -10094,7 +10197,7 @@ def tone_fit(name: str, req: ToneFitRequest):
     takes = [t for t in _tone_takes(d) if min(req.end, t["start"] + t["dur"]) - max(req.start, t["start"]) >= 2][-3:]
     if not takes:
         return JSONResponse({"error": "Nejdřív ten úsek zahraj s písní — není co porovnat."}, status_code=400)
-    if req.refine and _tone_print(d) is None:
+    if req.refine and _tone_print(d, req.print) is None:
         return JSONResponse({"error": "Není co doladit — nejdřív vytvoř otisk."}, status_code=400)
     ok, why = _sysload.room(1.5, "tónový otisk")
     if not ok:
@@ -10103,47 +10206,116 @@ def tone_fit(name: str, req: ToneFitRequest):
         if (_TONE["job"] or {}).get("status") == "running":
             return JSONResponse({"error": "Jeden otisk se už počítá — počkej, až doběhne."}, status_code=409)
         job = {"song": name, "status": "running", "stage": "listen", "done": 0, "of": 0, "started": time.time(),
-               "start": float(req.start), "end": float(req.end), "stem": req.stem}
+               "start": float(req.start), "end": float(req.end), "stem": req.stem, "print": req.print if req.refine else ""}
         _TONE["job"] = job
     threading.Thread(target=_tone_run, args=(job, d, _stem_file(d, req.stem), takes, req.refine), daemon=True).start()
     return _tone_view()
 
 
 @app.post("/api/tone/{name}/undo")
-def tone_undo(name: str):
+def tone_undo(name: str, print: str = ""):
     """The print before the last "Doladit" back (and the last one kept in its place)."""
     d = _tone_song(name)
-    if d is None or _tone_print(d, "prev-") is None or _tone_print(d) is None:
+    if d is None or _tone_print(d, print, "prev-") is None or _tone_print(d, print) is None:
         return JSONResponse({"error": "Není k čemu se vrátit."}, status_code=404)
-    t = d / TONE_DIR
+    t = _tone_at(d, print)
     for a, b in (("print.json", "prev-print.json"), ("print-ir.wav", "prev-print-ir.wav")):
         (t / a).replace(t / "swap.tmp")
         (t / b).replace(t / a)
         (t / "swap.tmp").replace(t / b)
-    for f in ("you.wav", "abx-record.wav", "abx-you.wav"):     # made with the other print
+    for f in ("you.wav", "abx-record.wav", "abx-you.wav", "you.mp3", "record.mp3"):     # made with the other print
         (t / f).unlink(missing_ok=True)
-    return {"print": _tone_print(d)}
+    return {"print": _tone_print(d, print)}
+
+
+class ToneEditRequest(BaseModel):
+    name: Optional[str] = None         # "" gives the naming back to the app (band – song)
+    category: Optional[str] = None     # one of TONE_CATEGORIES
+
+
+@app.patch("/api/tone/{name}/prints/{pid}")
+def tone_edit(name: str, pid: str, req: ToneEditRequest):
+    """A print renamed, or filed under another kind of sound."""
+    d = _tone_song(name)
+    p = _tone_print(d, pid) if d is not None else None
+    if p is None:
+        return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
+    if req.category is not None and req.category not in TONE_CATEGORIES:
+        return JSONResponse({"error": "Taková kategorie není."}, status_code=400)
+    if req.name is not None:
+        title = " ".join(req.name.split())[:80]
+        if title:
+            p["name"], p["name_auto"] = title, False
+        else:
+            p.pop("name", None)
+            p["name_auto"] = True
+    if req.category is not None:
+        p["category"], p["category_auto"] = req.category, False
+    p.pop("prev", None)
+    (_tone_at(d, pid) / "print.json").write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
+    return _tone_summary(next(x for x in _tone_prints_of(d) if x["id"] == pid))
+
+
+@app.delete("/api/tone/{name}/prints/{pid}")
+def tone_delete(name: str, pid: str):
+    d = _tone_song(name)
+    if d is None or _tone_print(d, pid) is None:
+        return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
+    shutil.rmtree(_tone_at(d, pid), ignore_errors=True)
+    return {"prints": [_tone_summary(p) for p in _tone_prints_of(d)]}
 
 
 @app.get("/api/tone/{name}/file/{file}")
-def tone_file(name: str, file: str):
+def tone_file(name: str, file: str, print: str = ""):
+    """A take (the song's), or one of a print's files."""
     d = _tone_song(name)
     if d is None or not (file in TONE_FILES or _re_tone_take.fullmatch(file)):
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
-    path = d / TONE_DIR / file
+    if _re_tone_take.fullmatch(file):
+        path = d / TONE_DIR / file
+    elif _tone_print(d, print) is not None:
+        path = _tone_at(d, print) / file
+    else:
+        return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
     if not path.is_file():
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
-    return FileResponse(path, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+    return FileResponse(path, media_type="audio/mpeg" if file.endswith(".mp3") else "audio/wav", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/tone/{name}/preview/{which}")
+def tone_preview(name: str, which: str, print: str = ""):
+    """A print's sound to hear in the library: the take through it ("you"), or the record's
+    guitar on the same stretch ("record") — short MP3s, made once."""
+    d = _tone_song(name)
+    p = _tone_print(d, print) if d is not None else None
+    if p is None or which not in ("you", "record"):
+        return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
+    t = _tone_at(d, print)
+    made = t / f"{which}.mp3"
+    if not made.is_file():
+        if which == "you":
+            cmd = [ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(t / "you.wav")]
+        else:
+            src = _stem_file(d, p.get("stem") or "guitar")
+            if src is None:
+                return JSONResponse({"error": "Stopa kytary chybí."}, status_code=404)
+            cmd = [ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-ss", f"{float(p['start']):.3f}", "-t",
+                   f"{float(p['end']) - float(p['start']):.3f}", "-i", str(src)]
+        r = subprocess.run(cmd + ["-ac", "2", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "192k", str(made)], capture_output=True, timeout=120)
+        if r.returncode != 0 or not made.is_file():
+            made.unlink(missing_ok=True)
+            return JSONResponse({"error": "Ukázku se nepodařilo připravit."}, status_code=500)
+    return FileResponse(made, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tone/{name}/abx")
-def tone_abx(name: str):
+def tone_abx(name: str, print: str = ""):
     """The stretch of the print as two mixes for the blind test: the band with the record's
     guitar, and the band with the player's take through the print in its place."""
     import numpy as np
     d = _tone_song(name)
-    p = _tone_print(d) if d is not None else None
-    t = d / TONE_DIR if d is not None else None
+    p = _tone_print(d, print) if d is not None else None
+    t = _tone_at(d, print) if p is not None else None
     if p is None or not (t / "you.wav").is_file():
         return JSONResponse({"error": "Nejdřív vytvoř otisk."}, status_code=404)
     if (t / "abx-record.wav").is_file() and (t / "abx-you.wav").is_file():

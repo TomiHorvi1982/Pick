@@ -551,6 +551,14 @@ class Fit:
             you[a:b] = y[at:at + n][:b - a]
             at += n + int(sr * 0.25)
         sf.write(str(out / "you.wav"), you, sr, subtype="FLOAT")
+        # what most likely went wrong, in plain words
+        rec = describe(ear, fr)
+        if parts["follow"] > 1.2:
+            warnings.append("Tvoje nahrávka se s originálem v rytmu moc neshoduje — zahraj úsek přesně s písní, stejné tóny ve stejnou chvíli.")
+        if rec["bright"] < 400:
+            warnings.append("Kytara originálu tu zní hodně tmavě — v separované stopě je možná víc basy než kytary. Zkus úsek, kde je kytara výrazná.")
+        if match_of(total) < 50 and not warnings:
+            warnings.append("Shoda je nízká — zkus jiný úsek, nebo nahrávku znovu a pak Doladit.")
         ltas_y, ltas_r = fy["ltas"], fr["ltas"]
         show = (ear.fine_c >= 60) & (ear.fine_c <= 14000)
         result = {
@@ -560,7 +568,7 @@ class Fit:
             "ir": "print-ir.wav", "room": room, "width": width,
             "match": match_of(total), "loss": round(total, 3), "parts": {k: round(v, 3) for k, v in parts.items()},
             "ranking": ranking[:12], "lags_ms": seg["lags"], "played_s": round(played, 1), "warnings": warnings,
-            "report": {"record": describe(ear, fr), "you": describe(ear, fy),
+            "report": {"record": rec, "you": describe(ear, fy),
                        "curve": {"hz": [int(x) for x in ear.fine_c[show]], "record": [round(float(v), 1) for v in ltas_r[show]],
                                  "you": [round(float(v), 1) for v in ltas_y[show]]}},
         }

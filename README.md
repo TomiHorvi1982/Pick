@@ -658,6 +658,24 @@ zkreslení a zbytek dopočítá.
    nahrávkami, jen z 12 nejlepších jader minula; **Vrátit předchozí**
    (`POST /api/tone/{song}/undo`).
 
+**Otisků může mít píseň víc** (rytmická kytara, sólo, jiný úsek): každý ve vlastní složce
+`Stems/<píseň>/tone/prints/<datum-čas>/` (`print.json`, `print-ir.wav`, `you.wav`, `prev-*`).
+Jméno dá Pick sám — „Kapela – Píseň“, u sóla / rytmiky „· sólo“ / „· rytmika“, a když je
+otisků jedné písně víc, i začátek úseku — dokud ho nepřejmenuješ (`PATCH
+/api/tone/{song}/prints/{id}` `{"name": …}`, prázdné jméno ho vrátí Picku). **Kategorie**
+(Clean, Crunch, Hi-Gain, Sólo, Akustická, Ambient, Fuzz, Jiné): Pick ji odhadne ze zkreslení
+originálu (< 30 clean, < 60 crunch, jinak hi-gain), změníš ji tamtéž `{"category": …}`.
+Otisk z doby před více otisky (`tone/print.json`) se při prvním čtení sám přestěhuje.
+
+**Knihovna otisků** (záložka v okně otisku, nebo Knihovna → Otisky zvuku v levém panelu,
+`GET /api/tone/prints`): všechny otisky všech písní jako karty — obal písně, jméno (klik ho
+přepíše na místě), kapela a píseň, shoda v kroužku, kategorie (klik ji změní), úsek, jádro,
+křivka zvuku a ukazatele zkreslení, jasu a sustainu. Hledání, filtr podle kategorie, řazení
+podle kapely / nejnovější / shody. 🎧 pustí krátkou ukázku otisku (`/preview/you`, tvoje
+nahrávka přes otisk jako MP3) a 💿 originál ve stejném úseku (`/preview/record`), **Hrát**
+otisk zapne na živé kytaře (s kteroukoli písní), ↗ otevře píseň a její otisky, 🗑 smaže
+(dvakrát klikni).
+
 Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
 napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive

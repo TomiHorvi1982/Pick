@@ -3876,7 +3876,8 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-lyr-pop{min-width:150px !important}
   .nm-lyr-pop .tm-item{padding:6px 12px !important;font-size:12.5px !important}
   /* Tónový otisk (static/tone.js): a floating window out of the live guitar's OTISK button */
-  .tone-win{position:fixed;left:calc(50% - 250px);top:90px;width:500px;max-width:calc(100vw - 16px);max-height:calc(100vh - 110px);
+  .tone-win{position:fixed;left:calc(50% - 320px);top:80px;width:640px;height:min(720px,calc(100vh - 100px));min-width:420px;min-height:300px;
+    max-width:calc(100vw - 16px);max-height:calc(100vh - 20px);resize:both;overflow:hidden;
     display:flex;flex-direction:column;z-index:1200;background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);
     border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.55);font-size:13px}
   .tone-win[hidden]{display:none}
@@ -3886,7 +3887,7 @@ body.lib-collapsed .pick-brand{display:none}
   .tw-close{border:0;background:none;padding:0;cursor:pointer;display:flex}
   .tw-title{font-weight:700}
   .tw-song{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  .tw-body{overflow-y:auto;padding:4px 14px 14px}
+  .tw-body{flex:1;min-height:0;overflow-y:auto;padding:4px 14px 14px}
   .tw-sec{padding:10px 0;border-bottom:1px solid var(--border)}
   .tw-sec:last-child{border-bottom:0}
   .tw-h{font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
@@ -3925,6 +3926,95 @@ body.lib-collapsed .pick-brand{display:none}
     background:color-mix(in srgb,var(--accent) 10%,transparent)}
   .tw-more{margin-top:6px}
   .tw-more summary{cursor:pointer;color:var(--sub);font-size:12px}
+  .tw-tabs{display:inline-flex;margin-left:auto;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .tw-tabs button{border:0;background:none;color:var(--sub);padding:4px 10px;font-size:12px;cursor:pointer}
+  .tw-tabs button.on{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text);font-weight:600}
+  .tw-live{padding:7px 14px;font-size:12px;background:color-mix(in srgb,var(--gold) 14%,transparent);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tw-live[hidden]{display:none}
+  .tw-live .tw-mini{margin-left:auto}
+  .tw-songname{margin:10px 0 0;font-weight:600;color:var(--sub);font-size:12px}
+  .tw-pname{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .tw-pname .tw-cname{flex:0 1 auto;max-width:100%}
+  .tw-mini.armed{background:var(--danger);border-color:var(--danger);color:#fff}
+  /* Knihovna otisků: a grid of cards in Pick's colours, a dot of its category's colour on each */
+  .tw-libtop{position:sticky;top:0;z-index:2;margin:0 -14px;padding:10px 14px 8px;
+    background:linear-gradient(var(--bg2),var(--bg2)),#14151f;border-bottom:1px solid var(--border)}
+  .tw-libtitle{display:flex;align-items:center;gap:8px;font-size:14px}
+  .tw-libtitle [data-icon],.tw-libtitle svg{color:var(--gold)}
+  .tw-libtitle span{color:var(--sub);font-size:12px;margin-left:auto}
+  .tw-libhead{display:flex;align-items:center;gap:8px;margin:8px 0 6px}
+  .tw-findbox{flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:9px;
+    padding:0 10px;color:var(--sub)}
+  .tw-findbox:focus-within{border-color:var(--accent)}
+  .tw-find{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);padding:7px 0;font-size:12.5px}
+  .tw-cats{display:flex;gap:5px;flex-wrap:wrap}
+  .tw-cats button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--card);color:var(--text);
+    border-radius:999px;padding:3px 9px;font-size:11.5px;cursor:pointer}
+  .tw-cats button i{width:7px;height:7px;border-radius:50%;background:var(--cat)}
+  .tw-cats button small{color:var(--sub);font-size:10.5px}
+  .tw-cats button.on{border-color:var(--cat,var(--accent));background:color-mix(in srgb,var(--cat,var(--accent)) 20%,var(--card))}
+  .tw-cats button.none{opacity:.45}
+  .tw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:10px}
+  .tw-band{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:6px 0 -2px;font-size:11px;font-weight:700;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--sub)}
+  .tw-band::after{content:"";flex:1;height:1px;background:var(--border)}
+  .tw-band small{font-weight:600;letter-spacing:0;color:var(--sub);opacity:.8}
+  .tw-card{position:relative;display:flex;flex-direction:column;gap:7px;padding:10px 11px 9px;border-radius:12px;overflow:hidden;
+    border:1px solid var(--border);background:linear-gradient(160deg,color-mix(in srgb,var(--cat) 10%,var(--card)) 0%,var(--card) 55%);
+    transition:border-color .15s,transform .15s,box-shadow .15s}
+  .tw-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cat)}
+  .tw-card:hover{border-color:color-mix(in srgb,var(--cat) 55%,var(--border));transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.28)}
+  .tw-card.live{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .tw-chead{display:flex;align-items:center;gap:9px}
+  .tw-art{width:42px;height:42px;flex:0 0 42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;
+    color:#fff;background:linear-gradient(135deg,var(--cat),color-mix(in srgb,var(--cat) 35%,#000));box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .tw-ctitle{flex:1;min-width:0}
+  .tw-cname{font-weight:700;font-size:13px;line-height:1.25;cursor:text;border-radius:5px;padding:1px 3px;margin:-1px -3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:4px}
+  .tw-cname:hover{background:color-mix(in srgb,var(--sub) 14%,transparent)}
+  .tw-cname.tw-big{font-size:15px}
+  .tw-namein{flex:1;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:6px;padding:3px 6px;font:inherit}
+  .tw-csub{font-size:11.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+  .tw-ring{width:38px;height:38px;flex:0 0 38px;color:var(--text)}
+  .tw-ctags{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+  .tw-cat{display:inline-flex;align-items:center;gap:5px;border:1px solid color-mix(in srgb,var(--cat) 55%,transparent);border-radius:999px;
+    background:color-mix(in srgb,var(--cat) 18%,transparent);color:var(--text);padding:2px 8px;font-size:11px;font-weight:600;cursor:pointer}
+  .tw-cat i{width:7px;height:7px;border-radius:50%;background:var(--cat)}
+  .tw-cat .tw-caret{opacity:.6;font-size:9px}
+  .tw-tag{font-size:10.5px;color:var(--sub);padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--sub) 12%,transparent);
+    max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tw-mini-curve{width:100%;height:54px;border-radius:8px;background:linear-gradient(var(--bg),var(--bg)),#101118;border:1px solid var(--border)}
+  .tw-cmeters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tw-cm{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--sub)}
+  .tw-cm em{font-style:normal}
+  .tw-cm b{display:block;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--gold),color-mix(in srgb,var(--gold) 50%,var(--cat)))}
+  .tw-cacts{display:flex;align-items:center;gap:3px;margin-top:1px}
+  .tw-sp{flex:1}
+  .tw-ib{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:8px;border:1px solid transparent;
+    background:none;color:var(--sub);cursor:pointer;font-size:11.5px}
+  .tw-ib:hover{color:var(--text);background:color-mix(in srgb,var(--sub) 14%,transparent);border-color:var(--border)}
+  .tw-ib.busy{opacity:.5}
+  .tw-ib.armed{background:var(--danger);color:#fff;border-color:var(--danger);font-weight:600}
+  .tw-play{display:inline-flex;align-items:center;gap:6px;margin-left:4px;border:0;border-radius:999px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;
+    color:#fff;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#000));box-shadow:0 3px 10px color-mix(in srgb,var(--accent) 35%,transparent)}
+  .tw-play:hover{filter:brightness(1.1)}
+  .tw-play.on{background:linear-gradient(135deg,var(--gold),color-mix(in srgb,var(--gold) 60%,#000));color:#111}
+  .tw-catmenu{position:fixed;z-index:1300;min-width:160px;padding:5px;border-radius:10px;border:1px solid var(--border);
+    background:linear-gradient(var(--card-hi),var(--card-hi)),#1c1f2a;box-shadow:0 12px 32px rgba(0,0,0,.45);display:flex;flex-direction:column}
+  .tw-catmenu button{display:flex;align-items:center;gap:8px;border:0;background:none;color:var(--text);padding:6px 9px;border-radius:7px;font-size:12.5px;
+    cursor:pointer;text-align:left}
+  .tw-catmenu button i{width:9px;height:9px;border-radius:50%;background:var(--cat)}
+  .tw-catmenu button:hover{background:color-mix(in srgb,var(--cat) 20%,transparent)}
+  .tw-catmenu button.on{font-weight:700;background:color-mix(in srgb,var(--cat) 26%,transparent)}
+  .tw-empty{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:28px 10px;color:var(--sub);font-size:12.5px}
+  .tw-empty b{color:var(--text);font-size:14px}
+  .tw-pmeta{margin:-2px 0 6px}
+  .tw-rail{cursor:pointer}
+  .tw-rail-ic{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:0 0 30px;
+    background:color-mix(in srgb,var(--gold) 20%,transparent);color:var(--gold)}
+  .tw-rail-name{flex:1;font-size:13px}
+  .tw-rail-n{font-size:11px;color:var(--sub)}
   /* Steems playlists (static/practice.js) in the left panel, and the MIDI pedal in Settings */
   .sl-box{margin:2px 6px 8px 34px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
   .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:4px 0 2px}
@@ -9872,8 +9962,10 @@ function renderLibraryRail(mode){
       return;
     }
     if(sec.key === "library"){
-      // Every folder of the library, not a top five — as a tree: the arrow
-      // unfolds a folder's subfolders, the name opens it in the main panel.
+      // The library of tone prints first (static/tone.js), then every folder of the
+      // library, not a top five — as a tree: the arrow unfolds a folder's subfolders,
+      // the name opens it in the main panel.
+      if(typeof Tone !== "undefined") list.appendChild(Tone.railBox(collapsed));
       const box = document.createElement("div");
       box.className = "lib-tree";
       box.dataset.sec = sec.key;
@@ -14464,6 +14556,10 @@ const Mixer = (() => {
   let pausedAt = 0;
   let rafId = null;
   let loadToken = 0;
+  // The song whose tracks are all in (loadToken of the load that finished): until then a play
+  // waits — the tracks in the mix would still be the last song's, and they'd start again
+  // under the new one (a Steems playlist going on to its next song played both at once).
+  let readyToken = 0, playWanted = false;
   let pixelsPerSecond = 30;
   let tempoBPM = null;
   // Tempo and transposition are independent, and both are done by
@@ -15591,6 +15687,7 @@ const Mixer = (() => {
 
   // delay: seconds to wait before the song starts (a count-in).
   function play(delay = 0){
+    if(readyToken !== loadToken){ playWanted = true; return; }
     if(!channels.length || isPlaying) return;
     // A context made outside a click starts suspended, and the song would
     // sit at 0:00 "playing" (and a recording would capture nothing).
@@ -20332,6 +20429,7 @@ const Mixer = (() => {
   async function load(song){
     const myToken = ++loadToken;
     sessionReady = false;       // nothing saves while the mix is being set up
+    playWanted = false;
     stopAllSources();
     isPlaying = false;
     pausedAt = 0;
@@ -20450,6 +20548,8 @@ const Mixer = (() => {
     }
     loaded.forEach((c, i) => { c.order = i; });
     const savedHidden = new Set(((saved && saved.channels) || []).filter(x => x.hidden).map(x => x.stem));
+    stopAllSources();                         // whatever still sounds of the last song stops before its tracks go
+    isPlaying = false;
     hiddenChannels = loaded.filter(c => savedHidden.has(c.stem));
     channels = loaded.filter(c => !savedHidden.has(c.stem));
 
@@ -20543,6 +20643,8 @@ const Mixer = (() => {
     renderEditBar();
     channels.concat(hiddenChannels).filter(c => c.midi && c.midi.notes.length).forEach(c => Midi.render(c));
     if(persistAfterLoad){ persistAfterLoad = false; queueSessionSave(); }
+    readyToken = myToken;
+    if(playWanted){ playWanted = false; play(); }   // asked for while the tracks came in
   }
 
   // Sections and chords take the better part of a minute the first time, so
@@ -25861,6 +25963,8 @@ const Mixer = (() => {
       };
     })(),
     currentTime: () => currentTime(), seek: (t) => seek(t), duration: () => duration,
+    // every track of the open song is in (a play asked for before that waits for it)
+    ready: () => readyToken === loadToken && channels.length > 0,
     // "pick see lyrics": the text in a window over the whole page; "pick see mix": back in its place, the tracks in view.
     seeLyrics(){
       if(el("mixer-lyrics-bar").hidden) el("mixer-lyrics-toggle").click();

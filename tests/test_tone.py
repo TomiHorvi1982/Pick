@@ -67,7 +67,8 @@ silent(out / "you.wav", job["sr"] * 10)
 again = bool(job.get("start_from"))
 (out / "print.json").write_text(json.dumps({"version": 1, "core": {"id": "Amp.nam", "name": "Amp"}, "drive_db": 3.0,
     "pre": {"hp": 90, "mid_db": 1, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False, "corr": 1.0},
-    "match": 91 if again else 84, "takes_seen": len(job["takes"]), "offsets": [t["offset"] for t in job["takes"]]}))
+    "match": 91 if again else 84, "takes_seen": len(job["takes"]), "offsets": [t["offset"] for t in job["takes"]],
+    "report": {"record": {"drive": 45}, "you": {"drive": 50}}}))
 print("DONE 84", flush=True)
 """, encoding="utf-8")
     monkeypatch.setattr(server, "TONE_PYTHON", Path(sys.executable))
@@ -123,19 +124,67 @@ def test_a_print_is_made_kept_refined_and_taken_back(client, tmp_music_root, tmp
     assert r.status_code == 200, r.text
     got = _wait(client)
     assert got["job"]["status"] == "done" and got["job"]["match"] == 84, got
+    pid = got["job"]["print"]
     p = client.get("/api/tone/Kapela - Píseň").json()["print"]
-    assert p["core"]["name"] == "Amp" and p["start"] == 5 and p["end"] == 15 and p["stem"] == "guitar"
+    assert p["id"] == pid and p["name"] == "Kapela – Píseň" and p["name_auto"] and p["category"] == "crunch" and p["category_auto"]
+    assert p["core"]["name"] == "Amp" and p["start"] == 5 and p["stem"] == "guitar"
     assert p["takes"] == ["take-1.wav"] and p["gain_db"] == 2.5 and p["offsets"] == [-1.0] and p["song"] == "Kapela - Píseň"
-    assert client.get("/api/tone/Kapela - Píseň/file/print-ir.wav").status_code == 200
-    assert [x["song"] for x in client.get("/api/tone/prints").json()] == ["Kapela - Píseň"]
-    assert client.post("/api/tone/Kapela - Píseň/undo").status_code == 404                     # nothing before it
+    assert (d / "tone" / "prints" / pid / "print-ir.wav").is_file()
+    assert client.get(f"/api/tone/Kapela - Píseň/file/print-ir.wav?print={pid}").status_code == 200
+    assert client.get("/api/tone/Kapela - Píseň/file/print-ir.wav").status_code == 404           # whose?
+    lib = client.get("/api/tone/prints").json()
+    assert [(x["song"], x["id"], x["artist"], x["title"]) for x in lib] == [("Kapela - Píseň", pid, "Kapela", "Píseň")]
+    assert client.post(f"/api/tone/Kapela - Píseň/undo?print={pid}").status_code == 404           # nothing before it
     # refined: the one before is kept, and can come back
-    assert client.post("/api/tone/Kapela - Píseň/fit", json={"start": 5, "end": 15, "refine": True}).status_code == 200
-    assert _wait(client)["job"]["status"] == "done"
+    assert client.post("/api/tone/Kapela - Píseň/fit", json={"start": 5, "end": 15, "refine": True, "print": pid}).status_code == 200
+    assert _wait(client)["job"]["print"] == pid
+    state = client.get(f"/api/tone/Kapela - Píseň?print={pid}").json()
+    assert len(state["prints"]) == 1 and state["print"]["match"] == 91 and state["print"]["before"] == 84 and state["print"]["prev"]
+    assert client.post(f"/api/tone/Kapela - Píseň/undo?print={pid}").json()["print"]["match"] == 84
+    assert json.loads((d / "tone" / "prints" / pid / "prev-print.json").read_text())["match"] == 91
+    # another print of the same song, beside the first
+    time.sleep(1.05)
+    client.post("/api/tone/Kapela - Píseň/fit", json={"start": 4, "end": 14})
+    other = _wait(client)["job"]["print"]
     state = client.get("/api/tone/Kapela - Píseň").json()
-    assert state["print"]["match"] == 91 and state["print"]["before"] == 84 and state["prev"]
-    assert client.post("/api/tone/Kapela - Píseň/undo").json()["print"]["match"] == 84
-    assert json.loads((d / "tone" / "prev-print.json").read_text())["match"] == 91
+    assert other != pid and [x["id"] for x in state["prints"]] == [other, pid] and state["print"]["id"] == other
+    assert [x["name"] for x in state["prints"]] == ["Kapela – Píseň · 0:04", "Kapela – Píseň · 0:05"]
+
+
+def test_a_print_is_named_heard_and_let_go(client, tmp_music_root, tmp_path, fake_engine):
+    d = _song(tmp_music_root)
+    _take(client, "Kapela - Píseň", 4.0, tmp=tmp_path)
+    client.post("/api/tone/Kapela - Píseň/fit", json={"start": 5, "end": 15})
+    pid = _wait(client)["job"]["print"]
+    r = client.patch(f"/api/tone/Kapela - Píseň/prints/{pid}", json={"name": "  Riff   z intra "})
+    assert r.json()["name"] == "Riff z intra" and r.json()["name_auto"] is False
+    r = client.patch(f"/api/tone/Kapela - Píseň/prints/{pid}", json={"category": "hi_gain"})
+    assert r.json()["category"] == "hi_gain" and r.json()["category_auto"] is False and r.json()["name"] == "Riff z intra"
+    assert client.patch(f"/api/tone/Kapela - Píseň/prints/{pid}", json={"category": "polka"}).status_code == 400
+    lib = client.get("/api/tone/prints").json()[0]
+    assert lib["name"] == "Riff z intra" and lib["category"] == "hi_gain"
+    # the name given back to the app: band – song again; the category stays the player's
+    r = client.patch(f"/api/tone/Kapela - Píseň/prints/{pid}", json={"name": ""}).json()
+    assert r["name"] == "Kapela – Píseň" and r["name_auto"] and r["category"] == "hi_gain"
+    for which in ("you", "record"):
+        r = client.get(f"/api/tone/Kapela - Píseň/preview/{which}?print={pid}")
+        assert r.status_code == 200 and r.headers["content-type"] == "audio/mpeg" and len(r.content) > 1000
+    assert client.get(f"/api/tone/Kapela - Píseň/preview/nic?print={pid}").status_code == 404
+    assert client.delete(f"/api/tone/Kapela - Píseň/prints/{pid}").json()["prints"] == []
+    assert not (d / "tone" / "prints" / pid).exists() and client.get("/api/tone/prints").json() == []
+
+
+def test_a_print_from_before_moves_into_its_own_folder(client, tmp_music_root):
+    d = _song(tmp_music_root)
+    t = d / "tone"
+    t.mkdir()
+    (t / "print.json").write_text(json.dumps({"match": 77, "stem": "guitar", "start": 61, "end": 73, "created": 1792057520.4}))
+    _wav(t / "print-ir.wav", np.zeros(2048))
+    _wav(t / "you.wav", np.zeros(4800))
+    state = client.get("/api/tone/Kapela - Píseň").json()
+    pid = state["print"]["id"]
+    assert state["print"]["match"] == 77 and state["print"]["name"] == "Kapela – Píseň" and state["print"]["category"] == "other" and len(state["prints"]) == 1
+    assert not (t / "print.json").exists() and (t / "prints" / pid / "you.wav").is_file()
 
 
 def test_a_failing_engine_says_why(client, tmp_music_root, tmp_path, fake_engine):
@@ -169,10 +218,11 @@ def test_the_blind_test_hears_the_band_with_either_guitar(client, tmp_music_root
     _take(client, "Kapela - Píseň", 0.0, tmp=tmp_path)
     assert client.post("/api/tone/Kapela - Píseň/abx").status_code == 404
     client.post("/api/tone/Kapela - Píseň/fit", json={"start": 2, "end": 10})
-    assert _wait(client)["job"]["status"] == "done"
-    got = client.post("/api/tone/Kapela - Píseň/abx").json()
+    pid = _wait(client)["job"]["print"]
+    got = client.post(f"/api/tone/Kapela - Píseň/abx?print={pid}").json()
     assert got == {"a": "abx-record.wav", "b": "abx-you.wav"}
-    with wave.open(str(d / "tone" / "abx-record.wav")) as a, wave.open(str(d / "tone" / "abx-you.wav")) as b:
+    at = d / "tone" / "prints" / pid
+    with wave.open(str(at / "abx-record.wav")) as a, wave.open(str(at / "abx-you.wav")) as b:
         assert a.getnframes() == b.getnframes() == 8 * 44100 and a.getnchannels() == 2
         ra = np.frombuffer(a.readframes(a.getnframes()), "<i2").astype(float)
         rb = np.frombuffer(b.readframes(b.getnframes()), "<i2").astype(float)
