@@ -2647,6 +2647,10 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-lyr-lines.run .prev,.nm-lyr-lines.run .cur,.nm-lyr-lines.run .next{display:none}
   .lyr-dock.folded .nm-lyr-lines.run #nm-lyr-run{height:26px}
   .lyr-float-body .nm-lyr-lines.run,.lyr-float-body .nm-lyr-lines.run #nm-lyr-run{height:100%}
+  .lyr-block.resung{cursor:pointer;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;line-height:1.15;
+    background:rgba(158,203,255,.1);border-left-color:#9ecbff}
+  .lyr-block.resung .nw{color:#e8f2ff;font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .lyr-block.resung .od{color:#77778a;font-size:10px;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .lyr-block.cur{color:#111;background:rgba(233,185,73,.92);font-weight:700}
   .sect-block{position:absolute;top:3px;bottom:3px;border-radius:4px;
     display:flex;align-items:center;padding:0 7px;cursor:grab;
@@ -15934,6 +15938,7 @@ const Mixer = (() => {
       }
       if(j.status === "done"){
         if(currentSongName === j.song){
+          loadResing();
           Mixer.reloadTracks("Řádek je přezpívaný — stopa „Upravený zpěv“. Originál zpěvu jsem ztlumil.");
           let n = 0;
           setTimeout(() => { const t = setInterval(() => {
@@ -15943,6 +15948,93 @@ const Mixer = (() => {
         } else showToast(`Řádek v písni „${stemsDisplayByName(j.song).title}“ je přezpívaný.`);
       } else if(j.status === "error") showToast("Přezpívání se nepovedlo: " + (j.error || ""));
     }, 2000);
+  }
+  // The words the lines were sung again with, kept beside the song: a strip of
+  // their own right above "Upravený zpěv" — the new words, the old ones struck
+  // through under them, and a double-click to change, sing again or undo.
+  let resingKept = {};
+  async function loadResing(){
+    const name = currentSongName;
+    let k = {};
+    try{ k = (await (await fetch("/api/resing?song=" + encodeURIComponent(name))).json()).kept || {}; }catch(e){}
+    if(name !== currentSongName) return;
+    const had = !!resingKept.stem;
+    resingKept = k;
+    if((had || k.stem) && channels.length) renderTimeline();
+  }
+  function renderResingLane(rail, lanes, totalPx){
+    const lane = thinLane(rail, lanes, totalPx, "Nový text", 40, "lyr-lane resung-lane");
+    for(const e of resingKept.edits || []){
+      const w = Math.max(4, (e.end - e.start) * pixelsPerSecond);
+      const b = document.createElement("div");
+      b.className = "lyr-block resung";
+      b.style.left = (e.start * pixelsPerSecond) + "px";
+      b.style.width = w + "px";
+      b.title = `Nově: ${e.text || "—"}\nPůvodně: ${e.old || "—"}\n(klik sem skočí, dvojklik: upravit, přezpívat znovu nebo vrátit)`;
+      if(w >= 24) b.innerHTML = `<span class="nw">${escapeHtml(e.text || "")}</span><s class="od">${escapeHtml(e.old || "")}</s>`;
+      b.onclick = (ev) => { ev.stopPropagation(); seek(Math.max(0, e.start)); };
+      b.ondblclick = (ev) => { ev.stopPropagation(); editResung(e); };
+      lane.appendChild(b);
+    }
+  }
+  function editResung(e){
+    const name = currentSongName;
+    const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const lang0 = (lyrics && lyrics.lang) || (/[ěščřžýáíéůúňťď]/i.test((e.text || "") + (e.old || "")) ? "cs" : "en");
+    Dialog.open((card) => {
+      card.classList.add("wide");
+      card.innerHTML = `<div class="pk-dlg-title">Přezpívaný řádek · ${mmss(e.start)}–${mmss(e.end)}</div>
+        <div class="pk-dlg-text">Původně: <s>${escapeHtml(e.old || "—")}</s></div>
+        <input type="text" class="pk-dlg-in le-text" data-focus autocomplete="off">
+        <div class="le-row"><label>Jazyk <select class="le-lang"><option value="cs">čeština</option><option value="en">angličtina</option><option value="sk">slovenština</option><option value="de">němčina</option></select></label>
+          <button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button></div>
+        <div class="pk-dlg-text" style="font-size:12px;opacity:.75">„Jen opravit zápis“ změní text, zvuk zůstane. „Přezpívat znovu“ zazpívá nová slova místo těch minulých.</div>
+        <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zavřít</button>
+          <button type="button" class="btn secondary le-undo" title="Na tomhle místě zase původní zpěv">Vrátit původní</button>
+          <button type="button" class="btn secondary le-fix">Jen opravit zápis</button>
+          <button type="button" class="btn pk-dlg-ok le-sing">Přezpívat znovu</button></div>`;
+      const inp = card.querySelector(".le-text"), langSel = card.querySelector(".le-lang");
+      inp.value = e.text || ""; langSel.value = lang0;
+      card.querySelector(".pk-dlg-no").onclick = () => Dialog.close(null);
+      card.querySelector(".le-play").onclick = () => { seek(Math.max(0, e.start - 0.1)); if(!isPlaying) play(); setTimeout(() => { if(isPlaying && currentSongName === name) pause(); }, (e.end - e.start + 0.5) * 1000); };
+      card.querySelector(".le-fix").onclick = async () => {
+        const v = inp.value.trim();
+        if(!v || v === e.text){ Dialog.close(null); return; }
+        try{
+          const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/edit`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({start: e.start, text: v})});
+          const d = await r.json();
+          if(!r.ok) throw new Error(d.error);
+          resingKept = d.kept || {}; renderTimeline(); showToast("Zápis opraven");
+        }catch(err){ showToast(err.message || "Zápis se nepodařilo uložit"); }
+        Dialog.close(null);
+      };
+      card.querySelector(".le-undo").onclick = async () => {
+        try{
+          const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/edit?start=${e.start}`, {method: "DELETE"});
+          const d = await r.json();
+          if(!r.ok) throw new Error(d.error);
+          resingKept = d.kept || {};
+          Dialog.close(null);
+          if(d.gone){ Mixer.muteStem("vocals", false); Mixer.reloadTracks("Řádek je zase původní — stopa „Upravený zpěv“ už nebyla potřeba."); }
+          else Mixer.reloadTracks("Řádek je zase původní.");
+        }catch(err){ showToast(err.message || "Vrátit se nepovedlo"); }
+      };
+      card.querySelector(".le-sing").onclick = async () => {
+        const v = inp.value.trim();
+        if(!v){ showToast("Napiš nová slova"); return; }
+        let r, d;
+        try{
+          r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing`, {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({start: e.start, end: e.end, text: v, old: e.old || "", lang: langSel.value, take: false})});
+          d = await r.json();
+        }catch(err){ showToast("Přezpívání se nepovedlo spustit"); return; }
+        if(!r.ok){ showToast(d.error || "Přezpívání se nepovedlo spustit"); return; }
+        Dialog.close(null);
+        showToast(`Přezpívávám řádek znovu — asi ${Math.max(1, Math.round(d.estimate / 60))} min`);
+        watchResing(name);
+      };
+      inp.onkeydown = (ev) => { if(ev.key === "Enter"){ ev.preventDefault(); ev.stopPropagation(); card.querySelector(".le-sing").click(); } };
+    }, null);
   }
   el("nm-lyr-edit").onclick = () => {
     if(!lyrics){ showToast("Nejdřív načti text písně"); return; }
@@ -19480,6 +19572,7 @@ const Mixer = (() => {
 
     channels.forEach((c, idx) => {
       const style = styleOf(c);
+      if(resingKept.stem && c.stem === resingKept.stem && (resingKept.edits || []).length) renderResingLane(rail, lanes, totalPx);
 
       // ---- left rail strip: name, S/M, volume fader, pitch ----
       const strip = document.createElement("div");
@@ -20179,6 +20272,7 @@ const Mixer = (() => {
     currentSongName = song.name;
     tabUnlocked = false;                 // a new song: its tab locked
     resetLyrics();
+    resingKept = {}; loadResing();
     loopEnabled = false; loopStart = 0; loopEnd = 0;
     el("mixer-loop").classList.remove("active");
 

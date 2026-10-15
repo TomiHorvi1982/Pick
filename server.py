@@ -9667,6 +9667,63 @@ async def resing_take(name: str, file: UploadFile = File(...)):
     return {"ok": True}
 
 
+class ResingEditRequest(BaseModel):
+    start: float               # which line sung again: its start, as kept
+    text: str
+
+
+def _resing_edit_at(kept: dict, start: float) -> Optional[dict]:
+    return next((e for e in kept.get("edits", []) if abs(e.get("start", -1) - start) < 0.05), None)
+
+
+@app.post("/api/stems/{name}/resing/edit")
+def resing_edit_text(name: str, req: ResingEditRequest):
+    """The new words of a line sung again, written down differently — the sound stays."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    kept = _resing_kept(d) if d is not None and d.is_dir() and not name.startswith(".") else {}
+    e = _resing_edit_at(kept, req.start) if kept.get("stem") else None
+    text = " ".join((req.text or "").split())[:200]
+    if e is None or not text:
+        return JSONResponse({"error": "Tenhle řádek přezpívaný není." if e is None else "Napiš text."}, status_code=400 if e else 404)
+    e["text"] = text
+    (d / RESING_FILE).write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "kept": kept}
+
+
+@app.delete("/api/stems/{name}/resing/edit")
+def resing_undo(name: str, start: float):
+    """A line sung again back as it was: the original vocals put into the track there.
+    The last one gone, the track goes too — it would only be the vocals again."""
+    d = _resolve_under_music_root(f"Stems/{name}")
+    kept = _resing_kept(d) if d is not None and d.is_dir() and not name.startswith(".") else {}
+    e = _resing_edit_at(kept, start) if kept.get("stem") else None
+    vocals = _stem_file(d, "vocals") if e is not None else None
+    if e is None or vocals is None:
+        return JSONResponse({"error": "Tenhle řádek přezpívaný není."}, status_code=404)
+    if (_RESING["job"] or {}).get("status") == "running" and (_RESING["job"] or {}).get("song") == name:
+        return JSONResponse({"error": "V téhle písni se zrovna přezpívává — počkej, až doběhne."}, status_code=409)
+    stem, left = kept["stem"], [x for x in kept["edits"] if x is not e]
+    if not left:
+        for old in d.glob(f"{stem}.*"):
+            if old.suffix.lower() in STEM_READ_EXTS:
+                old.unlink()
+        _set_track_label(d, stem, None)
+        (d / RESING_FILE).unlink(missing_ok=True)
+        return {"ok": True, "kept": {}, "gone": stem}
+    a, b = max(0.0, e["start"] - 0.15), e["end"] + 0.35
+    tmp = Path(tempfile.mkdtemp(prefix="pick-resing-"))
+    try:
+        _svc_wav(_svc_splice(_svc_pcm(_stem_file(d, stem)), _svc_pcm(vocals, a, b - a), int(a * SVC_SR)), tmp / "full.wav")
+        err = _encode_to_stem(tmp / "full.wav", d / f"{stem}.mp3")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if err:
+        return JSONResponse({"error": err}, status_code=500)
+    kept["edits"] = left
+    (d / RESING_FILE).write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
+    return {"ok": True, "kept": kept}
+
+
 @app.delete("/api/resing/job")
 def resing_stop():
     job, proc = _RESING["job"], _RESING["proc"]

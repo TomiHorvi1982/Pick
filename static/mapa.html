@@ -171,7 +171,7 @@ html{scroll-behavior:smooth}
 <main class="wrap">
   <div class="hero">
     <div>
-      <div class="eyebrow">Tvoje aplikace · stav k 14. 10. 2026 · commit e722cae</div>
+      <div class="eyebrow">Tvoje aplikace · stav k 15. 10. 2026 · commit 6bf0f78</div>
       <h1>Co <em>Pick</em> umí a kde to leží</h1>
       <p>Pick je kytarová cvičebna v počítači: stáhne písně, rozdělí je na stopy, ukáže tab a text, pustí tvoji kytaru přes zesilovač, naučí tě zpívat, poslouchá hlasové povely a z kousku kytary složí celý song. Všechno běží u tebe na Macu, server poslouchá jen na <code>127.0.0.1</code>.</p>
     </div>
@@ -179,8 +179,8 @@ html{scroll-behavior:smooth}
       <div class="fact"><b>37</b><span>popsaných funkcí</span></div>
       <div class="fact"><b>60</b><span>modulů ve stránce</span></div>
       <div class="fact"><b>283</b><span>adres serveru (API)</span></div>
-      <div class="fact"><b>440</b><span>automatických testů</span></div>
-      <div class="fact"><b>222</b><span>commitů od 12. 9.</span></div>
+      <div class="fact"><b>441</b><span>automatických testů</span></div>
+      <div class="fact"><b>224</b><span>commitů od 12. 9.</span></div>
       <div class="fact"><b>637</b><span>písní ve Steems</span></div>
     </div>
   </div>
@@ -315,7 +315,7 @@ html{scroll-behavior:smooth}
 │  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
 │  ├─ <span class="d">stretch/</span>       <span class="c">zpomalení a ladění bez změny tempa</span>
 │  └─ <span class="d">ladicka/</span>       <span class="c">ladička</span>
-├─ <span class="d">tests/</span>            <span class="c">35 souborů, 410 testů</span>
+├─ <span class="d">tests/</span>            <span class="c">35 souborů, 441 testů</span>
 ├─ <span class="d">docs/</span>             <span class="c">plány a návrhy (září)</span>
 └─ <span class="d">vendor/</span>           <span class="c">kaset, stemdeck — jen předlohy</span></pre>
       </div>
@@ -496,7 +496,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu e722cae (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu 6bf0f78 (14. 10. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
@@ -605,9 +605,9 @@ const F = [
  {id:"hear", g:"steems", n:"Text odposlechnutý ze zpěvu", w:"Steems → lišta Text → ⋯ → Odposlechnout ze zpěvu", d:"Když k písni není text s časy (české písně hlavně), Pick si ho naposlouchá ze stopy zpěvu: whisper na tomhle počítači, po úsecích, kde se zpívá, v jazyce písně. Asi minuta na píseň, pak už je text u písně uložený. Text bez časů dostane časy z odposlechu. Chybný řádek opravíš dvojklikem.", st:"test",
   how:["Otevři píseň ve Steems — když se text nenajde, Pick ho začne poslouchat sám (lišta Text: Poslouchám zpěv… 12/34).","Nebo lišta Text → ⋯ → Odposlechnout ze zpěvu, případně Jiný text → 🎤 Odposlechnout ze zpěvu.","Špatně slyšený řádek: dvojklik na stopě Text → oprav slova → Jen opravit text."],
   code:[["hear.py","phrases, heard, timed"],["server.py","/api/stems/{name}/hear, /api/hear, /api/lyrics/keep"],[IX,"hearLyrics, editLine"]], data:["Stems/<píseň>/heard.json","lyrics/<hash>.json"], v:[]},
- {id:"resing", g:"steems", n:"Přezpívat řádek", w:"Steems → dvojklik na řádek na stopě Text", d:"Nová slova zazpívá hlas zpěváka v melodii řádku: OmniVoice je přečte hlasem zpěváka (nebo je namluvíš sám), vokodér WORLD je položí na tóny a rytmus řádku a Seed-VC je zazpívá barvou zpěváka. Všechny přezpívané řádky jsou v jedné stopě „Upravený zpěv“, originál zůstane. Asi minuta na řádek; výslovnost bývá místy rozmazaná.", st:"test",
-  how:["Dvojklik na řádek na stopě Text (nebo ⋯ → Upravit / přezpívat řádek).","Napiš nová slova a jazyk, ▶ řádek si ho přehraje.","Přezpívat — nebo nejdřív 🎤 Namluvit (zazní tvoje nahrávka, bývá čistší).","Po minutě je ve stopách „Upravený zpěv“ a originál zpěvu se ztlumí."],
-  code:[["resing_worker.py","units, mapování slabik na tóny, WORLD"],["server.py","_resing_run, /api/stems/{name}/resing, /resing/take"],["svc_worker.py","Seed-VC, --cfg 0.4"]], data:["Stems/<píseň>/resing.json","resing-ref.wav, resing-say.wav"], v:[]},
+ {id:"resing", g:"steems", n:"Přezpívat řádek", w:"Steems → dvojklik na řádek na stopě Text", d:"Nová slova zazpívá hlas zpěváka v melodii řádku: OmniVoice je přečte hlasem zpěváka (nebo je namluvíš sám), vokodér WORLD je položí na tóny a rytmus řádku a Seed-VC je zazpívá barvou zpěváka. Všechny přezpívané řádky jsou v jedné stopě „Upravený zpěv“, nad ní pruh „Nový text“ (nová i přeškrtnutá původní slova, dvojklikem dál upravíš nebo vrátíš), originál zůstane. Asi minuta na řádek; výslovnost bývá místy rozmazaná.", st:"test",
+  how:["Dvojklik na řádek na stopě Text (nebo ⋯ → Upravit / přezpívat řádek).","Napiš nová slova a jazyk, ▶ řádek si ho přehraje.","Přezpívat — nebo nejdřív 🎤 Namluvit (zazní tvoje nahrávka, bývá čistší).","Po minutě je ve stopách „Upravený zpěv“ a originál zpěvu se ztlumí.","Nad ní je pruh „Nový text“: nová slova a pod nimi přeškrtnutá původní.","Dvojklik na blok v pruhu: opravit zápis, přezpívat znovu, nebo vrátit původní zpěv."],
+  code:[["resing_worker.py","units, mapování slabik na tóny, WORLD"],["server.py","_resing_run, /api/stems/{name}/resing, /resing/take, /resing/edit"],["static/index.html","renderResingLane, editResung — pruh Nový text"],["svc_worker.py","Seed-VC, --cfg 0.4"]], data:["Stems/<píseň>/resing.json","resing-ref.wav, resing-say.wav"], v:[]},
  {id:"settings", g:"control", n:"Nastavení", w:"Ozubené kolo vpravo nahoře", d:"Plovoucí okno, které jde přesouvat za lištu a zvětšovat za roh; vlevo kategorie Systém, Vzhled, Zvuk a MIDI, Stahování, Steems. Poloha, velikost a poslední kategorie se pamatují. Všechna zavírací tlačítka v Picku jsou červené kolečko s křížkem jako v macOS.", st:"ok",
   how:["Ozubené kolo → vlevo vyber kategorii.","Okno přesuneš za lištu s názvem, velikost změníš v pravém dolním rohu.","Uložit je dole u Stahování a Steems."],
   code:[[IX,"SettingsWin, ikona close"]], data:[], v:[]},

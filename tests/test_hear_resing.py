@@ -133,3 +133,24 @@ def test_a_corrected_text_is_kept(client):
     assert client.post("/api/lyrics/keep", json={"title": "Píseň", "artist": "Kapela", "duration": 120, "lines": lines}).json()["ok"]
     assert server._lyrics_kept("Píseň", "Kapela", 120)["lines"] == lines
     assert client.post("/api/lyrics/keep", json={"title": "", "lines": lines}).status_code == 400
+
+
+def test_a_line_sung_again_can_be_rewritten_and_undone(client, tmp_music_root, monkeypatch):
+    d = _song(tmp_music_root)
+    rate = server.SVC_SR
+    tone = (0.2 * np.sin(np.arange(rate * 20) * 2 * np.pi * 220 / rate)).astype(np.float32)
+    monkeypatch.setattr(server, "_svc_pcm", lambda src, start=0.0, length=None: tone[int(start * rate):int((start + (length or 20)) * rate)].copy())
+    monkeypatch.setattr(server, "_encode_to_stem", lambda src, target: target.write_bytes(b"x" * 2048) and None)
+    (d / "take-1.mp3").write_bytes(b"x" * 2048)
+    server._set_track_label(d, "take-1", "Upravený zpěv")
+    edits = [{"start": 2.0, "end": 4.0, "old": "starý první", "text": "nový první"}, {"start": 9.0, "end": 11.0, "old": "starý druhý", "text": "nový druhý"}]
+    (d / server.RESING_FILE).write_text(server.json.dumps({"stem": "take-1", "edits": edits}), encoding="utf-8")
+    url = "/api/stems/Kapela - Píseň/resing/edit"
+    r = client.post(url, json={"start": 9.0, "text": "jinak napsaný"})
+    assert r.status_code == 200 and r.json()["kept"]["edits"][1]["text"] == "jinak napsaný"
+    assert client.post(url, json={"start": 5.0, "text": "x"}).status_code == 404
+    r = client.delete(url + "?start=2.0")
+    assert r.status_code == 200 and [e["old"] for e in r.json()["kept"]["edits"]] == ["starý druhý"]
+    r = client.delete(url + "?start=9.0")
+    assert r.json()["gone"] == "take-1" and not (d / "take-1.mp3").exists() and not (d / server.RESING_FILE).exists()
+    assert "take-1" not in server._track_labels(d)

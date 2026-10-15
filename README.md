@@ -380,6 +380,11 @@ jeho výšku, Seed-VC to zazpívá barvou zpěváka (ukázka ~16 s jeho nejsiln�
 Každý přezpívaný řádek jde do jedné stopy „Upravený zpěv“ (`resing.json`: co bylo a co je),
 originál zůstane a ztlumí se. Asi minuta na řádek. Výslovnost bývá místy rozmazaná — zkus
 znovu, nebo slova namluv.
+Nad stopou „Upravený zpěv“ je pruh **Nový text**: u každého přezpívaného řádku nová slova
+a pod nimi přeškrtnutá původní (původní text zůstává i na stopě Text pod zpěvem). Dvojklik
+na blok: **Jen opravit zápis** (`POST /api/stems/{name}/resing/edit`, zvuk zůstane),
+**Přezpívat znovu** s jinými slovy, nebo **Vrátit původní** (`DELETE …/resing/edit?start=`:
+na to místo se vrátí původní zpěv; po posledním řádku zmizí i stopa).
 
 **Výkon počítače** (`sysload.py`, Nastavení → Výkon počítače, `/api/system`): paměť, procesor,
 kolik bere Pick sám, tlak na paměť a odkládání na disk (macOS: sysctl, vm_stat, ps), měřené
