@@ -353,6 +353,14 @@ Pod mixem jsou v seznamu dalších písní nahoře ty od kapely otevřené písn
 načtení každé písně **zamčený** (tažení ani kolečko ho neposunou); odemčený ručně zůstane
 jen do další písně. Zbalený levý panel ukazuje jen ikony sekcí.
 
+**Text z písně ve Skladateli** (Skladatel → Text → „Text z písně ze Steems…“, `GET /api/songbook/texts`,
+`/api/songbook/texts/{píseň}`): seznam písní ze Steems, ke kterým Pick drží text pro karaoke (nic se
+nehledá znovu), s hledáním podle kapely a názvu. Vybraný text se ukáže s částmi — `[Intro]`, `[Verse 1]`,
+`[Chorus]`, `[Guitar Solo]`… podle sekcí písně (`analysis.json`; sekce bez zpěvu zůstane holou značkou),
+nebo podle slok, kde sekce ještě nejsou (refrén = sloka, která se opakuje). V okně se dá upravit a pak
+vložit do pole Text (nahradit, nebo přidat za to, co tam je); jazyk zpěvu se nastaví podle textu.
+Ze Zpěvníku totéž tlačítkem „Text písně → Text“. Jen pro soukromé použití.
+
 **Zpěvník ve Skladateli** (`songbook.py`, Skladatel → Zpěvník): rozbor písní ze Steems jako
 předloha pro nové. Ke každé písni (`Stems/<píseň>/songbook.json`) zvuk slovy, kterým ACE-Step
 rozumí — žánry kapely (MusicBrainz), tempo, tónina, ladění, tón kytar, jak hrají bicí, energie —
@@ -740,6 +748,35 @@ Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
 napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
 ±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
+
+## Vizualizace
+
+Tlačítko v přehrávači (vedle textu) otevře okno, které hraje s hudbou — přesouvá se za horní lištu,
+velikost se mění v rohu, dvojklik nebo ⛶ dá celou obrazovku; poloha, velikost a téma se pamatují.
+Témata (`static/viz.js`):
+- **Kreslí Pick** — Spektrum, Vesmír, Neon, Oheň, Vlny, Polární záře: pohyb, světlo a částice podle
+  basů, středů a výšek toho, co hraje. Zvuk se jen poslouchá (odbočka z výstupu mixpultu,
+  `captureStream` přehrávače) — cesta do reproduktorů se nemění. Kreslí nejvýš 30× za vteřinu
+  a zavřené nic.
+- **Klip písně** — klip hrající písně z YouTube bez zvuku, v čase písně (`GET /api/viz/clip` ho najde
+  jednou a pamatuje si ho ve `viz-clips.json`).
+- **Moje videa** — každé téma je složka `Vizualizace/<téma>` na kartě vedle hudby (`viz.py`); videa
+  hrají bez zvuku jedno po druhém s prolnutím. ⚙︎ v okně: nové téma, otevřít složku ve Finderu,
+  stáhnout video podle odkazu (yt-dlp, jen obraz, do 1080p), smazat video.
+
+## Úložiště
+
+Nastavení → Úložiště (`storage.py`, `GET /api/storage`): každá připojená karta — kolik je volno
+a obsazeno a co tam Pick má (Steems, playlisty, Skladatel, videa…; skutečně zabrané místo, jednou
+i soubor uložený dvakrát), a co je na kartě mimo Pick.
+- **Další karta**: „Ukládat sem taky“ na ní založí `spotdl/Stems`; její písně dostanou na hlavní kartě
+  odkaz (symlink) ve `Stems/`, takže je celá aplikace vidí jako ostatní. Vytažená karta: písně se jen
+  schovají, odkazy zůstanou pro její návrat. „Přestat používat“ odkazy smaže, písně na kartě nechá.
+- **Nové písně sem**: nově rozdělené písně jdou na vybranou kartu (když má víc než 2 GB volna,
+  jinak na hlavní).
+- **Připravit kartu pro Mac**: vyměnitelná karta (SD, USB) se naformátuje na APFS
+  (`diskutil eraseDisk APFS <název> GPT <disk>`) — nikdy disk Macu ani karta, kterou Pick používá,
+  a jen po napsání SMAZAT. Testy skutečný diskutil nikdy nespustí.
 
 ## Zvuk bez výpadků
 
