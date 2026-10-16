@@ -58,7 +58,8 @@ def _store(data):
 
 
 UG_SEARCH = _store({"results": [
-    {"type": "Tabs", "artist_name": "Band", "song_name": "Song", "tab_url": "https://tabs.ultimate-guitar.com/tab/band/song-tabs-11", "version": 2, "votes": 649, "rating": 4.63},
+    {"type": "Tabs", "artist_name": "Band", "song_name": "Song", "tab_url": "https://tabs.ultimate-guitar.com/tab/band/song-tabs-11", "version": 2, "votes": 649, "rating": 4.63,
+     "difficulty": "intermediate", "tonality_name": "Em", "tab_access_type": "public"},
     {"type": "Bass Tabs", "artist_name": "Band", "song_name": "Song", "tab_url": "https://tabs.ultimate-guitar.com/tab/band/song-bass-12", "version": 1, "votes": 3, "rating": 4},
     {"type": "Pro", "artist_name": "Band", "song_name": "Song", "tab_url": "https://tabs.ultimate-guitar.com/pro/x", "version": 1},
     {"type": "Tabs", "marketing_type": "TabPro", "artist_name": "Band", "song_name": "Song", "tab_url": "https://tabs.ultimate-guitar.com/tab/x/y-1"}],
@@ -71,8 +72,10 @@ UG_TAB = _store({"tab": {"artist_name": "Band", "song_name": "Song"}, "tab_view"
 
 def test_ultimate_guitar_pages_read():
     got = vguitar.ug_search(UG_SEARCH)
-    assert got["pages"] == 3 and [(r["url"], r["type"]) for r in got["results"]] == [("/tab/band/song-tabs-11", "Tabs"), ("/tab/band/song-bass-12", "Bass")]
-    assert got["results"][0]["rating"] == 4.6
+    # Pro is listed, to be opened on Ultimate Guitar itself; an advert is not
+    assert got["pages"] == 3 and [(r["url"], r["type"], r["web"]) for r in got["results"]] == [
+        ("/tab/band/song-tabs-11", "Tabs", False), ("/tab/band/song-bass-12", "Bass", False), ("/pro/x", "Pro", True)]
+    assert got["results"][0]["rating"] == 4.6 and got["results"][2]["href"] == "https://tabs.ultimate-guitar.com/pro/x"
     t = vguitar.ug_tab(UG_TAB)
     assert t["text"] == "e|---0---|\nB|---Am---|" and t["tuning"] == "E A D G B E (Standard)"
     assert [v["url"] for v in t["versions"]] == ["/tab/band/song-tabs-13"]
@@ -110,7 +113,7 @@ def test_tabs_searched_opened_and_kept(client, monkeypatch):
     monkeypatch.setattr(vguitar, "_get", get)
     assert client.get("/api/vguitar/tabs/search?q=b").status_code == 400
     r = client.get("/api/vguitar/tabs/search?q=Band%20%20&page=2").json()
-    assert r["q"] == "Band" and r["page"] == 2 and len(r["results"]) == 2 and r["via"] == "Ultimate Guitar"
+    assert r["q"] == "Band" and r["page"] == 2 and len(r["results"]) == 3 and r["via"] == "Ultimate Guitar"
     assert asked[-1] == "https://www.ultimate-guitar.com/search.php?search_type=title&value=Band&page=2"
     client.get("/api/vguitar/tabs/search?q=band&page=2")
     assert len(asked) == 1                                                            # the same search: remembered
@@ -130,3 +133,38 @@ def test_tabs_searched_opened_and_kept(client, monkeypatch):
     assert client.delete(f"/api/vguitar/tabs/mine/{k['id']}").json()["ok"]
     assert client.delete("/api/vguitar/tabs/mine/nope").status_code == 404
     assert [x["song"] for x in client.get("/api/vguitar/tabs/mine").json()["tabs"]] == ["Píseň"]
+
+
+UG_EXPLORE = _store({"filters": [
+    {"name": "Type", "param_name": "type", "sort_index": 10, "values": [{"name": "Tab", "url_name": "Tabs", "count": 366391}, {"name": "Guitar Pro Tab", "url_name": "Pro", "count": 5}]},
+    {"name": "Difficulty", "param_name": "difficulty", "sort_index": 0, "values": [{"name": "Intermediate", "url_name": 3, "count": 7}]},
+    {"name": "Capo", "param_name": "capo", "sort_index": 70, "values": [{"name": "No capo", "url_name": 0, "count": 9}]},
+    {"name": "Key", "param_name": "tonality", "sort_index": 100, "values": [{"name": "Em", "url_name": 18, "count": 3}]},
+    {"name": "Part", "param_name": "part", "sort_index": 110, "values": [{"name": "Whole song", "url_name": "", "count": 9}]},
+    {"name": "Something new", "param_name": "whatever", "values": []}],
+    "totalResults": 3399, "pagination": {"pages": 20, "current": 0},
+    "data": {"tabs": [{"type": "Tabs", "artist_name": "Tool", "song_name": "Schism", "tab_url": "https://tabs.ultimate-guitar.com/tab/tool/schism-tabs-1", "rating": 4.9, "votes": 10}]}})
+
+
+def test_ultimate_guitars_own_filters(client, monkeypatch):
+    asked = []
+
+    def get(url, timeout=75):
+        asked.append(url)
+        return UG_EXPLORE if "/explore" in url else UG_SEARCH
+    monkeypatch.setattr(vguitar, "_get", get)
+    f = client.get("/api/vguitar/tabs/filters").json()
+    assert [g["param"] for g in f["groups"]] == ["difficulty", "type", "capo", "tonality", "part"]
+    assert f["groups"][1]["values"][0] == {"v": "Tabs", "name": "Taby", "count": 366391} and f["groups"][2]["values"][0]["v"] == "0"
+    assert f["groups"][4]["values"] == [] and f["groups"][1]["onSearch"] and not f["groups"][2]["onSearch"]
+    client.get("/api/vguitar/tabs/filters")
+    assert len(asked) == 1                                                           # kept a week
+    # no text: Explore, with every filter there
+    r = client.get("/api/vguitar/tabs/search?type=Tabs&tuning=12&genres=8&order=rating_desc&tuning=../x").json()
+    assert r["browse"] and r["total"] == 3399 and r["pages"] == 20 and r["results"][0]["song"] == "Schism"
+    assert asked[-1] == "https://www.ultimate-guitar.com/explore?type%5B%5D=Tabs&tuning%5B%5D=12&genres%5B%5D=8&order=rating_desc&page=1"
+    # text: its search, by kind there and by what the rows say here
+    r = client.get("/api/vguitar/tabs/search?q=band&type=Tabs&type=Pro&difficulty=3&tonality=18&order=rating").json()
+    assert [x["url"] for x in r["results"]] == ["/tab/band/song-tabs-11"]
+    assert asked[-1] == ("https://www.ultimate-guitar.com/search.php?search_type=title&value=band&page=1&type%5B%5D=200&type%5B%5D=500"
+                         "&rating%5B%5D=4&rating%5B%5D=5&order=myweight")

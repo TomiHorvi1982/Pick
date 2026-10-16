@@ -801,20 +801,33 @@ V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvuk
 funk se škrábáním 16tin, punk power akordy, rock pentatonika v A, flamenco andaluská kadence) — jedním
 kliknutím do editoru, upravit a uložit jako vlastní.
 
-**Taby z písní** pod kytarou, tři záložky:
+**Taby z písní** pod kytarou, čtyři záložky:
 - **Knihovna Taby** — tvoje knihovna ze sekce Taby (Pick Tabs, `/api/tabfiles/list`) s vyhledáváním. Vybraná
   stopa se převede na textový tab v mřížce kytary (`partText`: krok 3 znaky, nejjemnější dělení, které stopa
   potřebuje — 1/8, 1/16, 1/32 nebo trioly; PM, hammer-ony, mrtvé noty; čtyři takty na řádek), takže
   vybraný riff má přesný rytmus, tempo i ladění stopy.
-- **Hledat (Ultimate Guitar)** (`/api/vguitar/tabs/*`): stránky Ultimate Guitar přečtené jako v prohlížeči
-  (stav stránky `js-store`, jako to dělá [omarchy-ultimate-guitar](https://github.com/crmne/omarchy-ultimate-guitar));
-  když neodpoví (občas vrací 502 nebo mlčí), záloha přes [Freetar](https://github.com/kmille/freetar)
-  (veřejná instance freetar.de, bývá pomalá). Výsledky se pamatují 6 h, otevřené taby v `tab-cache/`.
-  Filtr druhu (kytarové taby, basa, akordy), stránky, verze, ladění.
-- **♪ K písni, co hraje** — tab k právě hrající písni: nejdřív z knihovny, jinak hledání na Ultimate Guitar.
+- **Songsterr** — hledání jako v sekci Taby (`/api/tabs/search`, po 40, „Načíst dalších 40“), filtr
+  nástroje (kytara, basa — otevře se nejhranější stopa toho nástroje), ladění a obtížnosti stopy;
+  ✓ u písní, které už máš. Otevřený tab jde **Uložit do Taby** (`/api/picktabs`, „Virtuální kytara“).
+- **Ultimate Guitar** (`/api/vguitar/tabs/*`): stránky Ultimate Guitar přečtené jako v prohlížeči
+  (stav stránky `js-store`, jako to dělá [omarchy-ultimate-guitar](https://github.com/crmne/omarchy-ultimate-guitar)).
+  **Filtry jako na jejich webu** — levý sloupec stránky Explore (`/api/vguitar/tabs/filters`, týden v
+  `tab-cache/ug-filters.json`): druh, obtížnost, ladění, tónina, dekáda, žánr, styl, capo, nástroj,
+  akustická, část, verze, s počty tabů; řazení. Bez hledaného textu Pick **prochází** Explore se všemi
+  filtry; s textem použije jejich hledání (to samo filtruje jen druh a hodnocení) a obtížnost, tóninu a
+  část dofiltruje z výsledků — ostatní skupiny jsou pak zašedlé. Druhy, které jsou jen na UG (Guitar Pro,
+  Official, Video, MuseScore), jsou v seznamu se ↗ a otevřou se **na Ultimate Guitar ve vlastním okně
+  Chrome** — tam se přihlásíš svým účtem (Pro); stránku UG do Picku vložit nejde (`frame-ancestors`).
+  Když UG neodpoví (občas vrací 502 nebo mlčí), záloha přes [Freetar](https://github.com/kmille/freetar)
+  (veřejná instance freetar.de, bez filtrů, bývá pomalá). Výsledky se pamatují 6 h, otevřené taby v `tab-cache/`.
+- **♪ K písni, co hraje** — tab k právě hrající písni: nejdřív z knihovny, jinak ze Songsterru (a pak UG).
 Tab se otevře jako text; riff se vezme **výběrem myší** přes struny od začátku po konec (stačí i na jedné
 struně — vezme se celý blok strun v tom rozsahu, i s PM nad nebo pod nimi) → „Vybraný úsek do kytary“,
 nebo „Celý tab do kytary“. **Moje taby** (`vguitar-tabs.json`) — uložené taby s vyhledáváním, i bez sítě.
+**Nahrávka a stopy** u tabu z knihovny nebo Songsterru — jako v Taby: „Najít nahrávku a rozdělit na
+stopy“ najde nahrávku na YouTube (`/api/tabfiles/yt-search`), stáhne ji (`fetch-audio`), rozdělí
+(Demucs, `/api/stems/separate`), uloží tab do Taby a propojí ho s nahrávkou (`/api/tabfiles/link`);
+„Otevřít v Taby — tab s nahrávkou“ pak otevře sekci Taby s tabem i stopami.
 UltimateTab a ultimate-guitar-scraper Pick nepoužívá: první obchází ochranu Cloudflare proti robotům,
 druhý se vydává za mobilní aplikaci Ultimate Guitar s odvozeným API klíčem.
 

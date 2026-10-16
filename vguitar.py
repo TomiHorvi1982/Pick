@@ -7,7 +7,9 @@ A riff: {id, name, bpm, div (steps a beat), tuning [high e … low E, MIDI], ste
 Tabs to take riffs from: Ultimate Guitar's own pages read as a browser reads them (the state
 each page carries, as github.com/crmne/omarchy-ultimate-guitar does), or through Freetar
 (github.com/kmille/freetar, its public instance freetar.de) when Ultimate Guitar does not answer;
-opened as plain text under the guitar, and kept in "Moje taby" (vguitar-tabs.json).
+opened as plain text under the guitar, and kept in "Moje taby" (vguitar-tabs.json). Searched and browsed
+with Ultimate Guitar's own filters (its Explore page's left column); its paid kinds (Pro, Official) are
+listed too, to be opened on its website in the player's own logged-in browser.
 """
 import gzip
 import hashlib
@@ -22,7 +24,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -144,22 +146,63 @@ def _ug_store(page: str) -> dict:
     return json.loads(_html.unescape(m.group(1)))["store"]["page"]["data"]
 
 
-SKIP_TYPES = {"Pro", "Official", "Video"}                # Ultimate Guitar's own paid or player-only kinds
+SKIP_TYPES = {"Pro", "Official", "Video", "MuseScore"}                # Ultimate Guitar's own paid or player-only kinds: shown there, not as text here
 KIND = {"Bass Tabs": "Bass", "Drum Tabs": "Drums", "Ukulele Chords": "Ukulele"}   # named as Freetar names them
+DIFF = {"novice": "začátečník", "intermediate": "mírně pokročilý", "advanced": "pokročilý"}
+
+
+def _row(r: dict) -> dict:
+    kind = r.get("type") or ""
+    return {"url": urllib.parse.urlparse(r["tab_url"]).path, "href": r["tab_url"], "artist": r.get("artist_name") or "", "song": r.get("song_name") or "",
+            "version": int(r.get("version") or 1), "rating": round(float(r.get("rating") or 0), 1), "votes": int(r.get("votes") or 0),
+            "type": KIND.get(kind, kind), "web": kind in SKIP_TYPES or r.get("tab_access_type") not in (None, "", "public"),
+            "difficulty": r.get("difficulty") or "", "key": r.get("tonality_name") or "", "part": r.get("part") or ""}
 
 
 def ug_search(page: str) -> dict:
     data = _ug_store(page)
-    rows = []
-    for r in data.get("results") or []:
-        kind = r.get("type") or ""
-        if not r.get("tab_url") or kind in SKIP_TYPES or r.get("marketing_type"):
-            continue
-        rows.append({"url": urllib.parse.urlparse(r["tab_url"]).path, "artist": r.get("artist_name") or "", "song": r.get("song_name") or "",
-                     "version": int(r.get("version") or 1), "rating": round(float(r.get("rating") or 0), 1), "votes": int(r.get("votes") or 0),
-                     "type": KIND.get(kind, kind)})
+    rows = [_row(r) for r in data.get("results") or [] if r.get("tab_url") and not r.get("marketing_type")]
     pg = data.get("pagination") or {}
     return {"results": rows, "pages": int(pg.get("total") or 1)}
+
+
+# ---- Ultimate Guitar's own filters (the left column of its Explore page), and its Explore itself
+UG_EXPLORE = "https://www.ultimate-guitar.com/explore"
+GROUPS = {"type": "Druh", "difficulty": "Obtížnost", "tuning": "Ladění", "tonality": "Tónina", "decade": "Dekáda", "genres": "Žánr",
+          "subgenres": "Styl", "capo": "Capo", "instruments": "Nástroj", "acoustic": "Akustická", "part": "Část", "live": "Verze"}
+NAMES = {"Chords": "Akordy", "Official Tab": "Official (jen na UG)", "Tab": "Taby", "Ukulele Chords": "Ukulele",
+         "Guitar Pro Tab": "Guitar Pro (jen na UG)", "Bass Tab": "Basa", "Power Tab": "Power Tab", "Video Tab": "Video (jen na UG)", "Drum Tab": "Bicí", "Musescore": "MuseScore (jen na UG)",
+         "Absolute Beginner": "úplný začátečník", "Beginner": "začátečník", "Intermediate": "mírně pokročilý", "Advanced": "pokročilý",
+         "No capo": "bez capa", "With capo": "s capem", "Non-acoustic": "elektrická", "Acoustic": "akustická",
+         "Whole song": "celá píseň", "Intro": "intro", "Solo": "sólo", "Album": "celé album", "Original": "studiová", "Live": "živá"}
+ORDERS = {"hitstotal_desc": "Nejhranější všech dob", "hitsdailygroup_desc": "Dnes nejhranější", "date_desc": "Nejnovější",
+          "rating_desc": "Nejlépe hodnocené", "songname_asc": "Píseň A–Z", "artistname_asc": "Kapela A–Z"}
+SEARCH_ORDERS = {"myweight": "Nejlépe odpovídá", "title_srt": "Abecedně", "rating": "Nejlépe hodnocené"}
+SEARCH_TYPE = {"Chords": 300, "Official": 900, "Tabs": 200, "Ukulele Chords": 800, "Pro": 500, "Bass Tabs": 400, "Power": 600,
+               "Video": 100, "Drum Tabs": 700}
+ON_RESULTS = {"type", "difficulty", "tonality", "part"}   # what a search by text can still be narrowed by (the rest only browsing)
+DIFF_OF = {"1": "novice", "2": "novice", "3": "intermediate", "4": "advanced"}
+
+
+def ug_filters(page: str) -> dict:
+    data = _ug_store(page)
+    groups = []
+    for f in sorted(data.get("filters") or [], key=lambda f: f.get("sort_index", 0)):
+        p = f.get("param_name")
+        if p not in GROUPS:
+            continue
+        vals = [{"v": str(v.get("url_name")), "name": NAMES.get(str(v.get("name") or "").strip(), str(v.get("name") or "").strip()),
+                 "count": int(v.get("count") or 0)} for v in f.get("values") or [] if v.get("url_name") is not None and str(v["url_name"]) != ""]
+        groups.append({"param": p, "name": GROUPS[p], "values": vals[:60], "onSearch": p in ON_RESULTS})
+    return {"groups": groups, "orders": [{"v": k, "name": n} for k, n in ORDERS.items()],
+            "searchOrders": [{"v": k, "name": n} for k, n in SEARCH_ORDERS.items()]}
+
+
+def ug_explore(page: str) -> dict:
+    data = _ug_store(page)
+    tabs = (data.get("data") or {}).get("tabs") or []
+    pg = data.get("pagination") or {}
+    return {"results": [_row(r) for r in tabs if r.get("tab_url")], "pages": int(pg.get("pages") or 1), "total": int(data.get("totalResults") or 0)}
 
 
 def ug_tab(page: str) -> dict:
@@ -171,6 +214,7 @@ def ug_tab(page: str) -> dict:
     tun = meta.get("tuning") or {}
     versions = [{"url": urllib.parse.urlparse(v["tab_url"]).path, "label": f"Verze {v.get('version')} ({v.get('type')}) {round(float(v.get('rating') or 0), 1)}/5 ({v.get('votes') or 0})"}
                 for v in view.get("versions") or [] if v.get("tab_url") and v.get("type") not in SKIP_TYPES]
+
     return {"artist": tab.get("artist_name") or "", "song": tab.get("song_name") or "", "text": text.strip("\n"),
             "tuning": f"{tun.get('value')} ({tun.get('name')})" if tun.get("value") else "", "versions": versions[:30]}
 
@@ -221,17 +265,88 @@ def _tab_path(url: str) -> str:
     return path
 
 
+FILTERS_FILE = "ug-filters.json"
+
+
+@router.get("/api/vguitar/tabs/filters")
+def tabs_filters():
+    """Ultimate Guitar's filters, as its Explore page lists them — kept a week, and kept when it does not answer."""
+    cache = TAB_CACHE / FILTERS_FILE
+    old = None
+    try:
+        old = json.loads(cache.read_text(encoding="utf-8"))
+        if time.time() - old.get("at", 0) < 7 * 86400:
+            return old
+    except (OSError, ValueError):
+        pass
+    try:
+        got = {**ug_filters(_get(UG_EXPLORE, 12)), "at": time.time()}
+    except Exception:                                   # noqa: BLE001
+        if old:
+            return old
+        return JSONResponse({"error": "Filtry Ultimate Guitar se teď nepodařilo načíst."}, status_code=502)
+    TAB_CACHE.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
+    return got
+
+
+def _chosen(request: Request) -> dict:
+    """The filters asked for: {param: [values]}, only Ultimate Guitar's own and only plain values."""
+    out = {}
+    for p in GROUPS:
+        vals = [v for v in request.query_params.getlist(p) if re.fullmatch(r"[\w &.\-]{1,40}", v)][:20]
+        if vals:
+            out[p] = vals
+    return out
+
+
+def _narrow(rows: list, chosen: dict) -> list:
+    """A text search's results narrowed by what they say of themselves (Ultimate Guitar's search filters only by kind)."""
+    want_d = {DIFF_OF.get(v) for v in chosen.get("difficulty", [])} - {None}
+    keys = set(chosen.get("tonality", []))
+    names = {}
+    if keys:
+        try:
+            g = next((g for g in tabs_filters()["groups"] if g["param"] == "tonality"), {"values": []})
+            names = {v["v"]: v["name"] for v in g["values"]}
+        except Exception:                               # noqa: BLE001
+            pass
+    want_k = {names.get(k, k) for k in keys}
+    parts = set(chosen.get("part", []))
+    return [r for r in rows if (not want_d or r["difficulty"] in want_d) and (not want_k or r["key"] in want_k)
+            and (not parts or r["part"] in parts)]
+
+
 @router.get("/api/vguitar/tabs/search")
-def tabs_search(q: str = "", page: int = 1):
+def tabs_search(request: Request, q: str = "", page: int = 1, order: str = ""):
     q = " ".join(q.split())[:120]
-    if len(q) < 2:
+    chosen = _chosen(request)
+    if q and len(q) < 2:
         return JSONResponse({"error": "Napiš aspoň dvě písmena."}, status_code=400)
     page = max(1, min(50, page))
-    hit = _SEARCHED.get((q.lower(), page))
+    key = (q.lower(), page, order, json.dumps(chosen, sort_keys=True))
+    hit = _SEARCHED.get(key)
     if hit and time.time() - hit[0] < 6 * 3600:
         return hit[1]
+    if not q:                                           # no text: Ultimate Guitar's Explore, every filter applied there
+        params = [(p + "[]", v) for p, vals in chosen.items() for v in vals]
+        params += [("order", order if order in ORDERS else "hitstotal_desc"), ("page", page)]
+        try:
+            got = ug_explore(_get(f"{UG_EXPLORE}?" + urllib.parse.urlencode(params), 12))
+        except Exception:                               # noqa: BLE001
+            return JSONResponse({"error": "Ultimate Guitar teď neodpovídá — zkus to za chvilku."}, status_code=502)
+        got.update(via="Ultimate Guitar", q=q, page=page, browse=True)
+        _SEARCHED[key] = (time.time(), got)
+        return got
     try:
-        got = ug_search(_get(f"{UG_SEARCH}?" + urllib.parse.urlencode({"search_type": "title", "value": q, "page": page}), 12))
+        params = [("search_type", "title"), ("value", q), ("page", page)]
+        params += [("type[]", SEARCH_TYPE[t]) for t in chosen.get("type", []) if t in SEARCH_TYPE]
+        if order == "rating":
+            params += [("rating[]", 4), ("rating[]", 5), ("order", "myweight")]
+        elif order in SEARCH_ORDERS:
+            params.append(("order", order))
+        got = ug_search(_get(f"{UG_SEARCH}?" + urllib.parse.urlencode(params), 12))
+        got["results"] = _narrow(got["results"], chosen)
         got["via"] = "Ultimate Guitar"
     except urllib.error.HTTPError as e:
         if e.code != 404:
@@ -243,11 +358,11 @@ def tabs_search(q: str = "", page: int = 1):
     if got is None:
         try:
             got = parse_search(_get(f"{FREETAR}/search?" + urllib.parse.urlencode({"search_term": q, "page": page})))
-            got["via"] = "Freetar"
+            got["via"] = "Freetar (bez filtrů)" if chosen else "Freetar"
         except Exception:                               # noqa: BLE001 — the far side, said simply
             return JSONResponse({"error": "Ultimate Guitar ani Freetar teď neodpovídají — zkus to za chvilku."}, status_code=502)
     got.update(q=q, page=page)
-    _SEARCHED[(q.lower(), page)] = (time.time(), got)
+    _SEARCHED[key] = (time.time(), got)
     return got
 
 

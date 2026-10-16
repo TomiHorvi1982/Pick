@@ -1628,7 +1628,7 @@ def search_top(q: str, limit: int = 8):
 #- track: {cdn}/{songId}/{revision}/{image}/{trackIdx}.json
 
 @app.get("/api/tabs/search")
-async def search_tabs(q: str, size: int = 20):
+async def search_tabs(q: str, size: int = 20, start: int = 0):
     """Search Songsterr for songs. Returns a list of matches with their songId.
 
     The query goes in `pattern`: the older `/api/search?q=` ignores it and
@@ -1640,7 +1640,7 @@ async def search_tabs(q: str, size: int = 20):
         async with httpx.AsyncClient(follow_redirects=True) as client:
             r = await client.get(
                 "https://www.songsterr.com/api/songs",
-                params={"pattern": q.strip(), "size": max(1, min(size, 40))},
+                params={"pattern": q.strip(), "size": max(1, min(size, 40)), **({"from": min(start, 2000)} if start > 0 else {})},
                 headers={"User-Agent": APP_UA},
             )
             r.raise_for_status()
