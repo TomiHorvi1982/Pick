@@ -9220,7 +9220,7 @@ function renderToolsGrid(){
     b.type = "button";
     b.className = "tool-card";
     b.innerHTML = `<span class="ic">${icon(t.icon, 24)}</span><span><b>${escapeHtml(t.title)}</b><span class="sub">${escapeHtml(t.sub)}</span></span>`;
-    b.onclick = () => setMode(t.key);
+    b.onclick = () => openTool(t);
     g.appendChild(b);
   });
 }
@@ -10650,7 +10650,16 @@ const TOOLS = [
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
   {key: "vguitar", title: "Virtuální kytara", icon: "elGuitar", sub: "Napiš nebo vlož tab — zahraje ho zvukem kytary z písně (tónový otisk)"},
   {key: "kontakt", title: "Kontakt", icon: "library", sub: "Tvoje knihovny Native Instruments: nástroje pro virtuální kytaru, smyčky a samply"},
+  // a website that refuses to be shown inside Pick: its own window (server.py WEB_TOOLS)
+  {key: "ukutabs", web: true, title: "Ukulele Tabs", icon: "guitar", sub: "Nejnovější taby pro ukulele (ukutabs.com) — otevře se ve vlastním okně"},
 ];
+// A tool card: a page of Pick, or a website in a window of its own.
+function openTool(t){
+  if(!t.web){ setMode(t.key); return; }
+  fetch("/api/tools/web/open", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: t.key})})
+    .then(r => { if(!r.ok) throw new Error(); showToast(`${t.title} — otevírá se ve vlastním okně`); })
+    .catch(() => showToast(`${t.title} se nepodařilo otevřít`));
+}
 
 const RAIL_SECTIONS = [
   {key: "playlists", title: "Playlisty", icon: "queue"},
@@ -10697,8 +10706,8 @@ async function fetchRailTop5(key){
     }));
   }
   if(key === "tools"){
-    return TOOLS.map(t => ({art: icon(t.icon, 18), name: t.title, sub: t.sub, modeKey: t.key,
-      onClick: () => setMode(t.key)}));
+    return TOOLS.map(t => ({art: icon(t.icon, 18), name: t.title, sub: t.sub, modeKey: t.web ? null : t.key,
+      onClick: () => openTool(t)}));
   }
   if(key === "tabs"){
     const recent = TabsLib.recent();

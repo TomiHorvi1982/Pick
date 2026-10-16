@@ -702,6 +702,13 @@ poslechu přepne hned; odpojený vstup → výchozí. V ladičce (`static/ladick
 **Minipřehrávač převezme píseň**: když se otevře (lištou, hlasem, `POST /api/mini/open`) a aplikace hraje,
 hraje ji dál on od stejného místa — píseň ze Steems celou (s kytarou) — a aplikace se pozastaví.
 
+## Ukulele Tabs
+
+Tools → **Ukulele Tabs**: nejnovější taby pro ukulele na ukutabs.com. Web se do jiné stránky vložit nenechá
+(`X-Frame-Options: SAMEORIGIN`) a je za kontrolou Cloudflare, proto se otevře ve vlastním okně Chromu, jako weby
+s loopy — návštěva je tvoje, Pick nic nestahuje ani nekopíruje (`POST /api/tools/web/open`, jen weby ze seznamu
+`WEB_TOOLS` v `server.py`).
+
 ## Odkaz ze Spotify
 
 Playlisty → pole **Odkaz ze Spotify** (nebo odkaz vložený do hlavního hledání), `spotify_link.py`,

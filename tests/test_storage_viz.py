@@ -186,3 +186,12 @@ def test_the_pages_scripts_are_served(client):
         for name in re.findall(r'<script src="/static/([\w.-]+)"', (root / page).read_text(encoding="utf-8")):
             r = client.get(f"/static/{name}")
             assert r.status_code == 200 and "javascript" in r.headers["content-type"], (page, name)
+
+
+def test_a_web_tool_opens_in_a_window_of_its_own_and_only_a_known_one(client, monkeypatch):
+    import server
+    ran = []
+    monkeypatch.setattr(server.subprocess, "run", lambda cmd, **k: ran.append(cmd) or type("R", (), {"returncode": 0})())
+    assert client.post("/api/tools/web/open", json={"id": "ukutabs"}).json() == {"ok": True}
+    assert ran[-1][:4] == ["open", "-na", "Google Chrome", "--args"] and ran[-1][4] == "--app=https://ukutabs.com/cs/99-newest-ukulele-tabs/"
+    assert client.post("/api/tools/web/open", json={"id": "https://evil.example"}).status_code == 404 and len(ran) == 1

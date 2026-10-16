@@ -3928,6 +3928,27 @@ def loops_open(req: LoopOpenRequest):
     return {"ok": True}
 
 
+# Websites in Tools that will not be shown inside another page (they forbid framing, and are behind a
+# bot check): each opens in a window of its own, as the loop sites do — the browser's own, so it is
+# the player's visit, nothing fetched or copied by Pick. Only these addresses, by name.
+WEB_TOOLS = {"ukutabs": "https://ukutabs.com/cs/99-newest-ukulele-tabs/"}
+
+
+class WebToolRequest(BaseModel):
+    id: str
+
+
+@app.post("/api/tools/web/open")
+def tools_web_open(req: WebToolRequest):
+    url = WEB_TOOLS.get(req.id)
+    if not url:
+        return JSONResponse({"error": "Neznámý web."}, status_code=404)
+    r = subprocess.run(["open", "-na", "Google Chrome", "--args", f"--app={url}", "--window-size=1280,900"], capture_output=True)
+    if r.returncode != 0:
+        subprocess.run(["open", url], check=False)
+    return {"ok": True}
+
+
 @app.get("/api/loops/pending")
 def loops_pending():
     """Loop-site files in Downloads from before watching started — offered
