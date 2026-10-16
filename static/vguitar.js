@@ -7,6 +7,8 @@
 // The tab: a grid, strings top (high e) to bottom, a column a step (an 8th, a 16th, a triplet…).
 // A cell holds a fret, or x (a dead note); a column can be palm muted (PM), a note legato
 // (hammer-on / pull-off, picked softer). A note rings until the string plays again (at most two beats).
+// A riff from the catalog (riffbook.py) brings the guitars that play with it — the rhythm with its lead,
+// two guitars each their own: "band", played along with the one in the grid, swapped into it to edit.
 // ======================================================================
 const VGuitar = (() => {
   const TUNINGS = [["Standard E", [64, 59, 55, 50, 45, 40]], ["Drop D", [64, 59, 55, 50, 45, 38]], ["Eb Standard", [63, 58, 54, 49, 44, 39]],
@@ -19,7 +21,8 @@ const VGuitar = (() => {
   const api = async (url, opt) => { const r = await fetch(url, opt), d = await r.json().catch(() => ({})); if(!r.ok) throw new Error(d.error || "Nepodařilo se."); return d; };
   const post = (body) => ({method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
   const blank = (n) => Array.from({length: n}, () => ({s: {}, pm: false, lg: []}));
-  const fresh = () => ({id: "", name: "", bpm: 120, div: 4, tuning: TUNINGS[0][1].slice(), cols: blank(32), sound: null});
+  const fresh = () => ({id: "", name: "", bpm: 120, div: 4, tuning: TUNINGS[0][1].slice(), cols: blank(32), sound: null, band: [], part: null});
+  const ROLE = {rhythm: "rytmická", lead: "sólová", acoustic: "akustická", guitar: "kytara"};
 
   let riff = fresh(), cur = {c: 0, s: 5}, root = null, shown = false, prints = [], saved = [], dirty = false, kpresets = [], midiOuts = [], midi = null;
   let opts = {trim: 0, vol: 0.8, click: false, loop: true};
@@ -193,11 +196,14 @@ const VGuitar = (() => {
   // ---------------------------------------------------------------- playing
   let play = null;                                       // {t0, step, next, timer, from, to}
   const stepDur = () => 60 / riff.bpm / riff.div;
-  function noteLen(k, s){
+  function noteLen(k, s, cols = riff.cols){
     let j = k + 1;
-    while(j < riff.cols.length && riff.cols[j].s[s] == null && j - k < riff.div * 2) j++;
+    while(j < cols.length && cols[j].s[s] == null && j - k < riff.div * 2) j++;
     return (j - k) * stepDur();
   }
+  // the guitar in the grid and those that play with it (each its own voices: they do not cut each other off)
+  const guitars = () => [{tuning: riff.tuning, cols: riff.cols, part: 9},
+    ...(riff.band || []).map((b, i) => b.on ? {tuning: b.tuning, cols: b.cols, part: 10 + i} : null).filter(Boolean)];
   function schedule(){
     if(!play) return;
     const until = ac.currentTime + 0.15;
@@ -209,12 +215,13 @@ const VGuitar = (() => {
         o.connect(g); g.connect(out); o.start(play.next); o.stop(play.next + 0.06);
       }
       const mo = soundKind() === "midi" ? midiOut() : null;
-      Object.entries(c.s).forEach(([s, f]) => {
+      guitars().forEach((g) => { const gc = g.cols[k]; if(gc) Object.entries(gc.s).forEach(([s, f]) => {
         const str = +s, dead = f === "x";
-        if(mo){ sendNote(mo, riff.tuning[str] + (dead ? 5 : f), dead ? 40 : c.pm ? 85 : c.lg.includes(str) ? 70 : 105, play.next, dead ? 0.04 : c.pm ? Math.min(0.12, stepDur()) : noteLen(k, str)); return; }
-        GuitarSampler.playNote(ac, trim, str, dead ? 0 : f, play.next, riff.tuning,
-          {duration: dead ? 0.04 : c.pm ? 0.11 : noteLen(k, str), staccato: dead || c.pm, hammer: c.lg.includes(str)}, 9);
-      });
+        if(g.tuning[str] == null) return;
+        if(mo){ sendNote(mo, g.tuning[str] + (dead ? 5 : f), dead ? 40 : gc.pm ? 85 : gc.lg.includes(str) ? 70 : 105, play.next, dead ? 0.04 : gc.pm ? Math.min(0.12, stepDur()) : noteLen(k, str, g.cols)); return; }
+        GuitarSampler.playNote(ac, trim, str, dead ? 0 : f, play.next, g.tuning,
+          {duration: dead ? 0.04 : gc.pm ? 0.11 : noteLen(k, str, g.cols), staccato: dead || gc.pm, hammer: gc.lg.includes(str)}, g.part);
+      }); });
       play.marks.push([play.next, k]);
       play.next += stepDur();
       play.step++;
@@ -229,12 +236,12 @@ const VGuitar = (() => {
   // ---- through Kontakt: the riff played into a file once (kontakt.py), then that file, looped
   function riffNotes(){
     const n = [], sd = stepDur();
-    riff.cols.forEach((c, k) => Object.entries(c.s).forEach(([s, f]) => {
-      const str = +s, open = riff.tuning[str];
+    guitars().forEach((g) => g.cols.slice(0, riff.cols.length).forEach((c, k) => Object.entries(c.s).forEach(([s, f]) => {
+      const str = +s, open = g.tuning[str];
       if(open == null) return;
       if(f === "x"){ n.push({m: open + 5, t: k * sd, d: 0.04, v: 40}); return; }
-      n.push({m: open + f, t: k * sd, d: c.pm ? Math.min(0.12, sd) : noteLen(k, str), v: c.pm ? 85 : c.lg.includes(str) ? 70 : 105});
-    }));
+      n.push({m: open + f, t: k * sd, d: c.pm ? Math.min(0.12, sd) : noteLen(k, str, g.cols), v: c.pm ? 85 : c.lg.includes(str) ? 70 : 105});
+    })));
     return n;
   }
   let rendering = false;
@@ -359,6 +366,10 @@ const VGuitar = (() => {
       .vg-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}.vg-chip{border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--text);border-radius:500px;font:inherit;font-size:11.5px;padding:2px 9px;cursor:pointer}
       .vg-chip.clr{background:transparent;border-color:rgba(255,255,255,.15);color:var(--sub)}
       .vg-rec{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:6px 10px}
+      .vg-band{border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:10px;padding:6px 10px}
+      .vg-res .row .star{color:#ffcf6b;font-size:15px}.vg-res .row .star.on{opacity:1}
+      .vg-tag{display:inline-block;font-size:11px;color:var(--text);border:1px solid rgba(255,255,255,.18);border-radius:500px;padding:0 7px;margin-left:2px}
+      .vg-starf{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 0 6px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.07)}
       @media (max-width:760px){.vg-ug{grid-template-columns:1fr}.vg-ugf{max-height:280px}}
       .vg-res .row{display:flex}.vg-res .row button:first-child{flex:1}.vg-res .row .del{flex:0 0 auto;display:block;opacity:.6}
       .vg-tabtext{margin:0;max-height:520px;overflow:auto;background:#0b0c14;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;font:12.5px/1.35 ui-monospace,Menlo,monospace;white-space:pre;user-select:text;cursor:text}
@@ -374,8 +385,9 @@ const VGuitar = (() => {
     await loadMine();
     if(tb.mode === "lib") await loadLib();
     paint();
+    if(tb.mode === "rb") findRiffs(tb.rpage);
   }
-  function hide(){ shown = false; stop(); }
+  function hide(){ shown = false; stop(); clearTimeout(rbPoll); }
   function soundOptions(){
     const sel = !riff.sound ? "" : riff.sound.kontakt ? "k:" + riff.sound.kontakt : riff.sound.midi ? "m:" + riff.sound.midi : `${riff.sound.song}|${riff.sound.pid}`;
     const bands = {};
@@ -404,6 +416,11 @@ const VGuitar = (() => {
         <button type="button" class="btn vg-play" id="vg-play">${play ? "■ Stop" : "▶ Přehrát"}</button>
         <label>Zvuk <select id="vg-sound">${soundOptions()}</select></label><span id="vg-sound-st" class="vg-sub" style="margin:0"></span>
       </div>
+      ${(riff.band || []).length ? `<div class="vg-bar vg-band"><b>Kytary spolu</b>
+        <label title="Která kytara je v tabu níž — tu upravuješ">V tabu <select id="vg-part">${[riff.part || {name: "Kytara 1", role: ""}, ...riff.band].map((p, i) =>
+          `<option value="${i}">${esc(p.name)}${p.role ? ` · ${ROLE[p.role] || p.role}` : ""}</option>`).join("")}</select></label>
+        <span class="vg-sub" style="margin:0">hraje s ní:</span>
+        ${riff.band.map((b, i) => `<label><input type="checkbox" data-band="${i}" ${b.on ? "checked" : ""}> ${esc(b.name)}${b.role ? ` (${ROLE[b.role] || b.role})` : ""}</label>`).join("")}</div>` : ""}
       <div class="vg-bar">
         <label>Tempo <input type="number" id="vg-bpm" min="30" max="300" value="${riff.bpm}"></label>
         <label>Krok <select id="vg-div">${DIVS.map(([d, l]) => `<option value="${d}" ${riff.div === d ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -532,8 +549,16 @@ const VGuitar = (() => {
     q("vg-vol").oninput = (e) => { opts.vol = +e.target.value; keep(); if(out) out.gain.value = opts.vol; };
     q("vg-click").onchange = (e) => { opts.click = e.target.checked; keep(); };
     q("vg-loop").onchange = (e) => { opts.loop = e.target.checked; keep(); };
-    q("vg-more").onclick = () => { riff.cols.push(...blank(riff.div * 4)); changed(); paintGrid(); };
-    q("vg-less").onclick = () => { const k = riff.div * 4; if(riff.cols.length > k){ riff.cols.splice(-k); cur.c = Math.min(cur.c, riff.cols.length - 1); changed(); paintGrid(); } };
+    q("vg-more").onclick = () => { riff.cols.push(...blank(riff.div * 4)); (riff.band || []).forEach((b) => b.cols.push(...blank(riff.div * 4))); changed(); paintGrid(); };
+    q("vg-less").onclick = () => { const k = riff.div * 4; if(riff.cols.length > k){ riff.cols.splice(-k); (riff.band || []).forEach((b) => b.cols.splice(riff.cols.length)); cur.c = Math.min(cur.c, riff.cols.length - 1); changed(); paintGrid(); } };
+    if(q("vg-part")) q("vg-part").onchange = (e) => {           // another guitar into the grid; the one there plays along
+      const i = +e.target.value - 1, b = riff.band[i];
+      if(!b) return;
+      riff.band[i] = {name: (riff.part || {}).name || "Kytara 1", role: (riff.part || {}).role || "", tuning: riff.tuning, cols: riff.cols, on: true};
+      riff.part = {name: b.name, role: b.role}; riff.tuning = b.tuning.slice(); riff.cols = b.cols;
+      cur = {c: 0, s: riff.tuning.length - 1}; changed(); paint();
+    };
+    root.querySelectorAll("[data-band]").forEach((c) => c.onchange = () => { riff.band[+c.dataset.band].on = c.checked; changed(); });
     q("vg-new").onclick = async () => {
       if(dirty && riff.cols.some((c) => Object.keys(c.s).length) && !await Dialog.confirm("Začít nový riff? Neuložené změny se ztratí.", {ok: "Nový"})) return;
       stop(); const snd = riff.sound; riff = fresh(); riff.sound = snd; cur = {c: 0, s: 5}; dirty = false; keep(); paint();
@@ -545,7 +570,7 @@ const VGuitar = (() => {
     };
     root.querySelectorAll("[data-ex]").forEach((b) => b.onclick = async () => {
       if(dirty && riff.cols.some((c) => Object.keys(c.s).length) && !await Dialog.confirm("Otevřít ukázku? Neuložené změny se ztratí.", {ok: "Otevřít"})) return;
-      stop(); riff = exampleRiff(EXAMPLES[+b.dataset.ex]); cur = {c: 0, s: riff.tuning.length - 1}; dirty = false; keep(); paint();
+      stop(); riff = {...exampleRiff(EXAMPLES[+b.dataset.ex]), band: [], part: null}; cur = {c: 0, s: riff.tuning.length - 1}; dirty = false; keep(); paint();
       showToast(`Ukázka „${riff.name}“ — ▶ Přehrát. Když ji upravíš, ulož si ji jako vlastní riff.`);
     });
     q("vg-copy").onclick = async () => { try{ await navigator.clipboard.writeText(toText()); showToast("Tab je ve schránce."); }catch(e){ await Dialog.prompt("Tab:", toText(), {multiline: true, ok: "Zavřít"}); } };
@@ -561,7 +586,7 @@ const VGuitar = (() => {
       const r = saved.find((x) => x.id === b.dataset.load);
       if(!r) return;
       if(dirty && riff.cols.some((c) => Object.keys(c.s).length) && riff.id !== r.id && !await Dialog.confirm("Otevřít jiný riff? Neuložené změny se ztratí.", {ok: "Otevřít"})) return;
-      stop(); riff = JSON.parse(JSON.stringify({id: r.id, name: r.name, bpm: r.bpm, div: r.div, tuning: r.tuning, cols: r.cols, sound: r.sound}));
+      stop(); riff = JSON.parse(JSON.stringify({id: r.id, name: r.name, bpm: r.bpm, div: r.div, tuning: r.tuning, cols: r.cols, sound: r.sound, band: r.band || [], part: r.part || null}));
       cur = {c: 0, s: riff.tuning.length - 1}; dirty = false; keep(); paint();
     });
     root.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
@@ -580,8 +605,8 @@ const VGuitar = (() => {
     if(grid && grid.tuning && grid.tuning.length === got.strings) riff.tuning = grid.tuning.slice();
     else if(got.tuning) riff.tuning = got.tuning;
     else if(got.strings !== riff.tuning.length) riff.tuning = (TUNINGS.find(([, t]) => t.length === got.strings) || TUNINGS[0])[1].slice();
-    if(!keepRiff){ riff.cols = got.cols; riff.div = grid ? grid.div : 2; if(grid && grid.bpm) riff.bpm = grid.bpm; riff.id = ""; if(name) riff.name = name; }
-    else riff.cols.push(...got.cols);
+    if(!keepRiff){ riff.cols = got.cols; riff.div = grid ? grid.div : 2; if(grid && grid.bpm) riff.bpm = grid.bpm; riff.id = ""; riff.band = []; riff.part = null; if(name) riff.name = name; }
+    else{ riff.cols.push(...got.cols); (riff.band || []).forEach((b) => b.cols.push(...blank(riff.cols.length - b.cols.length))); }
     cur = {c: 0, s: riff.tuning.length - 1}; changed(); paint();
     showToast(grid ? `Převedeno: ${got.cols.length} kroků, tempo ${riff.bpm}, ladění ${tuningName(riff.tuning)} — rytmus podle tabu.`
       : `Převedeno: ${got.cols.length} kroků${got.tuning ? `, ladění ${tuningName(got.tuning)}` : ""}. Krok je teď 1/8 — když to hraje moc rychle nebo pomalu, změň Krok nebo Tempo.`);
@@ -656,10 +681,12 @@ const VGuitar = (() => {
   // recording and has it split into stems, linked to the tab as the Taby section links them.
   const TKEY = "pick-vguitar-tabs";
   let tb = {mode: "lib", q: "", page: 1, res: null, busy: false, mq: "", mine: [], open: null, opening: false, lq: "",
-            f: {type: ["Tabs"]}, order: "", sq: "", sinst: "guitar", stun: "", sdiff: ""};
+            f: {type: ["Tabs"]}, order: "", sq: "", sinst: "guitar", stun: "", sdiff: "",
+            rq: "", rf: {}, rstar: false, rsong: 0, rsongName: "", rpage: 1};
   let lib = null;                                              // the Taby library: [{path, artist, title, songsterr}]
   let filt = null, ss = null, yt = null, split = null;          // UG's filters; Songsterr's results; a recording looked for; its split under way
-  const openG = new Set(["type", "difficulty", "tuning"]), moreG = new Set();
+  let rbk = null, rbPoll = 0;                                   // the riff catalog's page as last asked; its reading watched
+  const openG = new Set(["type", "difficulty", "tuning", "rb-kind", "rb-guitars", "rb-role", "rb-tuning", "rb-tempo", "rb-tag"]), moreG = new Set();
   async function loadLib(force){
     if(lib && !force) return;
     try{ lib = (await api("/api/tabfiles/list")).files.filter((f) => f.songsterr); }catch(e){ lib = lib || []; }
@@ -704,7 +731,8 @@ const VGuitar = (() => {
   }
   try{ Object.assign(tb, JSON.parse(localStorage.getItem(TKEY) || "{}")); tb.busy = tb.opening = false; }catch(e){}
   const keepTabs = () => { try{ localStorage.setItem(TKEY, JSON.stringify({mode: tb.mode, q: tb.q, page: tb.page, res: tb.res, mq: tb.mq, lq: tb.lq, open: tb.open,
-    f: tb.f, order: tb.order, sq: tb.sq, sinst: tb.sinst, stun: tb.stun, sdiff: tb.sdiff})); }catch(e){} };
+    f: tb.f, order: tb.order, sq: tb.sq, sinst: tb.sinst, stun: tb.stun, sdiff: tb.sdiff,
+    rq: tb.rq, rf: tb.rf, rstar: tb.rstar, rsong: tb.rsong, rsongName: tb.rsongName, rpage: tb.rpage})); }catch(e){} };
   async function loadMine(){ try{ tb.mine = (await api("/api/vguitar/tabs/mine?q=" + enc(tb.mq))).tabs; }catch(e){ tb.mine = []; } }
   const many = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".", ",")} mil.` : n >= 1e3 ? `${Math.round(n / 1e3)} tis.` : String(n);
   const DIFF = {novice: "začátečník", intermediate: "mírně pokročilý", advanced: "pokročilý"};
@@ -821,6 +849,90 @@ const VGuitar = (() => {
     setMode("tabs", {keepSection: true}); TabsLib.open(f);
   }
 
+  // ---- Katalog riffů: the library's tabs taken apart into parts of their songs (riffbook.py)
+  async function findRiffs(page){
+    tb.rpage = page || 1;
+    const qs = new URLSearchParams({q: tb.rq.trim(), page: tb.rpage});
+    if(tb.rstar) qs.set("star", "true");
+    if(tb.rsong) qs.set("song", tb.rsong);
+    Object.entries(tb.rf).forEach(([g, vs]) => vs.forEach((v) => qs.append(g, v)));
+    try{ rbk = await api(`/api/riffbook?${qs}`); }catch(e){ showToast(e.message); }
+    keepTabs(); paintTabs(); watchScan();
+  }
+  const eta = (songs) => { const m = Math.round(songs * 5 / 60); return m < 2 ? "pár minut" : m < 90 ? `asi ${m} min` : `asi ${Math.round(m / 60)} h`; };
+  function scanLine(st){
+    if(!st) return "";
+    if(st.running) return `<span>Čtu knihovnu: <b>${esc(st.current)}</b> — ${st.done} z ${st.total}${st.left > 1 ? ` (zbývá ${eta(st.left)})` : ""}</span>
+      <button type="button" class="btn secondary" id="vg-rbstop">Zastavit</button>`;
+    return `<span>V katalogu ${st.songs} ${st.songs === 1 ? "píseň" : st.songs < 5 && st.songs ? "písně" : "písní"} z ${st.library}, ${st.entries} riffů.</span>
+      ${st.unread ? `<button type="button" class="btn secondary" id="vg-rbscan" title="Každý tab z knihovny Taby se rozebere na části písně a jejich riffy — na pozadí, jeden po druhém">Projít knihovnu — zbývá ${st.unread} (${eta(st.unread)})</button>` : ""}
+      ${st.errors ? `<span class="vg-sub" style="margin:0" title="${esc(st.error)}">${st.errors}× se nepodařilo</span>` : ""}`;
+  }
+  function watchScan(){
+    clearTimeout(rbPoll);
+    if(!rbk || !rbk.status.running || !shown) return;
+    rbPoll = setTimeout(async () => {
+      try{
+        const st = await api("/api/riffbook/scan");
+        const was = rbk.status; rbk.status = st;
+        if(!st.running || (tb.rsong && st.done !== was.done)){ if(tb.mode === "rb") return findRiffs(tb.rpage); }
+        const el = root && root.querySelector("#vg-rbst");
+        if(el && tb.mode === "rb"){ el.innerHTML = scanLine(st); wireScan(); }
+      }catch(e){}
+      watchScan();
+    }, 4000);
+  }
+  function wireScan(){
+    const box = root.querySelector("#vg-tabs"), q = (id) => box.querySelector("#" + id);
+    if(q("vg-rbscan")) q("vg-rbscan").onclick = async () => { try{ rbk.status = await api("/api/riffbook/scan", post({})); }catch(e){ showToast(e.message); } paintTabs(); watchScan(); };
+    if(q("vg-rbstop")) q("vg-rbstop").onclick = async () => { try{ rbk.status = await api("/api/riffbook/scan/stop", post({})); }catch(e){} showToast("Zastaví se po téhle písni — příště pokračuje, kde skončilo."); };
+  }
+  // the song open under the guitar, taken apart (read now when it is not in the catalog yet)
+  async function partsOf(o){
+    tb.mode = "rb"; tb.rsong = o.songId; tb.rsongName = `${o.artist} – ${o.song}`; tb.rf = {}; tb.rq = ""; tb.rstar = false;
+    await findRiffs(1);
+    if(rbk && !rbk.total){
+      try{ rbk.status = await api("/api/riffbook/scan", post({songIds: [o.songId]})); showToast("Rozebírám tab na části — chvilku."); }catch(e){ showToast(e.message); }
+      paintTabs(); watchScan();
+    }
+  }
+  const partsText = (ps) => ps.map((p) => `${ROLE[p.role] || p.role}${p.double > 1 ? ` ×${p.double}` : ""}`).join(" + ");
+  function riffColumn(){
+    if(!rbk) return `<p class="vg-sub">Načítám…</p>`;
+    const name = (g, v) => ((rbk.groups.find((x) => x.param === g) || {values: []}).values.find((x) => x.v === v) || {name: v}).name;
+    const chips = [...(tb.rsong ? [`<button type="button" class="vg-chip" id="vg-rbsongx">jen ${esc(tb.rsongName)} ✕</button>`] : []),
+      ...(tb.rstar ? [`<button type="button" class="vg-chip" id="vg-rbstarx">★ oblíbené ✕</button>`] : []),
+      ...Object.entries(tb.rf).flatMap(([g, vs]) => vs.map((v) => `<button type="button" class="vg-chip" data-rx="${esc(g)}|${esc(v)}">${esc(name(g, v))} ✕</button>`))].join("");
+    return `${chips ? `<div class="vg-chips">${chips}<button type="button" class="vg-chip clr" id="vg-rbclr">Zrušit vše</button></div>` : ""}
+      <label class="vg-starf"><input type="checkbox" id="vg-rbstar" ${tb.rstar ? "checked" : ""}><span>★ jen oblíbené</span></label>
+      ${rbk.groups.filter((g) => g.values.length).map((g) => {
+        const on = tb.rf[g.param] || [], key = "rb-" + g.param, vals = moreG.has(key) ? g.values : g.values.slice(0, 10);
+        return `<details data-g="${esc(key)}" ${openG.has(key) ? "open" : ""}><summary>${esc(g.name)}${on.length ? ` <b>${on.length}</b>` : ""}</summary>
+          ${vals.map((v) => `<label><input type="checkbox" data-rv="${esc(g.param)}|${esc(v.v)}" ${on.includes(v.v) ? "checked" : ""}><span>${esc(v.name)}</span><i>${many(v.count)}</i></label>`).join("")}
+          ${g.values.length > 10 ? `<button type="button" class="vg-more" data-fm="${esc(key)}">${moreG.has(key) ? "méně" : `další (${g.values.length - 10})`}</button>` : ""}</details>`;
+      }).join("")}`;
+  }
+  async function openRiff(id){
+    if(dirty && riff.cols.some((c) => Object.keys(c.s).length) && !await Dialog.confirm("Otevřít riff z katalogu? Neuložené změny v editoru se ztratí.", {ok: "Otevřít"})) return;
+    let r;
+    try{ r = await api(`/api/riffbook/riff/${enc(id)}`); }catch(e){ showToast(e.message); return; }
+    const [main, ...rest] = r.parts;
+    stop();
+    riff = {id: "", name: `${r.title} – ${r.labels.join(", ")}`.slice(0, 80), bpm: r.bpm, div: r.div, tuning: main.tuning.slice(), cols: main.cols, sound: riff.sound,
+            part: {name: main.name, role: main.role}, band: rest.map((p) => ({name: p.name, role: p.role, tuning: p.tuning.slice(), cols: p.cols, on: true}))};
+    cur = {c: 0, s: riff.tuning.length - 1}; dirty = false; keep(); paint();
+    root.querySelector("#vg-wrap").scrollIntoView({behavior: "smooth", block: "center"});
+    start(0);
+    showToast(`${r.artist} – ${r.title}: ${r.labels[0]} · ${r.bars} ${r.bars === 1 ? "takt" : r.bars < 5 ? "takty" : "taktů"}${r.repeats > 1 ? `, v písni ${r.repeats}×` : ""}${rest.length ? ` · hrají spolu ${r.parts.length} kytary` : ""}. Ulož si ho jako riff, když ho chceš mít u sebe.`);
+  }
+  async function tagRiff(id){
+    const r = rbk.rows.find((x) => x.id === id);
+    const t = await Dialog.prompt("Štítky riffu, oddělené čárkou (třeba: na zkoušku, rozcvička, k naučení):", (r.tags || []).join(", "), {title: "Štítky", ok: "Uložit"});
+    if(t == null) return;
+    try{ await api("/api/riffbook/mark", post({id, tags: t.split(",").map((x) => x.trim()).filter(Boolean)})); }catch(e){ showToast(e.message); }
+    findRiffs(tb.rpage);
+  }
+
   function paintTabs(){
     const box = root && root.querySelector("#vg-tabs");
     if(!box) return;
@@ -864,6 +976,24 @@ const VGuitar = (() => {
           ${tb.res.pages > 1 ? `<div class="vg-bar"><button type="button" class="btn secondary" id="vg-tprev" ${tb.page > 1 && !tb.busy ? "" : "disabled"}>← Předchozí</button>
             <span class="vg-sub" style="margin:0">stránka ${tb.page} z ${tb.res.pages}</span>
             <button type="button" class="btn secondary" id="vg-tnext" ${tb.page < tb.res.pages && !tb.busy ? "" : "disabled"}>Další →</button></div>` : ""}` : ""}</div></div>`;
+    else if(tb.mode === "rb"){
+      const rr = rbk ? rbk.rows : [], K = rbk ? rbk.kinds : {};
+      body = `<div class="vg-bar vg-rec" id="vg-rbst">${rbk ? scanLine(rbk.status) : ""}</div>
+        <div class="vg-ug"><aside class="vg-ugf">${riffColumn()}</aside><div class="vg-ugm">
+        <div class="vg-bar"><input type="text" id="vg-rq" placeholder="Kapela, píseň nebo část (třeba „sólo“)…" value="${esc(tb.rq)}">
+          ${rbk ? `<span class="vg-sub" style="margin:0">${many(rbk.total)} riffů</span>` : ""}</div>
+        <p class="vg-sub" style="margin:0">Klikni na riff — otevře se v kytaře nahoře a hned hraje, i s kytarami, které hrají s ním. ☆ = oblíbený, 🏷 = vlastní štítky na třídění.</p>
+        ${rbk ? `<div class="vg-res tall">${rr.map((r) => `<div class="row"><button type="button" class="w4" data-rid="${esc(r.id)}">
+            <span>${esc(r.artist)} – ${esc(r.title)} <span class="m">· ${esc(r.labels.join(", "))}</span>${(r.tags || []).map((t) => ` <span class="vg-tag">${esc(t)}</span>`).join("")}</span>
+            <span class="m">${esc(K[r.kind] || r.kind)}</span><span class="m">${esc(partsText(r.parts))}</span>
+            <span class="m">${r.bars} ${r.bars === 1 ? "takt" : r.bars < 5 ? "takty" : "taktů"}${r.repeats > 1 ? ` ×${r.repeats}` : r.whole ? "" : ` z ${r.of}`} · ${r.bpm} BPM · ${esc(r.tuning)}</span></button>
+            <button type="button" class="del star ${r.star ? "on" : ""}" data-rstar="${esc(r.id)}" title="${r.star ? "Odebrat z oblíbených" : "Oblíbený"}">${r.star ? "★" : "☆"}</button>
+            <button type="button" class="del" data-rtag="${esc(r.id)}" title="Štítky">🏷</button></div>`).join("")
+          || none(tb.rsong && rbk.status.running ? "Rozebírám tab na části — chvilku…" : rbk.status.songs ? "Nic tomu neodpovídá — uvolni filtr." : "Katalog je zatím prázdný — dej Projít knihovnu.")}</div>
+          ${rbk.pages > 1 ? `<div class="vg-bar"><button type="button" class="btn secondary" id="vg-rbprev" ${tb.rpage > 1 ? "" : "disabled"}>← Předchozí</button>
+            <span class="vg-sub" style="margin:0">stránka ${rbk.page} z ${rbk.pages}</span>
+            <button type="button" class="btn secondary" id="vg-rbnext" ${tb.rpage < rbk.pages ? "" : "disabled"}>Další →</button></div>` : ""}` : ""}</div></div>`;
+    }
     else body = `<div class="vg-bar"><input type="text" id="vg-tmq" placeholder="Hledat v mých tabech…" value="${esc(tb.mq)}"></div>
       <div class="vg-res">${tb.mine.map((t) => `<div class="row"><button type="button" data-tid="${esc(t.id)}" class="${o && o.id === t.id ? "on" : ""}"><span>${esc(t.artist ? t.artist + " – " : "")}${esc(t.song)}</span><span></span><span></span></button>
         <button type="button" class="del" data-tdel="${esc(t.id)}" title="Odebrat z Mých tabů">✕</button></div>`).join("")
@@ -878,6 +1008,7 @@ const VGuitar = (() => {
         <button type="button" data-tm="ss" class="${tb.mode === "ss" ? "on" : ""}">Songsterr</button>
         <button type="button" data-tm="find" class="${tb.mode === "find" ? "on" : ""}">Ultimate Guitar${chosenN() ? ` · ${chosenN()} filtr${chosenN() === 1 ? "" : chosenN() < 5 ? "y" : "ů"}` : ""}</button>
         <button type="button" data-tm="mine" class="${tb.mode === "mine" ? "on" : ""}">Moje taby${tb.mine.length ? ` (${tb.mine.length})` : ""}</button>
+        <button type="button" data-tm="rb" class="${tb.mode === "rb" ? "on" : ""}" title="Riffy ze všech tabů knihovny, podle částí písní">Katalog riffů</button>
         <button type="button" id="vg-tnow" title="Tab k písni, která právě hraje — nejdřív z knihovny, jinak ze Songsterru">♪ K písni, co hraje</button></div>
       ${body}
       ${tb.opening ? `<p class="vg-sub" style="margin:0">Otevírám tab…</p>` : o ? `<div class="vg-bar"><b>${esc(o.artist ? o.artist + " – " : "")}${esc(o.song)}</b>
@@ -889,6 +1020,7 @@ const VGuitar = (() => {
           ${o.src === "lib" ? (o.inLib ? `<span class="vg-sub" style="margin:0">✓ v knihovně Taby</span>` : `<button type="button" class="btn secondary" id="vg-tsave">Uložit do Taby</button>`)
             : o.id ? `<span class="vg-sub" style="margin:0">✓ v Mých tabech</span>` : `<button type="button" class="btn secondary" id="vg-tkeep">Uložit do Mých tabů</button>`}
           ${o.src !== "lib" && o.url ? `<button type="button" class="btn secondary" id="vg-tug">Na Ultimate Guitar ↗</button>` : ""}
+          ${o.src === "lib" ? `<button type="button" class="btn secondary" id="vg-tparts" title="Intro, sloka, refrén, sólo… a riff každé části, kytary pohromadě">Rozebrat na části</button>` : ""}
           <button type="button" class="btn secondary" id="vg-tclose">Zavřít</button></div>
         ${rec}
         <p class="vg-sub" style="margin:0">Riff vybereš myší: táhni přes struny od začátku riffu po jeho konec (stačí i na jedné struně — vezme se celý blok strun v tom rozsahu).</p>
@@ -932,8 +1064,37 @@ const VGuitar = (() => {
       if(tb.mode === "mine") await loadMine();
       if(tb.mode === "lib" || tb.mode === "ss") await loadLib();
       if(tb.mode === "find"){ await loadFilters(); if(!tb.res) findTabs(1); }
+      if(tb.mode === "rb"){ await findRiffs(tb.rpage); return; }
       keepTabs(); paintTabs();
     });
+    // Katalog riffů
+    wireScan();
+    let rt = 0;
+    if(q("vg-rq")) q("vg-rq").oninput = (e) => { tb.rq = e.target.value; clearTimeout(rt); rt = setTimeout(async () => { await findRiffs(1); refocus("vg-rq"); }, 300); };
+    box.querySelectorAll("[data-rv]").forEach((c) => c.onchange = () => {
+      const [g, v] = c.dataset.rv.split("|"), on = new Set(tb.rf[g] || []);
+      if(c.checked) on.add(v); else on.delete(v);
+      if(on.size) tb.rf[g] = [...on]; else delete tb.rf[g];
+      findRiffs(1);
+    });
+    box.querySelectorAll("[data-rx]").forEach((b) => b.onclick = () => {
+      const [g, v] = b.dataset.rx.split("|");
+      tb.rf[g] = (tb.rf[g] || []).filter((x) => x !== v); if(!tb.rf[g].length) delete tb.rf[g];
+      findRiffs(1);
+    });
+    if(q("vg-rbstar")) q("vg-rbstar").onchange = (e) => { tb.rstar = e.target.checked; findRiffs(1); };
+    if(q("vg-rbstarx")) q("vg-rbstarx").onclick = () => { tb.rstar = false; findRiffs(1); };
+    if(q("vg-rbsongx")) q("vg-rbsongx").onclick = () => { tb.rsong = 0; tb.rsongName = ""; findRiffs(1); };
+    if(q("vg-rbclr")) q("vg-rbclr").onclick = () => { tb.rf = {}; tb.rstar = false; tb.rsong = 0; tb.rsongName = ""; findRiffs(1); };
+    if(q("vg-rbprev")) q("vg-rbprev").onclick = () => findRiffs(tb.rpage - 1);
+    if(q("vg-rbnext")) q("vg-rbnext").onclick = () => findRiffs(tb.rpage + 1);
+    box.querySelectorAll("[data-rid]").forEach((b) => b.onclick = () => openRiff(b.dataset.rid));
+    box.querySelectorAll("[data-rstar]").forEach((b) => b.onclick = async () => {
+      const r = rbk.rows.find((x) => x.id === b.dataset.rstar);
+      try{ await api("/api/riffbook/mark", post({id: r.id, star: !r.star})); }catch(e){ showToast(e.message); }
+      findRiffs(tb.rpage);
+    });
+    box.querySelectorAll("[data-rtag]").forEach((b) => b.onclick = () => tagRiff(b.dataset.rtag));
     if(q("vg-tnow")) q("vg-tnow").onclick = () => forPlaying();
     let lt = 0;
     if(q("vg-tlq")) q("vg-tlq").oninput = (e) => { tb.lq = e.target.value; clearTimeout(lt); lt = setTimeout(() => { keepTabs(); paintTabs(); refocus("vg-tlq"); }, 200); };
@@ -1009,6 +1170,7 @@ const VGuitar = (() => {
     if(q("vg-tfind")) q("vg-tfind").onclick = () => findRec();
     box.querySelectorAll("[data-yt]").forEach((b) => b.onclick = () => splitRec(yt.res[+b.dataset.yt]));
     if(q("vg-topen")) q("vg-topen").onclick = () => openInTaby();
+    if(q("vg-tparts")) q("vg-tparts").onclick = () => partsOf(o);
   }
 
   // From the tone print library: this print's sound, right away.

@@ -801,7 +801,7 @@ V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvuk
 funk se škrábáním 16tin, punk power akordy, rock pentatonika v A, flamenco andaluská kadence) — jedním
 kliknutím do editoru, upravit a uložit jako vlastní.
 
-**Taby z písní** pod kytarou, čtyři záložky:
+**Taby z písní** pod kytarou, pět záložek (pátá je Katalog riffů, níž):
 - **Knihovna Taby** — tvoje knihovna ze sekce Taby (Pick Tabs, `/api/tabfiles/list`) s vyhledáváním. Vybraná
   stopa se převede na textový tab v mřížce kytary (`partText`: krok 3 znaky, nejjemnější dělení, které stopa
   potřebuje — 1/8, 1/16, 1/32 nebo trioly; PM, hammer-ony, mrtvé noty; čtyři takty na řádek), takže
@@ -830,6 +830,26 @@ stopy“ najde nahrávku na YouTube (`/api/tabfiles/yt-search`), stáhne ji (`fe
 „Otevřít v Taby — tab s nahrávkou“ pak otevře sekci Taby s tabem i stopami.
 UltimateTab a ultimate-guitar-scraper Pick nepoužívá: první obchází ochranu Cloudflare proti robotům,
 druhý se vydává za mobilní aplikaci Ultimate Guitar s odvozeným API klíčem.
+
+**Katalog riffů** (pátá záložka, `riffbook.py`, `/api/riffbook*`) — každý tab z knihovny Taby rozebraný na
+části písně. Songsterr má u taktů značky částí („Intro“, „Verse 1“, „[B] Ballad: Pre-Verse“, „Guitar Solo“);
+část = takty od jedné značky po další, druh se pozná z názvu (intro, sloka, předrefrén, refrén, most, sólo,
+breakdown, mezihra, riff, outro, jiné); tab bez značek se dělí po osmi taktech („Úsek N“). V části se porovnají
+takty všech kytar a **riff** je nejkratší úsek, který se v ní opakuje (aspoň ze tří čtvrtin; až 8 taktů) — část,
+která se neopakuje, se vezme celá (nebo jejích prvních 8 taktů, sólo 16). **Kytary spolu**: všechny kytary,
+které v části hrají, zůstanou v jednom záznamu (rytmická se sólovou, dvě kytary každá jinak); dvě se stejnými
+notami (levá a pravá) jsou jedna kytara ×2. Role se pozná z názvu stopy („Rhythm“, „Acoustic“) a z not
+(akordy nebo riff nízko na strunách = rytmická, linka vysoko = sólová; kapely svým dvěma riffovým kytarám
+říkají „Lead #1/#2“). Stejný riff ve víc částech (Verse 1, Verse 2) je jeden záznam s oběma jmény.
+Riff je rovnou mřížka virtuální kytary (krok 1/8, 1/16, 1/32 nebo trioly; PM, legato, mrtvé noty), na disku
+zkrácený na text (`riffbook/songs/<songId>.json`, asi 15 kB na píseň; v paměti jen přehled). **Projít
+knihovnu** čte na pozadí jednu píseň po druhé — Songsterr dostává jeden dotaz za druhým s pauzou 1,2 s (asi
+5 s na píseň; 2 500 písní ≈ 3,5 h), po restartu Picku pokračuje, kde skončil (`riffbook/scan.json`); u
+otevřeného tabu z knihovny „Rozebrat na části“ přečte jen ten. Vlevo filtry jako na UG s počty (část
+písně, kolik kytar, co kytara hraje, ladění, tempo, moje štítky), ★ oblíbené a vlastní štítky (`marks.json`,
+zůstanou i po novém přečtení). Klik na riff ho otevře v kytaře a hned hraje **se všemi kytarami** — riff má
+`band` (kytary, které hrají s ním, každá s vlastním laděním, zaškrtnutím vypnout) a „V tabu“ přepne, kterou
+kytaru upravuješ; uložený riff si je pamatuje.
 
 ## Kontakt
 

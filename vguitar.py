@@ -2,7 +2,8 @@
 (static/vguitar.js plays them, in the sound of a song's tone print or a clean guitar).
 
 A riff: {id, name, bpm, div (steps a beat), tuning [high e … low E, MIDI], steps, cols:
-[{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid}}.
+[{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid},
+band [{name, role, tuning, cols, on}] — the guitars that play with it (a riff from riffbook.py), part {name, role}}.
 
 Tabs to take riffs from: Ultimate Guitar's own pages read as a browser reads them (the state
 each page carries, as github.com/crmne/omarchy-ultimate-guitar does), or through Freetar
@@ -48,23 +49,42 @@ def _save(rows: list) -> None:
     tmp.replace(FILE)
 
 
+def _cols(raw) -> list:
+    cols = []
+    for c in (raw or [])[:MAX_STEPS]:
+        notes = {}
+        for k, v in (c.get("s") or {}).items():
+            i = int(k)
+            if 0 <= i < 8 and (v == "x" or (isinstance(v, int) and 0 <= v <= 30)):
+                notes[str(i)] = v
+        cols.append({"s": notes, "pm": bool(c.get("pm")), "lg": [int(x) for x in (c.get("lg") or []) if 0 <= int(x) < 8]})
+    return cols
+
+
+def _tuning(raw) -> Optional[list]:
+    t = [int(x) for x in raw or []][:8]
+    return t if 4 <= len(t) <= 8 and all(20 <= x <= 80 for x in t) else None
+
+
 def clean(data: dict) -> Optional[dict]:
-    """A riff as the page sent it, kept only in its known shape."""
+    """A riff as the page sent it, kept only in its known shape. "band": the guitars that play with it
+    (a riff from the catalog: the rhythm with its lead, two guitars each their own), played along."""
     try:
-        cols = []
-        for c in (data.get("cols") or [])[:MAX_STEPS]:
-            notes = {}
-            for k, v in (c.get("s") or {}).items():
-                i = int(k)
-                if 0 <= i < 8 and (v == "x" or (isinstance(v, int) and 0 <= v <= 30)):
-                    notes[str(i)] = v
-            cols.append({"s": notes, "pm": bool(c.get("pm")), "lg": [int(x) for x in (c.get("lg") or []) if 0 <= int(x) < 8]})
-        tuning = [int(x) for x in data.get("tuning") or []][:8]
-        if not cols or not (4 <= len(tuning) <= 8) or not all(20 <= t <= 80 for t in tuning):
+        cols = _cols(data.get("cols"))
+        tuning = _tuning(data.get("tuning"))
+        if not cols or not tuning:
             return None
+        band = []
+        for b in (data.get("band") or [])[:5]:
+            bt, bc = _tuning(b.get("tuning")), _cols(b.get("cols"))
+            if bt and bc:
+                band.append({"name": " ".join(str(b.get("name") or "").split())[:60] or "Kytara", "role": str(b.get("role") or "")[:12],
+                             "tuning": bt, "cols": bc, "on": b.get("on") is not False})
         snd = data.get("sound") or {}
+        part = data.get("part") or {}
         return {"bpm": max(30, min(300, int(data.get("bpm") or 120))), "div": int(data.get("div") or 4) if int(data.get("div") or 4) in (2, 3, 4, 6, 8) else 4,
-                "tuning": tuning, "cols": cols,
+                "tuning": tuning, "cols": cols, "band": band,
+                "part": {"name": " ".join(str(part.get("name") or "").split())[:60], "role": str(part.get("role") or "")[:12]} if part.get("name") else None,
                 "sound": {"song": str(snd.get("song") or "")[:300], "pid": str(snd.get("pid") or "")[:60]} if snd.get("song")
                 else {"kontakt": str(snd["kontakt"])[:10]} if re.fullmatch(r"[0-9a-f]{10}", str(snd.get("kontakt") or ""))
                 else {"midi": str(snd["midi"])[:200]} if snd.get("midi") else None}

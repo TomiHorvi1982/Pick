@@ -12157,6 +12157,13 @@ app.include_router(_kontakt.router)
 import vguitar as _vguitar
 app.include_router(_vguitar.router)
 
+# ---- Katalog riffů: the Taby library's tabs taken apart into parts and their riffs (riffbook.py)
+import riffbook as _riffbook
+_riffbook.library = _pick_tabs
+app.include_router(_riffbook.router)
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    _riffbook.resume_after_restart()        # the library's reading, cut off by the last stop, goes on
+
 # ---- Vizualizace: the player's own videos by theme (Vizualizace/ beside the music), the song's clip
 import viz as _viz
 _viz.root = lambda: MUSIC_ROOT / "Vizualizace"
