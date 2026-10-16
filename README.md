@@ -675,6 +675,15 @@ Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zve
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
 
+## Odkaz ze Spotify
+
+Playlisty → pole **Odkaz ze Spotify** (nebo odkaz vložený do hlavního hledání), `spotify_link.py`,
+`GET /api/spotify/link?url=…`: odkaz na playlist, album nebo píseň (ve Spotify ⋯ → Sdílet → Kopírovat
+odkaz, i `spotify:playlist:…`) — Pick ukáže název, autora, obal a písně (přes spotdl, asi 7 s; 10 minut
+si odkaz pamatuje) a stáhne celé, vybrané, nebo stáhne a rozdělí na stopy do Steems. Čte jen odkazy,
+nikoho nevyhledává: odkaz na profil odpoví, ať majitel pošle odkaz přímo na playlist; soukromý playlist
+přečíst nejde.
+
 ## Tónový otisk
 
 Tvoje živá kytara zní jako kytara z písně (tlačítko **OTISK** na kanálu Live

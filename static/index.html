@@ -46,6 +46,10 @@
   main{padding:20px;max-width:1200px;margin:0 auto;padding-bottom:130px}
 
   .region-toggle{display:flex;gap:10px;margin-bottom:20px}
+  .sp-link{display:flex;gap:8px;align-items:center;margin:-8px 0 20px;flex-wrap:wrap}
+  .sp-link label{font-size:12.5px;color:var(--sub);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .sp-link input{flex:1;min-width:220px}
+  .sp-cols{grid-template-columns:28px minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) 50px}
   .region-toggle button{flex:1;background:var(--card);border:1px solid var(--border);
     color:var(--sub);padding:16px;border-radius:14px;font-size:15px;font-weight:800;
     cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -4975,6 +4979,11 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="region-toggle" id="region-toggle">
       <button data-region="intl" class="active"><span data-icon="globe" data-size="15"></span>Zahraniční playlisty</button>
       <button data-region="cz"><span data-icon="flag" data-size="15"></span>České playlisty</button>
+    </div>
+    <div class="sp-link">
+      <label for="sp-link-input"><span data-icon="download" data-size="14"></span>Odkaz ze Spotify</label>
+      <input type="url" id="sp-link-input" placeholder="Vlož odkaz na playlist, album nebo píseň (ve Spotify: ⋯ → Sdílet → Kopírovat odkaz)">
+      <button class="btn" id="sp-link-go">Načíst</button>
     </div>
 
     <div class="section-title"><span data-icon="clock"></span>Dekády</div>
@@ -26927,6 +26936,92 @@ const MyVoice = (() => {
 })();
 
 // ======================================================================
+// Odkaz ze Spotify (spotify_link.py) — a playlist, album or song pasted as its share link: its
+// songs shown, then downloaded as Pick downloads every Spotify link (spotdl); a playlist can go
+// on into Steems. Pasted into the search box it opens the same way.
+// ======================================================================
+const SpotifyLink = (() => {
+  const isLink = (s) => /^\s*((https?:\/\/)?open\.spotify\.com\/|spotify:(playlist|album|track|user|artist):)/i.test(s || "");
+  const KIND = {playlist: "Playlist ze Spotify", album: "Album ze Spotify", track: "Píseň ze Spotify"};
+  async function open(url){
+    pushNav("splink:" + url, () => open(url));
+    overlay.hidden = false;
+    panel.innerHTML = `<div class="empty" style="padding-top:80px"><span class="spinner"></span> Čtu odkaz ze Spotify…</div>`;
+    let p;
+    try{
+      const r = await fetch(`/api/spotify/link?url=${encodeURIComponent(url.trim())}`);
+      p = await r.json();
+      if(!r.ok) throw new Error(p.error || "Odkaz se nepodařilo přečíst.");
+    }catch(e){
+      panel.innerHTML = `<div class="panel-head"><button class="close-btn" id="close-panel">${icon("close", 13)}</button>
+        <div class="pl-kind">Odkaz ze Spotify</div><div class="pl-desc" style="margin-top:14px">${escapeHtml(e.message || "Odkaz se nepodařilo přečíst.")}</div></div>`;
+      el("close-panel").onclick = closeOverlay;
+      return;
+    }
+    render(p);
+  }
+  function render(p){
+    const total = p.tracks.reduce((a, t) => a + (t.duration || 0), 0);
+    const many = p.kind !== "track";
+    panel.innerHTML = `
+      <div class="panel-head">
+        <button class="close-btn" id="close-panel">${icon("close", 13)}</button>
+        <div class="pl-art" style="${p.cover ? `background-image:url('${escapeHtml(p.cover)}')` : ""}"></div>
+        <div class="pl-kind">${KIND[p.kind] || "Ze Spotify"}</div>
+        <div class="pl-title">${escapeHtml(p.name || "")}</div>
+        <div class="pl-author">${escapeHtml(p.author || "")}</div>
+        <div class="badges">
+          <span class="badge">${icon("note", 12)} ${p.count} skladeb</span>
+          <span class="badge">${icon("clock", 12)} ${fmtDur(total)} celkem</span>
+        </div>
+        <div class="actions">
+          <button class="btn" id="spl-dl">${icon("download", 14)}${many ? "Stáhnout celý" : "Stáhnout"}</button>
+          ${many ? `<button class="btn secondary" id="spl-sep" title="Stáhne a každou píseň pak sám rozdělí na stopy (Steems) — běží na pozadí">${icon("stems", 14)}Stáhnout a rozdělit na stopy</button>
+          <button class="btn secondary" id="spl-sel">${icon("download", 14)}Stáhnout vybrané (<span id="spl-n">${p.count}</span>)</button>` : ""}
+        </div>
+      </div>
+      <div class="track-list">
+        <div class="track-cols-head track-cols sp-cols"><span></span><span>Skladba</span><span>Interpret</span><span>Album</span><span></span></div>
+        ${p.tracks.map((t, i) => `<label class="track-row sp-cols">
+          <input type="checkbox" class="checkbox" data-i="${i}" checked ${many ? "" : "hidden"}>
+          <span class="t-title">${escapeHtml(t.title)}</span><span class="t-artist">${escapeHtml(t.artists)}</span>
+          <span class="t-album">${escapeHtml(t.album)}</span><span class="t-dur">${fmtDur(t.duration)}</span></label>`).join("")}
+      </div>`;
+    el("close-panel").onclick = closeOverlay;
+    const whole = () => ({urls: [p.url], output_name: many ? p.name : "Songs", kind: many ? "playlist" : "songs", bitrate: bitrate()});
+    el("spl-dl").onclick = () => startDownload(whole(), many ? p.name : `${p.name} — ${p.author}`);
+    if(!many) return;
+    const picked = () => [...panel.querySelectorAll("input.checkbox:checked")].map((c) => p.tracks[+c.dataset.i]);
+    panel.querySelectorAll("input.checkbox").forEach((c) => { c.onchange = () => { el("spl-n").textContent = picked().length; }; });
+    el("spl-sel").onclick = () => {
+      const ts = picked();
+      if(!ts.length) return;
+      const one = ts.length === 1;
+      startDownload({urls: ts.map((t) => t.url), output_name: one ? "Songs" : p.name, kind: one ? "songs" : "playlist", bitrate: bitrate()},
+        one ? `1 píseň z „${p.name}“ → Songs` : `${p.name} (výběr)`);
+    };
+    el("spl-sep").onclick = async () => {
+      const b = el("spl-sep");
+      b.disabled = true;
+      showToast("Stahuju — po stažení se písně samy rozdělí na stopy");
+      await startDownload(whole(), `${p.name} → Steems`);
+      try{
+        const st = loadSettings();
+        const r = await (await fetch("/api/stems/separate-playlist", {method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({playlist: p.name, format: st.stems_format || "mp3", mp3_bitrate: st.stems_bitrate || 320})})).json();
+        StemsQueue.poke();
+        showToast(r.error ? r.error : `Do fronty separací přidáno ${r.queued} písní` + (r.ready ? ` · ${r.ready} už rozdělených` : "") + " — hotové najdeš ve Steems");
+      }catch(e){ showToast("Separaci se nepodařilo spustit"); }
+      b.disabled = false;
+    };
+  }
+  const go = () => { const v = el("sp-link-input").value.trim(); if(v) open(v); };
+  el("sp-link-go").onclick = go;
+  el("sp-link-input").addEventListener("keydown", (e) => { if(e.key === "Enter") go(); });
+  return {isLink, open};
+})();
+
+// ======================================================================
 // Search + render results (+ load more)
 // ======================================================================
 let lastLimit = 40;
@@ -26938,6 +27033,7 @@ el("load-more-btn").onclick = () => runSearch(true);
 async function runSearch(more=false){
   const q = el("search-input").value.trim();
   if(!q) return;
+  if(SpotifyLink.isLink(q)){ SpotifyLink.open(q); return; }
   if(!more) lastLimit = 40; else lastLimit += 24;
   if(!more){
     saveSearchHistoryItem(q);

@@ -12201,6 +12201,11 @@ if not os.environ.get("SPOTDL_NO_WATCHERS"):
 import guitar_samples as _guitar_samples
 app.include_router(_guitar_samples.router)
 
+# ---- Odkaz ze Spotify: a playlist, album or song pasted as its link (spotify_link.py)
+import spotify_link as _spotify_link
+_spotify_link.client = sp
+app.include_router(_spotify_link.router)
+
 # ---- Vizualizace: the player's own videos by theme (Vizualizace/ beside the music), the song's clip
 import viz as _viz
 _viz.root = lambda: MUSIC_ROOT / "Vizualizace"
