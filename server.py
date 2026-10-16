@@ -67,24 +67,40 @@ DEFAULT_MUSIC_ROOT = HOME / "Music" / "spotdl"
 LIBRARY_PATH = HOME / ".local" / "share" / "spotdl-helper" / "library.json"
 
 
+# One save at a time, and each one whole: a reader that met the file half written took it for
+# empty, and the save after it wrote back only its own key — the music root (the card) went so.
+_CONFIG_LOCK = threading.RLock()
+
+
 def _read_config() -> dict:
-    try:
-        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return {}
+    """The settings; should the file be cut short (a crash, a full disk), the last good copy."""
+    for f in (CONFIG_PATH, CONFIG_PATH.with_name(CONFIG_PATH.name + ".bak")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):            # missing, cut short, unreadable
+            continue
+        if isinstance(data, dict):
+            return data
+    return {}
 
 
 def _write_config(patch: dict) -> dict:
     """Merges patch into config.json rather than replacing it — several
     unrelated settings (music root, video mode, amp category folders) all
     live in this one file, so a plain overwrite would silently erase
-    whichever of them wasn't part of the current save.
+    whichever of them wasn't part of the current save. Written beside and
+    moved in place (never seen half done), a copy kept as .bak.
     """
-    data = _read_config()
-    data.update(patch)
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    return data
+    with _CONFIG_LOCK:
+        data = _read_config()
+        data.update(patch)
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps(data, ensure_ascii=False)
+        for f in (CONFIG_PATH.with_name(CONFIG_PATH.name + ".bak"), CONFIG_PATH):     # the copy first, then the file
+            tmp = f.with_name(f"{f.name}.{os.getpid()}.tmp")
+            tmp.write_text(text, encoding="utf-8")
+            os.replace(tmp, f)
+        return data
 
 
 def _load_music_root() -> Path:
@@ -92,14 +108,8 @@ def _load_music_root() -> Path:
     to the original hardcoded default when there's no config yet (first
     run) or it's unreadable.
     """
-    try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-        raw = data.get("music_root")
-        if raw:
-            return Path(raw).expanduser()
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        pass
-    return DEFAULT_MUSIC_ROOT
+    raw = _read_config().get("music_root")
+    return Path(raw).expanduser() if raw else DEFAULT_MUSIC_ROOT
 
 
 MUSIC_ROOT = _load_music_root()
@@ -1431,12 +1441,8 @@ def library():
 @app.get("/api/video/mode")
 def get_video_mode():
     """Get the current video display mode (hidden/mini/full).
-    Persisted in ~/Music/spotdl/config.json under 'video_mode'."""
-    try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {}
-    return {"mode": data.get("video_mode", "full")}
+    Persisted in config.json under 'video_mode'."""
+    return {"mode": _read_config().get("video_mode", "full")}
 
 
 class VideoModeRequest(BaseModel):
@@ -1448,13 +1454,7 @@ def set_video_mode(req: VideoModeRequest):
     """Persist video display mode preference."""
     if req.mode not in ("hidden", "mini", "full"):
         return JSONResponse({"error": "mode must be hidden, mini, or full"}, status_code=400)
-    try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = {}
-    data["video_mode"] = req.mode
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    _write_config({"video_mode": req.mode})
     return {"mode": req.mode}
 
 
