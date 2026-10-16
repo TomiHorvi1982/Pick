@@ -34,20 +34,26 @@ class G {
   }
   async start(t) {
     this.stop();
-    const e = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: !1, noiseSuppression: !1, autoGainControl: !1 }
-    }), n = new AudioContext(), i = n.createMediaStreamSource(e);
+    // Pick: the input picked above the tuner (globalThis.pickTunerInput): a device, and on an
+    // interface with many inputs one of them (1-based; 0 = the clearer of the first two).
+    const pick = globalThis.pickTunerInput || {}, want = Math.max(0, Math.min(8, Number(pick.channel) || 0));
+    const ask = (dev) => navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: !1, noiseSuppression: !1, autoGainControl: !1, channelCount: { ideal: want > 2 ? 8 : 2 },
+        ...(dev ? { deviceId: { exact: dev } } : {}) }
+    });
+    // a device picked once but not plugged in now: the system's default instead
+    const e = await ask(pick.deviceId).catch((err) => { if (pick.deviceId && err && err.name === "OverconstrainedError") return ask(""); throw err; }), n = new AudioContext(), i = n.createMediaStreamSource(e), got = e.getAudioTracks()[0]?.getSettings().channelCount || 1;
     // Pick: each input of the interface is listened to on its own. Mixed
     // together, a hum on one input (a modeller's second USB channel) buried
     // the guitar on the other; apart, the one with the clear note is read.
-    const split = n.createChannelSplitter(2), chain = (c) => {
+    const split = n.createChannelSplitter(Math.max(2, got)), chain = (c) => {
       const s = n.createBiquadFilter(), r = n.createBiquadFilter(), l = n.createAnalyser();
       s.type = "highpass", s.frequency.value = 38, s.Q.value = 0.7, r.type = "lowpass", r.frequency.value = 1250, r.Q.value = 0.7, l.fftSize = 8192, l.smoothingTimeConstant = 0, split.connect(s, c), s.connect(r), r.connect(l);
       return l;
     };
     i.connect(split);
-    const l = chain(0);
-    this.analysers = [l, chain(1)], this.inputBuffers = this.analysers.map((a) => new Float32Array(a.fftSize));
+    const l = chain(want ? Math.min(want, Math.max(1, got)) - 1 : 0);
+    this.analysers = want ? [l] : [l, chain(1)], this.inputBuffers = this.analysers.map((a) => new Float32Array(a.fftSize));
     this.audioContext = n, this.analyser = l, this.inputBuffer = this.inputBuffers[0], this.mediaStream = e, this.lastAnalysisTime = 0, this.lastPitch = null, this.missedFrames = 0, this.recentFrequencies = [], this.runAnalysis(t);
   }
   stop() {

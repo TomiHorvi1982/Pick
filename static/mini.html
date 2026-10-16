@@ -1,6 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>Pick — mini</title>
+<script src="/static/lyricstyle.js"></script>
 <link rel="icon" type="image/png" href="/static/pick-favicon.png">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -117,17 +118,17 @@
     -webkit-mask-image:linear-gradient(180deg, transparent, #000 18%, #000 78%, transparent);
     scrollbar-width:none}
   .lyrics::-webkit-scrollbar{display:none}
-  .ln{font-size:19px;font-weight:800;line-height:1.3;margin:0 0 12px;color:rgba(255,255,255,.28);
+  .ln{font-size:calc(19px * var(--ly-size,1));font-weight:var(--ly-weight,800);font-family:var(--ly-font,inherit);line-height:1.3;margin:0 0 12px;color:var(--ly-dim,rgba(255,255,255,.28));
     cursor:pointer;transition:color .25s, transform .25s, filter .25s;transform-origin:left center;
     filter:blur(.4px)}
   .ln:hover{color:rgba(255,255,255,.55)}
-  .ln.past{color:rgba(255,255,255,.42)}
-  .ln.cur{color:#fff;transform:scale(1.04);filter:none;
-    text-shadow:0 0 22px color-mix(in srgb, var(--accent) 70%, transparent)}
-  .ln.cur .fill{background:linear-gradient(90deg, var(--accent2) var(--p,0%), #fff var(--p,0%));
+  .ln.past{filter:none}
+  .ln.cur{color:var(--ly-cur,#fff);transform:scale(1.04);filter:none;
+    text-shadow:0 0 calc(22px * var(--ly-glow,1)) color-mix(in srgb, var(--ly-fill,var(--accent)) 70%, transparent)}
+  .ln.cur .fill{background:linear-gradient(90deg, var(--ly-fill,var(--accent2)) var(--p,0%), var(--ly-cur,#fff) var(--p,0%));
     -webkit-background-clip:text;background-clip:text;color:transparent}
   .lbar{padding-top:6px}
-  .plain{white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--sub);padding:0 4px}
+  .plain{white-space:pre-wrap;font-size:calc(14px * var(--ly-size,1));font-family:var(--ly-font,inherit);line-height:1.6;color:var(--sub);padding:0 4px}
   .empty{margin:auto;color:var(--sub);font-size:12px;text-align:center;line-height:1.6}
 
   /* Queue */
@@ -220,7 +221,7 @@
   body.wide #pane-lyrics{background:rgba(0,0,0,.22);border-radius:14px;padding:0 10px 8px;border:1px solid var(--line)}
   body.wide #pane-queue{background:rgba(0,0,0,.22);border-radius:14px;padding:10px 8px;border:1px solid var(--line)}
   body.wide .lyrics{padding:30% 4px 40%}
-  body.wide .ln{font-size:17px}
+  body.wide .ln{font-size:calc(17px * var(--ly-size,1))}
   /* narrow window: only the active tab keeps its name */
   @media (max-width: 460px){ .tab:not(.on) span{display:none} .tab{flex:0 0 auto;padding:0 9px} .tab.on{flex:1} }
   /* the tab strip */
@@ -360,6 +361,7 @@
         <button class="chip" id="lminus" title="Text dřív">−0,5 s</button>
         <span id="loff">0 s</span>
         <button class="chip" id="lplus" title="Text později">+0,5 s</button>
+        <button class="chip ly-style-btn" title="Styl textu: předvolby, velikost, barvy — platí i ve Steems a v přehrávači">Aa</button>
       </div>
     </div>
 
@@ -554,6 +556,15 @@ async function refresh(){
     LP.active = false; toast("Hraje aplikace");
   }
   R = {live: rlive, playing: rplaying};
+  // What the app plays moves here when this window opens, or is opened again from the app (mini_take) —
+  // not when it was opened for a song handed over or a spoken command, which bring their own.
+  if(s){
+    const handed = (s.mini && s.mini.seq && store.get("playseq", 0) !== s.mini.seq) || (s.mini_voice && s.mini_voice.seq && store.get("voiceseq", 0) !== s.mini_voice.seq);
+    const asked = s.mini_take && store.get("takeseq", 0) !== s.mini_take;
+    if(asked) store.set("takeseq", s.mini_take);
+    if((!booted || asked) && rplaying && !handed && !LP.active) takeOver(s);
+    booted = true;
+  }
   MiniVoice.first(!!s && ((!s.stale && !!s.voice) || !!s.widget));
   // A command the menu bar heard with no window listening: it opened this one for it.
   if(s && s.mini_voice && s.mini_voice.seq && store.get("voiceseq", 0) !== s.mini_voice.seq){
@@ -595,6 +606,21 @@ async function refresh(){
   if(k !== trackKey){ trackKey = k; onTrackChange(); }
   else if(live && S.videoId && !videoState.trackId){ videoState.trackId = S.videoId; if(shown("video")) loadVideo(); }
   checkSleep();
+}
+
+// The app's song, from where it is now: the app is told to pause (lpPlay), so it moves, not doubles.
+let booted = false;
+function takeOver(s){
+  const at = (s.position || 0) + Math.max(0, Date.now() / 1000 - (s.at || Date.now() / 1000));
+  let t = null;
+  if(s.source === "mixer" && s.stems) t = {...stemTrack(s.stems, s.stems, ""), whole: true};
+  else if(s.relPath) t = {key: s.key, relPath: s.relPath, title: s.title || "", artists: s.artists || "", thumbnail: s.thumbnail || ""};
+  else if(s.videoId) t = {key: s.key, videoId: s.videoId, title: s.title || "", artists: s.artists || "", thumbnail: s.thumbnail || ""};
+  if(!t) return false;
+  t.startAt = at;
+  lpPlayList([t], 0);
+  toast("Hraje tady: " + (t.title || "píseň z aplikace"));
+  return true;
 }
 
 function onTrackChange(){
@@ -925,6 +951,7 @@ async function loadLyrics(){
   }
 }
 el("lyrics").addEventListener("wheel", () => { userScrollAt = Date.now(); }, {passive: true});
+window.addEventListener(LyricStyle.EVENT, () => { curLine = -1; userScrollAt = 0; });
 
 function syncLyrics(){
   if(!shown("lyrics") || !lyricEls.length || !lyrics || !lyrics.lines) return;   // between two songs there is no text for a moment
@@ -1084,6 +1111,7 @@ async function lpPlay(i){
   refresh();
   let src = null;
   gtrLoad(t);
+  if(t.whole){ GTR.on = true; GTR.audio.muted = false; gtrPaint(); }      // taken over from the mixer: the whole song
   if(t.stems) src = `/api/stems/${encodeURIComponent(t.stems)}/backing?without=guitar`;
   else if(t.relPath) src = `/api/library/stream?rel=${encodeURIComponent(t.relPath)}`;
   else{
@@ -1100,6 +1128,10 @@ async function lpPlay(i){
     src = `/api/stream/${encodeURIComponent(id)}`;
   }
   LP.audio.src = src;
+  if(t.startAt){                                  // taken over: on from where the app was
+    const from = t.startAt; delete t.startAt;
+    LP.audio.addEventListener("loadedmetadata", () => { try{ LP.audio.currentTime = from; }catch(e){} }, {once: true});
+  }
   LP.audio.play().catch(() => {});
   if("mediaSession" in navigator){
     try{

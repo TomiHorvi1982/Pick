@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -23,10 +23,13 @@ router = APIRouter()
 root = lambda: Path(".")                             # noqa: E731 — Vizualizace/ beside the music
 ytdlp = lambda: "yt-dlp"                             # noqa: E731
 search_videos = lambda q: []                         # noqa: E731 — YouTube's videos for a query: [{videoId, title}]
+serve = lambda path, rng: FileResponse(path)         # noqa: E731 — a file in pieces (Range), so a video starts soon and loops
 CLIPS = Path.home() / ".local" / "share" / "spotdl-helper" / "viz-clips.json"
 
 VIDEO = {".mp4", ".m4v", ".mov", ".webm"}
 FIRST = ["Příroda", "Vesmír", "Koncerty", "Abstraktní"]
+PART_KEEP_S = 6 * 3600
+MAX_W = 1920                                         # a background: more than full HD only weighs (a 1440p one stuttered)
 JOBS: dict = {}                                      # id → {theme, url, status, note, file, started}
 _LOCK = threading.Lock()
 
@@ -56,6 +59,12 @@ def themes() -> list:
     for d in sorted(base.iterdir(), key=lambda p: p.name.lower()):
         if not d.is_dir() or d.name.startswith("."):
             continue
+        for f in d.glob(".*.part"):                  # a download cut off (Pick shut meanwhile): gone after a while
+            try:
+                if time.time() - f.stat().st_mtime > PART_KEEP_S:
+                    f.unlink()
+            except OSError:
+                pass
         vids = sorted(f.name for f in d.iterdir() if f.is_file() and f.suffix.lower() in VIDEO and not f.name.startswith("."))
         out.append({"name": d.name, "videos": vids})
     return out
@@ -69,12 +78,12 @@ def viz_list():
 
 
 @router.get("/api/viz/video/{theme}/{name}")
-def viz_video(theme: str, name: str):
+def viz_video(theme: str, name: str, request: Request):
     d = _theme_dir(theme)
     f = d / name if d and "/" not in name and not name.startswith(".") else None
     if not f or not f.is_file() or f.suffix.lower() not in VIDEO:
         return JSONResponse({"error": "Video nenalezeno."}, status_code=404)
-    return FileResponse(f, headers={"Cache-Control": "no-store"})
+    return serve(f, request.headers.get("range"))
 
 
 class ThemeIn(BaseModel):
@@ -214,7 +223,8 @@ def _pixabay(q: str, page: int) -> list:
     out = []
     for v in r.json().get("hits") or []:
         vs = v.get("videos") or {}
-        best = next((vs[k] for k in ("medium", "large", "small") if (vs.get(k) or {}).get("url")), None)
+        sizes = [x for x in vs.values() if isinstance(x, dict) and x.get("url") and (x.get("width") or 0) <= MAX_W]
+        best = max(sizes, key=lambda x: x.get("width") or 0, default=None)
         if not best or (best.get("width") or 0) < (best.get("height") or 0):
             continue
         out.append({"source": "pixabay", "title": (v.get("tags") or "").split(",")[0].strip().capitalize() or f"Pixabay {v.get('id')}",

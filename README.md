@@ -675,6 +675,33 @@ Zapnuté poslouchání si aplikace pamatuje a po otevření ho spustí sama. Zve
 (Siri přes Zkratky) ho přepíná `GET /api/voice/remote?on=1` / `?on=0` / bez
 parametru; mikrofon čte otevřené okno Picku, takže bez něj přijde 409.
 
+## Text písně: styl, karaoke, celá obrazovka
+
+**Styl textu** (`static/lyricstyle.js`, tlačítko **Aa** ve Steems, v přehrávači, v minipřehrávači a na celé
+obrazovce; v přehrávači i menu Píseň → Styl textu…): předvolby Karaoke, Klasický, Kontrast, Jemný, Neon a
+Kniha, velikost 60–250 % a barva zpívaného řádku a postupu zpěvu. Pamatuje se v prohlížeči (`pick-lyric-style`)
+a platí ve všech oknech Picku najednou — změna v jednom se hned projeví v ostatních. Stránky ho čtou jako CSS
+proměnné `--ly-*`. Běžící text (pás jako tab) kreslí svými barvami.
+
+**Karaoke jako v minipřehrávači** (`KaraokeList` tamtéž): všechny řádky pod sebou, zpívaný se rozsvítí a vyplňuje
+zleva doprava, klik na řádek na něj skočí. Ve Steems je to třetí režim textu (⋯ → Běžící text → Po řádcích →
+Karaoke), v přehrávači tlačítko v liště textu nebo menu Píseň → Text jako v minipřehrávači; tamtéž **Hledat text…**
+(pod jiným názvem). Posun textu ± platí v každém z nich jako dřív.
+
+**Celá obrazovka ve Steems** (⛶ v liště textu i tabu): **Jen text**, **Jen tab**, nebo **Text i tab** vedle sebe
+či pod sebou, poměr se táhne za předěl (pamatuje se, `pick-stage`). Text a tab se do ní přesunou z docku, tab se
+zalomí do řádků, hraný takt se označí a drží na očích; tab −/+ zvětšuje zápis, ▶ hraje, Esc nebo ✕ vrátí vše zpět.
+**🎤 Tóny** přidá nad text pás z trenéra zpěvu: obdélníčky melodie originálu a tečku tvého hlasu, odzpívané tóny
+zezelenají (trefa), zežloutnou (blízko) nebo zčervenají; **Zpívat** spustí trenéra (píseň a mikrofon). Skóre,
+nejhorší místa a pokusy zůstávají v okně trenéra (`Sing.mirror` kreslí tentýž pás na druhé plátno).
+
+**Ladička: odkud poslouchá** — nad ladičkou **Vstup** (zvukovka, mikrofon; jinak výchozí vstup systému) a **Kanál**
+(u zvukovky s více vstupy ten, kde je kytara; „sám“ = čistší z 1 a 2). Pamatuje se (`pick-tuner-input`), změna za
+poslechu přepne hned; odpojený vstup → výchozí. V ladičce (`static/ladicka`, značka „Pick:“) přes `globalThis.pickTunerInput`.
+
+**Minipřehrávač převezme píseň**: když se otevře (lištou, hlasem, `POST /api/mini/open`) a aplikace hraje,
+hraje ji dál on od stejného místa — píseň ze Steems celou (s kytarou) — a aplikace se pozastaví.
+
 ## Odkaz ze Spotify
 
 Playlisty → pole **Odkaz ze Spotify** (nebo odkaz vložený do hlavního hledání), `spotify_link.py`,
@@ -790,6 +817,10 @@ Témata (`static/viz.js`):
   způsob míchání (Zesvětlit, Překrýt, Násobit, Rozdíl…), „na beat“ (prolínač skáče s basem)
   a „samo“ (pomalu se houpe).
 
+
+Videa se posílají po kouscích (Range — rychlý start, smyčka, přetáčení) a z Pixabay se ukládá verze nejvýš
+1920 px na šířku (2560×1440 při 13 Mbit/s na pozadí sekalo). Nedostažené stahování (`.*.part`) starší 6 hodin
+se při výpisu témat smaže.
 ## Úložiště
 
 Nastavení → Úložiště (`storage.py`, `GET /api/storage`): každá připojená karta — kolik je volno

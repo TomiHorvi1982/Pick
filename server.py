@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js"):
+    if name in ("look.js", "studio.js", "practice.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -5020,6 +5020,8 @@ class RemoteState(BaseModel):
     videoId: Optional[str] = None
     key: Optional[str] = None
     relPath: Optional[str] = None
+    # The Steems song the mixer plays (the mini player takes it over by it).
+    stems: Optional[str] = None
     # Whether the app is listening for spoken commands (the mini player shows it).
     voice: Optional[bool] = None
 
@@ -5055,6 +5057,7 @@ def mini_play(body: MiniPlay):
 _MINI_SEEN = {"at": 0.0}
 _MINI_VOICE = {"seq": 0, "at": 0.0}      # a spoken command passed on to the mini player
 _WIDGET_OPEN = {"seq": 0}                # "pick open": the launcher opens the app's window when this changes
+_MINI_TAKE = {"seq": 0, "at": 0.0}       # the mini player opened (again): it takes over what the app plays
 
 
 @app.get("/api/remote/state")
@@ -5067,6 +5070,8 @@ def remote_state(who: str = ""):
         out["mini"] = dict(_MINI_PLAY)
     if time.time() - _MINI_VOICE["at"] < 30:
         out["mini_voice"] = dict(_MINI_VOICE)
+    if time.time() - _MINI_TAKE["at"] < 30:
+        out["mini_take"] = _MINI_TAKE["seq"]
     out["widget"] = bool(_WIDGET.get("running"))
     out["widget_open"] = _WIDGET_OPEN["seq"]
     # A window that has gone away shouldn't leave the menu bar claiming a
@@ -12076,7 +12081,9 @@ def midi_setup_open():
 
 @app.post("/api/mini/open")
 def mini_open():
-    """The mini player's window, as the menu bar opens it; brought forward when it is already there."""
+    """The mini player's window, as the menu bar opens it; brought forward when it is already there.
+    Either way it takes over the song the app plays (state["mini_take"])."""
+    _MINI_TAKE.update(seq=int(time.time() * 1000), at=time.time())
     url = "http://127.0.0.1:8765/mini"
     script = f'''tell application "Google Chrome"
   repeat with w in windows
@@ -12211,6 +12218,7 @@ import viz as _viz
 _viz.root = lambda: MUSIC_ROOT / "Vizualizace"
 _viz.ytdlp = lambda: shutil.which("yt-dlp") or str(Path.home() / ".local" / "venvs" / "spotdl" / "bin" / "yt-dlp")
 _viz.search_videos = lambda q: yt().search(q, filter="videos", limit=3)
+_viz.serve = _range_file_response
 app.include_router(_viz.router)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _songbook.resume_after_restart()        # a batch cut off by the last stop goes on

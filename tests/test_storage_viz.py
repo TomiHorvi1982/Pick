@@ -141,3 +141,48 @@ def test_pixabay_key_and_search(client, monkeypatch):
     monkeypatch.setattr(viz.httpx, "get", lambda *a, **k: R())
     items = client.get("/api/viz/search", params={"q": "fire", "source": "pixabay"}).json()["items"]
     assert [(x["title"], x["url"]) for x in items] == [("Fire", "https://cdn.pixabay.com/v.mp4")]
+
+
+def test_a_video_is_served_in_pieces_and_a_light_one_chosen(client, tmp_music_root, monkeypatch):
+    """The browser asks a background video for a piece at a time (to start soon, loop, seek) — it got the
+    whole file each time; and of a video Pixabay has in several sizes the one up to 1920 is kept, not 2560."""
+    client.get("/api/viz")
+    f = tmp_music_root / "Vizualizace" / "Vesmír" / "a.mp4"
+    f.write_bytes(bytes(range(100)))
+    r = client.get("/api/viz/video/Vesmír/a.mp4", headers={"Range": "bytes=10-19"})
+    assert r.status_code == 206 and r.content == bytes(range(10, 20)) and r.headers["accept-ranges"] == "bytes"
+    assert r.headers["content-range"] == "bytes 10-19/100"
+
+    class R:
+        status_code, text = 200, ""
+        def json(self):
+            return {"hits": [{"id": 1, "tags": "space", "duration": 10, "user": "u", "pageURL": "p", "videos": {
+                "large": {"url": "https://cdn.pixabay.com/4k.mp4", "width": 3840, "height": 2160},
+                "medium": {"url": "https://cdn.pixabay.com/1440.mp4", "width": 2560, "height": 1440},
+                "small": {"url": "https://cdn.pixabay.com/1080.mp4", "width": 1920, "height": 1080, "thumbnail": "t"},
+                "tiny": {"url": "https://cdn.pixabay.com/540.mp4", "width": 960, "height": 540}}}]}
+    monkeypatch.setattr(viz.httpx, "get", lambda *a, **k: R())
+    monkeypatch.setattr(viz, "_key", lambda f: "k")
+    assert client.get("/api/viz/search", params={"q": "space", "source": "pixabay"}).json()["items"][0]["url"] == "https://cdn.pixabay.com/1080.mp4"
+
+
+def test_a_download_cut_off_long_ago_is_cleared(client, tmp_music_root):
+    import os, time
+    client.get("/api/viz")
+    d = tmp_music_root / "Vizualizace" / "Vesmír"
+    old, fresh = d / ".x.webm.part", d / ".y.webm.part"
+    old.write_bytes(b"1"); fresh.write_bytes(b"2")
+    os.utime(old, (time.time() - 7 * 3600, time.time() - 7 * 3600))
+    client.get("/api/viz")
+    assert not old.exists() and fresh.exists()
+
+
+def test_the_pages_scripts_are_served(client):
+    """Every script the pages load from /static/ is there — a missing one stops the whole page."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "static"
+    for page in ("index.html", "mini.html"):
+        for name in re.findall(r'<script src="/static/([\w.-]+)"', (root / page).read_text(encoding="utf-8")):
+            r = client.get(f"/static/{name}")
+            assert r.status_code == 200 and "javascript" in r.headers["content-type"], (page, name)

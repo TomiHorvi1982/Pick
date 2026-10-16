@@ -15,3 +15,6 @@ Copying a new build over this file loses these — make them in the tuner's own 
   (mixed together, a hum on a modeller's second USB channel buried the guitar on the first);
 - the level gate is 5e-4 instead of 9e-3 (a plain guitar signal over USB can be that quiet);
 - a pitch found at the longest period looked at is rejected (mains hum below the range).
+- the input it listens to is the one picked in Pick (`globalThis.pickTunerInput = {deviceId, channel}`):
+  a device instead of the system's default, and on a many-input interface one input (1–8) instead of
+  the clearer of the first two.

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Pick</title>
+<script src="/static/lyricstyle.js"></script>
 <link rel="icon" type="image/png" href="/static/pick-favicon.png">
 <style>
   :root{
@@ -828,11 +829,11 @@
   .lyrics-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
   .lyric-line{padding:10px 32px;text-align:center;cursor:pointer;
     transition:opacity .25s,transform .25s,filter .25s;
-    font-size:18px;font-weight:500;color:var(--sub);opacity:.45;
+    font-size:calc(18px * var(--ly-size,1));font-weight:500;color:var(--sub);opacity:.45;font-family:var(--ly-font,inherit);
     filter:blur(.4px);transform:scale(.96);line-height:1.5}
   .lyric-line:hover{background:rgba(255,255,255,.02)}
   .lyric-line.prev{opacity:.55;transform:scale(.98);filter:blur(.2px)}
-  .lyric-line.current{font-size:24px;font-weight:800;color:var(--text);
+  .lyric-line.current{font-size:calc(24px * var(--ly-size,1));font-weight:var(--ly-weight,800);color:var(--ly-cur,var(--text));
     opacity:1;filter:blur(0);transform:scale(1.04)}
   .lyric-line.upcoming{opacity:.35;transform:scale(.94);filter:blur(.6px)}
   .lyric-line.empty-line{padding:6px}
@@ -2005,8 +2006,12 @@ body.lib-collapsed .pick-brand{display:none}
     min-height:var(--pb-lyr-h, 200px);box-sizing:border-box;
     display:flex;flex-direction:column;justify-content:center}
   .pb-lyrics-dock-lines[hidden]{display:none}
-  .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:16px;color:var(--sub);opacity:.7}
-  .pb-lyrics-dock-lines .cur{font-size:24px;font-weight:800;color:var(--text);margin:8px 0}
+  .pb-lyrics-dock-lines .prev,.pb-lyrics-dock-lines .next{font-size:calc(16px * var(--ly-size,1));color:var(--ly-dim,var(--sub));opacity:.7;font-family:var(--ly-font,inherit)}
+  .pb-lyrics-dock-lines .cur{font-size:calc(24px * var(--ly-size,1));font-weight:var(--ly-weight,800);color:var(--ly-cur,var(--text));margin:8px 0;font-family:var(--ly-font,inherit)}
+  #pb-lyrics-dock-kar{display:none;height:var(--pb-lyr-kh,300px);padding:18% 18px 28%}
+  .pb-lyrics-dock-lines.kar{display:block;padding:0}
+  .pb-lyrics-dock-lines.kar #pb-lyrics-dock-kar{display:block}
+  .pb-lyrics-dock-lines.kar .prev,.pb-lyrics-dock-lines.kar .cur,.pb-lyrics-dock-lines.kar .next{display:none}
   .pb-lyr-float .float-body{padding:0}
   /* Detached: the whole song, the original LyricsView way — current line
      lit and kept centred, click any line to jump the song there. */
@@ -2699,12 +2704,73 @@ body.lib-collapsed .pick-brand{display:none}
     font:inherit;padding:4px 11px;cursor:pointer;display:inline-flex;align-items:center}
   .lyr-dock-tools button:hover{background:#3e3e3e}
   .nm-lyr-lines{text-align:center;line-height:1.3}
-  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:clamp(14px,1.5vw,19px);color:var(--sub);opacity:.75;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
-  .nm-lyr-lines .cur{font-size:clamp(24px,3vw,38px);font-weight:800;color:#fff;letter-spacing:-.01em;
-    padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:calc(clamp(14px,1.5vw,19px) * var(--ly-size,1));color:var(--ly-dim,var(--sub));opacity:.75;
+    font-family:var(--ly-font,inherit);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  .nm-lyr-lines .cur{font-size:calc(clamp(24px,3vw,38px) * var(--ly-size,1));font-weight:var(--ly-weight,800);color:var(--ly-cur,#fff);letter-spacing:-.01em;
+    font-family:var(--ly-font,inherit);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
+  /* Karaoke (as the mini player shows it): every line in a list, the sung one lit and filling — static/lyricstyle.js */
+  .ly-kar{overflow-y:auto;scroll-behavior:smooth;scrollbar-width:none;padding:22% 10px 34%;text-align:left;
+    mask-image:linear-gradient(180deg,transparent,#000 14%,#000 80%,transparent);-webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 80%,transparent)}
+  .ly-kar::-webkit-scrollbar{display:none}
+  .ly-kar .ln{font-size:calc(22px * var(--ly-size,1));font-weight:var(--ly-weight,800);font-family:var(--ly-font,inherit);line-height:1.3;
+    margin:0 0 .5em;color:var(--ly-dim,rgba(255,255,255,.3));cursor:pointer;transition:color .25s,transform .25s;transform-origin:left center}
+  .ly-kar .ln:hover{color:rgba(255,255,255,.6)}
+  .ly-kar .ln.cur{color:var(--ly-cur,#fff);transform:scale(1.04);
+    text-shadow:0 0 calc(11px * var(--ly-glow,1)) color-mix(in srgb, var(--ly-fill,var(--accent)) 70%, transparent)}
+  .ly-kar .ln.cur .fill{background:linear-gradient(90deg,var(--ly-fill,var(--accent)) var(--p,0%),var(--ly-cur,#fff) var(--p,0%));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .ly-plain{white-space:pre-wrap;font-size:calc(15px * var(--ly-size,1));line-height:1.6;color:var(--sub);font-family:var(--ly-font,inherit)}
+  .ly-style-btn{font-family:Georgia,serif !important;font-weight:700 !important}
+  #nm-lyr-kar{display:none;height:220px}
+  /* Steems on the whole screen */
+  .nm-stage{position:fixed;inset:0;z-index:9000;background:#0b0b0f;display:flex;flex-direction:column}
+  .nm-stage[hidden]{display:none}
+  .nm-stage-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#121218;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;flex-wrap:wrap}
+  .nm-stage-bar button,.nm-stage-bar select{background:#1f1f27;color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px;cursor:pointer;font:inherit}
+  .nm-stage-bar button:hover{background:#2c2c36}
+  .nm-stage-seg{display:flex;gap:4px}
+  .nm-stage-seg button.on{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .nm-stage-zoom{display:inline-flex;align-items:center;gap:4px;color:var(--sub)}
+  .nm-stage-zoom button{padding:3px 10px}
+  .nm-stage-bar .sp{flex:1}
+  .nm-stage-song{color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
+  .nm-stage-body{flex:1;min-height:0;display:flex}
+  .nm-stage-body.col{flex-direction:column}
+  .nm-stage-pane{min-width:0;min-height:0;overflow:hidden}
+  .nm-stage-pane.lyr{flex:0 0 var(--split,50%);display:flex;flex-direction:column;justify-content:center;padding:12px 3vw;box-sizing:border-box;gap:10px}
+  #nm-stage-sing{display:none;width:100%;flex:0 0 30%;min-height:110px;border-radius:10px}
+  .nm-stage-body.sing #nm-stage-sing{display:block}
+  .nm-stage-body.sing .nm-stage-pane.lyr .nm-lyr-lines{height:auto;flex:1;min-height:0}
+  #nm-stage-sing-btn.on{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .nm-stage-pane.tab{flex:1;background:#f4f4f2;overflow:auto;position:relative}
+  .nm-stage-split{flex:0 0 8px;background:#1b1b22;cursor:col-resize}
+  .nm-stage-body.col .nm-stage-split{cursor:row-resize}
+  .nm-stage-split:hover{background:var(--accent)}
+  .nm-stage-body[data-show=lyr] .tab,.nm-stage-body[data-show=lyr] .nm-stage-split,
+  .nm-stage-body[data-show=tab] .lyr,.nm-stage-body[data-show=tab] .nm-stage-split{display:none}
+  .nm-stage-body[data-show=lyr] .lyr{flex:1}
+  .nm-stage-pane.lyr .nm-lyr-lines{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center}
+  .nm-stage-pane.lyr .nm-lyr-lines.kar #nm-lyr-kar{height:100%}
+  .nm-stage-pane.lyr #nm-lyr-run{height:32vh}
+  .nm-stage-pane.lyr .nm-lyr-lines .cur{font-size:calc(clamp(28px,4.2vw,72px) * var(--ly-size,1));white-space:normal}
+  .nm-stage-pane.lyr .nm-lyr-lines .prev,.nm-stage-pane.lyr .nm-lyr-lines .next{font-size:calc(clamp(16px,2.2vw,34px) * var(--ly-size,1));white-space:normal}
+  .nm-stage-pane.lyr .ly-kar .ln{font-size:calc(clamp(24px,3vw,52px) * var(--ly-size,1))}
+  .nm-stage-pane.tab .nm-tabtop-hostwrap{width:100%}
+  .nm-stage-pane.tab .nm-tabtop-host{height:auto !important}
+  .nm-stage-mark{display:none;position:absolute;pointer-events:none;background:color-mix(in srgb,var(--accent) 16%,transparent);
+    border-radius:4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent);transition:top .2s,left .2s,width .2s;z-index:2}
+  .nm-stage-none{display:none;padding:40px;color:#555;text-align:center}
+  .nm-stage-pane.tab.empty .nm-stage-none{display:block}
+  .nm-lyr-lines.kar #nm-lyr-kar{display:block}
+  .nm-lyr-lines.kar .prev,.nm-lyr-lines.kar .cur,.nm-lyr-lines.kar .next,.nm-lyr-lines.kar #nm-lyr-run{display:none !important}
+  .lyr-float-body .nm-lyr-lines.kar,.lyr-float-body .nm-lyr-lines.kar #nm-lyr-kar{height:100%}
+  .lyr-dock.folded .nm-lyr-lines.kar #nm-lyr-kar{display:none}
+  .lyr-dock.folded .nm-lyr-lines.kar .cur{display:block !important}
   /* The tuner takes the app's colours through its own CSS variables. */
   .tuner-body{background:#121214;overflow:auto;padding:10px}
+  .tuner-in{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:4px 2px 8px;font-size:12px;color:var(--sub)}
+  .tuner-in label{display:flex;align-items:center;gap:6px}
+  .tuner-in select{max-width:210px;background:#1d1d23;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font:inherit}
   neverlast-ladicka{--nl-lampa:var(--accent);--nl-signal:var(--accent);--nl-plocha:#26262c;--nl-vhloubeni:#0c0c0f;
     --nl-text:#f1f1f3;--nl-tlum:#a7a7ad;--nl-slaby:#8b8b92;--nl-pismo:inherit;--nl-pismo-cisla:inherit;display:block}
   .gt-tuner{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
@@ -2712,8 +2778,8 @@ body.lib-collapsed .pick-brand{display:none}
   .gt-tuner:hover{background:#2a2a33;color:var(--nm-gold,#e8c840)}
   .lyr-float-body{background:#0c0c10;display:flex;align-items:center;justify-content:center;padding:10px 18px}
   .lyr-float-body .nm-lyr-lines{width:100%}
-  .lyr-float-body .nm-lyr-lines .prev,.lyr-float-body .nm-lyr-lines .next{font-size:clamp(13px,2.4vw,20px)}
-  .lyr-float-body .nm-lyr-lines .cur{font-size:clamp(20px,4.6vw,40px)}
+  .lyr-float-body .nm-lyr-lines .prev,.lyr-float-body .nm-lyr-lines .next{font-size:calc(clamp(13px,2.4vw,20px) * var(--ly-size,1))}
+  .lyr-float-body .nm-lyr-lines .cur{font-size:calc(clamp(20px,4.6vw,40px) * var(--ly-size,1))}
   .tab-float-body{background:#f4f4f2;overflow-y:auto;padding:8px}
   .tab-float-body .nm-tabtop-hostwrap{height:100%}
   .tab-float-body .nm-tabtop-host{height:auto !important}
@@ -5122,18 +5188,21 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="tmenu" data-tmenu="lyr">
           <button type="button" class="tm-btn nm-lyr-more" title="Zobrazení textu, jiný text">⋯</button>
           <div class="tm-pop nm-lyr-pop">
-            <button type="button" class="tm-item" id="nm-lyr-mode" title="Běžící text pod značkou (jako taby), nebo tři řádky pod sebou"></button>
+            <button type="button" class="tm-item" id="nm-lyr-mode" title="Jak text běží: Běžící text (jako taby) → Po řádcích → Karaoke (jako v minipřehrávači)"></button>
             <button type="button" class="tm-item" id="nm-lyr-change" title="Vybrat text z písní téže kapely, nebo ho vyhledat">Jiný text…</button>
             <button type="button" class="tm-item" id="nm-lyr-edit" title="Opravit text řádku, který se teď zpívá, nebo ho nechat zazpívat s novými slovy (i dvojklik na řádek na stopě Text)">Upravit / přezpívat řádek…</button>
             <button type="button" class="tm-item" id="nm-lyr-hear" title="Pick si text naposlouchá ze stopy zpěvu (whisper, na tomhle počítači) — i české písně. Text bez časů dostane časy.">Odposlechnout ze zpěvu</button>
             <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty</button>
           </div>
         </div>
+        <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy">Aa</button>
+        <button type="button" id="nm-lyr-stage" title="Na celou obrazovku — jen text, jen tab, nebo obojí"><span data-icon="expand" data-size="13"></span></button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
         <button type="button" id="nm-lyr-close" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
       </div>
       <div class="nm-lyr-lines" id="nm-lyr-lines">
         <canvas id="nm-lyr-run" title="Klik na řádek na něj skočí"></canvas>
+        <div id="nm-lyr-kar"></div>
         <div class="prev" id="nm-lyr-prev"></div>
         <div class="cur" id="nm-lyr-cur"></div>
         <div class="next" id="nm-lyr-next"></div>
@@ -5196,6 +5265,7 @@ body.lib-collapsed .pick-brand{display:none}
             </span>
             <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
             <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
+            <button class="nm-btn round" id="nm-tabtop-stage" title="Na celou obrazovku — jen tab, jen text, nebo obojí"><span data-icon="expand" data-size="13"></span></button>
             <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
             <button class="nm-btn round" id="nm-tabtop-rm" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
           </div>
@@ -5711,12 +5781,15 @@ body.lib-collapsed .pick-brand{display:none}
       <button type="button" id="pb-lyrics-dock-earlier" title="Text dřív o 0,5 s">−</button>
       <span id="pb-lyrics-dock-offset" title="Posun textu proti zpěvu">0,0 s</span>
       <button type="button" id="pb-lyrics-dock-later" title="Text později o 0,5 s">+</button>
-      <button type="button" id="pb-lyrics-dock-fix" title="Hledat pod jiným názvem">Opravit název</button>
+      <button type="button" id="pb-lyrics-dock-mode" title="Karaoke (jako v minipřehrávači), nebo tři řádky"></button>
+      <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy — platí i ve Steems a v minipřehrávači">Aa</button>
+      <button type="button" id="pb-lyrics-dock-fix" title="Hledat text pod jiným názvem">Hledat text…</button>
       <button type="button" id="pb-lyrics-dock-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty.cz</button>
       <button type="button" id="pb-lyrics-dock-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="12"></span></button>
       <button type="button" id="pb-lyrics-dock-close" title="Zavřít"><span data-icon="close" data-size="13"></span></button>
     </div>
     <div class="pb-lyrics-dock-lines" id="pb-lyrics-dock-lines">
+      <div id="pb-lyrics-dock-kar"></div>
       <div class="prev" id="pb-lyrics-dock-prev"></div>
       <div class="cur" id="pb-lyrics-dock-cur"></div>
       <div class="next" id="pb-lyrics-dock-next"></div>
@@ -5852,6 +5925,11 @@ body.lib-collapsed .pick-brand{display:none}
         <button class="tm-item pb-ctl pb-tab-btn" id="pb-tab-btn" title="Kytarová tabulatura" aria-label="Tabulatura"></button>
         <button class="tm-item pb-ctl" id="pb-gtr-btn" title="Hrát živě přes NAM zesilovač" aria-label="Kytara"></button>
         <button class="tm-item pb-ctl" id="pb-stems-btn" title="Rozdělit na stopy" aria-label="Rozdělit na stopy"></button>
+        <hr>
+        <div class="tm-head">Text písně</div>
+        <button class="tm-item" id="pb-lyr-kar-btn" title="Text jako v minipřehrávači: celý, zpívaný řádek se rozsvítí a vyplňuje">Text jako v minipřehrávači</button>
+        <button class="tm-item" id="pb-lyr-find-btn" title="Najít text pod jiným názvem písně">Hledat text…</button>
+        <button class="tm-item" id="pb-lyr-style-btn" title="Předvolby, velikost a barvy textu — platí všude">Styl textu…</button>
         <hr>
         <div class="tm-head">Píseň</div>
         <button class="tm-item pb-ctl" id="pb-video-btn" title="Video v plovoucím okně" aria-label="Video"></button>
@@ -6008,6 +6086,36 @@ body.lib-collapsed .pick-brand{display:none}
   </div>
   <div class="float-body tab-float-body" id="tab-float-body"></div>
   <div class="float-grip" id="tab-float-grip" title="Táhnutím změníš velikost"></div>
+</div>
+
+<!-- Steems on the whole screen: the text, the tab, or both — side by side or one above the other,
+     the split dragged to taste. The dock's own text and tab are moved in (as into the floating windows). -->
+<div class="nm-stage" id="nm-stage" hidden>
+  <div class="nm-stage-bar">
+    <div class="nm-stage-seg" id="nm-stage-show">
+      <button type="button" data-show="lyr">Jen text</button>
+      <button type="button" data-show="tab">Jen tab</button>
+      <button type="button" data-show="both">Text i tab</button>
+    </div>
+    <button type="button" id="nm-stage-dir" title="Text a tab vedle sebe, nebo pod sebou"></button>
+    <select id="nm-stage-mode" title="Jak text běží">
+      <option value="kar">Karaoke</option><option value="lines">Po řádcích</option><option value="run">Běžící text</option>
+    </select>
+    <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy">Aa</button>
+    <button type="button" id="nm-stage-sing-btn" title="Tóny ke zpěvu z trenéra nad textem: obdélníčky melodie a tvůj hlas — zezelená, když se trefíš (hodnocení zůstává v okně trenéra)">🎤 Tóny</button>
+    <button type="button" id="nm-stage-sing-go" title="Spustit trenéra: pustí se píseň a mikrofon" hidden>Zpívat</button>
+    <span class="nm-stage-zoom"><button type="button" id="nm-stage-tab-dn" title="Zmenšit tab">−</button><span>tab</span><button type="button" id="nm-stage-tab-up" title="Zvětšit tab">+</button></span>
+    <span class="sp"></span>
+    <span class="nm-stage-song" id="nm-stage-song"></span>
+    <button type="button" id="nm-stage-play" title="Přehrát / pauza (mezerník)"></button>
+    <button type="button" id="nm-stage-close" title="Zpět (Esc)"><span data-icon="close" data-size="13"></span></button>
+  </div>
+  <div class="nm-stage-body" id="nm-stage-body">
+    <div class="nm-stage-pane lyr" id="nm-stage-lyr"><canvas id="nm-stage-sing" title="Tóny ke zpěvu z trenéra: obdélníčky melodie, tečka je tvůj hlas — zezelená, když se trefíš"></canvas></div>
+    <div class="nm-stage-split" id="nm-stage-split" title="Táhnutím změníš poměr"></div>
+    <div class="nm-stage-pane tab" id="nm-stage-tab"><div class="nm-stage-mark" id="nm-stage-mark"></div>
+      <div class="nm-stage-none" id="nm-stage-none">K písni zatím nemáš tab — ve Steems ho najde tlačítko Tab.</div></div>
+  </div>
 </div>
 
 <!-- Karaoketexty.cz in a window of its own — LRCLib carries few Czech songs,
@@ -16259,8 +16367,18 @@ const Mixer = (() => {
   let lyricsIdx = -2;
   let lyricShift = {};      // line number -> seconds: the lines moved one by one on the lane
   let melodyNotes = null;   // the sung notes, when sing.py has read them: they say where in a line the voice is
-  let runMode = true;       // the text as a running ribbon, or as three lines
-  try{ runMode = localStorage.getItem("pick-lyrics-run") !== "0"; }catch(e){}
+  // How the text runs: a ribbon (as the tab does), three lines, or karaoke — every line in a
+  // list, the sung one lit and filling (as the mini player shows it).
+  const LYR_MODES = ["run", "lines", "kar"], LYR_NEXT = {run: "Po řádcích", lines: "Karaoke (jako v minipřehrávači)", kar: "Běžící text"};
+  let lyrMode = "run";
+  try{ const m = localStorage.getItem("pick-lyrics-mode"); lyrMode = LYR_MODES.includes(m) ? m : localStorage.getItem("pick-lyrics-run") === "0" ? "lines" : "run"; }catch(e){}
+  const lyrKar = KaraokeList(el("nm-lyr-kar"), {onSeek: (t) => seek(Math.max(0, t))});
+  function setLyrMode(m){
+    lyrMode = m;
+    try{ localStorage.setItem("pick-lyrics-mode", m); }catch(e){}
+    lyricsIdx = -2; runRefresh(); updateLyricsNow(currentTime());
+    if(m === "kar") requestAnimationFrame(() => lyrKar.recenter());
+  }
 
   function lyricsOffsetKey(){ return "spotdl-gui-lyrics-offset:" + (currentSongName || ""); }
   const lyricsLinesKey = () => "spotdl-gui-lyrics-lines:" + (currentSongName || "");
@@ -16271,12 +16389,14 @@ const Mixer = (() => {
 
   const lyrRun = LyricRun(el("nm-lyr-run"), {onSeek: (t) => seek(Math.max(0, t))});
   try{ new ResizeObserver(() => lyrRun.draw()).observe(el("nm-lyr-run")); }catch(e){}
-  el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+  el("nm-lyr-mode").textContent = LYR_NEXT[lyrMode];
   // The ribbon and the buttons that go with it, after anything about the text changed.
   function runRefresh(){
     lyrRun.set(lyrics ? LyricRun.build(lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || "", get words(){ return sung[sungKey(i)] || null; }})), duration, melodyNotes) : []);
-    el("nm-lyr-lines").classList.toggle("run", runMode && !!lyrics);
-    el("nm-lyr-mode").textContent = runMode ? "Po řádcích" : "Běžící text";
+    el("nm-lyr-lines").classList.toggle("run", lyrMode === "run" && !!lyrics);
+    el("nm-lyr-lines").classList.toggle("kar", lyrMode === "kar" && !!lyrics);
+    lyrKar.set(lyrics ? lyrics.lines.map((l, i) => ({t: lyricTime(i), text: l.text || ""})) : []);
+    el("nm-lyr-mode").textContent = LYR_NEXT[lyrMode];
     el("nm-lyr-reset").hidden = !Object.keys(lyricShift).length;
     lyrRun.draw(currentTime());
   }
@@ -16356,7 +16476,8 @@ const Mixer = (() => {
   // Follows the playhead; called with every position update.
   function updateLyricsNow(t){
     if(!lyricsOn || !lyrics) return;
-    if(runMode) lyrRun.draw(t);
+    if(lyrMode === "run") lyrRun.draw(t);
+    if(lyrMode === "kar") lyrKar.draw(t);
     const idx = lyricIndexAt(t);
     if(idx === lyricsIdx) return;
     lyricsIdx = idx;
@@ -16755,9 +16876,7 @@ const Mixer = (() => {
   el("mixer-lyrics-toggle").onclick = () => toggleLyrics();
   el("nm-lyr-close").onclick = () => { if(lyricsOn) toggleLyrics(); };
   el("nm-lyr-mode").onclick = () => {
-    runMode = !runMode;
-    try{ localStorage.setItem("pick-lyrics-run", runMode ? "1" : "0"); }catch(e){}
-    lyricsIdx = -2; runRefresh(); updateLyricsNow(currentTime());
+    setLyrMode(LYR_MODES[(LYR_MODES.indexOf(lyrMode) + 1) % LYR_MODES.length]);
   };
   el("nm-lyr-reset").onclick = () => { lyricShift = {}; saveShift(); renderTimeline(); runRefresh(); };
 
@@ -16888,9 +17007,8 @@ const Mixer = (() => {
   // ---- the tuner ----
   //
   // <neverlast-ladicka> is loaded the first time it is asked for. It listens on
-  // the system's default input, so with an interface that is not the default
-  // the guitar has to be plugged into the default one, or the interface set as
-  // the default, for it to hear anything.
+  // the input picked above it (Vstup, Kanál — kept): the system's default unless
+  // another is chosen, and on an interface with many inputs the one the guitar is in.
   const Tuner = (() => {
     const FloatTuner = makeFloating("tuner-float", {defaults: {width: 380, height: 540}});
     const KEY = "spotdl-gui-tuner-ladeni";
@@ -16948,6 +17066,7 @@ const Mixer = (() => {
         try{ saved = localStorage.getItem(KEY); savedCustom = localStorage.getItem(KEY_CUSTOM); }catch(e){}
         if(savedCustom) node.setAttribute("custom-struny", savedCustom);
         node.setAttribute("ladeni", saved || "standard");
+        el("tuner-float-body").appendChild(inputBar());
         el("tuner-float-body").appendChild(mineBar());
         el("tuner-float-body").appendChild(node);
         // Remember the tuning (and, for a custom one, its strings) that was picked.
@@ -16971,7 +17090,46 @@ const Mixer = (() => {
         const now = stringsNow();
         tabSig = now ? now.join() : null;
       } else if(mine) showMine(mine);
+      paintInputs();
       FloatTuner.open();
+    }
+
+    // ---- where it listens: a device, and on an interface with many inputs one of them (kept)
+    const IN_KEY = "pick-tuner-input";
+    const inputNow = () => { try{ return JSON.parse(localStorage.getItem(IN_KEY) || "{}") || {}; }catch(e){ return {}; } };
+    globalThis.pickTunerInput = inputNow();
+    let inBar = null;
+    function inputBar(){
+      inBar = document.createElement("div");
+      inBar.className = "tuner-in";
+      if(navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener("devicechange", paintInputs);
+      paintInputs();
+      return inBar;
+    }
+    async function paintInputs(){
+      if(!inBar) return;
+      let devs = [];
+      try{ devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput" && d.deviceId && d.deviceId !== "default"); }catch(e){}
+      const cur = inputNow(), missing = cur.deviceId && !devs.some(d => d.deviceId === cur.deviceId);
+      inBar.innerHTML = `<label title="Odkud ladička poslouchá: zvukovka, mikrofon…">Vstup <select data-k="dev">
+          <option value="">Výchozí vstup systému</option>
+          ${devs.map((d, i) => `<option value="${escapeHtml(d.deviceId)}" ${d.deviceId === cur.deviceId ? "selected" : ""}>${escapeHtml(d.label || "Vstup " + (i + 1))}</option>`).join("")}
+          ${missing ? `<option value="${escapeHtml(cur.deviceId)}" selected>Vybraný vstup (teď odpojený — poslouchá výchozí)</option>` : ""}
+        </select></label>
+        <label title="U zvukovky s více vstupy: do kterého je zapojená kytara">Kanál <select data-k="ch">
+          <option value="0">sám (1 nebo 2)</option>
+          ${[1, 2, 3, 4, 5, 6, 7, 8].map(k => `<option value="${k}" ${k === Number(cur.channel) ? "selected" : ""}>${k}</option>`).join("")}
+        </select></label>`;
+      inBar.querySelectorAll("select").forEach(s => { s.onchange = () => {
+        const v = {deviceId: inBar.querySelector('[data-k="dev"]').value, channel: Number(inBar.querySelector('[data-k="ch"]').value) || 0};
+        try{ localStorage.setItem(IN_KEY, JSON.stringify(v)); }catch(e){}
+        globalThis.pickTunerInput = v;
+        if(node && node.posloucha){ node.stop(); node.start(); }            // listening: on the new input at once
+        const name = s.dataset.k === "dev" ? (s.selectedOptions[0] || {}).textContent : (v.channel ? "kanál " + v.channel : "kanál sám (1 nebo 2)");
+        showToast("Ladička poslouchá: " + (name || "").trim());
+      }; });
+      // without the microphone allowed yet the inputs have no names: once it is, they get them
+      if(devs.length && !devs[0].label && node) setTimeout(paintInputs, 2500);
     }
 
     // Closing the window must also close the microphone.
@@ -17686,6 +17844,127 @@ const Mixer = (() => {
     syncTabToTime(currentTime());
   }
   el("nm-tabtop-detach").onclick = () => (FloatTab.isOpen() ? dockTab() : detachTab());
+
+  // ---- the whole screen: the text, the tab, or both — side by side or one above the other, the
+  // split dragged to taste (kept). The dock's own text and tab are moved in, as the floating windows
+  // take them, and back when it closes (✕, Esc, or leaving full screen). The tab is wrapped into rows
+  // there, the bar being played marked and kept in view.
+  const STAGE_KEY = "pick-stage";
+  const stage = {show: "both", dir: "row", split: 50};
+  try{ Object.assign(stage, JSON.parse(localStorage.getItem(STAGE_KEY) || "{}")); }catch(e){}
+  let stageOn = false;
+  const keepStage = () => { try{ localStorage.setItem(STAGE_KEY, JSON.stringify(stage)); }catch(e){} };
+  function stagePaint(){
+    const body = el("nm-stage-body");
+    body.dataset.show = stage.show;
+    body.classList.toggle("col", stage.dir === "col");
+    body.style.setProperty("--split", stage.split + "%");
+    el("nm-stage-show").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.show === stage.show));
+    el("nm-stage-dir").textContent = stage.dir === "col" ? "⇅ pod sebou" : "⇆ vedle sebe";
+    el("nm-stage-dir").hidden = stage.show !== "both";
+    el("nm-stage-mode").value = lyrMode;
+    el("nm-stage-song").textContent = currentSongName ? (stemsDisplayByName(currentSongName).title || currentSongName) : "";
+    el("nm-stage-play").innerHTML = icon(isPlaying ? "pause" : "play", 14);
+    el("nm-stage-tab").classList.toggle("empty", !tabs.length);
+    body.classList.toggle("sing", !!stage.sing);
+    el("nm-stage-sing-btn").classList.toggle("on", !!stage.sing);
+    el("nm-stage-sing-go").hidden = !stage.sing || Sing.isOn();
+  }
+  // The trainer's lane over the text: its window opens (behind) and draws here too.
+  function stageSing(){
+    if(stage.sing && stageOn){
+      if(!Sing.isOpen()) Sing.open();
+      Sing.mirror(el("nm-stage-sing"));
+    } else Sing.mirror(null);
+  }
+  function stageRelayout(){
+    requestAnimationFrame(() => {
+      lyrKar.recenter();
+      lyrRun.draw(currentTime());
+      if(tabLiveApi && el("nm-tabtop-hostwrap").parentElement === el("nm-stage-tab")) tabLiveApi.render();
+    });
+  }
+  function openStage(show){
+    if(!currentSongName){ showToast("Nejdřív otevři píseň ve Steems"); return; }
+    if(show) stage.show = show;
+    if(FloatLyr.isOpen()) dockLyrics();
+    if(FloatTab.isOpen()) dockTab();
+    if(!lyricsOn) toggleLyrics();
+    stageOn = true;
+    el("nm-stage-lyr").appendChild(el("nm-lyr-lines"));
+    if(tabs.length){
+      tabDockedScale = tabLiveScale;
+      const wrap = el("nm-tabtop-hostwrap");
+      el("nm-stage-tab").appendChild(wrap);
+      wrap.classList.add("floated");
+      el("nm-tabtop-host").style.transform = "";
+      if(tabLiveApi){
+        tabLiveApi.settings.display.layoutMode = window.alphaTab.LayoutMode.Page;
+        tabLiveApi.updateSettings();
+        tabLiveApi.render();
+      }
+    }
+    el("nm-stage").hidden = false;
+    stagePaint();
+    clearInterval(stageTick);
+    stageTick = setInterval(() => { el("nm-stage-play").innerHTML = icon(isPlaying ? "pause" : "play", 14); el("nm-stage-sing-go").hidden = !stage.sing || Sing.isOn(); }, 400);
+    stageSing();
+    const fs = el("nm-stage").requestFullscreen;
+    if(fs) el("nm-stage").requestFullscreen().catch(() => {});
+    stageRelayout();
+  }
+  function closeStage(){
+    if(!stageOn) return;
+    stageOn = false;
+    clearInterval(stageTick);
+    Sing.mirror(null);
+    el("mixer-lyrics-bar").appendChild(el("nm-lyr-lines"));
+    if(el("nm-tabtop-hostwrap").parentElement === el("nm-stage-tab")) dockTab();
+    el("nm-stage-mark").style.display = "none";
+    el("nm-stage").hidden = true;
+    if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    requestAnimationFrame(() => lyrKar.recenter());
+  }
+  // The tab on the whole screen: the bar being played marked, its row kept in view.
+  function stageFollowTab(bar){
+    const pane = el("nm-stage-tab"), lookup = tabLiveApi && tabLiveApi.boundsLookup;
+    const mb = lookup && lookup.findMasterBarByIndex(bar);
+    if(!mb) return;
+    const hr = el("nm-tabtop-host").getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    const x = hr.left - pr.left + pane.scrollLeft + mb.realBounds.x, y = hr.top - pr.top + pane.scrollTop + mb.realBounds.y;
+    const mark = el("nm-stage-mark");
+    Object.assign(mark.style, {display: "block", left: x + "px", top: y + "px", width: mb.realBounds.w + "px", height: mb.realBounds.h + "px"});
+    if(y < pane.scrollTop + pane.clientHeight * 0.08 || y + mb.realBounds.h > pane.scrollTop + pane.clientHeight * 0.85)
+      pane.scrollTo({top: Math.max(0, y - pane.clientHeight * 0.25), behavior: "smooth"});
+  }
+  el("nm-lyr-stage").onclick = () => openStage(tabs.length ? "both" : "lyr");
+  el("nm-tabtop-stage").onclick = () => openStage(lyrics ? "both" : "tab");
+  let stageTick = 0;
+  el("nm-stage-close").onclick = closeStage;
+  el("nm-stage-sing-btn").onclick = () => { stage.sing = !stage.sing; keepStage(); stagePaint(); stageSing(); stageRelayout(); };
+  el("nm-stage-sing-go").onclick = async () => { await Sing.start(); stagePaint(); };
+  el("nm-stage-show").querySelectorAll("button").forEach((b) => { b.onclick = () => { stage.show = b.dataset.show; keepStage(); stagePaint(); stageRelayout(); }; });
+  el("nm-stage-dir").onclick = () => { stage.dir = stage.dir === "col" ? "row" : "col"; keepStage(); stagePaint(); stageRelayout(); };
+  el("nm-stage-mode").onchange = (e) => { setLyrMode(e.target.value); stagePaint(); stageRelayout(); };
+  el("nm-stage-play").onclick = () => { isPlaying ? pause() : play(); setTimeout(stagePaint, 50); };
+  el("nm-stage-tab-dn").onclick = () => { adjustTabScale(-0.15); };
+  el("nm-stage-tab-up").onclick = () => { adjustTabScale(0.15); };
+  el("nm-stage-split").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const body = el("nm-stage-body"), r = body.getBoundingClientRect();
+    const move = (ev) => {
+      const f = stage.dir === "col" ? (ev.clientY - r.top) / r.height : (ev.clientX - r.left) / r.width;
+      stage.split = Math.round(Math.max(15, Math.min(85, f * 100)));
+      body.style.setProperty("--split", stage.split + "%");
+    };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); keepStage(); stageRelayout(); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+  document.addEventListener("fullscreenchange", () => { if(stageOn && !document.fullscreenElement) closeStage(); });
+  document.addEventListener("keydown", (e) => { if(stageOn && e.key === "Escape" && !document.fullscreenElement) closeStage(); });
+  window.addEventListener("resize", () => { if(stageOn) stageRelayout(); });
+  window.addEventListener(LyricStyle.EVENT, () => { lyrKar.recenter(); });
   el("tab-float-dock").onclick = dockTab;
 
   // Size: alphaTab's own display scale, not a CSS zoom — rescaling actually
@@ -18014,6 +18293,7 @@ const Mixer = (() => {
     if(tabHeld) return;                        // waiting for Sync — stays where it was put
     // The "Takt N" readout keeps updating even while floated.
     el("nm-tabtop-barlabel").textContent = "Takt " + (bar + 1);
+    if(stageOn){ stageFollowTab(bar); return; }
     if(tabPosDragging || FloatTab.isOpen()) return;
     const host = el("nm-tabtop-host"), vp = el("nm-tabtop-viewport");
     if(!host || !vp || host.offsetParent === null) return;
@@ -31589,6 +31869,7 @@ const PlayerLyricsDock = (() => {
     }
     plainText = !data.synced && data.plain ? data.plain : "";
     renderFull();
+    karSet();
   }
 
   // The detached window's full list. Built once per fetched text; tick()
@@ -31650,11 +31931,29 @@ const PlayerLyricsDock = (() => {
   }
   function toggle(){ isOpen() ? close() : open(); }
 
+  // Karaoke (as the mini player shows it) or three lines; kept.
+  let karMode = false;
+  try{ karMode = localStorage.getItem("pick-pb-lyrics-kar") === "1"; }catch(e){}
+  const kar = KaraokeList(el("pb-lyrics-dock-kar"), {onSeek: (t) => Player.seekTo(Math.max(0, t))});
+  function karSet(){ kar.set(lyrics ? lyrics.lines.map((l, i) => ({t: lineTime(i), text: l.text || ""})) : [], lyrics ? "" : plainText); }
+  function paintMode(){
+    el("pb-lyrics-dock-lines").classList.toggle("kar", karMode);
+    el("pb-lyrics-dock-mode").textContent = karMode ? "Tři řádky" : "Karaoke";
+  }
+  function setKar(on){
+    karMode = on;
+    try{ localStorage.setItem("pick-pb-lyrics-kar", on ? "1" : "0"); }catch(e){}
+    paintMode(); karSet(); requestAnimationFrame(() => kar.recenter());
+  }
+  paintMode();
+  window.addEventListener(LyricStyle.EVENT, () => kar.recenter());
+
   function tick(){
     rafId = requestAnimationFrame(tick);
     if(!lyrics) return;
     const audio = el("pb-audio");
     const t = audio ? audio.currentTime : 0;
+    if(karMode) kar.draw(t);
     const i = lineIndexAt(t);
     paintFull(i);
     if(i === idx) return;
@@ -31672,6 +31971,7 @@ const PlayerLyricsDock = (() => {
     try{ localStorage.setItem(offsetKey(), String(lyricsOffset)); }catch(e){}
     paintOffset();
     idx = -2;
+    karSet();
   }
 
   // Detached, the window shows the whole song (the three-line readout
@@ -31706,7 +32006,17 @@ const PlayerLyricsDock = (() => {
   el("pb-lyrics-dock-karaoke").onclick = () => {
     if(typeof Mixer !== "undefined" && Mixer.openKaraoke) Mixer.openKaraoke(lastQuery);
   };
+  el("pb-lyrics-dock-mode").onclick = () => setKar(!karMode);
   el("pb-lyrics-dock-detach").onclick = () => FloatPbLyr.isOpen() ? dockFromFloat() : detach();
+  // The Píseň menu: the text as the mini player shows it, a text by another name, its style.
+  el("pb-lyr-kar-btn").onclick = () => { setKar(true); if(!isOpen()) open(); };
+  el("pb-lyr-find-btn").onclick = async () => {
+    const track = Player.getCurrent();
+    if(!track){ showToast("Nic nehraje — nejdřív přehrávej píseň"); return; }
+    const val = await Dialog.prompt("Interpret - název písně:", lastQuery || `${track.artists || ""} - ${track.title || ""}`);
+    if(val && val.trim()) open(val.trim());
+  };
+  el("pb-lyr-style-btn").onclick = () => LyricStyle.open(el("pb-more-btn"));
   el("pb-lyrics-dock-close").onclick = close;
   el("pb-lyr-float-dock").onclick = dockFromFloat;
 
@@ -32746,9 +33056,11 @@ const RemoteAgent = (() => {
       thumbnail: track ? (track.image || track.thumbnail || null) : null,
       playing: mixerOn || !!(audio && !audio.paused && audio.src),
       volume: audio ? num(audio.muted ? 0 : audio.volume) : 1,
-      position: audio ? num(audio.currentTime) : 0,
+      position: mixerOn && Mixer.currentTime ? num(Mixer.currentTime()) : audio ? num(audio.currentTime) : 0,
       duration: audio ? num(audio.duration) : 0,
       source: mixerOn ? "mixer" : "player",
+      // the mini player takes the song over by these (the mixer's Steems song by its name)
+      stems: mixerOn ? (Mixer.currentSong() || null) : null,
       videoId: !mixerOn && track ? (track.videoId || null) : null,
       key: !mixerOn && track ? (track.key || null) : null,
       // The lyrics' per-song offset is stored under videoId || relPath || title.
@@ -33614,20 +33926,29 @@ const Sing = (() => {
   }
 
   // ---- drawing
+  // A second lane somewhere else (Steems on the whole screen, over the text): the same notes and the
+  // same dot of the voice, nothing more — the score and the rest stay in the trainer's window.
+  let mirror = null;
   function draw(){
     raf = requestAnimationFrame(draw);
+    const t = Mixer.currentTime() - LAG;
+    run.draw(t);
+    // The height follows the tune: the middle of what is coming up, eased.
+    const near = notes.filter(n => n[1] > t - 2 && n[0] < t + 5).map(n => n[2]).sort((a, b) => a - b);
+    const want = near.length ? near[near.length >> 1] : (mine && mine.midi !== null ? mine.midi : center);
+    center += (want - center) * 0.03;
+    lane(cv, g, t);
+    if(mirror && mirror.isConnected && mirror.offsetParent !== null) lane(mirror, mirror.getContext("2d"), t);
+    score();
+  }
+  function lane(cv, g, t){
     const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     const W = Math.max(50, Math.round(r.width)), H = Math.max(50, Math.round(r.height));
     if(cv.width !== W * dpr || cv.height !== H * dpr){ cv.width = W * dpr; cv.height = H * dpr; }
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#0e0e12"; g.fillRect(0, 0, W, H);
-    const t = Mixer.currentTime() - LAG, pps = W / 6, x0 = W * 0.3, SPAN = 20;
-    run.draw(t);
+    const pps = W / 6, x0 = W * 0.3, SPAN = 20;
     const X = (s) => x0 + (s - t) * pps;
-    // The height follows the tune: the middle of what is coming up, eased.
-    const near = notes.filter(n => n[1] > t - 2 && n[0] < t + 5).map(n => n[2]).sort((a, b) => a - b);
-    const want = near.length ? near[near.length >> 1] : (mine && mine.midi !== null ? mine.midi : center);
-    center += (want - center) * 0.03;
     const row = H / SPAN, Y = (m) => H / 2 - (m - center) * row;
     g.font = "10px -apple-system, Helvetica Neue, sans-serif"; g.textBaseline = "middle";
     for(let m = Math.floor(center - SPAN / 2); m <= center + SPAN / 2; m++){
@@ -33655,7 +33976,6 @@ const Sing = (() => {
       g.beginPath(); g.arc(x0, Y(last ? last.m : mine.midi), 6, 0, Math.PI * 2); g.fill();
       g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
     }
-    score();
   }
   function totals(){
     let sung = 0, ok = 0, words = 0; const oct = {};
@@ -34046,7 +34366,7 @@ const Sing = (() => {
   el("sing-float-close").onclick = close;
   el("nm-sing-open").onclick = () => { TMenu.close(); Win.isOpen() ? close() : open(); };
   paintGo();
-  return {open, close, start, finish, isOn: () => on, lesson: lessonStart, lessonOn: () => !!lesson, lessonNext: () => { if(lesson) lessonGo(lesson.k + 1); },
+  return {open, close, start, finish, isOn: () => on, isOpen: () => Win.isOpen(), mirror: (c) => { mirror = c || null; }, lesson: lessonStart, lessonOn: () => !!lesson, lessonNext: () => { if(lesson) lessonGo(lesson.k + 1); },
     lessonState: () => lesson && {k: lesson.k, n: lesson.list.length, phase: lesson.phase, wait: lesson.wait, a: lesson.a, b: lesson.b, res: lesson.res},
     // What was heard of the lyric line that starts at t (the mixer's own ribbon writes it under the text too).
     wordsAt: (t) => { const l = lines.find(x => Math.abs(x.t - t) < 0.06); return (l && l.words) || null; },
