@@ -1,6 +1,7 @@
 // ======================================================================
 // Virtuální kytara — a riff written into a tab (or pasted as a text tab), played in the sound
-// of a song's guitar: the strings are plucked (GuitarSampler, as the tab guide does) and go
+// of a song's guitar: the strings are plucked (GuitarSampler, as the tab guide does — recorded
+// notes, guitar_samples.py, or a synthesised string) and go
 // through the song's tone print (Tone.buildChain: drive, EQ, the NAM core, the print's colour,
 // its room) — or a clean guitar. Tools → Virtuální kytara; riffs are kept (vguitar.py).
 //
@@ -220,7 +221,7 @@ const VGuitar = (() => {
         if(g.tuning[str] == null) return;
         if(mo){ sendNote(mo, g.tuning[str] + (dead ? 5 : f), dead ? 40 : gc.pm ? 85 : gc.lg.includes(str) ? 70 : 105, play.next, dead ? 0.04 : gc.pm ? Math.min(0.12, stepDur()) : noteLen(k, str, g.cols)); return; }
         GuitarSampler.playNote(ac, trim, str, dead ? 0 : f, play.next, g.tuning,
-          {duration: dead ? 0.04 : gc.pm ? 0.11 : noteLen(k, str, g.cols), staccato: dead || gc.pm, hammer: gc.lg.includes(str)}, g.part);
+          {duration: dead ? 0.04 : gc.pm ? 0.11 : noteLen(k, str, g.cols), staccato: dead || gc.pm, mute: gc.pm, dead, hammer: gc.lg.includes(str)}, g.part);
       }); });
       play.marks.push([play.next, k]);
       play.next += stepDur();
@@ -284,6 +285,9 @@ const VGuitar = (() => {
     try{ o.send([0x90, m, v], perf(t)); o.send([0x80, m, 0], perf(t + d)); }catch(e){}
   }
 
+  // every note the riff's guitars play, for the recorded notes to be fetched before it starts
+  const riffNotesForSamples = () => guitars().flatMap((g) => g.cols.flatMap((c) => Object.entries(c.s)
+    .filter(([s]) => g.tuning[+s] != null).map(([s, f]) => ({open: g.tuning[+s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}))));
   async function start(from){
     if(play) stop();
     graph();
@@ -291,6 +295,7 @@ const VGuitar = (() => {
     if(soundKind() === "kontakt"){ await startKontakt(from); return; }
     if(soundKind() === "midi" && !midiOut()){ await midiAccess(); if(!midiOut()){ showToast("Ten MIDI výstup teď není připojený."); return; } }
     await useSound();
+    if(soundKind() !== "midi") await GuitarSampler.prepare(ac, riffNotesForSamples());
     AudioBus.claim("vguitar");
     window.dispatchEvent(new Event("pick-sound"));
     const f = Math.max(0, Math.min(riff.cols.length - 1, from || 0));
@@ -440,6 +445,7 @@ const VGuitar = (() => {
       <div class="vg-sec" id="vg-tabs"></div>
     </div>`;
     paintGrid(); wire(); paintSound(); paintTabs();
+    GuitarSampler.init().then(paintSound);
   }
   function paintGrid(){
     const g = root && root.querySelector("#vg-grid");
@@ -467,8 +473,11 @@ const VGuitar = (() => {
     const st = root && root.querySelector("#vg-sound-st");
     if(!st) return;
     const p = riff.sound && prints.find((x) => x.song === riff.sound.song && x.id === riff.sound.pid);
+    const rec = GuitarSampler.status() ? `hraje nahraná kytara ${GuitarSampler.status()}` : "";
     st.textContent = loading ? "Načítám zvuk otisku…" : soundKind() === "kontakt" ? "Kontakt zahraje celý riff do souboru — poprvé to trvá asi půl minuty, pak hraje hned."
-      : soundKind() === "midi" ? "Noty jdou živě do MIDI výstupu — zvuk hraje Kontakt (nebo Gig Performer), ne Pick." : p ? `jádro: ${p.core || "bez jádra"}` : prints.length ? "" : "Otisky zatím nemáš — udělej si je ve Steems (kanál Live kytara → OTISK).";
+      : soundKind() === "midi" ? "Noty jdou živě do MIDI výstupu — zvuk hraje Kontakt (nebo Gig Performer), ne Pick."
+      : p ? [`jádro: ${p.core || "bez jádra"}`, rec].filter(Boolean).join(" · ")
+      : prints.length ? rec : [rec, "Otisky zatím nemáš — udělej si je ve Steems (kanál Live kytara → OTISK)."].filter(Boolean).join(" · ");
   }
   function changed(){ dirty = true; keep(); }
   function setCell(v){
@@ -485,7 +494,8 @@ const VGuitar = (() => {
     await useSound();
     const c = riff.cols[k], f = c.s[s];
     if(f == null) return;
-    GuitarSampler.playNote(ac, trim, s, f === "x" ? 0 : f, ac.currentTime + 0.01, riff.tuning, {duration: f === "x" ? 0.04 : 0.6, staccato: f === "x" || c.pm}, 10);
+    await GuitarSampler.prepare(ac, [{open: riff.tuning[s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}]);
+    GuitarSampler.playNote(ac, trim, s, f === "x" ? 0 : f, ac.currentTime + 0.01, riff.tuning, {duration: f === "x" ? 0.04 : 0.6, staccato: f === "x" || c.pm, mute: c.pm, dead: f === "x"}, 10);
   }
   let typed = "", typedAt = 0;
   function onKey(e){

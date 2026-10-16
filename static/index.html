@@ -13564,15 +13564,19 @@ el("steems-hero-close").onclick = hideSteemsHero;
 // Guitar Sampler (Virtual Guide)
 // ======================================================================
 const GuitarSampler = (() => {
-  // The guide has no recorded guitar to play, and a bare oscillator is a poor
-  // thing to feed a neural amp: it has none of the noisy, decaying attack the
-  // model learned from real pickups. So each pitch is synthesised once as a
-  // plucked string (Karplus-Strong) and cached as a buffer. Pitch comes from
+  // A bare oscillator is a poor thing to feed a neural amp: it has none of the
+  // noisy, decaying attack the model learned from real pickups. So the notes are
+  // recorded ones when Pick has a set (guitar_samples.py: a DI guitar, each note
+  // on each string, picked and palm muted), the string nearest the tab's own
+  // playing it. Without a set, or while a note's file is still on its way, each
+  // pitch is synthesised as a plucked string (Karplus-Strong). Pitch comes from
   // the tab's own tuning, so drop-D and friends come out right.
   const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];  // string 0 = high e
   const BUFFER_SECONDS = 3;
   const cache = new Map();                // "sampleRate:midi" -> AudioBuffer
   const voices = new Map();               // one ringing voice per string, per part
+  let set = null, loading = null, turn = 0;   // the recorded set: {id, name, strings, layers, byKey}
+  const bufs = new Map();                 // file -> AudioBuffer | Promise | false (could not be had)
 
   function pluck(ctx, midi){
     const key = ctx.sampleRate + ":" + midi;
@@ -13620,7 +13624,64 @@ const GuitarSampler = (() => {
     return buf;
   }
 
-  async function init(){ /* nothing to load — kept for callers */ }
+  function init(){
+    if(!loading) loading = (async () => {
+      try{
+        const first = ((await (await fetch("/api/guitar-samples")).json()).sets || [])[0];
+        if(!first) return;
+        const m = await (await fetch(`/api/guitar-samples/${first.id}/manifest.json`)).json();
+        const byKey = new Map();          // "kind:midi:string" -> [{v, r, file}]
+        m.samples.forEach(([kind, midi, st, v, r, file]) => {
+          const k = kind + ":" + midi + ":" + st;
+          if(!byKey.has(k)) byKey.set(k, []);
+          byKey.get(k).push({v, r, file});
+        });
+        set = {id: first.id, name: m.name, strings: m.strings, layers: m.layers || {}, byKey};
+      }catch(e){ set = null; }
+    })();
+    return loading;
+  }
+
+  // The recorded note for a pitch: on the sampled string nearest the tab's own
+  // that reaches it (a note past a string's range is the nearest one, retuned).
+  function chooseKey(kind, midi, open){
+    if(!set) return null;
+    let best = null;
+    set.strings.forEach((g) => {
+      let m = Math.max(g.open, Math.min(g.top, midi));
+      while(m >= g.open && !set.byKey.has(kind + ":" + m + ":" + g.s)) m--;
+      if(m < g.open) return;
+      const score = Math.abs(midi - m) * 12 + Math.abs(g.open - open);
+      if(!best || score < best.score) best = {score, key: kind + ":" + m + ":" + g.s, rate: Math.pow(2, (midi - m) / 12), shift: midi - m};
+    });
+    return best && Math.abs(best.shift) <= 12 ? best : null;
+  }
+
+  function buffer(ctx, file){
+    const b = bufs.get(file);
+    if(b instanceof AudioBuffer) return b;
+    if(b === undefined) bufs.set(file, fetch(`/api/guitar-samples/${set.id}/${file}`)
+      .then((r) => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
+      .then((a) => ctx.decodeAudioData(a))
+      .then((x) => { bufs.set(file, x); return x; }, () => { bufs.set(file, false); return null; }));
+    return null;
+  }
+
+  // The files a run of notes will want, fetched before it plays (a few seconds at most).
+  // notes: [{open, fret, mute}]
+  async function prepare(ctx, notes){
+    await init();
+    if(!set) return;
+    const files = new Set();
+    notes.forEach((n) => {
+      const c = chooseKey(n.mute ? "mute" : "pluck", n.open + n.fret, n.open);
+      if(c) set.byKey.get(c.key).forEach((x) => files.add(x.file));
+    });
+    const waits = [...files].map((f) => { buffer(ctx, f); return bufs.get(f); }).filter((p) => p && p.then);
+    await Promise.race([Promise.all(waits), new Promise((ok) => setTimeout(ok, 4000))]);
+  }
+
+  const status = () => set ? set.name : "";
 
   function release(v, at, fade){
     try{
@@ -13631,13 +13692,15 @@ const GuitarSampler = (() => {
     }catch(e){}
   }
 
-  // note: {duration, staccato, hammer, pull} as normalised by the server.
+  // note: {duration, staccato, hammer, pull, mute (palm), dead} as the tab gives them.
   function playNote(ctx, output, string, fret, time = 0, tuning, note, part = 0){
     const open = (tuning && tuning[string] != null) ? tuning[string] : STANDARD_TUNING[string];
     if(open == null) return;
     const midi = open + fret;
     if(midi < 20 || midi > 100) return;
     const n = note || {};
+    if(!loading) init();
+    const soft = n.hammer || n.pull;
 
     // A string can only ring one note: the new one damps the old one.
     // (Two guitar parts play the same strings and must not cut each other off.)
@@ -13645,20 +13708,31 @@ const GuitarSampler = (() => {
     const old = voices.get(vkey);
     if(old) release(old, time, 0.03);
 
+    // Recorded: the soft take for a legato note, the full one picked, the two takes in turn.
+    const c = chooseKey(n.mute || n.dead ? "mute" : "pluck", midi, open);
+    let rec = null;
+    if(c){
+      const takes = set.byKey.get(c.key), layer = soft ? set.layers.soft : set.layers.full;
+      const ts = takes.filter((x) => x.v === layer);
+      const t = (ts.length ? ts : takes)[turn++ % (ts.length || takes.length)];
+      const b = buffer(ctx, t.file);
+      if(b) rec = {b, rate: c.rate};
+    }
     const src = ctx.createBufferSource();
-    src.buffer = pluck(ctx, midi);
+    src.buffer = rec ? rec.b : pluck(ctx, midi);
+    if(rec) src.playbackRate.value = rec.rate;
 
-    // Legato notes are not picked, so they come in softer.
+    // Legato notes are not picked, so they come in softer (a recorded one already is).
     const env = ctx.createGain();
-    env.gain.setValueAtTime((n.hammer || n.pull) ? 0.55 : 1, time);
+    env.gain.setValueAtTime(soft ? (rec ? 0.85 : 0.55) : 1, time);
 
     const dur = Math.max(0.05, Number(n.duration) || 0.5);
-    const held = n.staccato ? Math.min(dur, 0.12) : dur;
+    const held = n.dead ? 0.04 : n.staccato ? Math.min(dur, 0.12) : dur;
     const v = {src, env};
     src.connect(env);
     env.connect(output);
     src.start(time);
-    release(v, time + held, n.staccato ? 0.05 : 0.25);
+    release(v, time + held, rec ? (n.staccato || n.mute || n.dead ? 0.04 : 0.1) : n.staccato ? 0.05 : 0.25);
     src.onended = () => {
       try{ env.disconnect(); }catch(e){}
       if(voices.get(vkey) === v) voices.delete(vkey);
@@ -13673,7 +13747,7 @@ const GuitarSampler = (() => {
     voices.clear();
   }
 
-  return { init, playNote, stopAll };
+  return { init, prepare, status, playNote, stopAll };
 })();
 
 // ======================================================================
@@ -20643,6 +20717,11 @@ const Mixer = (() => {
       tabs.forEach((tb, part) => {
         if(tb.muted) { tb.idx = firstNoteIndexAt(t, tb.data.notes); return; }
         const notes = tb.data.notes;
+        if(tb.samplesFor !== notes){       // the recorded notes this part wants, fetched as it starts
+          tb.samplesFor = notes;
+          const tun = tb.data.tuning || [64, 59, 55, 50, 45, 40];
+          GuitarSampler.prepare(ctx(), notes.filter(n => tun[n.string] != null).map(n => ({open: tun[n.string], fret: n.fret, mute: n.mute || n.dead})));
+        }
         while(tb.idx < notes.length && notes[tb.idx].time <= t){
           const n = notes[tb.idx];
           const noteTime = startedAt + n.time / runSpeed;
@@ -21749,6 +21828,7 @@ const Mixer = (() => {
               string: stringIndex, fret,
               staccato: !!note.staccato, hammer: !!note.hammer, pull: !!note.pull,
               slide: !!note.slide, bend: !!note.bend,
+              mute: !!(beat.palmMute || note.palmMute), dead: !!note.dead,
             });
           });
           beatTime += durSec;

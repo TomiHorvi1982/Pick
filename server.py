@@ -12164,6 +12164,10 @@ app.include_router(_riffbook.router)
 if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _riffbook.resume_after_restart()        # the library's reading, cut off by the last stop, goes on
 
+# ---- Nahraná kytara: recorded notes for the virtual guitar and the tab guide (guitar_samples.py)
+import guitar_samples as _guitar_samples
+app.include_router(_guitar_samples.router)
+
 # ---- Vizualizace: the player's own videos by theme (Vizualizace/ beside the music), the song's clip
 import viz as _viz
 _viz.root = lambda: MUSIC_ROOT / "Vizualizace"

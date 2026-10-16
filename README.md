@@ -791,7 +791,7 @@ Tools → Virtuální kytara (`static/vguitar.js`, riffy ve `vguitar.json` přes
 `/api/vguitar/riffs`): tab napsaný v mřížce (struny × kroky; krok 1/8, 1/16 nebo trioly) nebo vložený
 jako textový tab (`e|---0---3---|`, víc soustav pod sebou, `PM----` nad strunami, `h`/`p` legato;
 nejkratší vzdálenost dvou tónů je jeden krok, ladění se pozná podle jmen strun). Struny se drnkají
-stejně jako u virtuální kytary v mixu (`GuitarSampler`, Karplus-Strong) a jdou přes **tónový otisk**
+stejně jako u virtuální kytary v mixu (`GuitarSampler`: nahrané tóny, níž, jinak Karplus-Strong) a jdou přes **tónový otisk**
 vybrané písně — stejný řetězec jako živá kytara (`Tone.buildChain`: drive, EQ, NAM jádro, barva,
 prostor) — nebo přes čistou kytaru. Tempo, ladění, úhoz (síla do zesilovače), metronom, dokola;
 mezerník přehraje od kurzoru. Riffy se ukládají; „Zkopírovat jako tab“ dá textový tab do schránky.
@@ -800,6 +800,16 @@ V knihovně otisků tlačítko ♪ otevře virtuální kytaru rovnou s tím zvuk
 **Ukázky**: šest riffů pro Pick, každý v jiném stylu (metal – cval v Drop D, blues shuffle v trioletách,
 funk se škrábáním 16tin, punk power akordy, rock pentatonika v A, flamenco andaluská kadence) — jedním
 kliknutím do editoru, upravit a uložit jako vlastní.
+
+**Nahraná kytara** (`guitar_samples.py`, `/api/guitar-samples*`, sada v `~/.local/share/spotdl-helper/guitar-samples/<id>/`)
+— virtuální kytara i průvodce taby hrají nahrané tóny místo syntetické struny. První sada je z vlastní
+knihovny Axe Machina (Soundiron, v Kontaktu `Dokumenty/Native Instruments/Libraries`, obyčejné WAV): čistá
+DI kytara (bez zesilovače — dál jde do NAM nebo otisku), 7 strun (F, D, G, C, F, A, D — tóny od F1 po D6),
+každý tón na každé struně, údery dolů, dvě síly (slabší pro legato), dvě nahrávky střídavě, drnknuté
+i tlumené dlaní (PM a mrtvé tóny). Tón zahraje struna, jejíž ladění je nejblíž struně v tabu; tón mimo
+rozsah se doladí z nejbližšího. 912 tónů, 34 MB FLAC; před přehráním se načtou jen ty, které riff
+potřebuje, a dokud tón není načtený, zahraje se syntetická struna. Sada se vyrobí jednou:
+`~/.local/venvs/pick-tone/bin/python tools/build_guitar_samples.py [složka Axe Machina]`.
 
 **Taby z písní** pod kytarou, pět záložek (pátá je Katalog riffů, níž):
 - **Knihovna Taby** — tvoje knihovna ze sekce Taby (Pick Tabs, `/api/tabfiles/list`) s vyhledáváním. Vybraná
