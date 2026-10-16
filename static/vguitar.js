@@ -3,7 +3,9 @@
 // of a song's guitar: the strings are plucked (GuitarSampler, as the tab guide does — recorded
 // notes, guitar_samples.py, or a synthesised string) and go
 // through the song's tone print (Tone.buildChain: drive, EQ, the NAM core, the print's colour,
-// its room) — or a clean guitar. Tools → Virtuální kytara; riffs are kept (vguitar.py).
+// its room) — or a clean guitar, or a finished recorded sound (clean, crunch, metal: a set with
+// its amp and cabinet in it, played straight out, power chords recorded whole). Tools →
+// Virtuální kytara; riffs are kept (vguitar.py).
 //
 // The tab: a grid, strings top (high e) to bottom, a column a step (an 8th, a 16th, a triplet…).
 // A cell holds a fret, or x (a dead note); a column can be palm muted (PM), a note legato
@@ -170,17 +172,20 @@ const VGuitar = (() => {
     out.gain.value = opts.vol;
     return ac;
   }
-  const soundKind = () => !riff.sound ? "clean" : riff.sound.kontakt ? "kontakt" : riff.sound.midi ? "midi" : "print";
+  const soundKind = () => !riff.sound ? "clean" : riff.sound.kontakt ? "kontakt" : riff.sound.midi ? "midi" : riff.sound.set ? "set" : "print";
+  // a finished sound (a set with its amp and cabinet in it) plays its own notes, straight out
+  const setId = () => soundKind() === "set" ? riff.sound.set : undefined;
   async function useSound(){
     graph();
     if(soundKind() === "kontakt" || soundKind() === "midi") return;
-    const want = riff.sound ? `${riff.sound.song}|${riff.sound.pid}` : "";
-    if(want === chainKey && (chain || !want)) return;
+    const want = !riff.sound ? "" : riff.sound.set ? "set:" + riff.sound.set : `${riff.sound.song}|${riff.sound.pid}`;
+    if(want === chainKey && (chain || !want || setId())) return;
     trim.disconnect();
     if(chain){ try{ chain.out.disconnect(); }catch(e){} chain.dispose(); chain = null; }
     clean.out.disconnect();
     chainKey = want;
     if(!want){ trim.connect(clean.input); clean.out.connect(out); return; }
+    if(setId()){ trim.connect(out); await GuitarSampler.load(setId()); return; }
     loading = true; paintSound();
     try{
       chain = await Tone.buildChain(riff.sound.song, riff.sound.pid);
@@ -216,12 +221,16 @@ const VGuitar = (() => {
         o.connect(g); g.connect(out); o.start(play.next); o.stop(play.next + 0.06);
       }
       const mo = soundKind() === "midi" ? midiOut() : null;
-      guitars().forEach((g) => { const gc = g.cols[k]; if(gc) Object.entries(gc.s).forEach(([s, f]) => {
+      guitars().forEach((g) => { const gc = g.cols[k]; if(!gc) return;
+        const pc = mo ? null : GuitarSampler.chordOf(g.tuning, gc.s, setId());
+        if(pc) GuitarSampler.playNote(ac, trim, pc.string, pc.fret, play.next, g.tuning,
+          {duration: gc.pm ? 0.11 : noteLen(k, pc.string, g.cols), staccato: gc.pm, mute: gc.pm, set: setId(), chord: pc.strings}, g.part);
+        Object.entries(gc.s).forEach(([s, f]) => {
         const str = +s, dead = f === "x";
-        if(g.tuning[str] == null) return;
+        if(g.tuning[str] == null || (pc && pc.strings.includes(str))) return;
         if(mo){ sendNote(mo, g.tuning[str] + (dead ? 5 : f), dead ? 40 : gc.pm ? 85 : gc.lg.includes(str) ? 70 : 105, play.next, dead ? 0.04 : gc.pm ? Math.min(0.12, stepDur()) : noteLen(k, str, g.cols)); return; }
         GuitarSampler.playNote(ac, trim, str, dead ? 0 : f, play.next, g.tuning,
-          {duration: dead ? 0.04 : gc.pm ? 0.11 : noteLen(k, str, g.cols), staccato: dead || gc.pm, mute: gc.pm, dead, hammer: gc.lg.includes(str)}, g.part);
+          {duration: dead ? 0.04 : gc.pm ? 0.11 : noteLen(k, str, g.cols), staccato: dead || gc.pm, mute: gc.pm, dead, hammer: gc.lg.includes(str), set: setId()}, g.part);
       }); });
       play.marks.push([play.next, k]);
       play.next += stepDur();
@@ -286,8 +295,11 @@ const VGuitar = (() => {
   }
 
   // every note the riff's guitars play, for the recorded notes to be fetched before it starts
-  const riffNotesForSamples = () => guitars().flatMap((g) => g.cols.flatMap((c) => Object.entries(c.s)
-    .filter(([s]) => g.tuning[+s] != null).map(([s, f]) => ({open: g.tuning[+s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}))));
+  const riffNotesForSamples = () => guitars().flatMap((g) => g.cols.flatMap((c) => {
+    const pc = GuitarSampler.chordOf(g.tuning, c.s, setId());
+    return [...(pc ? [{open: g.tuning[pc.string], fret: pc.fret, mute: c.pm, chord: true}] : []), ...Object.entries(c.s)
+      .filter(([s]) => g.tuning[+s] != null && !(pc && pc.strings.includes(+s))).map(([s, f]) => ({open: g.tuning[+s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}))];
+  }));
   async function start(from){
     if(play) stop();
     graph();
@@ -295,7 +307,7 @@ const VGuitar = (() => {
     if(soundKind() === "kontakt"){ await startKontakt(from); return; }
     if(soundKind() === "midi" && !midiOut()){ await midiAccess(); if(!midiOut()){ showToast("Ten MIDI výstup teď není připojený."); return; } }
     await useSound();
-    if(soundKind() !== "midi") await GuitarSampler.prepare(ac, riffNotesForSamples());
+    if(soundKind() !== "midi"){ if(setId()) await GuitarSampler.load(setId()); await GuitarSampler.prepare(ac, riffNotesForSamples(), setId()); }
     AudioBus.claim("vguitar");
     window.dispatchEvent(new Event("pick-sound"));
     const f = Math.max(0, Math.min(riff.cols.length - 1, from || 0));
@@ -394,10 +406,13 @@ const VGuitar = (() => {
   }
   function hide(){ shown = false; stop(); clearTimeout(rbPoll); }
   function soundOptions(){
-    const sel = !riff.sound ? "" : riff.sound.kontakt ? "k:" + riff.sound.kontakt : riff.sound.midi ? "m:" + riff.sound.midi : `${riff.sound.song}|${riff.sound.pid}`;
+    const sel = !riff.sound ? "" : riff.sound.kontakt ? "k:" + riff.sound.kontakt : riff.sound.midi ? "m:" + riff.sound.midi : riff.sound.set ? "s:" + riff.sound.set : `${riff.sound.song}|${riff.sound.pid}`;
+    const ready = GuitarSampler.sets().filter((x) => x.kind !== "di");
     const bands = {};
     prints.forEach((p) => (bands[p.artist || "Bez kapely"] = bands[p.artist || "Bez kapely"] || []).push(p));
-    return `<option value="">Čistá kytara (bez otisku)</option>` + Object.entries(bands).map(([b, ps]) => `<optgroup label="${esc(b)}">${ps.map((p) =>
+    return `<option value="">Čistá kytara (bez otisku)</option>`
+      + (ready.length ? `<optgroup label="Nahraná kytara — hotový zvuk">${ready.map((x) => `<option value="s:${esc(x.id)}" ${sel === "s:" + x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</optgroup>` : "")
+      + Object.entries(bands).map(([b, ps]) => `<optgroup label="${esc(b)}">${ps.map((p) =>
       `<option value="${esc(p.song + "|" + p.id)}" ${sel === p.song + "|" + p.id ? "selected" : ""}>${esc(p.title || p.song)} · ${esc(p.name)}${p.match ? ` (${p.match} %)` : ""}</option>`).join("")}</optgroup>`).join("")
       + (kpresets.length ? `<optgroup label="Kontakt">${kpresets.map((k) => `<option value="k:${esc(k.id)}" ${sel === "k:" + k.id ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>` : "")
       + (midiOuts.length ? `<optgroup label="Živě přes MIDI (Kontakt, Gig Performer…)">${midiOuts.map((o) => `<option value="m:${esc(o.id)}" ${sel === "m:" + o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</optgroup>` : "");
@@ -445,7 +460,7 @@ const VGuitar = (() => {
       <div class="vg-sec" id="vg-tabs"></div>
     </div>`;
     paintGrid(); wire(); paintSound(); paintTabs();
-    GuitarSampler.init().then(paintSound);
+    GuitarSampler.init().then(() => { const v = root && root.querySelector("#vg-sound"); if(v) v.innerHTML = soundOptions(); paintSound(); });
   }
   function paintGrid(){
     const g = root && root.querySelector("#vg-grid");
@@ -474,8 +489,10 @@ const VGuitar = (() => {
     if(!st) return;
     const p = riff.sound && prints.find((x) => x.song === riff.sound.song && x.id === riff.sound.pid);
     const rec = GuitarSampler.status() ? `hraje nahraná kytara ${GuitarSampler.status()}` : "";
+    const fin = setId() && GuitarSampler.sets().find((x) => x.id === setId());
     st.textContent = loading ? "Načítám zvuk otisku…" : soundKind() === "kontakt" ? "Kontakt zahraje celý riff do souboru — poprvé to trvá asi půl minuty, pak hraje hned."
       : soundKind() === "midi" ? "Noty jdou živě do MIDI výstupu — zvuk hraje Kontakt (nebo Gig Performer), ne Pick."
+      : soundKind() === "set" ? (fin ? `${fin.about} · hotový zvuk, powerchordy nahrané celé` : "Načítám nahranou kytaru…")
       : p ? [`jádro: ${p.core || "bez jádra"}`, rec].filter(Boolean).join(" · ")
       : prints.length ? rec : [rec, "Otisky zatím nemáš — udělej si je ve Steems (kanál Live kytara → OTISK)."].filter(Boolean).join(" · ");
   }
@@ -494,8 +511,8 @@ const VGuitar = (() => {
     await useSound();
     const c = riff.cols[k], f = c.s[s];
     if(f == null) return;
-    await GuitarSampler.prepare(ac, [{open: riff.tuning[s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}]);
-    GuitarSampler.playNote(ac, trim, s, f === "x" ? 0 : f, ac.currentTime + 0.01, riff.tuning, {duration: f === "x" ? 0.04 : 0.6, staccato: f === "x" || c.pm, mute: c.pm, dead: f === "x"}, 10);
+    await GuitarSampler.prepare(ac, [{open: riff.tuning[s], fret: f === "x" ? 0 : f, mute: f === "x" || c.pm}], setId());
+    GuitarSampler.playNote(ac, trim, s, f === "x" ? 0 : f, ac.currentTime + 0.01, riff.tuning, {duration: f === "x" ? 0.04 : 0.6, staccato: f === "x" || c.pm, mute: c.pm, dead: f === "x", set: setId()}, 10);
   }
   let typed = "", typedAt = 0;
   function onKey(e){
@@ -542,6 +559,8 @@ const VGuitar = (() => {
       stop();
       if(v.startsWith("k:")){ riff.sound = {kontakt: v.slice(2)}; changed(); paintSound(); return; }
       if(v.startsWith("m:")){ riff.sound = {midi: v.slice(2)}; changed(); paintSound(); return; }
+      if(v.startsWith("s:")){ riff.sound = {set: v.slice(2)}; changed(); paintSound(); await useSound(); paintSound();
+        const s = riff.cols.findIndex((c) => Object.keys(c.s).length); if(s >= 0 && !play) preview(s, +Object.keys(riff.cols[s].s)[0]); return; }
       const [song, pid] = v ? [v.slice(0, v.lastIndexOf("|")), v.slice(v.lastIndexOf("|") + 1)] : [];
       riff.sound = song ? {song, pid} : null; changed();
       await useSound();

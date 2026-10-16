@@ -103,6 +103,30 @@ def test_the_amp_library_lists_models_and_impulses(client, tmp_path, monkeypatch
     assert {(a["name"], a["kind"]) for a in got} == {("jcm", "model"), ("ampeg", "ir")}
 
 
+def test_a_collection_copied_in_whole_is_listed_by_pack(client, tmp_path, monkeypatch):
+    """amps/nam (models) and amps/ir/<pack>/… (cabinets, folders deep) beside the player's own."""
+    monkeypatch.setattr(server, "AMPS_DIR", tmp_path / "amps")
+    (server.AMPS_DIR / "nam").mkdir(parents=True)
+    (server.AMPS_DIR / "nam" / "Tim R JCM2000 Crunch.nam").write_text('{"architecture": "WaveNet"}')
+    cab = server.AMPS_DIR / "ir" / "MDL Tone" / "CAB 1" / "TOP LEFT"
+    cab.mkdir(parents=True)
+    (cab / "57.wav").write_bytes(b"RIFF....WAVE")
+    (server.AMPS_DIR / "ir" / "MDL Tone" / "readme.pdf").write_bytes(b"%PDF")
+    got = {a["file"]: a for a in client.get("/api/amps").json()}
+    assert set(got) == {"nam/Tim R JCM2000 Crunch.nam", "ir/MDL Tone/CAB 1/TOP LEFT/57.wav"}
+    assert got["ir/MDL Tone/CAB 1/TOP LEFT/57.wav"]["pack"] == "MDL Tone" and got["ir/MDL Tone/CAB 1/TOP LEFT/57.wav"]["folder"] == "CAB 1/TOP LEFT"
+    assert got["nam/Tim R JCM2000 Crunch.nam"]["kind"] == "model" and got["nam/Tim R JCM2000 Crunch.nam"]["pack"] == "NAM komunita"
+    assert client.get("/api/amps/ir/MDL Tone/CAB 1/TOP LEFT/57.wav").content == b"RIFF....WAVE"
+    assert json.loads(client.get("/api/amps/nam/Tim R JCM2000 Crunch.nam").content)["architecture"] == "WaveNet"
+    # and nothing beside them
+    (tmp_path / "secret.wav").write_bytes(b"RIFF")
+    (server.AMPS_DIR / "jcm.nam").write_text("{}")
+    assert client.get("/api/amps/ir/../../secret.wav").status_code in (400, 404)
+    assert server._resolve_amp_path("ir/../../secret.wav") is None and server._resolve_amp_path("nam/../jcm.nam") is None
+    # the print tries the collection's models too
+    assert "nam/Tim R JCM2000 Crunch.nam" in {m["id"] for m in server._tone_models()}
+
+
 def test_only_models_and_impulses_are_accepted(client, tmp_path, monkeypatch):
     monkeypatch.setattr(server, "AMPS_DIR", tmp_path / "amps")
     res = client.post("/api/amps", params={"filename": "evil.sh"}, content=b"#!/bin/sh")

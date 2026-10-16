@@ -6,6 +6,11 @@ WebAssembly engine the live guitar plays through — what is fitted here is what
 
     python tone_worker.py --job job.json    a print fitted: STAGE lines, then DONE or ERROR
     python tone_worker.py --selftest        a made-up guitar through a known chain, found again
+    python tone_worker.py --cores job.json  which cores a print tries (near-twins once), as JSON to job["out"]
+
+Before the search every core is heard once on a made-up riff and remembered (job["fp_cache"]):
+cores that sound alike once their colour is matched — one amp through ten mic positions — are
+tried as one, so a big collection costs the search little and leaves room for the different ones.
 
 The chain, the very one static/tone.js builds live:
     clean guitar → drive → pre-EQ (highpass, mid, tilt) → core (a NAM model, or none)
@@ -18,6 +23,7 @@ squeezes it), how flat the spectrum is between the harmonics, the crest, the sus
 a note starts, how the bands follow the record's. The room comes from how the record's notes
 die away where the player stopped, the width from how alike its left and right are.
 """
+import hashlib
 import itertools
 import json
 import math
@@ -550,6 +556,117 @@ def segments(job, sr):
             "seg_lens": [len(x) for x in rs], "pseudo": info, "kinds": kinds}
 
 
+# ---------------------------------------------------------------- which cores to try
+
+FP_VERSION = 1
+FP_DRIVES = (-6.0, 6.0)
+FP_TWINS = 0.15        # nearer than this a core adds nothing the other does not (loss units: one capture
+                       # trained smaller 0.01–0.15, two amps of one kind 0.2–0.5, a clean and a crunch 2–6)
+FP_EVAL_S = 0.25       # what hearing one render costs besides playing it, in seconds
+FP_BUDGET_S = 330.0    # the first sieve's share of a print that ends within 15 minutes
+
+
+def _fp_key(path):
+    return f"{FP_VERSION}:{hashlib.md5(Path(path).read_bytes()).hexdigest()}"
+
+
+def _fp_dist(a, b):
+    """How far two cores sound apart in what the colour cannot fix — loss() between them, drive by drive."""
+    out = []
+    for x, y in zip(a["d"], b["d"]):
+        t = np.mean(np.abs(np.subtract(x["spread"], y["spread"]))) / 4.0 + np.mean(np.abs(np.subtract(x["flat"], y["flat"]))) / 2.5 \
+            + 0.7 * abs(x["crest"] - y["crest"]) / 2.5
+        if x["sustain"] is not None and y["sustain"] is not None:
+            t += 0.7 * np.mean(np.abs(np.subtract(x["sustain"], y["sustain"]))) / 4.0
+        out.append(float(t))
+    return float(np.mean(out))
+
+
+def fingerprints(job, models, stage=lambda *a: None):
+    """What each core does that the colour cannot undo, heard once on a made-up riff and kept by the
+    file's content: per drive the spread, flatness, crest and sustain of its sound matched to the
+    riff's own spectrum — the same measures the fit compares — and how long it took to play."""
+    sr, path = int(job["sr"]), Path(job["fp_cache"])
+    try:
+        cache = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cache = {}
+    keys = {m["id"]: _fp_key(m["path"]) for m in models}
+    todo = [m for m in models if keys[m["id"]] not in cache]
+    if todo:
+        ear = Ear(sr)
+        d = riff(sr, seconds=6.0, seed=11)
+        ctx = ear.context(d, d)
+        target = ear.measure(d, ctx)["ltas"]
+        flat = {"hp": 0.0, "mid_db": 0.0, "tilt_db": 0.0}
+        procs = int(job.get("procs", 3))
+        nam, lock, done = Nam(job, procs), threading.Lock(), itertools.count(1)
+
+        def hear(m):
+            t0 = time.time()
+            try:
+                outs = nam.render(m["path"], [pre(d, {**flat, "drive_db": g}, sr) for g in FP_DRIVES])
+            except Exception:
+                return {"name": m["name"], "bad": True}
+            cost = (time.time() - t0) * 8.0 / (6.0 * len(FP_DRIVES))      # a sieve render: 2 × 4 s
+            per = []
+            for o in outs:
+                if not np.isfinite(o).all() or float(np.abs(o).max()) < 1e-4:
+                    return {"name": m["name"], "bad": True}
+                fc = ear.measure(o, ctx)
+                fy = ear.measure(convolve(o, ear.ir(ear.colour(target, fc["ltas"]))), ctx)
+                per.append({"spread": np.round(fy["spread"][1:7], 2).tolist(), "flat": np.round(fy["flat"][1:8], 2).tolist(),
+                            "crest": round(fy["crest"], 2), "sustain": None if fy["sustain"] is None else np.round(fy["sustain"], 2).tolist()})
+            return {"name": m["name"], "cost": round(cost, 3), "d": per}
+        try:
+            with ThreadPoolExecutor(procs) as pool:
+                for m, got in zip(todo, pool.map(hear, todo)):
+                    with lock:
+                        cache[keys[m["id"]]] = got
+                        n = next(done)
+                        stage("cores", n, len(todo))
+                        if n % 25 == 0 or n == len(todo):
+                            tmp = path.with_suffix(".tmp")
+                            tmp.write_text(json.dumps(cache), encoding="utf-8")
+                            tmp.replace(path)
+        finally:
+            nam.close()
+    return {m["id"]: cache[keys[m["id"]]] for m in models}
+
+
+def choose_cores(models, fps, procs=3, twins=FP_TWINS, budget_s=FP_BUDGET_S):
+    """The cores a print tries: of near-twins (the same amp through another mic, the same capture
+    trained smaller) one stands for all — the one most others sound like, the bigger capture of
+    equals — and no more of them than the first sieve plays within its share of the time.
+    Returns the chosen and, for each, the ids it stands for."""
+    ok = [m for m in models if not fps.get(m["id"], {}).get("bad") and fps.get(m["id"], {}).get("d")]
+    n = len(ok)
+    if not n:
+        return [], {}
+    dist = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            dist[i, j] = dist[j, i] = _fp_dist(fps[ok[i]["id"]], fps[ok[j]["id"]])
+    near = (dist < twins).sum(1)
+    size = [Path(m["path"]).stat().st_size if Path(m["path"]).exists() else 0 for m in ok]
+    order = sorted(range(n), key=lambda i: (-near[i], -size[i], ok[i]["name"].lower()))
+    left, chosen, stands = set(range(n)), [], {}
+    for i in order:
+        if i not in left:
+            continue
+        group = [j for j in left if dist[i, j] < twins]
+        left -= set(group)
+        chosen.append(i)
+        stands[ok[i]["id"]] = sorted(ok[j]["id"] for j in group if j != i)
+    spent, keep = 0.0, []
+    for i in chosen:                       # the groups that stand for the most first
+        spent += (fps[ok[i]["id"]].get("cost", 2.0) + 2 * FP_EVAL_S) / max(1, procs)
+        if spent > budget_s and keep:
+            break
+        keep.append(ok[i])
+    return keep, {m["id"]: stands[m["id"]] for m in keep}
+
+
 def _window(active, frames):
     """The stretch of `frames` frames with the most playing in it."""
     if len(active) <= frames:
@@ -600,9 +717,13 @@ class Fit:
         c8, c4 = ear.context(r8, d8), ear.context(r4, d4)
         f8, f4 = ear.measure(r8, c8), ear.measure(r4, c4)
 
-        models = [None] + [m for m in job["models"]]
         prev = job.get("start_from") or {}
         procs = int(job.get("procs", 3))
+        cores = list(job["models"])
+        if job.get("fp_cache") and not prev.get("ranking") and cores:
+            cores, _ = choose_cores(cores, fingerprints(job, cores, self.stage), procs)
+        self.cores = {"tried": len(cores), "known": len(job["models"])}
+        models = [None] + cores
         nam = Nam(job, procs)
         try:
             flat = {"hp": 0.0, "mid_db": 0.0, "tilt_db": 0.0}
@@ -755,7 +876,7 @@ class Fit:
             "drive_db": round(params["drive_db"], 2), "pre": {k: round(params[k], 2) for k in ("hp", "mid_db", "tilt_db")},
             "ir": "print-ir.wav", "room": room, "width": width,
             "match": match_of(total), "loss": round(total, 3), "parts": {k: round(v, 3) for k, v in parts.items()},
-            "ranking": ranking[:12], "lags_ms": seg["lags"], "played_s": round(played, 1), "warnings": warnings,
+            "ranking": ranking[:12], "cores": self.cores, "lags_ms": seg["lags"], "played_s": round(played, 1), "warnings": warnings,
             "compare": compare, "kinds": seg["kinds"],
             "guitar": ({"name": job.get("guitar_name") or "", **seg["pseudo"]} if seg["pseudo"] else None),
             "report": {"record": rec, "you": describe(ear, fy),
@@ -912,7 +1033,41 @@ def selftest_guitar():
         _sh.rmtree(tmp, ignore_errors=True)
 
 
+def selftest_cores():
+    """Made-up fingerprints: an amp in three sizes, the same amp through another mic, two other amps
+    and one that would not play. The sizes and the mic are one core (the biggest stands for them);
+    the others are their own; the broken one is left out; a tight time lets fewer through."""
+    tmp = Path(tempfile.mkdtemp(prefix="pick-cores-test-"))
+    try:
+        def fp(spread, flat, crest, sus, cost=1.0):
+            one = {"spread": [spread] * 6, "flat": [flat] * 7, "crest": crest, "sustain": [sus, sus - 2, sus - 4]}
+            return {"name": "", "cost": cost, "d": [one, {**one, "crest": crest - 1}]}
+        fps, models = {}, []
+        for name, size, f in (("jcm-feather", 10, fp(9, -20, 9, -1)), ("jcm-std", 300, fp(9.1, -20.1, 9.05, -1)),
+                              ("jcm-lite", 100, fp(9.05, -20, 9.1, -1.1)), ("jcm-mic2", 300, fp(9.2, -19.9, 9.0, -1.05)),
+                              ("twin", 300, fp(14, -8, 15, -6)), ("5150", 300, fp(6, -25, 6, 0)), ("broken", 300, {"name": "", "bad": True})):
+            f_ = tmp / f"{name}.nam"
+            f_.write_bytes(b"x" * size)
+            models.append({"id": name + ".nam", "name": name, "path": str(f_)})
+            fps[name + ".nam"] = f
+        keep, stands = choose_cores(models, fps, procs=1)
+        names = sorted(m["name"] for m in keep)
+        jcm = next(m for m in keep if m["name"].startswith("jcm"))
+        ok = names == sorted([jcm["name"], "twin", "5150"]) and jcm["name"] in ("jcm-std", "jcm-mic2") \
+            and len(stands[jcm["id"]]) == 3 and "broken" not in names
+        tight, _ = choose_cores(models, fps, procs=1, budget_s=2.0)
+        ok = ok and len(tight) == 1 and tight[0]["name"] == jcm["name"]
+        say(f"SELFTEST-CORES chosen={names} stands={stands[jcm['id']]} tight={[m['name'] for m in tight]}")
+        say("SELFTEST-CORES OK" if ok else "SELFTEST-CORES FAIL")
+        return 0 if ok else 1
+    finally:
+        import shutil as _sh
+        _sh.rmtree(tmp, ignore_errors=True)
+
+
 def main():
+    if "--selftest-cores" in sys.argv:
+        return selftest_cores()
     if "--selftest" in sys.argv:
         return selftest()
     if "--selftest-guitar" in sys.argv:
@@ -926,6 +1081,16 @@ def main():
             return 1
         Path(job["out"]).write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
         say(f"DONE {len(got['segments'])}")
+        return 0
+    if "--cores" in sys.argv:
+        job = json.loads(Path(sys.argv[sys.argv.index("--cores") + 1]).read_text(encoding="utf-8"))
+        fps = fingerprints(job, job["models"], lambda k, a, b: say(f"STAGE {k} {a} {b}"))
+        keep, stands = choose_cores(job["models"], fps, int(job.get("procs", 3)))
+        Path(job["out"]).write_text(json.dumps({"chosen": [{"id": m["id"], "name": m["name"], "stands_for": stands[m["id"]]} for m in keep],
+                                                "known": len(job["models"]), "bad": [m["id"] for m in job["models"] if fps[m["id"]].get("bad")],
+                                                "sieve_s": round(sum((fps[m["id"]]["cost"] + 2 * FP_EVAL_S) / int(job.get("procs", 3)) for m in keep))},
+                                               ensure_ascii=False), encoding="utf-8")
+        say(f"DONE {len(keep)}")
         return 0
     job = json.loads(Path(sys.argv[sys.argv.index("--job") + 1]).read_text(encoding="utf-8"))
     try:

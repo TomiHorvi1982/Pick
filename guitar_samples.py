@@ -1,13 +1,15 @@
 """Nahraná kytara — the virtual guitar and the tab guide played on recorded notes, not a synthesised string.
 
-A set is a folder under guitar-samples/<id>/: a manifest.json and one FLAC a note. Every note was
+A set is a folder under guitar-samples/<id>/: a manifest.json and one FLAC a note (or a power chord). Every note was
 recorded on its own string (a guitar plays the same pitch on more strings, each sounding a little
 different), picked down, at two strengths (soft for legato, full for a picked note), twice each
 (played in turn, so a riff does not machine-gun), plucked open and palm muted. The guitar is DI —
 no amp — because what Pick plays goes on into a NAM amp or a tone print.
 
-The first set is made from Soundiron's Axe Machina (the player's own library, its plain WAVs, in
-Kontakt's Libraries folder) by tools/build_guitar_samples.py, once.
+The sets are made from Soundiron's Axe Machina (the player's own library, its plain WAVs, in
+Kontakt's Libraries folder) by tools/build_guitar_samples.py, once. Besides the DI set there are
+finished sounds ("kind": "amped": Axe Machina's own amped samples, or its DI through a NAM amp and
+a cabinet), which the virtual guitar plays as they are, with power chords recorded whole.
 """
 import json
 import re
@@ -20,6 +22,7 @@ router = APIRouter()
 ROOT = Path.home() / ".local" / "share" / "spotdl-helper" / "guitar-samples"
 SET_ID = re.compile(r"^[a-z0-9-]{1,40}$")
 FILE = re.compile(r"^[a-z]+-\d{2,3}-s\d-v\d-r\d\.flac$")
+TONES = {"clean": 0, "crunch": 1, "hi_gain": 2}
 
 
 def sets() -> list:
@@ -33,8 +36,10 @@ def sets() -> list:
                 except (OSError, ValueError):
                     continue
                 out.append({"id": d.name, "name": m.get("name", d.name), "samples": len(m.get("samples", [])),
-                            "bytes": m.get("bytes", 0)})
-    return out
+                            "bytes": m.get("bytes", 0), "kind": m.get("kind", "di"), "tone": m.get("tone", ""),
+                            "about": m.get("about", "")})
+    # the DI sets first: what a tone print plays through when nothing else is asked for; then clean to metal
+    return sorted(out, key=lambda x: (x["kind"] != "di", TONES.get(x["tone"], len(TONES)), x["name"].lower()))
 
 
 @router.get("/api/guitar-samples")

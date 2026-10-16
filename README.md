@@ -682,6 +682,16 @@ kytara; návrh v `docs/specs/2026-10-15-tonovy-otisk-design.md`). Aparáty ani
 efekty neřešíš — engine si z knihovny NAM modelů (`amps/`) sám vybere jádro
 zkreslení a zbytek dopočítá.
 
+**Která jádra zkouší**: všechna, co Pick zná (`amps/`, `amps/nam/`, kategorie, knihovna), ale
+téměř-dvojčata jen jednou. Každé jádro si engine jednou „poslechne“ na vymyšleném riffu se dvěma drivy
+a s barvou srovnanou na stejné spektrum (`tone_worker.py fingerprints`, pamatuje se podle obsahu
+souboru v `amps/.tone-cores.json`, nové modely se doposlechnou při dalším otisku) — změří to, co barva
+spravit neumí, tytéž míry jako otisk. Jádra blíž než 0,15 (v jednotkách ztráty otisku: tentýž capture
+v menší síti 0,01–0,15, dva zesilovače jednoho druhu 0,2–0,5, clean proti crunchi 2–6) zastoupí jedno —
+to, kterému je podobných nejvíc, z rovných větší síť. Mikrofon jinde je jen barva a tu si otisk dopočítá
+sám. Ze 345 modelů tak zkouší 249 a síto má časový strop (330 s), aby otisk skončil do 15 minut
+(`tone_worker.py --cores job.json` vypíše, kdo koho zastupuje).
+
 1. **Úsek** — smyčka z mixu, nebo jeden z návrhů `GET /api/tone/{song}/sections`
    (kde kytara hraje nejvíc a ostatní nejméně; u rozdělené kytary sólová/rytmická).
 2. **Kalibrace** — píseň začne 3 s před úsekem a ty ho zahraješ s ní. Nahrává
@@ -691,7 +701,7 @@ zkreslení a zbytek dopočítá.
 3. **Otisk** (`POST /api/tone/{song}/fit`, ~2 min, hlídá paměť) — `tone_worker.py`:
    dorovná zpoždění nahrávky proti originálu, změří, co barva spravit neumí
    (rozptyl hlasitosti v pásmech, plochost spektra mezi harmonickými, crest,
-   sustain po úderu, souběh obálek), a zkouší jádra: všechna × 2 drive na 4 s,
+   sustain po úderu, souběh obálek), a zkouší jádra: všechna různá × 2 drive na 4 s,
    nejlepších 20 × 4 drive na 8 s, nejlepší 4 doladí Nelder–Meadem (drive,
    ořez basů, středy, sklon před jádrem). **Barvu nehledá** — pro každé jádro
    ji spočítá přímo (dlouhodobé spektrum originálu / jádra po 1/6 oktávy →
@@ -808,8 +818,19 @@ DI kytara (bez zesilovače — dál jde do NAM nebo otisku), 7 strun (F, D, G, C
 každý tón na každé struně, údery dolů, dvě síly (slabší pro legato), dvě nahrávky střídavě, drnknuté
 i tlumené dlaní (PM a mrtvé tóny). Tón zahraje struna, jejíž ladění je nejblíž struně v tabu; tón mimo
 rozsah se doladí z nejbližšího. 912 tónů, 34 MB FLAC; před přehráním se načtou jen ty, které riff
-potřebuje, a dokud tón není načtený, zahraje se syntetická struna. Sada se vyrobí jednou:
-`~/.local/venvs/pick-tone/bin/python tools/build_guitar_samples.py [složka Axe Machina]`.
+potřebuje, a dokud tón není načtený, zahraje se syntetická struna.
+
+**Hotové zvuky** (bez Kontaktu, ve virtuální kytaře v nabídce Zvuk → *Nahraná kytara — hotový zvuk*): tytéž
+tóny už se zesilovačem a bednou, hrají se tak, jak jsou, bez otisku. **Metal · Axe Machina** jsou nahrávky
+Axe Machiny přes zesilovač Soundironu (strana „b“), ostatní je čistá Axe Machina přehraná v Picku přes NAM
+model a bednu ze sbírky (`amps/nam`, `amps/ir`; tentýž WebAssembly engine jako živá kytara):
+**Clean · Fender Twin** (Tim R TwinVerb, Bogren clean IR), **Blues · Vox AC15** (Top Boost), **Crunch · Marshall
+JCM2000** (Sturgis Marshall 1960, SM57) a **Hi-Gain · 5150** (Helga B BlockLetter s boostem, MDL Tone 4×12).
+K tónům mají i **powerchordy nahrané celé** (zkreslený akord nezní jako jeho tóny zkreslené každý zvlášť):
+sloupec tabu s kvintou (a oktávou) nad nejnižším tónem zahraje jednu nahrávku akordu, s PM tlumenou.
+Hlasitost podle těla tónu (první půlsekunda), nejostřejší náběhy čistého zvuku zastropuje měkký limiter.
+Každá sada 1356 nahrávek, 45–145 MB. Sady se vyrobí jednou (render přes NAM asi 10 minut na sadu):
+`~/.local/venvs/pick-tone/bin/python tools/build_guitar_samples.py [--only <sada>] [složka Axe Machina]`.
 
 **Taby z písní** pod kytarou, pět záložek (pátá je Katalog riffů, níž):
 - **Knihovna Taby** — tvoje knihovna ze sekce Taby (Pick Tabs, `/api/tabfiles/list`) s vyhledáváním. Vybraná
@@ -876,7 +897,8 @@ v Picku, jen v rámci tvých licencí (zašifrované vzorky se nikdy nečtou, hr
 - **Živě přes MIDI**: ve virtuální kytaře výstup MIDI (třeba IAC Driver) — noty jdou živě do Kontaktu
   nebo Gig Performeru, zvuk hraje on.
 - **Smyčky a samply**: co knihovny mají jako obyčejné WAV (Riffage – Metal: 2416 smyček po tempech
-  80/120/160 a tóninách A/C/D#/F#, čistá DI i přes zesilovač; Axe Machina: samply), podle knihovny,
+  80/120/160 a tóninách A/C/D#/F#, čistá DI i přes zesilovač; Clean Guitars od Beastsamples: 14 čistých
+  smyček a 23 riffů a melodií, tempo a tónina z názvu; Axe Machina: samply), podle knihovny,
   tempa, tóniny a druhu (`GET /api/kontakt/sounds`). Poslech, čistá DI i přes tónový otisk písně,
   „Do Steems“ jako projekt.
 
@@ -1083,7 +1105,12 @@ cd ~/.local/share/spotdl-helper/app
   hotové artefakty neposílá a stavět ho Emscriptenem by dalo byte za byte to,
   co npm už publikuje. Kabinet je obyčejný `ConvolverNode` — impuls **je**
   konvoluce a prohlížeč ji umí nativně. Modely a impulsy se sbírají do
-  `~/.local/share/spotdl-helper/amps/` a patří appce, ne jedné písni.
+  `~/.local/share/spotdl-helper/amps/` a patří appce, ne jedné písni. Sbírky
+  zkopírované celé leží vedle: `amps/nam/` (259 komunitních NAM modelů, GPL 3,
+  `COPYING` u nich) a `amps/ir/<balík>/…` (1417 impulsů: Bogren Digital ×6, Joey
+  Sturgis Conquer All 1–5, MDL Tone Ultimate Heavy Cabs — jen 48 kHz, stejné
+  soubory jednou). Výběr zesilovače a kabinetu je má sbalené po balících a hledá
+  podle slov z názvu i složky.
 - **Nahrávka je stopa**: co nahraješ, projde přes ffmpeg do 320k MP3 a uloží
   se jako `take-N.mp3` vedle rozseparovaných stop. Po odpojení kytary tam
   zůstane jako normální stopa — s vlnou, mřížkou i faderem.

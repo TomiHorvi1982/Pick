@@ -76,7 +76,7 @@ again = bool(job.get("start_from"))
     "pre": {"hp": 90, "mid_db": 1, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False, "corr": 1.0},
     "match": 91 if again else 84, "takes_seen": len(job["takes"]), "offsets": [t["offset"] for t in job["takes"]],
     "report": {"record": {"drive": 45}, "you": {"drive": 50}},
-    "spec": {"guitar": bool(job.get("guitar")), "ref_notes": len(job.get("ref_notes") or []), "current": job.get("current")}}))
+    "spec": {"guitar": bool(job.get("guitar")), "ref_notes": len(job.get("ref_notes") or []), "current": job.get("current"), "fp": job.get("fp_cache")}}))
 print("DONE 84", flush=True)
 """, encoding="utf-8")
     monkeypatch.setattr(server, "TONE_PYTHON", Path(sys.executable))
@@ -136,6 +136,7 @@ def test_a_print_is_made_kept_refined_and_taken_back(client, tmp_music_root, tmp
     p = client.get("/api/tone/Kapela - Píseň").json()["print"]
     assert p["id"] == pid and p["name"] == "Kapela – Píseň" and p["name_auto"] and p["category"] == "crunch" and p["category_auto"]
     assert p["core"]["name"] == "Amp" and p["start"] == 5 and p["stem"] == "guitar"
+    assert p["spec"]["fp"] == str(server.AMPS_DIR / ".tone-cores.json")        # how the cores sound, heard once, kept
     assert p["takes"] == ["take-1.wav"] and p["gain_db"] == 2.5 and p["offsets"] == [-1.0] and p["song"] == "Kapela - Píseň"
     assert (d / "tone" / "prints" / pid / "print-ir.wav").is_file()
     assert client.get(f"/api/tone/Kapela - Píseň/file/print-ir.wav?print={pid}").status_code == 200
@@ -291,3 +292,12 @@ def test_a_calibrated_guitar_plays_the_records_notes_on_its_clock():
     strings, and every stroke lands on the record's onset at the record's pitch (tone_worker.py)."""
     r = subprocess.run([str(server.TONE_PYTHON), str(server.TONE_WORKER), "--selftest-guitar"], capture_output=True, text=True, timeout=300)
     assert r.returncode == 0 and "SELFTEST-GUITAR OK" in r.stdout, r.stdout[-2000:]
+
+
+@pytest.mark.skipif(not server.TONE_PYTHON.is_file(), reason="engine otisku tu není")
+def test_near_twin_cores_are_tried_once():
+    """One amp through other mics, one capture trained smaller: one of them stands for all, the biggest;
+    a core that would not play is left out; and no more are tried than the time allows (tone_worker.py)."""
+    r = subprocess.run([str(server.TONE_PYTHON), str(server.TONE_WORKER), "--selftest-cores"], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0 and "SELFTEST-CORES OK" in r.stdout, r.stdout[-2000:]
+

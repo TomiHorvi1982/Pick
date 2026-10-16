@@ -1310,6 +1310,11 @@ body.lib-collapsed .pick-brand{display:none}
   .gt-amp-step:hover{background:#2a2a33;color:var(--nm-txt)}
   .amp-picker{min-width:236px;max-height:70vh;overflow-y:auto}
   .amp-picker .ss-head{padding:6px 8px 3px}
+  .amp-picker .amp-find{width:calc(100% - 12px);margin:6px;box-sizing:border-box}
+  .amp-picker details.amp-pack>summary{cursor:pointer;padding:5px 8px;color:var(--nm-sub);font-size:12px}
+  .amp-picker details.amp-pack>summary:hover{color:var(--nm-txt)}
+  .amp-picker details.amp-pack>button{padding-left:18px}
+  .amp-picker .amp-dir{opacity:.55;font-size:10.5px;margin-right:4px}
   .gt-lat{font-size:8.5px;color:var(--nm-sub);text-align:right;
     font-variant-numeric:tabular-nums}
   .guitar-lane{display:flex;align-items:center}
@@ -13563,6 +13568,32 @@ el("steems-hero-close").onclick = hideSteemsHero;
 // ======================================================================
 // Guitar Sampler (Virtual Guide)
 // ======================================================================
+// The amps and cabinets to choose from, for both pickers (Steems' live guitar, the player's
+// guitar): the player's own ones as they are, a collection copied in whole (amps/nam,
+// amps/ir/<pack>/…) folded into its pack, and a box that finds by any word of a name or folder.
+function ampChoices(list, attr, prefix = ""){
+  const row = (m) => `<button type="button" data-${attr}="${escapeHtml(prefix + m.file)}" data-find="${escapeHtml(((m.pack || "") + " " + (m.folder || "") + " " + m.name).toLowerCase())}">
+    ${icon(attr === "ir" ? "volume" : "sliders", 12)}${m.folder ? `<span class="amp-dir">${escapeHtml(m.folder)} ·</span>` : ""}${escapeHtml(m.name)}</button>`;
+  const packs = {};
+  list.filter((m) => m.pack).forEach((m) => (packs[m.pack] = packs[m.pack] || []).push(m));
+  return list.filter((m) => !m.pack).map(row).join("") + Object.entries(packs).map(([name, ms]) =>
+    `<details class="amp-pack"><summary>${escapeHtml(name)} (${ms.length})</summary>${ms.map(row).join("")}</details>`).join("");
+}
+function wireAmpFind(box){
+  const find = box.querySelector(".amp-find");
+  box.querySelectorAll("button.on").forEach((b) => { const d = b.closest("details"); if(d) d.open = true; });
+  if(!find) return;
+  find.oninput = () => {
+    const words = find.value.toLowerCase().split(/\s+/).filter(Boolean);
+    box.querySelectorAll("[data-find]").forEach((b) => { b.hidden = !words.every((w) => b.dataset.find.includes(w)); });
+    box.querySelectorAll("details.amp-pack").forEach((d) => {
+      const any = [...d.querySelectorAll("[data-find]")].some((b) => !b.hidden);
+      d.hidden = !any; if(words.length) d.open = any;
+    });
+  };
+  setTimeout(() => find.focus(), 0);
+}
+
 const GuitarSampler = (() => {
   // A bare oscillator is a poor thing to feed a neural amp: it has none of the
   // noisy, decaying attack the model learned from real pickups. So the notes are
@@ -13570,13 +13601,16 @@ const GuitarSampler = (() => {
   // on each string, picked and palm muted), the string nearest the tab's own
   // playing it. Without a set, or while a note's file is still on its way, each
   // pitch is synthesised as a plucked string (Karplus-Strong). Pitch comes from
-  // the tab's own tuning, so drop-D and friends come out right.
+  // the tab's own tuning, so drop-D and friends come out right. Besides the DI set
+  // Pick may have finished sounds (clean, crunch, metal: amp and cabinet already in
+  // them) that the virtual guitar asks for note by note, power chords whole.
   const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];  // string 0 = high e
   const BUFFER_SECONDS = 3;
   const cache = new Map();                // "sampleRate:midi" -> AudioBuffer
   const voices = new Map();               // one ringing voice per string, per part
-  let set = null, loading = null, turn = 0;   // the recorded set: {id, name, strings, layers, byKey}
-  const bufs = new Map();                 // file -> AudioBuffer | Promise | false (could not be had)
+  let set = null, loading = null, turn = 0, list = [];   // the default (DI) set: {id, name, kind, strings, layers, byKey, chords}
+  const sets = new Map();                 // id -> set | Promise of it
+  const bufs = new Map();                 // "set/file" -> AudioBuffer | Promise | false (could not be had)
 
   function pluck(ctx, midi){
     const key = ctx.sampleRate + ":" + midi;
@@ -13624,32 +13658,46 @@ const GuitarSampler = (() => {
     return buf;
   }
 
+  // The sets Pick has (guitar_samples.py), their manifests fetched once each. The DI set is the
+  // default — a note asks for another by note.set (the virtual guitar's finished sounds).
   function init(){
     if(!loading) loading = (async () => {
       try{
-        const first = ((await (await fetch("/api/guitar-samples")).json()).sets || [])[0];
-        if(!first) return;
-        const m = await (await fetch(`/api/guitar-samples/${first.id}/manifest.json`)).json();
-        const byKey = new Map();          // "kind:midi:string" -> [{v, r, file}]
-        m.samples.forEach(([kind, midi, st, v, r, file]) => {
-          const k = kind + ":" + midi + ":" + st;
-          if(!byKey.has(k)) byKey.set(k, []);
-          byKey.get(k).push({v, r, file});
-        });
-        set = {id: first.id, name: m.name, strings: m.strings, layers: m.layers || {}, byKey};
-      }catch(e){ set = null; }
+        list = ((await (await fetch("/api/guitar-samples")).json()).sets || []);
+        const di = list.find((x) => x.kind === "di") || list[0];
+        if(di) set = await load(di.id);
+      }catch(e){ list = []; set = null; }
     })();
     return loading;
   }
+  function load(id){
+    if(!sets.has(id)) sets.set(id, (async () => {
+      const m = await (await fetch(`/api/guitar-samples/${id}/manifest.json`)).json();
+      const byKey = new Map();            // "kind:midi:string" -> [{v, r, file}]
+      m.samples.forEach(([kind, midi, st, v, r, file]) => {
+        const k = kind + ":" + midi + ":" + st;
+        if(!byKey.has(k)) byKey.set(k, []);
+        byKey.get(k).push({v, r, file});
+      });
+      const got = {id, name: m.name, kind: m.kind || "di", about: m.about || "", strings: m.strings, layers: m.layers || {}, byKey,
+                   chords: m.samples.some((x) => x[0] === "pc")};
+      sets.set(id, got);
+      return got;
+    })().catch(() => { sets.delete(id); return null; }));
+    const v = sets.get(id);
+    return v instanceof Promise ? v : Promise.resolve(v);
+  }
+  // a set already at hand (null while its manifest is still coming: the default plays meanwhile)
+  const setOf = (id) => { if(!id) return set; const v = sets.get(id); if(v === undefined) load(id); return v && !(v instanceof Promise) ? v : null; };
 
   // The recorded note for a pitch: on the sampled string nearest the tab's own
   // that reaches it (a note past a string's range is the nearest one, retuned).
-  function chooseKey(kind, midi, open){
-    if(!set) return null;
+  function chooseKey(kind, midi, open, s = set){
+    if(!s) return null;
     let best = null;
-    set.strings.forEach((g) => {
+    s.strings.forEach((g) => {
       let m = Math.max(g.open, Math.min(g.top, midi));
-      while(m >= g.open && !set.byKey.has(kind + ":" + m + ":" + g.s)) m--;
+      while(m >= g.open && !s.byKey.has(kind + ":" + m + ":" + g.s)) m--;
       if(m < g.open) return;
       const score = Math.abs(midi - m) * 12 + Math.abs(g.open - open);
       if(!best || score < best.score) best = {score, key: kind + ":" + m + ":" + g.s, rate: Math.pow(2, (midi - m) / 12), shift: midi - m};
@@ -13657,31 +13705,46 @@ const GuitarSampler = (() => {
     return best && Math.abs(best.shift) <= 12 ? best : null;
   }
 
-  function buffer(ctx, file){
-    const b = bufs.get(file);
+  function buffer(ctx, file, s = set){
+    const id = s.id + "/" + file, b = bufs.get(id);
     if(b instanceof AudioBuffer) return b;
-    if(b === undefined) bufs.set(file, fetch(`/api/guitar-samples/${set.id}/${file}`)
+    if(b === undefined) bufs.set(id, fetch(`/api/guitar-samples/${id}`)
       .then((r) => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
       .then((a) => ctx.decodeAudioData(a))
-      .then((x) => { bufs.set(file, x); return x; }, () => { bufs.set(file, false); return null; }));
+      .then((x) => { bufs.set(id, x); return x; }, () => { bufs.set(id, false); return null; }));
     return null;
   }
 
+  // A power chord in one column of a tab — its root, its fifth, maybe the octave — when the set
+  // has power chords recorded whole (a distorted chord is not its notes distorted one by one).
+  // frets: {string: fret | "x"} → {string, fret, strings} of the root, or null.
+  function chordOf(tuning, frets, id){
+    const s = setOf(id);
+    if(!s || !s.chords) return null;
+    const ns = Object.entries(frets || {}).filter(([st, f]) => f !== "x" && tuning[+st] != null)
+      .map(([st, f]) => ({string: +st, fret: +f, m: tuning[+st] + +f})).sort((a, b) => a.m - b.m);
+    if(ns.length < 2 || ns.length > 3) return null;
+    const r = ns[0].m, iv = ns.slice(1).map((n) => n.m - r);
+    if(iv[0] !== 7 || (iv.length === 2 && iv[1] !== 12)) return null;
+    return {string: ns[0].string, fret: ns[0].fret, strings: ns.map((n) => n.string)};
+  }
+
   // The files a run of notes will want, fetched before it plays (a few seconds at most).
-  // notes: [{open, fret, mute}]
-  async function prepare(ctx, notes){
+  // notes: [{open, fret, mute, chord}], all from one set (the default when id is not given)
+  async function prepare(ctx, notes, id){
     await init();
-    if(!set) return;
+    const s = id ? await load(id) : set;
+    if(!s) return;
     const files = new Set();
     notes.forEach((n) => {
-      const c = chooseKey(n.mute ? "mute" : "pluck", n.open + n.fret, n.open);
-      if(c) set.byKey.get(c.key).forEach((x) => files.add(x.file));
+      const c = chooseKey(n.chord ? (n.mute ? "pcmute" : "pc") : n.mute ? "mute" : "pluck", n.open + n.fret, n.open, s);
+      if(c) s.byKey.get(c.key).forEach((x) => files.add(x.file));
     });
-    const waits = [...files].map((f) => { buffer(ctx, f); return bufs.get(f); }).filter((p) => p && p.then);
+    const waits = [...files].map((f) => { buffer(ctx, f, s); return bufs.get(s.id + "/" + f); }).filter((p) => p && p.then);
     await Promise.race([Promise.all(waits), new Promise((ok) => setTimeout(ok, 4000))]);
   }
 
-  const status = () => set ? set.name : "";
+  const status = (id) => { const s = setOf(id); return s ? s.name : ""; };
 
   function release(v, at, fade){
     try{
@@ -13692,7 +13755,8 @@ const GuitarSampler = (() => {
     }catch(e){}
   }
 
-  // note: {duration, staccato, hammer, pull, mute (palm), dead} as the tab gives them.
+  // note: {duration, staccato, hammer, pull, mute (palm), dead} as the tab gives them; set: which
+  // set plays it (the default when not given); chord: [strings] — a power chord on this root, whole.
   function playNote(ctx, output, string, fret, time = 0, tuning, note, part = 0){
     const open = (tuning && tuning[string] != null) ? tuning[string] : STANDARD_TUNING[string];
     if(open == null) return;
@@ -13705,17 +13769,18 @@ const GuitarSampler = (() => {
     // A string can only ring one note: the new one damps the old one.
     // (Two guitar parts play the same strings and must not cut each other off.)
     const vkey = part * 16 + string;
-    const old = voices.get(vkey);
-    if(old) release(old, time, 0.03);
+    const rung = [string, ...((n.chord || []).filter((x) => x !== string))];
+    rung.forEach((x) => { const o = voices.get(part * 16 + x); if(o) release(o, time, 0.03); });
 
     // Recorded: the soft take for a legato note, the full one picked, the two takes in turn.
-    const c = chooseKey(n.mute || n.dead ? "mute" : "pluck", midi, open);
+    const s = setOf(n.set);
+    const c = chooseKey(n.chord ? (n.mute ? "pcmute" : "pc") : n.mute || n.dead ? "mute" : "pluck", midi, open, s);
     let rec = null;
     if(c){
-      const takes = set.byKey.get(c.key), layer = soft ? set.layers.soft : set.layers.full;
+      const takes = s.byKey.get(c.key), layer = soft ? s.layers.soft : s.layers.full;
       const ts = takes.filter((x) => x.v === layer);
       const t = (ts.length ? ts : takes)[turn++ % (ts.length || takes.length)];
-      const b = buffer(ctx, t.file);
+      const b = buffer(ctx, t.file, s);
       if(b) rec = {b, rate: c.rate};
     }
     const src = ctx.createBufferSource();
@@ -13735,19 +13800,19 @@ const GuitarSampler = (() => {
     release(v, time + held, rec ? (n.staccato || n.mute || n.dead ? 0.04 : 0.1) : n.staccato ? 0.05 : 0.25);
     src.onended = () => {
       try{ env.disconnect(); }catch(e){}
-      if(voices.get(vkey) === v) voices.delete(vkey);
+      rung.forEach((x) => { if(voices.get(part * 16 + x) === v) voices.delete(part * 16 + x); });
     };
-    voices.set(vkey, v);
+    rung.forEach((x) => voices.set(part * 16 + x, v));
   }
 
   // Seek, loop and pause: nothing scheduled before now may keep ringing.
   function stopAll(ctx){
     const at = ctx.currentTime;
-    voices.forEach(v => { if(v) release(v, at, 0.03); });
+    new Set(voices.values()).forEach(v => { if(v) release(v, at, 0.03); });
     voices.clear();
   }
 
-  return { init, prepare, status, playNote, stopAll };
+  return { init, load, sets: () => list.slice(), prepare, status, chordOf, playNote, stopAll };
 })();
 
 // ======================================================================
@@ -26131,16 +26196,15 @@ const Mixer = (() => {
     box.className = "sect-menu amp-picker";
     box.id = "amp-picker";
     box.innerHTML = `
+      ${models.length + irs.length > 12 ? `<input type="search" class="amp-find" placeholder="Hledat zesilovač nebo bednu…">` : ""}
       <div class="ss-head">Zesilovač (NAM)</div>
       ${models.length ? "" : `<div class="hint">Zatím žádný model. Přetáhni sem .nam soubor
         nebo ho přidej tlačítkem níž.</div>`}
-      ${models.map(m => `<button type="button" data-model="${escapeHtml(m.file)}">
-        ${icon("sliders", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      ${ampChoices(models, "model")}
       <button type="button" data-model="">${icon("close", 12)}Bez zesilovače</button>
       <hr>
       <div class="ss-head">Kabinet (IR)</div>
-      ${irs.map(m => `<button type="button" data-ir="${escapeHtml(m.file)}">
-        ${icon("volume", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      ${ampChoices(irs, "ir")}
       <button type="button" data-ir="">${icon("close", 12)}Bez kabinetu</button>
       <hr>
       <button type="button" id="amp-add">${icon("plus", 12)}Přidat .nam nebo .wav…</button>
@@ -26168,7 +26232,7 @@ const Mixer = (() => {
         showToast("Načítám model…");
         try{
           await Amp.load(file);
-          showToast(`Zesilovač: ${file.replace(/\.nam$/i, "")}`);
+          showToast(`Zesilovač: ${file.split("/").pop().replace(/\.nam$/i, "")}`);
         }catch(e){ showToast("Model se nepodařilo načíst"); }
         renderGuitarStrip();
         queueSessionSave();
@@ -26181,12 +26245,13 @@ const Mixer = (() => {
         if(!file){ Amp.unloadCab(); showToast("Kabinet vypnut"); renderGuitarStrip(); return; }
         try{
           await Amp.loadCab(file);
-          showToast(`Kabinet: ${file.replace(/\.wav$/i, "")}`);
+          showToast(`Kabinet: ${file.split("/").pop().replace(/\.wav$/i, "")}`);
         }catch(e){ showToast("Impuls se nepodařilo načíst"); }
         renderGuitarStrip();
         queueSessionSave();
       };
     });
+    wireAmpFind(box);
     el("amp-add").onclick = () => { box.remove(); pickAmpFiles(); };
     el("amp-t3k").onclick = () => { box.remove(); explainTone3000(); };
 
@@ -31768,15 +31833,14 @@ const PlayerGuitar = (() => {
     box.className = "sect-menu amp-picker pb-gtr-picker";
     box.id = "pb-gtr-picker";
     box.innerHTML = `
+      ${models.length + irs.length > 12 ? `<input type="search" class="amp-find" placeholder="Hledat zesilovač nebo bednu…">` : ""}
       <div class="ss-head">Zesilovač (NAM)</div>
       ${lib ? `<button type="button" data-model="${escapeHtml(lib.key)}">${icon("folderOpen", 12)}${escapeHtml(lib.name)}</button>` : ""}
-      ${models.map(m => `<button type="button" data-model="amp:${escapeHtml(m.file)}">
-        ${icon("sliders", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      ${ampChoices(models, "model", "amp:")}
       <button type="button" data-model="">${icon("close", 12)}Bez zesilovače</button>
       <hr>
       <div class="ss-head">Kabinet (IR)</div>
-      ${irs.map(m => `<button type="button" data-ir="${escapeHtml(m.file)}">
-        ${icon("volume", 12)}${escapeHtml(m.name)}</button>`).join("")}
+      ${ampChoices(irs, "ir")}
       <button type="button" data-ir="">${icon("close", 12)}Bez kabinetu</button>`;
     document.body.appendChild(box);
     const r = anchor.getBoundingClientRect();
@@ -31801,6 +31865,7 @@ const PlayerGuitar = (() => {
         paint();
       };
     });
+    wireAmpFind(box);
     setTimeout(() => document.addEventListener("pointerdown", function off(e){
       if(!box.contains(e.target)){ box.remove(); document.removeEventListener("pointerdown", off); }
     }), 0);

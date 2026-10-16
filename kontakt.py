@@ -2,7 +2,7 @@
 
 Two ways in, both within the player's own licences:
   sounds    the loops and samples a library ships as plain audio (Riffage – Metal's WAV loops,
-            dry and through the amp; Axe Machina's samples…): found, sorted by tempo, key and kind,
+            dry and through the amp; Beastsamples' clean loops; Axe Machina's samples…): found, sorted by tempo, key and kind,
             heard, put into Steems as a project. Encrypted samples are never touched — those
             sound only through Kontakt itself.
   Kontakt   the plugin, hosted by kontakt_host.py in a venv of its own (Spotify's pedalboard):
@@ -55,7 +55,8 @@ def describe(rel: str) -> dict:
     name = parts[-1]
     up = rel.upper()
     bpm = re.search(r"(?<!\d)(\d{2,3})\s?BPM", up) or re.search(r"_(\d{2,3})_\d{2}_\d+\.WAV$", up)
-    key = re.search(r"LOOPS_([A-G]#?)(?:/|$)", up) or re.search(r"_([A-G]#?)_\d{2,3}_", up)
+    key = re.search(r"LOOPS_([A-G]#?)(?:/|$)", up) or re.search(r"_([A-G]#?)_\d{2,3}_", up) \
+        or re.search(r"-\s*([A-G]#?m?)\s*-\s*\d{2,3}\s?bpm", name, re.I)          # Beastsamples: "… - Cm - 80 bpm by …"
     kind = "dry" if "_DRY_" in up or "/DI/" in up or " DI " in up else "amp" if "_AMP_" in up else ""
     loop = "LOOP" in up
     return {"bpm": int(bpm.group(1)) if bpm and 40 <= int(bpm.group(1)) <= 260 else None, "key": key.group(1) if key else None,

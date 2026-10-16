@@ -437,6 +437,14 @@ def _resolve_amp_path(filename: str) -> Optional[Path]:
             return None
         path = base / Path(name).name
         return path if path.resolve().parent == base.resolve() else None
+    if filename.startswith(("nam/", "ir/")):
+        # A collection copied in whole: nam/<model>, ir/<pack>/<folders>/<impulse>.
+        base = AMPS_DIR / filename.split("/", 1)[0]
+        try:
+            path = (base / filename.split("/", 1)[1]).resolve()
+        except (OSError, ValueError):
+            return None
+        return path if base.resolve() in path.parents else None
     if "/" in filename:
         cat, name = filename.split("/", 1)
         if cat not in AMP_CATEGORIES:
@@ -533,6 +541,29 @@ def list_amps(category: str = ""):
             continue
         out.append({"name": path.stem, "file": path.name, "kind": kind,
                     "bytes": size})
+    return out + _amp_collections()
+
+
+# Collections copied in whole sit beside the player's own amps: AMPS_DIR/nam (models) and
+# AMPS_DIR/ir/<pack>/… (cabinets, any folders deep). Each item says its pack, so a picker can
+# group a thousand impulses instead of listing them in one column.
+AMP_COLLECTIONS = {"nam": ("model", ".nam"), "ir": ("ir", ".wav")}
+
+
+def _amp_collections() -> list:
+    out = []
+    for top, (kind, ext) in AMP_COLLECTIONS.items():
+        base = AMPS_DIR / top
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*" + ext), key=lambda q: str(q).lower()):
+            rel = path.relative_to(base)
+            if any(p.startswith(".") for p in rel.parts) or not path.is_file():
+                continue
+            pack = rel.parts[0] if top == "ir" and len(rel.parts) > 1 else ("NAM komunita" if top == "nam" else "")
+            folder = "/".join(rel.parts[1:-1]) if top == "ir" else ""
+            out.append({"name": path.stem, "file": f"{top}/{rel.as_posix()}", "kind": kind,
+                        "bytes": path.stat().st_size, "pack": pack, "folder": folder})
     return out
 
 
@@ -9837,6 +9868,8 @@ TONE_PYTHON = HOME / ".local" / "venvs" / "pick-tone" / "bin" / "python"
 TONE_WORKER = APP_DIR / "tone_worker.py"
 TONE_NAM_JS = APP_DIR / "tone_nam.mjs"
 TONE_DIR = "tone"
+# how each NAM core sounds, heard once (tone_worker.py fingerprints) — near-twins are tried as one
+TONE_CORES = ".tone-cores.json"
 TONE_FILES = ("print-ir.wav", "you.wav", "abx-record.wav", "abx-you.wav", "prev-print-ir.wav", "you.mp3", "record.mp3")
 TONE_STEM_LABELS = {"guitar": "Kytara", "guitar_solo": "Sólová kytara", "guitar_rhythm": "Rytmická kytara"}
 TONE_PART = {"guitar_solo": "sólo", "guitar_rhythm": "rytmika"}
@@ -9969,7 +10002,7 @@ def _tone_models() -> list:
     """Every NAM core the engine may try: the amps folder and all Pick knows of, each once."""
     out, seen = [], set()
     flat = sorted(AMPS_DIR.glob("*.nam")) if AMPS_DIR.is_dir() else []
-    items = [{"name": p.stem, "file": p.name} for p in flat] + [a for a in _all_amps() if a.get("kind") == "model"]
+    items = [{"name": p.stem, "file": p.name} for p in flat] + [a for a in _all_amps() + _amp_collections() if a.get("kind") == "model"]
     for a in items:
         path = _resolve_amp_path(a["file"])
         if path is None or not path.is_file():
@@ -10039,7 +10072,7 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current:
         old = _tone_print(d, job.get("print") or "") if refine else None
         spec = {"sr": sr, "ref": str(ref), "models": _tone_models(), "node": _node_bin(), "nam_js": str(TONE_NAM_JS),
                 "worklet": str(APP_DIR / "static" / "nam" / "nam-worklet.js"), "wasm": str(APP_DIR / "static" / "nam" / "nam-engine.wasm"),
-                "out": str(tmp / "out"), "procs": 3, "start_from": old if refine else None,
+                "out": str(tmp / "out"), "procs": 3, "start_from": old if refine else None, "fp_cache": str(AMPS_DIR / TONE_CORES),
                 "takes": [{"path": str(d / TONE_DIR / t["file"]), "offset": float(t["start"]) - job["start"]} for t in takes],
                 "current": current}
         gid = _guitar_active()

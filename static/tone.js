@@ -15,7 +15,7 @@ const Tone = (() => {
   const KEEP = "pick-tone-live", POS = "pick-tone-win", TAB = "pick-tone-tab", LSORT = "pick-tone-lib-sort";
   const STAGES = {listen: "poslouchám originál a tvou nahrávku", sieve: "zkouším jádra zkreslení", sieve2: "zkouším nejlepší jádra",
     tune: "dolaďuji drive a ekvalizér", colour: "počítám barvu", room: "hledám prostor", save: "ukládám",
-    notes: "poslouchám noty originálu", compare: "porovnávám s tvým zvukem"};
+    notes: "poslouchám noty originálu", compare: "porovnávám s tvým zvukem", cores: "poprvé poslouchám nová jádra zkreslení"};
   // the calibration of the player's guitar (server: /api/tone/guitars; tone_worker.py --profile)
   const STEPS = [
     {k: "strings", title: "Prázdné struny", hint: "Od nejhlubší po nejvyšší, každou nech asi 2 s znít.", max: 20},
@@ -613,6 +613,7 @@ const Tone = (() => {
             ${p.room ? ` · dozvuk ${Math.round(p.room.mix * 100)} % / ${String(p.room.decay).replace(".", ",")} s` : ""}
             · posun nahrávky ${(p.lags_ms || []).join(", ")} ms · slyšeno ${String(p.played_s || "").replace(".", ",")} s hraní</div>
           ${(p.ranking || []).length ? `<div class="tw-sub">Další blízká jádra: ${p.ranking.slice(1, 6).map(r => escapeHtml(r.name)).join(", ")}</div>` : ""}
+          ${p.cores && p.cores.known > p.cores.tried ? `<div class="tw-sub">Vyzkoušeno ${p.cores.tried} různých jader z ${p.cores.known} — téměř stejná (jiný mikrofon, menší síť) jen jednou.</div>` : ""}
         </details>
       </section>` : ""}`;
   }

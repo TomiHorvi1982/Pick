@@ -25,6 +25,8 @@ def test_what_a_path_says():
     d = kontakt.describe("Impact_Soundworks_Riffage_Metal/Samples WAV/Axis_160BPM/Axis_160BPM_Loops_D#/AXIS_DRY_D#_160_44_12.wav")
     assert (d["bpm"], d["key"], d["kind"], d["loop"]) == (160, "D#", "dry", True)
     assert kontakt.describe("Axe Machina [Soundiron]/Samples/a/Plucks/pluck_E2.wav")["kind"] == ""
+    b = kontakt.describe("Clean Guitars [Beastsamples]/Guitar Loops/#1 - Monday Freak - Cm - 80 bpm by Beastsamples.wav")
+    assert (b["bpm"], b["key"], b["loop"]) == (80, "Cm", True)
 
 
 def test_sounds_filtered_and_guarded(client):

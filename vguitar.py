@@ -1,8 +1,9 @@
 """Virtuální kytara — riffs the player writes or pastes as a tab, kept to be played again
-(static/vguitar.js plays them, in the sound of a song's tone print or a clean guitar).
+(static/vguitar.js plays them, in the sound of a song's tone print, a clean guitar, Kontakt, a MIDI
+output, or a finished recorded sound — guitar_samples.py).
 
 A riff: {id, name, bpm, div (steps a beat), tuning [high e … low E, MIDI], steps, cols:
-[{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid},
+[{"s": {string: fret | "x"}, "pm": bool, "lg": [strings played legato]}], sound {song, pid} | {kontakt} | {midi} | {set},
 band [{name, role, tuning, cols, on}] — the guitars that play with it (a riff from riffbook.py), part {name, role}}.
 
 Tabs to take riffs from: Ultimate Guitar's own pages read as a browser reads them (the state
@@ -87,7 +88,8 @@ def clean(data: dict) -> Optional[dict]:
                 "part": {"name": " ".join(str(part.get("name") or "").split())[:60], "role": str(part.get("role") or "")[:12]} if part.get("name") else None,
                 "sound": {"song": str(snd.get("song") or "")[:300], "pid": str(snd.get("pid") or "")[:60]} if snd.get("song")
                 else {"kontakt": str(snd["kontakt"])[:10]} if re.fullmatch(r"[0-9a-f]{10}", str(snd.get("kontakt") or ""))
-                else {"midi": str(snd["midi"])[:200]} if snd.get("midi") else None}
+                else {"midi": str(snd["midi"])[:200]} if snd.get("midi")
+                else {"set": snd["set"]} if re.fullmatch(r"[a-z0-9-]{1,40}", str(snd.get("set") or "")) else None}
     except (TypeError, ValueError, AttributeError):
         return None
 
