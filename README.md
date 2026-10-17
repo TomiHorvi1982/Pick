@@ -713,6 +713,19 @@ stopami, přes celou šířku mixu, místo okna přes stopy; výška se táhne z
 plovoucího okna a ↩ vrátí (pamatuje se pro každé zvlášť). Mimo Steems jsou to okna jako dřív
 (`makeFloating(…, {dock: steemsDock})`).
 
+## Trenér zpěvu: duet
+
+**👥 Duet** v liště trenéra: dva zpěváci najednou, každý na svém mikrofonu — dvě zařízení, nebo dva vstupy jedné
+zvukovky (u každého zařízení a vstup 1–8, jména). První zpěvák je mikrofon pro zpěv z Nastavení, druhý má svůj
+(`pick-sing-duo`). Každý má vlastní pruh tónů s tečkou hlasu, vlastní běžící text, jehož slova se barví podle toho,
+co zazpíval on, vlastní živou radu a skóre; tóny i slova se hodnotí zvlášť (slova druhého se posílají k whisperu
+bez písně — k písni se ukládají jen slova prvního). Po „Dozpívat a vyhodnotit“ nahoře výsledek: kdo vyhrál
+(body = trefené tóny, blízké napůl, 70 % + text 30 %, když je), nebo remíza. Na celé obrazovce je pás prvního
+zpěváka. Duet se zpívá celou písní, ne po řádcích.
+
+**Stáhnout a rozdělit z přehrávače**: i píseň bez vlastního odkazu (z fronty, historie, hledání) — vezme se
+hrající video z YouTube Music, a když není, „interpret - název“, které spotdl dohledá (`trackDownloadUrl`).
+
 ## Ukulele Tabs
 
 Tools → **Ukulele Tabs**: nejnovější taby pro ukulele na ukutabs.com. Web se do jiné stránky vložit nenechá
