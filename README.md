@@ -507,6 +507,12 @@ Levý panel má u **Steems** jen Playlisty Steems (písně jsou v hlavním sezna
 **Frontu** a **Oblíbené**; sekce Ready to play a Historie zmizely (historie přehrávání zůstává
 v přehrávači dole).
 
+**Hledání ve Steems** — dvě pole, jedno na písně, druhé na kapely a interprety: v levém panelu nad
+Playlisty Steems a nad seznamem dalších písní pod mixem. Po každém písmenu se výběr zužuje, diakritika
+není potřeba („prom“ najde Proměny). V levém panelu kapela ukáže své písně a klik na píseň ji otevře
+v mixu; pod mixem pole rovnou filtrují seznam (pořád napřed písně kapely, která je v mixu) a Enter
+otevře první. Napsané i kurzor zůstanou, i když se panel překreslí.
+
 **Asistent běží v počítači.** Volná česká věta („pick listen“, nebo napsaná do
 pole Asistent) se provede bez internetu a bez placení (`assistant.py`):
 
@@ -720,8 +726,15 @@ zvukovky (u každého zařízení a vstup 1–8, jména). První zpěvák je mik
 (`pick-sing-duo`). Každý má vlastní pruh tónů s tečkou hlasu, vlastní běžící text, jehož slova se barví podle toho,
 co zazpíval on, vlastní živou radu a skóre; tóny i slova se hodnotí zvlášť (slova druhého se posílají k whisperu
 bez písně — k písni se ukládají jen slova prvního). Po „Dozpívat a vyhodnotit“ nahoře výsledek: kdo vyhrál
-(body = trefené tóny, blízké napůl, 70 % + text 30 %, když je), nebo remíza. Na celé obrazovce je pás prvního
-zpěváka. Duet se zpívá celou písní, ne po řádcích.
+(body = trefené tóny, blízké napůl, 70 % + text 30 %, když je), nebo remíza. Duet se zpívá celou písní, ne po řádcích.
+
+**Na celé obrazovce** (Steems → celá obrazovka → 🎤 Tóny) má každý zpěvák své pole: pruh tónů s tečkou hlasu,
+živou radu a v duetu i vlastní běžící text. Nad nimi tabule s živými body, které rostou při zpěvu: trefený tón 100,
+každá další trefa v řadě o 10 víc (nejvýš +100, 🔥 od tří v řadě), blízký tón 50, správně zazpívané slovo 25.
+Přetahovaná lišta ukazuje, kdo vede a o kolik. Tlačítko 👥 Duet je i v liště celé obrazovky. Celá obrazovka
+má nový vzhled: tmavá scéna nasvícená barvou zvýraznění, skleněná lišta, název a interpret písně vpravo.
+Každý běžící text si drží vlastní kopii řádků (`LyricRun.set`), takže stejný text v okně trenéra a na celé
+obrazovce se navzájem nepřeskládá.
 
 **Stáhnout a rozdělit z přehrávače**: i píseň bez vlastního odkazu (z fronty, historie, hledání) — vezme se
 hrající video z YouTube Music, a když není, „interpret - název“, které spotdl dohledá (`trackDownloadUrl`).
@@ -1034,7 +1047,13 @@ v prohlížeči k písni, „↺ řádky“ to vrátí); „−/+“ dál posouv
 s hudbou, s efekty čistě ve Web Audio — reverb (dozvuk z vygenerovaného šumu),
 delay (slapback 115 ms), echo (380 ms se zpětnou vazbou), doubler (dvě
 rozladěné kopie vlevo a vpravo) a druhý hlas (kopie posunutá o interval,
-AudioWorklet `pick-shift`). Hodnotí se pořád holý mikrofon, efekty na výsledek
+AudioWorklet `pick-shift`), k tomu kompresor, jas (méně basů, víc srozumitelnosti
+kolem 3,8 kHz), telefon/megafon (úzké pásmo, mírně přebuzené), robot (kruhová
+modulace 55 Hz), poměr čistého hlasu a panorama vlevo–vpravo (`voiceChain`).
+17 předvoleb: čistý, místnost, popová hvězda, balada, sál, kostel, rocková hala,
+slapback, rap, stadion, ozvěna v horách, dvojitý hlas, sbor, telefon, megafon,
+robot a vlastní. V duetu má každý zpěvák svou zvukovou cestu, předvolbu a panoramu
+(druhý se pamatuje s duetem). Hodnotí se pořád holý mikrofon, efekty na výsledek
 nemají vliv. Jen se sluchátky.
 
 **Mikrofon a nahrávka**: posuvník „mikrofon“ zesílí vstup až o 30 dB (pro

@@ -2738,28 +2738,36 @@ body.lib-collapsed .pick-brand{display:none}
   .ly-plain{white-space:pre-wrap;font-size:calc(15px * var(--ly-size,1));line-height:1.6;color:var(--sub);font-family:var(--ly-font,inherit)}
   .ly-style-btn{font-family:Georgia,serif !important;font-weight:700 !important}
   #nm-lyr-kar{display:none;height:220px}
-  /* Steems on the whole screen */
-  .nm-stage{position:fixed;inset:0;z-index:9000;background:#0b0b0f;display:flex;flex-direction:column}
+  /* Steems on the whole screen: a dark stage lit in the accent and pink, glass bars and cards */
+  .nm-stage{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;color:#f1f1f6;
+    background:radial-gradient(1100px 620px at 12% -12%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 62%),
+      radial-gradient(900px 560px at 108% 112%, rgba(255,70,160,.16), transparent 60%), #07070c}
   .nm-stage[hidden]{display:none}
-  .nm-stage-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#121218;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;flex-wrap:wrap}
-  .nm-stage-bar button,.nm-stage-bar select{background:#1f1f27;color:var(--text);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px;cursor:pointer;font:inherit}
-  .nm-stage-bar button:hover{background:#2c2c36}
-  .nm-stage-seg{display:flex;gap:4px}
-  .nm-stage-seg button.on{background:var(--accent);color:#04211d;border-color:var(--accent)}
-  .nm-stage-zoom{display:inline-flex;align-items:center;gap:4px;color:var(--sub)}
-  .nm-stage-zoom button{padding:3px 10px}
+  .nm-stage-bar{display:flex;align-items:center;gap:10px;padding:10px 18px;flex-wrap:wrap;font-size:13px;
+    background:rgba(14,14,22,.62);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07)}
+  .nm-stage-bar button,.nm-stage-bar select{background:rgba(255,255,255,.06);color:#f1f1f6;border:1px solid rgba(255,255,255,.09);border-radius:12px;
+    padding:7px 13px;cursor:pointer;font:inherit;transition:background .15s,border-color .15s}
+  .nm-stage-bar button:hover,.nm-stage-bar select:hover{background:rgba(255,255,255,.12)}
+  .nm-stage-bar button.on,#nm-stage-sing-btn.on,#nm-stage-duo.on{background:var(--accent);color:#06150f;border-color:var(--accent);font-weight:700}
+  .nm-stage-seg{display:flex;gap:2px;padding:3px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07)}
+  .nm-stage-seg button{background:transparent;border-color:transparent;border-radius:11px}
+  .nm-stage-seg button.on{background:var(--accent);color:#06150f;font-weight:700}
+  .nm-stage-zoom{display:inline-flex;align-items:center;gap:4px;color:#9a9ab0}
+  .nm-stage-zoom button{padding:5px 11px}
   .nm-stage-bar .sp{flex:1}
-  .nm-stage-song{color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
-  .nm-stage-body{flex:1;min-height:0;display:flex}
+  .nm-stage-song{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;max-width:30vw;overflow:hidden}
+  .nm-stage-song b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .nm-stage-song span{font-size:12px;color:#a0a0b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  #nm-stage-play{width:42px;height:42px;padding:0;border-radius:50%;background:var(--accent);color:#06150f;border:none;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
+  #nm-stage-close{border-radius:50%;width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center}
+  .nm-stage-body{flex:1;min-height:0;display:flex;padding:14px;gap:10px}
   .nm-stage-body.col{flex-direction:column}
-  .nm-stage-pane{min-width:0;min-height:0;overflow:hidden}
-  .nm-stage-pane.lyr{flex:0 0 var(--split,50%);display:flex;flex-direction:column;justify-content:center;padding:12px 3vw;box-sizing:border-box;gap:10px}
-  #nm-stage-sing{display:none;width:100%;flex:0 0 30%;min-height:110px;border-radius:10px}
-  .nm-stage-body.sing #nm-stage-sing{display:block}
-  .nm-stage-body.sing .nm-stage-pane.lyr .nm-lyr-lines{height:auto;flex:1;min-height:0}
-  #nm-stage-sing-btn.on{background:var(--accent);color:#04211d;border-color:var(--accent)}
+  .nm-stage-pane{min-width:0;min-height:0;overflow:hidden;border-radius:18px;border:1px solid rgba(255,255,255,.07)}
+  .nm-stage-pane.lyr{flex:0 0 var(--split,50%);display:flex;flex-direction:column;justify-content:center;padding:14px 3vw;box-sizing:border-box;gap:12px;
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01))}
   .nm-stage-pane.tab{flex:1;background:#f4f4f2;overflow:auto;position:relative}
-  .nm-stage-split{flex:0 0 8px;background:#1b1b22;cursor:col-resize}
+  .nm-stage-split{flex:0 0 6px;border-radius:3px;background:rgba(255,255,255,.06);cursor:col-resize}
   .nm-stage-body.col .nm-stage-split{cursor:row-resize}
   .nm-stage-split:hover{background:var(--accent)}
   .nm-stage-body[data-show=lyr] .tab,.nm-stage-body[data-show=lyr] .nm-stage-split,
@@ -2768,13 +2776,50 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-stage-pane.lyr .nm-lyr-lines{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center}
   .nm-stage-pane.lyr .nm-lyr-lines.kar #nm-lyr-kar{height:100%}
   .nm-stage-pane.lyr #nm-lyr-run{height:32vh}
-  .nm-stage-pane.lyr .nm-lyr-lines .cur{font-size:calc(clamp(28px,4.2vw,72px) * var(--ly-size,1));white-space:normal}
+  .nm-stage-pane.lyr .nm-lyr-lines .cur{font-size:calc(clamp(28px,4.2vw,72px) * var(--ly-size,1));white-space:normal;
+    text-shadow:0 0 calc(24px * var(--ly-glow,1)) color-mix(in srgb, var(--ly-fill,var(--accent)) 55%, transparent)}
   .nm-stage-pane.lyr .nm-lyr-lines .prev,.nm-stage-pane.lyr .nm-lyr-lines .next{font-size:calc(clamp(16px,2.2vw,34px) * var(--ly-size,1));white-space:normal}
   .nm-stage-pane.lyr .ly-kar .ln{font-size:calc(clamp(24px,3vw,52px) * var(--ly-size,1))}
   .nm-stage-pane.tab .nm-tabtop-hostwrap{width:100%}
   .nm-stage-pane.tab .nm-tabtop-host{height:auto !important}
   .nm-stage-mark{display:none;position:absolute;pointer-events:none;background:color-mix(in srgb,var(--accent) 16%,transparent);
     border-radius:4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent);transition:top .2s,left .2s,width .2s;z-index:2}
+  /* the singers' fields (the trainer draws in them) */
+  #nm-stage-sing{display:none;flex-direction:column;gap:10px;width:100%;flex:0 0 auto}
+  .nm-stage-body.sing #nm-stage-sing{display:flex}
+  .nm-stage-body.sing .nm-stage-pane.lyr .nm-lyr-lines{height:auto;flex:1;min-height:0}
+  .nm-stage-body.sing.duo .nm-stage-pane.lyr .nm-lyr-lines{display:none}
+  .nm-stage-body.sing.duo #nm-stage-sing{flex:1;min-height:0}
+  .ss-box .ss-board{display:none}
+  .ss-box.duo .ss-board{display:flex;align-items:center;gap:14px;padding:6px 4px}
+  .ss-board .ss-p{display:flex;align-items:baseline;gap:10px;min-width:0;transition:transform .25s}
+  .ss-board .p2{justify-content:flex-end}
+  .ss-board .ss-name{font-size:clamp(14px,1.4vw,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ss-board .p1 .ss-name{color:#7dd3fc}.ss-board .p2 .ss-name{color:#f9a8d4}
+  .ss-board .ss-pts{font-size:clamp(26px,3.2vw,48px);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .ss-board .ss-p.ahead{transform:scale(1.08)}
+  .ss-board .ss-p.ahead .ss-pts{color:#ffd166;text-shadow:0 0 18px rgba(255,209,102,.55)}
+  .ss-board .ss-mid{flex:1;display:flex;flex-direction:column;gap:6px;align-items:center;min-width:120px}
+  .ss-tug{display:flex;width:100%;height:12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.08)}
+  .ss-tug i{display:block;height:100%;transition:width .5s}
+  .ss-tug .a{background:linear-gradient(90deg,#38bdf8,#7dd3fc)}.ss-tug .b{background:linear-gradient(90deg,#f9a8d4,#ec4899)}
+  .ss-lead{font-size:13px;font-weight:700;color:#e9e9f2}
+  .ss-board.flip .ss-lead{animation:ss-pop .6s}
+  @keyframes ss-pop{0%{transform:scale(1)}40%{transform:scale(1.35);color:#ffd166}100%{transform:scale(1)}}
+  .ss-field{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.07)}
+  .ss-field.f1{border-left:4px solid #7dd3fc}.ss-field.f2{border-left:4px solid #f9a8d4;display:none}
+  .ss-box.duo .ss-field.f2{display:flex}
+  .ss-box.duo .ss-field{flex:1;min-height:0}
+  .ss-head{display:flex;align-items:baseline;gap:12px;padding:6px 12px;font-size:13px}
+  .ss-head .ss-name{font-size:15px}
+  .ss-head .lv{font-weight:700}.ss-head .lv.hit{color:var(--accent)}.ss-head .lv.near{color:#e8c040}.ss-head .lv.off{color:#e5534b}
+  .ss-head .ss-fire{font-weight:800;color:#ffb347}
+  .ss-head .sc{margin-left:auto;font-variant-numeric:tabular-nums;color:#c9c9d6;font-weight:700}
+  .ss-box:not(.duo) .ss-head .sc,.ss-box:not(.duo) .ss-head .ss-fire{display:none}
+  .ss-lane{width:100%;height:22vh;min-height:110px;display:block}
+  .ss-box.duo .ss-lane{flex:1;height:auto;min-height:90px}
+  .ss-run{display:none;width:100%;height:9vh;min-height:60px;cursor:pointer;background:rgba(0,0,0,.25)}
+  .ss-box.duo .ss-run{display:block}
   .nm-stage-none{display:none;padding:40px;color:#555;text-align:center}
   .nm-stage-pane.tab.empty .nm-stage-none{display:block}
   .nm-lyr-lines.kar #nm-lyr-kar{display:block}
@@ -4222,6 +4267,24 @@ body.lib-collapsed .pick-brand{display:none}
   .tw-rail-n{font-size:11px;color:var(--sub)}
   /* Steems playlists (static/practice.js) in the left panel, and the MIDI pedal in Settings */
   .sl-box{margin:2px 6px 8px 34px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+  .sf-box{display:flex;flex-direction:column;gap:5px;margin:4px 0 8px}
+  .sf-box[hidden]{display:none}
+  .sf-box input{width:100%;box-sizing:border-box;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font:inherit;font-size:12.5px}
+  .sf-box input:focus{outline:none;border-color:var(--accent)}
+  .sf-list{display:flex;flex-direction:column;max-height:46vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg2)}
+  .sf-list[hidden]{display:none}
+  .sf-list button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);
+    color:var(--text);padding:6px 9px;cursor:pointer;font:inherit;font-size:12.5px}
+  .sf-list button:last-child{border-bottom:none}
+  .sf-list button:hover{background:var(--card-hi)}
+  .sf-list button.cur b{color:var(--accent)}
+  .sf-list button span{font-size:11px;color:var(--sub)}
+  .sf-list .sf-back{flex-direction:row;color:var(--accent);font-weight:600}
+  .sf-none{padding:7px 9px;font-size:11.5px;color:var(--sub)}
+  .under-find{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
+  .under-find input{flex:1 1 220px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px}
+  .under-find input:focus{outline:none;border-color:var(--accent)}
+  .under-none{padding:14px 10px;color:var(--sub);font-size:13px}
   .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:4px 0 2px}
   .sl-pl{display:flex;align-items:center;gap:6px;border-radius:8px;padding:2px 4px}
   .sl-pl.on{background:color-mix(in srgb,var(--accent) 16%,transparent)}
@@ -4562,6 +4625,9 @@ body.lib-collapsed .pick-brand{display:none}
   .sing-duo input,.sing-duo select{background:#1e1e25;color:#fff;border:1px solid #3a3a46;border-radius:6px;padding:3px 6px;font:inherit;max-width:160px}
   .sing-duo input{width:90px}
   .sing-duo .hint{flex-basis:100%;font-size:11px}
+  .sing-duo .duo-fx{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;flex-basis:100%}
+  .sing-duo .duo-fx label{display:flex;align-items:center;gap:5px}
+  .sing-duo input[type=range]{width:80px;accent-color:var(--accent)}
   .who1{color:#7dd3fc}.who2{color:#f9a8d4}
   .sing-who{display:flex;gap:12px;align-items:baseline;padding:4px 12px;font-size:12.5px;background:#121218;border-top:1px solid #1d1d25}
   .sing-who b{font-size:13.5px}.sing-who .lv{font-weight:700}.sing-who .lv.hit{color:var(--accent)}.sing-who .lv.near{color:#e8c040}.sing-who .lv.off{color:#e5534b}
@@ -6147,11 +6213,12 @@ body.lib-collapsed .pick-brand{display:none}
     <span class="nm-stage-zoom"><button type="button" id="nm-stage-tab-dn" title="Zmenšit tab">−</button><span>tab</span><button type="button" id="nm-stage-tab-up" title="Zvětšit tab">+</button></span>
     <span class="sp"></span>
     <span class="nm-stage-song" id="nm-stage-song"></span>
+    <button type="button" id="nm-stage-duo" title="Duet: dva mikrofony, každý zpěvák své pole a živé skóre (mikrofony vybereš v okně trenéra)">👥 Duet</button>
     <button type="button" id="nm-stage-play" title="Přehrát / pauza (mezerník)"></button>
     <button type="button" id="nm-stage-close" title="Zpět (Esc)"><span data-icon="close" data-size="13"></span></button>
   </div>
   <div class="nm-stage-body" id="nm-stage-body">
-    <div class="nm-stage-pane lyr" id="nm-stage-lyr"><canvas id="nm-stage-sing" title="Tóny ke zpěvu z trenéra: obdélníčky melodie, tečka je tvůj hlas — zezelená, když se trefíš"></canvas></div>
+    <div class="nm-stage-pane lyr" id="nm-stage-lyr"><div id="nm-stage-sing" class="ss-box" title="Tóny ke zpěvu z trenéra: obdélníčky melodie, tečka je hlas — zezelená, když se trefíš"></div></div>
     <div class="nm-stage-split" id="nm-stage-split" title="Táhnutím změníš poměr"></div>
     <div class="nm-stage-pane tab" id="nm-stage-tab"><div class="nm-stage-mark" id="nm-stage-mark"></div>
       <div class="nm-stage-none" id="nm-stage-none">K písni zatím nemáš tab — ve Steems ho najde tlačítko Tab.</div></div>
@@ -6220,16 +6287,21 @@ body.lib-collapsed .pick-brand{display:none}
       <span class="who2">●</span><input type="text" id="sing-n2" maxlength="20" title="Jméno druhého zpěváka">
       <select id="sing-m2" title="Mikrofon druhého zpěváka"></select>
       <select id="sing-c2" title="Vstup zvukovky, do kterého je zapojený"></select>
-      <span class="hint">Dva mikrofony: dvě zařízení, nebo dva vstupy jedné zvukovky. Platí od dalšího „Zpívat“.</span>
+      <span class="duo-fx"><label title="Kde slyšíš prvního zpěváka">pan <span class="who1">1</span> <input type="range" id="sing-pan1" min="-100" max="100"></label>
+        <label title="Kde slyšíš druhého zpěváka">pan <span class="who2">2</span> <input type="range" id="sing-pan2" min="-100" max="100"></label>
+        <label title="Zvuk druhého zpěváka ve sluchátkách (první má svůj v řádku efektů)">zvuk <span class="who2">2</span> <select id="sing-fx2-preset"></select></label>
+        <label title="Jak hlasitě je slyšet druhý zpěvák">hlas <span class="who2">2</span> <input type="range" id="sing-vol2" min="0" max="150"></label></span>
+      <span class="hint">Dva mikrofony: dvě zařízení, nebo dva vstupy jedné zvukovky. Platí od dalšího „Zpívat“. Ve sluchátkách se slyšíte, když je zapnuté „slyšet se ve sluchátkách“.</span>
     </div>
     <div class="sing-fx off" id="sing-fx">
       <label title="Zesílení mikrofonu: pro hodnocení, pro nahrávku i pro sluchátka. Ukazatel má při zpěvu chodit do zelené, do červené jen výjimečně.">mikrofon <input type="range" id="sing-fx-gain" min="0" max="30" step="1"><span id="sing-fx-gaindb" class="db"></span><span class="meter"><i id="sing-meter"></i></span></label>
       <label class="mon" title="Tvůj hlas z mikrofonu přimíchaný do hudby, s efekty. Jen se sluchátky — z reproduktorů by to začalo pískat."><input type="checkbox" id="sing-mon"> slyšet se ve sluchátkách</label>
       <label class="fxk" title="Jak hlasitě se slyšíš">hlas <input type="range" id="sing-fx-vol" min="0" max="150"></label>
-      <label class="fxk" title="Hotová nastavení efektů">zvuk <select id="sing-fx-preset">
-        <option value="clean">čistý</option><option value="room">místnost</option><option value="hall">sál</option>
-        <option value="slap">slapback</option><option value="stadium">stadion</option><option value="double">dvojitý hlas</option>
-        <option value="choir">sbor</option><option value="own">vlastní</option></select></label>
+      <label class="fxk" title="Hotová nastavení efektů">zvuk <select id="sing-fx-preset"></select></label>
+      <label class="fxk" title="Kde tě slyšíš: vlevo — uprostřed — vpravo">pan <input type="range" id="sing-fx-pan" min="-100" max="100"></label>
+      <label class="fxk" title="Komprese: tiché a hlasité místo blíž k sobě, hlas sedí v hudbě">komprese <input type="range" id="sing-fx-comp" min="0" max="100"></label>
+      <label class="fxk" title="Jas: méně basů, víc zřetelnosti (přítomnost kolem 4 kHz)">jas <input type="range" id="sing-fx-bright" min="0" max="100"></label>
+      <label class="fxk" title="Čistý hlas bez efektů — u telefonu a robota ho ubírej">čistý <input type="range" id="sing-fx-dry" min="0" max="100"></label>
       <label class="fxk" title="Dozvuk prostoru">reverb <input type="range" id="sing-fx-rev" min="0" max="100"></label>
       <label class="fxk" title="Jedno krátké zopakování těsně za hlasem (slapback)">delay <input type="range" id="sing-fx-dly" min="0" max="100"></label>
       <label class="fxk" title="Ozvěna, která se opakuje a doznívá">echo <input type="range" id="sing-fx-echo" min="0" max="100"></label>
@@ -6238,6 +6310,8 @@ body.lib-collapsed .pick-brand{display:none}
         <option value="-12">o oktávu níž</option><option value="12">o oktávu výš</option><option value="7">o kvintu výš</option>
         <option value="-5">o kvartu níž</option><option value="4">o tercii výš</option></select>
         <input type="range" id="sing-fx-harm" min="0" max="100"></label>
+      <label class="fxk" title="Telefon / megafon: úzké pásmo, trochu zkreslené">telefon <input type="range" id="sing-fx-tel" min="0" max="100"></label>
+      <label class="fxk" title="Robot: hlas násobený kmitáním (ring modulace)">robot <input type="range" id="sing-fx-robot" min="0" max="100"></label>
       <span class="lat" id="sing-fx-lat"></span>
     </div>
     <div class="sing-who who1" id="sing-who1" hidden></div>
@@ -10433,6 +10507,7 @@ function renderLibraryRail(mode){
     const collapsed = railModeSection(list, sec, mode);
     // Steems has only its playlists under its heading (static/practice.js) — the songs are the main list
     if(sec.key === "steems"){
+      list.appendChild(SteemsFind.railNode(collapsed));
       if(typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
       return;
     }
@@ -10866,6 +10941,7 @@ const SteemsRail = (() => {
   function paint(list, mode){
     RAIL_SECTIONS.forEach(sec => {
       const collapsed = railModeSection(list, sec, mode);
+      if(sec.key === "steems") list.appendChild(SteemsFind.railNode(collapsed));
       if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
     });
     const name = currentSteemsName, d = stemsDisplayByName(name), a = who(name);
@@ -13355,9 +13431,84 @@ function paintSteemsTable(box, songs){
 // whole song, in the player below — "pick play seven", "pick skip", "pick
 // next song") and taken into the mix when it is the one ("pick practice this
 // song", or the row's button).
+// ======================================================================
+// Hledat v Steems — songs by their name, and bands: what is typed narrows the list letter by letter
+// (no diacritics needed, every word somewhere). In the left panel over the Steems playlists (a list
+// that drops down: a song opens in the mix, a band shows its songs) and over the list under the mix.
+// ======================================================================
+const SteemsFind = (() => {
+  const fold = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const words = (q) => fold(q).split(/[^a-z0-9]+/).filter(Boolean);
+  const has = (q, fields) => { const ws = words(q); if(!ws.length) return true; const f = fields.map(fold); return ws.every(w => f.some(x => x.includes(w))); };
+  const band = (s) => ((stemsDisplay(s).artist || "").split(/,|;| feat\.? | ft\.? /i)[0] || "").trim();
+  const songs = (q) => steemsSongs.filter(s => has(q, [stemsDisplay(s).title, s.name]));
+  function bands(q){
+    const by = new Map();
+    steemsSongs.forEach(s => { const b = band(s); if(b && has(q, [b])) by.set(b, (by.get(b) || 0) + 1); });
+    return [...by].sort((a, b) => a[0].localeCompare(b[0], "cs"));
+  }
+
+  // ---- the left panel's box: one element kept for good, so a redraw of the panel takes neither
+  // what is typed nor where the cursor is
+  let node = null, qs = "", qb = "", pick = "", keep = null;
+  function railNode(collapsed){
+    if(!node){
+      node = document.createElement("div");
+      node.className = "sf-box";
+      node.innerHTML = `<input type="search" data-k="song" placeholder="Hledat píseň…" autocomplete="off">
+        <input type="search" data-k="band" placeholder="Hledat kapelu…" autocomplete="off"><div class="sf-list"></div>`;
+      node.querySelectorAll("input").forEach(i => {
+        i.oninput = () => { if(i.dataset.k === "song"){ qs = i.value; } else { qb = i.value; pick = ""; } remember(i); list(); };
+        i.onkeydown = (e) => {
+          if(e.key === "Escape"){ i.value = ""; i.oninput(); }
+          if(e.key === "Enter"){ const first = node.querySelector(".sf-list button"); if(first) first.click(); }
+        };
+        i.onkeyup = i.onclick = () => remember(i);
+        i.onblur = () => setTimeout(() => { if(node.isConnected && !node.contains(document.activeElement)) keep = null; }, 0);
+      });
+    }
+    node.dataset.sec = "steems";
+    node.hidden = collapsed;
+    queueMicrotask(restore);            // once the panel is drawn — before the blur of its removal is taken for leaving
+    list();
+    return node;
+  }
+  const remember = (i) => { keep = {k: i.dataset.k, a: i.selectionStart, b: i.selectionEnd}; };
+  function restore(){
+    if(!keep || !node || !node.isConnected || node.contains(document.activeElement)) return;
+    const i = node.querySelector(`[data-k="${keep.k}"]`);
+    i.focus(); try{ i.setSelectionRange(keep.a, keep.b); }catch(e){}
+  }
+  function list(){
+    if(!node) return;
+    const box = node.querySelector(".sf-list"), row = (s) => { const d = stemsDisplay(s);
+      return `<button type="button" data-song="${escapeHtml(s.name)}" class="${s.name === currentSteemsName ? "cur" : ""}"><b>${escapeHtml(d.title)}</b><span>${escapeHtml(d.artist || "")}</span></button>`; };
+    let html = "";
+    if(pick){
+      const mine = steemsSongs.filter(s => band(s) === pick && has(qs, [stemsDisplay(s).title, s.name]));
+      html = `<button type="button" class="sf-back" data-back>‹ ${escapeHtml(pick)} (${mine.length})</button>` + mine.map(row).join("");
+    } else if(qb.trim()){
+      const bs = bands(qb);
+      html = bs.slice(0, 30).map(([b, n]) => `<button type="button" data-band="${escapeHtml(b)}"><b>${escapeHtml(b)}</b><span>${n} ${n === 1 ? "píseň" : n < 5 ? "písně" : "písní"}</span></button>`).join("")
+        || `<div class="sf-none">Žádná kapela tak nezačíná.</div>`;
+    } else if(qs.trim()){
+      const ss = songs(qs);
+      html = ss.slice(0, 30).map(row).join("") + (ss.length > 30 ? `<div class="sf-none">… a dalších ${ss.length - 30} — piš dál</div>` : "")
+        || `<div class="sf-none">Žádná píseň tak nezačíná.</div>`;
+    }
+    box.innerHTML = html;
+    box.hidden = !html;
+    box.querySelectorAll("[data-song]").forEach(b => b.onclick = () => { if(state.mode !== "steems") setMode("steems", {keepSection: true}); loadMixerSong(b.dataset.song); });
+    box.querySelectorAll("[data-band]").forEach(b => b.onclick = () => { pick = b.dataset.band; list(); });
+    box.querySelectorAll("[data-back]").forEach(b => b.onclick = () => { pick = ""; list(); });
+  }
+  return {railNode, has, refresh: list};
+})();
+
 const UnderList = (() => {
   let box = null, sortBy = (() => { try{ return localStorage.getItem("spotdl-sort:under") || "artist"; }catch(e){ return "artist"; } })();
   let order = [], pv = null;                 // the rows as shown; the name of the one being listened to
+  let qSong = "", qBand = "";                // what is looked for (SteemsFind): by name, by band
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
   function host(){
     if(!box){ box = document.createElement("div"); box.className = "steems-under"; box.id = "steems-under"; el("mixer").insertAdjacentElement("afterend", box); }
@@ -13380,12 +13531,17 @@ const UnderList = (() => {
     el("stems-prepare-favs").hidden = !el("mixer").hidden;          // the list's own button; not the mix's
     if(el("mixer").hidden || state.mode !== "steems"){ h.hidden = true; return; }
     h.hidden = false;
-    order = sorted();
+    // typing redraws the list: the box being typed into keeps its focus and cursor
+    const fa = document.activeElement, focus = fa && h.contains(fa) && fa.dataset.uf ? {k: fa.dataset.uf, a: fa.selectionStart, b: fa.selectionEnd} : null;
+    order = sorted().filter(s => { const d = stemsDisplay(s); return SteemsFind.has(qSong, [d.title, s.name]) && SteemsFind.has(qBand, [d.artist]); });
+    const narrowed = qSong.trim() || qBand.trim();
     const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
     const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? (col === "tuning" ? "od E" : "A–Z") : ""}</span></button>`;
-    h.innerHTML = `<h3>Další písně ve Steems (${order.length}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
+    h.innerHTML = `<h3>Další písně ve Steems (${order.length}${narrowed ? ` z ${steemsSongs.length}` : ""}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
         ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}
         ${namesLeft || namesBusy ? `<button type="button" id="under-names" title="Projde písně a dá jim oficiální název: kapela, píseň a album podle hudebního katalogu, bez závorek a nápisů z videí. K tomu dohledá tab a text. Jména, která jsi psal ručně, nechá být.">${namesBusy || `Opravit názvy (${namesLeft})`}</button>` : ""}</h3>
+      <div class="under-find"><input type="search" data-uf="song" placeholder="Hledat píseň…" value="${escapeHtml(qSong)}" autocomplete="off">
+        <input type="search" data-uf="band" placeholder="Hledat kapelu nebo interpreta…" value="${escapeHtml(qBand)}" autocomplete="off"></div>
       <div class="lib-table"><div class="lib-thead"><span class="c-idx">#</span>${head("title", "Název")}${head("artist", "Kapela")}${head("album", "Album")}${head("tuning", "Ladění")}
         <span class="c-time">${icon("clock", 13)}</span><span class="c-act"></span></div>` +
       order.map((s, i) => { const d = stemsDisplay(s);
@@ -13393,7 +13549,13 @@ const UnderList = (() => {
           <span class="c-idx">${i + 1}</span><span class="c-title"><span class="tx">${escapeHtml(d.title)}</span></span>
           <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-album">${escapeHtml(d.album || "")}</span><span class="c-tun">${tuningChip(s.tuning)}</span>
           <span class="c-time">${s.duration ? fmtDur(s.duration) : ""}</span>
-          <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("") + `</div>`;
+          <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("")
+      + (order.length ? "" : `<div class="under-none">Nic tomu neodpovídá — zkus kratší slovo.</div>`) + `</div>`;
+    h.querySelectorAll("input[data-uf]").forEach(i => {
+      i.oninput = () => { if(i.dataset.uf === "song") qSong = i.value; else qBand = i.value; paint(); };
+      i.onkeydown = (e) => { if(e.key === "Escape" && i.value){ i.value = ""; i.oninput(); } else if(e.key === "Enter" && order[0]) openMix(order[0].name); };
+    });
+    if(focus){ const i = h.querySelector(`input[data-uf="${focus.k}"]`); if(i){ i.focus(); try{ i.setSelectionRange(focus.a, focus.b); }catch(e){} } }
     h.querySelectorAll("button[data-lsort]").forEach(b => b.onclick = () => { sortBy = b.dataset.lsort; try{ localStorage.setItem("spotdl-sort:under", sortBy); }catch(e){} paint(); });
     h.querySelectorAll(".lib-trow").forEach(r => {
       r.onclick = (e) => { if(e.target.closest("button")) openMix(r.dataset.name); else preview(r.dataset.name); };
@@ -17932,7 +18094,8 @@ const Mixer = (() => {
     el("nm-stage-dir").textContent = stage.dir === "col" ? "⇅ pod sebou" : "⇆ vedle sebe";
     el("nm-stage-dir").hidden = stage.show !== "both";
     el("nm-stage-mode").value = lyrMode;
-    el("nm-stage-song").textContent = currentSongName ? (stemsDisplayByName(currentSongName).title || currentSongName) : "";
+    const sd = currentSongName ? stemsDisplayByName(currentSongName) : {};
+    el("nm-stage-song").innerHTML = currentSongName ? `<b>${escapeHtml(sd.title || currentSongName)}</b>${sd.artist ? `<span>${escapeHtml(sd.artist)}</span>` : ""}` : "";
     el("nm-stage-play").innerHTML = icon(isPlaying ? "pause" : "play", 14);
     el("nm-stage-tab").classList.toggle("empty", !tabs.length);
     body.classList.toggle("sing", !!stage.sing);
@@ -17943,9 +18106,19 @@ const Mixer = (() => {
   function stageSing(){
     if(stage.sing && stageOn){
       if(!Sing.isOpen()) Sing.open();
-      Sing.mirror(el("nm-stage-sing"));
-    } else Sing.mirror(null);
+      Sing.mount(el("nm-stage-sing"));
+    } else Sing.mount(null);
+    stageDuoPaint();
   }
+  // a duet: every singer their own field with their own text — the shared one steps aside
+  function stageDuoPaint(){
+    const duet = typeof Sing !== "undefined" && Sing.isDuo();
+    el("nm-stage-body").classList.toggle("duo", !!(stage.sing && duet));
+    el("nm-stage-duo").classList.toggle("on", !!duet);
+    el("nm-stage-duo").hidden = !stage.sing;
+    requestAnimationFrame(() => lyrKar.recenter());
+  }
+  window.addEventListener("pick-duo", () => { if(stageOn) stageDuoPaint(); });
   function stageRelayout(){
     requestAnimationFrame(() => {
       lyrKar.recenter();
@@ -17986,7 +18159,7 @@ const Mixer = (() => {
     if(!stageOn) return;
     stageOn = false;
     clearInterval(stageTick);
-    Sing.mirror(null);
+    Sing.mount(null);
     el("mixer-lyrics-bar").appendChild(el("nm-lyr-lines"));
     if(el("nm-tabtop-hostwrap").parentElement === el("nm-stage-tab")) dockTab();
     el("nm-stage-mark").style.display = "none";
@@ -18012,6 +18185,7 @@ const Mixer = (() => {
   el("nm-stage-close").onclick = closeStage;
   el("nm-stage-sing-btn").onclick = () => { stage.sing = !stage.sing; keepStage(); stagePaint(); stageSing(); stageRelayout(); };
   el("nm-stage-sing-go").onclick = async () => { await Sing.start(); stagePaint(); };
+  el("nm-stage-duo").onclick = () => { const b = document.getElementById("sing-duo-btn"); if(b) b.click(); };
   el("nm-stage-show").querySelectorAll("button").forEach((b) => { b.onclick = () => { stage.show = b.dataset.show; keepStage(); stagePaint(); stageRelayout(); }; });
   el("nm-stage-dir").onclick = () => { stage.dir = stage.dir === "col" ? "row" : "col"; keepStage(); stagePaint(); stageRelayout(); };
   el("nm-stage-mode").onchange = (e) => { setLyrMode(e.target.value); stagePaint(); stageRelayout(); };
@@ -33437,7 +33611,9 @@ function LyricRun(cv, opt){
     const ln = [...lines].reverse().find(l => l.x <= x) || lines[0];
     opt.onSeek(ln.t);
   });
-  return {set(list){ lines = list || []; laid = 0; }, draw, xAt: (t) => xAt(t), lines: () => lines};
+  // Each ribbon lays the words out for its own size, so it keeps its own copy of the lines — one list
+  // shown twice (the trainer's window and the whole screen) would have each move the other's words.
+  return {set(list){ lines = (list || []).map(ln => ({...ln})); laid = 0; }, draw, xAt: (t) => xAt(t), lines: () => lines};
 }
 // Timed lines [{t, text}] as the ribbon wants them: each with the moment its
 // singing ends — the last sung note before the next line when the notes are
@@ -34029,6 +34205,7 @@ const Sing = (() => {
     if(trail.length > 700) trail.splice(0, 200);
     advise(n, midi, cls, k, cents);
     if(duo.on){ const lv = el("sing-who1").querySelector(".lv"); if(lv) advise(n, midi, cls, k, cents, lv); }
+    if(sf){ const lv = sf.box.querySelector(".f1 .lv"); if(lv) advise(n, midi, cls, k, cents, lv); }
     lines.forEach((ln, i) => { if(!ln.sent && t > ln.end + 0.25) judge(ln, i); });
   }
 
@@ -34070,7 +34247,7 @@ const Sing = (() => {
   // song at the same time; sung out, who sang it better. The first singer is the trainer as before
   // (the microphone for singing in Nastavení); the second one's words are judged, not kept.
   const DUO_KEY = "pick-sing-duo";
-  const duo = {on: false, n1: "Zpěvák 1", n2: "Zpěvák 2", dev2: "", ch2: 2};
+  const duo = {on: false, n1: "Zpěvák 1", n2: "Zpěvák 2", dev2: "", ch2: 2, fx2: null};
   try{ Object.assign(duo, JSON.parse(localStorage.getItem(DUO_KEY) || "{}")); }catch(e){}
   const keepDuo = () => { try{ localStorage.setItem(DUO_KEY, JSON.stringify(duo)); }catch(e){} };
   const run2 = LyricRun(el("sing-run2"), {head: 0.3, onSeek: (t) => Mixer.seek(Math.max(0, t - 0.5))});
@@ -34108,11 +34285,13 @@ const Sing = (() => {
     two = {...twoState(), stream: st, actx: ac};
     n2.port.onmessage = (e) => heard2(e.data);
     ac.createMediaStreamSource(st).connect(n2);
+    try{ const {ac: mac, out} = Mixer.voiceOut(); if(mac.pickShift){ two.chain = voiceChain(mac, out, st, ch); fxApply(); } }catch(e){}
     if((duo.dev2 || "") === (VoiceMic.id() || "") && ch === VoiceMic.index(got))
       showToast("Oba zpěváci poslouchají stejný vstup — druhému vyber jiný mikrofon nebo jiný kanál");
   }
   function stopTwo(){
     if(!two) return;
+    if(two.chain){ two.chain.stop(); two.chain = null; }
     if(two.stream) two.stream.getTracks().forEach(t => t.stop());
     if(two.actx) two.actx.close().catch(() => {});
     two.stream = two.actx = null; two.mine = null;                 // what was sung stays, for the result
@@ -34143,6 +34322,8 @@ const Sing = (() => {
     if(two.trail.length > 700) two.trail.splice(0, 200);
     const lv = el("sing-who2").querySelector(".lv");
     if(lv) advise(n, midi, cls, k, cents, lv);
+    const slv = sf && sf.box.querySelector(".f2 .lv");
+    if(slv) advise(n, midi, cls, k, cents, slv);
     lines.forEach((ln, j) => { if(!two.l[j].sent && t > ln.end + 0.25) judge2(ln, j); });
   }
   function judge2(ln, i){
@@ -34170,15 +34351,17 @@ const Sing = (() => {
   function duelHtml(s1){
     if(!duo.on || !two) return "";
     const s2 = totals2();
-    if(s1.total < 5 && s2.total < 5) return "";
-    const pts = (x) => x.total < 5 ? 0 : (x.pitch + 0.5 * x.near) * (x.text === null ? 1 : 0.7) + (x.text === null ? 0 : 0.3 * x.text);
-    const a = pts(s1), b = pts(s2), row = (name, x, p, cls) => `<div><span class="${cls}">●</span> <b class="${p ? "win" : ""}">${escapeHtml(name)}</b> — ${Math.round(x === s1 ? a : b)} bodů · tóny ${pct(x.pitch)} · blízko ${pct(x.near)}${x.text === null ? "" : ` · text ${pct(x.text)}`}</div>`;
-    const head = Math.abs(a - b) < 1 ? "🤝 Remíza!" : `🏆 Vyhrál(a) <b class="win">${escapeHtml(a > b ? duo.n1 : duo.n2)}</b>`;
-    return `<div class="duel">${head}${row(duo.n1, s1, a > b + 1, "who1")}${row(duo.n2, s2, b > a + 1, "who2")}</div>`;
+    if(s1.total < 3 && s2.total < 3) return "";
+    const a = points1().pts, b = points2().pts;
+    const row = (name, x, p, win, cls) => `<div><span class="${cls}">●</span> <b class="${win ? "win" : ""}">${escapeHtml(name)}</b> — ${p.toLocaleString("cs-CZ")} bodů · tóny ${pct(x.pitch)} · blízko ${pct(x.near)}${x.text === null ? "" : ` · text ${pct(x.text)}`}</div>`;
+    const head = a === b ? "🤝 Remíza!" : `🏆 Vyhrál(a) <b class="win">${escapeHtml(a > b ? duo.n1 : duo.n2)}</b> o ${Math.abs(a - b).toLocaleString("cs-CZ")} bodů`;
+    return `<div class="duel">${head}${row(duo.n1, s1, a, a > b, "who1")}${row(duo.n2, s2, b, b > a, "who2")}</div>`;
   }
   // the duet's own row: names, both microphones (device and input), shown when Duet is on
   async function paintDuo(){
     el("sing-float").classList.toggle("duo", duo.on);
+    paintMount();
+    window.dispatchEvent(new Event("pick-duo"));
     // two lanes and two texts want room: under the mix the panel grows for a duet (it can be dragged back)
     const w = el("sing-float");
     if(duo.on && w.classList.contains("docked") && w.getBoundingClientRect().height < 720) w.style.height = "760px";
@@ -34213,14 +34396,36 @@ const Sing = (() => {
     lines = ll.map((l, i) => ({t: l.t, end: Math.min(i + 1 < ll.length ? ll[i + 1].t : end, l.t + 14), text: l.text || ""}))
       .map(l => ({...l, count: l.text.replace(/[\(\[][^\)\]]*[\)\]]/g, " ").split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length}));
     lang = /[ěščřžýáíéúůťďň]/i.test(ll.map(l => l.text).join(" ")) ? "cs" : "en";
-    run.set(LyricRun.build(lines, end, notes));
-    run2.set(LyricRun.build(lines.map((l, i) => ({t: l.t, end: l.end, text: l.text, get words(){ return two && two.l[i] ? two.l[i].words : null; }})), end, notes));
+    runList1 = LyricRun.build(lines, end, notes);
+    runList2 = LyricRun.build(lines.map((l, i) => ({t: l.t, end: l.end, text: l.text, get words(){ return two && two.l[i] ? two.l[i].words : null; }})), end, notes);
+    run.set(runList1); run2.set(runList2);
+    if(sf){ sf.run1.set(runList1); sf.run2.set(runList2); }
   }
 
   // ---- drawing
-  // A second lane somewhere else (Steems on the whole screen, over the text): the same notes and the
-  // same dot of the voice, nothing more — the score and the rest stay in the trainer's window.
-  let mirror = null;
+  // ---- Steems on the whole screen (its stage): a field for each singer over the text — the note lane
+  // and the hint; in a duet also each one's running text, and the live score between them. The rest
+  // (the effects, the result, the takes before) stays in the trainer's window.
+  let stageBox = null, sf = null, runList1 = [], runList2 = [];
+  function mount(box){
+    stageBox = box || null; sf = null;
+    if(!box) return;
+    const field = (k) => `<div class="ss-field f${k}"><div class="ss-head"><span class="who${k}">●</span><b class="ss-name"></b><span class="lv" data-base="lv"></span><span class="ss-fire"></span><span class="sc"></span></div>
+      <canvas class="ss-lane"></canvas><canvas class="ss-run"></canvas></div>`;
+    box.innerHTML = `<div class="ss-board"><div class="ss-p p1"><b class="ss-name"></b><span class="ss-pts">0</span></div>
+        <div class="ss-mid"><div class="ss-tug"><i class="a"></i><i class="b"></i></div><div class="ss-lead"></div></div>
+        <div class="ss-p p2"><span class="ss-pts">0</span><b class="ss-name"></b></div></div>${field(1)}${field(2)}`;
+    const q = (x) => box.querySelector(x), seek = {head: 0.3, onSeek: (t) => Mixer.seek(Math.max(0, t - 0.5))};
+    sf = {box, lane1: q(".f1 .ss-lane"), lane2: q(".f2 .ss-lane"), run1: LyricRun(q(".f1 .ss-run"), seek), run2: LyricRun(q(".f2 .ss-run"), seek)};
+    sf.run1.set(runList1); sf.run2.set(runList2);
+    paintMount();
+  }
+  function paintMount(){
+    if(!sf) return;
+    sf.box.classList.toggle("duo", duo.on);
+    sf.box.querySelectorAll(".f1 .ss-name, .p1 .ss-name").forEach(x => { x.textContent = duo.on ? duo.n1 : "Tvůj hlas"; });
+    sf.box.querySelectorAll(".f2 .ss-name, .p2 .ss-name").forEach(x => { x.textContent = duo.n2; });
+  }
   function draw(){
     raf = requestAnimationFrame(draw);
     const t = Mixer.currentTime() - LAG;
@@ -34230,7 +34435,10 @@ const Sing = (() => {
     const want = near.length ? near[near.length >> 1] : (mine && mine.midi !== null ? mine.midi : center);
     center += (want - center) * 0.03;
     lane(cv, g, t);
-    if(mirror && mirror.isConnected && mirror.offsetParent !== null) lane(mirror, mirror.getContext("2d"), t);
+    if(sf && sf.box.isConnected && sf.box.offsetParent !== null){
+      lane(sf.lane1, sf.lane1.getContext("2d"), t);
+      if(duo.on){ lane(sf.lane2, sf.lane2.getContext("2d"), t, two || NOBODY); sf.run1.draw(t); sf.run2.draw(t); }
+    }
     if(duo.on && !cv2.hidden){ lane(cv2, g2, t, two || NOBODY); run2.draw(t); }
     score();
   }
@@ -34280,16 +34488,57 @@ const Sing = (() => {
     const k = +(Object.keys(oct).sort((a, b) => oct[b] - oct[a])[0] || 0);
     return {total: all.n, sung, pitch: all.n ? 100 * all.hit / all.n : 0, near: all.n ? 100 * all.near / all.n : 0, text: words ? 100 * ok / words : null, octave: k};
   }
+  // Points as they are sung — to be seen growing, and raced for: a note hit 100, a near one 50, every
+  // hit in a row 10 more (up to 100 more), every word sung right 25. The duet's winner has the most.
+  function pointsOf(nv, lv){
+    let pts = 0, run = 0, streak = 0;
+    notes.forEach((n, i) => {
+      const v = verdict(nv(i));
+      if(!v) return;
+      if(v === "hit"){ pts += 100 + 10 * Math.min(run, 10); run++; }
+      else { if(v === "near") pts += 50; run = 0; }
+      streak = run;
+    });
+    lines.forEach((l, i) => { const w = lv(i); if(w && !w.silent) pts += 25 * w.ok; });
+    return {pts, streak};
+  }
+  const points1 = () => pointsOf((i) => notes[i], (i) => lines[i].words);
+  const points2 = () => two ? pointsOf((i) => two.n[i] || {}, (i) => two.l[i] && two.l[i].words) : {pts: 0, streak: 0};
+  let boardAt = 0, leader = 0;
+  function board(){
+    if(performance.now() - boardAt < 200) return;
+    boardAt = performance.now();
+    const a = points1(), b = duo.on ? points2() : {pts: 0, streak: 0};
+    const fire = (x) => x.streak >= 3 ? `🔥×${x.streak}` : "";
+    [[el("sing-who1"), a], [el("sing-who2"), b]].forEach(([w, x]) => { const sc = w && w.querySelector(".sc"); if(sc){ const t = `${x.pts.toLocaleString("cs-CZ")} b`; if(sc.dataset.p !== t){ sc.dataset.p = t; } } });
+    if(!sf) return;
+    const set = (sel, v) => { const n = sf.box.querySelector(sel); if(n && n.textContent !== v) n.textContent = v; };
+    set(".p1 .ss-pts", a.pts.toLocaleString("cs-CZ")); set(".p2 .ss-pts", b.pts.toLocaleString("cs-CZ"));
+    set(".f1 .ss-fire", fire(a)); set(".f2 .ss-fire", fire(b));
+    set(".f1 .sc", `${a.pts.toLocaleString("cs-CZ")} b`); set(".f2 .sc", `${b.pts.toLocaleString("cs-CZ")} b`);
+    const share = a.pts + b.pts ? a.pts / (a.pts + b.pts) : 0.5;
+    sf.box.querySelector(".ss-tug .a").style.width = (share * 100).toFixed(1) + "%";
+    sf.box.querySelector(".ss-tug .b").style.width = ((1 - share) * 100).toFixed(1) + "%";
+    const lead = a.pts === b.pts ? 0 : a.pts > b.pts ? 1 : 2;
+    set(".ss-lead", !a.pts && !b.pts ? "Zpívejte!" : lead ? `Vede ${lead === 1 ? duo.n1 : duo.n2} o ${Math.abs(a.pts - b.pts).toLocaleString("cs-CZ")}` : "Nerozhodně!");
+    if(lead !== leader){
+      leader = lead;
+      const box = sf.box.querySelector(".ss-board");
+      box.classList.remove("flip"); void box.offsetWidth; box.classList.add("flip");
+      sf.box.querySelector(".p1").classList.toggle("ahead", lead === 1); sf.box.querySelector(".p2").classList.toggle("ahead", lead === 2);
+    }
+  }
   let scoreShown = "";
   function score(){
+    board();
     const s = totals();
     const text = s.total ? `tóny ${Math.round(s.pitch)} % · blízko ${Math.round(s.near)} %${s.text === null ? "" : ` · text ${Math.round(s.text)} %`}` : "";
     if(text !== scoreShown){ scoreShown = text; el("sing-score").textContent = text; }
     if(duo.on){
-      const s2 = totals2(), fmt = (x) => x.total ? `tóny ${Math.round(x.pitch)} %${x.text === null ? "" : ` · text ${Math.round(x.text)} %`}` : "";
+      const s2 = totals2(), fmt = (x, sc) => (sc && sc.dataset.p ? sc.dataset.p + " · " : "") + (x.total ? `tóny ${Math.round(x.pitch)} %${x.text === null ? "" : ` · text ${Math.round(x.text)} %`}` : "");
       const a = el("sing-who1").querySelector(".sc"), b = el("sing-who2").querySelector(".sc");
-      if(a && a.textContent !== fmt(s)) a.textContent = fmt(s);
-      if(b && b.textContent !== fmt(s2)) b.textContent = fmt(s2);
+      if(a && a.textContent !== fmt(s, a)) a.textContent = fmt(s, a);
+      if(b && b.textContent !== fmt(s2, b)) b.textContent = fmt(s2, b);
     }
   }
 
@@ -34537,13 +34786,39 @@ const Sing = (() => {
   //   echo     a longer repeat that feeds itself and darkens as it fades
   //   doubler  two copies a few ms late, each drifting slightly in pitch, left and right
   //   2nd voice  a copy shifted by an interval (two crossfading taps on a delay line)
+  //   comp     a compressor: the quiet and the loud nearer, the voice sits in the music
+  //   bright   less low end, more presence (a bell at 3.8 kHz) — clearer words
+  //   tel      a narrow band, a little driven: a telephone, a megaphone
+  //   robot    the voice times a 55 Hz wave (ring modulation)
+  //   dry      the voice itself, without the effects
+  //   pan      where it sits, left to right (each singer of a duet their own)
   const FXKEY = "pick-sing-fx";
-  const PRESETS = {clean: {rev: 0, dly: 0, echo: 0, dbl: 0, harm: 0}, room: {rev: 22, dly: 0, echo: 0, dbl: 0, harm: 0},
-    hall: {rev: 48, dly: 0, echo: 10, dbl: 0, harm: 0}, slap: {rev: 10, dly: 50, echo: 0, dbl: 0, harm: 0},
-    stadium: {rev: 38, dly: 0, echo: 42, dbl: 0, harm: 0}, double: {rev: 16, dly: 0, echo: 0, dbl: 65, harm: 0},
-    choir: {rev: 34, dly: 0, echo: 0, dbl: 55, harm: 45}};
-  const fx = {mon: false, rec: true, gain: 0, vol: 100, preset: "room", int: -12, ...PRESETS.room};
+  const KNOBS0 = {rev: 0, dly: 0, echo: 0, dbl: 0, harm: 0, comp: 30, bright: 30, tel: 0, robot: 0, dry: 100};
+  const PRESETS = {
+    clean: {name: "čistý", comp: 20, bright: 20},
+    room: {name: "místnost", rev: 22},
+    pop: {name: "popová hvězda", rev: 26, dbl: 25, comp: 60, bright: 55},
+    ballad: {name: "balada", rev: 52, echo: 18, comp: 40, bright: 35},
+    hall: {name: "sál", rev: 48, echo: 10},
+    church: {name: "kostel", rev: 88, comp: 25, bright: 20},
+    rock: {name: "rocková hala", rev: 40, dly: 25, comp: 70, bright: 50},
+    slap: {name: "slapback (rock'n'roll)", rev: 10, dly: 50, comp: 45, bright: 40},
+    rap: {name: "rap", rev: 8, dly: 18, comp: 80, bright: 65},
+    stadium: {name: "stadion", rev: 38, echo: 42, comp: 50, bright: 40},
+    mountain: {name: "ozvěna v horách", rev: 20, echo: 72},
+    double: {name: "dvojitý hlas", rev: 16, dbl: 65, comp: 40, bright: 40},
+    choir: {name: "sbor", rev: 34, dbl: 55, harm: 45, comp: 40, bright: 35},
+    phone: {name: "telefon", tel: 85, dry: 12, comp: 60, bright: 0, rev: 4},
+    megaphone: {name: "megafon", tel: 100, dry: 0, comp: 90, bright: 0, echo: 22},
+    robot: {name: "robot", robot: 85, dry: 18, rev: 15, comp: 50},
+    own: {name: "vlastní"},
+  };
+  const presetOf = (k) => { const {name, ...v} = PRESETS[k] || {}; return {...KNOBS0, ...v}; };
+  const fx = {mon: false, rec: true, gain: 0, vol: 100, preset: "room", int: -12, pan: 0, ...presetOf("room")};
   try{ Object.assign(fx, JSON.parse(localStorage.getItem(FXKEY) || "{}")); }catch(e){}
+  Object.keys(KNOBS0).forEach(k => { if(typeof fx[k] !== "number") fx[k] = KNOBS0[k]; });
+  // the second singer's own sound in a duet (kept with the duet)
+  duo.fx2 = {vol: 100, pan: 0, int: -12, preset: "room", ...presetOf((duo.fx2 && duo.fx2.preset) || "room"), ...(duo.fx2 || {})};
   const SHIFT = `registerProcessor("pick-shift", class extends AudioWorkletProcessor {
     constructor(){ super(); this.b = new Float32Array(8192); this.w = 0; this.ph = 0; this.ratio = 0.5; this.port.onmessage = (e) => { this.ratio = e.data; }; }
     process(inputs, outputs){
@@ -34580,6 +34855,55 @@ const Sing = (() => {
     }
     return buf;
   }
+  // One voice's way to the headphones (each singer of a duet has their own): the microphone's input
+  // ch → its gain → low cut and presence → compressor → the voice, dry and into every effect → pan → out.
+  function voiceChain(ac, out, stream, ch){
+    const G = (v) => { const n = ac.createGain(); n.gain.value = v; return n; };
+    const D = (t) => { const n = ac.createDelay(1); n.delayTime.value = t; return n; };
+    const F = (type, f, q, gain) => { const n = ac.createBiquadFilter(); n.type = type; n.frequency.value = f; if(q) n.Q.value = q; if(gain) n.gain.value = gain; return n; };
+    const src = ac.createMediaStreamSource(stream), split = ac.createChannelSplitter(8);
+    const inp = G(1), hp = F("highpass", 80, 0.7), pres = F("peaking", 3800, 0.8, 0), comp = ac.createDynamicsCompressor(), voice = G(1);
+    src.connect(split); split.connect(inp, Math.min(7, ch || 0));
+    inp.connect(hp).connect(pres).connect(comp).connect(voice);
+    const master = G(0), pan = ac.createStereoPanner(), dry = G(1), wet = G(1);
+    voice.connect(dry).connect(master); voice.connect(wet);
+    const rev = G(0), conv = ac.createConvolver(); conv.buffer = room(ac);
+    wet.connect(rev).connect(conv).connect(master);
+    const dly = G(0); wet.connect(dly).connect(D(0.115)).connect(master);
+    const echo = G(0), ed = D(0.38), fb = G(0.45), dark = F("lowpass", 3200);
+    wet.connect(echo).connect(ed).connect(master); ed.connect(dark).connect(fb).connect(ed);
+    const dbl = G(0), osc = [];
+    [[0.021, 0.31, -0.75], [0.033, 0.43, 0.75]].forEach(([t, hz, where]) => {
+      const d = D(t), o = ac.createOscillator(), depth = G(0.0028), p = ac.createStereoPanner();
+      o.frequency.value = hz; p.pan.value = where;
+      o.connect(depth).connect(d.delayTime); o.start(); osc.push(o);
+      voice.connect(dbl).connect(d); d.connect(p).connect(master); d.connect(wet);
+    });
+    const harm = G(0), shift = new AudioWorkletNode(ac, "pick-shift", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
+    voice.connect(harm).connect(shift); shift.connect(master); shift.connect(wet);
+    const tel = G(0), shaper = ac.createWaveShaper();
+    shaper.curve = Float32Array.from({length: 1024}, (_, i) => { const x = i / 511.5 - 1; return Math.tanh(3 * x) / Math.tanh(3); });
+    voice.connect(tel).connect(F("highpass", 550, 0.9)).connect(F("lowpass", 2700, 0.9)).connect(shaper).connect(master);
+    const ring = G(0), ro = ac.createOscillator(), robot = G(0);
+    ro.frequency.value = 55; ro.connect(ring.gain); ro.start(); osc.push(ro);
+    voice.connect(ring).connect(robot).connect(master); robot.connect(wet);
+    master.connect(pan).connect(out);
+    const c = {ac, src, split, inp, hp, pres, comp, voice, dry, wet, rev, conv, dly, echo, ed, fb, dark, dbl, harm, shift, tel, shaper, ring, ro, robot, master, pan, osc};
+    c.apply = (v, monOn, lift) => {
+      const now = ac.currentTime, set = (n, x) => n.gain.setTargetAtTime(x, now, 0.03);
+      inp.gain.value = lift;
+      set(master, monOn ? v.vol / 100 : 0); set(dry, v.dry / 100);
+      set(rev, v.rev / 100 * 0.9); set(dly, v.dly / 100 * 0.8); set(echo, v.echo / 100 * 0.7);
+      set(dbl, v.dbl / 100 * 0.9); set(harm, v.harm / 100); set(tel, v.tel / 100 * 0.9); set(robot, v.robot / 100 * 1.2);
+      comp.threshold.value = -8 - v.comp * 0.3; comp.ratio.value = 1 + v.comp / 100 * 7; comp.knee.value = 18; comp.attack.value = 0.004; comp.release.value = 0.18;
+      set(voice, 1 + v.comp / 100 * 0.9);                                // the level the compressor took, back
+      pres.gain.value = v.bright / 100 * 8; hp.frequency.value = 60 + v.bright * 0.9;
+      pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (v.pan || 0) / 100)), now, 0.03);
+      shift.port.postMessage(Math.pow(2, (v.int || -12) / 12));
+    };
+    c.stop = () => { osc.forEach(o => { try{ o.stop(); }catch(e){} }); Object.values(c).forEach(n => { if(n && n.disconnect) try{ n.disconnect(); }catch(e){} }); };
+    return c;
+  }
   async function fxStart(ch){
     fxStop();
     const {ac, out} = Mixer.voiceOut();
@@ -34589,32 +34913,11 @@ const Sing = (() => {
       await ac.audioWorklet.addModule(url); URL.revokeObjectURL(url); ac.pickShift = true;
     }
     if(!stream) return;
-    const G = (v) => { const n = ac.createGain(); n.gain.value = v; return n; };
-    const D = (t) => { const n = ac.createDelay(1); n.delayTime.value = t; return n; };
-    const src = ac.createMediaStreamSource(stream), split = ac.createChannelSplitter(2);
-    const inp = G(1), master = G(0), wet = G(1);          // wet: every voice there is, on its way to the room and the echoes
-    src.connect(split); split.connect(inp, ch);
-    inp.connect(master); inp.connect(wet);
-    const rev = G(0), conv = ac.createConvolver(); conv.buffer = room(ac);
-    wet.connect(rev).connect(conv).connect(master);
-    const dly = G(0); wet.connect(dly).connect(D(0.115)).connect(master);
-    const echo = G(0), ed = D(0.38), fb = G(0.45), dark = ac.createBiquadFilter(); dark.type = "lowpass"; dark.frequency.value = 3200;
-    wet.connect(echo).connect(ed).connect(master); ed.connect(dark).connect(fb).connect(ed);
-    const dbl = G(0), osc = [];
-    [[0.021, 0.31, -0.75], [0.033, 0.43, 0.75]].forEach(([t, hz, where]) => {
-      const d = D(t), o = ac.createOscillator(), depth = G(0.0028), pan = ac.createStereoPanner();
-      o.frequency.value = hz; pan.pan.value = where;
-      o.connect(depth).connect(d.delayTime); o.start(); osc.push(o);
-      inp.connect(dbl).connect(d); d.connect(pan).connect(master); d.connect(wet);
-    });
-    const harm = G(0), shift = new AudioWorkletNode(ac, "pick-shift", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
-    inp.connect(harm).connect(shift); shift.connect(master); shift.connect(wet);
-    master.connect(out);
+    chain = voiceChain(ac, out, stream, ch);
     // The take that becomes a track: the microphone after its gain, no effects.
     const rec = new AudioWorkletNode(ac, "pick-tape", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1, channelCountMode: "explicit"});
     rec.port.onmessage = (e) => { if(fx.rec && loopLine < 0 && !lesson && tape.length < 9000) tape.push(e.data); };
-    inp.connect(rec);
-    chain = {ac, src, split, inp, master, wet, rev, conv, dly, echo, ed, fb, dark, dbl, harm, shift, osc, rec};
+    chain.inp.connect(rec); chain.rec = rec;
     fxApply();
   }
   function fxApply(){
@@ -34622,34 +34925,40 @@ const Sing = (() => {
     el("sing-fx-gaindb").textContent = "+" + fx.gain + " dB";
     const lift = Math.pow(10, fx.gain / 20);
     if(micGain) micGain.gain.value = lift;
+    if(two && two.chain) two.chain.apply(duo.fx2, fx.mon, 1);
     if(!chain) return;
-    chain.inp.gain.value = lift;
-    const now = chain.ac.currentTime, set = (n, v) => n.gain.setTargetAtTime(v, now, 0.03);
-    set(chain.master, fx.mon ? fx.vol / 100 : 0);
-    set(chain.rev, fx.rev / 100 * 0.9); set(chain.dly, fx.dly / 100 * 0.8); set(chain.echo, fx.echo / 100 * 0.7);
-    set(chain.dbl, fx.dbl / 100 * 0.9); set(chain.harm, fx.harm / 100);
-    chain.shift.port.postMessage(Math.pow(2, fx.int / 12));
+    chain.apply(fx, fx.mon, lift);
     const ms = Math.round(((chain.ac.baseLatency || 0) + (chain.ac.outputLatency || 0)) * 1000);
     el("sing-fx-lat").textContent = fx.mon && ms ? `zpoždění výstupu ${ms} ms` : "";
   }
   function fxStop(){
     if(!chain) return;
-    chain.osc.forEach(o => { try{ o.stop(); }catch(e){} });
-    Object.values(chain).forEach(n => { if(n && n.disconnect) try{ n.disconnect(); }catch(e){} });
+    chain.stop();
     chain = null; el("sing-fx-lat").textContent = "";
   }
-  const KNOBS = {vol: "sing-fx-vol", rev: "sing-fx-rev", dly: "sing-fx-dly", echo: "sing-fx-echo", dbl: "sing-fx-dbl", harm: "sing-fx-harm"};
+  const KNOBS = {vol: "sing-fx-vol", rev: "sing-fx-rev", dly: "sing-fx-dly", echo: "sing-fx-echo", dbl: "sing-fx-dbl", harm: "sing-fx-harm",
+    pan: "sing-fx-pan", comp: "sing-fx-comp", bright: "sing-fx-bright", dry: "sing-fx-dry", tel: "sing-fx-tel", robot: "sing-fx-robot"};
+  const presetOptions = (cur) => Object.entries(PRESETS).map(([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${p.name}</option>`).join("");
   function fxPaint(){
-    el("sing-mon").checked = !!fx.mon; el("sing-rec").checked = !!fx.rec; el("sing-fx-gain").value = fx.gain; el("sing-fx-preset").value = fx.preset; el("sing-fx-int").value = String(fx.int);
+    el("sing-mon").checked = !!fx.mon; el("sing-rec").checked = !!fx.rec; el("sing-fx-gain").value = fx.gain; el("sing-fx-int").value = String(fx.int);
+    el("sing-fx-preset").innerHTML = presetOptions(fx.preset);
     Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).value = fx[k]; });
+    el("sing-pan1").value = fx.pan || 0;
+    el("sing-pan2").value = duo.fx2.pan || 0; el("sing-vol2").value = duo.fx2.vol;
+    el("sing-fx2-preset").innerHTML = presetOptions(duo.fx2.preset);
   }
   function fxChanged(){ try{ localStorage.setItem(FXKEY, JSON.stringify(fx)); }catch(e){} fxPaint(); fxApply(); }
   el("sing-mon").onchange = (e) => { fx.mon = e.target.checked; fxChanged(); if(fx.mon && !on) say("Uslyšíš se, jakmile klikneš na „Zpívat“. Jen se sluchátky, jinak to začne pískat."); };
   el("sing-rec").onchange = (e) => { fx.rec = e.target.checked; fxChanged(); };
   el("sing-fx-gain").oninput = (e) => { fx.gain = +e.target.value; fxChanged(); };
-  el("sing-fx-preset").onchange = (e) => { fx.preset = e.target.value; if(PRESETS[fx.preset]) Object.assign(fx, PRESETS[fx.preset]); fxChanged(); };
+  el("sing-fx-preset").onchange = (e) => { fx.preset = e.target.value; if(fx.preset !== "own") Object.assign(fx, presetOf(fx.preset), {pan: fx.pan}); fxChanged(); };
+  // the second singer of a duet: a preset, a pan and a level of their own
+  el("sing-fx2-preset").onchange = (e) => { duo.fx2 = {...duo.fx2, ...presetOf(e.target.value), preset: e.target.value}; keepDuo(); fxChanged(); };
+  el("sing-pan1").oninput = (e) => { fx.pan = +e.target.value; fxChanged(); };
+  el("sing-pan2").oninput = (e) => { duo.fx2.pan = +e.target.value; keepDuo(); fxChanged(); };
+  el("sing-vol2").oninput = (e) => { duo.fx2.vol = +e.target.value; keepDuo(); fxChanged(); };
   el("sing-fx-int").onchange = (e) => { fx.int = +e.target.value; fxChanged(); };
-  Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).oninput = (e) => { fx[k] = +e.target.value; if(k !== "vol") fx.preset = "own"; fxChanged(); }; });
+  Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).oninput = (e) => { fx[k] = +e.target.value; if(k !== "vol" && k !== "pan") fx.preset = "own"; fxChanged(); }; });
   fxPaint(); fxApply();
 
   function open(){
@@ -34673,7 +34982,7 @@ const Sing = (() => {
   el("sing-float-close").onclick = close;
   el("nm-sing-open").onclick = () => { TMenu.close(); Win.isOpen() ? close() : open(); };
   paintGo();
-  return {open, close, start, finish, isOn: () => on, isOpen: () => Win.isOpen(), mirror: (c) => { mirror = c || null; }, lesson: lessonStart, lessonOn: () => !!lesson, lessonNext: () => { if(lesson) lessonGo(lesson.k + 1); },
+  return {open, close, start, finish, isOn: () => on, isOpen: () => Win.isOpen(), mount, isDuo: () => duo.on, lesson: lessonStart, lessonOn: () => !!lesson, lessonNext: () => { if(lesson) lessonGo(lesson.k + 1); },
     lessonState: () => lesson && {k: lesson.k, n: lesson.list.length, phase: lesson.phase, wait: lesson.wait, a: lesson.a, b: lesson.b, res: lesson.res},
     // What was heard of the lyric line that starts at t (the mixer's own ribbon writes it under the text too).
     wordsAt: (t) => { const l = lines.find(x => Math.abs(x.t - t) < 0.06); return (l && l.words) || null; },
