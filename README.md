@@ -750,6 +750,10 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
   Reggae), hrající krok svítí; vzor je vrstva stopy, změna se slyší hned. Pady na obrazovce i z kláves se nahrávají
   jako další vrstva přes rytmus.
 - Zpět/znovu jde po vrstvách napříč stopami (poslední první); nová vrstva zahodí, co šlo vrátit.
+- **Noty** (u MIDI stopy): editor not smyčky — klik do prázdné mřížky přidá notu (do vybrané vrstvy; prázdná stopa
+  tím dostane smyčku o zvolené délce, „auto“ = 1 takt), tah notu posune v čase a výšce, tah za pravý okraj změní
+  délku, dvojklik nebo Delete smaže. Mřížka podle zarovnání stopy (1/8, 1/16), zelená čára ukazuje, kde smyčka
+  hraje; vrstva se po každé změně hned vykreslí znovu. Úpravy not nejsou v Zpět/znovu (to vrací celé vrstvy).
 - **Aranžmá**: části za sebou, každá na počet taktů (z písně ve Steems podle jejích sekcí, z Loop Studia podle
   plánu, nebo „+ do aranžmá“ s délkou nejdelší smyčky části; −/+ takty, ‹ › pořadí, ✕). „▶ Přehrát aranžmá“
   přehraje píseň od začátku, části se přepínají samy na taktu, na konci se zastaví; pedál/šipky během něj skáčou

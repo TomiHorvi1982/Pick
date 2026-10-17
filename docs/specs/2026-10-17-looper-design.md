@@ -43,7 +43,8 @@ switching layers on and off. Everything is played by the feet: a MIDI pedal, or 
 - As built: notes are kept as played and rendered into the loop's buffer (OfflineAudioContext), so the
   grid and the sound can change after recording; the kit and four synths are Web Audio (looper-sound.js),
   Pick's SoundFont instruments when the library is installed. The step grid is a track's layer (1–4 bars,
-  swing, nine grooves). Editing single notes (a piano roll) is left for later.
+  swing, nine grooves). Single notes are edited in a piano roll (add, move, lengthen, delete; the grid of
+  the track's quantise; the layer re-rendered after each change).
 
 ## Phase 3 — the song (done)
 
