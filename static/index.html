@@ -5411,7 +5411,7 @@ body.lib-collapsed .pick-brand{display:none}
               <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
               <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
               <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
-              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — píseň se sama přeladí na ladění tvé kytary (nastavíš ho v ladičce): kytary, basa a melodické stopy, bicí a zpěv zůstanou. Klik: ladění skladby vybrat ručně nebo posun změnit."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
+              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — přeladí tuhle píseň na ladění tvé kytary (nastavíš ho v ladičce): kytary, basa a melodické stopy, bicí a zpěv zůstanou. Každá píseň se otevírá v originálním ladění; zapnuté přeladění si pamatuje jen ta píseň. Klik: ladění skladby vybrat ručně nebo posun změnit."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
               <button class="nm-btn round" id="nm-tune-orig" hidden title="Originální ladění — vrátí všechny přeladěné stopy téhle písně do původní výšky. Další klik je zase přeladí na tvoji kytaru.">Originál</button>
             </div>
             <span class="cap" id="nm-tune-cap">TÓNINA (půltóny)</span>
@@ -17257,7 +17257,7 @@ const Mixer = (() => {
       const cur = MyTuning.get();
       if(cur && cur.midi.join() === midi.join()){ if(force) showToast(`Moje ladění: ${MyTuning.label(midi)}`); return; }
       MyTuning.set(midi);
-      showToast(`Moje ladění: ${MyTuning.label(midi)} — písně ve Steems se na něj přeladí samy`);
+      showToast(`Moje ladění: ${MyTuning.label(midi)} — píseň ve Steems na něj přeladíš tlačítkem Moje ladění`);
     }
     function showMine(mine){
       const t = Tunings.BUILTIN.find(x => x.strings.map(Tunings.midi).join() === mine.midi.join());
@@ -18154,6 +18154,23 @@ const Mixer = (() => {
     const fs = el("nm-stage").requestFullscreen;
     if(fs) el("nm-stage").requestFullscreen().catch(() => {});
     stageRelayout();
+  }
+  function restage(){
+    if(!stageOn) return;
+    if(el("nm-lyr-lines").parentElement !== el("nm-stage-lyr")) el("nm-stage-lyr").appendChild(el("nm-lyr-lines"));
+    if(FloatTab.isOpen()) dockTab();
+    const wrap = el("nm-tabtop-hostwrap");
+    if(tabs.length && wrap.parentElement !== el("nm-stage-tab")){
+      el("nm-stage-tab").appendChild(wrap);
+      wrap.classList.add("floated");
+      el("nm-tabtop-host").style.transform = "";
+      if(tabLiveApi){
+        tabLiveApi.settings.display.layoutMode = window.alphaTab.LayoutMode.Page;
+        tabLiveApi.updateSettings();
+        tabLiveApi.render();
+      }
+    }
+    stagePaint(); stageSing(); stageRelayout();
   }
   function closeStage(){
     if(!stageOn) return;
@@ -21306,9 +21323,22 @@ const Mixer = (() => {
     selectEqChannel(eqSel);
   }
 
+  // The deck's way through the song (static/deck.js): a part played again, a part left out — asked
+  // here, where the loop wraps, so a jump is made the same way.
+  let flowHook = null;
   function tick(){
     if(!isPlaying) return;
     let t = currentTime();
+    if(flowHook && !(loopEnabled && loopEnd > loopStart)){
+      let to = null;
+      try{ to = flowHook(t); }catch(e){ console.error("flow:", e); }
+      if(to != null && Math.abs(to - t) > 0.02){
+        t = Math.max(0, Math.min(duration, to));
+        stopAllSources();
+        scheduleAll(t);
+        syncTabIndices(t);
+      }
+    }
     // Loop check
     if(loopEnabled && t >= loopEnd && loopEnd > loopStart){
       t = loopStart;
@@ -23503,10 +23533,12 @@ const Mixer = (() => {
   }
   // What follows the guitar: every stem but the kit, the voices and what was played into the song here.
   const tonalChannels = () => channels.filter(c => !MyTuning.fixed(stemLabel(c.stem) + " " + c.stem) && !/^take-/.test(c.stem));
-  // How this song stands to the guitar: "" follows it, "orig" stays as recorded, "manual:n" is a shift of one's own.
+  // How this song stands to the guitar: "orig" stays as recorded (what every song opens in), "" follows
+  // the guitar, "manual:n" is a shift of one's own. Following is kept (as "follow") only for a song where
+  // it was asked for — a song opened never retunes itself.
   const tuneModeKey = () => "pick-tune-mode:" + (currentSongName || "");
-  const tuneMode = () => { try{ return localStorage.getItem(tuneModeKey()) || ""; }catch(e){ return ""; } };
-  const setTuneMode = (v) => { try{ v ? localStorage.setItem(tuneModeKey(), v) : localStorage.removeItem(tuneModeKey()); }catch(e){} };
+  const tuneMode = () => { let v = ""; try{ v = localStorage.getItem(tuneModeKey()) || ""; }catch(e){} return v === "follow" ? "" : v || "orig"; };
+  const setTuneMode = (v) => { try{ v === "orig" ? localStorage.removeItem(tuneModeKey()) : localStorage.setItem(tuneModeKey(), v || "follow"); }catch(e){} };
   // The song's own tuning, low → high: from its tab, or as kept with its stems.
   function songTuning(){
     const tb = tabs[0], orig = tb && (tb.data._orig || tb.data).tuning;
@@ -23623,14 +23655,7 @@ const Mixer = (() => {
   el("nm-tempo-num").addEventListener("blur", commitTempoField);
   el("nm-tempo-num").addEventListener("focus", (e) => e.currentTarget.select());
 
-  // Spacebar transport.
-  document.addEventListener("keydown", (e) => {
-    if(e.code !== "Space" || el("mixer").hidden) return;
-    const tag = (e.target.tagName || "").toLowerCase();
-    if(tag === "input" || tag === "textarea" || tag === "select") return;
-    e.preventDefault();
-    isPlaying ? pause() : play();
-  });
+  // Space, ← → and the rest of the transport keys: the deck's (static/deck.js), the listener's to change.
 
   // The overview is sized in CSS percentages, so it needs a repaint whenever
   // the window changes width.
@@ -27072,7 +27097,27 @@ const Mixer = (() => {
     position: () => currentTime(), vizTap: () => masterGain ? {ctx: audioCtx, node: masterGain} : null,
     loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
     play: () => { if(!isPlaying) play(); }, pause: () => { if(isPlaying) pause(); },
-    sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end})), length: () => duration,
+    sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end, color: x.color})), length: () => duration,
+    // The deck (static/deck.js): the tracks as icons with a knob, the song's parts, its chords and facts.
+    deck: {
+      tracks: () => channels.map((c, i) => { const st = styleOf(c);
+        return {i, stem: c.stem, label: stemLabel(c.stem), color: st.c, icon: st.icon, vol: c.faderValue == null ? 1 : c.faderValue, muted: !!c.muted, solo: !!c.solo}; }),
+      setVol(i, v){ const c = channels[i]; if(!c) return; c.faderValue = Math.max(0, Math.min(1.5, v)); applyGains(); renderChannels(); queueSessionSave(); },
+      toggleMute(i){ const c = channels[i]; if(!c) return; c.muted = !c.muted; applyGains(); renderChannels(); renderTimeline(); queueSessionSave(); return c.muted; },
+      chords: () => chords.filter(c => c.chord && c.chord !== "N").map(c => ({start: c.start, end: c.end, chord: c.chord, bass: c.bass || null})),
+      grid: () => ({beats: beatTimes, downbeats: downbeatTimes, perBar: beatsPerBar, bpm: tempoBPM}),
+      analysis: () => analysisState,
+      facts(){
+        const k = el("nm-key").textContent, st = channels.length ? songTuning() : null;
+        return {key: k && k !== "…" && k !== "—" ? k : "", bpm: tempoBPM ? Math.round(tempoBPM * speed) : null,
+                tuning: st ? (tuneName(st.midi) || st.midi.map(m => NOTE_NAMES[((m % 12) + 12) % 12]).join(" ")) : "", tuningFrom: st ? st.from : ""};
+      },
+      onFlow: (fn) => { flowHook = fn; },
+      stageOn: () => stageOn,
+      restage: () => restage(),
+      isPlaying: () => isPlaying,
+      toggle: () => { isPlaying ? pause() : play(); },
+    },
     muteStem: (stem, on) => { const c = channels.find(x => x.stem === stem); if(!c || c.muted === on) return;
       c.muted = on; applyGains(); renderChannels(); renderTimeline(); },
     // Read-only view of the generated click track, for diagnostics.
@@ -36215,6 +36260,7 @@ const Voice = (() => {
 </script>
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
+<script src="/static/deck.js"></script>
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
 <script src="/static/viz.js"></script>
