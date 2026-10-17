@@ -738,7 +738,19 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
 - **Klávesy**: 1–5 tlačítka stop, mezerník spustit/zastavit, Tab další stopa, Enter tlačítko vybrané, Z zpět
   (Shift+Z znovu), ← → části, Esc zavřít. **Pedál**: akce `looper:press`, `looper:next`, `looper:undo`,
   `looper:play`, `looper:scene:±`, `looper:track:1–5` — v Looperu „🦶 Pedál“ (klik a šlápnout) i v Nastavení.
-- Smyčky zatím žijí v paměti, dokud se Pick nezavře. MIDI stopy, bicí, aranžmá a uložení přijdou v dalších fázích.
+- **MIDI stopa** (zdroj „MIDI nástroj“): noty z MIDI kláves se nahrají jako noty (čas ze značky zprávy, minus
+  výstupní zpoždění), smyčka se z nich vykreslí do zvuku (`OfflineAudioContext`) a hraje jako nahrávka. Zvuk:
+  vestavěné syntezátory (lead, basa, elektrické piano, pad — `static/looper-sound.js`) nebo nástroje Picku
+  (knihovna `kytara-nastroj`). Zarovnání do rytmu volně / 1/8 / 1/16 jde změnit i po nahrání (noty se drží, jak
+  byly zahrané, a vykreslí se znovu); stejně tak zvuk. Klávesy hrají vybranou MIDI/bicí stopu (nebo tu, co nahrává);
+  Steems je mezitím neposlouchají.
+- **Bicí** (zdroj „Bicí“): vlastní souprava ve Web Audio (kopák, virbl, tlesk, hi-hat zavřený/otevřený, tomy,
+  činel, ride; noty General MIDI 36/38/39/42/46/45/49/51, takže hrají i pady MIDI klávesnice). **Kroky**: mřížka
+  16 kroků na takt × 1–4 takty, swing, hotové rytmy (Rock, Pop, Disco, Funk, Half-time, Shuffle, Hip-hop, Balada,
+  Reggae), hrající krok svítí; vzor je vrstva stopy, změna se slyší hned. Pady na obrazovce i z kláves se nahrávají
+  jako další vrstva přes rytmus.
+- Zpět/znovu jde po vrstvách napříč stopami (poslední první); nová vrstva zahodí, co šlo vrátit.
+- Smyčky zatím žijí v paměti, dokud se Pick nezavře. Aranžmá a uložení přijdou ve 3. fázi.
 
 ## Ovládací panel Steems (deck)
 
