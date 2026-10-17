@@ -180,6 +180,8 @@ const Pedal = (() => {
     ["setlist:+", "Další píseň playlistu"], ["setlist:-", "Předchozí píseň playlistu"], ["skip:-", "10 s zpět"], ["skip:+", "10 s vpřed"],
     ["slower", "Pomaleji (−5 %)"], ["faster", "Rychleji (+5 %)"], ["metronome", "Metronom"], ["record", "Nahrávání"],
     ["edge:start:-", "Začátek smyčky o 0,5 s dřív"], ["edge:end:+", "Konec smyčky o 0,5 s později"],
+    ["deck:next", "Další část písně (skok)"], ["deck:prev", "Předchozí část písně (skok)"], ["deck:again", "Část znovu od začátku"],
+    ["deck:loop", "Smyčka na části zap / vyp"], ["deck:play", "Přehrát / pauza (jako mezerník)"],
   ];
   const GESTURES = {single: "šlápnutí", double: "dvojklik", long: "podržení"};
   const LONG_MS = 600, DOUBLE_MS = 320;
@@ -188,6 +190,7 @@ const Pedal = (() => {
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   let access = null, learning = null, last = "", root = null;
+  const learned = [];                       // who waits for the next switch learned (the deck's key window)
   const name = (a) => (ACTIONS.find((x) => x[0] === a) || [a, a])[1];
 
   // ---- what a MIDI message is: which switch, pressed or let go
@@ -236,7 +239,8 @@ const Pedal = (() => {
         const gs = Mixer.channelInfo().map((c) => c.stem).filter((s) => s.split("_")[0] === "guitar");
         if(!gs.length) said = "kytara tu není";
         else { const anyOn = gs.some((s) => !(Mixer.channelByStem(s) || {}).muted); Mixer.voice.guitars(!anyOn); said = anyOn ? "kytary ztlumené" : "kytary hrají"; }
-      }else if(action === "setlist:+") said = Setlist.next() ? "další píseň" : null;
+      }else if(action.startsWith("deck:")) said = typeof SongDeck !== "undefined" ? SongDeck.run(action.slice(5)) : null;
+      else if(action === "setlist:+") said = Setlist.next() ? "další píseň" : null;
       else if(action === "setlist:-") said = Setlist.prev() ? "předchozí píseň" : null;
       else said = Voice.run(action);
     }catch(e){ said = null; }
@@ -283,6 +287,7 @@ const Pedal = (() => {
     cfg.binds.push({key: m.key, label: m.label, gesture, action, mode});
     keep(); paint();
     showToast(`Naučeno: ${m.label} — ${GESTURES[gesture]} → ${name(action)}`);
+    learned.splice(0).forEach((f) => { try{ f(); }catch(e){} });
   }
 
   // ---- Settings → MIDI pedál
@@ -345,5 +350,5 @@ const Pedal = (() => {
   // A pedal set up before is listened to from the start (Chrome remembers the MIDI permission).
   // listening from the start whenever the pedal is meant to work — the last message shows, learning works at once
   if(cfg.on) connect(true);
-  return {connect, run, parse, actions: ACTIONS, config: () => cfg, feed: (data, from = "") => onMsg({data, target: {name: from}})};
+  return {connect, run, parse, learn, onLearned: (f) => learned.push(f), actions: ACTIONS, config: () => cfg, feed: (data, from = "") => onMsg({data, target: {name: from}})};
 })();

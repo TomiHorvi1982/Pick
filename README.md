@@ -202,13 +202,13 @@ co chybí“ a „Připravit na cvičení“ v liště výběru. Hotové se pře
 rozdělených bez tabu nebo textu se jen znovu hledá tab a text
 (`save-many` s `finish`).
 
-**Píseň se ladí podle kytary.** Ladění vybrané v ladičce (nebo „Tohle je moje
-ladění“, „Zjistit z kytary“) je ladění hráčovy kytary. Každá píseň otevřená ve
-Steems, jejíž ladění je známé (z tabu nebo `tuning.json`), se o rozdíl posune
-sama: kytary, basa a melodické stopy, ne bicí, zpěv a vlastní nahrávky. Posouvá
-se jen výška (stejný stretch jako u tóniny), čas, takty a značky zůstávají.
-„Originál“ vrátí píseň do původní výšky (pamatuje se u písně), další klik ji
-zase přeladí. Kde ladění známé není, nic se neposune; „Moje ladění“ ho nechá
+**Píseň se dá přeladit na kytaru.** Ladění vybrané v ladičce (nebo „Tohle je moje
+ladění“, „Zjistit z kytary“) je ladění hráčovy kytary. Každá píseň se ve Steems
+otevírá v **originálním ladění** — sama se nepřeladí. Klik na „Originál“ (nebo
+„Moje ladění“) ji o rozdíl posune: kytary, basa a melodické stopy, ne bicí, zpěv
+a vlastní nahrávky; přeladění si pamatuje jen ta píseň (`pick-tune-mode:<píseň>`
+= `follow`). Posouvá se jen výška (stejný stretch jako u tóniny), čas, takty a
+značky zůstávají. Další klik na „Originál“ ji vrátí. Kde ladění známé není, nic se neposune; „Moje ladění“ ho nechá
 vybrat ručně a uloží k písni. Odhad ladění ze zvuku basy se zkoušel a na
 známých písních se trefil v 6 z 11 — proto se nepoužívá.
 
@@ -718,6 +718,35 @@ kytara, metronom a údery stejně. **Rozbalit** vrátí vlny a všechna nastaven
 stopami, přes celou šířku mixu, místo okna přes stopy; výška se táhne za roh. ⧉ v jejich liště je odpojí do
 plovoucího okna a ↩ vrátí (pamatuje se pro každé zvlášť). Mimo Steems jsou to okna jako dřív
 (`makeFloating(…, {dock: steemsDock})`).
+
+## Ovládací panel Steems (deck)
+
+Nahoře ve Steems i na celé obrazovce (`static/deck.js`): velké ▶/⏸, každá stopa jako ikona na kulatém
+knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně v řadě, jak jdou za sebou.
+
+- **Knoflík stopy**: kolečko myši (se Shiftem jemně) nebo tažení nahoru a dolů = hlasitost (0–150 %,
+  ryska je 100 %); **dvojklik ztlumí** stopu — zešedne — a další dvojklik ji vrátí. Master je hlasitost
+  přehrávače (lišta dole), dvojklik ho ztlumí.
+- **Části písně** (sekce z analýzy, nebo vlastní): klik = hrát od začátku části. Najetím myší se ukáže
+  **vyp/zap** (vypnutá část se při přehrávání přeskočí — zešedne, šrafovaná), **×1–×4** (kolikrát za sebou
+  se zahraje) a **smyčka** (hraje dokola; skok na jinou část ji vezme s sebou). Vypnutí a opakování se
+  pamatují u písně (`pick-deck-parts:<píseň>`). Rozhoduje o tom mixér tam, kde řeší smyčku (`flowHook`),
+  takže skok je stejný jako u smyčky.
+- **Klávesy**: mezerník přehrát/pauza, ← → předchozí/další část; dál „část znovu“ a „smyčka na části“.
+  ⌨ v panelu je přenastaví (klik, stisk klávesy; Backspace = žádná) a u každé akce **🦶 Naučit pedál**:
+  šlápnutí na spínač MIDI pedálu ji přiřadí. Stejné akce jsou v Nastavení → MIDI pedál (`deck:next`,
+  `deck:prev`, `deck:again`, `deck:loop`, `deck:play`), tam i dvojklik a podržení.
+
+**Na celé obrazovce** navíc:
+- **🔍 Písně**: hledání ve Steems podle písně nebo kapely (kapela → její písně); vybraná píseň se načte
+  a celá obrazovka zůstane (`restage`: text, tab a pole zpěváků se přestěhují s ní).
+- **Akordy** (zap/vyp, „kytara i klavír“ / „kytara“ / „klavír“): řádek taktů jako na Moises — každý
+  takt své doby, akord u doby, kde začíná, název části nad taktem, hraná doba svítí — a pod ním karty
+  akordů: předchozí zešedlý, právě hraný zvýrazněný, tři další. Na kartě akord na hmatníku (prstoklad
+  1–4, barré, × a o, pražec) a na klavíru (dvě oktávy, základní tón tmavší). Tvary: otevřené akordy, jinak
+  barré tvaru E (kořen na 6. struně) nebo A (na 5.), co je níž; rozšířené akordy (6, 9, add9…) se drží
+  jako nejbližší jednoduchý, klavír ukazuje všechny tóny. Klik na kartu skočí na akord. Při duetu se panel
+  i akordy zmenší, ať zpěvákům zbude místo.
 
 ## Trenér zpěvu: duet
 
