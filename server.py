@@ -13616,3 +13616,118 @@ def loopstudio_hardware_save(profile: dict):
 def loopstudio_page():
     return (APP_DIR / "static" / "loopstudio.html").read_text(encoding="utf-8")
 
+
+
+# ---- the looper's projects (static/looper.js). A project is a folder under Looper/ in the music
+# root: project.json (tempo, parts, arrangement, the tracks and their layers) and a WAV for every
+# recorded layer. Notes and step grids are kept in the JSON and rendered again when it opens.
+LOOPER_DIR = "Looper"
+_LOOPER_FILE = _re_mod.compile(r"[A-Za-z0-9_-]{1,60}\.wav")
+
+
+def _looper_dir(name: str, create: bool = False) -> Optional[Path]:
+    """The project's folder, its name cleaned to what a folder may be called."""
+    clean = _re_mod.sub(r"[\\/:*?\"<>|\x00-\x1f]+", "", name or "").strip().strip(".")[:80].strip()
+    if not clean:
+        return None
+    base = _resolve_under_music_root(LOOPER_DIR)
+    if base is None:
+        return None
+    d = (base / clean)
+    try:
+        if d.resolve().parent != base.resolve():
+            return None
+    except OSError:
+        return None
+    if create:
+        d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@app.get("/api/looper")
+def looper_list():
+    base = _resolve_under_music_root(LOOPER_DIR)
+    out = []
+    if base is not None and base.is_dir():
+        for d in base.iterdir():
+            f = d / "project.json"
+            if not f.is_file():
+                continue
+            try:
+                p = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            out.append({"name": d.name, "song": p.get("song"), "bpm": p.get("bpm"),
+                        "tracks": sum(1 for t in p.get("tracks") or [] if t.get("layers")),
+                        "saved": f.stat().st_mtime})
+    out.sort(key=lambda x: -x["saved"])
+    return {"projects": out}
+
+
+@app.get("/api/looper/{name}")
+def looper_get(name: str):
+    d = _looper_dir(name)
+    f = d / "project.json" if d else None
+    if f is None or not f.is_file():
+        return JSONResponse({"error": "Projekt nenalezen."}, status_code=404)
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return JSONResponse({"error": "Projekt se nepodařilo přečíst."}, status_code=500)
+
+
+@app.put("/api/looper/{name}")
+def looper_save(name: str, project: dict):
+    """The project's description; WAVs no layer names any more are let go."""
+    d = _looper_dir(name, create=True)
+    if d is None:
+        return JSONResponse({"error": "Neplatný název projektu."}, status_code=400)
+    if not isinstance(project, dict) or not isinstance(project.get("tracks"), list):
+        return JSONResponse({"error": "Projekt musí mít stopy."}, status_code=400)
+    used = {l.get("file") for t in project["tracks"] if isinstance(t, dict)
+            for l in (t.get("layers") or []) if isinstance(l, dict)}
+    missing = [f for f in used if f and not (d / f).is_file()]
+    if missing:
+        return JSONResponse({"error": f"Chybí nahrávky: {', '.join(sorted(missing))}"}, status_code=400)
+    tmp = d / ".project.json.saving"
+    tmp.write_text(json.dumps(project, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, d / "project.json")
+    for f in d.glob("*.wav"):
+        if f.name not in used:
+            f.unlink(missing_ok=True)
+    return {"name": d.name, "files": len(used - {None})}
+
+
+@app.put("/api/looper/{name}/files/{fname}")
+async def looper_file_put(name: str, fname: str, request: Request):
+    if not _LOOPER_FILE.fullmatch(fname):
+        return JSONResponse({"error": "Neplatný název souboru."}, status_code=400)
+    d = _looper_dir(name, create=True)
+    if d is None:
+        return JSONResponse({"error": "Neplatný název projektu."}, status_code=400)
+    raw = await request.body()
+    if len(raw) < 44 or raw[:4] != b"RIFF" or raw[8:12] != b"WAVE":
+        return JSONResponse({"error": "Nahrávka není WAV."}, status_code=400)
+    if len(raw) > 400 * 1024 * 1024:
+        return JSONResponse({"error": "Nahrávka je příliš velká."}, status_code=413)
+    tmp = d / f".{fname}.saving"
+    tmp.write_bytes(raw)
+    os.replace(tmp, d / fname)
+    return {"file": fname, "bytes": len(raw)}
+
+
+@app.get("/api/looper/{name}/files/{fname}")
+def looper_file_get(name: str, fname: str):
+    d = _looper_dir(name)
+    if d is None or not _LOOPER_FILE.fullmatch(fname) or not (d / fname).is_file():
+        return JSONResponse({"error": "Nahrávka nenalezena."}, status_code=404)
+    return FileResponse(d / fname, media_type="audio/wav")
+
+
+@app.delete("/api/looper/{name}")
+def looper_delete(name: str):
+    d = _looper_dir(name)
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Projekt nenalezen."}, status_code=404)
+    shutil.rmtree(d, ignore_errors=True)
+    return {"deleted": d.name}

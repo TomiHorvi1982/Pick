@@ -440,7 +440,8 @@ $("to-looper").onclick = () => {
   const parts = (S.arr || []).map(a => by[a.sectionId]).filter(Boolean).map(s => s.name || s.label || s.kind);
   const L = window.parent && window.parent !== window && window.parent.Looper;
   if(!L){ toast("Looper je v hlavním okně Picku — otevři Loop Studio tam (Tools)"); return; }
-  L.open({song: S.song, bpm: parseFloat($("f-bpm").value) || f.bpm, perBar: f.beatsPerBar || 4, parts});
+  const arrangement = (S.arr || []).filter(a => by[a.sectionId]).map(a => { const s = by[a.sectionId]; return {name: s.name || s.label || s.kind, bars: (s.bars || 4) * (a.repeats || 1)}; });
+  L.open({song: S.song, bpm: parseFloat($("f-bpm").value) || f.bpm, perBar: f.beatsPerBar || 4, parts, arrangement});
 };
 $("to-steems").onclick = async () => {
   if(S.dirty){ toast("Nejdřív ulož opravy (dole)"); return; }

@@ -72,6 +72,13 @@ const Looper = (() => {
   .lp-sc button b{display:block}.lp-sc button span{font-size:11px;color:#9a9ab0}
   .lp-sc button.cur{background:color-mix(in srgb,var(--accent,#8b5cf6) 30%,#14141c);border-color:var(--accent,#8b5cf6)}
   .lp-sc button.next{animation:lpblink .5s steps(2) infinite;border-color:#ffa53d}
+  .lp-arr{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .lp-arr .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-arr .st{display:flex;align-items:center;gap:4px;padding:6px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+  .lp-arr .st.now{border-color:#3ddc97;box-shadow:0 0 0 1px #3ddc97}
+  .lp-arr .st b{font-size:12px;cursor:pointer}.lp-arr .st i{font-style:normal;font-size:11px;color:#9a9ab0;min-width:44px;text-align:center}
+  .lp-arr .st button{font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);cursor:pointer}
+  .lp-arr .arrow{color:#55556a}
   .lp-help{font-size:12px;color:#8a8aa0;line-height:1.6}
   .lp-help kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:0 5px;font:inherit;font-size:11px;color:#ddd}
   .lp-ped{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
@@ -217,15 +224,18 @@ const Looper = (() => {
     running = true;
     clickFrom = countIn ? t0 - lead : t0;
     tracks.forEach(t => { if(t.layers.length){ t.anchor = t0; t.layers.forEach(l => startLayer(t, l, t0)); } });
+    if(arrOn && arr.length){ arrPos = {i: 0, start: 0}; cur = arr[0].k; }
     applyMutes(now());
+    if(cfg.guide) guideAt(t0, guidePos());
     paint();
   }
   function stopAll(){
     if(!running) return;
     running = false;
     tracks.forEach(t => { t.layers.forEach(stopLayer); if(t.job) cancelJob(t); });
-    pending = null;
+    pending = null; arrPos = null; arrOn = false;
     Object.values(srcs).forEach(s => s.stop());
+    guideStop();
     paint();
   }
 
@@ -411,6 +421,226 @@ const Looper = (() => {
     paint();
   }
 
+  // ---- the arrangement: parts in order, each for some bars; played by itself, stepped by the pedal
+  let arr = [], arrOn = false, arrPos = null, projName = null;
+  // a part's natural length: its longest loop
+  function sceneBars(k){
+    const sc = scenes[k]; let b = 0;
+    tracks.forEach(t => { if(t.len && (!sc || sc.on.has(t.i))) b = Math.max(b, Math.round(t.len / barLen())); });
+    return b || 4;
+  }
+  const stepBars = (st) => Math.max(1, st.bars || sceneBars(st.k));
+  function arrStep(d){
+    const i = Math.max(0, Math.min(arr.length - 1, arrPos.i + d));
+    const at = nextBar(now()), barIdx = Math.round((at - t0) / barLen());
+    pending = {k: arr[i].k, at, step: {i, start: barIdx}};
+    paint();
+  }
+  function playArr(){
+    if(!arr.length){ showToast("Aranžmá je prázdné — přidej části (+ do aranžmá)"); return; }
+    if(running) stopAll();
+    arrOn = true; cur = arr[0].k;
+    start(false);
+  }
+  function paintArr(){
+    const box = root && root.querySelector("#lp-arr");
+    if(!box) return;
+    const total = arr.reduce((n, st) => n + stepBars(st), 0), sec = total * barLen();
+    box.innerHTML = `<span class="h">ARANŽMÁ</span>
+      <button type="button" class="lp-b ${arrOn && running ? "on" : ""}" data-a="play" title="Přehrát celé aranžmá: části se přepínají samy, pedál (další / předchozí část) skáče">${arrOn && running ? "■ Zastavit" : "▶ Přehrát aranžmá"}</button>`
+      + arr.map((st, i) => `${i ? '<span class="arrow">›</span>' : ""}<span class="st ${arrOn && arrPos && arrPos.i === i && running ? "now" : ""}" data-i="${i}">
+          <b data-a="go" title="Klik: tady pokračovat">${esc(scenes[st.k] ? scenes[st.k].name : "?")}</b>
+          <button type="button" data-a="-" title="O takt kratší">−</button><i>${stepBars(st)} ${stepBars(st) === 1 ? "takt" : stepBars(st) < 5 ? "takty" : "taktů"}</i><button type="button" data-a="+" title="O takt delší">+</button>
+          <button type="button" data-a="<" title="Dřív">‹</button><button type="button" data-a=">" title="Později">›</button><button type="button" data-a="x" title="Vyndat">✕</button></span>`).join("")
+      + `<button type="button" class="lp-b" data-a="add" title="Přidá část, která právě hraje">+ do aranžmá</button>`
+      + (arr.length ? `<span class="h" style="margin-left:6px">${total} taktů · ${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}</span>` : "");
+    box.querySelector('[data-a="play"]').onclick = () => { if(arrOn && running){ stopAll(); arrOn = false; paint(); } else playArr(); };
+    box.querySelector('[data-a="add"]').onclick = () => { arr.push({k: cur, bars: sceneBars(cur)}); paint(); };
+    box.querySelectorAll(".st").forEach(n => {
+      const i = +n.dataset.i;
+      n.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
+        const a = b.dataset.a, st = arr[i];
+        if(a === "-") st.bars = Math.max(1, stepBars(st) - 1);
+        else if(a === "+") st.bars = stepBars(st) + 1;
+        else if(a === "<" && i > 0) [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+        else if(a === ">" && i < arr.length - 1) [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+        else if(a === "x") arr.splice(i, 1);
+        else if(a === "go"){ if(arrOn && running && arrPos){ arrStep(i - arrPos.i); return; } goScene(st.k); }
+        paint();
+      });
+    });
+  }
+  function arrFrom(list){
+    // [{name, bars}] in the song's order → steps on the parts of those names
+    arr = (list || []).map(x => ({k: scenes.findIndex(s => s.name === x.name), bars: Math.max(1, Math.round(x.bars || 0)) || 0})).filter(x => x.k >= 0);
+  }
+
+  // ---- the original under the loops: the song open in Steems, from where the part playing begins in it
+  const guideSong = () => song && Mixer.currentSong && Mixer.currentSong() === song;
+  function guidePos(){
+    let list = [];
+    try{ list = Mixer.sectionsNow() || []; }catch(e){}
+    const name = scenes[pending ? pending.k : cur] ? scenes[pending ? pending.k : cur].name : null;
+    let nth = 0;
+    if(arrOn && arrPos){ const i = pending && pending.step ? pending.step.i : arrPos.i; for(let k = 0; k < i; k++) if(arr[k].k === arr[i].k) nth++; }
+    const hits = list.filter(x => x.name === name);
+    return hits.length ? hits[nth % hits.length].start : 0;
+  }
+  let guideT = 0;
+  function guideAt(at, pos){
+    if(!cfg.guide || !guideSong()) return;
+    clearTimeout(guideT);
+    guideT = setTimeout(() => { try{ Mixer.seek(pos); Mixer.play(); }catch(e){} }, Math.max(0, (at - now()) * 1000 - 5));
+  }
+  function guideStop(){ clearTimeout(guideT); try{ if(guideSong()) Mixer.pause(); }catch(e){} }
+
+  // ---- a buffer as a 16-bit WAV
+  function wav(buf){
+    const n = buf.length, ch = Math.min(2, buf.numberOfChannels), sr = buf.sampleRate, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+    const w = (o, s2) => { for(let k = 0; k < s2.length; k++) out.setUint8(o + k, s2.charCodeAt(k)); };
+    w(0, "RIFF"); out.setUint32(4, 36 + n * ch * 2, true); w(8, "WAVE"); w(12, "fmt "); out.setUint32(16, 16, true);
+    out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, sr, true); out.setUint32(28, sr * ch * 2, true);
+    out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, "data"); out.setUint32(40, n * ch * 2, true);
+    const data = Array.from({length: ch}, (_, c) => buf.getChannelData(c));
+    let o = 44;
+    for(let k = 0; k < n; k++) for(let c = 0; c < ch; c++){ const v = Math.max(-1, Math.min(1, data[c][k])); out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+    return new Blob([out.buffer], {type: "audio/wav"});
+  }
+
+  // ---- saving and opening: Looper/<name>/project.json and a WAV per recorded layer
+  const enc = encodeURIComponent;
+  function toJSON(){
+    return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
+      scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on]})), arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0})),
+      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len,
+        layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
+  }
+  async function save(asName){
+    audio();
+    let name = asName || projName;
+    if(!name){
+      name = await Dialog.prompt("Název projektu looperu:", song ? `Looper – ${song}` : "Můj looper");
+      if(!name || !name.trim()) return false;
+      name = name.trim();
+    }
+    try{
+      for(const t of tracks) for(const l of t.layers){
+        if(l.steps || l.raw || (l.file && l.fileProj === name)) continue;
+        const f = `t${t.i + 1}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.wav`;
+        const res = await fetch(`/api/looper/${enc(name)}/files/${f}`, {method: "PUT", body: wav(l.buf)});
+        if(!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "nahrávka se neuložila");
+        l.file = f; l.fileProj = name;
+      }
+      const res = await fetch(`/api/looper/${enc(name)}`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(toJSON())});
+      if(!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "projekt se neuložil");
+      projName = (await res.json()).name || name;
+      showToast(`Uloženo: ${projName}`);
+      paint();
+      return true;
+    }catch(e){ showToast("Uložení se nepovedlo: " + e.message); return false; }
+  }
+  async function openProject(){
+    let list = [];
+    try{ list = (await (await fetch("/api/looper")).json()).projects || []; }catch(e){}
+    if(!list.length){ showToast("Zatím žádný uložený projekt looperu"); return; }
+    const name = await Dialog.pick({title: "Otevřít projekt looperu", placeholder: "Hledat projekt…", empty: "Nic takového.",
+      search: async (q) => list.filter(p => !q || p.name.toLowerCase().includes(q.toLowerCase()))
+        .map(p => ({label: p.name, sub: [p.song, p.bpm ? p.bpm + " BPM" : "", p.tracks + " stop", new Date(p.saved * 1000).toLocaleString("cs-CZ")].filter(Boolean).join(" · "), value: p.name}))});
+    if(name) await load(name);
+  }
+  async function load(name){
+    audio();
+    if(hasAudio() && !(await Dialog.confirm("Otevřít jiný projekt? Co je teď v looperu a není uložené, se ztratí.", {ok: "Otevřít"}))) return false;
+    let P;
+    try{ const res = await fetch(`/api/looper/${enc(name)}`); if(!res.ok) throw new Error(); P = await res.json(); }
+    catch(e){ showToast("Projekt se nepodařilo otevřít"); return false; }
+    stopAll(); arrOn = false;
+    tracks.forEach(t => clear(t.i));
+    history.length = 0; redoStack.length = 0;
+    cfg.bpm = P.bpm || cfg.bpm; cfg.perBar = P.perBar || cfg.perBar; song = P.song || null;
+    scenes = (P.scenes || []).map(sc => ({name: sc.name, on: new Set(sc.on || [])}));
+    if(!scenes.length) makeScenes();
+    cur = Math.min(P.cur || 0, scenes.length - 1);
+    arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0}));
+    for(const [i, T] of (P.tracks || []).slice(0, N).entries()){
+      const t = tracks[i];
+      Object.assign(t, {name: T.name || t.name, src: T.src || t.src, instr: T.instr || t.instr, q: T.q ?? t.q, vol: T.vol ?? t.vol, bars: T.bars || 0, len: T.len || 0, anchor: 0});
+      for(const L of T.layers || []){
+        try{
+          let layer;
+          if(L.kind === "audio" && L.file){
+            const ab = await (await fetch(`/api/looper/${enc(name)}/files/${L.file}`)).arrayBuffer();
+            layer = {buf: await ac.decodeAudioData(ab), file: L.file, fileProj: name};
+          } else if(L.kind === "notes"){ layer = {raw: L.raw}; layer.buf = await render(t, quantized(t, L.raw)); }
+          else if(L.kind === "steps"){ t.steps = L.steps; layer = {steps: L.steps}; layer.buf = await render(t, stepNotes(t)); }
+          if(layer){ t.layers.push(layer); history.push(t.i); }
+        }catch(e){ showToast(`${t.name}: vrstvu se nepodařilo načíst`); }
+      }
+    }
+    projName = name;
+    root.querySelectorAll(".lp-t").forEach(n => { const t = tracks[+n.dataset.i]; n.querySelector(".nm input").value = t.name; n.querySelector('[data-k="vol"]').value = t.vol; });
+    applyMutes(now());
+    paint(); paintSteps();
+    showToast(`Otevřeno: ${name}`);
+    return true;
+  }
+
+  // ---- export: the arrangement played through, offline — all of it, or a track at a time
+  async function bounce(only){
+    const steps = arr.length ? arr : [{k: cur, bars: sceneBars(cur) * 2}];
+    const sr = ac.sampleRate, total = steps.reduce((n, st) => n + stepBars(st), 0) * barLen(), oc = new OfflineAudioContext(2, Math.ceil((total + 0.05) * sr), sr);
+    let any = false;
+    tracks.forEach(t => {
+      if(!t.layers.length || (only != null && only !== t.i)) return;
+      const g = oc.createGain(); g.connect(oc.destination);
+      let at = 0;
+      steps.forEach(st => { const on = !scenes[st.k] || scenes[st.k].on.has(t.i); g.gain.setValueAtTime(on ? t.vol : 0, at); at += stepBars(st) * barLen(); });
+      t.layers.forEach(l => { const s2 = oc.createBufferSource(); s2.buffer = l.buf; s2.loop = true; s2.connect(g); s2.start(0); any = true; });
+    });
+    return any ? oc.startRendering() : null;
+  }
+  async function exportMenu(){
+    audio();
+    if(!hasAudio()){ showToast("Looper je prázdný — není co exportovat"); return; }
+    const how = await Dialog.pick({title: "Export", text: arr.length ? `Aranžmá: ${arr.length} částí, ${arr.reduce((n, st) => n + stepBars(st), 0)} taktů.` : "Aranžmá je prázdné — vyveze se část, která hraje (dvakrát).",
+      search: async () => [{label: "WAV — celá píseň", sub: "smíchané stopy, stáhne se", value: "wav"},
+        {label: "Projekt ve Steems", sub: "každá stopa looperu jako stopa ve Steems — tam se dá dál mixovat a nahrávat", value: "steems"}]});
+    if(how === "wav") return exportWav();
+    if(how === "steems") return exportSteems();
+  }
+  async function exportWav(){
+    showToast("Vykresluji…");
+    const buf = await bounce(null);
+    if(!buf) return;
+    const a = document.createElement("a"), url = URL.createObjectURL(wav(buf));
+    a.href = url; a.download = `${projName || (song ? "Looper – " + song : "Looper")}.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    lastExport = {kind: "wav", seconds: buf.duration};
+    showToast(`WAV hotový (${Math.round(buf.duration)} s)`);
+  }
+  let lastExport = null;
+  async function exportSteems(){
+    const name = (projName || (song ? "Looper – " + song : "Looper")).slice(0, 110);
+    showToast("Vykresluji stopy pro Steems…");
+    let project = null, n = 0;
+    try{
+      for(const t of tracks){
+        if(!t.layers.length) continue;
+        const buf = await bounce(t.i), fd = new FormData();
+        fd.append("file", wav(buf), `${t.name}.wav`);
+        const url = project ? `/api/stems/${enc(project)}/tracks/upload` : `/api/stems/new/upload?name=${enc(name)}`;
+        const res = await fetch(url, {method: "POST", body: fd}), j = await res.json().catch(() => ({}));
+        if(!res.ok) throw new Error(j.error || "stopa se neuložila");
+        if(!project) project = j.name;
+        n++;
+      }
+    }catch(e){ showToast("Export do Steems se nepovedl: " + e.message); return; }
+    lastExport = {kind: "steems", project, tracks: n};
+    try{ if(typeof loadSteemsList === "function") loadSteemsList(); }catch(e){}
+    showToast(`Ve Steems je projekt „${project}“ (${n} stop)`);
+  }
+
   // ---- the click and the clock: a little scheduler a tenth of a second ahead
   let clickFrom = 0, clickNext = 0;
   function tick(){
@@ -422,7 +652,20 @@ const Looper = (() => {
       if((cfg.click || clickNext < t0) && clickNext >= tm - 0.01) beep(clickNext, first);
       clickNext += b;
     }
-    if(pending && tm >= pending.at - 0.02){ cur = pending.k; pending = null; applyMutes(Math.max(tm, 0)); paint(); }
+    if(arrOn && arrPos && arr.length){
+      const end = t0 + (arrPos.start + stepBars(arr[arrPos.i])) * barLen();
+      if(!pending && tm >= end - 0.15){
+        const i = arrPos.i + 1;
+        if(i >= arr.length){ if(tm >= end - 0.01){ stopAll(); arrOn = false; showToast("Aranžmá dohrálo"); paint(); } }
+        else { pending = {k: arr[i].k, at: end, step: {i, start: arrPos.start + stepBars(arr[arrPos.i])}}; paint(); }
+      }
+    }
+    if(pending && tm >= pending.at - 0.02){
+      cur = pending.k;
+      if(pending.step) arrPos = pending.step;
+      if(cfg.guide) guideAt(pending.at, guidePos());
+      pending = null; applyMutes(Math.max(tm, 0)); paint();
+    }
     finish();
   }
   function beep(at, first){
@@ -575,7 +818,11 @@ const Looper = (() => {
         <span class="lp-f"><button type="button" class="lp-b" id="lp-click" title="Klik (metronom)">Klik</button><input type="range" id="lp-clickv" min="0" max="1" step="0.01" title="Hlasitost kliku"></span>
         <button type="button" class="lp-b" id="lp-count" title="Před prvním nahráváním odpočet jednoho taktu">Odpočet</button>
         <button type="button" class="lp-b" id="lp-mon" title="Slyšet mikrofon ve sluchátkách (jen se sluchátky — z reproduktorů by pískal)">Slyšet mikrofon</button>
+        <button type="button" class="lp-b" id="lp-guide" title="Originál písně pod smyčkami (její stopy z Steems), na začátku části, kterou hraješ — jen s písní otevřenou ve Steems">Originál</button>
         <span class="lp-sp"></span>
+        <button type="button" class="lp-b" id="lp-open" title="Otevřít uložený projekt looperu">Otevřít</button>
+        <button type="button" class="lp-b" id="lp-save" title="Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě">Uložit</button>
+        <button type="button" class="lp-b" id="lp-export" title="Aranžmá jako WAV, nebo jako projekt ve Steems (stopa za stopu)">Export</button>
         <button type="button" class="lp-b" id="lp-undo" title="Vrátit poslední vrstvu (Z)">↶ Zpět</button>
         <button type="button" class="lp-b" id="lp-redo" title="Znovu (Shift+Z)">↷</button>
         <span class="lp-f" title="Hlasitost všech smyček">Smyčky <input type="range" id="lp-vol" min="0" max="1.4" step="0.01"></span>
@@ -585,6 +832,7 @@ const Looper = (() => {
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
+        <div class="lp-arr" id="lp-arr"></div>
         <div class="lp-help">
           <b>Jak na to:</b> tlačítko stopy = <b>nahrát → hrát → přidat vrstvu → hrát</b>. Nahrávání začne na začátku taktu a skončí na konci taktu —
           samo po zvolené délce, nebo po druhém stisku (auto). Když nahráváš a stiskneš jinou stopu, předá se na stejném taktu. Části písně dole:
@@ -600,6 +848,10 @@ const Looper = (() => {
     $("lp-go").onclick = () => (running ? stopAll() : start(false));
     $("lp-close").onclick = close;
     $("lp-undo").onclick = undo; $("lp-redo").onclick = redo;
+    $("lp-save").onclick = () => save();
+    $("lp-open").onclick = () => openProject();
+    $("lp-export").onclick = () => exportMenu();
+    $("lp-guide").onclick = () => { cfg.guide = !cfg.guide; keep(); if(!cfg.guide) guideStop(); else if(running) guideAt(t0, guidePos()); paint(); };
     $("lp-bpm").onchange = (e) => setBpm(parseFloat(e.target.value));
     $("lp-click").onclick = () => { cfg.click = !cfg.click; keep(); paint(); };
     $("lp-clickv").oninput = (e) => { cfg.clickVol = +e.target.value; keep(); if(clickBus) clickBus.gain.value = cfg.clickVol; };
@@ -682,7 +934,7 @@ const Looper = (() => {
     $("lp-count").classList.toggle("on", cfg.countIn); $("lp-mon").classList.toggle("on", cfg.monMic);
     $("lp-vol").value = cfg.vol;
     $("lp-lat").textContent = Math.round(lat() * 1000) + " ms";
-    $("lp-song").textContent = song ? "· " + song : "";
+    $("lp-song").textContent = [song, projName ? "projekt " + projName : ""].filter(Boolean).map(x => "· " + x).join(" ");
     $("lp-beats").innerHTML = Array.from({length: cfg.perBar}, (_, k) => `<i class="${k === 0 ? "one" : ""}"></i>`).join("");
     root.querySelectorAll(".lp-t").forEach(n => {
       const t = tracks[+n.dataset.i], s = stateOf(t);
@@ -710,6 +962,9 @@ const Looper = (() => {
       b.ondblclick = async () => { const s = scenes[+b.dataset.k], v = await Dialog.prompt("Název části:", s.name); if(v && v.trim()){ s.name = v.trim(); paint(); } };
     });
     $("lp-sc").querySelector("[data-add]").onclick = addScene;
+    paintArr();
+    $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
+    $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
   }
   // the moving parts, every frame: the rings, the bar and beat
   function frame(){
@@ -748,6 +1003,7 @@ const Looper = (() => {
     if(a === "next"){ sel = (sel + 1) % N; paint(); return `vybraná stopa ${sel + 1}`; }
     if(a === "undo"){ undo(); return "zpět"; }
     if(a === "play"){ running ? stopAll() : start(false); return running ? "hraje" : "stop"; }
+    if((a === "scene:+" || a === "scene:-") && arrOn && arrPos && running){ arrStep(a === "scene:+" ? 1 : -1); return a === "scene:+" ? "další část aranžmá" : "předchozí část aranžmá"; }
     if(a === "scene:+"){ goScene(Math.min(scenes.length - 1, (pending ? pending.k : cur) + 1)); return "další část"; }
     if(a === "scene:-"){ goScene(Math.max(0, (pending ? pending.k : cur) - 1)); return "předchozí část"; }
     return null;
@@ -801,6 +1057,9 @@ const Looper = (() => {
         if(bpm) cfg.bpm = Math.round(bpm * 10) / 10;
         if(per) cfg.perBar = per;
         makeScenes(o.parts);
+        if(o.arrangement) arrFrom(o.arrangement);
+        else { try{ arrFrom((Mixer.sectionsNow() || []).map(x => ({name: x.name, bars: (x.end - x.start) / barLen()}))); }catch(e){ arr = []; } }
+        projName = null;
       }
     }
     try{ Mixer.pause(); }catch(e){}
@@ -811,7 +1070,9 @@ const Looper = (() => {
   function close(){ if(root) root.hidden = true; open = false; }
   return {open: openLooper, close, isOpen: () => open, run, press, undo, redo, start, stop: stopAll, goScene,
     state: () => ({running, bpm: cfg.bpm, sel, cur, scenes: scenes.map(s => ({name: s.name, on: [...s.on]})),
-      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, layers: t.layers.length, len: t.len, state: ac ? stateOf(t) : "empty"}))}),
+      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, layers: t.layers.length, len: t.len, state: ac ? stateOf(t) : "empty"})),
+    arr: arr.map(st => ({name: scenes[st.k] ? scenes[st.k].name : null, bars: stepBars(st)})), arrOn, arrAt: arrPos ? arrPos.i : null, project: projName, lastExport}),
+    save, load, playArr, bounce, exportWav, exportSteems,
     // for the tests: how loud a track's layers are
     _rms: (i) => { const t = tracks[i]; if(!t.layers.length) return 0; const d = t.layers[t.layers.length - 1].buf.getChannelData(0); let q = 0; for(let k = 0; k < d.length; k++) q += d[k] * d[k]; return Math.sqrt(q / d.length); },
     _cut: cut, _srcs: srcs,
