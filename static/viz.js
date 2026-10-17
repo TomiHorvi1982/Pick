@@ -355,6 +355,8 @@ const Viz = (() => {
       <div class="viz-mix" hidden></div><div class="viz-note" hidden></div></div>`;
     document.body.appendChild(win);
     cv = win.querySelector("canvas"); g = cv.getContext("2d"); vids = [...win.querySelectorAll("video")];
+    // pictures, never sound: muted and marked so (defaultMuted) — the player's volume leaves them be
+    vids.forEach((v) => { v.muted = true; v.defaultMuted = true; });
     place();
     await loadLib();
     if(cfg.theme.startsWith("v:") && !folder()) cfg.theme = "spektrum";
@@ -470,7 +472,7 @@ const Viz = (() => {
           <b title="${esc(x.title)}">${esc(x.title)}</b><small title="${esc(x.author)}">${x.dur ? x.dur + " s · " : ""}${esc(x.license || "")}${x.author ? " · " + esc(x.author) : ""}</small>
           <button type="button" class="viz-btn" data-save='${esc(JSON.stringify(x))}'>Uložit</button></div>`).join(""));
         grid.querySelectorAll(".viz-th:not([data-on])").forEach((t) => { t.dataset.on = 1;
-          t.onmouseenter = () => { if(t.querySelector("video")) return; const v = document.createElement("video"); v.muted = true; v.loop = true; v.playsInline = true; v.src = t.dataset.url; t.appendChild(v); v.play().catch(() => {}); };
+          t.onmouseenter = () => { if(t.querySelector("video")) return; const v = document.createElement("video"); v.muted = v.defaultMuted = true; v.loop = true; v.playsInline = true; v.src = t.dataset.url; t.appendChild(v); v.play().catch(() => {}); };
           t.onmouseleave = () => { const v = t.querySelector("video"); if(v){ v.pause(); v.removeAttribute("src"); v.load(); v.remove(); } }; });
         grid.querySelectorAll("[data-save]:not([data-on])").forEach((b) => { b.dataset.on = 1; b.onclick = async () => {
           const x = JSON.parse(b.dataset.save);

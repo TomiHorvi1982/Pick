@@ -6646,7 +6646,7 @@ const AudioBus = (() => {
 
   function pauseMedia(except){
     const keep = ownerOf(except);
-    const stopIt = (m) => { if(m && m !== except && !m.paused && ownerOf(m) !== keep) m.pause(); };
+    const stopIt = (m) => { if(m && m !== except && !m.paused && !m.muted && ownerOf(m) !== keep) m.pause(); };     // a muted picture plays on
     document.querySelectorAll("audio, video").forEach(stopIt);
     seen.forEach(ref => stopIt(ref.deref()));
   }
@@ -6667,18 +6667,21 @@ const AudioBus = (() => {
   // Elements that never enter the page (new Audio(...)) don't send "play"
   // events to the document, so play() itself is what has to announce them.
   const nativePlay = HTMLMediaElement.prototype.play;
+  // A muted picture (Vizualizace's videos, a preview) makes no sound: it silences nothing — it
+  // used to stop whatever played, the tab player's synth among them, at every video it started.
+  const sounds = (m) => !m.muted && m.volume > 0;
   HTMLMediaElement.prototype.play = function(...args){
     AudioOut.applyEl(this);
     if(!this.isConnected){
       seen.add(new WeakRef(this));
-      silenceOthers(this);
+      if(sounds(this)) silenceOthers(this);
     }
     return nativePlay.apply(this, args);
   };
 
   document.addEventListener("play", (e) => {
     const el = e.target;
-    if(el instanceof HTMLMediaElement) silenceOthers(el);
+    if(el instanceof HTMLMediaElement && sounds(el)) silenceOthers(el);
   }, true);
 
   // Safety net for any start path that slips past the above: if the mixer
@@ -6686,7 +6689,7 @@ const AudioBus = (() => {
   // last keeps it.
   setInterval(() => {
     if(!mixerIsPlaying || !mixerIsPlaying()) return;
-    const mediaOn = [...document.querySelectorAll("audio, video")].some(m => !m.paused);
+    const mediaOn = [...document.querySelectorAll("audio, video")].some(m => !m.paused && !m.muted);
     if(!mediaOn) return;
     if(owner === "mixer") pauseMedia(null);
     else if(mixerStop) { try{ mixerStop(); }catch(e){} }
@@ -28131,7 +28134,9 @@ const Player = (() => {
     // elements; the one volume control has to reach them too. The tiny
     // preview in the player bar is muted on purpose.
     document.querySelectorAll("video").forEach(v => {
-      if(v.id === "pb-mini-video-el") return;
+      // a picture made muted (Vizualizace's videos, previews: the muted attribute) stays so — unmuted
+      // here, it counted as sound and the audio bus stopped whatever played, the tab player too
+      if(v.id === "pb-mini-video-el" || v.defaultMuted) return;
       v.volume = audio.volume;
       v.muted = audio.muted;
     });
