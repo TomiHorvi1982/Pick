@@ -719,6 +719,27 @@ stopami, přes celou šířku mixu, místo okna přes stopy; výška se táhne z
 plovoucího okna a ↩ vrátí (pamatuje se pro každé zvlášť). Mimo Steems jsou to okna jako dřív
 (`makeFloating(…, {dock: steemsDock})`).
 
+## Looper
+
+Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevřené písně), v Loop Studiu „Otevřít v Looperu“
+(tempo a aranžmá plánu). Živé loopování podle Boss RC-505 (`static/looper.js`, návrh v `docs/specs/2026-10-17-looper-design.md`):
+
+- **5 stop, každá jedno tlačítko**: prázdná → nahrát → hraje → přidat vrstvu → hraje. Nahrávání začne na začátku taktu
+  a skončí na konci taktu — samo po zvolené délce (1–16 taktů), nebo „auto“ po druhém stisku. Vrstva (overdub) trvá
+  jeden průchod smyčky, nebo skončí na dalším taktu po stisku. Z klidu se první nahrávání odpočítá taktem.
+- Stisk jiné stopy během nahrávání **předá na stejném taktu** (jedna nahrává, druhá navazuje bez mezery).
+- **Zpět / znovu** poslední vrstvy, smazání stopy, hlasitost, **M** (ztlumit v části).
+- **Zdroj** stopy: kytara přes zesilovač Picku (nahrávač živé kytary Steems, vzorky s časem zvukových hodin), nebo
+  mikrofon pro zpěv z Nastavení („Slyšet mikrofon“ ho pustí do sluchátek). Zpoždění zvukovky (jako u nahrávek ve
+  Steems) se z každé nahrávky odečte.
+- **Části písně** (scény): Intro, Sloka, Refrén… z písně, jinak A B C; každá si pamatuje, které stopy hrají, vybraná
+  se přepne na začátku dalšího taktu, nová stopa se přidá do hrající části.
+- **Klik** s důrazem na první dobu, hlasitost; tempo z písně, ručně nebo Tap (jen dokud jsou stopy prázdné).
+- **Klávesy**: 1–5 tlačítka stop, mezerník spustit/zastavit, Tab další stopa, Enter tlačítko vybrané, Z zpět
+  (Shift+Z znovu), ← → části, Esc zavřít. **Pedál**: akce `looper:press`, `looper:next`, `looper:undo`,
+  `looper:play`, `looper:scene:±`, `looper:track:1–5` — v Looperu „🦶 Pedál“ (klik a šlápnout) i v Nastavení.
+- Smyčky zatím žijí v paměti, dokud se Pick nezavře. MIDI stopy, bicí, aranžmá a uložení přijdou v dalších fázích.
+
 ## Ovládací panel Steems (deck)
 
 Nahoře ve Steems i na celé obrazovce (`static/deck.js`): velké ▶/⏸, každá stopa jako ikona na kulatém

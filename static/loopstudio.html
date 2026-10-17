@@ -173,6 +173,7 @@
       <div id="parts-out" hidden style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
         <a class="btn small" id="mid-chords" download>MIDI akordy</a><a class="btn small" id="mid-bass" download>MIDI basa</a><a class="btn small" id="mid-drums" download>MIDI bicí</a>
         <span class="sp" style="flex:1"></span>
+        <button class="btn small" id="to-looper" title="Otevře Looper v Picku s tempem a částmi tohohle plánu: nahraješ si píseň po vrstvách, pedálem nebo klávesami">Otevřít v Looperu</button>
         <button class="btn small primary" id="to-steems" title="Vytvoří ve Steems projekt „Looper – píseň“: stopy přeskládané podle aranžmá na tempo plánu a MIDI stopy s akordy, basou a bicími. Tam si pustíš, co potřebuješ, a nahráváš vlastní stopy — kytarou, mikrofonem, MIDI klávesami.">Vytvořit projekt ve Steems</button>
       </div>
       <div class="warnbox" id="parts-note" hidden></div>
@@ -434,6 +435,13 @@ $("parts").addEventListener("click", (e) => {
   const url = `/api/loopstudio/file/${enc(S.song)}/${b.dataset.train.split("/").map(enc).join("/")}`, ref = {url, title: `${S.plan.song.title || S.song} · ${b.dataset.what}`, artist: S.plan.song.artist || ""};
   hand({open: "analyzer", ref}, "/analyzer#ref=" + enc(JSON.stringify(ref)));
 });
+$("to-looper").onclick = () => {
+  const f = S.plan.facts, by = Object.fromEntries(f.sections.map(s => [s.id, s]));
+  const parts = (S.arr || []).map(a => by[a.sectionId]).filter(Boolean).map(s => s.name || s.label || s.kind);
+  const L = window.parent && window.parent !== window && window.parent.Looper;
+  if(!L){ toast("Looper je v hlavním okně Picku — otevři Loop Studio tam (Tools)"); return; }
+  L.open({song: S.song, bpm: parseFloat($("f-bpm").value) || f.bpm, perBar: f.beatsPerBar || 4, parts});
+};
 $("to-steems").onclick = async () => {
   if(S.dirty){ toast("Nejdřív ulož opravy (dole)"); return; }
   const b = $("to-steems"); b.disabled = true; b.textContent = "Skládám stopy podle aranžmá…";
