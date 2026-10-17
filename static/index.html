@@ -27115,6 +27115,10 @@ const Mixer = (() => {
         return {key: k && k !== "…" && k !== "—" ? k : "", bpm: tempoBPM ? Math.round(tempoBPM * speed) : null,
                 tuning: st ? (tuneName(st.midi) || st.midi.map(m => NOTE_NAMES[((m % 12) + 12) % 12]).join(" ")) : "", tuningFrom: st ? st.from : ""};
       },
+      // How far the song's pitched tracks sound from the recording, in semitones: the key knob and the
+      // tracks' own shift (the guitar's tuning followed, or one's own) — the chords sound moved by as much.
+      pitch: () => { const t = channels.length ? tonalChannels() : [];
+        return Math.round(pitchSemitones + (t.length ? rateToSemitones(t[0].pitchRate || 1) : 0)); },
       onFlow: (fn) => { flowHook = fn; },
       stageOn: () => stageOn,
       restage: () => restage(),
@@ -36263,6 +36267,7 @@ const Voice = (() => {
 </script>
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
+<script src="/static/chordcoach.js"></script>
 <script src="/static/deck.js"></script>
 <script src="/static/looper-sound.js"></script>
 <script src="/static/looper.js"></script>

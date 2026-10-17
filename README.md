@@ -788,13 +788,34 @@ knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně
 **Na celé obrazovce** navíc:
 - **🔍 Písně**: hledání ve Steems podle písně nebo kapely (kapela → její písně); vybraná píseň se načte
   a celá obrazovka zůstane (`restage`: text, tab a pole zpěváků se přestěhují s ní).
-- **Akordy** (zap/vyp, „kytara i klavír“ / „kytara“ / „klavír“): řádek taktů jako na Moises — každý
-  takt své doby, akord u doby, kde začíná, název části nad taktem, hraná doba svítí — a pod ním karty
-  akordů: předchozí zešedlý, právě hraný zvýrazněný, tři další. Na kartě akord na hmatníku (prstoklad
-  1–4, barré, × a o, pražec) a na klavíru (dvě oktávy, základní tón tmavší). Tvary: otevřené akordy, jinak
-  barré tvaru E (kořen na 6. struně) nebo A (na 5.), co je níž; rozšířené akordy (6, 9, add9…) se drží
-  jako nejbližší jednoduchý, klavír ukazuje všechny tóny. Klik na kartu skočí na akord. Při duetu se panel
-  i akordy zmenší, ať zpěvákům zbude místo.
+- **Akordy** (zap/vyp, „kytara i klavír“ / „kytara“ / „klavír“; `static/chordcoach.js`):
+  - **Pás akordů** jede plynule pod svislou čárou, která stojí na místě (jako na Moises, ale bez skákání po
+    taktech): akordy jako barevné dílky dlouhé podle toho, jak dlouho znějí (barva podle základního tónu),
+    čísla taktů, doby, názvy částí; čára na každou dobu pulzne, na první dobu taktu víc. Klik do pásu skočí
+    v písni tam.
+  - **Karty**: hraný akord velký uprostřed (štítek TEĎ, pod ním jak dlouho ještě zní), dva předchozí vlevo a
+    dva další vpravo menší, s mezerami; další má štítek DALŠÍ · za N dob. Karty při změně akordu odjedou do
+    strany. Na kartě hmat na hmatníku (prstoklad, barré, × a o, pražec, základní tón barevně) a klavír.
+  - **Klik na kartu** akord zvětší: velký hmat, další hmaty pro stejný akord (‹ › hmat 1 z N), klavír, tóny
+    akordu. ▶ Kytara ho brnkne (nástroj kytary z Picku, jinak jeho drnkaná struna), ▶ Klavír zahraje (klavír
+    z Picku, jinak elektrické piano); Rozložit = tón po tónu. Předchozí / další akord, Přehrát píseň odsud,
+    Esc zavře.
+  - **Ladění kytary**: hmaty jsou pro ladění tvé kytary — z ladičky (Moje kytara), nebo vybrané (Standard,
+    Drop D, Eb, D, Drop C, Open G…). Kytara laděná celá níž (Eb, D) hraje stejné tvary posunuté; jiná
+    ladění (drop, open) dostanou hmaty hledané po hmatníku (nejnižší tón basa nebo základ, všechny tóny
+    akordu, do čtyř pražců, nanejvýš barré a tři prsty).
+  - **Výška písně**: když je píseň posunutá (tlačítka tóniny, nebo přeladění na tvoji kytaru), akordy v
+    pásu, na kartách i v kontrole se přepočítají, aby seděly s tím, co zní — a ukáže se „Akordy posunuté o +2“.
+  - **🎹 MIDI klávesy**: připojené MIDI klávesy (Web MIDI) — klaviatura ukazuje, co držíš (zeleně tóny
+    akordu, červeně tóny navíc) a tečkami, co máš zmáčknout; ✓ správně / ✗ ještě ne, co chybí, co je navíc,
+    a jaký akord vlastně držíš. Klávesy znějí klavírem (🔊 jde vypnout). Spínače naučené na MIDI pedál se
+    nepočítají.
+  - **🎸 Hlídat kytaru**: poslouchá vstup kytary ve Steems (čistý signál před zesilovačem; když není zapnutý,
+    zapne ho). Z frekvencí najde tóny (vyšší harmonické se přičtou ke svému tónu), z nich akord, a ukáže je
+    na hmatníku přes 15 pražců vedle hmatu, který máš hrát: zeleně tón, který na hmatu sedí, žlutě tón
+    akordu jinde, červeně tón navíc. Jedna struna = tón s odchylkou v centech (G4 +3¢).
+  - Obojí počítá skóre, když píseň hraje: kolik akordů jsi trefil (každý akord se započítá, když skončí).
+  - Při duetu nebo na nízké obrazovce se karty zmenší, ať zpěvákům zbude místo.
 
 ## Trenér zpěvu: duet
 
