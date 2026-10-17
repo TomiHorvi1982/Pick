@@ -97,6 +97,12 @@ const Looper = (() => {
   .lp-grid .c.on{background:var(--accent,#8b5cf6);box-shadow:0 0 10px color-mix(in srgb,var(--accent,#8b5cf6) 50%,transparent)}
   .lp-grid .c.now{outline:2px solid #fff;outline-offset:-2px}
   .lp-grid .c.bar{margin-left:6px}
+  .lp-notes{border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.08)}
+  .lp-notes[hidden]{display:none}
+  .lp-notes .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .lp-notes .hd b{font-size:14px;margin-right:6px}
+  .lp-notes select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-roll{width:100%;display:block;border-radius:10px;background:#0d0d14;cursor:crosshair;touch-action:none}
   .lp-pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:12px}
   .lp-pads button{height:56px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#1b1b26;cursor:pointer;font-size:12px;font-weight:700}
   .lp-pads button:active,.lp-pads button.hit{background:var(--accent,#8b5cf6);color:#0b0b12}
@@ -390,6 +396,7 @@ const Looper = (() => {
     const t = tracks[i];
     t.layers.forEach(stopLayer); t.layers = []; t.undone = []; t.len = 0; t.steps = null; cancelJob(t);
     if(stepT === t) paintSteps();
+    if(noteT === t) paintNotes();
     for(let k = history.length - 1; k >= 0; k--) if(history[k] === i) history.splice(k, 1);
     paint();
   }
@@ -803,6 +810,142 @@ const Looper = (() => {
     q("sclear").onclick = () => { if(t.steps) setSteps(t, emptySteps(t.steps.bars)).then(paintSteps); };
   }
 
+  // ---- the notes of a MIDI track, put right by hand (a piano roll): a click on the empty grid adds a
+  // note, a note is dragged in time and pitch, its right edge drawn longer or shorter; a double click
+  // (or Delete) takes it away. The layer's sound is made again at once.
+  let noteT = null, noteLayer = -1, noteSel = null, noteDrag = null;
+  const NN2 = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const noteName = (m) => NN2[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  function openNotes(t){ noteT = noteT === t ? null : t; noteSel = null; noteLayer = -1; paintNotes(); paint(); }
+  const noteLayersOf = (t) => t.layers.filter(l => l.raw);
+  const gridStep = (t) => beatLen() * 4 / (t.q || 16);
+  function editLayer(t){
+    const ls = noteLayersOf(t);
+    if(noteLayer >= 0 && ls[noteLayer]) return ls[noteLayer];
+    if(ls.length) return ls[ls.length - 1];
+    // an empty MIDI track: a loop of the bars set for it (1 when "auto"), its first layer written by hand
+    if(!t.len){ t.len = Math.max(1, t.bars || 1) * barLen(); t.anchor = running ? t0 : 0; }
+    const l = {raw: []};
+    l.buf = ac.createBuffer(2, Math.max(1, Math.round(t.len * ac.sampleRate)), ac.sampleRate);
+    t.layers.push(l); history.push(t.i); tracks.forEach(x => { x.undone = []; }); redoStack.length = 0;
+    if(running) startLayer(t, l, now() + 0.005);
+    if(scenes[cur]) scenes[cur].on.add(t.i);
+    paint();
+    return l;
+  }
+  const reTimers = new Map();
+  function noteChanged(t, l){
+    clearTimeout(reTimers.get(l));
+    reTimers.set(l, setTimeout(() => { l.raw.sort((a, b) => a.p - b.p); rerender(t, l, quantized(t, l.raw)); }, 120));
+  }
+  function preview(t, m){ audio(); const rel = LoopSound.synth(ac, monitor, t.instr.startsWith("syn:") ? t.instr : "syn:saw", m, 0.7, now()); rel(now() + 0.18); }
+  // where things are on the roll
+  function rollGeo(t, cv){
+    const all = noteLayersOf(t).flatMap(l => l.raw.map(x => x.m));
+    let lo = all.length ? Math.min(...all) - 4 : 48, hi = all.length ? Math.max(...all) + 4 : 72;
+    if(hi - lo < 24){ const c = Math.round((hi + lo) / 2); lo = c - 12; hi = c + 12; }
+    lo = Math.max(21, lo); hi = Math.min(108, hi);
+    const rows = hi - lo + 1, rowH = Math.max(9, Math.min(16, Math.floor(380 / rows))), left = 44;
+    const W = cv.clientWidth || 1000, len = t.len || barLen();
+    return {lo, hi, rows, rowH, left, W, H: rows * rowH, len,
+      x: (p) => left + p / len * (W - left), y: (m) => (hi - m) * rowH,
+      p: (x) => (x - left) / (W - left) * len, m: (y) => hi - Math.floor(y / rowH)};
+  }
+  function paintNotes(){
+    const box = root && root.querySelector("#lp-notes");
+    if(!box) return;
+    const t = noteT;
+    box.hidden = !t || t.src !== "midi";
+    if(box.hidden) return;
+    const ls = noteLayersOf(t);
+    box.innerHTML = `<div class="hd"><b>Noty — ${esc(t.name)}</b>
+        <select data-k="layer" title="Do které vrstvy se nové noty přidávají">${ls.length ? ls.map((l, k) => `<option value="${k}" ${k === (noteLayer >= 0 ? noteLayer : ls.length - 1) ? "selected" : ""}>vrstva ${k + 1} (${l.raw.length} not)</option>`).join("") : `<option>nová vrstva</option>`}</select>
+        <button type="button" class="lp-b" data-k="nclear" title="Smazat všechny noty vybrané vrstvy">Vymazat noty vrstvy</button>
+        <span class="lp-sp"></span><span style="font-size:11px;color:#8a8aa0">Klik = nová nota · tah = posun · tah za pravý okraj = délka · dvojklik nebo Delete = smazat · mřížka podle zarovnání stopy (${t.q ? "1/" + t.q : "1/16"})</span></div>
+      <canvas class="lp-roll"></canvas>`;
+    const sel = box.querySelector('[data-k="layer"]');
+    sel.onchange = () => { noteLayer = +sel.value; noteSel = null; drawRoll(); };
+    box.querySelector('[data-k="nclear"]').onclick = () => { const l = noteLayersOf(t)[noteLayer >= 0 ? noteLayer : ls.length - 1]; if(!l) return; l.raw.length = 0; noteSel = null; noteChanged(t, l); paintNotes(); };
+    const cv = box.querySelector("canvas");
+    cv.onpointerdown = (e) => rollDown(t, cv, e);
+    cv.ondblclick = (e) => { const h = rollHit(t, cv, e); if(h){ h.l.raw.splice(h.l.raw.indexOf(h.n), 1); noteSel = null; noteChanged(t, h.l); noteHead(); drawRoll(); } };
+    drawRoll();
+  }
+  function noteHead(){
+    const sel = root && root.querySelector('#lp-notes [data-k="layer"]');
+    if(!sel || !noteT) return;
+    const ls = noteLayersOf(noteT);
+    if(sel.options.length !== Math.max(1, ls.length)){ paintNotes(); return; }
+    ls.forEach((l, k) => { sel.options[k].textContent = `vrstva ${k + 1} (${l.raw.length} not)`; });
+  }
+  function rollHit(t, cv, e){
+    const g = rollGeo(t, cv), r2 = cv.getBoundingClientRect(), x = e.clientX - r2.left, y = e.clientY - r2.top;
+    const ls = noteLayersOf(t);
+    for(let k = ls.length - 1; k >= 0; k--) for(const n of ls[k].raw){
+      const x0 = g.x(n.p), x1 = Math.max(x0 + 4, g.x(n.p + n.d)), y0 = g.y(n.m);
+      if(x >= x0 && x <= x1 && y >= y0 && y < y0 + g.rowH) return {l: ls[k], n, edge: x1 - x < 7, g, x, y};
+    }
+    return null;
+  }
+  function rollDown(t, cv, e){
+    e.preventDefault();
+    audio();
+    const r2 = cv.getBoundingClientRect(), g = rollGeo(t, cv), x = e.clientX - r2.left, y = e.clientY - r2.top;
+    if(x < g.left) return;
+    let h = rollHit(t, cv, e);
+    const st = gridStep(t);
+    if(!h){
+      const l = editLayer(t);
+      const n = {p: Math.min(g.len - st, Math.max(0, Math.floor(g.p(x) / st) * st)), m: g.m(y), v: 0.8, d: st * 2};
+      l.raw.push(n); preview(t, n.m); noteChanged(t, l);
+      h = {l, n, edge: false, g, x, y};
+    }
+    noteSel = h.n;
+    noteDrag = {t, l: h.l, n: h.n, edge: h.edge, x0: x, y0: y, p0: h.n.p, m0: h.n.m, d0: h.n.d, g: h.g};
+    try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+    cv.onpointermove = (ev) => {
+      const D = noteDrag; if(!D) return;
+      const dx = ev.clientX - r2.left - D.x0, dy = ev.clientY - r2.top - D.y0, dt = dx / (D.g.W - D.g.left) * D.g.len;
+      if(D.edge) D.n.d = Math.max(st, Math.round((D.p0 + D.d0 + dt) / st) * st - D.p0);
+      else {
+        D.n.p = Math.max(0, Math.min(D.g.len - st, Math.round((D.p0 + dt) / st) * st));
+        const m = Math.max(D.g.lo, Math.min(D.g.hi, D.m0 - Math.round(dy / D.g.rowH)));
+        if(m !== D.n.m){ D.n.m = m; preview(t, m); }
+      }
+      drawRoll();
+    };
+    cv.onpointerup = () => { cv.onpointermove = cv.onpointerup = null; if(noteDrag){ noteChanged(t, noteDrag.l); noteDrag = null; } noteHead(); drawRoll(); };
+    drawRoll();
+  }
+  function drawRoll(){
+    const box = root && root.querySelector("#lp-notes"), cv = box && box.querySelector("canvas");
+    if(!cv || !noteT) return;
+    const t = noteT, g = noteDrag ? noteDrag.g : rollGeo(t, cv), dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth || g.W;
+    if(cv.width !== Math.round(W * dpr) || cv.height !== Math.round(g.H * dpr)){ cv.width = Math.round(W * dpr); cv.height = Math.round(g.H * dpr); cv.style.height = g.H + "px"; }
+    const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, g.H);
+    for(let m = g.lo; m <= g.hi; m++){
+      const y = g.y(m), black = [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
+      c.fillStyle = black ? "#0a0a10" : "#13131c"; c.fillRect(g.left, y, W - g.left, g.rowH);
+      c.fillStyle = black ? "#22222c" : "#d8d8e4"; c.fillRect(0, y, g.left - 2, g.rowH - 1);
+      if(((m % 12) + 12) % 12 === 0 || g.rowH >= 13){ c.fillStyle = black ? "#9a9ab0" : "#2a2a36"; c.font = `${Math.min(10, g.rowH - 3)}px sans-serif`; c.fillText(noteName(m), 3, y + g.rowH - 3); }
+    }
+    const st = gridStep(t), b = barLen(), be = beatLen();
+    for(let p = 0; p <= g.len + 1e-6; p += st){
+      const x = g.x(p), onBar = Math.abs(p / b - Math.round(p / b)) < 1e-6, onBeat = Math.abs(p / be - Math.round(p / be)) < 1e-6;
+      c.fillStyle = onBar ? "rgba(255,255,255,.35)" : onBeat ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.05)";
+      c.fillRect(Math.round(x), 0, 1, g.H);
+    }
+    const ls = noteLayersOf(t), cur2 = ls[noteLayer >= 0 ? noteLayer : ls.length - 1];
+    ls.forEach(l => l.raw.forEach(n => {
+      const x0 = g.x(n.p), x1 = Math.max(x0 + 4, g.x(n.p + n.d)), y = g.y(n.m) + 1;
+      c.fillStyle = l === cur2 ? "#8b5cf6" : "rgba(139,92,246,.4)";
+      c.fillRect(x0, y, x1 - x0 - 1, g.rowH - 2);
+      if(n === noteSel){ c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.strokeRect(x0 + 0.5, y + 0.5, x1 - x0 - 2, g.rowH - 3); }
+    }));
+    if(running && t.len){ const ph = (((now() - t.anchor) % t.len) + t.len) % t.len; c.fillStyle = "#3ddc97"; c.fillRect(g.x(ph), 0, 2, g.H); }
+  }
+
   // ---- the page
   let root = null;
   const ring = 2 * Math.PI * 59;
@@ -831,6 +974,7 @@ const Looper = (() => {
       <div class="lp-main">
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
+        <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-arr" id="lp-arr"></div>
         <div class="lp-help">
@@ -874,7 +1018,8 @@ const Looper = (() => {
           <select data-k="bars" title="Délka první smyčky: auto = do druhého stisku">${BARS.map(b => `<option value="${b}">${b ? b + (b === 1 ? " takt" : b < 5 ? " takty" : " taktů") : "auto"}</option>`).join("")}</select></div>
         <div class="row mi"><select data-k="instr" title="Zvuk MIDI stopy"></select>
           <select data-k="q" title="Zarovnání not do rytmu (kvantizace) — jde změnit i po nahrání"><option value="0">volně</option><option value="8">na 1/8</option><option value="16">na 1/16</option></select>
-          <button type="button" data-k="steps" title="Krokový sekvencer a pady bicích">Kroky</button></div>
+          <button type="button" data-k="steps" title="Krokový sekvencer a pady bicích">Kroky</button>
+          <button type="button" data-k="notes" title="Noty smyčky: přidat, posunout, prodloužit, smazat">Noty</button></div>
         <div class="row"><button type="button" data-k="mute" title="Hraje v téhle části (M)">M</button><button type="button" data-k="undo" title="Vrátit poslední vrstvu téhle stopy">↶</button><button type="button" data-k="clear" title="Smazat stopu">Smazat</button></div>
         <div class="vol">hlasitost <input type="range" data-k="vol" min="0" max="1.4" step="0.01" value="${t.vol}"></div></div>`).join("");
     root.querySelectorAll(".lp-t").forEach(n => {
@@ -884,10 +1029,12 @@ const Looper = (() => {
       n.querySelector(".nm input").onchange = (e) => { t.name = e.target.value.trim() || `Stopa ${t.i + 1}`; };
       n.querySelector('[data-k="src"]').onchange = (e) => {
         if(t.layers.length && isNotes(t) !== (e.target.value === "midi" || e.target.value === "drums")){ showToast("Stopa už má nahrávku — nejdřív ji smaž"); e.target.value = t.src; return; }
-        t.src = e.target.value; if(isNotes(t)) midiConnect(); if(t.src !== "drums" && stepT === t){ stepT = null; paintSteps(); } paint(); };
+        t.src = e.target.value; if(isNotes(t)) midiConnect(); if(t.src !== "drums" && stepT === t){ stepT = null; paintSteps(); }
+        if(t.src !== "midi" && noteT === t){ noteT = null; paintNotes(); } paint(); };
       n.querySelector('[data-k="instr"]').onchange = (e) => { t.instr = e.target.value; rerenderAll(t); };
       n.querySelector('[data-k="q"]').onchange = (e) => { t.q = +e.target.value; rerenderAll(t); };
       n.querySelector('[data-k="steps"]').onclick = () => openSteps(t);
+      n.querySelector('[data-k="notes"]').onclick = () => openNotes(t);
       n.querySelector('[data-k="bars"]').onchange = (e) => { t.bars = +e.target.value; };
       n.querySelector('[data-k="vol"]').oninput = (e) => { t.vol = +e.target.value; if(ac) applyMutes(now()); };
       n.querySelector('[data-k="mute"]').onclick = () => toggleTrack(t.i);
@@ -944,6 +1091,8 @@ const Looper = (() => {
       const mi = n.querySelector(".row.mi"), is = n.querySelector('[data-k="instr"]');
       mi.hidden = !isNotes(t);
       is.hidden = t.src !== "midi"; n.querySelector('[data-k="steps"]').hidden = t.src !== "drums";
+      n.querySelector('[data-k="notes"]').hidden = t.src !== "midi";
+      n.querySelector('[data-k="notes"]').classList.toggle("st", noteT === t);
       n.querySelector('[data-k="steps"]').classList.toggle("st", stepT === t);
       n.querySelector('[data-k="q"]').value = t.q;
       const opts = instrOptions();
@@ -979,6 +1128,7 @@ const Looper = (() => {
         const s = stateOf(t);
         if(n.dataset.s !== s){ paint(); }
       });
+      if(noteT && running && !noteDrag) drawRoll();
       if(stepT && stepT.len && running){
         const st = beatLen() / 4, col = Math.floor(((((tm - stepT.anchor) % stepT.len) + stepT.len) % stepT.len) / st);
         if(col !== frame.col){ frame.col = col; root.querySelectorAll(".lp-grid .c.now").forEach(c => c.classList.remove("now")); root.querySelectorAll(`.lp-grid .c[data-i="${col}"]`).forEach(c => c.classList.add("now")); }
@@ -1021,6 +1171,10 @@ const Looper = (() => {
     else if(e.code === "KeyZ") e.shiftKey ? redo() : undo();
     else if(e.code === "ArrowRight") run("scene:+");
     else if(e.code === "ArrowLeft") run("scene:-");
+    else if((e.code === "Delete" || e.code === "Backspace") && noteT && noteSel){
+      const l = noteLayersOf(noteT).find(x => x.raw.includes(noteSel));
+      if(l){ l.raw.splice(l.raw.indexOf(noteSel), 1); noteSel = null; noteChanged(noteT, l); noteHead(); drawRoll(); }
+    }
     else if(e.code === "Escape") close();
     else done = false;
     if(done){ e.preventDefault(); e.stopPropagation(); }
@@ -1079,5 +1233,6 @@ const Looper = (() => {
     _midi: (data, ago = 0) => onMidi({data, timeStamp: performance.now() - ago * 1000}),
     _steps: (i, id, bars) => setSteps(tracks[i], groove(id, bars || 1)),
     _layers: (i) => tracks[i].layers.map(l => ({raw: l.raw ? l.raw.map(x => ({...x})) : null, steps: !!l.steps})),
+    _rollAt: (p, m) => { const cv = root.querySelector("#lp-notes canvas"), g = rollGeo(noteT, cv), r3 = cv.getBoundingClientRect(); return {x: r3.left + g.x(p) + 3, y: r3.top + g.y(m) + g.rowH / 2, right: r3.left + g.x(p) - 3}; },
     _set: (i, k, v) => { tracks[i][k] = v; paint(); }};
 })();
