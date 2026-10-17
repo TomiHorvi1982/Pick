@@ -702,6 +702,17 @@ poslechu přepne hned; odpojený vstup → výchozí. V ladičce (`static/ladick
 **Minipřehrávač převezme píseň**: když se otevře (lištou, hlasem, `POST /api/mini/open`) a aplikace hraje,
 hraje ji dál on od stejného místa — píseň ze Steems celou (s kytarou) — a aplikace se pozastaví.
 
+## Steems: méně na očích
+
+**Sbalit stopy** (první tlačítko v liště nad stopami, pamatuje se — `pick-steems-compact`): každá stopa je tenký
+proužek ve své barvě, všechny stejně vysoké (34 px), jen s názvem, S, M a hlasitostí (posuvník hýbe faderem stopy);
+kytara, metronom a údery stejně. **Rozbalit** vrátí vlny a všechna nastavení.
+
+**Pole pod mixem** (`#nm-dock`): trenér zpěvu, výslovnost, ladička a Karaoketexty se ve Steems otevřou pod
+stopami, přes celou šířku mixu, místo okna přes stopy; výška se táhne za roh. ⧉ v jejich liště je odpojí do
+plovoucího okna a ↩ vrátí (pamatuje se pro každé zvlášť). Mimo Steems jsou to okna jako dřív
+(`makeFloating(…, {dock: steemsDock})`).
+
 ## Ukulele Tabs
 
 Tools → **Ukulele Tabs**: nejnovější taby pro ukulele na ukutabs.com. Web se do jiné stránky vložit nenechá

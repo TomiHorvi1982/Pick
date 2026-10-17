@@ -2691,6 +2691,22 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-strip-sub{font-size:9px;color:var(--nm-sub);letter-spacing:.03em;
     font-variant-numeric:tabular-nums;margin-top:1px}
   .nm-lane.thin{overflow:hidden}
+  /* Sbalené stopy: one thin strip a track — name, S, M, volume; the lane a band of its waveform */
+  .nm-strip .nm-vol{display:none}
+  #mixer.nm-compact .nm-strip:not(.thin),#mixer.nm-compact .nm-lane:not(.thin){height:34px;min-height:34px}
+  #mixer.nm-compact .nm-strip:not(.thin){flex-direction:row;align-items:center;justify-content:flex-start;gap:5px;padding:0 6px 0 10px;
+    box-shadow:inset 4px 0 0 var(--trk, var(--nm-sub))}
+  #mixer.nm-compact .nm-strip:not(.thin) > :not(.nm-strip-top):not(.nm-fader):not(.hs-vol-row){display:none !important}
+  #mixer.nm-compact .hs-vol-row{flex:0 0 48px;width:48px}
+  #mixer.nm-compact .hs-vol-row .lbl,#mixer.nm-compact .hs-vol-row .val{display:none}
+  #mixer.nm-compact .nm-strip-top{flex:1;min-width:0;gap:4px}
+  #mixer.nm-compact .nm-strip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;letter-spacing:.02em}
+  #mixer.nm-compact .nm-strip-icon:not(.gt-icon-btn){display:none}
+  #mixer.nm-compact .nm-strip .nm-fader{display:block;flex:0 0 48px;width:48px}
+  #mixer.nm-compact .nm-strip .nm-grip,#mixer.nm-compact .nm-strip .trk-hide,#mixer.nm-compact .nm-strip .gt-import,
+  #mixer.nm-compact .nm-strip .gt-unimport,#mixer.nm-compact .nm-strip .trk-remove,#mixer.nm-compact .nm-strip .gt-rec-opts,
+  #mixer.nm-compact .nm-strip .hs-on,#mixer.nm-compact .nm-strip .hs-click{display:none}
+  #mixer.nm-compact .gt-lane-note{font-size:10px}
 
   /* ---- lyrics: the readout bar and the lane ---- */
   .lyr-dock{margin:6px 0 4px;padding:12px 24px 18px;border-radius:12px;
@@ -2991,6 +3007,12 @@ body.lib-collapsed .pick-brand{display:none}
     box-shadow:0 18px 60px rgba(0,0,0,.6);overflow:hidden;
     min-width:240px;min-height:160px}
   .float-win[hidden]{display:none}
+  .nm-dock{display:flex;flex-direction:column;gap:10px;margin:10px 0 4px}
+  .nm-dock:empty,.nm-dock:not(:has(> .float-win:not([hidden]))){display:none}
+  .float-win.docked{position:relative;left:auto !important;top:auto !important;width:auto !important;z-index:auto;
+    box-shadow:none;border-radius:12px;max-width:none}
+  .float-win.docked .float-head{cursor:default}
+  .float-win.docked .float-grip{cursor:ns-resize}
   .float-head{display:flex;align-items:center;gap:6px;padding:7px 8px 7px 12px;
     background:#17171c;border-bottom:1px solid #26262d;cursor:grab;flex:0 0 auto;
     user-select:none}
@@ -5396,6 +5418,10 @@ body.lib-collapsed .pick-brand{display:none}
           </div>
         </div>
         </div><!-- /nm-body-wrap -->
+
+        <!-- Under the mix: the trainer, the pronunciation, the tuner… each a panel here rather than a
+             window over the tracks; ⧉ in its title lifts it out into a window (makeFloating, opts.dock). -->
+        <div class="nm-dock" id="nm-dock"></div>
 
         <div id="fl-channels" class="fl-channels" hidden></div>
 
@@ -15226,6 +15252,9 @@ const Mixer = (() => {
   let dragStartOffset = 0;
   let sessionId = null;
   let currentSongName = null;
+  let compact = false;                  // Sbalené stopy (setCompact, by renderTrackLanes)
+  try{ compact = localStorage.getItem("pick-steems-compact") === "1"; }catch(e){}
+  el("mixer").classList.toggle("nm-compact", compact);
   // Tab parts shown under the ruler, each one its own lane: {data, songId,
   // revisionId, trackIndex, idx (next note for the guide), hiKey, muted}.
   let tabs = [];
@@ -16995,7 +17024,7 @@ const Mixer = (() => {
   // site directly, same as opening it in a tab, and the search happens on
   // their page, in their own search box. This app only fills in what song
   // to type in.
-  const FloatKaraoke = makeFloating("karaoke-float", {defaults: {width: 620, height: 640}});
+  const FloatKaraoke = makeFloating("karaoke-float", {defaults: {width: 620, height: 640}, dock: steemsDock, dockHeight: 520});
   let karaokeLoaded = false;
 
   function openKaraoke(queryOverride){
@@ -17019,7 +17048,7 @@ const Mixer = (() => {
   // the input picked above it (Vstup, Kanál — kept): the system's default unless
   // another is chosen, and on an interface with many inputs the one the guitar is in.
   const Tuner = (() => {
-    const FloatTuner = makeFloating("tuner-float", {defaults: {width: 380, height: 540}});
+    const FloatTuner = makeFloating("tuner-float", {defaults: {width: 380, height: 540}, dock: steemsDock, dockHeight: 520});
     const KEY = "spotdl-gui-tuner-ladeni";
     const KEY_CUSTOM = "spotdl-gui-tuner-custom-struny";
     let mod = null, node = null;
@@ -18514,7 +18543,7 @@ const Mixer = (() => {
         </div>
         <div class="nm-pitch-row" title="Práh — jak hlasitý musí úder být, aby dostal čáru"><span class="lbl">PRÁH</span>
           <input type="range" class="nm-pitch-slider hs-thr" min="0.02" max="0.9" step="0.01" value="${H.thr}"><span class="val hs-thr-v"></span></div>
-        <div class="nm-pitch-row" title="Hlasitost klikání na čárách"><span class="lbl">HLAS</span>
+        <div class="nm-pitch-row hs-vol-row" title="Hlasitost klikání na čárách"><span class="lbl">HLAS</span>
           <input type="range" class="nm-pitch-slider hs-vol" min="0" max="2" step="0.01" value="${H.vol}"><span class="val hs-vol-v"></span></div>
         <div class="nm-pitch-row" style="gap:4px">
           <select class="hs-v0 metro-voice" title="Zvuk základní čáry" style="flex:1;min-width:0">${METRO_VOICES.map(v => `<option value="${v.id}"${v.id === H.v0 ? " selected" : ""}>${v.label}</option>`).join("")}</select>
@@ -20389,6 +20418,7 @@ const Mixer = (() => {
     const clipOn = !!selClipChannel();
     const wasOpen = TMenu.openIn(bar);
     bar.innerHTML = `
+      <button type="button" class="nm-btn ib lab ${compact ? "on" : ""}" id="nm-compact" title="${compact ? "Rozbalit stopy — vlny a všechna nastavení" : "Sbalit stopy do tenkých proužků — jen název, S, M a hlasitost"}">${icon(compact ? "rowsDown" : "rowsUp", 15)}<span class="bl">${compact ? "Rozbalit" : "Sbalit"}</span></button>
       ${menu("tracks", "stems", "Stopy", "Stopy — přidat audio nebo MIDI stopu, hrát na klávesnici, skryté stopy", "Stopy", `
         <button type="button" class="tm-item" id="nm-addtrack" title="Nová stopa ze souboru — libovolný audio soubor z počítače">${icon("fileAdd", 15)}<span class="tm-t">Nová audio stopa ze souboru…</span></button>
         <button type="button" class="tm-item" id="nm-addmidi" title="Nová MIDI stopa — hraj na MIDI klávesy nebo piš tóny v editoru">${icon("piano", 15)}<span class="tm-t">Nová MIDI stopa</span></button>
@@ -20438,6 +20468,7 @@ const Mixer = (() => {
         ${c && editedStems.has(c.stem) ? `<button type="button" class="nm-btn ib lab" id="nm-edit-restore" title="Obnovit původní — zahodit všechny úpravy téhle stopy">${icon("history", 15)}<span class="bl">Obnovit</span></button>` : ""}
       </span>
       <span class="status"></span>`;
+    bar.querySelector("#nm-compact").onclick = () => setCompact(!compact);
     bar.querySelector("#nm-addtrack").onclick = () => el("nm-addtrack-file").click();
     bar.querySelector("#nm-addmidi").onclick = () => Midi.addTrack();
     bar.querySelector("#nm-midikbd").onclick = () => { Midi.setKeyboard(!Midi.keyboardOn()); renderEditBar(); };
@@ -20491,6 +20522,15 @@ const Mixer = (() => {
     EDITS[act]();
   });
 
+  // Sbalené stopy: every track a thin strip in its colour, all of one height, with only its name, S, M
+  // and its volume — the mix at a glance, for whoever just wants a song to play. Kept.
+  function setCompact(on){
+    compact = on;
+    try{ localStorage.setItem("pick-steems-compact", on ? "1" : "0"); }catch(e){}
+    el("mixer").classList.toggle("nm-compact", on);
+    renderTrackLanes(); renderEditBar();
+  }
+
   function renderTrackLanes(){
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
@@ -20500,7 +20540,7 @@ const Mixer = (() => {
     lanes.innerHTML = "";
     topLanes.innerHTML = "";
     const totalPx = totalWidthPx();
-    const laneH = 86;   // must match .nm-strip / .nm-lane in CSS
+    const laneH = compact ? 34 : 86;   // must match .nm-strip / .nm-lane in CSS (#mixer.nm-compact: 34)
 
     if(channels.length){
       // Akordy sits right under the waveform strip, above everything else —
@@ -20534,6 +20574,7 @@ const Mixer = (() => {
       // ---- left rail strip: name, S/M, volume fader, pitch ----
       const strip = document.createElement("div");
       strip.className = "nm-strip" + (c.muted ? " muted" : "") + (idx === editIdx ? " edit-sel" : "");
+      strip.style.setProperty("--trk", style.c);
       const semis = rateToSemitones(c.pitchRate || 1);
       const hasGuitarSplit = channels.some(x => x.stem === "guitar_solo");
       strip.innerHTML = `
@@ -20551,6 +20592,7 @@ const Mixer = (() => {
           <button class="nm-sm solo ${c.solo ? "active" : ""}" title="Sólo">S</button>
           <button class="nm-sm mute ${c.muted ? "active" : ""}" title="Ztlumit">M</button>
         </div>
+        <input type="range" class="nm-fader nm-vol" min="0" max="1.5" step="0.01" value="${c.faderValue == null ? 1 : c.faderValue}" title="Hlasitost stopy">
         ${c.midi ? `<div class="midi-row">
           <button type="button" class="rec ${Midi.isRecording(c) ? "on" : ""}" title="Nahrát z MIDI kláves (s odpočtem)">●</button>
           <button type="button" class="notes" title="Editor tónů">Noty</button>
@@ -20584,6 +20626,10 @@ const Mixer = (() => {
         strip.querySelector(".midi-row .inst-next").onclick = (e) => { e.stopPropagation(); Midi.stepInstrument(c, 1); };
       }
 
+
+      const vol = strip.querySelector(".nm-vol");
+      vol.oninput = () => { c.faderValue = Number(vol.value); applyGains(); };
+      vol.onchange = () => { renderChannels(); queueSessionSave(); };
 
       const muteBtn = strip.querySelector(".nm-sm.mute");
       muteBtn.onclick = () => {
@@ -21223,7 +21269,7 @@ const Mixer = (() => {
     tabs = [];
     tabMeta = null;
     el("mixer").hidden = false;
-    el("mixer").className = "fl-mixer";
+    el("mixer").className = "fl-mixer" + (compact ? " nm-compact" : "");
     setMixerPlayGlyph(false);
     el("mixer-tracks").innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám stopy…</div>`;
     el("nm-rail").innerHTML = '<div class="nm-rail-pad" style="height:34px"></div>';
@@ -30766,6 +30812,8 @@ document.addEventListener("pointerdown", (e) => {
   if(w) raiseFloat(w);
 }, true);
 
+// Where a window docks (opts.dock): the panel under the Steems mix, while the mix is on screen.
+function steemsDock(){ const m = el("mixer"), d = el("nm-dock"); return m && d && !m.hidden && m.offsetParent !== null ? d : null; }
 function makeFloating(id, opts){
   const win = el(id);
   const head = el(id + "-head");
@@ -30803,12 +30851,50 @@ function makeFloating(id, opts){
     clampIntoView();
   }
 
+  // ---- docked (opts.dock): a panel under the Steems mix, full width, its own height kept, instead of a
+  // window over the tracks — while the mix is on screen; ⧉ in the title bar lifts it out and puts it back.
+  let docked = false;
+  const DOCK_KEY = KEY + "-docked", DOCK_H = KEY + "-dh";
+  const wantDocked = () => { try{ return localStorage.getItem(DOCK_KEY) !== "0"; }catch(e){ return true; } };
+  let dockBtn = null;
+  if(opts.dock){
+    dockBtn = document.createElement("button");
+    dockBtn.type = "button";
+    dockBtn.className = "float-btn float-dock-btn";
+    const last = head.querySelector(".float-btn:last-of-type");
+    head.insertBefore(dockBtn, last || null);
+    dockBtn.onclick = () => {
+      try{ localStorage.setItem(DOCK_KEY, docked ? "0" : "1"); }catch(e){}
+      place();
+      if(!docked) raiseFloat(win);
+    };
+  }
+  function place(){
+    const box = opts.dock && wantDocked() ? opts.dock() : null;     // the mix not on screen: a window, as before
+    docked = !!box;
+    win.classList.toggle("docked", docked);
+    if(docked){
+      if(win.parentElement !== box) box.appendChild(win);
+      let h = 0;
+      try{ h = parseInt(localStorage.getItem(DOCK_H), 10) || 0; }catch(e){}
+      win.style.height = (h || opts.dockHeight || opts.defaults.height) + "px";
+    } else {
+      if(win.parentElement !== document.body) document.body.appendChild(win);
+      restore();
+    }
+    if(dockBtn){
+      dockBtn.innerHTML = icon(docked ? "external" : "back", 13);
+      dockBtn.title = docked ? "Odpojit do plovoucího okna" : "Vrátit pod mix";
+      dockBtn.hidden = !docked && !opts.dock();
+    }
+  }
+
   // ---- drag ----
   let dragging = false, dx = 0, dy = 0;
   head.addEventListener("pointerdown", (e) => {
     // Any button in the title bar is a control, not a drag handle. Missing
     // .close-btn here is what stopped the lyrics panel from closing.
-    if(e.target.closest("button")) return;
+    if(e.target.closest("button") || docked) return;
     dragging = true;
     const r = win.getBoundingClientRect();
     dx = e.clientX - r.left;
@@ -30845,7 +30931,7 @@ function makeFloating(id, opts){
   });
   grip.addEventListener("pointermove", (e) => {
     if(!sizing) return;
-    win.style.width = Math.max(MIN_W, sw + (e.clientX - sx)) + "px";
+    if(!docked) win.style.width = Math.max(MIN_W, sw + (e.clientX - sx)) + "px";
     win.style.height = Math.max(MIN_H, sh + (e.clientY - sy)) + "px";
   });
   const endSize = (e) => {
@@ -30853,15 +30939,22 @@ function makeFloating(id, opts){
     sizing = false;
     document.body.classList.remove("float-dragging");
     try{ grip.releasePointerCapture(e.pointerId); }catch(err){}
-    save();
+    if(docked){ try{ localStorage.setItem(DOCK_H, String(Math.round(win.getBoundingClientRect().height))); }catch(err){} }
+    else save();
   };
   grip.addEventListener("pointerup", endSize);
   grip.addEventListener("pointercancel", endSize);
 
-  window.addEventListener("resize", () => { if(!win.hidden) clampIntoView(); });
+  window.addEventListener("resize", () => { if(!win.hidden && !docked) clampIntoView(); });
 
   return {
-    open(){ win.hidden = false; restore(); raiseFloat(win); },
+    open(){
+      win.hidden = false;
+      if(opts.dock) place(); else restore();
+      if(docked) requestAnimationFrame(() => win.scrollIntoView({block: "nearest", behavior: "smooth"}));
+      else raiseFloat(win);
+    },
+    isDocked: () => docked,
     close(){ win.hidden = true; },
     isOpen(){ return !win.hidden; },
     toggle(){ win.hidden ? this.open() : this.close(); },
@@ -33327,7 +33420,7 @@ LyricRun.build = (ll, duration, notes) => {
 // it heard, and the next line comes when the words were all there. A line
 // that will not come out is skipped.
 const Speak = (() => {
-  const Win = makeFloating("speak-float", {defaults: {width: 620, height: 640}});
+  const Win = makeFloating("speak-float", {defaults: {width: 620, height: 640}, dock: steemsDock, dockHeight: 440});
   let rows = [], at = 0, on = false, lang = "en", song = "", turn = 0;
   let stream = null, ac = null, node = null, cap = null, lift = null;
   // "song": the lines of the open song. "words": the list of words that went
@@ -33785,7 +33878,7 @@ const Speak = (() => {
 // After each lyric line whisper reads the take back and the words are marked;
 // a finished take is scored and kept, so the next one can be compared with it.
 const Sing = (() => {
-  const Win = makeFloating("sing-float", {defaults: {width: 800, height: 620}});
+  const Win = makeFloating("sing-float", {defaults: {width: 800, height: 620}, dock: steemsDock, dockHeight: 480});
   const cv = el("sing-cv"), g = cv.getContext("2d");
   const HIT = 25, NEAR = 60;            // cents
   const LAG = 0.045;                    // what the dot shows was sung about this long ago
