@@ -45,9 +45,9 @@ const SongDeck = (() => {
   .dk-facts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;font-size:12px;color:#a6a6bc}
   .dk-facts span{padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);white-space:nowrap}
   .dk-facts b{color:#fff;font-size:13px}
-  .dk-keys{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#d8d8e4;cursor:pointer;
+  .dk-keys,.dk-lpbtn{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#d8d8e4;cursor:pointer;
     display:flex;align-items:center;justify-content:center}
-  .dk-keys:hover{background:rgba(255,255,255,.12)}
+  .dk-keys:hover,.dk-lpbtn:hover{background:rgba(255,255,255,.12)}
   .dk-parts{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
   .dk-part{position:relative;min-width:78px;height:46px;border-radius:11px;cursor:pointer;overflow:hidden;flex-shrink:0;flex-basis:0;
     background:color-mix(in srgb,var(--c) 18%,#14141c);border:1px solid color-mix(in srgb,var(--c) 38%,transparent);transition:opacity .15s,transform .1s}
@@ -255,7 +255,7 @@ const SongDeck = (() => {
 
   // ---- keys: whenever Steems shows a song, or the whole screen is up
   let capture = null;
-  const active = () => !!song() && (D().stageOn() || (document.getElementById("mixer") || {}).offsetParent != null);
+  const active = () => !!song() && !(typeof Looper !== "undefined" && Looper.isOpen()) && (D().stageOn() || (document.getElementById("mixer") || {}).offsetParent != null);
   document.addEventListener("keydown", (e) => {
     if(capture){
       e.preventDefault(); e.stopPropagation();
@@ -358,6 +358,7 @@ const SongDeck = (() => {
         <div class="dk-tracks"></div>
         <div class="dk-mst"></div>
         <div class="dk-facts"></div>
+        ${kind === "steems" ? `<button type="button" class="dk-lpbtn" title="Looper: nahraj si píseň po vrstvách, v jejím tempu a s jejími částmi">${icon("repeat", 16)}</button>` : ""}
         <button type="button" class="dk-keys" title="Klávesy a MIDI pedál pro přehrávání a skoky po částech">${icon("keyboard", 16)}</button>
       </div>
       <div class="dk-parts"></div>`;
@@ -365,6 +366,8 @@ const SongDeck = (() => {
     const h = {box, kind, sigT: "", sigP: ""};
     box.querySelector(".dk-play").onclick = () => run("play");
     box.querySelector(".dk-keys").onclick = (e) => openKeys(e.currentTarget);
+    const lb = box.querySelector(".dk-lpbtn");
+    if(lb) lb.onclick = () => { if(typeof Looper !== "undefined") Looper.open(song()); };
     const m = master();
     box.querySelector(".dk-mst").innerHTML = knobHtml(m);
     wireKnob(box.querySelector(".dk-mst .dk-knob"), m);

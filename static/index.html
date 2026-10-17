@@ -10779,6 +10779,7 @@ const TOOLS = [
   {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
   {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
   {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
+  {key: "looper", looper: true, title: "Looper", icon: "repeat", sub: "Živé loopování jako Boss RC-505: 5 stop, vrstvy, části písně, ovládání pedálem"},
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
   {key: "vguitar", title: "Virtuální kytara", icon: "elGuitar", sub: "Napiš nebo vlož tab — zahraje ho zvukem kytary z písně (tónový otisk)"},
   {key: "kontakt", title: "Kontakt", icon: "library", sub: "Tvoje knihovny Native Instruments: nástroje pro virtuální kytaru, smyčky a samply"},
@@ -10787,6 +10788,7 @@ const TOOLS = [
 ];
 // A tool card: a page of Pick, or a website in a window of its own.
 function openTool(t){
+  if(t.looper){ if(typeof Looper !== "undefined") Looper.open(); return; }
   if(!t.web){ setMode(t.key); return; }
   fetch("/api/tools/web/open", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: t.key})})
     .then(r => { if(!r.ok) throw new Error(); showToast(`${t.title} — otevírá se ve vlastním okně`); })
@@ -36261,6 +36263,7 @@ const Voice = (() => {
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
 <script src="/static/deck.js"></script>
+<script src="/static/looper.js"></script>
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
 <script src="/static/viz.js"></script>

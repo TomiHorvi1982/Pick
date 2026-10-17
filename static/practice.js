@@ -182,6 +182,10 @@ const Pedal = (() => {
     ["edge:start:-", "Začátek smyčky o 0,5 s dřív"], ["edge:end:+", "Konec smyčky o 0,5 s později"],
     ["deck:next", "Další část písně (skok)"], ["deck:prev", "Předchozí část písně (skok)"], ["deck:again", "Část znovu od začátku"],
     ["deck:loop", "Smyčka na části zap / vyp"], ["deck:play", "Přehrát / pauza (jako mezerník)"],
+    ["looper:press", "Looper: tlačítko vybrané stopy"], ["looper:next", "Looper: další stopa"], ["looper:undo", "Looper: zpět"],
+    ["looper:play", "Looper: spustit / zastavit"], ["looper:scene:+", "Looper: další část"], ["looper:scene:-", "Looper: předchozí část"],
+    ["looper:track:1", "Looper: stopa 1"], ["looper:track:2", "Looper: stopa 2"], ["looper:track:3", "Looper: stopa 3"],
+    ["looper:track:4", "Looper: stopa 4"], ["looper:track:5", "Looper: stopa 5"],
   ];
   const GESTURES = {single: "šlápnutí", double: "dvojklik", long: "podržení"};
   const LONG_MS = 600, DOUBLE_MS = 320;
@@ -239,7 +243,8 @@ const Pedal = (() => {
         const gs = Mixer.channelInfo().map((c) => c.stem).filter((s) => s.split("_")[0] === "guitar");
         if(!gs.length) said = "kytara tu není";
         else { const anyOn = gs.some((s) => !(Mixer.channelByStem(s) || {}).muted); Mixer.voice.guitars(!anyOn); said = anyOn ? "kytary ztlumené" : "kytary hrají"; }
-      }else if(action.startsWith("deck:")) said = typeof SongDeck !== "undefined" ? SongDeck.run(action.slice(5)) : null;
+      }else if(action.startsWith("looper:")) said = typeof Looper !== "undefined" ? Looper.run(action.slice(7)) : null;
+      else if(action.startsWith("deck:")) said = typeof SongDeck !== "undefined" ? SongDeck.run(action.slice(5)) : null;
       else if(action === "setlist:+") said = Setlist.next() ? "další píseň" : null;
       else if(action === "setlist:-") said = Setlist.prev() ? "předchozí píseň" : null;
       else said = Voice.run(action);
