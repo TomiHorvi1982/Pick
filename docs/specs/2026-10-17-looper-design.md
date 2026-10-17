@@ -45,17 +45,22 @@ switching layers on and off. Everything is played by the feet: a MIDI pedal, or 
   Pick's SoundFont instruments when the library is installed. The step grid is a track's layer (1–4 bars,
   swing, nine grooves). Editing single notes (a piano roll) is left for later.
 
-## Phase 3 — the song
+## Phase 3 — the song (done)
 
 - An arrangement: parts in order with repeats (Intro ×1, Verse ×2, Chorus ×2…) played by itself or
   stepped by the pedal.
 - Saving the looper project with the song (the layers as files), opening it again.
 - The whole arrangement bounced to a Steems project (a track per looper track) and to WAV.
 - The original song as a guide under the loops, its stems switchable.
+- As built: an arrangement step is a part and its bars (from the song's sections, Loop Studio's plan, or by
+  hand); the part switches are scheduled on the bar like a part chosen by hand. Projects live in
+  Looper/<name>/ (project.json + a WAV per recorded layer; notes and grids re-rendered). Export renders the
+  arrangement offline (each track's loops from the start, its gain switched per step): a WAV of the mix, or a
+  Steems project of the tracks. The guide plays the open song from the part's section (by name), re-sought
+  at each switch.
 
 ## Limits
 
 - One recording at a time (as on the RC-505).
 - A new layer starts sounding a moment (the latency plus one batch, ~0.1 s) after its loop starts
   again — only on its first pass.
-- Phase 1 keeps the loops in memory: they live until the page is reloaded.

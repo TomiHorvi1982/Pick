@@ -750,7 +750,18 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
   Reggae), hrající krok svítí; vzor je vrstva stopy, změna se slyší hned. Pady na obrazovce i z kláves se nahrávají
   jako další vrstva přes rytmus.
 - Zpět/znovu jde po vrstvách napříč stopami (poslední první); nová vrstva zahodí, co šlo vrátit.
-- Smyčky zatím žijí v paměti, dokud se Pick nezavře. Aranžmá a uložení přijdou ve 3. fázi.
+- **Aranžmá**: části za sebou, každá na počet taktů (z písně ve Steems podle jejích sekcí, z Loop Studia podle
+  plánu, nebo „+ do aranžmá“ s délkou nejdelší smyčky části; −/+ takty, ‹ › pořadí, ✕). „▶ Přehrát aranžmá“
+  přehraje píseň od začátku, části se přepínají samy na taktu, na konci se zastaví; pedál/šipky během něj skáčou
+  na další/předchozí krok (na dalším taktu).
+- **Originál pod smyčkami**: s písní otevřenou ve Steems hraje její mix od začátku části, která právě hraje (podle
+  názvu; opakovaná část bere další výskyt), a při přepnutí části skočí s ní.
+- **Uložit / Otevřít**: projekt je složka `Looper/<název>/` v hudbě — `project.json` (tempo, části, aranžmá, stopy
+  a jejich vrstvy) a WAV pro každou nahranou vrstvu; noty a kroky bicích se uloží jako noty a po otevření znovu
+  vykreslí (`/api/looper…`, `tests/test_looper.py`).
+- **Export**: aranžmá vykreslené offline — „WAV — celá píseň“ (stáhne se), nebo „Projekt ve Steems“: každá stopa
+  looperu jako stopa nového projektu (`/api/stems/new/upload`, `/tracks/upload`), tam se dá dál mixovat a nahrávat.
+  Bez aranžmá se vyveze hrající část dvakrát.
 
 ## Ovládací panel Steems (deck)
 
