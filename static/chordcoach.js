@@ -40,6 +40,7 @@ const ChordCoach = (() => {
   @keyframes cc-beat{from{box-shadow:0 0 22px var(--cc-acc),0 0 6px #fff}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff}}
   @keyframes cc-down{from{box-shadow:0 0 34px var(--cc-acc),0 0 12px #fff;width:5px}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff;width:3px}}
   .cc-msg{font-size:12px;color:#8a8aa0;padding:8px 2px;text-align:center}
+  .cc-msg button{margin-left:8px;font:inherit;font-size:12px;padding:5px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
   /* the carousel: the chord sounding in the middle, big; the ones before and after, small */
   .cc-car{position:relative;height:calc(var(--ch,236px) + 14px);overflow:hidden}
   .cc-card{position:absolute;left:50%;top:calc(50% + 7px);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 14px 12px;border-radius:18px;
@@ -609,8 +610,12 @@ const ChordCoach = (() => {
     if(!list.length){
       let st = "";
       try{ st = D().analysis(); }catch(e){}
-      const msg = st === "loading" ? "Akordy se hledají…" : st === "failed" ? "Akordy se nepodařilo najít (analýza se nezdařila)." : "Píseň zatím nemá akordy.";
-      if(car.dataset.msg !== msg){ car.dataset.msg = msg; car.innerHTML = `<div class="cc-msg">${msg}</div>`; track.innerHTML = ""; laneSig = carSig = ""; cards = new Map(); }
+      const song = Mixer.currentSong(), f = found.get(song);
+      const msg = st === "loading" ? "Akordy se hledají…" : f === "busy" ? autoMsg : f === "none" ? autoMsg || "Akordy se najít nepodařilo." : st === "failed" ? "Analýza se nezdařila — akordy hledám z nahrávky…" : "Akordy se hledají…";
+      if(car.dataset.msg !== msg){ car.dataset.msg = msg; track.innerHTML = ""; laneSig = carSig = ""; cards = new Map();
+        car.innerHTML = `<div class="cc-msg">${esc(msg)}${f === "none" ? ` <button type="button" class="cc-again">Zkusit znovu analýzou</button>` : ""}</div>`;
+        const again = car.querySelector(".cc-again");
+        if(again) again.onclick = async () => { found.delete(song); car.dataset.msg = ""; showToast("Hledám akordy znovu — chvíli to potrvá"); await D().reanalyze(); }; }
       return;
     }
     if(car.dataset.msg){ car.dataset.msg = ""; car.innerHTML = ""; cards = new Map(); carSig = ""; }
@@ -1001,13 +1006,152 @@ const ChordCoach = (() => {
     pn.querySelector('[data-a="x"]').onclick = () => toggleGtr();
   }
 
+  // ======================================================================
+  // Chords found here, from the song's own tracks, when the analysis has none (it broke, or the analyser
+  // is not installed): the same recipe as analyze.py — chroma of the harmonic tracks, one estimate per
+  // beat, matched against chord templates and smoothed (Viterbi) — so they sit on the song's beats.
+  // ======================================================================
+  const QUAL = [["", [0, 4, 7], 1], ["m", [0, 3, 7], 1], ["7", [0, 4, 7, 10], 0.9], ["maj7", [0, 4, 7, 11], 0.8], ["m7", [0, 3, 7, 10], 0.9],
+    ["sus4", [0, 5, 7], 0.9], ["sus2", [0, 2, 7], 0.88], ["dim", [0, 3, 6], 0.9], ["aug", [0, 4, 8], 0.84], ["5", [0, 7], 0.9]];
+  const NCP = 0.3, SELF = 0.15;
+  const PN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  // one channel at a lower rate (a box filter is enough below 2 kHz), the tracks summed
+  function monoOf(bufs, step){
+    const len = Math.max(...bufs.map(b => b.length)), n = Math.floor(len / step), out = new Float32Array(n);
+    bufs.forEach(b => { for(let c = 0; c < b.numberOfChannels; c++){ const d = b.getChannelData(c), k = 1 / (step * b.numberOfChannels);
+      for(let i = 0, j = 0; i < n; i++){ let a = 0; for(let q = 0; q < step; q++, j++) a += d[j] || 0; out[i] += a * k; } } });
+    return out;
+  }
+  // per frame: the spectrum's peaks, each whole multiple of a lower one given to it (a note's
+  // overtones are not notes), the notes' strength summed by pitch class
+  async function chromaOf(x, sr, fLo, fHi, N, hop){
+    const frames = Math.max(0, Math.floor((x.length - N) / hop) + 1), out = new Array(frames);
+    const win = new Float64Array(N); for(let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+    const re = new Float64Array(N), im = new Float64Array(N), mag = new Float64Array(N / 2);
+    const kLo = Math.max(2, Math.floor(fLo * N / sr)), kHi = Math.min(N / 2 - 2, Math.ceil(fHi * N / sr));
+    for(let f = 0; f < frames; f++){
+      const o = f * hop;
+      for(let i = 0; i < N; i++){ re[i] = x[o + i] * win[i]; im[i] = 0; }
+      fft(re, im);
+      let max = 0;
+      for(let k = kLo - 1; k <= kHi + 1; k++){ mag[k] = Math.hypot(re[k], im[k]); if(k >= kLo && k <= kHi && mag[k] > max) max = mag[k]; }
+      const c = new Float32Array(12);
+      if(max > 1e-7){
+        const peaks = [];
+        for(let k = kLo; k <= kHi; k++){
+          if(mag[k] < max * 0.03 || mag[k] < mag[k - 1] || mag[k] <= mag[k + 1]) continue;
+          const A = Math.log(mag[k - 1] + 1e-12), B = Math.log(mag[k] + 1e-12), C = Math.log(mag[k + 1] + 1e-12), den = A - 2 * B + C;
+          const d = den ? 0.5 * (A - C) / den : 0;
+          peaks.push({f: (k + d) * sr / N, a: Math.exp(B - 0.25 * (A - C) * d)});
+        }
+        const notes = [];
+        peaks.forEach(pk => {
+          const of = notes.find(q => { const r = pk.f / q.f, h = Math.round(r); return h >= 2 && h <= 8 && Math.abs(r - h) / h < 0.012; });
+          if(of){ of.s += pk.a * 0.5; return; }
+          const m = 69 + 12 * Math.log2(pk.f / 440), r = Math.round(m);
+          if(Math.abs(m - r) > 0.4) return;
+          notes.push({f: pk.f, pc: ((r % 12) + 12) % 12, s: pk.a});
+        });
+        notes.forEach(n => { c[n.pc] += Math.sqrt(n.s); });
+      }
+      out[f] = c;
+      if(f % 300 === 299) await new Promise(r => setTimeout(r, 0));      // the page stays alive meanwhile
+    }
+    return out;
+  }
+  async function detectChords(tracks, beats, duration){
+    const pick = (re) => tracks.filter(t => t.buffer && re.test(t.stem));
+    let harm = pick(/^(guitar|piano|other)/);
+    if(!harm.length) harm = tracks.filter(t => t.buffer && !/^(drums|vocals|bass|click)/.test(t.stem));
+    if(!harm.length) return [];
+    const sr0 = harm[0].buffer.sampleRate, step = Math.max(1, Math.round(sr0 / 11025)), sr = sr0 / step, N = 4096, hop = 1024;
+    const ch = await chromaOf(monoOf(harm.map(t => t.buffer), step), sr, 65, 2100, N, hop);
+    if(!ch.length) return [];
+    // what rises above each frame's median is what means something; then sharpened
+    ch.forEach(c => { const m = [...c].sort((a, b) => a - b)[6]; for(let p = 0; p < 12; p++){ const v = Math.max(0, c[p] - m); c[p] = v * v; } });
+    const ft = (i) => (i * hop + N / 2) / sr;
+    // one estimate per beat (or per half second without a grid)
+    let b = (beats || []).filter(t => t < duration);
+    if(b.length < 8){ b = []; for(let t = 0; t < duration; t += 0.5) b.push(t); }
+    const spans = b.map((t, i) => [t, i + 1 < b.length ? b[i + 1] : duration]).filter(([a, e]) => e > a);
+    let fi = 0;
+    const beatC = spans.map(([a, e]) => {
+      while(fi < ch.length && ft(fi) < a) fi++;
+      const acc = new Float32Array(12); let n = 0;
+      for(let j = fi; j < ch.length && ft(j) < e; j++, n++) for(let p = 0; p < 12; p++) acc[p] += ch[j][p];
+      if(n) for(let p = 0; p < 12; p++) acc[p] /= n;
+      return acc;
+    });
+    const energy = beatC.map(c => c.reduce((a, v) => a + v, 0)), med = energy.slice().sort((a, b) => a - b)[energy.length >> 1] || 0;
+    const T = [];
+    for(let r = 0; r < 12; r++) QUAL.forEach(([suf, iv, prior]) => {
+      const v = new Float32Array(12).fill(-NCP); iv.forEach(i => { v[(r + i) % 12] = 1; });
+      const nrm = Math.hypot(...v); for(let p = 0; p < 12; p++) v[p] = v[p] / nrm * prior;
+      T.push({v, name: PN[r] + suf});
+    });
+    const scores = beatC.map(c => { const nrm = Math.max(1e-9, Math.hypot(...c)); return T.map(t => { let s = 0; for(let p = 0; p < 12; p++) s += t.v[p] * c[p] / nrm; return s; }); });
+    // the path that changes chord least for the most fit
+    const K = T.length, back = [], path = new Array(scores.length);
+    let cost = scores[0].slice();
+    for(let i = 1; i < scores.length; i++){
+      let bi = 0; for(let k = 1; k < K; k++) if(cost[k] > cost[bi]) bi = k;
+      const best = cost[bi], bk = new Int16Array(K), next = new Array(K);
+      for(let k = 0; k < K; k++){ const stay = cost[k] + SELF; if(stay >= best){ bk[k] = k; next[k] = stay + scores[i][k]; } else { bk[k] = bi; next[k] = best + scores[i][k]; } }
+      back.push(bk); cost = next;
+    }
+    let last = 0; for(let k = 1; k < K; k++) if(cost[k] > cost[last]) last = k;
+    path[scores.length - 1] = last;
+    for(let i = scores.length - 1; i > 0; i--) path[i - 1] = back[i - 1][path[i]];
+    const out = [];
+    spans.forEach(([a, e], i) => {
+      const name = energy[i] > Math.max(1e-6, med * 0.22) ? T[path[i]].name : null, l = out[out.length - 1];
+      if(l && l.chord === name){ l.end = e; l.beats.push(i); } else out.push({start: +a.toFixed(3), end: +e.toFixed(3), chord: name, bass: null, beats: [i]});
+    });
+    // a seventh only where it is heard as much as the chord's own notes (a guitar's overtones put a
+    // major seventh into every open C): else the triad
+    out.forEach(c => {
+      const m = c.chord && /^([A-G]#?)(maj7|m7|7)$/.exec(c.chord);
+      if(!m) return;
+      const r = PN.indexOf(m[1]), avg = new Float32Array(12);
+      c.beats.forEach(i => { for(let p = 0; p < 12; p++) avg[p] += beatC[i][p]; });
+      const third = m[2] === "m7" ? 3 : 4, sev = m[2] === "maj7" ? 11 : 10;
+      const tri = Math.min(avg[r], avg[(r + third) % 12], avg[(r + 7) % 12]);
+      if(avg[(r + sev) % 12] < tri) c.chord = PN[r] + (m[2] === "m7" ? "m" : "");
+    });
+    out.forEach(c => { delete c.beats; });
+    const clean = [];
+    out.forEach(c => { c.end = +c.end.toFixed(3);
+      if(c.end - c.start < 0.45 && clean.length && c.chord){ clean[clean.length - 1].end = c.end; return; }
+      const l = clean[clean.length - 1]; if(l && l.chord === c.chord){ l.end = c.end; return; } clean.push(c); });
+    return clean.filter(c => c.chord);
+  }
+  // a song open with no chords, once the analysis has had its say: they are found here
+  const found = new Map();      // song → "busy" | "done" | "none"
+  let autoMsg = "";
+  async function autoChords(){
+    if(typeof Mixer === "undefined" || !Mixer.deck || !Mixer.ready()) return;
+    const song = Mixer.currentSong(), st = D().analysis();
+    if(!song || st === "loading" || st === "idle" || found.has(song) || D().chords().length) return;
+    found.set(song, "busy"); autoMsg = "Analýza akordy nenašla — hledám je přímo z nahrávky…";
+    try{
+      const G = D().grid(), tracks = D().audio(), dur = Math.max(0, ...tracks.map(t => t.buffer ? t.buffer.duration : 0));
+      const list = await detectChords(tracks, G.beats, dur);
+      if(Mixer.currentSong() !== song) { found.delete(song); return; }
+      found.set(song, list.length ? "done" : "none");
+      if(list.length){ D().useChords(list, song); seqSig = ""; laneSig = carSig = ""; }
+      autoMsg = list.length ? "" : "Akordy se v nahrávce najít nepodařilo.";
+    }catch(e){ console.error("chords:", e); found.set(song, "none"); autoMsg = "Akordy se v nahrávce najít nepodařilo."; }
+    if(typeof SongDeck !== "undefined") SongDeck.paint();
+  }
+  setInterval(() => { try{ autoChords(); }catch(e){} }, 1500);
+
   // the tuner's tuning changed: the shapes follow it
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
   return {mount, paint, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
-    _midi: (bytes) => midi(bytes), _analyze: analyze, _heard: () => lastHeard,
+    _midi: (bytes) => midi(bytes), _analyze: analyze, _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,
     _state: () => { const tg = target(); return {semis, target: tg && tg.c.name, now: tg && tg.now, held: [...kb.held.keys()], keys: keysV, gtr: gl.res,
       tuning: tuning(), score: JSON.parse(JSON.stringify(score)), cards: [...(car ? car.querySelectorAll(".cc-card") : [])].filter(n => !n.classList.contains("gone")).map(n => ({name: n.querySelector(".cc-cn").textContent, now: n.classList.contains("now"), x: n.getBoundingClientRect().left + n.getBoundingClientRect().width / 2, w: n.getBoundingClientRect().width}))}; }};
 })();

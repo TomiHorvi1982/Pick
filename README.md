@@ -816,6 +816,13 @@ knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně
     akordu jinde, červeně tón navíc. Jedna struna = tón s odchylkou v centech (G4 +3¢).
   - Obojí počítá skóre, když píseň hraje: kolik akordů jsi trefil (každý akord se započítá, když skončí).
   - Při duetu nebo na nízké obrazovce se karty zmenší, ať zpěvákům zbude místo.
+  - **Akordy vždycky**: když hledání akordů na serveru jednou selže (ještě nebyla mřížka dob, chyba), píseň
+    by zůstala bez akordů navždy — teď se při dalším otevření hledají znovu, jen akordy (asi 10 s), nanejvýš
+    dvakrát. Když pořád žádné nejsou (nebo analyzátor není nainstalovaný), najdou se přímo v aplikaci z
+    nahraných stop: tóny kytary, klavíru a ostatních nástrojů po dobách písně (vyšší harmonické se počítají
+    ke svému tónu, aby z C nebylo Cmaj7), šablony akordů a vyhlazení — stejný postup jako na serveru, takže
+    sedí na doby. Najdou se i do pruhu akordů v mixu. Když ani to nevyjde, je tam „Zkusit znovu analýzou“.
+    Prázdný vlastní seznam akordů (uložený omylem) už neschová akordy z analýzy.
 
 ## Trenér zpěvu: duet
 
