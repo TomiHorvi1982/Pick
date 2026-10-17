@@ -24902,6 +24902,7 @@ const Mixer = (() => {
       // With the keyboard window open, it takes the keys (and plays this
       // track's sound, and writes into a take being recorded) — not both.
       if(typeof Piano !== "undefined" && Piano.isOpen()) return;
+      if(typeof Looper !== "undefined" && Looper.isOpen()) return;          // the looper has the keys
       if(el("mixer").hidden || !channels.some(c => c.midi)) return;
       const [st, d1, d2] = e.data, cmd = st & 0xf0;
       if(cmd === 0x90 && d2 > 0) noteOn(d1, d2 / 127);
@@ -36263,6 +36264,7 @@ const Voice = (() => {
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
 <script src="/static/deck.js"></script>
+<script src="/static/looper-sound.js"></script>
 <script src="/static/looper.js"></script>
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>

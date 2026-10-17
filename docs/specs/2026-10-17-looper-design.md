@@ -15,7 +15,7 @@ switching layers on and off. Everything is played by the feet: a MIDI pedal, or 
 - A song open in Steems: its tempo and its parts' names. Without one, the tempo is set by hand.
 - The MIDI pedal (practice.js): looper actions learned like any other.
 
-## Phase 1 — the looper (this change)
+## Phase 1 — the looper (done)
 
 - Five tracks, each one button: empty → record → play → overdub → play. A recording starts on the
   next bar and ends on a bar: by itself after the bars chosen for the track (1, 2, 4, 8, 16), or at
@@ -34,12 +34,16 @@ switching layers on and off. Everything is played by the feet: a MIDI pedal, or 
 - Opened from Tools → Looper, from the Steems deck (with the song's tempo and parts), and from Loop
   Studio.
 
-## Phase 2 — MIDI and drums
+## Phase 2 — MIDI and drums (done)
 
 - A MIDI track: notes from the MIDI keyboard into a loop, quantised (1/8, 1/16, swing), played with a
   SoundFont instrument of Pick's; overdub merges notes; the notes editable.
 - Drums: the pads of the keyboard on a General MIDI kit, a step sequencer per part, and ready grooves
   (rock, pop, shuffle, half-time) at the song's tempo.
+- As built: notes are kept as played and rendered into the loop's buffer (OfflineAudioContext), so the
+  grid and the sound can change after recording; the kit and four synths are Web Audio (looper-sound.js),
+  Pick's SoundFont instruments when the library is installed. The step grid is a track's layer (1–4 bars,
+  swing, nine grooves). Editing single notes (a piano roll) is left for later.
 
 ## Phase 3 — the song
 

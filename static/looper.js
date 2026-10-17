@@ -75,6 +75,24 @@ const Looper = (() => {
   .lp-help{font-size:12px;color:#8a8aa0;line-height:1.6}
   .lp-help kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:0 5px;font:inherit;font-size:11px;color:#ddd}
   .lp-ped{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .lp-t .row.mi select{max-width:100%;flex:1}
+  .lp-t .row button.st{background:color-mix(in srgb,var(--accent,#8b5cf6) 25%,#14141c);border-color:var(--accent,#8b5cf6)}
+  .lp-steps{border-radius:18px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.08)}
+  .lp-steps[hidden]{display:none}
+  .lp-steps .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .lp-steps .hd b{font-size:14px;margin-right:6px}
+  .lp-steps select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-grid{display:grid;gap:3px;align-items:center}
+  .lp-grid .rn{font-size:11px;color:#c8c8d8;padding-right:8px;white-space:nowrap;cursor:pointer}
+  .lp-grid .rn:hover{color:#fff}
+  .lp-grid .c{height:26px;border-radius:5px;background:rgba(255,255,255,.07);cursor:pointer;border:none;padding:0}
+  .lp-grid .c.beat{background:rgba(255,255,255,.12)}
+  .lp-grid .c.on{background:var(--accent,#8b5cf6);box-shadow:0 0 10px color-mix(in srgb,var(--accent,#8b5cf6) 50%,transparent)}
+  .lp-grid .c.now{outline:2px solid #fff;outline-offset:-2px}
+  .lp-grid .c.bar{margin-left:6px}
+  .lp-pads{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:12px}
+  .lp-pads button{height:56px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#1b1b26;cursor:pointer;font-size:12px;font-weight:700}
+  .lp-pads button:active,.lp-pads button.hit{background:var(--accent,#8b5cf6);color:#0b0b12}
   .lp-ped button{font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);cursor:pointer}
   `;
   { const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st); }
@@ -85,12 +103,17 @@ const Looper = (() => {
   const cfg = {bpm: 100, perBar: 4, click: true, clickVol: 0.5, countIn: true, autoNext: true, monMic: false, vol: 0.9};
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
-  const tracks = Array.from({length: N}, (_, i) => ({i, name: `Stopa ${i + 1}`, src: i === N - 1 ? "mic" : "gtr", bars: 0, vol: 0.9,
+  // src: gtr | mic (audio) · midi (notes on an instrument) · drums (notes on the kit, and the step grid)
+  const DEF_SRC = ["drums", "midi", "gtr", "gtr", "mic"];
+  const tracks = Array.from({length: N}, (_, i) => ({i, name: `Stopa ${i + 1}`, src: DEF_SRC[i] || "gtr", bars: 0, vol: 0.9,
+    instr: i === 1 ? "syn:bass" : "syn:saw", q: 16, steps: null,
     layers: [], undone: [], len: 0, anchor: 0, gain: null, job: null}));
+  const isNotes = (t) => t.src === "midi" || t.src === "drums";
   let scenes = [], cur = 0, pending = null;     // scenes: {name, on: Set of track numbers}
   let ac = null, out = null, bus = null, clickBus = null;
   let running = false, t0 = 0, sel = 0, song = null, open = false;
   const history = [];                           // tracks touched by a layer, for undo
+  const redoStack = [];                         // tracks of the layers undone, last first
   const barLen = () => 60 / cfg.bpm * cfg.perBar;
   const beatLen = () => 60 / cfg.bpm;
   const lat = () => { try{ return Math.max(0, Mixer.takeLatency() || 0); }catch(e){ return 0; } };
@@ -104,6 +127,7 @@ const Looper = (() => {
     bus = ac.createGain(); bus.gain.value = cfg.vol; bus.connect(out);
     clickBus = ac.createGain(); clickBus.gain.value = cfg.clickVol; clickBus.connect(out);
     tracks.forEach(t => { t.gain = ac.createGain(); t.gain.connect(bus); });
+    monitor = ac.createGain(); monitor.gain.value = 0.9; monitor.connect(bus);
   }
   // the next bar line from t (a hair late counts as on it)
   const nextBar = (t) => { const b = barLen(), k = Math.ceil((t - t0 - 0.03) / b); return t0 + Math.max(0, k) * b; };
@@ -147,6 +171,8 @@ const Looper = (() => {
       this.node = this.stream = this.mon = null; this.batches = [];
     }},
   };
+  srcs.midi = {name: "MIDI", batches: [], on: true, async start(){ return midiConnect(); }, async stop(){}};
+  srcs.drums = {name: "Bicí", batches: [], on: true, async start(){ midiConnect(); return true; }, async stop(){}};
   // The samples between two moments of music, the latency taken off: what was played then.
   function cut(src, from, to){
     const sr = ac.sampleRate, L = lat(), n = Math.max(1, Math.round((to - from) * sr));
@@ -217,7 +243,7 @@ const Looper = (() => {
       if(j.to == null || j.to > from) j.to = Math.max(j.from + barLen(), from);
       from = Math.max(from, j.to);
     }
-    t.job = {kind, from, to: null, src: t.src};
+    t.job = {kind, from, to: null, src: t.src, notes: [], open: new Map()};
     if(kind === "first" && t.bars) t.job.to = from + t.bars * barLen();
     if(kind === "dub") t.job.to = from + t.len;                  // one pass, unless pressed sooner
     recTrack = t;
@@ -246,7 +272,8 @@ const Looper = (() => {
     const tm = now(), L = lat();
     tracks.forEach(t => {
       const j = t.job;
-      if(!j || j.to == null || tm < j.to + L + 0.06) return;
+      if(j && isNotes(t) && j.to != null && !j.busy && tm >= j.to + 0.03){ finishNotes(t, j); return; }
+      if(!j || isNotes(t) || j.to == null || tm < j.to + L + 0.06) return;
       const src = srcs[j.src], data = cut(src, j.from, j.to);
       if(j.kind === "first"){
         t.len = j.to - j.from; t.anchor = j.from;
@@ -266,8 +293,64 @@ const Looper = (() => {
       paint();
     });
   }
+  // the notes of a take, as places in the loop (a note played a hair before its bar counts as on it)
+  async function finishNotes(t, j){
+    j.busy = true;
+    j.open.forEach((o, m) => j.notes.push({mt: o.mt, m, v: o.v, d: Math.max(0.05, j.to - o.mt)}));
+    if(j.kind === "first"){ t.len = j.to - j.from; t.anchor = j.from; }
+    const notes = j.notes.filter(x => x.mt >= j.from - 0.06 && x.mt < j.to - 0.02)
+      .map(x => ({p: Math.max(0, (((x.mt - t.anchor) % t.len) + t.len) % t.len), m: x.m, v: x.v, d: x.d}));
+    cancelJob(t);
+    if(j.kind === "first" && cfg.autoNext){ const nx = tracks.findIndex(x => !x.layers.length && !x.job); if(nx >= 0) sel = nx; }
+    if(!notes.length && j.kind === "first"){ t.len = 0; showToast(`${t.name}: nic se nezahrálo — smyčka se nevytvořila`); paint(); return; }
+    if(!notes.length){ paint(); return; }
+    const layer = {raw: notes};
+    layer.buf = await render(t, quantized(t, notes));
+    addLayer(t, layer);
+    paint();
+  }
+  // onto the grid chosen for the track: 1/8 or 1/16 (0 = as played)
+  function quantized(t, notes){
+    if(!t.q) return notes;
+    const step = beatLen() * 4 / t.q;
+    return notes.map(x => ({...x, p: (Math.round(x.p / step) * step) % t.len}));
+  }
+  // notes → a buffer of the loop's length; what rings on past its end comes round to its start
+  async function render(t, notes){
+    const sr = ac.sampleRate, n = Math.max(1, Math.round(t.len * sr)), tail = Math.round(2.5 * sr);
+    const oc = new OfflineAudioContext(2, n + tail, sr), dst = oc.destination;
+    if(t.src === "drums") notes.forEach(x => LoopSound.drum(oc, dst, x.m, x.v, x.p));
+    else if(t.instr.startsWith("syn:")) notes.forEach(x => LoopSound.synth(oc, dst, t.instr, x.m, x.v, x.p, x.d));
+    else {
+      try{
+        const L = await Mixer.guitar.instrumentLib(), Z = libZv || (libZv = new L.Zvuky(ac)), bufs = await Z.nacti(L.najdiNastroj(t.instr).soundfont), keys = [...bufs.keys()];
+        notes.forEach(x => {
+          const k = bufs.has(x.m) ? x.m : keys.reduce((a, b) => Math.abs(b - x.m) < Math.abs(a - x.m) ? b : a);
+          const src = oc.createBufferSource(), g = oc.createGain(), peak = 0.25 + 0.75 * (x.v ?? 0.8);
+          src.buffer = bufs.get(k); src.playbackRate.value = Math.pow(2, (x.m - k) / 12);
+          g.gain.setValueAtTime(0, x.p); g.gain.linearRampToValueAtTime(peak, x.p + 0.004); g.gain.setValueAtTime(peak, x.p + x.d); g.gain.linearRampToValueAtTime(0, x.p + x.d + 0.18);
+          src.connect(g); g.connect(dst); src.start(x.p); src.stop(x.p + x.d + 0.2);
+        });
+      }catch(e){ showToast("Nástroj se nepodařilo načíst — hraje syntezátor"); notes.forEach(x => LoopSound.synth(oc, dst, "syn:saw", x.m, x.v, x.p, x.d)); }
+    }
+    const r2 = await oc.startRendering(), buf = ac.createBuffer(2, n, sr);
+    for(let c = 0; c < 2; c++){
+      const a = r2.getChannelData(c), b = buf.getChannelData(c);
+      b.set(a.subarray(0, n));
+      for(let k = n; k < a.length; k++) b[(k - n) % n] += a[k];
+    }
+    return buf;
+  }
+  let libZv = null;
+  // a layer's sound made again (the grid changed, the instrument changed): the old one stops, the new one goes on in step
+  async function rerender(t, layer, notes){
+    const buf = await render(t, notes);
+    stopLayer(layer); layer.buf = buf;
+    if(running) startLayer(t, layer, now() + 0.005);
+  }
+  function rerenderAll(t){ t.layers.forEach(l => { if(l.raw) rerender(t, l, quantized(t, l.raw)); else if(l.steps) rerender(t, l, stepNotes(t)); }); }
   function addLayer(t, layer){
-    t.layers.push(layer); t.undone = [];
+    t.layers.push(layer); tracks.forEach(x => { x.undone = []; }); redoStack.length = 0;
     history.push(t.i);
     startLayer(t, layer, now() + 0.005);
   }
@@ -275,22 +358,28 @@ const Looper = (() => {
     const i = history.pop();
     if(i == null){ showToast("Není co vrátit"); return; }
     const t = tracks[i], l = t.layers.pop();
-    if(l){ stopLayer(l); t.undone.push(l); }
+    if(l){ stopLayer(l); t.undone.push(l); redoStack.push(t.i); if(l.steps) t.steps = null; }
+    if(stepT === t) paintSteps();
     if(!t.layers.length) t.len = 0;
     paint();
   }
   function redo(){
-    const t = tracks.find(x => x.undone.length);
-    if(!t){ showToast("Není co vrátit zpět"); return; }
+    let i = redoStack.pop();
+    while(i != null && !tracks[i].undone.length) i = redoStack.pop();
+    if(i == null){ showToast("Není co vrátit zpět"); return; }
+    const t = tracks[i];
     const l = t.undone.pop();
     if(!t.len) t.len = l.buf.duration;
+    if(l.steps) t.steps = l.steps;
     t.layers.push(l); history.push(t.i);
     startLayer(t, l, now() + 0.005);
+    if(stepT === t) paintSteps();
     paint();
   }
   function clear(i){
     const t = tracks[i];
-    t.layers.forEach(stopLayer); t.layers = []; t.undone = []; t.len = 0; cancelJob(t);
+    t.layers.forEach(stopLayer); t.layers = []; t.undone = []; t.len = 0; t.steps = null; cancelJob(t);
+    if(stepT === t) paintSteps();
     for(let k = history.length - 1; k >= 0; k--) if(history[k] === i) history.splice(k, 1);
     paint();
   }
@@ -344,6 +433,133 @@ const Looper = (() => {
   }
   setInterval(tick, 25);
 
+  // ---- MIDI keys and pads: heard at once on the track they play, and written into its take
+  let midiAcc = null, monitor = null;
+  const held = new Map();                    // note → its release (live sound)
+  async function midiConnect(){
+    if(midiAcc) return true;
+    if(!navigator.requestMIDIAccess){ showToast("Tenhle prohlížeč neumí MIDI — otevři Pick v Chrome"); return true; }
+    try{ midiAcc = await navigator.requestMIDIAccess(); }catch(e){ showToast("Přístup k MIDI zamítnut — hrát jde aspoň na pady na obrazovce"); return true; }
+    const hook = () => midiAcc.inputs.forEach(i => { if(!i._pickLooper){ i.addEventListener("midimessage", onMidi); i._pickLooper = true; } });
+    midiAcc.addEventListener("statechange", hook); hook();
+    return true;
+  }
+  function onMidi(e){
+    if(!open) return;
+    const [st, a, b] = e.data, kind = st & 0xf0;
+    // a key's time: the browser stamps the message; heard against the music that was playing then
+    const at = now() - Math.max(0, (performance.now() - e.timeStamp) / 1000);
+    if(kind === 0x90 && b > 0) noteOn(a, b / 127, at);
+    else if(kind === 0x80 || (kind === 0x90 && b === 0)) noteOff(a, at);
+  }
+  // which track the keys play: the one recording notes, else the one selected (if it takes notes)
+  const playTrack = () => (recTrack && isNotes(recTrack) && recTrack.job ? recTrack : isNotes(tracks[sel]) ? tracks[sel] : tracks.find(isNotes));
+  const outLat = () => (ac.outputLatency || 0) + (ac.baseLatency || 0);
+  function noteOn(m, v, at){
+    audio();
+    const t = playTrack();
+    if(!t) return;
+    if(ac.state === "suspended") ac.resume();
+    const tm = now();
+    if(t.src === "drums") LoopSound.drum(ac, monitor, m, v, tm);
+    else if(t.instr.startsWith("syn:")){ const prev = held.get(m); if(prev) prev(tm); held.set(m, LoopSound.synth(ac, monitor, t.instr, m, v, tm)); }
+    else liveLib(t, m, v);
+    const j = t.job;
+    if(j && running) j.open.set(m, {mt: (at ?? tm) - outLat(), v});
+    flashPad(m);
+  }
+  function noteOff(m, at){
+    const tm = now(), rel = held.get(m);
+    if(rel){ rel(tm); held.delete(m); }
+    if(libHeld.has(m) && libZv){ libZv.utni(libHeld.get(m)); libHeld.delete(m); }
+    tracks.forEach(t => {
+      const j = t.job, o = j && j.open.get(m);
+      if(!o) return;
+      j.open.delete(m);
+      const mt = (at ?? tm) - outLat();
+      j.notes.push({mt: o.mt, m, v: o.v, d: Math.max(0.03, mt - o.mt)});
+    });
+  }
+  const libHeld = new Map();
+  async function liveLib(t, m, v){
+    try{
+      const L = await Mixer.guitar.instrumentLib();
+      if(!libZv) libZv = new L.Zvuky(ac);
+      const sf = L.najdiNastroj(t.instr).soundfont;
+      if(!libZv.jeNacteny(sf)) await libZv.nacti(sf);
+      libHeld.set(m, libZv.hraj(sf, m, v, monitor));
+    }catch(e){ const rel = LoopSound.synth(ac, monitor, "syn:saw", m, v, now()); held.set(m, rel); }
+  }
+  // a pad on the screen: a hit of the kit, short
+  function pad(m){ noteOn(m, 0.9); setTimeout(() => noteOff(m), 120); }
+  function flashPad(m){ const b = root && root.querySelector(`.lp-pads [data-m="${m}"]`); if(b){ b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 110); } }
+
+  // ---- the step grid of a drum track: 16 steps a bar, a row per drum, ready grooves
+  let stepT = null;
+  function stepNotes(t){
+    const S = t.steps, step = beatLen() / 4, out2 = [];
+    LoopSound.KIT.forEach((k, r) => S.on[r].forEach((on, i) => {
+      if(!on) return;
+      const sw = i % 2 ? (S.swing || 0) * step / 2 : 0;
+      out2.push({p: i * step + sw, m: k.note, v: i % 4 === 0 ? 0.95 : 0.78, d: 0.1});
+    }));
+    return out2;
+  }
+  async function setSteps(t, S){
+    audio();
+    t.steps = S;
+    if(!t.len){ t.len = S.bars * barLen(); t.anchor = running ? t0 : 0; }
+    let layer = t.layers.find(l => l.steps);
+    if(!layer){ layer = {steps: S}; layer.buf = await render(t, stepNotes(t)); t.layers.push(layer); tracks.forEach(x => { x.undone = []; }); redoStack.length = 0; history.push(t.i); if(running) startLayer(t, layer, now() + 0.005); }
+    else { layer.steps = S; await rerender(t, layer, stepNotes(t)); }
+    if(scenes[cur]) scenes[cur].on.add(t.i);
+    paint();
+  }
+  function emptySteps(bars){ return {bars, swing: 0, on: LoopSound.KIT.map(() => Array(bars * 16).fill(false))}; }
+  function groove(id, bars){
+    const g = LoopSound.GROOVES[id], S = emptySteps(bars);
+    S.swing = g.swing || 0;
+    LoopSound.KIT.forEach((k, r) => (g[k.id] || []).forEach(i => { for(let b = 0; b < bars; b++) S.on[r][b * 16 + i] = true; }));
+    return S;
+  }
+  function openSteps(t){
+    stepT = stepT === t ? null : t;
+    paintSteps(); paint();
+  }
+  function paintSteps(){
+    const box = root && root.querySelector("#lp-steps");
+    if(!box) return;
+    const t = stepT;
+    box.hidden = !t || t.src !== "drums";
+    if(box.hidden) return;
+    const bars = t.steps ? t.steps.bars : (t.len ? Math.max(1, Math.round(t.len / barLen())) : 1);
+    const S = t.steps || emptySteps(Math.min(4, bars)), cols = S.bars * 16;
+    box.innerHTML = `<div class="hd"><b>Bicí — ${esc(t.name)}</b>
+        <select data-k="groove" title="Hotový rytmus (přepíše kroky)"><option value="">Hotový rytmus…</option>${Object.entries(LoopSound.GROOVES).map(([k, g]) => `<option value="${k}">${esc(g.name)}</option>`).join("")}</select>
+        <select data-k="sbars" title="Délka vzoru" ${t.layers.some(l => !l.steps) ? "disabled" : ""}>${[1, 2, 4].map(b => `<option value="${b}" ${b === S.bars ? "selected" : ""}>${b} ${b === 1 ? "takt" : "takty"}</option>`).join("")}</select>
+        <span class="lp-f">swing <input type="range" data-k="swing" min="0" max="0.6" step="0.05" value="${S.swing || 0}"></span>
+        <button type="button" class="lp-b" data-k="sclear">Vymazat kroky</button>
+        <span class="lp-sp"></span><span class="muted" style="font-size:11px;color:#8a8aa0">Klik na políčko = úder · klik na název = zahrát · pady dole hrají i nahrávají (jako MIDI pady klávesnice)</span></div>
+      <div class="lp-grid" style="grid-template-columns:110px repeat(${cols},1fr)">
+        ${LoopSound.KIT.map((k, r) => `<span class="rn" data-m="${k.note}">${esc(k.name)}</span>` + S.on[r].map((on, i) =>
+          `<button type="button" class="c${on ? " on" : ""}${i % 4 === 0 ? " beat" : ""}${i % 16 === 0 && i ? " bar" : ""}" data-r="${r}" data-i="${i}"></button>`).join("")).join("")}</div>
+      <div class="lp-pads">${LoopSound.KIT.map(k => `<button type="button" data-m="${k.note}">${esc(k.name)}</button>`).join("")}</div>`;
+    const q = (k) => box.querySelector(`[data-k="${k}"]`);
+    box.querySelectorAll(".lp-grid .c").forEach(c => c.onclick = () => {
+      const S2 = t.steps ? {...t.steps, on: t.steps.on.map(x => x.slice())} : S;
+      S2.on[+c.dataset.r][+c.dataset.i] = !S2.on[+c.dataset.r][+c.dataset.i];
+      if(S2.on[+c.dataset.r][+c.dataset.i]) LoopSound.drum(ac, monitor, LoopSound.KIT[+c.dataset.r].note, 0.8, now());
+      setSteps(t, S2).then(paintSteps);
+    });
+    box.querySelectorAll(".rn").forEach(n => n.onclick = () => pad(+n.dataset.m));
+    box.querySelectorAll(".lp-pads button").forEach(b => b.onpointerdown = (e) => { e.preventDefault(); pad(+b.dataset.m); });
+    q("groove").onchange = (e) => { if(e.target.value) setSteps(t, groove(e.target.value, S.bars)).then(paintSteps); };
+    q("sbars").onchange = (e) => { const b = +e.target.value, S2 = emptySteps(b); S.on.forEach((row, r) => row.forEach((on, i) => { for(let k = i; k < b * 16; k += S.bars * 16) S2.on[r][k] = on; })); S2.swing = S.swing;
+      t.len = b * barLen(); setSteps(t, S2).then(paintSteps); };
+    q("swing").onchange = (e) => { if(!t.steps) return; setSteps(t, {...t.steps, swing: +e.target.value}); };
+    q("sclear").onclick = () => { if(t.steps) setSteps(t, emptySteps(t.steps.bars)).then(paintSteps); };
+  }
+
   // ---- the page
   let root = null;
   const ring = 2 * Math.PI * 59;
@@ -367,6 +583,7 @@ const Looper = (() => {
       </div>
       <div class="lp-main">
         <div class="lp-tracks" id="lp-tracks"></div>
+        <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-help">
           <b>Jak na to:</b> tlačítko stopy = <b>nahrát → hrát → přidat vrstvu → hrát</b>. Nahrávání začne na začátku taktu a skončí na konci taktu —
@@ -400,8 +617,12 @@ const Looper = (() => {
           <svg viewBox="0 0 130 130"><circle class="rg" cx="65" cy="65" r="59"/><circle class="pr" cx="65" cy="65" r="59" stroke-dasharray="0 ${ring}"/></svg>
           <span class="core">${t.i + 1}</span><span class="lbl"></span></button>
         <div class="meta"></div>
-        <div class="row"><select data-k="src" title="Odkud se nahrává"><option value="gtr">Kytara (zesilovač Picku)</option><option value="mic">Mikrofon</option></select>
+        <div class="row"><select data-k="src" title="Odkud se nahrává"><option value="gtr">Kytara (zesilovač Picku)</option><option value="mic">Mikrofon</option>
+            <option value="midi">MIDI nástroj (klávesy)</option><option value="drums">Bicí (pady, kroky)</option></select>
           <select data-k="bars" title="Délka první smyčky: auto = do druhého stisku">${BARS.map(b => `<option value="${b}">${b ? b + (b === 1 ? " takt" : b < 5 ? " takty" : " taktů") : "auto"}</option>`).join("")}</select></div>
+        <div class="row mi"><select data-k="instr" title="Zvuk MIDI stopy"></select>
+          <select data-k="q" title="Zarovnání not do rytmu (kvantizace) — jde změnit i po nahrání"><option value="0">volně</option><option value="8">na 1/8</option><option value="16">na 1/16</option></select>
+          <button type="button" data-k="steps" title="Krokový sekvencer a pady bicích">Kroky</button></div>
         <div class="row"><button type="button" data-k="mute" title="Hraje v téhle části (M)">M</button><button type="button" data-k="undo" title="Vrátit poslední vrstvu téhle stopy">↶</button><button type="button" data-k="clear" title="Smazat stopu">Smazat</button></div>
         <div class="vol">hlasitost <input type="range" data-k="vol" min="0" max="1.4" step="0.01" value="${t.vol}"></div></div>`).join("");
     root.querySelectorAll(".lp-t").forEach(n => {
@@ -409,7 +630,12 @@ const Looper = (() => {
       n.querySelector(".lp-btn").onclick = () => press(t.i);
       n.onclick = (e) => { if(!e.target.closest("button, select, input")){ sel = t.i; paint(); } };
       n.querySelector(".nm input").onchange = (e) => { t.name = e.target.value.trim() || `Stopa ${t.i + 1}`; };
-      n.querySelector('[data-k="src"]').onchange = (e) => { t.src = e.target.value; };
+      n.querySelector('[data-k="src"]').onchange = (e) => {
+        if(t.layers.length && isNotes(t) !== (e.target.value === "midi" || e.target.value === "drums")){ showToast("Stopa už má nahrávku — nejdřív ji smaž"); e.target.value = t.src; return; }
+        t.src = e.target.value; if(isNotes(t)) midiConnect(); if(t.src !== "drums" && stepT === t){ stepT = null; paintSteps(); } paint(); };
+      n.querySelector('[data-k="instr"]').onchange = (e) => { t.instr = e.target.value; rerenderAll(t); };
+      n.querySelector('[data-k="q"]').onchange = (e) => { t.q = +e.target.value; rerenderAll(t); };
+      n.querySelector('[data-k="steps"]').onclick = () => openSteps(t);
       n.querySelector('[data-k="bars"]').onchange = (e) => { t.bars = +e.target.value; };
       n.querySelector('[data-k="vol"]').oninput = (e) => { t.vol = +e.target.value; if(ac) applyMutes(now()); };
       n.querySelector('[data-k="mute"]').onclick = () => toggleTrack(t.i);
@@ -417,6 +643,22 @@ const Looper = (() => {
       n.querySelector('[data-k="clear"]').onclick = async () => { if(!t.layers.length || await Dialog.confirm(`Smazat stopu „${t.name}“ (${t.layers.length} vrstev)?`, {ok: "Smazat", danger: true})) clear(t.i); };
     });
     paintPedal();
+  }
+  // the sounds a MIDI track can have: the looper's synths, and Pick's instruments when the library is there
+  let libGroups = null;
+  function instrOptions(){
+    return `<optgroup label="Syntezátory">${LoopSound.SYNTHS.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</optgroup>`
+      + (libGroups || []).map(g => `<optgroup label="${esc(g.kategorie)}">${g.nastroje.map(x => `<option value="${esc(x.id)}">${esc(x.nazev)}</option>`).join("")}</optgroup>`).join("");
+  }
+  function instrName(id){
+    const sy = LoopSound.SYNTHS.find(x => x.id === id);
+    if(sy) return sy.name;
+    for(const g of libGroups || []) for(const x of g.nastroje) if(x.id === id) return x.nazev;
+    return id;
+  }
+  function loadLib(){
+    if(libGroups) return;
+    try{ Mixer.guitar.instrumentLib().then(L => { libGroups = L.nastrojePodleKategorii(); paint(); }).catch(() => {}); }catch(e){}
   }
   function setBpm(v){
     if(!(v >= 40 && v <= 240)) return;
@@ -447,9 +689,18 @@ const Looper = (() => {
       n.dataset.s = s; n.classList.toggle("sel", t.i === sel);
       n.querySelector(".lbl").textContent = STATE_TXT[s];
       n.querySelector('[data-k="src"]').value = t.src; n.querySelector('[data-k="bars"]').value = t.bars;
+      const mi = n.querySelector(".row.mi"), is = n.querySelector('[data-k="instr"]');
+      mi.hidden = !isNotes(t);
+      is.hidden = t.src !== "midi"; n.querySelector('[data-k="steps"]').hidden = t.src !== "drums";
+      n.querySelector('[data-k="steps"]').classList.toggle("st", stepT === t);
+      n.querySelector('[data-k="q"]').value = t.q;
+      const opts = instrOptions();
+      if(is.dataset.o !== opts){ is.dataset.o = opts; is.innerHTML = opts; }
+      is.value = t.instr;
       n.querySelector('[data-k="mute"]').classList.toggle("on", scenes[cur] && !scenes[cur].on.has(t.i));
       const bars = t.len ? Math.round(t.len / barLen() * 100) / 100 : 0;
-      n.querySelector(".meta").textContent = t.layers.length ? `${bars} ${bars === 1 ? "takt" : bars < 5 ? "takty" : "taktů"} · ${t.layers.length} ${t.layers.length === 1 ? "vrstva" : t.layers.length < 5 ? "vrstvy" : "vrstev"} · ${srcs[t.src].name}` : srcs[t.src].name;
+      const what = t.src === "midi" ? instrName(t.instr) : srcs[t.src].name;
+      n.querySelector(".meta").textContent = t.layers.length ? `${bars} ${bars === 1 ? "takt" : bars < 5 ? "takty" : "taktů"} · ${t.layers.length} ${t.layers.length === 1 ? "vrstva" : t.layers.length < 5 ? "vrstvy" : "vrstev"}${t.steps ? " (kroky)" : ""} · ${what}` : what;
     });
     $("lp-sc").innerHTML = `<span class="h">ČÁSTI PÍSNĚ</span>` + scenes.map((s, k) => `<button type="button" data-k="${k}" class="${k === cur ? "cur" : ""}${pending && pending.k === k ? " next" : ""}"
         title="Klik: přepnout na začátku dalšího taktu · dvojklik: přejmenovat"><b>${esc(s.name)}</b><span>${s.on.size ? [...s.on].sort().map(x => x + 1).join(" ") : "ticho"}</span></button>`).join("")
@@ -473,6 +724,10 @@ const Looper = (() => {
         const s = stateOf(t);
         if(n.dataset.s !== s){ paint(); }
       });
+      if(stepT && stepT.len && running){
+        const st = beatLen() / 4, col = Math.floor(((((tm - stepT.anchor) % stepT.len) + stepT.len) % stepT.len) / st);
+        if(col !== frame.col){ frame.col = col; root.querySelectorAll(".lp-grid .c.now").forEach(c => c.classList.remove("now")); root.querySelectorAll(`.lp-grid .c[data-i="${col}"]`).forEach(c => c.classList.add("now")); }
+      }
       const pos = root.querySelector("#lp-pos"), beats = root.querySelectorAll("#lp-beats i");
       if(running){
         const k = Math.floor((tm - t0) / beatLen()), bar = Math.floor(k / cfg.perBar), beat = ((k % cfg.perBar) + cfg.perBar) % cfg.perBar;
@@ -550,13 +805,18 @@ const Looper = (() => {
     }
     try{ Mixer.pause(); }catch(e){}
     root.hidden = false; open = true;
-    paint(); paintPedal();
+    loadLib(); if(tracks.some(isNotes)) midiConnect();
+    paint(); paintPedal(); paintSteps();
   }
   function close(){ if(root) root.hidden = true; open = false; }
   return {open: openLooper, close, isOpen: () => open, run, press, undo, redo, start, stop: stopAll, goScene,
     state: () => ({running, bpm: cfg.bpm, sel, cur, scenes: scenes.map(s => ({name: s.name, on: [...s.on]})),
-      tracks: tracks.map(t => ({name: t.name, src: t.src, layers: t.layers.length, len: t.len, state: ac ? stateOf(t) : "empty"}))}),
+      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, layers: t.layers.length, len: t.len, state: ac ? stateOf(t) : "empty"}))}),
     // for the tests: how loud a track's layers are
     _rms: (i) => { const t = tracks[i]; if(!t.layers.length) return 0; const d = t.layers[t.layers.length - 1].buf.getChannelData(0); let q = 0; for(let k = 0; k < d.length; k++) q += d[k] * d[k]; return Math.sqrt(q / d.length); },
-    _cut: cut, _srcs: srcs};
+    _cut: cut, _srcs: srcs,
+    _midi: (data, ago = 0) => onMidi({data, timeStamp: performance.now() - ago * 1000}),
+    _steps: (i, id, bars) => setSteps(tracks[i], groove(id, bars || 1)),
+    _layers: (i) => tracks[i].layers.map(l => ({raw: l.raw ? l.raw.map(x => ({...x})) : null, steps: !!l.steps})),
+    _set: (i, k, v) => { tracks[i][k] = v; paint(); }};
 })();
