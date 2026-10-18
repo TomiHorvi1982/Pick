@@ -2719,6 +2719,7 @@ body.lib-collapsed .pick-brand{display:none}
   .lyr-dock-tools button{background:var(--card-hi);border:none;border-radius:500px;color:var(--text);
     font:inherit;padding:4px 11px;cursor:pointer;display:inline-flex;align-items:center}
   .lyr-dock-tools button:hover{background:#3e3e3e}
+  .lyr-dock-tools button[hidden]{display:none}
   .nm-lyr-lines{text-align:center;line-height:1.3}
   .nm-lyr-lines .prev,.nm-lyr-lines .next{font-size:calc(clamp(14px,1.5vw,19px) * var(--ly-size,1));color:var(--ly-dim,var(--sub));opacity:.75;
     font-family:var(--ly-font,inherit);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.3em}
@@ -3082,7 +3083,7 @@ body.lib-collapsed .pick-brand{display:none}
   /* Choosing a profile or an instrument: easy to read — a solid panel, a search, families left, their sounds right. */
   .inst-pop{display:grid;grid-template-columns:210px 360px;grid-template-rows:auto minmax(0,1fr);gap:0;padding:0;width:570px;max-width:calc(100vw - 16px);
     height:min(520px,84vh);background:#17171c !important;background-image:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border:1px solid #3a3a46 !important;border-radius:12px !important;
-    box-shadow:0 24px 70px rgba(0,0,0,.75) !important;overflow:hidden;z-index:6000}
+    box-shadow:0 24px 70px rgba(0,0,0,.75) !important;overflow:hidden;z-index:9800}
   .inst-pop .ip-top{grid-column:1 / -1;display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #2c2c36;background:#1d1d24}
   .inst-pop .ip-top b{font-size:13px;color:#fff;white-space:nowrap}
   .inst-pop .ip-top input{flex:1;min-width:0;background:#101014;border:1px solid #3a3a46;border-radius:8px;color:#fff;font:inherit;font-size:13px;padding:6px 10px;outline:none}
@@ -5335,7 +5336,7 @@ body.lib-collapsed .pick-brand{display:none}
           </div>
         </div>
         <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy">Aa</button>
-        <button type="button" id="nm-lyr-stage" title="Na celou obrazovku — jen text, jen tab, nebo obojí"><span data-icon="expand" data-size="13"></span></button>
+        <button type="button" id="nm-lyr-stage" hidden title="Live Show — je teď v ovládacím panelu Steems nahoře"><span data-icon="expand" data-size="13"></span></button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
         <button type="button" id="nm-lyr-close" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
       </div>
@@ -27163,6 +27164,16 @@ const Mixer = (() => {
       pitch: () => { const t = channels.length ? tonalChannels() : [];
         return Math.round(pitchSemitones + (t.length ? rateToSemitones(t[0].pitchRate || 1) : 0)); },
       onFlow: (fn) => { flowHook = fn; },
+      // Live Show: the whole screen (the deck's button), and back to the mix
+      live(on){ if(on) openStage(tabs.length ? "both" : "lyr"); else closeStage(); },
+      // the live guitar's sound, for Live Show: the input, the amp (NAM profile), the gain
+      amp: {
+        live: () => Guitar.isLive(), toggle: () => toggleGuitarInput(),
+        name: () => Guitar.state.externalAmp ? "ToneRig" : Guitar.state.tunnel ? "tunel" : (typeof Tone !== "undefined" && Tone.on() ? "Otisk · " + Tone.label() : (Guitar.state.ampName || "")),
+        own: () => !Guitar.state.externalAmp && !Guitar.state.tunnel,
+        step: (d) => ampBrowseStep(d), pick: (anchor) => TrackAmp.pickLive(anchor),
+        gain: () => Guitar.state.inputGainDb, setGain: (db) => { Guitar.setInputGain(Math.round(db * 2) / 2); renderGuitarStrip(); queueSessionSave(); },
+      },
       stageOn: () => stageOn,
       restage: () => restage(),
       isPlaying: () => isPlaying,
@@ -32227,6 +32238,7 @@ const Piano = (() => {
     instrument: () => curInstrument(), guitarInstrument: () => st.fretInstrument || GTR_DEFAULT,
     setInstrument: (id) => setInst(id), setGuitarInstrument(id){ if(!id) return; st.fretInstrument = id; save(); if(built) paintFretboard(); },
     instrName: (id) => instGroups ? InstrPick.name(instGroups, id) : "",
+    volume: () => st.volume, setVolume(v){ st.volume = Math.max(0, Math.min(1.2, v)); if(out) out.gain.value = st.volume; save(); const r = el("pk-vol"); if(r) r.value = st.volume; },
     guitarGroups: () => guitarGroups(),
   };
   // the layout of the keys (QWERTZ on a Czech Mac) for the hints, asked once

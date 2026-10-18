@@ -19,7 +19,7 @@ const ChordCoach = (() => {
   #nm-stage .nm-stage-body{min-height:96px}
   .cc.off{display:none}
   /* the chords running past: a still line, the song moving under it */
-  .cc-lane{position:relative;height:66px;border-radius:14px;overflow:hidden;cursor:pointer;user-select:none;-webkit-user-select:none;
+  .cc-lane{position:relative;height:calc(66px * var(--cc-z,1));border-radius:14px;overflow:hidden;cursor:pointer;user-select:none;-webkit-user-select:none;
     background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.07);
     -webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 5%,#000 92%,transparent)}
   .cc-track{position:absolute;inset:0 auto 0 0;width:1px;will-change:transform}
@@ -27,10 +27,10 @@ const ChordCoach = (() => {
   .cc-bar i{position:absolute;left:4px;top:3px;font-style:normal;font-size:9.5px;color:#6f6f86;font-variant-numeric:tabular-nums}
   .cc-bt{position:absolute;bottom:4px;width:1px;height:7px;background:rgba(255,255,255,.18)}
   .cc-sec{position:absolute;top:2px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c);white-space:nowrap;margin-left:22px}
-  .cc-pill{position:absolute;top:19px;height:32px;border-radius:10px;display:flex;align-items:center;padding:0 10px;box-sizing:border-box;overflow:hidden;
+  .cc-pill{position:absolute;top:calc(19px * var(--cc-z,1));height:calc(32px * var(--cc-z,1));border-radius:10px;display:flex;align-items:center;padding:0 10px;box-sizing:border-box;overflow:hidden;
     background:linear-gradient(180deg,hsl(var(--h) 55% 30% / .85),hsl(var(--h) 55% 22% / .85));border:1px solid hsl(var(--h) 70% 60% / .45);
     color:#fff;transition:opacity .25s,filter .25s,box-shadow .25s}
-  .cc-pill span{font-weight:800;font-size:16px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .cc-pill span{font-weight:800;font-size:calc(16px * var(--cc-z,1));white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
   .cc-pill.past{opacity:.35;filter:saturate(.4)}
   .cc-pill.now{background:linear-gradient(180deg,hsl(var(--h) 75% 58%),hsl(var(--h) 70% 44%));border-color:hsl(var(--h) 90% 75%);
     box-shadow:0 0 22px hsl(var(--h) 85% 55% / .55)}
@@ -42,6 +42,21 @@ const ChordCoach = (() => {
   @keyframes cc-beat{from{box-shadow:0 0 22px var(--cc-acc),0 0 6px #fff}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff}}
   @keyframes cc-down{from{box-shadow:0 0 34px var(--cc-acc),0 0 12px #fff;width:5px}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff;width:3px}}
   .cc-msg{font-size:12px;color:#8a8aa0;padding:8px 2px;text-align:center}
+  .cc-tools .cc-grp b{min-width:42px;text-align:center;font-variant-numeric:tabular-nums;color:#fff}
+  /* Live Show's sounds */
+  .cc-pop{position:fixed;z-index:9650;background:#17171f;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;color:#ececf3;font-size:13px;
+    box-shadow:0 22px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
+  .cc-pop-h{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#a6a6bc}
+  .cc-snd{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
+  .cc-snd-t{font-weight:800}.cc-snd-t small{font-weight:600;color:#8a8aa0;margin-left:6px}
+  .cc-snd-r{display:flex;align-items:center;gap:6px;color:#c9c9da;font-size:12.5px}
+  .cc-snd-r input[type=range]{flex:1}
+  .cc-snd-r b{min-width:54px;text-align:right;font-variant-numeric:tabular-nums}
+  .cc-pop button{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:#f1f1f6;cursor:pointer;white-space:nowrap}
+  .cc-pop button:hover{background:rgba(255,255,255,.12)}
+  .cc-pop button.on{background:var(--accent,#8b5cf6);color:#0b0b12;border-color:transparent;font-weight:700}
+  .cc-snd-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .cc-note{font-size:11.5px;color:#8a8aa0}
   .cc-msg button{margin-left:8px;font:inherit;font-size:12px;padding:5px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
   /* the carousel: the chord sounding in the middle, big; the ones before and after, small */
   .cc-car{position:relative;height:calc(var(--ch,236px) + 14px);overflow:hidden}
@@ -380,8 +395,9 @@ const ChordCoach = (() => {
   // What is kept: the guitar's tuning for the shapes, the keys heard
   // ======================================================================
   const KEY = "pick-chordcoach";
-  const cfg = {tuning: "", keysSound: true, pc: true, pcMode: "chroma", hints: false};
+  const cfg = {tuning: "", keysSound: true, pc: true, pcMode: "chroma", hints: false, zoom: 1};
   try{ const v = JSON.parse(localStorage.getItem(KEY) || "{}"); if(typeof v.tuning === "string") cfg.tuning = v.tuning;
+    if(v.zoom >= 0.7 && v.zoom <= 2.5) cfg.zoom = v.zoom;
     ["keysSound", "pc", "hints"].forEach(k => { if(k in v) cfg[k] = !!v[k]; }); if(v.pcMode === "scale") cfg.pcMode = "scale"; }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   const mine = () => { try{ const v = MyTuning.get(); return v && v.midi.length === 6 ? v.midi.slice() : null; }catch(e){ return null; } };
@@ -464,6 +480,7 @@ const ChordCoach = (() => {
     box.innerHTML = `<div class="cc-lane" title="Klikni kamkoli — píseň skočí tam"><div class="cc-track"></div><div class="cc-head"></div></div>
       <div class="cc-car"></div><div class="cc-tools"></div><div class="cc-panels"></div>`;
     after.after(box);
+    box.style.setProperty("--cc-z", cfg.zoom);
     lane = box.querySelector(".cc-lane"); track = box.querySelector(".cc-track"); head = box.querySelector(".cc-head");
     car = box.querySelector(".cc-car"); tools = box.querySelector(".cc-tools"); panels = box.querySelector(".cc-panels");
     lane.addEventListener("click", (e) => {
@@ -545,7 +562,7 @@ const ChordCoach = (() => {
     const list = seq, view = deckCfg().chordView || "both", V = VIEW[view] || VIEW.both, tun = tuning();
     const ci = idxAt(list, t), base = ci >= 0 ? ci : nextAt(list, t);
     // smaller in a duet (the singers need the room) and on a low screen
-    const k = box.closest("#nm-stage") && document.querySelector("#nm-stage .nm-stage-body.duo") ? 0.62 : window.innerHeight < 860 ? 0.8 : 1;
+    const k = (box.closest("#nm-stage") && document.querySelector("#nm-stage .nm-stage-body.duo") ? 0.62 : window.innerHeight < 860 ? 0.8 : 1) * cfg.zoom;
     const build = seqSig + ":" + view + ":" + tun.join(",") + ":" + car.clientWidth + ":" + k;
     if(build !== carSig){ carSig = build; car.innerHTML = ""; cards = new Map(); car.style.setProperty("--ch", Math.round(V.ch * k) + "px"); car.style.setProperty("--cw", V.cw + "px"); }
     if(base < 0){ cards.forEach(n => n.remove()); cards.clear(); return; }
@@ -596,6 +613,7 @@ const ChordCoach = (() => {
         <select data-k="root">${SH.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
         <select data-k="scale">${E.scales().map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
         <select data-k="lock"><option value="off">neukazovat</option><option value="highlight">ukázat</option><option value="lock">🔒 zámek</option></select></span>` : ""}
+      <span class="cc-grp" title="Velikost akordů — aby byly vidět i z dálky"><span>Velikost</span><button type="button" data-k="zdn">A−</button><b data-k="zv">${Math.round(cfg.zoom * 100)} %</b><button type="button" data-k="zup">A+</button></span>
       <span class="cc-shift" data-k="shift" hidden></span>
       <button type="button" data-k="keys" title="Klavír: hraj myší, na klávesnici Macu nebo na MIDI klávesách — tóny se ukážou i na kytaře">🎹 Klavír</button>
       <button type="button" data-k="gtr" title="Kytara: celý hmatník — klikni a zahraj, ukáže stupnici, hmat akordu, a umí poslouchat tvoji kytaru">🎸 Kytara</button>
@@ -616,6 +634,9 @@ const ChordCoach = (() => {
       k.onchange = () => E.setScale({scale: k.value, lock: k.value !== "none" && E.scale().lock === "off" ? "highlight" : undefined});
       l.onchange = () => E.setScale({lock: l.value});
     }
+    const zoomBy = (d) => { cfg.zoom = Math.round(Math.max(0.7, Math.min(2.5, cfg.zoom + d)) * 100) / 100; keep(); applyZoom(); tools.querySelector('[data-k="zv"]').textContent = Math.round(cfg.zoom * 100) + " %"; };
+    tools.querySelector('[data-k="zdn"]').onclick = () => zoomBy(-0.15);
+    tools.querySelector('[data-k="zup"]').onclick = () => zoomBy(0.15);
     tools.querySelector('[data-k="keys"]').onclick = () => toggleKeys();
     tools.querySelector('[data-k="gtr"]').onclick = () => toggleGtr();
     tools.querySelector('[data-k="wheel"]').onclick = () => { wh.on = !wh.on; paintToolState(); paintPanels(); };
@@ -702,6 +723,57 @@ const ChordCoach = (() => {
     on("gtr", () => { if(!ch) return; const t = tuning(), v = voicings(ch, t)[0]; if(v) strum(v, t, "strum"); });
     on("big", () => { const n = wheelChord() || (cur && cur.name); if(n) openZoomName(n); });
     on("x", () => { wh.on = false; paintToolState(); paintPanels(); });
+  }
+
+  // the chords' size: the lane and the cards grow (seen from across the room)
+  function applyZoom(){ if(!box) return; box.style.setProperty("--cc-z", cfg.zoom); laneSig = carSig = ""; paint(); }
+
+  // ---- Live Show's sounds: the guitar played in (its input, the amp, the gain), the keys' and the neck's instrument, their volume
+  let soundPop = null;
+  function openSounds(anchor){
+    if(soundPop){ soundPop.remove(); soundPop = null; return; }
+    soundPop = document.createElement("div");
+    soundPop.className = "cc-pop";
+    (anchor.closest("#nm-stage") || document.body).appendChild(soundPop);
+    const r = anchor.getBoundingClientRect(), w = 400;
+    Object.assign(soundPop.style, {left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px", top: (r.bottom + 6) + "px", width: w + "px"});
+    paintSounds();
+    const E = eng(); if(E) E.instruments().then(() => paintSounds()).catch(() => paintSounds());
+    const off = (e) => { if(soundPop && !soundPop.contains(e.target) && !anchor.contains(e.target) && !e.target.closest(".inst-pop")){ soundPop.remove(); soundPop = null; }
+      if(!soundPop) document.removeEventListener("pointerdown", off, true); };
+    setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+  }
+  function paintSounds(){
+    if(!soundPop) return;
+    const E = eng(), A = D().amp, live = A.live(), own = A.own(), nm = A.name() || "bez zesilovače";
+    let groups = null; try{ groups = E && E.instrName(E.instrument()) ? true : null; }catch(e){}
+    const inst = E ? (E.instrName(E.instrument()) || "—") : "—", gtrInst = E ? (E.instrName(E.guitarInstrument()) || "—") : "—";
+    soundPop.innerHTML = `<div class="cc-pop-h">Zvuky</div>
+      <div class="cc-snd"><div class="cc-snd-t">🎸 Tvoje kytara <small>${live ? "vstup zapnutý" : "vstup vypnutý"}</small></div>
+        <div class="cc-snd-r"><button type="button" data-a="pwr" class="${live ? "on" : ""}">${live ? "⏻ zapnutá" : "⏻ zapnout"}</button>
+          ${own ? `<button type="button" data-a="ap" title="Předchozí zesilovač">‹</button><button type="button" data-a="an" class="cc-snd-n" title="Vybrat NAM profil ze seznamu">${esc(nm)}</button><button type="button" data-a="ax" title="Další zesilovač">›</button>`
+            : `<span class="cc-snd-n">${esc(nm)}</span>`}</div>
+        <label class="cc-snd-r">Gain <input type="range" data-a="gain" min="-12" max="24" step="0.5" value="${A.gain()}"><b data-a="gv">${A.gain() > 0 ? "+" : ""}${A.gain()} dB</b></label></div>
+      <div class="cc-snd"><div class="cc-snd-t">🎹 Klavír <small>myš, klávesy Macu, MIDI</small></div>
+        <div class="cc-snd-r">${E ? `<button type="button" data-a="pp">‹</button><button type="button" data-a="pn" class="cc-snd-n" title="Vybrat nástroj">${esc(inst)}</button><button type="button" data-a="px">›</button>` : "—"}</div></div>
+      <div class="cc-snd"><div class="cc-snd-t">🎸 Kytara na hmatníku <small>klik na pražec, akordy</small></div>
+        <div class="cc-snd-r">${E ? `<button type="button" data-a="gp">‹</button><button type="button" data-a="gn" class="cc-snd-n" title="Vybrat kytaru">${esc(gtrInst)}</button><button type="button" data-a="gx">›</button>` : "—"}</div></div>
+      ${E ? `<label class="cc-snd-r">Hlasitost klavíru a hmatníku <input type="range" data-a="vol" min="0" max="1.2" step="0.01" value="${E.volume()}"></label>` : ""}
+      ${E && !groups ? `<div class="cc-note">Nástroje Picku se nenačetly — klavír a kytara hrají náhradním zvukem.</div>` : ""}`;
+    const on = (a, ev, fn) => { const b = soundPop.querySelector(`[data-a="${a}"]`); if(b) b[ev] = fn; };
+    on("pwr", "onclick", async () => { await A.toggle(); paintSounds(); });
+    on("ap", "onclick", async () => { await A.step(-1); setTimeout(paintSounds, 150); });
+    on("ax", "onclick", async () => { await A.step(1); setTimeout(paintSounds, 150); });
+    on("an", "onclick", async (e) => { await A.pick(e.currentTarget); setTimeout(paintSounds, 300); });
+    on("gain", "oninput", (e) => { A.setGain(+e.target.value); const v = soundPop.querySelector('[data-a="gv"]'); if(v) v.textContent = (A.gain() > 0 ? "+" : "") + A.gain() + " dB"; });
+    if(E){
+      const pick = (groupsP, cur, set) => async (e) => { const g = await groupsP(); if(g && g.length) InstrPick.open(e.currentTarget, g, cur(), (id) => { set(id); setTimeout(paintSounds, 50); }); };
+      const step = (groupsP, cur, set, d) => async () => { const g = await groupsP(); const n = g && InstrPick.step(g, cur(), d); if(n){ set(n.id); paintSounds(); } };
+      const all = () => E.instruments().catch(() => null), gtrs = () => E.instruments().then(() => E.guitarGroups()).catch(() => null);
+      on("pn", "onclick", pick(all, E.instrument, E.setInstrument)); on("pp", "onclick", step(all, E.instrument, E.setInstrument, -1)); on("px", "onclick", step(all, E.instrument, E.setInstrument, 1));
+      on("gn", "onclick", pick(gtrs, E.guitarInstrument, E.setGuitarInstrument)); on("gp", "onclick", step(gtrs, E.guitarInstrument, E.setGuitarInstrument, -1)); on("gx", "onclick", step(gtrs, E.guitarInstrument, E.setGuitarInstrument, 1));
+      on("vol", "oninput", (e) => E.setVolume(+e.target.value));
+    }
   }
 
   function paint(){
@@ -1414,7 +1486,7 @@ const ChordCoach = (() => {
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
-  return {mount, paint, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
+  return {mount, paint, openSounds, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
     _midi: (bytes) => midi(bytes), _analyze: analyze, _played: () => ({held: [...play.held.keys()], last: play.last.slice(), src: play.src, shape: play.shape, mirror: mirrorShape(), shown: shownNotes()}),
     _tap: (s, f) => tapNeck(s, f), _pick: (n) => pickChord(n, "quiet"), _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,
