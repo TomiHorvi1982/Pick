@@ -264,6 +264,66 @@ def test_analysis_writes_its_result_to_the_cache(
     assert json.loads((stems / "analysis.json").read_text())["chords"]
 
 
+def test_chords_that_broke_once_are_tried_again(client, tmp_music_root, monkeypatch):
+    """A chord step that failed (no beat grid yet, an error) left the song with
+    no chords for good; it is run again, the chords alone, and kept."""
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "analysis.json").write_text(json.dumps({
+        "sections": [{"start": 0, "end": 9, "name": "Intro"}], "chords": [],
+        "warnings": ["akordy: chybí beat grid"]}), encoding="utf-8")
+    fake_python = tmp_music_root / "python"
+    fake_python.write_text("")
+    monkeypatch.setattr(server, "ANALYZE_PYTHON", fake_python)
+    monkeypatch.setattr(server, "_ANALYSIS_LOCKS", {})
+    monkeypatch.setattr(server, "_beat_grid_for", lambda *a, **kw: None)
+    calls = []
+
+    class Done:
+        returncode = 0
+        stdout = '{"sections":[],"chords":[{"start":0,"end":2,"chord":"Am"}],"warnings":[]}'
+        stderr = ""
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        return Done()
+
+    monkeypatch.setattr(subprocess, "run", run)
+    data = client.get("/api/stems/Song/analysis").json()
+    assert data["chords"][0]["chord"] == "Am"
+    assert data["sections"][0]["name"] == "Intro"          # the sections are kept, not re-run
+    assert "--skip-sections" in calls[0]
+    assert data["warnings"] == []
+    kept = json.loads((stems / "analysis.json").read_text())
+    assert kept["chords"][0]["chord"] == "Am"
+    # …and the next time it is the cache again
+    client.get("/api/stems/Song/analysis")
+    assert len(calls) == 1
+
+
+def test_chords_failing_again_are_not_retried_forever(client, tmp_music_root, monkeypatch):
+    stems = tmp_music_root / "Stems" / "Song"
+    stems.mkdir(parents=True)
+    (stems / "analysis.json").write_text(json.dumps({
+        "sections": [], "chords": [], "warnings": ["akordy selhaly: boom"]}), encoding="utf-8")
+    fake_python = tmp_music_root / "python"
+    fake_python.write_text("")
+    monkeypatch.setattr(server, "ANALYZE_PYTHON", fake_python)
+    monkeypatch.setattr(server, "_ANALYSIS_LOCKS", {})
+    monkeypatch.setattr(server, "_beat_grid_for", lambda *a, **kw: None)
+    calls = []
+
+    class Broke:
+        returncode = 0
+        stdout = '{"sections":[],"chords":[],"warnings":["akordy selhaly: boom"]}'
+        stderr = ""
+
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append(cmd) or Broke())
+    for _ in range(4):
+        client.get("/api/stems/Song/analysis")
+    assert len(calls) == 2
+
+
 def test_analysis_reports_a_missing_analyser_rather_than_crashing(
         client, tmp_music_root, monkeypatch):
     stems = tmp_music_root / "Stems" / "Song"

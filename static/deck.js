@@ -11,9 +11,9 @@
 // MIDI pedal (Settings → MIDI pedál, or "Naučit pedál" here).
 //
 // On the whole screen also: a finder (bands and songs — a song picked loads
-// while the screen stays), and the chord helper: the bars running with their
-// beats and chords (as on Moises), and the chords coming up drawn on the
-// fretboard and on the piano.
+// while the screen stays), and the chord helper (static/chordcoach.js): the
+// chords running past a still line, the one sounding big among the ones around
+// it, drawn on the neck and on the keys, and the keys and the guitar checked.
 const SongDeck = (() => {
   const CSS = `
   .dk{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:18px;margin:0 0 12px;
@@ -80,33 +80,6 @@ const SongDeck = (() => {
   .dk-fl button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;font:inherit;padding:7px 10px;border-radius:8px;border:none;background:transparent;color:#fff;cursor:pointer}
   .dk-fl button:hover,.dk-fl button.cur{background:rgba(255,255,255,.08)}
   .dk-fl button span{font-size:11px;color:#9a9ab0}.dk-fl button.back{color:var(--accent,#8b5cf6);font-weight:700}
-  .dk-chords{margin:8px 14px 0;display:flex;flex-direction:column;gap:8px}
-  .dk-chords.off{display:none}
-  .dk-bars{display:flex;gap:6px;padding-top:14px}
-  .dk-bar{position:relative;flex:1;display:flex;gap:3px;min-width:0}
-  .dk-bn{position:absolute;left:2px;top:-14px;font-size:9px;color:#6d6d82}
-  .dk-sec{position:absolute;left:18px;top:-15px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
-  .dk-beat{flex:1;height:34px;border-radius:7px;background:rgba(255,255,255,.06);display:flex;align-items:center;padding-left:7px;min-width:0;transition:background .08s}
-  .dk-bar .dk-beat:first-of-type{border-left:3px solid rgba(255,255,255,.28)}
-  .dk-beat b{font-size:15px;white-space:nowrap}
-  .dk-beat.past{background:rgba(255,255,255,.025);color:#8a8aa0}
-  .dk-beat.now{background:var(--accent,#8b5cf6);color:#0b0b12;box-shadow:0 0 14px color-mix(in srgb,var(--accent,#8b5cf6) 50%,transparent)}
-  .dk-cards{display:flex;gap:12px;justify-content:center;align-items:stretch;overflow-x:auto}
-  .dk-card{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 10px;border-radius:12px;background:#f2f2f4;color:#111;cursor:pointer;
-    transition:transform .15s,opacity .15s;min-width:110px}
-  .dk-card.past{opacity:.35}
-  .dk-card.now{transform:scale(1.06);box-shadow:0 0 0 3px var(--accent,#8b5cf6),0 10px 30px rgba(0,0,0,.45)}
-  .dk-cn{font-weight:800;font-size:19px;line-height:1}
-  .dk-gtr{width:104px;height:130px}
-  .dk-chords[data-view="both"] .dk-gtr{width:88px;height:110px}
-  .dk-gtr .gf{stroke:#7a7a86;stroke-width:1}.dk-gtr .gs{stroke:#55555f;stroke-width:1.1}.dk-gtr .gn{fill:#222}
-  .dk-gtr .gd{fill:#26262c}.dk-gtr .gt{fill:#fff;font:700 9px sans-serif;text-anchor:middle}
-  .dk-gtr .gx{fill:#333;font:700 11px sans-serif;text-anchor:middle}.dk-gtr .go{fill:none;stroke:#333;stroke-width:1.4}
-  .dk-gtr .gb{fill:#333;font:700 10px sans-serif;text-anchor:end}.dk-gtr .gl{fill:#555;font:700 8px sans-serif;text-anchor:middle}
-  .dk-pno{width:150px;height:56px}
-  .dk-pno .pw{fill:#fff;stroke:#9a9aa6;stroke-width:1}.dk-pno .pb{fill:#1c1c22}
-  .dk-pno .pw.on{fill:#a9c7ff}.dk-pno .pw.root{fill:#7c5cff}.dk-pno .pb.on{fill:#4d78d6}.dk-pno .pb.root{fill:#6a46ff}
-  .dk-pno .pt{fill:#1a1a22;font:700 7px sans-serif;text-anchor:middle}
   .dk.stage .dk-knob{width:54px}.dk.stage .dk-dial{width:44px;height:44px}.dk.stage .dk-ic{inset:10px}
   .dk.stage .dk-part{height:38px}
   .dk-pctl{position:absolute;right:4px;bottom:4px;padding:0}
@@ -115,13 +88,6 @@ const SongDeck = (() => {
   #nm-stage:has(.nm-stage-body.duo) .dk.stage{padding:6px 12px;gap:6px}
   #nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-nm,#nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-v{display:none}
   #nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-part{height:30px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-bars{padding-top:12px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-beat{height:24px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-beat b{font-size:13px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-card{padding:4px 8px;min-width:86px;gap:2px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-cn{font-size:15px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-chords .dk-gtr{width:64px;height:80px}
-  #nm-stage:has(.nm-stage-body.duo) .dk-chords .dk-pno{width:108px;height:40px}
   #dk-find,#dk-chords-btn{display:inline-flex;align-items:center;gap:6px}
   #dk-chords-btn.on{background:var(--accent);color:#06150f;border-color:var(--accent);font-weight:700}
   `;
@@ -446,7 +412,7 @@ const SongDeck = (() => {
       if(b.dataset.p !== String(play)){ b.dataset.p = String(play); b.innerHTML = icon(play ? "pause" : "play", h.kind === "stage" ? 18 : 20); }
       paintTracks(h); paintParts(h, force); paintFacts(h);
     });
-    if(chordBox && chordBox.isConnected && chordBox.offsetParent !== null) paintChords();
+    ChordCoach.paint();
   }
 
   // ---- keys and pedal, in a little window by the deck
@@ -481,164 +447,6 @@ const SongDeck = (() => {
       b.textContent = "🦶 Šlápni na spínač…";
       Pedal.onLearned(() => paintKeys());
     });
-  }
-
-  // ======================================================================
-  // Chords: the shapes on the fretboard and the keys on the piano
-  // ======================================================================
-  const PC = {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11};
-  const NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-  const IV = {"": [0, 4, 7], m: [0, 3, 7], "7": [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], sus4: [0, 5, 7], sus2: [0, 2, 7],
-    dim: [0, 3, 6], aug: [0, 4, 8], "5": [0, 7], "6": [0, 4, 7, 9], m6: [0, 3, 7, 9], add9: [0, 4, 7, 14], "9": [0, 4, 7, 10, 14],
-    m9: [0, 3, 7, 10, 14], dim7: [0, 3, 6, 9], m7b5: [0, 3, 6, 10], "7sus4": [0, 5, 7, 10]};
-  function parseChord(name){
-    const m = /^([A-G])([#b♯♭]?)([^/]*)(?:\/([A-G][#b♯♭]?))?$/.exec(String(name || "").trim());
-    if(!m) return null;
-    const acc = m[2] === "#" || m[2] === "♯" ? 1 : m[2] === "b" || m[2] === "♭" ? -1 : 0;
-    const pc = (PC[m[1]] + acc + 12) % 12;
-    let q = m[3].replace(/^min(?!or)/, "m").replace(/^maj$/, "").replace(/^M7$/, "maj7").replace(/^:/, "");
-    if(q === "min") q = "m";
-    const iv = IV[q] || (q.startsWith("m") && !q.startsWith("maj") ? IV.m : IV[""]);
-    const bass = m[4] ? (PC[m[4][0]] + (/[#♯]/.test(m[4]) ? 1 : /[b♭]/.test(m[4]) ? -1 : 0) + 12) % 12 : null;
-    return {pc, q, iv, bass, name: String(name).trim()};
-  }
-  // The shape a quality is played with: the ones there are no drawn shapes for take the nearest.
-  const SHAPE_Q = (q) => ({"6": "", add9: "", "9": "7", m6: "m", m9: "m7", dim7: "dim", m7b5: "dim", "7sus4": "sus4"})[q] ?? (IV[q] ? q : (q.startsWith("m") && !q.startsWith("maj") ? "m" : ""));
-  // open shapes: frets low E → high e (-1 = not played) and fingers
-  const OPEN = {
-    "C": [[-1, 3, 2, 0, 1, 0], [0, 3, 2, 0, 1, 0]], "C7": [[-1, 3, 2, 3, 1, 0], [0, 3, 2, 4, 1, 0]], "Cmaj7": [[-1, 3, 2, 0, 0, 0], [0, 3, 2, 0, 0, 0]],
-    "Csus2": [[-1, 3, 0, 0, 1, 3], [0, 2, 0, 0, 1, 3]], "Csus4": [[-1, 3, 3, 0, 1, 1], [0, 3, 4, 0, 1, 1]],
-    "D": [[-1, -1, 0, 2, 3, 2], [0, 0, 0, 1, 3, 2]], "Dm": [[-1, -1, 0, 2, 3, 1], [0, 0, 0, 2, 3, 1]], "D7": [[-1, -1, 0, 2, 1, 2], [0, 0, 0, 2, 1, 3]],
-    "Dm7": [[-1, -1, 0, 2, 1, 1], [0, 0, 0, 2, 1, 1]], "Dmaj7": [[-1, -1, 0, 2, 2, 2], [0, 0, 0, 1, 2, 3]], "Dsus4": [[-1, -1, 0, 2, 3, 3], [0, 0, 0, 1, 3, 4]],
-    "Dsus2": [[-1, -1, 0, 2, 3, 0], [0, 0, 0, 1, 3, 0]], "D5": [[-1, -1, 0, 2, 3, -1], [0, 0, 0, 1, 3, 0]],
-    "E": [[0, 2, 2, 1, 0, 0], [0, 2, 3, 1, 0, 0]], "Em": [[0, 2, 2, 0, 0, 0], [0, 2, 3, 0, 0, 0]], "E7": [[0, 2, 0, 1, 0, 0], [0, 2, 0, 1, 0, 0]],
-    "Em7": [[0, 2, 0, 0, 0, 0], [0, 2, 0, 0, 0, 0]], "Emaj7": [[0, 2, 1, 1, 0, 0], [0, 3, 1, 2, 0, 0]], "Esus4": [[0, 2, 2, 2, 0, 0], [0, 2, 3, 4, 0, 0]],
-    "E5": [[0, 2, 2, -1, -1, -1], [0, 1, 2, 0, 0, 0]],
-    "G": [[3, 2, 0, 0, 0, 3], [2, 1, 0, 0, 0, 3]], "G7": [[3, 2, 0, 0, 0, 1], [3, 2, 0, 0, 0, 1]], "Gmaj7": [[3, 2, 0, 0, 0, 2], [3, 2, 0, 0, 0, 1]],
-    "G5": [[3, 5, 5, -1, -1, -1], [1, 3, 4, 0, 0, 0]],
-    "A": [[-1, 0, 2, 2, 2, 0], [0, 0, 1, 2, 3, 0]], "Am": [[-1, 0, 2, 2, 1, 0], [0, 0, 2, 3, 1, 0]], "A7": [[-1, 0, 2, 0, 2, 0], [0, 0, 2, 0, 3, 0]],
-    "Am7": [[-1, 0, 2, 0, 1, 0], [0, 0, 2, 0, 1, 0]], "Amaj7": [[-1, 0, 2, 1, 2, 0], [0, 0, 2, 1, 3, 0]], "Asus4": [[-1, 0, 2, 2, 3, 0], [0, 0, 1, 2, 3, 0]],
-    "Asus2": [[-1, 0, 2, 2, 0, 0], [0, 0, 1, 2, 0, 0]], "A5": [[-1, 0, 2, 2, -1, -1], [0, 0, 1, 2, 0, 0]],
-  };
-  // movable shapes, by the fret r of the root: on the low E string (E shape) and on the A string (A shape)
-  const E_SHAPE = {"": [[0, 2, 2, 1, 0, 0], [1, 3, 4, 2, 1, 1]], m: [[0, 2, 2, 0, 0, 0], [1, 3, 4, 1, 1, 1]], "7": [[0, 2, 0, 1, 0, 0], [1, 3, 1, 2, 1, 1]],
-    m7: [[0, 2, 0, 0, 0, 0], [1, 3, 1, 1, 1, 1]], maj7: [[0, -9, 1, 1, 0, -9], [1, 0, 3, 4, 2, 0]], sus4: [[0, 2, 2, 2, 0, 0], [1, 2, 3, 4, 1, 1]],
-    "5": [[0, 2, 2, -9, -9, -9], [1, 3, 4, 0, 0, 0]]};
-  const A_SHAPE = {"": [[-9, 0, 2, 2, 2, 0], [0, 1, 2, 3, 4, 1]], m: [[-9, 0, 2, 2, 1, 0], [0, 1, 3, 4, 2, 1]], "7": [[-9, 0, 2, 0, 2, 0], [0, 1, 3, 1, 4, 1]],
-    m7: [[-9, 0, 2, 0, 1, 0], [0, 1, 3, 1, 2, 1]], maj7: [[-9, 0, 2, 1, 2, 0], [0, 1, 3, 2, 4, 1]], sus4: [[-9, 0, 2, 2, 3, 0], [0, 1, 2, 3, 4, 1]],
-    sus2: [[-9, 0, 2, 2, 0, 0], [0, 1, 3, 4, 1, 1]], dim: [[-9, 0, 1, 2, 1, -9], [0, 1, 2, 4, 3, 0]], aug: [[-9, 0, 3, 2, 2, -9], [0, 1, 4, 2, 3, 0]],
-    "5": [[-9, 0, 2, 2, -9, -9], [0, 1, 3, 4, 0, 0]]};
-  function shapeOf(ch){
-    const q = SHAPE_Q(ch.q), nm = NN[ch.pc] + q;
-    if(OPEN[nm]) return {frets: OPEN[nm][0], fingers: OPEN[nm][1]};
-    const cands = [];
-    const add = (tbl, root0) => { const s = tbl[q]; if(!s) return; let r = (ch.pc - root0 + 12) % 12; if(r === 0) r = 12;
-      cands.push({frets: s[0].map(f => f <= -9 ? -1 : f + r), fingers: s[1], r}); };
-    add(E_SHAPE, 4); add(A_SHAPE, 9);
-    if(!cands.length){ const s = A_SHAPE[""]; let r = (ch.pc - 9 + 12) % 12 || 12; return {frets: s[0].map(f => f <= -9 ? -1 : f + r), fingers: s[1]}; }
-    cands.sort((a, b) => a.r - b.r);
-    return cands[0];
-  }
-  function guitarSvg(ch){
-    const sh = shapeOf(ch), fr = sh.frets, used = fr.filter(f => f > 0);
-    const hi = used.length ? Math.max(...used) : 0, lo = used.length ? Math.min(...used) : 0;
-    const base = hi <= 4 ? 1 : lo;
-    const W = 120, H = 150, x0 = 18, y0 = 30, sw = 17, fh = 20, N = 5;
-    const sx = (i) => x0 + i * sw, fy = (f) => y0 + (f - base + 0.5) * fh;
-    let g = "";
-    for(let i = 0; i <= N; i++) g += `<line x1="${x0}" y1="${y0 + i * fh}" x2="${x0 + 5 * sw}" y2="${y0 + i * fh}" class="gf"/>`;
-    for(let i = 0; i < 6; i++) g += `<line x1="${sx(i)}" y1="${y0}" x2="${sx(i)}" y2="${y0 + N * fh}" class="gs"/>`;
-    if(base === 1) g += `<rect x="${x0 - 1}" y="${y0 - 4}" width="${5 * sw + 2}" height="5" class="gn"/>`;
-    else g += `<text x="${x0 - 6}" y="${y0 + fh * 0.62}" class="gb">${base}</text>`;
-    fr.forEach((f, i) => { if(f < 0) g += `<text x="${sx(i)}" y="${y0 - 9}" class="gx">×</text>`; else if(f === 0) g += `<circle cx="${sx(i)}" cy="${y0 - 12}" r="4" class="go"/>`; });
-    // a barre: finger 1 on the same fret across strings
-    const one = fr.map((f, i) => ({f, i, fi: sh.fingers[i]})).filter(x => x.fi === 1 && x.f > 0);
-    const barre = one.length > 1 && one.every(x => x.f === one[0].f) ? one : null;
-    if(barre){ const a = barre[0].i, b = barre[barre.length - 1].i;
-      g += `<rect x="${sx(a) - 7}" y="${fy(barre[0].f) - 7}" width="${sx(b) - sx(a) + 14}" height="14" rx="7" class="gd"/><text x="${(sx(a) + sx(b)) / 2}" y="${fy(barre[0].f) + 4}" class="gt">1</text>`; }
-    fr.forEach((f, i) => { if(f > 0 && !(barre && barre.some(x => x.i === i))) g += `<circle cx="${sx(i)}" cy="${fy(f)}" r="7" class="gd"/>${sh.fingers[i] ? `<text x="${sx(i)}" y="${fy(f) + 4}" class="gt">${sh.fingers[i]}</text>` : ""}`; });
-    "EADGBE".split("").forEach((s, i) => { g += `<text x="${sx(i)}" y="${y0 + N * fh + 14}" class="gl">${s}</text>`; });
-    return `<svg class="dk-gtr" viewBox="0 0 ${W} ${H}">${g}</svg>`;
-  }
-  function pianoSvg(ch){
-    // two octaves from C; the chord from its root upwards, the root marked
-    const notes = new Set(), root = ch.pc;
-    ch.iv.forEach(iv => { let n = root + iv; while(n > 23) n -= 12; notes.add(n); });
-    if(ch.bass != null) notes.add(ch.bass);
-    const WH = [0, 2, 4, 5, 7, 9, 11], BL = [1, 3, 6, 8, 10];
-    const ww = 12, W = ww * 14, H = 62;
-    let g = "";
-    for(let o = 0; o < 2; o++) WH.forEach((pc, k) => { const n = o * 12 + pc, x = (o * 7 + k) * ww, on = notes.has(n);
-      g += `<rect x="${x + 0.5}" y="0.5" width="${ww - 1}" height="${H - 1}" rx="2" class="pw${on ? (n % 12 === root ? " root" : " on") : ""}"/>`;
-      if(on) g += `<text x="${x + ww / 2}" y="${H - 6}" class="pt">${NN[pc].replace("#", "♯")}</text>`; });
-    for(let o = 0; o < 2; o++) BL.forEach(pc => { const n = o * 12 + pc, k = WH.indexOf(pc - 1), x = (o * 7 + k + 1) * ww - 4, on = notes.has(n);
-      g += `<rect x="${x}" y="0" width="8" height="${H * 0.6}" rx="1.5" class="pb${on ? (n % 12 === root ? " root" : " on") : ""}"/>`; });
-    return `<svg class="dk-pno" viewBox="0 0 ${W} ${H}">${g}</svg>`;
-  }
-
-  // ---- the chord helper on the whole screen: bars with beats and chords, then the cards
-  let chordBox = null, chordSig = "", barSig = "";
-  function bars(){
-    const gr = D().grid();
-    let db = (gr.downbeats || []).slice();
-    const beats = gr.beats || [], per = gr.perBar || 4;
-    if(!db.length && beats.length) db = beats.filter((_, k) => k % per === 0);
-    if(!db.length) return null;
-    return {db, beats, per};
-  }
-  const chordAt = (list, t) => { let j = -1; for(let k = 0; k < list.length; k++){ if(list[k].start <= t + 0.03) j = k; else break; } return j >= 0 && t < list[j].end + 0.05 ? j : -1; };
-  function paintChords(){
-    const host = chordBox, t = Mixer.currentTime(), list = D().chords();
-    host.classList.toggle("off", !cfg.chords);
-    host.dataset.view = cfg.chordView;
-    if(!cfg.chords) return;
-    const strip = host.querySelector(".dk-bars"), cards = host.querySelector(".dk-cards");
-    if(!list.length){
-      const st = D().analysis(), msg = st === "loading" ? "Akordy se hledají…" : st === "failed" ? "Akordy se nepodařilo najít (analýza se nezdařila)." : "Píseň zatím nemá akordy.";
-      if(cards.dataset.msg !== msg){ cards.dataset.msg = msg; cards.innerHTML = `<span class="dk-none">${msg}</span>`; strip.innerHTML = ""; chordSig = barSig = ""; }
-      return;
-    }
-    cards.dataset.msg = "";
-    // the bars around now
-    const B = bars(), sl = secs();
-    if(B){
-      let b = 0; for(let k = 0; k < B.db.length; k++){ if(B.db[k] <= t + 0.02) b = k; else break; }
-      const from = Math.max(0, b - 1), to = Math.min(B.db.length - 1, from + 7);
-      const sig = song() + ":" + from + ":" + list.length;
-      if(sig !== barSig){
-        barSig = sig;
-        let prevChord = null, html = "";
-        for(let k = from; k <= to; k++){
-          const a = B.db[k], e = B.db[k + 1] != null ? B.db[k + 1] : a + (B.db[k] - (B.db[k - 1] != null ? B.db[k - 1] : a - 2));
-          let bt = B.beats.filter(x => x >= a - 0.02 && x < e - 0.02);
-          if(!bt.length) bt = Array.from({length: B.per}, (_, q) => a + (e - a) * q / B.per);
-          const sec = sl.find(x => x.start >= a - 0.3 && x.start < e - 0.3);
-          html += `<div class="dk-bar" data-a="${a}" data-e="${e}">${sec ? `<span class="dk-sec" style="--c:${esc(sec.color || "#8391a5")}">${esc(sec.name)}</span>` : ""}<span class="dk-bn">${k + 1}</span>
-            ${bt.map((x, q) => { const j = chordAt(list, x), c = j >= 0 ? list[j].chord : null, show = c && (c !== prevChord || (k === from && q === 0)); prevChord = c;
-              return `<div class="dk-beat" data-t="${x.toFixed(3)}">${show ? `<b>${esc(c)}</b>` : ""}</div>`; }).join("")}</div>`;
-        }
-        strip.innerHTML = html;
-      }
-      strip.querySelectorAll(".dk-beat").forEach((n, k, all) => {
-        const x = +n.dataset.t, nx = all[k + 1] ? +all[k + 1].dataset.t : x + 0.6;
-        n.classList.toggle("now", t >= x - 0.02 && t < nx - 0.02);
-        n.classList.toggle("past", t >= nx - 0.02);
-      });
-    } else if(strip.innerHTML) strip.innerHTML = "";
-    // the cards: the last chord, the one now, three to come
-    let ci = chordAt(list, t);
-    if(ci < 0){ ci = list.findIndex(x => x.start > t) - 1; }
-    const from = Math.max(0, ci - 1), shown = list.slice(from, from + 5);
-    const sig = song() + ":" + from + ":" + ci + ":" + cfg.chordView;
-    if(sig !== chordSig){
-      chordSig = sig;
-      cards.innerHTML = shown.map((x, k) => { const ch = parseChord(x.chord), i = from + k;
-        const nm = x.chord + (x.bass && ch && x.bass !== NN[ch.pc] ? "/" + x.bass : "");
-        return `<div class="dk-card${i < ci ? " past" : i === ci ? " now" : ""}" title="${esc(nm)} · ${fmt(x.start)}">
-          <div class="dk-cn">${esc(nm)}</div>
-          ${ch ? `${cfg.chordView !== "piano" ? guitarSvg(ch) : ""}${cfg.chordView !== "guitar" ? pianoSvg(ch) : ""}` : `<div class="dk-none">?</div>`}</div>`; }).join("");
-      cards.querySelectorAll(".dk-card").forEach((n, k) => n.onclick = () => { Mixer.seek(shown[k].start); paint(); });
-    }
   }
 
   // ---- the finder on the whole screen: a song or a band; picked, it loads and the screen stays
@@ -696,10 +504,7 @@ const SongDeck = (() => {
     const stg = document.getElementById("nm-stage"), bar = stg && stg.querySelector(".nm-stage-bar");
     if(stg && bar){
       mountDeck((box) => bar.after(box), "stage");
-      chordBox = document.createElement("div");
-      chordBox.className = "dk-chords";
-      chordBox.innerHTML = `<div class="dk-bars"></div><div class="dk-cards"></div>`;
-      stg.querySelector(".dk.stage").after(chordBox);
+      ChordCoach.mount(stg.querySelector(".dk.stage"), () => cfg);
       const sp = bar.querySelector(".sp");
       const find = document.createElement("button");
       find.type = "button"; find.id = "dk-find"; find.innerHTML = `${icon("search", 14)}<span>Písně</span>`;
@@ -712,7 +517,7 @@ const SongDeck = (() => {
       const cv = document.createElement("select");
       cv.id = "dk-chord-view"; cv.title = "Jak akordy ukazovat";
       cv.innerHTML = `<option value="both">kytara i klavír</option><option value="guitar">kytara</option><option value="piano">klavír</option>`;
-      cv.onchange = () => { cfg.chordView = cv.value; keep(); chordSig = ""; paint(true); };
+      cv.onchange = () => { cfg.chordView = cv.value; keep(); paint(true); };
       bar.insertBefore(find, sp); bar.insertBefore(cb, sp); bar.insertBefore(cv, sp);
       paintChordBtn();
     }
@@ -730,7 +535,7 @@ const SongDeck = (() => {
     if(typeof Mixer === "undefined" || !Mixer.deck) return;
     const nm = song(), ready = Mixer.ready();
     if(nm !== lastSong || ready !== lastReady){
-      if(nm !== lastSong){ at = -1; allow = -1; pass = 1; chordSig = barSig = ""; }
+      if(nm !== lastSong){ at = -1; allow = -1; pass = 1; ChordCoach.closeZoom(); }
       lastSong = nm; lastReady = ready;
       if(ready && D().stageOn()) D().restage();
     }
@@ -738,5 +543,5 @@ const SongDeck = (() => {
   }, 120);
 
   mount();
-  return {run, go, jump, toggleLoop, parseChord, shapeOf, cfg: () => cfg, partOf, setPart, flow, paint};
+  return {run, go, jump, toggleLoop, parseChord: ChordCoach.parseChord, shapeOf: ChordCoach.shapeOf, cfg: () => cfg, partOf, setPart, flow, paint};
 })();

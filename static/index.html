@@ -21713,11 +21713,11 @@ const Mixer = (() => {
 
   // Sections and chords take the better part of a minute the first time, so
   // this runs on its own and the lanes fill in when it lands.
-  async function fetchAnalysis(name, token){
+  async function fetchAnalysis(name, token, refresh){
     analysisState = "loading";
     renderTrackLanes();
     try{
-      const res = await fetch(`/api/stems/${encodeURIComponent(name)}/analysis`);
+      const res = await fetch(`/api/stems/${encodeURIComponent(name)}/analysis${refresh ? "?refresh=1" : ""}`);
       if(!res.ok) throw new Error("analysis failed");
       const data = await res.json();
       if(token !== loadToken) return;      // another song was loaded meanwhile
@@ -21729,7 +21729,8 @@ const Mixer = (() => {
         (await fetch(`/api/stems/${encodeURIComponent(name)}/chords`)).json(),
       ]);
       if(token !== loadToken) return;
-      chords = ownChords.chords || data.chords || [];
+      // the listener's own when there are any; an empty own list is not an answer
+      chords = (ownChords.chords && ownChords.chords.length ? ownChords.chords : data.chords) || [];
       sections = own.sections || data.sections || [];
       sectionPresets = own.presets || [];
       sectionsEdited = !!own.edited;
@@ -27110,11 +27111,20 @@ const Mixer = (() => {
       chords: () => chords.filter(c => c.chord && c.chord !== "N").map(c => ({start: c.start, end: c.end, chord: c.chord, bass: c.bass || null})),
       grid: () => ({beats: beatTimes, downbeats: downbeatTimes, perBar: beatsPerBar, bpm: tempoBPM}),
       analysis: () => analysisState,
+      // The tracks as decoded, and chords found here in the page (static/chordcoach.js) when the
+      // analysis has none: they go where the analysis's would, the lanes too.
+      audio: () => channels.map(c => ({stem: c.stem, buffer: c.buffer})),
+      useChords(list, song){ if(song !== currentSongName || !Array.isArray(list)) return; chords = list; analysisState = "ready"; renderTrackLanes(); },
+      reanalyze: () => currentSongName ? fetchAnalysis(currentSongName, loadToken, true) : Promise.resolve(),
       facts(){
         const k = el("nm-key").textContent, st = channels.length ? songTuning() : null;
         return {key: k && k !== "…" && k !== "—" ? k : "", bpm: tempoBPM ? Math.round(tempoBPM * speed) : null,
                 tuning: st ? (tuneName(st.midi) || st.midi.map(m => NOTE_NAMES[((m % 12) + 12) % 12]).join(" ")) : "", tuningFrom: st ? st.from : ""};
       },
+      // How far the song's pitched tracks sound from the recording, in semitones: the key knob and the
+      // tracks' own shift (the guitar's tuning followed, or one's own) — the chords sound moved by as much.
+      pitch: () => { const t = channels.length ? tonalChannels() : [];
+        return Math.round(pitchSemitones + (t.length ? rateToSemitones(t[0].pitchRate || 1) : 0)); },
       onFlow: (fn) => { flowHook = fn; },
       stageOn: () => stageOn,
       restage: () => restage(),
@@ -36263,6 +36273,7 @@ const Voice = (() => {
 </script>
 <script src="/static/studio.js"></script>
 <script src="/static/practice.js"></script>
+<script src="/static/chordcoach.js"></script>
 <script src="/static/deck.js"></script>
 <script src="/static/looper-sound.js"></script>
 <script src="/static/looper.js"></script>

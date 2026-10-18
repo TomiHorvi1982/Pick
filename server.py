@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -8738,6 +8738,8 @@ def stems_analysis(name: str, refresh: bool = False):
             # Written before a project of the user's own files could be
             # analysed ("chybí stopa …"): worth another go, not a final answer.
             if not (not data.get("sections") and any("chybí stopa" in w for w in data.get("warnings") or [])):
+                if _chords_failed(data) and ANALYZE_PYTHON.is_file():
+                    return _retry_chords(stems_dir, cache, data)
                 return data
         except (json.JSONDecodeError, OSError):
             pass
@@ -8782,6 +8784,49 @@ def stems_analysis(name: str, refresh: bool = False):
             return JSONResponse({"error": "Analýza vrátila neplatný výstup."},
                                 status_code=500)
 
+        try:
+            cache.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+        return data
+
+
+def _chords_failed(data) -> bool:
+    """The chord step broke (no beat grid yet, an error) and left no chord at
+    all: that is a hiccup to try again, not the song's answer. Tried a couple
+    of times at most, so a song that truly has none is not re-run forever."""
+    if any(c.get("chord") for c in data.get("chords") or [] if isinstance(c, dict)):
+        return False
+    broke = "chords" not in data or any(str(w).startswith("akordy") for w in data.get("warnings") or [])
+    return broke and int(data.get("chords_retry") or 0) < 2
+
+
+def _retry_chords(stems_dir: Path, cache: Path, data: dict):
+    """Only the chords again (about ten seconds), into the cached analysis."""
+    lock = _ANALYSIS_LOCKS.setdefault(str(stems_dir), threading.Lock())
+    with lock:
+        try:
+            fresh = json.loads(cache.read_text(encoding="utf-8"))
+            if not _chords_failed(fresh):
+                return fresh
+            data = fresh
+        except (json.JSONDecodeError, OSError):
+            pass
+        _beat_grid_for(stems_dir)
+        cmd = [str(ANALYZE_PYTHON), str(APP_DIR / "analyze.py"), str(stems_dir), "--skip-sections"]
+        beats = stems_dir / "beats.json"
+        if beats.is_file():
+            cmd += ["--beats", str(beats)]
+        data = dict(data)
+        data["chords_retry"] = int(data.get("chords_retry") or 0) + 1
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            got = json.loads(((proc.stdout or "").strip().splitlines() or ["{}"])[-1])
+            data["chords"] = got.get("chords") or []
+            data["warnings"] = [w for w in data.get("warnings") or [] if not str(w).startswith("akordy")] \
+                + [w for w in got.get("warnings") or [] if str(w).startswith("akordy")]
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError, AttributeError):
+            pass
         try:
             cache.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         except OSError:
