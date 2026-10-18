@@ -864,6 +864,13 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     a ↺ posun zruší. **⏳ s kytarou** (zapnuté): žádný akord před tím, než začnou hrát nástroje — Pick najde
     první chvíli, kdy kytara, basa, klávesy a ostatní (ne zpěv, ne bicí) zazní aspoň desetinou své hlasitosti,
     takže tiché první sekundy písně zůstanou prázdné. Pruh Akordy v mixu se posune stejně.
+  - **🌐 Akordy z webu** (Live Show, jedním klikem, na pozadí): Pick najde píseň na **Supermusicu** (české a slovenské
+    písně) a na **Ultimate Guitar** (dvě nejlépe hodnocené verze akordů), každou verzi položí na nahrávku stejně jako
+    Akordy z listu a tu, která sedí nejlíp, sám uloží jako akordy písně (když je shoda aspoň 45 %). Když nic nesedí
+    dost, otevře okno s nalezenými verzemi a jejich shodou — klikem se vybere jiná, jde ji upravit a uložit.
+    Server (`GET /api/stems/{song}/chordsheets`, `?refresh=1` hledá znovu) se ptá jen na klik, jednu stránku
+    po druhé, a nalezené listy si drží v `chordsheets.json` u stop. Na nahrávku se list vždy pokládá podle
+    akordů z analýzy (`GET /api/stems/{song}/chords?analysis=1`), ne podle dřív uloženého listu.
   - **📋 Akordy z listu**: akordy zkopírované ze stránky s akordy (Ultimate Guitar, Supermusic, Velký zpěvník,
     ChordPro `[Am]text`…) se vloží a Pick je položí na nahrávku: po půltaktech porovná tóny akordů z listu s
     tím, co analýza slyší, a Viterbim najde, kde který akord z listu zní — v pořadí listu (stejný nebo další

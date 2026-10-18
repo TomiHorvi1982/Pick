@@ -175,6 +175,9 @@ const ChordCoach = (() => {
   .cc-whq button.on{background:var(--cc-acc);color:#0b0b12;border-color:var(--cc-acc);font-weight:700}
   .cc-whn{font-size:12.5px;color:#c9c9da}.cc-whn b{font-size:20px;color:#fff;margin-right:6px}
   .cc-whp{display:flex;gap:6px;flex-wrap:wrap}
+  .cc-sheet-w{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .cc-sheet-w button{font-size:12px;padding:5px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:inherit;cursor:pointer}
+  .cc-sheet-w button.on{background:rgba(120,170,255,.18);border-color:rgba(120,170,255,.5)}
   .cc-sync b{min-width:54px;text-align:center;font-variant-numeric:tabular-nums}
   .cc-sync [data-k="wait"].on{background:rgba(120,200,120,.18);border-color:rgba(120,200,120,.45);color:#bfeabf}
   .cc-grp{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
@@ -631,10 +634,10 @@ const ChordCoach = (() => {
     for(let u = U - 1; u > 0; u--) path[u - 1] = back[u - 1][path[u]];
     return {cost: prev[last] / U, path};
   }
-  function fromSheet(text){
+  function fromSheet(text, ref){
     const sh = parseSheet(text);
     if(sh.flat.length < 2) return {error: "V textu nenacházím akordy — vlož řádky s akordy (třeba z Ultimate Guitar nebo Supermusic)."};
-    const raw = D().chords(), G = grid();
+    const raw = ref && ref.length ? ref : D().chords(), G = grid();
     let secs = [];
     try{ secs = Mixer.sectionsNow ? Mixer.sectionsNow() : []; }catch(e){}
     const end = Math.max(Mixer.duration() || 0, ...raw.map(c => c.end));
@@ -680,7 +683,51 @@ const ChordCoach = (() => {
     const list = out.map(c => { const m = /^([^/]+)(?:\/(.+))?$/.exec(c.chord); return {start: c.start, end: c.end, chord: m[1], bass: m[2] || null}; });
     return {list, shift: best.sft > 6 ? best.sft - 12 : best.sft, fit: Math.max(0, Math.round((1 - best.total / units.length) * 100)), parts: byParts, count: sh.flat.length, german: sh.german};
   }
-  function openSheet(){
+  // what the analysis heard (not chords saved from a sheet before): what a sheet is laid onto
+  async function analysisRef(song){
+    try{ const r = await fetch(`/api/stems/${encodeURIComponent(song)}/chords?analysis=1`); if(r.ok){ const j = await r.json(); if((j.chords || []).length) return j.chords.filter(c => c.chord && c.chord !== "N"); } }catch(e){}
+    return D().chords();
+  }
+  async function saveSheet(list, song, src){
+    const r = await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({chords: list})});
+    if(!r.ok) throw new Error(r.status);
+    D().useChords(list, song);
+    try{ localStorage.setItem("pick-chords-src:" + song, src || "sheet"); }catch(e){}
+    seqSig = laneSig = carSig = "";
+    paintTools(); paint();
+  }
+  // chord sheets of the song from the web (Supermusic, Ultimate Guitar), each laid onto the recording; best first
+  async function webSheets(refresh){
+    const song = Mixer.currentSong();
+    if(!song) return {error: "Žádná píseň"};
+    let r;
+    try{ const x = await fetch(`/api/stems/${encodeURIComponent(song)}/chordsheets${refresh ? "?refresh=1" : ""}`); r = await x.json(); if(!x.ok) throw new Error(r.error || x.status); }
+    catch(e){ return {error: "Hledání akordů na webu selhalo"}; }
+    const sheets = r.sheets || [];
+    if(!sheets.length) return {error: `Na webu jsem akordy k „${r.title || song}“ nenašel${(r.errors || []).length ? " (" + r.errors.join(", ") + ")" : ""}`};
+    const ref = await analysisRef(song);
+    const tried = sheets.map(sh => ({sh, got: fromSheet(sh.text, ref)})).filter(x => !x.got.error && x.got.list.length);
+    tried.sort((a, b) => b.got.fit - a.got.fit);
+    return tried.length ? {song, tried} : {error: "Na webu jsem akordy našel, ale nedají se přečíst"};
+  }
+  let webBusy = false;
+  // 🌐 Akordy z webu: found, laid on, and saved by itself when it fits; otherwise the sheet window with what was found
+  async function webChords(){
+    if(webBusy) return;
+    webBusy = true; paintTools();
+    showToast("Hledám akordy na webu (Supermusic, Ultimate Guitar)…");
+    try{
+      const w = await webSheets(false);
+      if(w.error){ showToast(w.error); return; }
+      const best = w.tried[0];
+      if(best.got.fit >= 45 && w.song === Mixer.currentSong()){
+        await saveSheet(best.got.list, w.song, "web");
+        showToast(`Akordy z ${best.sh.source} položené na nahrávku a uložené — shoda ${best.got.fit} %${best.got.shift ? `, posun ${best.got.shift > 0 ? "+" : "−"}${Math.abs(best.got.shift)}` : ""}`);
+      } else { openSheet(w); showToast("Akordy z webu moc nesedí — vyber verzi nebo uprav text"); }
+    }catch(e){ showToast("Akordy se nepodařilo uložit"); }
+    finally{ webBusy = false; paintTools(); }
+  }
+  function openSheet(web){
     closeZoom();
     const song = Mixer.currentSong();
     if(!song) return;
@@ -693,8 +740,9 @@ const ChordCoach = (() => {
         Pick akordy z listu položí na nahrávku: kde který zní, pozná podle toho, co je slyšet. Když list části pojmenuje (Refrén, Sloka, [Chorus]…), každá část písně vezme svoje akordy.
         Jiná tónina (kapodastr) nevadí — zkusí všech 12. Česká H/B se pozná sama.</div>
       <textarea class="cc-sheet-t" placeholder="[Verse 1]&#10;Bm        G&#10;A city overflowing...&#10;&#10;[Chorus]&#10;D    A    Bm   G"></textarea>
+      <div class="cc-sheet-w"></div>
       <div class="cc-sheet-r"></div>
-      <div class="cc-zf"><button type="button" data-a="try" class="big">Položit na nahrávku</button><button type="button" data-a="save" disabled>Uložit jako akordy písně</button>
+      <div class="cc-zf"><button type="button" data-a="web" title="Najít akordy této písně na Supermusicu a Ultimate Guitar a vyzkoušet je na nahrávce">🌐 Najít na webu</button><button type="button" data-a="try" class="big">Položit na nahrávku</button><button type="button" data-a="save" disabled>Uložit jako akordy písně</button>
         <button type="button" data-a="reset" title="Smazat vlastní akordy a vrátit ty z analýzy">↺ Akordy z analýzy</button></div></div>`;
     (box && box.closest("#nm-stage")) ? box.closest("#nm-stage").appendChild(el) : document.body.appendChild(el);
     zoom = {el, items: [], i: 0, v: 0, song: false};
@@ -704,25 +752,40 @@ const ChordCoach = (() => {
     let got = null;
     el.querySelector('[data-a="x"]').onclick = closeZoom;
     el.addEventListener("pointerdown", (e) => { if(e.target === el) closeZoom(); });
-    el.querySelector('[data-a="try"]').onclick = () => {
-      got = fromSheet(ta.value);
-      if(got.error){ res.innerHTML = `<span class="cc-bad">${esc(got.error)}</span>`; save.disabled = true; return; }
+    const wl = el.querySelector(".cc-sheet-w");
+    let src = "sheet";
+    const showGot = () => {
       const names = [...new Set(got.list.map(c => c.chord + (c.bass ? "/" + c.bass : "")))];
       res.innerHTML = `<span class="cc-ok">✓ ${got.count} akordů z listu → ${got.list.length} úseků v písni</span>
         <span class="cc-heard">shoda s nahrávkou <b>${got.fit} %</b>${got.shift ? ` · list posunut o ${got.shift > 0 ? "+" : "−"}${Math.abs(got.shift)} (jiná tónina / kapodastr)` : ""}${got.parts ? " · po částech" : ""}${got.german ? " · české H/B" : ""}</span>
         <div class="cc-heard">akordy: <b>${esc(names.slice(0, 16).join(" "))}${names.length > 16 ? " …" : ""}</b></div>`;
       save.disabled = !got.list.length;
     };
+    const showWeb = (w) => {
+      if(w.error){ wl.innerHTML = `<span class="cc-bad">${esc(w.error)}</span>`; return; }
+      wl.innerHTML = w.tried.map((x, k) => `<button type="button" data-w="${k}" class="${k ? "" : "on"}" title="${esc(x.sh.url)}"><b>${esc(x.sh.source)}</b> ${esc(x.sh.title || "")}${x.sh.votes ? ` · ${x.sh.votes} hlasů` : ""} · shoda <b>${x.got.fit} %</b></button>`).join("");
+      const pick = (k) => { const x = w.tried[k]; ta.value = x.sh.text; got = x.got; src = "web"; showGot();
+        wl.querySelectorAll("[data-w]").forEach(b => b.classList.toggle("on", +b.dataset.w === k)); };
+      wl.querySelectorAll("[data-w]").forEach(b => b.onclick = () => pick(+b.dataset.w));
+      pick(0);
+    };
+    el.querySelector('[data-a="web"]').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true; wl.innerHTML = `<span class="cc-heard">hledám na Supermusicu a Ultimate Guitar…</span>`;
+      try{ showWeb(await webSheets(!!web)); } finally { b.disabled = false; }
+    };
+    if(web && web.tried) setTimeout(() => showWeb(web), 0);
+    ta.addEventListener("input", () => { src = "sheet"; });
+    el.querySelector('[data-a="try"]').onclick = async () => {
+      got = fromSheet(ta.value, await analysisRef(song));
+      if(got.error){ res.innerHTML = `<span class="cc-bad">${esc(got.error)}</span>`; save.disabled = true; return; }
+      showGot();
+    };
     save.onclick = async () => {
       if(!got || !got.list.length) return;
       try{
-        const r = await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({chords: got.list})});
-        if(!r.ok) throw new Error(r.status);
-        D().useChords(got.list, song);
-        try{ localStorage.setItem("pick-chords-src:" + song, "sheet"); }catch(e){}
-        seqSig = laneSig = carSig = "";
+        await saveSheet(got.list, song, src);
         showToast("Akordy z listu uložené k písni — v Mistrovi přesně, v Základních jen hlavní");
-        closeZoom(); paint();
+        closeZoom();
       }catch(e){ showToast("Akordy se nepodařilo uložit"); }
     };
     el.querySelector('[data-a="reset"]').onclick = async () => {
@@ -1000,6 +1063,7 @@ const ChordCoach = (() => {
         <select data-k="scale">${E.scales().map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
         <select data-k="lock"><option value="off">neukazovat</option><option value="highlight">ukázat</option><option value="lock">🔒 zámek</option></select></span>` : ""}
       <span class="cc-grp cc-lvl" title="Kolik akordů ukazovat: Základní — jen hlavní, jeden na takt; Pokročilé — až dva na takt, septimy; Mistr — všechno, co analýza slyšela">${LEVELS.map(([k, n]) => `<button type="button" data-lvl="${k}" class="${cfg.level === k ? "on" : ""}">${n}</button>`).join("")}</span>
+      <button type="button" data-k="web" title="Najít akordy této písně na Supermusicu a Ultimate Guitar, položit je na nahrávku a uložit — samo, na pozadí"${webBusy ? " disabled" : ""}>${webBusy ? "🌐 Hledám…" : "🌐 Akordy z webu"}${(() => { try{ return localStorage.getItem("pick-chords-src:" + Mixer.currentSong()) === "web" ? " ✓" : ""; }catch(e){ return ""; } })()}</button>
       <button type="button" data-k="sheet" title="Vložit akordy z listu (Ultimate Guitar, Supermusic…) — Pick je položí na nahrávku">📋 Akordy z listu${(() => { try{ return localStorage.getItem("pick-chords-src:" + Mixer.currentSong()) === "sheet" ? " ✓" : ""; }catch(e){ return ""; } })()}</button>
       <span class="cc-grp" title="Velikost akordů — aby byly vidět i z dálky"><span>Velikost</span><button type="button" data-k="zdn">A−</button><b data-k="zv">${Math.round(cfg.zoom * 100)} %</b><button type="button" data-k="zup">A+</button></span>
       <span class="cc-grp cc-sync" data-k="sync" title="Synchronizace akordů s nahrávkou — uloží se k písni"><span>Sync</span>
@@ -1028,6 +1092,7 @@ const ChordCoach = (() => {
     }
     tools.querySelectorAll("[data-lvl]").forEach(b => b.onclick = () => setLevel(b.dataset.lvl));
     tools.querySelector('[data-k="sheet"]').onclick = () => openSheet();
+    tools.querySelector('[data-k="web"]').onclick = () => webChords();
     tools.querySelector('[data-k="sm"]').onclick = (e) => setSync({off: syncOf().off - (e.shiftKey ? 1 : 0.1)});
     tools.querySelector('[data-k="sp"]').onclick = (e) => setSync({off: syncOf().off + (e.shiftKey ? 1 : 0.1)});
     tools.querySelector('[data-k="snow"]').onclick = () => syncNow();
@@ -1886,7 +1951,7 @@ const ChordCoach = (() => {
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
-  return {mount, paint, openSounds, openSheet, simplify, timed, sync: () => Object.assign({}, syncOf()), setSync, syncNow, onset: () => onsetOf(Mixer.currentSong() || ""), level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
+  return {mount, paint, openSounds, openSheet, webChords, webSheets, simplify, timed, sync: () => Object.assign({}, syncOf()), setSync, syncNow, onset: () => onsetOf(Mixer.currentSong() || ""), level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
     _midi: (bytes) => midi(bytes), _analyze: analyze, _played: () => ({held: [...play.held.keys()], last: play.last.slice(), src: play.src, shape: play.shape, mirror: mirrorShape(), shown: shownNotes()}),
     _tap: (s, f) => tapNeck(s, f), _pick: (n) => pickChord(n, "quiet"), _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,
