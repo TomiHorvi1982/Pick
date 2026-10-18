@@ -19451,10 +19451,12 @@ const Mixer = (() => {
     }
     if(!chords.length){ laneNote(lane, analysisNote()); return; }
 
+    // the Live Show's sync (static/chordcoach.js): the chords as shown are moved by as much here too
+    const syncOff = CC && CC.sync ? CC.sync().off : 0;
     if(lvl !== "master"){
       // the simplified chords are a view: a click opens the song's own chord at that time to edit
       // (or switch to Mistr for every boundary)
-      const view = CC.simplify(chords, {level: lvl, beats: beatTimes, downbeats: downbeatTimes, perBar: beatsPerBar, sections});
+      const view = CC.timed(CC.simplify(chords, {level: lvl, beats: beatTimes, downbeats: downbeatTimes, perBar: beatsPerBar, sections}));
       view.forEach(v => {
         const x = v.start * pixelsPerSecond, w = Math.max(2, (v.end - v.start) * pixelsPerSecond);
         const block = document.createElement("div");
@@ -19466,8 +19468,9 @@ const Mixer = (() => {
           e.stopPropagation();
           const rect = block.getBoundingClientRect();
           const atTime = v.start + (e.clientX - rect.left) / pixelsPerSecond;
-          const idx = chords.findIndex(c => atTime >= c.start && atTime < c.end);
-          if(idx >= 0) openChordWheel(idx, atTime); else seek(atTime);
+          const raw = atTime - syncOff;
+          const idx = chords.findIndex(c => raw >= c.start && raw < c.end);
+          if(idx >= 0) openChordWheel(idx, raw); else seek(atTime);
         };
         lane.appendChild(block);
       });
@@ -19475,7 +19478,7 @@ const Mixer = (() => {
     }
 
     chords.forEach((ch, idx) => {
-      const x = ch.start * pixelsPerSecond;
+      const x = (ch.start + syncOff) * pixelsPerSecond;
       const w = Math.max(2, (ch.end - ch.start) * pixelsPerSecond);
       const block = document.createElement("div");
       block.className = "chord-block" + (ch.chord ? "" : " silent");
@@ -19514,7 +19517,7 @@ const Mixer = (() => {
           const t0 = ch.end;
           const onMove = (ev) => {
             const laneRect = lane.getBoundingClientRect();
-            let t = (ev.clientX - laneRect.left) / pixelsPerSecond;
+            let t = (ev.clientX - laneRect.left) / pixelsPerSecond - syncOff;
             t = Math.max(minT, Math.min(maxT, t));
             ch.end = Math.round(t * 1000) / 1000;
             next.start = ch.end;

@@ -175,6 +175,8 @@ const ChordCoach = (() => {
   .cc-whq button.on{background:var(--cc-acc);color:#0b0b12;border-color:var(--cc-acc);font-weight:700}
   .cc-whn{font-size:12.5px;color:#c9c9da}.cc-whn b{font-size:20px;color:#fff;margin-right:6px}
   .cc-whp{display:flex;gap:6px;flex-wrap:wrap}
+  .cc-sync b{min-width:54px;text-align:center;font-variant-numeric:tabular-nums}
+  .cc-sync [data-k="wait"].on{background:rgba(120,200,120,.18);border-color:rgba(120,200,120,.45);color:#bfeabf}
   .cc-grp{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .cc-grp select{padding:4px 6px!important}
   .cc-pnh .cc-grp button,.cc-pnh select{padding:4px 8px;font-size:11.5px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:#f1f1f6;font:inherit;font-size:11.5px}
@@ -733,13 +735,89 @@ const ChordCoach = (() => {
   }
 
   // ======================================================================
+  // Sync with the recording (per song, like the tab's and the text's): the chords as shown can be moved
+  // earlier or later (−/+ 0,1 s, ⇧ 1 s), pinned by a tap ("Teď": the chord change nearest to now happens
+  // now), and wait for the instruments: no chord before the guitar (bass, keys…) starts to sound — a
+  // song's quiet first seconds stay empty.
+  // ======================================================================
+  const syncKey = (song) => "pick-chord-sync:" + song;
+  const syncs = new Map();
+  function syncOf(song){
+    song = song || Mixer.currentSong() || "";
+    if(!syncs.has(song)){
+      let v = {off: 0, wait: true};
+      try{ const r = JSON.parse(localStorage.getItem(syncKey(song)) || "null"); if(r) v = {off: +r.off || 0, wait: r.wait !== false}; }catch(e){}
+      syncs.set(song, v);
+    }
+    return syncs.get(song);
+  }
+  function setSync(patch){
+    const song = Mixer.currentSong(); if(!song) return;
+    const v = Object.assign(syncOf(song), patch);
+    v.off = Math.round(Math.max(-30, Math.min(30, v.off)) * 1000) / 1000;
+    try{ localStorage.setItem(syncKey(song), JSON.stringify(v)); }catch(e){}
+    seqSig = laneSig = carSig = "";
+    window.dispatchEvent(new Event("pick-chord-level"));
+    paintSync(); paint();
+  }
+  // when the instruments start: the first 50 ms window of the guitar, bass, keys and the rest (not the
+  // voice, not the drums) that is louder than a tenth of how loud they get in the song's first minute
+  const onsets = new Map();
+  function onsetOf(song){
+    if(onsets.has(song)) return onsets.get(song);
+    let tr = [];
+    try{ tr = (D().audio ? D().audio() : []).filter(x => x.buffer); }catch(e){}
+    if(!tr.length) return null;                       // not decoded yet: ask again later
+    let use = tr.filter(x => !/voc|drum|perc|click/i.test(x.stem || ""));
+    if(!use.length) use = tr;
+    const sr = use[0].buffer.sampleRate, win = Math.round(sr * 0.05);
+    const n = Math.min(Math.floor(Math.min(...use.map(x => x.buffer.length)) / win), Math.round(60 / 0.05));
+    const rms = new Float32Array(n);
+    use.forEach(x => { for(let c = 0; c < x.buffer.numberOfChannels; c++){ const d = x.buffer.getChannelData(c);
+      for(let w = 0; w < n; w++){ let e = 0; const a = w * win; for(let i = a; i < a + win; i += 4) e += d[i] * d[i]; rms[w] += e; } } });
+    const sorted = Array.from(rms).sort((a, b) => a - b), ref = sorted[Math.floor(n * 0.95)] || 0;
+    let t = 0;
+    if(ref > 0){ const k = rms.findIndex(v => v > ref * 0.01); t = k > 0 ? k * 0.05 : 0; }   // energy: a tenth in amplitude
+    onsets.set(song, t);
+    return t;
+  }
+  // the chords as shown: moved, and none before the instruments
+  function timed(list, song){
+    const v = syncOf(song), on = v.wait ? onsetOf(song || Mixer.currentSong() || "") : 0;
+    const out = [];
+    list.forEach(c => { let a = c.start + v.off, e = c.end + v.off;
+      if(on && a < on){ if(e <= on + 0.1) return; a = on; }
+      if(e > a) out.push(Object.assign({}, c, {start: +a.toFixed(3), end: +e.toFixed(3)})); });
+    return out;
+  }
+  // "Teď": the chord change nearest to now (within 4 s) happens now
+  function syncNow(){
+    const t = Mixer.currentTime(), list = chords();
+    let best = null;
+    list.forEach(c => { const d = t - c.start; if(Math.abs(d) <= 4 && (!best || Math.abs(d) < Math.abs(best))) best = d; });
+    if(best == null){ showToast("Žádná změna akordu poblíž — pusť píseň a ťukni, když akord začne"); return; }
+    setSync({off: syncOf().off + best});
+    showToast(`Akordy posunuté o ${best > 0 ? "+" : "−"}${Math.abs(best).toFixed(2).replace(".", ",")} s — uloženo k písni`);
+  }
+  const fmtOff = (o) => (o > 0 ? "+" : o < 0 ? "−" : "±") + Math.abs(o).toFixed(1).replace(".", ",") + " s";
+  function paintSync(){
+    if(!tools) return;
+    const g = tools.querySelector('[data-k="sync"]'); if(!g) return;
+    const v = syncOf(), on = onsetOf(Mixer.currentSong() || "");
+    g.querySelector('[data-k="sv"]').textContent = fmtOff(v.off);
+    const w = g.querySelector('[data-k="wait"]');
+    w.classList.toggle("on", v.wait);
+    w.title = "Akordy začnou až s kytarou (a ostatními nástroji), ne v tichu na začátku" + (on ? ` — tady od ${on.toFixed(1).replace(".", ",")} s` : "");
+  }
+
+  // ======================================================================
   // The song's chords, where it sounds now
   // ======================================================================
   let seq = [], seqSig = "", semis = 0;
   function chords(){
     let raw = [], p = 0;
     try{ raw = D().chords(); p = D().pitch ? D().pitch() : 0; }catch(e){}
-    const sig = (Mixer.currentSong() || "") + ":" + raw.length + ":" + (raw.length ? raw[0].start + ":" + raw[raw.length - 1].end : "") + ":" + p + ":" + cfg.level;
+    const sig = (Mixer.currentSong() || "") + ":" + raw.length + ":" + (raw.length ? raw[0].start + ":" + raw[raw.length - 1].end : "") + ":" + p + ":" + cfg.level + ":" + (() => { const v = syncOf(); return v.off + ":" + (v.wait ? onsetOf(Mixer.currentSong() || "") : "-"); })();
     if(sig === seqSig) return seq;
     seqSig = sig; semis = p;
     if(cfg.level !== "master"){
@@ -747,6 +825,7 @@ const ChordCoach = (() => {
       try{ secs = Mixer.sectionsNow ? Mixer.sectionsNow() : []; }catch(e){}
       raw = simplify(raw, {level: cfg.level, beats: G.beats, downbeats: G.db, perBar: G.per, sections: secs});
     }
+    raw = timed(raw);
     const out = [];
     raw.forEach(x => {
       const ch0 = parseChord(x.chord);
@@ -923,6 +1002,10 @@ const ChordCoach = (() => {
       <span class="cc-grp cc-lvl" title="Kolik akordů ukazovat: Základní — jen hlavní, jeden na takt; Pokročilé — až dva na takt, septimy; Mistr — všechno, co analýza slyšela">${LEVELS.map(([k, n]) => `<button type="button" data-lvl="${k}" class="${cfg.level === k ? "on" : ""}">${n}</button>`).join("")}</span>
       <button type="button" data-k="sheet" title="Vložit akordy z listu (Ultimate Guitar, Supermusic…) — Pick je položí na nahrávku">📋 Akordy z listu${(() => { try{ return localStorage.getItem("pick-chords-src:" + Mixer.currentSong()) === "sheet" ? " ✓" : ""; }catch(e){ return ""; } })()}</button>
       <span class="cc-grp" title="Velikost akordů — aby byly vidět i z dálky"><span>Velikost</span><button type="button" data-k="zdn">A−</button><b data-k="zv">${Math.round(cfg.zoom * 100)} %</b><button type="button" data-k="zup">A+</button></span>
+      <span class="cc-grp cc-sync" data-k="sync" title="Synchronizace akordů s nahrávkou — uloží se k písni"><span>Sync</span>
+        <button type="button" data-k="sm" title="Akordy dřív o 0,1 s (⇧ o 1 s)">−</button><b data-k="sv">±0,0 s</b><button type="button" data-k="sp" title="Akordy později o 0,1 s (⇧ o 1 s)">+</button>
+        <button type="button" data-k="snow" title="Ťukni, když v písni začne akord: nejbližší změna akordu se posune na teď">Teď!</button>
+        <button type="button" data-k="wait">⏳ s kytarou</button><button type="button" data-k="s0" title="Zrušit posun">↺</button></span>
       <span class="cc-shift" data-k="shift" hidden></span>
       <button type="button" data-k="keys" title="Klavír: hraj myší, na klávesnici Macu nebo na MIDI klávesách — tóny se ukážou i na kytaře">🎹 Klavír</button>
       <button type="button" data-k="gtr" title="Kytara: celý hmatník — klikni a zahraj, ukáže stupnici, hmat akordu, a umí poslouchat tvoji kytaru">🎸 Kytara</button>
@@ -945,6 +1028,12 @@ const ChordCoach = (() => {
     }
     tools.querySelectorAll("[data-lvl]").forEach(b => b.onclick = () => setLevel(b.dataset.lvl));
     tools.querySelector('[data-k="sheet"]').onclick = () => openSheet();
+    tools.querySelector('[data-k="sm"]').onclick = (e) => setSync({off: syncOf().off - (e.shiftKey ? 1 : 0.1)});
+    tools.querySelector('[data-k="sp"]').onclick = (e) => setSync({off: syncOf().off + (e.shiftKey ? 1 : 0.1)});
+    tools.querySelector('[data-k="snow"]').onclick = () => syncNow();
+    tools.querySelector('[data-k="wait"]').onclick = () => setSync({wait: !syncOf().wait});
+    tools.querySelector('[data-k="s0"]').onclick = () => setSync({off: 0});
+    paintSync();
     const zoomBy = (d) => { cfg.zoom = Math.round(Math.max(0.7, Math.min(2.5, cfg.zoom + d)) * 100) / 100; keep(); applyZoom(); tools.querySelector('[data-k="zv"]').textContent = Math.round(cfg.zoom * 100) + " %"; };
     tools.querySelector('[data-k="zdn"]').onclick = () => zoomBy(-0.15);
     tools.querySelector('[data-k="zup"]').onclick = () => zoomBy(0.15);
@@ -1797,7 +1886,7 @@ const ChordCoach = (() => {
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
-  return {mount, paint, openSounds, openSheet, simplify, level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
+  return {mount, paint, openSounds, openSheet, simplify, timed, sync: () => Object.assign({}, syncOf()), setSync, syncNow, onset: () => onsetOf(Mixer.currentSong() || ""), level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
     _midi: (bytes) => midi(bytes), _analyze: analyze, _played: () => ({held: [...play.held.keys()], last: play.last.slice(), src: play.src, shape: play.shape, mirror: mirrorShape(), shown: shownNotes()}),
     _tap: (s, f) => tapNeck(s, f), _pick: (n) => pickChord(n, "quiet"), _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,
