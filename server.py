@@ -8981,15 +8981,15 @@ def _clean_chords(raw) -> list:
 
 
 @app.get("/api/stems/{name}/chords")
-def get_chords(name: str):
+def get_chords(name: str, analysis: bool = False):
     """The song's chords — the listener's own if they have edited any,
-    otherwise whatever the analysis found."""
+    otherwise whatever the analysis found (`analysis=1`: always those)."""
     stems_dir = _resolve_under_music_root(f"Stems/{name}")
     if stems_dir is None or not stems_dir.is_dir():
         return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
 
     edited = stems_dir / "chords.json"
-    if edited.is_file():
+    if edited.is_file() and not analysis:
         try:
             data = json.loads(edited.read_text(encoding="utf-8"))
             return {"chords": _clean_chords(data.get("chords")), "edited": True}
@@ -9005,6 +9005,148 @@ def get_chords(name: str):
         except (json.JSONDecodeError, OSError):
             chords = []
     return {"chords": chords, "edited": False}
+
+
+# ---- chord sheets from the web, for "Akordy z webu" (static/chordcoach.js lays them onto the recording):
+# Ultimate Guitar's chord pages (its best rated versions) and Supermusic's (Czech and Slovak songs). Asked
+# only when the listener clicks, one page at a time, and kept beside the stems.
+_SM_LOCK = threading.Lock()
+_SM_LAST = [0.0]
+
+
+def _sm_get(url: str) -> str:
+    with _SM_LOCK:
+        wait = 1.0 - (time.time() - _SM_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _SM_LAST[0] = time.time()
+        r = httpx.get(url, headers={"User-Agent": _UG_AGENT, "Accept-Language": "cs,sk;q=0.9,en;q=0.5"},
+                      timeout=15, follow_redirects=True)
+    r.raise_for_status()
+    return r.text
+
+
+def _ug_sheet_text(content: str) -> str:
+    """UG's wiki markup → plain text: [ch]Am[/ch] → Am (where it stood over the words), [tab] gone."""
+    t = _re_mod.sub(r"\[/?tab\]", "", content or "")
+    t = _re_mod.sub(r"\[ch\](.*?)\[/ch\]", r"\1", t)
+    return t.replace("\r\n", "\n").strip()
+
+
+def _ug_sheets(artist: str, title: str, limit: int = 2) -> list:
+    want_a, want_t = _names.key(artist.split(",")[0]), _names.key(_names.no_brackets(title))
+    if not want_t:
+        return []
+    found = _ug_page("https://www.ultimate-guitar.com/search.php", search_type="title",
+                     value=f"{artist.split(',')[0]} {_names.no_brackets(title)}".strip()).get("results") or []
+    mine = [r for r in found if isinstance(r, dict) and r.get("tab_url") and r.get("type") == "Chords"
+            and (not want_a or _names.key(r.get("artist_name")) == want_a)
+            and _names.key(_names.no_brackets(r.get("song_name") or "")) == want_t]
+    mine.sort(key=lambda r: -((r.get("rating") or 0) * min(1.0, (r.get("votes") or 0) / 20) + (r.get("votes") or 0) / 1e4))
+    out = []
+    for r in mine[:limit]:
+        try:
+            tab = (_ug_page(r["tab_url"]).get("tab_view") or {}).get("wiki_tab") or {}
+            text = _ug_sheet_text(tab.get("content") or "")
+        except Exception:                                      # noqa: BLE001
+            continue
+        if text:
+            out.append({"source": "Ultimate Guitar", "url": r["tab_url"], "artist": r.get("artist_name"),
+                        "title": r.get("song_name"), "votes": r.get("votes") or 0,
+                        "rating": round(float(r.get("rating") or 0), 2), "text": text[:60000]})
+    return out
+
+
+def _sm_sheet_text(page: str) -> str:
+    """A Supermusic song page → its text with the chords: chords marked up (<sup>, links of class sup) become
+    [Am] inline, the rest of the page around the song is left out."""
+    import html as _html
+    marks = list(_re_mod.finditer(r"<sup\b|class=\"?sup", page, _re_mod.I))
+    if marks:
+        a = page.rfind("<", 0, max(0, marks[0].start() - 3000))
+        body = page[max(0, a):marks[-1].end() + 1500]
+    else:                                   # chords written as text over the words: the page's text, the sheet finds them
+        b = _re_mod.search(r"<body\b", page, _re_mod.I)
+        body = page[b.start():] if b else page
+    body = _re_mod.sub(r"<a\b[^>]*class=\"?sup\"?[^>]*>(.*?)</a>", r"[\1]", body, flags=_re_mod.I | _re_mod.S)
+    body = _re_mod.sub(r"<sup\b[^>]*>(.*?)</sup>", r"[\1]", body, flags=_re_mod.I | _re_mod.S)
+    body = _re_mod.sub(r"<br\s*/?>|</p>|</div>|</tr>", "\n", body, flags=_re_mod.I)
+    body = _re_mod.sub(r"<script.*?</script>|<style.*?</style>", "", body, flags=_re_mod.I | _re_mod.S)
+    body = _html.unescape(_re_mod.sub(r"<[^>]+>", "", body))
+    lines = [ln.rstrip() for ln in body.split("\n")]
+    return "\n".join(lines).strip()
+
+
+def _sm_sheets(artist: str, title: str, limit: int = 2) -> list:
+    import html as _html
+    want_a, want_t = _names.key(artist.split(",")[0]), _names.key(_names.no_brackets(title))
+    if not want_t:
+        return []
+    body = _sm_get("https://supermusic.cz/najdi.php?typhladania=piesen&hladane=" + quote(_names.no_brackets(title)))
+    hits = []
+    for sid, nm, rest in _re_mod.findall(r'idpiesne=(\d+)[^>]*>(.*?)</a>(?=(.{0,400}))', body, flags=_re_mod.S):
+        name = _html.unescape(_re_mod.sub(r"<[^>]+>", "", nm)).strip()
+        rest = _re_mod.split(r"idpiesne=|<br|</tr|</li", rest, maxsplit=1, flags=_re_mod.I)[0]   # this row only
+        near = _html.unescape(_re_mod.sub(r"<[^>]+>", " ", rest))
+        # "Kabát - Pohoda (akordy)" or the song's name, the band beside it
+        main = _re_mod.sub(r"\s*\((akordy|text|taby?|melodie|mp3)[^)]*\)\s*$", "", name, flags=_re_mod.I)
+        if " - " in main:
+            band, song = main.split(" - ", 1)
+        else:
+            band, song = near, main
+        if _names.key(_names.no_brackets(song)) != want_t:
+            continue
+        if want_a and want_a not in _names.key(band) and want_a not in _names.key(near):
+            continue
+        hits.append((0 if "akordy" in name.lower() else 1, sid))
+    out, seen = [], set()
+    for _, sid in sorted(hits):
+        if sid in seen or len(out) >= limit:
+            continue
+        seen.add(sid)
+        url = f"https://supermusic.cz/skupina.php?idpiesne={sid}"
+        try:
+            text = _sm_sheet_text(_sm_get(url))
+        except Exception:                                      # noqa: BLE001
+            continue
+        if text:
+            out.append({"source": "Supermusic", "url": url, "artist": artist, "title": title, "votes": 0,
+                        "rating": 0, "text": text[:60000]})
+    return out
+
+
+@app.get("/api/stems/{name}/chordsheets")
+def chord_sheets(name: str, refresh: bool = False):
+    """Chord sheets of this song found on the web (Ultimate Guitar, Supermusic) — the text only; laying them
+    onto the recording happens in the page."""
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    cache = stems_dir / "chordsheets.json"
+    if cache.is_file() and not refresh:
+        try:
+            got = json.loads(cache.read_text(encoding="utf-8"))
+            if got.get("sheets"):
+                return got
+        except (OSError, ValueError):
+            pass
+    meta = _stems_meta(stems_dir)
+    artist, title = (meta.get("artist") or "").strip(), (meta.get("title") or "").strip()
+    if not title:
+        return {"sheets": [], "artist": artist, "title": title, "errors": ["Píseň nemá název."]}
+    sheets, errors = [], []
+    for label, find in (("Supermusic", _sm_sheets), ("Ultimate Guitar", _ug_sheets)):
+        try:
+            sheets += find(artist, title)
+        except Exception as exc:                               # noqa: BLE001
+            errors.append(f"{label}: {exc.__class__.__name__}")
+    out = {"sheets": sheets, "artist": artist, "title": title, "errors": errors}
+    if sheets:
+        try:
+            cache.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+    return out
 
 
 class ChordsIn(BaseModel):
