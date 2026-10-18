@@ -3168,6 +3168,43 @@ body.lib-collapsed .pick-brand{display:none}
   .pk-fb td.mute .dot.on{background:none;color:#ff6b6b}
   .pk-fb .lbl{color:#888;cursor:default;border:none}
   .pk-fb tr.marks td{border:none;height:12px;cursor:default}
+  /* the keyboard window, dressed: a dark stage, ivory and ebony keys on red felt, pressed keys lit in the accent */
+  .piano-body{background:radial-gradient(700px 260px at 10% -30%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%),linear-gradient(180deg,#15151c,#0d0d12);gap:10px;padding:12px}
+  .pk-ctl{gap:7px}
+  .pk-ctl button,.pk-ctl select,.pk-ctl input[type=range]{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:5px 10px;transition:background .12s,border-color .12s}
+  .pk-ctl select{padding:4px 7px}
+  .pk-ctl button:hover,.pk-ctl select:hover{background:rgba(255,255,255,.12)}
+  .pk-ctl button.on{background:var(--accent);border-color:var(--accent);color:#0b0b12;font-weight:700}
+  .pk-ctl .grp{border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:12px;padding:3px 5px 3px 9px}
+  .pk-info{padding:6px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06)}
+  .pk-chord{font-size:24px;background:linear-gradient(90deg,#fff,color-mix(in srgb,var(--accent) 70%,#fff));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pk-keys{border-top:8px solid #6e1a20;border-radius:12px;background:#101015;box-shadow:0 14px 34px rgba(0,0,0,.5),0 -1px 0 rgba(255,255,255,.08)}
+  .pk-w{background:linear-gradient(180deg,#fdfdfb 0%,#f1f1ee 82%,#dcdcd6 100%);border:1px solid #2a2a30;border-top:none;border-radius:0 0 8px 8px;
+    box-shadow:inset 0 -5px 0 rgba(0,0,0,.08),inset 0 1px 0 #fff,0 2px 3px rgba(0,0,0,.45);color:#6a6a72;transition:background .07s,transform .07s,box-shadow .07s}
+  .pk-w:hover{background:linear-gradient(180deg,#fff,#f6f6f2 82%,#e2e2dc)}
+  .pk-b{background:linear-gradient(180deg,#4a4a54 0%,#1b1b22 16%,#0a0a0e 100%);border:1px solid #000;border-radius:0 0 6px 6px;
+    box-shadow:inset 0 -4px 0 rgba(255,255,255,.07),inset 1px 0 0 rgba(255,255,255,.08),0 4px 6px rgba(0,0,0,.6);color:#c6c6d0;transition:background .07s,transform .07s}
+  .pk-b:hover{background:linear-gradient(180deg,#5a5a66 0%,#25252e 16%,#121218 100%)}
+  .pk-w.down{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 45%,#fff),color-mix(in srgb,var(--accent) 80%,#fff)) !important;transform:translateY(1px);
+    box-shadow:inset 0 -2px 0 rgba(0,0,0,.12),0 0 18px color-mix(in srgb,var(--accent) 55%,transparent) !important}
+  .pk-b.down{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 60%,#000),var(--accent)) !important;transform:translateY(1px);box-shadow:0 0 14px color-mix(in srgb,var(--accent) 60%,transparent) !important}
+  .pk-w.root{box-shadow:inset 0 -6px 0 var(--accent),0 2px 3px rgba(0,0,0,.45)}
+  .pk-legend .lg-down{background:var(--accent)}
+  .pk-fb{border-top:none;padding:8px;border-radius:12px;background:rgba(255,255,255,.03)}
+  .pk-fb table{background:linear-gradient(180deg,#3a2618,#22150d);border-radius:6px}
+  .pk-fb tr.marks{background:#121217}
+  .pk-fb td{border-right:2px solid #b9b9c6}
+  .pk-fb td.nut{border-right:6px solid #efe9da}
+  .pk-fb td.str::before{background:#e2ddd2;opacity:.8}
+  .pk-fb .lbl{background:#121217;color:#9a9ab0}
+  .pk-fb td .dot.on{background:#ffd166;box-shadow:0 0 0 1.5px #0b0b12,0 0 10px rgba(255,209,102,.5)}
+  .pk-fb td:hover{background:rgba(255,255,255,.07)}
+  .pk-cw-svg path.maj{fill:hsl(var(--h,230) 35% 22%)}
+  .pk-cw-svg path.min{fill:hsl(var(--h,230) 30% 16%)}
+  .pk-cw-svg path:hover{fill:hsl(var(--h,230) 45% 32%)}
+  .pk-cw-svg path.on{fill:hsl(var(--h,230) 80% 58%)}
+  .pk-cw-q button,.pk-cw-row button{border-radius:9px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)}
+  .pk-cw-q button.on{background:var(--accent);color:#0b0b12;border-color:var(--accent);font-weight:700}
   .tuner-mine{display:flex;gap:6px;padding:8px 10px;background:#141418;border-bottom:1px solid #26262e}
   .tuner-mine select{flex:1;min-width:0;background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:4px 6px;font-size:12px}
   .tuner-mine button{background:#1e1e25;color:var(--text);border:1px solid #32323c;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
@@ -31347,6 +31384,7 @@ const Piano = (() => {
     (() => { try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } })());
   const save = () => { try{ st.latched = [...(typeof latched !== "undefined" ? latched : [])]; localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
   if(OLD_IDS[st.tuning]) st.tuning = OLD_IDS[st.tuning];
+  const listeners = new Set();     // who follows the scale (the chord helper on the whole screen)
   let tunEdit = null;              // {id?, name, strings} while the editor is open
   // Strings high → low as MIDI notes (the fretboard draws the high one on top).
   function tunMidi(){
@@ -31699,11 +31737,11 @@ const Piano = (() => {
     CW_FIFTHS.forEach((pc, i) => {
       const on = cw.on && !cw.minor && cw.root === pc;
       const [x, y] = lbl(i, (R1 + R2) / 2);
-      svg += `<path d="${seg(i, R2, R1)}" class="maj ${on ? "on" : ""}" data-root="${pc}" data-minor="0"/>
+      svg += `<path d="${seg(i, R2, R1)}" class="maj ${on ? "on" : ""}" style="--h:${(pc * 30 + 200) % 360}" data-root="${pc}" data-minor="0"/>
         <text x="${x}" y="${y}" class="t ${on ? "on" : ""}">${CW_NAMES[pc]}</text>`;
       const mpc = (pc + 9) % 12, mon = cw.on && cw.minor && cw.root === mpc;
       const [x2, y2] = lbl(i, (R2 + R3) / 2);
-      svg += `<path d="${seg(i, R3, R2)}" class="min ${mon ? "on" : ""}" data-root="${mpc}" data-minor="1"/>
+      svg += `<path d="${seg(i, R3, R2)}" class="min ${mon ? "on" : ""}" style="--h:${(mpc * 30 + 200) % 360}" data-root="${mpc}" data-minor="1"/>
         <text x="${x2}" y="${y2}" class="t s ${mon ? "on" : ""}">${CW_NAMES[mpc]}m</text>`;
     });
     svg += `<circle cx="${C}" cy="${C}" r="${R3 - 2}" class="mid"/><text x="${C}" y="${C}" class="t big">${cw.on ? escapeHtml(cwName()) : "—"}</text></svg>`;
@@ -31824,7 +31862,7 @@ const Piano = (() => {
     paintFretboard();
     paintInfo();
   }
-  function changed(){ save(); paintKeys(true); paintFretboard(); paintInfo(); }
+  function changed(){ save(); paintKeys(true); paintFretboard(); paintInfo(); listeners.forEach(f => { try{ f(); }catch(e){} }); }
 
   function keyCap(code){
     const c = layout && layout.get(code);
@@ -32155,7 +32193,45 @@ const Piano = (() => {
     followNow = now; followNext = next;
     if(FW.isOpen()) paintKeys();
   }
-  return {open, toggle: () => (FW.isOpen() ? FW.close() : open()), nameChord, guessScales,
+  // For the chord helper on the whole screen (static/chordcoach.js): the same sounds (the keys' instrument,
+  // the fretboard's guitar), the same scale and lock, the same computer keys — one setting for both.
+  const engine = {
+    // a note sounded (gtr: the fretboard's guitar) → a handle to stop it; null when Pick's instruments are not there
+    async on(m, v = 0.8, gtr){
+      let sf;
+      try{ sf = gtr ? await guitarSound() : await sound(); }catch(e){ return null; }
+      if(!zv.jeNacteny(sf)){ try{ await zv.nacti(sf); }catch(e){ return null; } }
+      return zv.hraj(sf, m, v, out);
+    },
+    off(h){ if(h && zv) zv.utni(h); },
+    scale: () => ({root: st.root, scale: st.scale, lock: st.lock, iv: scaleIv()}),
+    setScale(o){
+      if(o.root != null) st.root = ((+o.root % 12) + 12) % 12;
+      if(o.scale != null && SCALES[o.scale]) st.scale = o.scale;
+      if(o.lock != null) st.lock = o.lock;
+      if(built){ const r = el("pk-root"), sc = el("pk-scale"), lk = el("pk-lock"); if(r) r.value = String(st.root); if(sc) sc.value = st.scale; if(lk) lk.value = st.lock; changed(); }
+      else save();
+      listeners.forEach(f => { try{ f(); }catch(e){} });
+    },
+    onChange(f){ listeners.add(f); },
+    scales: () => Object.entries(SCALES).map(([k, [n, iv]]) => ({id: k, name: n, iv})),
+    inScale, constrain,
+    // computer keys: the note a key plays (chroma: as a piano; scale: only the scale's notes), the octave
+    pcNote(code, mode){ const was = st.pc; st.pc = mode || (st.pc === "off" ? "chroma" : st.pc); const m = pcNote(code); st.pc = was; return m; },
+    pcHints(mode){ const was = st.pc; st.pc = mode || (st.pc === "off" ? "chroma" : st.pc); const h = pcHints(); st.pc = was; return h; },
+    keyCap: (code) => keyCap(code),
+    pcBase: () => st.pcBase, setPcBase(b){ st.pcBase = Math.max(24, Math.min(96, b)); save(); },
+    pcMode: () => st.pc === "off" ? "chroma" : st.pc, setPcMode(m){ st.pc = m; save(); if(built){ const p = el("pk-pc"); if(p) p.value = m; changed(); } },
+    nameChord, voicing, NOTES, CHORDS,
+    instruments: () => instGroups ? Promise.resolve(instGroups) : Mixer.guitar.instrumentLib().then(L => { lib = L; instGroups = L.nastrojePodleKategorii(); return instGroups; }),
+    instrument: () => curInstrument(), guitarInstrument: () => st.fretInstrument || GTR_DEFAULT,
+    setInstrument: (id) => setInst(id), setGuitarInstrument(id){ if(!id) return; st.fretInstrument = id; save(); if(built) paintFretboard(); },
+    instrName: (id) => instGroups ? InstrPick.name(instGroups, id) : "",
+    guitarGroups: () => guitarGroups(),
+  };
+  // the layout of the keys (QWERTZ on a Czech Mac) for the hints, asked once
+  if(navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m => { layout = m; }).catch(() => {});
+  return {open, toggle: () => (FW.isOpen() ? FW.close() : open()), nameChord, guessScales, engine,
     isOpen: () => FW.isOpen(), liveNote, follow,
     setInstrument: (id, fromTrack) => setInst(id, fromTrack),
     play: (m) => noteOn(m), stop: (m) => noteOff(m), state: st, setFrets: (f) => { st.frets = f; changed(); }};

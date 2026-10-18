@@ -806,15 +806,31 @@ knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně
     akordu, do čtyř pražců, nanejvýš barré a tři prsty).
   - **Výška písně**: když je píseň posunutá (tlačítka tóniny, nebo přeladění na tvoji kytaru), akordy v
     pásu, na kartách i v kontrole se přepočítají, aby seděly s tím, co zní — a ukáže se „Akordy posunuté o +2“.
-  - **🎹 MIDI klávesy**: připojené MIDI klávesy (Web MIDI) — klaviatura ukazuje, co držíš (zeleně tóny
-    akordu, červeně tóny navíc) a tečkami, co máš zmáčknout; ✓ správně / ✗ ještě ne, co chybí, co je navíc,
-    a jaký akord vlastně držíš. Klávesy znějí klavírem (🔊 jde vypnout). Spínače naučené na MIDI pedál se
-    nepočítají.
-  - **🎸 Hlídat kytaru**: poslouchá vstup kytary ve Steems (čistý signál před zesilovačem; když není zapnutý,
-    zapne ho). Z frekvencí najde tóny (vyšší harmonické se přičtou ke svému tónu), z nich akord, a ukáže je
-    na hmatníku přes 15 pražců vedle hmatu, který máš hrát: zeleně tón, který na hmatu sedí, žlutě tón
-    akordu jinde, červeně tón navíc. Jedna struna = tón s odchylkou v centech (G4 +3¢).
-  - Obojí počítá skóre, když píseň hraje: kolik akordů jsi trefil (každý akord se započítá, když skončí).
+  - **Stupnice** (vedle ladění): tónina, druh a zámek — stejné nastavení jako na Klaviatuře Picku (jedno pro
+    obojí). „ukázat“ zvýrazní tóny stupnice na klavíru i na celém hmatníku (základní tón větší), „🔒 zámek“
+    nepustí tón mimo stupnici: klávesa myší, klávesnicí Macu i MIDI se posune na nejbližší tón stupnice,
+    pražce mimo ni nejdou kliknout. Po přeladění kytary se tóny stupnice na hmatníku posunou s laděním.
+  - **🎹 Klavír**: hraje se myší (i tažením přes klávesy), na klávesnici Macu (jako na Klaviatuře: Z S X D C…
+    jako klavír, Q 2 W 3 E… o oktávu výš, nebo „jen tóny stupnice“; − + posune oktávu; „nápověda“ ukáže
+    na klávesách, kterou klávesou Macu se hrají) a na připojených MIDI klávesách (Web MIDI; spínače naučené
+    na MIDI pedál se nepočítají). Zní nástrojem Klaviatury Picku (🔊 jde vypnout). Klaviatura má tolik
+    oktáv, kolik se jich vejde, ‹ › ji posouvá. Když píseň hraje: zeleně tóny akordu, červeně navíc, tečky
+    ukazují, co zmáčknout, ✓ správně / ✗ co chybí a co je navíc. Když nehraje: volné hraní — název akordu
+    a tóny, a zůstanou svítit, dokud nezahraješ další.
+  - **🎸 Kytara**: celý hmatník (15 pražců) v ladění kytary. Klik na pražec zahraje tón zvukem kytary
+    Klaviatury a podrží ho (znovu klik = pustit) — z kliknutých tónů je hmat, ▶ ho zahraje, ✕ smaže. Co se
+    hraje na klavíru, ukáže hmatník tam, kde to chytit (stejné tóny, kde to struny dovolí), a hmat z
+    hmatníku se rozsvítí na klavíru. Čárkovaně hmat akordu písně. **🎤 poslouchat kytaru** zapne vstup
+    kytary ve Steems (čistý signál před zesilovačem): z frekvencí najde tóny (vyšší harmonické se přičtou
+    ke svému tónu), z nich akord, a ukáže je na hmatníku vedle hmatu, který máš hrát: zeleně tón, který na
+    hmatu sedí, žlutě tón akordu jinde, červeně tón navíc. Jedna struna = tón s odchylkou v centech (G4 +3¢).
+  - **◎ Kruh akordů**: kvintový kruh (venku dur, uvnitř moll), barva podle tónu; svítí akord, který teď
+    hraje píseň, tečkovaně akordy tóniny (když je nastavená durová nebo mollová stupnice). Klik vybere
+    akord, druh (moll, 7, maj7, sus4, add9…) ho upraví — ukáže se na klavíru i na hmatníku a zazní; ▶ klavír,
+    ▶ kytara, 🔍 zvětšit (velký hmat s dalšími polohami).
+  - S otevřenými panely se oblast akordů posouvá (kolečkem), text písně zůstane vidět.
+  - Klavír i poslouchaná kytara počítají skóre, když píseň hraje: kolik akordů jsi trefil (každý akord se
+    započítá, když skončí).
   - Při duetu nebo na nízké obrazovce se karty zmenší, ať zpěvákům zbude místo.
   - **Akordy vždycky**: když hledání akordů na serveru jednou selže (ještě nebyla mřížka dob, chyba), píseň
     by zůstala bez akordů navždy — teď se při dalším otevření hledají znovu, jen akordy (asi 10 s), nanejvýš
