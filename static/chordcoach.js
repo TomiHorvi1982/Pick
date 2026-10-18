@@ -42,6 +42,13 @@ const ChordCoach = (() => {
   @keyframes cc-beat{from{box-shadow:0 0 22px var(--cc-acc),0 0 6px #fff}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff}}
   @keyframes cc-down{from{box-shadow:0 0 34px var(--cc-acc),0 0 12px #fff;width:5px}to{box-shadow:0 0 12px var(--cc-acc),0 0 3px #fff;width:3px}}
   .cc-msg{font-size:12px;color:#8a8aa0;padding:8px 2px;text-align:center}
+  .cc-tools .cc-lvl button{padding:5px 9px}
+  .cc-tools .cc-lvl button.on{background:var(--cc-acc);color:#0b0b12;border-color:var(--cc-acc);font-weight:800}
+  .cc-sheet{width:min(760px,94vw);display:flex;flex-direction:column;gap:12px}
+  .cc-sheet-t{width:100%;min-height:260px;box-sizing:border-box;background:#0e0e14;color:#f1f1f6;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;
+    font:13px/1.45 ui-monospace,Menlo,monospace;resize:vertical}
+  .cc-sheet-r{display:flex;flex-direction:column;gap:6px;font-size:13px;min-height:20px}
+  .cc-zbox button.big{background:var(--cc-acc);color:#0b0b12;border-color:transparent;font-weight:800;padding:9px 16px}
   .cc-tools .cc-grp b{min-width:42px;text-align:center;font-variant-numeric:tabular-nums;color:#fff}
   /* Live Show's sounds */
   .cc-pop{position:fixed;z-index:9650;background:#17171f;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;color:#ececf3;font-size:13px;
@@ -395,9 +402,10 @@ const ChordCoach = (() => {
   // What is kept: the guitar's tuning for the shapes, the keys heard
   // ======================================================================
   const KEY = "pick-chordcoach";
-  const cfg = {tuning: "", keysSound: true, pc: true, pcMode: "chroma", hints: false, zoom: 1};
+  const cfg = {tuning: "", keysSound: true, pc: true, pcMode: "chroma", hints: false, zoom: 1, level: "basic"};
   try{ const v = JSON.parse(localStorage.getItem(KEY) || "{}"); if(typeof v.tuning === "string") cfg.tuning = v.tuning;
     if(v.zoom >= 0.7 && v.zoom <= 2.5) cfg.zoom = v.zoom;
+    if(["basic", "advanced", "master"].includes(v.level)) cfg.level = v.level;
     ["keysSound", "pc", "hints"].forEach(k => { if(k in v) cfg[k] = !!v[k]; }); if(v.pcMode === "scale") cfg.pcMode = "scale"; }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   const mine = () => { try{ const v = MyTuning.get(); return v && v.midi.length === 6 ? v.midi.slice() : null; }catch(e){ return null; } };
@@ -431,15 +439,314 @@ const ChordCoach = (() => {
   }
 
   // ======================================================================
+  // How many chords to show: Základní (one per bar, the plain chord, the song's own progression),
+  // Pokročilé (up to two per bar, sevenths and suspensions kept), Mistr (everything the analysis heard).
+  //   1. the song is cut into units: bars (Základní) or half bars (Pokročilé), from its downbeats;
+  //   2. each unit gets the chord that sounds longest in it (Základní names it plainly: Am7 → Am, Gsus4 → G);
+  //   3. the key is found from what sounds the longest (the 24 keys' own chords scored by their time), and
+  //      a chord outside the key that lasts a single unit is a passing one — it goes (Základní);
+  //   4. a part that comes back (every chorus, every verse) is voted: at each bar of it, the chord most of its
+  //      repeats agree on wins — one chorus, the same four chords each time;
+  //   5. the same chord in a row is one.
+  // ======================================================================
+  const LEVELS = [["basic", "Základní"], ["advanced", "Pokročilé"], ["master", "Mistr"]];
+  const lvlOk = (v) => LEVELS.some(x => x[0] === v);
+  function plainName(name, level){
+    const ch = parseChord(name);
+    if(!ch) return name;
+    const q = ch.q, r = SH[ch.pc];
+    if(level === "basic"){
+      if(/^dim/.test(q) || q === "m7b5") return r + "dim";
+      if(/^m(?!aj)/.test(q)) return r + "m";
+      return r;
+    }
+    const keep = {"": "", m: "m", "7": "7", maj7: "maj7", m7: "m7", sus4: "sus4", sus2: "sus2", dim: "dim", aug: "aug", "5": "5", "7sus4": "7sus4",
+      "6": "", m6: "m", "9": "7", m9: "m7", add9: "", dim7: "dim", m7b5: "m7b5"};
+    const nq = q in keep ? keep[q] : (/^m(?!aj)/.test(q) ? "m" : "");
+    return r + nq + (ch.bass != null && ch.bass !== ch.pc ? "/" + SH[ch.bass] : "");
+  }
+  // the key: the 24 keys' six chords (I ii iii IV V vi), each scored by how long its chords sound
+  function keyOf(list){
+    const dur = new Map();
+    list.forEach(c => { const n = plainName(c.chord, "basic"); dur.set(n, (dur.get(n) || 0) + (c.end - c.start)); });
+    let best = null;
+    for(let r = 0; r < 12; r++){
+      const set = new Set([SH[r], SH[(r + 5) % 12], SH[(r + 7) % 12], SH[(r + 9) % 12] + "m", SH[(r + 2) % 12] + "m", SH[(r + 4) % 12] + "m"]);
+      let sc = 0; dur.forEach((d, n) => { if(set.has(n)) sc += d; });
+      if(!best || sc > best.sc) best = {sc, root: r, set};
+    }
+    return best;
+  }
+  function simplify(list, o){
+    const level = o.level || "basic";
+    list = (list || []).filter(c => c.chord).map(c => ({start: c.start, end: c.end, chord: c.bass && !/\//.test(c.chord) ? c.chord + "/" + c.bass : c.chord}));
+    if(level === "master" || !list.length) return list;
+    const end = Math.max(...list.map(c => c.end));
+    // the units: bars, or half bars
+    let db = (o.downbeats || []).slice();
+    const beats = o.beats || [], per = o.perBar || 4;
+    if(!db.length && beats.length) db = beats.filter((_, k) => k % per === 0);
+    const units = [];
+    if(db.length > 2){
+      db.forEach((a, k) => {
+        const e = db[k + 1] != null ? db[k + 1] : Math.min(end, a + (a - db[k - 1]));
+        if(e <= a) return;
+        if(level === "advanced"){ const m = beats.find(x => x > a + (e - a) * 0.4 && x < a + (e - a) * 0.6) || (a + e) / 2; units.push([a, m], [m, e]); }
+        else units.push([a, e]);
+      });
+      if(db[0] > 0.5) units.unshift([0, db[0]]);
+    } else { const step = level === "basic" ? 2 : 1; for(let t = 0; t < end; t += step) units.push([t, Math.min(end, t + step)]); }
+    // 2. the longest chord in each unit
+    let pick = units.map(([a, e]) => {
+      const w = new Map();
+      list.forEach(c => { const ov = Math.min(e, c.end) - Math.max(a, c.start); if(ov > 0){ const n = plainName(c.chord, level); w.set(n, (w.get(n) || 0) + ov); } });
+      let top = null, tot = 0; w.forEach((d, n) => { tot += d; if(!top || d > top.d) top = {n, d}; });
+      return top && top.d > (e - a) * 0.2 ? {n: top.n, share: top.d / Math.max(1e-6, tot)} : {n: null, share: 0};
+    });
+    // 3. a passing chord outside the key, one unit long, goes to its neighbour
+    const key = keyOf(list), inKey = (n) => !n || key.set.has(plainName(n, "basic"));
+    if(level === "basic") pick.forEach((u, i) => {
+      if(!u.n || inKey(u.n)) return;
+      const prev = pick[i - 1], next = pick[i + 1];
+      if((!prev || prev.n !== u.n) && (!next || next.n !== u.n)) u.n = (prev && prev.n) || (next && next.n) || u.n;
+    });
+    // 4. the parts that come back, voted bar by bar
+    const secs = (o.sections || []).filter(x => x.kind && x.kind !== "part");
+    const byKind = new Map();
+    secs.forEach(x => { if(!byKind.has(x.kind)) byKind.set(x.kind, []); byKind.get(x.kind).push(x); });
+    byKind.forEach(arr => {
+      if(arr.length < 2) return;
+      const idx = arr.map(x => units.map((u, i) => (u[0] + u[1]) / 2 >= x.start && (u[0] + u[1]) / 2 < x.end ? i : -1).filter(i => i >= 0));
+      const len = Math.max(...idx.map(a => a.length));
+      for(let k = 0; k < len; k++){
+        const votes = new Map(); let n = 0;
+        idx.forEach(a => { const u = pick[a[k]]; if(u && u.n){ votes.set(u.n, (votes.get(u.n) || 0) + 1); n++; } });
+        let top = null; votes.forEach((v, c) => { if(!top || v > top.v) top = {c, v}; });
+        if(!top || n < 2) continue;
+        idx.forEach(a => { const u = pick[a[k]]; if(!u || !u.n || u.n === top.c) return;
+          if(level === "basic" ? top.v / n >= 0.5 : (top.v / n >= 0.6 && u.share < 0.6)) u.n = top.c; });
+      }
+    });
+    // 5. one chord as long as it lasts
+    const out = [];
+    units.forEach(([a, e], i) => { const n = pick[i].n; if(!n) return; const l = out[out.length - 1];
+      if(l && l.chord === n && Math.abs(l.end - a) < 0.05) l.end = e; else out.push({start: +a.toFixed(3), end: +e.toFixed(3), chord: n, bass: null}); });
+    return out;
+  }
+  const levelNow = () => cfg.level;
+  function setLevel(v){
+    if(!lvlOk(v) || v === cfg.level) return;
+    cfg.level = v; keep(); seqSig = ""; laneSig = carSig = "";
+    window.dispatchEvent(new Event("pick-chord-level"));
+    paintTools(); paint();
+  }
+
+  // ======================================================================
+  // The song's chords from a chord sheet: chords copied from a page (Ultimate Guitar, Supermusic, Velký
+  // zpěvník, a ChordPro file…) are laid onto the recording. The sheet gives the right chords, the
+  // recording where they fall: for each half bar the sheet's chord whose notes best match what sounds
+  // there, in the sheet's order (a step on, or the same chord on; a chord skipped costs). With the parts
+  // named in the sheet ([Refrén], Verse 1…) each part of the song takes the sheet's part of its kind, its
+  // chords round and round. The sheet may be in another key (a capo): all twelve are tried.
+  // ======================================================================
+  const KIND = [[/^(intro|úvod|uvod)/i, "intro"], [/^(verse|sloka|strofa|vers|\d+\.?\s*$)/i, "verse"], [/^(pre-?chorus|předrefrén|predrefren|pre)/i, "prechorus"],
+    [/^(chorus|refrén|refren|ref|r\.?$)/i, "chorus"], [/^(bridge|most|middle)/i, "bridge"], [/^(solo)/i, "solo"], [/^(outro|závěr|zaver|coda|konec|dohra)/i, "outro"],
+    [/^(inst|mezihra|interlude)/i, "inst"]];
+  const CHORD_TOKEN = /^\(?([A-H])([#b♯♭]|is|es|s)?((?:maj|min|m|dim|aug|sus|add|M)?\d*(?:sus\d)?(?:add\d+)?(?:b5|#5|b9|#9)?)(?:\/([A-H][#b♯♭]?))?\)?$/;
+  function parseSheet(text){
+    const german = /(^|[\s\[(|])H(m|7|maj|sus|dim|\s|$|\]|\/)/m.test(text);       // Czech/German sheets: H = B, B = Bb
+    const fix = (tok) => { const m = CHORD_TOKEN.exec(tok); if(!m) return null;
+      let r = m[1], acc = {"♯": "#", "♭": "b", is: "#", es: "b", s: "b"}[m[2]] || m[2] || "", bass = m[4] || "";
+      if(german){ if(r === "H") r = "B"; else if(r === "B" && !acc) { r = "B"; acc = "b"; } if(bass === "H") bass = "B"; else if(bass === "B") bass = "Bb"; }
+      let q = m[3].replace(/^min/, "m").replace(/^M7/, "maj7");
+      return r + acc + q + (bass ? "/" + bass : ""); };
+    const sections = [];
+    let cur = {kind: "", label: "", chords: []};
+    const push = () => { if(cur.chords.length) sections.push(cur); };
+    text.split(/\r?\n/).forEach(line => {
+      const raw = line.trim();
+      if(!raw) return;
+      // a header: [Chorus], Refrén:, Sloka 2, R:, 1.
+      const label = raw.replace(/^[\[{(]\s*|\s*[\]})]\s*$/g, "").replace(/:\s*$/, "");
+      const kindOf = (s) => { for(const [re, k] of KIND) if(re.test(s.trim())) return k; return ""; };
+      const bracket = (/^\[[^\]]+\]$/.test(raw) && !fix(label)) || /^[A-Za-zÁ-ž .\-]+\s*\d*\s*:$/.test(raw) || /^(R|Ref|S|Sl)\s*\d*[.:]$/i.test(raw);
+      if(bracket || (kindOf(label) && label.split(/\s+/).length <= 3 && !label.split(/\s+/).some(t => fix(t)))){
+        push(); cur = {kind: kindOf(label), label, chords: []}; return;
+      }
+      // chords in brackets inside lyrics (ChordPro): [Am]text
+      const inline = [...raw.matchAll(/\[([^\]]+)\]/g)].map(m => fix(m[1].trim())).filter(Boolean);
+      if(inline.length){ cur.chords.push(...inline); return; }
+      // a chord line: most of its words are chords (the rest: |, x2, -, (…))
+      const toks = raw.split(/[\s|]+/).filter(Boolean);
+      let rep = 1;
+      const words = toks.filter(t => { const r = /^[x×]?(\d)[x×]?$/i.exec(t.replace(/[()]/g, "")); if(r && /[x×]/i.test(t)){ rep = +r[1]; return false; } return !/^[-–—/.:%]+$/.test(t); });
+      const chords = words.map(fix);
+      const hit = chords.filter(Boolean).length;
+      if(hit && hit / words.length >= 0.7){ const line = chords.filter(Boolean); for(let k = 0; k < Math.min(rep, 8); k++) cur.chords.push(...line); }
+    });
+    push();
+    return {sections, flat: sections.flatMap(x => x.chords), german};
+  }
+  // what sounds in each unit of the song: the detected chords' notes, weighted by time
+  function profiles(raw, units){
+    return units.map(([a, e]) => {
+      const p = new Float32Array(12);
+      raw.forEach(c => { const ov = Math.min(e, c.end) - Math.max(a, c.start); if(ov <= 0) return; const ch = parseChord(c.chord); if(!ch) return;
+        ch.pcs.forEach(pc => { p[pc] += ov * (pc === ch.pc ? 1.3 : 1); }); });
+      return p;
+    });
+  }
+  function costOf(name, p){
+    const ch = parseChord(name);
+    let tot = 0; for(let i = 0; i < 12; i++) tot += p[i] * p[i];
+    if(!ch || tot <= 0) return 0.5;
+    let dot = 0, tn = 0;
+    ch.pcs.forEach(pc => { const w = pc === ch.pc ? 1.3 : 1; dot += w * p[pc]; tn += w * w; });
+    return 1 - dot / Math.sqrt(tot * tn);
+  }
+  // the sheet's chords (in order) onto the units: Viterbi over the position in the sheet
+  function alignSeq(seq, prof, cyclic){
+    const L = seq.length, U = prof.length, CH = 0.12, SKIP = 0.9;
+    if(!L || !U) return {cost: Infinity, path: []};
+    const cost = seq.map(n => prof.map(p => costOf(n, p)));
+    let prev = new Float64Array(L).fill(Infinity);
+    for(let p = 0; p < L; p++) prev[p] = cost[p][0] + p * SKIP;
+    const back = [];
+    for(let u = 1; u < U; u++){
+      const cur = new Float64Array(L).fill(Infinity), bk = new Int32Array(L);
+      for(let p = 0; p < L; p++){
+        let b = prev[p], bi = p;                                                  // the same chord on
+        if(p >= 1 && prev[p - 1] + CH < b){ b = prev[p - 1] + CH; bi = p - 1; }   // the next one
+        if(p >= 2 && prev[p - 2] + CH + SKIP < b){ b = prev[p - 2] + CH + SKIP; bi = p - 2; }
+        if(cyclic && p === 0 && prev[L - 1] + CH < b){ b = prev[L - 1] + CH; bi = L - 1; }
+        cur[p] = b + cost[p][u]; bk[p] = bi;
+      }
+      back.push(bk); prev = cur;
+    }
+    let last = 0;
+    for(let p = 1; p < L; p++){ const pen = cyclic ? 0 : (L - 1 - p) * SKIP; if(prev[p] + pen < prev[last] + (cyclic ? 0 : (L - 1 - last) * SKIP)) last = p; }
+    const path = new Array(U); path[U - 1] = last;
+    for(let u = U - 1; u > 0; u--) path[u - 1] = back[u - 1][path[u]];
+    return {cost: prev[last] / U, path};
+  }
+  function fromSheet(text){
+    const sh = parseSheet(text);
+    if(sh.flat.length < 2) return {error: "V textu nenacházím akordy — vlož řádky s akordy (třeba z Ultimate Guitar nebo Supermusic)."};
+    const raw = D().chords(), G = grid();
+    let secs = [];
+    try{ secs = Mixer.sectionsNow ? Mixer.sectionsNow() : []; }catch(e){}
+    const end = Math.max(Mixer.duration() || 0, ...raw.map(c => c.end));
+    const units = [];
+    let db = G.db.length > 2 ? G.db : [];
+    if(db.length){ db.forEach((a, k) => { const e = db[k + 1] != null ? db[k + 1] : Math.min(end, a + (a - db[k - 1])); if(e <= a) return;
+      const m = G.beats.find(x => x > a + (e - a) * 0.4 && x < a + (e - a) * 0.6) || (a + e) / 2; units.push([a, m], [m, e]); });
+      if(db[0] > 0.5) units.unshift([0, db[0]]); }
+    else for(let t = 0; t < end; t += 1) units.push([t, Math.min(end, t + 1)]);
+    const prof = profiles(raw, units);
+    // by parts when both the sheet and the song name them
+    const named = sh.sections.filter(x => x.kind), songParts = secs.filter(x => x.kind && x.kind !== "part");
+    const byParts = named.length >= 2 && songParts.length >= 2 && songParts.filter(x => named.some(y => y.kind === x.kind)).length >= songParts.length / 2;
+    let best = null;
+    for(let sft = 0; sft < 12; sft++){
+      const tr = (n) => transpose(n, sft);
+      const names = new Array(units.length).fill(null);
+      let total = 0;
+      if(byParts){
+        const seen = {};
+        songParts.forEach(x => {
+          const k = seen[x.kind] = (seen[x.kind] || 0) + 1, cand = named.filter(y => y.kind === x.kind);
+          const part = cand[Math.min(k, cand.length) - 1];
+          const ui = units.map((u, i) => (u[0] + u[1]) / 2 >= x.start && (u[0] + u[1]) / 2 < x.end ? i : -1).filter(i => i >= 0);
+          if(!part || !ui.length) return;
+          const seq = part.chords.map(tr), r = alignSeq(seq, ui.map(i => prof[i]), true);
+          ui.forEach((i, j) => { names[i] = seq[r.path[j]]; });
+          total += r.cost * ui.length;
+        });
+        // what no named part covers: the whole sheet, in order
+        const rest = units.map((_, i) => names[i] == null ? i : -1).filter(i => i >= 0);
+        if(rest.length){ const seq = sh.flat.map(tr), r = alignSeq(seq, rest.map(i => prof[i]), false); rest.forEach((i, j) => { names[i] = seq[r.path[j]]; }); total += r.cost * rest.length; }
+      } else {
+        const seq = sh.flat.map(tr), r = alignSeq(seq, prof, false);
+        r.path.forEach((p, i) => { names[i] = seq[p]; }); total = r.cost * units.length;
+      }
+      if(!best || total < best.total) best = {total, names, sft};
+    }
+    // silence in the recording stays silent
+    const out = [];
+    units.forEach(([a, e], i) => { let n = best.names[i]; if(!n) return; if(prof[i].every(v => v === 0)) n = null; if(!n) return;
+      const l = out[out.length - 1]; if(l && l.chord === n && Math.abs(l.end - a) < 0.05) l.end = e; else out.push({start: +a.toFixed(3), end: +e.toFixed(3), chord: n}); });
+    const list = out.map(c => { const m = /^([^/]+)(?:\/(.+))?$/.exec(c.chord); return {start: c.start, end: c.end, chord: m[1], bass: m[2] || null}; });
+    return {list, shift: best.sft > 6 ? best.sft - 12 : best.sft, fit: Math.max(0, Math.round((1 - best.total / units.length) * 100)), parts: byParts, count: sh.flat.length, german: sh.german};
+  }
+  function openSheet(){
+    closeZoom();
+    const song = Mixer.currentSong();
+    if(!song) return;
+    const el = document.createElement("div");
+    el.className = "cc-zoom fresh";
+    el.innerHTML = `<div class="cc-zbox cc-sheet" style="--h:230">
+      <button type="button" class="cc-zx" data-a="x" title="Zavřít (Esc)">×</button>
+      <div class="cc-zt"><span class="cc-zn" style="font-size:30px">Akordy z listu</span></div>
+      <div class="cc-note" style="font-size:13px;line-height:1.5">Najdi píseň na stránce s akordy (Ultimate Guitar, Supermusic, Velký zpěvník, Chordify…), označ celý text s akordy, zkopíruj (⌘C) a vlož sem (⌘V).
+        Pick akordy z listu položí na nahrávku: kde který zní, pozná podle toho, co je slyšet. Když list části pojmenuje (Refrén, Sloka, [Chorus]…), každá část písně vezme svoje akordy.
+        Jiná tónina (kapodastr) nevadí — zkusí všech 12. Česká H/B se pozná sama.</div>
+      <textarea class="cc-sheet-t" placeholder="[Verse 1]&#10;Bm        G&#10;A city overflowing...&#10;&#10;[Chorus]&#10;D    A    Bm   G"></textarea>
+      <div class="cc-sheet-r"></div>
+      <div class="cc-zf"><button type="button" data-a="try" class="big">Položit na nahrávku</button><button type="button" data-a="save" disabled>Uložit jako akordy písně</button>
+        <button type="button" data-a="reset" title="Smazat vlastní akordy a vrátit ty z analýzy">↺ Akordy z analýzy</button></div></div>`;
+    (box && box.closest("#nm-stage")) ? box.closest("#nm-stage").appendChild(el) : document.body.appendChild(el);
+    zoom = {el, items: [], i: 0, v: 0, song: false};
+    window.addEventListener("keydown", zoomKey, true);
+    const ta = el.querySelector("textarea"), res = el.querySelector(".cc-sheet-r"), save = el.querySelector('[data-a="save"]');
+    ta.addEventListener("keydown", (e) => e.stopPropagation());
+    let got = null;
+    el.querySelector('[data-a="x"]').onclick = closeZoom;
+    el.addEventListener("pointerdown", (e) => { if(e.target === el) closeZoom(); });
+    el.querySelector('[data-a="try"]').onclick = () => {
+      got = fromSheet(ta.value);
+      if(got.error){ res.innerHTML = `<span class="cc-bad">${esc(got.error)}</span>`; save.disabled = true; return; }
+      const names = [...new Set(got.list.map(c => c.chord + (c.bass ? "/" + c.bass : "")))];
+      res.innerHTML = `<span class="cc-ok">✓ ${got.count} akordů z listu → ${got.list.length} úseků v písni</span>
+        <span class="cc-heard">shoda s nahrávkou <b>${got.fit} %</b>${got.shift ? ` · list posunut o ${got.shift > 0 ? "+" : "−"}${Math.abs(got.shift)} (jiná tónina / kapodastr)` : ""}${got.parts ? " · po částech" : ""}${got.german ? " · české H/B" : ""}</span>
+        <div class="cc-heard">akordy: <b>${esc(names.slice(0, 16).join(" "))}${names.length > 16 ? " …" : ""}</b></div>`;
+      save.disabled = !got.list.length;
+    };
+    save.onclick = async () => {
+      if(!got || !got.list.length) return;
+      try{
+        const r = await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({chords: got.list})});
+        if(!r.ok) throw new Error(r.status);
+        D().useChords(got.list, song);
+        try{ localStorage.setItem("pick-chords-src:" + song, "sheet"); }catch(e){}
+        seqSig = laneSig = carSig = "";
+        showToast("Akordy z listu uložené k písni — v Mistrovi přesně, v Základních jen hlavní");
+        closeZoom(); paint();
+      }catch(e){ showToast("Akordy se nepodařilo uložit"); }
+    };
+    el.querySelector('[data-a="reset"]').onclick = async () => {
+      try{ await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "DELETE"}); }catch(e){}
+      try{ localStorage.removeItem("pick-chords-src:" + song); }catch(e){}
+      await D().reloadChords(); seqSig = laneSig = carSig = "";
+      showToast("Akordy z analýzy jsou zpátky"); closeZoom(); paint();
+    };
+    setTimeout(() => ta.focus(), 50);
+  }
+
+  // ======================================================================
   // The song's chords, where it sounds now
   // ======================================================================
   let seq = [], seqSig = "", semis = 0;
   function chords(){
     let raw = [], p = 0;
     try{ raw = D().chords(); p = D().pitch ? D().pitch() : 0; }catch(e){}
-    const sig = (Mixer.currentSong() || "") + ":" + raw.length + ":" + (raw.length ? raw[0].start + ":" + raw[raw.length - 1].end : "") + ":" + p;
+    const sig = (Mixer.currentSong() || "") + ":" + raw.length + ":" + (raw.length ? raw[0].start + ":" + raw[raw.length - 1].end : "") + ":" + p + ":" + cfg.level;
     if(sig === seqSig) return seq;
     seqSig = sig; semis = p;
+    if(cfg.level !== "master"){
+      const G = grid(); let secs = [];
+      try{ secs = Mixer.sectionsNow ? Mixer.sectionsNow() : []; }catch(e){}
+      raw = simplify(raw, {level: cfg.level, beats: G.beats, downbeats: G.db, perBar: G.per, sections: secs});
+    }
     const out = [];
     raw.forEach(x => {
       const ch0 = parseChord(x.chord);
@@ -613,6 +920,8 @@ const ChordCoach = (() => {
         <select data-k="root">${SH.map((n, i) => `<option value="${i}">${n}</option>`).join("")}</select>
         <select data-k="scale">${E.scales().map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
         <select data-k="lock"><option value="off">neukazovat</option><option value="highlight">ukázat</option><option value="lock">🔒 zámek</option></select></span>` : ""}
+      <span class="cc-grp cc-lvl" title="Kolik akordů ukazovat: Základní — jen hlavní, jeden na takt; Pokročilé — až dva na takt, septimy; Mistr — všechno, co analýza slyšela">${LEVELS.map(([k, n]) => `<button type="button" data-lvl="${k}" class="${cfg.level === k ? "on" : ""}">${n}</button>`).join("")}</span>
+      <button type="button" data-k="sheet" title="Vložit akordy z listu (Ultimate Guitar, Supermusic…) — Pick je položí na nahrávku">📋 Akordy z listu${(() => { try{ return localStorage.getItem("pick-chords-src:" + Mixer.currentSong()) === "sheet" ? " ✓" : ""; }catch(e){ return ""; } })()}</button>
       <span class="cc-grp" title="Velikost akordů — aby byly vidět i z dálky"><span>Velikost</span><button type="button" data-k="zdn">A−</button><b data-k="zv">${Math.round(cfg.zoom * 100)} %</b><button type="button" data-k="zup">A+</button></span>
       <span class="cc-shift" data-k="shift" hidden></span>
       <button type="button" data-k="keys" title="Klavír: hraj myší, na klávesnici Macu nebo na MIDI klávesách — tóny se ukážou i na kytaře">🎹 Klavír</button>
@@ -634,6 +943,8 @@ const ChordCoach = (() => {
       k.onchange = () => E.setScale({scale: k.value, lock: k.value !== "none" && E.scale().lock === "off" ? "highlight" : undefined});
       l.onchange = () => E.setScale({lock: l.value});
     }
+    tools.querySelectorAll("[data-lvl]").forEach(b => b.onclick = () => setLevel(b.dataset.lvl));
+    tools.querySelector('[data-k="sheet"]').onclick = () => openSheet();
     const zoomBy = (d) => { cfg.zoom = Math.round(Math.max(0.7, Math.min(2.5, cfg.zoom + d)) * 100) / 100; keep(); applyZoom(); tools.querySelector('[data-k="zv"]').textContent = Math.round(cfg.zoom * 100) + " %"; };
     tools.querySelector('[data-k="zdn"]').onclick = () => zoomBy(-0.15);
     tools.querySelector('[data-k="zup"]').onclick = () => zoomBy(0.15);
@@ -1486,7 +1797,7 @@ const ChordCoach = (() => {
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
-  return {mount, paint, openSounds, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
+  return {mount, paint, openSounds, openSheet, simplify, level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
     _midi: (bytes) => midi(bytes), _analyze: analyze, _played: () => ({held: [...play.held.keys()], last: play.last.slice(), src: play.src, shape: play.shape, mirror: mirrorShape(), shown: shownNotes()}),
     _tap: (s, f) => tapNeck(s, f), _pick: (n) => pickChord(n, "quiet"), _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,
