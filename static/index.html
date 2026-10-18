@@ -2970,6 +2970,9 @@ body.lib-collapsed .pick-brand{display:none}
     font-variant-numeric:tabular-nums}
   .chord-block:hover{background:rgba(255,255,255,.12)}
   .chord-block.silent{background:transparent;border-left-color:transparent}
+  .chord-block.simple{font-size:11.5px;color:#ffe2b8;background:rgba(200,121,31,.1);border-left-color:rgba(200,121,31,.55)}
+  .chord-lvl{margin-left:auto;background:#1b1b22;color:var(--nm-txt);border:1px solid #32323c;border-radius:4px;
+    font-size:10px;padding:0 2px;height:16px;max-width:76px;cursor:pointer}
   .chord-block sub{font-size:8.5px;opacity:.72;vertical-align:baseline}
   .chord-resize{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize;
     z-index:2;background:transparent}
@@ -19435,7 +19438,41 @@ const Mixer = (() => {
 
   function renderChordsLane(rail, lanes, totalPx){
     const lane = thinLane(rail, lanes, totalPx, "Akordy", 26, "chord-lane");
+    // Základní / Pokročilé / Mistr (static/chordcoach.js): the same setting as the Live Show's
+    const CC = typeof ChordCoach !== "undefined" ? ChordCoach : null, lvl = CC && CC.level ? CC.level() : "master";
+    if(CC && CC.levels){
+      const top = rail.lastElementChild.querySelector(".nm-strip-top");
+      const sel = document.createElement("select");
+      sel.className = "chord-lvl"; sel.title = "Kolik akordů ukazovat: Základní = jen hlavní (jeden na takt), Pokročilé = až dva na takt, Mistr = vše z analýzy (a úpravy)";
+      sel.innerHTML = CC.levels.map(([v, n]) => `<option value="${v}"${v === lvl ? " selected" : ""}>${n}</option>`).join("");
+      sel.addEventListener("click", (e) => e.stopPropagation());
+      sel.addEventListener("change", () => CC.setLevel(sel.value));
+      top.appendChild(sel);
+    }
     if(!chords.length){ laneNote(lane, analysisNote()); return; }
+
+    if(lvl !== "master"){
+      // the simplified chords are a view: a click opens the song's own chord at that time to edit
+      // (or switch to Mistr for every boundary)
+      const view = CC.simplify(chords, {level: lvl, beats: beatTimes, downbeats: downbeatTimes, perBar: beatsPerBar, sections});
+      view.forEach(v => {
+        const x = v.start * pixelsPerSecond, w = Math.max(2, (v.end - v.start) * pixelsPerSecond);
+        const block = document.createElement("div");
+        block.className = "chord-block simple";
+        block.style.left = x + "px"; block.style.width = (w - 1) + "px";
+        block.title = `${v.chord} — ${lvl === "basic" ? "Základní" : "Pokročilé"} zobrazení; klikni pro úpravu (přesné hranice v režimu Mistr)`;
+        if(w >= 26) block.textContent = v.chord;
+        block.onclick = (e) => {
+          e.stopPropagation();
+          const rect = block.getBoundingClientRect();
+          const atTime = v.start + (e.clientX - rect.left) / pixelsPerSecond;
+          const idx = chords.findIndex(c => atTime >= c.start && atTime < c.end);
+          if(idx >= 0) openChordWheel(idx, atTime); else seek(atTime);
+        };
+        lane.appendChild(block);
+      });
+      return;
+    }
 
     chords.forEach((ch, idx) => {
       const x = ch.start * pixelsPerSecond;
@@ -19496,6 +19533,9 @@ const Mixer = (() => {
       }
     });
   }
+
+  // the chord level (Základní / Pokročilé / Mistr) changed in the Live Show or here
+  window.addEventListener("pick-chord-level", () => { if(currentSongName) renderTrackLanes(); });
 
   // ---- chords: detected, then owned by the listener ----
   //
@@ -27154,6 +27194,7 @@ const Mixer = (() => {
       audio: () => channels.map(c => ({stem: c.stem, buffer: c.buffer})),
       useChords(list, song){ if(song !== currentSongName || !Array.isArray(list)) return; chords = list; analysisState = "ready"; renderTrackLanes(); },
       reanalyze: () => currentSongName ? fetchAnalysis(currentSongName, loadToken, true) : Promise.resolve(),
+      reloadChords: () => currentSongName ? fetchAnalysis(currentSongName, loadToken) : Promise.resolve(),
       facts(){
         const k = el("nm-key").textContent, st = channels.length ? songTuning() : null;
         return {key: k && k !== "…" && k !== "—" ? k : "", bpm: tempoBPM ? Math.round(tempoBPM * speed) : null,

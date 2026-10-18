@@ -848,6 +848,25 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     ke svému tónu, aby z C nebylo Cmaj7), šablony akordů a vyhlazení — stejný postup jako na serveru, takže
     sedí na doby. Najdou se i do pruhu akordů v mixu. Když ani to nevyjde, je tam „Zkusit znovu analýzou“.
     Prázdný vlastní seznam akordů (uložený omylem) už neschová akordy z analýzy.
+  - **Kolik akordů: Základní / Pokročilé / Mistr** (v nástrojích Live Show i jako výběr u pruhu Akordy v mixu,
+    jedno nastavení pro obojí). Analýza slyší každou změnu harmonie, i průchodné akordy a obraty — na hraní
+    je to moc. Zjednodušení (`ChordCoach.simplify`):
+    1. píseň se rozdělí podle taktových čar na takty (Základní) nebo půltakty (Pokročilé);
+    2. v každém dílku vyhraje akord, který v něm zní nejdéle; Základní ho pojmenuje prostě (Am7 → Am,
+       Gsus4 → G, D/F# → D), Pokročilé nechá 7, maj7, m7, sus, dim, aug, power chordy a obraty (9 → 7);
+    3. z toho, co zní nejdéle, se najde tónina (24 tónin, jejich akordy I ii iii IV V vi); akord mimo tóninu,
+       který trvá jediný takt, je průchodný a v Základních zmizí;
+    4. části, které se opakují (každý refrén, každá sloka), hlasují takt po taktu: na každém místě vyhraje
+       akord, na kterém se shodne většina opakování — refrén má pak pokaždé stejné své čtyři akordy;
+    5. stejný akord za sebou je jeden. Mistr ukazuje všechno z analýzy a jen v něm jdou posouvat hranice.
+  - **📋 Akordy z listu**: akordy zkopírované ze stránky s akordy (Ultimate Guitar, Supermusic, Velký zpěvník,
+    ChordPro `[Am]text`…) se vloží a Pick je položí na nahrávku: po půltaktech porovná tóny akordů z listu s
+    tím, co analýza slyší, a Viterbim najde, kde který akord z listu zní — v pořadí listu (stejný nebo další
+    akord, přeskočení stojí). Když list i píseň mají pojmenované části ([Chorus], Refrén:, Sloka 2), každá část
+    písně bere akordy své části z listu dokola. List v jiné tónině (kapodastr) nevadí — zkusí se všech 12
+    posunů; česká H/B a Fis/Cis/Es se poznají. Výsledek ukáže shodu s nahrávkou a jde uložit jako vlastní
+    akordy písně (`PUT /api/stems/{song}/chords`); ↺ vrátí akordy z analýzy. Stránky se samy nestahují:
+    jejich podmínky to nedovolují a nalezená verze často není ta správná — vybrat ji je lepší na tobě.
 
 ## Trenér zpěvu: duet
 
