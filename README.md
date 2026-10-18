@@ -785,7 +785,16 @@ knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně
   šlápnutí na spínač MIDI pedálu ji přiřadí. Stejné akce jsou v Nastavení → MIDI pedál (`deck:next`,
   `deck:prev`, `deck:again`, `deck:loop`, `deck:play`), tam i dvojklik a podržení.
 
-**Na celé obrazovce** navíc:
+**Live Show** — celá obrazovka — se otevírá velkým tlačítkem LIVE SHOW uprostřed ovládacího panelu Steems
+(mezi kulatými knoflíky a tóninou, laděním a tempem; dřívější tlačítko „na celou obrazovku“ u textu tam
+už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc).
+
+**V Live Show** navíc:
+- **🎛 Zvuky**: tvoje kytara — vstup zapnout/vypnout, zesilovač (NAM profil ‹ › nebo klik na název = seznam;
+  s ToneRigem / tunelem / otiskem jen jeho název), gain; zvuk klavíru a zvuk kytary na hmatníku (nástroje
+  Klaviatury Picku, ‹ › nebo klik = seznam) a jejich hlasitost.
+- **Velikost** (A− / A+, 70–250 %) u akordů: pás akordů, jejich názvy i karty se zvětší, aby byly vidět i z
+  dálky od monitoru; velikost se pamatuje.
 - **🔍 Písně**: hledání ve Steems podle písně nebo kapely (kapela → její písně); vybraná píseň se načte
   a celá obrazovka zůstane (`restage`: text, tab a pole zpěváků se přestěhují s ní).
 - **Akordy** (zap/vyp, „kytara i klavír“ / „kytara“ / „klavír“; `static/chordcoach.js`):

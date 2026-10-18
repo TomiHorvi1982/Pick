@@ -10,6 +10,7 @@
 // keys are the listener's to change, and the same actions are there for the
 // MIDI pedal (Settings → MIDI pedál, or "Naučit pedál" here).
 //
+// The deck's LIVE SHOW button opens the whole screen; there MixPult goes back to the mix.
 // On the whole screen also: a finder (bands and songs — a song picked loads
 // while the screen stays), and the chord helper (static/chordcoach.js): the
 // chords running past a still line, the one sounding big among the ones around
@@ -88,7 +89,30 @@ const SongDeck = (() => {
   #nm-stage:has(.nm-stage-body.duo) .dk.stage{padding:6px 12px;gap:6px}
   #nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-nm,#nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-v{display:none}
   #nm-stage:has(.nm-stage-body.duo) .dk.stage .dk-part{height:30px}
-  #dk-find,#dk-chords-btn{display:inline-flex;align-items:center;gap:6px}
+  /* Live Show: the way to the whole screen, in the middle of the deck */
+  .dk-end{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+  .dk-end .dk-facts{margin-left:0}
+  .dk.steems .dk-end{margin-left:0;flex-wrap:nowrap}
+  .dk.steems .dk-facts{flex-direction:column;flex-wrap:nowrap;gap:3px;font-size:11px}
+  .dk.steems .dk-facts span{padding:3px 9px;border-radius:8px;text-align:right}
+  .dk.steems .dk-facts b{font-size:12px}
+  .dk.steems .dk-end > button{width:34px;height:34px}
+  .dk-live{margin:0 auto;position:relative;display:inline-flex;align-items:center;gap:12px;padding:11px 26px 11px 20px;border-radius:999px;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--accent,#8b5cf6) 70%,#fff 10%);color:#fff;font:inherit;isolation:isolate;
+    background:radial-gradient(120% 160% at 0% 0%,rgba(255,60,120,.55),transparent 55%),linear-gradient(135deg,color-mix(in srgb,var(--accent,#8b5cf6) 85%,#000),#22113a 70%);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--accent,#8b5cf6) 18%,transparent),0 10px 30px rgba(0,0,0,.45),0 0 26px color-mix(in srgb,var(--accent,#8b5cf6) 45%,transparent);
+    transition:transform .15s,box-shadow .2s}
+  .dk-live:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent,#8b5cf6) 26%,transparent),0 14px 36px rgba(0,0,0,.5),0 0 40px color-mix(in srgb,var(--accent,#8b5cf6) 60%,transparent)}
+  .dk-live-dot{width:11px;height:11px;border-radius:50%;background:#ff3b5c;box-shadow:0 0 0 0 rgba(255,59,92,.7);animation:dk-rec 1.6s infinite}
+  @keyframes dk-rec{0%{box-shadow:0 0 0 0 rgba(255,59,92,.7)}70%{box-shadow:0 0 0 10px rgba(255,59,92,0)}100%{box-shadow:0 0 0 0 rgba(255,59,92,0)}}
+  .dk-live-t{display:flex;flex-direction:column;line-height:.95;text-align:left}
+  .dk-live-t b{font-size:19px;font-weight:900;letter-spacing:.16em}
+  .dk-live-t i{font-style:normal;font-size:11px;font-weight:800;letter-spacing:.42em;color:#ffd1e0}
+  /* back from Live Show to the mix */
+  #dk-mixpult{display:inline-flex;align-items:center;gap:7px;font-weight:800;letter-spacing:.06em;
+    background:linear-gradient(135deg,#2a2a3a,#16161f);border-color:color-mix(in srgb,var(--accent,#8b5cf6) 55%,transparent)}
+  #dk-mixpult:hover{background:linear-gradient(135deg,#34344a,#1c1c28)}
+  #dk-find,#dk-chords-btn,#dk-sounds{display:inline-flex;align-items:center;gap:6px}
   #dk-chords-btn.on{background:var(--accent);color:#06150f;border-color:var(--accent);font-weight:700}
   `;
   { const st = document.createElement("style"); st.id = "dk-css"; st.textContent = CSS; document.head.appendChild(st); }
@@ -323,15 +347,19 @@ const SongDeck = (() => {
         <button type="button" class="dk-play" title="Přehrát / pauza (${esc(keysOf("play"))})"></button>
         <div class="dk-tracks"></div>
         <div class="dk-mst"></div>
-        <div class="dk-facts"></div>
+        ${kind === "steems" ? `<button type="button" class="dk-live" title="Live Show — celá obrazovka: text, tab, akordy, klavír a kytara, deck; zpátky tlačítkem MixPult">
+          <span class="dk-live-dot"></span><span class="dk-live-t"><b>LIVE</b><i>SHOW</i></span></button>` : ""}
+        <div class="dk-end"><div class="dk-facts"></div>
         ${kind === "steems" ? `<button type="button" class="dk-lpbtn" title="Looper: nahraj si píseň po vrstvách, v jejím tempu a s jejími částmi">${icon("repeat", 16)}</button>` : ""}
-        <button type="button" class="dk-keys" title="Klávesy a MIDI pedál pro přehrávání a skoky po částech">${icon("keyboard", 16)}</button>
+        <button type="button" class="dk-keys" title="Klávesy a MIDI pedál pro přehrávání a skoky po částech">${icon("keyboard", 16)}</button></div>
       </div>
       <div class="dk-parts"></div>`;
     where(box);
     const h = {box, kind, sigT: "", sigP: ""};
     box.querySelector(".dk-play").onclick = () => run("play");
     box.querySelector(".dk-keys").onclick = (e) => openKeys(e.currentTarget);
+    const lv = box.querySelector(".dk-live");
+    if(lv) lv.onclick = () => D().live(true);
     const lb = box.querySelector(".dk-lpbtn");
     if(lb) lb.onclick = () => { if(typeof Looper !== "undefined") Looper.open(song()); };
     const m = master();
@@ -518,7 +546,17 @@ const SongDeck = (() => {
       cv.id = "dk-chord-view"; cv.title = "Jak akordy ukazovat";
       cv.innerHTML = `<option value="both">kytara i klavír</option><option value="guitar">kytara</option><option value="piano">klavír</option>`;
       cv.onchange = () => { cfg.chordView = cv.value; keep(); paint(true); };
-      bar.insertBefore(find, sp); bar.insertBefore(cb, sp); bar.insertBefore(cv, sp);
+      const snd = document.createElement("button");
+      snd.type = "button"; snd.id = "dk-sounds"; snd.innerHTML = `🎛 <span>Zvuky</span>`;
+      snd.title = "Zvuk tvé kytary (vstup, zesilovač), zvuk klavíru a kytary na hmatníku, hlasitost";
+      snd.onclick = (e) => ChordCoach.openSounds(e.currentTarget);
+      bar.insertBefore(find, sp); bar.insertBefore(cb, sp); bar.insertBefore(cv, sp); bar.insertBefore(snd, sp);
+      const mp = document.createElement("button");
+      mp.type = "button"; mp.id = "dk-mixpult"; mp.innerHTML = `${icon("sliders", 14)}<span>MixPult</span>`;
+      mp.title = "Zpátky do mixpultu Steems (Esc)";
+      mp.onclick = () => D().live(false);
+      const cl = bar.querySelector("#nm-stage-close");
+      bar.insertBefore(mp, cl || null);
       paintChordBtn();
     }
     D().onFlow(flow);
