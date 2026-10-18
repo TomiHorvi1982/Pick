@@ -859,6 +859,11 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     4. části, které se opakují (každý refrén, každá sloka), hlasují takt po taktu: na každém místě vyhraje
        akord, na kterém se shodne většina opakování — refrén má pak pokaždé stejné své čtyři akordy;
     5. stejný akord za sebou je jeden. Mistr ukazuje všechno z analýzy a jen v něm jdou posouvat hranice.
+  - **Sync** (v nástrojích Live Show, ukládá se k písni jako posun tabu a textu): − / + posune akordy o 0,1 s
+    (⇧ o 1 s), **Teď!** — ťukni, když v písni začne akord, a nejbližší změna akordu se posune přesně na teď —
+    a ↺ posun zruší. **⏳ s kytarou** (zapnuté): žádný akord před tím, než začnou hrát nástroje — Pick najde
+    první chvíli, kdy kytara, basa, klávesy a ostatní (ne zpěv, ne bicí) zazní aspoň desetinou své hlasitosti,
+    takže tiché první sekundy písně zůstanou prázdné. Pruh Akordy v mixu se posune stejně.
   - **📋 Akordy z listu**: akordy zkopírované ze stránky s akordy (Ultimate Guitar, Supermusic, Velký zpěvník,
     ChordPro `[Am]text`…) se vloží a Pick je položí na nahrávku: po půltaktech porovná tóny akordů z listu s
     tím, co analýza slyší, a Viterbim najde, kde který akord z listu zní — v pořadí listu (stejný nebo další
