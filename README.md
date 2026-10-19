@@ -864,6 +864,13 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     a ↺ posun zruší. **⏳ s kytarou** (zapnuté): žádný akord před tím, než začnou hrát nástroje — Pick najde
     první chvíli, kdy kytara, basa, klávesy a ostatní (ne zpěv, ne bicí) zazní aspoň desetinou své hlasitosti,
     takže tiché první sekundy písně zůstanou prázdné. Pruh Akordy v mixu se posune stejně.
+  - **Kam sáhnout** (panely 🎹 Klavír a 🎸 Kytara v Live Show): nad klávesami a hmatníkem řádek TEĎ → DALŠÍ (akord,
+    jeho tři tóny, za kolik dob přijde další). Na klavíru jsou plně obarvené tři klávesy akordu, který hraje
+    (jen základní trojzvuk: Am7 → A C E), a čárkovaně tři klávesy dalšího — položené co nejblíž, aby ruka
+    přejela co nejmíň (obraty akordů se vybírají po sobě přes celou píseň); společný tón má obojí. Na hmatníku
+    je plně hmat akordu teď (s názvy tónů) a čárkovaně hmat dalšího, ten, který je nejblíž tomuhle.
+  - **Výběr zvuku** (Zvuky → klavír / kytara na hmatníku): seznam po kategoriích zůstane otevřený, klik zvuk
+    vybere, označí barvou a zahraje akord na poslech; Hotovo nebo Esc zavře.
   - **🌐 Akordy z webu** (Live Show, jedním klikem, na pozadí): Pick najde píseň na **Supermusicu** (české a slovenské
     písně) a na **Ultimate Guitar** (dvě nejlépe hodnocené verze akordů), každou verzi položí na nahrávku stejně jako
     Akordy z listu a tu, která sedí nejlíp, sám uloží jako akordy písně (když je shoda aspoň 45 %). Když nic nesedí
