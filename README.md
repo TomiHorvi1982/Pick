@@ -864,11 +864,21 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     a ↺ posun zruší. **⏳ s kytarou** (zapnuté): žádný akord před tím, než začnou hrát nástroje — Pick najde
     první chvíli, kdy kytara, basa, klávesy a ostatní (ne zpěv, ne bicí) zazní aspoň desetinou své hlasitosti,
     takže tiché první sekundy písně zůstanou prázdné. Pruh Akordy v mixu se posune stejně.
-  - **Kam sáhnout** (panely 🎹 Klavír a 🎸 Kytara v Live Show): nad klávesami a hmatníkem řádek TEĎ → DALŠÍ (akord,
-    jeho tři tóny, za kolik dob přijde další). Na klavíru jsou plně obarvené tři klávesy akordu, který hraje
-    (jen základní trojzvuk: Am7 → A C E), a čárkovaně tři klávesy dalšího — položené co nejblíž, aby ruka
-    přejela co nejmíň (obraty akordů se vybírají po sobě přes celou píseň); společný tón má obojí. Na hmatníku
-    je plně hmat akordu teď (s názvy tónů) a čárkovaně hmat dalšího, ten, který je nejblíž tomuhle.
+  - **Kam sáhnout** (panely 🎹 Klavír a 🎸 Kytara v Live Show): na klavíru jsou obarvené tři klávesy akordu,
+    který hraje (jen základní trojzvuk: Am7 → A C E), a nad klaviaturou vedou z kláves dalšího akordu čáry, které
+    se sbíhají do jednoho bodu s jeho názvem a tím, za kolik dob přijde. Klávesy dalšího akordu jsou položené co
+    nejblíž, aby ruka přejela co nejmíň (obraty se vybírají po sobě přes celou píseň). Na hmatníku je plně hmat
+    akordu teď (s názvy tónů) a čárkovaně hmat dalšího, ten nejbližší, s řádkem TEĎ → DALŠÍ.
+  - **🧒 Snadný režim** (klavír): hraje se pořád na stejné tři klávesy uprostřed (C E G, označené) — zahrají
+    tóny akordu, který zrovna hraje; když se akord změní, držené klávesy samy přejdou na jeho tóny. Každá jiná
+    klávesa zahraje nejbližší tón akordu. Každý stisk je správně (i jedním prstem) — pro děti a začátečníky.
+  - **Zvuk přímo u nástroje**: v hlavičce klavíru i kytary je tlačítko se jménem zvuku — otevře nástroje Picku
+    po kategoriích (seznam zůstane otevřený, klik zvuk vybere a zahraje).
+  - **Kytara:** 🎤 *hlídat hraní* zapíná a vypíná poslech vstupu kytary (vypnuté = hmatník jen ukazuje akordy).
+    🎻 *kytara jako nástroj* pustí živou kytaru zvukem hmatníku (housle, flétna…) — je to „Kytara jako nástroj“
+    z kanálu kytary ve Steems (knihovna kytara-nastroj, jeden tón na brnknutí, u akordu ten nejsilnější), její
+    vstup jde ze zvukovky rovnou, před gate a zesilovačem, takže Pick k latenci nic nepřidává; *jen nástroj*
+    ztlumí zvuk kytary.
   - **Výběr zvuku** (Zvuky → klavír / kytara na hmatníku): seznam po kategoriích zůstane otevřený, klik zvuk
     vybere, označí barvou a zahraje akord na poslech; Hotovo nebo Esc zavře.
   - **🌐 Akordy z webu** (Live Show, jedním klikem, na pozadí): Pick najde píseň na **Supermusicu** (české a slovenské
@@ -1341,6 +1351,12 @@ cd ~/.local/share/spotdl-helper/app
   drums, other a vocals, takže se našich šest stop nejdřív smíchá na čtyři.
   Hranice se pak přichytí na taktovou čáru, pokud je do jedné doby daleko;
   dál už ne, aby se opravdu mimomřížkový předěl neposunul.
+- **Rychlejší otevírání písně**: stopy se stahují a dekódují všechny najednou (prohlížeč dekóduje každou ve
+  svém vlákně), zároveň s načtením uloženého mixu — dřív jedna po druhé. Obrys vlny se z každé stopy spočítá
+  jednou (bloky po 64 vzorcích) a překreslení při zoomu a úpravách čte jen ten — ne deset milionů vzorků
+  čtyřminutové stopy. Panel Live Show a pomůcka s akordy se během načítání nepřekreslují (každé jejich
+  překreslení nutilo prohlížeč znovu rozvrhnout celou stránku) a server posílá stopy po 1 MB. Šest čtyřminutových
+  stop: z ~6 s na ~3 s na čtyřjádrovém stroji, na Macu s víc jádry víc.
 - **Akordy**: žádný předtrénovaný model nešel použít — madmomu chybí v forku
   `madmom-infer` chordový modul, chord-extractor chce Vamp binárku a autochord
   táhne TensorFlow. Takže klasika: **beat-synchronní chroma proti šablonám
