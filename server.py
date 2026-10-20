@@ -3059,7 +3059,7 @@ def _range_file_response(path: Path, range_header: Optional[str]):
             f.seek(start)
             remaining = length
             while remaining > 0:
-                chunk = f.read(min(65536, remaining))
+                chunk = f.read(min(1 << 20, remaining))      # 1 MB: a 6 MB stem in six reads, not ninety
                 if not chunk:
                     break
                 remaining -= len(chunk)

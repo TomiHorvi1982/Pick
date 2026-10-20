@@ -18646,11 +18646,41 @@ const Mixer = (() => {
 
   // Min/max envelope per pixel column — the honest way to draw a waveform:
   // it keeps transients visible instead of averaging them away.
+  // The envelope of a track is read once, in blocks of 64 samples, and kept with the buffer: a repaint
+  // (every zoom, every edit, every lane redrawn while a song opens) reads those few thousand blocks instead
+  // of all ten million samples of a four-minute track.
+  const WAVE_BLOCK = 64, wavePeaks = new WeakMap();
+  function peaksOf(buffer){
+    let pk = wavePeaks.get(buffer);
+    if(pk) return pk;
+    const data = buffer.getChannelData(0), n = Math.ceil(data.length / WAVE_BLOCK);
+    const mins = new Float32Array(n), maxs = new Float32Array(n);
+    for(let b = 0, i = 0; b < n; b++){
+      let mn = 0, mx = 0;
+      const end = Math.min(data.length, i + WAVE_BLOCK);
+      for(; i < end; i++){ const v = data[i]; if(v < mn) mn = v; else if(v > mx) mx = v; }
+      mins[b] = mn; maxs[b] = mx;
+    }
+    pk = {mins, maxs, len: data.length};
+    wavePeaks.set(buffer, pk);
+    return pk;
+  }
   function paintWave(g, buffer, w, h, color){
     const data = buffer.getChannelData(0);
     const mid = h / 2;
     const perPx = data.length / w;
     g.fillStyle = color;
+    if(perPx >= WAVE_BLOCK * 2){             // zoomed in further than that: the samples themselves
+      const {mins, maxs} = peaksOf(buffer), perB = perPx / WAVE_BLOCK;
+      for(let x = 0; x < w; x++){
+        const from = Math.floor(x * perB), to = Math.min(mins.length, Math.floor((x + 1) * perB));
+        let min = 0, max = 0;
+        for(let b = from; b < to; b++){ if(mins[b] < min) min = mins[b]; if(maxs[b] > max) max = maxs[b]; }
+        const y1 = mid + min * mid * 0.92, y2 = mid + max * mid * 0.92;
+        g.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+      }
+      return;
+    }
     for(let x = 0; x < w; x++){
       const from = Math.floor(x * perPx);
       const to = Math.min(data.length, Math.floor((x + 1) * perPx));
@@ -21148,6 +21178,17 @@ const Mixer = (() => {
     if(c._ov && c._ov.w === w && c._ov.buf === c.buffer && c._ov.d === duration) return c._ov.p;
     const data = c.buffer.getChannelData(0), p = new Float32Array(w);
     const n = Math.max(1, Math.min(w, Math.round(w * c.buffer.duration / Math.max(duration, 0.001)))), per = data.length / n;
+    if(per >= WAVE_BLOCK * 2){                  // from the track's kept envelope, not its samples
+      const {mins, maxs} = peaksOf(c.buffer), perB = per / WAVE_BLOCK;
+      for(let x = 0; x < n; x++){
+        const to = Math.min(mins.length, Math.floor((x + 1) * perB));
+        let m = 0;
+        for(let b = Math.floor(x * perB); b < to; b++){ const v = Math.max(-mins[b], maxs[b]); if(v > m) m = v; }
+        p[x] = m;
+      }
+      c._ov = {w, buf: c.buffer, d: duration, p};
+      return p;
+    }
     const stride = Math.max(1, Math.floor(per / 96));
     for(let x = 0; x < n; x++){
       const to = Math.min(data.length, Math.floor((x + 1) * per));
@@ -21604,6 +21645,14 @@ const Mixer = (() => {
     loopEnabled = false; loopStart = 0; loopEnd = 0;
     el("mixer-loop").classList.remove("active");
 
+    // The tracks are fetched and decoded all at once, while the session is read (the browser decodes
+    // each on its own thread: six tracks take about as long as the slowest one, not six in a row).
+    const stemNames = song.stems.map(stem => typeof stem === 'string' ? stem : (stem.name || stem));
+    const decoding = stemNames.map(stemName =>
+      fetch(`/api/stems/${encodeURIComponent(song.name)}/${encodeURIComponent(stemName)}`)
+        .then(res => res.arrayBuffer())
+        .then(arrayBuf => myToken !== loadToken ? null : ctx().decodeAudioData(arrayBuf))
+        .then(buf => ({buf}), err => ({err})));
     // Restore session if exists
     const saved = await loadSession(song.name);
     if(myToken !== loadToken) return;
@@ -21658,13 +21707,12 @@ const Mixer = (() => {
     editIdx = -1; clip = null; undoStack.length = 0; redoStack.length = 0;
     selClip = null; clipBoard = null; lastCopied = null;
     const loaded = [];
-    for(const stem of song.stems){
-      const stemName = typeof stem === 'string' ? stem : (stem.name || stem);
-      const res = await fetch(`/api/stems/${encodeURIComponent(song.name)}/${encodeURIComponent(stemName)}`);
-      const arrayBuf = await res.arrayBuffer();
+    for(let si = 0; si < stemNames.length; si++){
+      const stemName = stemNames[si];
+      const got = await decoding[si];
       if(myToken !== loadToken) return;
-      const audioBuf = await ctx().decodeAudioData(arrayBuf);
-      if(myToken !== loadToken) return;
+      if(got.err) throw got.err;
+      const audioBuf = got.buf;
       duration = Math.max(duration, audioBuf.duration);
       // The 6-stem model always writes a file for every stem, whether or not
       // that instrument was ever actually in the mix — its "best guess" at
@@ -23603,7 +23651,7 @@ const Mixer = (() => {
     let peak = 0;
     for(let ch = 0; ch < 2; ch++){
       const data = live.map(c => c.buffer.getChannelData(Math.min(ch, c.buffer.numberOfChannels - 1)));
-      for(let i = 0; i < n; i += 2){
+      for(let i = 0; i < n; i += 4){
         let v = 0;
         for(let k = 0; k < data.length; k++) v += data[k][i];
         if(v < 0) v = -v;

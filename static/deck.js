@@ -434,6 +434,9 @@ const SongDeck = (() => {
   }
   function paint(force){
     if(typeof Mixer === "undefined" || !Mixer.deck) return;
+    // nothing to show while a song's tracks are being read in — and asking where the deck is (below) makes the
+    // browser lay the whole page out again on every tick while the lanes are being built
+    if(!Mixer.ready()) return;
     hosts.forEach(h => {
       if(!h.box.isConnected || h.box.offsetParent === null) return;
       const play = Mixer.isPlaying(), b = h.box.querySelector(".dk-play");
