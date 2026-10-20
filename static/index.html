@@ -4685,6 +4685,8 @@ body.lib-collapsed .pick-brand{display:none}
   .sing-fx input[type=range]{width:74px;accent-color:var(--accent,var(--accent))}
   .sing-fx select{background:#1e1e25;color:#fff;border:1px solid #3a3a46;border-radius:6px;padding:2px 6px;font:inherit}
   .sing-fx .lat{margin-left:auto;font-variant-numeric:tabular-nums;color:#777}
+  .sing-fx .fx-metal{display:inline-flex;align-items:center;gap:6px 12px;flex-wrap:wrap;padding:3px 10px;border-radius:9px;border:1px solid rgba(229,83,75,.35);background:rgba(229,83,75,.07)}
+  .sing-fx .fx-metal b{color:#ff8a80;font-size:12px}
   .sing-fx.off .fxk{opacity:.45}
   .sing-fx .db{min-width:44px;font-variant-numeric:tabular-nums}
   .sing-fx .meter{width:70px;height:8px;border-radius:4px;background:#22222a;overflow:hidden;display:inline-block}
@@ -6354,6 +6356,15 @@ body.lib-collapsed .pick-brand{display:none}
         <input type="range" id="sing-fx-harm" min="0" max="100"></label>
       <label class="fxk" title="Telefon / megafon: úzké pásmo, trochu zkreslené">telefon <input type="range" id="sing-fx-tel" min="0" max="100"></label>
       <label class="fxk" title="Robot: hlas násobený kmitáním (ring modulace)">robot <input type="range" id="sing-fx-robot" min="0" max="100"></label>
+      <span class="fx-metal">
+        <b title="Efekty pro metalový zpěv — hotová nastavení jsou ve „zvuk“ pod Metal">🤘 metal</b>
+        <label class="fxk" title="Zkreslení: hlas tlačený do saturace jako přetížené hrdlo">zkreslení <input type="range" id="sing-fx-drive" min="0" max="100"></label>
+        <label class="fxk" title="Chrapot: šum, který jde s hlasem jen když zpíváš — drsnost screamu">chrapot <input type="range" id="sing-fx-rasp" min="0" max="100"></label>
+        <label class="fxk" title="Chrčení: nepravidelné drnčení 30–70 Hz jako falešné hlasivky a vocal fry">chrčení <input type="range" id="sing-fx-fry" min="0" max="100"></label>
+        <label class="fxk" title="Hloubka: hlas o oktávu níž přimíchaný a zkreslený s tebou — hloubka growlu">hloubka <input type="range" id="sing-fx-sub" min="0" max="100"></label>
+        <label class="fxk" title="Barva: vlevo tmavá (growl), uprostřed neutrální, vpravo ostrá (skřek)">barva <input type="range" id="sing-fx-tone" min="0" max="100"></label>
+      </span>
+      <label class="fxk" title="Nahraná stopa s efekty, jak se slyšíš (jinak se nahrává čistý hlas, který jde ozvučit až v mixu). Platí od dalšího „Zpívat“."><input type="checkbox" id="sing-recfx"> nahrávat s efekty</label>
       <span class="lat" id="sing-fx-lat"></span>
     </div>
     <div class="sing-who who1" id="sing-who1" hidden></div>
@@ -35039,8 +35050,15 @@ const Sing = (() => {
   //   robot    the voice times a 55 Hz wave (ring modulation)
   //   dry      the voice itself, without the effects
   //   pan      where it sits, left to right (each singer of a duet their own)
+  // and for metal (pick-growl below, the voice on its own way through them):
+  //   drive    the voice driven into a soft clip, a little lopsided (as a throat pushed to its limit)
+  //   rasp     noise that follows the voice — only while singing — and gets driven with it: the grit of a scream
+  //   fry      the voice chopped by an uneven pulse of 30–70 Hz: the rattle of false cords and vocal fry
+  //   sub      a copy an octave down, driven with the voice: the depth of a growl
+  //   tone     dark (low mids up, the top rolled off) … bright (presence up): growl … shriek
+  // a gate closes the driven voice between phrases, so the mic's hiss is not driven up with it
   const FXKEY = "pick-sing-fx";
-  const KNOBS0 = {rev: 0, dly: 0, echo: 0, dbl: 0, harm: 0, comp: 30, bright: 30, tel: 0, robot: 0, dry: 100};
+  const KNOBS0 = {rev: 0, dly: 0, echo: 0, dbl: 0, harm: 0, comp: 30, bright: 30, tel: 0, robot: 0, dry: 100, drive: 0, rasp: 0, fry: 0, sub: 0, tone: 50};
   const PRESETS = {
     clean: {name: "čistý", comp: 20, bright: 20},
     room: {name: "místnost", rev: 22},
@@ -35054,14 +35072,25 @@ const Sing = (() => {
     stadium: {name: "stadion", rev: 38, echo: 42, comp: 50, bright: 40},
     mountain: {name: "ozvěna v horách", rev: 20, echo: 72},
     double: {name: "dvojitý hlas", rev: 16, dbl: 65, comp: 40, bright: 40},
-    choir: {name: "sbor", rev: 34, dbl: 55, harm: 45, comp: 40, bright: 35},
+    choir: {name: "sbor", rev: 34, dbl: 55, harm: 45, int: -12, comp: 40, bright: 35},
     phone: {name: "telefon", tel: 85, dry: 12, comp: 60, bright: 0, rev: 4},
     megaphone: {name: "megafon", tel: 100, dry: 0, comp: 90, bright: 0, echo: 22},
     robot: {name: "robot", robot: 85, dry: 18, rev: 15, comp: 50},
+    // metal: voices of its styles (the driven voice carries them, the clean one only underneath)
+    death: {name: "death metal growl", group: "metal", drive: 72, rasp: 35, fry: 45, sub: 55, tone: 22, dry: 22, comp: 85, bright: 20, rev: 18, dly: 10},
+    gutt: {name: "guttural (brutal death, slam)", group: "metal", drive: 78, rasp: 22, fry: 75, sub: 82, tone: 8, dry: 10, comp: 90, bright: 5, rev: 12},
+    black: {name: "black metal skřek", group: "metal", drive: 62, rasp: 72, fry: 15, sub: 0, tone: 84, dry: 28, comp: 75, bright: 70, rev: 55, echo: 22, harm: 22, int: 12},
+    core: {name: "metalcore scream", group: "metal", drive: 58, rasp: 55, fry: 25, sub: 15, tone: 66, dry: 40, comp: 85, bright: 60, dbl: 35, dly: 15, rev: 20},
+    deathcore: {name: "deathcore (hluboko i vysoko)", group: "metal", drive: 76, rasp: 42, fry: 55, sub: 68, tone: 40, dry: 15, comp: 90, bright: 35, harm: 30, int: 12, rev: 28},
+    squeal: {name: "pig squeal", group: "metal", drive: 70, rasp: 40, fry: 60, sub: 0, tone: 75, dry: 20, comp: 85, bright: 60, harm: 55, int: 12, robot: 22, rev: 15},
+    thrash: {name: "thrash / hardcore (štěkot)", group: "metal", drive: 45, rasp: 30, fry: 10, sub: 10, tone: 62, dry: 60, comp: 85, bright: 60, dly: 32, rev: 16},
+    nu: {name: "nu-metal / industrial", group: "metal", drive: 86, rasp: 18, fry: 0, sub: 12, tone: 56, dry: 28, comp: 92, bright: 55, tel: 28, dbl: 30, rev: 10},
+    doom: {name: "doom / sludge", group: "metal", drive: 42, rasp: 28, fry: 32, sub: 40, tone: 26, dry: 38, comp: 70, bright: 25, rev: 70, echo: 32},
+    power: {name: "power / heavy (čistý, epický)", group: "metal", drive: 10, tone: 62, dry: 100, comp: 65, bright: 60, rev: 48, echo: 24, dbl: 38, harm: 18, int: 7},
     own: {name: "vlastní"},
   };
-  const presetOf = (k) => { const {name, ...v} = PRESETS[k] || {}; return {...KNOBS0, ...v}; };
-  const fx = {mon: false, rec: true, gain: 0, vol: 100, preset: "room", int: -12, pan: 0, ...presetOf("room")};
+  const presetOf = (k) => { const {name, group, ...v} = PRESETS[k] || {}; return {...KNOBS0, ...v}; };
+  const fx = {mon: false, rec: true, recFx: false, gain: 0, vol: 100, preset: "room", int: -12, pan: 0, ...presetOf("room")};
   try{ Object.assign(fx, JSON.parse(localStorage.getItem(FXKEY) || "{}")); }catch(e){}
   Object.keys(KNOBS0).forEach(k => { if(typeof fx[k] !== "number") fx[k] = KNOBS0[k]; });
   // the second singer's own sound in a duet (kept with the duet)
@@ -35081,6 +35110,50 @@ const Sing = (() => {
           s += (a + (c - a) * f) * (0.5 - 0.5 * Math.cos(2 * Math.PI * p));
         }
         o[n] = s; this.w = (this.w + 1) & M;
+      }
+      return true;
+    } });
+  registerProcessor("pick-growl", class extends AudioWorkletProcessor {
+    constructor(o){
+      super();
+      this.p = {drive: 0, rasp: 0, fry: 0, ...((o && o.processorOptions) || {})};
+      this.env = 0; this.genv = 0; this.gate = 0; this.prev = 0; this.ph = 0; this.hz = 50; this.n1 = 0; this.n2 = 0; this.lp = 0; this.seed = 12345;
+      this.port.onmessage = (e) => Object.assign(this.p, e.data);
+    }
+    rnd(){ this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 2147483648 - 1; }
+    process(inputs, outputs){
+      const i = inputs[0][0], o = outputs[0][0]; if(!o) return true;
+      const {drive, rasp, fry} = this.p, sr = sampleRate;
+      if(drive <= 0 && rasp <= 0 && fry <= 0){ if(i) o.set(i); else o.fill(0); return true; }
+      const g = 1 + drive * drive * 70, bias = 0.22 * drive, tb = Math.tanh(bias), lvl = 1 / (1 + (g - 1) * 0.13);
+      const att = 1 - Math.exp(-1 / (0.001 * sr)), rel = 1 - Math.exp(-1 / (0.06 * sr)), grel = 1 - Math.exp(-1 / (0.018 * sr));
+      const gOpen = 1 - Math.exp(-1 / (0.002 * sr)), gClose = 1 - Math.exp(-1 / (0.03 * sr)), thr = 0.004;
+      const hpA = Math.exp(-2 * Math.PI * 900 / sr), lpA = 1 - Math.exp(-2 * Math.PI * 5200 / sr);
+      const sat = (x) => (Math.tanh(g * x + bias) - tb) * lvl;
+      for(let n = 0; n < o.length; n++){
+        let x = i ? i[n] : 0;
+        const a = x < 0 ? -x : x;
+        this.env += (a - this.env) * (a > this.env ? att : rel);          // how loud the voice is (the rasp follows it)
+        this.genv += (a - this.genv) * (a > this.genv ? att : grel);      // the same, quicker to fall: the gate
+        const open = this.genv > thr;
+        this.gate += ((open ? 1 : 0) - this.gate) * (open ? gOpen : gClose);
+        // rasp: noise in the band of a scream, as loud as the voice is, driven with it
+        if(rasp > 0){
+          const w = this.rnd(); this.n1 = hpA * (this.n1 + w - this.n2); this.n2 = w;
+          this.lp += (this.n1 - this.lp) * lpA;
+          x += this.lp * this.env * rasp * 2.2;
+        }
+        // driven twice as often (half-way points in between), averaged back: less aliasing fizz
+        let y = 0.5 * (sat(0.5 * (this.prev + x)) + sat(x));
+        this.prev = x;
+        // fry: the driven voice chopped by an uneven pulse of 30–70 Hz (after the drive, which would level it out)
+        if(fry > 0){
+          this.ph += this.hz / sr;
+          if(this.ph >= 1){ this.ph -= 1; this.hz = 32 + 38 * (0.5 + 0.5 * this.rnd()); }
+          const c = 0.5 + 0.5 * Math.cos(2 * Math.PI * this.ph);
+          y *= 1 - fry * 0.85 * c * c * c;
+        }
+        o[n] = y * this.gate;
       }
       return true;
     } });
@@ -35112,30 +35185,41 @@ const Sing = (() => {
     const inp = G(1), hp = F("highpass", 80, 0.7), pres = F("peaking", 3800, 0.8, 0), comp = ac.createDynamicsCompressor(), voice = G(1);
     src.connect(split); split.connect(inp, Math.min(7, ch || 0));
     inp.connect(hp).connect(pres).connect(comp).connect(voice);
-    const master = G(0), pan = ac.createStereoPanner(), dry = G(1), wet = G(1);
-    voice.connect(dry).connect(master); voice.connect(wet);
+    // bus: the voice as heard, every effect summed (what a take "with effects" records); master: how loud in the phones
+    const bus = G(1), master = G(0), pan = ac.createStereoPanner(), dry = G(1), wet = G(1);
+    voice.connect(dry).connect(bus); voice.connect(wet);
     const rev = G(0), conv = ac.createConvolver(); conv.buffer = room(ac);
-    wet.connect(rev).connect(conv).connect(master);
-    const dly = G(0); wet.connect(dly).connect(D(0.115)).connect(master);
+    wet.connect(rev).connect(conv).connect(bus);
+    const dly = G(0); wet.connect(dly).connect(D(0.115)).connect(bus);
     const echo = G(0), ed = D(0.38), fb = G(0.45), dark = F("lowpass", 3200);
-    wet.connect(echo).connect(ed).connect(master); ed.connect(dark).connect(fb).connect(ed);
+    wet.connect(echo).connect(ed).connect(bus); ed.connect(dark).connect(fb).connect(ed);
+    // metal: the voice (and an octave under it) → tone before → driven, rasped, fried, gated → tone after → out and into the room
+    const met = G(0), sub = G(0), subShift = new AudioWorkletNode(ac, "pick-shift", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
+    subShift.port.postMessage(0.5);
+    const lowMid = F("peaking", 280, 0.9, 0), bite = F("peaking", 2800, 0.9, 0), mhp = F("highpass", 90, 0.7);
+    const growl = new AudioWorkletNode(ac, "pick-growl", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
+    const cab = F("lowpass", 7000, 0.7), notch = F("peaking", 4600, 2, -4), metOut = G(1);
+    voice.connect(met).connect(mhp); voice.connect(sub).connect(subShift).connect(mhp);
+    mhp.connect(lowMid).connect(bite).connect(growl).connect(cab).connect(notch).connect(metOut);
+    metOut.connect(bus); metOut.connect(wet);
     const dbl = G(0), osc = [];
     [[0.021, 0.31, -0.75], [0.033, 0.43, 0.75]].forEach(([t, hz, where]) => {
       const d = D(t), o = ac.createOscillator(), depth = G(0.0028), p = ac.createStereoPanner();
       o.frequency.value = hz; p.pan.value = where;
       o.connect(depth).connect(d.delayTime); o.start(); osc.push(o);
-      voice.connect(dbl).connect(d); d.connect(p).connect(master); d.connect(wet);
+      voice.connect(dbl).connect(d); d.connect(p).connect(bus); d.connect(wet);
     });
     const harm = G(0), shift = new AudioWorkletNode(ac, "pick-shift", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"});
-    voice.connect(harm).connect(shift); shift.connect(master); shift.connect(wet);
+    voice.connect(harm).connect(shift); shift.connect(bus); shift.connect(wet);
     const tel = G(0), shaper = ac.createWaveShaper();
     shaper.curve = Float32Array.from({length: 1024}, (_, i) => { const x = i / 511.5 - 1; return Math.tanh(3 * x) / Math.tanh(3); });
-    voice.connect(tel).connect(F("highpass", 550, 0.9)).connect(F("lowpass", 2700, 0.9)).connect(shaper).connect(master);
+    voice.connect(tel).connect(F("highpass", 550, 0.9)).connect(F("lowpass", 2700, 0.9)).connect(shaper).connect(bus);
     const ring = G(0), ro = ac.createOscillator(), robot = G(0);
     ro.frequency.value = 55; ro.connect(ring.gain); ro.start(); osc.push(ro);
-    voice.connect(ring).connect(robot).connect(master); robot.connect(wet);
-    master.connect(pan).connect(out);
-    const c = {ac, src, split, inp, hp, pres, comp, voice, dry, wet, rev, conv, dly, echo, ed, fb, dark, dbl, harm, shift, tel, shaper, ring, ro, robot, master, pan, osc};
+    voice.connect(ring).connect(robot).connect(bus); robot.connect(wet);
+    bus.connect(master).connect(pan).connect(out);
+    const c = {ac, src, split, inp, hp, pres, comp, voice, dry, wet, rev, conv, dly, echo, ed, fb, dark, dbl, harm, shift, tel, shaper, ring, ro, robot, bus, master, pan, osc,
+      met, sub, subShift, lowMid, bite, mhp, growl, cab, notch, metOut};
     c.apply = (v, monOn, lift) => {
       const now = ac.currentTime, set = (n, x) => n.gain.setTargetAtTime(x, now, 0.03);
       inp.gain.value = lift;
@@ -35147,6 +35231,14 @@ const Sing = (() => {
       pres.gain.value = v.bright / 100 * 8; hp.frequency.value = 60 + v.bright * 0.9;
       pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (v.pan || 0) / 100)), now, 0.03);
       shift.port.postMessage(Math.pow(2, (v.int || -12) / 12));
+      // metal: the way is open when any of it is turned up; tone 0 dark … 50 neutral … 100 bright
+      const drive = (v.drive || 0) / 100, rasp = (v.rasp || 0) / 100, fry = (v.fry || 0) / 100, sb = (v.sub || 0) / 100, tone = (v.tone == null ? 50 : v.tone);
+      const any = drive > 0 || rasp > 0 || fry > 0 || sb > 0;
+      set(met, any ? 1 : 0); set(sub, sb * 1.1); set(metOut, any ? 1.15 : 0);
+      growl.port.postMessage({drive, rasp, fry});
+      lowMid.gain.value = (50 - tone) / 50 * 7; bite.gain.value = (tone - 50) / 50 * 7;
+      mhp.frequency.value = 70 + Math.max(0, tone - 50) * 5;
+      cab.frequency.value = 3200 + tone * 75;
     };
     c.stop = () => { osc.forEach(o => { try{ o.stop(); }catch(e){} }); Object.values(c).forEach(n => { if(n && n.disconnect) try{ n.disconnect(); }catch(e){} }); };
     return c;
@@ -35164,7 +35256,7 @@ const Sing = (() => {
     // The take that becomes a track: the microphone after its gain, no effects.
     const rec = new AudioWorkletNode(ac, "pick-tape", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1, channelCountMode: "explicit"});
     rec.port.onmessage = (e) => { if(fx.rec && loopLine < 0 && !lesson && tape.length < 9000) tape.push(e.data); };
-    chain.inp.connect(rec); chain.rec = rec;
+    (fx.recFx ? chain.bus : chain.inp).connect(rec); chain.rec = rec;
     fxApply();
   }
   function fxApply(){
@@ -35184,10 +35276,16 @@ const Sing = (() => {
     chain = null; el("sing-fx-lat").textContent = "";
   }
   const KNOBS = {vol: "sing-fx-vol", rev: "sing-fx-rev", dly: "sing-fx-dly", echo: "sing-fx-echo", dbl: "sing-fx-dbl", harm: "sing-fx-harm",
-    pan: "sing-fx-pan", comp: "sing-fx-comp", bright: "sing-fx-bright", dry: "sing-fx-dry", tel: "sing-fx-tel", robot: "sing-fx-robot"};
-  const presetOptions = (cur) => Object.entries(PRESETS).map(([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${p.name}</option>`).join("");
+    pan: "sing-fx-pan", comp: "sing-fx-comp", bright: "sing-fx-bright", dry: "sing-fx-dry", tel: "sing-fx-tel", robot: "sing-fx-robot",
+    drive: "sing-fx-drive", rasp: "sing-fx-rasp", fry: "sing-fx-fry", sub: "sing-fx-sub", tone: "sing-fx-tone"};
+  const presetOptions = (cur) => {
+    const opt = ([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${p.name}</option>`, all = Object.entries(PRESETS);
+    return all.filter(([k, p]) => !p.group && k !== "own").map(opt).join("")
+      + `<optgroup label="Metal">${all.filter(([, p]) => p.group === "metal").map(opt).join("")}</optgroup>` + opt(["own", PRESETS.own]);
+  };
   function fxPaint(){
     el("sing-mon").checked = !!fx.mon; el("sing-rec").checked = !!fx.rec; el("sing-fx-gain").value = fx.gain; el("sing-fx-int").value = String(fx.int);
+    el("sing-recfx").checked = !!fx.recFx;
     el("sing-fx-preset").innerHTML = presetOptions(fx.preset);
     Object.keys(KNOBS).forEach(k => { el(KNOBS[k]).value = fx[k]; });
     el("sing-pan1").value = fx.pan || 0;
@@ -35197,6 +35295,9 @@ const Sing = (() => {
   function fxChanged(){ try{ localStorage.setItem(FXKEY, JSON.stringify(fx)); }catch(e){} fxPaint(); fxApply(); }
   el("sing-mon").onchange = (e) => { fx.mon = e.target.checked; fxChanged(); if(fx.mon && !on) say("Uslyšíš se, jakmile klikneš na „Zpívat“. Jen se sluchátky, jinak to začne pískat."); };
   el("sing-rec").onchange = (e) => { fx.rec = e.target.checked; fxChanged(); };
+  // the take: the bare voice (to be mixed later) or the voice as heard, with its effects — from the next "Zpívat"
+  el("sing-recfx").onchange = (e) => { fx.recFx = e.target.checked; fxChanged();
+    if(chain && chain.rec){ try{ chain.inp.disconnect(chain.rec); }catch(err){} try{ chain.bus.disconnect(chain.rec); }catch(err){} (fx.recFx ? chain.bus : chain.inp).connect(chain.rec); } };
   el("sing-fx-gain").oninput = (e) => { fx.gain = +e.target.value; fxChanged(); };
   el("sing-fx-preset").onchange = (e) => { fx.preset = e.target.value; if(fx.preset !== "own") Object.assign(fx, presetOf(fx.preset), {pan: fx.pan}); fxChanged(); };
   // the second singer of a duet: a preset, a pan and a level of their own

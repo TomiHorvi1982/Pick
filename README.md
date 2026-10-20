@@ -1234,6 +1234,21 @@ robot a vlastní. V duetu má každý zpěvák svou zvukovou cestu, předvolbu a
 (druhý se pamatuje s duetem). Hodnotí se pořád holý mikrofon, efekty na výsledek
 nemají vliv. Jen se sluchátky.
 
+**🤘 Metal** (v téže řadě efektů): hlas jde navíc vlastní cestou přes AudioWorklet `pick-growl` —
+**zkreslení** (měkká saturace tanh, trochu nesouměrná jako přetížené hrdlo, počítaná na dvojnásobném
+vzorkování proti šumivému aliasingu, s vyrovnáním hlasitosti), **chrapot** (šum v pásmu 0,9–5 kHz, který
+jde s obálkou hlasu — jen když zpíváš — a zkreslí se s ním: drsnost screamu), **chrčení** (zkreslený hlas
+přerušovaný nepravidelným pulzem 30–70 Hz: drnčení falešných hlasivek a vocal fry), **hloubka** (kopie
+o oktávu níž přes `pick-shift`, zkreslená spolu s hlasem: hloubka growlu) a **barva** (tmavá: víc
+nízkých středů kolem 280 Hz a ubraná výška; ostrá: víc kolem 2,8 kHz a vyšší dolní propust). Za
+zkreslením je dolní propust jako repro bedna a zářez kolem 4,6 kHz proti pištění; gate zavře zkreslený
+hlas mezi frázemi, aby se nezesiloval šum mikrofonu. Předvolby pod **Metal**: death metal growl,
+guttural (brutal death, slam), black metal skřek (+ hlas o oktávu výš), metalcore scream, deathcore
+(hluboko i vysoko), pig squeal, thrash / hardcore (štěkot), nu-metal / industrial, doom / sludge
+a power / heavy (čistý, epický — bez zkreslení, s dozvukem a harmonií). Hotový VST plugin na metalový
+zpěv do prohlížeče nejde a webový (Web Audio) se na GitHubu nenašel, proto je to vlastní DSP.
+**Nahrávat s efekty**: stopa se nahraje tak, jak se slyšíš (jinak čistý hlas na pozdější ozvučení).
+
 **Mikrofon a nahrávka**: posuvník „mikrofon“ zesílí vstup až o 30 dB (pro
 hodnocení, nahrávku i sluchátka), vedle něj ukazatel úrovně. Se zaškrtnutým
 „nahrát do stopy“ se dozpívaný pokus (aspoň 8 s, ne smyčka jednoho řádku) uloží
