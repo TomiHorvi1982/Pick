@@ -3102,6 +3102,7 @@ body.lib-collapsed .pick-brand{display:none}
   .inst-pop .col.list button.on small{color:rgba(0,0,0,.6)}
   .inst-pop .ip-cat i{font-style:normal;float:right;color:#8b8b96;font-size:11.5px;font-weight:400;margin-left:8px}
   .inst-pop .none{padding:16px 10px;color:#8b8b96;font-size:12.5px}
+  .inst-pop .ip-top .ip-done{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;background:var(--accent);color:#0b0b0d;font-size:12.5px;font-weight:700}
   @media (max-width:620px){ .inst-pop{grid-template-columns:150px minmax(0,1fr);width:calc(100vw - 16px)} }
   .gt-preset-name.pickable,.gt-rail-preset.pickable{cursor:pointer}
   .gt-preset-name.pickable:hover,.gt-rail-preset.pickable:hover{color:var(--accent);text-decoration:underline}
@@ -31358,7 +31359,9 @@ const InstrPick = (() => {
     return f.length ? f[((i < 0 ? 0 : i + d) % f.length + f.length) % f.length] : null;
   }
   const name = (groups, id) => { const n = flat(groups || []).find(x => x.id === id); return n ? n.nazev : (id || "Nástroj"); };
-  function open(anchor, groups, current, onPick, title){
+  // opts.stay: a click picks (marked, and onPick can let it be heard) and the list stays open to try the next one
+  function open(anchor, groups, current, onPick, title, opts){
+    opts = opts || {};
     const old = el("inst-pop");
     if(old){ const same = old.anchor === anchor; old.remove(); if(same) return; }
     const box = document.createElement("div");
@@ -31366,7 +31369,7 @@ const InstrPick = (() => {
     box.id = "inst-pop";
     box.anchor = anchor;
     let cat = Math.max(0, groups.findIndex(g => g.nastroje.some(n => n.id === current))), cur = current, q = "";
-    box.innerHTML = `<div class="ip-top"><b>${escapeHtml(title || "Vyber zvuk")}</b><input type="search" placeholder="Hledat podle názvu…" spellcheck="false"></div>
+    box.innerHTML = `<div class="ip-top"><b>${escapeHtml(title || "Vyber zvuk")}</b><input type="search" placeholder="Hledat podle názvu…" spellcheck="false">${opts.stay ? `<button type="button" class="ip-done" title="Zavřít (Esc)">Hotovo</button>` : ""}</div>
       <div class="col cats"></div><div class="col list"></div>`;
     const paint = () => {
       box.querySelector(".cats").innerHTML = groups.map((g, i) => `<button type="button" class="ip-cat ${!q && i === cat ? "on" : ""}" data-cat="${i}">${escapeHtml(g.kategorie)}<i>${g.nastroje.length}</i></button>`).join("");
@@ -31389,9 +31392,15 @@ const InstrPick = (() => {
     box.addEventListener("click", (e) => {
       const c = e.target.closest("[data-cat]");
       if(c){ cat = +c.dataset.cat; q = ""; find.value = ""; paint(); return; }
+      if(e.target.closest(".ip-done")){ close(); return; }
       const b = e.target.closest("[data-id]");
-      if(b){ cur = b.dataset.id; onPick(cur); close(); }
+      if(!b) return;
+      cur = b.dataset.id; onPick(cur);
+      if(!opts.stay){ close(); return; }
+      const list = box.querySelector(".list"), top = list.scrollTop;
+      paint(); list.scrollTop = top;
     });
+    if(opts.stay) box.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); close(); } });
     document.addEventListener("pointerdown", away, true);
   }
   return {step, name, open};
