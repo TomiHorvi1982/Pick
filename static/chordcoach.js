@@ -66,6 +66,24 @@ const ChordCoach = (() => {
   .cc-note{font-size:11.5px;color:#8a8aa0}
   .cc-msg button{margin-left:8px;font:inherit;font-size:12px;padding:5px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
   /* the carousel: the chord sounding in the middle, big; the ones before and after, small */
+  .cc-beats{display:flex;flex-direction:column;gap:4px}
+  .cc-bh{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#8f8fa6}.cc-bh b{color:#c9c9da;letter-spacing:.08em;font-size:11px}.cc-bh .sp{flex:1}
+  .cc-bh button{padding:3px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#e6e6ef;font:inherit;font-size:11.5px;cursor:pointer}
+  .cc-bwin{position:relative;height:calc(38px * var(--cc-z,1) + 14px);overflow:hidden;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}
+  .cc-btrack{position:absolute;left:0;top:0;bottom:0;will-change:transform}
+  .cc-bx{position:absolute;top:13px;height:calc(38px * var(--cc-z,1) - 2px);border-radius:6px;background:hsl(var(--h) 60% 34%);border:1px solid hsl(var(--h) 70% 52%);cursor:pointer;overflow:visible;transition:background .1s}
+  .cc-bx.down{border-left-width:3px}
+  .cc-bx span{position:absolute;left:4px;top:50%;transform:translateY(-50%);font:800 calc(13px * var(--cc-z,1)) system-ui,sans-serif;color:#fff;white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:1}
+  .cc-bx.empty{background:transparent;border:1px dashed rgba(255,255,255,.18)}
+  .cc-bx.past{opacity:.45}.cc-bx.now{background:hsl(var(--h) 80% 52%);box-shadow:0 0 0 2px #fff,0 0 14px hsl(var(--h) 90% 60% / .7)}
+  .cc-bx:hover{filter:brightness(1.25)}
+  .cc-bn{position:absolute;top:0;font:700 9.5px system-ui,sans-serif;color:#7f7f96;font-style:normal}
+  .cc-bhead{position:absolute;top:8px;bottom:0;width:2px;margin-left:-1px;background:#fff;opacity:.85;pointer-events:none}
+  .cc-bpop .cc-bchips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .cc-bpop .cc-bchips button{padding:5px 10px;border-radius:8px;border:1px solid hsl(var(--h) 70% 55%);background:hsl(var(--h) 60% 30%);color:#fff;font-weight:800;cursor:pointer}
+  .cc-bpop .cc-bchips button.on{box-shadow:0 0 0 2px #fff}.cc-bpop .cc-bchips button.none{background:transparent;border:1px dashed rgba(255,255,255,.3);font-weight:600}
+  .cc-bpop input[type=text]{flex:1;min-width:0;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#101016;color:#fff;font:inherit}.cc-bpop input.bad{border-color:#ff5a6a}
+  .cc-bpop label{display:inline-flex;gap:4px;align-items:center;font-size:12px;margin-right:10px}
   .cc-car{position:relative;height:calc(var(--ch,236px) + 14px);overflow:hidden}
   .cc-card{position:absolute;left:50%;top:calc(50% + 7px);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 14px 12px;border-radius:18px;
     cursor:zoom-in;box-sizing:border-box;width:var(--cw,190px);
@@ -841,7 +859,7 @@ const ChordCoach = (() => {
     const v = Object.assign(syncOf(song), patch);
     v.off = Math.round(Math.max(-30, Math.min(30, v.off)) * 1000) / 1000;
     try{ localStorage.setItem(syncKey(song), JSON.stringify(v)); }catch(e){}
-    seqSig = laneSig = carSig = "";
+    seqSig = laneSig = carSig = beatSig = "";
     window.dispatchEvent(new Event("pick-chord-level"));
     paintSync(); paint();
   }
@@ -949,17 +967,28 @@ const ChordCoach = (() => {
     box = document.createElement("div");
     box.className = "cc";
     box.innerHTML = `<div class="cc-lane" title="Klikni kamkoli — píseň skočí tam"><div class="cc-track"></div><div class="cc-head"></div></div>
+      <div class="cc-beats"><div class="cc-bh"><b>TAKTY A DOBY</b><span>klik na dobu = změnit akord</span><span class="sp"></span>
+        <button type="button" data-b="one" title="Takt 1 začne teď: pusť píseň a klikni, když začne první takt (posune doby i akordy)">⌖ takt 1 = teď</button>
+        <button type="button" data-b="bm" title="Doby o jednu dřív">‹ doba</button><button type="button" data-b="bp" title="Doby o jednu později">doba ›</button>
+        <button type="button" data-b="reset" title="Smazat vlastní akordy a vrátit ty z analýzy">↺ akordy z analýzy</button></div>
+        <div class="cc-bwin"><div class="cc-btrack"></div><div class="cc-bhead"></div></div></div>
       <div class="cc-car"></div><div class="cc-tools"></div><div class="cc-panels"></div>`;
     after.after(box);
     box.style.setProperty("--cc-z", cfg.zoom);
     lane = box.querySelector(".cc-lane"); track = box.querySelector(".cc-track"); head = box.querySelector(".cc-head");
     car = box.querySelector(".cc-car"); tools = box.querySelector(".cc-tools"); panels = box.querySelector(".cc-panels");
+    beatsBox = box.querySelector(".cc-beats"); btrack = box.querySelector(".cc-btrack"); bwin = box.querySelector(".cc-bwin");
+    btrack.addEventListener("click", (e) => { const c = e.target.closest("[data-k]"); if(c) openBeat(+c.dataset.k, c); });
+    beatsBox.querySelector('[data-b="one"]').onclick = () => barOneNow();
+    beatsBox.querySelector('[data-b="bm"]').onclick = () => shiftBeats(-1);
+    beatsBox.querySelector('[data-b="bp"]').onclick = () => shiftBeats(1);
+    beatsBox.querySelector('[data-b="reset"]').onclick = () => resetChords();
     lane.addEventListener("click", (e) => {
       if(!pps) return;
       const r = lane.getBoundingClientRect(), t = (e.clientX - r.left - laneX) / pps;
       if(t >= 0){ Mixer.seek(Math.min(t, Mixer.duration() || t)); if(typeof SongDeck !== "undefined") SongDeck.paint(); }
     });
-    new ResizeObserver(() => { laneSig = ""; carSig = ""; }).observe(lane);
+    new ResizeObserver(() => { laneSig = ""; carSig = ""; beatSig = ""; }).observe(lane);
     paintTools();
     requestAnimationFrame(frame);
     return box;
@@ -995,6 +1024,7 @@ const ChordCoach = (() => {
     if(!shown() || !deckCfg().chords || !seq.length || !pps) return;
     const t = Mixer.currentTime();
     track.style.transform = `translate3d(${(laneX - t * pps).toFixed(1)}px,0,0)`;
+    moveBeats(t);
     const ci = idxAt(seq, t);
     if(cfg.easy) easyFollow(ci);
     if(ci !== laneCi){
@@ -1018,6 +1048,122 @@ const ChordCoach = (() => {
     // how far into the chord now
     const cur = car.querySelector(".cc-card.now .cc-prog i");
     if(cur && ci >= 0){ const c = seq[ci]; cur.style.width = Math.max(0, Math.min(100, (t - c.start) / Math.max(0.05, c.end - c.start) * 100)).toFixed(1) + "%"; }
+  }
+
+  // ---- Takty a doby: one box per beat of the song, bars apart, each the colour of the chord on it (its name where
+  // the chord changes); they run under a line that stays, the beat playing lit. A box clicked: its chord from the
+  // song's own (with their colours), a new one, or none — for the beat or the whole bar; saved as the song's
+  // chords. The beats follow the song's beat grid; "takt 1 = teď" (and a beat earlier/later) moves where they start.
+  let beatsBox = null, btrack = null, bwin = null, beatSig = "", bcells = [], bAt = [], bNow = -2;
+  function beatGrid(){
+    const G = grid(), off = syncOf().off, bt = G.beats.map(b => b + off), down = new Set(G.db.map(d => (d + off).toFixed(3)));
+    const end = Math.max(Mixer.duration() || 0, bt.length ? bt[bt.length - 1] : 0);
+    return {bt, isDown: (k) => down.has(bt[k].toFixed(3)), endOf: (k) => bt[k + 1] != null ? bt[k + 1] : Math.min(end, bt[k] + (bt[k] - (bt[k - 1] ?? bt[k] - 0.5))), off};
+  }
+  function beatNames(B){
+    return B.bt.map((b, k) => { const mid = (b + B.endOf(k)) / 2, i = idxAt(seq, mid); return i >= 0 ? seq[i].name : null; });
+  }
+  function buildBeats(){
+    if(!btrack) return;
+    const B = beatGrid(), CW = Math.round(30 * cfg.zoom), sig = seqSig + ":" + B.bt.length + ":" + B.off + ":" + CW;
+    beatsBox.hidden = !B.bt.length;
+    if(sig === beatSig) return;
+    beatSig = sig; bNow = -2;
+    const names = beatNames(B);
+    let x = 0, html = "", bar = 0;
+    bAt = [];
+    B.bt.forEach((b, k) => {
+      if(B.isDown(k)){ if(k) x += 8; bar++; html += `<i class="cc-bn" style="left:${x}px">${bar}</i>`; }
+      bAt.push(x);
+      const n = names[k], ch = n ? parseChord(n) : null, first = n && n !== names[k - 1];
+      html += `<div class="cc-bx${n ? "" : " empty"}${B.isDown(k) ? " down" : ""}" data-k="${k}" style="left:${x}px;width:${CW - 3}px;--h:${ch ? hue(ch.pc) : 230}" title="${esc(n || "bez akordu")} — klikni pro změnu">${first ? `<span>${esc(n)}</span>` : ""}</div>`;
+      x += CW;
+    });
+    bAt.push(x);
+    btrack.innerHTML = html;
+    bcells = [...btrack.querySelectorAll(".cc-bx")];
+    box.querySelector(".cc-bhead").style.left = Math.round((bwin.clientWidth || 900) * 0.3) + "px";
+  }
+  function moveBeats(t){
+    if(!btrack || !bAt.length) return;
+    const B = beatGrid(), bt = B.bt;
+    let lo = 0, hi = bt.length - 1, k = -1;
+    while(lo <= hi){ const m = (lo + hi) >> 1; if(bt[m] <= t){ k = m; lo = m + 1; } else hi = m - 1; }
+    const CW = Math.round(30 * cfg.zoom);
+    const x = k < 0 ? (t - (bt[0] || 0)) / Math.max(0.05, (bt[1] || 1) - (bt[0] || 0)) * CW : bAt[k] + Math.min(1, (t - bt[k]) / Math.max(0.05, B.endOf(k) - bt[k])) * CW;
+    btrack.style.transform = `translate3d(${(Math.round((bwin.clientWidth || 900) * 0.3) - x).toFixed(1)}px,0,0)`;
+    if(k !== bNow){ bNow = k; bcells.forEach((c, i) => { c.classList.toggle("now", i === k); c.classList.toggle("past", i < k); }); }
+  }
+  // a box clicked: the chords of the song (each its colour), none, or a new one; this beat or its whole bar
+  let beatPop = null;
+  function closeBeat(){ if(beatPop){ beatPop.remove(); beatPop = null; } }
+  function openBeat(k, cell){
+    closeBeat();
+    const B = beatGrid(), names = beatNames(B), cur = names[k];
+    const used = [...new Set(seq.map(c => c.name))];
+    beatPop = document.createElement("div");
+    beatPop.className = "cc-pop cc-bpop";
+    beatPop.innerHTML = `<div class="cc-pop-h">Doba ${k + 1}: <b>${esc(cur || "bez akordu")}</b></div>
+      <div class="cc-bchips">${used.map(n => { const ch = parseChord(n); return `<button type="button" data-n="${esc(n)}" class="${n === cur ? "on" : ""}" style="--h:${ch ? hue(ch.pc) : 230}">${esc(n)}</button>`; }).join("")}
+        <button type="button" data-n="" class="none">— prázdná (vynechat)</button></div>
+      <div class="cc-snd-r"><input type="text" data-a="new" placeholder="nový akord, třeba Am7 nebo D/F#" spellcheck="false"><button type="button" data-a="add">Přidat</button></div>
+      <div class="cc-snd-r"><label><input type="radio" name="cc-bscope" value="beat" checked> jen tahle doba</label><label><input type="radio" name="cc-bscope" value="bar"> celý takt</label><label><input type="radio" name="cc-bscope" value="on"> až do další změny</label></div>`;
+    (cell.closest("#nm-stage") || document.body).appendChild(beatPop);
+    const r = cell.getBoundingClientRect(), w = 380;
+    Object.assign(beatPop.style, {left: Math.max(8, Math.min(r.left - 40, window.innerWidth - w - 8)) + "px", top: (r.bottom + 6) + "px", width: w + "px"});
+    const scope = () => (beatPop.querySelector('[name="cc-bscope"]:checked') || {}).value || "beat";
+    const pick = (n) => { setBeats(k, n, scope()); closeBeat(); };
+    beatPop.querySelectorAll("[data-n]").forEach(b => b.onclick = () => pick(b.dataset.n || null));
+    const inp = beatPop.querySelector('[data-a="new"]');
+    inp.addEventListener("keydown", (e) => { e.stopPropagation(); if(e.key === "Enter") beatPop.querySelector('[data-a="add"]').click(); if(e.key === "Escape") closeBeat(); });
+    beatPop.querySelector('[data-a="add"]').onclick = () => { const n = inp.value.trim().replace(/^([a-h])/, (m) => m.toUpperCase());
+      if(!parseChord(n)){ inp.classList.add("bad"); showToast("Tomu akordu nerozumím — třeba C, Am, F#m7, Bb, D/F#"); return; } pick(n); };
+    setTimeout(() => inp.focus(), 30);
+    const off = (e) => { if(beatPop && !beatPop.contains(e.target) && !e.target.closest(".cc-bx")){ closeBeat(); document.removeEventListener("pointerdown", off, true); } };
+    setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+  }
+  // the beats' chords with the change made → the song's chords (in the recording's time and key), saved
+  async function setBeats(k, name, scope){
+    const B = beatGrid(), names = beatNames(B), was = names[k];
+    let from = k, to = k;
+    if(scope === "bar"){ while(from > 0 && !B.isDown(from)) from--; to = k; while(to + 1 < names.length && !B.isDown(to + 1)) to++; }
+    else if(scope === "on"){ while(to + 1 < names.length && names[to + 1] === was) to++; }
+    for(let i = from; i <= to; i++) names[i] = name;
+    const back = (n) => transpose(n, -semis), list = [];
+    names.forEach((n, i) => {
+      if(!n) return;
+      const a = +(B.bt[i] - B.off).toFixed(3), e = +(B.endOf(i) - B.off).toFixed(3), l = list[list.length - 1];
+      if(l && l._n === n && Math.abs(l.end - a) < 0.02){ l.end = e; return; }
+      const m = /^([^/]+)(?:\/(.+))?$/.exec(back(n));
+      list.push({_n: n, start: Math.max(0, a), end: e, chord: m[1], bass: m[2] || null});
+    });
+    const out = list.map(({_n, ...c}) => c), song = Mixer.currentSong();
+    try{
+      const r = await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({chords: out})});
+      if(!r.ok) throw new Error(r.status);
+      D().useChords(out, song);
+      try{ localStorage.setItem("pick-chords-src:" + song, "edit"); }catch(e){}
+      seqSig = laneSig = carSig = beatSig = ""; paint();
+      showToast(name ? `${name}: ${to > from ? `doby ${from + 1}–${to + 1}` : `doba ${k + 1}`} — uloženo k písni` : "Doby bez akordu — uloženo k písni");
+    }catch(e){ showToast("Akordy se nepodařilo uložit"); }
+  }
+  // where the beats start: the first bar now, or a beat earlier / later (the chords move with them)
+  function barOneNow(){
+    const G = grid();
+    if(!G.db.length){ showToast("Píseň zatím nemá doby"); return; }
+    setSync({off: Mixer.currentTime() - G.db[0]});
+    showToast("Takt 1 začíná teď — doby i akordy posunuté, uloženo k písni");
+  }
+  function shiftBeats(d){
+    const G = grid(), bl = G.beats.length > 1 ? (G.beats[G.beats.length - 1] - G.beats[0]) / (G.beats.length - 1) : 0.5;
+    setSync({off: syncOf().off + d * bl});
+  }
+  async function resetChords(){
+    const song = Mixer.currentSong(); if(!song) return;
+    try{ await fetch(`/api/stems/${encodeURIComponent(song)}/chords`, {method: "DELETE"}); }catch(e){}
+    try{ localStorage.removeItem("pick-chords-src:" + song); }catch(e){}
+    await D().reloadChords(); seqSig = laneSig = carSig = beatSig = ""; paint();
+    showToast("Akordy z analýzy jsou zpátky");
   }
 
   // ---- the cards: the one sounding in the middle, two before and two after
@@ -1045,8 +1191,8 @@ const ChordCoach = (() => {
     const place = (d) => ({x: Math.sign(d) * (Math.abs(d) === 1 ? x1 : Math.abs(d) === 2 ? x2 : x2 + cw), s: k * (d === 0 ? 1 : Math.abs(d) === 1 ? s1 : s2),
       o: d === 0 ? 1 : Math.abs(d) === 1 ? 0.78 : 0.42});
     const want = new Map();
-    for(let d = -2; d <= 2; d++){ const i = base + d; if(i >= 0 && i < list.length) want.set(i, d); }
-    cards.forEach((n, i) => { if(!want.has(i)){ const d = i < base ? -3 : 3, p = place(d); n.classList.add("gone");
+    if(ci >= 0) want.set(ci, 0);              // only the chord playing (what comes next shows on the beats above)
+    cards.forEach((n, i) => { if(!want.has(i)){ const d = i < base ? -1 : 1, p = place(d); n.classList.add("gone"); n.classList.remove("now");
       n.style.transform = `translate(-50%,-50%) translateX(${p.x}px) scale(${p.s})`; setTimeout(() => n.remove(), 520); cards.delete(i); } });
     want.forEach((d, i) => {
       let n = cards.get(i);
@@ -1302,6 +1448,7 @@ const ChordCoach = (() => {
     }
     if(car.dataset.msg){ car.dataset.msg = ""; car.innerHTML = ""; cards = new Map(); carSig = ""; }
     buildLane();
+    buildBeats();
     const t = Mixer.currentTime();
     paintCards(t);
     paintToolState();
@@ -1661,7 +1808,7 @@ const ChordCoach = (() => {
   function handsHtml(h, gtr){
     if(!h) return "";
     const one = (x, cls, lbl) => x ? `<span class="${cls}"><small>${lbl}</small><b>${esc(x.c.name)}</b><i>${esc(gtr ? x.ch.pcs.map(p => SH[p]).join(" ") : handNames(x.ch, x.notes))}</i>${cls === "hx" && x.when ? `<small>${esc(x.when.replace(" · ", ""))} ${/za 1$/.test(x.when) ? "dobu" : /za [234]$/.test(x.when) ? "doby" : "dob"}</small>` : ""}</span>` : "";
-    return `<div class="cc-hands" style="--hn:${h.now ? hue(h.now.ch.pc) : 230};--hx:${h.next ? hue(h.next.ch.pc) : 230}">${one(h.now, "hn", "TEĎ")}${h.now && h.next ? `<span class="ar">→</span>` : ""}${one(h.next, "hx", "DALŠÍ")}</div>`;
+    return h.now ? `<div class="cc-hands" style="--hn:${hue(h.now.ch.pc)}">${one(h.now, "hn", "TEĎ")}</div>` : "";
   }
   function keysSvg(ch, hd){
     const lo = kb.lo, hi = kb.lo + kb.oct * 12, WH = [0, 2, 4, 5, 7, 9, 11], E = eng(), sc = E ? E.scale() : {lock: "off", iv: null, root: 0};
@@ -1673,7 +1820,7 @@ const ChordCoach = (() => {
     const hints = cfg.hints && E ? E.pcHints(cfg.pcMode) : new Map();
     // the chord now: its keys coloured (in easy mode the three keys that stay); the next: lines from its keys
     const easy = cfg.easy && hd;
-    const hn = new Set(easy ? EASY_KEYS : hd && hd.now ? hd.now.notes : []), hx = new Set(easy && hd.next ? EASY_KEYS : hd && hd.next ? hd.next.notes : []);
+    const hn = new Set(easy ? EASY_KEYS : hd && hd.now ? hd.now.notes : []), hx = new Set();      // only the chord playing
     const sndPc = (m) => soundOf(m) % 12;
     const cls = (m) => { let c = "";
       if(held.has(m)) c += cfg.easy && hd ? " ok" : need.size ? (need.has(sndPc(m)) || (ch && ch.bass === sndPc(m)) ? " ok" : " bad") : " down";
@@ -1699,9 +1846,9 @@ const ChordCoach = (() => {
       if(hx.has(b)) g += `<circle cx="${x + 7}" cy="7" r="3.6" class="nxd"/>`;
       g += cap(b, x + 7, H * 0.62 - 17, true); });
     // above the keys: a line from each of the next chord's keys, all meeting in one point with its name
-    const TOP = hd ? 62 : 0;
+    const TOP = hd ? 18 : 0;
     let up = "";
-    if(hd && hd.next){
+    if(false){
       const xs = [...hx].filter(m => m >= lo && m <= hi).map(m => { const k = whites.indexOf(m); return k >= 0 ? (k + 0.5) * ww : (whites.indexOf(m - 1) + 1) * ww; });
       if(xs.length){
         const lbl = hd.next.c.name, when = (hd.next.when || "").replace(" · ", ""), pw = Math.max(54, lbl.length * 11 + (when ? when.length * 6 + 14 : 0) + 22);
@@ -1953,7 +2100,7 @@ const ChordCoach = (() => {
     const v = !free && hd && hd.now ? voicings(hd.now.ch, tun)[0] || null : null;
     const vnAll = !free && hd && hd.next ? voicings(hd.next.ch, tun) : [];
     const vn = vnAll.length ? (v ? vnAll.slice().sort((a, b) => Math.abs(at(a) - at(v)) - Math.abs(at(b) - at(v)))[0] : vnAll[0]) : null;
-    const nx = vn ? {v: vn, ch: hd.next.ch} : null;
+    const nx = null;          // only the chord playing on the neck
     const heard = r ? place(r.notes, v, tun, ch) : [];
     const vd = r && ch ? verdict(ch, new Set(r.pcs), true) : {ok: false, missing: [], extra: []};
     const live = (() => { try{ return Mixer.guitar.isLive(); }catch(e){ return false; } })();
@@ -1969,7 +2116,7 @@ const ChordCoach = (() => {
     if(gl.listen && tg && songOn()) status = verdictHtml(tg, vd, "", !r) + (r ? `<span class="cc-heard">slyším <b>${label}</b></span>` : "") + scoreHtml("gtr");
     else if(gl.listen && r) status = `<span class="cc-free">slyším</span><span class="cc-want">${label}</span>`;
     else if(notes.length) status = `<span class="cc-free">${play.src === "neck" ? "hmat" : "z klavíru"}</span><span class="cc-want">${esc(named || "—")}</span><span class="cc-heard">${esc(notes.map(NAME).join(" "))}</span>`;
-    else status = `<span class="cc-wait">Klikni na hmatník — tón zazní a ukáže se i na klavíru.${v ? " Plně: hmat akordu teď" : ""}${vn ? ", čárkovaně: další akord, co nejblíž" : ""}${v || vn ? "." : ""}</span>`;
+    else status = `<span class="cc-wait">Klikni na hmatník — tón zazní a ukáže se i na klavíru.${v ? " Plně: hmat akordu, který hraje." : ""}</span>`;
     pn.innerHTML = `<div class="cc-pnh"><b>🎸 KYTARA</b><span class="cc-dev">ladění ${esc(tun.map(STRN).join(" "))}${gl.err ? " · " + esc(gl.err) : gl.listen ? " · poslouchám vstup kytary" : ""}</span><span class="sp"></span>
         ${play.src === "neck" && shapeNotes().length ? `<button type="button" data-a="strum" title="Zahrát hmat">▶ zahrát</button><button type="button" data-a="clr" title="Smazat hmat">✕</button>` : ""}
         <button type="button" data-a="listen" class="${gl.listen ? "on" : ""}" title="Hlídat hraní: poslouchá tvoji kytaru (vstup kytary ve Steems) a ukáže, co hraješ a jestli je to správně. Vypnuté: hmatník ukazuje jen akordy.">🎤 hlídat hraní${gl.listen ? " ✓" : ""}</button>
@@ -2137,7 +2284,7 @@ const ChordCoach = (() => {
   try{ MyTuning.onChange(() => { vcache.clear(); carSig = ""; paintTools(); }); }catch(e){}
   try{ Tunings.onChange(() => paintTools()); }catch(e){}
 
-  return {mount, paint, openSounds, openSheet, webChords, webSheets, pickSound, easySound: (m) => easySound(m), simplify, timed, sync: () => Object.assign({}, syncOf()), setSync, syncNow, onset: () => onsetOf(Mixer.currentSong() || ""), level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
+  return {mount, paint, setBeats: (k, n, sc) => setBeats(k, n, sc), beatNames: () => beatNames(beatGrid()), openSounds, openSheet, webChords, webSheets, pickSound, easySound: (m) => easySound(m), simplify, timed, sync: () => Object.assign({}, syncOf()), setSync, syncNow, onset: () => onsetOf(Mixer.currentSong() || ""), level: levelNow, setLevel, levels: LEVELS, parseSheet, fromSheet, parseChord, shapeOf, transpose, voicings, closeZoom, isZoomed: () => !!zoom,
     // for the tests
     _midi: (bytes) => midi(bytes), _analyze: analyze, _played: () => ({held: [...play.held.keys()], last: play.last.slice(), src: play.src, shape: play.shape, mirror: mirrorShape(), shown: shownNotes()}),
     _tap: (s, f) => tapNeck(s, f), _pick: (n) => pickChord(n, "quiet"), _detect: detectChords, _found: (s) => found.get(s), _heard: () => lastHeard,

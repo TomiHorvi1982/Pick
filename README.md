@@ -864,11 +864,14 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
     a ↺ posun zruší. **⏳ s kytarou** (zapnuté): žádný akord před tím, než začnou hrát nástroje — Pick najde
     první chvíli, kdy kytara, basa, klávesy a ostatní (ne zpěv, ne bicí) zazní aspoň desetinou své hlasitosti,
     takže tiché první sekundy písně zůstanou prázdné. Pruh Akordy v mixu se posune stejně.
-  - **Kam sáhnout** (panely 🎹 Klavír a 🎸 Kytara v Live Show): na klavíru jsou obarvené tři klávesy akordu,
-    který hraje (jen základní trojzvuk: Am7 → A C E), a nad klaviaturou vedou z kláves dalšího akordu čáry, které
-    se sbíhají do jednoho bodu s jeho názvem a tím, za kolik dob přijde. Klávesy dalšího akordu jsou položené co
-    nejblíž, aby ruka přejela co nejmíň (obraty se vybírají po sobě přes celou píseň). Na hmatníku je plně hmat
-    akordu teď (s názvy tónů) a čárkovaně hmat dalšího, ten nejbližší, s řádkem TEĎ → DALŠÍ.
+  - **Jen akord, který hraje**: na kartách, na klavíru (jeho tři klávesy obarvené) i na hmatníku (plný hmat)
+    se ukazuje jen akord, který zrovna zní — co přijde, je vidět na řadě taktů a dob.
+  - **Takty a doby**: pod pásem akordů běží řada obdélníčků, jeden na každou dobu písně (mezery mezi takty,
+    čísla taktů), každý v barvě akordu, který na té době hraje, a s jeho názvem tam, kde se akord mění; doba,
+    která hraje, svítí. Klik na obdélník nabídne akordy, které už v písni jsou (v jejich barvách), nový akord
+    (napsat) nebo *prázdnou* dobu — pro tu dobu, celý takt, nebo až do další změny; uloží se jako akordy písně.
+    Prázdné doby se vynechají. **⌖ takt 1 = teď** (při přehrávání klikni, když začne první takt) a **‹ doba / doba ›**
+    posunou doby i akordy (posun Sync, uložený k písni); **↺ akordy z analýzy** vrátí původní.
   - **🧒 Snadný režim** (klavír): hraje se pořád na stejné tři klávesy uprostřed (C E G, označené) — zahrají
     tóny akordu, který zrovna hraje; když se akord změní, držené klávesy samy přejdou na jeho tóny. Každá jiná
     klávesa zahraje nejbližší tón akordu. Každý stisk je správně (i jedním prstem) — pro děti a začátečníky.
