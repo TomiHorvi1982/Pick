@@ -829,6 +829,28 @@ při přehrávání:
 
 ToneRig je z Picku odstraněný (3. 11.), náš zesilovač hraje vždy.
 
+## Pluginy (Neural DSP a další AU / VST3)
+
+Tlačítko **PLUG** na fáderu živé kytary (vedle NAM a IR) a u každé stopy ve Steems otevře okno Pluginy
+(`static/plugins.js`, server `plugins.py`, hostitel `plugin_host.py` v prostředí `pick-kontakt` s pedalboardem).
+- **Skenovat pluginy**: každý plugin ze systémových složek (`/Library/Audio/Plug-Ins/VST3`, `Components`,
+  i z `~/Library`) se jednou načte ve vlastním procesu (spadlý plugin nic neshodí); VST3 a AU téhož pluginu
+  jsou jedna položka (bere se VST3). Seznam `~/.local/share/spotdl-helper/plugins/catalog.json`, další sken
+  přeskočí nezměněné. Nabízejí se jen efekty, které se načetly; Neural DSP nahoře.
+- **Řetěz**: až 8 pluginů na místo (živá kytara / stopa písně), zapnout / obejít, pořadí, odebrat. ⚙ **Okno**
+  otevře vlastní okno pluginu; nastavení se uloží (stav pluginu v `plugins/states/`), až ho zavřeš.
+- **Živá kytara → Zapnout živě**: hostitel bere zvolený vstup zvukovky (kanál 1 nebo 2), pouští ho řetězem
+  (blok 128 vzorků, 48 kHz) a posílá do BlackHole; Pick si zapne tunel a hraje ho jako živou kytaru — fader,
+  EQ, nahrávání i AUTO MIX fungují dál. Výstup jde zvolit i přímo do zvukovky (pak mimo Pick). Okno pluginu
+  za hraní: hostitel ho otevře v živém procesu, zvuk běží dál. Neural DSP se načítá asi 8 s.
+- **Stopa → Prohnat stopu pluginy**: nahrávka stopy projde řetězem (s 2 s dozvuku) a vznikne nová stopa
+  „<stopa> · <pluginy>“; originál zůstane.
+
+Pluginy se načítají tam, kde jsou nainstalované, jako v jakémkoli hostiteli — nic se z nich nekopíruje.
+
+**Neural Mix Pro** (Algoriddim): Steems → Soubor → „Otevřít v Neural Mix Pro“ otevře celou píseň (originál,
+nebo stopy smíchané do jednoho souboru) v aplikaci Neural Mix Pro (`POST /api/stems/{name}/neural-mix`).
+
 ## Zesilovače a bedny (katalog)
 
 Kde se vybírá zesilovač nebo bedna — živá kytara ve Steems („Zesilovač a kabinet…“), zesilovač na stopě v mixu,

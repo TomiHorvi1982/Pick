@@ -4137,6 +4137,30 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-lyr-more{min-width:0 !important;padding:2px 9px !important;font-size:15px !important;letter-spacing:1px;line-height:1}
   .nm-lyr-pop{min-width:150px !important}
   .nm-lyr-pop .tm-item{padding:6px 12px !important;font-size:12.5px !important}
+  /* Pluginy (static/plugins.js): the AU / VST3 chain of the live guitar or a track */
+  .plg-win{position:fixed;left:calc(50% - 230px);top:90px;width:460px;max-width:calc(100vw - 16px);max-height:calc(100vh - 40px);overflow:auto;z-index:1260;
+    background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.6);font-size:13px}
+  .plg-win[hidden]{display:none}
+  .plg-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:grab;user-select:none}
+  .plg-bar .sp{flex:1}
+  .plg-x{border:0;background:none;color:var(--sub);cursor:pointer;display:flex}
+  .plg-body{padding:6px 12px 12px}
+  .plg-sec{padding:10px 0;border-bottom:1px solid var(--border)}
+  .plg-h{font-weight:700;margin-bottom:8px}.plg-h small{font-weight:400;color:var(--sub);margin-left:6px}
+  .plg-row{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;background:var(--card);margin-bottom:5px}
+  .plg-row.off .plg-name{opacity:.45;text-decoration:line-through}
+  .plg-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .plg-row button{border:1px solid var(--border);background:none;color:var(--text);font:inherit;font-size:12px;padding:3px 8px;border-radius:6px;cursor:pointer}
+  .plg-row button:disabled{opacity:.3;cursor:default}
+  .plg-on{color:var(--accent) !important;border:0 !important;font-size:14px !important;padding:0 4px !important}
+  .plg-add,.plg-live{display:flex;gap:8px;align-items:center;margin-top:6px}
+  .plg-add select,.plg-grid select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px}
+  .plg-grid{display:grid;grid-template-columns:1fr 90px 1fr;gap:8px}.plg-grid label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub)}
+  .plg-st{font-size:12px;color:var(--sub)}
+  .plg-none,.plg-hint{font-size:12px;color:var(--sub);line-height:1.45}.plg-hint{margin-top:8px}
+  .plg-foot{display:flex;align-items:center;gap:10px;padding-top:10px;font-size:12px;color:var(--sub)}
+  .plg-foot button{border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:7px;cursor:pointer}
+  .fl-plug-btn{width:100%;margin-top:3px}
   /* Zesilovače a bedny (static/ampbrowser.js): the floating picker of NAM profiles and cabinets */
   .ampb-win{position:fixed;left:calc(50% - 380px);top:70px;width:760px;height:min(680px,calc(100vh - 90px));min-width:480px;min-height:320px;
     max-width:calc(100vw - 16px);max-height:calc(100vh - 20px);resize:both;overflow:hidden;display:flex;flex-direction:column;z-index:1250;
@@ -5217,6 +5241,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" id="mixer-load-session" title="Vrátit uložený mix"><span data-icon="folderOpen" data-size="15"></span><span class="tm-t">Vrátit uložený mix</span></button>
                   <hr>
                   <button type="button" class="tm-item" id="mixer-export" title="Export mixu do knihovny (složka Export)"><span data-icon="download" data-size="15"></span><span class="tm-t">Export do knihovny…</span></button>
+                  <button type="button" class="tm-item" id="mixer-neural-mix" title="Otevřít celou píseň v Neural Mix Pro (Algoriddim) — jeho vlastní dělení, tempo a tónina v reálném čase"><span data-icon="external" data-size="15"></span><span class="tm-t">Otevřít v Neural Mix Pro</span></button>
                 </div>
               </div>
               <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Zavřít</span></button>
@@ -20759,6 +20784,7 @@ const Mixer = (() => {
           <button class="fl-fx-btn ${c.fx && c.fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
         </div>
         <button type="button" class="fl-eq-btn" id="fl-eq-${idx}" title="Ekvalizér tohoto kanálu"><span class="dot"></span>EQ</button>
+        <button type="button" class="fl-fx-btn fl-plug-btn" data-act="plug" title="Pluginy (Neural DSP a další AU / VST3) — stopa se jimi prožene do nové stopy">PLUG</button>
       `;
       strip.querySelector(".fl-ch-hide").onclick = (e) => { e.stopPropagation(); hideTrack(c); };
       // Pitch, a half-tone at a time, through the same stretch node as the song's key.
@@ -20875,6 +20901,7 @@ const Mixer = (() => {
       };
       strip.querySelector('[data-act="comp"]').onclick = () => openCompPanel(idx);
       strip.querySelector('[data-act="dbl"]').onclick = () => openDblPanel(idx);
+      strip.querySelector('[data-act="plug"]').onclick = () => { if(typeof PluginRack !== "undefined") PluginRack.forStem(currentSongName, c.stem, stemLabel(c.stem)); };
 
       box.appendChild(strip);
     });
@@ -22305,6 +22332,12 @@ const Mixer = (() => {
     const suffix = el("fl-export-suffix").value.trim();
     el("fl-export-estimate").textContent = `Est. size: ~${mb.toFixed(1)} MB · ${fmt.toUpperCase()} ${sr/1000}kHz ${bd > 16 ? bd + "-bit" : ""} ${suffix}`;
   }
+  el("mixer-neural-mix").onclick = async () => {
+    if(!currentSongName) return;
+    try{ const r = await fetch(`/api/stems/${encodeURIComponent(currentSongName)}/neural-mix`, {method: "POST"}), d = await r.json();
+      if(!r.ok) throw new Error(d.error); showToast("Otevírám v Neural Mix Pro" + (d.original ? "" : " (stopy smíchané do jednoho souboru)")); }
+    catch(e){ showToast(e.message || "Neural Mix Pro se nepodařilo otevřít"); }
+  };
   el("mixer-export").onclick = openExportDialog;
   el("fl-export-cancel").onclick = closeExportDialog;
   el("fl-export-format").addEventListener("change", updateExportEstimate);
@@ -25838,6 +25871,7 @@ const Mixer = (() => {
         title="Automatické hlasitosti: drží živou kytaru na úrovni kytary z písně a celý mix mimo přebuzení. ${escapeHtml(AutoMix.status())}">AUTO MIX</button>
       <div class="fl-fx-row fl-amp-row">
         <button class="fl-fx-btn ${g.ampName ? "on" : ""}" data-act="pick-nam" title="NAM profil: ${escapeHtml(g.ampName || "žádný")} — vybrat z katalogu">NAM</button>
+        <button class="fl-fx-btn" data-act="plug" title="Pluginy (Neural DSP a další AU / VST3) — živě, přes BlackHole do Picku">PLUG</button>
         <button class="fl-fx-btn ${g.cabName ? "on" : ""}" data-act="pick-ir" title="Bedna (IR): ${escapeHtml((g.cabName || "žádná").split("/").pop())} — vybrat z katalogu">IR</button>
       </div>
       <button class="fl-fx-btn fl-instr-btn" id="gt-instr-btn" data-act="instr"
@@ -25886,6 +25920,7 @@ const Mixer = (() => {
     act("automix").onclick = () => AutoMix.set(!AutoMix.on());
     act("pick-nam").onclick = () => openAmpPicker("model");
     act("pick-ir").onclick = () => openAmpPicker("ir");
+    act("plug").onclick = () => { if(typeof PluginRack !== "undefined") PluginRack.live(); };
     act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
     act("tone").onclick = () => { if(typeof Tone !== "undefined") Tone.open(); };
     paintInstrument();
@@ -35053,6 +35088,7 @@ const Voice = (() => {
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
 <script src="/static/ampbrowser.js"></script>
+<script src="/static/plugins.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>

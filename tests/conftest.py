@@ -76,6 +76,11 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(songbook, "MINE", tmp_path / "songbook-mine.json")
     monkeypatch.setattr(songbook, "BANDS", tmp_path / "songbook-bands.json")
     monkeypatch.setattr(songbook, "QUEUE", tmp_path / "songbook-queue.json")
+    # …and the plugins scanned and their chains are the test's own (plugins.py).
+    import plugins
+    monkeypatch.setattr(plugins, "DATA", tmp_path / "plugins")
+    plugins.SCAN.update(running=False, done=0, total=0, current="")
+    plugins.JOB.update(status=None, what="", error="", result=None)
     # …and the lyricist's models (llm.py) never find a real API key, nor spend anything.
     import llm
     monkeypatch.setattr(llm, "KEY_PATH", tmp_path / "anthropic-key.txt")

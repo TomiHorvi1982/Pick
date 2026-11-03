@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -6185,6 +6185,32 @@ def stems_preview(name: str):
     return {"rel": f"{PREVIEW_REL}/{name}.m4a", "original": False}
 
 
+# ---- Neural Mix Pro (Algoriddim, bought from the App Store): a song opened in it from Pick — the whole
+# file (the original, or the stems mixed together), handed over as any app opens a document.
+NEURAL_MIX_APP = Path("/Applications/Neural Mix Pro.app")
+
+
+@app.get("/api/apps/neural-mix")
+def neural_mix_status():
+    return {"installed": NEURAL_MIX_APP.is_dir()}
+
+
+@app.post("/api/stems/{name}/neural-mix")
+def stems_neural_mix(name: str):
+    if not NEURAL_MIX_APP.is_dir():
+        return JSONResponse({"error": "Neural Mix Pro tu není nainstalovaný."}, status_code=404)
+    got = stems_preview(name)
+    if isinstance(got, JSONResponse):
+        return got
+    f = _resolve_under_music_root(got["rel"])
+    if f is None or not f.is_file():
+        return JSONResponse({"error": "Soubor písně se nenašel."}, status_code=404)
+    r = subprocess.run(["open", "-a", str(NEURAL_MIX_APP), str(f)], capture_output=True, text=True)
+    if r.returncode != 0:
+        return JSONResponse({"error": "Neural Mix Pro se nepodařilo otevřít."}, status_code=500)
+    return {"ok": True, "original": got["original"]}
+
+
 # ---- a track's audio as notes: for a piano, a melody, a bass line pulled
 # onto a MIDI track. basic-pitch does the listening, in a venv of its own.
 MIDI_PYTHON = HOME / ".local" / "venvs" / "pick-midi" / "bin" / "python"
@@ -10860,6 +10886,20 @@ end tell'''
 
 # ---- the assistant (assistant.py): a Czech sentence in, the app's own actions out
 import llm as _assistant
+# ---- Pluginy (plugins.py, plugin_host.py): the player's AU / VST3 plugins (Neural DSP…) on the live
+# guitar and on the tracks of a song — scanned, set in their own windows, live through BlackHole
+import plugins as _plugins
+_plugins.stems_dir = lambda song: (lambda d: d if d is not None and d.is_dir() else None)(_resolve_under_music_root(f"Stems/{song}"))
+_plugins.stem_file = lambda d, stem: _stem_file(d, stem)
+_plugins.add_track = lambda d, src, label: _add_track_from(d, src, label)
+app.include_router(_plugins.router)
+
+
+@app.on_event("shutdown")
+def _plugins_end():
+    _plugins.live_stop()
+
+
 import look as _look
 app.include_router(_look.router)
 # Katalog zesilovačů a beden (amp_catalog.py): every NAM and IR sorted by make, gain, cabinet…, nothing moved
