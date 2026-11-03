@@ -24,14 +24,34 @@ import threading
 import time
 
 
+NO_INPUT = ("Ze zvukovky nepřichází žádný zvuk. Povol Picku mikrofon: Nastavení systému → Soukromí a "
+            "zabezpečení → Mikrofon → zapni Pick (a pak Pick restartuj). Zkontroluj taky, že je zvukovka zapojená.")
+
+
 def out(obj):
     sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
     sys.stdout.flush()
 
 
+AU_DIRS = ["/Library/Audio/Plug-Ins/Components", os.path.expanduser("~/Library/Audio/Plug-Ins/Components")]
+
+
+def as_au(path):
+    """The Audio Unit of the same plugin when there is one: a VST3 window crashes in this host
+    (bad_weak_ptr), the AU's opens — and one format everywhere keeps saved settings loadable."""
+    if not path.endswith(".vst3"):
+        return path
+    stem = os.path.basename(path)[:-5]
+    for d in AU_DIRS:
+        au = os.path.join(d, stem + ".component")
+        if os.path.isdir(au):
+            return au
+    return path
+
+
 def load(path, state=None):
     from pedalboard import load_plugin
-    p = load_plugin(path)
+    p = load_plugin(as_au(path))
     if state and os.path.isfile(state):
         try:
             with open(state, "rb") as f:
@@ -111,9 +131,12 @@ def live(chain_file, input_name, channel, output_name, edit=None):
         stream.ignore_dropped_input = True
         sr = stream.sample_rate
 
+        heard = [0]
+
         def run():
             while not stop.is_set():
                 x = stream.read(block)                      # (channels, n): the guitar is one of the two inputs
+                heard[0] += x.shape[-1]
                 if x.shape[-1] == 0:
                     time.sleep(0.001)
                     continue
@@ -125,6 +148,12 @@ def live(chain_file, input_name, channel, output_name, edit=None):
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
+        end = time.time() + 4                               # macOS gives a process without microphone access
+        while not heard[0] and time.time() < end:           # no input at all, not even silence
+            time.sleep(0.05)
+        if not heard[0]:
+            out({"ok": False, "error": NO_INPUT})
+            return
         out({"ok": True, "live": True, "sample_rate": sr, "block": block})
         if edit is not None and 0 <= edit < len(active):
             plugins[edit].show_editor()                     # sounding live while it is turned

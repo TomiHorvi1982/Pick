@@ -84,3 +84,13 @@ def test_the_live_guitar_needs_a_chain_and_an_input(client, tmp_path, monkeypatc
     assert client.post("/api/plugins/live", json={"on": True, "input": ""}).status_code == 400
     assert client.post("/api/plugins/live", json={"on": True, "input": "iRig PRO DUO"}).status_code == 500   # no plugin yet
     assert client.post("/api/plugins/live", json={"on": False}).json()["running"] is False
+
+
+def test_host_prefers_the_audio_unit_of_a_vst3(tmp_path, monkeypatch):
+    import plugin_host
+    comp = tmp_path / "Components"
+    (comp / "Amp X.component").mkdir(parents=True)
+    monkeypatch.setattr(plugin_host, "AU_DIRS", [str(comp)])
+    assert plugin_host.as_au("/x/VST3/Amp X.vst3") == str(comp / "Amp X.component")
+    assert plugin_host.as_au("/x/VST3/Only VST.vst3") == "/x/VST3/Only VST.vst3"
+    assert plugin_host.as_au("/x/Components/Y.component") == "/x/Components/Y.component"
