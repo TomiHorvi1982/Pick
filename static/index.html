@@ -4214,6 +4214,11 @@ body.lib-collapsed .pick-brand{display:none}
   .ampb-row .ab-t i{font-style:normal;font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--card-hi);color:var(--sub);white-space:nowrap}
   .ampb-row .ab-t i.g-clean{color:#7fd4ff}.ampb-row .ab-t i.g-crunch{color:#ffc56b}.ampb-row .ab-t i.g-hot{color:#ff7a7a}.ampb-row .ab-t i.g-mic{color:#b9a6ff}
   .ampb-empty{padding:30px 10px;color:var(--sub);text-align:center}
+  .ampb-hint{display:flex;align-items:center;gap:8px;margin:0 12px 8px;padding:7px 10px;border-radius:9px;font-size:12px;
+    background:color-mix(in srgb,#ffc56b 14%,transparent);border:1px solid color-mix(in srgb,#ffc56b 45%,transparent)}
+  .ampb-hint[hidden]{display:none}
+  .ampb-hint button{margin-left:auto;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:3px 10px;border-radius:7px;cursor:pointer;white-space:nowrap}
+  .ampb-auto{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
   .ampb-foot{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border);color:var(--sub);font-size:12px}
   .ampb-none{border:1px solid var(--border);background:none;color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:7px;cursor:pointer}
   @media (max-width:700px){.ampb-side{display:none}}
@@ -16109,8 +16114,10 @@ const Mixer = (() => {
         dbl: {...DBL_DEFAULT, ...(saved && saved.dbl || {})},
         // a NAM profile on this track alone: {file, name}
         amp: saved && saved.amp && saved.amp.file ? {file: String(saved.amp.file), name: String(saved.amp.name || "")} : null,
+        // its own cabinet (an IR) after that profile: {file, name}; none = the live guitar's, as before
+        cab: saved && saved.cab && saved.cab.file ? {file: String(saved.cab.file), name: String(saved.cab.name || "")} : null,
       },
-      ampNode: null, ampCab: null, ampToken: 0,
+      ampNode: null, ampCab: null, ampToken: 0, cabToken: 0,
     };
     fx.pre.fftSize = 512;
     // Downmix to one channel; whatever follows (the panner) spreads it again.
@@ -16121,7 +16128,7 @@ const Mixer = (() => {
     applyCompParams(fx);
     wireFx(fx);
     if(fx.state.dbl.on) ensureDoubler(fx);
-    if(fx.state.amp) setFxAmp(fx, fx.state.amp).catch(() => {});
+    if(fx.state.amp) (fx.state.cab ? setFxCab(fx, fx.state.cab) : Promise.resolve()).catch(() => {}).then(() => setFxAmp(fx, fx.state.amp)).catch(() => {});
     return fx;
   }
   // ---- an amp on one track: a recorded guitar is the plain signal of the
@@ -16139,9 +16146,23 @@ const Mixer = (() => {
     if(!fx.ampNode) fx.ampNode = await eng.createNode();
     await fx.ampNode.loadModel(json);
     if(token !== fx.ampToken) return;
-    const cab = Amp.cabBuffer();
-    if(cab && (!fx.ampCab || fx.ampCab.buffer !== cab)){ fx.ampCab = ctx().createConvolver(); fx.ampCab.normalize = true; fx.ampCab.buffer = cab; }
-    if(!cab) fx.ampCab = null;
+    if(!fx.state.cab){                                   // no cabinet of its own: the live guitar's
+      const cab = Amp.cabBuffer();
+      if(cab && (!fx.ampCab || fx.ampCab.buffer !== cab)){ fx.ampCab = ctx().createConvolver(); fx.ampCab.normalize = true; fx.ampCab.buffer = cab; }
+      if(!cab) fx.ampCab = null;
+    }
+    wireFx(fx);
+  }
+  // The track's own cabinet: an IR after its NAM profile (a head without a cabinet sounds fizzy).
+  async function setFxCab(fx, cab){
+    const token = ++fx.cabToken;
+    if(!cab){ fx.state.cab = null; fx.ampCab = null; if(fx.state.amp) return setFxAmp(fx, fx.state.amp); wireFx(fx); return; }
+    const res = await fetch(`/api/amps/${encodeURIComponent(cab.file)}`);
+    if(!res.ok) throw new Error("Bednu se nepodařilo načíst");
+    const buf = await ctx().decodeAudioData(await res.arrayBuffer());
+    if(token !== fx.cabToken) return;
+    fx.state.cab = {file: cab.file, name: cab.name || ""};
+    fx.ampCab = ctx().createConvolver(); fx.ampCab.normalize = true; fx.ampCab.buffer = buf;
     wireFx(fx);
   }
 
@@ -16173,7 +16194,7 @@ const Mixer = (() => {
   }
 
   function fxSnapshot(fx){
-    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null} : null;
+    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null, cab: fx.state.cab ? {...fx.state.cab} : null} : null;
   }
 
   // ---- the doubler ----
@@ -18938,11 +18959,17 @@ const Mixer = (() => {
     }
     async function pick(c, anchor){
       if(typeof AmpBrowser !== "undefined"){
-        AmpBrowser.open({kinds: ["model"], title: `Zesilovač (NAM) — ${stemLabel(c.stem)}`, current: {model: c.fx.state.amp ? c.fx.state.amp.file : ""},
+        AmpBrowser.open({title: `Zesilovač a bedna — ${stemLabel(c.stem)}`,
+          current: {model: c.fx.state.amp ? c.fx.state.amp.file : "", ir: c.fx.state.cab ? c.fx.state.cab.file : ""},
+          onIr: async (m) => {
+            try{ await setFxCab(c.fx, m ? {file: m.file, name: m.name} : null); showToast(m ? `${stemLabel(c.stem)}: bedna ${m.name}` : `${stemLabel(c.stem)}: bez vlastní bedny`); }
+            catch(e){ showToast(e.message || "Bednu se nepodařilo načíst"); }
+            queueSessionSave();
+          },
           onModel: async (m) => {
             try{
               await setFxAmp(c.fx, m ? {file: m.file, name: m.name} : null);
-              showToast(m ? `${stemLabel(c.stem)}: ${m.name}${Amp.cabBuffer() ? "" : " — bez kabinetu (vybereš ho u živé kytary)"}` : `${stemLabel(c.stem)}: bez zesilovače`);
+              showToast(m ? `${stemLabel(c.stem)}: ${m.name}` : `${stemLabel(c.stem)}: bez zesilovače`);
             }catch(e){ c.fx.state.amp = null; wireFx(c.fx); showToast(e.message || "Profil se nepodařilo načíst"); }
             const btn = [...document.querySelectorAll("#nm-rail .nm-strip[data-ch]")][channels.indexOf(c)];
             const name = btn && btn.querySelector(".amp-name"); if(name) name.textContent = label(c);

@@ -1001,6 +1001,13 @@ balíček → bedna → reproduktor → mikrofon) nebo jinak; po 150 položkách
 skupiny a náhled vpravo mají obrázek aparátu (`ChipThumbs`, YouTube). Klik načte, okno zůstává otevřené.
 Katalog se sestaví za pár sekund a drží se 5 minut (metadata v `amps/.amp-catalog.json`).
 
+**Hlava potřebuje bednu**: profil, který je jen zesilovač (typ Zesilovač / Předzesilovač / Koncový), dostane
+v okně sám bednu — tu, kterou jsi k němu vybral naposledy (`pick-ampb-pair`), jinak naposledy použitou k hlavě
+(`pick-ampb-last-ir`), jinak 4x12 s V30. Celý aparát (už s bednou a mikrofonem) IR naopak vypne, aby nezněla
+dvakrát. Pruh v okně na to upozorní a nabídne „Vybrat bednu“ / „Vypnout IR“; zaškrtávátko „Bednu k hlavě samo“
+v patičce to vypne. Stopa v mixu má teď vlastní bednu (`fx.state.cab`, ukládá se s mixem); bez ní bere bednu
+živé kytary jako dřív.
+
 Tónový otisk už sám nezapíná doubler (dřív ho zapnul u široké stereo nahrávky).
 
 ## Tónový otisk

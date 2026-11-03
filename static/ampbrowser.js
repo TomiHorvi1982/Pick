@@ -22,6 +22,54 @@ const AmpBrowser = (() => {
   };
   const GAIN_CLS = {clean: "g-clean", crunch: "g-crunch", hi_gain: "g-hot"};
 
+  // ---- a head needs a cabinet. A profile of the amp alone (no cabinet, no microphone) sounds fizzy
+  // through speakers; one of the whole rig already has its cabinet, and a second IR would muffle it.
+  // So: a head gets the cabinet last paired with it, or the last one used with any head, or a
+  // 4x12 with V30s; a full rig turns the IR off. Every cabinet chosen while a head plays is paired
+  // with that head. "Bednu k hlavě samo" in the window's footer turns it off.
+  const PAIR = "pick-ampb-pair", LAST_IR = "pick-ampb-last-ir", AUTO = "pick-ampb-autocab";
+  const HEAD = new Set(["Zesilovač", "Předzesilovač", "Koncový zesilovač"]);
+  const store = (k, d) => { try{ return JSON.parse(localStorage.getItem(k) || "null") ?? d; }catch(e){ return d; } };
+  const keep = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+  let autoCab = store(AUTO, true), model = null;         // model: the item last loaded here, with its type
+  async function defaultIr(){
+    for(const q of ["4x12 v30 sm57", "v30", "4x12"]){
+      try{ const d = await (await fetch(`/api/amp-catalog?kind=ir&limit=1&q=${enc(q)}`)).json(); if(d.items && d.items[0]) return {file: d.items[0].file, name: d.items[0].name}; }catch(e){}
+    }
+    return null;
+  }
+  async function cabFor(x){
+    if(!opts.onIr || !autoCab || !x) return;
+    const ir = (opts.current || {}).ir;
+    if(HEAD.has(x.type) && !ir){
+      const want = (store(PAIR, {})[x.file]) || store(LAST_IR, null) || await defaultIr();
+      if(!want) return;
+      await opts.onIr({file: want.file, name: want.name});
+      opts.current = {...opts.current, ir: want.file};
+      showToast(`„${x.name}“ je jen zesilovač — přidal jsem bednu ${want.name} (jinou vybereš v kartě Bedny)`);
+    } else if(x.type === "Celý aparát" && ir){
+      await opts.onIr(null);
+      opts.current = {...opts.current, ir: ""};
+      showToast(`„${x.name}“ už bednu má — IR jsem vypnul, aby nezněla dvakrát`);
+    }
+  }
+  function remember(ir){
+    if(!ir || !model || !HEAD.has(model.type)) return;
+    const pair = store(PAIR, {});
+    pair[model.file] = {file: ir.file, name: ir.name};
+    keep(PAIR, pair); keep(LAST_IR, {file: ir.file, name: ir.name});
+  }
+  function hint(){
+    const box = win.querySelector(".ampb-hint");
+    const head = model && HEAD.has(model.type) && opts.onIr && !(opts.current || {}).ir;
+    const rig = model && model.type === "Celý aparát" && opts.onIr && (opts.current || {}).ir;
+    box.hidden = !(head || rig);
+    if(head) box.innerHTML = `${icon("volume", 12)} „${escapeHtml(model.name)}“ je jen zesilovač bez bedny — bez IR zní ostře. <button type="button" data-go="ir">Vybrat bednu</button>`;
+    else if(rig) box.innerHTML = `${icon("volume", 12)} „${escapeHtml(model.name)}“ je celý aparát i s bednou — IR navíc zvuk utlumí. <button type="button" data-off="1">Vypnout IR</button>`;
+    const go = box.querySelector("[data-go]"); if(go) go.onclick = () => { tab = "ir"; paintHead(); load(true); };
+    const off = box.querySelector("[data-off]"); if(off) off.onclick = async () => { await opts.onIr(null); opts.current = {...opts.current, ir: ""}; hint(); if(tab === "ir") paintList(false); };
+  }
+
   function build(){
     win = document.createElement("div");
     win.className = "ampb-win";
@@ -30,7 +78,7 @@ const AmpBrowser = (() => {
         <button type="button" class="ampb-close" title="Zavřít">${icon("close", 14)}</button></div>
       <div class="ampb-tools"><input type="search" class="ampb-q" placeholder="Hledat — značka, model, zvuk, reproduktor, mikrofon…" autocomplete="off">
         <select class="ampb-sort" title="Řazení"></select></div>
-      <div class="ampb-filters"></div>
+      <div class="ampb-filters"></div><div class="ampb-hint" hidden></div>
       <div class="ampb-main"><div class="ampb-list"></div>
         <aside class="ampb-side"><div class="ampb-pic"><span>${icon("sliders", 34)}</span></div><div class="ampb-info"></div></aside></div>
       <div class="ampb-foot"></div>`;
@@ -145,10 +193,12 @@ const AmpBrowser = (() => {
     }
     const kind = tab === "ir" ? "beden" : "profilů";
     win.querySelector(".ampb-foot").innerHTML = `<span>${total} z ${all} ${kind}${tab === "ir" ? " (každá bedna jednou, 48 kHz)" : ""}</span><span class="sp"></span>
+      ${opts.onIr ? `<label class="ampb-auto" title="K profilu, který je jen zesilovač, přidat bednu samo (tu, co jsi k němu vybral naposledy); u celého aparátu IR vypnout"><input type="checkbox" ${autoCab ? "checked" : ""}> Bednu k hlavě samo</label>` : ""}
       ${(opts.extra || []).map((x, i) => `<button type="button" class="ampb-none" data-x="${i}">${escapeHtml(x.label)}</button>`).join("")}
       <button type="button" class="ampb-none">${icon("close", 11)} ${tab === "ir" ? "Bez bedny" : "Bez zesilovače"}</button>`;
     win.querySelectorAll(".ampb-foot [data-x]").forEach(b => b.onclick = () => { close(); opts.extra[+b.dataset.x].onclick(); });
     win.querySelector(".ampb-none:not([data-x])").onclick = () => choose(null, null);
+    const ac = win.querySelector(".ampb-auto input"); if(ac) ac.onchange = () => { autoCab = ac.checked; keep(AUTO, autoCab); };
     if(reset) preview(items.find(i => i.file === cur()) || items[0] || null);
   }
   function preview(x){
@@ -173,7 +223,10 @@ const AmpBrowser = (() => {
     win.querySelectorAll(".ampb-row.on").forEach(b => b.classList.remove("on"));
     if(btn) btn.classList.add("on");
     opts.current = {...(opts.current || {}), [tab]: x ? x.file : ""};
-    try{ await fn(x ? {file: x.file, name: x.name, item: x} : null); }catch(e){ showToast(e.message || "Nepodařilo se načíst"); }
+    try{ await fn(x ? {file: x.file, name: x.name, item: x} : null); }catch(e){ showToast(e.message || "Nepodařilo se načíst"); return; }
+    if(tab === "model"){ model = x; try{ await cabFor(x); }catch(e){} }
+    else remember(x);
+    hint();
   }
 
   // {title, kinds: ["model", "ir"], tab, current: {model, ir}, onModel(item|null), onIr(item|null)}
@@ -185,6 +238,10 @@ const AmpBrowser = (() => {
     win.hidden = false;
     paintHead();
     load(true);
+    model = null; hint();
+    const cm = (opts.current || {}).model;
+    if(cm) fetch(`/api/amp-catalog?kind=model&limit=500&q=${enc(cm.split("/").pop().replace(/\.nam$/i, ""))}`).then(r => r.json())
+      .then(d => { model = (d.items || []).find(i => i.file === cm) || null; hint(); }).catch(() => {});
     setTimeout(() => win.querySelector(".ampb-q").focus(), 0);
   }
   function close(){ if(win) win.hidden = true; }
