@@ -732,6 +732,14 @@ poslouchání z lišty macOS se při otevření Picku vypne.
 
 ## Steems: méně na očích
 
+**Další písně pod mixem** (`UnderList`) jsou po otevření písně sbalené — jen řádek „Další písně ve Steems (N)“;
+seznam se sestaví, až ho rozbalíš, a otevřený zůstane do zavření Picku (šipka ho zase sbalí). Ve sbaleném levém
+panelu není pole Hledat píseň / kapelu (`.sf-box`), jen v plném.
+
+**Ukázkové DI riffy** se už neukazují (3. 11.): tlačítko metronomu a riffů v horní liště, správce riffů,
+výběr riffu u NAM modelů, „zkopírovat do riffů“ a „Uložit do NAM nahrávek“ jsou skryté; náhled NAM modelu
+hraje dál s riffem, který už má.
+
 **Sbalit stopy** (první tlačítko v liště nad stopami, pamatuje se — `pick-steems-compact`): každá stopa je tenký
 proužek ve své barvě, všechny stejně vysoké (34 px), jen s názvem, S, M a hlasitostí (posuvník hýbe faderem stopy);
 kytara, metronom a údery stejně. **Rozbalit** vrátí vlny a všechna nastavení.

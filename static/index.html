@@ -1063,6 +1063,8 @@ body.lib-collapsed .pick-brand{display:none}
      bars show a handful of categories instead of two dozen small icons. */
   .tmenu{position:relative;display:inline-flex;flex:none}
   .tmenu[hidden]{display:none}
+  /* Ukázkové DI riffy are gone from sight (3. 11.): the manager, the per-model riff and "copy to riffs" */
+  #metronome-top-btn[hidden],.nam-riffs-manage-btn,.nam-riff-col,.act-riff{display:none !important}
   .steems-shelves{margin:4px 0 18px}
   .steems-shelves-head{display:flex;align-items:center;gap:10px;margin-top:10px}
   .steems-shelves .shelf{margin:18px 0 4px}
@@ -1784,7 +1786,7 @@ body.lib-collapsed .pick-brand{display:none}
   body.lib-collapsed .lib-sec-mode .lib-sec-label{width:100%;justify-content:center;padding:0}
   body.lib-collapsed .lib-branch{display:none}
   /* folded rail: the sections' icons only — no subsections, nothing to half-read */
-  body.lib-collapsed :is(.sl-box,.srail,.lib-tree,.lib-empty,.lib-row){display:none !important}
+  body.lib-collapsed :is(.sl-box,.sf-box,.srail,.lib-tree,.lib-empty,.lib-row){display:none !important}
 
   /* Fronta and Oblíbené sit below everything else, set apart by a line. */
   /* Songs (Fronta, oblíbené songy): no picture, just the
@@ -2592,6 +2594,10 @@ body.lib-collapsed .pick-brand{display:none}
   /* The other songs of Steems, under the open mix: plain rows — number, title, band, tuning, length. */
   .steems-under{margin-top:18px;padding-bottom:20px}
   .steems-under h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--sub);display:flex;align-items:center;gap:10px}
+  .steems-under .under-toggle{display:inline-flex;align-items:center;gap:6px}
+  .steems-under .under-toggle svg{transition:transform .15s}
+  .steems-under .under-toggle.open svg{transform:rotate(90deg)}
+  .steems-under h3.under-fold .under-toggle{font-size:12.5px;font-weight:700;color:var(--text);padding:5px 12px}
   .steems-under h3 button{border:1px solid var(--line,#333);background:none;color:var(--sub);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer}
   .steems-under .lib-trow,.steems-under .lib-thead{grid-template-columns:38px minmax(0,2.2fr) minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,1fr) 56px 64px;height:34px}
   .steems-under .lib-trow.cur{color:var(--accent,var(--accent))}
@@ -4877,7 +4883,7 @@ body.lib-collapsed .pick-brand{display:none}
     <button class="sp-round" id="full-top-btn" title="Celá obrazovka (hlasem: „pick full screen“)"><span data-icon="expand" data-size="17"></span></button>
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
     <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
-    <button class="sp-round" id="metronome-top-btn" title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
+    <button class="sp-round" id="metronome-top-btn" hidden title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
     <button class="sys-badge" id="sys-badge" hidden title="Počítač je vytížený — klikni pro podrobnosti"></button>
     <button class="sp-round" id="settings-btn" title="Nastavení"><span data-icon="settings" data-size="17"></span></button>
   </div>
@@ -12198,8 +12204,7 @@ function namPresetRow(entry, i, riffData){
 
   const doPreview = async () => {
     if(!entry.riff_id && !(await NamPreview.hasRiff())){
-      showToast("Nejdřív nahraj ukázkový DI riff");
-      openNamRiffManager();
+      showToast("Tenhle model nemá k náhledu žádný DI riff — zahraj si ho živě (kytara vedle).");
       return;
     }
     try{ await NamPreview.play(entry.rel, entry.riff_id || null); }
@@ -13684,6 +13689,8 @@ const UnderList = (() => {
   let box = null, sortBy = (() => { try{ return localStorage.getItem("spotdl-sort:under") || "artist"; }catch(e){ return "artist"; } })();
   let order = [], pv = null;                 // the rows as shown; the name of the one being listened to
   let qSong = "", qBand = "";                // what is looked for (SteemsFind): by name, by band
+  // Folded until asked for (3. 11.): the long list is only built once it is opened; it stays open for the session.
+  let opened = false;
   const coll = new Intl.Collator("cs", {sensitivity: "base", numeric: true});
   function host(){
     if(!box){ box = document.createElement("div"); box.className = "steems-under"; box.id = "steems-under"; el("mixer").insertAdjacentElement("afterend", box); }
@@ -13706,13 +13713,20 @@ const UnderList = (() => {
     el("stems-prepare-favs").hidden = !el("mixer").hidden;          // the list's own button; not the mix's
     if(el("mixer").hidden || state.mode !== "steems"){ h.hidden = true; return; }
     h.hidden = false;
+    if(!opened){
+      order = [];
+      h.innerHTML = `<h3 class="under-fold"><button type="button" class="under-toggle" title="Rozbalit seznam ostatních písní ve Steems">${icon("chevron", 12)} Další písně ve Steems (${steemsSongs.length})</button>
+        <span style="font-weight:400">— rozbal a vyber další píseň</span></h3>`;
+      h.querySelector(".under-toggle").onclick = () => { opened = true; paint(); };
+      return;
+    }
     // typing redraws the list: the box being typed into keeps its focus and cursor
     const fa = document.activeElement, focus = fa && h.contains(fa) && fa.dataset.uf ? {k: fa.dataset.uf, a: fa.selectionStart, b: fa.selectionEnd} : null;
     order = sorted().filter(s => { const d = stemsDisplay(s); return SteemsFind.has(qSong, [d.title, s.name]) && SteemsFind.has(qBand, [d.artist]); });
     const narrowed = qSong.trim() || qBand.trim();
     const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
     const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? (col === "tuning" ? "od E" : "A–Z") : ""}</span></button>`;
-    h.innerHTML = `<h3>Další písně ve Steems (${order.length}${narrowed ? ` z ${steemsSongs.length}` : ""}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
+    h.innerHTML = `<h3><button type="button" class="under-toggle open" title="Sbalit seznam">${icon("chevron", 12)}</button>Další písně ve Steems (${order.length}${narrowed ? ` z ${steemsSongs.length}` : ""}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
         ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}
         ${namesLeft || namesBusy ? `<button type="button" id="under-names" title="Projde písně a dá jim oficiální název: kapela, píseň a album podle hudebního katalogu, bez závorek a nápisů z videí. K tomu dohledá tab a text. Jména, která jsi psal ručně, nechá být.">${namesBusy || `Opravit názvy (${namesLeft})`}</button>` : ""}</h3>
       <div class="under-find"><input type="search" data-uf="song" placeholder="Hledat píseň…" value="${escapeHtml(qSong)}" autocomplete="off">
@@ -13735,6 +13749,7 @@ const UnderList = (() => {
     h.querySelectorAll(".lib-trow").forEach(r => {
       r.onclick = (e) => { if(e.target.closest("button")) openMix(r.dataset.name); else preview(r.dataset.name); };
     });
+    h.querySelector(".under-toggle").onclick = () => { opened = false; paint(); };
     const tb = h.querySelector("#under-tunings"); if(tb) tb.onclick = fillTunings;
     const nb = h.querySelector("#under-names"); if(nb) nb.onclick = fixNames;
   }
@@ -13769,6 +13784,7 @@ const UnderList = (() => {
   function openMix(name){ pv = null; loadMixerSong(name); }
   // "pick next song": the row after the one being listened to (after the mix's own, when none is).
   function next(step){
+    if(!order.length) order = sorted();
     const at = order.findIndex(s => s.name === (pv || Mixer.currentSong()));
     const s = order[(at + (step || 1) + order.length) % order.length];
     if(s) preview(s.name);
@@ -20436,7 +20452,6 @@ const Mixer = (() => {
     box.id = "clip-menu";
     const what = p.whole ? "celá stopa" : `dílek ${fmtEditTime(p.start)}–${fmtEditTime(p.start + p.dur)}`;
     box.innerHTML = `<div class="ss-head">${escapeHtml(stemLabel(c.stem))} · ${what}</div>
-      <button type="button" data-a="nam">${icon("guitar", 12)}<span>Uložit do NAM nahrávek (DI riff)</span></button>
       <button type="button" data-a="track">${icon("add", 12)}<span>Vložit do nové stopy</span></button>
       <button type="button" data-a="cap">${icon("folder", 12)}<span>Uložit do knihovny (složka CAP)</span></button>
       <button type="button" data-a="tempo">${icon("bell", 12)}<span>Detect Tempo — srovnat metronom s tímhle</span></button>
