@@ -13,7 +13,11 @@
 // player's own can be the background of anything — or lie over the app,
 // half see-through, as the model to work to (Vzor), its colours picked off.
 const PickLook = (() => {
-  const CACHE = "pick-look", REFKEY = "pick-look-ref", SIDE = "pick-look-side";
+  const CACHE = "pick-look", REFKEY = "pick-look-ref", SIDE = "pick-look-side", WIN = "pick-look-win";
+  // Pick's sections, to move between them while the window stays open
+  const SECTIONS = [["home", "Domů"], ["playlists", "Playlisty"], ["songs", "Kapely a umělci"], ["steems", "Steems"], ["library", "Knihovna"],
+    ["podcasts", "Podcasty"], ["tools", "Tools"], ["tabs", "Taby"], ["chords", "Akordy"], ["analyzer", "Analyzer"],
+    ["composer", "Skladatel"], ["vguitar", "Virtuální kytara"]];
   const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}, hide: []});
   let look = blank(), saved = JSON.stringify(look), undo = [], redo = [];
   let removing = false, peek = false;
@@ -298,6 +302,7 @@ const PickLook = (() => {
     if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("hl").classList.toggle("del", v);
       root.getElementById("rm").classList.toggle("on", v); root.getElementById("pick").classList.remove("on"); }
     document.documentElement.style.cursor = v ? "crosshair" : "";
+    paintHead();
   }
 
   // ------------------------------------------------------------ the picker
@@ -313,7 +318,7 @@ const PickLook = (() => {
   function hover(ev){
     if(!picking) return;
     const hl = root.getElementById("hl");
-    if(inPanel(ev)){ hl.style.display = "none"; return; }
+    if(inPanel(ev) || ev.altKey){ hl.style.display = "none"; return; }
     const e = document.elementFromPoint(ev.clientX, ev.clientY);
     if(!e || e === document.documentElement || e.id === "look-bg"){ hl.style.display = "none"; return; }
     const r = e.getBoundingClientRect();
@@ -322,7 +327,7 @@ const PickLook = (() => {
   }
   const name = (e) => e.tagName.toLowerCase() + (goodId(e) ? "#" + e.id : classesOf(e).slice(0, 2).map((c) => "." + c).join(""));
   function block(ev){
-    if(!picking || inPanel(ev)) return;
+    if(!picking || inPanel(ev) || ev.altKey) return;           // ⌥ + click: an ordinary click (to move about the app)
     ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
     if(ev.type !== "click") return;
     const e = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -343,6 +348,7 @@ const PickLook = (() => {
     picking = v;
     if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("pick").classList.toggle("on", v); }
     document.documentElement.style.cursor = v ? "crosshair" : "";
+    paintHead();
   }
   // the rule being edited joins the look the moment something is set on it
   function live(){
@@ -486,7 +492,7 @@ const PickLook = (() => {
     if(!target || !rule) return [h("div", {class: "empty"},
       h("p", {html: "Klikni na <b>Vybrat prvek</b> nahoře a pak na cokoli v aplikaci — tlačítko, nadpis, panel, řádek seznamu."}),
       h("p", {html: "Text nebo věc, kterou tam nechceš: <b>Odstranit prvek</b> a klikni na ni. Jen se skryje — nic se nesmaže a vše ostatní funguje dál; vrátíš ji na kartě <b>Změny</b>."}),
-      h("p", {class: "muted", text: "Dokud vybíráš, aplikace na kliknutí nereaguje. Když potřebuješ přejít jinam (otevřít píseň, Steems, nastavení), výběr vypni, dojdi tam a zapni ho znovu."}),
+      h("p", {class: "muted", text: "Dokud vybíráš, klik prvek vybere. Do jiné části Picku se dostaneš přes „Sekce“ nahoře, nebo podrž ⌥ (Option) a klikni normálně — okno zůstane otevřené. Okno přesuneš tažením za horní lištu a zvětšíš za pravý dolní roh."}),
       h("button", {class: "btn big", text: "Vybrat prvek", onclick: () => setPicking(true)}))];
     const sc = target.isConnected ? scopes(target) : [{sel: rule.sel, name: rule.sel}];
     const baseSel = STATES.reduce((s, [suf]) => suf && s.endsWith(suf) ? s.slice(0, -suf.length) : s, rule.sel);
@@ -886,14 +892,18 @@ const PickLook = (() => {
   const CSS = `
     :host{all:initial}
     *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
-    #panel{position:fixed;top:10px;bottom:10px;right:10px;width:384px;z-index:9000;display:flex;flex-direction:column;background:#14151d;color:#e9eaf2;
+    #panel{position:fixed;top:70px;left:calc(100vw - 404px);width:384px;height:min(720px,calc(100vh - 90px));min-width:300px;min-height:150px;
+      max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);resize:both;
+      z-index:9000;display:flex;flex-direction:column;background:#14151d;color:#e9eaf2;
       border:1px solid #33364a;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.65);font-size:12.5px;overflow:hidden}
-    #panel.left{right:auto;left:10px}
-    #panel.small{bottom:auto}
+    #panel.small{height:auto !important;min-height:0;resize:none}
+    header{cursor:grab;user-select:none}header.drag{cursor:grabbing}
+    .nav{flex-basis:100%;display:flex;gap:6px;align-items:center}.nav select{flex:1}
+    .nav span{font-size:11px;color:#8d92ad;white-space:nowrap}
     #panel.small #tabs,#panel.small #body,#panel.small #pal{display:none}
     header{display:flex;align-items:center;gap:6px;padding:10px 10px 8px;border-bottom:1px solid #262838;flex-wrap:wrap}
     header b{font-size:13.5px;margin-right:auto;letter-spacing:.01em}
-    header .line{flex-basis:100%;display:flex;gap:6px}header .line button{flex:1;white-space:nowrap;padding:7px 6px}
+    header .line{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px}header .line button{flex:1 1 auto;white-space:nowrap;padding:7px 6px}
     header .st{flex-basis:100%;font-size:11px;color:#8d92ad;min-height:13px}
     header .st.dirty{color:#ffc53d}
     button{font:inherit;color:inherit;cursor:pointer}
@@ -988,7 +998,7 @@ const PickLook = (() => {
           h("b", {text: "Úpravy vzhledu"}),
           h("button", {id: "un", class: "icon", text: "↩", title: "Zpět (⌘Z)", onclick: () => step(-1)}),
           h("button", {id: "re", class: "icon", text: "↪", title: "Znovu (⇧⌘Z)", onclick: () => step(1)}),
-          h("button", {class: "icon", text: "⇆", title: "Přesunout panel na druhou stranu", onclick: () => { const p = root.getElementById("panel"); p.classList.toggle("left"); try{ localStorage.setItem(SIDE, p.classList.contains("left") ? "left" : ""); }catch(e){} }}),
+          h("button", {class: "icon", text: "⇆", title: "Přichytit okno ke druhému kraji (okno jde i táhnout za horní lištu a zvětšovat za roh)", onclick: () => snapSide()}),
           h("button", {class: "icon", text: "▁", title: "Sbalit / rozbalit panel", onclick: () => root.getElementById("panel").classList.toggle("small")}),
           h("button", {class: "icon", text: "×", title: "Zavřít úpravy vzhledu", onclick: () => close()}),
           h("div", {class: "line"},
@@ -999,11 +1009,17 @@ const PickLook = (() => {
             h("button", {id: "cmp", text: "Původní ↔ nový", title: "Podrž a uvidíš aplikaci bez úprav",
               onpointerdown: () => { const s = document.getElementById("look-style"); if(s) s.disabled = true; const b = document.getElementById("look-bg"); if(b) b.style.visibility = "hidden"; },
               onpointerup: () => showAgain(), onpointerleave: () => showAgain()})),
+          h("div", {class: "nav"},
+            h("span", {text: "Sekce"}),
+            h("select", {id: "sect", title: "Přejít do jiné části Picku — okno zůstane otevřené",
+              onchange: (e) => { const m = e.target.value; e.target.value = ""; if(m) go(m); }},
+              h("option", {value: "", text: "Přejít do…"}), SECTIONS.map(([k, l]) => h("option", {value: k, text: l})))),
           h("div", {class: "st", id: "st"})),
         h("div", {id: "tabs"}), h("div", {id: "body"}), h("div", {id: "pal", hidden: true})));
     box = root.getElementById("box");
-    try{ if(localStorage.getItem(SIDE) === "left") root.getElementById("panel").classList.add("left"); }catch(e){}
     document.body.append(host);
+    placeWin();
+    dragWin();
     // what is typed into the panel is the panel's: the app's shortcuts (space = play…) must not hear it
     for(const t of ["keydown", "keyup", "keypress"]) host.addEventListener(t, (e) => e.stopPropagation());
     for(const t of ["click", "mousedown", "mouseup", "pointerdown", "pointerup", "dblclick", "contextmenu", "touchstart"]) window.addEventListener(t, block, true);
@@ -1015,6 +1031,54 @@ const PickLook = (() => {
       const typing = e.composedPath()[0] && /^(INPUT|TEXTAREA|SELECT)$/.test(e.composedPath()[0].tagName);
       if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !typing){ e.preventDefault(); e.stopPropagation(); step(e.shiftKey ? 1 : -1); }
     }, true);
+  }
+  // ---- the window: dragged by its header, sized from its corner, kept where it was left
+  function readWin(){ try{ return JSON.parse(localStorage.getItem(WIN) || "null"); }catch(e){ return null; } }
+  function keepWin(){
+    const p = root && root.getElementById("panel"); if(!p || p.classList.contains("small")) return;
+    const r = p.getBoundingClientRect();
+    try{ localStorage.setItem(WIN, JSON.stringify({x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height)})); }catch(e){}
+  }
+  function placeWin(){
+    const p = root.getElementById("panel"), w = readWin();
+    let left = null;
+    try{ left = localStorage.getItem(SIDE) === "left"; }catch(e){}
+    if(w){ p.style.width = w.w + "px"; p.style.height = w.h + "px"; p.style.left = w.x + "px"; p.style.top = w.y + "px"; }
+    else if(left){ p.style.left = "20px"; }
+    clampWin();
+  }
+  function clampWin(){
+    const p = root && root.getElementById("panel"); if(!p) return;
+    const r = p.getBoundingClientRect();
+    const x = clamp(r.left, 8 - r.width + 120, innerWidth - 120), y = clamp(r.top, 0, innerHeight - 44);
+    p.style.left = x + "px"; p.style.top = y + "px";
+  }
+  function snapSide(){
+    const p = root.getElementById("panel"), r = p.getBoundingClientRect();
+    const toLeft = r.left + r.width / 2 > innerWidth / 2;
+    p.style.left = (toLeft ? 10 : innerWidth - r.width - 10) + "px"; p.style.top = "70px";
+    try{ localStorage.setItem(SIDE, toLeft ? "left" : ""); }catch(e){}
+    keepWin();
+  }
+  function dragWin(){
+    const p = root.getElementById("panel"), hd = p.querySelector("header");
+    hd.addEventListener("pointerdown", (e) => {
+      if(e.button !== 0 || e.target.closest("button,select,input")) return;
+      const r = p.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+      hd.classList.add("drag"); hd.setPointerCapture(e.pointerId);
+      const mv = (ev) => { p.style.left = clamp(ev.clientX - dx, 8 - r.width + 120, innerWidth - 120) + "px"; p.style.top = clamp(ev.clientY - dy, 0, innerHeight - 44) + "px"; };
+      const up = () => { hd.classList.remove("drag"); hd.removeEventListener("pointermove", mv); hd.removeEventListener("pointerup", up); keepWin(); };
+      hd.addEventListener("pointermove", mv); hd.addEventListener("pointerup", up);
+    });
+    if(window.ResizeObserver){ let t = 0; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(keepWin, 300); }).observe(p); }
+    window.addEventListener("resize", clampWin);
+  }
+  // another section of Pick, the window staying open (and picking stays as it was)
+  function go(mode){
+    try{
+      const ov = document.getElementById("settings-overlay"); if(ov) ov.hidden = true;
+      if(typeof setMode === "function") setMode(mode === "home" ? "home" : mode);
+    }catch(e){ say("Do té sekce se odsud nedostanu."); }
   }
   const showAgain = () => { const s = document.getElementById("look-style"); if(s) s.disabled = false; const b = document.getElementById("look-bg"); if(b) b.style.visibility = ""; };
   function step(dir){
@@ -1028,7 +1092,7 @@ const PickLook = (() => {
     const d = dirty(), st = root.getElementById("st");
     root.getElementById("save").disabled = !d; root.getElementById("drop").disabled = !d;
     st.className = "st" + (d ? " dirty" : "");
-    st.textContent = d ? "Náhled — změny ještě nejsou uložené." : "Vše uloženo.";
+    st.textContent = (d ? "Náhled — změny ještě nejsou uložené." : "Vše uloženo.") + (picking ? " · ⌥ + klik = normální klik" : "");
   }
   function paintTabs(){
     const t = root.getElementById("tabs"); t.textContent = "";

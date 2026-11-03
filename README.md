@@ -178,6 +178,10 @@ Google Fonts a Fontshare (písma), Openverse, Wikimedia Commons, Lorem Picsum,
 Art Institute of Chicago a NASA (obrázky), Iconify (ikony); vybraný obrázek se
 stáhne do Picku. Karta Vzor položí vlastní obrázek průsvitně přes aplikaci
 jako předlohu a nabere z něj barvy (i celou paletu).
+Panel je plovoucí okno: táhne se za horní lištu, zvětšuje za pravý dolní roh, poloha a velikost
+se pamatují (`pick-look-win`), ⇆ ho přichytí k levému nebo pravému kraji. Zůstává otevřený ve
+všech sekcích: menu **Sekce** v okně přepne část Picku, a během výběru nebo odstraňování prvků
+projde **⌥ + klik** jako obyčejné kliknutí.
 
 **Odstranit prvek** (tlačítko v hlavičce Úprav vzhledu, nebo „Odstranit“ u vybraného prvku — tam i pro všechny
 stejné): co v aplikaci nechceš, klikneš a zmizí. Jen se skryje (`look.hide` → `display:none`), z kódu se nic
@@ -994,6 +998,18 @@ Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
 napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
 ±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
+
+### Automatické otisky přes noc
+
+S kalibrovanou kytarou (Moje kytara) otisk nepotřebuje tvoje hraní s písní, takže je jde dělat
+hromadně. V záložce Moje kytara je panel **Automatické otisky přes noc**: počet písní s kytarou bez
+otisku, kolik je naplánováno a kolik čeká na kontrolu. „Naplánovat na noc“ (10–500 písní, nejnovější
+první) založí v Naplánovaných úlohách (`planner.py`) úlohu `POST /api/tone/{píseň}/fit`
+s `{"stem": "guitar", "auto": true}`. Bez `start`/`end` si otisk vybere úsek s nejlepším skóre
+z `_tone_sections` (kde kytara hraje nejvíc a zbytek nejméně). Píseň, která mezitím otisk dostala,
+se přeskočí. Hotový otisk má `auto: true, review: "pending"`. V Knihovně otisků je filtr **Ke kontrole**
+a na kartě ✓ (ponechat → `review: "ok"`) a ✕ (zahodit). Endpointy: `GET /api/tone/auto`,
+`POST /api/tone/auto/plan {limit, now}`, `POST /api/tone/{píseň}/prints/{id}/review {keep}`.
 
 ## Vizualizace
 

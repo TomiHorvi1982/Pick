@@ -46,6 +46,7 @@ const Tone = (() => {
   let win = null, tab = "song", song = null, state = null, pid = null, range = null, stem = "guitar", sections = [];
   let library = null, libFind = "", libSort = "band", libCat = "", editing = null, catMenu = null;
   let guitars = null, gSel = null, gRec = null, gWatch = 0;
+  let autoInfo = null, autoAsked = false, autoLimit = 25;   // automatic prints for the night (/api/tone/auto)
   let watch = 0, recording = null, playing = null, blindRun = null, armed = null;
   let live = null;            // the print in the live guitar: {song, pid, print, input, out, nodes, core, dbl}
   let restored = false;       // the print on before a reload put back (or the player chose since)
@@ -458,7 +459,7 @@ const Tone = (() => {
     try{ localStorage.setItem(TAB, tab); }catch(e){}
     blindRun = null;
     if(tab === "library" && !library) loadLibrary();
-    if(tab === "guitar") loadGuitars();
+    if(tab === "guitar"){ autoInfo = null; loadGuitars(); }
     paint();
   }
   function close(){
@@ -745,7 +746,8 @@ const Tone = (() => {
     const keep = document.activeElement && document.activeElement.classList.contains("tw-find");
     const f = fold(libFind);
     const found = library.filter(x => !f || [x.artist, x.title, x.name, x.core, x.album, catOf(x.category).label].some(v => fold(v).includes(f)));
-    const rows = found.filter(x => !libCat || x.category === libCat);
+    const rows = found.filter(x => !libCat || (libCat === "__review" ? x.review === "pending" : x.category === libCat));
+    const toCheck = found.filter(x => x.review === "pending").length;
     const sorters = {band: (a, b) => fold(a.artist || "~").localeCompare(fold(b.artist || "~")) || fold(a.title).localeCompare(fold(b.title)) || (b.created || 0) - (a.created || 0),
       new: (a, b) => (b.created || 0) - (a.created || 0), match: (a, b) => (b.match || 0) - (a.match || 0)};
     rows.sort(sorters[libSort] || sorters.band);
@@ -757,7 +759,7 @@ const Tone = (() => {
       <div class="tw-libhead"><label class="tw-findbox">${icon("search", 13)}<input type="search" class="tw-find" placeholder="Hledat kapelu, píseň, otisk, jádro…" value="${escapeHtml(libFind)}"></label>
         <span class="tk-sort tw-lsort">${[["band", "Kapela"], ["new", "Nejnovější"], ["match", "Shoda"]].map(([k, l]) =>
           `<button type="button" data-lsort="${k}" class="${libSort === k ? "on" : ""}">${l}</button>`).join("")}</span></div>
-      <div class="tw-cats"><button type="button" data-lcat="" class="${libCat ? "" : "on"}">Vše <small>${found.length}</small></button>${CATS.map(([k, label, color]) =>
+      <div class="tw-cats"><button type="button" data-lcat="" class="${libCat ? "" : "on"}">Vše <small>${found.length}</small></button>${toCheck || libCat === "__review" ? `<button type="button" data-lcat="__review" class="tw-revchip ${libCat === "__review" ? "on" : ""}" title="Otisky udělané automaticky přes noc — poslechni a nech si je, nebo je zahoď">Ke kontrole <small>${toCheck}</small></button>` : ""}${CATS.map(([k, label, color]) =>
         `<button type="button" data-lcat="${k}" class="${libCat === k ? "on" : ""} ${n(k) ? "" : "none"}" style="--cat:${color}"><i></i>${label} <small>${n(k)}</small></button>`).join("")}</div></div>`;
     if(!library.length) html += `<div class="tw-empty">${icon("guitar", 28)}<b>Zatím tu žádný otisk není</b>
         <span>Otevři píseň ve Steems, na kanálu Live kytara klikni na OTISK a záložka Tato píseň tě provede.</span></div>`;
@@ -778,7 +780,7 @@ const Tone = (() => {
           <div class="tw-ctitle"><div class="tw-cname" title="Klikni a přejmenuj">${escapeHtml(x.name)}</div>
             <div class="tw-csub">${escapeHtml(x.artist ? `${x.artist} · ${x.title}` : x.title)}</div></div>${ring(x.match)}</div>
         <div class="tw-ctags">${catChip(x.category, !x.category_auto)}<span class="tw-tag">${escapeHtml(STEMS[x.stem] || "Kytara")} ${mmss(x.start || 0)}–${mmss(x.end || 0)}</span>
-          <span class="tw-tag" title="Jádro zkreslení">${escapeHtml(x.core || "bez jádra")}</span>${x.room ? `<span class="tw-tag">dozvuk</span>` : ""}${x.width ? `<span class="tw-tag">zdvojená</span>` : ""}</div>
+          ${x.review === "pending" ? `<span class="tw-tag tw-rev" title="Udělaný automaticky — poslechni a rozhodni">ke kontrole</span>` : ""}<span class="tw-tag" title="Jádro zkreslení">${escapeHtml(x.core || "bez jádra")}</span>${x.room ? `<span class="tw-tag">dozvuk</span>` : ""}${x.width ? `<span class="tw-tag">zdvojená</span>` : ""}</div>
         <canvas class="tw-mini-curve" width="300" height="54"></canvas>
         <div class="tw-cmeters">${meter("Zkreslení", y.drive, 0, 100, "")}${meter("Jas", y.bright, 300, 4000, " Hz")}${meter("Sustain", y.sustain, -30, 0, " dB")}</div>
         <div class="tw-cacts">
@@ -786,6 +788,8 @@ const Tone = (() => {
           <button type="button" class="tw-ib" data-act="record" title="Poslechnout kytaru originálu">${icon("disc", 14)}</button>
           <button type="button" class="tw-ib" data-act="hush" title="Zastavit poslech">${icon("pause", 14)}</button>
           <span class="tw-sp"></span>
+          ${x.review === "pending" ? `<button type="button" class="tw-ib tw-keep" data-act="keep" title="Zní dobře — ponechat">✓</button>
+          <button type="button" class="tw-ib tw-drop" data-act="drop" title="Nezní — zahodit">✕</button>` : ""}
           <button type="button" class="tw-ib" data-act="vg" title="Virtuální kytara: zahrát tab tímhle zvukem">${icon("note", 14)}</button>
           <button type="button" class="tw-ib" data-act="open" title="Otevřít píseň a její otisky">${icon("external", 14)}</button>
           <button type="button" class="tw-ib ${armed === key ? "armed" : ""}" data-act="del" title="${armed === key ? "Klikni znovu — otisk se smaže" : "Smazat otisk"}">${armed === key ? "Smazat?" : icon("trash", 14)}</button>
@@ -820,6 +824,13 @@ const Tone = (() => {
         else if(act === "hush") stopSound();
         else if(act === "vg"){ stopSound(); close(); VGuitar.withPrint(x.song, x.id); }
         else if(act === "del") forget(x.song, x.id, b);
+        else if(act === "keep" || act === "drop"){
+          stopSound();
+          try{ await api(`/api/tone/${enc(x.song)}/prints/${enc(x.id)}/review`, post({keep: act === "keep"})); }catch(e){ showToast(e.message); return; }
+          if(act === "keep") x.review = "ok"; else library = library.filter(z => z !== x);
+          if(live && live.song === x.song && live.pid === x.id && act === "drop") remove(true);
+          autoInfo = null; paintLibrary(body);
+        }
         else if(act === "use"){
           if(live && live.song === x.song && live.pid === x.id){ remove(); return; }
           if(!G().isLive()) showToast("Otisk je zapnutý — uslyšíš ho, až zapneš vstup kytary");
@@ -926,7 +937,8 @@ const Tone = (() => {
         <div class="tw-row">${job ? `<span class="tw-stage"><span class="spinner"></span> ${escapeHtml(GSTAGES[job.stage] || "vyhodnocuji")} · ${mmss(job.elapsed || 0)}</span>`
           : `<button type="button" class="btn tw-ganal" ${g.steps.strings || g.steps.chords ? "" : "disabled"}>${g.ready ? "Vyhodnotit znovu" : "Vyhodnotit"}</button>
              <span class="tw-sub">Nahraj aspoň struny a akordy; čím víc kroků, tím přesnější.</span>`}</div>
-        <div class="tw-row"><button type="button" class="tw-ib tw-gdel ${armed === "g/" + g.id ? "armed" : ""}" title="Smazat kytaru">${armed === "g/" + g.id ? "Smazat?" : icon("trash", 14)}</button></div>`}`;
+        <div class="tw-row"><button type="button" class="tw-ib tw-gdel ${armed === "g/" + g.id ? "armed" : ""}" title="Smazat kytaru">${armed === "g/" + g.id ? "Smazat?" : icon("trash", 14)}</button></div>`}
+      ${autoHtml()}`;
     const sel = body.querySelector(".tw-gsel");
     sel.onchange = async () => {
       if(sel.value !== "__new"){ gSel = sel.value; paint(); return; }
@@ -951,6 +963,7 @@ const Tone = (() => {
       try{ await api(`/api/tone/guitars/${enc(g.id)}/analyse`, {method: "POST"}); }catch(e){ showToast(e.message); return; }
       await loadGuitars(); followGuitar();
     };
+    wireAuto(body);
     const del = body.querySelector(".tw-gdel");
     if(del) del.onclick = async () => {
       if(armed !== "g/" + g.id){ armed = "g/" + g.id; paint(); setTimeout(() => { if(armed === "g/" + g.id){ armed = null; paint(); } }, 3000); return; }
@@ -958,6 +971,46 @@ const Tone = (() => {
       try{ guitars = await api(`/api/tone/guitars/${enc(g.id)}`, {method: "DELETE"}); gSel = null; }catch(e){ showToast(e.message); }
       loadGuitars();
     };
+  }
+
+  // ---- automatic prints: the songs with no print put to the night (the planner), checked in the morning
+  async function loadAuto(){
+    if(autoAsked) return;
+    autoAsked = true;
+    try{ autoInfo = await api("/api/tone/auto"); }catch(e){ autoInfo = {error: e.message}; }
+    autoAsked = false;
+    if(tab === "guitar") paint();
+  }
+  function autoHtml(){
+    if(!autoInfo){ loadAuto(); return `<div class="tw-auto"><b>Automatické otisky přes noc</b><p class="tw-sub"><span class="spinner"></span> Zjišťuji…</p></div>`; }
+    if(autoInfo.error) return `<div class="tw-auto"><b>Automatické otisky přes noc</b><p class="tw-warn">${escapeHtml(autoInfo.error)}</p></div>`;
+    const a = autoInfo, w = a.window || {};
+    const ready = a.ready && a.guitar;
+    return `<div class="tw-auto">
+      <div class="tw-autoh">${icon("clock", 15)}<b>Automatické otisky přes noc</b></div>
+      <p class="tw-sub">Bez hraní: tvoje kalibrovaná kytara zahraje to, co originál, v úseku, kde kytara v písni hraje nejzřetelněji. Pick projde písně, které otisk ještě nemají,
+        v noci ${escapeHtml(w.start || "23:00")}–${escapeHtml(w.end || "07:00")}${w.on === false ? " (noční úlohy jsou teď vypnuté — zapni je v Nastavení → Systém)" : ""}, když nic nehraje. Ráno je najdeš v Knihovně otisků pod <b>Ke kontrole</b>.</p>
+      <div class="tw-autostat"><span><b>${a.candidates}</b> písní bez otisku</span><span><b>${a.planned}</b> naplánováno</span><span><b>${a.review}</b> ke kontrole</span></div>
+      ${ready ? "" : `<p class="tw-warn">Nejdřív nahraj kalibraci výše, nech ji vyhodnotit a zapni „Používat pro otisky“.</p>`}
+      <div class="tw-row"><select class="tw-alimit" ${ready ? "" : "disabled"}>${[10, 25, 50, 100, 500].map(n => `<option value="${n}" ${n === autoLimit ? "selected" : ""}>${n === 500 ? "všechny (až 500)" : n + " písní"}</option>`).join("")}</select>
+        <button type="button" class="btn tw-aplan" ${ready && a.candidates ? "" : "disabled"}>Naplánovat na noc</button>
+        <button type="button" class="btn secondary tw-anow" ${ready && a.candidates ? "" : "disabled"} title="Začít hned, nečekat na noc (jedna píseň trvá několik minut)">Spustit hned</button>
+        ${a.review ? `<button type="button" class="btn secondary tw-arev">Zkontrolovat (${a.review})</button>` : ""}</div></div>`;
+  }
+  function wireAuto(body){
+    const lim = body.querySelector(".tw-alimit");
+    if(lim) lim.onchange = () => { autoLimit = +lim.value; };
+    const go = async (now) => {
+      try{
+        const r = await api("/api/tone/auto/plan", post({limit: autoLimit, now}));
+        autoInfo = r;
+        showToast(now ? `Spouštím ${r.added} otisků — uvidíš je v Naplánovaných úlohách` : `Naplánováno ${r.added} otisků na noc`);
+      }catch(e){ showToast(e.message); }
+      paint();
+    };
+    const pl = body.querySelector(".tw-aplan"); if(pl) pl.onclick = () => go(false);
+    const nw = body.querySelector(".tw-anow"); if(nw) nw.onclick = () => go(true);
+    const rv = body.querySelector(".tw-arev"); if(rv) rv.onclick = () => { libCat = "__review"; show("library"); };
   }
 
   // ---- Knihovna → Otisky zvuku in the left panel

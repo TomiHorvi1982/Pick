@@ -8950,7 +8950,8 @@ def _tone_prints_of(d: Path) -> list:
 
 
 def _tone_summary(p: dict) -> dict:
-    return {k: p.get(k) for k in ("id", "name", "name_auto", "category", "category_auto", "match", "stem", "start", "end", "created")} | {
+    return {k: p.get(k) for k in ("id", "name", "name_auto", "category", "category_auto", "match", "stem", "start", "end", "created",
+                                  "auto", "review")} | {
         "core": (p.get("core") or {}).get("name")}
 
 
@@ -9074,6 +9075,8 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current:
         got = json.loads((out / "print.json").read_text(encoding="utf-8"))
         got.update(id=pid, song=d.name, stem=job["stem"], start=job["start"], end=job["end"], takes=[t["file"] for t in takes],
                    gain_db=float(takes[-1].get("gain_db") or 0.0) if takes else 0.0)
+        if job.get("auto"):                       # made at night: to be listened to and kept or thrown away
+            got.update(auto=True, review="pending")
         for k in ("name", "name_auto", "category", "category_auto"):     # what the player gave it stays
             if old and k in old:
                 got[k] = old[k]
@@ -9310,6 +9313,86 @@ def tone_stop():
     return {"ok": True}
 
 
+# ---- Automatic prints: with the player's guitar calibrated (Moje kytara) a print needs no take,
+# so the songs that have none are put to the planner (planner.py) for the night — each one the
+# stretch where its guitar plays clearest, marked to be checked in the morning (Knihovna otisků →
+# Ke kontrole: keep it, or throw it away).
+def _tone_has_print(d: Path) -> bool:
+    base = d / TONE_DIR / "prints"
+    try:
+        return any((f / "print.json").is_file() for f in base.iterdir() if f.is_dir()) or (d / TONE_DIR / "print.json").is_file()
+    except OSError:
+        return (d / TONE_DIR / "print.json").is_file()
+
+
+def _tone_auto_planned() -> set:
+    return {unquote(t["path"].split("/")[3]) for t in _planner.tasks()["tasks"]
+            if t.get("kind") == "tone" and t["status"] in ("waiting", "running") and (t.get("body") or {}).get("auto")}
+
+
+def _tone_auto_candidates() -> list:
+    """Songs with a guitar track and no print yet, the newest first."""
+    root = MUSIC_ROOT / "Stems"
+    rows = [r for r in list_stems() if "guitar" in r.get("stems", [])]
+    rows.sort(key=lambda r: -(r.get("modified") or 0))
+    return [r for r in rows if not _tone_has_print(root / r["name"])]
+
+
+class ToneAutoPlanRequest(BaseModel):
+    limit: int = 25
+    now: bool = False          # not waiting for the night
+
+
+@app.get("/api/tone/auto")
+def tone_auto_view():
+    gid = _guitar_active()
+    cand = _tone_auto_candidates()
+    planned = _tone_auto_planned()
+    review = sum(1 for p in tone_prints() if p.get("review") == "pending")
+    plan = _planner.view()["settings"]
+    return {"guitar": (_guitar_view(gid) or {}).get("name") if gid else "", "ready": bool(gid) and _tone_ready(),
+            "candidates": len([r for r in cand if r["name"] not in planned]), "planned": len(planned), "review": review,
+            "window": {"on": plan["on"], "start": plan["start"], "end": plan["end"]}}
+
+
+@app.post("/api/tone/auto/plan")
+def tone_auto_plan(req: ToneAutoPlanRequest):
+    if not _guitar_active():
+        return JSONResponse({"error": "Nejdřív nahraj kalibraci v Moje kytara a zapni ji pro otisky — bez ní by otisk potřeboval tvoje hraní s každou písní."}, status_code=400)
+    planned = _tone_auto_planned()
+    picked = [r for r in _tone_auto_candidates() if r["name"] not in planned][:max(1, min(500, req.limit))]
+    for r in picked:
+        m = r.get("meta") or {}
+        label = "Otisk: " + (f"{m.get('artist')} – {m.get('title')}" if m.get("artist") else (m.get("title") or r["name"]))
+        t = _planner.add("tone", label, "POST", f"/api/tone/{quote(r['name'], safe='')}/fit", {"stem": "guitar", "auto": True})
+        if req.now:
+            _planner.now(t["id"])
+    return {"added": len(picked), **tone_auto_view()}
+
+
+class ToneReviewRequest(BaseModel):
+    keep: bool
+
+
+@app.post("/api/tone/{name}/prints/{pid}/review")
+def tone_review(name: str, pid: str, req: ToneReviewRequest):
+    """An automatic print listened to: kept (no longer to be checked) or thrown away."""
+    d = _tone_song(name)
+    p = _tone_print(d, pid) if d is not None else None
+    if p is None:
+        return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
+    if not req.keep:
+        shutil.rmtree(_tone_at(d, pid), ignore_errors=True)
+        return {"kept": False}
+    p["review"] = "ok"
+    p.pop("id", None)
+    f = _tone_at(d, pid) / "print.json"
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(f)
+    return {"kept": True}
+
+
 @app.get("/api/tone/prints")
 def tone_prints():
     """The library of prints: every one of every song, with its band and song, the match, the core
@@ -9415,9 +9498,10 @@ def tone_take_delete(name: str, file: str):
 
 
 class ToneFitRequest(BaseModel):
-    start: float
-    end: float
+    start: float = -1          # -1: the stretch where this guitar plays clearest (an automatic print)
+    end: float = -1
     stem: str = "guitar"
+    auto: bool = False         # made by the night's batch: kept to be checked, and none made over a print there is
     refine: bool = False       # from the print there is ("Doladit"): only its best cores again
     print: str = ""            # …which one of the song's prints
     current_amp: str = ""      # the amp and cabinet the live guitar has now: how it sounds before the print
@@ -9434,6 +9518,15 @@ def tone_fit(name: str, req: ToneFitRequest):
         return JSONResponse({"error": "Tahle píseň nemá stopu kytary."}, status_code=400)
     if not _tone_ready():
         return JSONResponse({"error": "Chybí engine otisku (prostředí pick-tone nebo Node)."}, status_code=503)
+    if req.auto and _tone_prints_of(d):
+        return {"skipped": "Píseň už otisk má."}
+    if req.start < 0 or req.end <= req.start:
+        got = tone_sections(name, req.stem)
+        secs = got.get("sections") if isinstance(got, dict) else None
+        if not secs:
+            return JSONResponse({"error": "V kytaře téhle písně jsem nenašel úsek, kde hraje dost zřetelně."}, status_code=400)
+        best = max(secs, key=lambda x: x.get("score", 0))
+        req.start, req.end = float(best["start"]), float(best["end"])
     length = req.end - req.start
     if length < 4 or length > 40:
         return JSONResponse({"error": "Úsek musí mít od 4 do 40 vteřin."}, status_code=400)
@@ -9454,7 +9547,8 @@ def tone_fit(name: str, req: ToneFitRequest):
         if (_TONE["job"] or {}).get("status") == "running":
             return JSONResponse({"error": "Jeden otisk se už počítá — počkej, až doběhne."}, status_code=409)
         job = {"song": name, "status": "running", "stage": "listen", "done": 0, "of": 0, "started": time.time(),
-               "start": float(req.start), "end": float(req.end), "stem": req.stem, "print": req.print if req.refine else ""}
+               "start": float(req.start), "end": float(req.end), "stem": req.stem, "print": req.print if req.refine else "",
+               "auto": bool(req.auto)}
         _TONE["job"] = job
     threading.Thread(target=_tone_run, args=(job, d, _stem_file(d, req.stem), takes, req.refine, current), daemon=True).start()
     return _tone_view()
@@ -11496,6 +11590,11 @@ def _plan_idle() -> bool:
 def _plan_outcome(t: dict, answer: dict) -> tuple:
     """How a planned job ended, with a word for the list."""
     kind = t.get("kind")
+    if kind == "tone" and answer.get("skipped"):
+        return True, str(answer["skipped"])
+    if kind == "tone" and (_TONE["job"] or {}).get("status") == "done":
+        j = _TONE["job"]
+        return True, f"Shoda {j.get('match')} %" + (" — ke kontrole v Knihovně otisků." if j.get("auto") else ".")
     if kind in ("hear", "tone"):
         j = {"hear": _HEAR, "tone": _TONE}[kind]["job"] or {}
         if j.get("status") == "error":
