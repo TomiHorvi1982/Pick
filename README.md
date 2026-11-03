@@ -943,6 +943,11 @@ kytara; návrh v `docs/specs/2026-10-15-tonovy-otisk-design.md`). Aparáty ani
 efekty neřešíš — engine si z knihovny NAM modelů (`amps/`) sám vybere jádro
 zkreslení a zbytek dopočítá.
 
+**EQ shoda** (`eq_match.py`, z NAM-EQ-Match, jen numpy a scipy): k hotovému otisku dopočítá knoflíky
+**Bass / Middle / Treble** pro EQ NAM pluginu (stejné filtry jako plugin: 150 Hz, 425 Hz, 1,8 kHz) a dva IR:
+`match-ir.wav` (celá korekce ±18 dB) a `gentle-ir.wav` (jemná ±9 dB, po nastavení knoflíků — doporučené).
+V okně otisku jsou knoflíky a tlačítka ke stažení obou IR; ukládají se k otisku (`print.json` → `eq_match`).
+
 **Která jádra zkouší**: všechna, co Pick zná (`amps/`, `amps/nam/`, kategorie, knihovna), ale
 téměř-dvojčata jen jednou. Každé jádro si engine jednou „poslechne“ na vymyšleném riffu se dvěma drivy
 a s barvou srovnanou na stejné spektrum (`tone_worker.py fingerprints`, pamatuje se podle obsahu

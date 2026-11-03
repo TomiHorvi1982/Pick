@@ -40,6 +40,12 @@ import numpy as np
 import soundfile as sf
 from scipy import optimize, signal
 
+try:
+    from eq_match import eq_enrich as _eq_enrich
+    _EQ_MATCH_AVAILABLE = True
+except ImportError:
+    _EQ_MATCH_AVAILABLE = False
+
 N_FFT, HOP = 2048, 512
 IR_LEN = 2048
 PRE_MID_HZ, PRE_LOW_HZ, PRE_HIGH_HZ, HP_Q_DB = 750.0, 250.0, 2000.0, -3.0103   # static/tone.js has the same
@@ -835,6 +841,14 @@ class Fit:
         out = Path(job["out"])
         out.mkdir(parents=True, exist_ok=True)
         sf.write(str(out / "print-ir.wav"), h, sr, subtype="FLOAT")
+
+        # EQ match from NAM-EQ-Match: match-ir.wav, gentle-ir.wav, eq-match.json
+        result_extra = {}
+        if _EQ_MATCH_AVAILABLE:
+            try:
+                result_extra = _eq_enrich(core_out, seg["r"].astype(np.float32), sr, out)
+            except Exception as _eq_err:
+                warnings.append(f"EQ match skipped: {_eq_err}")
         you = np.zeros(seg["len"], np.float32)
         at = 0
         for (a, b), n in zip(seg["place"], seg["seg_lens"]):
@@ -882,6 +896,7 @@ class Fit:
             "report": {"record": rec, "you": describe(ear, fy),
                        "curve": {"hz": [int(x) for x in ear.fine_c[show]], "record": [round(float(v), 1) for v in ltas_r[show]],
                                  "you": [round(float(v), 1) for v in ltas_y[show]]}},
+            **result_extra,
         }
         (out / "print.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         return result

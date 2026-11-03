@@ -487,6 +487,45 @@ const Tone = (() => {
     loadSections();
   }
 
+  function eqMatchHtml(eq, song, pid) {
+    if (!eq) return "";
+    const knob = (label, val, gain_db) => {
+      const pct = Math.round(val * 10);   // 0–10 → 0–100 %
+      const sign = gain_db >= 0 ? "+" : "";
+      const col = Math.abs(gain_db) < 1 ? "var(--muted,#666)"
+                : gain_db > 0 ? "var(--accent,#2dd4bf)" : "var(--gold,#e8b93f)";
+      return `<div class="tw-eqknob" title="${label}: knob ${val} (${sign}${gain_db.toFixed(1)} dB)">
+        <svg width="44" height="44" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="16" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="4"/>
+          <circle cx="22" cy="22" r="16" fill="none" stroke="${col}" stroke-width="4"
+            stroke-dasharray="${pct} 100" stroke-dashoffset="25"
+            stroke-linecap="round" transform="rotate(-90 22 22)"/>
+          <text x="22" y="26" text-anchor="middle" font-size="11" font-weight="700"
+            fill="currentColor">${val}</text>
+        </svg>
+        <span>${label}</span><small>${sign}${gain_db.toFixed(1)} dB</small>
+      </div>`;
+    };
+    const improved = eq.mse_before != null && eq.mse_after != null
+      ? Math.round((1 - eq.mse_after / Math.max(eq.mse_before, 0.001)) * 100) : null;
+    return `<details class="tw-eqmatch" open>
+      <summary>EQ shoda — nastavení pluginu <small>${improved != null ? `(EQ zavírá ${improved}\u00a0% zbývající mezery)` : ""}</small></summary>
+      <p class="tw-sub">Nastav v NAM pluginu (sekce EQ / Tone Stack):</p>
+      <div class="tw-eqrow">
+        ${knob("Bass",   eq.bass,   eq.bass_gain_db)}
+        ${knob("Middle", eq.middle, eq.middle_gain_db)}
+        ${knob("Treble", eq.treble, eq.treble_gain_db)}
+      </div>
+      <p class="tw-sub">Dva způsoby použití:<br>
+        <b>A)</b> Načti <code>match-ir.wav</code> do IR slotu (nejpřesnější, může znít uměle).<br>
+        <b>B)</b> Nastav EQ výše + načti <code>gentle-ir.wav</code> (doporučeno — přirozenější).</p>
+      <div class="tw-row">
+        <a class="btn secondary" href="/api/tone/${enc(song)}/file/gentle-ir.wav?${q(pid)}" download="${escapeHtml(song)} – gentle-ir.wav">⬇ gentle-ir.wav (B)</a>
+        <a class="btn secondary" href="/api/tone/${enc(song)}/file/match-ir.wav?${q(pid)}" download="${escapeHtml(song)} – match-ir.wav">⬇ match-ir.wav (A)</a>
+      </div>
+    </details>`;
+  }
+
   function curve(cv, c, thin){
     const g = cv.getContext("2d"), w = cv.width, h = cv.height;
     g.clearRect(0, 0, w, h);
@@ -600,6 +639,7 @@ const Tone = (() => {
           + bars("Jas", rep.record.bright, rep.you.bright, " Hz", 300, 4000, "Těžiště spektra — vyšší = jasnější")
           + bars("Basy", rep.record.bass, rep.you.bass, " dB", -20, 10, "Basy proti středům")
           + bars("Prostor", rep.record.room, rep.you.room, " dB", -40, 0, "Jak rychle tón dozní, když přestaneš hrát (méně = víc prostoru)") : ""}
+        ${p.eq_match ? eqMatchHtml(p.eq_match, song, p.id) : ""}
         <p class="tw-sub">Šířka: ${p.width && p.width.on ? "originál zní ze dvou stran (zdvojená kytara) — otisk zapne doubler" : "jedna kytara uprostřed"}</p>
         <div class="tw-row"><button type="button" class="btn secondary tw-a" title="Úsek s originální kytarou">▶ Originál</button>
           <button type="button" class="btn secondary tw-b" title="Úsek s tvou nahrávkou přes otisk">▶ Ty</button>

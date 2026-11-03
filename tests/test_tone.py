@@ -71,9 +71,11 @@ def silent(p, n):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(job["sr"]); w.writeframes(b"\\0\\0" * n)
 silent(out / "print-ir.wav", 2048)
 silent(out / "you.wav", job["sr"] * 10)
+silent(out / "match-ir.wav", 2048); silent(out / "gentle-ir.wav", 2048)
 again = bool(job.get("start_from"))
 (out / "print.json").write_text(json.dumps({"version": 1, "core": {"id": "Amp.nam", "name": "Amp"}, "drive_db": 3.0,
     "pre": {"hp": 90, "mid_db": 1, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False, "corr": 1.0},
+    "eq_match": {"bass": 6.0, "middle": 4.5, "treble": 7.0, "match_ir": "match-ir.wav", "gentle_ir": "gentle-ir.wav"},
     "match": 91 if again else 84, "takes_seen": len(job["takes"]), "offsets": [t["offset"] for t in job["takes"]],
     "report": {"record": {"drive": 45}, "you": {"drive": 50}},
     "spec": {"guitar": bool(job.get("guitar")), "ref_notes": len(job.get("ref_notes") or []), "current": job.get("current"), "fp": job.get("fp_cache")}}))
@@ -140,6 +142,11 @@ def test_a_print_is_made_kept_refined_and_taken_back(client, tmp_music_root, tmp
     assert p["takes"] == ["take-1.wav"] and p["gain_db"] == 2.5 and p["offsets"] == [-1.0] and p["song"] == "Kapela - Píseň"
     assert (d / "tone" / "prints" / pid / "print-ir.wav").is_file()
     assert client.get(f"/api/tone/Kapela - Píseň/file/print-ir.wav?print={pid}").status_code == 200
+    # the EQ match: its knobs in the print, its two IRs kept with it to be downloaded
+    assert p["eq_match"]["bass"] == 6.0
+    for f in ("match-ir.wav", "gentle-ir.wav"):
+        assert (d / "tone" / "prints" / pid / f).is_file()
+        assert client.get(f"/api/tone/Kapela - Píseň/file/{f}?print={pid}").status_code == 200
     assert client.get("/api/tone/Kapela - Píseň/file/print-ir.wav").status_code == 404           # whose?
     lib = client.get("/api/tone/prints").json()
     assert [(x["song"], x["id"], x["artist"], x["title"]) for x in lib] == [("Kapela - Píseň", pid, "Kapela", "Píseň")]
@@ -301,3 +308,23 @@ def test_near_twin_cores_are_tried_once():
     r = subprocess.run([str(server.TONE_PYTHON), str(server.TONE_WORKER), "--selftest-cores"], capture_output=True, text=True, timeout=120)
     assert r.returncode == 0 and "SELFTEST-CORES OK" in r.stdout, r.stdout[-2000:]
 
+
+
+@pytest.mark.skipif(not server.TONE_PYTHON.is_file(), reason="engine otisku tu není")
+def test_the_eq_match_hears_a_darker_record(tmp_path):
+    """eq_match.py: against a record with its highs cut, Treble goes down, the knobs close most of the gap,
+    and the two IRs are written beside the print."""
+    code = f"""
+import sys, json, numpy as np
+sys.path.insert(0, {str(server.APP_DIR)!r})
+from scipy.signal import butter, lfilter
+import eq_match
+sr = 48000; x = np.random.default_rng(1).standard_normal(sr * 6).astype(np.float32) * 0.1
+b, a = butter(2, 2500 / (sr / 2)); y = lfilter(b, a, x).astype(np.float32)
+print(json.dumps(eq_match.eq_enrich(x, y, sr, {str(tmp_path)!r})["eq_match"]))
+"""
+    r = subprocess.run([str(server.TONE_PYTHON), "-c", code], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr[-1500:]
+    eq = json.loads(r.stdout.strip().splitlines()[-1])
+    assert eq["treble"] < 3 and eq["treble_gain_db"] < -3 and eq["mse_after"] < eq["mse_before"] * 0.5
+    assert (tmp_path / "match-ir.wav").is_file() and (tmp_path / "gentle-ir.wav").is_file()

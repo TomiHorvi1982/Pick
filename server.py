@@ -10083,7 +10083,8 @@ TONE_NAM_JS = APP_DIR / "tone_nam.mjs"
 TONE_DIR = "tone"
 # how each NAM core sounds, heard once (tone_worker.py fingerprints) — near-twins are tried as one
 TONE_CORES = ".tone-cores.json"
-TONE_FILES = ("print-ir.wav", "you.wav", "abx-record.wav", "abx-you.wav", "prev-print-ir.wav", "you.mp3", "record.mp3")
+TONE_FILES = ("print-ir.wav", "you.wav", "abx-record.wav", "abx-you.wav", "prev-print-ir.wav", "you.mp3", "record.mp3",
+              "match-ir.wav", "gentle-ir.wav")          # the EQ match's two IRs (eq_match.py), to be downloaded for the NAM plugin
 TONE_STEM_LABELS = {"guitar": "Kytara", "guitar_solo": "Sólová kytara", "guitar_rhythm": "Rytmická kytara"}
 TONE_PART = {"guitar_solo": "sólo", "guitar_rhythm": "rytmika"}
 # The kinds of sound a print is filed under (static/tone.js shows them); the app picks one
@@ -10329,6 +10330,11 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current:
             shutil.copyfile(dest / "print-ir.wav", dest / "prev-print-ir.wav")
         for f in ("print-ir.wav", "you.wav"):
             shutil.move(str(out / f), str(dest / f))
+        for f in ("match-ir.wav", "gentle-ir.wav"):        # the EQ match's, when it ran; none left from a print before
+            if (out / f).is_file():
+                shutil.move(str(out / f), str(dest / f))
+            else:
+                (dest / f).unlink(missing_ok=True)
         for f in ("abx-record.wav", "abx-you.wav", "you.mp3", "record.mp3"):
             (dest / f).unlink(missing_ok=True)
         (dest / "print.json").write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
@@ -10568,7 +10574,7 @@ def tone_prints():
             out.append(_tone_summary(p) | {"song": d.name, "artist": m.get("artist") or "", "title": m.get("title") or d.name,
                                            "album": m.get("album") or "", "drive_db": p.get("drive_db"), "room": p.get("room"),
                                            "width": (p.get("width") or {}).get("on"), "record": rep_.get("record"), "you": rep_.get("you"),
-                                           "curve": rep_.get("curve")})
+                                           "curve": rep_.get("curve"), "eq_match": p.get("eq_match")})
     return sorted(out, key=lambda x: -(x.get("created") or 0))
 
 
