@@ -1062,6 +1062,14 @@ body.lib-collapsed .pick-brand{display:none}
   /* Tool menus: a named button that unrolls a group of related tools, so the
      bars show a handful of categories instead of two dozen small icons. */
   .tmenu{position:relative;display:inline-flex;flex:none}
+  .tmenu[hidden]{display:none}
+  .steems-shelves{margin:4px 0 18px}
+  .steems-shelves-head{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .steems-shelves .shelf{margin:18px 0 4px}
+  .steems-shelves .shelf-head .h{font-size:19px}
+  .steems-shelves .shelf-row > .card{flex:0 0 150px}
+  .steems-tile .art{display:flex;align-items:center;justify-content:center;color:var(--sub)}
+  .steems-tile.card-artist .art{border-radius:50%}
   .tm-btn .tm-caret{font-size:9px;opacity:.7;margin-left:3px}
   .tmenu.open > .tm-btn{background:#2a2a33;border-color:#4a4a58}
   .tm-btn.has-on{border-color:var(--nm-blue);color:#8fbaff}
@@ -4827,7 +4835,7 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
-    <div class="tmenu" data-tmenu="voice">
+    <div class="tmenu" data-tmenu="voice" hidden>
       <button type="button" class="sp-round tm-btn" id="voice-top-btn" title="Hlasové ovládání — řekni anglicky „pick play“, „pick stop“… Rozpoznává se v tomhle počítači, nic se neodesílá."><span data-icon="mic" data-size="17"></span></button>
       <div class="tm-pop voice-pop">
         <div class="tm-head">Hlasové ovládání</div>
@@ -5066,7 +5074,7 @@ body.lib-collapsed .pick-brand{display:none}
       </div>
       <div class="mic-test"><button type="button" class="btn secondary" id="mic-test"><span data-icon="mic" data-size="14"></span>Vyzkoušet</button>
         <div class="sys-bar" id="mic-level"><i style="width:0"></i></div><span class="mic-note" id="mic-note"></span></div>
-      <div class="set-note">Používá ho trenér zpěvu, Výslovnost, nový hlas, úryvek zpěvu k písni, přezpívání řádku (Namluvit) a hlasové ovládání.
+      <div class="set-note">Používá ho trenér zpěvu, Výslovnost, nový hlas, úryvek zpěvu k písni, a přezpívání řádku (Namluvit).
         <span id="mic-guitar"></span> Pick poslouchá obě zařízení zároveň — USB mikrofon a zvukovku nemusíš nijak spojovat.</div>
       <details class="mic-agg"><summary>Spojit zvukovku a mikrofon v macOS do jednoho zařízení (agregované zařízení)</summary>
         <ol><li>Otevři <b>Nastavení Audio MIDI</b> (Aplikace → Utility, nebo ⌘ mezerník a napiš „Audio MIDI“).</li>
@@ -10836,14 +10844,11 @@ function renderRailBranches(list, sec, sectionCollapsed){
 // The Tools section's own pages.
 const TOOLS = [
   {key: "tabs", title: "Taby", icon: "guitar", sub: "Guitar Pro / MusicXML s nahrávkou"},
-  {key: "loops", title: "Loops", icon: "note", sub: "Looperman a další weby s loopy"},
   {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
   {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
-  {key: "loopstudio", title: "Loop Studio", icon: "sync", sub: "Song → Loop Plan: takty, akordy, smyčky a nastavení pro Loopy Pro"},
   {key: "looper", looper: true, title: "Looper", icon: "repeat", sub: "Živé loopování jako Boss RC-505: 5 stop, vrstvy, části písně, ovládání pedálem"},
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
   {key: "vguitar", title: "Virtuální kytara", icon: "elGuitar", sub: "Napiš nebo vlož tab — zahraje ho zvukem kytary z písně (tónový otisk)"},
-  {key: "kontakt", title: "Kontakt", icon: "library", sub: "Tvoje knihovny Native Instruments: nástroje pro virtuální kytaru, smyčky a samply"},
   // a website that refuses to be shown inside Pick: its own window (server.py WEB_TOOLS)
   {key: "ukutabs", web: true, title: "Ukulele Tabs", icon: "guitar", sub: "Nejnovější taby pro ukulele (ukutabs.com) — otevře se ve vlastním okně"},
 ];
@@ -10862,11 +10867,12 @@ const RAIL_SECTIONS = [
   {key: "steems", title: "Steems", icon: "stems"},
   {key: "library", title: "Knihovna", icon: "library"},
   {key: "podcasts", title: "Podcasty", icon: "headphones"},
-  // Taby, Loops and Scales and Chords live under one heading.
-  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar", "kontakt"]},
+  // Taby, Scales and Chords and the other tools live under one heading.
+  {key: "tools", title: "Tools", icon: "sliders", modes: ["tools", "tabs", "chords", "analyzer", "composer", "vguitar"]},
 ];
 // Every mode the app can show, not only the rail's own headings.
-const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "loops", "chords", "analyzer", "loopstudio", "composer", "vguitar", "kontakt"];
+// Loops, Loop Studio and Kontakt are no longer tools of their own (3. 11.): a saved mode of theirs opens the list.
+const ALL_MODES = ["playlists", "songs", "steems", "library", "podcasts", "tools", "tabs", "chords", "analyzer", "composer", "vguitar"];
 
 // Resolved once per section and kept \u2014 the rail re-renders on every mode
 // switch, and none of these five change often enough to be worth refetching
@@ -13250,6 +13256,105 @@ let libraryLoaded = false;      // has a folder been fetched this session? (root
 // load), and it reaches PODCASTS_STATE before the script gets that far.
 const PODCASTS_STATE = { shows: [], query: "", loading: false, region: "cz" };
 
+// ======================================================================
+// Steems in categories: shelves of tiles over the list, as on the Playlists
+// page — opened lately, newly separated, bands, playlists, tunings, CZ/SK.
+// A tile opens the project in the mix; "Zobrazit vše" narrows the list below.
+// ======================================================================
+const SteemsShelves = (() => {
+  const RECENT_KEY = "pick-steems-recent", FOLD_KEY = "pick-steems-shelves-off", PER = 30;
+  const recent = () => { try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); }catch(e){ return []; } };
+  function opened(name){
+    if(!name) return;
+    const r = [name, ...recent().filter(x => x !== name)].slice(0, 40);
+    try{ localStorage.setItem(RECENT_KEY, JSON.stringify(r)); }catch(e){}
+  }
+  let io = null;
+  function art(a, name){
+    if(!io) io = new IntersectionObserver(es => es.forEach(e => {
+      if(e.isIntersecting){ io.unobserve(e.target); StemsArt.paint(e.target, e.target._name); }
+    }), {rootMargin: "200px"});
+    a._name = name; io.observe(a);
+  }
+  function card(song){
+    const d = stemsDisplay(song), t = describeTuning(song.tuning);
+    const c = document.createElement("div");
+    c.className = "card steems-tile";
+    c.title = `${d.artist ? d.artist + " — " : ""}${d.title}`;
+    c.innerHTML = `<div class="art">${icon("stems", 30)}</div>
+      <div class="meta"><div class="title">${escapeHtml(d.title)}</div>
+      <div class="sub">${escapeHtml(d.artist || (t ? t.name : ""))}</div></div>`;
+    art(c.querySelector(".art"), song.name);
+    c.onclick = () => loadMixerSong(song.name);
+    return c;
+  }
+  function band(name, songs){
+    const c = document.createElement("div");
+    c.className = "card card-artist steems-tile";
+    c.innerHTML = `<div class="art">${icon("mic", 30)}</div>
+      <div class="meta"><div class="title">${escapeHtml(name)}</div>
+      <div class="sub">${songs.length} ${songs.length < 5 ? "písně" : "písní"}</div></div>`;
+    art(c.querySelector(".art"), songs[0].name);         // the band's look: one of its records
+    c.onclick = () => pick(name);
+    return c;
+  }
+  let pick = () => {};
+  function shelf(title, items, make, all){
+    if(!items.length) return null;
+    const sec = document.createElement("div");
+    sec.className = "shelf";
+    sec.innerHTML = `<div class="shelf-head"><h2 class="h">${escapeHtml(title)}</h2>
+      ${all ? `<a class="all" href="#" title="Ukázat je všechny v seznamu dole">Zobrazit vše (${items.length})</a>` : ""}</div>
+      <div class="shelf-row"></div>`;
+    const row = sec.querySelector(".shelf-row");
+    items.slice(0, PER).forEach(x => row.appendChild(make(x)));
+    if(all) sec.querySelector(".all").onclick = (e) => { e.preventDefault(); pick(all); };
+    return sec;
+  }
+  function build(songs, onPick){
+    pick = onPick;
+    const box = document.createElement("div");
+    box.className = "steems-shelves";
+    let off = false; try{ off = localStorage.getItem(FOLD_KEY) === "1"; }catch(e){}
+    const head = document.createElement("div");
+    head.className = "steems-shelves-head";
+    const paintHead = () => head.innerHTML = `<span class="section-title">Kategorie</span>
+      <button type="button" class="chip" title="${off ? "Ukázat" : "Schovat"} dlaždice v kategoriích">${off ? "Ukázat" : "Schovat"}</button>`;
+    paintHead();
+    const shelves = document.createElement("div");
+    box.append(head, shelves);
+    head.onclick = (e) => {
+      if(!e.target.closest("button")) return;
+      off = !off; try{ off ? localStorage.setItem(FOLD_KEY, "1") : localStorage.removeItem(FOLD_KEY); }catch(e){}
+      paintHead(); shelves.hidden = off; if(!off && !shelves.children.length) fill();
+    };
+    shelves.hidden = off;
+    const byName = new Map(songs.map(x => [x.name, x]));
+    const groups = (key) => {
+      const m = new Map();
+      songs.forEach(x => { const k = key(x); if(k){ if(!m.has(k)) m.set(k, []); m.get(k).push(x); } });
+      return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+    };
+    const byArtist = (a, b) => steemsCollator.compare(stemsDisplay(a).artist || "~", stemsDisplay(b).artist || "~")
+      || steemsCollator.compare(stemsDisplay(a).title, stemsDisplay(b).title);
+    function fill(){
+      const add = (s) => s && shelves.appendChild(s);
+      add(shelf("Naposledy otevřené", recent().map(n => byName.get(n)).filter(Boolean), card));
+      add(shelf("Nově rozdělené", songs.slice().sort((a, b) => (b.modified || 0) - (a.modified || 0)), card));
+      const bands = groups(x => stemsDisplay(x).artist).filter(([, l]) => l.length >= 2);
+      add(shelf("Kapely", bands, ([n, l]) => band(n, l)));
+      groups(steemsPlaylist).filter(([, l]) => l.length >= 3).slice(0, 8)
+        .forEach(([n, l]) => add(shelf("Playlist: " + n, l.slice().sort(byArtist), card, n)));
+      groups(x => (describeTuning(x.tuning) || {}).name).filter(([, l]) => l.length >= 3).slice(0, 6)
+        .forEach(([n, l]) => add(shelf("Ladění: " + n, l.slice().sort(byArtist), card, n)));
+      add(shelf("České a slovenské", songs.filter(x => x.origin === "cz").sort(byArtist), card));
+    }
+    if(!off) fill();
+    return box;
+  }
+  return {build, opened, recent};
+})();
+
 async function loadSteemsList(){
   pushNav("steems:list", () => { setMode("steems", {keepSection: true}); loadSteemsList(); });
   // Whatever song's hero was showing, the plain list is a different step.
@@ -13295,6 +13400,12 @@ async function loadSteemsList(){
   list.appendChild(summary);
   summary.querySelector("#steems-open-file").onclick = () => summary.querySelector("#steems-open-file-input").click();
   summary.querySelector("#steems-open-file-input").onchange = (e) => { const f = [...e.target.files]; e.target.value = ""; if(f.length) newProjectFromUpload(f); };
+  list.appendChild(SteemsShelves.build(steemsSongs, (q) => {
+    steemsFilter = q;
+    const f = list.querySelector(".stems-filter"); if(f) f.value = q;
+    paintSteemsCards(body);
+    bar.scrollIntoView({block: "start", behavior: "smooth"});
+  }));
 
   // Grouping / filter bar.
   const bar = document.createElement("div");
@@ -13925,6 +14036,7 @@ function loadMixerSong(name, opts = {}){
     loadMixerSong(name);
   });
   currentSteemsName = name;
+  SteemsShelves.opened(name);
   if(!el("mixer").hidden) UnderList.paint();           // the other songs: this one's band first
   showSteemsHero(name);
   if(state.mode === "steems") renderLibraryRail("steems");
@@ -33718,8 +33830,8 @@ const RemoteAgent = (() => {
       case "heard":                // the menu bar's listening heard a command while this window was not listening
         try{ Voice.heard(JSON.parse(cmd.text)); }catch(e){}
         break;
-      case "voice":                // Siri, through a shortcut: listening on, off, or the other one
-        Voice.turn(cmd.value === 1 ? true : cmd.value === 0 ? false : !Voice.isOn());
+      case "voice":                // Siri, through a shortcut: voice control is off for good, so only "off" is heard
+        if(Voice.isOn()) Voice.turn(false);
         break;
       case "playqueue": {          // the mini player's queue tab
         const item = loadQueue()[Math.round(cmd.value)];
@@ -36532,8 +36644,12 @@ const Voice = (() => {
   // One window listens — the one that answers the remote. Another Pick window
   // taking over means this one lets the microphone go.
   addEventListener("storage", (e) => { if(e.key === OWNER_KEY && on && !RemoteAgent.isOwner()) stop(); });
-  document.addEventListener("visibilitychange", () => { if(!document.hidden && !on && wanted()) start(); });
-  if(wanted()) start();
+  // Voice control is switched off for good (3. 11.): nothing starts listening,
+  // and listening left on from before — here or from the menu bar — is let go.
+  if(wanted()){ try{ localStorage.removeItem(ON_KEY); }catch(e){} }
+  fetch("/api/voice/widget").then(r => r.json()).then(w => {
+    if(w && w.on) fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on: false})});
+  }).catch(() => {});
   el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
   el("voice-mic").onchange = (e) => VoiceMic.set(e.target.value, savedCh());
   // chosen here or in the settings (Mikrofon pro zpěv a hlas): both pickers show it, the menu bar hears of it

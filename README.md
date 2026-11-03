@@ -708,6 +708,20 @@ poslechu přepne hned; odpojený vstup → výchozí. V ladičce (`static/ladick
 **Minipřehrávač převezme píseň**: když se otevře (lištou, hlasem, `POST /api/mini/open`) a aplikace hraje,
 hraje ji dál on od stejného místa — píseň ze Steems celou (s kytarou) — a aplikace se pozastaví.
 
+## Steems v kategoriích
+
+Stránka Steems má nahoře **Kategorie** (`SteemsShelves`): police dlaždic jako na stránce Playlistů —
+Naposledy otevřené (`pick-steems-recent`, zapisuje `loadMixerSong`), Nově rozdělené, Kapely (alespoň dvě písně),
+playlisty a ladění (alespoň tři písně) a České a slovenské. Dlaždice otevře projekt v mixu, dlaždice kapely
+a „Zobrazit vše“ zúží seznam pod nimi, „Schovat“ police sbalí (`pick-steems-shelves-off`). Obrázky se načítají,
+až když je dlaždice vidět.
+
+## Tools: co zbylo
+
+Loops, Loop Studio a Kontakt v Tools nejsou (3. 11.); kód zůstal — zvuky Kontaktu používá Virtuální kytara.
+Hlasové ovládání je vypnuté: tlačítko v horní liště je skryté, poslouchání se samo nezapne a zapnuté
+poslouchání z lišty macOS se při otevření Picku vypne.
+
 ## Steems: méně na očích
 
 **Sbalit stopy** (první tlačítko v liště nad stopami, pamatuje se — `pick-steems-compact`): každá stopa je tenký
