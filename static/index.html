@@ -2615,6 +2615,13 @@ body.lib-collapsed .pick-brand{display:none}
   .stem-meta-form input{width:100%;min-width:0}
   .stem-meta-form .acts{display:flex;gap:6px}
   .stem-meta-form .hint{grid-column:1 / -1;font-size:11.5px;color:var(--sub)}
+  .stems-all-fold{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;margin:4px 0 10px;border:1px dashed var(--border);
+    border-radius:12px;background:var(--card);color:var(--text);font:inherit;text-align:left;cursor:pointer}
+  .stems-all-fold:hover{border-color:var(--accent)}
+  .stems-all-fold span{flex:1;display:flex;flex-direction:column;gap:2px}.stems-all-fold small{color:var(--sub);font-size:12px}
+  .stems-all-fold i{font-style:normal;color:var(--sub)}
+  .stems-all-unfold{display:block;margin:0 0 8px auto;border:0;background:none;color:var(--sub);font:inherit;font-size:12px;cursor:pointer}
+  .stems-all-unfold:hover{color:var(--text)}
   .stems-group-bar{display:flex;align-items:center;gap:6px;padding:0 4px 12px;flex-wrap:wrap}
   .stems-group-bar span{font-size:12px;color:var(--sub);margin-right:2px}
   .stems-group-bar input{margin-left:auto;width:220px;max-width:100%}
@@ -9184,7 +9191,7 @@ function setMode(mode, opts){
     // folders had gone missing. Back/forward and folder rows pass keepSection.
     if(!opts.keepSection) loadLibraryFolder("");
   } else if(mode === "steems"){
-    if(!opts.keepSection && !currentSteemsName) loadSteemsList();
+    if(!opts.keepSection && !currentSteemsName) loadSteemsList({cached: true});
   } else if(mode === "podcasts"){
     if(!opts.keepSection && el("podcast-detail").hidden) loadPodcastsList();
   } else if(mode === "tabs"){
@@ -12930,6 +12937,8 @@ function openSteemsSong(name, opts = {}){
 // during planning, not its literal source.
 // ======================================================================
 let steemsSongs = [];
+let steemsListAt = 0;          // when steemsSongs was last asked of the server (the Steems page keeps it a while)
+let steemsAllOpen = false;     // the long list under the tiles: folded until opened, a tile or a search
 let currentSteemsName = null;   // which stem set the mixer has open
 let libraryRailEntries = [];    // last folder listing, mirrored into the rail
 let libraryCurrentRel = "";     // folder the stage is showing, for tree highlight
@@ -13038,8 +13047,10 @@ const SteemsShelves = (() => {
   return {build, opened, recent};
 })();
 
-async function loadSteemsList(){
-  pushNav("steems:list", () => { setMode("steems", {keepSection: true}); loadSteemsList(); });
+// cached: opened from the menu or Back — the list kept from the last visit may show first.
+// Every other caller has just changed something and wants it fresh.
+async function loadSteemsList(opts = {}){
+  pushNav("steems:list", () => { setMode("steems", {keepSection: true}); loadSteemsList({cached: true}); });
   // Whatever song's hero was showing, the plain list is a different step.
   el("steems-hero").hidden = true;
   el("steems-section").style.paddingTop = "";
@@ -13047,15 +13058,35 @@ async function loadSteemsList(){
   currentSteemsName = null;
   const list = el("steems-list");
   list.hidden = false;
-  list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
   el("mixer").hidden = true;
-  try{
-    const res = await fetch("/api/stems");
-    steemsSongs = await res.json();
-  }catch(e){
-    list.innerHTML = `<div class="empty" style="padding:24px 10px">Seznam se nepodařilo načíst.</div>`;
-    return;
+  // The list kept from the last visit shows at once; a fresh one is asked for behind it and
+  // shown only if something changed (two thousand songs took seconds every click).
+  const kept = opts.cached && steemsSongs.length && Date.now() - steemsListAt < 15 * 60e3;
+  if(!kept){
+    list.innerHTML = `<div class="empty" style="padding:24px 10px"><span class="spinner"></span> Načítám…</div>`;
+    try{
+      steemsSongs = await (await fetch("/api/stems")).json();
+      steemsListAt = Date.now();
+    }catch(e){
+      list.innerHTML = `<div class="empty" style="padding:24px 10px">Seznam se nepodařilo načíst.</div>`;
+      return;
+    }
   }
+  renderSteemsList();
+  if(kept){
+    const before = JSON.stringify(steemsSongs);
+    fetch("/api/stems").then(r => r.json()).then(fresh => {
+      steemsListAt = Date.now();
+      if(JSON.stringify(fresh) === before) return;
+      steemsSongs = fresh;
+      const here = state.mode === "steems" && !currentSteemsName && !el("steems-list").hidden;
+      if(here && !el("steems-list").contains(document.activeElement)) renderSteemsList();
+    }).catch(() => {});
+  }
+}
+
+function renderSteemsList(){
+  const list = el("steems-list");
   invalidateRailTop5("steems");
   if(!steemsSongs.length){
     list.innerHTML = `<div class="empty" style="padding:24px 10px">Zatím nemáš žádné rozseparované písně — u přehrávané nebo stažené písně použij „Rozdělit na stopy".</div>`;
@@ -13123,6 +13154,7 @@ async function loadSteemsList(){
     steemsOrigin = b.dataset.originF;
     try{ localStorage.setItem("spotdl-steems-origin", steemsOrigin); }catch(e){}
     bar.querySelectorAll("[data-origin-f]").forEach(x => x.classList.toggle("active", x === b));
+    steemsAllOpen = true;
     paintSteemsCards(body);
   });
   bar.querySelector(".stems-filter").oninput = (e) => { steemsFilter = e.target.value; paintSteemsCards(body); };
@@ -13193,7 +13225,19 @@ function paintSteemsCards(box){
     const k = b.dataset.originF, n = k ? steemsSongs.filter(x => (x.origin === "cz" ? "cz" : "world") === k).length : steemsSongs.length;
     b.querySelector("i").textContent = n;
   });
+  if(!q && !steemsAllOpen){
+    box.innerHTML = `<button type="button" class="stems-all-fold">${icon("menu", 15)}<span><b>Všechny písně</b>
+      <small>${songs.length} ${songs.length === 1 ? "píseň" : "písní"} — rozbal, nebo vyber dlaždici či hledej nahoře</small></span><i>▾</i></button>`;
+    box.querySelector(".stems-all-fold").onclick = () => { steemsAllOpen = true; paintSteemsCards(box); };
+    return;
+  }
   if(!songs.length){ box.innerHTML = `<div class="empty" style="padding:24px 10px">Nic neodpovídá hledání.</div>`; return; }
+  if(steemsAllOpen && !q){
+    const fold = document.createElement("button");
+    fold.type = "button"; fold.className = "stems-all-unfold"; fold.textContent = "▴ Sbalit seznam";
+    fold.onclick = () => { steemsAllOpen = false; paintSteemsCards(box); };
+    box.appendChild(fold);
+  }
   // Grouping chips belong to the card view; the table sorts by its headers.
   box.parentElement.querySelectorAll(".stems-group-bar [data-group], .stems-group-bar > span:first-child")
     .forEach(n => n.hidden = steemsView === "table");
@@ -13686,8 +13730,11 @@ function refreshSteemsHeroStats(){
 
 // New separations are written as 320k MP3; sets made before that are still
 // lossless WAV and are what fills the disk. Offer to re-encode them.
+let stemsConvertAt = 0;
 async function checkStemsConversion(){
   const btn = el("stems-convert");
+  if(Date.now() - stemsConvertAt < 10 * 60e3) return;    // it reads every song's files: not on every visit
+  stemsConvertAt = Date.now();
   try{
     const res = await fetch("/api/stems/convert?dry_run=true", {method: "POST"});
     const data = await res.json();

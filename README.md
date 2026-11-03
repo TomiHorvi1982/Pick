@@ -570,6 +570,13 @@ playlisty a ladění (alespoň tři písně) a České a slovenské. Dlaždice o
 a „Zobrazit vše“ zúží seznam pod nimi, „Schovat“ police sbalí (`pick-steems-shelves-off`). Obrázky se načítají,
 až když je dlaždice vidět.
 
+**Rychlost (3. 11.):** dlouhý seznam všech písní pod dlaždicemi je sbalený (`steemsAllOpen`) a vykreslí se
+až po rozbalení, kliknutí na dlaždici, hledání nebo filtru původu. Seznam písní si stránka drží 15 minut
+(`steemsListAt`) a při návratu do Steems ho ukáže hned, čerstvý se doptá na pozadí. Server drží řádek
+každé písně v paměti (`_STEMS_ROWS`), dokud se v její složce nic nezmění (podpis `_stems_dir_sig`), a po
+startu si seznam spočítá dopředu. `/api/stems` tak trvá ~0,3 s místo ~6 s. Kontrola převodu na MP3 běží
+nejvýš jednou za 10 minut.
+
 ## Tools: co zbylo
 
 Loops a Loop Studio jsou z Picku odstraněné i s kódem (3. 11.); Kontakt v Tools není, jeho zvuky používá Virtuální kytara.

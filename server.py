@@ -6983,6 +6983,38 @@ def _stems_albums_fill(stems_root: Path) -> int:
         _STEMS_ALBUMS_LOCK.release()
 
 
+# One song's row in the list, kept until something in its folder changes: working the list
+# out afresh took seconds for two thousand songs (every stem's path resolved and checked).
+_STEMS_ROWS: dict = {}
+_STEMS_ROWS_LOCK = threading.Lock()
+
+
+def _stems_rows_warm() -> None:
+    """The list worked out once right after start, so the first visit to Steems is quick too."""
+    time.sleep(3)
+    try:
+        list_stems()
+    except Exception:                                       # noqa: BLE001 — only a head start
+        pass
+
+
+def _stems_dir_sig(d: Path):
+    """What the folder holds, as names, sizes and times (and its untouched originals) — any
+    stem, take, meta.json, label or tuning written there changes it. None: unreadable."""
+    try:
+        with os.scandir(d) as it:
+            sig = []
+            for e in it:
+                st = e.stat()
+                sig.append((e.name, st.st_mtime_ns, st.st_size))
+                if e.name == ORIG_DIR and e.is_dir():
+                    with os.scandir(e.path) as it2:
+                        sig.extend((ORIG_DIR + "/" + x.name, x.stat().st_mtime_ns) for x in it2)
+        return (d.stat().st_mtime_ns, tuple(sorted(sig)))
+    except OSError:
+        return None
+
+
 @app.get("/api/stems")
 def list_stems():
     stems_root = MUSIC_ROOT / "Stems"
@@ -6998,59 +7030,79 @@ def list_stems():
     for d in sorted(stems_root.glob("*"), key=lambda p: p.name.lower()):
         if not d.is_dir() or d.name.startswith("."):
             continue  # ".raw" is Demucs' scratch area, not a stem set
-        present, missing, total_bytes = [], [], 0
-        # An imported guitar split sits right after drums — appending it at
-        # the end (past piano/other) put it low enough in the mixer's rail
-        # that it rendered clipped, out of view without scrolling.
-        stem_order = (["drums"] + _guitar_parts_in(d)
-                      + [s for s in STEM_NAMES if s != "drums"] + _takes_in(d))
-        for stem in stem_order:
-            f = _stem_file(d, stem)
-            if f is not None:
-                present.append(stem)
-                try:
-                    total_bytes += f.stat().st_size
-                except OSError:
-                    pass
-            elif stem in STEM_NAMES:
-                missing.append(stem)
-        if not present:
+        sig = _stems_dir_sig(d)
+        with _STEMS_ROWS_LOCK:
+            kept = _STEMS_ROWS.get(d.name)
+        if sig is not None and kept and kept[0] == sig:
+            if kept[1] is not None:
+                out.append({**kept[1], "playlist": playlists.get(d.name)})
             continue
-        # A project opened from a single file has none of the separated
-        # stems at all — that is what it is, not an incomplete separation.
-        if not any(s in present for s in STEM_NAMES):
-            missing = []
-        # A set taken in from another separator has the parts it was split into (often no piano,
-        # the guitar as lead and rhythm): that is the whole of it.
-        if missing and _stems_meta_raw(d).get("imported"):
-            missing = []
-        try:
-            mtime = d.stat().st_mtime
-        except OSError:
-            mtime = 0
-        out.append({
-            "name": d.name,
-            "stems": present,
-            # A set missing a stem still loads, but the mixer is incomplete —
-            # the library should say so rather than look identical to a full one.
-            "missing": missing,
-            "complete": not missing,
-            "size_bytes": total_bytes,
-            "modified": mtime,
-            "rel": f"Stems/{d.name}",
-            "meta": _stems_meta(d),
-            # How long the song is — any stem says it (tags are cached).
-            "duration": next((dur for dur in (_audio_tags(f).get("duration")
-                              for f in (_stem_file(d, st) for st in present[:2]) if f) if dur), None),
-            "labels": _track_labels(d),
-            "edited": _edited_stems(d),
-            "tuning": _stems_tuning(d),
-            "playlist": playlists.get(d.name),
-            "imported": bool(_stems_meta_raw(d).get("imported")),   # put into Stems by hand
-            "_origin": _stems_origin_typed(d),
-        })
+        row = _stems_row(d, playlists)
+        with _STEMS_ROWS_LOCK:
+            _STEMS_ROWS[d.name] = (sig, row)
+        if row is not None:
+            out.append({**row, "playlist": playlists.get(d.name)})
     _stems_origins(out)
     return out
+
+
+def _stems_row(d: Path, playlists: dict) -> Optional[dict]:
+    """One song's row in the list (None: not a stem set)."""
+    present, missing, total_bytes = [], [], 0
+    # An imported guitar split sits right after drums — appending it at
+    # the end (past piano/other) put it low enough in the mixer's rail
+    # that it rendered clipped, out of view without scrolling.
+    stem_order = (["drums"] + _guitar_parts_in(d)
+                  + [s for s in STEM_NAMES if s != "drums"] + _takes_in(d))
+    for stem in stem_order:
+        f = _stem_file(d, stem)
+        if f is not None:
+            present.append(stem)
+            try:
+                total_bytes += f.stat().st_size
+            except OSError:
+                pass
+        elif stem in STEM_NAMES:
+            missing.append(stem)
+    if not present:
+        return None
+    # A project opened from a single file has none of the separated
+    # stems at all — that is what it is, not an incomplete separation.
+    if not any(s in present for s in STEM_NAMES):
+        missing = []
+    # A set taken in from another separator has the parts it was split into (often no piano,
+    # the guitar as lead and rhythm): that is the whole of it.
+    if missing and _stems_meta_raw(d).get("imported"):
+        missing = []
+    try:
+        mtime = d.stat().st_mtime
+    except OSError:
+        mtime = 0
+    return {
+        "name": d.name,
+        "stems": present,
+        # A set missing a stem still loads, but the mixer is incomplete —
+        # the library should say so rather than look identical to a full one.
+        "missing": missing,
+        "complete": not missing,
+        "size_bytes": total_bytes,
+        "modified": mtime,
+        "rel": f"Stems/{d.name}",
+        "meta": _stems_meta(d),
+        # How long the song is — any stem says it (tags are cached).
+        "duration": next((dur for dur in (_audio_tags(f).get("duration")
+                          for f in (_stem_file(d, st) for st in present[:2]) if f) if dur), None),
+        "labels": _track_labels(d),
+        "edited": _edited_stems(d),
+        "tuning": _stems_tuning(d),
+        "playlist": playlists.get(d.name),
+        "imported": bool(_stems_meta_raw(d).get("imported")),   # put into Stems by hand
+        "_origin": _stems_origin_typed(d),
+    }
+
+
+if not os.environ.get("SPOTDL_NO_WATCHERS"):
+    threading.Thread(target=_stems_rows_warm, daemon=True).start()
 
 
 @app.post("/api/stems/convert")
