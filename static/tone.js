@@ -319,7 +319,7 @@ const Tone = (() => {
   }
   async function fit(refine){
     if(!range) return;
-    const gs = G().state, own = !(gs.externalAmp || gs.tunnel);
+    const gs = G().state, own = !gs.tunnel;
     const body = {start: range.start, end: range.end, stem, refine: !!refine, print: refine ? pid : "",
       current_amp: own ? (gs.ampFile || "") : "", current_cab: own && gs.cabName ? gs.cabName + ".wav" : "",
       current_name: own ? [gs.ampName, gs.cabName].filter(Boolean).join(" + ") : ""};

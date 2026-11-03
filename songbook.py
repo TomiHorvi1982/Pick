@@ -35,7 +35,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-import loopstudio
+import stemkey
 
 VERSION = 1
 MINE = Path.home() / ".local" / "share" / "spotdl-helper" / "songbook-mine.json"
@@ -319,9 +319,9 @@ def sound(d: Path, analysis: dict, genres: list) -> dict:
     grid = _json(d / "beats.json") or {}
     bpm = float(grid.get("bpm") or 0)
     tuning = (_json(d / "tuning.json") or {}).get("tuning")
-    files = loopstudio.stem_files(d)
+    files = stemkey.stem_files(d)
     rate = 8000
-    audio = {k: loopstudio.decode(f, ffmpeg(), rate) for k, f in files.items()
+    audio = {k: stemkey.decode(f, ffmpeg(), rate) for k, f in files.items()
              if k in STEM_EN}
     secs = [s for s in (analysis or {}).get("sections") or [] if s.get("end", 0) > s.get("start", 0)]
     length = max((a.size / rate for a in audio.values()), default=0)
@@ -330,7 +330,7 @@ def sound(d: Path, analysis: dict, genres: list) -> dict:
     key = None
     kf = next((files[k] for k in ("bass", "guitar", "guitar_rhythm") if k in files), None)
     if kf is not None:
-        k = loopstudio.estimate_key(loopstudio.decode(kf, ffmpeg(), 11025), 11025, (analysis or {}).get("chords"))
+        k = stemkey.estimate_key(stemkey.decode(kf, ffmpeg(), 11025), 11025, (analysis or {}).get("chords"))
         key = _key_name(k and k.get("key"))
     guitar = next((audio[g] for g in ("guitar", "guitar_rhythm", "guitar_solo") if g in audio and audio[g].size), None)
     bright = _brightness(guitar, rate) if guitar is not None else 0
@@ -448,7 +448,7 @@ def pick_songs(limit: int, names: list = None) -> list:
         if not d.is_dir() or d.name.startswith(".") or done(d) or not (d / "meta.json").is_file():
             continue
         m = meta_of(d)
-        if m["artist"] and loopstudio.stem_files(d):
+        if m["artist"] and stemkey.stem_files(d):
             bands.setdefault(_fold(m["artist"]), []).append(d.name)
     out, lists = [], list(bands.values())
     while len(out) < limit and any(lists):
@@ -680,7 +680,7 @@ def songbook_texts(fresh: bool = False):
         return {"songs": _TEXTS["songs"], "all": _TEXTS["all"]}
     rows, all_n = [], 0
     for d in sorted(root.glob("*")) if root.is_dir() else []:
-        if not d.is_dir() or d.name.startswith(".") or not loopstudio.stem_files(d):
+        if not d.is_dir() or d.name.startswith(".") or not stemkey.stem_files(d):
             continue
         all_n += 1
         got = kept_text(d)

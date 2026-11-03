@@ -566,30 +566,6 @@
   .tp-stem canvas{width:100%;height:34px;display:block;border-radius:4px;background:#0c0c10;cursor:pointer}
 
   /* ---- Loops ---- */
-  .loops-sources{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
-  .loops-sources button{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;
-    border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font:inherit;font-size:13px}
-  .loops-sources button.active{background:#fff;color:#000;border-color:#fff}
-  .loops-sources button.add{color:var(--sub)}
-  .loops-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:10px;
-    background:var(--card);margin-bottom:12px}
-  .loops-head .info{flex:1;min-width:240px;font-size:12.5px;color:var(--sub);line-height:1.45}
-  .loops-head .info b{color:var(--text)}
-  .loops-head .name{font-size:18px;font-weight:700;color:var(--text)}
-  .loops-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;
-    background:var(--card);margin-bottom:10px}
-  .loops-bar .nav{width:32px;height:32px;border-radius:50%;border:none;background:var(--card-hi);color:var(--text);
-    cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .loops-bar .nav:hover{background:#3a3a3a}
-  .loops-bar .addr{flex:1;min-width:160px;font-size:12px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    padding:7px 12px;border-radius:999px;background:var(--bg2)}
-  .loops-bar .tab{padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:transparent;
-    color:var(--text);cursor:pointer;font:inherit;font-size:12.5px}
-  .loops-bar .tab.on{background:#fff;color:#000;border-color:#fff}
-  .loops-bar .ghost{padding:7px 10px;border-radius:999px;border:none;background:transparent;color:var(--sub);
-    cursor:pointer;font:inherit;font-size:12px}
-  .loops-bar .ghost:hover{color:var(--text)}
-  .loops-web{border-radius:10px;overflow:hidden;background:#111;height:calc(100vh - 330px);min-height:480px}
   .tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
   .tool-card{display:flex;align-items:center;gap:14px;padding:18px;border-radius:12px;background:var(--card);border:1px solid var(--border);
     cursor:pointer;text-align:left;color:var(--text);font:inherit;transition:background .15s}
@@ -601,13 +577,6 @@
   .chords-head .sp{flex:1}
   .chords-web{border-radius:10px;overflow:hidden;background:#fff;height:calc(100vh - 260px);min-height:480px}
   .chords-web iframe{width:100%;height:100%;border:0;display:block}
-  .loops-web iframe{width:100%;height:100%;border:0;display:block;background:#1a1a1a}
-  .loops-pending{padding:10px 14px;border-radius:8px;background:rgba(255,209,102,.1);color:var(--text);
-    font-size:12.5px;display:flex;align-items:center;gap:12px;margin-bottom:12px}
-  .loops-add{display:flex;flex-direction:column;gap:8px;max-width:520px;padding:14px;border-radius:10px;
-    background:var(--card);margin-bottom:12px}
-  .loops-add input{padding:9px}
-  .loops-add-actions{display:flex;gap:8px}
   .lib-trow.loop-row .c-album{font-variant-numeric:tabular-nums}
 
   /* ---- channel inserts row (mono / compressor / doubler) ---- */
@@ -1690,8 +1659,8 @@ body.lib-collapsed .pick-brand{display:none}
     border:1px solid var(--line,#444);background:none;color:var(--text,#fff);font:inherit;font-size:13px;cursor:pointer}
   .ab-fav.on{color:var(--accent);border-color:var(--accent)}
   #ab-similar-btn{margin-left:6px}
-  #analyzer-section,#loopstudio-section{padding:0}
-  #analyzer-frame,#loopstudio-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:0;border-radius:14px;background:#0e0f14}
+  #analyzer-section{padding:0}
+  #analyzer-frame{display:block;width:100%;height:calc(100vh - 190px);min-height:520px;border:0;border-radius:14px;background:#0e0f14}
   .tuner-mine{flex-wrap:wrap}
   .tuner-mine .mine-now{flex:0 0 100%;font-size:12px;color:var(--sub);padding-top:6px}
   .tuner-mine .mine-now b{color:var(--text)}
@@ -5836,9 +5805,6 @@ body.lib-collapsed .pick-brand{display:none}
   <div id="vguitar-section" hidden></div>
   <div id="kontakt-section" hidden></div>
 
-  <div id="loopstudio-section" hidden>
-    <iframe id="loopstudio-frame" title="Loop Studio"></iframe>
-  </div>
 
   <div id="analyzer-section" hidden>
     <iframe id="analyzer-frame" title="Guitar Performance Analyzer" allow="microphone; autoplay"></iframe>
@@ -5852,27 +5818,6 @@ body.lib-collapsed .pick-brand{display:none}
       <button type="button" class="btn secondary" id="chords-out" title="Otevřít v běžném prohlížeči"><span data-icon="external" data-size="12"></span>Otevřít v prohlížeči</button>
     </div>
     <div class="chords-web"><iframe id="chords-frame" title="Scales and Chords" referrerpolicy="no-referrer"></iframe></div>
-  </div>
-
-  <div id="loops-section" hidden>
-    <div class="section-title">Loops</div>
-    <div class="loops-sources" id="loops-sources"></div>
-    <div class="loops-head" id="loops-head"></div>
-    <div class="loops-pending" id="loops-pending" hidden></div>
-    <form class="loops-add" id="loops-add" hidden>
-      <div class="ss-head">Přidat web s loopy</div>
-      <input type="text" id="loops-add-name" placeholder="Název (např. Freesound)" required>
-      <input type="url" id="loops-add-url" placeholder="https://…" required>
-      <input type="text" id="loops-add-match" placeholder="Začátek názvu stažených souborů (nepovinné, např. freesound-)">
-      <div class="set-note">Bez vzoru se do sekce přesune každé audio, které se stáhne do dvou hodin
-        od otevření toho webu.</div>
-      <div class="loops-add-actions">
-        <button type="submit" class="btn">Přidat</button>
-        <button type="button" class="btn secondary" id="loops-add-cancel">Zrušit</button>
-      </div>
-    </form>
-    <div class="loops-web" id="loops-web" hidden><iframe id="loops-frame" title="Loops"></iframe></div>
-    <div class="lib-table" id="loops-list" hidden></div>
   </div>
 
   <div id="podcasts-section" hidden>
@@ -8377,232 +8322,6 @@ regionToggle.querySelectorAll("button").forEach(btn=>{
 });
 
 
-// ======================================================================
-// Loops — free loop sites. Each one opens in an app window of its own (the
-// sites forbid being shown inside another page), and whatever loop it
-// downloads lands in the library under Loops/<site> by itself — the server
-// watches ~/Downloads (see /api/loops/*). This page lists them to play,
-// use as a DI riff, or send elsewhere.
-// ======================================================================
-const Loops = (() => {
-  let list = [], current = null, pollTimer = null, lastEvent = 0;
-
-  async function sources(){
-    try{ list = (await (await fetch("/api/loops/sources")).json()).sources || []; }
-    catch(e){ list = list || []; }
-    return list;
-  }
-
-  const niceTitle = (name) => name
-    .replace(/\.[^.]+$/, "")
-    .replace(/^looperman-[a-z]-\d+-\d+-?/i, "")
-    .replace(/[-_]+/g, " ").trim() || name;
-  const bpmOf = (name) => { const m = name.match(/(\d{2,3})\s*-?\s*bpm/i); return m ? m[1] + " BPM" : ""; };
-
-  function paintSources(){
-    const box = el("loops-sources");
-    box.innerHTML = "";
-    list.forEach(src => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = src.id === (current && current.id) ? "active" : "";
-      b.innerHTML = `${icon(src.id === "looperman" ? "note" : "globe", 14)}<span>${escapeHtml(src.name)}</span>`;
-      b.onclick = () => show(src.id);
-      box.appendChild(b);
-    });
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "add";
-    add.innerHTML = `${icon("plus", 14)}<span>Přidat web</span>`;
-    add.onclick = () => { el("loops-add").hidden = false; el("loops-add-name").focus(); };
-    box.appendChild(add);
-  }
-
-  let view = "web";            // "web" (the site, inside) or "list" (what's been downloaded)
-  let webPort = null, webAddr = "";
-
-  function frameUrl(path){ return `${location.protocol}//127.0.0.1:${webPort}${path}`; }
-
-  async function loadWeb(reset){
-    if(!current) return;
-    let info;
-    try{ info = await (await fetch(`/api/loops/web?id=${encodeURIComponent(current.id)}`)).json(); }
-    catch(e){ return; }
-    webPort = info.port;
-    const fr = el("loops-frame");
-    const want = frameUrl(info.path);
-    if(reset || fr.dataset.source !== current.id){
-      fr.dataset.source = current.id;
-      // The proxy starts on first use; give it a moment if it's not up yet.
-      const tryLoad = (n) => fetch(`${location.protocol}//127.0.0.1:${webPort}/`, {mode: "no-cors"})
-        .then(() => { fr.src = want; })
-        .catch(() => { if(n > 0) setTimeout(() => tryLoad(n - 1), 400); else fr.src = want; });
-      tryLoad(15);
-      webAddr = current.url;
-    }
-  }
-
-  function paintHead(){
-    const head = el("loops-head");
-    if(!current){ head.innerHTML = ""; el("loops-web").hidden = true; el("loops-list").hidden = true; return; }
-    head.className = "loops-bar";
-    head.innerHTML = `
-      <button type="button" class="nav" id="loops-back" title="Zpět">${icon("back", 14)}</button>
-      <button type="button" class="nav" id="loops-fwd" title="Vpřed" style="transform:scaleX(-1)">${icon("back", 14)}</button>
-      <button type="button" class="nav" id="loops-home" title="Úvodní stránka">${icon("search", 14)}</button>
-      <span class="addr" id="loops-addr" title="Stažené loopy se ukládají do Knihovny: ${escapeHtml(current.folder_rel)}">${escapeHtml(webAddr || current.url)}</span>
-      <button type="button" class="tab ${view === "web" ? "on" : ""}" id="loops-view-web">${escapeHtml(current.name)}</button>
-      <button type="button" class="tab ${view === "list" ? "on" : ""}" id="loops-view-list">Staženo${current.count ? ` (${current.count})` : ""}</button>
-      <button type="button" class="ghost" id="loops-window" title="Kdyby se něco na stránce uvnitř nechovalo správně">Otevřít v okně</button>
-      <button type="button" class="ghost" id="loops-logout" title="Odhlásit tento web v aplikaci">Odhlásit</button>
-      ${current.builtin ? "" : `<button type="button" class="ghost" id="loops-remove" title="Odebrat web ze seznamu (loopy zůstanou)">${icon("trash", 13)}</button>`}`;
-    el("loops-web").hidden = view !== "web";
-    el("loops-list").hidden = view !== "list";
-    const post = (msg) => { try{ el("loops-frame").contentWindow.postMessage(msg, "*"); }catch(e){} };
-    el("loops-back").onclick = () => post("spotdl-back");
-    el("loops-fwd").onclick = () => post("spotdl-forward");
-    el("loops-home").onclick = () => { view = "web"; paintHead(); loadWeb(true); };
-    el("loops-view-web").onclick = () => { view = "web"; paintHead(); loadWeb(false); };
-    el("loops-view-list").onclick = () => { view = "list"; paintHead(); paintList(); };
-    el("loops-window").onclick = async () => {
-      await fetch("/api/loops/open", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({id: current.id})});
-      showToast(`${current.name} se otevírá v samostatném okně`);
-    };
-    el("loops-logout").onclick = async () => {
-      await fetch("/api/loops/logout", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({id: current.id})});
-      loadWeb(true);
-    };
-    const rm = el("loops-remove");
-    if(rm) rm.onclick = async () => {
-      await fetch(`/api/loops/sources/${encodeURIComponent(current.id)}`, {method: "DELETE"});
-      current = null;
-      invalidateRailTop5("loops");
-      show();
-    };
-    if(view === "web") loadWeb(false);
-  }
-
-  // The framed page reports where it is (via the proxy's little shim).
-  window.addEventListener("message", (e) => {
-    if(!webPort || e.origin !== `${location.protocol}//127.0.0.1:${webPort}` || !e.data || !e.data.spotdlLoops) return;
-    const path = String(e.data.spotdlLoops).replace(/^\/ext\/[^/]+/, "");
-    if(current){
-      webAddr = new URL(current.url).origin + path;
-      const a = el("loops-addr");
-      if(a) a.textContent = webAddr;
-    }
-  });
-
-  async function paintPending(){
-    const box = el("loops-pending");
-    let files = [];
-    try{ files = (await (await fetch("/api/loops/pending")).json()).files || []; }catch(e){}
-    box.hidden = !files.length;
-    if(!files.length) return;
-    box.innerHTML = `<span>Ve Stažených je ${files.length} ${files.length === 1 ? "starší loop" : "starších loopů"}
-      z doby před zapnutím této sekce.</span><button type="button" class="btn secondary" id="loops-import-old">Přesunout do Loops</button>`;
-    el("loops-import-old").onclick = async () => {
-      const r = await (await fetch("/api/loops/import-pending", {method: "POST"})).json();
-      showToast(`Přesunuto: ${r.moved}`);
-      paintPending(); paintList(); invalidateRailTop5("loops");
-    };
-  }
-
-  async function paintList(){
-    const box = el("loops-list");
-    if(!current){ box.innerHTML = ""; return; }
-    let data = null;
-    try{
-      const res = await fetch(`/api/library/browse?rel=${encodeURIComponent(current.folder_rel)}`);
-      if(res.ok) data = await res.json();
-    }catch(e){}
-    const files = data ? data.entries.filter(e => e.type === "file") : [];
-    if(!files.length){
-      box.innerHTML = `<div class="empty" style="padding:28px 10px">Zatím tu nic není — přepni na ${escapeHtml(current.name)},
-        přihlas se a stáhni si loop. Uloží se sem i do Knihovny (${escapeHtml(current.folder_rel)}).</div>`;
-      return;
-    }
-    box.innerHTML = `<div class="lib-thead"><span class="c-idx">#</span><span>Název</span><span>Tempo</span>
-      <span>Velikost</span><span class="c-time">Délka</span><span></span></div>`;
-    const cur = Player.getCurrent();
-    const tracks = files.map(f => ({relPath: f.rel, title: niceTitle(f.name), artists: current.name}));
-    files.forEach((f, i) => {
-      const row = document.createElement("div");
-      row.className = "lib-trow loop-row" + (cur && cur.relPath === f.rel ? " playing" : "");
-      NowMark.tag(row, {rel: f.rel});
-      row.innerHTML = `
-        <span class="c-idx">${i + 1}</span>
-        <span class="c-title"><span class="art">${icon("note", 14)}</span><span class="tx" title="${escapeHtml(f.name)}">${escapeHtml(niceTitle(f.name))}</span></span>
-        <span class="c-artist">${escapeHtml(bpmOf(f.name))}</span>
-        <span class="c-album">${fmtSize(f.size_bytes || 0)}</span>
-        <span class="c-time">${libDurationText(f)}</span>
-        <span class="c-act">
-          <button class="act-riff" title="Zkopírovat do ukázkových DI riffů a použít pro náhled NAM profilů">${icon("elGuitar", 14)}</button>
-          <button class="act-reveal" title="Ukázat ve Finderu">↗</button>
-          <button class="act-delete" title="Do koše">🗑</button>
-        </span>`;
-      row.onclick = () => { Player.playLocalQueue(tracks.slice(i)); setTimeout(paintList, 300); };
-      row.querySelector(".act-riff").onclick = (e) => { e.stopPropagation(); importRiffFromFile({rel: f.rel, name: niceTitle(f.name)}); };
-      row.querySelector(".act-reveal").onclick = (e) => { e.stopPropagation(); revealLibraryEntry(f.rel); };
-      row.querySelector(".act-delete").onclick = async (e) => {
-        e.stopPropagation();
-        await deleteLibraryEntry(f.rel, f.name);
-        setTimeout(paintList, 400);
-      };
-      box.appendChild(row);
-    });
-  }
-
-  async function poll(){
-    if(el("loops-section").hidden){ pollTimer = null; return; }
-    try{
-      const data = await (await fetch(`/api/loops/events?since=${lastEvent}`)).json();
-      if(data.events && data.events.length){
-        lastEvent = Math.max(...data.events.map(e => e.t));
-        data.events.forEach(ev => {
-          const src = list.find(s => s.id === ev.source);
-          showToast(`Nový loop v ${src ? src.name : "Loops"}: ${niceTitle(ev.name)}`);
-        });
-        await sources();
-        current = list.find(s => s.id === (current && current.id)) || current;
-        paintSources(); paintList(); invalidateRailTop5("loops"); refreshHomeRail();
-        const tl = el("loops-view-list");
-        if(tl && current) tl.textContent = "Staženo" + (current.count ? ` (${current.count})` : "");
-      } else if(data.now && !lastEvent){
-        lastEvent = data.now;
-      }
-    }catch(e){}
-    pollTimer = setTimeout(poll, 3000);
-  }
-
-  async function show(id){
-    await sources();
-    current = list.find(s => s.id === id) || list.find(s => s.id === (current && current.id)) || list[0] || null;
-    paintSources(); paintHead(); paintList(); paintPending();
-    if(!pollTimer) pollTimer = setTimeout(poll, 1000);
-  }
-
-  el("loops-add").onsubmit = async (e) => {
-    e.preventDefault();
-    const body = {name: el("loops-add-name").value.trim(), url: el("loops-add-url").value.trim(),
-                  match: el("loops-add-match").value.trim() || null};
-    if(body.match) body.match = "^" + body.match.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const res = await fetch("/api/loops/sources", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body)});
-    const data = await res.json();
-    if(!res.ok){ showToast(data.error || "Nepodařilo se přidat"); return; }
-    el("loops-add").hidden = true;
-    el("loops-add").reset();
-    invalidateRailTop5("loops");
-    refreshHomeRail();
-    show(data.id);
-  };
-  el("loops-add-cancel").onclick = () => { el("loops-add").hidden = true; };
-
-  return {show, sources};
-})();
 
 // ======================================================================
 // Taby — a full player for your own tab files (Guitar Pro 3–8, MusicXML,
@@ -9526,12 +9245,10 @@ function setMode(mode, opts){
   el("library-section").hidden = mode !== "library";
   el("steems-section").hidden = mode !== "steems";
   el("podcasts-section").hidden = mode !== "podcasts";
-  el("loops-section").hidden = mode !== "loops";
   el("tabs-section").hidden = mode !== "tabs";
   el("tools-section").hidden = mode !== "tools";
   el("chords-section").hidden = mode !== "chords";
   el("analyzer-section").hidden = mode !== "analyzer";
-  el("loopstudio-section").hidden = mode !== "loopstudio";
   el("composer-section").hidden = mode !== "composer";
   if(mode !== "composer" && typeof Composer !== "undefined") Composer.hide();
   el("vguitar-section").hidden = mode !== "vguitar";
@@ -9554,8 +9271,6 @@ function setMode(mode, opts){
     if(!opts.keepSection && !currentSteemsName) loadSteemsList();
   } else if(mode === "podcasts"){
     if(!opts.keepSection && el("podcast-detail").hidden) loadPodcastsList();
-  } else if(mode === "loops"){
-    if(!opts.keepSection) Loops.show();
   } else if(mode === "tabs"){
     if(!opts.keepSection) TabsLib.show();
   } else if(mode === "tools"){
@@ -9580,9 +9295,6 @@ function setMode(mode, opts){
     if(typeof VGuitar !== "undefined") VGuitar.show(el("vguitar-section"));
   } else if(mode === "kontakt"){
     if(typeof KontaktPage !== "undefined") KontaktPage.show(el("kontakt-section"));
-  } else if(mode === "loopstudio"){
-    const fr = el("loopstudio-frame");
-    if(!fr.getAttribute("src")) fr.src = "/loopstudio";
   } else {
     renderCustomChips();
     renderFavPlaylists();
@@ -10982,14 +10694,6 @@ async function fetchRailTop5(key){
     }));
     return [{art: icon("folder", 18), name: "Namapovat složku s taby", sub: "Guitar Pro, MusicXML…",
       onClick: () => { setMode("tabs"); }}];
-  }
-  if(key === "loops"){
-    const data = await Loops.sources();
-    return data.map(src => ({
-      art: icon(src.id === "looperman" ? "note" : "globe", 18), name: src.name,
-      sub: src.count ? `${src.count} ${src.count === 1 ? "loop" : src.count < 5 ? "loopy" : "loopů"}` : "Loops",
-      onClick: () => { setMode("loops", {keepSection: true}); Loops.show(src.id); },
-    }));
   }
   if(key === "podcasts"){
     let shows = PODCASTS_STATE.shows;
@@ -15222,180 +14926,6 @@ async function pitchedBlob(blob, semitones){
 }
 
 // ======================================================================
-// ToneRig — the iPhone's NAM pedalboard as the live guitar's amp.
-// Its sound comes in on an interface input (Live kytara → external amp, so
-// ours is skipped). Its presets are switched from here — by MIDI (ToneRig's
-// MIDI Learn for presets 1–8), sent from this window through Web MIDI to a
-// network MIDI session or the interface's MIDI out — from the buttons here or
-// from the phone page the server can put on the home network. ToneRig can't
-// report its preset back, so "which preset" is the last one switched to here.
-// ======================================================================
-const ToneRig = (() => {
-  let cfg = null, midi = null, seq = 0, pollT = null;
-
-  async function load(){
-    try{ cfg = await (await fetch("/api/tonerig")).json(); }catch(e){ return null; }
-    if(typeof Mixer !== "undefined" && Mixer.guitar) Mixer.guitar.setExternalAmp(cfg.external);
-    if(cfg.external || cfg.lanRunning) startPolling();
-    return cfg;
-  }
-  async function save(patch){
-    try{
-      cfg = await (await fetch("/api/tonerig", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(patch)})).json();
-    }catch(e){ showToast("Uložení nastavení ToneRigu selhalo"); }
-    return cfg;
-  }
-  function label(){
-    if(!cfg || cfg.active == null) return "preset —";
-    return `${cfg.active + 1} · ${cfg.presets[cfg.active] || "Preset " + (cfg.active + 1)}`;
-  }
-
-  // ---- MIDI out ----
-  async function access(){
-    if(midi) return midi;
-    if(!navigator.requestMIDIAccess){ showToast("Tenhle prohlížeč neumí MIDI — otevři aplikaci v Chrome"); return null; }
-    try{ midi = await navigator.requestMIDIAccess(); }catch(e){ showToast("Přístup k MIDI zamítnut"); return null; }
-    return midi;
-  }
-  async function outputs(){
-    const m = await access();
-    return m ? [...m.outputs.values()] : [];
-  }
-  function message(i){
-    const ch = (cfg.channel || 1) - 1, v = Math.min(127, (cfg.base || 0) + i);
-    if(cfg.mode === "cc") return [[0xB0 | ch, cfg.cc || 0, v]];
-    if(cfg.mode === "note") return [[0x90 | ch, v, 100], [0x80 | ch, v, 0]];
-    return [[0xC0 | ch, v]];
-  }
-  async function sendMidi(i){
-    if(!cfg) await load();
-    const outs = await outputs();
-    const out = outs.find(o => o.name === cfg.output) || (outs.length === 1 ? outs[0] : null);
-    if(!out){ showToast(outs.length ? "Vyber MIDI výstup v nastavení ToneRigu" : "Žádný MIDI výstup — zapni síťovou MIDI relaci (viz nastavení ToneRigu)"); return false; }
-    const msgs = message(i);
-    out.send(msgs[0]);
-    if(msgs[1]) out.send(msgs[1], performance.now() + 120);
-    return true;
-  }
-
-  // ---- picking a preset (here, or on the phone) ----
-  async function select(i){
-    const ok = await sendMidi(i);
-    try{
-      const r = await (await fetch("/api/tonerig/select", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({i})})).json();
-      seq = Math.max(seq, r.seq || 0);
-    }catch(e){}
-    if(cfg) cfg.active = i;
-    repaint();
-    if(ok) showToast(`ToneRig: ${label()}`);
-  }
-  function step(d){
-    if(!cfg) return;
-    const named = cfg.presets.map((n, i) => i).filter(i => cfg.presets[i]);
-    const list = named.length ? named : [0, 1, 2, 3, 4, 5, 6, 7];
-    const at = list.indexOf(cfg.active);
-    select(list[(at + d + list.length) % list.length] ?? list[0]);
-  }
-  function startPolling(){
-    if(pollT) return;
-    const tick = async () => {
-      try{
-        const r = await (await fetch(`/api/tonerig/pending?since=${seq}`)).json();
-        if(r.events && r.events.length){
-          // Only the latest pick matters; the server already remembered it.
-          const last = r.events[r.events.length - 1];
-          seq = r.seq;
-          if(last.source === "phone"){ await sendMidi(last.i); if(cfg) cfg.active = last.i; repaint(); showToast(`ToneRig (z telefonu): ${label()}`); }
-        } else seq = Math.max(seq, r.seq || 0);
-      }catch(e){}
-      pollT = setTimeout(tick, 700);
-    };
-    pollT = setTimeout(tick, 300);
-  }
-  function repaint(){
-    const n = document.getElementById("gt-preset-name");
-    if(n && typeof Mixer !== "undefined" && Mixer.guitar && Mixer.guitar.state.externalAmp){ n.textContent = label(); n.title = label(); }
-    const box = document.getElementById("tr-modal");
-    if(box) box.querySelectorAll(".tr-presets label").forEach((l, i) => l.classList.toggle("on", cfg.active === i));
-  }
-
-  // ---- settings ----
-  async function openSettings(){
-    await load();
-    const old = document.getElementById("tr-modal");
-    if(old) old.remove();
-    const outs = await outputs();
-    const box = document.createElement("div");
-    box.className = "tr-modal";
-    box.id = "tr-modal";
-    box.innerHTML = `<div class="tr-box">
-      <h3>ToneRig v telefonu jako zesilovač</h3>
-      <div class="hint">Zvuk kytary jde přes ToneRig v telefonu a do zvukovky u Macu; presety přepínáš tady nebo z telefonu a aplikace ví, který je zapnutý.</div>
-      <ol class="tr-steps">
-        <li><b>Zvuk:</b> kytara → iRig → iPhone (ToneRig) → výstup telefonu / iRigu kabelem do <b>vstupu 2</b> iRig PRO DUO. V Live kytaře zvol kanál „Vstup 2“ (nebo nech Automaticky).</li>
-        <li><b>MIDI k telefonu:</b> na Macu Nastavení Audio MIDI → Okno → Zobrazit MIDI studio → Síť → „+“ nová relace a zaškrtni ji; iPhone musí být na stejné Wi-Fi a v seznamu „Adresář“ ho připoj. (Nebo MIDI kabel z iRig PRO DUO.)</li>
-        <li><b>ToneRig:</b> u presetů 1–8 zapni MIDI Learn a pro každý stiskni tady „Test“ — ToneRig si zprávu zapamatuje.</li>
-      </ol>
-      <div class="tr-row"><span>Zesilovač Live kytary</span>
-        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="tr-ext" ${cfg.external ? "checked" : ""}> ToneRig (náš NAM zesilovač a kabinet se vynechají)</label></div>
-      <div class="tr-row"><span>MIDI výstup</span><select id="tr-out">
-        <option value="">— vyber —</option>${outs.map(o => `<option ${o.name === cfg.output ? "selected" : ""}>${escapeHtml(o.name)}</option>`).join("")}</select>
-        <button type="button" class="btn secondary" id="tr-refresh">Obnovit</button></div>
-      <div class="tr-row"><span>Zpráva pro preset</span><select id="tr-mode">
-        <option value="pc">Program Change</option><option value="cc">Control Change (CC)</option><option value="note">Nota</option></select></div>
-      <div class="tr-row"><span>Kanál / CC / první hodnota</span>
-        <input type="number" id="tr-ch" min="1" max="16" value="${cfg.channel}" title="MIDI kanál 1–16">
-        <input type="number" id="tr-cc" min="0" max="127" value="${cfg.cc}" title="Číslo CC (jen pro Control Change)">
-        <input type="number" id="tr-base" min="0" max="120" value="${cfg.base}" title="Hodnota pro preset 1 (další jsou +1)"></div>
-      <div class="tr-presets">${cfg.presets.map((n, i) => `<label class="${cfg.active === i ? "on" : ""}"><b>${i + 1}</b>
-        <input type="text" data-i="${i}" value="${escapeHtml(n)}" placeholder="název presetu ${i + 1}" maxlength="40">
-        <button type="button" class="btn secondary" data-test="${i}" title="Pošli ToneRigu preset ${i + 1} (pro MIDI Learn i pro přepnutí)">Test</button></label>`).join("")}</div>
-      <div class="tr-row"><span>Ovladač v telefonu</span>
-        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="tr-lan" ${cfg.lan ? "checked" : ""}> zapnout stránku s presety pro telefon (domácí síť, tajný odkaz)</label></div>
-      <div id="tr-url-box" ${cfg.phoneUrl ? "" : "hidden"}>
-        <div class="tr-url" id="tr-url">${escapeHtml(cfg.phoneUrl || "")}</div>
-        <div class="hint" style="margin-top:4px">Otevři tenhle odkaz v telefonu (Safari) a přidej si ho na plochu. Odkaz zná jen ten, komu ho dáš;
-          <a href="#" id="tr-newlink">vytvořit nový</a> zneplatní starý. Mac musí mít appku otevřenou — přes ni jde MIDI do ToneRigu.</div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="button" class="btn" id="tr-close">Hotovo</button></div>
-    </div>`;
-    document.body.appendChild(box);
-    const q = (sel) => box.querySelector(sel);
-    q("#tr-mode").value = cfg.mode;
-    box.addEventListener("pointerdown", (e) => { if(e.target === box) box.remove(); });
-    q("#tr-close").onclick = () => box.remove();
-    box.querySelectorAll("input").forEach(i => i.addEventListener("keydown", e => e.stopPropagation()));
-    q("#tr-ext").onchange = async (e) => {
-      await save({external: e.target.checked});
-      Mixer.guitar.setExternalAmp(e.target.checked);
-      if(e.target.checked) startPolling();
-    };
-    q("#tr-out").onchange = (e) => save({output: e.target.value});
-    q("#tr-refresh").onclick = () => openSettings();
-    q("#tr-mode").onchange = (e) => save({mode: e.target.value});
-    const num = (id, key) => q(id).onchange = (e) => save({[key]: parseInt(e.target.value, 10) || 0});
-    num("#tr-ch", "channel"); num("#tr-cc", "cc"); num("#tr-base", "base");
-    box.querySelectorAll(".tr-presets input").forEach(inp => inp.onchange = () => {
-      const presets = [...box.querySelectorAll(".tr-presets input")].map(x => x.value.trim());
-      save({presets}).then(repaint);
-    });
-    box.querySelectorAll("[data-test]").forEach(b => b.onclick = () => select(parseInt(b.dataset.test, 10)));
-    const lan = async (on, fresh) => {
-      try{
-        cfg = await (await fetch("/api/tonerig/lan", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on, new_token: !!fresh})})).json();
-      }catch(e){ showToast("Ovladač pro telefon se nepodařilo zapnout"); return; }
-      q("#tr-url-box").hidden = !cfg.phoneUrl;
-      q("#tr-url").textContent = cfg.phoneUrl || "";
-      if(on) startPolling();
-      if(on && !cfg.phoneUrl) showToast("Mac není připojený k síti — telefon se k němu nedostane");
-    };
-    q("#tr-lan").onchange = (e) => lan(e.target.checked);
-    const nl = q("#tr-newlink");
-    if(nl) nl.onclick = (e) => { e.preventDefault(); lan(true, true); };
-  }
-
-  return {load, label, select, step, openSettings, outputs};
-})();
 
 // The pointer is of the player's own choosing everywhere (--horns-rest), and
 // lit up over whatever can be clicked (--horns) — the
@@ -24306,9 +23836,8 @@ const Mixer = (() => {
         // but still clean — before the gate and the amp.
         if(instrTap) node.connect(instrTap);
         node.connect(gateNode); node = gateNode;
-        // An external amp (ToneRig on the phone) has already shaped the
-        // sound — ours would be a second amp on top of it.
-        const ext = state.externalAmp || state.tunnel;
+        // A sim through the tunnel has already shaped the sound — ours would be a second amp on top of it.
+        const ext = state.tunnel;
         // A tone print is a whole amp of its own (drive, EQ, core, colour,
         // room) — fitted on the clean signal, so the compressor stays out too.
         if(printChain && !ext){ node.connect(printChain.input); node = printChain.output; }
@@ -24686,8 +24215,6 @@ const Mixer = (() => {
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
       setInputGain, setInputChannel,
-      // ToneRig is no longer part of the live guitar (3. 11.): our own amp always plays, whatever ToneRig's settings say.
-      setExternalAmp(on){ if(!state.externalAmp) return; state.externalAmp = false; if(gainNode) rewire(); renderGuitarStrip(); },
       setTunnel(on){ state.tunnel = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
@@ -26535,7 +26062,7 @@ const Mixer = (() => {
       <input type="range" class="nm-fader gt-vol" min="0" max="1.4" step="0.01" value="${g.volume}" title="Hlasitost tvé kytary">
       <div class="gt-rail-preset pickable" title="${escapeHtml(g.ampName || "")} — klik: vybrat NAM profil ze seznamu">${escapeHtml(g.ampName || "bez zesilovače")}</div>`;
     rail.appendChild(strip);
-    strip.querySelector(".gt-rail-preset").onclick = (e) => { e.stopPropagation(); if(!g.tunnel && !g.externalAmp) TrackAmp.pickLive(e.currentTarget); };
+    strip.querySelector(".gt-rail-preset").onclick = (e) => { e.stopPropagation(); if(!g.tunnel) TrackAmp.pickLive(e.currentTarget); };
 
     const lane = document.createElement("div");
     lane.className = "nm-lane guitar-lane";
@@ -26610,7 +26137,7 @@ const Mixer = (() => {
           <span class="gt-knob-label">GUIDE</span>
         </div>
       </div>
-      ${g.tunnel && !g.externalAmp ? `<div class="gt-preset-stepper">
+      ${g.tunnel ? `<div class="gt-preset-stepper">
         <button class="gt-preset-cat" id="gt-tunnel-open" style="flex:1" title="Tunel z jiné aplikace přes BlackHole — nastavení">TUNEL</button>
       </div>
       <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>` : `
@@ -26689,7 +26216,7 @@ const Mixer = (() => {
       savePanelPref("eq", true);
       selectEqChannel("guitar");
     };
-    if(g.tunnel && !g.externalAmp){
+    if(g.tunnel){
       strip.querySelector("#gt-tunnel-open").onclick = () => Tunnel.open();
     } else {
       strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
@@ -27592,8 +27119,8 @@ const Mixer = (() => {
       // the live guitar's sound, for Live Show: the input, the amp (NAM profile), the gain
       amp: {
         live: () => Guitar.isLive(), toggle: () => toggleGuitarInput(),
-        name: () => Guitar.state.externalAmp ? "ToneRig" : Guitar.state.tunnel ? "tunel" : (typeof Tone !== "undefined" && Tone.on() ? "Otisk · " + Tone.label() : (Guitar.state.ampName || "")),
-        own: () => !Guitar.state.externalAmp && !Guitar.state.tunnel,
+        name: () => Guitar.state.tunnel ? "tunel" : (typeof Tone !== "undefined" && Tone.on() ? "Otisk · " + Tone.label() : (Guitar.state.ampName || "")),
+        own: () => !Guitar.state.tunnel,
         step: (d) => ampBrowseStep(d), pick: (anchor) => TrackAmp.pickLive(anchor),
         gain: () => Guitar.state.inputGainDb, setGain: (db) => { Guitar.setInputGain(Math.round(db * 2) / 2); renderGuitarStrip(); queueSessionSave(); },
       },
@@ -33820,7 +33347,6 @@ el("nav-back").onclick = () => navGo(-1);
 el("nav-fwd").onclick = () => navGo(1);
 paintNavButtons();
 
-ToneRig.load();
 renderLibraryRail(state.mode);
 // The app renders its first view without going through setMode, so seed the
 // history here — otherwise "back" stays dead until the second navigation.
@@ -36175,8 +35701,8 @@ const Voice = (() => {
       }
       const to = {steems: ["steems", "Steems"], playlists: ["playlists", "playlisty"], bands: ["songs", "kapely a umělci"],
         library: ["library", "knihovna"], folders: ["library", "knihovna"], songs: ["songs", "kapely a umělci"],
-        podcasts: ["podcasts", "podcasty"], tools: ["tools", "nástroje"], tabs: ["tabs", "taby"], loops: ["loops", "loopy"],
-        chords: ["chords", "stupnice a akordy"], analyzer: ["analyzer", "Performance Analyzer"], loopstudio: ["loopstudio", "Loop Studio"]}[arg];
+        podcasts: ["podcasts", "podcasty"], tools: ["tools", "nástroje"], tabs: ["tabs", "taby"],
+        chords: ["chords", "stupnice a akordy"], analyzer: ["analyzer", "Performance Analyzer"]}[arg];
       if(!to) return "seznamy přepíná minipřehrávač („pick mini player“)";
       setMode(to[0]);
       const m = el("main-scroll") || document.querySelector("main"); if(m) m.scrollTo({top: 0});
