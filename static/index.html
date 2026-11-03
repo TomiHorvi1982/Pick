@@ -5416,7 +5416,7 @@ body.lib-collapsed .pick-brand{display:none}
           <div class="tm-pop nm-lyr-pop">
             <button type="button" class="tm-item" id="nm-lyr-mode" title="Jak text běží: Běžící text (jako taby) → Po řádcích → Karaoke (jako v minipřehrávači)"></button>
             <button type="button" class="tm-item" id="nm-lyr-change" title="Vybrat text z písní téže kapely, nebo ho vyhledat">Jiný text…</button>
-            <button type="button" class="tm-item" id="nm-lyr-edit" title="Opravit text řádku, který se teď zpívá, nebo ho nechat zazpívat s novými slovy (i dvojklik na řádek na stopě Text)">Upravit / přezpívat řádek…</button>
+            <button type="button" class="tm-item" id="nm-lyr-edit" title="Opravit text řádku, který se teď zpívá, nebo ho nechat zazpívat s novými slovy (i dvojklik na řádek na stopě Text)">Upravit řádek…</button>
             <button type="button" class="tm-item" id="nm-lyr-hear" title="Pick si text naposlouchá ze stopy zpěvu (whisper, na tomhle počítači) — i české písně. Text bez časů dostane časy.">Odposlechnout ze zpěvu</button>
             <button type="button" class="tm-item" id="nm-lyr-karaoke" title="Otevřít Karaoketexty.cz — pro české písně, kde LRCLib nic nemá">Karaoketexty</button>
           </div>
@@ -17137,13 +17137,13 @@ const Mixer = (() => {
         <input type="text" class="pk-dlg-in le-text" data-focus autocomplete="off">
         <div class="le-row"><label>Jazyk <select class="le-lang"><option value="cs">čeština</option><option value="en">angličtina</option><option value="sk">slovenština</option><option value="de">němčina</option></select></label>
           <button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button>
-          <button type="button" class="btn secondary le-rec" title="Nahraj, jak se nová slova říkají (nebo je zazpívej) — místo hlasu zpěváka, který je čte">🎤 Namluvit</button>
+          <button type="button" class="btn secondary le-rec" hidden title="Nahraj, jak se nová slova říkají (nebo je zazpívej) — místo hlasu zpěváka, který je čte">🎤 Namluvit</button>
           <span class="le-recnote"></span></div>
         ${st && st.ready === false ? `<div class="pk-dlg-text" style="color:var(--danger)">Model pro zpěv tu není nainstalovaný — jde jen opravit text.</div>` : ""}
         ${edits.length ? `<div class="le-edits"><b>Už přezpívané:</b>${edits.map(e => `<div>${mmss(e.start)} · <s>${escapeHtml(e.old || "")}</s> → ${escapeHtml(e.text || "")}</div>`).join("")}</div>` : ""}
         <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zavřít</button>
-          <button type="button" class="btn secondary le-fix">Jen opravit text</button>
-          <button type="button" class="btn pk-dlg-ok le-sing" ${st && st.ready === false ? "disabled" : ""}>Přezpívat</button></div>`;
+          <button type="button" class="btn pk-dlg-ok le-fix">Opravit text</button>
+          <button type="button" class="btn pk-dlg-ok le-sing" hidden>Přezpívat</button></div>`;
       const inp = card.querySelector(".le-text"), langSel = card.querySelector(".le-lang"), note = card.querySelector(".le-recnote");
       inp.value = line.text || ""; langSel.value = lang0;
       card.querySelector(".pk-dlg-no").onclick = () => { if(rec && rec.state === "recording") rec.stop(); Dialog.close(null); };
