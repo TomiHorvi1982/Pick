@@ -125,8 +125,7 @@ const Tone = (() => {
     live = {song: name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore};
     setDrive();
     G().setPrint({input, output: out});
-    if(p.width && p.width.on) Mixer.guitarDoubler(true);
-    else if(!dblBefore) Mixer.guitarDoubler(false);
+    // The doubler is the player's: a print of a wide record never switches it on by itself (3. 11.).
     try{ localStorage.setItem(KEEP, JSON.stringify({song: name, pid: p.id})); }catch(e){}
     Mixer.guitarFaderRepaint();
     if(!quiet) showToast(`Hraješ s otiskem „${p.name}“ (${title(name)}) — shoda ${p.match} %`);
@@ -142,7 +141,6 @@ const Tone = (() => {
     l.nodes.forEach(n => { try{ n.disconnect(); }catch(e){} });
     if(l.core){ try{ l.core.unloadModel(); }catch(e){} }
     if(!quiet){
-      if(!l.dbl) Mixer.guitarDoubler(false);
       Mixer.guitarFaderRepaint();
       showToast("Otisk vypnutý — hraješ zase přes svůj zesilovač");
       paint();

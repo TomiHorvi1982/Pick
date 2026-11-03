@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -608,6 +608,7 @@ async def add_amp(request: Request, filename: str = "", category: str = ""):
     except OSError as exc:
         return JSONResponse({"error": f"Uložení selhalo: {exc}"}, status_code=500)
     file_id = f"{category}/{target.name}" if category else target.name
+    _amp_catalog.forget()
     return {"name": target.stem, "file": file_id,
             "kind": AMP_EXTS[suffix], "bytes": len(raw)}
 
@@ -636,6 +637,7 @@ def delete_amp(filename: str):
         path.unlink()
     except OSError as exc:
         return JSONResponse({"error": f"Smazání selhalo: {exc}"}, status_code=500)
+    _amp_catalog.forget()
     return {"ok": True}
 
 
@@ -12325,6 +12327,23 @@ end tell'''
 import assistant as _assistant
 import look as _look
 app.include_router(_look.router)
+# Katalog zesilovačů a beden (amp_catalog.py): every NAM and IR sorted by make, gain, cabinet…, nothing moved
+import amp_catalog as _amp_catalog
+_amp_catalog.amps_dir = lambda: AMPS_DIR
+_amp_catalog.path_of = _resolve_amp_path
+
+
+def _amp_catalog_items():
+    seen, out = set(), []
+    for it in list_amps("") + _all_amps():
+        if it.get("file") and it["file"] not in seen:
+            seen.add(it["file"])
+            out.append(it)
+    return out
+
+
+_amp_catalog.list_items = _amp_catalog_items
+app.include_router(_amp_catalog.router)
 import studio as _studio
 app.include_router(_studio.router)
 import setlists as _setlists

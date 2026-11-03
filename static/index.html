@@ -4167,6 +4167,52 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-lyr-more{min-width:0 !important;padding:2px 9px !important;font-size:15px !important;letter-spacing:1px;line-height:1}
   .nm-lyr-pop{min-width:150px !important}
   .nm-lyr-pop .tm-item{padding:6px 12px !important;font-size:12.5px !important}
+  /* Zesilovače a bedny (static/ampbrowser.js): the floating picker of NAM profiles and cabinets */
+  .ampb-win{position:fixed;left:calc(50% - 380px);top:70px;width:760px;height:min(680px,calc(100vh - 90px));min-width:480px;min-height:320px;
+    max-width:calc(100vw - 16px);max-height:calc(100vh - 20px);resize:both;overflow:hidden;display:flex;flex-direction:column;z-index:1250;
+    background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);border-radius:14px;
+    box-shadow:0 22px 70px rgba(0,0,0,.6);font-size:13px}
+  .ampb-win[hidden]{display:none}
+  .ampb-bar{display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:grab;user-select:none;border-bottom:1px solid var(--border);
+    background:color-mix(in srgb,var(--card-hi) 60%,transparent);border-radius:14px 14px 0 0}
+  .ampb-bar .sp,.ampb-foot .sp{flex:1}
+  .ampb-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .ampb-tabs{display:flex;gap:4px;background:var(--bg);border-radius:9px;padding:3px}
+  .ampb-tabs button{border:0;background:none;color:var(--sub);font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:7px;cursor:pointer}
+  .ampb-tabs button.on{background:var(--accent);color:#0c0d14}
+  .ampb-close{border:0;background:none;color:var(--sub);cursor:pointer;display:flex;padding:4px}
+  .ampb-tools{display:flex;gap:8px;padding:10px 12px 6px}
+  .ampb-q{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 11px;font:inherit}
+  .ampb-q:focus{outline:none;border-color:var(--accent)}
+  .ampb-sort,.ampb-filters select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;max-width:240px}
+  .ampb-filters{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}
+  .ampb-filters select{max-width:170px}
+  .ampb-filters select.on{border-color:var(--accent);color:var(--accent)}
+  .ampb-clear{border:0;background:none;color:var(--sub);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+  .ampb-main{flex:1;min-height:0;display:flex;border-top:1px solid var(--border)}
+  .ampb-list{flex:1;min-width:0;overflow-y:auto;padding:4px 8px 12px}
+  .ampb-side{flex:0 0 230px;border-left:1px solid var(--border);padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+  .ampb-pic{position:relative;aspect-ratio:16/10;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--sub);overflow:hidden}
+  .ampb-pic-in{position:absolute;inset:0;background:center/cover no-repeat}
+  .ampb-info{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.35}
+  .ampb-info b{font-size:13px;word-break:break-word;margin-bottom:4px}
+  .ampb-info div span{display:inline-block;min-width:78px;color:var(--sub)}
+  .ampb-info p{color:var(--sub);font-size:11.5px;margin:8px 0 0}
+  .ampb-grp h4{display:flex;align-items:center;gap:10px;margin:12px 4px 4px;font-size:12.5px;position:sticky;top:-4px;z-index:1;
+    background:linear-gradient(var(--bg2),var(--bg2)),#14151f;padding:5px 0}
+  .ampb-th{flex:none;width:44px;height:30px;border-radius:6px;background:var(--card) center/cover no-repeat}
+  .ampb-row{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--text);font:inherit;text-align:left;
+    padding:6px 8px 6px 58px;border-radius:7px;cursor:pointer}
+  .ampb-row:hover{background:var(--card-hi)}
+  .ampb-row.on{background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
+  .ampb-row .ab-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ampb-row .ab-t{display:flex;gap:4px;flex:none}
+  .ampb-row .ab-t i{font-style:normal;font-size:10.5px;padding:1px 7px;border-radius:999px;background:var(--card-hi);color:var(--sub);white-space:nowrap}
+  .ampb-row .ab-t i.g-clean{color:#7fd4ff}.ampb-row .ab-t i.g-crunch{color:#ffc56b}.ampb-row .ab-t i.g-hot{color:#ff7a7a}.ampb-row .ab-t i.g-mic{color:#b9a6ff}
+  .ampb-empty{padding:30px 10px;color:var(--sub);text-align:center}
+  .ampb-foot{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border);color:var(--sub);font-size:12px}
+  .ampb-none{border:1px solid var(--border);background:none;color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:7px;cursor:pointer}
+  @media (max-width:700px){.ampb-side{display:none}}
   /* Tónový otisk (static/tone.js): a floating window out of the live guitar's OTISK button */
   .tone-win{position:fixed;left:calc(50% - 320px);top:80px;width:640px;height:min(720px,calc(100vh - 100px));min-width:420px;min-height:300px;
     max-width:calc(100vw - 16px);max-height:calc(100vh - 20px);resize:both;overflow:hidden;
@@ -18880,12 +18926,26 @@ const Mixer = (() => {
       }catch(e){ c.fx.state.amp = null; wireFx(c.fx); if(name) name.textContent = label(c); showToast(e.message || "Profil se nepodařilo načíst"); }
     }
     async function pick(c, anchor){
+      if(typeof AmpBrowser !== "undefined"){
+        AmpBrowser.open({kinds: ["model"], title: `Zesilovač (NAM) — ${stemLabel(c.stem)}`, current: {model: c.fx.state.amp ? c.fx.state.amp.file : ""},
+          onModel: async (m) => {
+            try{
+              await setFxAmp(c.fx, m ? {file: m.file, name: m.name} : null);
+              showToast(m ? `${stemLabel(c.stem)}: ${m.name}${Amp.cabBuffer() ? "" : " — bez kabinetu (vybereš ho u živé kytary)"}` : `${stemLabel(c.stem)}: bez zesilovače`);
+            }catch(e){ c.fx.state.amp = null; wireFx(c.fx); showToast(e.message || "Profil se nepodařilo načíst"); }
+            const btn = [...document.querySelectorAll("#nm-rail .nm-strip[data-ch]")][channels.indexOf(c)];
+            const name = btn && btn.querySelector(".amp-name"); if(name) name.textContent = label(c);
+            queueSessionSave();
+          }});
+        return;
+      }
       try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
       if(!models.length){ showToast("V katalogu zatím nejsou žádné NAM profily"); return; }
       InstrPick.open(anchor, groups, c.fx.state.amp ? c.fx.state.amp.file : "", (id) => set(c, id), `Zesilovač (NAM) — ${stemLabel(c.stem)}`);
     }
     // The same list for the guitar that is played live: whatever is picked is loaded as its amp.
     async function pickLive(anchor){
+      if(typeof AmpBrowser !== "undefined"){ openAmpPicker("model"); return; }
       try{ await catalogue(); }catch(e){ showToast("Katalog NAM profilů se nepodařilo načíst"); return; }
       if(!models.length){ showToast("V katalogu zatím nejsou žádné NAM profily — přidej je v nastavení kytary"); return; }
       const now = models.find(m => m.nazev === Guitar.state.ampName);
@@ -27038,7 +27098,24 @@ const Mixer = (() => {
 
   // ---- picking one ----
 
-  async function openAmpPicker(){
+  // The live guitar's amp and cabinet: the floating catalogue (static/ampbrowser.js).
+  function openAmpPicker(tab){
+    if(typeof AmpBrowser === "undefined") return openAmpPickerList();
+    AmpBrowser.open({title: "Zesilovač a bedna — živá kytara", tab,
+      current: {model: Guitar.state.ampFile || "", ir: Guitar.state.cabName ? Guitar.state.cabName + ".wav" : ""},
+      extra: [{label: "Přidat .nam nebo .wav…", onclick: () => pickAmpFiles()}, {label: "Katalog TONE3000…", onclick: () => explainTone3000()}],
+      onModel: async (m) => {
+        if(!m){ await Amp.unload(); showToast("Zesilovač vypnut"); }
+        else { showToast("Načítám model…"); try{ await Amp.load(m.file, m.name); showToast(`Zesilovač: ${m.name}`); }catch(e){ showToast("Model se nepodařilo načíst"); } }
+        renderGuitarStrip(); queueSessionSave();
+      },
+      onIr: async (m) => {
+        if(!m){ Amp.unloadCab(); showToast("Kabinet vypnut"); }
+        else { try{ await Amp.loadCab(m.file); showToast(`Kabinet: ${m.name}`); }catch(e){ showToast("Impuls se nepodařilo načíst"); } }
+        renderGuitarStrip(); queueSessionSave();
+      }});
+  }
+  async function openAmpPickerList(){
     const existing = el("amp-picker");
     if(existing) existing.remove();
 
@@ -32946,6 +33023,17 @@ const PlayerGuitar = (() => {
 
   // The full list, like Steems' amp picker: models, then cabinets.
   function openPicker(anchor){
+    if(typeof AmpBrowser !== "undefined"){
+      AmpBrowser.open({title: "Zesilovač a bedna — kytara v přehrávači",
+        current: {model: st.model && st.model.key.startsWith("amp:") ? st.model.key.slice(4) : "", ir: st.cab || ""},
+        onModel: async (m) => { await setModel(m ? {key: "amp:" + m.file, name: m.name} : null); paint(); },
+        onIr: async (m) => {
+          if(!m){ await loadCab("").catch(() => {}); paint(); return; }
+          try{ await loadCab(m.file); }catch(e){ showToast("Kabinet se nepodařilo načíst"); }
+          paint();
+        }});
+      return;
+    }
     const old = el("pb-gtr-picker");
     if(old){ old.remove(); return; }
     const models = amps.filter(a => a.kind === "model");
@@ -36709,6 +36797,7 @@ const Voice = (() => {
 <script src="/static/looper.js"></script>
 <script src="/static/look.js"></script>
 <script src="/static/tone.js"></script>
+<script src="/static/ampbrowser.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>

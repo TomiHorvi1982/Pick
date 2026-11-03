@@ -966,6 +966,25 @@ si odkaz pamatuje) a stáhne celé, vybrané, nebo stáhne a rozdělí na stopy 
 nikoho nevyhledává: odkaz na profil odpoví, ať majitel pošle odkaz přímo na playlist; soukromý playlist
 přečíst nejde.
 
+## Zesilovače a bedny (katalog)
+
+Kde se vybírá zesilovač nebo bedna — živá kytara ve Steems („Zesilovač a kabinet…“), zesilovač na stopě v mixu,
+kytara v přehrávači — otevře se plovoucí okno **Zesilovače a bedny** (`static/ampbrowser.js`, server
+`amp_catalog.py`, `GET /api/amp-catalog`). Soubory na disku zůstávají, kde jsou (mixy a otisky na ně odkazují);
+třídí se v katalogu podle názvu, složek a metadat `.nam`:
+- **NAM**: značka a model (Marshall · JCM800, Mesa Boogie · Rectifier, EVH · 5150 III…), zisk (čistý / crunch /
+  hi-gain), typ (zesilovač, celý aparát s bednou a mikrofonem, před- a koncový zesilovač, krabička), odkud je a kdo
+  ho nahrál. Stejný profil nakopírovaný dvakrát (sbírka i knihovna) je v seznamu jednou.
+- **IR**: balíček, bedna, značka, velikost (4x12…), reproduktor (V30, G12T-75…), mikrofon (SM57, e906…). Z bedny
+  ve více vzorkovacích frekvencích se ukazuje jen 48 kHz (`rates=1` ukáže všechny).
+
+Hledá se libovolným slovem, filtry podle každé vlastnosti, řazení „Můj klíč“ (značka → model → zisk; u IR
+balíček → bedna → reproduktor → mikrofon) nebo jinak; po 150 položkách, další se načtou při rolování. Nadpis
+skupiny a náhled vpravo mají obrázek aparátu (`ChipThumbs`, YouTube). Klik načte, okno zůstává otevřené.
+Katalog se sestaví za pár sekund a drží se 5 minut (metadata v `amps/.amp-catalog.json`).
+
+Tónový otisk už sám nezapíná doubler (dřív ho zapnul u široké stereo nahrávky).
+
 ## Tónový otisk
 
 Tvoje živá kytara zní jako kytara z písně (tlačítko **OTISK** na kanálu Live

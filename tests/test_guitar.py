@@ -170,3 +170,43 @@ def test_the_nam_engine_is_served_from_our_own_origin(client):
 def test_the_nam_route_serves_nothing_else(client):
     assert client.get("/static/nam/server.py").status_code == 400
     assert client.get("/static/nam/nope.js").status_code == 404
+
+
+def test_the_amp_catalogue_sorts_by_make_gain_and_cabinet(client, tmp_path, monkeypatch, tmp_music_root):
+    """Katalog zesilovačů a beden: nothing moves on disk, the sorting is worked out from names, folders and metadata."""
+    import amp_catalog
+    monkeypatch.setattr(server, "AMPS_DIR", tmp_path / "amps")
+    amp_catalog.forget()
+    nam = server.AMPS_DIR / "nam"
+    nam.mkdir(parents=True)
+    (nam / "JCM800 Lead Boosted.nam").write_text('{"version": "0.5", "metadata": {"date": {"year": 2025}, "gear_type": "amp", "tone_type": "hi_gain", "modeled_by": "tim"}, "weights": [0.1]}')
+    (nam / "71 Bassman - Clean - V5.nam").write_text('{"metadata": {"gear_make": "Fender"}}')
+    (nam / "Ibanez TS9 Tube Screamer Drive 7.nam").write_text('{"metadata": {"gear_type": "pedal"}}')
+    cab = server.AMPS_DIR / "ir" / "Joey Sturgis" / "Mesa 4x12 V30"
+    cab.mkdir(parents=True)
+    (cab / "SM57 cap.wav").write_bytes(b"RIFF")
+    other = server.AMPS_DIR / "ir" / "Valhallir" / "VH-MA-T75" / "VH 44100Hz-24bit"
+    other.mkdir(parents=True)
+    (other / "VH-MA-T75-MD421.wav").write_bytes(b"RIFF")
+
+    got = client.get("/api/amp-catalog", params={"kind": "model"}).json()
+    by = {x["name"]: x for x in got["items"]}
+    assert got["total"] == 3
+    assert (by["JCM800 Lead Boosted"]["brand"], by["JCM800 Lead Boosted"]["family"], by["JCM800 Lead Boosted"]["gain"]) == ("Marshall", "JCM800", "hi_gain")
+    assert by["JCM800 Lead Boosted"]["by"] == "tim" and by["JCM800 Lead Boosted"]["group"] == "Marshall · JCM800"
+    assert (by["71 Bassman - Clean - V5"]["brand"], by["71 Bassman - Clean - V5"]["gain"]) == ("Fender", "clean")
+    assert by["Ibanez TS9 Tube Screamer Drive 7"]["type"] == "Krabička"
+    # my key: make first — Fender, Ibanez, Marshall
+    assert [x["brand"] for x in got["items"]] == ["Fender", "Ibanez", "Marshall"]
+    assert [x["name"] for x in client.get("/api/amp-catalog", params={"q": "screamer"}).json()["items"]] == ["Ibanez TS9 Tube Screamer Drive 7"]
+    assert client.get("/api/amp-catalog", params={"gain": "clean"}).json()["total"] == 1
+    assert dict(got["facets"]["brand"])["Marshall"] == 1
+
+    irs = client.get("/api/amp-catalog", params={"kind": "ir"}).json()
+    assert irs["total"] == 1                                  # the 44.1 kHz copy waits behind "rates"
+    x = irs["items"][0]
+    assert (x["pack"], x["brand"], x["size"], x["speaker"], x["mic"]) == ("Joey Sturgis", "Mesa Boogie", "4x12", "Vintage 30", "SM57")
+    assert client.get("/api/amp-catalog", params={"kind": "ir", "rates": 1}).json()["total"] == 2
+    # a file id from the catalogue fetches the file
+    assert client.get("/api/amps/" + x["file"]).content == b"RIFF"
+    amp_catalog.forget()
