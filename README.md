@@ -271,7 +271,15 @@ Art Institute of Chicago a NASA (obrázky), Iconify (ikony); vybraný obrázek s
 stáhne do Picku. Karta Vzor položí vlastní obrázek průsvitně přes aplikaci
 jako předlohu a nabere z něj barvy (i celou paletu).
 
-**Zpěv mým hlasem** (Steems → Panely → „Zpěv mým hlasem…“): stopa zpěvu se
+**Odstranit prvek** (tlačítko v hlavičce Úprav vzhledu, nebo „Odstranit“ u vybraného prvku — tam i pro všechny
+stejné): co v aplikaci nechceš, klikneš a zmizí. Jen se skryje (`look.hide` → `display:none`), z kódu se nic
+nemaže a všechno ostatní funguje dál. Velký kus obrazovky nebo víc prvků naráz se nejdřív zeptá; tlačítko
+Nastavení a „Upravit vzhled podrobně…“ odstranit nejde, aby byla vždy cesta zpět. Karta Změny → Odstraněné
+prvky: „Ukázat odstraněné“ (červeně orámované), Vrátit jednotlivě i všechny; natrvalo až po Uložit, ↩ funguje.
+Kdyby se něco pokazilo: `localhost:8765/?bez-vzhledu` ukáže Pick bez úprav (uložený vzhled zůstane).
+
+**Zpěv mým hlasem** — v aplikaci se už nenabízí (3. 11.; položka v Panelech a „…a zazpívat mým hlasem“ ve
+Skladateli jsou skryté, server `/api/myvoice` zůstal). Dřív: stopa zpěvu se
 přezpívá hlasem, který sis přidal u Výslovnosti — melodie, rytmus i frázování
 zůstanou z originálu, změní se jen barva hlasu. Dělá to model Seed-VC (44 kHz,
 pro zpěv) ve vlastním prostředí `~/.local/venvs/pick-svc`, kód v

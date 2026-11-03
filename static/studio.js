@@ -626,7 +626,6 @@ const Composer = (() => {
           ${v.used ? `<span class="cp-used">${hasStems ? "je ve Steems" : "v knihovně — ukládá se do Steems"}${v.sung ? ` · zpívá ${esc(v.sung)}` : ""}</span>
               ${hasStems ? `<button type="button" class="btn secondary" data-open="${esc(stemName)}">Otevřít ve Steems</button>` : ""}`
             : `<button type="button" class="btn" data-use="${v.id}" data-p="${x.id}" title="Uloží song do knihovny a do Steems po stopách">Tuhle chci — do Steems</button>`}
-          ${x.lyrics && !v.sung ? `<button type="button" class="btn secondary" data-use="${v.id}" data-p="${x.id}" data-voice="1" title="Uloží song do Steems a zpěv přezpívá tvým hlasem">…a zazpívat mým hlasem</button>` : ""}
           ${v.seed ? `<button type="button" class="cp-x" data-seed="${esc(v.seed)}" title="Dát tenhle seed do nastavení">seed ${esc(v.seed)}</button>` : ""}
         </div>`;
     }

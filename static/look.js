@@ -14,8 +14,9 @@
 // half see-through, as the model to work to (Vzor), its colours picked off.
 const PickLook = (() => {
   const CACHE = "pick-look", REFKEY = "pick-look-ref", SIDE = "pick-look-side";
-  const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}});
+  const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}, hide: []});
   let look = blank(), saved = JSON.stringify(look), undo = [], redo = [];
+  let removing = false, peek = false;
   let host = null, root = null, on = false, picking = false, target = null, rule = null, tab = "el";
   let catalogue = null, kept = [], lastColor = null, swatches = [], srcTarget = "el", refState = null;
 
@@ -166,6 +167,10 @@ const PickLook = (() => {
         `margin-right:${ic.gap == null ? 6 : ic.gap}px;vertical-align:${ic.va || "-3"}px;background:url("${ic.img}") center/contain no-repeat !important;flex:none}`);
       if(r.css && r.css.trim()) css.push(`${r.sel}{${r.css.replace(/[{}]/g, "")}}`);
     }
+    // Odstraněné prvky: only hidden, never taken out of the page — whatever they do
+    // keeps working, and "Vrátit" brings them back. While peeking they show, struck through.
+    for(const x of l.hide || []) if(x && x.sel)
+      css.push(peek ? `${x.sel}{outline:2px dashed #ff5a5a !important;outline-offset:-2px;opacity:.45 !important}` : `${x.sel}{display:none !important}`);
     return css.join("\n");
   }
   function fontLink(name, f){
@@ -191,9 +196,13 @@ const PickLook = (() => {
       document.body.append(h("div", {id: "look-bg", "aria-hidden": "true", style: "display:none;position:fixed;inset:0;z-index:-1;pointer-events:none"}));
     for(const n in look.fonts || {}) fontLink(n, look.fonts[n]);
     st.textContent = compile(look);
+    // ?bez-vzhledu: the app as it came, whatever the saved look hides — until the editor is opened
+    st.disabled = BARE && !on;
   }
+  const BARE = /[?&]bez-vzhledu\b/.test(location.search);
   const tidy = (l) => { const o = {...blank(), ...(l && typeof l === "object" ? l : {})};
-    o.vars = o.vars || {}; o.app = o.app || {}; o.fonts = o.fonts || {}; o.rules = Array.isArray(o.rules) ? o.rules.filter((r) => r && r.sel) : []; return o; };
+    o.vars = o.vars || {}; o.app = o.app || {}; o.fonts = o.fonts || {}; o.rules = Array.isArray(o.rules) ? o.rules.filter((r) => r && r.sel) : [];
+    o.hide = Array.isArray(o.hide) ? o.hide.filter((x) => x && typeof x.sel === "string" && x.sel) : []; return o; };
   const prune = () => { look.rules = look.rules.filter((r) => r === rule || decls(r).length || (r.css || "").trim() || ((r.x || {}).ic || {}).img); };
   const dirty = () => JSON.stringify(look) !== saved;
 
@@ -257,9 +266,44 @@ const PickLook = (() => {
     return r || null;
   }
 
+  // ------------------------------------------------------- removing things
+  // What must stay, whatever is removed: the way back here (Nastavení → Upravit vzhled).
+  const KEEP = ["#settings-btn", "#look-open"];
+  const what = (e) => {
+    const t = (e.getAttribute("title") || e.getAttribute("aria-label") || e.getAttribute("placeholder") || e.textContent || "").replace(/\s+/g, " ").trim();
+    return (t.length > 48 ? t.slice(0, 46) + "…" : t) || name(e);
+  };
+  async function hideSel(sel, label){
+    let all = [];
+    try{ all = [...document.querySelectorAll(sel)]; }catch(e){ say("Tenhle výběr nejde odstranit."); return false; }
+    if(!all.length){ say("Takový prvek teď na obrazovce není."); return false; }
+    if(all.some((e) => e === document.body || e === document.documentElement || e.id === "look-host" || KEEP.some((k) => e.closest(k) || e.querySelector(k)))){
+      say("Tohle odstranit nejde — je v tom tlačítko Nastavení, přes které se sem vracíš."); return false;
+    }
+    const big = all.some((e) => { const r = e.getBoundingClientRect(); return r.width * r.height > innerWidth * innerHeight * 0.4; });
+    if((big || all.length > 1) && !await Dialog.confirm(
+      (all.length > 1 ? `Odstraní se ${all.length} prvků najednou. ` : "") + (big ? "Je to velká část obrazovky. " : "") + "Opravdu odstranit? Vrátit to jde na kartě Změny.",
+      {ok: "Odstranit"})) return false;
+    if((look.hide || []).some((x) => x.sel === sel)) return true;
+    edit("hide", () => { look.hide = [...(look.hide || []), {sel, what: label}]; });
+    stepKey = "";
+    say("Odstraněno (jen skryto). Natrvalo po Uložit, vrátit jde šipkou ↩ nebo na kartě Změny.");
+    if(target && all.includes(target)){ target = null; rule = null; }
+    return true;
+  }
+  function unhide(sel){ edit("unhide", () => { look.hide = (look.hide || []).filter((x) => x.sel !== sel); }); stepKey = ""; }
+  function setRemoving(v){
+    if(v && picking) setPicking(false);
+    removing = v; picking = v;
+    if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("hl").classList.toggle("del", v);
+      root.getElementById("rm").classList.toggle("on", v); root.getElementById("pick").classList.remove("on"); }
+    document.documentElement.style.cursor = v ? "crosshair" : "";
+  }
+
   // ------------------------------------------------------------ the picker
   let box = null, tag = null;
-  const inPanel = (ev) => ev.composedPath().includes(host);
+  // the panel, and Pick's own question boxes (a confirm asked while picking must be answerable)
+  const inPanel = (ev) => ev.composedPath().some((n) => n === host || (n.classList && n.classList.contains("pk-dlg")));
   function placeBox(){
     if(!box) return;
     if(!on || !target || !target.isConnected){ box.style.display = "none"; return; }
@@ -282,7 +326,9 @@ const PickLook = (() => {
     ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
     if(ev.type !== "click") return;
     const e = document.elementFromPoint(ev.clientX, ev.clientY);
-    if(e && e.id !== "look-bg") select(e);
+    if(!e || e.id === "look-bg") return;
+    if(removing){ hideSel(uniqueSel(e), what(e)).then(() => { paintTab(); root.getElementById("hl").style.display = "none"; }); return; }
+    select(e);
   }
   function select(e, keepPicking){
     target = e; rule = null; stateSuf = "";
@@ -292,6 +338,8 @@ const PickLook = (() => {
     tab = "el"; paintTabs(); paintTab(); placeBox();
   }
   function setPicking(v){
+    removing = false;
+    if(root){ root.getElementById("rm").classList.remove("on"); root.getElementById("hl").classList.remove("del"); }
     picking = v;
     if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("pick").classList.toggle("on", v); }
     document.documentElement.style.cursor = v ? "crosshair" : "";
@@ -437,6 +485,7 @@ const PickLook = (() => {
   function elTab(){
     if(!target || !rule) return [h("div", {class: "empty"},
       h("p", {html: "Klikni na <b>Vybrat prvek</b> nahoře a pak na cokoli v aplikaci — tlačítko, nadpis, panel, řádek seznamu."}),
+      h("p", {html: "Text nebo věc, kterou tam nechceš: <b>Odstranit prvek</b> a klikni na ni. Jen se skryje — nic se nesmaže a vše ostatní funguje dál; vrátíš ji na kartě <b>Změny</b>."}),
       h("p", {class: "muted", text: "Dokud vybíráš, aplikace na kliknutí nereaguje. Když potřebuješ přejít jinam (otevřít píseň, Steems, nastavení), výběr vypni, dojdi tam a zapni ho znovu."}),
       h("button", {class: "btn big", text: "Vybrat prvek", onclick: () => setPicking(true)}))];
     const sc = target.isConnected ? scopes(target) : [{sel: rule.sel, name: rule.sel}];
@@ -459,6 +508,8 @@ const PickLook = (() => {
             h("option", {value: "", text: "↓ uvnitř"}), kids.map((k, i) => h("option", {value: i, text: name(k)}))) : null),
         row("Platí pro", scope), row("Kdy", st),
         h("div", {class: "selrow"}, h("code", {text: rule.sel}),
+          h("button", {class: "mini danger", title: "Odstranit (skrýt) to, co je vybrané v „Platí pro“ — vrátit jde na kartě Změny", text: "Odstranit",
+            onclick: () => hideSel(scope.value, what(target)).then((ok) => { if(ok){ target = null; rule = null; } paintTab(); })}),
           h("button", {class: "mini", title: "Zrušit všechny úpravy tohoto prvku", text: "Zrušit úpravy", onclick: () => { edit("drop", () => { look.rules = look.rules.filter((r) => r !== rule); rule = {sel: rule.sel, p: {}, x: {}, fresh: true}; }); paintTab(); }}))),
       sect("Text", true,
         colorCtl(c, "p.color", "Barva", "color"),
@@ -801,9 +852,19 @@ const PickLook = (() => {
           else say("Tenhle prvek teď na obrazovce není — přejdi tam, kde je."); },
         () => { edit("x", () => { look.rules = look.rules.filter((x) => x !== r); if(rule === r) rule = null; }); paintTab(); }));
     }
-    if(!out.length) out.push(h("p", {class: "muted", text: "Zatím jsi nic nezměnil. Aplikace vypadá tak, jak byla."}));
+    if(!out.length && !(look.hide || []).length) out.push(h("p", {class: "muted", text: "Zatím jsi nic nezměnil. Aplikace vypadá tak, jak byla."}));
+    const hidden = look.hide || [];
+    const gone = hidden.length ? [
+      h("div", {class: "chips"},
+        h("button", {class: "chip" + (peek ? " on" : ""), text: peek ? "Schovat je zase" : "Ukázat odstraněné", title: "Na chvíli je ukáže červeně orámované, ať víš, co kde chybí", onclick: () => { peek = !peek; paintLook(); paintTab(); }}),
+        h("button", {class: "chip danger", text: "Vrátit všechny", onclick: async () => { if(!await Dialog.confirm(`Vrátit všech ${hidden.length} odstraněných prvků?`, {ok: "Vrátit"})) return; edit("unhide", () => { look.hide = []; }); paintTab(); }})),
+      hidden.map((x) => { let n = 0; try{ n = document.querySelectorAll(x.sel).length; }catch(e){}
+        return h("div", {class: "chg"}, h("div", {class: "lnk"}, h("b", {text: x.what || x.sel}), h("span", {text: n ? (n > 1 ? `${n} prvků` : "na obrazovce") : "teď není na obrazovce"})),
+          h("button", {class: "mini", text: "Vrátit", title: "Ukázat ho zase", onclick: () => { unhide(x.sel); paintTab(); }})); })]
+      : [h("p", {class: "muted", text: "Nic. Tlačítko Odstranit prvek nahoře skryje, co tam nechceš."})];
     const nameIn = h("input", {type: "text", placeholder: "Název vzhledu, např. Noční metal"});
     return [
+      sect(`Odstraněné prvky (${hidden.length})`, true, gone),
       sect("Co je změněno", true, out),
       sect("Uložené vzhledy", true,
         h("div", {class: "bar"}, nameIn, h("button", {class: "btn", text: "Uložit jako", onclick: async () => { const n = nameIn.value.trim(); if(!n){ say("Pojmenuj ho."); return; }
@@ -914,6 +975,9 @@ const PickLook = (() => {
     #hl{background:rgba(139,123,255,.18);outline:2px solid #8b7bff}
     #hl::after{content:attr(data-name);position:absolute;left:0;top:-19px;background:#8b7bff;color:#0c0c16;font:600 10.5px ui-monospace,Menlo,monospace;padding:2px 6px;border-radius:4px;white-space:nowrap}
     #box{outline:1.5px dashed #ffc53d;outline-offset:1px}
+    #hl.del{background:rgba(255,80,80,.22);outline-color:#ff5a5a}#hl.del::after{background:#ff5a5a;content:"Odstranit: " attr(data-name)}
+    header .line button.rm.on{background:#ff5a5a;color:#16080a;border-color:#ff5a5a}
+    .mini.danger{color:#ff8a8a}
   `;
   const TABS = [["el", "Prvek"], ["app", "Aplikace"], ["src", "Zdroje"], ["ref", "Vzor"], ["log", "Změny"]];
   function build(){
@@ -928,7 +992,8 @@ const PickLook = (() => {
           h("button", {class: "icon", text: "▁", title: "Sbalit / rozbalit panel", onclick: () => root.getElementById("panel").classList.toggle("small")}),
           h("button", {class: "icon", text: "×", title: "Zavřít úpravy vzhledu", onclick: () => close()}),
           h("div", {class: "line"},
-            h("button", {id: "pick", text: "Vybrat prvek", title: "Zapni a klikni na cokoli v aplikaci (Esc = vypnout)", onclick: () => setPicking(!picking)}),
+            h("button", {id: "pick", text: "Vybrat prvek", title: "Zapni a klikni na cokoli v aplikaci (Esc = vypnout)", onclick: () => setPicking(removing || !picking)}),
+            h("button", {id: "rm", class: "rm", text: "Odstranit prvek", title: "Zapni a klikni na to, co v aplikaci nechceš — skryje se (Esc = vypnout)", onclick: () => setRemoving(!removing)}),
             h("button", {id: "save", class: "save", text: "Uložit", title: "Uložit vzhled natrvalo", onclick: save}),
             h("button", {id: "drop", text: "Zahodit", title: "Vrátit se k naposledy uloženému vzhledu", onclick: () => { if(!dirty()) return; undo.push(JSON.stringify(look)); restore(saved); say("Zpátky u uloženého vzhledu."); }}),
             h("button", {id: "cmp", text: "Původní ↔ nový", title: "Podrž a uvidíš aplikaci bez úprav",
@@ -946,7 +1011,7 @@ const PickLook = (() => {
     window.addEventListener("scroll", placeBox, true); window.addEventListener("resize", placeBox);
     window.addEventListener("keydown", (e) => {
       if(!on) return;
-      if(e.key === "Escape" && picking){ setPicking(false); e.stopPropagation(); return; }
+      if(e.key === "Escape" && picking){ if(removing) setRemoving(false); else setPicking(false); e.stopPropagation(); return; }
       const typing = e.composedPath()[0] && /^(INPUT|TEXTAREA|SELECT)$/.test(e.composedPath()[0].tagName);
       if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !typing){ e.preventDefault(); e.stopPropagation(); step(e.shiftKey ? 1 : -1); }
     }, true);
@@ -989,7 +1054,7 @@ const PickLook = (() => {
   }
   function open(){
     if(!host) build();
-    on = true; host.style.display = "";
+    on = true; host.style.display = ""; paintLook();
     loadRef(); paintRef(); paintTabs(); paintTab();
     if(!catalogue) loadFonts();
     api("/api/look").then((d) => { kept = d.kept || []; if(tab === "log") paintTab(); }).catch(() => {});
@@ -1003,7 +1068,7 @@ const PickLook = (() => {
       if(what === "save") save();
       else { look = tidy(JSON.parse(saved)); paintLook(); }
     }
-    setPicking(false); on = false; target = null; rule = null; undo = []; redo = [];
+    setPicking(false); peek = false; paintLook(); on = false; target = null; rule = null; undo = []; redo = [];
     if(host) host.style.display = "none";
     paintRef();
   }
