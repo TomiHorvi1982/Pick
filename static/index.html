@@ -1063,6 +1063,10 @@ body.lib-collapsed .pick-brand{display:none}
      bars show a handful of categories instead of two dozen small icons. */
   .tmenu{position:relative;display:inline-flex;flex:none}
   .tmenu[hidden]{display:none}
+  .gt-auto{border:1px solid var(--border);background:none;color:var(--sub);font:inherit;font-size:8.5px;font-weight:700;letter-spacing:.04em;
+    padding:1px 6px;border-radius:999px;cursor:pointer;margin-top:2px}
+  .gt-auto.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .fl-auto-btn{width:100%;margin-top:3px}
   /* Ukázkové DI riffy are gone from sight (3. 11.): the manager, the per-model riff and "copy to riffs" */
   #metronome-top-btn[hidden],.nam-riffs-manage-btn,.nam-riff-col,.act-riff{display:none !important}
   .steems-shelves{margin:4px 0 18px}
@@ -15709,15 +15713,22 @@ const Mixer = (() => {
   // a plain song.
   let masterGain = null;
   let masterLevel = 1;
+  // Everything reaches the master through one trim (AutoMix keeps the sum clear of clipping) and its meter.
+  let busTrim = null, busAn = null;
   function masterOut(){
     const ac = ctx();
     if(!masterGain){
       masterGain = ac.createGain();
       masterGain.gain.value = masterLevel;
       masterGain.connect(ac.destination);
+      busTrim = ac.createGain();
+      busAn = ac.createAnalyser(); busAn.fftSize = 2048;
+      busTrim.connect(masterGain);
+      busTrim.connect(busAn);
     }
-    return masterGain;
+    return busTrim;
   }
+  const busTrimOf = () => busTrim;
   function setMasterVolume(v){
     masterLevel = Math.max(0, Math.min(1, v));
     if(masterGain) masterGain.gain.value = masterLevel;
@@ -24023,6 +24034,7 @@ const Mixer = (() => {
   //     → gain / pan     → monitor  and  → recorder
   // ======================================================================
   const Guitar = (() => {
+    let levelTap = null;
     let stream = null;
     let source = null;
     // Which input of the interface the guitar is on. Interfaces like the
@@ -24219,6 +24231,7 @@ const Mixer = (() => {
         if(e.data && typeof e.data.peak === "number"){
           state.peak = e.data.peak;
           state.gate = e.data.gate;
+          if(typeof AutoGate !== "undefined") AutoGate.feed(e.data.peak);
           watchInputChannels();
           paintGuitarMeter();
         }
@@ -24293,6 +24306,9 @@ const Mixer = (() => {
         }
         node.connect(recNode); node = recNode;
         if(dryGain){ node.connect(dryGain); node = dryGain; }
+        // what the guitar sounds like through its amp, before its fader: AutoMix rides the fader by it
+        if(!levelTap){ levelTap = audioCtx.createAnalyser(); levelTap.fftSize = 2048; }
+        node.connect(levelTap);
         node.connect(gainNode);
       }
       if(instrOut) instrOut.connect(gainNode);
@@ -24657,12 +24673,141 @@ const Mixer = (() => {
       getVirtualSource: () => ensureVirtualSource(),
       ensureEq,
       setInputGain, setInputChannel,
-      setExternalAmp(on){ state.externalAmp = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
+      // ToneRig is no longer part of the live guitar (3. 11.): our own amp always plays, whatever ToneRig's settings say.
+      setExternalAmp(on){ if(!state.externalAmp) return; state.externalAmp = false; if(gainNode) rewire(); renderGuitarStrip(); },
       setTunnel(on){ state.tunnel = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
       instrumentRunning: () => !!(instrNode && instrNode.bezi),
+      levelTap: () => levelTap,
     };
+  })();
+
+  // ---- Automatická brána šumu: the gate finds its own threshold. Each second's loudest
+  // moment is kept for the last 15 s; the quietest of those seconds is the hiss of the
+  // input between phrases, and the gate opens 6 dB above it — never so high that a
+  // note's tail is cut (24 dB under the playing). Lowered at once, raised a step at a
+  // time. Moving the GATE knob by hand turns it off; AUTO under the knob turns it on.
+  const AutoGate = (() => {
+    const KEY = "pick-gate-auto";
+    let on = (() => { try{ return localStorage.getItem(KEY) !== "0"; }catch(e){ return true; } })();
+    let secs = [], cur = -120, n = 0, at = 0;
+    function feed(peak){
+      if(!on || Guitar.state.tunnel) return;
+      const db = peak > 1e-6 ? 20 * Math.log10(peak) : -120;
+      cur = Math.max(cur, db);
+      if(++n < 20) return;                           // twenty readings: one second
+      secs.push(cur); cur = -120; n = 0;
+      if(secs.length > 15) secs.shift();
+      if(secs.length < 4 || performance.now() - at < 1500) return;
+      at = performance.now();
+      const sorted = secs.slice().sort((a, b) => a - b), floor = sorted[0], loud = sorted[sorted.length - 1];
+      if(loud - floor < 10 && loud > -45) return;      // playing all along: nothing to learn the hiss from
+      let thr = floor < -88 ? -100 : Math.round(Math.min(floor + 6, loud - 24, -30));
+      if(thr > -100 && loud - floor < 10) thr = Math.round(Math.min(floor + 6, -30));   // only hiss so far
+      const was = Guitar.state.threshold;
+      if(thr > was && was > -100) thr = Math.min(thr, was + 1);  // up a step at a time
+      if(Math.abs(thr - was) < 2 && !(thr === -100 && was !== -100)) return;
+      Guitar.setThreshold(thr);
+      paint();
+      queueSessionSave();
+    }
+    function paint(){
+      const v = el("gt-gate-val"), b = el("gt-gate-auto"), t = Guitar.state.threshold;
+      if(v) v.textContent = t <= -99.5 ? "vyp" : t + " dB";
+      if(b){ b.classList.toggle("on", on); b.title = on ? "Automatická brána: sama měří šum v pauzách a nastavuje práh — klik ji vypne" : "Zapnout automatickou bránu šumu"; }
+      const k = el("gt-gate-knob"); if(k) k.style.setProperty("--rot", (-135 + ((Math.max(-100, t) + 100) / 80) * 270) + "deg");
+    }
+    function set(v){
+      on = !!v; secs = []; n = 0; cur = -120;
+      try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
+      paint();
+      if(on) showToast("Automatická brána: změří šum, až chvíli nehraješ, a nastaví práh sama");
+    }
+    return {feed, on: () => on, set, paint};
+  })();
+
+  // ---- Automatické hlasitosti (gain staging). While the song plays:
+  // · the live guitar's fader is ridden so the guitar sits where the song's own guitar
+  //   sits — the guitar stems' level at this moment (read from the recording, so it works
+  //   with the original muted too); without a guitar stem, 6 dB under the rest of the mix.
+  //   Only while you are actually playing, at most ~1.6 dB a second, and not inside 1.5 dB.
+  // · the whole mix gets a trim before the master: pulled down when the sum of the
+  //   tracks nears clipping, let back up slowly — the balance between tracks stays yours.
+  const AutoMix = (() => {
+    const KEY = "pick-automix", TICK = 250;
+    let on = (() => { try{ return localStorage.getItem(KEY) !== "0"; }catch(e){ return true; } })();
+    let ref = 0, lvl = 0, quiet = 0, last = "", lastPaint = 0, timer = 0;
+    const b = new Float32Array(2048);
+    function read(an){
+      if(!an) return {rms: 0, peak: 0};
+      const n = Math.min(b.length, an.fftSize), d = n === b.length ? b : b.subarray(0, n);
+      an.getFloatTimeDomainData(d);
+      let s = 0, p = 0;
+      for(let i = 0; i < n; i++){ const x = d[i]; s += x * x; const a = x < 0 ? -x : x; if(a > p) p = a; }
+      return {rms: Math.sqrt(s / n), peak: p};
+    }
+    // the stem's own level around this moment, before its fader — muted or not
+    function stemRms(c, t){
+      const buf = c.srcBuf || c.buffer;
+      if(!buf) return 0;
+      const sr = buf.sampleRate, a = Math.max(0, Math.floor((t - 1) * sr)), z = Math.min(buf.length, Math.floor((t + 1) * sr));
+      if(z <= a) return 0;
+      let s = 0, n = 0;
+      for(let ch = 0; ch < buf.numberOfChannels; ch++){ const d = buf.getChannelData(ch); for(let i = a; i < z; i += 8){ s += d[i] * d[i]; n++; } }
+      return Math.sqrt(s / Math.max(1, n));
+    }
+    const isGtr = (c) => !c.midi && !/^take-/.test(c.stem) && /guitar|kytar/i.test(c.stem + " " + stemLabel(c.stem));
+    const dbs = (x) => (x >= 0 ? "+" : "") + x.toFixed(1).replace(".", ",");
+    function tick(){
+      if(!on || !isPlaying || !channels.length) return;
+      const t = currentTime();
+      // the bus: keep the sum of the tracks clear of clipping
+      const bus = busTrimOf();
+      if(bus && busAn){
+        const m = read(busAn);
+        let g = bus.gain.value;
+        if(m.peak > 0.89 / Math.max(0.05, masterLevel)) { g = Math.max(0.25, g * Math.pow(10, -1 / 20)); quiet = 0; }
+        else if(m.peak < 0.6 && g < 1){ if(++quiet > 16){ g = Math.min(1, g * Math.pow(10, 0.25 / 20)); } }
+        else quiet = 0;
+        bus.gain.setTargetAtTime(g, ctx().currentTime, 0.05);
+      }
+      // the live guitar
+      const G = Guitar.state, tap = Guitar.levelTap();
+      if(!G.live || !tap || G.muted) return;
+      const gtr = channels.filter(isGtr);
+      let want;
+      if(gtr.length) want = Math.sqrt(gtr.reduce((a, c) => a + Math.pow(stemRms(c, t) * (c.faderValue ?? 1), 2), 0));
+      else {
+        const others = channels.filter(c => !c.muted && (c.faderValue ?? 1) > 0.01);
+        want = Math.sqrt(others.reduce((a, c) => a + Math.pow(read(c.analyser).rms, 2), 0)) * 0.5;
+      }
+      ref = ref ? ref * 0.85 + want * 0.15 : want;
+      const now = read(tap).rms;
+      if(now < 0.003 || G.gate < 0.5 || ref < 0.002) return;   // not playing, or the song is quiet here
+      lvl = lvl ? lvl * 0.85 + now * 0.15 : now;
+      const vol = G.volume || 0.0001, goal = Math.max(0.08, Math.min(1.4, ref / lvl));
+      const err = 20 * Math.log10(goal / vol);
+      if(Math.abs(err) < 1.5) return;
+      const stepDb = Math.sign(err) * Math.min(Math.abs(err), 0.4);
+      G.volume = Math.max(0.08, Math.min(1.4, vol * Math.pow(10, stepDb / 20)));
+      Guitar.applyGuitarGain();
+      last = `kytara ${dbs(20 * Math.log10(G.volume))} dB` + (gtr.length ? " — jako kytara v nahrávce" : " — pod zbytkem mixu");
+      if(performance.now() - lastPaint > 900 && !document.querySelector("#gt-fader:active")){ lastPaint = performance.now(); renderLiveGuitarFader(); queueSessionSave(); }
+    }
+    function start(){ clearInterval(timer); timer = setInterval(tick, TICK); }
+    function set(v){
+      on = !!v;
+      try{ localStorage.setItem(KEY, on ? "1" : "0"); }catch(e){}
+      if(!on){ const bus = busTrimOf(); if(bus) bus.gain.setTargetAtTime(1, ctx().currentTime, 0.2); ref = lvl = 0; }
+      renderLiveGuitarFader();
+      showToast(on ? "Automatické hlasitosti zapnuté: živá kytara se drží na úrovni kytary z písně, mix nepřebudí" : "Automatické hlasitosti vypnuté");
+    }
+    start();
+    return {on: () => on, set, status: () => {
+      const bus = busTrimOf(), trim = bus ? 20 * Math.log10(Math.max(1e-4, bus.gain.value)) : 0;
+      return (last || "kytara zatím beze změny") + (trim < -0.2 ? ` · mix ${dbs(trim)} dB proti přebuzení` : " · mix bez zásahu");
+    }};
   })();
 
   // Leaving the mixer (another song list, another section, its close
@@ -26444,6 +26589,7 @@ const Mixer = (() => {
         <div class="gt-knob-wrap">
           <div class="gt-knob" id="gt-gate-knob" tabindex="0" title="Brána šumu — táhni svisle"></div>
           <span class="gt-knob-label">GATE <span id="gt-gate-val">${g.threshold <= -99.5 ? "vyp" : g.threshold + " dB"}</span></span>
+          <button type="button" class="gt-auto ${AutoGate.on() ? "on" : ""}" id="gt-gate-auto">AUTO</button>
         </div>
         <div class="gt-knob-wrap">
           <div class="gt-knob" id="gt-guide-knob" tabindex="0"
@@ -26473,6 +26619,8 @@ const Mixer = (() => {
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
         <button class="fl-fx-btn ${fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
       </div>
+      <button class="fl-fx-btn fl-auto-btn ${AutoMix.on() ? "on" : ""}" data-act="automix"
+        title="Automatické hlasitosti: drží živou kytaru na úrovni kytary z písně a celý mix mimo přebuzení. ${escapeHtml(AutoMix.status())}">AUTO MIX</button>
       <button class="fl-fx-btn fl-instr-btn" id="gt-instr-btn" data-act="instr"
         title="Kytara jako nástroj — tvoje hraní zahraje klavír, smyčce, píšťala…">NÁSTROJ</button>
       <button class="fl-fx-btn fl-instr-btn ${typeof Tone !== "undefined" && Tone.on() ? "on" : ""}" id="gt-tone-btn" data-act="tone"
@@ -26517,6 +26665,7 @@ const Mixer = (() => {
     act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
     act("comp").onclick = () => openCompPanel("guitar");
     act("dbl").onclick = () => openDblPanel("guitar");
+    act("automix").onclick = () => AutoMix.set(!AutoMix.on());
     act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
     act("tone").onclick = () => { if(typeof Tone !== "undefined") Tone.open(); };
     paintInstrument();
@@ -26560,9 +26709,12 @@ const Mixer = (() => {
       gainKnob.style.setProperty("--rot", (-135 + (12 / 36) * 270) + "deg");
       queueSessionSave();
     };
+    el("gt-gate-auto").onclick = () => AutoGate.set(!AutoGate.on());
+    AutoGate.paint();
     wireKnob(el("gt-gate-knob"), {
       min: -100, max: -20, get: () => g.threshold,
       set: (v) => {
+        if(AutoGate.on()){ AutoGate.set(false); showToast("Brána přepnutá na ruční — AUTO pod knoflíkem ji vrátí"); }
         const db = Math.round(v);
         Guitar.setThreshold(db);
         el("gt-gate-val").textContent = db <= -99.5 ? "vyp" : db + " dB";
@@ -26770,7 +26922,6 @@ const Mixer = (() => {
     box.id = "gt-settings-popover";
     box.innerHTML = `
       <div class="ss-head">Nastavení kytary</div>
-      <button type="button" id="gt-tonerig-open">${icon("external", 12)}<span>ToneRig v telefonu jako zesilovač…</span></button>
       <button type="button" id="gt-tunnel-open-s">${icon("external", 12)}<span>Tunel z jiné aplikace (BlackHole)…</span></button>
       <div class="gt-settings-row">
         <span class="gt-cap">VSTUP</span>
@@ -26820,7 +26971,7 @@ const Mixer = (() => {
     box.style.top = Math.min(anchor.bottom + 6, window.innerHeight - r.height - 8) + "px";
 
     fillGuitarDevices(box.querySelector(".gt-device"));
-    box.querySelector("#gt-tonerig-open").onclick = () => { box.remove(); ToneRig.openSettings(); };
+
     box.querySelector("#gt-tunnel-open-s").onclick = () => { box.remove(); Tunnel.open(); };
     box.querySelector(".gt-channel").value = g.inputChannel || "auto";
     box.querySelector(".gt-channel").onchange = (e) => {
@@ -27453,6 +27604,7 @@ const Mixer = (() => {
     currentSong: () => currentSongName,
     // Vizualizace (static/viz.js): where in the song, and the output to listen to (a tap; the sound goes on as it was).
     position: () => currentTime(), vizTap: () => masterGain ? {ctx: audioCtx, node: masterGain} : null,
+    autoGate: AutoGate, autoMix: AutoMix,
     loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
     play: () => { if(!isPlaying) play(); }, pause: () => { if(isPlaying) pause(); },
     sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end, color: x.color})), length: () => duration,

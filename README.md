@@ -966,6 +966,24 @@ si odkaz pamatuje) a stáhne celé, vybrané, nebo stáhne a rozdělí na stopy 
 nikoho nevyhledává: odkaz na profil odpoví, ať majitel pošle odkaz přímo na playlist; soukromý playlist
 přečíst nejde.
 
+## Živá kytara: automatická brána a hlasitosti
+
+**Automatická brána šumu** (AUTO pod knoflíkem GATE, výchozí zapnutá, `pick-gate-auto`): z hlášení vstupu
+(20× za s, před bránou) si drží nejhlasitější okamžik každé sekundy za posledních 15 s. Nejtišší z těch sekund
+je šum vstupu v pauze; práh je 6 dB nad ním, nejvýš −30 dB a vždy 24 dB pod hraním. Snižuje se hned, zvedá
+po 1 dB. Čistý vstup (šum pod −88 dB) bránu vypne; když se hraje pořád, práh se nemění. Ruční pohyb knoflíku
+automatiku vypne.
+
+**Automatické hlasitosti** (AUTO MIX na fáderu živé kytary, výchozí zapnuté, `pick-automix`), každých 250 ms
+při přehrávání:
+- fádr živé kytary se vede tak, aby kytara (měřená za zesilovačem, před fádrem) hrála stejně nahlas jako kytarové
+  stopy písně v tu chvíli (čteno z nahrávky, takže i když je originál ztlumený); bez kytarové stopy 6 dB pod
+  zbytkem mixu. Jen když opravdu hraješ, nejvýš ~1,6 dB za sekundu a ne o méně než 1,5 dB;
+- před masterem je společný trim: když součet stop míří k přebuzení, ubere 1 dB (až −12 dB), v tichu se
+  pomalu vrací. Poměr mezi stopami zůstává tvůj.
+
+ToneRig už v živé kytaře není (položka v nastavení zmizela, náš zesilovač hraje vždy).
+
 ## Zesilovače a bedny (katalog)
 
 Kde se vybírá zesilovač nebo bedna — živá kytara ve Steems („Zesilovač a kabinet…“), zesilovač na stopě v mixu,
