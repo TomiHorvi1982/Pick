@@ -40,18 +40,28 @@ const AmpBrowser = (() => {
   }
   async function cabFor(x){
     if(!opts.onIr || !autoCab || !x) return;
-    const ir = (opts.current || {}).ir;
+    const r = await autoCab_(x, {ir: (opts.current || {}).ir, onIr: opts.onIr});
+    if(r !== undefined) opts.current = {...opts.current, ir: r};
+  }
+  // the same for a profile loaded elsewhere (the arrows by the guitar): {ir: the file now on, onIr}
+  // → the cabinet file now on, or undefined when nothing changed
+  async function autoCab_(x, o){
+    if(!autoCab || !x || !o || !o.onIr) return undefined;
+    const ir = o.ir;
     if(HEAD.has(x.type) && !ir){
       const want = (store(PAIR, {})[x.file]) || store(LAST_IR, null) || await defaultIr();
       if(!want) return;
-      await opts.onIr({file: want.file, name: want.name});
-      opts.current = {...opts.current, ir: want.file};
-      showToast(`„${x.name}“ je jen zesilovač — přidal jsem bednu ${want.name} (jinou vybereš v kartě Bedny)`);
+      await o.onIr({file: want.file, name: want.name});
+      model = x;
+      showToast(`„${x.name}“ je jen zesilovač — přidal jsem bednu ${want.name} (jinou vybereš tlačítkem IR)`);
+      return want.file;
     } else if(x.type === "Celý aparát" && ir){
-      await opts.onIr(null);
-      opts.current = {...opts.current, ir: ""};
+      await o.onIr(null);
       showToast(`„${x.name}“ už bednu má — IR jsem vypnul, aby nezněla dvakrát`);
+      return "";
     }
+    model = x;
+    return undefined;
   }
   function remember(ir){
     if(!ir || !model || !HEAD.has(model.type)) return;
@@ -245,5 +255,5 @@ const AmpBrowser = (() => {
     setTimeout(() => win.querySelector(".ampb-q").focus(), 0);
   }
   function close(){ if(win) win.hidden = true; }
-  return {open, close, isOpen: () => !!win && !win.hidden};
+  return {open, close, isOpen: () => !!win && !win.hidden, autoCab: autoCab_};
 })();

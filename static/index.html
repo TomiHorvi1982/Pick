@@ -1067,6 +1067,8 @@ body.lib-collapsed .pick-brand{display:none}
     padding:1px 6px;border-radius:999px;cursor:pointer;margin-top:2px}
   .gt-auto.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
   .fl-auto-btn{width:100%;margin-top:3px}
+  .fl-amp-row{margin-top:3px}
+  .fl-fx-row .fl-eq-btn{width:auto;height:17px;flex:1;border-radius:3px;font-size:7.5px;font-weight:700;padding:0}
   /* Ukázkové DI riffy are gone from sight (3. 11.): the manager, the per-model riff and "copy to riffs" */
   #metronome-top-btn[hidden],.nam-riffs-manage-btn,.nam-riff-col,.act-riff{display:none !important}
   .steems-shelves{margin:4px 0 18px}
@@ -6078,7 +6080,7 @@ body.lib-collapsed .pick-brand{display:none}
       <div class="pb-gtr-preset">
         <div class="pb-gtr-stepper">
           <button type="button" class="step" id="pb-gtr-prev" title="Předchozí NAM preset">‹</button>
-          <button type="button" class="cat" id="pb-gtr-cat" title="Kategorie presetů — klikni pro přepnutí">VŠE</button>
+          <button type="button" class="cat" id="pb-gtr-cat" title="Katalog zesilovačů a beden">KATALOG</button>
           <button type="button" class="step" id="pb-gtr-next" title="Další NAM preset">›</button>
         </div>
         <span class="pb-gtr-name" id="pb-gtr-name" title="Vybrat model a kabinet ze seznamu">—</span>
@@ -15947,47 +15949,34 @@ const Mixer = (() => {
                          // selectable from the panel exactly like a stem
   function eqTarget(sel){ return sel === "guitar" ? guitarEq : channels[sel]; }
 
-  // ---- live guitar NAM preset browser (clean / crunch / hi-gain) ----
-  // A category is just a folder: AMPS_DIR/<category>/ for anything uploaded
-  // through this app, plus one external folder per category the user can
-  // point at a pack downloaded elsewhere (mapped in guitar settings, never
-  // copied — see /api/settings/amp-category-dir). The arrows step through
-  // whichever of those two the server returned for the current category.
-  // ALL isn't a folder of its own: every profile from the three categories
-  // plus any .nam file in the library, in one alphabetical list.
-  const AMP_CATEGORY_ORDER = ["clean", "crunch", "hi_gain", "all"];
-  const AMP_FOLDER_CATEGORIES = ["clean", "crunch", "hi_gain"];
-  const AMP_CATEGORY_LABEL = {clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN", all: "ALL"};
-  let ampBrowseCategory = "clean";
-  let ampBrowseCache = {clean: null, crunch: null, hi_gain: null, all: null};   // fetched lists
-  let ampBrowseIndex = {clean: -1, crunch: -1, hi_gain: -1, all: -1};
-
-  async function ampBrowseFetch(cat){
-    if(ampBrowseCache[cat]) return ampBrowseCache[cat];
-    try{
-      const res = await fetch(`/api/amps?category=${cat}`);
-      const list = await res.json();
-      ampBrowseCache[cat] = Array.isArray(list) ? list : [];
-    }catch(e){ ampBrowseCache[cat] = []; }
-    return ampBrowseCache[cat];
-  }
-
-  function ampBrowseInvalidate(cat){
-    if(cat){ ampBrowseCache[cat] = null; ampBrowseCache.all = null; }
-    else AMP_CATEGORY_ORDER.forEach(c => ampBrowseCache[c] = null);
-  }
-
-  async function ampBrowseStep(dir){
-    const list = await ampBrowseFetch(ampBrowseCategory);
-    if(!list.length){
-      showToast(`${AMP_CATEGORY_LABEL[ampBrowseCategory]}: žádné presety — namapuj složku v nastavení kytary`);
-      return;
+  // ---- the arrows by the live guitar's amp: the whole catalogue of NAM profiles (amp_catalog.py)
+  // in its own order ("my key": make, model, gain), one after another. A head gets its cabinet
+  // as in the catalogue window (AmpBrowser.autoCab).
+  let ampStepList = null;
+  async function ampStepFetch(){
+    if(ampStepList) return ampStepList;
+    const out = [];
+    for(let off = 0; off < 20000; off += 500){
+      let d = null;
+      try{ d = await (await fetch(`/api/amp-catalog?kind=model&limit=500&offset=${off}`)).json(); }catch(e){ break; }
+      if(!d || !Array.isArray(d.items)) break;
+      out.push(...d.items);
+      if(out.length >= d.total) break;
     }
-    let idx = ampBrowseIndex[ampBrowseCategory];
-    if(idx < 0) idx = list.findIndex(a => a.name === Guitar.state.ampName);
+    ampStepList = out;
+    setTimeout(() => { ampStepList = null; }, 300000);     // new profiles count after a while
+    return out;
+  }
+  async function ampBrowseStep(dir){
+    const list = await ampStepFetch();
+    if(!list.length){ showToast("V katalogu zatím nejsou žádné NAM profily"); return; }
+    let idx = list.findIndex(a => a.file === Guitar.state.ampFile);
     idx = ((idx + dir) % list.length + list.length) % list.length;
-    ampBrowseIndex[ampBrowseCategory] = idx;
-    await ampBrowseLoad(list[idx]);
+    const x = list[idx];
+    await ampBrowseLoad(x);
+    if(typeof AmpBrowser !== "undefined") await AmpBrowser.autoCab(x, {
+      ir: Guitar.state.cabName ? Guitar.state.cabName + ".wav" : "",
+      onIr: async (m) => { if(!m) Amp.unloadCab(); else await Amp.loadCab(m.file); renderGuitarStrip(); queueSessionSave(); }});
   }
 
   async function ampBrowseLoad(item){
@@ -15998,12 +15987,6 @@ const Mixer = (() => {
     }catch(e){ showToast("Model se nepodařilo načíst"); }
     renderGuitarStrip();
     queueSessionSave();
-  }
-
-  function ampBrowseCycleCategory(){
-    const i = AMP_CATEGORY_ORDER.indexOf(ampBrowseCategory);
-    ampBrowseCategory = AMP_CATEGORY_ORDER[(i + 1) % AMP_CATEGORY_ORDER.length];
-    renderGuitarStrip();
   }
 
   // gain -> band filters -> analyser, plus a finer analyser hung off the end
@@ -18933,16 +18916,19 @@ const Mixer = (() => {
     const label = (c) => c.fx && c.fx.state.amp ? c.fx.state.amp.name : "Zesilovač: žádný";
     async function catalogue(){
       if(models) return models;
-      const all = await (await fetch("/api/amps?category=all")).json();
-      models = all.filter(a => a.kind === "model").map(a => {
-        // library profiles sit in folders by amp; the rest have a category
-        const parts = a.file.replace(/^[a-z]+:/, "").split("/");
-        return {id: a.file, nazev: a.name, group: parts.length > 1 ? parts[parts.length - 2] : (a.category || "Ostatní")};
-      });
+      // the catalogue of NAM profiles (amp_catalog.py), grouped by make and model as there
+      const all = [];
+      for(let off = 0; off < 20000; off += 500){
+        const d = await (await fetch(`/api/amp-catalog?kind=model&limit=500&offset=${off}`)).json();
+        if(!d || !Array.isArray(d.items)) break;
+        all.push(...d.items);
+        if(all.length >= d.total) break;
+      }
+      models = all.map(a => ({id: a.file, nazev: a.name, group: a.group || a.brand || "Ostatní"}));
       const by = new Map();
       models.forEach(m => { if(!by.has(m.group)) by.set(m.group, []); by.get(m.group).push(m); });
       groups = [{kategorie: "— bez zesilovače —", nastroje: [{id: "", nazev: "Zesilovač: žádný"}]}]
-        .concat([...by.entries()].sort((a, b) => a[0].localeCompare(b[0], "cs")).map(([k, v]) => ({kategorie: k, nastroje: v})));
+        .concat([...by.entries()].map(([k, v]) => ({kategorie: k, nastroje: v})));      // already in the catalogue's order
       return models;
     }
     async function set(c, id){
@@ -26627,17 +26613,11 @@ const Mixer = (() => {
       ${g.tunnel && !g.externalAmp ? `<div class="gt-preset-stepper">
         <button class="gt-preset-cat" id="gt-tunnel-open" style="flex:1" title="Tunel z jiné aplikace přes BlackHole — nastavení">TUNEL</button>
       </div>
-      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>` : g.externalAmp ? `<div class="gt-preset-stepper">
-        <button class="gt-amp-step" id="gt-tr-prev" title="Předchozí preset ToneRigu">‹</button>
-        <button class="gt-preset-cat" id="gt-tr-open" title="ToneRig — nastavení a presety">TONERIG</button>
-        <button class="gt-amp-step" id="gt-tr-next" title="Další preset ToneRigu">›</button>
-      </div>
-      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(ToneRig.label())}">${escapeHtml(ToneRig.label())}</span>` : `
+      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>` : `
       <div class="gt-preset-stepper">
-        <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM preset">‹</button>
-        <button class="gt-preset-cat" id="gt-preset-cat"
-          title="Kategorie presetů — klikni pro přepnutí mezi Clean / Crunch / Hi-Gain / All (všechny profily)">${AMP_CATEGORY_LABEL[ampBrowseCategory]}</button>
-        <button class="gt-amp-step" id="gt-preset-next" title="Další NAM preset">›</button>
+        <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM profil z katalogu (v pořadí Můj klíč)">‹</button>
+        <button class="gt-preset-cat" id="gt-preset-cat" style="flex:1" title="Katalog zesilovačů a beden">KATALOG</button>
+        <button class="gt-amp-step" id="gt-preset-next" title="Další NAM profil z katalogu (v pořadí Můj klíč)">›</button>
       </div>
       <span class="gt-knob-label gt-preset-name" id="gt-preset-name"
         title="${escapeHtml(g.ampName || "")}">${escapeHtml(typeof Tone !== "undefined" && Tone.on() ? "Otisk · " + Tone.label() : (g.ampName || "—"))}</span>`}
@@ -26645,15 +26625,20 @@ const Mixer = (() => {
         <button class="fl-fx-btn ${fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${fx.state.mono ? "MONO" : "ST"}</button>
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
         <button class="fl-fx-btn ${fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
+        <button type="button" class="fl-fx-btn fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
+          id="gt-eq-btn" title="Ekvalizér tvé živé kytary">EQ</button>
       </div>
       <button class="fl-fx-btn fl-auto-btn ${AutoMix.on() ? "on" : ""}" data-act="automix"
         title="Automatické hlasitosti: drží živou kytaru na úrovni kytary z písně a celý mix mimo přebuzení. ${escapeHtml(AutoMix.status())}">AUTO MIX</button>
+      <div class="fl-fx-row fl-amp-row">
+        <button class="fl-fx-btn ${g.ampName ? "on" : ""}" data-act="pick-nam" title="NAM profil: ${escapeHtml(g.ampName || "žádný")} — vybrat z katalogu">NAM</button>
+        <button class="fl-fx-btn ${g.cabName ? "on" : ""}" data-act="pick-ir" title="Bedna (IR): ${escapeHtml((g.cabName || "žádná").split("/").pop())} — vybrat z katalogu">IR</button>
+      </div>
       <button class="fl-fx-btn fl-instr-btn" id="gt-instr-btn" data-act="instr"
         title="Kytara jako nástroj — tvoje hraní zahraje klavír, smyčce, píšťala…">NÁSTROJ</button>
       <button class="fl-fx-btn fl-instr-btn ${typeof Tone !== "undefined" && Tone.on() ? "on" : ""}" id="gt-tone-btn" data-act="tone"
         title="${typeof Tone !== "undefined" && Tone.on() ? escapeHtml("Hraješ s otiskem: " + Tone.label()) : "Tónový otisk — tvoje kytara zní jako kytara z písně"}">OTISK</button>
-      <button type="button" class="fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
-        id="gt-eq-btn" title="Ekvalizér tvé živé kytary"><span class="dot"></span>EQ</button>`;
+`;
   }
 
   function renderLiveGuitarFader(){
@@ -26693,6 +26678,8 @@ const Mixer = (() => {
     act("comp").onclick = () => openCompPanel("guitar");
     act("dbl").onclick = () => openDblPanel("guitar");
     act("automix").onclick = () => AutoMix.set(!AutoMix.on());
+    act("pick-nam").onclick = () => openAmpPicker("model");
+    act("pick-ir").onclick = () => openAmpPicker("ir");
     act("instr").onclick = (e) => openInstrumentPopover(e.currentTarget);
     act("tone").onclick = () => { if(typeof Tone !== "undefined") Tone.open(); };
     paintInstrument();
@@ -26704,14 +26691,10 @@ const Mixer = (() => {
     };
     if(g.tunnel && !g.externalAmp){
       strip.querySelector("#gt-tunnel-open").onclick = () => Tunnel.open();
-    } else if(g.externalAmp){
-      strip.querySelector("#gt-tr-prev").onclick = () => ToneRig.step(-1);
-      strip.querySelector("#gt-tr-next").onclick = () => ToneRig.step(1);
-      strip.querySelector("#gt-tr-open").onclick = () => ToneRig.openSettings();
     } else {
       strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
       strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);
-      strip.querySelector("#gt-preset-cat").onclick = () => ampBrowseCycleCategory();
+      strip.querySelector("#gt-preset-cat").onclick = () => openAmpPicker("model");
       const nm = strip.querySelector("#gt-preset-name");
       nm.classList.add("pickable");
       nm.title = (g.ampName || "bez zesilovače") + " — klik: vybrat NAM profil ze seznamu";
@@ -26942,8 +26925,6 @@ const Mixer = (() => {
     const existing = el("gt-settings-popover");
     if(existing){ existing.remove(); return; }
     const g = Guitar.state;
-    let catDirs = {};
-    try{ catDirs = await (await fetch("/api/settings/amp-category-dirs")).json(); }catch(e){}
     const box = document.createElement("div");
     box.className = "sect-menu gt-settings-popover";
     box.id = "gt-settings-popover";
@@ -26969,28 +26950,9 @@ const Mixer = (() => {
       </div>
       <hr>
       <button type="button" id="gt-amp-open">${icon("sliders", 12)}<span>${escapeHtml(
-        [g.ampName, g.cabName].filter(Boolean).join(" › ") || "Zesilovač a kabinet…")}</span></button>
+        [g.ampName, (g.cabName || "").split("/").pop()].filter(Boolean).join(" › ") || "Zesilovač a bedna…")}</span></button>
       ${g.latencyMs !== null ? `<div class="hint">Zpoždění ~${g.latencyMs} ms</div>` : ""}
-      <hr>
-      <div class="ss-head">Složky s NAM presety</div>
-      <div class="gt-catdir-list">
-      ${AMP_FOLDER_CATEGORIES.map(cat => `
-      <button type="button" class="gt-catdir-chip" data-cat="${cat}">
-        <span class="gt-catdir-icon">${icon("folderOpen", 16)}</span>
-        <span class="gt-catdir-text">
-          <span class="gt-catdir-label">${AMP_CATEGORY_LABEL[cat]}</span>
-          <span class="gt-catdir-path" data-cat="${cat}">${catDirs[cat]
-            ? escapeHtml(catDirs[cat]) : "Nenastaveno — klikni pro výběr"}</span>
-        </span>
-        <span class="gt-catdir-clear" data-cat="${cat}" title="Zrušit složku"
-          ${catDirs[cat] ? "" : "hidden"}>${icon("close", 11)}</span>
-      </button>`).join("")}
-      </div>
-      <div class="hint">Složka na disku — jen se z ní čte, nic se nekopíruje.
-        Šipky u kytary pak stepují modely (.nam) přímo z ní podle vybrané kategorie.</div>
-      <div class="hint">Automatický výběr 20 nejtrendy modelů z TONE3000 nejde —
-        jejich katalog nemá anonymní API, jen přihlášené uživatele (viz tlačítko
-        "Katalog TONE3000…" v okně zesilovače).</div>`;
+`;
     document.body.appendChild(box);
     const anchor = el("gt-settings-btn").getBoundingClientRect();
     const r = box.getBoundingClientRect();
@@ -27014,41 +26976,6 @@ const Mixer = (() => {
       queueSessionSave();
     };
     box.querySelector("#gt-amp-open").onclick = () => { box.remove(); openAmpPicker(); };
-    const paintCatDir = (cat, path) => {
-      box.querySelector(`.gt-catdir-path[data-cat="${cat}"]`).textContent =
-        path || "Nenastaveno — klikni pro výběr";
-      box.querySelector(`.gt-catdir-clear[data-cat="${cat}"]`).hidden = !path;
-    };
-    const saveCatDir = async (cat, path) => {
-      try{
-        const res = await fetch("/api/settings/amp-category-dir", {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({category: cat, path}),
-        });
-        const data = await res.json();
-        if(!res.ok){ showToast(data.error || "Uložení selhalo"); return; }
-        ampBrowseInvalidate(cat);
-        paintCatDir(cat, data.path);
-        showToast(data.path ? `${AMP_CATEGORY_LABEL[cat]}: složka nastavena` : `${AMP_CATEGORY_LABEL[cat]}: složka zrušena`);
-      }catch(e){ showToast("Uložení selhalo"); }
-    };
-    // The browser sandbox can't hand back an absolute filesystem path from
-    // its own file picker, so this shells out to a native Finder dialog
-    // (same trick as the music-root folder picker) instead of making
-    // someone hunt down and type the path themselves — the whole chip is
-    // the picker; the × just clears it.
-    box.querySelectorAll(".gt-catdir-chip").forEach(chip => {
-      chip.onclick = async () => {
-        const cat = chip.dataset.cat;
-        const res = await fetch("/api/settings/pick-folder", {method: "POST"});
-        const data = await res.json();
-        if(!data.path) return; // dialog cancelled
-        await saveCatDir(cat, data.path);
-      };
-    });
-    box.querySelectorAll(".gt-catdir-clear").forEach(x => {
-      x.onclick = (e) => { e.stopPropagation(); saveCatDir(x.dataset.cat, ""); };
-    });
 
     setTimeout(() => document.addEventListener("pointerdown", function once(e){
       if(!e.target.closest("#gt-settings-popover") && !e.target.closest("#gt-settings-btn")) box.remove();
@@ -33168,35 +33095,30 @@ const PlayerGuitar = (() => {
     cabNode = conv; st.cab = file; persist(); rewire();
   }
 
-  // ---- preset stepper: same categories as the Steems strip, plus VŠE
-  // (every model), which is also what the arrows fall back to while no
-  // category folder has been mapped yet.
-  const CATS = ["all", "clean", "crunch", "hi_gain"];
-  const CAT_LABEL = {all: "VŠE", clean: "CLEAN", crunch: "CRUNCH", hi_gain: "HI-GAIN"};
-  const catCache = {};
-  async function catList(cat){
-    if(cat === "all") return amps.filter(a => a.kind === "model").map(a => ({key: "amp:" + a.file, name: a.name}));
-    if(!catCache[cat]){
-      try{
-        const list = await (await fetch(`/api/amps?category=${cat}`)).json();
-        catCache[cat] = (Array.isArray(list) ? list : []).map(a => ({key: "amp:" + a.file, name: a.name}));
-      }catch(e){ catCache[cat] = []; }
+  // ---- the arrows: the whole catalogue of NAM profiles in its own order (as by the Steems guitar)
+  let stepList = null;
+  async function catalogList(){
+    if(stepList) return stepList;
+    const out = [];
+    for(let off = 0; off < 20000; off += 500){
+      let d = null;
+      try{ d = await (await fetch(`/api/amp-catalog?kind=model&limit=500&offset=${off}`)).json(); }catch(e){ break; }
+      if(!d || !Array.isArray(d.items)) break;
+      out.push(...d.items);
+      if(out.length >= d.total) break;
     }
-    return catCache[cat];
+    stepList = out; setTimeout(() => { stepList = null; }, 300000);
+    return out;
   }
   async function step(d){
-    let list = await catList(st.category);
-    if(!list.length){
-      showToast(`${CAT_LABEL[st.category]}: žádné presety — namapuj složku v nastavení kytary ve Steems`);
-      return;
-    }
-    let i = st.model ? list.findIndex(m => m.key === st.model.key) : -1;
+    const list = await catalogList();
+    if(!list.length){ showToast("V katalogu zatím nejsou žádné NAM profily"); return; }
+    let i = st.model ? list.findIndex(m => "amp:" + m.file === st.model.key) : -1;
     i = ((i + d) % list.length + list.length) % list.length;
-    await setModel(list[i]);
-  }
-  function cycleCategory(){
-    st.category = CATS[(CATS.indexOf(st.category) + 1) % CATS.length];
-    persist();
+    const x = list[i];
+    await setModel({key: "amp:" + x.file, name: x.name});
+    if(typeof AmpBrowser !== "undefined") await AmpBrowser.autoCab(x, {ir: st.cab || "",
+      onIr: async (m) => { await loadCab(m ? m.file : "").catch(() => showToast("Kabinet se nepodařilo načíst")); }});
     paint();
   }
 
@@ -33508,7 +33430,7 @@ const PlayerGuitar = (() => {
     const p = el("pb-gtr-power");
     p.textContent = live ? "Odpojit" : "Připojit";
     p.classList.toggle("on", live);
-    el("pb-gtr-cat").textContent = CAT_LABEL[st.category] || "VŠE";
+    el("pb-gtr-cat").textContent = "KATALOG";
     const name = el("pb-gtr-name");
     name.textContent = st.model ? (st.model.key.startsWith("lib:") ? "📁 " : "") + st.model.name : "— bez zesilovače —";
     name.title = (st.model ? st.model.name + " — " : "") + "klikni pro seznam modelů a kabinetů";
@@ -33563,7 +33485,7 @@ const PlayerGuitar = (() => {
   };
   el("pb-gtr-prev").onclick = () => step(-1);
   el("pb-gtr-next").onclick = () => step(1);
-  el("pb-gtr-cat").onclick = cycleCategory;
+  el("pb-gtr-cat").onclick = () => openPicker(el("pb-gtr-cat"));
   el("pb-gtr-name").onclick = (e) => openPicker(e.currentTarget);
 
   return {

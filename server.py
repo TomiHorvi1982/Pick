@@ -2966,6 +2966,10 @@ def library_browse(rel: str = "", flat: bool = False):
         entry_rel = "/".join((*parts, p.name))
         if p.name.startswith("."):
             continue
+        # NAM profiles live in Pick's own catalogue (Zesilovače a bedny, amp_catalog.py) — the library
+        # shows songs, not the NAM folder of the music root nor .nam files (3. 11.)
+        if not parts and p.is_dir() and p.name.lower() == "nam":
+            continue
         if p.is_dir():
             tracks, size, folders = _folder_stats(p)
             dirs.append({
@@ -2985,16 +2989,9 @@ def library_browse(rel: str = "", flat: bool = False):
                 **(_riff_tags(entry_rel) if entry_rel.startswith(RIFFS_REL + "/") else {}),
                 "stems": _stems_state_for(p),
             })
-        # A NAM capture isn't playable audio (it's model weights, not a
-        # waveform) so it never matched AUDIO_EXTS and used to vanish from
-        # this listing entirely — a folder full of presets looked empty.
-        elif p.is_file() and p.suffix.lower() == ".nam":
-            files.append({
-                "name": p.name, "type": "nam", "rel": entry_rel,
-                "size_bytes": p.stat().st_size,
-                **_nam_meta(p),
-                "riff_id": _nam_riff_assignments().get(entry_rel),
-            })
+        # A NAM capture is chosen in the amp catalogue, not here.
+        elif p.suffix.lower() == ".nam":
+            continue
         elif p.is_file() and p.suffix.lower() in MIDI_EXTS:
             files.append({"name": p.name, "type": "midi", "rel": entry_rel,
                           "size_bytes": p.stat().st_size})

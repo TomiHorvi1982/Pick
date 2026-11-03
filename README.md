@@ -1001,6 +1001,12 @@ balíček → bedna → reproduktor → mikrofon) nebo jinak; po 150 položkách
 skupiny a náhled vpravo mají obrázek aparátu (`ChipThumbs`, YouTube). Klik načte, okno zůstává otevřené.
 Katalog se sestaví za pár sekund a drží se 5 minut (metadata v `amps/.amp-catalog.json`).
 
+**Na fádru živé kytary** (3. 11.): ST · CMP · DBL · EQ v jedné řadě, pod AUTO MIX tlačítka **NAM** a **IR** (otevřou
+katalog na své kartě). Šipky ‹ › u zesilovače procházejí celý katalog v pořadí Můj klíč (prostřední KATALOG ho
+otevře), stejně u kytary v přehrávači a u zesilovače na stopě. Složky s NAM presety (clean / crunch / hi-gain)
+se už nikde nenastavují ani neukazují; knihovna nezobrazuje složku NAM ani soubory `.nam` — profily z hudební
+složky jsou v katalogu.
+
 **Hlava potřebuje bednu**: profil, který je jen zesilovač (typ Zesilovač / Předzesilovač / Koncový), dostane
 v okně sám bednu — tu, kterou jsi k němu vybral naposledy (`pick-ampb-pair`), jinak naposledy použitou k hlavě
 (`pick-ampb-last-ir`), jinak 4x12 s V30. Celý aparát (už s bednou a mikrofonem) IR naopak vypne, aby nezněla
