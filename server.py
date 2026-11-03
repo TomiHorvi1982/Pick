@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -9393,6 +9393,110 @@ def tone_review(name: str, pid: str, req: ToneReviewRequest):
     return {"kept": True}
 
 
+# ---- GuitarStamps (Tools → GuitarStamps, static/stamps.js): the player's guitar, its prints and the
+# amps they are made of on one page. The map of the NAM cores: every model heard once on a made-up
+# riff (tone_worker.py --cores, the fit's own fingerprints, kept in amps/.tone-cores.json) and the
+# ones that sound alike put together — what a print really chooses from. Kept in amps/.tone-map.json.
+TONE_MAP = ".tone-map.json"
+_STAMP_MAP: dict = {"job": None, "proc": None}
+
+
+def _stamp_map_saved() -> Optional[dict]:
+    try:
+        got = json.loads((AMPS_DIR / TONE_MAP).read_text(encoding="utf-8"))
+        return got if isinstance(got, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _stamp_map_run(job: dict) -> None:
+    tmp = Path(tempfile.mkdtemp(prefix="pick-stamps-"))
+    try:
+        models = _tone_models()
+        spec = {"sr": 48000, "models": models, "node": _node_bin(), "nam_js": str(TONE_NAM_JS),
+                "worklet": str(APP_DIR / "static" / "nam" / "nam-worklet.js"), "wasm": str(APP_DIR / "static" / "nam" / "nam-engine.wasm"),
+                "fp_cache": str(AMPS_DIR / TONE_CORES), "procs": 3, "out": str(tmp / "map.json")}
+        (tmp / "job.json").write_text(json.dumps(spec), encoding="utf-8")
+        proc = subprocess.Popen([str(TONE_PYTHON), str(TONE_WORKER), "--cores", str(tmp / "job.json")],
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        _STAMP_MAP["proc"] = proc
+        for line in proc.stdout:
+            if line.startswith("STAGE"):
+                parts = (line.split() + ["0", "0"])[1:4]
+                job.update(done=int(parts[1]), of=int(parts[2]))
+        proc.wait()
+        if job.get("status") == "stopped":
+            return
+        got = json.loads((tmp / "map.json").read_text(encoding="utf-8"))
+        names = {m["id"]: m["name"] for m in models}
+        got["chosen"] = [c | {"twins": [names.get(i, i) for i in c.get("stands_for", []) if i != c["id"]]} for c in got.get("chosen", [])]
+        got["bad"] = [names.get(i, i) for i in got.get("bad", [])]
+        got["at"] = time.time()
+        (AMPS_DIR / TONE_MAP).write_text(json.dumps(got, ensure_ascii=False), encoding="utf-8")
+        job.update(status="done")
+    except Exception as e:                                           # noqa: BLE001 — told on the page
+        if job.get("status") != "stopped":
+            job.update(status="error", error=str(e)[:300])
+    finally:
+        _STAMP_MAP["proc"] = None
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _stamp_map_view() -> dict:
+    job = _STAMP_MAP["job"]
+    saved = _stamp_map_saved()
+    return {"job": ({k: job.get(k) for k in ("status", "done", "of", "error")} | {"elapsed": time.time() - job["started"]}) if job else None,
+            "map": saved}
+
+
+@app.get("/api/stamps")
+def stamps_overview():
+    """What the GuitarStamps page shows at its top: the guitar, the prints, the amps and cabinets."""
+    gid = _guitar_active()
+    prints = tone_prints()
+    saved = _stamp_map_saved() or {}
+    try:
+        cat = _amp_catalog.counts()
+    except Exception:                                                # noqa: BLE001 — only numbers on a page
+        cat = {}
+    return {"guitar": (_guitar_view(gid) or {}) if gid else None, "guitars": len(list(TONE_GUITARS.glob("*/meta.json"))) if TONE_GUITARS.is_dir() else 0,
+            "prints": len(prints), "songs": len({p["song"] for p in prints}), "review": sum(1 for p in prints if p.get("review") == "pending"),
+            "cores": len(_tone_models()), "groups": len(saved.get("chosen") or []), "mapped_at": saved.get("at"), "catalog": cat,
+            "ready": _tone_ready(), "map_job": _stamp_map_view()["job"]}
+
+
+@app.get("/api/stamps/map")
+def stamps_map():
+    return _stamp_map_view()
+
+
+@app.post("/api/stamps/map")
+def stamps_map_start():
+    if not _tone_ready():
+        return JSONResponse({"error": "Chybí engine otisku (prostředí pick-tone nebo Node)."}, status_code=503)
+    if (_TONE["job"] or {}).get("status") == "running":
+        return JSONResponse({"error": "Počítá se otisk — mapování počká, až doběhne."}, status_code=409)
+    ok, why = _sysload.room(1.5, "mapování zesilovačů")
+    if not ok:
+        return JSONResponse({"error": why}, status_code=503)
+    if (_STAMP_MAP["job"] or {}).get("status") == "running":
+        return _stamp_map_view()
+    job = {"status": "running", "done": 0, "of": 0, "started": time.time()}
+    _STAMP_MAP["job"] = job
+    threading.Thread(target=_stamp_map_run, args=(job,), daemon=True).start()
+    return _stamp_map_view()
+
+
+@app.delete("/api/stamps/map")
+def stamps_map_stop():
+    job, proc = _STAMP_MAP["job"], _STAMP_MAP["proc"]
+    if job and job.get("status") == "running":
+        job["status"] = "stopped"
+        if proc is not None:
+            proc.terminate()
+    return _stamp_map_view()
+
+
 @app.get("/api/tone/prints")
 def tone_prints():
     """The library of prints: every one of every song, with its band and song, the match, the core
@@ -9543,6 +9647,8 @@ def tone_fit(name: str, req: ToneFitRequest):
     ok, why = _sysload.room(1.5, "tónový otisk")
     if not ok:
         return JSONResponse({"error": why}, status_code=503)
+    if (_STAMP_MAP["job"] or {}).get("status") == "running":
+        return JSONResponse({"error": "Mapují se zesilovače (GuitarStamps) — otisk počká, až doběhne."}, status_code=409)
     with _TONE_LOCK:
         if (_TONE["job"] or {}).get("status") == "running":
             return JSONResponse({"error": "Jeden otisk se už počítá — počkej, až doběhne."}, status_code=409)
@@ -11194,6 +11300,8 @@ def _heavy_jobs() -> list:
         out.append("odposlech textu")
     if (_TONE["job"] or {}).get("status") == "running":
         out.append("tónový otisk")
+    if (_STAMP_MAP["job"] or {}).get("status") == "running":
+        out.append("mapování zesilovačů")
     if _songbook.JOB.get("running"):
         out.append("rozbor Zpěvníku")
     try:

@@ -181,7 +181,8 @@ jako předlohu a nabere z něj barvy (i celou paletu).
 Panel je plovoucí okno: táhne se za horní lištu, zvětšuje za pravý dolní roh, poloha a velikost
 se pamatují (`pick-look-win`), ⇆ ho přichytí k levému nebo pravému kraji. Zůstává otevřený ve
 všech sekcích: menu **Sekce** v okně přepne část Picku, a během výběru nebo odstraňování prvků
-projde **⌥ + klik** jako obyčejné kliknutí.
+projde **⌥ + klik** jako obyčejné kliknutí. Zkratka **⇧⌘L** editor otevře nebo zavře odkudkoli. V celé obrazovce (Live Show)
+se okno přesune do prvku na celé obrazovce, jinak by ho prohlížeč schoval.
 
 **Odstranit prvek** (tlačítko v hlavičce Úprav vzhledu, nebo „Odstranit“ u vybraného prvku — tam i pro všechny
 stejné): co v aplikaci nechceš, klikneš a zmizí. Jen se skryje (`look.hide` → `display:none`), z kódu se nic
@@ -998,6 +999,27 @@ Zatím neumí delay, chorus/flanger, wah ani oktávery a dvě kytary přes sebe
 napodobí jen doublerem. Engine se testuje sám: `tone_worker.py --selftest`
 pošle vymyšlený riff známým řetězcem a fit musí najít stejné jádro, drive
 ±4,5 dB, dozvuk a zpoždění nahrávky (běží i v `pytest`, když je venv a Node).
+
+### GuitarStamps (Tools → GuitarStamps)
+
+Stránka `static/stamps.js` (`GuitarStamps.show/hide`, mode `stamps`) dává všechno kolem tvé kytary
+a otisků na jedno místo. Nahoře jsou dlaždice (kytara, otisky a kolik je ke kontrole, NAM jádra
+a kolik různých zvuků z nich zmapování našlo, bedny IR) a pod nimi záložky:
+
+- **Postup**: pět kroků s tím, kde právě jsi (zapojit kytaru → nahrát a vyhodnotit DI → zmapovat
+  zesilovače → udělat otisky → poslechnout a zkoušet).
+- **Moje kytara** a **Knihovna otisků**: panely Tónového otisku vložené do stránky
+  (`Tone.mount(box, tab)` / `Tone.unmount()`; otevření OTISK z mixu okno zase vytáhne ven).
+- **Zkouška se songy**: dlaždice otisků s obalem, shodou a ukázkami (tvoje kytara přes otisk,
+  kytara originálu, `/api/tone/{píseň}/preview/{you|record}`). „Hrát s písní“ otevře píseň v mixu,
+  zapne otisk a podle volby ztlumí kytaru originálu (`Mixer.voice.guitars(false)`). Pod tím jsou písně
+  s kytarou bez otisku s hledáním a „Udělat otisk“.
+- **NAM a IR**: počty v katalogu podle značek a typů (`amp_catalog.counts()`), výběr NAM a IR pro živou
+  kytaru (`Mixer.ampPicker`) a **Mapa jader otisku**: `POST /api/stamps/map` spustí
+  `tone_worker.py --cores` (otisk každého modelu na stejném riffu, `amps/.tone-cores.json`).
+  Podobně znějící modely seskupí a výsledek uloží do `amps/.tone-map.json` (vybrané jádro + „podobné“).
+  Běží jako těžká úloha (`_heavy_jobs`). Otisk během mapování čeká. `DELETE` mapování zastaví.
+  `GET /api/stamps` vrací přehled.
 
 ### Automatické otisky přes noc
 

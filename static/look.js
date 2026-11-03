@@ -17,7 +17,7 @@ const PickLook = (() => {
   // Pick's sections, to move between them while the window stays open
   const SECTIONS = [["home", "Domů"], ["playlists", "Playlisty"], ["songs", "Kapely a umělci"], ["steems", "Steems"], ["library", "Knihovna"],
     ["podcasts", "Podcasty"], ["tools", "Tools"], ["tabs", "Taby"], ["chords", "Akordy"], ["analyzer", "Analyzer"],
-    ["composer", "Skladatel"], ["vguitar", "Virtuální kytara"]];
+    ["composer", "Skladatel"], ["vguitar", "Virtuální kytara"], ["stamps", "GuitarStamps"]];
   const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}, hide: []});
   let look = blank(), saved = JSON.stringify(look), undo = [], redo = [];
   let removing = false, peek = false;
@@ -1118,6 +1118,7 @@ const PickLook = (() => {
   }
   function open(){
     if(!host) build();
+    follow();
     on = true; host.style.display = ""; paintLook();
     loadRef(); paintRef(); paintTabs(); paintTab();
     if(!catalogue) loadFonts();
@@ -1136,7 +1137,25 @@ const PickLook = (() => {
     if(host) host.style.display = "none";
     paintRef();
   }
+  // Full screen (Live Show) shows only the element put full screen: the window goes in there with
+  // it, and back to the page after.
+  function follow(){
+    if(!host) return;
+    const fs = document.fullscreenElement;
+    const into = fs && !/^(VIDEO|IFRAME|CANVAS|IMG)$/.test(fs.tagName) ? fs : document.body;
+    if(host.parentNode !== into) into.append(host);
+    if(on) clampWin();
+  }
   function start(){
+    document.addEventListener("fullscreenchange", follow);
+    // ⇧⌘L (⇧Ctrl+L): the editor opened or closed from anywhere — also in Live Show, where Settings is out of reach
+    window.addEventListener("keydown", (e) => {
+      if(!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key.toLowerCase() !== "l") return;
+      const t = e.composedPath()[0];
+      if(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      e.preventDefault();
+      if(on) close(); else open();
+    });
     try{ const c = localStorage.getItem(CACHE); if(c){ look = tidy(JSON.parse(c)); saved = JSON.stringify(look); paintLook(); } }catch(e){}
     api("/api/look").then((d) => {
       kept = d.kept || [];

@@ -467,9 +467,28 @@ const Tone = (() => {
     blindRun = null;
     if(win) win.hidden = true;
   }
+  // GuitarStamps (static/stamps.js) shows the same panels as part of its page: the window is moved in
+  // there, without its bar (the page has its own tabs); opening it from the mixer takes it back out.
+  function mount(box, which){
+    if(!win) build();
+    box.appendChild(win);
+    win.classList.add("docked");
+    win.hidden = false;
+    library = null; autoInfo = null;
+    show(which || "guitar");
+    loadGuitars();
+  }
+  function unmount(){
+    if(!win || !win.classList.contains("docked")) return;
+    stopSound();
+    win.hidden = true;
+    win.classList.remove("docked");
+    document.body.appendChild(win);
+  }
   async function open(which){
     const name = Mixer.currentSong();
     if(!win) build();
+    if(win.classList.contains("docked")){ win.classList.remove("docked"); document.body.appendChild(win); }
     win.hidden = false;
     tab = which || (name ? "song" : "library");
     if(name !== song){ song = name; state = null; pid = null; range = null; sections = []; blindRun = null; abx = null; }
@@ -1030,5 +1049,5 @@ const Tone = (() => {
     return row;
   }
 
-  return {open, close, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints")};
+  return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints")};
 })();

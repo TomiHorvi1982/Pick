@@ -295,6 +295,16 @@ def catalogue(fresh: bool = False):
         return _CACHE["models"], _CACHE["irs"]
 
 
+def counts() -> dict:
+    """How many NAM models and cabinets there are, and of which makers the most (GuitarStamps)."""
+    from collections import Counter
+    models, irs = catalogue()
+    brands = Counter(m.get("brand") or "Ostatní" for m in models)
+    kinds = Counter(m.get("type") or "" for m in models)
+    return {"models": len(models), "irs": len(irs), "brands": brands.most_common(12),
+            "types": [[k, v] for k, v in kinds.most_common() if k]}
+
+
 def forget():
     _CACHE["at"] = 0.0
 
