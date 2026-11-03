@@ -83,98 +83,6 @@ uv venv --python 3.12 ~/.local/venvs/pick-tone
 uv pip install --python ~/.local/venvs/pick-tone/bin/python numpy scipy soundfile
 ```
 
-Hlasové ovládání (`voice.py`, mikrofon v horní liště) rozpoznává řeč přímo
-v počítači knihovnou Vosk; nic se nikam neposílá. Potřebuje malý anglický model
-(~68 MB) mimo repozitář:
-
-```bash
-mkdir -p ~/.local/share/spotdl-helper/voice && cd ~/.local/share/spotdl-helper/voice
-curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
-unzip vosk-model-small-en-us-0.15.zip
-```
-
-Povel je anglicky, vždy „pick“ a jedna známá fráze v jednom dechu (seznam je
-v nabídce mikrofonu a ve `voice.COMMANDS`). Jména — „pick song …“, „pick band …“,
-„pick practice …“ — a věty, kterým malý model nerozuměl, čte podruhé Whisper
-(`whisper-cli` z `brew install whisper-cpp`, model
-`~/.local/share/spotdl-helper/voice/ggml-large-v3-turbo-q5_0.bin`) a jméno se
-dohledá v knihovně podle zvuku. Vlastní povely (fráze → kroky za sebou) jsou
-v `~/.local/share/spotdl-helper/voice-commands.json`. Když model nebo knihovna
-chybí, endpoint vrátí 503 a zbytek aplikace funguje dál.
-
-U každého povelu jde **naučit vlastní hlas** (mikrofon u řádku, u nového vlastního
-povelu hned po uložení): tři záznamy, a co z nich rozpoznávač slyší — správně
-nebo špatně — se k povelu uloží (`voice-taught.json`, záznamy ve `voice/takes/`).
-Nově naučené nesmí rozbít žádný dřív uložený záznam, jinak se nepřijme. Whisper
-navíc čte podruhé každou větu, která začala jasným „pick“ a povel z ní nevyšel.
-
-Zvukovka se dvěma vstupy (kytara + bezdrátový klopový mikrofon): v nabídce
-mikrofonu se vybere zařízení a **Vstup 1 / 2**. Vstupy pak přijdou odděleně
-(bez potlačení ozvěny) a rozpoznává se jen ten zvolený; kytara na „Automaticky“
-se vstupu s mikrofonem vyhýbá.
-
-„pick stop“ zastaví, co právě hraje (mix ve Steems i spodní přehrávač), „pick
-play“ spustí to, co je vpředu; „play/stop mix“ a „play/stop player“ to řeknou
-výslovně. „pick up“ / „pick down“ je hlasitost po 3 dB (i „up up“). „pick full
-screen“ zvětší okno přes obrazovku — skutečný fullscreen prohlížeč bez kliknutí
-nedovolí, ten je na tlačítku v horní liště a v minipřehrávači (klávesa F).
-Minipřehrávač má v Hledat i **Knihovnu** a **Složky** (hraje je sám) a mikrofon,
-který přepíná poslouchání aplikace.
-
-Minipřehrávač poslouchá sám (mikrofon v jeho liště; při otevření se zapne, když
-poslouchala aplikace, nebo když v něm zůstal zapnutý). Poslouchá vždy jen jedno
-okno a minipřehrávač má přednost: aplikace ustoupí a vrátí se pár vteřin poté,
-co minipřehrávač zmlkne. „pick song / band / playlist <název>“ v něm hledá
-(knihovna, jinak internet) a nálezy vypíše; název z nabídky řečený po „pick“ je
-výběr (`/api/voice/best`). „pick next page“, „pick play all“, „pick back“,
-„pick next song“. U kapely se ukážou podobné (z profilu interpreta).
-
-Hledat v minipřehrávači začíná seznamem **Steems** (písně připravené na
-cvičení). Seznamy se přepínají hlasem: „pick stems list“, „pick library“, „pick
-folders“, „pick internet“, „pick playlists“, „pick next list“ / „pick previous
-list“. „pick play <název>“ pustí píseň toho jména — nejdřív z toho, co je
-vypsané, pak ze seznamu, který je vybraný, a když tam není, z ostatních (Steems
-→ knihovna → internet; řekne odkud). „pick find playlist <název>“ vypíše
-playlisty (složky v knihovně i z internetu), „pick play <název> playlist“ jeden
-otevře, pak „pick play <název písně>“ nebo „pick play all“. Každá položka
-každého seznamu má číslo a dá se vybrat i jím: „pick play twenty five“ nebo
-„pick play song seven“ pustí píseň s tím číslem, „pick playlist twenty“ otevře
-dvacátý playlist (čísla 1–999, anglicky).
-
-„pick show me stems / favorites / bands (artists) / library / folders /
-playlists“ ukáže v minipřehrávači, co už máš: Steems, oblíbené songy (ty, které
-jsou ve Steems, hrají bez kytary), kapely poskládané ze Steems a knihovny,
-knihovnu, složky a tvoje playlisty (oblíbené a složky knihovny). „pick search
-<název>“ (i „pick find <název>“) hledá nejdřív tam — Steems, oblíbené,
-knihovna — a co najde, ukáže a pustí; nic se nestahuje ani znovu nerozděluje.
-Teprve co nemáš, vyhledá na internetu a nechá vybrat.
-
-V aplikaci „pick show me …“ otevírá její sekce: stems, playlists, bands /
-artists (Kapely a umělci), library, favorites (rozbalí Oblíbené v levém
-panelu), podcasts, tools, tabs, loops, chords, analyzer, loop studio. „pick
-page down / next page“ a „pick page up / previous page“ listují stránkou.
-„pick help“ (i „pick help open“) ukáže povely v panelu vpravo; zůstane tam i
-při dalších povelech, listuje se v něm stejně („pick page down / up“) a zavře
-ho „pick help close“ nebo „pick nothing“. Nabídka aplikace neukazuje povely,
-které umí jen minipřehrávač, a naopak.
-
-Když Pick nerozumí, uprostřed okna zabliká velké poloprůhledné logo s nápisem
-(výchozí „Say it again!!!“) a zazní tvoje nahrávka. Obojí se nastavuje v nabídce
-mikrofonu v řádku „Again!!!“: nápis se přepíše, „● Nahrát“ vezme 3 vteřiny
-z mikrofonu (ticho se ořízne, hlasitost se vytáhne), ▶ to vyzkouší, ✕ nahrávku
-smaže (pak řekne počítač „Again!“). Uloženo je to vedle vlastních povelů
-(`voice-again.json`, `voice-again.wav`; `/api/voice/again`), platí i pro
-minipřehrávač.
-
-„pick page down / up“ listuje vždy stránkou (i když je nabídka povelů otevřená);
-nabídka má svoje „pick help down / up“. „pick sort by band / album / title“
-seřadí seznam, který je vidět (hlavičky tabulek, skupiny karet ve Steems,
-seznam minipřehrávače). „pick open song <název>“ i „pick play <název>“ otevřou
-píseň toho jména ze sekce, která je vidět — řádek seznamu Steems jde rovnou do
-mixu; když tam není, hledá se ve Steems a pak v knihovně. Číslem stejně: „pick
-play seven“, „pick open song seven“ (tabulky mají sloupec #, karty Steems číslo
-vlevo).
-
 Pod otevřeným mixem ve Steems je seznam ostatních písní — číslo, název, kapela,
 ladění, délka. Klik (nebo „pick play seven“, „pick play <název>“) pustí píseň
 celou jako ukázku v přehrávači dole, „pick skip“ / „pick skip back“ skočí o 10 s,
@@ -278,32 +186,7 @@ Nastavení a „Upravit vzhled podrobně…“ odstranit nejde, aby byla vždy c
 prvky: „Ukázat odstraněné“ (červeně orámované), Vrátit jednotlivě i všechny; natrvalo až po Uložit, ↩ funguje.
 Kdyby se něco pokazilo: `localhost:8765/?bez-vzhledu` ukáže Pick bez úprav (uložený vzhled zůstane).
 
-**Zpěv mým hlasem** — v aplikaci se už nenabízí (3. 11.; položka v Panelech a „…a zazpívat mým hlasem“ ve
-Skladateli jsou skryté, server `/api/myvoice` zůstal). Dřív: stopa zpěvu se
-přezpívá hlasem, který sis přidal u Výslovnosti — melodie, rytmus i frázování
-zůstanou z originálu, změní se jen barva hlasu. Dělá to model Seed-VC (44 kHz,
-pro zpěv) ve vlastním prostředí `~/.local/venvs/pick-svc`, kód v
-`~/.local/share/spotdl-helper/svc/seed-vc`, váhy asi 2,3 GB; server ho nikdy
-nenačítá, pouští `svc_worker.py` jako proces na jednu práci. Na M1 Pro trvá
-zhruba třikrát déle, než je délka zpěvu (čtyřminutová píseň kolem 12 minut),
-běží na pozadí s ukazatelem průběhu a jde zastavit. Výsledek je další stopa
-písně „Můj hlas (…)“ a originální zpěv se ztlumí. Volí se kvalita, výška (třeba
-o oktávu níž) a se zapnutou smyčkou jde přezpívat jen ten úsek — vloží se do
-hotové stopy. Věrnější podobu dá vzorek vlastního zpěvu (10–25 s bez hudby),
-který se nahraje v tom samém okně.
-
-**Můj zpěv téhle písně** (v okně Zpěv mým hlasem → „Zazpívat úryvek téhle
-písně“): Pick vybere kus písně — smyčku, refrén, nebo místo, kde je nejvíc
-textu; jde posunout a zkrátit — pustí ho, na obrazovce běží jeho text (řádek,
-který se právě zpívá, svítí; text bez časů je vidět celý) a mikrofon nahrává.
-Originální zpěv jde při nahrávání nechat hrát nebo vypnout. Nahrávku si
-přehraješ a teprve po odsouhlasení se uloží k písni (`myvoice-sample.wav`
-vedle stop, nejvýš 25 s, pauzy pryč, vyrovnaná hlasitost). Od té chvíle se
-tahle píseň zpívá podle ní — je to tvůj hlas přímo v jejích tónech, a proto
-věrnější vzor než obecný vzorek. Každá píseň může mít svůj. Chce to sluchátka.
-
-**Nový hlas s průvodcem** (u Výslovnosti „+ hlas“ → Průvodce, nebo v okně
-Zpěv mým hlasem → „＋ Nový hlas“): přečteš nahlas český a anglický text a —
+**Nový hlas s průvodcem** (u Výslovnosti „+ hlas“ → Průvodce): přečteš nahlas český a anglický text a —
 nepovinně, ale pro zpěv to pomůže nejvíc — kousek zazpíváš. Každou nahrávku si
 přehraješ a můžeš ji říct znovu; okno hlídá, jestli není moc potichu nebo
 přebuzená. Z českého čtení vznikne ukázka pro čtení (`ref.wav`, `ref.txt`), ze
@@ -325,8 +208,8 @@ jak psát, aby ho model dobře zazpíval.
 textu, rýmy), dopíše tvoje rozepsané verše, nebo je upraví — vždy v podobě, kterou
 model zpívá nejlépe (části v [závorkách], 6–10 slabik na řádek, jeden obraz, refrén
 se vrací) — a navrhne k němu popis zvuku. Píše Claude (`lyrics_worker.py` v prostředí
-asistenta, model `claude-opus-5-5`); bez klíče nebo kreditu model v počítači
-(Gemma), česky slabší — aplikace řekne proč.
+`~/.local/venvs/pick-assistant` s balíčkem `anthropic`, model `claude-opus-5-5`; `llm.py`); bez klíče
+nebo kreditu model v počítači pod llama-server, je-li nějaký (Gemma byla smazána) — aplikace řekne proč.
 
 *Model a nastavení* (vše, co ACE-Step 1.5 před spuštěním umí): Rychlý (turbo,
 8 kroků), Podrobný (SFT, 50 kroků, víc detailu, asi třikrát pomalejší, stažený zvlášť
@@ -346,8 +229,7 @@ klik do ní posune, hlasitost, a každý nástroj jde vypnout (dvojklik = jen te
 Druhý režim, **kapela pod kytarou od začátku**: model base přidá k nápadu bicí a
 pak basu — každý nástroj zvlášť — Pick je smíchá s tvou kytarou a zbytek songu pak
 dohraje vybraný model. Vybraná varianta („Tuhle chci — do Steems“) se uloží do
-knihovny (Songs) a její stopy rovnou do Steems, bez druhého rozdělování; „…a zazpívat
-mým hlasem“ pak její zpěv přezpívá tvým hlasem.
+knihovny (Songs) a její stopy rovnou do Steems, bez druhého rozdělování.
 
 **Playlisty Steems** (`static/practice.js`, `setlists.py`): v levém panelu pod Steems
 si složíš playlist písní ze Steems (＋ Nový playlist, ＋ Přidat písně, ↑ ↓ pořadí, ✕
@@ -397,29 +279,15 @@ k stopám (`heard.json`) i jako nalezený text. Text bez časů (LRCLib ho čast
 z odposlechu a slova zůstanou správná. Chybně slyšený řádek opravíš dvojklikem na stopě Text
 → Jen opravit text (`/api/lyrics/keep`).
 
-**Přezpívat řádek** (`resing_worker.py`, dvojklik na řádek na stopě Text, nebo ⋯ → Upravit /
-přezpívat řádek): nová slova zazpívá hlas zpěváka v melodii řádku. Slova přečte OmniVoice
-hlasem zpěváka (ukázka z jeho stopy, přepsaná whisperem), nebo je namluvíš sám (🎤);
-vokodér WORLD (`pyworld` v prostředí pick-svc) položí každou slabiku na tón řádku a dá jí
-jeho výšku, Seed-VC to zazpívá barvou zpěváka (ukázka ~16 s jeho nejsilnějšího zpěvu).
-Každý přezpívaný řádek jde do jedné stopy „Upravený zpěv“ (`resing.json`: co bylo a co je),
-originál zůstane a ztlumí se. Asi minuta na řádek. Výslovnost bývá místy rozmazaná — zkus
-znovu, nebo slova namluv.
-Nad stopou „Upravený zpěv“ je pruh **Nový text**: u každého přezpívaného řádku nová slova
-a pod nimi přeškrtnutá původní (původní text zůstává i na stopě Text pod zpěvem). Dvojklik
-na blok: **Jen opravit zápis** (`POST /api/stems/{name}/resing/edit`, zvuk zůstane),
-**Přezpívat znovu** s jinými slovy, nebo **Vrátit původní** (`DELETE …/resing/edit?start=`:
-na to místo se vrátí původní zpěv; po posledním řádku zmizí i stopa).
-
 **Výkon počítače** (`sysload.py`, Nastavení → Výkon počítače, `/api/system`): paměť, procesor,
 kolik bere Pick sám, tlak na paměť a odkládání na disk (macOS: sysctl, vm_stat, ps), měřené
 každé 3 s; v horní liště se ukáže upozornění, když je počítač vytížený nebo dochází paměť.
 Náročná úloha se zeptá, jestli je místo: rozdělení písně ve frontě a nový model Skladatele
-počkají (nejvýš 5 minut), odposlech, zpěv jiným hlasem a přezpívání řeknou proč ne.
+počkají (nejvýš 5 minut), odposlech a tónový otisk řeknou proč ne.
 
 **Úlohy a procesy** (`tasks.py`, Nastavení → Systém, `GET /api/tasks?sort=cpu|mem`): co Pick
 právě dělá a co má ve frontě, od nejvytíženějšího — rozdělení na stopy (běžící a fronta),
-ukládání písní, rozbor Zpěvníku, odposlech, tónový otisk, přezpívání, zpěv jiným hlasem,
+ukládání písní, rozbor Zpěvníku, odposlech, tónový otisk,
 Skladatel a jeho model, hlas OmniVoice, noční plán, další procesy, které server spustil,
 server a okno Picku. Procesor se měří z času, který proces spotřeboval od minulého pohledu
 (ps, 100 % = jedno jádro; v okně přepočteno na celý počítač), paměť je RSS; každý proces se
@@ -427,7 +295,7 @@ počítá jen u jedné úlohy. `POST /api/tasks/{id}/pause|resume|stop`: fronty 
 ukládání se pozastaví příznakem (rozdělaná píseň se dodělá, další nezačne; Ukončit zruší
 čekající), Zpěvník svým vlastním pozastavením, běžící procesy (Demucs, whisper, otisk,
 noční plán) signálem SIGSTOP/SIGCONT (pozastavené drží paměť), ukončení je SIGTERM
-(a SIGKILL, když nepomůže); přezpívání, zpěv jiným hlasem a otisk mají vlastní zastavení,
+(a SIGKILL, když nepomůže); otisk má vlastní zastavení,
 odposlech nové `DELETE /api/hear/job`. Ukončit chce v okně dvě kliknutí.
 
 **Naplánované úlohy** (`planner.py`, Nastavení → Systém, `GET|POST /api/plan`): před náročnou
@@ -520,28 +388,6 @@ Playlisty Steems a nad seznamem dalších písní pod mixem. Po každém písmen
 není potřeba („prom“ najde Proměny). V levém panelu kapela ukáže své písně a klik na píseň ji otevře
 v mixu; pod mixem pole rovnou filtrují seznam (pořád napřed písně kapely, která je v mixu) a Enter
 otevře první. Napsané i kurzor zůstanou, i když se panel překreslí.
-
-**Asistent běží v počítači.** Volná česká věta („pick listen“, nebo napsaná do
-pole Asistent) se provede bez internetu a bez placení (`assistant.py`):
-
-1. *Kniha vět* (`assistant_book.py`, přes 1 700 vět vygenerovaných ze způsobů,
-   jak se co říká; věty jdou spojovat „a“) — co v ní je, udělá se hned, bez modelu.
-2. *Model* — Gemma 3 4B pod `llama-server` (soubor `pick-models/` na kartě nebo
-   `~/.local/share/spotdl-helper/models/`; spustí se při prvním povelu, po 15
-   minutách klidu uvolní paměť). Dostane stav aplikace, větu a nejpodobnější věty
-   z knihy; odpovídá jen do pevného formuláře (JSON schema). Co je o malém
-   modelu známo, že plete, opravuje `_mend` (jméno, které nikdo neřekl, mix
-   místo přehrávače, kroky navíc); mazání hlasem nejde vůbec.
-3. *Paměť* — co model udělal bez chyby, se zapíše (`assistant-learned.json`) a
-   příště je hned. Čemu nerozuměl (`assistant-unknown.json`), to se naučí z další,
-   jinak řečené věty, která se povedla. „Špatně“ poslední naučené zapomene navždy.
-
-Bez modelu (karta není připojená) poslouží nejbližší věta z knihy. Když model
-v počítači není, použije se Claude přes API jako dřív. Asistent umí i dalších
-44 povelů Picku (nástroj `command`: ladička, metronom, taby, text, výslovnost,
-zpěv, řazení, okna…). Co umí, co se naučil a čemu nerozuměl: `/assistant/book`
-(odkaz „co umí“ u pole Asistent). Na téže stránce jde větu naučit ručně (věta + jedna
-nebo dvě věci, které Pick umí; `teach`) a naučenou zapomenout.
 
 **Charakter a hlasitost hlasu.** Ve Výslovnosti jde zvolit, jak hlas čte
 (`TTS_STYLES`: Přirozený, Metalový, Agresivní, Naštvaný, Romantický, Klidný,
@@ -726,9 +572,8 @@ až když je dlaždice vidět.
 
 ## Tools: co zbylo
 
-Loops, Loop Studio a Kontakt v Tools nejsou (3. 11.); kód zůstal — zvuky Kontaktu používá Virtuální kytara.
-Hlasové ovládání je vypnuté: tlačítko v horní liště je skryté, poslouchání se samo nezapne a zapnuté
-poslouchání z lišty macOS se při otevření Picku vypne.
+Loops a Loop Studio jsou z Picku odstraněné i s kódem (3. 11.); Kontakt v Tools není, jeho zvuky používá Virtuální kytara.
+Hlasové ovládání a asistent jsou odstraněné i s kódem (3. 11.); povely (`Voice.run`) zůstaly pro MIDI pedál.
 
 ## Steems: méně na očích
 
@@ -821,7 +666,7 @@ už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc
 
 **V Live Show** navíc:
 - **🎛 Zvuky**: tvoje kytara — vstup zapnout/vypnout, zesilovač (NAM profil ‹ › nebo klik na název = seznam;
-  s ToneRigem / tunelem / otiskem jen jeho název), gain; zvuk klavíru a zvuk kytary na hmatníku (nástroje
+  s tunelem / otiskem jen jeho název), gain; zvuk klavíru a zvuk kytary na hmatníku (nástroje
   Klaviatury Picku, ‹ › nebo klik = seznam) a jejich hlasitost.
 - **Velikost** (A− / A+, 70–250 %) u akordů: pás akordů, jejich názvy i karty se zvětší, aby byly vidět i z
   dálky od monitoru; velikost se pamatuje.
@@ -982,7 +827,7 @@ při přehrávání:
 - před masterem je společný trim: když součet stop míří k přebuzení, ubere 1 dB (až −12 dB), v tichu se
   pomalu vrací. Poměr mezi stopami zůstává tvůj.
 
-ToneRig už v živé kytaře není (položka v nastavení zmizela, náš zesilovač hraje vždy).
+ToneRig je z Picku odstraněný (3. 11.), náš zesilovač hraje vždy.
 
 ## Zesilovače a bedny (katalog)
 
@@ -1261,7 +1106,7 @@ vlastní těžké úlohy. Proto:
 - **Ochrana zvuku** (`audioguard.py`, `POST /api/audio/active`, `GET|POST /api/audio/guard`):
   každé okno Picku hlásí každé 4 s (a hned při startu mixu), jestli hraje — mix, dolní
   přehrávač, nebo zapnutý vstup kytary. Dokud hraje (12 s bez hlášení = ticho), server pošle
-  své těžké procesy (Demucs, whisper, tónový otisk a jeho Node, Seed-VC, OmniVoice, analýzy,
+  své těžké procesy (Demucs, whisper, tónový otisk a jeho Node, OmniVoice, analýzy,
   stahování, model Skladatele) do pásma pozadí macOS (`taskpolicy -b`: úsporná jádra,
   přiškrcený disk a síť, pod vším, co dělá hráč) a po dohrání je vrátí (`taskpolicy -B`) —
   bez roota, nic se neztratí. Režim **Pozastavit** ty, které můžou počkat (rozdělování,
@@ -1278,8 +1123,7 @@ vlastní těžké úlohy. Proto:
 ## Mikrofon pro zpěv a hlas
 
 Nastavení → Zvuk a MIDI → **Mikrofon pro zpěv a hlas**: jeden výběr mikrofonu (a jeho vstupu)
-pro trenéra zpěvu, Výslovnost, nový hlas, úryvek zpěvu k písni, Namluvit u přezpívání řádku a
-hlasové ovládání (klíče `pick-voice-mic` / `pick-voice-ch`, stejné ukazuje i výběr v horní liště).
+pro trenéra zpěvu, Výslovnost a nový hlas (klíče `pick-voice-mic` / `pick-voice-ch`, stejné ukazuje i výběr v horní liště).
 Kytara má svůj vstup dál v nastavení kytary — prohlížeč poslouchá obě zařízení zároveň (USB
 mikrofon i zvukovku), nic se spojovat nemusí. `VoiceMic.stream()` vezme zvolený vstup samotný
 (zvukovka 1/2, agregované zařízení 3…; zastavení jeho stopy pustí i mikrofon), `VoiceMic.open()`
@@ -1344,27 +1188,16 @@ jako běžná nahraná stopa `take-N` s názvem „Můj zpěv …“ — bez efe
 na píseň přes `playLog` jako nahrávky kytary. Stopa je po uložení ztlumená;
 tlačítka „já / originál / oba / já s kapelou“ ve výsledku ji pustí k porovnání.
 
-## Asistent
+## Prostředí pro Textaře (Skladatel)
 
-„pick listen“ (nebo pole Asistent v nabídce mikrofonu) vezme jednu českou větu
-— „pusť Master of Puppets, ztlum kytaru a zpomal na 80“ — a provede ji.
-Whisper ji v počítači přepíše, `assistant.py` ji pošle Claudovi (Anthropic API,
-`claude-haiku-4-5`) s popisem aplikace (`SYSTEM`) a nástroji (`TOOLS`); nástroje
-běží ve stránce (`Voice.tool`) a jejich výsledky se vracejí, dokud model
-neskončí. Když se asistent zeptá, aplikace poslouchá odpověď bez aktivačního
-slova. Odpověď se zobrazí a volitelně přečte.
-
-API klíč patří do `~/.local/share/spotdl-helper/anthropic-key.txt` (nebo
-`ANTHROPIC_API_KEY`), do prohlížeče se nedostane. Knihovna `anthropic` chce
-novější balíčky, než jaké drží server, proto má vlastní prostředí:
+Textař píše přes Claude (`llm.py`, `lyrics_worker.py`). API klíč patří do
+`~/.local/share/spotdl-helper/anthropic-key.txt` (nebo `ANTHROPIC_API_KEY`), do prohlížeče se
+nedostane. Knihovna `anthropic` má vlastní prostředí:
 
 ```bash
-python3 -m venv ~/.local/venvs/pick-assistant
-~/.local/venvs/pick-assistant/bin/python -m pip install anthropic
+uv venv --python 3.12 ~/.local/venvs/pick-assistant
+uv pip install --python ~/.local/venvs/pick-assistant/bin/python anthropic
 ```
-
-Když aplikace umí něco nového, co má asistent ovládat, patří to do `SYSTEM`
-a `TOOLS` — nic jiného o aplikaci neví.
 
 ## Lišta macOS
 
@@ -1404,13 +1237,25 @@ cd ~/.local/share/spotdl-helper/app
 
 ## Úklid 3. 11.
 
-Smazáno, protože k tomu nevede žádná funkce: model Gemma (`models/…gguf`) a prostředí `pick-assistant`
-(Asistent — jeho pole bylo jen v menu hlasového ovládání), model Vosk (`voice/vosk-model-small-en-us-0.15`,
-hlasové ovládání), Seed-VC (`svc/seed-vc`) a prostředí `pick-svc` (Zpěv mým hlasem a přezpívání řádku).
-Okno řádku textu („Upravit řádek…“) už jen opravuje text; Namluvit a Přezpívat jsou skryté. Kód těch funkcí
-zůstal a bez modelů hlásí, že nejsou nainstalované; hlasové testy se bez modelu přeskočí.
-Zůstává: ACE-Step (Skladatel), OmniVoice (`pick-tts`, Výslovnost), whisper (odposlech textu),
-`spotdl-analyze` (části a akordy), `pick-midi` (noty), `pick-kontakt` (zvuky Virtuální kytary).
+**Smazané modely:** Gemma (`models/…gguf`), Vosk (`voice/vosk-model-small-en-us-0.15`) a Seed-VC
+(`svc/seed-vc`) s prostředím `pick-svc`.
+
+**Odstraněný kód:** ToneRig (i stránka pro telefon a port 8767), Loops (i proxy na portu 8766),
+Loop Studio (`loopstudio.py`, `/loopstudio`), Zpěv mým hlasem a přezpívání řádku (`svc_worker.py`,
+`resing_worker.py`, `/api/myvoice`, `/api/resing`), hlasové ovládání (Vosk, poslouchání v aplikaci,
+v minipřehrávači i z lišty macOS, vlastní a naučené povely, „Again!“, nápověda) a asistent
+(`assistant.py`, `assistant_book.py`, `/api/assistant`).
+
+**Co z nich zůstalo, protože to potřebují jiné funkce:**
+- `stemkey.py`: tónina písně ze stop, pro Zpěvník.
+- `speech.py`: přepis řeči whisperem a nejbližší jméno, pro Výslovnost, Setlist a hledání podle jména
+  (`/api/voice/find`, `/api/voice/best`).
+- `llm.py`: Claude a model v počítači, pro Textaře ve Skladateli. Prostředí `pick-assistant` (jen
+  `anthropic`) bylo omylem smazáno s asistentem a znovu vytvořeno.
+- `Voice.run` ve stránce: vykonávání povelů pro MIDI pedál.
+
+**Zůstává beze změny:** ACE-Step (Skladatel), OmniVoice (`pick-tts`, Výslovnost), whisper (odposlech
+textu), `spotdl-analyze` (části a akordy), `pick-midi` (noty), `pick-kontakt` (zvuky Virtuální kytary).
 
 ## Poznámky
 

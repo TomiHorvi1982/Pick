@@ -19,10 +19,10 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
-import assistant
+import llm as assistant
 
 MODEL = "claude-opus-5-5"
-WORKER = assistant.WORKER.with_name("lyrics_worker.py")
+WORKER = assistant.WORKER
 
 
 def available() -> list:

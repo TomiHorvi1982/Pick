@@ -27,7 +27,7 @@ from urllib.parse import quote, unquote
 import httpx
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 HOME = Path.home()
@@ -4586,8 +4586,6 @@ def mini_play(body: MiniPlay):
 # The mini player says who it is when it asks (who=mini): that is how the
 # server knows one is open.
 _MINI_SEEN = {"at": 0.0}
-_MINI_VOICE = {"seq": 0, "at": 0.0}      # a spoken command passed on to the mini player
-_WIDGET_OPEN = {"seq": 0}                # "pick open": the launcher opens the app's window when this changes
 _MINI_TAKE = {"seq": 0, "at": 0.0}       # the mini player opened (again): it takes over what the app plays
 
 
@@ -4599,12 +4597,8 @@ def remote_state(who: str = ""):
         _MINI_SEEN["at"] = time.time()
     if time.time() - _MINI_PLAY["at"] < 30:
         out["mini"] = dict(_MINI_PLAY)
-    if time.time() - _MINI_VOICE["at"] < 30:
-        out["mini_voice"] = dict(_MINI_VOICE)
     if time.time() - _MINI_TAKE["at"] < 30:
         out["mini_take"] = _MINI_TAKE["seq"]
-    out["widget"] = bool(_WIDGET.get("running"))
-    out["widget_open"] = _WIDGET_OPEN["seq"]
     # A window that has gone away shouldn't leave the menu bar claiming a
     # song is playing forever.
     out["stale"] = (time.time() - out.get("at", 0)) > 12
@@ -10773,90 +10767,9 @@ def hear_status():
 
 
 # ======================================================================
-import voice as _voice
+import speech as _voice
 
-# ---- voice commands (voice.py): the page sends what the microphone hears,
-# a quarter of a second at a time, and gets back a command when one was said.
-_voice_listener = None
-_voice_lock = threading.Lock()
-# One microphone is listened to at a time. The mini player, when it listens,
-# comes before the app's window: the app steps back until the mini player has
-# been quiet for a few seconds (closed, or switched off).
-_voice_owner = {"who": "app", "at": 0.0}
-
-
-def _voice_taken(who):
-    """The other window that holds the listening right now, or None."""
-    if who == "app" and _voice_listener is not None and _voice_owner["who"] == "mini" and time.time() - _voice_owner["at"] < 6:
-        return "mini"
-    return None
-
-
-@app.get("/api/voice/commands")
-def voice_commands():
-    return {"wake": _voice.WAKE, "commands": _voice.help_rows(), "unavailable": _voice.available(),
-            "custom": _voice.load_custom(),
-            "taught": {k: len(v["heard"]) + len(v["whisper"]) for k, v in _voice.load_taught().items()}}
-
-
-class VoiceCustom(BaseModel):
-    name: str = ""
-    phrase: str
-    steps: List[str]
-
-
-@app.post("/api/voice/custom")
-def voice_custom_add(req: VoiceCustom):
-    """One of the user's own commands: a phrase, and the actions it runs in order."""
-    why = _voice.available()
-    if why:
-        return JSONResponse({"error": why}, status_code=503)
-    try:
-        return _voice.add_custom(req.name, req.phrase, req.steps)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-
-
-@app.delete("/api/voice/custom/{cid}")
-def voice_custom_delete(cid: str):
-    if not _voice.delete_custom(cid):
-        return JSONResponse({"error": "Povel se nenašel."}, status_code=404)
-    return {"ok": True}
-
-
-@app.post("/api/voice/start")
-def voice_start(who: str = "app"):
-    """A fresh listener — what was half-heard before is forgotten."""
-    global _voice_listener
-    why = _voice.available()
-    if why:
-        return JSONResponse({"error": why}, status_code=503)
-    who = "mini" if who == "mini" else "app"
-    with _voice_lock:
-        if who == "app" and _voice_taken("app"):
-            return JSONResponse({"error": "Poslouchá minipřehrávač.", "taken": "mini"}, status_code=409)
-        _voice_listener = _voice.Listener()
-        _voice_owner.update(who=who, at=time.time())
-    return {"ok": True, "rate": _voice.RATE}
-
-
-@app.post("/api/voice/feed")
-async def voice_feed(request: Request, who: str = "app", menu: bool = False):
-    pcm = await request.body()
-    lis = _voice_listener
-    if lis is None:
-        return JSONResponse({"error": "Hlasové ovládání neběží."}, status_code=409)
-    who = "mini" if who == "mini" else "app"
-    if _voice_owner["who"] != who:
-        # The mini player started listening after the app did (or the other way
-        # round, once the mini player has gone quiet): this window is not the one.
-        return JSONResponse({"error": "Poslouchá jiné okno.", "taken": _voice_owner["who"]}, status_code=409)
-    _voice_owner["at"] = time.time()
-    if len(pcm) > _voice.RATE * 2 * 5 or len(pcm) % 2:
-        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
-    return await asyncio.get_running_loop().run_in_executor(None, _voice_heard, lis, pcm, menu)
-
-
+# ---- names said or typed (voice.py): the closest song, band or playlist to a few words
 def _voice_library():
     """Songs and bands a spoken name can mean."""
     songs = [e for e in _all_songs_flat().get("entries", []) if e.get("type") == "file"]
@@ -10897,39 +10810,6 @@ def voice_find(kind, name):
     return {"kind": kind, "query": name, "score": round(score, 2),
             "track": {"rel": e["rel"], "title": e.get("title") or e["name"], "artist": e.get("artist") or "",
                       "album": e.get("album"), "stems": e.get("stems")}}
-
-
-def _voice_heard(lis, pcm, menu=False):
-    r = lis.feed(pcm, menu)
-    audio = r.pop("pcm", None)
-    if audio is None:
-        return r
-    # Whisper reads the utterance again: a name after "song" / "band" /
-    # "practice", or a command the small recogniser did not catch.
-    # "again": Pick was spoken to and no command came of it — the page says so aloud.
-    quiet = {"heard": r["heard"], "command": None, "again": r["command"] == "ask"}
-    why = _voice.names_available()
-    if why:
-        return {**quiet, "find": {"error": why}} if r["command"] != "ask" else quiet
-    songs, bands = _voice_library()
-    try:
-        text = _voice.transcribe(audio, ", ".join(sorted(bands, key=lambda b: -len(bands[b]))[:12]))
-    except Exception:
-        return quiet
-    what = _voice.interpret(text, lis.custom, r["command"][5:] if r["command"].startswith("find:") else None, lis.taught)
-    # What whisper wrote, without the wake word — for a window that shows a
-    # list and takes a title said aloud as the choice.
-    quiet["said"] = " ".join(_voice._said(text))
-    if not what:
-        return quiet
-    if what[0] == "command":
-        cmd = what[1]
-        if cmd.startswith("custom:"):
-            c = next(x for x in lis.custom if x["id"] == cmd[7:])
-            return {"heard": f"{_voice.WAKE} {c['phrase']}", "command": cmd, "name": c["name"], "steps": c["steps"]}
-        return {"heard": " ".join(text.lower().strip(" .!?").replace(",", "").split()), "command": cmd, "steps": [cmd]}
-    _, kind, name = what
-    return {"heard": f"{_voice.WAKE} {kind} {name}", "command": f"find:{kind}", "name": name, "find": voice_find(kind, name)}
 
 
 @app.get("/api/voice/find")
@@ -10979,7 +10859,7 @@ end tell'''
 
 
 # ---- the assistant (assistant.py): a Czech sentence in, the app's own actions out
-import assistant as _assistant
+import llm as _assistant
 import look as _look
 app.include_router(_look.router)
 # Katalog zesilovačů a beden (amp_catalog.py): every NAM and IR sorted by make, gain, cabinet…, nothing moved
@@ -11160,7 +11040,7 @@ NIGHT_DIR = HOME / ".local" / "share" / "spotdl-helper" / "night"
 _TASK_PROGRAMS = [("demucs", "Rozdělení na stopy"), ("whisper-cli", "Odposlech textu"), ("tone_worker.py", "Tónový otisk"),
                   ("tone_nam.mjs", "Tónový otisk"), ("tts_worker.py", "Hlas OmniVoice"),
                   ("analyze.py", "Analýza písně"), ("audio2midi.py", "Převod na noty"),
-                  ("assistant_worker.py", "Asistent"), ("lyrics_worker.py", "Hledání textu"), ("/bin/spotdl", "Stahování"),
+                  ("lyrics_worker.py", "Psaní textu (Skladatel)"), ("/bin/spotdl", "Stahování"),
                   ("yt-dlp", "Stahování"), ("yt_dlp", "Stahování"), ("ffmpeg", "Převod zvuku (ffmpeg)"), ("ffprobe", "Čtení zvuku (ffprobe)"),
                   ("caffeinate", "Počítač nespí (naplánované úlohy)")]
 _SAVE_STATES = {"looking": "hledá tab a text", "downloading": "stahuje", "separating": "rozděluje na stopy"}
@@ -11697,89 +11577,6 @@ if not os.environ.get("SPOTDL_NO_WATCHERS"):
     _assistant.llm_stop()
 
 
-class AssistSay(BaseModel):
-    session: str
-    text: str
-
-
-class AssistResults(BaseModel):
-    session: str
-    results: List[dict]
-
-
-def _assist_run(fn, *args):
-    why = _assistant.available()
-    if why:
-        return JSONResponse({"error": why}, status_code=503)
-    return fn(*args)
-
-
-@app.get("/api/assistant")
-def assistant_status():
-    return {"unavailable": _assistant.available(), "model": _assistant.model_name(), "brain": _assistant.brain()}
-
-
-@app.get("/assistant/book", response_class=HTMLResponse)
-def assistant_book_page():
-    return _assistant.book_page()
-
-
-class AssistTeach(BaseModel):
-    text: str
-    calls: List[dict] = []
-
-
-@app.post("/api/assistant/teach")
-def assistant_teach(req: AssistTeach):
-    """A sentence taught by hand on the page of what can be said."""
-    got = _assistant.teach(req.text, req.calls)
-    return JSONResponse(got, status_code=400) if got.get("error") else got
-
-
-@app.delete("/api/assistant/learned")
-def assistant_forget(text: str):
-    return {"ok": _assistant.forget(text)}
-
-
-@app.post("/api/assistant/wake")
-def assistant_wake():
-    """A sentence is about to be said: the model in this computer starts loading now."""
-    if _assistant.brain() == "local":
-        _assistant.llm_wake(wait=False)
-    return {"ok": True}
-
-
-@app.post("/api/assistant/say")
-async def assistant_say(req: AssistSay):
-    if not req.text.strip():
-        return JSONResponse({"error": "Prázdná věta."}, status_code=400)
-    return await asyncio.get_running_loop().run_in_executor(None, _assist_run, _assistant.say, req.session, req.text)
-
-
-@app.post("/api/assistant/hear")
-async def assistant_hear(request: Request, session: str):
-    """A spoken sentence (16 kHz mono s16le, Czech): whisper writes it down, then as /say."""
-    why = _assistant.available() or _voice.names_available()
-    if why:
-        return JSONResponse({"error": why}, status_code=503)
-    pcm = await request.body()
-    if len(pcm) < _voice.RATE or len(pcm) > _voice.RATE * 2 * 25 or len(pcm) % 2:
-        return JSONResponse({"error": "Nic jsem neslyšel."}, status_code=400)
-
-    def work():
-        text = _voice.transcribe(pcm, lang="cs", prompt="Povely pro hudební aplikaci: píseň, kapela, kytara, bicí, basa, zpěv, stopa, tempo, smyčka, refrén, sólo, Steems.")
-        text = text.strip()
-        if len(text) < 2:
-            return {"heard": "", "error": "Nerozuměl jsem, zkus to znovu.", "done": True}
-        return {"heard": text, **_assistant.say(session, text)}
-    return await asyncio.get_running_loop().run_in_executor(None, work)
-
-
-@app.post("/api/assistant/results")
-async def assistant_results(req: AssistResults):
-    return await asyncio.get_running_loop().run_in_executor(None, _assist_run, _assistant.results, req.session, req.results)
-
-
 @app.post("/api/window/full")
 def window_full(which: str = "app"):
     """A Pick window over the whole screen and back — for a spoken command, which
@@ -11810,336 +11607,9 @@ end tell'''
     return {"ok": True}
 
 
-def _voice_teach(cmd, pcm):
-    # Already understood as it is? Then the take is only kept, to be checked
-    # against whatever is learned later.
-    if _voice.Listener().command(pcm) == cmd:
-        _voice.save_take(cmd, pcm)
-        return {"heard": "", "understood": True, "added": False, "works": True}
-    text = ""
-    if not _voice.names_available():
-        try:
-            text = _voice.transcribe(pcm)
-        except Exception:
-            text = ""
-    out = _voice.teach(cmd, _voice.hear(pcm), text)
-    # The same take once more, now that its words are known — and every take
-    # kept so far: new words must not push an old command out.
-    out["works"] = _voice.Listener().command(pcm) == cmd
-    broke = _voice.broken_takes() if out["works"] else []
-    if broke or not out["works"]:
-        _voice.unteach(cmd, out["heard"])
-        if broke:
-            names = {c["id"]: c["say"] for c in _voice.help_rows()}
-            names.update({"custom:" + c["id"]: f'{_voice.WAKE} {c["phrase"]}' for c in _voice.load_custom()})
-            raise ValueError("Tohle znělo moc podobně jako „" + names.get(broke[0], broke[0]) + "“ — neuložil jsem to. Zkus to říct znovu.")
-        out["added"] = False
-    else:
-        _voice.save_take(cmd, pcm)
-    return out
-
-
-@app.post("/api/voice/teach")
-async def voice_teach(request: Request, cmd: str):
-    """One take of the user saying a command; what was heard is kept for it."""
-    global _voice_listener
-    why = _voice.available()
-    if why:
-        return JSONResponse({"error": why}, status_code=503)
-    pcm = await request.body()
-    if not pcm or len(pcm) > _voice.RATE * 2 * 8 or len(pcm) % 2:
-        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
-    try:
-        out = await asyncio.get_running_loop().run_in_executor(None, _voice_teach, cmd, pcm)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-    with _voice_lock:
-        if _voice_listener is not None:
-            _voice_listener = _voice.Listener()
-    return out
-
-
-@app.delete("/api/voice/teach")
-def voice_forget(cmd: str):
-    global _voice_listener
-    _voice.forget(cmd)
-    with _voice_lock:
-        if _voice_listener is not None:
-            _voice_listener = _voice.Listener()
-    return {"ok": True}
-
-
-# ---- listening from the menu bar, with no window open. The server reads the
-# microphone itself (ffmpeg, the same way it records the interface) and feeds
-# the same recogniser. A window that listens comes first — the mini player,
-# then the app; this only hears what nobody else is hearing. What it hears and
-# cannot do alone (anything but opening a window) is passed to a window, the
-# mini player being opened for it when none is there.
-_WIDGET = {"proc": None, "running": False, "error": None, "heard": "", "stop": None, "level": 0.0, "sound_at": 0.0, "since": 0.0}
-_WIDGET_LOCK = threading.Lock()
-
-
-def _window_listening():
-    return _voice_listener is not None and time.time() - _voice_owner["at"] < 6
-
-
-def _widget_again():
-    """Not understood, and no window to say so: the computer's own voice does."""
-    try:
-        subprocess.Popen(["say", "-v", "Samantha", "Again"])
-    except OSError:
-        pass
-
-
-def _widget_do(r):
-    global _REMOTE_SEQ
-    cmd = r.get("command")
-    _WIDGET["heard"] = r.get("heard", "")
-    if not cmd:
-        if r.get("again"):
-            _widget_again()
-        return
-    if cmd == "open":
-        _WIDGET_OPEN["seq"] = int(time.time() * 1000)
-        return
-    if cmd == "mini":
-        mini_open()
-        return
-    r = {k: v for k, v in r.items() if k != "pcm"}
-    mini_there = time.time() - _MINI_SEEN["at"] < 4
-    app_there = (time.time() - _REMOTE_STATE.get("at", 0)) < 12
-    if app_there and not mini_there:
-        _REMOTE_SEQ += 1
-        _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": "heard", "value": None, "text": json.dumps(r, ensure_ascii=False)}))
-        del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
-        return
-    if not mini_there:
-        mini_open()
-    _MINI_VOICE.update(seq=int(time.time() * 1000), at=time.time(), r=r)
-
-
-def _widget_loop(proc, stop):
-    lis, skipped = None, True
-    try:
-        while not stop.is_set():
-            pcm = proc.stdout.read(8000)                 # a quarter of a second
-            if not pcm:
-                break
-            # How loud the microphone is (0–1). A microphone macOS has not allowed
-            # gives perfect silence: 0, always — that is how it shows.
-            _WIDGET["level"] = max(abs(v) for v in memoryview(pcm[:len(pcm) - len(pcm) % 2]).cast("h")[::16]) / 32768 if len(pcm) > 32 else 0.0
-            if _WIDGET["level"] > 0:
-                _WIDGET["sound_at"] = time.time()
-            if _window_listening():
-                skipped = True                           # a window is listening: not ours to hear
-                continue
-            if skipped or lis is None:
-                lis, skipped = _voice.Listener(), False  # a fresh start; half a sentence from before is nothing
-            try:
-                r = _voice_heard(lis, pcm[:len(pcm) - len(pcm) % 2])
-            except Exception:
-                continue
-            if r and r.get("heard"):
-                _widget_do(r)
-    finally:
-        if proc.poll() is None:
-            proc.kill()
-        err = ""
-        try:
-            err = (proc.stderr.read() or b"").decode("utf-8", "replace").strip().splitlines()[-1:]
-            err = err[0] if err else ""
-        except Exception:
-            pass
-        with _WIDGET_LOCK:
-            if _WIDGET["proc"] is proc:
-                _WIDGET.update(proc=None, running=False, error=None if stop.is_set() else (err or "Mikrofon se zavřel."))
-
-
-def _widget_start():
-    why = _voice.available()
-    if why:
-        _WIDGET["error"] = why
-        return False
-    cfg = _voice.widget_config()
-    device = _capture_device(cfg["device"]) if cfg["device"] else None
-    cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-f", "avfoundation", "-i", f":{device or 'default'}"]
-    # A two-input interface: the microphone's input alone, not mixed with the guitar's.
-    # The microphone made louder, when the sound card's own gain is not enough; a limiter keeps it from clipping.
-    filters = [f"pan=mono|c0=c{int(cfg['channel']) - 1}"] if cfg["channel"] in ("1", "2") and device else []
-    if cfg.get("gain"):
-        filters += [f"volume={cfg['gain']:.1f}dB", "alimiter=limit=0.95"]
-    if filters:
-        cmd += ["-af", ",".join(filters)]
-    cmd += ["-ar", str(_voice.RATE), "-ac", "1", "-f", "s16le", "-"]
-    with _WIDGET_LOCK:
-        if _WIDGET["proc"] is not None:
-            return True
-        try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
-        except OSError as e:
-            _WIDGET["error"] = f"Mikrofon se nepodařilo otevřít ({e})."
-            return False
-        stop = threading.Event()
-        _WIDGET.update(proc=proc, running=True, error=None, stop=stop, since=time.time(), sound_at=0.0, level=0.0)
-    threading.Thread(target=_widget_loop, args=(proc, stop), daemon=True).start()
-    return True
-
-
-def _widget_stop():
-    with _WIDGET_LOCK:
-        proc, stop = _WIDGET["proc"], _WIDGET["stop"]
-        _WIDGET.update(proc=None, running=False, error=None)
-    if stop is not None:
-        stop.set()
-    if proc is not None and proc.poll() is None:
-        proc.kill()
-
-
-class VoiceWidget(BaseModel):
-    on: Optional[bool] = None
-    device: Optional[str] = None      # as the browser names it; "" = the system's default input
-    channel: Optional[str] = None     # "1" / "2" of a two-input interface, "" = as it comes
-    gain: Optional[float] = None      # dB the microphone is made louder by (0–30)
-
-
-@app.get("/api/voice/widget")
-def voice_widget():
-    return {**_voice.widget_config(), "running": bool(_WIDGET["running"]), "error": _WIDGET["error"], "heard": _WIDGET["heard"],
-            "level": round(_WIDGET["level"], 4) if _WIDGET["running"] else 0.0,
-            # Not one sample above zero in five seconds of listening: macOS is not letting the microphone through.
-            "silent": bool(_WIDGET["running"] and not _WIDGET["sound_at"] and time.time() - _WIDGET["since"] > 5)}
-
-
-@app.post("/api/voice/widget")
-def voice_widget_set(req: VoiceWidget):
-    before = _voice.widget_config()
-    gain = None if req.gain is None else max(0.0, min(30.0, float(req.gain)))
-    cfg = _voice.widget_save(on=req.on, device=req.device, channel=req.channel, gain=gain)
-    moved = (cfg["device"], cfg["channel"], cfg["gain"]) != (before["device"], before["channel"], before["gain"])
-    if not cfg["on"] or moved:
-        _widget_stop()
-    if cfg["on"]:
-        _widget_start()
-        time.sleep(0.6)                # long enough for a microphone that will not open to say so
-    return voice_widget()
-
-
-@app.on_event("startup")
-def _widget_resume():
-    if _voice.widget_config()["on"]:
-        threading.Thread(target=_widget_start, daemon=True).start()
-
-
-@app.on_event("shutdown")
-def _widget_end():
-    _widget_stop()
-
-
-@app.get("/api/voice/remote")
-def voice_remote(on: Optional[int] = None):
-    """Listening on or off from outside the page — a Siri shortcut opens this
-    address. The microphone belongs to the open Pick window, so it is asked to."""
-    global _REMOTE_SEQ
-    if (time.time() - _REMOTE_STATE.get("at", 0)) > 12:
-        return PlainTextResponse("Pick is not open.", status_code=409)
-    _REMOTE_SEQ += 1
-    _REMOTE_COMMANDS.append((_REMOTE_SEQ, {"action": "voice", "value": None if on is None else float(bool(on))}))
-    del _REMOTE_COMMANDS[:-_REMOTE_KEEP]
-    return PlainTextResponse("Pick is listening." if on else "Pick stopped listening." if on is not None else "Pick listening switched.")
-
-
-@app.post("/api/voice/stop")
-def voice_stop(who: str = "app"):
-    global _voice_listener
-    who = "mini" if who == "mini" else "app"
-    with _voice_lock:
-        if _voice_owner["who"] == who or not _voice_taken(who):      # not somebody else's listening
-            _voice_listener = None
-            _voice_owner.update(who="app", at=0.0)
-    return {"ok": True}
-
-
 class VoiceBest(BaseModel):
     query: str
     names: List[str]
-
-
-# ---- "Again!": what is shown and shouted when Pick was spoken to and did not
-# understand — the user's own words, and their own voice (a short recording).
-AGAIN_TEXT = "Say it again!!!"
-
-
-def _again_paths():
-    d = _voice.CUSTOM_PATH.parent
-    return d / "voice-again.json", d / "voice-again.wav"
-
-
-def _again_state():
-    cfg, wav = _again_paths()
-    try:
-        text = str(json.loads(cfg.read_text(encoding="utf-8")).get("text") or "").strip()
-    except (OSError, ValueError, AttributeError):
-        text = ""
-    return {"text": text or AGAIN_TEXT, "audio": wav.is_file(), "v": int(wav.stat().st_mtime) if wav.is_file() else 0}
-
-
-class AgainText(BaseModel):
-    text: str = ""
-
-
-@app.get("/api/voice/again")
-def voice_again():
-    return _again_state()
-
-
-@app.put("/api/voice/again")
-def voice_again_text(req: AgainText):
-    cfg, _ = _again_paths()
-    cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(json.dumps({"text": req.text.strip()[:60]}, ensure_ascii=False), encoding="utf-8")
-    return _again_state()
-
-
-@app.post("/api/voice/again/audio")
-async def voice_again_record(request: Request):
-    """The user's own shout, as the microphone took it (16 kHz mono s16le): the
-    silence before and after is cut, and it is made as loud as it goes."""
-    import wave
-    import numpy as np
-    pcm = await request.body()
-    if not pcm or len(pcm) % 2 or len(pcm) > _voice.RATE * 2 * 8:
-        return JSONResponse({"error": "Neplatný zvuk."}, status_code=400)
-    x = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
-    peak = float(np.abs(x).max()) if len(x) else 0.0
-    if peak < 600:
-        return JSONResponse({"error": "Nic jsem neslyšel — zkus to znovu a hlasitěji."}, status_code=400)
-    loud = np.flatnonzero(np.abs(x) > peak * 0.08)
-    pad = int(_voice.RATE * 0.08)
-    x = x[max(0, loud[0] - pad):loud[-1] + pad]
-    x = (x * (30000.0 / peak)).astype(np.int16)
-    _, wav = _again_paths()
-    wav.parent.mkdir(parents=True, exist_ok=True)
-    tmp = wav.with_suffix(".tmp")
-    with wave.open(str(tmp), "wb") as w:
-        w.setnchannels(1); w.setsampwidth(2); w.setframerate(_voice.RATE)
-        w.writeframes(x.tobytes())
-    tmp.replace(wav)
-    return {**_again_state(), "seconds": round(len(x) / _voice.RATE, 2)}
-
-
-@app.get("/api/voice/again/audio")
-def voice_again_audio():
-    _, wav = _again_paths()
-    if not wav.is_file():
-        return JSONResponse({"error": "Nic nahraného."}, status_code=404)
-    return FileResponse(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
-
-
-@app.delete("/api/voice/again/audio")
-def voice_again_forget():
-    _, wav = _again_paths()
-    wav.unlink(missing_ok=True)
-    return _again_state()
 
 
 @app.post("/api/voice/best")

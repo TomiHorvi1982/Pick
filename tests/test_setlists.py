@@ -2,7 +2,6 @@
 import pytest
 
 import setlists
-import voice
 
 
 @pytest.fixture(autouse=True)
@@ -24,5 +23,4 @@ def test_a_playlist_is_made_changed_and_removed(client):
 
 
 def test_practice_playlist_by_voice(client):
-    assert voice.interpret("practice playlist zkouška", [], "practice") == ("find", "practice", "playlist zkouška")
     assert client.get("/api/voice/find?kind=practice&name=playlist Zkouška se Standou").json() == {"kind": "setlist", "query": "Zkouška se Standou"}

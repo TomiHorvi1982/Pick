@@ -126,7 +126,7 @@ def engine_up() -> bool:
 def _free_memory() -> None:
     """Whatever else of Pick's holds a model in memory lets it go: there is room for one."""
     try:
-        import assistant
+        import llm as assistant
         assistant.llm_stop()
     except Exception:                                      # noqa: BLE001
         pass

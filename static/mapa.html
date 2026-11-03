@@ -198,9 +198,6 @@ html{scroll-behavior:smooth}
         <a class="node" href="#f-home">Hlavní okno<small>localhost:8765</small></a>
         <a class="node" href="#f-mini">Minipřehrávač<small>localhost:8765/mini</small></a>
         <a class="node" href="#f-analyzer">Performance Analyzer<small>/analyzer</small></a>
-        <a class="node" href="#f-loopstudio">Loop Studio<small>/loopstudio</small></a>
-        <a class="node" href="#f-assistant">Co umí asistent<small>/assistant/book</small></a>
-        <a class="node" href="#f-tonerig">ToneRig v telefonu<small>síť, port 8767</small></a>
       </div>
       <div class="lane">
         <h3>Sekce <small>levý panel</small></h3>
@@ -221,8 +218,6 @@ html{scroll-behavior:smooth}
         <a class="node" href="#f-download">Stahování (spotdl, yt-dlp)<small>server.py · download</small></a>
         <a class="node" href="#f-separate">Fronta separace<small>server.py · separation queue</small></a>
         <a class="node" href="#f-sections">Mřížka, sekce, akordy<small>beatgrid.py, analyze.py</small></a>
-        <a class="node" href="#f-voice">Hlasové povely<small>voice.py</small></a>
-        <a class="node" href="#f-assistant">Asistent<small>assistant.py</small></a>
         <a class="node" href="#f-sing">Trenér zpěvu<small>sing.py</small></a>
         <a class="node" href="#f-composer">Skladatel<small>studio.py</small></a>
         <a class="node" href="#f-look">Vzhled<small>look.py</small></a>
@@ -232,12 +227,9 @@ html{scroll-behavior:smooth}
         <p>Těžké věci běží ve vlastních prostředích, server je jen spouští.</p>
         <a class="node" href="#f-separate">Demucs 6 stop<small>~/.local/bin/demucs</small></a>
         <a class="node" href="#f-sections">All-In-One + beat_this<small>venvs/spotdl-analyze</small></a>
-        <a class="node" href="#f-voice">Vosk + Whisper<small>voice/, whisper-cli</small></a>
         <a class="node" href="#f-tts">OmniVoice (můj hlas čte)<small>venvs/pick-tts</small></a>
-        <a class="node" href="#f-myvoice">Seed-VC (můj hlas zpívá)<small>venvs/pick-svc · 2,4 GB</small></a>
         <a class="node" href="#f-composer">ACE-Step 1.5 (Turbo, SFT, Base + plánovač)<small>studio/ · 20 GB · :8795</small></a>
         <a class="node" href="#f-composer">Textař: Claude / Gemma<small>lyricist.py</small></a>
-        <a class="node" href="#f-assistant">Gemma 3 4B<small>models/ · llama-server</small></a>
         <a class="node" href="#f-guitar">NAM zesilovač (wasm)<small>static/nam/</small></a>
       </div>
       <div class="lane">
@@ -279,17 +271,12 @@ html{scroll-behavior:smooth}
         <p class="mono" style="color:var(--muted);font-size:.78rem">~/.local/share/spotdl-helper/app</p>
 <pre class="tree"><span class="d">app/</span>
 ├─ <span class="n">server.py</span>          <span class="c">11 373 ř. · srdce: 256 adres API, stahování, stopy…</span>
-├─ voice.py           <span class="c">hlasové povely (Vosk, Whisper)</span>
-├─ assistant.py       <span class="c">asistent: věta → akce</span>
-├─ assistant_book.py  <span class="c">kniha 1 700+ vět</span>
-├─ assistant_worker.py<span class="c"> dotaz na Claude API (záloha)</span>
 ├─ sing.py            <span class="c">trenér zpěvu: melodie, slova</span>
 ├─ studio.py          <span class="c">Skladatel (ACE-Step), fronta, nástroje</span>
 ├─ studio_words.py    <span class="c">slova pro popis zvuku a štítky textu</span>
 ├─ lyricist.py        <span class="c">textař (Claude / model v počítači)</span>
 ├─ lyrics_worker.py   <span class="c">dotaz na Claude pro textaře</span>
 ├─ look.py            <span class="c">Úpravy vzhledu + zdroje</span>
-├─ loopstudio.py      <span class="c">Loop Studio: Loop Plan</span>
 ├─ setlists.py       <span class="c">playlisty Steems</span>
 ├─ stems_import.py    <span class="c">ručně přidané stopy (Moises) do Steems</span>
 ├─ names.py           <span class="c">oficiální názvy písní</span>
@@ -297,7 +284,6 @@ html{scroll-behavior:smooth}
 ├─ analyze.py         <span class="c">sekce a akordy</span>
 ├─ audio2midi.py      <span class="c">zvuk → noty (basic-pitch)</span>
 ├─ tts_worker.py      <span class="c">vlastní hlas čte (OmniVoice)</span>
-├─ svc_worker.py      <span class="c">vlastní hlas zpívá (Seed-VC)</span>
 ├─ tone_worker.py     <span class="c">tónový otisk: hledání zvuku z nahrávky</span>
 ├─ tasks.py           <span class="c">úlohy a procesy: vytížení, pauza, konec</span>
 ├─ audioguard.py      <span class="c">ochrana zvuku: úlohy ustoupí, když hraje hudba</span>
@@ -325,7 +311,6 @@ html{scroll-behavior:smooth}
 │  ├─ mini.html       <span class="c">minipřehrávač</span>
 │  ├─ analyzer.html   <span class="c">Performance Analyzer</span>
 │  ├─ analyzer-engine.js
-│  ├─ loopstudio.html <span class="c">Loop Studio</span>
 │  ├─ <span class="d">nam/</span>           <span class="c">zesilovač NAM (WebAssembly)</span>
 │  ├─ <span class="d">alphatab/</span>      <span class="c">kreslení tabů + zvuky</span>
 │  ├─ <span class="d">worklets/</span>      <span class="c">kytara, doubler (zvuk naživo)</span>
@@ -358,7 +343,6 @@ html{scroll-behavior:smooth}
 ├─ <span class="d">voices/</span>                 <span class="c">tvoje hlasy: ref.wav, sing.wav</span>
 ├─ <span class="d">voice/</span>                  <span class="c">Vosk, Whisper, naučené záznamy · 617 MB</span>
 ├─ voice-*.json, voice-again.wav
-├─ assistant-learned / unknown.json
 ├─ look.json, <span class="d">look/</span>          <span class="c">tvůj vzhled</span>
 ├─ <span class="d">lyrics/</span>  <span class="d">tts/</span>  <span class="d">amps/</span>  <span class="d">riffs/</span>
 ├─ <span class="d">models/</span>                 <span class="c">Gemma 3 4B · 2,3 GB</span>
@@ -373,7 +357,7 @@ html{scroll-behavior:smooth}
 ├─ pick-tts        <span class="c">OmniVoice · 999 MB</span>
 ├─ pick-svc        <span class="c">Seed-VC · 951 MB</span>
 ├─ pick-midi       <span class="c">audio → MIDI · 392 MB</span>
-└─ pick-assistant  <span class="c">Claude API · 51 MB</span></pre>
+└─ pick-assistant  <span class="c">Claude API pro Textaře · 42 MB</span></pre>
       </div>
     </div>
 
@@ -442,7 +426,6 @@ html{scroll-behavior:smooth}
     <div class="ports">
       <div class="port"><b>8765</b><span>aplikace (jen tento Mac)</span></div>
       <div class="port"><b>8766</b><span>Loops: Looperman uvnitř aplikace</span></div>
-      <div class="port"><b>8767</b><span>ToneRig stránka pro telefon (síť, jen když zapneš)</span></div>
       <div class="port"><b>8795</b><span>ACE-Step jen během skládání</span></div>
       <div class="port"><b>17493</b><span>Voicebox (cizí aplikace s hlasy)</span></div>
     </div>
@@ -471,6 +454,7 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">16. 10.</div><div class="dot"></div><div><h4>Katalog riffů</h4><p>Každý tab z knihovny Taby rozebraný na části písně podle značek v tabu (intro, sloka, předrefrén, refrén, most, sólo, outro…); v každé části riff, který se opakuje. Kytary hrající spolu zůstanou u sebe (rytmická + sólová, dvě různé, stejné noty jako ×2) a virtuální kytara je hraje najednou. Filtry jako na UG, ★ a vlastní štítky.</p></div></div>
         <div class="stop"><div class="date">16. 10.</div><div class="dot"></div><div><h4>Nahraná kytara</h4><p>Virtuální kytara a průvodce taby hrají skutečně nahrané tóny místo syntetické struny: z knihovny Axe Machina čistá DI kytara, 7 strun, každý tón na každé struně, dvě síly úhozu, dvě nahrávky střídavě, drnknuté i tlumené dlaní. 912 tónů, 34 MB; hraje přes NAM a otisky jako dřív.</p></div></div>
         <div class="stop"><div class="date">16. 10.</div><div class="dot"></div><div><h4>Zvuky z disku PortableSSD</h4><p>259 komunitních NAM modelů a 1417 impulsů beden (Bogren Digital, Joey Sturgis, MDL Tone) v Picku; výběr zesilovače a bedny sbalený po balících s hledáním. Otisk zkouší téměř-dvojčata jen jednou: každé jádro si jednou poslechne a modely, které se liší jen mikrofonem nebo velikostí sítě, zastoupí jeden — ze 345 zkouší 249, do 15 minut. Virtuální kytara má hotové nahrané zvuky bez Kontaktu: Metal (Axe Machina přes zesilovač Soundironu), Clean (Fender Twin), Blues (Vox AC15), Crunch (Marshall JCM2000), Hi-Gain (5150) — powerchordy nahrané celé. Smyčky Clean Guitars od Beastsamples v kartě Kontakt. Oprava: nastavení (i karta s hudbou) se už nesmaže, když ho ukládají dvě věci naráz — zapisuje se celé najednou a se záložní kopií.</p></div></div>
+        <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Úklid kódu</h4><p>Z Picku zmizel i kód ToneRigu, Loops, Loop Studia, Zpěvu mým hlasem, přezpívání řádku, hlasového ovládání a asistenta. Zůstalo, co potřebují jiné funkce: tónina pro Zpěvník (stemkey.py), přepis řeči pro Výslovnost (speech.py), Claude pro Textaře (llm.py) a povely pro MIDI pedál.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Úklid modelů</h4><p>Smazány nepoužívané modely: Gemma (asistent), Vosk (hlasové ovládání) a Seed-VC (zpěv mým hlasem, přezpívání řádku) — asi 6 GB. Řádek textu jde už jen opravit.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Fádr kytary uklizený</h4><p>Na fádru živé kytary ST · CMP · DBL · EQ v řadě, pod AUTO MIX tlačítka NAM a IR. Šipky u zesilovače jdou katalogem; složky s NAM presety zmizely z nastavení i z knihovny.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Hlava a bedna spolu</h4><p>NAM profil, který je jen zesilovač, dostane bednu (IR) sám — tu, kterou jsi k němu vybral naposledy; celý aparát IR vypne. Stopa v mixu má vlastní bednu.</p></div></div>
@@ -514,7 +498,6 @@ html{scroll-behavior:smooth}
             <li>Textař přes Clauda: na účtu Anthropic chybí kredit, zatím píše slabší model v počítači</li>
             <li>Úryvek zpěvu a průvodce hlasem se skutečným mikrofonem a sluchátky</li>
             <li>„Tuhle chci — do Steems“ a zazpívání na skutečné knihovně</li>
-            <li>ToneRig s telefonem a iRig (MIDI předvolby, vstup 2)</li>
             <li>Vlastní ukazatel myši v reálném okně</li>
           </ul></div></div>
         <div class="stop next"><div class="date">dál?</div><div class="dot"></div><div><h4>Možné další kroky (návrhy)</h4>
@@ -629,9 +612,6 @@ const F = [
  {id:"guitar", g:"guitar", n:"Kytara naživo + zesilovač", w:"Mixpult → kanál Kytara; spodní přehrávač → kytara", d:"Kytara ze zvukovky přes NAM zesilovač a kabinet, gate, kompresor, EQ, doubler. Nahrávka se uloží jako stopa take-N. K tvým modelům 259 komunitních NAM a 1417 impulsů beden (Bogren, Sturgis, MDL) — ve výběru sbalené po balících, s hledáním.", st:"ok",
   how:["V kanálu Kytara vyber zvukovku a vstup.","Vyber předvolbu zesilovače (clean, crunch, hi-gain).","Nahrávej tlačítkem ●, nahrávka je nová stopa."],
   code:[[IX,"Guitar ř. 21798, Amp ř. 24773, TakeRec ř. 22454, Tunnel ř. 24025, NamPreview ř. 11169"],["server.py","amps ř. 301, NAM preview ř. 3301"],["static/nam/","NAM engine"]], data:["amps/, amps/nam/, amps/ir/<balík>/, Stems/<píseň>/take-N.mp3"], v:["pick guitar on / off"]},
- {id:"tonerig", g:"guitar", n:"ToneRig z telefonu", w:"Nastavení kytary → ToneRig, tlačítko TONERIG", d:"ToneRig v iPhonu jako zesilovač; předvolby 1–8 přepínáš z Macu nebo stránkou v telefonu přes MIDI.", st:"test",
-  how:["Otevři nastavení ToneRig, projdi kroky.","Zapni stránku pro telefon a otevři odkaz v iPhonu.","Vyzkoušej tlačítka Test a MIDI Learn."],
-  code:[[IX,"ToneRig ř. 13642"],["server.py","ToneRig ř. 5116 (port 8767)"]], data:["config.json"], v:[]},
  {id:"tone", g:"guitar", n:"Tónový otisk", w:"Kanál Live kytara → OTISK", d:"Tvoje živá kytara zní jako kytara z vybrané písně. Zahraješ úsek s písní, Pick si nahraje čistý signál kytary a sám najde řetězec, který zní jako originál: jádro zkreslení z tvých NAM modelů (345, téměř-dvojčata — jiný mikrofon, menší síť — zkouší jednou, takže 249), drive, ekvalizér před jádrem, barvu (IR spočítaná přímo ze spektra originálu), dozvuk a šířku. Ukáže shodu v %, křivky spekter a porovnání; slepý test řekne, jestli poznáš originál od sebe. Píseň může mít otisků víc; jména dává Pick podle kapely a písně, kategorie (Clean, Crunch, Hi-Gain, Sólo…) odhadne ze zkreslení — obojí změníš. Všechny otisky jsou v Knihovně otisků (i Knihovna → Otisky zvuku): karty s obalem, shodou, křivkou a ukázkou zvuku, hledání a filtr podle kategorie; otisk jde zapnout s kteroukoli písní.", st:"test",
   how:["Otevři píseň ve Steems, na kanálu Live kytara klikni OTISK.","Vyber úsek, kde kytara hraje (návrh nebo smyčka z mixu), zapni vstup kytary.","● Nahrát: píseň začne 3 s před úsekem, zahraj ho s ní.","Vytvořit otisk (asi 2 minuty), pak Hrát s otiskem.","▶ Originál / ▶ Ty a Slepý test; Doladit s další nahrávkou, Vrátit předchozí.","Knihovna otisků: klik na jméno ho přepíše, klik na kategorii ji změní, 🎧 ukázka, Hrát zapne otisk.","Moje kytara: jednou nahraj struny, tóny, akordy a riff → Vyhodnotit. Pak tvoje kytara zahraje přesně to, co originál (i v jiném ladění), a otisk jde i bez hraní s písní."],
   code:[["tone_worker.py","Fit: měření, otisky jader a výběr různých, síto jader, Nelder–Mead, barva → IR, dozvuk, selftesty"],["tone_nam.mjs","NAM offline v Node — stejný wasm jako živě"],["static/tone.js","okno, nahrávka na hodinách písně, řetězec v živé kytaře, slepý test"],["server.py","/api/tone/… (take, fit, sections, abx, prints, undo)"],[IX,"Guitar.setPrint, cleanTap, onRewire; tlačítko OTISK"]], data:["Stems/<píseň>/tone/ (take-N.wav, print.json, print-ir.wav, you.wav)","amps/.tone-cores.json","~/.local/venvs/pick-tone"], v:[]},
@@ -654,9 +634,6 @@ const F = [
  {id:"guide", g:"voice", n:"Nový hlas s průvodcem", w:"Výslovnost → + hlas → Průvodce, nebo Zpěv mým hlasem → ＋ Nový hlas", d:"Přečteš český a anglický text a kousek zazpíváš; vznikne hlas pro čtení i pro zpěv.", st:"test",
   how:["Krok 1: přečti český text, poslechni, případně znovu.","Krok 2: anglický text.","Krok 3 (doporučeno): zazpívej kousek.","Ulož hlas."],
   code:[[IX,"VoiceGuide ř. 25167"],["server.py","guide ř. 8280"]], data:["voices/<id>/sing.wav"], v:[]},
- {id:"myvoice", g:"voice", n:"Zpěv mým hlasem", w:"Steems → Panely → Zpěv mým hlasem…", d:"Z aplikace odebráno 3. 11. Seed-VC přezpívá zpěv písně tvým hlasem; melodie a frázování zůstanou. Výsledek je nová stopa, originál se ztlumí.", st:"off",
-  how:["Otevři píseň, Panely → Zpěv mým hlasem.","Vyber hlas, kvalitu a výšku (třeba o oktávu níž).","Celou píseň, nebo jen úsek ve smyčce.","Počkej (asi 3× délka zpěvu), pak porovnej."],
-  code:[[IX,"MyVoice ř. 25411"],["svc_worker.py","Seed-VC"],["server.py","myvoice ř. 9038"]], data:["myvoice.json, stopa Můj hlas"], v:[]},
  {id:"songtake", g:"voice", n:"Můj zpěv téhle písně", w:"Zpěv mým hlasem → „Zazpívat úryvek téhle písně“", d:"Píseň hraje, běží text, mikrofon nahrává tvůj zpěv. Po schválení je to vzor hlasu jen pro tuhle píseň.", st:"test",
   how:["Se sluchátky otevři úryvek (smyčka, refrén nebo nejvíc textu).","3-2-1, zpívej podle textu.","Poslechni a schval, nebo nahraj znovu."],
   code:[[IX,"SongTake ř. 25275"],["server.py","myvoice/sample"]], data:["Stems/<píseň>/myvoice-sample.wav"], v:[]},
@@ -670,9 +647,6 @@ const F = [
  {id:"hear", g:"steems", n:"Text odposlechnutý ze zpěvu", w:"Steems → lišta Text → ⋯ → Odposlechnout ze zpěvu", d:"Když k písni není text s časy (české písně hlavně), Pick si ho naposlouchá ze stopy zpěvu: whisper na tomhle počítači, po úsecích, kde se zpívá, v jazyce písně. Asi minuta na píseň, pak už je text u písně uložený. Text bez časů dostane časy z odposlechu. Chybný řádek opravíš dvojklikem.", st:"test",
   how:["Otevři píseň ve Steems — když se text nenajde, Pick ho začne poslouchat sám (lišta Text: Poslouchám zpěv… 12/34).","Nebo lišta Text → ⋯ → Odposlechnout ze zpěvu, případně Jiný text → 🎤 Odposlechnout ze zpěvu.","Špatně slyšený řádek: dvojklik na stopě Text → oprav slova → Jen opravit text."],
   code:[["hear.py","phrases, heard, timed"],["server.py","/api/stems/{name}/hear, /api/hear, /api/lyrics/keep"],[IX,"hearLyrics, editLine"]], data:["Stems/<píseň>/heard.json","lyrics/<hash>.json"], v:[]},
- {id:"resing", g:"steems", n:"Přezpívat řádek", w:"Steems → dvojklik na řádek na stopě Text", d:"Odebráno 3. 11. (Seed-VC smazán) — řádek jde už jen opravit. Nová slova zazpívá hlas zpěváka v melodii řádku: OmniVoice je přečte hlasem zpěváka (nebo je namluvíš sám), vokodér WORLD je položí na tóny a rytmus řádku a Seed-VC je zazpívá barvou zpěváka. Všechny přezpívané řádky jsou v jedné stopě „Upravený zpěv“, nad ní pruh „Nový text“ (nová i přeškrtnutá původní slova, dvojklikem dál upravíš nebo vrátíš), originál zůstane. Asi minuta na řádek; výslovnost bývá místy rozmazaná.", st:"off",
-  how:["Dvojklik na řádek na stopě Text (nebo ⋯ → Upravit / přezpívat řádek).","Napiš nová slova a jazyk, ▶ řádek si ho přehraje.","Přezpívat — nebo nejdřív 🎤 Namluvit (zazní tvoje nahrávka, bývá čistší).","Po minutě je ve stopách „Upravený zpěv“ a originál zpěvu se ztlumí.","Nad ní je pruh „Nový text“: nová slova a pod nimi přeškrtnutá původní.","Dvojklik na blok v pruhu: opravit zápis, přezpívat znovu, nebo vrátit původní zpěv."],
-  code:[["resing_worker.py","units, mapování slabik na tóny, WORLD"],["server.py","_resing_run, /api/stems/{name}/resing, /resing/take, /resing/edit"],["static/index.html","renderResingLane, editResung — pruh Nový text"],["svc_worker.py","Seed-VC, --cfg 0.4"]], data:["Stems/<píseň>/resing.json","resing-ref.wav, resing-say.wav"], v:[]},
  {id:"settings", g:"control", n:"Nastavení", w:"Ozubené kolo vpravo nahoře", d:"Plovoucí okno, které jde přesouvat za lištu a zvětšovat za roh; vlevo kategorie Systém, Vzhled, Zvuk a MIDI, Stahování, Steems. Poloha, velikost a poslední kategorie se pamatují. Všechna zavírací tlačítka v Picku jsou červené kolečko s křížkem jako v macOS.", st:"ok",
   how:["Ozubené kolo → vlevo vyber kategorii.","Okno přesuneš za lištu s názvem, velikost změníš v pravém dolním rohu.","Uložit je dole u Stahování a Steems."],
   code:[[IX,"SettingsWin, ikona close"]], data:[], v:[]},
@@ -712,23 +686,12 @@ const F = [
  {id:"tabs", g:"create", n:"Taby a Pick Tabs", w:"Tools → Taby", d:"Tvoje Guitar Pro a MusicXML soubory s nahrávkou, katalog Pick Tabs se všemi nástroji, úpravy tabu na místě.", st:"ok",
   how:["Tools → Taby.","Otevři soubor nebo tab z katalogu.","Spáruj s nahrávkou a hraj."],
   code:[[IX,"TabsLib ř. 7442, TabSearch ř. 13245"],["server.py","Guitar Pro ř. 4179, Pick Tabs ř. 4300"]], data:["pick_tabs.json, tab_links.json"], v:["pick show me tabs"]},
- {id:"loops", g:"create", n:"Loops", w:"Tools → Loops", d:"Z Tools odebráno 3. 11.. Looperman a další weby se smyčkami přímo v aplikaci, stažené se samy importují.", st:"off",
-  how:["Tools → Loops.","Najdi smyčku a stáhni.","Najdeš ji ve složce Loops."], code:[[IX,"Loops ř. 7210"],["server.py","loops ř. 3690, proxy ř. 3935 (port 8766)"]], data:["Loops/"], v:["pick show me loops"]},
  {id:"chords", g:"create", n:"Scales and Chords, MIDI", w:"Tools → Scales and Chords", d:"Stupnice a akordy, kruh akordů, klavír, MIDI editor, zvuk na noty.", st:"ok",
   how:["Tools → Scales and Chords.","Vyber tóninu a stupnici.","V mixu převedeš stopu na MIDI."], code:[[IX,"Piano ř. 28499, Midi ř. 22813, InstrPick ř. 28453"],["audio2midi.py","basic-pitch"]], data:["soundfonts/"], v:["pick show me chords"]},
  {id:"ukutabs", g:"create", n:"Ukulele Tabs", w:"Tools → Ukulele Tabs", d:"Nejnovější taby pro ukulele z ukutabs.com — ve vlastním okně, protože se web do Picku vložit nenechá.", st:"ok",
   how:["Tools → Ukulele Tabs.","Web se otevře ve vlastním okně."], code:[["server.py","WEB_TOOLS, /api/tools/web/open"],[IX,"TOOLS, openTool"]], data:[], v:[]},
  {id:"analyzer", g:"create", n:"Performance Analyzer", w:"Tools → Performance Analyzer (/analyzer)", d:"Nahraješ se a porovnáš s referencí: výška, timing, rytmus.", st:"ok",
   how:["Otevři Analyzer.","Vyber referenci a nahraj se.","Prohlédni grafy rozdílů."], code:[["static/analyzer.html",""],["static/analyzer-engine.js",""]], data:[], v:["pick show me analyzer"]},
- {id:"loopstudio", g:"create", n:"Loop Studio", w:"Tools → Loop Studio (/loopstudio)", d:"Z Tools odebráno 3. 11. (stránka /loopstudio zůstává). Rozloží píseň na Loop Plan: takty, akordy, části a nastavení pro Loopy Pro.", st:"off",
-  how:["Otevři Loop Studio.","Vyber píseň ze Steems.","Projdi plán a části."], code:[["loopstudio.py",""],["static/loopstudio.html",""]], data:[], v:["pick show me loop studio"]},
- // ---------- control
- {id:"voice", g:"control", n:"Hlasové povely", w:"Mikrofon v horní liště; bez okna: lišta ♪ → Poslouchat hlasem", d:"Model Vosk smazán 3. 11. Vypnuto 3. 11.: tlačítko v horní liště je pryč a nic neposlouchá. Anglické povely začínající „pick“, rozpoznané v počítači (168 povelů). Cvičení kapely s kamarádem: kapela ve Steems, píseň bez kytar, ladění kytar a basy, hlasitosti a strany, sekce, posun smyčky. Zesílení mikrofonu až +30 dB.", st:"off",
-  how:["Zapni mikrofon nahoře, vyber zvukovku, Vstup a Zesílení (ukazatel do půlky).","„pick stems sepultura“ → „pick play two“: píseň se otevře s ztlumenými kytarami.","„pick tune down“, „pick bass lower“, „pick drums quieter“, „pick guitar left“, „pick up“.","„pick from chorus“, „pick loop verse“, „pick loop end right“, „pick loop off“.","„pick lyrics“, „pick tabs“, „pick help“, „hey pick“.","Špatně slyšený povel nauč svým hlasem (🎙 u řádku, 3×)."],
-  code:[[IX,"Voice (run, found, steemsBand, afterOpen), Mixer.voice (guitars, pitch, goto, edge)"],["voice.py","Vosk, Whisper, COMMANDS, SLOTS"],["server.py","voice, bez okna (zesílení přes ffmpeg), Again"]], data:["voice/, voice-commands.json, voice-taught.json, voice-widget.json (gain)"], v:["pick stems <kapela>","pick play <číslo>","pick tune down","pick from chorus","pick loop end right","pick guitars on","hey pick","pick help"]},
- {id:"assistant", g:"control", n:"Asistent", w:"„pick listen“ nebo pole Asistent v nabídce mikrofonu", d:"Odebráno 3. 11. (model Gemma smazán, pole bylo v menu hlasového ovládání). Česká věta se změní v akce aplikace. Nejdřív kniha vět, pak Gemma v počítači, nakonec Claude API. Učí se z povedených vět.", st:"off",
-  how:["Řekni „pick listen“ a pak česky, co chceš.","Nebo napiš větu do pole Asistent.","Na /assistant/book uvidíš, co umí, a naučíš ho novou větu."],
-  code:[["assistant.py","SYSTEM, TOOLS, _mend"],["assistant_book.py","kniha vět"],["server.py","assistant ř. 10594"]], data:["assistant-learned.json, assistant-unknown.json, models/"], v:["pick listen"]},
  {id:"mini", g:"control", n:"Minipřehrávač", w:"Lišta ♪ → Mini přehrávač, /mini", d:"Malé okno se Steems, knihovnou, složkami a hledáním; hraje doprovod bez kytary a kytaru přidá na povel.", st:"ok",
   how:["Otevři z lišty nebo „pick mini player“.","Hledej nebo vyber číslo položky.","GTR přidá a ubere kytaru."], code:[["static/mini.html",""],["server.py","mini ř. 5423"]], data:[], v:["pick play in mini","pick play twenty five","pick next song"]},
  {id:"launch", g:"control", n:"Pick.app a lišta macOS", w:"Plocha: Pick; lišta: ♪", d:"Spouští server, hlídá ho a otevírá okno Chrome. V liště je přehrávaná skladba, transport a hlasitost.", st:"ok",

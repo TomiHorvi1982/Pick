@@ -95,10 +95,6 @@
   .vbar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub)}
   #smode{flex-wrap:wrap}
   /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
-  .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
-  .voice-again[hidden]{display:none}
-  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px rgba(30,215,96,.75)) drop-shadow(0 0 140px rgba(30,215,96,.4));animation:vagain .46s ease-in-out infinite alternate}
-  .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
     text-shadow:0 0 28px rgba(30,215,96,.85),0 0 80px rgba(30,215,96,.5),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
   @keyframes vagain{from{opacity:.12;transform:scale(.94)}to{opacity:.62;transform:scale(1.05)}}
   .seg{display:flex;padding:2px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid var(--line)}
@@ -313,7 +309,6 @@
       <button class="tab" data-tab="queue"></button>
       <button class="tab" data-tab="search"></button>
     </div>
-    <button class="iconbtn" id="voicebtn" title="Hlasové ovládání minipřehrávače zap / vyp. Řekni anglicky „pick play“ a název písně (ze seznamu, který je vybraný), „pick find playlist“ a název, „pick play &lt;název&gt; playlist“, „pick play all“, „pick save song“ (uloží hrající píseň a připraví ji na cvičení), „pick stems list“ / „pick library“ / „pick folders“ / „pick internet“ / „pick playlists“ / „pick next list“, „pick next song“, „pick stop“, „pick up“, „pick help“."></button>
     <button class="iconbtn" id="fullbtn" title="Celá obrazovka (F)"></button>
     <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
     <button class="iconbtn tabbtn" id="gtrbtn" hidden title="Originální kytara zap / vyp — hraje se dál (hlasem: „pick guitar on“, „pick guitar off“)">GTR</button>
@@ -432,7 +427,6 @@
     Aplikace neběží — hraju sám · <a href="#" id="openMain">otevřít aplikaci</a>
   </div>
 </div>
-<div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
 <div class="toast" id="toast"></div>
 <audio id="lp" preload="auto"></audio>
 <iframe id="lpyt" title="YouTube přehrávač" allow="autoplay; encrypted-media" style="position:fixed;left:-10px;top:-10px;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
@@ -500,9 +494,7 @@ el("back10").innerHTML = icon("back10", 19);
 el("fwd10").innerHTML = icon("fwd10", 19);
 el("mute").innerHTML = icon("volume", 16);
 el("sleep").innerHTML = icon("moon", 16);
-el("voicebtn").innerHTML = icon("mic", 16);
 el("fullbtn").innerHTML = icon("full", 16);
-el("voicebtn").onclick = () => MiniVoice.toggle();
 el("gtrbtn").onclick = () => gtrSet(!GTR.on);
 const toggleFull = () => document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : document.documentElement.requestFullscreen().catch(() => toast("Celá obrazovka se nepovedla"));
 el("fullbtn").onclick = toggleFull;
@@ -564,12 +556,6 @@ async function refresh(){
     if(asked) store.set("takeseq", s.mini_take);
     if((!booted || asked) && rplaying && !handed && !LP.active) takeOver(s);
     booted = true;
-  }
-  MiniVoice.first(!!s && ((!s.stale && !!s.voice) || !!s.widget));
-  // A command the menu bar heard with no window listening: it opened this one for it.
-  if(s && s.mini_voice && s.mini_voice.seq && store.get("voiceseq", 0) !== s.mini_voice.seq){
-    store.set("voiceseq", s.mini_voice.seq);
-    MiniVoice.got(s.mini_voice.r).catch(() => {});
   }
   // A song the app handed over ("play in mini"): once, also when this window only just opened.
   if(s && s.mini && s.mini.seq && store.get("playseq", 0) !== s.mini.seq){
@@ -1896,365 +1882,6 @@ try{
     }
   }
 }catch(e){}
-// --------------------------------------------------------------- voice
-// The mini player listens by itself, and while it does the app's window steps
-// back (the server lets one window listen at a time, this one first). The
-// same recogniser as the app's: "pick" and a command. What is said after
-// "pick song / band / playlist" is searched for here and the finds are listed;
-// a title from the list, said after "pick", is the choice.
-const MiniVoice = (() => {
-  const WORKLET = `registerProcessor("pick-voice", class extends AudioWorkletProcessor {
-    constructor(o){ super(); this.ch = (o.processorOptions && o.processorOptions.ch) || 0; }
-    process(inputs){ const i = inputs[0], c = i && (i[this.ch] || i[0]); if(c) this.port.postMessage(c.slice(0)); return true; } });`;
-  let on = false, stream = null, actx = null, node = null, parts = [], held = 0, chain = Promise.resolve(), decided = false, similar = [];
-  const paint = () => el("voicebtn").classList.toggle("on", on);
-  const heard = (t) => { const h = el("vheard"); h.textContent = t; h.hidden = !t; };
-
-  function flush(){
-    const all = new Int16Array(held);
-    let o = 0;
-    for(const p of parts) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
-    parts = []; held = 0;
-    if(deaf) return;
-    chain = chain.then(() => on ? fetch("/api/voice/feed?who=mini" + (helpOn ? "&menu=1" : ""), {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
-      .then(r => r && r.ok ? r.json() : null).then(r => { if(r && r.heard) got(r).catch(() => {}); }).catch(() => {});
-  }
-  async function start(){
-    if(on) return;
-    try{
-      const r = await fetch("/api/voice/start?who=mini", {method: "POST"});
-      if(!r.ok){ const d = await r.json().catch(() => ({})); throw new Error(d.error || "Hlasové ovládání se nespustilo."); }
-      let dev = "", ch = "";
-      try{ dev = localStorage.getItem("pick-voice-mic") || ""; ch = localStorage.getItem("pick-voice-ch") || ""; }catch(e){}
-      stream = await navigator.mediaDevices.getUserMedia({audio: ch
-        ? {deviceId: dev ? {exact: dev} : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: {ideal: 2}}
-        : {deviceId: dev ? {exact: dev} : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}});
-      const got2 = stream.getAudioTracks()[0].getSettings().channelCount || 1;
-      actx = new AudioContext({sampleRate: 16000});
-      const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
-      await actx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
-      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit",
-        channelInterpretation: "discrete", processorOptions: {ch: ch === "2" && got2 > 1 ? 1 : 0}});
-      node.port.onmessage = (e) => { parts.push(e.data); held += e.data.length; if(held >= 4000) flush(); };
-      actx.createMediaStreamSource(stream).connect(node);
-      if(actx.state === "suspended"){ const c = actx, wake = () => { c.resume().catch(() => {}); removeEventListener("pointerdown", wake, true); }; c.resume().catch(() => {}); addEventListener("pointerdown", wake, true); }
-      on = true; parts = []; held = 0;
-      toast("Poslouchám — „pick play“ a název, „pick find playlist“, „pick save song“, „pick help“", 3000);
-    }catch(e){
-      stop();
-      toast(e.name === "NotAllowedError" ? "Mikrofon není povolený" : (e.message || "Mikrofon se nepodařilo otevřít"));
-    }
-    paint();
-  }
-  function stop(){
-    const was = on;
-    on = false;
-    if(stream) stream.getTracks().forEach(t => t.stop());
-    if(actx) actx.close().catch(() => {});
-    stream = actx = node = null; parts = []; held = 0;
-    if(was) fetch("/api/voice/stop?who=mini", {method: "POST", keepalive: true}).catch(() => {});
-    paint();
-  }
-  function toggle(){ decided = true; store.set("voice", !on); on ? stop() : start(); }
-  // Opened: listen when it was left listening, or — never switched here yet — when the app is.
-  function first(appListens){
-    if(decided) return;
-    decided = true;
-    const pref = store.get("voice", null);
-    if(pref === true || (pref === null && appListens)) start();
-  }
-  addEventListener("pagehide", () => { if(on) stop(); });
-
-  // ---- what a command does here
-  function showSearch(){
-    if(mode === "compact"){ setSize("wide"); }
-    if(mode === "wide" || innerWidth >= 720) setSide("search"); else showTab("search");
-  }
-  const setMode = setSection;
-  async function search(m, q){
-    showSearch(); setMode(m);
-    el("sq").value = q;
-    clearTimeout(srch.timer);
-    await runSearch();
-    return srch.list.length;
-  }
-  function paintSimilar(of){
-    const box = el("ssim");
-    box.hidden = !similar.length;
-    box.innerHTML = similar.length ? `<span>Podobné jako ${esc(of)}:</span>` + similar.map((n, i) => `<button type="button" data-sim="${i}">${esc(n)}</button>`).join("") : "";
-    box.querySelectorAll("[data-sim]").forEach(b => b.onclick = () => band(similar[+b.dataset.sim]));
-  }
-  async function song(name){
-    similar = []; paintSimilar("");
-    let n = await search("library", name);
-    if(!n) n = await search("songs", name);            // not in the library: the internet
-    if(!n){ toast(`„${name}“ jsem nenašel`); return; }
-    if(n === 1){ lpPlayList(srch.list, 0); toast("Hraju: " + srch.list[0].title); return; }
-    toast(`${n} písní — řekni „pick“ a název, nebo „pick play all“`);
-  }
-  async function band(name){
-    similar = []; paintSimilar("");
-    let n = await search("library", name);
-    if(!n) n = await search("songs", name);
-    toast(n ? `${name}: ${n} písní — „pick“ a název, nebo „pick play all“` : `Kapelu „${name}“ jsem nenašel`);
-    // Who else sounds like this — from the artist's page.
-    try{
-      const a = await (await fetch("/api/artist?name=" + encodeURIComponent(name))).json();
-      similar = (a.related || []).map(r => r.name).filter(Boolean).slice(0, 8);
-      paintSimilar(a.name || name);
-    }catch(e){}
-  }
-  async function playlist(name){
-    similar = []; paintSimilar("");
-    const n = await search("playlists", name);
-    toast(n ? `${n} playlistů — řekni „pick playlist“ a číslo, nebo „pick play“, název a „playlist“` : `Playlist „${name}“ jsem nenašel`, 3500);
-  }
-  // Which of these names was said: its index, or -1.
-  async function best(said, names){
-    if(!names.length) return -1;
-    try{
-      const r = await (await fetch("/api/voice/best", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({query: said, names})})).json();
-      return r.index === null || r.index === undefined ? -1 : r.index;
-    }catch(e){ return -1; }
-  }
-  // The songs of one list that a spoken name means, the likeliest first.
-  async function named(m, name, lib){
-    if(m === "songs"){
-      try{ const d = await (await fetch(`/api/tracks?q=${encodeURIComponent(name)}&limit=10`)).json(); return (Array.isArray(d) ? d : []).map(spTrack); }
-      catch(e){ return []; }
-    }
-    const all = m === "steems" ? await steemsAll() : m === "favs" ? await favTracks() : await libSongs();
-    const w = plain(name).split(/\s+/).filter(Boolean);
-    const hit = all.filter(t => w.every(k => plain(t.title + " " + t.artists).includes(k)));
-    if(hit.length){
-      const i = await best(name, hit.map(t => t.title));
-      return i > 0 ? [hit[i]].concat(hit.filter((_, k) => k !== i)) : hit;
-    }
-    // Not written the way it was heard: by its sound.
-    if(m === "library" && lib){ const t = all.find(x => x.relPath === lib); return t ? [t] : []; }
-    let i = await best(name, all.map(t => t.title));
-    if(i < 0) i = await best(name, all.map(t => `${t.artists} ${t.title}`));
-    return i >= 0 ? [all[i]] : [];
-  }
-  // "pick play <name>": what is on screen first, then the list that is on, then the others.
-  async function playNamed(name, lib){
-    similar = []; paintSimilar("");
-    const inPl = !!srch.pl, rows = inPl ? srch.pl.tracks : srch.list;
-    const i = await best(name, rows.map(x => x.title || ""));
-    if(i >= 0){
-      if(inPl || trackMode()){ lpPlayList(rows, i); toast("Hraju: " + rows[i].title); }
-      else{ await plOpen(i, false); toast(`${rows[i].title} — řekni „pick play“ a název písně, nebo „pick play all“`, 3500); }
-      return;
-    }
-    const order = ["steems", "library", "songs"];
-    if(trackMode()){ order.splice(order.indexOf(srch.mode), 1); order.unshift(srch.mode); }
-    for(const m of order){
-      const got = await named(m, name, lib);
-      if(!got.length) continue;
-      lpPlayList(got, 0);
-      toast(`Hraju: ${got[0].title}` + (m === srch.mode ? "" : ` (${SECTION_CZ[m]} — v seznamu ${SECTION_CZ[srch.mode]} není)`), 3000);
-      return;
-    }
-    toast(`„${name}“ jsem nenašel`);
-  }
-  // "pick search <name>": what is here already is shown and opened — Steems
-  // first, it is ready for the mix — and only what is not is looked up outside.
-  async function searchFor(name){
-    similar = []; paintSimilar("");
-    for(const m of ["steems", "favs", "library"]){
-      const got = await named(m, name);
-      if(!got.length) continue;
-      showSearch(); setMode(m); el("sq").value = name; clearTimeout(srch.timer);
-      srch.token++; srch.q = name; srch.pl = null; srch.more = 0; srch.busy = false; srch.list = got; renderSearch();
-      lpPlayList(got, 0);
-      toast(`Už máš (${SECTION_CZ[m]}): ${got[0].title}` + (got.length > 1 ? ` — a ${got.length - 1} dalších, „pick play“ a číslo` : ""), 3500);
-      return;
-    }
-    const n = await search("songs", name);
-    toast(n ? `„${name}“ ještě nemáš — ${n} z internetu, řekni „pick play“ a číslo` : `„${name}“ jsem nenašel`, 3500);
-  }
-  // "pick play twenty five": the row with that number — a song is played, a playlist opened.
-  async function playNumber(n, pl){
-    if(!shown("search")) showSearch();
-    if(pl){                                   // "pick playlist twenty": one of the playlists, also from inside one
-      if(srch.pl){ srch.pl = null; renderSearch(); }
-      if(trackMode()){ toast("Tady jsou písně — řekni „pick playlists“ nebo „pick folders“, pak „pick playlist“ a číslo", 3500); return; }
-    }
-    const inPl = !!srch.pl, rows = inPl ? srch.pl.tracks : srch.list;
-    if(!rows.length){ toast("Seznam je prázdný — nejdřív něco vyhledej"); return; }
-    if(n > rows.length){ toast(`Číslo ${n} v seznamu není — končí číslem ${rows.length}`, 3000); return; }
-    const row = rows[n - 1];
-    if(inPl || trackMode()){
-      lpPlayList(rows, n - 1); toast(`Hraju ${n}: ${row.title}`);
-      const r = el("sres").querySelector(`.qi[data-i="${n - 1}"]`); if(r) r.scrollIntoView({block: "nearest", behavior: "smooth"});
-    }else{ await plOpen(n - 1, false); toast(`${row.title} — řekni „pick play“ a číslo nebo název písně, nebo „pick play all“`, 3500); }
-  }
-  // "pick play <name> playlist": one of the playlists listed, or looked up by that name.
-  async function openNamed(name){
-    similar = []; paintSimilar("");
-    showSearch();
-    let i = -1;
-    if(!srch.pl && !trackMode()) i = await best(name, srch.list.map(p => p.title || ""));
-    if(i < 0){
-      if(!await search("playlists", name)){ toast(`Playlist „${name}“ jsem nenašel`); return; }
-      i = Math.max(0, await best(name, srch.list.map(p => p.title || "")));
-    }
-    const title = srch.list[i].title;
-    await plOpen(i, false);
-    toast(`${title} — řekni „pick play“ a název písně, nebo „pick play all“`, 3500);
-  }
-  // A title said after "pick": which of the things on screen it was.
-  async function choose(said){
-    if(!shown("search")) return false;
-    const inPl = !!srch.pl, rows = inPl ? srch.pl.tracks : srch.list;
-    const names = rows.map(x => x.title || "").concat(similar);
-    if(!names.length) return false;
-    const r = await (await fetch("/api/voice/best", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({query: said, names})})).json();
-    if(r.index === null || r.index === undefined) return false;
-    if(r.index >= rows.length){ await band(similar[r.index - rows.length]); return true; }
-    if(inPl || trackMode()){ lpPlayList(rows, r.index); toast("Hraju: " + rows[r.index].title); }
-    else{ await plOpen(r.index, false); toast(`${rows[r.index].title} — řekni „pick“ a název písně, nebo „pick play all“`); }
-    return true;
-  }
-  // ---- the prompter ("pick help"): what can be said here, by kind. It stays
-  // until a command is chosen or "nothing" is said; while it is up a command
-  // needs no "pick" and one word narrows it.
-  const GROUPS = [
-    ["Přehrávání", /^(play|pause|rewind|next|prev|skip:[+-])$/, "#1ed760", "play"],
-    ["Hledání", /^(find:(song|band|playlist|play|open|search|here)|num|plnum)/, "#4aa8ff", "search"],
-    ["Seznamy", /^list:/, "#4ade80", "folder"],
-    ["Nabídka a seznam", /^(page|helppage|sort|playall|back|help|nothing)/, "#ffd84a", "list"],
-    ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
-    ["Kytara", /^gtr/, "#ff5c8a", "note"],
-    ["Ostatní", /^(song|playlist|save)$/, "#a8b0c0", "disc"]];
-  let helpOn = false, helpRows = [], helpMiss = 0;
-  function helpPaint(filter){
-    const f = (filter || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
-    let rows = helpRows.filter(c => GROUPS.some(g => g[1].test(c.id)));          // only what this window can do
-    rows = rows.filter(c => f.every(w => c.say.toLowerCase().split(/[^a-z<>]+/).includes(w)));
-    el("vhelp-title").textContent = f.length ? (rows.length ? `Povely se slovem „${f.join(" ")}“` : `„${f.join(" ")}“ — takový povel tu není`)
-      : "Řekni povel nebo slovo (song, page, guitar…) — „nothing“ nabídku zavře";
-    if(f.length && !rows.length) again();
-    const left = rows.slice(), html = [];
-    GROUPS.forEach(([name, re, col, ic]) => {
-      const mine = left.filter(c => re.test(c.id)); if(!mine.length) return;
-      mine.forEach(c => left.splice(left.indexOf(c), 1));
-      html.push(`<div class="g" style="--gc:${col}"><h4><span class="ic">${icon(ic, 13)}</span>${name}</h4>` +
-        mine.map(c => `<div class="r"><b>${esc(c.say.replace(/^pick /, ""))}</b><span>${esc(c.does.replace(/ ?\(minipřehrávač\)/, ""))}</span></div>`).join("") + `</div>`);
-    });
-    if(!f.length) html.push(`<div class="g" style="--gc:#b784ff"><h4><span class="ic">${icon("mic", 13)}</span>Výběr z nabídky</h4><div class="r"><b>pick &lt;název&gt;</b><span>píseň, playlist nebo podobná kapela, která je vypsaná</span></div></div>`);
-    el("vhelp-list").innerHTML = html.join("");
-    el("vhelp").classList.toggle("narrow", f.length > 0);
-  }
-  async function helpOpen(){
-    if(!helpRows.length){ try{ helpRows = (await (await fetch("/api/voice/commands")).json()).commands; }catch(e){} }
-    helpOn = true; el("vhelp").hidden = false; helpPaint("");
-  }
-  function helpClose(){ helpOn = false; el("vhelp").hidden = true; }
-  el("vhelp-close").onclick = helpClose;
-  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
-
-  let deaf = false;
-  // Meant for Pick and not understood: the logo flashes with the words, and the
-  // user's own shout is played (the computer's "Again!" when none is recorded).
-  // The microphone hears it too: nothing is listened to until it is over.
-  let againCfg = null;
-  const againLoad = async () => { try{ againCfg = await (await fetch("/api/voice/again")).json(); }catch(e){ againCfg = againCfg || {text: "Say it again!!!", audio: false}; } return againCfg; };
-  async function againShow(){
-    const c = againCfg || await againLoad(), box = el("voice-again");
-    el("voice-again-text").textContent = c.text;
-    box.hidden = false; deaf = true;
-    let over = false;
-    const done = () => { if(over) return; over = true; box.hidden = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
-    setTimeout(done, 6000);
-    const least = new Promise(r => setTimeout(r, 1700));           // the flash is seen even when the shout is short
-    const sound = new Promise(r => {
-      if(c.audio){
-        const a = new Audio("/api/voice/again/audio?v=" + c.v);
-        a.onended = a.onerror = r; a.play().catch(r);
-      }else if(window.speechSynthesis){
-        const u = new SpeechSynthesisUtterance("Again!"); u.lang = "en-US"; u.rate = 1.05;
-        u.onend = u.onerror = r; speechSynthesis.cancel(); speechSynthesis.speak(u);
-      }else r();
-    });
-    await Promise.all([least, sound]); done();
-  }
-  const again = () => { againCfg = null; againShow(); };      // asked anew each time: the app may have changed it
-  async function got(r){
-    heard("slyšel jsem: " + r.heard + (r.said && !r.command ? " („" + r.said + "“)" : ""));
-    const cmd = r.command;
-    if(cmd === "help"){ helpOpen(); return; }
-    if(cmd === "nothing"){ helpClose(); return; }
-    if(!cmd){
-      if(r.filter !== undefined && helpOn){ helpPaint(r.filter); return; }
-      if(r.said && await choose(r.said)){ helpClose(); return; }
-      if(r.said) toast(`„${r.said}“ v nabídce není`);
-      if(r.said || r.again){
-        if(helpOn && performance.now() - helpMiss < 6000) return;      // a talking room: told "again" now and then, not every time
-        helpMiss = performance.now(); again();
-      }
-      return;
-    }
-    helpClose();
-    if(cmd.startsWith("custom:")){ toast("Vlastní povely umí jen aplikace"); return; }
-    const [what, arg] = cmd.split(":");
-    if(what === "find"){
-      const name = r.name || (r.find && (r.find.query || (r.find.track && r.find.track.title) || r.find.artist)) || "";
-      if(!name){ toast("Nerozuměl jsem názvu"); return; }
-      if(arg === "band") return band(name);
-      if(arg === "playlist") return playlist(name);
-      if(arg === "open") return openNamed(name);
-      if(arg === "search") return searchFor(name);
-      if(arg === "here") return playNamed(name, r.find && r.find.track && r.find.track.rel);
-      if(arg === "play") return playNamed(name, r.find && r.find.track && r.find.track.rel);
-      return song(name);
-    }
-    if(what === "num" || what === "plnum"){ await playNumber(+arg, what === "plnum"); return; }
-    if(what === "save"){ Saved.save(); return; }
-    if(what === "list" || what === "steems"){
-      const step = arg === "+" ? 1 : arg === "-" ? SECTIONS.length - 1 : 0;
-      const m = what === "steems" ? "steems" : step ? SECTIONS[(SECTIONS.indexOf(srch.mode) + step) % SECTIONS.length] : arg;
-      if(!SECTIONS.includes(m)) return;
-      showSearch(); setMode(m); el("sq").value = ""; similar = []; paintSimilar("");
-      await runSearch();
-      toast(`Seznam: ${SECTION_CZ[m]}` + (!srch.list.length ? " — nic tu není" : trackMode() ? ` (${srch.list.length}) — řekni „pick play“ a číslo nebo název` : m === "bands" ? ` (${srch.list.length}) — řekni „pick play“ a číslo nebo jméno kapely` : ` (${srch.list.length}) — řekni „pick playlist“ a číslo` + (m === "playlists" ? ", „pick find playlist“ hledá další" : "")), 3000);
-      return;
-    }
-    if(what === "next" || what === "prev"){ send(what); return; }
-    if(what === "play"){ send("play"); if(!S.playing && !LP.track) send("playpause"); return; }
-    if(what === "pause"){ send("pause"); return; }
-    if(what === "rewind"){ send("seek", 0); return; }
-    if(what === "skip"){ jump(arg === "-" ? -10 : 10); return; }
-    if(what === "up" || what === "down" || what === "louder" || what === "quieter"){
-      const db = what === "louder" ? 3 : what === "quieter" ? -3 : 3 * (+arg || 1) * (what === "up" ? 1 : -1);
-      const v = S.volume > 0 ? S.volume * Math.pow(10, db / 20) : (db > 0 ? 0.05 : 0);
-      send("volume", Math.max(0, Math.min(1, v < 0.01 ? 0 : v)));
-      toast(`hlasitost ${db > 0 ? "+" : "−"}${Math.abs(db)} dB`); return;
-    }
-    if(what === "gtr"){ gtrSet(arg === "on"); return; }
-    if(what === "helppage"){ if(helpOn){ const b = el("vhelp-list"); b.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * b.clientHeight, behavior: "smooth"}); } return; }
-    if(what === "sort"){
-      const rows = srch.pl ? srch.pl.tracks : srch.list;
-      if(!rows.length){ toast("Není co řadit"); return; }
-      const tracks = !!srch.pl || trackMode(), by = (t) => plain(!tracks || arg === "title" ? t.title : arg === "album" ? t.album : t.artists);
-      rows.sort((a, b) => (!by(a) - !by(b)) || by(a).localeCompare(by(b), "cs", {numeric: true}) || plain(a.title).localeCompare(plain(b.title), "cs", {numeric: true}));
-      renderSearch(); el("sres").scrollTop = 0;
-      toast("Seřazeno podle " + (!tracks || arg === "title" ? "názvu" : arg === "album" ? "alba" : "kapely"));
-      return;
-    }
-    if(what === "page"){ const b = el("sres"); b.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * b.clientHeight, behavior: "smooth"}); return; }
-    if(what === "playall"){
-      const rows = srch.pl ? srch.pl.tracks : (trackMode() ? srch.list : []);
-      if(rows.length){ lpPlayList(rows, 0); toast(`Hraju vše (${rows.length})`); } else toast("Není co přehrát — nejdřív něco vyhledej");
-      return;
-    }
-    if(what === "back"){ if(srch.pl){ srch.pl = null; renderSearch(); } return; }
-    if(what === "playlist"){ showSearch(); setMode("folders"); el("sq").value = ""; await runSearch(); toast("Složky a playlisty v knihovně — řekni „pick“ a název"); return; }
-    if(what === "song"){ const all = await libSongs(); if(all.length){ const i = Math.floor(Math.random() * all.length); lpPlayList([all[i]], 0); toast("Hraju: " + all[i].title); } return; }
-    toast("Tenhle povel umí jen aplikace");
-  }
-  return {start, stop, toggle, first, isOn: () => on, got, choose};
-})();
 
 runSearch();          // the songs of Steems, there as soon as the search opens
 Saved.paint();

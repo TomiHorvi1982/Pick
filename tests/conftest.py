@@ -50,12 +50,6 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(planner, "CAFFEINATE", "/usr/bin/true")          # the Mac's sleep is not the tests' business
     monkeypatch.setattr(planner, "_AWAKE", {"proc": None})
     monkeypatch.setattr(notes, "FILE", tmp_path / "notes.json")
-    # …and so do the user's own voice commands and what they taught by voice.
-    import voice
-    monkeypatch.setattr(voice, "CUSTOM_PATH", tmp_path / "voice-commands.json")
-    monkeypatch.setattr(voice, "TAUGHT_PATH", tmp_path / "voice-taught.json")
-    monkeypatch.setattr(voice, "TAKES_DIR", tmp_path / "voice-takes")
-    monkeypatch.setattr(voice, "WIDGET_PATH", tmp_path / "voice-widget.json")
     # …and the clips found for songs; no test ever reaches the real diskutil (formatting!).
     import viz, storage
     monkeypatch.setattr(viz, "CLIPS", tmp_path / "viz-clips.json")
@@ -82,17 +76,13 @@ def _own_config(tmp_path, monkeypatch):
     monkeypatch.setattr(songbook, "MINE", tmp_path / "songbook-mine.json")
     monkeypatch.setattr(songbook, "BANDS", tmp_path / "songbook-bands.json")
     monkeypatch.setattr(songbook, "QUEUE", tmp_path / "songbook-queue.json")
-    # …and the assistant never finds a real API key, nor spends anything.
-    import assistant
-    monkeypatch.setattr(assistant, "KEY_PATH", tmp_path / "anthropic-key.txt")
+    # …and the lyricist's models (llm.py) never find a real API key, nor spend anything.
+    import llm
+    monkeypatch.setattr(llm, "KEY_PATH", tmp_path / "anthropic-key.txt")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("PICK_LLM_MODEL", raising=False)
-    monkeypatch.setattr(assistant, "LLM_PATHS", [])        # …nor a model in this computer to load
-    monkeypatch.setattr(assistant, "LLM_PID", tmp_path / "assistant-llm.pid")
-    monkeypatch.setattr(assistant, "LEARNED", tmp_path / "assistant-learned.json")
-    monkeypatch.setattr(assistant, "UNKNOWN", tmp_path / "assistant-unknown.json")
-    assistant._turns.clear(); assistant._last.update(miss=None, learned=None)
-    assistant._sessions.clear()
+    monkeypatch.setattr(llm, "LLM_PATHS", [])              # …nor a model in this computer to load
+    monkeypatch.setattr(llm, "LLM_PID", tmp_path / "assistant-llm.pid")
     # …and the look of the app is the test's own too.
     import look
     monkeypatch.setattr(look, "LOOK_PATH", tmp_path / "look.json")

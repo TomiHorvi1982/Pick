@@ -4076,12 +4076,7 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-tabtop.folded .nm-tabtop-bar > .tmenu{display:none}
   /* the prompter: what can be said */
   /* Docked on the right and left there while commands are given ("pick help close" puts it away). */
-  .voice-help{position:fixed;right:10px;top:70px;bottom:104px;z-index:90;width:min(400px,36vw);display:flex;flex-direction:column;
-    background:rgba(16,16,20,.97);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.7);color:#fff}
-  .voice-help[hidden]{display:none}
   /* "Say it again!!!": the logo, large and see-through, over the middle of the window; nothing behind it is covered. */
-  .voice-again{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;pointer-events:none}
-  .voice-again[hidden]{display:none}
   /* Beside an open mix: the song, and its artist's albums with what is there and what is not. */
   .srail{padding:6px 4px 20px}
   .srail-now{display:flex;gap:10px;align-items:center;padding:10px 8px;margin:6px 0 4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
@@ -4628,49 +4623,8 @@ body.lib-collapsed .pick-brand{display:none}
   .lib-havebar button{background:none;border:1px solid #3a3a44;color:var(--text);border-radius:500px;padding:3px 11px;font:inherit;font-size:11.5px;cursor:pointer}
   .lib-havebar button:hover{border-color:var(--accent);color:var(--accent)}
   /* "hey pick": what can be said, written small at the thing it works on */
-  .voice-hints{position:fixed;inset:0;z-index:94;pointer-events:none}
-  .voice-hints[hidden]{display:none}
-  .voice-hints i{position:absolute;font:700 10px/1.25 -apple-system,"Helvetica Neue",sans-serif;font-style:normal;letter-spacing:.02em;white-space:nowrap;
-    color:#ffe27a;background:rgba(12,12,16,.78);border:1px solid rgba(255,216,74,.45);border-radius:4px;padding:0 5px;
-    box-shadow:0 0 10px rgba(255,216,74,.18);animation:vhint .22s ease-out both}
-  .voice-hints b{position:absolute;left:50%;top:56px;transform:translateX(-50%);max-width:min(92vw,980px);text-align:center;
-    font:600 11px/1.5 -apple-system,"Helvetica Neue",sans-serif;color:rgba(255,226,122,.92);background:rgba(12,12,16,.8);
-    border:1px solid rgba(255,216,74,.35);border-radius:8px;padding:4px 12px;animation:vhint .22s ease-out both}
-  .voice-hints b span{color:#9a9aa6;font-weight:400}
-  @keyframes vhint{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
-  .voice-hints b{animation-name:vhintb}
-  @keyframes vhintb{from{opacity:0}to{opacity:1}}
-  .voice-again img{width:min(46vh,46vw);height:auto;opacity:.5;filter:drop-shadow(0 0 60px color-mix(in srgb,var(--accent) 75%,transparent)) drop-shadow(0 0 140px color-mix(in srgb,var(--accent) 40%,transparent));animation:vagain .46s ease-in-out infinite alternate}
-  .voice-again b{font-size:min(9vh,7vw);font-weight:900;letter-spacing:.02em;color:rgba(255,255,255,.82);text-align:center;padding:0 4vw;
-    text-shadow:0 0 28px color-mix(in srgb,var(--accent) 85%,transparent),0 0 80px color-mix(in srgb,var(--accent) 50%,transparent),0 2px 10px rgba(0,0,0,.6);animation:vagain .46s ease-in-out infinite alternate}
   @keyframes vagain{from{opacity:.12;transform:scale(.94)}to{opacity:.62;transform:scale(1.05)}}
-  .voice-again-row input{flex:1;min-width:0}
-  .voice-again-row button{flex:none;border:1px solid var(--nm-line,#333);background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:3px 7px;border-radius:6px}
-  .voice-again-row button:hover{color:var(--nm-txt)}
-  .voice-again-row button.has{color:var(--accent,var(--accent));border-color:var(--accent,var(--accent))}
-  .voice-again-row button.busy{color:#ff6b6b;border-color:#ff6b6b}
-  .vh-head{display:flex;align-items:center;gap:12px;padding:12px 14px;font-size:13px;font-weight:700;color:var(--accent,var(--accent));border-bottom:1px solid #2a2a34}
-  .vh-head span{flex:1}
-  .vh-head button{border:none;background:none;color:#aaa;font-size:16px;cursor:pointer}
-  .vh-list{overflow-y:auto;padding:12px 14px 16px;flex:1;min-height:0}
-  .vh-list .g{break-inside:avoid;margin-bottom:12px;padding:8px 10px 8px 12px;border-radius:10px;border-left:3px solid var(--gc,#888);
-    background:color-mix(in srgb, var(--gc,#888) 9%, transparent)}
-  .vh-list h4{margin:0 0 5px;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--gc,#888);display:flex;align-items:center;gap:7px}
-  .vh-list h4 .ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:color-mix(in srgb, var(--gc,#888) 22%, transparent)}
-  .vh-list .r b{color:color-mix(in srgb, var(--gc,#fff) 55%, #fff)}
-  .vh-list h4 i{text-transform:none;letter-spacing:0;font-style:normal;color:#666}
-  .vh-list .r{display:flex;gap:10px;align-items:baseline;padding:2px 0;font-size:13px}
-  .vh-list .r b{flex:none;font-weight:700;white-space:nowrap}
-  .vh-list .r span{color:#9a9aa6;min-width:0}
-  .vh-list .r{flex-wrap:wrap;column-gap:10px}
   /* the assistant's words, bottom right */
-  .assist-box{position:fixed;right:18px;bottom:112px;z-index:70;max-width:380px;padding:11px 14px;border-radius:12px;background:#14141a;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
-    box-shadow:0 8px 26px rgba(0,0,0,.55);font-size:13.5px;line-height:1.4}
-  .assist-box[hidden]{display:none}
-  .assist-box .you{color:var(--nm-sub,#aaa);font-size:12px;margin-bottom:4px}
-  .assist-box .it{color:#fff;font-weight:600}
-  .assist-box.busy .it{color:var(--accent,var(--accent))}
-  .voice-row input[type=text]{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 7px;font:inherit;font-size:12px}
   /* singing trainer */
   .sing-float .float-body{background:#101014;display:flex;flex-direction:column;overflow-y:auto;font-size:13px;color:var(--nm-txt,#eee)}
   .sing-bar{display:flex;align-items:center;gap:12px;padding:9px 12px;flex-wrap:wrap}
@@ -4743,46 +4697,13 @@ body.lib-collapsed .pick-brand{display:none}
   #np-jump i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,var(--accent))}
   #np-jump span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
   #np-jump b{flex:none;color:var(--accent,var(--accent));font-weight:600}
-  .voice-pop{width:400px}
-  .voice-row{display:flex;align-items:center;gap:10px;padding:4px 9px;font-size:12px;color:var(--nm-sub)}
-  .voice-row select{flex:1;min-width:0;background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:5px 6px;font-size:12px}
-  .voice-meter{flex:none;width:70px;height:6px;border-radius:3px;background:#26262e;overflow:hidden}
-  .voice-meter i{display:block;height:100%;width:0;background:var(--accent,var(--accent));transition:width .08s linear}
-  .voice-heard{padding:6px 9px 4px;font-size:12px;color:var(--nm-sub);min-height:28px}
-  .voice-heard b{color:var(--accent,var(--accent));font-weight:700}
-  .voice-list{max-height:300px;overflow:auto;padding:0 9px 4px;font-size:12px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:baseline}
-  .voice-own .row .voice-teach{flex:none}
-  .voice-teach{display:flex;gap:2px;justify-content:flex-end;white-space:nowrap}
-  .voice-pop .voice-teach button{flex:none;border:none;background:none;color:var(--nm-sub);cursor:pointer;font:inherit;font-size:11px;padding:0 3px;border-radius:4px}
-  .voice-pop .voice-teach button:hover{color:var(--nm-txt)}
-  .voice-pop .voice-teach button.has{color:var(--accent,var(--accent))}
-  .voice-pop .voice-teach button.busy{color:#ff6b6b}
-  .voice-list{max-height:180px}
-  body.voice-picking, body.voice-picking *{cursor:crosshair !important}
-  .voice-pop{max-height:calc(100vh - 80px);overflow-y:auto}
-  .voice-own{padding:0 9px;font-size:12px;display:flex;flex-direction:column;gap:4px}
-  .voice-own .row{display:flex;align-items:baseline;gap:8px}
-  .voice-own .row b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
-  .voice-own .row span{flex:1;min-width:0;color:var(--nm-sub)}
-  .voice-own .row button{flex:none;border:none;background:none;color:var(--nm-sub);cursor:pointer;font-size:13px;padding:0 4px}
-  .voice-own .row button:hover{color:#ff6b6b}
-  .voice-own .none{color:var(--nm-sub)}
   .voice-form{padding:8px 9px 6px;display:flex;flex-direction:column;gap:6px;font-size:12px}
   .voice-form input,.voice-form select{background:#131318;color:var(--nm-txt);border:1px solid #32323c;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;min-width:0}
-  .voice-say{display:flex;align-items:center;gap:6px}
-  .voice-say span{color:var(--accent,var(--accent));font-weight:700}
-  .voice-say input{flex:1}
-  .voice-steps{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;align-items:center;color:var(--nm-sub)}
-  .voice-steps button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:999px;padding:3px 9px;font:inherit;font-size:11.5px;cursor:pointer}
-  .voice-steps button:hover{border-color:#ff6b6b;color:#ff6b6b}
   .voice-add{display:flex;gap:6px}
   .voice-add select{flex:1}
   .voice-add button{border:1px solid #3a3a46;background:#1e1e25;color:var(--nm-txt);border-radius:6px;padding:0 10px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
   .voice-add button.go{background:var(--accent,var(--accent));border-color:transparent;color:#000;font-weight:700}
-  .voice-list b{color:var(--nm-txt);font-weight:600;white-space:nowrap}
-  .voice-list span{color:var(--nm-sub)}
   .sp-round.tm-btn.has-on{color:var(--accent,var(--accent));border-color:var(--accent,var(--accent))}
-  #voice-top-btn.heard{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
   /* Steems, readable from a playing distance: nothing under 10.5 px, and the
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
@@ -4843,45 +4764,7 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="search-suggest" id="search-suggest" hidden></div>
   </div>
   <div class="sp-topbar-right">
-    <div class="tmenu" data-tmenu="voice" hidden>
-      <button type="button" class="sp-round tm-btn" id="voice-top-btn" title="Hlasové ovládání — řekni anglicky „pick play“, „pick stop“… Rozpoznává se v tomhle počítači, nic se neodesílá."><span data-icon="mic" data-size="17"></span></button>
-      <div class="tm-pop voice-pop">
-        <div class="tm-head">Hlasové ovládání</div>
-        <button type="button" class="tm-item" data-stay id="voice-toggle"><span data-icon="mic" data-size="15"></span><span class="tm-t">Poslouchat</span></button>
-        <div class="voice-row"><span>Mikrofon</span><select id="voice-mic"><option value="">výchozí</option></select></div>
-        <div class="voice-row" title="Zvukovka se dvěma vstupy (kytara + mikrofon): vyber, na kterém vstupu je mikrofon. Kytara pak patří na ten druhý."><span>Vstup</span><select id="voice-ch">
-          <option value="">běžný mikrofon</option><option value="1">zvukovka — vstup 1</option><option value="2">zvukovka — vstup 2</option></select>
-          <span class="voice-meter" title="Jak silně tě mikrofon slyší"><i id="voice-level"></i></span></div>
-        <div class="voice-row" title="Zesílí mikrofon pro hlasové ovládání (i pro poslouchání z lišty), když ho zvukovka sama dává moc potichu. Ukazatel vedle Vstupu má při řeči skákat zhruba do půlky."><span>Zesílení</span>
-          <input type="range" id="voice-gain" min="0" max="30" step="1" value="0" style="flex:1;min-width:0;accent-color:var(--accent)"><b id="voice-gain-v" style="min-width:52px;text-align:right;font-variant-numeric:tabular-nums">+0 dB</b></div>
-        <div class="voice-row"><span>Asistent</span><input type="text" id="assist-text" placeholder="napiš, nebo řekni „pick listen“ a pak česky" style="flex:1;min-width:0">
-          <a href="/assistant/book" target="_blank" title="Seznam vět, kterým asistent rozumí hned, co se naučil od tebe a čemu nerozuměl" style="white-space:nowrap;color:var(--accent);font-size:12px">co umí</a>
-          <label title="Odpověď asistenta přečte počítač nahlas" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="assist-tts"> nahlas</label></div>
-        <div class="voice-row voice-again-row" title="Když ti Pick nerozumí: uprostřed zabliká logo s tímhle nápisem a zařve tvoje nahrávka. Bez nahrávky řekne počítač „Again!“."><span>Again!!!</span>
-          <input type="text" id="voice-again-input" maxlength="60" placeholder="Say it again!!!" spellcheck="false">
-          <button type="button" id="voice-again-rec" title="Nahrát můj hlas (3 vteřiny) — zařvi, co má zaznít, když ti Pick nerozumí">● Nahrát</button>
-          <button type="button" id="voice-again-play" title="Vyzkoušet: zabliká logo a přehraje se nahrávka">▶</button>
-          <button type="button" id="voice-again-del" title="Smazat nahrávku — zase bude mluvit počítač">✕</button></div>
-        <div class="voice-row" title="Když povel proběhne, nebo když ti Pick nerozumí, řekne jednu z deseti hlášek hlasem „Max Cavalera“ naklonovaným ve Voiceboxu. Hlášky se připraví jednou na pozadí (asi půl minuty každá); dokud nejsou, platí „Again!!!“ výš."><label style="display:flex;align-items:center;gap:6px;flex:1"><input type="checkbox" id="voice-replies"> Hlášky hlasem Maxe Cavalery</label><span id="voice-replies-note" style="font-size:11px;color:var(--nm-sub)"></span></div>
-        <div class="voice-heard" id="voice-heard">Řekni anglicky „pick“ a hned povel, jedním dechem. Nebo jen „hey pick“ — a u všeho, co jde ovládat, se ukáže, co říct.</div>
-        <hr>
-        <div class="voice-list" id="voice-list"></div>
-        <hr>
-        <div class="tm-head">Vlastní povely</div>
-        <div class="voice-own" id="voice-own"></div>
-        <div class="voice-form">
-          <input type="text" id="voice-new-name" placeholder="Název (např. Rozcvička)" maxlength="60">
-          <label class="voice-say"><span>pick</span><input type="text" id="voice-new-phrase" placeholder="co říct, anglicky (např. warm up)" spellcheck="false"></label>
-          <div class="voice-steps" id="voice-new-steps"></div>
-          <div class="voice-add"><select id="voice-new-action"></select><button type="button" id="voice-new-add" title="Přidat vybranou akci jako další krok">+ krok</button></div>
-          <div class="voice-add"><select id="voice-new-kind" style="flex:none"><option value="song">pustit píseň</option><option value="band">pustit kapelu</option><option value="practice">cvičit píseň</option></select>
-            <input type="text" id="voice-new-target" placeholder="název z knihovny" style="flex:1"><button type="button" id="voice-new-name-add" title="Přidat jako další krok">+ krok</button></div>
-          <div class="voice-add"><button type="button" id="voice-new-button" style="flex:1;height:30px" title="Pak klikni na kterékoli tlačítko v aplikaci — povel ho stiskne za tebe">+ krok: stisknout tlačítko, které ukážu</button>
-            <button type="button" id="voice-new-save" class="go">Uložit povel</button></div>
-        </div>
-      </div>
-    </div>
-    <button class="sp-round" id="full-top-btn" title="Celá obrazovka (hlasem: „pick full screen“)"><span data-icon="expand" data-size="17"></span></button>
+    <button class="sp-round" id="full-top-btn" title="Celá obrazovka"><span data-icon="expand" data-size="17"></span></button>
     <button class="sp-round" id="tuner-top-btn" title="Ladička"><span data-icon="tuner" data-size="17"></span></button>
     <button class="sp-round" id="piano-top-btn" title="Klaviatura — stupnice, akordy, hmatník"><span data-icon="piano" data-size="17"></span></button>
     <button class="sp-round" id="metronome-top-btn" hidden title="Metronom a ukázkové riffy"><span data-icon="clock" data-size="17"></span></button>
@@ -6379,13 +6262,6 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="float-grip" id="sing-float-grip" title="Táhnutím změníš velikost"></div>
 </div>
 
-<div class="voice-hints" id="voice-hints" hidden></div>
-<div class="voice-again" id="voice-again" hidden><img src="/static/pick-icon.png" alt=""><b id="voice-again-text">Say it again!!!</b></div>
-<div class="voice-help" id="voice-help" hidden>
-  <div class="vh-head"><span id="voice-help-title"></span><button type="button" id="voice-help-close" title="Zavřít (Esc)"><span data-icon="close" data-size="15"></span></button></div>
-  <div class="vh-list" id="voice-help-list"></div>
-</div>
-<div class="assist-box" id="assist-box" hidden><div class="you" id="assist-you"></div><div class="it" id="assist-it"></div></div>
 <div class="toast-wrap" id="toast-wrap"></div>
 
 <script>
@@ -13461,7 +13337,7 @@ const UnderList = (() => {
     const narrowed = qSong.trim() || qBand.trim();
     const known = steemsSongs.filter(s => Array.isArray(s.tuning)).length;
     const head = (col, label) => `<button type="button" class="c-${col === "tuning" ? "tun" : col}${sortBy === col ? " sorted" : ""}" data-lsort="${col}">${label}<span class="lsort-arrow">${sortBy === col ? (col === "tuning" ? "od E" : "A–Z") : ""}</span></button>`;
-    h.innerHTML = `<h3><button type="button" class="under-toggle open" title="Sbalit seznam">${icon("chevron", 12)}</button>Další písně ve Steems (${order.length}${narrowed ? ` z ${steemsSongs.length}` : ""}) <span style="font-weight:400">— klik nebo „pick play“ a číslo či název pustí ukázku</span>
+    h.innerHTML = `<h3><button type="button" class="under-toggle open" title="Sbalit seznam">${icon("chevron", 12)}</button>Další písně ve Steems (${order.length}${narrowed ? ` z ${steemsSongs.length}` : ""}) <span style="font-weight:400">— klik pustí ukázku</span>
         ${known < steemsSongs.length ? `<button type="button" id="under-tunings" title="Dohledá ladění kytary podle tabů u písní, kde ještě není">Zjistit ladění (${steemsSongs.length - known})</button>` : ""}
         ${namesLeft || namesBusy ? `<button type="button" id="under-names" title="Projde písně a dá jim oficiální název: kapela, píseň a album podle hudebního katalogu, bez závorek a nápisů z videí. K tomu dohledá tab a text. Jména, která jsi psal ručně, nechá být.">${namesBusy || `Opravit názvy (${namesLeft})`}</button>` : ""}</h3>
       <div class="under-find"><input type="search" data-uf="song" placeholder="Hledat píseň…" value="${escapeHtml(qSong)}" autocomplete="off">
@@ -13473,7 +13349,7 @@ const UnderList = (() => {
           <span class="c-idx">${i + 1}</span><span class="c-title"><span class="tx">${escapeHtml(d.title)}</span></span>
           <span class="c-artist">${escapeHtml(d.artist || "")}</span><span class="c-album">${escapeHtml(d.album || "")}</span><span class="c-tun">${tuningChip(s.tuning)}</span>
           <span class="c-time">${s.duration ? fmtDur(s.duration) : ""}</span>
-          <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu („pick practice this song“)">Mix</button></span></div>`; }).join("")
+          <span class="c-act"><button type="button" title="Otevřít tuhle píseň do mixu">Mix</button></span></div>`; }).join("")
       + (order.length ? "" : `<div class="under-none">Nic tomu neodpovídá — zkus kratší slovo.</div>`) + `</div>`;
     h.querySelectorAll("input[data-uf]").forEach(i => {
       i.oninput = () => { if(i.dataset.uf === "song") qSong = i.value; else qBand = i.value; paint(); };
@@ -33022,7 +32898,7 @@ const RemoteAgent = (() => {
       key: !mixerOn && track ? (track.key || null) : null,
       // The lyrics' per-song offset is stored under videoId || relPath || title.
       relPath: !mixerOn && track ? (track.relPath || null) : null,
-      voice: Voice.isOn(),
+      voice: false,
     };
   }
 
@@ -33083,12 +32959,6 @@ const RemoteAgent = (() => {
         break;
       case "seek":
         if(audio && isFinite(cmd.value)) audio.currentTime = Math.max(0, cmd.value);
-        break;
-      case "heard":                // the menu bar's listening heard a command while this window was not listening
-        try{ Voice.heard(JSON.parse(cmd.text)); }catch(e){}
-        break;
-      case "voice":                // Siri, through a shortcut: voice control is off for good, so only "off" is heard
-        if(Voice.isOn()) Voice.turn(false);
         break;
       case "playqueue": {          // the mini player's queue tab
         const item = loadQueue()[Math.round(cmd.value)];
@@ -34715,491 +34585,10 @@ const Sing = (() => {
     fxNodes: () => chain};
 })();
 
-// ---- Voice commands -------------------------------------------------------
-// The microphone goes to the server a quarter of a second at a time and comes
-// back as a command when one was said ("pick stop"). Recognition is voice.py —
-// on this computer. What a command does depends on what is open: the tool in
-// front (analyzer), the Steems mixer, or the player at the bottom.
+// ---- Povely: what Pick does when asked — by the MIDI pedal (practice.js) and the mini player.
+// Voice control itself (listening, recognition, the assistant) was removed on 3. 11.; the
+// commands stayed, the same words as ever ("play", "skip:+", "open:…").
 const Voice = (() => {
-  const MIC_KEY = "pick-voice-mic", CH_KEY = "pick-voice-ch", ON_KEY = "pick-voice-on", OWNER_KEY = "spotdl-remote-owner";
-  let on = false, stream = null, actx = null, node = null, chain = Promise.resolve(), parts = [], held = 0, listed = false;
-  // One input of the sound card when it has two (guitar on one, microphone on the other).
-  const WORKLET = `registerProcessor("pick-voice", class extends AudioWorkletProcessor {
-    constructor(o){ super(); this.ch = (o.processorOptions && o.processorOptions.ch) || 0; }
-    process(inputs){ const i = inputs[0], c = i && (i[this.ch] || i[0]); if(c) this.port.postMessage(c.slice(0)); return true; } });`;
-  const level = el("voice-level");
-  let peak = 0, lvlN = 0;
-  const savedCh = () => { try{ return localStorage.getItem(CH_KEY) || ""; }catch(e){ return ""; } };
-  const toggleBtn = el("voice-toggle"), heard = el("voice-heard");
-  // The microphone made louder here when the sound card gives too little (0–30 dB); the
-  // menu bar's listening, which reads the microphone in the server, is told the same.
-  const GAIN_KEY = "pick-voice-gain";
-  let gainDb = (() => { try{ return Math.max(0, Math.min(30, +localStorage.getItem(GAIN_KEY) || 0)); }catch(e){ return 0; } })();
-  let gainLin = Math.pow(10, gainDb / 20), gainTimer = 0;
-  {
-    const r = el("voice-gain"), v = el("voice-gain-v");
-    const show = () => { r.value = gainDb; v.textContent = "+" + gainDb + " dB"; };
-    show();
-    r.oninput = () => {
-      gainDb = +r.value; gainLin = Math.pow(10, gainDb / 20); show();
-      try{ localStorage.setItem(GAIN_KEY, String(gainDb)); }catch(e){}
-      clearTimeout(gainTimer);
-      gainTimer = setTimeout(() => fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({gain: gainDb})}).catch(() => {}), 600);
-    };
-  }
-
-  function paint(){
-    toggleBtn.classList.toggle("on", on);
-    toggleBtn.querySelector(".tm-t").textContent = on ? "Poslouchám — klikni pro vypnutí" : "Poslouchat";
-  }
-  // Steps of a command of your own: the built-in actions, any tempo, a pause.
-  let actions = [], draft = [];
-  const stepName = (id) => {
-    const [k, n] = id.split(":");
-    if(k === "wait") return `počkat ${n} s`;
-    if(k === "click"){ const b = buttonBy(id.slice(6)); return "stisknout: " + (b ? buttonName(b) : id.slice(6).replace(/^#/, "")); }
-    if(k === "find") return ({song: "pustit píseň", band: "pustit kapelu", practice: "cvičit píseň"}[n] || n) + " „" + id.split(":").slice(2).join(":") + "“";
-    const a = actions.find(x => x.id === id);
-    return a ? a.does : k === "tempo" ? `tempo ${n} %` : id;
-  };
-  function paintDraft(){
-    el("voice-new-steps").innerHTML = draft.length
-      ? draft.map((x, i) => `<button type="button" data-i="${i}" title="Klik = odebrat krok">${i + 1}. ${escapeHtml(stepName(x))}</button>`).join("")
-      : "zatím žádný krok — vyber níže a přidej";
-    el("voice-new-steps").querySelectorAll("[data-i]").forEach(b => b.onclick = () => { draft.splice(+b.dataset.i, 1); paintDraft(); });
-  }
-  function paintOwn(rows){
-    el("voice-own").innerHTML = rows.length ? rows.map(c =>
-      `<div class="row"><b>pick ${escapeHtml(c.phrase)}</b><span>${escapeHtml(c.name)}: ${escapeHtml(c.steps.map(stepName).join(" → "))}</span>${teachHtml("custom:" + c.id, "pick " + c.phrase)}<button type="button" data-del="${escapeHtml(c.id)}" title="Smazat povel">✕</button></div>`).join("")
-      : `<div class="none">Zatím žádné. Níže si složíš vlastní — jedna fráze může spustit víc kroků za sebou.</div>`;
-    el("voice-own").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-      await fetch("/api/voice/custom/" + encodeURIComponent(b.dataset.del), {method: "DELETE"});
-      listed = false; await listCommands(); relisten();
-    });
-    wireTeach(el("voice-own"));
-  }
-  // Teaching: you say a command three times, and how it sounds from you is kept
-  // for it (voice.teach). The microphone is this module's own; while a take is
-  // being recorded nothing is listened for.
-  let taughtN = {}, teach = null;
-  const TAKE_S = 3;
-  function teachHtml(id, say){
-    const n = taughtN[id] || 0;
-    return `<span class="voice-teach"><button type="button" data-teach="${escapeHtml(id)}" data-say="${escapeHtml(say)}" class="${n ? "has" : ""}" title="Naučit můj hlas: řekneš povel třikrát a Pick si zapamatuje, jak zní od tebe">🎙${n ? " " + n : ""}</button>`
-      + (n ? `<button type="button" data-forget="${escapeHtml(id)}" title="Zapomenout, co se u tohohle povelu naučil z mého hlasu">✕</button>` : "") + `</span>`;
-  }
-  function wireTeach(root){
-    root.querySelectorAll("[data-teach]").forEach(b => b.onclick = () => teachCmd(b.dataset.teach, b.dataset.say.split(" / ")[0], b));
-    root.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => {
-      await fetch("/api/voice/teach?cmd=" + encodeURIComponent(b.dataset.forget), {method: "DELETE"});
-      listed = false; await listCommands();
-    });
-  }
-  function take(){
-    return new Promise(ok => { teach = {parts: [], held: 0, need: TAKE_S * 16000, ok}; });
-  }
-  async function teachCmd(id, say, btn){
-    if(teach) return;
-    const wasOn = on;
-    teach = {};                       // from here on the microphone is not listened to for commands
-    if(!on) await start();
-    if(!on){ teach = null; return; }
-    if(btn) btn.classList.add("busy");
-    let kept = 0, last = "";
-    try{
-      for(let i = 1; i <= 3; i++){
-        heard.innerHTML = `Řekni teď (${i}/3): <b>${escapeHtml(say)}</b>`;
-        await pause(350);
-        const pcm = await take();
-        teach = {};
-        heard.textContent = "Poslouchám, co jsem slyšel…";
-        const r = await fetch("/api/voice/teach?cmd=" + encodeURIComponent(id), {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}});
-        const d = await r.json().catch(() => ({}));
-        if(!r.ok) last = d.error || "Tenhle záznam se nepovedl.";
-        else if(d.understood){ kept++; last = "Tomuhle rozumím."; }
-        else if(d.added && d.works){ kept++; last = `Slyšel jsem „${d.heard}“ — zapamatováno.`; }
-        else last = `Slyšel jsem „${d.heard}“, ale spolehlivě to nepoznám. Zkus to říct zřetelněji.`;
-        heard.textContent = last;
-        await pause(1400);
-      }
-      heard.textContent = kept ? `Hotovo: ${kept} ze 3 záznamů v pořádku.` : `Ani jeden záznam se nepovedl. ${last}`;
-    }finally{
-      teach = null; parts = []; held = 0;
-      // The recogniser learns its words when listening starts.
-      if(!wasOn) stop(); else await fetch("/api/voice/start", {method: "POST"}).catch(() => {});
-      listed = false; await listCommands();
-    }
-  }
-  // The recogniser learns its words when listening starts.
-  function relisten(){ if(on){ stop(); start(); } }
-  async function listCommands(){
-    if(listed) return;
-    try{
-      const d = await (await fetch("/api/voice/commands")).json();
-      actions = d.commands; taughtN = d.taught || {};
-      el("voice-list").innerHTML = d.commands.map(c => `<b>${escapeHtml(c.say)}</b><span>${escapeHtml(c.does)}</span>`
-        + (c.id.startsWith("find:") ? "<span></span>" : teachHtml(c.id, c.say))).join("");
-      wireTeach(el("voice-list"));
-      el("voice-new-action").innerHTML = d.commands.map(c => `<option value="${c.id}">${escapeHtml(c.does)}</option>`).join("")
-        + [55, 65, 75, 85, 95].map(n => `<option value="tempo:${n}">tempo ${n} %</option>`).join("")
-        + [1, 2, 5, 10].map(n => `<option value="wait:${n}">počkat ${n} s</option>`).join("");
-      paintOwn(d.custom || []); paintDraft();
-      if(d.unavailable) heard.textContent = d.unavailable;
-      listed = true;
-    }catch(e){}
-  }
-  el("voice-new-add").onclick = () => { if(draft.length < 12){ draft.push(el("voice-new-action").value); paintDraft(); } };
-  // "Press a button": the next button clicked anywhere in the app becomes the step (it is not pressed now).
-  el("voice-new-button").onclick = () => {
-    if(draft.length >= 12) return;
-    TMenu.close();
-    showToast("Klikni na tlačítko, které má povel stisknout (Esc = zrušit)");
-    const done = () => { document.removeEventListener("click", grab, true); document.removeEventListener("keydown", esc, true); document.body.classList.remove("voice-picking"); };
-    const reopen = () => TMenu.open(el("voice-top-btn").parentElement);
-    const esc = (e) => { if(e.key === "Escape"){ e.stopPropagation(); done(); reopen(); } };
-    const grab = (e) => {
-      const b = e.target.closest("button, [role=button]");
-      e.preventDefault(); e.stopPropagation();
-      if(!b){ showToast("Tohle není tlačítko — zkus jiné místo"); return; }
-      const how = b.id ? "#" + b.id : (b.title || b.textContent.trim());
-      done();
-      if(!how || buttonBy(how) !== b) showToast("Tohle tlačítko nejde spolehlivě najít, zkus jiné");
-      else{ draft.push("click:" + how); }
-      reopen(); paintDraft();
-    };
-    document.body.classList.add("voice-picking");
-    setTimeout(() => { document.addEventListener("click", grab, true); document.addEventListener("keydown", esc, true); }, 0);
-  };
-  el("voice-new-name-add").onclick = () => {
-    const name = el("voice-new-target").value.trim();
-    if(!name || draft.length >= 12) return;
-    draft.push(`find:${el("voice-new-kind").value}:${name}`);
-    el("voice-new-target").value = ""; paintDraft();
-  };
-  el("voice-new-save").onclick = async () => {
-    const r = await fetch("/api/voice/custom", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({name: el("voice-new-name").value, phrase: el("voice-new-phrase").value, steps: draft})});
-    const d = await r.json().catch(() => ({}));
-    if(!r.ok){ heard.textContent = d.error || "Povel se nepodařilo uložit."; showToast(heard.textContent); return; }
-    el("voice-new-name").value = el("voice-new-phrase").value = ""; draft = [];
-    listed = false; await listCommands();
-    // Straight away, how it sounds from you.
-    await pause(300);
-    teachCmd("custom:" + d.id, "pick " + d.phrase);
-  };
-  async function listMics(){
-    try{
-      const sel = el("voice-mic"), cur = localStorage.getItem(MIC_KEY) || "";
-      const ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput" && d.deviceId !== "default");
-      sel.innerHTML = `<option value="">výchozí</option>` + ins.map(d => `<option value="${escapeHtml(d.deviceId)}">${escapeHtml(d.label || "mikrofon")}</option>`).join("");
-      sel.value = ins.some(d => d.deviceId === cur) ? cur : "";
-    }catch(e){}
-  }
-  function pcm16(chunks, n){
-    const all = new Int16Array(n);
-    let o = 0;
-    for(const p of chunks) for(let i = 0; i < p.length; i++){ const v = Math.max(-1, Math.min(1, p[i])); all[o++] = v < 0 ? v * 32768 : v * 32767; }
-    return all;
-  }
-  function send(){
-    const all = pcm16(parts, held);
-    parts = []; held = 0;
-    if(deaf){ return; }                                  // Pick itself is speaking: that is not you
-    chain = chain.then(() => on ? fetch("/api/voice/feed" + (hintsOn ? "?menu=true" : ""), {method: "POST", body: all.buffer, headers: {"Content-Type": "application/octet-stream"}}) : null)
-      .then(r => !r ? null : r.status === 409 ? r.json().then(d => { if(d.taken) yieldTo(); return null; }) : r.ok ? r.json() : null)
-      .then(r => { if(r && r.heard) got(r); }).catch(() => {});
-  }
-  // Several steps go one after another, with a breath between them.
-  async function runSteps(steps){
-    const done = [];
-    for(const st of steps){
-      if(st.startsWith("wait:")){ await new Promise(ok => setTimeout(ok, +st.slice(5) * 1000)); continue; }
-      done.push(run(st) || "—");
-      await new Promise(ok => setTimeout(ok, 350));
-    }
-    return done.join(", ");
-  }
-  // ---- the prompter: "pick help" brings up the commands, docked on the right;
-  // they stay there while commands are given, until "pick help close".
-  // And what was meant for Pick but not understood is answered aloud: "Again!"
-  let helpOn = false, helpTimer = 0, deaf = false, helpRows = [], helpMiss = 0;
-  // Each kind of command has its colour and its sign, so the eye finds it before the words are read.
-  const GROUPS = [
-    ["Přehrávání", /^(play|pause|rewind|next|prev|mixplay|mixpause|pbplay|pbpause|skip:[+-]|practicethis)$/, "#1ed760", "play"],
-    ["Hledání", /^find:/, "#4aa8ff", "search"],
-    ["Hlasitost", /^(up|down|louder|quieter)/, "#ffb020", "volume"],
-    ["Tempo", /^(slower|faster|tempo)/, "#ff7a45", "clock"],
-    ["Smyčky a sekce", /^(loop|section)/, "#b784ff", "repeat"],
-    ["Kytara", /^(gtr|myguitar|preset|record|tuner|practice)/, "#ff5c8a", "elGuitar"],
-    ["Mix: co je vidět", /^(see:|gtrs:|words$)/, "#2fd6c4", "stems"],
-    ["Stopy", /^(mute|solo|vol|pan):/, "#2fd6c4", "stems"],
-    ["Sekce a stránky", /^(list:|show:|page|helppage|sort|num|panel|steems$)/, "#4ade80", "library"],
-    ["Minipřehrávač", /^(mini|minifull|tomini)/, "#ffd84a", "external"],
-    ["Vlastní", /^custom:/, "#ff9ad5", "mic"],
-    ["Aplikace", /./, "#a8b0c0", "settings"]];
-  // What only the mini player does is in the mini player's own list ("pick help" there), not here.
-  const MINI_ONLY = /^(playall|back|plnum|find:open|list:([+-]|folders|songs))$/;
-  function helpPaint(filter){
-    const box = el("voice-help"), f = (filter || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const hit = (c) => f.every(w => c.say.toLowerCase().split(/[^a-z<>]+/).includes(w));
-    let rows = helpRows.filter(c => !MINI_ONLY.test(c.id) && (!f.length || hit(c)));
-    if(f.length && !rows.length){ el("voice-help-title").textContent = `„${f.join(" ")}“ — takový povel není`; again(); rows = []; }
-    else el("voice-help-title").textContent = f.length ? `Povely se slovem „${f.join(" ")}“` : "Povely — „pick help down / up“ listuje, „pick help close“ zavře";
-    // Six tracks say the same seven things: unfiltered, one of them stands for all.
-    if(!f.length) rows = rows.filter(c => !/^(mute|solo|vol|pan):(drums|bass|vocals|piano|other)/.test(c.id));
-    const left = rows.slice(), html = [];
-    GROUPS.forEach(([name, re, col, ic]) => {
-      const mine = left.filter(c => re.test(c.id)); if(!mine.length) return;
-      mine.forEach(c => left.splice(left.indexOf(c), 1));
-      html.push(`<div class="g" style="--gc:${col}"><h4><span class="ic">${icon(ic, 14)}</span>${name}${name === "Stopy" && !f.length ? " <i>(stejně: drums, bass, vocals, piano, other)</i>" : ""}</h4>` +
-        mine.map(c => `<div class="r"><b>${escapeHtml(c.say.replace(/^pick /, ""))}</b><span>${escapeHtml(c.does)}</span></div>`).join("") + `</div>`);
-    });
-    el("voice-help-list").innerHTML = html.join("");
-    box.classList.toggle("narrow", f.length > 0);
-  }
-  async function helpOpen(){
-    if(!helpRows.length){
-      try{
-        const d = await (await fetch("/api/voice/commands")).json();
-        helpRows = d.commands.concat((d.custom || []).map(c => ({id: "custom:" + c.id, say: "pick " + c.phrase, does: c.name})));
-      }catch(e){}
-    }
-    helpOn = true; el("voice-help").hidden = false; helpPaint("");
-  }
-  // It stays until a command is chosen or "nothing" is said (or Esc, or the cross).
-  function helpClose(){ helpOn = false; el("voice-help").hidden = true; }
-  el("voice-help-close").onclick = helpClose;
-  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && helpOn) helpClose(); });
-  // Meant for Pick and not understood: the logo flashes with the words, and the
-  // user's own shout is played (the computer's "Again!" when none is recorded).
-  // The microphone hears it too: nothing is listened to until it is over.
-  let againCfg = null;
-  const againLoad = async () => { try{ againCfg = await (await fetch("/api/voice/again")).json(); }catch(e){ againCfg = againCfg || {text: "Say it again!!!", audio: false}; } return againCfg; };
-  async function againShow(mine){
-    const say = mine ? null : reply(false);              // one of the ten "what?" lines, when they are ready
-    const c = say ? {text: say.text, audio: true, url: say.url} : (againCfg || await againLoad()), box = el("voice-again");
-    el("voice-again-text").textContent = c.text;
-    box.hidden = false; deaf = true;
-    let over = false;
-    const done = () => { if(over) return; over = true; box.hidden = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 350); };
-    setTimeout(done, 6000);
-    const least = new Promise(r => setTimeout(r, 1700));           // the flash is seen even when the shout is short
-    const sound = new Promise(r => {
-      if(c.audio){
-        const a = new Audio(c.url || "/api/voice/again/audio?v=" + c.v);
-        a.onended = a.onerror = r; a.play().catch(r);
-      }else if(window.speechSynthesis){
-        const u = new SpeechSynthesisUtterance("Again!"); u.lang = "en-US"; u.rate = 1.05;
-        u.onend = u.onerror = r; speechSynthesis.cancel(); speechSynthesis.speak(u);
-      }else r();
-    });
-    await Promise.all([least, sound]); done();
-  }
-  // ---- what Pick says back: ten ways of "done" and ten of "what?", in the
-  // voice called "Max Cavalera" in Voicebox. Each is made once (the server
-  // keeps the audio); until one is there, nothing is said for "done" and the
-  // "Again!!!" above stands for "what?".
-  const SAY_OK = ["Hell yeah!", "You got it, brother!", "Done!", "Let's go!", "Right on!", "Here we go!", "Killer!", "No problem, man!", "That's heavy!", "Coming right up!"];
-  const SAY_BAD = ["What? Say it again!", "I can't hear you!", "Speak up, man!", "What the hell was that?", "Come on, try again!", "No idea what you said!",
-    "Louder! Say it again!", "Are you kidding me?", "That makes no sense, brother!", "Wake up and say it right!"];
-  const REPLY_KEY = "pick-voice-replies", REPLY_WHO = "pick-voice-reply-profile";
-  let replyReady = {}, replyTimer = 0, replyLast = "";
-  const repliesOn = () => { try{ return localStorage.getItem(REPLY_KEY) !== "0"; }catch(e){ return true; } };
-  async function repliesLoad(){
-    clearTimeout(replyTimer);
-    const note = (t) => { el("voice-replies-note").textContent = t; };
-    el("voice-replies").checked = repliesOn();
-    if(!repliesOn()){ replyReady = {}; note(""); return; }
-    try{
-      let who = ""; try{ who = localStorage.getItem(REPLY_WHO) || ""; }catch(e){}
-      if(!who){
-        const d = await (await fetch("/api/tts/voices")).json();
-        const p = (d.profiles || []).find(x => /cavalera/i.test(x.name));
-        if(!p){ note(d.voicebox ? "hlas „Max Cavalera“ ve Voiceboxu není" : "Voicebox neběží — hlášky až poběží"); if(!d.voicebox) replyTimer = setTimeout(repliesLoad, 60000); return; }
-        who = p.id; try{ localStorage.setItem(REPLY_WHO, who); }catch(e){}
-      }
-      const d = await (await fetch("/api/tts/prepare", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({lines: SAY_OK.concat(SAY_BAD), lang: "en", profile: who})})).json();
-      replyReady = d.ready || {};
-      const n = Object.keys(replyReady).length, all = SAY_OK.length + SAY_BAD.length;
-      note(n >= all ? "připraveno" : d.error && !d.waiting ? `${n}/${all} — ${d.error}` : `připravuje se ${n}/${all}`);
-      if(d.waiting > 0 && on) replyTimer = setTimeout(repliesLoad, 15000);
-    }catch(e){}
-  }
-  function reply(ok){
-    if(!repliesOn()) return null;
-    const list = (ok ? SAY_OK : SAY_BAD).filter(t => replyReady[t]);
-    if(!list.length) return null;
-    let t = list[Math.floor(Math.random() * list.length)];
-    if(list.length > 1) while(t === replyLast) t = list[Math.floor(Math.random() * list.length)];
-    replyLast = t;
-    return {text: t, url: replyReady[t]};
-  }
-  // "Done", said aloud. The microphone hears it too: nothing is listened to until it is over.
-  function replyOk(){
-    const r = reply(true); if(!r) return;
-    deaf = true;
-    let over = false;
-    const done = () => { if(over) return; over = true; setTimeout(() => { deaf = false; parts = []; held = 0; }, 300); };
-    const a = new Audio(r.url); a.onended = a.onerror = done; a.play().catch(done);
-    setTimeout(done, 5000);
-  }
-  el("voice-replies").checked = repliesOn();
-  el("voice-replies").onchange = (e) => { try{ localStorage.setItem(REPLY_KEY, e.target.checked ? "1" : "0"); }catch(x){} repliesLoad(); };
-
-  // ---- "hey pick" (the wake word and nothing else): at everything on screen
-  // that a command works on, what to say is written small. While it is up, a
-  // command needs no "pick" in front — the label is read out and done.
-  let hintsOn = false, hintsTimer = 0;
-  function hintList(){
-    const out = [];
-    const rect = (n) => {
-      if(!n || n.offsetParent === null) return null;
-      const r = n.getBoundingClientRect();
-      if(r.width < 5 || r.height < 5 || r.bottom < 4 || r.top > innerHeight - 4 || r.right < 4 || r.left > innerWidth - 4) return null;
-      const top = document.elementFromPoint(Math.max(1, Math.min(innerWidth - 2, r.left + Math.min(r.width / 2, 40))), Math.max(1, Math.min(innerHeight - 2, r.top + Math.min(r.height / 2, 14))));
-      return top && (n.contains(top) || top.contains(n)) ? r : null;                       // not under a window or an overlay
-    };
-    const add = (n, say) => { const r = rect(typeof n === "string" ? document.querySelector(n) : n); if(r) out.push({r, say}); };
-    add("#sidebar-left", document.body.classList.contains("lib-collapsed") ? "show panel" : "hide panel");
-    const SEC = {playlists: "playlists", songs: "bands", steems: "stems", library: "library", podcasts: "show me podcasts", tools: "show me tools"};
-    document.querySelectorAll(".lib-sec-label[data-mode]").forEach(b => { if(SEC[b.dataset.mode]) add(b, SEC[b.dataset.mode]); });
-    add([...document.querySelectorAll(".lib-sec")].find(x => x.title === "Oblíbené"), "favorites");
-    add("#search-input", "search + název");
-    add("#tuner-top-btn", "tuner"); add("#voice-top-btn", "help");
-    const pb = el("pb-audio"), mixer = shown("mixer") && Mixer.currentSong();
-    add("#pb-play", !pb.paused ? "stop" : mixer ? "play player" : "play"); add("#pb-prev", "previous"); add("#pb-next", "next");
-    add("#pb-volume", "up · down"); add("#pb-lyrics-btn", "lyrics"); add("#pb-tab-btn", "tabs");
-    if(mixer){
-      add("#mixer-play", Mixer.isPlaying() ? "stop" : "play"); add("#nm-rewind", "again"); add("#mixer-loop", "loop"); add("#mixer-metro", "click");
-      add("#mixer-lyrics-toggle", "lyrics · see lyrics"); add("#nm-tempo-dn", "slower"); add("#nm-tempo-up", "faster"); add("#nm-tempo-reset", "normal speed");
-      add("#gt-rec-btn", "record"); add("#nm-lyr-speak", "practice words"); add(".guitar-strip", "my guitar");
-      const t = el("nm-tabtop"); if(t && !t.hidden) add(t, "tabs · see more guitars");
-      Mixer.channelInfo().forEach((c, i) => { if(STEM_CZ[c.stem]) add(`.nm-strip[data-ch="${i}"]`, `mute ${c.stem} · solo ${c.stem}`); });
-      add("#steems-under", "next song · practice this song");
-    }
-    const SORT = {title: "sort by title", artist: "sort by band", album: "sort by album", tuning: "sort by tuning"};
-    document.querySelectorAll("button[data-lsort]").forEach(b => { if(SORT[b.dataset.lsort]) add(b, SORT[b.dataset.lsort]); });
-    const ov = el("overlay"), root = ov && !ov.hidden ? ov : document.querySelector("main");
-    const row = root && [...root.querySelectorAll(".lib-trow, .stem-card, .track-row")].find(r => !r.classList.contains("lib-thead") && rect(r));
-    if(row) add(row, "play + číslo · open song + název");
-    add("#speak-go", "practice words"); add("#speak-skip", "skip"); add("#speak-words", "practice my words");
-    add("#sing-lesson", "practice melody"); add("#sing-les-next", "skip");
-    if(helpOn) add("#voice-help", "help close · help down");
-    return out;
-  }
-  function hintsPaint(){
-    const box = el("voice-hints"), placed = [];
-    box.innerHTML = "";
-    // The line of what works anywhere (and, with a song in the mix, what has no button of its own) goes up first, so nothing lands on it.
-    const foot = document.createElement("b"), mix = shown("mixer") && Mixer.currentSong();
-    foot.innerHTML = `<span>stačí přečíst žlutý nápis · ${mix ? "v mixu jde i:" : "všude jde i:"}</span> `
-      + (mix ? "practice · practice melody · guitar off · guitar on · loop section · next section · see mix · fifty percent · " : "")
-      + "page down · page up · skip · skip back · louder · quieter · a song · save song · mini player · full screen · listen · help";
-    box.appendChild(foot);
-    const fr = foot.getBoundingClientRect(); placed.push({x: fr.left, y: fr.top, w: fr.width, h: fr.height});
-    hintList().forEach(h => {
-      const c = document.createElement("i"); c.textContent = h.say; box.appendChild(c);
-      const w = c.offsetWidth, hh = c.offsetHeight;
-      const x = Math.max(2, Math.min(innerWidth - w - 2, h.r.left + 2));
-      let y = Math.max(2, h.r.top - 4);
-      for(let k = 0; k < 8 && placed.some(p => x < p.x + p.w + 3 && x + w + 3 > p.x && y < p.y + p.h + 1 && y + hh + 1 > p.y); k++) y += hh + 2;
-      placed.push({x, y, w, h: hh}); c.style.left = x + "px"; c.style.top = y + "px";
-    });
-  }
-  function hintsShow(ms){
-    hintsOn = true; el("voice-hints").hidden = false; hintsPaint();
-    clearTimeout(hintsTimer); hintsTimer = setTimeout(hintsHide, ms || 10000);
-  }
-  function hintsHide(){ hintsOn = false; clearTimeout(hintsTimer); el("voice-hints").hidden = true; }
-  addEventListener("pointerdown", () => { if(hintsOn) hintsHide(); }, true);
-  addEventListener("keydown", (e) => { if(hintsOn && e.key === "Escape") hintsHide(); }, true);
-  // After a command the page has changed: the labels are written anew, and stay a little longer.
-  const hintsAfter = () => { if(hintsOn){ clearTimeout(hintsTimer); hintsTimer = setTimeout(() => { if(hintsOn) hintsShow(8000); }, 700); } };
-
-  function again(){
-    heard.textContent = "Nerozuměl jsem — řekni to znovu.";
-    againShow();
-  }
-  // The row in the microphone's menu: the words, and the recording of them.
-  function againPaint(){
-    const c = againCfg || {};
-    if(document.activeElement !== el("voice-again-input")) el("voice-again-input").value = c.text || "";
-    el("voice-again-rec").classList.toggle("has", !!c.audio);
-    el("voice-again-rec").textContent = c.audio ? "● Nahrát znovu" : "● Nahrát";
-    el("voice-again-del").hidden = !c.audio;
-  }
-  againLoad().then(againPaint);
-  el("voice-again-input").addEventListener("change", async () => {
-    try{ againCfg = await (await fetch("/api/voice/again", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: el("voice-again-input").value})})).json(); }catch(e){}
-    againPaint();
-  });
-  el("voice-again-input").addEventListener("keydown", (e) => { e.stopPropagation(); if(e.key === "Enter") e.target.blur(); });
-  el("voice-again-play").onclick = () => againShow(true);
-  el("voice-again-del").onclick = async () => {
-    try{ againCfg = await (await fetch("/api/voice/again/audio", {method: "DELETE"})).json(); }catch(e){}
-    againPaint();
-  };
-  el("voice-again-rec").onclick = async () => {
-    if(teach) return;
-    const wasOn = on, btn = el("voice-again-rec");
-    teach = {};                       // the microphone is not listened to for commands meanwhile
-    if(!on) await start();
-    if(!on){ teach = null; return; }
-    btn.classList.add("busy");
-    try{
-      for(let i = 3; i >= 1; i--){ heard.textContent = `Nahrávám za ${i}…`; await pause(600); }
-      heard.innerHTML = "<b>Teď! Zařvi to.</b> (3 vteřiny)";
-      const pcm = await take();
-      teach = {};
-      const r = await fetch("/api/voice/again/audio", {method: "POST", body: pcm.buffer, headers: {"Content-Type": "application/octet-stream"}});
-      const d = await r.json().catch(() => ({}));
-      if(r.ok){ againCfg = d; heard.textContent = `Nahráno (${d.seconds} s) — ▶ ti to přehraje.`; }
-      else heard.textContent = d.error || "Nahrávka se nepovedla.";
-    }finally{
-      btn.classList.remove("busy");
-      teach = null; parts = []; held = 0;
-      if(!wasOn) stop();
-      againPaint();
-    }
-  };
-  function got(r){
-    if(r.wake){
-      hintsShow(); heard.textContent = "Poslouchám — přečti žlutý nápis u toho, co chceš.";
-      const b = el("voice-top-btn"); b.classList.add("heard"); setTimeout(() => b.classList.remove("heard"), 600);
-      return;
-    }
-    if(hintsOn && !r.command && !/^pick\b/.test(r.heard || "")){ heard.textContent = "slyšel jsem: " + r.heard; return; }     // talk in the room while the labels are up
-    hintsAfter();
-    if(r.command === "help"){ helpOpen(); heard.textContent = "nabídka povelů — vpravo; „pick help close“ ji zavře"; return; }
-    if(r.command === "nothing"){ helpClose(); heard.textContent = "nabídka zavřená"; return; }
-    if(r.filter !== undefined && helpOn && !r.command){ helpPaint(r.filter); heard.textContent = "nabídka: " + r.filter; return; }
-    if(r.again && !r.command){
-      heard.textContent = "slyšel jsem: " + r.heard;
-      // With the list up everything is listened to: a room that keeps talking is told "again" now and then, not every time.
-      if(helpOn && performance.now() - helpMiss < 6000) return;
-      helpMiss = performance.now();
-      again(); return;
-    }
-    if(!r.command){ heard.textContent = "slyšel jsem: " + r.heard; return; }
-    if(r.find){
-      heard.innerHTML = `<b>${escapeHtml(r.heard)}</b>` + (r.find.error ? " — " + escapeHtml(r.find.error) : "");
-      found(r.find);
-      return;
-    }
-    if(r.steps && r.steps.length > 1){
-      heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(r.name || "")}…`;
-      showToast("Hlas: " + r.heard + " — " + (r.name || "") + ` (${r.steps.length} kroků)`);
-      runSteps(r.steps).then(d => { heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(d)}`; });
-      return;
-    }
-    const did = run(r.steps ? r.steps[0] : r.command);
-    if(did) replyOk();
-    heard.innerHTML = `<b>${escapeHtml(r.heard)}</b> — ${escapeHtml(did || "tady to nic nedělá")}`;
-    const b = el("voice-top-btn");
-    b.classList.add("heard"); setTimeout(() => b.classList.remove("heard"), 600);
-    showToast("Hlas: " + r.heard + (did ? " — " + did : " — tady to nic nedělá"));
-  }
-
   // -- what a command does, by what is in front
   const shown = (id) => { const n = el(id); return !!(n && n.offsetParent !== null); };
   const click = (id) => { const n = el(id); if(!n || n.disabled || n.offsetParent === null) return false; n.click(); return true; };
@@ -35212,9 +34601,7 @@ const Voice = (() => {
     if(what === "minifull"){ fetch("/api/window/full?which=mini", {method: "POST"}).then(r => { if(!r.ok) showToast("Minipřehrávač není otevřený"); }).catch(() => {}); return "minipřehrávač přes obrazovku"; }
     if(what === "full"){ fullScreen(); return "celá obrazovka"; }
     if(what === "open") return "Pick je otevřený";
-    if(what === "help"){ helpOpen(); return "nabídka povelů"; }
-    if(what === "nothing"){ helpClose(); return "nic"; }
-    if(what === "assist"){ dictate(); return "poslouchám"; }
+    if(what === "help" || what === "nothing" || what === "assist" || what === "helppage") return null;   // voice-only, gone 3. 11.
     if(what === "steems"){ setMode("steems"); return "Steems"; }
     if(what === "tomini"){ toMini(); return "posílám do minipřehrávače"; }
     // "pick show me …": the sections of the app.
@@ -35233,12 +34620,6 @@ const Voice = (() => {
       setMode(to[0]);
       const m = el("main-scroll") || document.querySelector("main"); if(m) m.scrollTo({top: 0});
       return to[1];
-    }
-    if(what === "helppage"){                    // the list of commands has pages of its own ("pick help down")
-      if(!helpOn) return "nabídka povelů není otevřená";
-      const l = el("voice-help-list");
-      l.scrollBy({top: (arg === "+" ? 0.85 : -0.85) * l.clientHeight, behavior: "smooth"});
-      return arg === "+" ? "nabídka o stránku dál" : "nabídka o stránku zpět";
     }
     if(what === "page"){
       const ok = (n) => n && n.offsetParent !== null && n.scrollHeight > n.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(n).overflowY);
@@ -35422,96 +34803,6 @@ const Voice = (() => {
     return null;
   }
 
-  // ---- the assistant: one free sentence in Czech, said after "pick listen"
-  // (or typed). The server has whisper write it down and a model — the one in
-  // this computer, or Claude — decide which of the tools below to call
-  // (assistant.py); they run here, where the player and the mixer are, and
-  // what each one did goes back until there is nothing more to do.
-  const SESSION = Math.random().toString(36).slice(2);
-  let dict = null, assisting = false, hideBox = 0;
-  function bubble(you, it, busy){
-    const box = el("assist-box");
-    if(you !== null) el("assist-you").textContent = you ? "„" + you + "“" : "";
-    el("assist-it").textContent = it;
-    box.classList.toggle("busy", !!busy); box.hidden = false;
-    clearTimeout(hideBox);
-    if(!busy) hideBox = setTimeout(() => { box.hidden = true; }, 12000);
-  }
-  function beep(f){
-    try{
-      const c = new AudioContext(), o = c.createOscillator(), g = c.createGain();
-      o.frequency.value = f; g.gain.value = 0.08; o.connect(g); g.connect(c.destination);
-      o.start(); o.stop(c.currentTime + 0.12); o.onended = () => c.close();
-    }catch(e){}
-  }
-  function speak(text){
-    if(!el("assist-tts").checked || !window.speechSynthesis || !text) return Promise.resolve();
-    return new Promise(ok => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "cs-CZ";
-      const v = speechSynthesis.getVoices().find(x => x.lang && x.lang.toLowerCase().startsWith("cs"));
-      if(v) u.voice = v;
-      u.onend = u.onerror = () => ok();
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-      setTimeout(ok, 15000);
-    });
-  }
-  // A sentence ends when it has been quiet for a moment after something was said.
-  function dictHear(chunk){
-    const d = dict;
-    let e = 0; for(let i = 0; i < chunk.length; i++) e += chunk[i] * chunk[i];
-    const rms = Math.sqrt(e / chunk.length), now = performance.now();
-    if(now - d.t0 < 350){ d.floor = Math.max(d.floor, rms); return true; }       // the room, before the first word (and the beep)
-    const loud = rms > Math.max(0.012, d.floor * 3);
-    if(loud){ d.spoke = d.spoke || now; d.last = now; }
-    if(d.spoke || d.keep.length < 25){ d.keep.push(chunk); if(!d.spoke && d.keep.length > 24) d.keep.shift(); }
-    if(d.spoke) d.held += chunk.length;
-    const over = d.spoke ? (now - d.last > 1300 || now - d.spoke > 18000) : now - d.t0 > 7000;
-    if(over){ dict = null; d.ok(d.spoke ? pcm16(d.keep, d.keep.reduce((n, c) => n + c.length, 0)) : null); }
-    return true;
-  }
-  async function dictate(){
-    if(dict || assisting) return;
-    const wasOn = on;
-    if(!on) await start();
-    if(!on) return;
-    beep(880);
-    fetch("/api/assistant/wake", {method: "POST"}).catch(() => {});      // the model loads while the sentence is said
-    bubble("", "Poslouchám…", true);
-    const pcm = await new Promise(ok => { dict = {t0: performance.now(), floor: 0, spoke: 0, last: 0, keep: [], held: 0, ok}; });
-    parts = []; held = 0;
-    if(!wasOn) stop();
-    if(!pcm || pcm.length < 8000){ bubble("", "Nic jsem neslyšel."); return; }
-    beep(660);
-    await assist(null, pcm);
-  }
-  async function assist(text, pcm){
-    if(assisting) return;
-    assisting = true;
-    try{
-      bubble(text || "", "Přemýšlím…", true);
-      const post = (path, body, raw) => fetch(path, raw ? {method: "POST", body, headers: {"Content-Type": "application/octet-stream"}}
-        : {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}}).then(r => r.json());
-      let r = pcm ? await post("/api/assistant/hear?session=" + SESSION, pcm.buffer, true) : await post("/api/assistant/say", {session: SESSION, text});
-      if(r.heard) bubble(r.heard, "Přemýšlím…", true);
-      for(let round = 0; round < 10 && r && !r.error && !r.done; round++){
-        const out = [];
-        for(const c of r.calls || []){
-          bubble(null, (r.say ? r.say + " " : "") + "…", true);
-          let content, bad = false;
-          try{ content = await tool(c.name, c.input || {}); }catch(e){ content = "Nepovedlo se: " + (e.message || e); bad = true; }
-          out.push({id: c.id, content: String(content || "hotovo"), is_error: bad});
-        }
-        r = await post("/api/assistant/results", {session: SESSION, results: out});
-      }
-      const said = (r && (r.error || r.say)) || "Hotovo.";
-      bubble(null, said);
-      heard.textContent = "asistent: " + said;
-      await speak(said);
-      if(r && !r.error && /\?\s*$/.test(said)){ assisting = false; await dictate(); }     // it asked: the answer needs no wake word
-    }catch(e){ bubble(null, "Asistent neodpovídá."); }
-    assisting = false;
-  }
   // The song in the Steems mixer, loaded and settled; the name it has there.
   async function openSteems(name){
     if(!el("pb-audio").paused) el("pb-audio").pause();
@@ -35523,75 +34814,12 @@ const Voice = (() => {
     await pause(2000);
   }
   const stemsNow = () => (Mixer.channelInfo() || []).map(c => c.stem);
-  async function tool(name, a){
-    const find = async (kind, q) => (await fetch(`/api/voice/find?kind=${kind}&name=${encodeURIComponent(q)}`)).json();
-    if(name === "get_state"){
-      const t = Player.getCurrent(), pb = el("pb-audio"), inSteems = shown("mixer") && Mixer.currentSong();
-      return JSON.stringify({vpredu: inSteems ? "Steems" : "spodní přehrávač",
-        steems: Mixer.currentSong() ? {pisen: Mixer.currentSong(), hraje: Mixer.isPlaying(), stopy: stemsNow(), tempo_procent: Math.round(Mixer.speed() * 100)} : null,
-        prehravac: t ? {pisen: t.title || "", interpret: t.artists || "", hraje: !pb.paused} : null,
-        hlasitost_procent: Math.round(+el("pb-volume").value * 100)});
-    }
-    if(name === "open_song"){
-      const f = await find(a.where === "steems" ? "practice" : "song", a.name);
-      if(!f || f.error || !f.track) return (f && f.error) || `Píseň „${a.name}“ jsem v knihovně nenašel.`;
-      const t = f.track, who = (t.artist ? t.artist + " — " : "") + t.title;
-      if(a.where !== "steems"){ Player.playLocal({relPath: t.rel, title: t.title, artists: t.artist, album: t.album}); return `Hraje ve spodním přehrávači: ${who}.`; }
-      if(!(t.stems && t.stems.state === "ready")) return `Píseň ${who} není rozdělená na stopy, ve Steems ji otevře jen nástroj practice (rozdělení trvá několik minut).`;
-      await openSteems(t.stems.name);
-      return `Otevřeno ve Steems: ${who}. Stopy: ${stemsNow().join(", ")}. Nehraje, dokud nezavoláš playback play.`;
-    }
-    if(name === "play_band"){
-      const f = await find("band", a.name);
-      if(!f || f.error || !f.tracks) return (f && f.error) || `Kapelu „${a.name}“ jsem v knihovně nenašel.`;
-      Player.playLocalQueue(f.tracks.map(t => ({relPath: t.rel, title: t.title, artists: t.artist, album: t.album})));
-      return `Hraje ${f.artist}, ${f.tracks.length} písní.`;
-    }
-    if(name === "playback") return run({play: "play", stop: "pause", restart: "rewind", next: "next", previous: "prev"}[a.action]) || "tohle teď nejde";
-    if(name === "command") return run(String(a.id || "")) || "tohle teď nejde";
-    if(name === "set_tempo") return shown("mixer") && Mixer.currentSong() ? run("tempo:" + a.percent) : "Tempo jde měnit jen u písně otevřené ve Steems.";
-    if(name === "volume"){ const n = Math.round(+a.steps || 0); return n ? run((n > 0 ? "up:" : "down:") + Math.abs(n)) : "beze změny"; }
-    if(name === "practice"){
-      if(!a.name) return run("practice");
-      const f = await find("practice", a.name);
-      if(!f || f.error || !f.track) return (f && f.error) || `Píseň „${a.name}“ jsem v knihovně nenašel.`;
-      const ready = f.track.stems && f.track.stems.state === "ready";
-      found(f);
-      return ready ? `Připravuju cvičení: ${f.track.title}. Za pár vteřin bude otevřená, kytara ztlumená a tvoje zapnutá.`
-        : `Píseň ${f.track.title} se rozděluje na stopy, potrvá to několik minut; pak se otevře sama.`;
-    }
-    if(!(shown("mixer") && Mixer.currentSong())) return "Ve Steems není otevřená žádná píseň — nejdřív ji tam otevři (open_song, where steems).";
-    if(name === "loop_section"){
-      if(a.section === "off"){ Mixer.setLoop(0, 0); return "smyčka zrušená"; }
-      return run("section:" + ({current: "loop", next: "+", previous: "-"}[a.section] || a.section));
-    }
-    if(name === "stem"){
-      const c = Mixer.channelByStem(a.stem) || (Mixer.channelInfo() || []).map(x => Mixer.channelByStem(x.stem)).find(x => x && x.stem.split("_")[0] === a.stem);
-      if(!c) return `Stopa ${a.stem} v téhle písni není. Jsou tu: ${stemsNow().join(", ")}.`;
-      const cz = STEM_CZ[a.stem] || a.stem;
-      if(a.action === "mute" || a.action === "unmute"){ Mixer.voice.mutedOn(a.stem, a.action === "mute"); return `${cz}: ${a.action === "mute" ? "ztlumeno" : "hraje"}`; }
-      if(a.action === "solo" || a.action === "unsolo"){ if(!!c.solo !== (a.action === "solo")) Mixer.voice.solo(a.stem); return `${cz} sólo ${a.action === "solo" ? "zapnuté" : "vypnuté"}`; }
-      return run(`vol:${a.stem}:${a.action === "louder" ? "+" : "-"}`);
-    }
-    return "Takový nástroj tu není.";
-  }
-  el("assist-text").addEventListener("keydown", (e) => {
-    e.stopPropagation();
-    if(e.key !== "Enter") return;
-    const t = e.target.value.trim(); if(!t) return;
-    e.target.value = ""; TMenu.close(); assist(t, null);
-  });
-  try{ el("assist-tts").checked = localStorage.getItem("pick-assist-tts") !== "0"; }catch(e){}
-  el("assist-tts").onchange = (e) => { try{ localStorage.setItem("pick-assist-tts", e.target.checked ? "1" : "0"); }catch(err){} };
-
   // Real full screen needs a click of yours; a spoken command has none, and
   // then the window is made as big as the screen instead.
   function fullScreen(){
     if(document.fullscreenElement){ document.exitFullscreen().catch(() => {}); return; }
     document.documentElement.requestFullscreen().catch(() => fetch("/api/window/full?which=app", {method: "POST"}).catch(() => {}));
   }
-  el("full-top-btn").onclick = fullScreen;
-
   const STEM_CZ = {drums: "bicí", bass: "basa", guitar: "kytara", vocals: "zpěv", piano: "klavír", other: "ostatní"};
   const pause = (ms) => new Promise(ok => setTimeout(ok, ms));
 
@@ -35812,134 +35040,8 @@ const Voice = (() => {
     }catch(e){ showToast("Píseň se nepodařilo vybrat"); }
   }
 
-  async function start(){
-    if(on) return;
-    try{
-      const r = await fetch("/api/voice/start", {method: "POST"});
-      if(!r.ok){
-        const d = await r.json().catch(() => ({}));
-        if(d.taken){ yieldTo(); return; }
-        throw new Error(d.error || "Hlasové ovládání se nespustilo.");
-      }
-      yielded = false;
-      const ch = savedCh();
-      // Echo cancelling takes the app's own playback out of what the microphone hears.
-      // It also folds the card's inputs into one — so with a chosen input it is
-      // off, and the inputs arrive apart.
-      stream = await VoiceMic.open(ch ? {channels: 8} : {echo: true, noise: true, agc: true, channels: 1});
-      const got = stream.getAudioTracks()[0].getSettings().channelCount || 1;
-      if(ch && +ch > got) showToast(`Tenhle mikrofon má jen ${got === 1 ? "jeden vstup" : got + " vstupy"} — poslouchám vstup 1.`);
-      actx = new AudioContext({sampleRate: 16000});
-      const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
-      await actx.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
-      node = new AudioWorkletNode(actx, "pick-voice", {numberOfInputs: 1, numberOfOutputs: 0,
-        channelCount: Math.max(2, got), channelCountMode: "explicit", channelInterpretation: "discrete",
-        processorOptions: {ch: VoiceMic.index(got)}});
-      node.port.onmessage = (ev) => {
-        const e = gainLin === 1 ? ev : {data: ev.data.map(x => x * gainLin > 1 ? 1 : x * gainLin < -1 ? -1 : x * gainLin)};
-        if(dict && dictHear(e.data)) return;
-        for(let i = 0; i < e.data.length; i += 8){ const v = Math.abs(e.data[i]); if(v > peak) peak = v; }
-        if((lvlN += e.data.length) >= 1600){ level.style.width = Math.min(100, Math.round(Math.sqrt(peak) * 100)) + "%"; peak = lvlN = 0; }
-        if(teach){                        // a take being recorded, or the gap between two
-          if(!teach.ok) return;
-          teach.parts.push(e.data); teach.held += e.data.length;
-          if(teach.held >= teach.need){ const t = teach; teach = {}; t.ok(pcm16(t.parts, t.held)); }
-          return;
-        }
-        parts.push(e.data); held += e.data.length; if(held >= 4000) send();
-      };
-      actx.createMediaStreamSource(stream).connect(node);
-      // Started without a click (remembered, or by Siri) the browser may hold
-      // the audio back until the page is touched.
-      if(actx.state === "suspended"){
-        const ctx = actx, wake = () => { ctx.resume().catch(() => {}); removeEventListener("pointerdown", wake, true); removeEventListener("keydown", wake, true); };
-        ctx.resume().catch(() => {});
-        addEventListener("pointerdown", wake, true); addEventListener("keydown", wake, true);
-      }
-      on = true; parts = []; held = 0;
-      heard.textContent = "Poslouchám. Řekni „pick“ a hned povel — nebo jen „hey pick“ a ukážu, co jde říct.";
-      repliesLoad();
-      listMics();
-    }catch(e){
-      stop();
-      heard.textContent = e.name === "NotAllowedError" ? "Mikrofon není povolený." : (e.message || "Mikrofon se nepodařilo otevřít.");
-      showToast(heard.textContent);
-    }
-    paint();
-  }
-  // The mini player listens instead while it is open and listening; this
-  // window lets the microphone go and comes back when the mini player is done.
-  let yielded = false, yieldTimer = 0;
-  function yieldTo(){
-    const first = !yielded;
-    yielded = true;
-    if(on) stop();
-    heard.textContent = "Poslouchá minipřehrávač — povely teď platí tam.";
-    if(first) showToast(heard.textContent);
-    clearTimeout(yieldTimer);
-    yieldTimer = setTimeout(() => { if(yielded && !on && wanted()) start(); else yielded = false; }, 4000);
-  }
-  function stop(){
-    on = false;
-    if(teach && teach.ok){ const t = teach; teach = {}; t.ok(new Int16Array(0)); }
-    if(stream) stream.getTracks().forEach(t => t.stop());
-    if(actx) actx.close().catch(() => {});
-    stream = actx = node = null; parts = []; held = 0; level.style.width = "0";
-    fetch("/api/voice/stop", {method: "POST"}).catch(() => {});
-    paint();
-  }
-
-  // Listening is remembered: once on, it comes back by itself the next time
-  // Pick opens, until it is turned off here or by Siri.
-  function turn(want){
-    try{ want ? localStorage.setItem(ON_KEY, "1") : localStorage.removeItem(ON_KEY); }catch(e){}
-    return want ? start() : stop();
-  }
-  const wanted = () => { try{ return localStorage.getItem(ON_KEY) === "1"; }catch(e){ return false; } };
-  toggleBtn.onclick = () => turn(!on);
-  // One window listens — the one that answers the remote. Another Pick window
-  // taking over means this one lets the microphone go.
-  addEventListener("storage", (e) => { if(e.key === OWNER_KEY && on && !RemoteAgent.isOwner()) stop(); });
-  // Voice control is switched off for good (3. 11.): nothing starts listening,
-  // and listening left on from before — here or from the menu bar — is let go.
-  if(wanted()){ try{ localStorage.removeItem(ON_KEY); }catch(e){} }
-  fetch("/api/voice/widget").then(r => r.json()).then(w => {
-    if(w && w.on) fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on: false})});
-  }).catch(() => {});
-  el("voice-top-btn").addEventListener("click", () => { listCommands(); listMics(); });
-  el("voice-mic").onchange = (e) => VoiceMic.set(e.target.value, savedCh());
-  // chosen here or in the settings (Mikrofon pro zpěv a hlas): both pickers show it, the menu bar hears of it
-  window.addEventListener("pick-mic-changed", () => {
-    listMics();
-    const sel = el("voice-ch"), c = savedCh();
-    if(c && ![...sel.options].some(o => o.value === c)) sel.insertAdjacentHTML("beforeend", `<option value="${c}">${c}</option>`);
-    sel.value = c;
-    tellWidget();
-    if(on){ stop(); start(); }
-  });
-  // The menu bar's own listening (no window open) uses the same microphone and input as chosen here.
-  function tellWidget(){
-    const sel = el("voice-mic"), opt = sel.options[sel.selectedIndex];
-    fetch("/api/voice/widget", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({device: sel.value && opt ? opt.textContent : "", channel: savedCh()})}).catch(() => {});
-  }
-  el("voice-ch").value = savedCh();
-  el("voice-ch").onchange = (e) => {
-    const ch = e.target.value;
-    VoiceMic.set(VoiceMic.id(), ch);
-    // The guitar on "automatic" would take whichever input is louder — the
-    // voice, now and then. From here on it keeps to the other one (effectiveChannel).
-    const Guitar = typeof Mixer !== "undefined" ? Mixer.guitar : null;
-    if(Guitar && Guitar.state){
-      Guitar.setInputChannel(Guitar.state.inputChannel);
-      if(ch && Guitar.state.inputChannel === "auto") showToast(`Mikrofon na vstupu ${ch} — kytara na „Automaticky“ teď bere jen vstup ${ch === "2" ? 1 : 2}.`);
-      else if(ch && Guitar.state.inputChannel === ch) showToast(`Pozor: kytara je nastavená na stejný vstup ${ch} jako mikrofon.`);
-    }
-  };
-  paint();
-  return {start, stop, turn, isOn: () => on, run, runSteps, assist, tool, dictate, heard: got,
-    hints: {show: hintsShow, hide: hintsHide, on: () => hintsOn, list: () => hintList().map(h => h.say)}, replies: {load: repliesLoad, pick: reply}};
+  el("full-top-btn").onclick = fullScreen;
+  return {run};
 })();
 </script>
 <script src="/static/studio.js"></script>
