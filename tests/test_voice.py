@@ -353,6 +353,7 @@ def test_the_app_says_whether_it_listens(client):
 
 # ---- one window listens at a time; the mini player comes first
 
+@pytest.mark.skipif(voice.available() is not None, reason="needs the speech model (voice control is off since 3. 11.)")
 def test_the_mini_player_takes_the_listening_and_gives_it_back(client):
     import server
     silence = b"\0" * 8000

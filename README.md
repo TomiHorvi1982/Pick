@@ -1402,6 +1402,16 @@ cd ~/.local/share/spotdl-helper/app
 `pytest.ini` vynechává `vendor/` — submoduly mají vlastní testy a závislosti
 (numpy, torch), na kterých by holé `pytest` spadlo už při sběru testů.
 
+## Úklid 3. 11.
+
+Smazáno, protože k tomu nevede žádná funkce: model Gemma (`models/…gguf`) a prostředí `pick-assistant`
+(Asistent — jeho pole bylo jen v menu hlasového ovládání), model Vosk (`voice/vosk-model-small-en-us-0.15`,
+hlasové ovládání), Seed-VC (`svc/seed-vc`) a prostředí `pick-svc` (Zpěv mým hlasem a přezpívání řádku).
+Okno řádku textu („Upravit řádek…“) už jen opravuje text; Namluvit a Přezpívat jsou skryté. Kód těch funkcí
+zůstal a bez modelů hlásí, že nejsou nainstalované; hlasové testy se bez modelu přeskočí.
+Zůstává: ACE-Step (Skladatel), OmniVoice (`pick-tts`, Výslovnost), whisper (odposlech textu),
+`spotdl-analyze` (části a akordy), `pick-midi` (noty), `pick-kontakt` (zvuky Virtuální kytary).
+
 ## Poznámky
 
 - **Stemy**: model `htdemucs_6s`, 6 stop (vocals, drums, bass, guitar, piano,
