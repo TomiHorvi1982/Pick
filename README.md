@@ -811,6 +811,22 @@ si odkaz pamatuje) a stáhne celé, vybrané, nebo stáhne a rozdělí na stopy 
 nikoho nevyhledává: odkaz na profil odpoví, ať majitel pošle odkaz přímo na playlist; soukromý playlist
 přečíst nejde.
 
+## Živá kytara: delay a reverb
+
+Na fáderu živé kytary je řádek **DLY · REV**. Kterékoli z nich otevře plovoucí okno
+*Delay & Reverb* (`static/space.js`), vše je čisté Web Audio, žádné soubory ani pluginy:
+
+- **Delay**: typy Digitální, Analogový (tmavne a jemně saturuje), Páskový (kolísání pásku,
+  přebuzení), Ping-pong (ozvěna skáče L/P). Čas v ms, nebo **podle tempa** písně (1/2 … 1/16,
+  s tečkou, trioly; řídí se i změnou rychlosti). Opakování, Barva, Modulace, Mix.
+- **Reverb**: Místnost, Sál, Plate, Pružina, Katedrála, Ambient. Odezva (IR) se generuje
+  v prohlížeči podle typu a délky. Délka, Předzpoždění, Barva, Ořez basů, Mix.
+- **Presety** pro každý efekt a **Sady** obou naráz (Clean ambient, Sólo, Rocková rytmika,
+  Surf, Shoegaze, Suchá kytara).
+- Grafy: ozvěny jako sloupce v čase (ping-pong nahoru/dolů), dozvuk jako křivka doznívání
+  skutečné odezvy s předzpožděním; obojí svítí podle toho, co právě zní.
+- Řazení: … → doubler → delay → reverb. Nastavení je v `fx.state.space` a ukládá se se session.
+
 ## Živá kytara: automatická brána a hlasitosti
 
 **Automatická brána šumu** (AUTO pod knoflíkem GATE, výchozí zapnutá, `pick-gate-auto`): z hlášení vstupu

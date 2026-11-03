@@ -4161,6 +4161,47 @@ body.lib-collapsed .pick-brand{display:none}
   .plg-foot{display:flex;align-items:center;gap:10px;padding-top:10px;font-size:12px;color:var(--sub)}
   .plg-foot button{border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:7px;cursor:pointer}
   .fl-plug-btn{width:100%;margin-top:3px}
+  /* Delay & Reverb (static/space.js): the floating window of the live guitar's space */
+  .fl-space-row .fl-dly.on{color:#5ec8ff;border-color:#5ec8ff;box-shadow:0 0 6px rgba(94,200,255,.35)}
+  .fl-space-row .fl-rev.on{color:#b48cff;border-color:#b48cff;box-shadow:0 0 6px rgba(180,140,255,.35)}
+  .spc-win{position:fixed;left:max(8px,calc(50% - 390px));top:70px;width:780px;max-width:calc(100vw - 16px);max-height:calc(100vh - 40px);overflow:auto;z-index:1262;
+    background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.6);font-size:13px}
+  .spc-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none}
+  .spc-bar .sp{flex:1}.spc-who{color:var(--sub);font-size:12px}
+  .spc-x{border:0;background:none;color:var(--sub);cursor:pointer;font-size:15px}
+  .spc-body{padding:10px 14px 12px}
+  .spc-sets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+  .spc-sets span{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-right:4px}
+  .spc-sets button,.spc-presets button{border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;cursor:pointer}
+  .spc-sets button:hover,.spc-presets button:hover{border-color:var(--accent)}
+  .spc-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:720px){.spc-cards{grid-template-columns:1fr}}
+  .spc-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .spc-card[data-card="delay"]{--c:#5ec8ff}.spc-card[data-card="reverb"]{--c:#b48cff}
+  .spc-card.off .spc-ctl,.spc-card.off .spc-cv{opacity:.55}
+  .spc-head{display:flex;align-items:center;gap:8px}
+  .spc-title{font-weight:800;letter-spacing:.12em;color:var(--c)}.spc-sub{flex:1;color:var(--sub);font-size:12px}
+  .spc-sw{width:38px;height:20px;border-radius:10px;border:1px solid var(--border);background:#22232c;position:relative;cursor:pointer;padding:0}
+  .spc-sw i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#666;transition:left .15s,background .15s}
+  .spc-sw.on{background:color-mix(in srgb,var(--c) 30%,#22232c);border-color:var(--c)}.spc-sw.on i{left:20px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  .spc-cv{width:100%;height:120px;border-radius:8px;background:#08080b;border:1px solid #23232b;display:block}
+  .spc-types{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:4px}
+  .spc-types button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border:1px solid var(--border);border-radius:8px;background:#1b1c24;color:var(--sub);font:inherit;font-size:11px;cursor:pointer}
+  .spc-types button:hover{color:var(--text)}
+  .spc-types button.on{color:var(--c);border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,#1b1c24)}
+  .spc-presets{display:flex;flex-wrap:wrap;gap:4px}.spc-presets button{font-size:11px;padding:3px 8px}
+  .spc-ctl{display:flex;flex-direction:column;gap:6px}
+  .spc-sl{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--sub)}
+  .spc-sl span{display:flex;justify-content:space-between}.spc-sl b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+  .spc-sl input{width:100%;accent-color:var(--c)}
+  .spc-time{display:flex;flex-direction:column;gap:4px}
+  .spc-sync{align-self:flex-start;border:1px solid var(--border);background:none;color:var(--sub);font:inherit;font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer}
+  .spc-sync.on{color:var(--c);border-color:var(--c)}
+  .spc-divs{display:flex;flex-wrap:wrap;gap:3px}
+  .spc-divs button{flex:1;min-width:38px;border:1px solid var(--border);background:#1b1c24;color:var(--sub);font:inherit;font-size:11px;padding:3px 0;border-radius:5px;cursor:pointer}
+  .spc-divs button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
+  .spc-note{font-size:11px;color:var(--sub)}
+  .spc-foot{margin-top:10px;font-size:11.5px;color:var(--sub)}
   /* Zesilovače a bedny (static/ampbrowser.js): the floating picker of NAM profiles and cabinets */
   .ampb-win{position:fixed;left:calc(50% - 380px);top:70px;width:760px;height:min(680px,calc(100vh - 90px));min-width:480px;min-height:320px;
     max-width:calc(100vw - 16px);max-height:calc(100vh - 20px);resize:both;overflow:hidden;display:flex;flex-direction:column;z-index:1250;
@@ -15504,7 +15545,10 @@ const Mixer = (() => {
         amp: saved && saved.amp && saved.amp.file ? {file: String(saved.amp.file), name: String(saved.amp.name || "")} : null,
         // its own cabinet (an IR) after that profile: {file, name}; none = the live guitar's, as before
         cab: saved && saved.cab && saved.cab.file ? {file: String(saved.cab.file), name: String(saved.cab.name || "")} : null,
+        // delay & reverb after everything (static/space.js): {delay: {...}, reverb: {...}}
+        space: saved && saved.space ? JSON.parse(JSON.stringify(saved.space)) : null,
       },
+      space: null,
       ampNode: null, ampCab: null, ampToken: 0, cabToken: 0,
     };
     fx.pre.fftSize = 512;
@@ -15516,6 +15560,7 @@ const Mixer = (() => {
     applyCompParams(fx);
     wireFx(fx);
     if(fx.state.dbl.on) ensureDoubler(fx);
+    if(typeof SpaceFx !== "undefined" && SpaceFx.wants(fx.state.space)) try{ SpaceFx.attach(fx); }catch(e){}
     if(fx.state.amp) (fx.state.cab ? setFxCab(fx, fx.state.cab) : Promise.resolve()).catch(() => {}).then(() => setFxAmp(fx, fx.state.amp)).catch(() => {});
     return fx;
   }
@@ -15555,13 +15600,14 @@ const Mixer = (() => {
   }
 
   function wireFx(fx){
-    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output, fx.ampNode, fx.ampCab].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output, fx.space && fx.space.output, fx.ampNode, fx.ampCab].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
     fx.input.connect(fx.pre);
     let n = fx.input;
     if(fx.state.amp && fx.ampNode){ n.connect(fx.ampNode); n = fx.ampNode; if(fx.ampCab){ n.connect(fx.ampCab); n = fx.ampCab; } }
     if(fx.state.comp.on){ n.connect(fx.comp); n = fx.makeup; }
     if(fx.state.mono){ n.connect(fx.mono); n = fx.mono; }
     if(fx.state.dbl.on && fx.dbl){ n.connect(fx.dbl.input); n = fx.dbl.output; }
+    if(fx.space){ n.connect(fx.space.input); n = fx.space.output; }
     n.connect(fx.output);
   }
 
@@ -15582,7 +15628,8 @@ const Mixer = (() => {
   }
 
   function fxSnapshot(fx){
-    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null, cab: fx.state.cab ? {...fx.state.cab} : null} : null;
+    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null, cab: fx.state.cab ? {...fx.state.cab} : null,
+                space: fx.state.space ? JSON.parse(JSON.stringify(fx.state.space)) : null} : null;
   }
 
   // ---- the doubler ----
@@ -16149,6 +16196,7 @@ const Mixer = (() => {
   // ---- the tempo and key controls ----
   function tempoBase(){ return tempoBPM || 100; }   // BPM, or a plain percentage
   function updateTempoUI(){
+    if(typeof SpaceFx !== "undefined") SpaceFx.retimeAll();   // a delay set to the tempo follows it
     const num = el("nm-tempo-num");
     if(!num) return;
     if(document.activeElement !== num) num.value = String(Math.round(tempoBase() * speed));
@@ -23653,6 +23701,10 @@ const Mixer = (() => {
       fx.state.dbl = {...DBL_DEFAULT, ...(saved && saved.dbl || {})};
       if(fx.state.dbl.on) ensureDoubler(fx).catch(() => {});
       applyDoublerParams(fx);
+      if(saved && saved.space){
+        fx.state.space = JSON.parse(JSON.stringify(saved.space));
+        if(fx.space) SpaceFx.apply(fx); else if(typeof SpaceFx !== "undefined" && SpaceFx.wants(fx.state.space)) try{ SpaceFx.attach(fx); }catch(e){}
+      }
       wireFx(fx);
     }
 
@@ -25867,6 +25919,11 @@ const Mixer = (() => {
         <button type="button" class="fl-fx-btn fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
           id="gt-eq-btn" title="Ekvalizér tvé živé kytary">EQ</button>
       </div>
+      ${(() => { const sp = typeof SpaceFx !== "undefined" ? SpaceFx.summary(fx) : {};
+        return `<div class="fl-fx-row fl-space-row">
+        <button class="fl-fx-btn fl-dly ${sp.delay ? "on" : ""}" data-act="space" title="Delay${sp.delay ? " — " + escapeHtml(sp.delayName) : " (vypnutý)"}: typy, presety, graf ozvěn">DLY</button>
+        <button class="fl-fx-btn fl-rev ${sp.reverb ? "on" : ""}" data-act="space" title="Reverb${sp.reverb ? " — " + escapeHtml(sp.reverbName) : " (vypnutý)"}: typy, presety, graf dozvuku">REV</button>
+      </div>`; })()}
       <button class="fl-fx-btn fl-auto-btn ${AutoMix.on() ? "on" : ""}" data-act="automix"
         title="Automatické hlasitosti: drží živou kytaru na úrovni kytary z písně a celý mix mimo přebuzení. ${escapeHtml(AutoMix.status())}">AUTO MIX</button>
       <div class="fl-fx-row fl-amp-row">
@@ -25918,6 +25975,7 @@ const Mixer = (() => {
     act("comp").onclick = () => openCompPanel("guitar");
     act("dbl").onclick = () => openDblPanel("guitar");
     act("automix").onclick = () => AutoMix.set(!AutoMix.on());
+    strip.querySelectorAll('[data-act="space"]').forEach(b => b.onclick = () => { if(typeof SpaceFx !== "undefined") SpaceFx.open(Guitar.fx(), {title: "živá kytara"}); });
     act("pick-nam").onclick = () => openAmpPicker("model");
     act("pick-ir").onclick = () => openAmpPicker("ir");
     act("plug").onclick = () => { if(typeof PluginRack !== "undefined") PluginRack.live(); };
@@ -26639,6 +26697,9 @@ const Mixer = (() => {
     takeLatency: () => (TakeRec.opts.latencyMs != null ? TakeRec.opts.latencyMs : (Guitar.state.latencyMs || 0)) / 1000,
     guitarDoubler: (on) => { const fx = Guitar.fx(); if(!!fx.state.dbl.on !== !!on) return setDoubler(fx, {on: !!on}).then(() => renderLiveGuitarFader()); },
     guitarFaderRepaint: () => renderLiveGuitarFader(),
+    // Delay & reverb (static/space.js): what it needs from here.
+    space: {ctx: () => ctx(), rewire: (fx) => wireFx(fx), save: () => queueSessionSave(), repaint: () => renderLiveGuitarFader(),
+            bpm: () => tempoBPM ? tempoBPM * speed : 0},
     // Voice commands (Voice, further down): the tracks by their stem, the song by its sections.
     voice: (() => {
       const find = (stem) => channels.find(c => c.stem === stem) || channels.find(c => c.stem.split("_")[0] === stem);
@@ -35089,6 +35150,7 @@ const Voice = (() => {
 <script src="/static/tone.js"></script>
 <script src="/static/ampbrowser.js"></script>
 <script src="/static/plugins.js"></script>
+<script src="/static/space.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>
