@@ -139,7 +139,7 @@ def test_the_chosen_variant_goes_into_the_library_and_to_be_separated(client, en
     # asked again, it is the same song — not a second copy
     again = client.post(f"/api/studio/projects/{p['id']}/variants/{v['id']}/use", json={"separate": False}).json()
     assert again["rel"] == got["rel"] and len(list((tmp_music_root / "Songs").iterdir())) == 1
-    assert client.post(f"/api/studio/projects/{p['id']}/variants/{v['id']}/use", json={"voice": "nikdo"}).status_code == 404
+    assert client.post(f"/api/studio/projects/{p['id']}/variants/{v['id']}/use", json={"voice": "nikdo"}).status_code == 410      # singing in your own voice is gone
     assert client.post(f"/api/studio/projects/{p['id']}/variants/xxxxxxxxxx/use", json={}).status_code == 404
 
 

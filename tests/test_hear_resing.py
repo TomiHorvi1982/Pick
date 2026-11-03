@@ -95,39 +95,6 @@ def test_the_computer_is_measured(client):
     assert got["total"] > 0 and 0 <= got["cpu"] <= 100 and got["level"] in ("ok", "busy", "tight") and isinstance(got["jobs"], list)
 
 
-def test_a_line_is_sung_again_only_when_it_can_be(client, tmp_music_root, monkeypatch):
-    _song(tmp_music_root)
-    monkeypatch.setattr(server, "_svc_ready", lambda: True)
-    monkeypatch.setattr(sysload, "room", lambda need, what="": (True, ""))
-    url = "/api/stems/Kapela - Píseň/resing"
-    assert client.post(url, json={"start": 10, "end": 14, "text": ""}).status_code == 400              # no words
-    assert client.post(url, json={"start": 10, "end": 14, "take": True}).status_code == 400            # nothing recorded
-    assert client.post(url, json={"start": 10, "end": 40, "text": "nová slova"}).status_code == 400     # not a line
-    monkeypatch.setattr(sysload, "room", lambda need, what="": (False, "Volná paměť je teď 1.0 GB"))
-    r = client.post(url, json={"start": 10, "end": 14, "text": "nová slova"})
-    assert r.status_code == 503 and "paměť" in r.json()["error"]
-    assert client.post("/api/stems/Nic - Tu/resing", json={"start": 1, "end": 3, "text": "x"}).status_code == 404
-
-
-def test_a_line_sung_again_goes_into_its_own_track(client, tmp_music_root, monkeypatch):
-    d = _song(tmp_music_root)
-    monkeypatch.setattr(server, "_svc_ready", lambda: True)
-    monkeypatch.setattr(sysload, "room", lambda need, what="": (True, ""))
-    rate = server.SVC_SR
-    tone = (0.2 * np.sin(np.arange(rate * 20) * 2 * np.pi * 220 / rate)).astype(np.float32)
-    monkeypatch.setattr(server, "_svc_pcm", lambda src, start=0.0, length=None: tone[int(start * rate):int((start + (length or 20)) * rate)].copy())
-    monkeypatch.setattr(server, "_resing_refs", lambda *a: (d / "r.wav", d / "s.wav", "slova"))
-    monkeypatch.setattr(server, "_own_say", lambda *a, **k: b"RIFF")
-    monkeypatch.setattr(server, "_resing_step", lambda job, cmd: (open(cmd[cmd.index("--out") + 1], "wb").write(b"x"), "DONE")[1])
-    monkeypatch.setattr(server, "_encode_to_stem", lambda src, target: target.write_bytes(b"x" * 2048) and None)
-    r = client.post("/api/stems/Kapela - Píseň/resing", json={"start": 5, "end": 8, "text": "úplně nová slova", "old": "starý řádek"})
-    assert r.status_code == 200, r.text
-    got = _wait(client, "/api/resing?song=Kapela - Píseň")
-    assert got["job"]["status"] == "done", got
-    assert got["kept"]["stem"] == got["job"]["stem"] and got["kept"]["edits"][0]["text"] == "úplně nová slova"
-    assert server._track_labels(d)[got["job"]["stem"]] == "Upravený zpěv"
-
-
 def test_a_corrected_text_is_kept(client):
     lines = [{"timeInMs": 1000, "text": "opravený řádek"}]
     assert client.post("/api/lyrics/keep", json={"title": "Píseň", "artist": "Kapela", "duration": 120, "lines": lines}).json()["ok"]
@@ -135,22 +102,3 @@ def test_a_corrected_text_is_kept(client):
     assert client.post("/api/lyrics/keep", json={"title": "", "lines": lines}).status_code == 400
 
 
-def test_a_line_sung_again_can_be_rewritten_and_undone(client, tmp_music_root, monkeypatch):
-    d = _song(tmp_music_root)
-    rate = server.SVC_SR
-    tone = (0.2 * np.sin(np.arange(rate * 20) * 2 * np.pi * 220 / rate)).astype(np.float32)
-    monkeypatch.setattr(server, "_svc_pcm", lambda src, start=0.0, length=None: tone[int(start * rate):int((start + (length or 20)) * rate)].copy())
-    monkeypatch.setattr(server, "_encode_to_stem", lambda src, target: target.write_bytes(b"x" * 2048) and None)
-    (d / "take-1.mp3").write_bytes(b"x" * 2048)
-    server._set_track_label(d, "take-1", "Upravený zpěv")
-    edits = [{"start": 2.0, "end": 4.0, "old": "starý první", "text": "nový první"}, {"start": 9.0, "end": 11.0, "old": "starý druhý", "text": "nový druhý"}]
-    (d / server.RESING_FILE).write_text(server.json.dumps({"stem": "take-1", "edits": edits}), encoding="utf-8")
-    url = "/api/stems/Kapela - Píseň/resing/edit"
-    r = client.post(url, json={"start": 9.0, "text": "jinak napsaný"})
-    assert r.status_code == 200 and r.json()["kept"]["edits"][1]["text"] == "jinak napsaný"
-    assert client.post(url, json={"start": 5.0, "text": "x"}).status_code == 404
-    r = client.delete(url + "?start=2.0")
-    assert r.status_code == 200 and [e["old"] for e in r.json()["kept"]["edits"]] == ["starý druhý"]
-    r = client.delete(url + "?start=9.0")
-    assert r.json()["gone"] == "take-1" and not (d / "take-1.mp3").exists() and not (d / server.RESING_FILE).exists()
-    assert "take-1" not in server._track_labels(d)

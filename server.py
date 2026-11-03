@@ -7831,7 +7831,7 @@ def _guide_clip(src: Path, dest: Path, rate: int = 44100, limit: float = 40.0) -
 
 @app.get("/api/tts/voice-guide")
 def tts_voice_guide_texts():
-    return {"texts": GUIDE_TEXTS, "ready": OWN_TTS_PYTHON.is_file(), "sing": _svc_ready()}
+    return {"texts": GUIDE_TEXTS, "ready": OWN_TTS_PYTHON.is_file(), "sing": False}
 
 
 @app.post("/api/tts/voice-guide")
@@ -7867,7 +7867,7 @@ async def tts_voice_guided(cs: UploadFile = File(...), en: UploadFile = File(...
         parts = ([tmp / "sung.wav"] if "sing" in lens else []) + [dest / "read-cs.wav", dest / "read-en.wav"]
         (tmp / "list.txt").write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
         subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-f", "concat", "-safe", "0", "-i", str(tmp / "list.txt"),
-                        "-t", "25", "-ac", "1", "-ar", str(SVC_SR), str(dest / "sing.wav")], capture_output=True, timeout=120)
+                        "-t", "25", "-ac", "1", "-ar", "44100", str(dest / "sing.wav")], capture_output=True, timeout=120)
         (dest / "name.txt").write_text((name or "").strip()[:60] or "Můj hlas", encoding="utf-8")
         (dest / "guide.json").write_text(json.dumps({"at": time.time(), "seconds": lens}, ensure_ascii=False), encoding="utf-8")
     except Exception as e:                                 # noqa: BLE001
@@ -8748,604 +8748,6 @@ def add_track_library(name: str, req: LibraryFileRequest):
     return _add_track_from(stems_dir, src, src.stem)
 
 
-# ---- "Zpěv mým hlasem": the song's vocals sung in the player's own voice.
-# The vocals stem keeps its melody, timing and phrasing; only whose voice it is
-# changes — taken from the voice the player added for reading aloud (or, better,
-# from a sample of them singing). The model (Seed-VC) lives in an environment of
-# its own and runs as a process per job (svc_worker.py): about three times the
-# length of what it converts on this kind of computer, so one job at a time,
-# in the background, with its progress told. What comes out is a track of the
-# song like any other; a stretch of it can be done again and is spliced in.
-SVC_PYTHON = HOME / ".local" / "venvs" / "pick-svc" / "bin" / "python"
-SVC_DIR = CONFIG_PATH.parent / "svc" / "seed-vc"
-SVC_WORKER = APP_DIR / "svc_worker.py"
-SVC_SR = 44100
-SVC_FILE = "myvoice.json"
-SVC_SONG_SAMPLE = "myvoice-sample.wav"     # the player singing a piece of this very song: the model's best model for it
-_SVC: dict = {"job": None, "proc": None}
-_SVC_LOCK = threading.Lock()
-
-
-def _svc_ready() -> bool:
-    return SVC_PYTHON.is_file() and SVC_DIR.is_dir()
-
-
-def _svc_voices() -> list:
-    root = _own_voices_dir()
-    out = []
-    for d in (sorted(root.iterdir()) if root.is_dir() else []):
-        if d.is_dir() and not d.name.startswith(".") and (d / "ref.wav").is_file():
-            name = (d / "name.txt").read_text(encoding="utf-8").strip() if (d / "name.txt").is_file() else d.name
-            out.append({"id": d.name, "name": name, "sung": (d / "sing.wav").is_file()})
-    return out
-
-
-def _svc_voice_file(voice: str) -> Optional[Path]:
-    if not voice or "/" in voice or voice.startswith("."):
-        return None
-    d = _own_voices_dir() / voice
-    return next((f for f in (d / "sing.wav", d / "ref.wav") if f.is_file()), None)
-
-
-def _svc_song_sample(d: Path) -> Optional[Path]:
-    f = d / SVC_SONG_SAMPLE
-    try:
-        return f if f.is_file() and f.stat().st_size > SVC_SR * 2 * 3 else None
-    except OSError:
-        return None
-
-
-def _svc_kept(d: Path) -> dict:
-    try:
-        got = json.loads((d / SVC_FILE).read_text(encoding="utf-8"))
-        return got if isinstance(got, dict) and _stem_file(d, got.get("stem") or "-") else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def _svc_pcm(src: Path, start: float = 0.0, length: Optional[float] = None):
-    """Mono float samples of a file at the model's rate."""
-    import numpy as np
-    cmd = [ffmpeg_bin(), "-v", "error", "-nostdin"] + (["-ss", f"{start:.3f}"] if start > 0 else []) + ["-i", str(src)]
-    cmd += (["-t", f"{length:.3f}"] if length else []) + ["-ac", "1", "-ar", str(SVC_SR), "-f", "f32le", "-"]
-    raw = subprocess.run(cmd, capture_output=True, timeout=300).stdout
-    return np.frombuffer(raw, dtype=np.float32).copy()
-
-
-def _svc_wav(samples, path: Path) -> None:
-    import wave
-    import numpy as np
-    pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SVC_SR)
-        w.writeframes(pcm.tobytes())
-
-
-def _svc_level(made, like):
-    """As loud as what it replaces, and never over full scale."""
-    import numpy as np
-    rms = lambda x: float(np.sqrt(np.mean(np.square(x)))) if len(x) else 0.0
-    if rms(made) > 1e-5 and rms(like) > 1e-5:
-        made = made * (rms(like) / rms(made))
-    peak = float(np.max(np.abs(made))) if len(made) else 0.0
-    return made * (0.97 / peak) if peak > 0.97 else made
-
-
-def _svc_splice(whole, part, at: int, fade: int = 1764):
-    """`part` put into `whole` from sample `at`, eased in and out over 40 ms."""
-    import numpy as np
-    part = part[:max(0, len(whole) - at)]
-    n = len(part)
-    if n < fade * 3:
-        return whole
-    env = np.ones(n, dtype=np.float32)
-    ramp = np.linspace(0.0, 1.0, fade, dtype=np.float32)
-    if at > 0:
-        env[:fade] = ramp
-    if at + n < len(whole):
-        env[-fade:] = ramp[::-1]
-    out = whole.copy()
-    out[at:at + n] = whole[at:at + n] * (1.0 - env) + part * env
-    return out
-
-
-def _svc_run(job: dict, d: Path, vocals: Path, ref: Path) -> None:
-    tmp = Path(tempfile.mkdtemp(prefix="pick-svc-"))
-    try:
-        whole = job["end"] is None
-        pad = 0.0 if whole else min(0.6, job["start"])                 # a little before, so the voice is already going
-        start = 0.0 if whole else job["start"] - pad
-        length = None if whole else (job["end"] - job["start"]) + pad + 0.6
-        src = _svc_pcm(vocals, start, length)
-        if len(src) < SVC_SR:
-            raise RuntimeError("V tomhle úseku není co zpívat.")
-        _svc_wav(src, tmp / "src.wav")
-        ref_len = min(25.0, len(_svc_pcm(ref, 0, 26)) / SVC_SR)
-        job["of"] = max(1, int(-(-(len(src) / SVC_SR) // max(4.0, 30.0 - ref_len))))
-        job["stage"] = "load"
-        proc = subprocess.Popen([str(SVC_PYTHON), str(SVC_WORKER), "--source", str(tmp / "src.wav"), "--ref", str(ref),
-                                 "--out", str(tmp / "out.wav"), "--steps", str(job["steps"]), "--shift", str(job["shift"]),
-                                 "--auto", "1" if job["auto"] else "0"],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-        _SVC["proc"] = proc
-        last = ""
-        for line in proc.stdout:
-            line = line.strip()
-            if line == "LOADED":
-                job["stage"] = "sing"; job["sing_at"] = time.time()
-            elif line.startswith("PROGRESS"):
-                job["done"] = min(job["of"], int(line.split()[1]))
-            elif line.startswith(("ERROR", "DONE")):
-                last = line
-        proc.wait()
-        if job.get("status") == "stopped":
-            return
-        if proc.returncode != 0 or not (tmp / "out.wav").is_file():
-            raise RuntimeError(last[6:] if last.startswith("ERROR") else "Model skončil bez výsledku.")
-        job["stage"] = "save"
-        made = _svc_pcm(tmp / "out.wav")
-        made = _svc_level(made[:len(src)], src)
-        kept = _svc_kept(d)
-        if whole or not kept:
-            full = made if whole else _svc_splice(_svc_pcm(vocals) * 0.0, made, int(start * SVC_SR))
-        else:
-            full = _svc_splice(_svc_pcm(_stem_file(d, kept["stem"])), made, int(start * SVC_SR))
-        _svc_wav(full, tmp / "full.wav")
-        stem = kept.get("stem") or _next_take_name(d)
-        for old in d.glob(f"{stem}.*"):                                # the same track, whatever it was encoded as
-            if old.suffix.lower() in STEM_READ_EXTS and old.suffix.lower() != ".mp3":
-                old.unlink()
-        err = _encode_to_stem(tmp / "full.wav", d / f"{stem}.mp3")
-        if err:
-            raise RuntimeError(err)
-        _set_track_label(d, stem, f"Můj hlas ({job['voice_name']})")
-        (d / SVC_FILE).write_text(json.dumps({"stem": stem, "voice": job["voice"], "steps": job["steps"], "shift": job["shift"],
-                                              "auto": job["auto"], "at": time.time()}, ensure_ascii=False), encoding="utf-8")
-        job.update(status="done", stem=stem, took=time.time() - job["started"])
-    except Exception as e:                                             # a job never takes the server with it
-        if job.get("status") != "stopped":
-            job.update(status="error", error=str(e)[:300])
-    finally:
-        _SVC["proc"] = None
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-class MyVoiceRequest(BaseModel):
-    voice: str
-    steps: int = 25
-    shift: int = 0
-    auto: bool = False
-    start: Optional[float] = None      # with `end`: only this stretch, spliced into what is already there
-    end: Optional[float] = None
-    own: bool = True                   # use the player's take of this song as the model, when there is one
-
-
-def _svc_job_view() -> Optional[dict]:
-    job = _SVC["job"]
-    if not job:
-        return None
-    out = {k: job.get(k) for k in ("song", "status", "stage", "done", "of", "error", "stem", "start", "end", "took", "own")}
-    out["elapsed"] = time.time() - job["started"]
-    out["estimate"] = job["estimate"]
-    return out
-
-
-@app.get("/api/myvoice")
-def myvoice_status(song: str = ""):
-    d = _resolve_under_music_root(f"Stems/{song}") if song else None
-    return {"ready": _svc_ready(), "voices": _svc_voices(), "job": _svc_job_view(),
-            "kept": _svc_kept(d) if d is not None and d.is_dir() else {},
-            "sample": ({"url": f"/api/stems/{quote(song)}/myvoice/sample", "seconds": round((_svc_song_sample(d).stat().st_size - 44) / (SVC_SR * 2), 1)}
-                       if d is not None and d.is_dir() and _svc_song_sample(d) else None),
-            "has_vocals": bool(d is not None and d.is_dir() and _stem_file(d, "vocals"))}
-
-
-@app.post("/api/stems/{name}/myvoice")
-def myvoice_start(name: str, req: MyVoiceRequest):
-    d = _resolve_under_music_root(f"Stems/{name}")
-    if d is None or not d.is_dir() or name.startswith("."):
-        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
-    if not _svc_ready():
-        return JSONResponse({"error": "Model pro zpěv mým hlasem není nainstalovaný."}, status_code=503)
-    vocals = _stem_file(d, "vocals")
-    if vocals is None:
-        return JSONResponse({"error": "Tahle píseň nemá stopu zpěvu."}, status_code=400)
-    ref = _svc_voice_file(req.voice)
-    if ref is None:
-        return JSONResponse({"error": "Takový hlas tu není — přidej si ho u Výslovnosti."}, status_code=404)
-    # sung by the player to this very song: in its key and manner, a truer model than any other sample
-    own = _svc_song_sample(d) if req.own else None
-    ref = own or ref
-    part = req.start is not None and req.end is not None
-    if part and req.end - req.start < 1.0:
-        return JSONResponse({"error": "Úsek je moc krátký (aspoň vteřina)."}, status_code=400)
-    dur = _audio_tags(vocals).get("duration") or 0
-    length = (req.end - req.start) if part else dur
-    steps = max(8, min(int(req.steps), 60))
-    ok, why = _sysload.room(2.5, "zpěv jiným hlasem")
-    if not ok:
-        return JSONResponse({"error": why}, status_code=503)
-    with _SVC_LOCK:
-        if _SVC["job"] and _SVC["job"].get("status") == "running":
-            return JSONResponse({"error": "Jeden zpěv se už počítá — počkej, až doběhne."}, status_code=409)
-        job = {"song": name, "status": "running", "stage": "prepare", "done": 0, "of": 1, "started": time.time(),
-               "voice": req.voice, "voice_name": next((v["name"] for v in _svc_voices() if v["id"] == req.voice), req.voice),
-               "own": bool(own),
-               "steps": steps, "shift": max(-24, min(int(req.shift), 24)), "auto": bool(req.auto),
-               "start": max(0.0, float(req.start)) if part else None, "end": float(req.end) if part else None,
-               # measured on an M1 Pro: loading the model, then about 2.8 × the length at 25 steps
-               "estimate": 45 + length * (0.6 + 2.2 * steps / 25)}
-        _SVC["job"] = job
-    threading.Thread(target=_svc_run, args=(job, d, vocals, ref), daemon=True).start()
-    return _svc_job_view()
-
-
-@app.post("/api/stems/{name}/myvoice/sample")
-async def myvoice_song_sample(name: str, file: UploadFile = File(...)):
-    """The player's own take of a piece of this song, sung along with it — kept beside the stems."""
-    d = _resolve_under_music_root(f"Stems/{name}")
-    if d is None or not d.is_dir() or name.startswith("."):
-        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
-    try:
-        tmp = await _upload_to_temp(file)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-    made = d / "myvoice-sample.tmp.wav"
-    try:
-        secs = _guide_clip(tmp, made, SVC_SR, 25.0)       # rumble and pauses out, steady loudness, 25 s at the most
-        if secs < 4.0:
-            made.unlink(missing_ok=True)
-            return JSONResponse({"error": "V nahrávce je málo zpěvu — aspoň čtyři vteřiny. Zpívej blíž k mikrofonu."}, status_code=400)
-        made.replace(d / SVC_SONG_SAMPLE)
-    finally:
-        tmp.unlink(missing_ok=True)
-    return {"ok": True, "seconds": round(secs, 1), "url": f"/api/stems/{quote(name)}/myvoice/sample"}
-
-
-@app.get("/api/stems/{name}/myvoice/sample")
-def myvoice_song_sample_get(name: str):
-    d = _resolve_under_music_root(f"Stems/{name}")
-    f = _svc_song_sample(d) if d is not None and d.is_dir() else None
-    if f is None:
-        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
-    return FileResponse(f, media_type="audio/wav", headers={"Cache-Control": "no-store"})
-
-
-@app.delete("/api/stems/{name}/myvoice/sample")
-def myvoice_song_sample_drop(name: str):
-    d = _resolve_under_music_root(f"Stems/{name}")
-    if d is not None and d.is_dir():
-        (d / SVC_SONG_SAMPLE).unlink(missing_ok=True)
-    return {"ok": True}
-
-
-@app.delete("/api/myvoice/job")
-def myvoice_stop():
-    job, proc = _SVC["job"], _SVC["proc"]
-    if job and job.get("status") == "running":
-        job["status"] = "stopped"
-        if proc is not None:
-            proc.terminate()
-    return {"ok": True}
-
-
-@app.post("/api/myvoice/sample/{voice}")
-async def myvoice_sample(voice: str, file: UploadFile = File(...)):
-    """A recording of the player singing: a truer model for a sung voice than speech is."""
-    d = _own_voices_dir() / voice
-    if "/" in voice or voice.startswith(".") or not (d / "ref.wav").is_file():
-        return JSONResponse({"error": "Takový hlas tu není."}, status_code=404)
-    try:
-        tmp = await _upload_to_temp(file)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-    try:
-        subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(tmp), "-t", "25", "-ac", "1", "-ar", str(SVC_SR),
-                        "-af", "silenceremove=start_periods=1:start_threshold=-45dB", str(d / "sing.tmp.wav")], capture_output=True, timeout=120)
-        made = d / "sing.tmp.wav"
-        if not made.is_file() or made.stat().st_size < SVC_SR * 2 * 3:
-            made.unlink(missing_ok=True)
-            return JSONResponse({"error": "Vzorek je moc krátký — aspoň pár vteřin zpěvu."}, status_code=400)
-        made.replace(d / "sing.wav")
-    finally:
-        tmp.unlink(missing_ok=True)
-    return {"ok": True, "voices": _svc_voices()}
-
-
-@app.delete("/api/myvoice/sample/{voice}")
-def myvoice_sample_drop(voice: str):
-    d = _own_voices_dir() / voice
-    if "/" not in voice and not voice.startswith("."):
-        (d / "sing.wav").unlink(missing_ok=True)
-    return {"ok": True, "voices": _svc_voices()}
-
-
-# ---- "Přezpívat řádek": one line of a song sung again with other words, in the
-# singer's own voice and on the song's own tune. The words are spoken first —
-# by OmniVoice, in the singer's voice taken off the vocals (or by the player,
-# recorded) — then laid onto the line's notes and rhythm (resing_worker.py,
-# the WORLD vocoder), then sung in the singer's voice by Seed-VC. Every line
-# done goes into one track of its own, "Upravený zpěv", beside the original.
-RESING_FILE = "resing.json"
-RESING_WORKER = APP_DIR / "resing_worker.py"
-RESING_TAKE = "resing-take.wav"            # the player saying the new words, the latest one recorded
-_RESING: dict = {"job": None, "proc": None}
-
-
-def _resing_kept(d: Path) -> dict:
-    try:
-        got = json.loads((d / RESING_FILE).read_text(encoding="utf-8"))
-        return got if isinstance(got, dict) and _stem_file(d, got.get("stem") or "-") else {"edits": (got or {}).get("edits") or []}
-    except (OSError, ValueError, AttributeError):
-        return {}
-
-
-def _resing_refs(d: Path, vocals: Path, avoid: tuple, lang: str) -> tuple:
-    """The singer's voice out of the vocals: ~16 s of their loudest singing for Seed-VC,
-    and one phrase with what is sung in it for OmniVoice. Kept beside the stems."""
-    import numpy as np
-    sing, say, said = d / "resing-ref.wav", d / "resing-say.wav", d / "resing-say.txt"
-    if sing.is_file() and say.is_file() and said.is_file():
-        return sing, say, said.read_text(encoding="utf-8")
-    x = _hear.decode(vocals)
-    spans = [(a, b) for a, b in _hear.phrases(x, gap=0.4, longest=10.0) if b < avoid[0] - 1 or a > avoid[1] + 1]
-    loud = lambda s: float(np.sqrt(np.mean(np.square(x[int(s[0] * 16000):int(s[1] * 16000)]))))
-    best = sorted(spans, key=lambda s: -loud(s) * min(s[1] - s[0], 6.0))
-    if not best:
-        raise RuntimeError("Ve stopě zpěvu není dost zpěvu na ukázku hlasu.")
-    picked, total = [], 0.0
-    for s in best:
-        if total >= 16:
-            break
-        picked.append(s)
-        total += s[1] - s[0]
-    picked.sort()
-    parts = [_svc_pcm(vocals, a, b - a) for a, b in picked]
-    _svc_wav(np.concatenate(parts), sing)
-    one = next((s for s in best if 3.5 <= s[1] - s[0] <= 10.0), best[0])
-    subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-ss", f"{one[0]:.2f}", "-t", f"{one[1] - one[0]:.2f}", "-i", str(vocals),
-                    "-ac", "1", "-ar", "24000", str(say)], check=True, timeout=60)
-    # what is sung in exactly this clip: a text that says more or less than the clip makes the
-    # voice speak the rest of it too, so it is heard afresh, not taken from the song's lines
-    pcm = subprocess.run([ffmpeg_bin(), "-v", "quiet", "-i", str(say), "-ac", "1", "-ar", str(_voice.RATE), "-f", "s16le", "-"],
-                         capture_output=True, timeout=60).stdout
-    words = _voice.transcribe(pcm, lang=lang if lang in ("en", "cs") else "auto", prompt="").strip()
-    if not words:
-        raise RuntimeError("V ukázce hlasu zpěváka jsem neslyšel slova.")
-    said.write_text(words, encoding="utf-8")
-    return sing, say, words
-
-
-def _resing_step(job: dict, cmd: list) -> str:
-    """One of the two workers, its last line back; stopped with the job."""
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-    _RESING["proc"] = proc
-    last = ""
-    for line in proc.stdout:
-        line = line.strip()
-        if line.startswith("PROGRESS"):
-            job["done"] = line.split()[1]
-        elif line.startswith(("ERROR", "DONE")):
-            last = line
-    proc.wait()
-    _RESING["proc"] = None
-    if job.get("status") == "stopped":
-        raise InterruptedError()
-    if proc.returncode != 0:
-        raise RuntimeError(last[6:] if last.startswith("ERROR") else "Model skončil bez výsledku.")
-    return last
-
-
-def _resing_run(job: dict, d: Path, vocals: Path) -> None:
-    tmp = Path(tempfile.mkdtemp(prefix="pick-resing-"))
-    try:
-        start, end = job["start"], job["end"]
-        a, b = max(0.0, start - 0.15), end + 0.35
-        orig = tmp / "orig.wav"
-        _svc_wav(_svc_pcm(vocals, a, b - a), orig)
-        job["stage"] = "voice"
-        sing, say, said_text = _resing_refs(d, vocals, (a, b), job["lang"])
-        said = tmp / "said.wav"
-        if job["take"]:
-            subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(d / RESING_TAKE), "-ac", "1", "-ar", str(SVC_SR),
-                            "-af", "highpass=f=70,silenceremove=start_periods=1:start_threshold=-40dB:stop_periods=1:stop_threshold=-40dB",
-                            str(said)], check=True, timeout=60)
-        else:
-            job["stage"] = "say"
-            said.write_bytes(_own_say({"ref_audio": str(say), "ref_text": said_text}, job["lang"], job["text"]))
-            with _OWN_TTS_LOCK:                                   # its memory back before Seed-VC wants its own
-                proc = _OWN_TTS["proc"]
-                if proc is not None and proc.poll() is None:
-                    proc.terminate()
-                _OWN_TTS["proc"] = None
-        job["stage"] = "tune"
-        tuned = tmp / "tuned.wav"
-        _resing_step(job, [str(SVC_PYTHON), "-W", "ignore", str(RESING_WORKER), "--orig", str(orig), "--speech", str(said),
-                           "--out", str(tuned), "--syll", str(_songbook.syllables(job["text"]) if job["text"] else 0)])
-        job["stage"] = "sing"
-        _resing_step(job, [str(SVC_PYTHON), str(SVC_WORKER), "--source", str(tuned), "--ref", str(sing), "--out", str(tmp / "sung.wav"),
-                           "--steps", "30", "--cfg", "0.4"])
-        job["stage"] = "save"
-        src = _svc_pcm(orig)
-        made = _svc_level(_svc_pcm(tmp / "sung.wav")[:len(src)], src)
-        kept = _resing_kept(d)
-        base = _stem_file(d, kept["stem"]) if kept.get("stem") else vocals
-        full = _svc_splice(_svc_pcm(base), made, int(a * SVC_SR))
-        _svc_wav(full, tmp / "full.wav")
-        stem = kept.get("stem") or _next_take_name(d)
-        for old in d.glob(f"{stem}.*"):
-            if old.suffix.lower() in STEM_READ_EXTS and old.suffix.lower() != ".mp3":
-                old.unlink()
-        err = _encode_to_stem(tmp / "full.wav", d / f"{stem}.mp3")
-        if err:
-            raise RuntimeError(err)
-        _set_track_label(d, stem, "Upravený zpěv")
-        edits = [e for e in kept.get("edits", []) if e.get("end", 0) <= start or e.get("start", 0) >= end]
-        edits.append({"start": start, "end": end, "old": job["old"], "text": job["text"], "take": job["take"], "at": time.time()})
-        (d / RESING_FILE).write_text(json.dumps({"stem": stem, "edits": sorted(edits, key=lambda e: e["start"])}, ensure_ascii=False),
-                                     encoding="utf-8")
-        job.update(status="done", stem=stem, took=time.time() - job["started"])
-    except InterruptedError:
-        pass
-    except Exception as e:                                             # a job never takes the server with it
-        if job.get("status") != "stopped":
-            job.update(status="error", error=str(e)[:300])
-    finally:
-        _RESING["proc"] = None
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-class ResingRequest(BaseModel):
-    start: float
-    end: float
-    text: str = ""             # the new words; with `take`, what the recording says (heard when empty)
-    old: str = ""              # the line as it was, to show beside the new one
-    lang: str = "cs"
-    take: bool = False         # the player's own recording of the new words (…/resing/take) instead of the singer's voice reading them
-
-
-def _resing_view() -> Optional[dict]:
-    job = _RESING["job"]
-    if not job:
-        return None
-    return {k: job.get(k) for k in ("song", "status", "stage", "error", "stem", "start", "end", "text", "took")} | {
-        "elapsed": time.time() - job["started"], "estimate": job["estimate"]}
-
-
-@app.get("/api/resing")
-def resing_status(song: str = ""):
-    d = _resolve_under_music_root(f"Stems/{song}") if song else None
-    return {"ready": _svc_ready() and OWN_TTS_PYTHON.is_file() and RESING_WORKER.is_file(), "job": _resing_view(),
-            "kept": _resing_kept(d) if d is not None and d.is_dir() else {}}
-
-
-@app.post("/api/stems/{name}/resing")
-def resing_start(name: str, req: ResingRequest):
-    d = _resolve_under_music_root(f"Stems/{name}")
-    if d is None or not d.is_dir() or name.startswith("."):
-        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
-    vocals = _stem_file(d, "vocals")
-    if vocals is None:
-        return JSONResponse({"error": "Tahle píseň nemá stopu zpěvu."}, status_code=400)
-    if not (_svc_ready() and OWN_TTS_PYTHON.is_file()):
-        return JSONResponse({"error": "Chybí model pro zpěv (Seed-VC) nebo hlas (OmniVoice)."}, status_code=503)
-    text = " ".join((req.text or "").split())[:200]
-    if req.take and not (d / RESING_TAKE).is_file():
-        return JSONResponse({"error": "Nejdřív nahraj, jak se nová slova říkají."}, status_code=400)
-    if req.take and not text:
-        pcm = subprocess.run([ffmpeg_bin(), "-v", "quiet", "-i", str(d / RESING_TAKE), "-ac", "1", "-ar", str(_voice.RATE), "-f", "s16le", "-"],
-                             capture_output=True, timeout=60).stdout
-        text = _voice.transcribe(pcm, lang=req.lang if req.lang in ("en", "cs") else "auto", prompt="").strip()
-    if not text and not req.take:
-        return JSONResponse({"error": "Napiš nová slova."}, status_code=400)
-    length = req.end - req.start
-    if length < 0.5 or length > 15:
-        return JSONResponse({"error": "Řádek musí mít od půl vteřiny do 15 vteřin."}, status_code=400)
-    ok, why = _sysload.room(3.0, "přezpívání řádku")
-    if not ok:
-        return JSONResponse({"error": why}, status_code=503)
-    with _SVC_LOCK:
-        if (_SVC["job"] or {}).get("status") == "running" or (_RESING["job"] or {}).get("status") == "running":
-            return JSONResponse({"error": "Jeden zpěv se už počítá — počkej, až doběhne."}, status_code=409)
-        # measured on this Mac: the voice and the tune ~20 s, Seed-VC loading ~35 s, then ~3 × the line
-        job = {"song": name, "status": "running", "stage": "prepare", "started": time.time(), "start": float(req.start),
-               "end": float(req.end), "text": text, "old": (req.old or "")[:200], "lang": req.lang if req.lang in ("cs", "en", "sk", "de") else "cs",
-               "take": bool(req.take), "estimate": 60 + length * 3.0}
-        _RESING["job"] = job
-    threading.Thread(target=_resing_run, args=(job, d, vocals), daemon=True).start()
-    return _resing_view()
-
-
-@app.post("/api/stems/{name}/resing/take")
-async def resing_take(name: str, file: UploadFile = File(...)):
-    """The player saying (or singing) the new words — kept until the next one."""
-    d = _resolve_under_music_root(f"Stems/{name}")
-    if d is None or not d.is_dir() or name.startswith("."):
-        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
-    try:
-        tmp = await _upload_to_temp(file)
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
-    try:
-        r = subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(tmp), "-t", "16", "-ac", "1", "-ar", str(SVC_SR),
-                            str(d / "resing-take.tmp.wav")], capture_output=True, timeout=60)
-        made = d / "resing-take.tmp.wav"
-        if r.returncode != 0 or not made.is_file() or made.stat().st_size < SVC_SR * 2 // 2:
-            made.unlink(missing_ok=True)
-            return JSONResponse({"error": "Nahrávka je moc krátká."}, status_code=400)
-        made.replace(d / RESING_TAKE)
-    finally:
-        tmp.unlink(missing_ok=True)
-    return {"ok": True}
-
-
-class ResingEditRequest(BaseModel):
-    start: float               # which line sung again: its start, as kept
-    text: str
-
-
-def _resing_edit_at(kept: dict, start: float) -> Optional[dict]:
-    return next((e for e in kept.get("edits", []) if abs(e.get("start", -1) - start) < 0.05), None)
-
-
-@app.post("/api/stems/{name}/resing/edit")
-def resing_edit_text(name: str, req: ResingEditRequest):
-    """The new words of a line sung again, written down differently — the sound stays."""
-    d = _resolve_under_music_root(f"Stems/{name}")
-    kept = _resing_kept(d) if d is not None and d.is_dir() and not name.startswith(".") else {}
-    e = _resing_edit_at(kept, req.start) if kept.get("stem") else None
-    text = " ".join((req.text or "").split())[:200]
-    if e is None or not text:
-        return JSONResponse({"error": "Tenhle řádek přezpívaný není." if e is None else "Napiš text."}, status_code=400 if e else 404)
-    e["text"] = text
-    (d / RESING_FILE).write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
-    return {"ok": True, "kept": kept}
-
-
-@app.delete("/api/stems/{name}/resing/edit")
-def resing_undo(name: str, start: float):
-    """A line sung again back as it was: the original vocals put into the track there.
-    The last one gone, the track goes too — it would only be the vocals again."""
-    d = _resolve_under_music_root(f"Stems/{name}")
-    kept = _resing_kept(d) if d is not None and d.is_dir() and not name.startswith(".") else {}
-    e = _resing_edit_at(kept, start) if kept.get("stem") else None
-    vocals = _stem_file(d, "vocals") if e is not None else None
-    if e is None or vocals is None:
-        return JSONResponse({"error": "Tenhle řádek přezpívaný není."}, status_code=404)
-    if (_RESING["job"] or {}).get("status") == "running" and (_RESING["job"] or {}).get("song") == name:
-        return JSONResponse({"error": "V téhle písni se zrovna přezpívává — počkej, až doběhne."}, status_code=409)
-    stem, left = kept["stem"], [x for x in kept["edits"] if x is not e]
-    if not left:
-        for old in d.glob(f"{stem}.*"):
-            if old.suffix.lower() in STEM_READ_EXTS:
-                old.unlink()
-        _set_track_label(d, stem, None)
-        (d / RESING_FILE).unlink(missing_ok=True)
-        return {"ok": True, "kept": {}, "gone": stem}
-    a, b = max(0.0, e["start"] - 0.15), e["end"] + 0.35
-    tmp = Path(tempfile.mkdtemp(prefix="pick-resing-"))
-    try:
-        _svc_wav(_svc_splice(_svc_pcm(_stem_file(d, stem)), _svc_pcm(vocals, a, b - a), int(a * SVC_SR)), tmp / "full.wav")
-        err = _encode_to_stem(tmp / "full.wav", d / f"{stem}.mp3")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    if err:
-        return JSONResponse({"error": err}, status_code=500)
-    kept["edits"] = left
-    (d / RESING_FILE).write_text(json.dumps(kept, ensure_ascii=False), encoding="utf-8")
-    return {"ok": True, "kept": kept}
-
-
-@app.delete("/api/resing/job")
-def resing_stop():
-    job, proc = _RESING["job"], _RESING["proc"]
-    if job and job.get("status") == "running":
-        job["status"] = "stopped"
-        if proc is not None:
-            proc.terminate()
-    return {"ok": True}
-
-
 # ---- Tónový otisk: the sound of the guitar on a record, put onto the player's own guitar
 # (docs/specs/2026-10-15-tonovy-otisk-design.md). The player plays a stretch of the song
 # along with it; what came out of the guitar clean (tone/take-N.wav, on the song's clock)
@@ -9371,6 +8773,7 @@ TONE_CATEGORIES = ("clean", "crunch", "hi_gain", "lead", "acoustic", "ambient", 
 _re_tone_take = _re_mod.compile(r"take-\d{1,4}\.wav")
 _re_tone_print = _re_mod.compile(r"\d{8}-\d{6}(-\d{1,3})?")
 _TONE: dict = {"job": None, "proc": None}
+_TONE_LOCK = threading.Lock()
 
 
 def _node_bin() -> Optional[str]:
@@ -9975,7 +9378,7 @@ def tone_fit(name: str, req: ToneFitRequest):
     ok, why = _sysload.room(1.5, "tónový otisk")
     if not ok:
         return JSONResponse({"error": why}, status_code=503)
-    with _SVC_LOCK:
+    with _TONE_LOCK:
         if (_TONE["job"] or {}).get("status") == "running":
             return JSONResponse({"error": "Jeden otisk se už počítá — počkej, až doběhne."}, status_code=409)
         job = {"song": name, "status": "running", "stage": "listen", "done": 0, "of": 0, "started": time.time(),
@@ -10129,27 +9532,14 @@ class StudioUse(BaseModel):
     voice: str = ""            # an own voice: the song's vocals are sung again in it
 
 
-def _studio_sing_when_ready(stems_name: str, voice: str) -> None:
-    end = time.time() + 3 * 3600
-    while time.time() < end:
-        if _stems_ready(stems_name):
-            for _ in range(240):                           # one singing job at a time: wait for the other to end
-                res = myvoice_start(stems_name, MyVoiceRequest(voice=voice))
-                if not (isinstance(res, JSONResponse) and res.status_code == 409):
-                    return
-                time.sleep(30)
-            return
-        time.sleep(5)
-
-
 @app.post("/api/studio/projects/{pid}/variants/{vid}/use")
 def studio_use(pid: str, vid: str, req: StudioUse):
     p = _studio.load(pid)
     src = _studio.variant_file(p, vid) if p else None
     if src is None:
         return JSONResponse({"error": "Tahle varianta tu není."}, status_code=404)
-    if req.voice and _svc_voice_file(req.voice) is None:
-        return JSONResponse({"error": "Takový hlas tu není."}, status_code=404)
+    if req.voice:
+        return JSONResponse({"error": "Zpěv vlastním hlasem už Pick nemá."}, status_code=410)
     v = _studio.variant(p, vid)
     folder = MUSIC_ROOT / "Songs"
     folder.mkdir(parents=True, exist_ok=True)
@@ -10185,15 +9575,11 @@ def studio_use(pid: str, vid: str, req: StudioUse):
         if isinstance(job, JSONResponse):
             return job
         out["stems"] = job
-        if req.voice:
-            threading.Thread(target=_studio_sing_when_ready, args=(job["name"], req.voice), daemon=True).start()
     with _studio._LOCK:
         fresh = _studio.load(pid)
         fv = _studio.variant(fresh, vid) if fresh else None
         if fv is not None:
             fv["used"] = rel
-            if req.voice:
-                fv["sung"] = next((x["name"] for x in _svc_voices() if x["id"] == req.voice), req.voice)
             _studio.save(fresh)
     return out
 
@@ -11738,12 +11124,8 @@ def _heavy_jobs() -> list:
     with _STEMS_LOCK:
         ids = list(_STEMS_QUEUE)
     out += [f"rozdělování ({JOBS[j]['stems_name']})" for j in ids if (JOBS.get(j) or {}).get("status") == "running"]
-    if (_SVC["job"] or {}).get("status") == "running":
-        out.append("zpěv jiným hlasem")
     if (_HEAR["job"] or {}).get("status") == "running":
         out.append("odposlech textu")
-    if (_RESING["job"] or {}).get("status") == "running":
-        out.append("přezpívání řádku")
     if (_TONE["job"] or {}).get("status") == "running":
         out.append("tónový otisk")
     if _songbook.JOB.get("running"):
@@ -11776,8 +11158,8 @@ import tasks as _tasks
 
 NIGHT_DIR = HOME / ".local" / "share" / "spotdl-helper" / "night"
 _TASK_PROGRAMS = [("demucs", "Rozdělení na stopy"), ("whisper-cli", "Odposlech textu"), ("tone_worker.py", "Tónový otisk"),
-                  ("tone_nam.mjs", "Tónový otisk"), ("svc_worker.py", "Zpěv jiným hlasem"), ("tts_worker.py", "Hlas OmniVoice"),
-                  ("resing_worker.py", "Přezpívání"), ("analyze.py", "Analýza písně"), ("audio2midi.py", "Převod na noty"),
+                  ("tone_nam.mjs", "Tónový otisk"), ("tts_worker.py", "Hlas OmniVoice"),
+                  ("analyze.py", "Analýza písně"), ("audio2midi.py", "Převod na noty"),
                   ("assistant_worker.py", "Asistent"), ("lyrics_worker.py", "Hledání textu"), ("/bin/spotdl", "Stahování"),
                   ("yt-dlp", "Stahování"), ("yt_dlp", "Stahování"), ("ffmpeg", "Převod zvuku (ffmpeg)"), ("ffprobe", "Čtení zvuku (ffprobe)"),
                   ("caffeinate", "Počítač nespí (naplánované úlohy)")]
@@ -11865,14 +11247,6 @@ def _tasks_now(sort: str = "cpu") -> dict:
         proc = _TONE["proc"]
         add("tone", "Tónový otisk", f"{j.get('song')} · {j.get('stage') or ''} {j.get('done', 0)}/{j.get('of', 0)}".strip(),
             pids=[proc.pid] if proc else [], can=("pause", "resume", "stop"), progress=(j.get("done", 0) / j["of"]) if j.get("of") else None)
-    j = _RESING["job"] or {}
-    if j.get("status") == "running":
-        proc = _RESING["proc"]
-        add("resing", "Přezpívání řádku", f"{j.get('song')} · {j.get('stage') or ''}", pids=[proc.pid] if proc else [], can=("stop",))
-    j = _SVC["job"] or {}
-    if j.get("status") == "running":
-        proc = _SVC["proc"]
-        add("myvoice", "Zpěv jiným hlasem", str(j.get("song") or ""), pids=[proc.pid] if proc else [], can=("stop",))
     # Skladatel and its model
     try:
         pr = _studio.progress_now()
@@ -12015,8 +11389,6 @@ def task_act(tid: str, action: str, sort: str = "cpu"):
             _tasks.end(pids)
         else:
             err = by_signal(tree_of([proc.pid]) if proc else set())
-    elif kind in ("resing", "myvoice") and action == "stop":
-        resing_stop() if kind == "resing" else myvoice_stop()
     elif kind == "studio" and action == "stop":
         got = _studio.stop_engine()
         if isinstance(got, JSONResponse):
@@ -12152,8 +11524,8 @@ def _plan_idle() -> bool:
 def _plan_outcome(t: dict, answer: dict) -> tuple:
     """How a planned job ended, with a word for the list."""
     kind = t.get("kind")
-    if kind in ("hear", "myvoice", "tone"):
-        j = {"hear": _HEAR, "myvoice": _SVC, "tone": _TONE}[kind]["job"] or {}
+    if kind in ("hear", "tone"):
+        j = {"hear": _HEAR, "tone": _TONE}[kind]["job"] or {}
         if j.get("status") == "error":
             return False, str(j.get("error") or "Skončilo chybou.")
         if j.get("status") == "stopped":

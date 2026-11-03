@@ -8,7 +8,7 @@
 // takes minutes: the page can be left, the work goes on, and the bar at the
 // top beside the arrows says how far it is.
 const Composer = (() => {
-  let root = null, st = null, pid = null, timer = 0, rec = null, stream = null, voices = [], recT0 = 0, shown = false, writing = false;
+  let root = null, st = null, pid = null, timer = 0, rec = null, stream = null, recT0 = 0, shown = false, writing = false;
   let wordTab = "genre", tagTab = "parts", tipsOpen = "";
   const DEF_OPTS = {model: "turbo", think: false, cot_caption: true, lm_temperature: 0.85, lm_cfg: 2.0, steps: 0, guidance: 7.0, shift: 3.0,
     method: "ode", adg: false, cfg_start: 0.0, cfg_end: 1.0, bpm: 0, key: "", timesig: "", seed: -1, ref_strength: 0.5, use_ref: true, separate: true};
@@ -584,7 +584,7 @@ const Composer = (() => {
     right.dataset.sig = s;
     Player.detachAll(right);
     right.innerHTML = list.map((x) => `${p ? "" : `<div class="cp-sub big">${esc(x.name)}</div>`}` + x.variants.slice().reverse().map((v) => card(x, v)).join("")).join("");
-    right.querySelectorAll("[data-use]").forEach((b) => b.onclick = () => use(b.dataset.p, b.dataset.use, b.dataset.voice === "1"));
+    right.querySelectorAll("[data-use]").forEach((b) => b.onclick = () => use(b.dataset.p, b.dataset.use));
     right.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { Player.stop(); setMode("steems"); loadMixerSong(b.dataset.open); });
     right.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { if(!await Dialog.confirm("Zahodit tuhle verzi?", {ok: "Zahodit", danger: true})) return;
       try{ await api(`/api/studio/projects/${b.dataset.p}/variants/${b.dataset.del}`, {method: "DELETE"}); await load(); paintResults(); }catch(e){ showToast(e.message); } });
@@ -634,22 +634,12 @@ const Composer = (() => {
       ${v.status === "running" || v.stems === "running" ? "" : `<button type="button" class="cp-x" data-del="${v.id}" data-p="${x.id}" title="Zahodit tuhle verzi">×</button>`}</div>${body}</div>`;
   }
   const known = (m, k) => m && m[k] != null && !["", "N/A", "None"].includes(String(m[k]));
-  async function use(p, vid, sing){
-    let voice = "";
-    if(sing){
-      try{ voices = (await api("/api/myvoice")).voices; }catch(e){ voices = []; }
-      if(!voices.length){ if(await Dialog.confirm("Ještě nemáš vlastní hlas. Vytvořit ho teď? (přečteš dva krátké texty a kousek zazpíváš)", {ok: "Vytvořit"})) VoiceGuide.open(() => setMode("composer")); return; }
-      voice = voices.length === 1 ? voices[0].id : await pickVoice();
-      if(!voice) return;
-    }
+  async function use(p, vid){
     try{
-      await api(`/api/studio/projects/${p}/variants/${vid}/use`, json({separate: true, voice}));
-      showToast(sing ? "Ukládám do Steems a pak zazpívám tvým hlasem — dám vědět ve Steems." : "Song je v knihovně a ukládá se do Steems.");
+      await api(`/api/studio/projects/${p}/variants/${vid}/use`, json({separate: true}));
+      showToast("Song je v knihovně a ukládá se do Steems.");
       await load(); paintResults(); watch();
     }catch(e){ showToast(e.message); }
-  }
-  async function pickVoice(){
-    return (await Dialog.pick({title: "Kterým hlasem zpívat?", items: voices.map((v) => ({label: v.name, sub: v.sung ? "se vzorkem zpěvu" : "", value: v.id}))})) || "";
   }
 
   // ---- the player: a waveform to click into, volume, and every instrument on its own switch.

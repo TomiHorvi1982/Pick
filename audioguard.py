@@ -22,7 +22,7 @@ import time
 import tasks as _tasks
 
 # what steps back: Pick's own heavy programs, by their command line
-SLOW = ("demucs", "whisper-cli", "tone_worker.py", "tone_nam.mjs", "svc_worker.py", "tts_worker.py", "resing_worker.py",
+SLOW = ("demucs", "whisper-cli", "tone_worker.py", "tone_nam.mjs", "tts_worker.py",
         "analyze.py", "audio2midi.py", "assistant_worker.py", "lyrics_worker.py", "/bin/spotdl", "yt-dlp", "yt_dlp")
 # …and of those, what may be stopped outright — nothing waits on them with a clock running
 PAUSABLE = ("demucs", "whisper-cli", "tone_worker.py", "tone_nam.mjs", "analyze.py", "audio2midi.py", "/bin/spotdl", "yt-dlp", "yt_dlp")

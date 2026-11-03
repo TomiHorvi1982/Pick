@@ -4583,26 +4583,8 @@ body.lib-collapsed .pick-brand{display:none}
   .st-pill b{font-variant-numeric:tabular-nums}
   .st-pill-left{color:var(--sub);font-variant-numeric:tabular-nums}
   @media (max-width:980px){ .cp-cols{grid-template-columns:1fr} .cp-split{display:none} }
-  /* The player's own take of a piece of the song. */
-  .st-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:13px}
-  .st-range span{margin-right:auto}
-  .st-range button,.st-range select,.mv-own button{background:none;border:1px solid #3a3d52;color:var(--text);border-radius:500px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
-  .st-range button:hover:not(:disabled),.mv-own button:hover{border-color:var(--accent)}
-  .st-range button:disabled{opacity:.4;cursor:default}
-  .st-range select{width:auto !important;padding:4px 8px !important}
-  .st-words{margin-top:12px;max-height:220px;min-height:120px;overflow-y:auto;border:1px solid #2a2d40;border-radius:12px;padding:12px 16px;background:#0f1017}
-  .st-line{font-size:19px;line-height:1.5;color:#8f93ad;transition:color .15s}
-  .st-line.now{color:#fff;font-weight:700}
-  .st-none{font-size:13px;color:var(--sub);line-height:1.5}
-  .st-plain{white-space:pre-wrap;font-size:16px;line-height:1.55;color:#d9dcf0;margin-top:8px}
   .st-bar{height:5px;border-radius:500px;background:#23263a;overflow:hidden;margin:10px 0 4px}
   .st-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd))}
-  .st-count{font-size:28px;font-weight:800;color:var(--accent);min-width:30px;text-align:center}
-  .mv-own{margin-top:14px;border:1px solid #2a2d40;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:var(--sub);line-height:1.45}
-  .mv-own.has{border-color:color-mix(in srgb,var(--ok,#3ddc84) 55%,transparent)}
-  .mv-own b{color:var(--text);font-size:13px}
-  .mv-own audio{width:100%;height:32px}
-  .mv-own div{display:flex;gap:8px;flex-wrap:wrap}
   /* The guide to a new voice. */
   .voice-guide .mt-box{width:min(620px,94vw)}
   .vg-step{border:1px solid #2a2d40;border-radius:12px;padding:12px 14px;margin-top:12px}
@@ -4616,13 +4598,6 @@ body.lib-collapsed .pick-brand{display:none}
   .vg-level{flex:1;height:8px;border-radius:500px;background:#23263a;overflow:hidden;min-width:120px}
   .vg-level i{display:block;height:100%;width:0;background:#3ddc84}
   .vg-time{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
-  /* Singing in the player's own voice. */
-  .myvoice .mv-bar{height:8px;border-radius:500px;background:#23263a;overflow:hidden;margin:10px 0}
-  .myvoice .mv-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2,#3d8bfd));transition:width 1.4s linear}
-  .myvoice .mv-note,.myvoice .mv-sample{font-size:12.5px;color:var(--sub);line-height:1.45;margin-top:10px}
-  .myvoice .mv-sample button{background:none;border:1px solid #3a3d52;color:var(--text);border-radius:500px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer;margin-top:6px}
-  .myvoice .mv-sample button:hover{border-color:var(--accent)}
-  .myvoice label.mv-check,.song-take label.mv-check{flex-direction:row;align-items:flex-start;gap:8px;line-height:1.4}
   /* Adding a voice of one's own. */
   .voice-add .mt-box{width:min(520px,94vw)}
   .voice-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--sub);margin-top:12px}
@@ -5348,7 +5323,6 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
                   <hr>
                   <button type="button" class="tm-item" id="nm-sing-open" title="Trenér zpěvu — tvoje výška proti originálu, slova a skóre"><span data-icon="mic" data-size="15"></span><span class="tm-t">Trenér zpěvu</span></button>
-                  <button type="button" class="tm-item" id="nm-myvoice-open" hidden title="Zpěv písně tvým vlastním hlasem — melodie a frázování z originálu, hlas tvůj. Nová stopa v mixu; úsek ve smyčce jde přezpívat zvlášť."><span data-icon="mic" data-size="15"></span><span class="tm-t">Zpěv mým hlasem…</span></button>
                   <button type="button" class="tm-item" id="nm-lyr-speak" title="Celý text a trénink výslovnosti: počítač přečte řádek, ty ho řekneš po něm, a až to sedí, jde se dál („pick practice words“)"><span data-icon="volume" data-size="15"></span><span class="tm-t">Výslovnost</span></button>
                 </div>
               </div>
@@ -16625,14 +16599,7 @@ const Mixer = (() => {
   }
   el("nm-lyr-hear").onclick = () => hearLyrics(!!(lyrics && lyrics.heard));
 
-  // ---- one line of the text: its words corrected, or sung again with new
-  // ones — in the singer's own voice and on the line's own tune (server:
-  // /api/stems/…/resing). The new words are typed (the singer's voice reads
-  // them) or recorded by the player. Every line done goes into one track,
-  // "Upravený zpěv"; the original vocals stay as they were.
-  let resingWatch = 0;
-  const resingStage = {prepare: "připravuji", voice: "beru hlas zpěváka", say: "hlas zpěváka čte nová slova", tune: "kladu slova na melodii",
-    sing: "zpívá hlasem zpěváka", save: "ukládám stopu"};
+  // ---- one line of the text, its words corrected (kept with the song's text).
   async function saveLyricsText(){
     const name = currentSongName, d = stemsDisplayByName(name);
     try{
@@ -16652,192 +16619,29 @@ const Mixer = (() => {
   }
   async function editLine(i){
     if(!lyrics || !lyrics.lines[i] || !currentSongName) return;
-    const name = currentSongName, line = lyrics.lines[i], span = lineSpan(i);
+    const line = lyrics.lines[i], span = lineSpan(i);
     const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-    let st = null;
-    try{ st = await (await fetch("/api/resing?song=" + encodeURIComponent(name))).json(); }catch(e){}
-    const lang0 = lyrics.lang || (/[ěščřžýáíéůúňťď]/i.test(lyrics.lines.map(l => l.text).join(" ")) ? "cs" : "en");
-    let rec = null, recChunks = [], recorded = false;
-    const edits = (st && st.kept && st.kept.edits) || [];
     Dialog.open((card) => {
-      card.classList.add("wide");
       card.innerHTML = `<div class="pk-dlg-title">Řádek ${i + 1} · ${mmss(span.start)}–${mmss(span.end)}</div>
-        <div class="pk-dlg-text">Oprav slova (jen text), nebo napiš nová a nech je zazpívat <b>hlasem zpěváka v melodii tohohle řádku</b>.
-          Výsledek je nová stopa „Upravený zpěv“ — originál zůstane. Trvá zhruba minutu.</div>
+        <div class="pk-dlg-text">Oprav slova řádku — oprava se uloží k textu písně.</div>
         <input type="text" class="pk-dlg-in le-text" data-focus autocomplete="off">
-        <div class="le-row"><label>Jazyk <select class="le-lang"><option value="cs">čeština</option><option value="en">angličtina</option><option value="sk">slovenština</option><option value="de">němčina</option></select></label>
-          <button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button>
-          <button type="button" class="btn secondary le-rec" hidden title="Nahraj, jak se nová slova říkají (nebo je zazpívej) — místo hlasu zpěváka, který je čte">🎤 Namluvit</button>
-          <span class="le-recnote"></span></div>
-        ${st && st.ready === false ? `<div class="pk-dlg-text" style="color:var(--danger)">Model pro zpěv tu není nainstalovaný — jde jen opravit text.</div>` : ""}
-        ${edits.length ? `<div class="le-edits"><b>Už přezpívané:</b>${edits.map(e => `<div>${mmss(e.start)} · <s>${escapeHtml(e.old || "")}</s> → ${escapeHtml(e.text || "")}</div>`).join("")}</div>` : ""}
+        <div class="le-row"><button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button></div>
         <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zavřít</button>
-          <button type="button" class="btn pk-dlg-ok le-fix">Opravit text</button>
-          <button type="button" class="btn pk-dlg-ok le-sing" hidden>Přezpívat</button></div>`;
-      const inp = card.querySelector(".le-text"), langSel = card.querySelector(".le-lang"), note = card.querySelector(".le-recnote");
-      inp.value = line.text || ""; langSel.value = lang0;
-      card.querySelector(".pk-dlg-no").onclick = () => { if(rec && rec.state === "recording") rec.stop(); Dialog.close(null); };
-      card.querySelector(".le-play").onclick = () => { seek(span.start); if(!isPlaying) play(); setTimeout(() => { if(isPlaying && currentSongName === name) pause(); }, (span.end - span.start + 0.3) * 1000); };
-      card.querySelector(".le-fix").onclick = async () => {
+          <button type="button" class="btn pk-dlg-ok le-fix">Opravit text</button></div>`;
+      const inp = card.querySelector(".le-text");
+      inp.value = line.text || "";
+      card.querySelector(".pk-dlg-no").onclick = () => Dialog.close(null);
+      card.querySelector(".le-play").onclick = () => { seek(span.start); if(!isPlaying) play(); setTimeout(() => { if(isPlaying) pause(); }, (span.end - span.start) * 1000 + 300); };
+      const fix = async () => {
         const v = inp.value.trim();
         if(!v || v === line.text){ Dialog.close(null); return; }
         line.text = v;
         if(await saveLyricsText()){ renderTimeline(); runRefresh(); lyricsIdx = -2; updateLyricsNow(currentTime()); showToast("Řádek opraven"); }
         Dialog.close(null);
       };
-      const recBtn = card.querySelector(".le-rec");
-      recBtn.onclick = async () => {
-        if(rec && rec.state === "recording"){ rec.stop(); return; }
-        let stream;
-        try{ stream = await VoiceMic.stream({noise: true}); }
-        catch(e){ showToast("Bez povolení mikrofonu to nejde"); return; }
-        recChunks = [];
-        rec = new MediaRecorder(stream);
-        rec.ondataavailable = (e) => { if(e.data.size) recChunks.push(e.data); };
-        rec.onstop = async () => {
-          stream.getTracks().forEach(t => t.stop());
-          recBtn.textContent = "🎤 Namluvit znovu";
-          note.textContent = "Nahrávám do Picku…";
-          const fd = new FormData();
-          fd.append("file", new Blob(recChunks, {type: rec.mimeType || "audio/webm"}), "take.webm");
-          try{
-            const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/take`, {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
-            if(!r.ok) throw new Error(d.error || "Nahrávka se nepovedla.");
-            recorded = true; note.textContent = "✓ nahráno — zazpívá se tvoje nahrávka";
-          }catch(e){ recorded = false; note.textContent = e.message; }
-        };
-        rec.start();
-        recBtn.textContent = "■ Hotovo";
-        note.textContent = "Mluv… (nebo zpívej)";
-      };
-      card.querySelector(".le-sing").onclick = async () => {
-        const v = inp.value.trim();
-        if(!v && !recorded){ showToast("Napiš nová slova, nebo je namluv"); return; }
-        let r, d;
-        try{
-          r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing`, {method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({start: span.start, end: span.end, text: v === line.text && recorded ? "" : v, old: line.text || "", lang: langSel.value, take: recorded})});
-          d = await r.json();
-        }catch(e){ showToast("Přezpívání se nepovedlo spustit"); return; }
-        if(!r.ok){ showToast(d.error || "Přezpívání se nepovedlo spustit"); return; }
-        Dialog.close(null);
-        showToast(`Přezpívávám řádek — asi ${Math.max(1, Math.round(d.estimate / 60))} min, můžeš dál pracovat`);
-        watchResing(name);
-      };
-      // Enter in the words: sing them
-      inp.onkeydown = (e) => { if(e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); card.querySelector(".le-sing").click(); } };
-    }, null);
-  }
-  function watchResing(name){
-    clearTimeout(resingWatch);
-    resingWatch = setTimeout(async () => {
-      let s;
-      try{ s = await (await fetch("/api/resing")).json(); }catch(e){ watchResing(name); return; }
-      const j = s.job;
-      if(!j){ return; }
-      if(j.status === "running"){
-        if(currentSongName === name) el("nm-lyr-cur").title = "Přezpívávám: " + (resingStage[j.stage] || "");
-        watchResing(name); return;
-      }
-      if(j.status === "done"){
-        if(currentSongName === j.song){
-          loadResing();
-          Mixer.reloadTracks("Řádek je přezpívaný — stopa „Upravený zpěv“. Originál zpěvu jsem ztlumil.");
-          let n = 0;
-          setTimeout(() => { const t = setInterval(() => {
-            if(currentSongName !== j.song || ++n > 240){ clearInterval(t); return; }
-            if(Mixer.channelByStem(j.stem)){ clearInterval(t); Mixer.muteStem("vocals", true); }
-          }, 500); }, 2500);
-        } else showToast(`Řádek v písni „${stemsDisplayByName(j.song).title}“ je přezpívaný.`);
-      } else if(j.status === "error") showToast("Přezpívání se nepovedlo: " + (j.error || ""));
-    }, 2000);
-  }
-  // The words the lines were sung again with, kept beside the song: a strip of
-  // their own right above "Upravený zpěv" — the new words, the old ones struck
-  // through under them, and a double-click to change, sing again or undo.
-  let resingKept = {};
-  async function loadResing(){
-    const name = currentSongName;
-    let k = {};
-    try{ k = (await (await fetch("/api/resing?song=" + encodeURIComponent(name))).json()).kept || {}; }catch(e){}
-    if(name !== currentSongName) return;
-    const had = !!resingKept.stem;
-    resingKept = k;
-    if((had || k.stem) && channels.length) renderTimeline();
-  }
-  function renderResingLane(rail, lanes, totalPx){
-    const lane = thinLane(rail, lanes, totalPx, "Nový text", 40, "lyr-lane resung-lane");
-    for(const e of resingKept.edits || []){
-      const w = Math.max(4, (e.end - e.start) * pixelsPerSecond);
-      const b = document.createElement("div");
-      b.className = "lyr-block resung";
-      b.style.left = (e.start * pixelsPerSecond) + "px";
-      b.style.width = w + "px";
-      b.title = `Nově: ${e.text || "—"}\nPůvodně: ${e.old || "—"}\n(klik sem skočí, dvojklik: upravit, přezpívat znovu nebo vrátit)`;
-      if(w >= 24) b.innerHTML = `<span class="nw">${escapeHtml(e.text || "")}</span><s class="od">${escapeHtml(e.old || "")}</s>`;
-      b.onclick = (ev) => { ev.stopPropagation(); seek(Math.max(0, e.start)); };
-      b.ondblclick = (ev) => { ev.stopPropagation(); editResung(e); };
-      lane.appendChild(b);
-    }
-  }
-  function editResung(e){
-    const name = currentSongName;
-    const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-    const lang0 = (lyrics && lyrics.lang) || (/[ěščřžýáíéůúňťď]/i.test((e.text || "") + (e.old || "")) ? "cs" : "en");
-    Dialog.open((card) => {
-      card.classList.add("wide");
-      card.innerHTML = `<div class="pk-dlg-title">Přezpívaný řádek · ${mmss(e.start)}–${mmss(e.end)}</div>
-        <div class="pk-dlg-text">Původně: <s>${escapeHtml(e.old || "—")}</s></div>
-        <input type="text" class="pk-dlg-in le-text" data-focus autocomplete="off">
-        <div class="le-row"><label>Jazyk <select class="le-lang"><option value="cs">čeština</option><option value="en">angličtina</option><option value="sk">slovenština</option><option value="de">němčina</option></select></label>
-          <button type="button" class="btn secondary le-play" title="Přehrát tenhle řádek">▶ řádek</button></div>
-        <div class="pk-dlg-text" style="font-size:12px;opacity:.75">„Jen opravit zápis“ změní text, zvuk zůstane. „Přezpívat znovu“ zazpívá nová slova místo těch minulých.</div>
-        <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zavřít</button>
-          <button type="button" class="btn secondary le-undo" title="Na tomhle místě zase původní zpěv">Vrátit původní</button>
-          <button type="button" class="btn secondary le-fix">Jen opravit zápis</button>
-          <button type="button" class="btn pk-dlg-ok le-sing">Přezpívat znovu</button></div>`;
-      const inp = card.querySelector(".le-text"), langSel = card.querySelector(".le-lang");
-      inp.value = e.text || ""; langSel.value = lang0;
-      card.querySelector(".pk-dlg-no").onclick = () => Dialog.close(null);
-      card.querySelector(".le-play").onclick = () => { seek(Math.max(0, e.start - 0.1)); if(!isPlaying) play(); setTimeout(() => { if(isPlaying && currentSongName === name) pause(); }, (e.end - e.start + 0.5) * 1000); };
-      card.querySelector(".le-fix").onclick = async () => {
-        const v = inp.value.trim();
-        if(!v || v === e.text){ Dialog.close(null); return; }
-        try{
-          const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/edit`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({start: e.start, text: v})});
-          const d = await r.json();
-          if(!r.ok) throw new Error(d.error);
-          resingKept = d.kept || {}; renderTimeline(); showToast("Zápis opraven");
-        }catch(err){ showToast(err.message || "Zápis se nepodařilo uložit"); }
-        Dialog.close(null);
-      };
-      card.querySelector(".le-undo").onclick = async () => {
-        try{
-          const r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing/edit?start=${e.start}`, {method: "DELETE"});
-          const d = await r.json();
-          if(!r.ok) throw new Error(d.error);
-          resingKept = d.kept || {};
-          Dialog.close(null);
-          if(d.gone){ Mixer.muteStem("vocals", false); Mixer.reloadTracks("Řádek je zase původní — stopa „Upravený zpěv“ už nebyla potřeba."); }
-          else Mixer.reloadTracks("Řádek je zase původní.");
-        }catch(err){ showToast(err.message || "Vrátit se nepovedlo"); }
-      };
-      card.querySelector(".le-sing").onclick = async () => {
-        const v = inp.value.trim();
-        if(!v){ showToast("Napiš nová slova"); return; }
-        let r, d;
-        try{
-          r = await fetch(`/api/stems/${encodeURIComponent(name)}/resing`, {method: "POST", headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({start: e.start, end: e.end, text: v, old: e.old || "", lang: langSel.value, take: false})});
-          d = await r.json();
-        }catch(err){ showToast("Přezpívání se nepovedlo spustit"); return; }
-        if(!r.ok){ showToast(d.error || "Přezpívání se nepovedlo spustit"); return; }
-        Dialog.close(null);
-        showToast(`Přezpívávám řádek znovu — asi ${Math.max(1, Math.round(d.estimate / 60))} min`);
-        watchResing(name);
-      };
-      inp.onkeydown = (ev) => { if(ev.key === "Enter"){ ev.preventDefault(); ev.stopPropagation(); card.querySelector(".le-sing").click(); } };
-    }, null);
+      card.querySelector(".le-fix").onclick = fix;
+      inp.onkeydown = (e) => { if(e.key === "Enter") fix(); };
+    });
   }
   el("nm-lyr-edit").onclick = () => {
     if(!lyrics){ showToast("Nejdřív načti text písně"); return; }
@@ -20666,7 +20470,6 @@ const Mixer = (() => {
 
     channels.forEach((c, idx) => {
       const style = styleOf(c);
-      if(resingKept.stem && c.stem === resingKept.stem && (resingKept.edits || []).length) renderResingLane(rail, lanes, totalPx);
 
       // ---- left rail strip: name, S/M, volume fader, pitch ----
       const strip = document.createElement("div");
@@ -21402,7 +21205,7 @@ const Mixer = (() => {
     currentSongName = song.name;
     tabUnlocked = false;                 // a new song: its tab locked
     resetLyrics();
-    resingKept = {}; loadResing();
+
     loopEnabled = false; loopStart = 0; loopEnd = 0;
     el("mixer-loop").classList.remove("active");
 
@@ -27252,284 +27055,7 @@ const VoiceGuide = (() => {
   return {open, close};
 })();
 
-// The player's own take of a piece of the open song: the song plays (its
-// singer too, to sing along with), the words of that piece are on screen, the
-// microphone records. Heard back and agreed to, the take becomes this song's
-// model for "Zpěv mým hlasem" — the player's voice on these very notes, which
-// no general sample can give. Headphones, or the band is in the take as well.
-const SongTake = (() => {
-  let plain = "";
-  let box = null, a = 0, len = 20, lines = [], rec = null, stream = null, take = null, raf = 0, phase = "idle", guide = true, onDone = null, loopWas = null, mutedWas = false, peak = 0;
-  const song = () => Mixer.currentSong();
-  const clampA = () => { a = Math.max(0, Math.min(Math.max(0, Mixer.length() - len), a)); };
-  // where to sing: the loop, a chorus, or where the words are thickest
-  function choose(){
-    const loop = Mixer.loopNow();
-    if(loop){ a = loop.start; len = Math.max(10, Math.min(25, Math.round(loop.end - loop.start))); return; }
-    const ch = Mixer.sectionsNow().find((x) => /chorus|refr/i.test((x.kind || "") + " " + (x.name || "")));
-    if(ch){ a = ch.start; len = Math.max(12, Math.min(25, Math.round(ch.end - ch.start))); return; }
-    let best = 0, bestN = -1;
-    for(const l of lines){ const n = lines.filter((x) => x.t >= l.t && x.t < l.t + 22 && x.text.trim()).length; if(n > bestN){ bestN = n; best = l.t; } }
-    a = bestN > 0 ? Math.max(0, best - 1) : Math.min(30, Math.max(0, Mixer.length() - 25)); len = 22;
-  }
-  const inRange = () => lines.filter((l) => l.text.trim() && l.t >= a - 0.5 && l.t < a + len);
-  function stopMic(){ if(stream){ stream.getTracks().forEach((t) => t.stop()); stream = null; } rec = null; }
-  function restore(){
-    cancelAnimationFrame(raf);
-    Mixer.pause();
-    if(loopWas) Mixer.setLoop(loopWas.start, loopWas.end); loopWas = null;
-    Mixer.muteStem("vocals", mutedWas);                    // the singer as the mix had them
-  }
-  function close(){ if(phase === "rec" || phase === "listen" || phase === "count") restore(); stopMic(); if(take) URL.revokeObjectURL(take.url); take = null; phase = "idle"; if(box){ box.remove(); box = null; } }
 
-  function run(recording, hear){
-    loopWas = Mixer.loopNow(); if(loopWas) Mixer.setLoop(0, 0);
-    const v = Mixer.channelByStem("vocals"); mutedWas = !!(v && v.muted);
-    Mixer.muteStem("vocals", !hear);
-    Mixer.seek(a); Mixer.play();
-    const t0 = performance.now();
-    const tick = () => {
-      if(!box) return;
-      const t = Mixer.currentTime(), el_ = (performance.now() - t0) / 1000;
-      const bar = box.querySelector(".st-bar i"); if(bar) bar.style.width = Math.min(100, Math.max(0, (t - a) / len * 100)) + "%";
-      let cur = -1; const rows = inRange(); rows.forEach((l, i) => { if(l.t <= t + 0.15) cur = i; });
-      box.querySelectorAll(".st-line").forEach((n, i) => n.classList.toggle("now", i === cur));
-      const now = box.querySelector(".st-line.now"); if(now) now.scrollIntoView({block: "center", behavior: "smooth"});
-      if(t >= a + len || el_ > len + 3){ if(recording && rec) rec.stop(); else { restore(); phase = take ? "done" : "idle"; paint(); } return; }
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
-  }
-  async function record(){
-    if(phase === "rec"){ if(rec) rec.stop(); return; }
-    try{ stream = await VoiceMic.stream(); }
-    catch(e){ showToast("Mikrofon se nepodařilo otevřít: " + e.message); return; }
-    const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser(); an.fftSize = 1024;
-    ac.createMediaStreamSource(stream).connect(an);
-    const buf = new Float32Array(an.fftSize), parts = []; peak = 0;
-    rec = new MediaRecorder(stream);
-    rec.ondataavailable = (e) => { if(e.data.size) parts.push(e.data); };
-    rec.onstop = () => {
-      restore();
-      stopMic(); try{ ac.close(); }catch(e){}
-      const blob = new Blob(parts, {type: (parts[0] && parts[0].type) || "audio/webm"});
-      if(take) URL.revokeObjectURL(take.url);
-      take = {blob, url: URL.createObjectURL(blob), peak};
-      phase = "done"; paint();
-    };
-    // three, two, one — then the song and the microphone start together
-    phase = "count"; paint();
-    for(let n = 3; n > 0; n--){ const c = box && box.querySelector(".st-count"); if(!c) return; c.textContent = n; await new Promise((r) => setTimeout(r, 700)); }
-    if(!box || !stream){ stopMic(); return; }
-    phase = "rec"; paint();
-    rec.start();
-    const level = () => { if(phase !== "rec" || !box) return; an.getFloatTimeDomainData(buf); let m = 0; for(let i = 0; i < buf.length; i++){ const v = Math.abs(buf[i]); if(v > m) m = v; }
-      if(m > peak) peak = m; const lv = box.querySelector(".vg-level i"); if(lv){ lv.style.width = Math.min(100, m * 140) + "%"; lv.style.background = m > 0.95 ? "#ff5a5a" : m > 0.1 ? "#3ddc84" : "#e9b949"; }
-      requestAnimationFrame(level); };
-    level();
-    run(true, guide);
-  }
-  async function send(thenSing){
-    const fd = new FormData(); fd.append("file", take.blob, "zpev.webm");
-    phase = "send"; paint();
-    try{
-      const r = await fetch(`/api/stems/${encodeURIComponent(song())}/myvoice/sample`, {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
-      if(!r.ok) throw new Error(d.error || "Nepodařilo se uložit.");
-      showToast(`Tvůj zpěv k téhle písni je uložený (${String(d.seconds).replace(".", ",")} s).`);
-      const done = onDone; close(); if(done) done(thenSing);
-    }catch(e){ phase = "done"; paint(); const st = box.querySelector(".status"); st.textContent = e.message; st.classList.add("bad"); }
-  }
-  function paint(){
-    if(!box) return;
-    const rows = inRange(), busy = phase === "rec" || phase === "count" || phase === "listen" || phase === "send";
-    const quiet = take && take.peak < 0.08, loud = take && take.peak > 0.98;
-    box.innerHTML = `<div class="mt-box">
-      <h3>Zazpívej úryvek — ${escapeHtml(stemsDisplayByName(song()).title)}</h3>
-      <div class="mt-hint"><b>Vezmi si sluchátka</b>, jinak se do mikrofonu nahraje i kapela. Píseň se pustí, ty zpíváš s ní. Nemusí to být dokonalé — jde o tvoji barvu hlasu v téhle poloze; model se podle ní trefí líp než podle mluvení.</div>
-      <div class="st-range"><span>Úryvek <b>${fmtDur(a)}–${fmtDur(a + len)}</b></span>
-        <button type="button" data-shift="-5" ${busy ? "disabled" : ""}>◀ o 5 s dřív</button><button type="button" data-shift="5" ${busy ? "disabled" : ""}>o 5 s později ▶</button>
-        <select id="st-len" ${busy ? "disabled" : ""}>${[12, 15, 20, 25].map((n) => `<option value="${n}" ${Math.abs(n - len) < 2 ? "selected" : ""}>${n} s</option>`).join("")}</select>
-        <button type="button" id="st-listen" ${busy && phase !== "listen" ? "disabled" : ""}>${phase === "listen" ? "■ Stop" : "▶ Poslechnout"}</button></div>
-      <div class="st-words">${rows.length ? rows.map((l) => `<div class="st-line">${escapeHtml(l.text)}</div>`).join("")
-        : lines.length ? `<div class="st-none">V tomhle úryvku se nezpívá — posuň ho.</div>`
-        : plain ? `<div class="st-none">Text téhle písně nemá časy, proto je tu celý — najdi si v něm místo, které se v úryvku zpívá (▶ Poslechnout).</div><div class="st-plain">${escapeHtml(plain)}</div>`
-        : `<div class="st-none">K téhle písni jsem text nenašel. Zpívej podle sluchu — nebo ho najdi v mixu tlačítkem Text → Možnosti → Hledat jiný text.</div>`}</div>
-      <div class="st-bar"><i></i></div>
-      <label class="mv-check"><input type="checkbox" id="st-guide" ${guide ? "checked" : ""} ${busy ? "disabled" : ""}> Slyšet při nahrávání originální zpěv (zpívá se s ním snáz; bez něj zpíváš jen na kapelu)</label>
-      <div class="vg-row" style="margin-top:12px">
-        <button type="button" class="btn ${phase === "rec" ? "" : "secondary"}" id="st-rec" ${phase === "count" || phase === "listen" || phase === "send" ? "disabled" : ""}>${phase === "rec" ? "■ Hotovo" : take ? "● Nahrát znovu" : "● Nahrát můj zpěv"}</button>
-        ${phase === "count" ? `<span class="st-count">3</span>` : phase === "rec" ? `<span class="vg-level"><i></i></span>` : take && phase !== "listen" ? `<audio controls src="${take.url}"></audio>` : ""}
-      </div>
-      <p class="status ${quiet || loud ? "bad" : ""}">${phase === "send" ? "Ukládám…" : quiet ? "Je to hodně potichu — zkus to blíž k mikrofonu." : loud ? "Přebuzené — nahraj to raději znovu, dál od mikrofonu." : take ? "Poslechni si to. Když je to dobré, pošli to modelu." : ""}</p>
-      <div class="two">
-        ${take && !busy ? `<button type="button" class="btn" id="st-sing">Použít a hned přezpívat píseň</button><button type="button" class="btn secondary" id="st-use">Jen uložit</button>` : ""}
-        <button type="button" class="btn secondary" id="st-close">Zavřít</button></div></div>`;
-    const q = (id) => box.querySelector("#" + id), on = (id, fn) => { const n = q(id); if(n) n.onclick = fn; };
-    box.querySelectorAll("[data-shift]").forEach((b) => b.onclick = () => { a += +b.dataset.shift; clampA(); paint(); });
-    if(q("st-len")) q("st-len").onchange = (e) => { len = +e.target.value; clampA(); paint(); };
-    if(q("st-guide")) q("st-guide").onchange = (e) => { guide = e.target.checked; };
-    on("st-listen", () => { if(phase === "listen"){ restore(); phase = take ? "done" : "idle"; paint(); return; }
-      phase = "listen"; paint(); run(false, true); });
-    on("st-rec", record);
-    on("st-use", () => send(false)); on("st-sing", () => send(true));
-    on("st-close", close);
-  }
-  async function open(then){
-    if(!song()){ showToast("Nejdřív otevři píseň ve Steems."); return; }
-    close(); onDone = then || null; take = null; phase = "idle";
-    box = document.createElement("div");
-    box.className = "mt-overlay voice-add voice-guide song-take";
-    document.body.appendChild(box);
-    try{ lines = await Mixer.lyricLines(true); }catch(e){ lines = []; }
-    plain = ""; if(!lines.length){ try{ plain = await Mixer.lyricPlain(); }catch(e){} }
-    choose(); clampA(); paint();
-  }
-  return {open, close, state: () => ({a, len, phase, lines: inRange().length, plain: plain.length, take: !!take})};
-})();
-
-// "Zpěv mým hlasem": the song's vocals sung in the player's own voice — same
-// melody, timing and phrasing, another voice (server: /api/myvoice, the model
-// runs beside the app). It takes minutes, so it is a job that goes on with
-// the window closed; when it ends, the new track is in the mix and the
-// original vocals are muted. With a loop set, only that stretch is done again
-// and put into the track that is already there.
-const MyVoice = (() => {
-  let st = null, timer = 0, box = null, form = {steps: 25, shift: 0, auto: false, part: false, voice: ""};
-  try{ form = {...form, ...JSON.parse(localStorage.getItem("pick-myvoice") || "{}"), part: false}; }catch(e){}
-  const keep = () => { try{ localStorage.setItem("pick-myvoice", JSON.stringify(form)); }catch(e){} };
-  const song = () => Mixer.currentSong && Mixer.currentSong();
-  const mins = (s) => s < 90 ? `${Math.max(5, Math.round(s / 5) * 5)} s` : `${Math.round(s / 60)} min`;
-  const running = () => st && st.job && st.job.status === "running";
-
-  async function load(){
-    try{ st = await (await fetch("/api/myvoice?song=" + encodeURIComponent(song() || ""))).json(); }catch(e){ st = null; }
-    return st;
-  }
-  function watch(){
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      const was = st && st.job;
-      await load();
-      const job = st && st.job;
-      if(was && was.status === "running" && job && job.status !== "running") ended(job);
-      if(box) paint();
-      if(running()) watch();
-    }, 1500);
-  }
-  function ended(job){
-    if(job.status === "done"){
-      if(song() === job.song){
-        Mixer.reloadTracks(job.end == null ? "Tvůj zpěv je ve stopách — originál jsem ztlumil." : "Úsek je přezpívaný.");
-        // …and once the reloaded mix has the new track, the original voice steps back
-        let n = 0;
-        setTimeout(() => { const t = setInterval(() => {
-          if(song() !== job.song || ++n > 240){ clearInterval(t); return; }
-          if(Mixer.channelByStem(job.stem)){ clearInterval(t); Mixer.muteStem("vocals", true); }
-        }, 500); }, 2500);
-      } else showToast(`Zpěv tvým hlasem k písni „${stemsDisplayByName(job.song).title}“ je hotový.`);
-    } else if(job.status === "error") showToast("Zpěv mým hlasem se nepovedl: " + (job.error || ""));
-  }
-
-  function paint(){
-    if(!box) return;
-    const name = song(), loop = Mixer.loopNow && Mixer.loopNow(), job = st && st.job, kept = st && st.kept && st.kept.stem;
-    let body = "";
-    if(!st) body = `<p class="status">Načítám…</p>`;
-    else if(!st.ready) body = `<p class="status bad">Model pro zpěv mým hlasem v tomhle počítači není nainstalovaný.</p>`;
-    else if(!st.voices.length) body = `<p class="status">Nejdřív si vytvoř svůj hlas: přečteš dva krátké texty a kousek zazpíváš.</p>
-      <div class="two"><button type="button" class="btn" id="mv-new">＋ Nový hlas…</button></div>`;
-    else if(!st.has_vocals) body = `<p class="status bad">Tahle píseň nemá stopu zpěvu.</p>`;
-    else if(running()){
-      const total = job.estimate || 60, done = Math.min(0.98, job.elapsed / total), left = Math.max(5, total - job.elapsed);
-      const what = job.stage === "sing" ? `Zpívám${job.of > 1 ? ` — část ${Math.min(job.of, job.done + 1)} z ${job.of}` : ""}`
-        : job.stage === "save" ? "Ukládám stopu" : "Načítám model";
-      body = `<p class="status">${what}… zbývá asi ${mins(left)}.</p>
-        <div class="mv-bar"><i style="width:${Math.round(done * 100)}%"></i></div>
-        <p class="mv-note">${job.song !== name ? `Počítá se píseň „${escapeHtml(stemsDisplayByName(job.song).title)}“. ` : ""}Okno můžeš zavřít, práce běží dál. Mezitím můžeš hrát; počítač bude jen pomalejší.</p>
-        <div class="two"><button type="button" class="btn secondary" id="mv-stop">Zastavit</button></div>`;
-    } else {
-      if(!form.voice || !st.voices.some(v => v.id === form.voice)) form.voice = st.voices[0].id;
-      const v = st.voices.find(x => x.id === form.voice), dur = (steemsSongs.find(x => x.name === name) || {}).duration || 0;
-      const len = form.part && loop ? loop.end - loop.start : dur, est = 45 + len * (0.6 + 2.2 * form.steps / 25);
-      body = `
-        <label>Hlas<select id="mv-voice">${st.voices.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === form.voice ? "selected" : ""}>${escapeHtml(x.name)}${x.sung ? " · se vzorkem zpěvu" : ""}</option>`).join("")}</select></label>
-        <div class="mv-sample"><button type="button" id="mv-new">＋ Nový hlas (přečti text a zazpívej)…</button></div>
-        <div class="mv-sample">${v.sung ? `Používám tvůj vzorek zpěvu. <button type="button" id="mv-unsing">Odebrat</button>`
-          : `Teď se bere tvůj mluvený hlas. Když nahraješ 10–25 vteřin vlastního zpěvu (bez hudby), bude podoba věrnější. `}
-          <button type="button" id="mv-sing">${v.sung ? "Jiný vzorek zpěvu…" : "Nahrát vzorek zpěvu…"}</button>
-          <input type="file" id="mv-file" accept="audio/*,video/*" hidden></div>
-        <div class="mv-own ${st.sample ? "has" : ""}"><b>Můj zpěv téhle písně</b>
-          ${st.sample ? `<span>Nahraný úryvek (${String(st.sample.seconds).replace(".", ",")} s) — podle něj se píseň zpívá.</span>
-              <audio controls preload="none" src="${st.sample.url}?t=${Date.now()}"></audio>
-              <div><button type="button" id="mv-take">Nahrát znovu…</button><button type="button" id="mv-untake">Odebrat</button></div>`
-            : `<span>Nejvěrnější výsledek: pusť si kus téhle písně a zazpívej ho s ní. Model pak zná tvůj hlas přesně v těchhle tónech.</span>
-              <div><button type="button" id="mv-take">● Zazpívat úryvek téhle písně…</button></div>`}</div>
-        <label>Kvalita<select id="mv-steps">${[[12, "Rychlá"], [25, "Běžná"], [40, "Nejlepší"]].map(([n, l]) => `<option value="${n}" ${n === form.steps ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label>Výška<select id="mv-shift">${[[0, "Jako originál"], [-12, "O oktávu níž"], [12, "O oktávu výš"], [-5, "O kvartu níž (−5)"], [-3, "−3 půltóny"], [-2, "−2 půltóny"], [2, "+2 půltóny"], [3, "+3 půltóny"], [5, "O kvartu výš (+5)"]]
-          .map(([n, l]) => `<option value="${n}" ${n === form.shift ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-        <label class="mv-check"><input type="checkbox" id="mv-auto" ${form.auto ? "checked" : ""}> Posunout melodii do polohy mého hlasu (když je originál moc vysoko nebo nízko; píseň pak nemusí ladit s kapelou)</label>
-        <label>Co zazpívat<select id="mv-part">
-          <option value="0" ${form.part ? "" : "selected"}>Celou píseň</option>
-          <option value="1" ${form.part && loop ? "selected" : ""} ${loop ? "" : "disabled"}>${loop ? `Jen smyčku ${fmtDur(loop.start)}–${fmtDur(loop.end)}${kept ? " (vloží se do hotové stopy)" : ""}` : "Jen úsek — nejdřív si v mixu označ smyčku"}</option></select></label>
-        <p class="mv-note">${kept ? "Tuhle píseň už tvým hlasem máš. Celá píseň ji přepíše; úsek opraví jen vybrané místo — zkus jinou kvalitu nebo výšku. " : ""}Potrvá to asi ${mins(est)}. Melodie, rytmus i frázování zůstanou z originálu, změní se jen hlas.</p>
-        ${job && job.status === "error" ? `<p class="status bad">Minule se to nepovedlo: ${escapeHtml(job.error || "")}</p>` : ""}
-        <div class="two"><button type="button" class="btn" id="mv-go">${form.part && loop ? "Přezpívat úsek" : "Zazpívat mým hlasem"}</button>
-          <button type="button" class="btn secondary" id="mv-close">Zavřít</button></div>`;
-    }
-    box.innerHTML = `<div class="mt-box"><h3>Zpěv mým hlasem${name ? " — " + escapeHtml(stemsDisplayByName(name).title) : ""}</h3>${body}
-      ${st && (!st.ready || !st.voices.length || !st.has_vocals) ? `<div class="two"><button type="button" class="btn secondary" id="mv-close">Zavřít</button></div>` : ""}</div>`;
-    const q = (id) => box.querySelector("#" + id), on = (id, ev, fn) => { const n = q(id); if(n) n[ev] = fn; };
-    on("mv-close", "onclick", close);
-    on("mv-voice", "onchange", (e) => { form.voice = e.target.value; keep(); paint(); });
-    on("mv-steps", "onchange", (e) => { form.steps = +e.target.value; keep(); paint(); });
-    on("mv-shift", "onchange", (e) => { form.shift = +e.target.value; keep(); });
-    on("mv-auto", "onchange", (e) => { form.auto = e.target.checked; keep(); });
-    on("mv-part", "onchange", (e) => { form.part = e.target.value === "1"; paint(); });
-    on("mv-new", "onclick", () => { close(); VoiceGuide.open(async (d) => { form.voice = d.id; keep(); open(); }); });
-    on("mv-take", "onclick", () => { close(); SongTake.open(async (sing) => { await open(); if(sing && q_("mv-go")) q_("mv-go").click(); }); });
-    on("mv-untake", "onclick", async () => { await fetch(`/api/stems/${encodeURIComponent(name)}/myvoice/sample`, {method: "DELETE"}); await load(); paint(); });
-    on("mv-sing", "onclick", () => q("mv-file").click());
-    on("mv-file", "onchange", async (e) => {
-      const f = e.target.files[0]; if(!f) return;
-      const fd = new FormData(); fd.append("file", f);
-      const r = await fetch("/api/myvoice/sample/" + encodeURIComponent(form.voice), {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
-      if(!r.ok){ showToast(d.error || "Vzorek se nepodařilo uložit."); return; }
-      showToast("Vzorek zpěvu uložen."); await load(); paint();
-    });
-    on("mv-unsing", "onclick", async () => { await fetch("/api/myvoice/sample/" + encodeURIComponent(form.voice), {method: "DELETE"}); await load(); paint(); });
-    on("mv-stop", "onclick", async () => { await fetch("/api/myvoice/job", {method: "DELETE"}); await load(); paint(); showToast("Zastaveno."); });
-    on("mv-go", "onclick", async () => {
-      const part = form.part && loop;
-      const body = {voice: form.voice, steps: form.steps, shift: form.shift, auto: form.auto, ...(part ? {start: loop.start, end: loop.end} : {})};
-      const how = await Plan.ask({kind: "myvoice", label: `Zpěv jiným hlasem: ${stemsDisplayByName(name).title || name}${part ? " (úsek)" : ""}`,
-        path: `/api/stems/${encodeURIComponent(name)}/myvoice`, body,
-        what: "Model přezpívá stopu zpěvu vybraným hlasem a uloží ji jako novou stopu. Celá píseň trvá i přes deset minut a vytíží počítač."});
-      if(how === "plan"){ close(); return; }
-      if(how !== "now") return;
-      const r = await fetch(`/api/stems/${encodeURIComponent(name)}/myvoice`, {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(body)});
-      const d = await r.json().catch(() => ({}));
-      if(!r.ok){ showToast(d.error || "Nepodařilo se spustit."); return; }
-      await load(); paint(); watch();
-    });
-  }
-  const q_ = (id) => box && box.querySelector("#" + id);
-  async function open(){
-    if(!song()){ showToast("Nejdřív otevři píseň ve Steems."); return; }
-    close();
-    box = document.createElement("div");
-    box.className = "mt-overlay voice-add myvoice";
-    box.onclick = (e) => { if(e.target === box) close(); };
-    document.body.appendChild(box);
-    paint(); await load(); paint();
-    if(running()) watch();
-  }
-  function close(){ if(box){ box.remove(); box = null; } }
-  if(el("nm-myvoice-open")) el("nm-myvoice-open").onclick = () => { TMenu.close(); open(); };
-  // a job started before the page was reloaded is picked up again
-  load().then(() => { if(running()) watch(); });
-  return {open, close, state: () => st};
-})();
 
 // ======================================================================
 // Odkaz ze Spotify (spotify_link.py) — a playlist, album or song pasted as its share link: its
@@ -30222,7 +29748,7 @@ const Tasks = (() => {
 // ---- Naplánované úlohy (/api/plan): what waits for the night, in its order — ↑ ↓ move it,
 // ▶ runs one now, ✕ lets it go — the night window, asking first, and what is done.
 const PlanList = (() => {
-  const IC = {separate: "✂", saves: "⤓", songbook: "♪", hear: "◎", tone: "◉", myvoice: "♫", other: "•"};
+  const IC = {separate: "✂", saves: "⤓", songbook: "♪", hear: "◎", tone: "◉", other: "•"};
   const list = el("pl-list");
   let hover = false, waiting = null, busy = false;
   const when = (t) => new Date(t * 1000).toLocaleString("cs", {day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit"});
