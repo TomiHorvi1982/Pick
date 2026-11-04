@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -5418,6 +5418,7 @@ class SaveSongRequest(BaseModel):
     mp3_bitrate: int = 320
     cookies_browser: Optional[str] = None
     cookie_file: Optional[str] = None
+    live: bool = False            # Pick Live: analysed and its guitar print begun before it is called ready
 
 
 def _save_library_rel(artist: str, title: str) -> Optional[str]:
@@ -5465,8 +5466,9 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
         except Exception:                                  # noqa: BLE001
             st["lyrics"] = False
         if req.stems and _stems_ready(req.stems):
-            st.update(state="ready", stems=req.stems)
+            st["stems"] = req.stems
             _save_finish(st, req)
+            st["state"] = "ready"
             return
         src = _resolve_under_music_root(req.relPath) if req.relPath else None
         rel = req.relPath if src is not None and src.is_file() else _save_library_rel(artist, req.title)
@@ -5497,8 +5499,9 @@ def _save_song_run(sid: str, req: SaveSongRequest) -> None:
         if job is not None and job["status"] != "done":
             st.update(state="error", error="Rozdělení na stopy zastaveno." if job["status"] in ("stopped", "cancelled") else "Rozdělení na stopy selhalo.")
             return
-        st.update(state="ready", progress=None, position=None)
+        st.update(progress=None, position=None)
         _save_finish(st, req)
+        st["state"] = "ready"
     except Exception as e:                                 # noqa: BLE001
         st.update(state="error", error=str(e) or "Uložení selhalo.")
     finally:
@@ -5519,6 +5522,52 @@ def _save_finish(st: dict, req: SaveSongRequest) -> None:
         st["lyrics"] = bool(st.get("lyrics") or (got and (got.get("lines") or got.get("plain"))))
     except Exception:                                      # noqa: BLE001 — the song is ready all the same
         pass
+    if req.live:
+        _live_extras(st)
+
+
+def _live_extras(st: dict) -> None:
+    """Pick Live, before the song opens on the stage: its tuning looked up when no tab told
+    it, its sections and chords analysed (the key and the tempo the mixer reads off the
+    stems as it loads), and a print of the guitar's sound begun — only once the player's
+    own guitar is recorded (GuitarStamps → Moje kytara), since a print is made against it."""
+    name = st.get("stems")
+    d = _stems_dir_for(name) if name else None
+    if d is None or not d.is_dir():
+        return
+    st["state"] = "analyzing"
+    try:
+        m = _stems_meta(d)
+        if _stems_tuning(d) is None and m.get("artist") and m.get("title"):
+            _tuning_lookup(d, m["artist"], m["title"])
+    except Exception:                                      # noqa: BLE001 — the internet; the song plays all the same
+        pass
+    try:
+        stems_analysis(name)
+    except Exception:                                      # noqa: BLE001 — the mixer asks for it again
+        pass
+    st["print"] = _live_print(name)
+
+
+def _live_print(name: str) -> str:
+    """started | had | no-guitar | no-stem | busy (with why) — what became of the song's print."""
+    d = _tone_song(name)
+    if d is None or "guitar" not in _tone_stems(d):
+        return "no-stem"
+    if _tone_prints_of(d):
+        return "had"
+    if not _guitar_active():
+        return "no-guitar"
+    try:
+        r = tone_fit(name, ToneFitRequest(stem="guitar", auto=True))
+    except Exception as e:                                 # noqa: BLE001
+        return "busy: " + (str(e) or "otisk se nespustil")
+    if isinstance(r, JSONResponse):
+        try:
+            return "busy: " + (json.loads(r.body).get("error") or "otisk se nespustil")
+        except ValueError:
+            return "busy: otisk se nespustil"
+    return "had" if isinstance(r, dict) and r.get("skipped") else "started"
 
 
 # Many at once — a whole playlist, every favourite: one after another, so the
@@ -5765,7 +5814,7 @@ def practice_save_many_stop():
 
 
 def _save_public(st: dict) -> dict:
-    return {k: st.get(k) for k in ("id", "title", "artists", "state", "stems", "tabs", "lyrics", "error", "progress", "position")}
+    return {k: st.get(k) for k in ("id", "title", "artists", "state", "stems", "tabs", "lyrics", "error", "progress", "position", "print")}
 
 
 @app.post("/api/practice/save")
@@ -5784,6 +5833,44 @@ def practice_save(req: SaveSongRequest):
             del _SAVES[old]
     threading.Thread(target=_save_song_run, args=(sid, req), name="save-song", daemon=True).start()
     return _save_public(_SAVES[sid])
+
+
+# ---- Pick Live: the song the player plays, on the stage. Found among the separated
+# songs, or got ready for it first — downloaded, separated, its text, tab, tuning,
+# sections and chords, and its guitar print begun (see _live_extras).
+def _live_print_state(name: str) -> str:
+    """had | no-guitar | no-stem | none — nothing is started."""
+    d = _tone_song(name)
+    if d is None or "guitar" not in _tone_stems(d):
+        return "no-stem"
+    if _tone_prints_of(d):
+        return "had"
+    return "none" if _guitar_active() else "no-guitar"
+
+
+@app.post("/api/live/prepare")
+def live_prepare(req: SaveSongRequest):
+    if not req.title.strip():
+        return JSONResponse({"error": "Nic nehraje."}, status_code=400)
+    al = _have_all()
+    name = _have_one(req, al).get("name")
+    if not name:                                      # a song kept with no artist: its title is enough
+        name = al["stems"].get(("", _names.key(req.title)))
+    if name and _stems_dir_for(name).is_dir():
+        return {"ready": True, "name": name, "print": _live_print_state(name)}
+    got = practice_save(req.model_copy(update={"live": True}))
+    if not isinstance(got, dict):
+        return got
+    return {"ready": False, **got}
+
+
+@app.get("/api/live/{sid}")
+def live_state(sid: str):
+    with _SAVES_LOCK:
+        st = _SAVES.get(sid)
+        if st is None:
+            return JSONResponse({"error": "Příprava nenalezena."}, status_code=404)
+        return _save_public(st)
 
 
 @app.get("/api/practice/saves")

@@ -4209,6 +4209,41 @@ body.lib-collapsed .pick-brand{display:none}
   .spc-divs button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
   .spc-note{font-size:11px;color:var(--sub)}
   .spc-foot{margin-top:10px;font-size:11.5px;color:var(--sub)}
+  /* Pick Live (static/picklive.js): the playing song onto the Live Show stage */
+  .pl-btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:999px;border:none;cursor:pointer;flex:0 0 auto;
+    font:inherit;font-size:13.5px;font-weight:800;letter-spacing:.2px;color:#16070a;white-space:nowrap;
+    background:linear-gradient(135deg,#ffb347,#ff5f6d);box-shadow:0 4px 16px rgba(255,95,109,.35);transition:transform .12s,box-shadow .15s}
+  .pl-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(255,95,109,.5)}
+  .pl-btn:active{transform:none}
+  .pl-btn.pl-side{margin:4px 12px 8px;justify-content:center;height:38px}
+  body.lib-collapsed .pl-btn.pl-side{margin:4px auto 8px;width:44px;height:44px;padding:0}
+  body.lib-collapsed .pl-btn.pl-side b{display:none}
+  @media (max-width:900px){ #pick-live-top b{display:none} #pick-live-top{width:40px;padding:0;justify-content:center} }
+  .pl-card{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:2147483000;width:min(520px,calc(100vw - 32px));
+    background:#17181f;border:1px solid rgba(255,140,100,.45);border-radius:14px;padding:12px 14px;box-shadow:0 14px 40px rgba(0,0,0,.55);color:var(--text,#eee)}
+  .pl-card[hidden]{display:none}
+  .pl-card.err{border-color:#e55}
+  .pl-c-head{display:flex;align-items:center;gap:8px;color:#ff8a65}
+  .pl-c-head b{color:#fff;font-size:14px}
+  .pl-c-song{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sub,#aaa);font-size:12.5px}
+  .pl-c-x{border:none;background:none;color:var(--sub,#aaa);cursor:pointer;padding:4px;border-radius:6px}
+  .pl-c-x:hover{color:#fff;background:#262833}
+  .pl-c-steps{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 0}
+  .pl-c-steps:empty{display:none}
+  .pl-c-steps span{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 8px;border-radius:999px;background:#22242e;color:var(--sub,#999)}
+  .pl-c-steps span.done{color:#7be495;background:rgba(80,200,120,.12)}
+  .pl-c-steps span.now{color:#16070a;background:#ffb347;font-weight:700}
+  .pl-c-bar{height:4px;border-radius:2px;background:#262833;margin:10px 0 0;overflow:hidden;position:relative}
+  .pl-c-bar[hidden]{display:none}
+  .pl-c-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffb347,#ff5f6d);transition:width .4s}
+  .pl-c-bar.indet i{width:30%;position:absolute;animation:pl-indet 1.3s ease-in-out infinite}
+  @keyframes pl-indet{0%{left:-30%}100%{left:100%}}
+  .pl-c-msg{margin-top:8px;font-size:12.5px;line-height:1.45}
+  .pl-c-msg small{display:block;color:var(--sub,#999);font-size:11px;margin-top:3px}
+  .pl-c-acts{display:flex;gap:6px;margin-top:8px}
+  .pl-c-acts:empty{display:none}
+  .pl-c-btn{border:1px solid var(--border,#333);background:#22242e;color:#eee;font:inherit;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
+  .pl-c-btn.main{background:#ffb347;border-color:#ffb347;color:#16070a;font-weight:700}
   /* GuitarStamps (static/stamps.js): the guitar, its prints and the amps on one page */
   #stamps-section{padding:8px 4px 40px}
   .gs-page{max-width:1180px;margin:0 auto}
@@ -4898,6 +4933,8 @@ body.lib-collapsed .pick-brand{display:none}
       <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat"></button>
     </div>
     <div class="search-suggest" id="search-suggest" hidden></div>
+    <button type="button" class="pl-btn" id="pick-live-top" title="Pick Live — co hraje v přehrávači dole, otevře v Live Show (není-li ve Steems, připraví ji)">
+      <span data-icon="flame" data-size="16"></span><b>Pick Live</b></button>
   </div>
   <div class="sp-topbar-right">
     <button class="sp-round" id="full-top-btn" title="Celá obrazovka"><span data-icon="expand" data-size="17"></span></button>
@@ -4922,6 +4959,8 @@ body.lib-collapsed .pick-brand{display:none}
     <span class="pick-brand" title="Pick"><img src="/static/pick-icon.png" alt="" width="30" height="30"><b>Pick</b></span>
   </div>
 
+  <button type="button" class="pl-btn pl-side" id="pick-live-side" title="Pick Live — co hraje v přehrávači dole, otevře v Live Show (není-li ve Steems, připraví ji)">
+    <span data-icon="flame" data-size="17"></span><b>Pick Live</b></button>
   <div class="lib-list sp-scroll" id="lib-list"></div>
   <div class="riff-dock sp-scroll" id="riff-dock" hidden></div>
   <div class="rail-art" aria-hidden="true">
@@ -13126,6 +13165,7 @@ async function loadSteemsList(opts = {}){
   el("steems-hero").hidden = true;
   el("steems-section").style.paddingTop = "";
   el("steems-list-title").hidden = false;
+  if(currentSteemsName) closeSongTextWindows();
   currentSteemsName = null;
   const list = el("steems-list");
   list.hidden = false;
@@ -13772,7 +13812,18 @@ function showSteemsHero(name){
   el("steems-hero-stats").innerHTML = '<span class="dot">Načítám stopy…</span>';
 }
 
+// Closing a song in Steems closes its text too: the mix's own windows always, and the
+// player's text windows when the player below is not playing a song of its own.
+function closeSongTextWindows(){
+  try{ Mixer.closeSongWindows(); }catch(e){}
+  const a = el("pb-audio");
+  if(a && !a.paused) return;
+  try{ if(LyricsView.isOpen()) LyricsView.close(); }catch(e){}
+  try{ if(PlayerLyricsDock.isOpen()) PlayerLyricsDock.close(); }catch(e){}
+}
+
 function hideSteemsHero(){
+  closeSongTextWindows();
   playerCollapseManual = false;
   autoCollapsePlayer(false);
   el("steems-hero").hidden = true;
@@ -16888,6 +16939,13 @@ const Mixer = (() => {
   }
   el("nm-lyr-karaoke").onclick = openKaraoke;
   el("karaoke-float-dock").onclick = () => FloatKaraoke.close();
+  // A song closed: the windows that belong to it close with it — its text lifted out
+  // into a window of its own, the karaoke page, its tab lifted out.
+  function closeSongWindows(){
+    if(FloatLyr.isOpen()) dockLyrics();
+    if(FloatKaraoke.isOpen()) FloatKaraoke.close();
+    if(FloatTab.isOpen()) dockTab();
+  }
 
   // ---- the tuner ----
   //
@@ -26781,6 +26839,7 @@ const Mixer = (() => {
     // Shared with the main player's lyrics overlay, which has no
     // currentSongName of its own — it passes the track's artist/title instead.
     openKaraoke,
+    closeSongWindows,
     // Shared with the main player's own tab dock (PlayerTab, below) so it
     // can render the same alphaTab tex without a second copy of the
     // loader/measure-to-tex logic.
@@ -35272,6 +35331,7 @@ const Voice = (() => {
 <script src="/static/plugins.js"></script>
 <script src="/static/space.js"></script>
 <script src="/static/stamps.js"></script>
+<script src="/static/picklive.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>

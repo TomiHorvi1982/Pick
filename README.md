@@ -1308,6 +1308,29 @@ svůj stav na `POST /api/remote/state` a vybírá si příkazy z
 Když by okno zmizelo bez rozloučení, stav po dvanácti vteřinách zestárne a
 lišta i mini přestanou tvrdit, že něco hraje.
 
+## Pick Live
+
+Tlačítko **Pick Live** je nahoře vpravo od vyhledávání a v levém panelu pod logem
+(`static/picklive.js`, `PickLive.go`). Vezme píseň, která hraje v přehrávači dole,
+a otevře ji v Live Show. Když hraje mix ve Steems, otevře rovnou ten.
+
+- Píseň už je ve Steems: `POST /api/live/prepare` vrátí `{ready: true, name}` a
+  Live se otevře hned. Hledá se podle interpreta a názvu, u písně bez interpreta
+  stačí název.
+- Píseň ve Steems není: tentýž krok spustí přípravu na serveru (`/api/practice/save`
+  s `live: true`). Píseň se stáhne, rozdělí na stopy, dohledá se k ní text, tab a
+  ladění. Pak `_live_extras` spočítá sekce a akordy (`stems_analysis`) a začne otisk
+  kytary (`tone_fit` s `auto: true`), ale jen když je v GuitarStamps nahraná tvoje
+  kytara. Tóninu a tempo zjistí mix sám při načtení.
+- Kartička nahoře (`GET /api/live/{id}`) ukazuje kroky a procenta. Příprava běží na
+  serveru a přežije i obnovení stránky. Když je hotová, Live se otevře sám.
+- Stav otisku: `started`, `had`, `none` (nabídne „Udělat otisk“), `no-guitar`
+  (nabídne „Nahrát kytaru“, tedy GuitarStamps → Moje kytara) nebo `busy: …`.
+
+Zavřít píseň ve Steems (✕ Zavřít nebo zpět na seznam) zavře i její okna s textem
+(`closeSongTextWindows` → `Mixer.closeSongWindows`): odpojený text, karaoke a
+odpojený tab. Okna s textem přehrávače dole zavře jen tehdy, když přehrávač nic nehraje.
+
 ## Testy
 
 ```bash
