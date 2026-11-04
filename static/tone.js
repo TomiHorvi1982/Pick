@@ -99,6 +99,7 @@ const Tone = (() => {
     }
     const ir = await c.decodeAudioData(await (await fetch(`/api/tone/${enc(name)}/file/print-ir.wav?${q(p.id)}`)).arrayBuffer());
     const input = c.createGain(), out = c.createGain(), colour = c.createConvolver();
+    if(typeof p.out_gain === "number" && p.out_gain > 0) out.gain.value = p.out_gain;   // a DITORIG profile's own output level
     colour.normalize = false; colour.buffer = ir;
     const chain = [input];
     if(p.pre.hp > 20) chain.push(biquad("highpass", p.pre.hp, PRE.hpQ));

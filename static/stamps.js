@@ -90,10 +90,47 @@ const GuitarStamps = (() => {
         <div class="gs-n">${s.done ? "✓" : i + 1}</div><div class="gs-st"><b>${s.t}</b><p>${s.d}</p>
         <div class="gs-acts">${s.act || ""}${s.to ? `<button type="button" class="btn ${s.done ? "secondary" : ""}" data-go="${s.to}">${s.done ? "Otevřít" : "Pustit se do toho"}</button>` : ""}</div></div></div>`).join("")}</div>
       ${info && info.error ? `<p class="gs-warn">${esc(info.error)}</p>` : ""}
-      ${info && !info.ready ? `<p class="gs-warn">Chybí engine otisku (prostředí pick-tone nebo Node) — otisky ani mapování teď nepoběží.</p>` : ""}`;
+      ${info && !info.ready ? `<p class="gs-warn">Chybí engine otisku (prostředí pick-tone nebo Node) — otisky ani mapování teď nepoběží.</p>` : ""}
+      <div class="gs-dit" id="gs-dit"><p class="gs-note"><span class="spinner"></span> Hledám otisky z DITORIG…</p></div>`;
+    paintDitorig(b.querySelector("#gs-dit"));
     b.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
     const inp = b.querySelector('[data-do="input"]');
     if(inp) inp.onclick = async () => { try{ await Mixer.guitar.start(); }catch(e){ say("Vstup kytary se nepodařilo zapnout: " + e.message); } paintTab(); };
+  }
+
+  // ------------------------------------------------------------- Otisky z DITORIG (Windows)
+  // Its maps (autotone-pilot) and its bank of profiles (seed-tone-bank), from a shared Windows
+  // drive or a copy: matched to the songs here by band, title and length, each profile a print to check.
+  let ditTimer = 0, ditWasRunning = false;
+  async function paintDitorig(el){
+    if(!el || !el.isConnected) return;
+    clearTimeout(ditTimer);
+    let d;
+    try{ d = await api("/api/stamps/ditorig"); }catch(e){ el.innerHTML = `<p class="gs-warn">${esc(e.message)}</p>`; return; }
+    const j = d.job, r = j && j.result, running = j && j.status === "running";
+    const list = (t, xs) => xs && xs.length ? `<details><summary>${t} (${xs.length})</summary><ul>${xs.slice(0, 200).map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : "";
+    el.innerHTML = `<h3 class="gs-h">${ic("download", 15)} Otisky z DITORIG (Windows)</h3>
+      <p class="gs-note">Mapy otisků z DITORIGu (složka <code>autotone-pilot</code>) a jeho profily NAM + IR (<code>seed-tone-bank</code>) se napojí na tvoje písně ve Steems — podle interpreta, názvu a délky nahrávky.
+        Každý profil, který píseň používá, bude její otisk ke kontrole; časová mapa úseků se uloží s ním.</p>
+      <p class="gs-note">${d.sources.length ? `Nalezeno: ${d.sources.map(x => `<code>${esc(x)}</code>`).join(", ")}` : `Složku zatím nevidím. Připoj sdílený disk z Windows (Finder → ⌘K → <code>smb://…</code>) nebo ji zkopíruj na disk u Macu.`}</p>
+      <div class="gs-dit-row"><input type="text" class="gs-dit-path" placeholder="${esc(d.sources[0] || "/Volumes/…/autotone-pilot")}" value="">
+        <button type="button" class="btn" data-dit="go" ${running ? "disabled" : ""}>${running ? "Načítám…" : "Načíst otisky z DITORIG"}</button></div>
+      ${running ? `<p class="gs-note"><span class="spinner"></span> ${j.done} / ${j.of || "…"} písní</p>` : ""}
+      ${j && j.status === "error" ? `<p class="gs-warn">${esc(j.error)}</p>` : ""}
+      ${r && !running ? `<p class="gs-note"><b>Nových otisků ${r.added}</b>, aktualizovaných ${r.updated}, beze změny ${r.kept} · písní ${r.songs.length}</p>
+        ${list("Písně, které ve Steems nemáš", r.unmatched)}${list("Jiná verze nahrávky (jiná délka) — časová mapa nemusí sedět", r.other_version)}
+        ${list("Chybějící soubory profilů", r.missing)}${list("Bez profilu", r.empty)}${list("Chyby", r.failed)}
+        ${r.added + r.updated ? `<button type="button" class="btn secondary" data-go="library">Zkontrolovat v Knihovně</button>` : ""}` : ""}`;
+    el.querySelector('[data-dit="go"]').onclick = async () => {
+      const path = el.querySelector(".gs-dit-path").value.trim();
+      try{ await api("/api/stamps/ditorig", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path})}); }
+      catch(e){ say(e.message); }
+      paintDitorig(el);
+    };
+    el.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
+    if(running) ditTimer = setTimeout(() => paintDitorig(el), 1500);
+    else if(ditWasRunning){ ditWasRunning = false; load(); }       // the counts at the top: the new prints
+    if(running) ditWasRunning = true;
   }
 
   // ------------------------------------------------------------- Zkouška se songy

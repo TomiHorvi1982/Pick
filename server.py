@@ -9584,6 +9584,178 @@ def stamps_map_stop():
     return _stamp_map_view()
 
 
+# ---- prints from DITORIG (the Windows app's autotone-pilot, see ditorig.py): its maps matched to
+# Pick's songs by band, title and length — its copy of the songs is its own — and each profile a
+# song uses written as a print of it (to be checked, like the night's), the timeline kept beside.
+import ditorig as _ditorig
+_DITORIG = {"job": None}
+DITORIG_NAM = "DITORIG"                    # the profiles' NAM models, under amps/nam/
+
+
+def _ditorig_sources() -> list:
+    return _ditorig.find_sources(tuple(x for x in [_read_config().get("ditorig_path") or "",
+        str(HOME / "Documents" / "AI Projekty" / "Aplikace" / "DITORIG" / "data" / "autotone-pilot")] if x))
+
+
+def _ditorig_song_index() -> dict:
+    """(band, title) → song, and title → [songs] for a band written differently, with the guitar's length."""
+    key = lambda t: _names.key(t)
+    both, by_title = {}, {}
+    root = MUSIC_ROOT / "Stems"
+    for d in (sorted(root.glob("*")) if root.is_dir() else []):
+        if not d.is_dir() or d.name.startswith(".") or _stem_file(d, "guitar") is None:
+            continue
+        m = _stems_meta(d)
+        a, t = key((m.get("artist") or "").split(",")[0]), key(m.get("title") or d.name)
+        both.setdefault((a, t), d.name)
+        by_title.setdefault(t, []).append(d.name)
+    return {"both": both, "title": by_title}
+
+
+def _ditorig_match(song: dict, idx: dict) -> Optional[str]:
+    key = lambda t: _names.key(t)
+    artist = (song["artist"] or "").split(",")[0].strip()
+    for a, t in ((artist, song["title"]), tuple(_names.tidy_live(artist, song["title"]).values())[:2]):
+        hit = idx["both"].get((key(a), key(t)))
+        if hit:
+            return hit
+    only = idx["title"].get(key(song["title"])) or []
+    return only[0] if len(only) == 1 else None
+
+
+def _ditorig_length(d: Path) -> Optional[float]:
+    f = _stem_file(d, "guitar")
+    return _audio_tags(f).get("duration") if f is not None else None
+
+
+def _ditorig_core(model: Path, prof: dict) -> str:
+    """The profile's NAM model among Pick's amps (copied once): the id a print's core is."""
+    base = AMPS_DIR / "nam" / DITORIG_NAM
+    base.mkdir(parents=True, exist_ok=True)
+    name = "".join(c for c in (prof.get("name") or model.stem) if c.isalnum() or c in " -_.()+,&·")[:90].strip() or model.stem
+    target = base / f"{name} [{(prof.get('model_hash') or prof.get('id') or '')[:8]}].nam"
+    if not target.is_file() or target.stat().st_size != model.stat().st_size:
+        shutil.copyfile(model, target)
+    return f"nam/{DITORIG_NAM}/{target.name}"
+
+
+def _ditorig_import_song(song: dict, profiles: dict, assets, idx: dict, out: dict) -> None:
+    name = _ditorig_match(song, idx)
+    label = f"{song['artist']} – {song['title']}".strip(" –")
+    if not name:
+        out["unmatched"].append(label)
+        return
+    d = _stems_dir_for(name)
+    pl = _ditorig.plan(song)
+    if not pl["profiles"]:
+        out["empty"].append(label)
+        return
+    have = _ditorig_length(d)
+    same = have is None or not pl["duration"] or abs(have - pl["duration"]) <= 3.0
+    if not same:
+        out["other_version"].append(f"{label} ({round(have)} s ve Steems, {round(pl['duration'])} s v DITORIGu)")
+    kept = {}
+    for p in _tone_prints_of(d):
+        src = p.get("ditorig") or {}
+        if src.get("song") == song["id"]:
+            kept[src.get("profile")] = (p["id"], src.get("revision") or 0)
+    for i, prof_id in enumerate(pl["profiles"]):
+        prof = profiles.get(prof_id)
+        if prof is None:
+            out["missing"].append(f"{label}: profil {prof_id[:10]}")
+            continue
+        old = kept.get(prof_id)
+        if old and old[1] >= pl["revision"]:
+            out["kept"] += 1
+            continue
+        model = assets.find(prof.get("model_path") or "", prof.get("model_hash") or "", ".nam")
+        ir = assets.find(prof.get("ir_path") or "", prof.get("ir_hash") or "", ".wav")
+        if model is None or ir is None:
+            out["missing"].append(f"{label}: {'model .nam' if model is None else 'IR .wav'} profilu {prof.get('name') or prof_id[:10]}")
+            continue
+        segs = [t for t in pl["timeline"] if t["profile"] == prof_id]
+        pid = old[0] if old else _tone_new_id(d)
+        t = _tone_at(d, pid)
+        t.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ir, t / "print-ir.wav")
+        cover = pl["cover"].get(prof_id, 0)
+        data = {"version": 1, "sr": int(prof.get("sample_rate") or 48000), "created": time.time(),
+                "core": {"id": _ditorig_core(model, prof), "name": prof.get("name") or model.stem},
+                "drive_db": float(prof.get("input_gain_db") or 0.0), "out_gain": float(prof.get("output_gain") or 1.0),
+                "pre": {"hp": 0, "mid_db": 0, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False},
+                "match": _ditorig.match_of(pl["timeline"], prof_id), "stem": "guitar",
+                "start": segs[0]["start"] if segs else 0, "end": segs[0]["end"] if segs else 0,
+                "name": f"DITORIG · {prof.get('name') or model.stem}"[:120], "auto": True, "review": "pending",
+                "ditorig": {"song": song["id"], "revision": pl["revision"], "profile": prof_id, "cover": cover, "rank": i + 1,
+                            "same_version": same, "duration": pl["duration"], "timeline": pl["timeline"],
+                            "approved": bool(prof.get("approved"))}}
+        (t / "print.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        for f in ("you.wav", "you.mp3", "record.mp3", "abx-you.wav", "abx-record.wav"):   # previews of what was there before
+            (t / f).unlink(missing_ok=True)
+        out["updated" if old else "added"] += 1
+    out["songs"].append(name)
+
+
+def _ditorig_run(job: dict, root: Path) -> None:
+    out = job["result"]
+    try:
+        got = _ditorig.read(root)
+        assets = _ditorig.Assets(root)
+        idx = _ditorig_song_index()
+        job["of"] = len(got["songs"])
+        for song in got["songs"]:
+            if job["status"] != "running":
+                break
+            try:
+                _ditorig_import_song(song, got["profiles"], assets, idx, out)
+            except Exception as e:                         # noqa: BLE001 — one song does not stop the rest
+                out["failed"].append(f"{song.get('artist')} – {song.get('title')}: {e}")
+            job["done"] += 1
+        out["songs"] = sorted(set(out["songs"]))
+        if job["status"] == "running":
+            job["status"] = "done"
+        _write_config({"ditorig_path": str(root)})
+    except Exception as e:                                 # noqa: BLE001
+        job.update(status="error", error=str(e) or "Import se nepovedl.")
+    finally:
+        job["finished"] = time.time()
+        _STEMS_ROWS.clear()
+
+
+def _ditorig_view() -> dict:
+    job = _DITORIG["job"]
+    return {"sources": [str(p) for p in _ditorig_sources()],
+            "job": {k: job.get(k) for k in ("status", "done", "of", "error", "result", "root")} if job else None}
+
+
+class DitorigImportRequest(BaseModel):
+    path: str = ""                    # the autotone-pilot folder; empty: the one found
+
+
+@app.get("/api/stamps/ditorig")
+def stamps_ditorig():
+    return _ditorig_view()
+
+
+@app.post("/api/stamps/ditorig")
+def stamps_ditorig_import(req: DitorigImportRequest):
+    if req.path.strip():
+        root = _ditorig.locate(Path(req.path.strip()).expanduser())
+    else:
+        found = _ditorig_sources()
+        root = found[0] if found else None
+    if root is None or not root.is_dir() or not _ditorig.is_source(root):
+        return JSONResponse({"error": "Složku autotone-pilot (s pilot.sqlite a maps) jsem nenašel. Zkopíruj ji z Windows na disk připojený k Macu."}, status_code=404)
+    if (_DITORIG["job"] or {}).get("status") == "running":
+        return _ditorig_view()
+    job = {"status": "running", "done": 0, "of": 0, "started": time.time(), "root": str(root),
+           "result": {"added": 0, "updated": 0, "kept": 0, "songs": [], "unmatched": [], "other_version": [],
+                      "missing": [], "empty": [], "failed": []}}
+    _DITORIG["job"] = job
+    threading.Thread(target=_ditorig_run, args=(job, root), name="ditorig-import", daemon=True).start()
+    return _ditorig_view()
+
+
 @app.get("/api/tone/prints")
 def tone_prints():
     """The library of prints: every one of every song, with its band and song, the match, the core
