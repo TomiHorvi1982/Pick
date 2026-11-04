@@ -56,3 +56,22 @@ def test_review_keeps_or_throws_away(client, tmp_music_root):
     assert json.loads((d / "tone/prints/20261103-120000/print.json").read_text())["review"] == "ok"
     assert client.post("/api/tone/T/prints/20261103-130000/review", json={"keep": False}).json() == {"kept": False}
     assert not (tmp_music_root / "Stems/T/tone/prints/20261103-130000").exists()
+
+
+def test_a_ditorig_print_does_not_count_and_goes_first_to_be_compared(client, tmp_music_root, monkeypatch):
+    server._STEMS_ROWS.clear()
+    server._STAMP_ROW.clear()
+    monkeypatch.setattr(server, "_guitar_active", lambda: "strat")
+    monkeypatch.setattr(server, "_tone_ready", lambda: True)
+    d = _song(tmp_music_root, "With DITORIG", print_id="20261103-120000")
+    f = d / server.TONE_DIR / "prints" / "20261103-120000" / "print.json"
+    f.write_text(json.dumps({"match": 60, "ditorig": {"profile": "p"}}))
+    _song(tmp_music_root, "Plain")
+    _song(tmp_music_root, "Own print", print_id="20261103-130000")
+    names = [r["name"] for r in server._tone_auto_candidates(ditorig_first=True)]
+    assert names[0] == "With DITORIG" and "Plain" in names and "Own print" not in names
+    r = client.post("/api/tone/auto/plan", json={"limit": 1, "ditorig_first": True}).json()
+    assert r["added"] == 1 and [t["label"] for t in planner.tasks()["tasks"]] == ["Otisk: With DITORIG"]
+    # the fit itself does not skip it either (it goes on to look for a stretch to print)
+    got = client.post("/api/tone/With%20DITORIG/fit", json={"stem": "guitar", "auto": True}).json()
+    assert got.get("skipped") is None

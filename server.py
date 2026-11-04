@@ -5554,7 +5554,7 @@ def _live_print(name: str) -> str:
     d = _tone_song(name)
     if d is None or "guitar" not in _tone_stems(d):
         return "no-stem"
-    if _tone_prints_of(d):
+    if any(not p.get("ditorig") for p in _tone_prints_of(d)):
         return "had"
     if not _guitar_active():
         return "no-guitar"
@@ -5843,7 +5843,7 @@ def _live_print_state(name: str) -> str:
     d = _tone_song(name)
     if d is None or "guitar" not in _tone_stems(d):
         return "no-stem"
-    if _tone_prints_of(d):
+    if any(not p.get("ditorig") for p in _tone_prints_of(d)):
         return "had"
     return "none" if _guitar_active() else "no-guitar"
 
@@ -9407,12 +9407,16 @@ def tone_stop():
 # so the songs that have none are put to the planner (planner.py) for the night — each one the
 # stretch where its guitar plays clearest, marked to be checked in the morning (Knihovna otisků →
 # Ke kontrole: keep it, or throw it away).
-def _tone_has_print(d: Path) -> bool:
-    base = d / TONE_DIR / "prints"
-    try:
-        return any((f / "print.json").is_file() for f in base.iterdir() if f.is_dir()) or (d / TONE_DIR / "print.json").is_file()
-    except OSError:
-        return (d / TONE_DIR / "print.json").is_file()
+def _tone_has_print(d: Path, ditorig: Optional[bool] = False) -> bool:
+    """A print of Pick's own (ditorig=False), one from DITORIG (True), or either (None) — counted
+    the way Songs with Guitar Stamps counts them (kept per song until its prints change)."""
+    if ditorig is not True and (d / TONE_DIR / "print.json").is_file():
+        return True
+    if not (d / TONE_DIR / "prints").is_dir():
+        return False
+    row = _stamp_row(d) or {"prints": 0, "ditorig": 0}
+    own, dit = row["prints"] - row["ditorig"], row["ditorig"]
+    return (own + dit > 0) if ditorig is None else (dit > 0 if ditorig else own > 0)
 
 
 def _tone_auto_planned() -> set:
@@ -9420,17 +9424,23 @@ def _tone_auto_planned() -> set:
             if t.get("kind") == "tone" and t["status"] in ("waiting", "running") and (t.get("body") or {}).get("auto")}
 
 
-def _tone_auto_candidates() -> list:
-    """Songs with a guitar track and no print yet, the newest first."""
+def _tone_auto_candidates(ditorig_first: bool = False) -> list:
+    """Songs with a guitar track and no print of Pick's own yet (DITORIG's do not count: Pick's is
+    made beside them to be compared), the newest first — with ditorig_first, those with one of
+    DITORIG's before the rest."""
     root = MUSIC_ROOT / "Stems"
     rows = [r for r in list_stems() if "guitar" in r.get("stems", [])]
     rows.sort(key=lambda r: -(r.get("modified") or 0))
-    return [r for r in rows if not _tone_has_print(root / r["name"])]
+    rows = [r for r in rows if not _tone_has_print(root / r["name"])]
+    if ditorig_first:
+        rows.sort(key=lambda r: not _tone_has_print(root / r["name"], True))
+    return rows
 
 
 class ToneAutoPlanRequest(BaseModel):
     limit: int = 25
     now: bool = False          # not waiting for the night
+    ditorig_first: bool = False  # songs with a DITORIG print first: Pick's made beside it, to be compared
 
 
 @app.get("/api/tone/auto")
@@ -9450,7 +9460,7 @@ def tone_auto_plan(req: ToneAutoPlanRequest):
     if not _guitar_active():
         return JSONResponse({"error": "Nejdřív nahraj kalibraci v Moje kytara a zapni ji pro otisky — bez ní by otisk potřeboval tvoje hraní s každou písní."}, status_code=400)
     planned = _tone_auto_planned()
-    picked = [r for r in _tone_auto_candidates() if r["name"] not in planned][:max(1, min(500, req.limit))]
+    picked = [r for r in _tone_auto_candidates(req.ditorig_first) if r["name"] not in planned][:max(1, min(500, req.limit))]
     for r in picked:
         m = r.get("meta") or {}
         label = "Otisk: " + (f"{m.get('artist')} – {m.get('title')}" if m.get("artist") else (m.get("title") or r["name"]))
@@ -10189,7 +10199,7 @@ def tone_fit(name: str, req: ToneFitRequest):
         return JSONResponse({"error": "Tahle píseň nemá stopu kytary."}, status_code=400)
     if not _tone_ready():
         return JSONResponse({"error": "Chybí engine otisku (prostředí pick-tone nebo Node)."}, status_code=503)
-    if req.auto and _tone_prints_of(d):
+    if req.auto and any(not p.get("ditorig") for p in _tone_prints_of(d)):
         return {"skipped": "Píseň už otisk má."}
     if req.start < 0 or req.end <= req.start:
         got = tone_sections(name, req.stem)

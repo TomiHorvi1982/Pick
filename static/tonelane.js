@@ -63,10 +63,16 @@ const ToneLanes = (() => {
   }
   // DITORIG's map, its stretches of one profile glued into one and a stretch it could not tell kept
   // with the sound before it — or one stretch of the song's newest print.
-  async function fromPrints(name, duration){
+  // A print of Pick's own (made with the player's guitar) comes first; DITORIG's map when asked for.
+  async function fromPrints(name, duration, ditorigMap){
     const st = await api(`/api/tone/${enc(name)}`);
     const prints = st.prints || [];
     if(!prints.length) return [];
+    const own = prints.filter(x => x.source !== "ditorig");
+    if(own.length && !ditorigMap){
+      const p = own[0];
+      return [{start: 0, end: duration || 600, song: name, pid: p.id, key: `pick:${name}/${p.id}`, name: p.name, category: p.category}];
+    }
     const dit = prints.filter(x => x.source === "ditorig");
     if(dit.length){
       const stem = dit.some(x => (x.stem || "guitar") === "guitar") ? "guitar" : dit[0].stem;
@@ -245,7 +251,8 @@ const ToneLanes = (() => {
       segs.length > 1 ? ["Smazat (zabere ho sousední)", () => {
         if(i > 0) segs[i - 1].end = segs[i].end; else segs[1].start = 0;
         segs.splice(i, 1); changed(); }] : null,
-      ["Vrátit podle DITORIGu", async () => { if(!data) return; data.tone.segs = await fromPrints(song, ctx.duration); changed(); }],
+      ["Podle mapy DITORIGu", async () => { if(!data) return; const s = await fromPrints(song, ctx.duration, true); if(s.length){ data.tone.segs = s; changed(); } else say("Píseň nemá otisk z DITORIGu"); }],
+      ["Podle otisku Picku (celá píseň)", async () => { if(!data) return; data.tone.segs = await fromPrints(song, ctx.duration); changed(); }],
     ].filter(Boolean));
   }
   function menu(x, y, items){
