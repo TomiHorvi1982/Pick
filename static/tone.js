@@ -939,10 +939,10 @@ const Tone = (() => {
     body.innerHTML = `<div class="tw-libtop"><div class="tw-libtitle">${icon("guitar", 16)}<b>Moje kytara</b><span>kalibrace pro přesnější otisky</span></div></div>
       <p class="tw-sub" style="margin-top:10px">Jednou nahraj, jak zní tvoje kytara čistě: struny, tóny, akordy a riff. Pick si z toho udělá knihovnu tvých tónů a při otisku nechá tvou kytaru zahrát
         <b>přesně to, co originál</b> — ve stejnou chvíli a ve stejné výšce (i když je píseň laděná jinak). Otisk pak jde i bez hraní s písní.</p>
-      <div class="tw-row"><select class="tw-gsel">${guitars.guitars.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === gSel ? "selected" : ""}>${escapeHtml(x.name)}${x.id === guitars.active ? " ✓" : ""}</option>`).join("")}
-        <option value="__new">+ Nová kytara…</option></select>
+      <div class="tw-row">${guitars.guitars.length ? `<select class="tw-gsel">${guitars.guitars.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === gSel ? "selected" : ""}>${escapeHtml(x.name)}${x.id === guitars.active ? " ✓" : ""}</option>`).join("")}
+        </select>` : ""}<button type="button" class="btn ${guitars.guitars.length ? "secondary" : ""} tw-gnew">+ Nová kytara</button>
         ${g && g.ready ? `<button type="button" class="btn ${g.id === guitars.active ? "" : "secondary"} tw-guse">${g.id === guitars.active ? "✓ Používá se pro otisky" : "Používat pro otisky"}</button>` : ""}</div>
-      ${!g ? `<p class="tw-note">Založ si kytaru — „+ Nová kytara…“.</p>` : `
+      ${!g ? `<p class="tw-note">Založ si kytaru — klikni na „+ Nová kytara“.</p>` : `
         ${sm ? `<div class="tw-gsum"><b>${escapeHtml(g.name)}</b> · ${sm.strings.length ? `struny ${escapeHtml(sm.strings.join(" "))}${sm.tuning ? ` (${escapeHtml(sm.tuning)} ladění)` : ""}` : "struny jsem nepoznal"}
           · ${sm.notes} tónů · ${sm.chords} akordů${sm.muted ? ` · ${sm.muted} dusaných` : ""} · síla úhozu ${cz(sm.typical_db)} dB (${escapeHtml(sm.level)})</div>
           ${sm.notes + sm.chords < 8 ? `<p class="tw-warn">Málo tónů na přesný otisk — nahraj kroky znovu, hraj zřetelně a nech tóny doznít.</p>` : ""}
@@ -958,12 +958,14 @@ const Tone = (() => {
              <span class="tw-sub">Nahraj aspoň struny a akordy; čím víc kroků, tím přesnější.</span>`}</div>
         <div class="tw-row"><button type="button" class="tw-ib tw-gdel ${armed === "g/" + g.id ? "armed" : ""}" title="Smazat kytaru">${armed === "g/" + g.id ? "Smazat?" : icon("trash", 14)}</button></div>`}
       ${autoHtml()}`;
+    // A guitar of its own button: as the only choice of a list it could not be picked (no change).
     const sel = body.querySelector(".tw-gsel");
-    sel.onchange = async () => {
-      if(sel.value !== "__new"){ gSel = sel.value; paint(); return; }
-      const name = prompt("Jak se kytara jmenuje? (třeba Stratocaster)", "Moje kytara");
-      if(!name){ sel.value = gSel || ""; return; }
-      try{ const g2 = await api("/api/tone/guitars", post({name})); gSel = g2.id; }catch(e){ showToast(e.message); }
+    if(sel) sel.onchange = () => { gSel = sel.value; paint(); };
+    body.querySelector(".tw-gnew").onclick = async () => {
+      const ask = typeof Dialog !== "undefined" && Dialog.prompt ? (q, v) => Dialog.prompt(q, v) : async (q, v) => prompt(q, v);
+      const name = await ask("Jak se kytara jmenuje? (třeba Stratocaster)", "Moje kytara");
+      if(!name || !name.trim()) return;
+      try{ const g2 = await api("/api/tone/guitars", post({name: name.trim()})); gSel = g2.id; }catch(e){ showToast(e.message); }
       loadGuitars();
     };
     const use = body.querySelector(".tw-guse");
