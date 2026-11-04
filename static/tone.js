@@ -130,8 +130,68 @@ const Tone = (() => {
     // The doubler is the player's: a print of a wide record never switches it on by itself (3. 11.).
     try{ localStorage.setItem(KEEP, JSON.stringify({song: name, pid: p.id})); }catch(e){}
     Mixer.guitarFaderRepaint();
-    if(!quiet) showToast(`Hraješ s otiskem „${p.name}“ (${title(name)}) — shoda ${p.match} %`);
+    if(!quiet) showToast(`Hraješ s otiskem „${p.name}“ (${title(name)})` + (p.match != null ? ` — shoda ${p.match} %` : ""));
     paint();
+    startFollow(name, p).catch(() => {});
+  }
+
+  // ---------------------------------------------------------------- DITORIG's timeline
+  // A print from DITORIG (server.py _ditorig_import_song) carries the song's map: the stretches of
+  // its guitar and the profile that sounds like each. With the song's other DITORIG prints of the
+  // same guitar ready beside it, the sound follows the map as the song plays — each switch at the
+  // stretch's start. A stretch the map does not know keeps the sound before it (nothing made up).
+  const FOLLOW = "pick-tone-follow";
+  let fol = null;          // {song, stem, segs, pidOf: {profile: pid}, chains: {profile: chain}, cur, timer}
+  const followOn = () => { try{ return localStorage.getItem(FOLLOW) !== "0"; }catch(e){ return true; } };
+  function dispose(c){ (c.nodes || []).forEach(n => { try{ n.disconnect(); }catch(e){} }); if(c.core){ try{ c.core.unloadModel(); }catch(e){} } }
+  function stopFollow(){
+    if(!fol) return;
+    const f = fol;
+    fol = null;
+    clearInterval(f.timer);
+    Object.values(f.chains).forEach(c => { if(!live || c.input !== live.input) dispose(c); });
+  }
+  async function startFollow(name, p){
+    if(fol) stopFollow();
+    const d = p.ditorig;
+    if(!d || !Array.isArray(d.timeline) || !followOn()) return;
+    const stem = p.stem || "guitar";
+    const all = (await api(`/api/tone/${enc(name)}`)).prints || [];
+    const pidOf = {};
+    all.filter(x => x.source === "ditorig" && (x.stem || "guitar") === stem && x.profile).forEach(x => { pidOf[x.profile] = pidOf[x.profile] || x.id; });
+    const segs = d.timeline.filter(t => t.profile && pidOf[t.profile]).sort((a, b) => a.start - b.start);
+    if(new Set(segs.map(t => t.profile)).size < 2 || !live || live.pid !== p.id) return;     // one sound all along: nothing to switch
+    const me = fol = {song: name, stem, segs, pidOf, chains: {[d.profile]: {print: p, input: live.input, out: live.out, nodes: live.nodes, core: live.core}},
+      cur: d.profile, timer: 0};
+    for(const prof of Object.keys(pidOf)){
+      if(me.chains[prof] || !segs.some(t => t.profile === prof)) continue;
+      try{
+        const c = await buildChain(name, pidOf[prof]);
+        if(fol !== me){ dispose(c); return; }
+        me.chains[prof] = c;
+      }catch(e){}
+    }
+    if(fol !== me) return;
+    me.timer = setInterval(tick, 100);
+  }
+  function tick(){
+    if(!fol || !live || Mixer.currentSong() !== fol.song) return;
+    const t = Mixer.position() + 0.03;                    // a hair early: the switch lands on the stretch's start
+    const seg = fol.segs.find(x => t >= x.start && t < x.end);
+    if(!seg || seg.profile === fol.cur) return;
+    const c = fol.chains[seg.profile];
+    if(!c) return;
+    fol.cur = seg.profile;
+    Object.assign(live, {pid: fol.pidOf[seg.profile], print: c.print, input: c.input, out: c.out, nodes: c.nodes, core: c.core});
+    setDrive();
+    G().setPrint({input: c.input, output: c.out});
+    try{ Mixer.guitarFaderRepaint(); }catch(e){}
+    try{ paint(); }catch(e){}
+  }
+  function setFollow(on){
+    try{ localStorage.setItem(FOLLOW, on ? "1" : "0"); }catch(e){}
+    if(!on) stopFollow();
+    else if(live && live.print && live.print.ditorig) startFollow(live.song, live.print).catch(() => {});
   }
   function remove(quiet){
     if(!live) return;
@@ -140,8 +200,11 @@ const Tone = (() => {
     live = null;
     if(!quiet){ try{ localStorage.removeItem(KEEP); }catch(e){} }
     G().setPrint(null);
-    l.nodes.forEach(n => { try{ n.disconnect(); }catch(e){} });
-    if(l.core){ try{ l.core.unloadModel(); }catch(e){} }
+    if(fol) stopFollow();                  // its chains — the one playing among them — all let go
+    else{
+      l.nodes.forEach(n => { try{ n.disconnect(); }catch(e){} });
+      if(l.core){ try{ l.core.unloadModel(); }catch(e){} }
+    }
     if(!quiet){
       Mixer.guitarFaderRepaint();
       showToast("Otisk vypnutý — hraješ zase přes svůj zesilovač");
@@ -766,7 +829,8 @@ const Tone = (() => {
     const keep = document.activeElement && document.activeElement.classList.contains("tw-find");
     const f = fold(libFind);
     const found = library.filter(x => !f || [x.artist, x.title, x.name, x.core, x.album, catOf(x.category).label].some(v => fold(v).includes(f)));
-    const rows = found.filter(x => !libCat || (libCat === "__review" ? x.review === "pending" : x.category === libCat));
+    const rows = found.filter(x => !libCat || (libCat === "__review" ? x.review === "pending" : libCat === "__ditorig" ? x.source === "ditorig" : x.category === libCat));
+    const fromDit = found.filter(x => x.source === "ditorig").length;
     const toCheck = found.filter(x => x.review === "pending").length;
     const sorters = {band: (a, b) => fold(a.artist || "~").localeCompare(fold(b.artist || "~")) || fold(a.title).localeCompare(fold(b.title)) || (b.created || 0) - (a.created || 0),
       new: (a, b) => (b.created || 0) - (a.created || 0), match: (a, b) => (b.match || 0) - (a.match || 0)};
@@ -779,7 +843,7 @@ const Tone = (() => {
       <div class="tw-libhead"><label class="tw-findbox">${icon("search", 13)}<input type="search" class="tw-find" placeholder="Hledat kapelu, píseň, otisk, jádro…" value="${escapeHtml(libFind)}"></label>
         <span class="tk-sort tw-lsort">${[["band", "Kapela"], ["new", "Nejnovější"], ["match", "Shoda"]].map(([k, l]) =>
           `<button type="button" data-lsort="${k}" class="${libSort === k ? "on" : ""}">${l}</button>`).join("")}</span></div>
-      <div class="tw-cats"><button type="button" data-lcat="" class="${libCat ? "" : "on"}">Vše <small>${found.length}</small></button>${toCheck || libCat === "__review" ? `<button type="button" data-lcat="__review" class="tw-revchip ${libCat === "__review" ? "on" : ""}" title="Otisky udělané automaticky přes noc — poslechni a nech si je, nebo je zahoď">Ke kontrole <small>${toCheck}</small></button>` : ""}${CATS.map(([k, label, color]) =>
+      <div class="tw-cats"><button type="button" data-lcat="" class="${libCat ? "" : "on"}">Vše <small>${found.length}</small></button>${toCheck || libCat === "__review" ? `<button type="button" data-lcat="__review" class="tw-revchip ${libCat === "__review" ? "on" : ""}" title="Otisky udělané automaticky přes noc — poslechni a nech si je, nebo je zahoď">Ke kontrole <small>${toCheck}</small></button>` : ""}${fromDit || libCat === "__ditorig" ? `<button type="button" data-lcat="__ditorig" class="tw-ditchip ${libCat === "__ditorig" ? "on" : ""}" title="Otisky z DITORIGu (Windows) — profily NAM + IR podle jeho časové mapy písně">DITORIG <small>${fromDit}</small></button>` : ""}${CATS.map(([k, label, color]) =>
         `<button type="button" data-lcat="${k}" class="${libCat === k ? "on" : ""} ${n(k) ? "" : "none"}" style="--cat:${color}"><i></i>${label} <small>${n(k)}</small></button>`).join("")}</div></div>`;
     if(!library.length) html += `<div class="tw-empty">${icon("guitar", 28)}<b>Zatím tu žádný otisk není</b>
         <span>Otevři píseň ve Steems, na kanálu Live kytara klikni na OTISK a záložka Tato píseň tě provede.</span></div>`;
@@ -800,7 +864,7 @@ const Tone = (() => {
           <div class="tw-ctitle"><div class="tw-cname" title="Klikni a přejmenuj">${escapeHtml(x.name)}</div>
             <div class="tw-csub">${escapeHtml(x.artist ? `${x.artist} · ${x.title}` : x.title)}</div></div>${ring(x.match)}</div>
         <div class="tw-ctags">${catChip(x.category, !x.category_auto)}<span class="tw-tag">${escapeHtml(STEMS[x.stem] || "Kytara")} ${mmss(x.start || 0)}–${mmss(x.end || 0)}</span>
-          ${x.review === "pending" ? `<span class="tw-tag tw-rev" title="Udělaný automaticky — poslechni a rozhodni">ke kontrole</span>` : ""}<span class="tw-tag" title="Jádro zkreslení">${escapeHtml(x.core || "bez jádra")}</span>${x.room ? `<span class="tw-tag">dozvuk</span>` : ""}${x.width ? `<span class="tw-tag">zdvojená</span>` : ""}</div>
+          ${x.review === "pending" ? `<span class="tw-tag tw-rev" title="Udělaný automaticky — poslechni a rozhodni">ke kontrole</span>` : ""}${x.source === "ditorig" ? `<span class="tw-tag tw-dit" title="Z DITORIGu: tolik písně tenhle profil hraje; během hraní se profily přepínají podle jeho časové mapy">DITORIG${x.cover != null ? ` · ${Math.round(x.cover * 100)} % písně` : ""}</span>${x.same_version === false ? `<span class="tw-tag tw-rev" title="Soubor ve Steems je jiný než ten, který DITORIG analyzoval — časová mapa nemusí sedět">jiná verze</span>` : ""}` : ""}${x.stem && x.stem !== "guitar" ? `<span class="tw-tag">${escapeHtml(STEMS[x.stem] || x.stem)}</span>` : ""}<span class="tw-tag" title="Jádro zkreslení">${escapeHtml(x.core || "bez jádra")}</span>${x.room ? `<span class="tw-tag">dozvuk</span>` : ""}${x.width ? `<span class="tw-tag">zdvojená</span>` : ""}</div>
         <canvas class="tw-mini-curve" width="300" height="54"></canvas>
         <div class="tw-cmeters">${meter("Zkreslení", y.drive, 0, 100, "")}${meter("Jas", y.bright, 300, 4000, " Hz")}${meter("Sustain", y.sustain, -30, 0, " dB")}</div>
         <div class="tw-cacts">
@@ -1052,5 +1116,8 @@ const Tone = (() => {
     return row;
   }
 
-  return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints")};
+  return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints"),
+    // DITORIG's timeline: switched on or off (kept), and what it is doing now
+    follow: setFollow, followOn, following: () => (fol ? {song: fol.song, stem: fol.stem, profile: fol.cur, ready: Object.keys(fol.chains).length,
+      profiles: new Set(fol.segs.map(t => t.profile)).size} : null)};
 })();

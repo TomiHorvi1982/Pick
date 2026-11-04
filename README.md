@@ -1310,27 +1310,40 @@ lišta i mini přestanou tvrdit, že něco hraje.
 
 ## Otisky z DITORIG (Windows)
 
-DITORIG na Windows dělá otisky ke své kopii písní. Pick je převezme
-(`ditorig.py`, `POST/GET /api/stamps/ditorig`, karta v GuitarStamps → Postup):
+DITORIG na Windows dělá otisky ke kopii tvé karty (`F:\DITORIG-KNIHOVNA\PICKSD`). Pick je
+převezme (`ditorig.py`, `POST/GET /api/stamps/ditorig`, karta v GuitarStamps → Postup).
 
-- Zdroj je složka `autotone-pilot` (`pilot.sqlite`, `maps/*.json`) a banka profilů
-  `seed-tone-bank/assets` vedle ní. Profily jsou soubory `<sha>.nam` a `<sha>.wav`,
-  případně `profiles.json`. Cesty z Windows (`F:\…`) se nepoužijí, soubory se hledají
-  podle jména nebo hashe. Pick složku najde sám na připojených discích (`/Volumes`,
-  i na sdíleném disku z Windows přes SMB), nebo ji zadáš ručně. Poslední použitá se
-  pamatuje (`ditorig_path`).
-- Písně se párují podle interpreta a názvu (`_names.key`, `tidy_live`, případně jen
-  podle názvu, je-li jednoznačný), protože DITORIG má vlastní kopii písní, ne PickSD.
-  Když se délka kytary liší o víc než 3 s, píseň se ukáže jako „jiná verze nahrávky“.
-- Každý profil, který mapa u kytarových stop použije, se stane otiskem písně ke
-  kontrole (`auto`, `review: pending`):
-  - jádro: .nam se zkopíruje do `amps/nam/DITORIG/`,
-  - IR se uloží jako `print-ir.wav`,
-  - `drive_db` = `input_gain_db`, `out_gain` = `output_gain` (mixer ji použije),
-  - shoda = 100 × (1 − průměrná cena shody).
-  Časová mapa úseků v sekundách je v `print.json` pod `ditorig.timeline`. Automatické
-  přepínání profilů během hraní zatím zapojené není.
-- Opakovaný import nic nezdvojí. Novější revize mapy přepíše jen svoje otisky.
+**Zdroj.** Používá se složka `DITORIG\data\autotone-pilot` (`pilot.sqlite`, `maps/*.json`) a banka
+`DITORIG\seed-tone-bank` (`assets/<sha>.nam|.wav`, `profiles.json`). Na Macu je připojená přes
+SMB (Finder ⌘K `smb://192.168.1.17/…`), Pick ji najde v `/Volumes` sám. Poslední použitou
+si pamatuje (`ditorig_path`). SQLite databáze se čtou z dočasné kopie, protože přes SMB se
+otevřít nedají.
+
+**Párování.** Přesně přes archiv `KATALOG\knihovna.sqlite`: mapa → `tone_maps.track_ids` →
+`tracks.source` = `…\PICKSD\spotdl\Stems\<píseň>\<stopa>`. Tím se pozná složka písně ve
+Steems i to, která kytara to byla (`guitar`, `guitar_rhythm`, `guitar_solo`; `lead_guitar` a
+`rhythm_guitar` se převedou). Vnořené složky (`Sepultura/01 Arise`) se najdou přes
+`imported` v meta.json. Bez archivu se páruje podle interpreta a názvu (`Death_-_Believe_752479`
+se rozloží). Shoda velikosti souboru stopy říká, jestli jde o stejnou verzi. Druhá analýza téže
+písně v DITORIGu se přeskočí.
+
+**Otisky.** Jeden otisk na každou kombinaci kytarové stopy a profilu:
+- .nam se zkopíruje do `amps/nam/DITORIG/`, IR jako `print-ir.wav`,
+- `drive_db` = `input_gain_db`, `out_gain` = `output_gain`,
+- kategorie podle stavu úseků (clean, crunch, high_gain), stav je ke kontrole,
+- časová mapa je v `ditorig.timeline`.
+Opakovaný import nic nezdvojí a novější revize přepíše jen svoje otisky.
+
+**Časová mapa při hraní** (`tone.js` `startFollow`): když zapneš otisk z DITORIGu a píseň
+má na té kytaře víc profilů, Pick je všechny předem připraví. Podle pozice v písni pak přepíná
+na začátku každého úseku. Úsek bez profilu nechá znít předchozí zvuk. Vypínač je na kartě
+v Postupu (`Tone.follow(on)`, `pick-tone-follow`).
+
+**Katalog otisků.** V Knihovně otisků je filtr **DITORIG**. Karty ukazují, jakou část písně
+profil hraje, a případně „jiná verze“.
+
+První ostrý import 4. 11. 2026: 2 796 otisků u 1 446 písní, 1 442 písní napárovaných přesně
+podle karty. 20 písní ve Steems není a 15 map nemá žádný profil.
 
 ## Pick Live
 

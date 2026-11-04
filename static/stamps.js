@@ -113,11 +113,13 @@ const GuitarStamps = (() => {
       <p class="gs-note">Mapy otisků z DITORIGu (složka <code>autotone-pilot</code>) a jeho profily NAM + IR (<code>seed-tone-bank</code>) se napojí na tvoje písně ve Steems — podle interpreta, názvu a délky nahrávky.
         Každý profil, který píseň používá, bude její otisk ke kontrole; časová mapa úseků se uloží s ním.</p>
       <p class="gs-note">${d.sources.length ? `Nalezeno: ${d.sources.map(x => `<code>${esc(x)}</code>`).join(", ")}` : `Složku zatím nevidím. Připoj sdílený disk z Windows (Finder → ⌘K → <code>smb://…</code>) nebo ji zkopíruj na disk u Macu.`}</p>
+      <label class="gs-chk"><input type="checkbox" class="gs-dit-follow" ${typeof Tone !== "undefined" && Tone.followOn && Tone.followOn() ? "checked" : ""}>
+        Během hraní přepínat profily podle časové mapy písně (úsek bez profilu nechá znít předchozí zvuk)</label>
       <div class="gs-dit-row"><input type="text" class="gs-dit-path" placeholder="${esc(d.sources[0] || "/Volumes/…/autotone-pilot")}" value="">
         <button type="button" class="btn" data-dit="go" ${running ? "disabled" : ""}>${running ? "Načítám…" : "Načíst otisky z DITORIG"}</button></div>
       ${running ? `<p class="gs-note"><span class="spinner"></span> ${j.done} / ${j.of || "…"} písní</p>` : ""}
       ${j && j.status === "error" ? `<p class="gs-warn">${esc(j.error)}</p>` : ""}
-      ${r && !running ? `<p class="gs-note"><b>Nových otisků ${r.added}</b>, aktualizovaných ${r.updated}, beze změny ${r.kept} · písní ${r.songs.length}</p>
+      ${r && !running ? `<p class="gs-note"><b>Nových otisků ${r.added}</b>, aktualizovaných ${r.updated}, beze změny ${r.kept} · písní ${r.songs.length}${r.exact ? ` (${r.exact} spárováno přesně podle karty)` : ""}</p>
         ${list("Písně, které ve Steems nemáš", r.unmatched)}${list("Jiná verze nahrávky (jiná délka) — časová mapa nemusí sedět", r.other_version)}
         ${list("Chybějící soubory profilů", r.missing)}${list("Bez profilu", r.empty)}${list("Chyby", r.failed)}
         ${r.added + r.updated ? `<button type="button" class="btn secondary" data-go="library">Zkontrolovat v Knihovně</button>` : ""}` : ""}`;
@@ -127,6 +129,7 @@ const GuitarStamps = (() => {
       catch(e){ say(e.message); }
       paintDitorig(el);
     };
+    el.querySelector(".gs-dit-follow").onchange = (e) => { if(typeof Tone !== "undefined" && Tone.follow) Tone.follow(e.target.checked); };
     el.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
     if(running) ditTimer = setTimeout(() => paintDitorig(el), 1500);
     else if(ditWasRunning){ ditWasRunning = false; load(); }       // the counts at the top: the new prints

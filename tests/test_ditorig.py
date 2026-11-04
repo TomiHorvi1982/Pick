@@ -94,3 +94,32 @@ def test_an_unknown_song_and_another_version_are_told(client, tmp_music_root, tm
 
 def test_no_source_is_404(client, tmp_path):
     assert client.post("/api/stamps/ditorig", json={"path": str(tmp_path)}).status_code == 404
+
+
+def test_the_archive_matches_exactly_by_the_card_folder_and_stem(client, tmp_music_root, tmp_path, monkeypatch):
+    """KATALOG/knihovna.sqlite tells which folder of the card (and which stem) DITORIG analysed —
+    the song is found by it even under a name nothing like the band and title."""
+    monkeypatch.setattr(server, "AMPS_DIR", tmp_path / "amps")
+    monkeypatch.setattr(server, "_write_config", lambda patch: patch)
+    src = _source(tmp_path / "win", title="Run_to_the_Hills_abc123", artist="")
+    kat = tmp_path / "win" / "KATALOG"
+    kat.mkdir()
+    con = sqlite3.connect(kat / "knihovna.sqlite")
+    con.execute("create table tracks(id text primary key, song_id text, kind text, variant text, source text, organized text, bytes integer, identity text)")
+    con.execute("create table tone_maps(id text primary key, song_id text, pilot_song_id text, revision integer, source_hash text, ready integer,"
+                " review_state text, map text, manifest text, track_ids text, variant text, imported text)")
+    con.execute("insert into tracks values('t1','x','guitar_rhythm','v',?, '', 1, '')",
+                ("F:\\DITORIG-KNIHOVNA\\PICKSD\\spotdl\\Stems\\Maiden RTTH (live)\\guitar_rhythm.mp3",))
+    con.execute("insert into tone_maps values('m','x','s1',3,'',1,'Needs Review','{}','{}',?,'v','')",
+                (json.dumps([{"pilot_stem_id": "g", "track_id": "t1", "kind": "guitar_rhythm"}]),))
+    con.commit()
+    con.close()
+    d = _song(tmp_music_root, "Maiden RTTH (live)", "", "whatever")
+    (d / "guitar_rhythm.mp3").write_bytes(b"x")              # the same size as the archive says: the same file
+    r = _run(client, src)["result"]
+    assert (r["added"], r["songs"], r["exact"], r["other_version"]) == (2, [d.name], 1, [])
+    prints = server._tone_prints_of(d)
+    assert {p["stem"] for p in prints} == {"guitar_rhythm"}
+    assert {p["category"] for p in prints} == {"other"}       # the test's stretches are of state "x"
+    lib = client.get("/api/tone/prints").json()
+    assert {x["source"] for x in lib} == {"ditorig"} and all(x["profile"] for x in lib)

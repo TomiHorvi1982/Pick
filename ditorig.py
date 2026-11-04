@@ -107,13 +107,86 @@ class Assets:
         return None
 
 
+def _catalog_db(root: Path) -> Optional[Path]:
+    """KATALOG/knihovna.sqlite of the shared drive DITORIG lives on (its archive of the songs)."""
+    for base in list(root.parents)[:4]:
+        f = base / "KATALOG" / "knihovna.sqlite"
+        if f.is_file():
+            return f
+    return None
+
+
+def _stems_source(path: str) -> Optional[tuple]:
+    """…\\spotdl\\Stems\\<song>\\<stem>.mp3 (the card copied to Windows) → (the song's folder under
+    Stems — "Sepultura/01 Arise" when nested — and the stem)."""
+    parts = [x for x in str(path or "").replace("\\", "/").split("/") if x]
+    low = [x.lower() for x in parts]
+    for i in range(len(parts) - 2, -1, -1):
+        if low[i] == "stems" and i > 0 and low[i - 1] == "spotdl" and len(parts) - i >= 3:
+            return "/".join(parts[i + 1:-1]), parts[-1].rsplit(".", 1)[0]
+    return None
+
+class _Copy:
+    """A SQLite database read from a private copy (with its WAL): over SMB it cannot be opened in place."""
+
+    def __init__(self, db: Path):
+        import tempfile
+        self.db, self.tmp = db, tempfile.TemporaryDirectory()
+
+    def __enter__(self):
+        import shutil
+        for suf in ("", "-wal", "-shm"):
+            f = Path(str(self.db) + suf)
+            if f.is_file():
+                shutil.copyfile(f, Path(self.tmp.name) / ("db.sqlite" + suf))
+        self.con = sqlite3.connect(Path(self.tmp.name) / "db.sqlite")
+        return self.con
+
+    def __exit__(self, *a):
+        self.con.close()
+        self.tmp.cleanup()
+
+
+def catalog(root: Path) -> dict:
+    """pilot song → {pilot stem → {song, stem, bytes}}: where each analysed stem came from on the card.
+    The database is read from a copy (over SMB a live SQLite with its WAL is not to be opened)."""
+    db = _catalog_db(root)
+    if db is None:
+        return {}
+    out = {}
+    with _Copy(db) as con:
+        tracks = {tid: (src, b) for tid, src, b in con.execute("select id, source, bytes from tracks")}
+        for pilot, ids in con.execute("select pilot_song_id, track_ids from tone_maps order by revision"):
+            try:
+                rows = json.loads(ids)
+            except ValueError:
+                continue
+            m = out.setdefault(pilot, {})
+            for r in rows if isinstance(rows, list) else []:
+                src, size = tracks.get(r.get("track_id"), (None, None))
+                got = _stems_source(src)
+                if got:
+                    m[r.get("pilot_stem_id")] = {"song": got[0], "stem": got[1], "bytes": size}
+    return out
+
+
+def tidy(artist: str, title: str) -> tuple:
+    """A name written as a file's: "Death_-_Believe_752479" → ("Death", "Believe")."""
+    import re
+    if artist or "_" not in title:
+        return artist, title
+    t = re.sub(r"_[0-9a-f]{6}$", "", title)
+    if "_-_" in t:
+        artist, t = t.split("_-_", 1)
+    return artist.replace("_", " ").strip(), t.replace("_", " ").strip()
+
+
 def read(root: Path) -> dict:
-    """{songs: [{id, artist, title, album, map, stems}], profiles: {id: metadata}}"""
+    """{songs: [{id, artist, title, album, map, stems, source}], profiles: {id: metadata}}"""
     songs, profiles = {}, {}
     db = root / "pilot.sqlite"
     if db.is_file():
-        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-        try:
+        with _Copy(db) as con:
             for pid, meta in con.execute("select id, metadata from profiles"):
                 try:
                     profiles[pid] = json.loads(meta)
@@ -124,10 +197,9 @@ def read(root: Path) -> dict:
                     m = json.loads(manifest)
                 except ValueError:
                     continue
-                songs[sid] = {"id": sid, "artist": m.get("artist") or "", "title": m.get("title") or "", "album": m.get("album") or "",
-                              "stems": m.get("stems") or [], "map": json.loads(mp) if mp else None}
-        finally:
-            con.close()
+                artist, title = tidy(m.get("artist") or "", m.get("title") or "")
+                songs[sid] = {"id": sid, "artist": artist, "title": title, "album": m.get("album") or "",
+                              "stems": m.get("stems") or [], "map": json.loads(mp) if mp else None, "source": {}}
     for d in _asset_dirs(root):                        # the bank's own list: profiles the database lacks
         f = (d.parent if d.name == "assets" else d) / "profiles.json"
         try:
@@ -147,6 +219,13 @@ def read(root: Path) -> dict:
             continue                                   # a map whose song is not told: nothing to match it by
         if not s["map"] or (mp.get("revision") or 0) > (s["map"].get("revision") or 0):
             s["map"] = mp
+    try:
+        cat = catalog(root)
+    except (OSError, sqlite3.Error):
+        cat = {}
+    for sid, src in cat.items():
+        if sid in songs:
+            songs[sid]["source"] = src
     return {"songs": [s for s in songs.values() if s["map"]], "profiles": profiles}
 
 
@@ -159,11 +238,12 @@ def guitar_targets(song: dict) -> set:
     return gtr or ids
 
 
-def plan(song: dict) -> dict:
-    """The song's timeline in seconds, and its profiles by how much of it each covers."""
+def plan(song: dict, targets: Optional[set] = None) -> dict:
+    """The timeline in seconds of the targets given (the song's guitars when none are),
+    and their profiles by how much of the song each covers."""
     mp = song["map"]
     sr = float((mp.get("timebase") or {}).get("sample_rate") or 48000)
-    gtr = guitar_targets(song)
+    gtr = targets if targets is not None else guitar_targets(song)
     timeline, cover = [], {}
     for seg in mp.get("segments") or []:
         if seg.get("target") not in gtr:
