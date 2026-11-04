@@ -4209,6 +4209,36 @@ body.lib-collapsed .pick-brand{display:none}
   .spc-divs button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
   .spc-note{font-size:11px;color:var(--sub)}
   .spc-foot{margin-top:10px;font-size:11.5px;color:var(--sub)}
+  /* Songs with Guitar Stamps (static/stampsongs.js): first on the Steems page and under Steems on the left */
+  .gss-songs{margin:6px 0 18px;width:100%;display:block}
+  .gss-note{color:var(--sub);font-size:13px}
+  .gss-sh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .gss-sh .h{display:flex;align-items:center;gap:8px}
+  .gss-cnt{color:var(--sub);font-size:12.5px}
+  .gss-cnt .ok{color:#7be495;font-weight:600}.gss-cnt .rev{color:#ffb347;font-weight:600}
+  .gss-sh .gss-tog{margin-left:auto}
+  .gss-tile{position:relative}
+  .gss-tile .gss-badge{position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;letter-spacing:.03em;padding:2px 7px;border-radius:999px;z-index:2;
+    background:rgba(10,10,14,.75);backdrop-filter:blur(4px)}
+  .gss-tile.ok .gss-badge{color:#7be495;border:1px solid #7be49566}
+  .gss-tile.rev .gss-badge{color:#ffb347;border:1px solid #ffb34766}
+  .gss-tile .gss-appr{position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);cursor:pointer;
+    background:rgba(10,10,14,.75);color:#eee;font-size:13px;opacity:0;transition:opacity .15s}
+  .gss-tile:hover .gss-appr{opacity:1}
+  .gss-tile.rev .gss-appr:hover{background:#1ed760;color:#06150b;border-color:#1ed760}
+  .gss-group{margin:10px 0 4px}
+  .gss-gh{display:flex;align-items:baseline;gap:8px;border:none;background:none;color:#fff;font:inherit;font-size:15px;cursor:pointer;padding:6px 2px}
+  .gss-gh small{color:var(--sub);font-size:12px}.gss-gh span{color:var(--sub);font-size:12px}
+  .gss-group.approved .gss-gh b{color:#7be495}.gss-group.review .gss-gh b{color:#ffb347}
+  .gss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:6px}
+  .gss-more{margin-top:10px}
+  .gss-rail .gss-rh{display:flex;align-items:center;gap:6px;width:100%;border:none;background:none;cursor:pointer;text-align:left;font:inherit}
+  .gss-rail .gss-rh span,.gss-rr span{margin-left:auto;color:var(--sub);font-weight:400}
+  .gss-rr{display:flex;align-items:center;gap:6px;width:100%;border:none;background:none;font:inherit;font-size:13px;padding:5px 8px 5px 18px;border-radius:7px;cursor:pointer;text-align:left}
+  .gss-rr:hover{background:rgba(255,255,255,.06)}
+  .gss-rr.ok{color:#7be495}.gss-rr.rev{color:#ffb347}
+  .tl-hb.appr{min-width:auto;padding:0 6px}
+  .tl-hb.appr.on{color:#06150b;background:#7be495;border-color:#7be495}
   /* the lanes above the sections (static/tonelane.js): prints, delay, reverb */
   .tl-lane{position:relative}
   .tl-block{position:absolute;top:3px;bottom:3px;border-radius:5px;background:color-mix(in srgb,var(--c) 20%,transparent);
@@ -10444,6 +10474,7 @@ function renderLibraryRail(mode){
     // Steems has only its playlists under its heading (static/practice.js) — the songs are the main list
     if(sec.key === "steems"){
       list.appendChild(SteemsFind.railNode(collapsed));
+      if(typeof StampSongs !== "undefined") list.appendChild(StampSongs.railBox(collapsed));      // above the playlists
       if(typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
       return;
     }
@@ -13284,6 +13315,8 @@ function renderSteemsList(){
   list.appendChild(summary);
   summary.querySelector("#steems-open-file").onclick = () => summary.querySelector("#steems-open-file-input").click();
   summary.querySelector("#steems-open-file-input").onchange = (e) => { const f = [...e.target.files]; e.target.value = ""; if(f.length) newProjectFromUpload(f); };
+  // Songs with Guitar Stamps first (static/stampsongs.js), then the shelves
+  if(typeof StampSongs !== "undefined") list.appendChild(StampSongs.section());
   list.appendChild(SteemsShelves.build(steemsSongs, (q) => {
     steemsFilter = q;
     const f = list.querySelector(".stems-filter"); if(f) f.value = q;
@@ -35396,6 +35429,7 @@ const Voice = (() => {
 <script src="/static/stamps.js"></script>
 <script src="/static/picklive.js"></script>
 <script src="/static/tonelane.js"></script>
+<script src="/static/stampsongs.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>

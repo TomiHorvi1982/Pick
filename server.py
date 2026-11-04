@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -7081,6 +7081,7 @@ def _stems_rows_warm() -> None:
     time.sleep(3)
     try:
         list_stems()
+        stamp_songs(fresh=True)                             # Songs with Guitar Stamps, the same
     except Exception:                                       # noqa: BLE001 — only a head start
         pass
 
@@ -9470,6 +9471,7 @@ def tone_review(name: str, pid: str, req: ToneReviewRequest):
     p = _tone_print(d, pid) if d is not None else None
     if p is None:
         return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
+    _stamp_forget(d.name)
     if not req.keep:
         shutil.rmtree(_tone_at(d, pid), ignore_errors=True)
         return {"kept": False}
@@ -9899,6 +9901,100 @@ def tone_prints():
     return sorted(out, key=lambda x: -(x.get("created") or 0))
 
 
+# ---- Songs with Guitar Stamps (Steems, static/stampsongs.js): every song with a print, and whether the
+# player has checked it — the sound and the song's setup right, ready to play (Approved) — or not yet
+# (To Review). Kept beside the prints (tone/status.json).
+TONE_STATUS = "status.json"
+_STAMP_SONGS = {"at": 0.0, "rows": []}
+
+
+def _tone_status(d: Path) -> dict:
+    try:
+        got = json.loads((d / TONE_DIR / TONE_STATUS).read_text(encoding="utf-8"))
+        return got if isinstance(got, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+_STAMP_ROW: dict = {}                     # song → (signature, row): a song read again only when its prints or status change
+
+
+def _stamp_row(d: Path) -> Optional[dict]:
+    pr = d / TONE_DIR / "prints"
+    try:
+        sig = (pr.stat().st_mtime_ns, (d / TONE_DIR / TONE_STATUS).stat().st_mtime_ns if (d / TONE_DIR / TONE_STATUS).exists() else 0)
+    except OSError:
+        return None
+    got = _STAMP_ROW.get(d.name)
+    if got and got[0] == sig:
+        return got[1]
+    n = pending = dit = 0
+    for f in pr.glob("*/print.json"):
+        if not _re_tone_print.fullmatch(f.parent.name):
+            continue
+        try:
+            p = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        n += 1
+        pending += p.get("review") == "pending"
+        dit += bool(p.get("ditorig"))
+    st = _tone_status(d)
+    row = {"name": d.name, "prints": n, "pending": pending, "ditorig": dit, "approved": bool(st.get("approved")), "at": st.get("at"),
+           "lanes": (d / TONE_DIR / "lanes.json").is_file()} if n else None
+    _STAMP_ROW[d.name] = (sig, row)
+    return row
+
+
+@app.get("/api/stamps/songs")
+def stamp_songs(fresh: bool = False):
+    if not fresh and time.time() - _STAMP_SONGS["at"] < 60:
+        return {"songs": _STAMP_SONGS["rows"]}
+    root = _resolve_under_music_root("Stems")
+    rows = []
+    for pr in sorted(root.glob(f"*/{TONE_DIR}/prints")) if root is not None and root.is_dir() else []:
+        row = _stamp_row(pr.parent.parent)
+        if row:
+            rows.append(row)
+    _STAMP_SONGS.update(at=time.time(), rows=rows)
+    return {"songs": rows}
+
+
+def _stamp_forget(name: str) -> None:
+    """A print of the song kept or thrown away: read again next time."""
+    _STAMP_ROW.pop(name, None)
+    _STAMP_SONGS["at"] = 0
+
+
+class StampApproveRequest(BaseModel):
+    approved: bool = True
+
+
+@app.post("/api/stamps/songs/{name}/approve")
+def stamp_song_approve(name: str, req: StampApproveRequest):
+    """Approved: the song's sound and setup are right. Its prints still waiting to be checked are taken as kept."""
+    d = _tone_song(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    (d / TONE_DIR).mkdir(exist_ok=True)
+    st = {"approved": bool(req.approved), "at": time.time()}
+    (d / TONE_DIR / TONE_STATUS).write_text(json.dumps(st), encoding="utf-8")
+    kept = 0
+    if req.approved:
+        for p in _tone_prints_of(d):
+            if p.get("review") == "pending":
+                f = _tone_at(d, p["id"]) / "print.json"
+                try:
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                    data["review"] = "ok"
+                    f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+                    kept += 1
+                except (OSError, ValueError):
+                    pass
+    _stamp_forget(d.name)
+    return st | {"kept": kept}
+
+
 # ---- the song's lanes above its sections (static/tonelane.js): which print plays when, and where
 # a delay and a reverb come on — the player's own, kept beside the stems.
 TONE_LANES = "lanes.json"
@@ -9909,10 +10005,11 @@ def tone_lanes(name: str):
     d = _tone_song(name)
     if d is None:
         return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    approved = bool(_tone_status(d).get("approved"))
     try:
-        return {"lanes": json.loads((d / TONE_DIR / TONE_LANES).read_text(encoding="utf-8"))}
+        return {"lanes": json.loads((d / TONE_DIR / TONE_LANES).read_text(encoding="utf-8")), "approved": approved}
     except (OSError, ValueError):
-        return {"lanes": None}
+        return {"lanes": None, "approved": approved}
 
 
 @app.put("/api/tone/{name}/lanes")

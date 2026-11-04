@@ -19,14 +19,14 @@ def _song(root, name, prints=()):
 
 def test_lanes_are_kept_and_given_back(client, tmp_music_root):
     _song(tmp_music_root, "S")
-    assert client.get("/api/tone/S/lanes").json() == {"lanes": None}
+    assert client.get("/api/tone/S/lanes").json()["lanes"] is None
     lanes = {"tone": {"segs": [{"start": 0, "end": 10, "song": "S", "pid": "20261104-120000"}]},
              "delay": {"on": True, "blocks": [{"start": 2, "end": 5, "name": "Sólo 1/4", "p": {"mix": 0.3}}]}, "reverb": {"on": False, "blocks": []}}
     assert client.put("/api/tone/S/lanes", json=lanes).json() == {"lanes": lanes}
-    assert client.get("/api/tone/S/lanes").json() == {"lanes": lanes}
+    assert client.get("/api/tone/S/lanes").json()["lanes"] == lanes
     assert client.put("/api/tone/S/lanes", json={"tone": []}).status_code == 400
     assert client.put("/api/tone/S/lanes", content="null").json() == {"lanes": None}
-    assert client.get("/api/tone/S/lanes").json() == {"lanes": None}
+    assert client.get("/api/tone/S/lanes").json()["lanes"] is None
 
 
 def test_the_catalog_has_each_ditorig_sound_once(client, tmp_music_root):
@@ -46,3 +46,20 @@ def test_solos_from_the_sections_when_there_is_no_solo_stem(client, tmp_music_ro
                                                               {"start": 20, "end": 35, "name": "Sólo", "kind": "solo"}]}))
     got = client.get("/api/tone/S/solo").json()
     assert got == {"regions": [{"start": 20.0, "end": 35.0}], "from": "sections"}
+
+
+def test_songs_with_guitar_stamps_and_approving(client, tmp_music_root):
+    server._STAMP_SONGS["at"] = 0
+    server._STAMP_ROW.clear()
+    _song(tmp_music_root, "A", [("20261104-120000", {"review": "pending"}), ("20261104-120001", {"review": "ok"})])
+    _song(tmp_music_root, "B", [("20261104-120000", {})])
+    _song(tmp_music_root, "C")                                   # no print: not listed
+    rows = {r["name"]: r for r in client.get("/api/stamps/songs?fresh=true").json()["songs"]}
+    assert set(rows) == {"A", "B"} and rows["A"]["prints"] == 2 and rows["A"]["pending"] == 1 and not rows["A"]["approved"]
+    r = client.post("/api/stamps/songs/A/approve", json={"approved": True}).json()
+    assert r["approved"] is True and r["kept"] == 1
+    rows = {r["name"]: r for r in client.get("/api/stamps/songs").json()["songs"]}
+    assert rows["A"]["approved"] and rows["A"]["pending"] == 0
+    assert client.get("/api/tone/A/lanes").json()["approved"] is True
+    client.post("/api/stamps/songs/A/approve", json={"approved": False})
+    assert not {r["name"]: r for r in client.get("/api/stamps/songs").json()["songs"]}["A"]["approved"]

@@ -31,7 +31,7 @@ const ToneLanes = (() => {
   };
 
   let song = null, data = null, loading = null, ctx = null, catalog = null, catalogAt = 0;
-  let timer = 0, saveTimer = 0;
+  let timer = 0, saveTimer = 0, approvedNow = false;
   const active = {delay: null, reverb: null}, base = {delay: null, reverb: null};
 
   // ---------------------------------------------------------------- the lanes' data
@@ -40,7 +40,7 @@ const ToneLanes = (() => {
     const mine = {};
     loading = mine;
     let d = null;
-    try{ d = (await api(`/api/tone/${enc(name)}/lanes`)).lanes; }catch(e){}
+    try{ const r = await api(`/api/tone/${enc(name)}/lanes`); d = r.lanes; approvedNow = !!r.approved; }catch(e){}
     if(!d){
       d = empty();
       try{ d.tone.segs = await fromPrints(name, duration); }catch(e){}
@@ -129,6 +129,11 @@ const ToneLanes = (() => {
     headBtn(rail, on ? "●" : "▶", on ? "Otisky hrají podle lišty (vypnout = otisk vypnout v kanálu Live kytara)" : "Zapnout otisky podle lišty — na kanálu Live kytara",
       async () => { if(!on) await startTone(); }, on);
     headBtn(rail, ic("plus", 11), "Rozdělit otisk na pozici přehrávání", () => split(ctx.time()));
+    if(typeof StampSongs !== "undefined" && data && data.tone.segs.length){
+      const ok = approvedNow;
+      headBtn(rail, ok ? "✓" : "✓?", ok ? "Approved — zvuk i nastavení písně sedí (klik vrátí do To Review)" : "Approve — zvuk i nastavení písně sedí, je připravená na hraní",
+        async () => { if(await StampSongs.approve(song, !ok)){ approvedNow = !ok; ctx.rerender(); } }, ok).classList.add("appr");
+    }
     if(!data){ note(lane, "načítám…"); return; }
     const segs = data.tone.segs;
     if(!segs.length){ note(lane, "píseň zatím nemá otisk — dvojklik vybere z katalogu"); lane.ondblclick = () => pick(-1); return; }

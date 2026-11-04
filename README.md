@@ -1345,6 +1345,22 @@ profil hraje, a případně „jiná verze“.
 První ostrý import 4. 11. 2026: 2 796 otisků u 1 446 písní, 1 442 písní napárovaných přesně
 podle karty. 20 písní ve Steems není a 15 map nemá žádný profil.
 
+## Songs with Guitar Stamps (Steems)
+
+`static/stampsongs.js` (`StampSongs.section`, `StampSongs.railBox`). Blok je první na stránce
+Steems a v levém panelu nad Playlisty Steems.
+- Sbalený blok ukazuje náhodné písně s otiskem (tlačítko zamíchá jiné).
+- **Show all** ukáže všechny ve dvou skupinách:
+  - **Approved**: zkontrolované, zvuk i nastavení písně sedí, připravené na hraní.
+  - **To Review**: potřebují poslechnout a nastavit.
+- V levém panelu vede každá skupina na stránku Steems rovnou k ní.
+- Píseň schválíš ✓ na dlaždici nebo tlačítkem ✓ v liště Otisky v mixeru
+  (`POST /api/stamps/songs/{song}/approve`). Stav je v `tone/status.json`. Schválení
+  zároveň ponechá otisky písně, které čekaly na kontrolu.
+- Seznam vrací `GET /api/stamps/songs`. Pick si každou píseň pamatuje, dokud se nezmění
+  složka otisků nebo stav, a seznam předehřeje po startu serveru. Ze studené karty to trvá
+  asi 1 s, potom 0,2 s.
+
 ## Lišty Otisky, Delay a Reverb (Steems, nad Sekcemi)
 
 `static/tonelane.js` (`ToneLanes.render` z `renderTrackLanes`). Data jsou uložená v
