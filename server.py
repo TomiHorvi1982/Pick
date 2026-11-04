@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -9719,6 +9719,7 @@ def _ditorig_import_song(song: dict, profiles: dict, assets, idx: dict, out: dic
             old = kept.get((prof_id, stem))
             if old and old[1] >= pl["revision"]:
                 out["kept"] += 1
+                _ditorig_backfill(d, old[0], prof)
                 continue
             model = assets.find(prof.get("model_path") or "", prof.get("model_hash") or "", ".nam")
             ir = assets.find(prof.get("ir_path") or "", prof.get("ir_hash") or "", ".wav")
@@ -9740,7 +9741,8 @@ def _ditorig_import_song(song: dict, profiles: dict, assets, idx: dict, out: dic
                     "category": _ditorig_category(segs), "category_auto": True,
                     "ditorig": {"song": song["id"], "revision": pl["revision"], "profile": prof_id, "cover": pl["cover"].get(prof_id, 0),
                                 "rank": i + 1, "of": len(pl["profiles"]), "same_version": same, "exact": exact,
-                                "duration": pl["duration"], "timeline": pl["timeline"], "approved": bool(prof.get("approved"))}}
+                                "duration": pl["duration"], "timeline": pl["timeline"], "approved": bool(prof.get("approved")),
+                                "descriptor": prof.get("descriptor"), "ir": prof.get("ir_hash") or ""}}
             (t / "print.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             for x in ("you.wav", "you.mp3", "record.mp3", "abx-you.wav", "abx-record.wav"):   # previews of what was there before
                 (t / x).unlink(missing_ok=True)
@@ -9751,6 +9753,21 @@ def _ditorig_import_song(song: dict, profiles: dict, assets, idx: dict, out: dic
     out["songs"].append(name)
     if exact:
         out["exact"] = out.get("exact", 0) + 1
+
+
+def _ditorig_backfill(d: Path, pid: str, prof: dict) -> None:
+    """A print imported before its sound's fingerprint was kept: the fingerprint added (the catalog's likeness)."""
+    f = _tone_at(d, pid) / "print.json"
+    try:
+        data = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    o = data.get("ditorig") or {}
+    if o.get("descriptor") or not prof.get("descriptor"):
+        return
+    o.update(descriptor=prof.get("descriptor"), ir=prof.get("ir_hash") or "")
+    data["ditorig"] = o
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
 def _ditorig_category(segs: list) -> str:
@@ -9822,6 +9839,45 @@ def stamps_ditorig_import(req: DitorigImportRequest):
     return _ditorig_view()
 
 
+# ---- the catalog of sounds (the lanes' picker): every print once per sound — a DITORIG profile
+# once however many songs use it — with what tells sounds apart: the kind, the drive, the core,
+# and DITORIG's fingerprint of the profile where there is one.
+_TONE_CATALOG = {"at": 0.0, "rows": []}
+
+
+@app.get("/api/tone/catalog")
+def tone_catalog(fresh: bool = False):
+    if not fresh and time.time() - _TONE_CATALOG["at"] < 30:
+        return {"sounds": _TONE_CATALOG["rows"]}
+    root = _resolve_under_music_root("Stems")
+    by: dict = {}
+    for t in sorted(root.glob(f"*/{TONE_DIR}")) if root is not None and root.is_dir() else []:
+        d = t.parent
+        for p in _tone_prints_of(d):
+            o = p.get("ditorig") or {}
+            key = "dit:" + o["profile"] if o.get("profile") else f"pick:{d.name}/{p['id']}"
+            row = by.get(key)
+            if row is None:
+                m = _stems_meta(d)
+                rep_ = (p.get("report") or {}).get("record") or {}
+                name = (p.get("core") or {}).get("name") or p.get("name") or ""
+                if o.get("profile"):
+                    name = (p.get("name") or "").replace("DITORIG · ", "") or name
+                row = by[key] = {"key": key, "song": d.name, "pid": p["id"], "name": name, "core": (p.get("core") or {}).get("name"),
+                                 "category": p.get("category") if p.get("category") in TONE_CATEGORIES else _tone_auto_category(p),
+                                 "drive_db": p.get("drive_db"), "drive": rep_.get("drive"), "bright": rep_.get("bright"),
+                                 "source": "ditorig" if o else "pick", "descriptor": o.get("descriptor"), "uses": 0, "songs": [],
+                                 "match": p.get("match"), "label": f"{m.get('artist') + ' – ' if m.get('artist') else ''}{m.get('title') or d.name}"}
+            row["uses"] += 1
+            if len(row["songs"]) < 4:
+                row["songs"].append(d.name)
+            if o.get("descriptor") and not row.get("descriptor"):
+                row["descriptor"] = o["descriptor"]
+    rows = sorted(by.values(), key=lambda r: (-r["uses"], r["name"].lower()))
+    _TONE_CATALOG.update(at=time.time(), rows=rows)
+    return {"sounds": rows}
+
+
 @app.get("/api/tone/prints")
 def tone_prints():
     """The library of prints: every one of every song, with its band and song, the match, the core
@@ -9841,6 +9897,95 @@ def tone_prints():
                                            "width": (p.get("width") or {}).get("on"), "record": rep_.get("record"), "you": rep_.get("you"),
                                            "curve": rep_.get("curve"), "eq_match": p.get("eq_match")})
     return sorted(out, key=lambda x: -(x.get("created") or 0))
+
+
+# ---- the song's lanes above its sections (static/tonelane.js): which print plays when, and where
+# a delay and a reverb come on — the player's own, kept beside the stems.
+TONE_LANES = "lanes.json"
+
+
+@app.get("/api/tone/{name}/lanes")
+def tone_lanes(name: str):
+    d = _tone_song(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    try:
+        return {"lanes": json.loads((d / TONE_DIR / TONE_LANES).read_text(encoding="utf-8"))}
+    except (OSError, ValueError):
+        return {"lanes": None}
+
+
+@app.put("/api/tone/{name}/lanes")
+async def tone_lanes_save(name: str, request: Request):
+    d = _tone_song(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    raw = await request.body()
+    if len(raw) > 400_000:
+        return JSONResponse({"error": "Příliš velké."}, status_code=413)
+    try:
+        lanes = json.loads(raw)
+    except ValueError:
+        return JSONResponse({"error": "Neplatná data."}, status_code=400)
+    if lanes is None:
+        (d / TONE_DIR / TONE_LANES).unlink(missing_ok=True)
+        return {"lanes": None}
+    if not isinstance(lanes, dict) or not all(isinstance(lanes.get(k, {}), dict) for k in ("tone", "delay", "reverb")):
+        return JSONResponse({"error": "Neplatná data."}, status_code=400)
+    (d / TONE_DIR).mkdir(exist_ok=True)
+    tmp = d / TONE_DIR / (TONE_LANES + ".tmp")
+    tmp.write_text(json.dumps(lanes, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(d / TONE_DIR / TONE_LANES)
+    return {"lanes": lanes}
+
+
+@app.get("/api/tone/{name}/solo")
+def tone_solo(name: str):
+    """Where the solo guitar plays: off the solo stem's loudness (gaps under two seconds closed,
+    stretches under three let go), else the sections named solo."""
+    import numpy as np
+    d = _tone_song(name)
+    if d is None:
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    regions, how = [], ""
+    f = _stem_file(d, "guitar_solo")
+    if f is not None:
+        try:
+            rate, hop = 8000, 0.25
+            raw = subprocess.run([ffmpeg_bin(), "-v", "quiet", "-nostdin", "-i", str(f), "-ac", "1", "-ar", str(rate), "-f", "f32le", "-"],
+                                 capture_output=True, timeout=180).stdout
+            x = np.frombuffer(raw, dtype=np.float32)
+            n = int(rate * hop)
+            if len(x) > n * 8:
+                fr = x[:len(x) // n * n].reshape(-1, n)
+                db = 10 * np.log10(np.mean(fr * fr, axis=1) + 1e-10)
+                thr = max(-40.0, float(np.percentile(db, 92)) - 12.0)
+                on = db > thr
+                start = None
+                for i, v in enumerate(list(on) + [False]):
+                    if v and start is None:
+                        start = i
+                    elif not v and start is not None:
+                        regions.append([start * hop, i * hop])
+                        start = None
+                merged = []
+                for a, b in regions:
+                    if merged and a - merged[-1][1] < 2.0:
+                        merged[-1][1] = b
+                    else:
+                        merged.append([a, b])
+                regions = [{"start": round(a, 2), "end": round(b, 2)} for a, b in merged if b - a >= 3.0]
+                how = "guitar_solo" if regions else ""
+        except (OSError, subprocess.SubprocessError, ValueError):
+            regions = []
+    if not regions:
+        got = get_sections(name)
+        secs = got.get("sections") if isinstance(got, dict) else None
+        fold = lambda t: "".join(c for c in __import__("unicodedata").normalize("NFKD", str(t or "")) if not __import__("unicodedata").combining(c)).lower()
+        regions = [{"start": float(x["start"]), "end": float(x["end"])} for x in (secs or [])
+                   if any(w in fold(x.get("name")) + " " + fold(x.get("kind")) for w in ("solo", "lead"))]
+        how = "sections" if regions else ""
+    return {"regions": regions, "from": how}
 
 
 @app.get("/api/tone/{name}")

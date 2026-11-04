@@ -1345,6 +1345,34 @@ profil hraje, a případně „jiná verze“.
 První ostrý import 4. 11. 2026: 2 796 otisků u 1 446 písní, 1 442 písní napárovaných přesně
 podle karty. 20 písní ve Steems není a 15 map nemá žádný profil.
 
+## Lišty Otisky, Delay a Reverb (Steems, nad Sekcemi)
+
+`static/tonelane.js` (`ToneLanes.render` z `renderTrackLanes`). Data jsou uložená v
+`Stems/<píseň>/tone/lanes.json` (`GET/PUT /api/tone/{song}/lanes`), ale až po první ruční změně.
+
+- **Otisky**: úseky přilepené k sobě od začátku do konce písně.
+  - Napoprvé se poskládají z časové mapy DITORIGu. Sousední úseky stejného profilu se
+    spojí a neurčený úsek patří k předchozímu zvuku. Bez DITORIGu je tu jeden úsek
+    nejnovějšího otisku.
+  - Tahem za okraj posuneš přechod a sousední úsek se posune s ním. Přechod se přitahuje
+    k taktům, s ⌥ volně.
+  - **+** úsek rozdělí. Pravým tlačítkem úsek rozdělíš, spojíš s dalším, smažeš nebo
+    vrátíš podle DITORIGu.
+  - **Dvojklik** otevře katalog otisků (`GET /api/tone/catalog`: každý zvuk jednou, profil
+    DITORIGu jednou za všechny písně). Nahoře jsou nejpodobnější podle otisku zvuku
+    z DITORIGu (`descriptor`, 48 pásem), jinak podle druhu a zkreslení. Pod nimi jsou
+    skupiny podle druhu. Řadit jde podle podobnosti, zkreslení, jasu, použití a názvu.
+    Zvuk může být i z jiné písně (`Tone.apply(song, pid, quiet, from)`).
+  - ▶ zapne otisk podle lišty a dál se zvuk přepíná podle ní (`Tone.setLane`).
+- **Delay** a **Reverb**: oddělené úseky, v mezerách efekt nehraje.
+  - Napoprvé se dají tam, kde hraje sólová kytara (`GET /api/tone/{song}/solo`: hlasitost
+    stopy `guitar_solo`, jinak sekce pojmenované sólo), s presetem „Sólo 1/4“ a „Plate na sóla“.
+  - **S** je dá na sóla znovu, **+** přidá úsek, ● lištu vypne.
+  - Dvojklik otevře nastavení: presety ze `space.js`, mix, opakování, barva, čas nebo
+    rytmus podle tempa, u reverbu délka a pre-delay. Pravé tlačítko úsek smaže.
+  - Při hraní se DLY a REV živé kytary v úseku zapnou s jeho nastavením a za ním vrátí,
+    jak byly.
+
 ## Pick Live
 
 Tlačítko **Pick Live** je nahoře vpravo od vyhledávání a v levém panelu pod logem

@@ -4209,6 +4209,57 @@ body.lib-collapsed .pick-brand{display:none}
   .spc-divs button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
   .spc-note{font-size:11px;color:var(--sub)}
   .spc-foot{margin-top:10px;font-size:11.5px;color:var(--sub)}
+  /* the lanes above the sections (static/tonelane.js): prints, delay, reverb */
+  .tl-lane{position:relative}
+  .tl-block{position:absolute;top:3px;bottom:3px;border-radius:5px;background:color-mix(in srgb,var(--c) 20%,transparent);
+    border:1px solid color-mix(in srgb,var(--c) 70%,transparent);color:var(--c);font-size:10.5px;font-weight:700;overflow:hidden;cursor:pointer;
+    display:flex;align-items:center;padding:0 6px;box-sizing:border-box;user-select:none}
+  .tl-block .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .tl-block.now{background:color-mix(in srgb,var(--c) 42%,transparent);box-shadow:0 0 0 1px var(--c),0 0 10px color-mix(in srgb,var(--c) 45%,transparent);color:#fff}
+  .tl-block.dragging{opacity:.85}
+  .tl-block.off{opacity:.35;filter:grayscale(.6)}
+  .tl-fb{cursor:grab}
+  .tl-grip{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:2}
+  .tl-grip.s{left:-2px}.tl-grip.e{right:-3px}
+  .tl-grip:hover,.tl-block.dragging .tl-grip{background:color-mix(in srgb,var(--c) 60%,transparent)}
+  .tl-hb{border:1px solid var(--border);background:#1b1c24;color:var(--sub);font:inherit;font-size:10px;line-height:1;min-width:18px;height:18px;padding:0 4px;
+    border-radius:5px;cursor:pointer;margin-left:3px;display:inline-flex;align-items:center;justify-content:center}
+  .tl-hb.on{color:#1ed760;border-color:#1ed76088}
+  .tl-hb:hover{color:#fff}
+  .tl-menu{position:fixed;z-index:2147483000;background:#1b1c24;border:1px solid var(--border);border-radius:10px;padding:4px;box-shadow:0 12px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;min-width:200px}
+  .tl-menu button{border:none;background:none;color:#eee;text-align:left;font:inherit;font-size:12.5px;padding:7px 10px;border-radius:6px;cursor:pointer}
+  .tl-menu button:hover{background:#2a2c38}
+  .tl-pick,.tl-fxed{position:fixed;z-index:2147483000;background:#16171e;border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.6);
+    color:#eee;padding:10px;display:flex;flex-direction:column;gap:7px}
+  .tl-pick{width:min(390px,calc(100vw - 16px));max-height:min(470px,calc(100vh - 16px))}
+  .tl-fxed{width:min(320px,calc(100vw - 16px))}
+  .tl-pt{display:flex;align-items:center;gap:8px}
+  .tl-pt b{font-size:13px}.tl-pt span{color:var(--sub);font-size:11.5px;flex:1}
+  .tl-px{margin-left:auto;border:none;background:none;color:var(--sub);cursor:pointer;padding:4px;border-radius:6px}
+  .tl-pf{background:#0f1015;border:1px solid var(--border);color:inherit;border-radius:8px;padding:6px 9px;font:inherit;font-size:12.5px}
+  .tl-pc,.tl-ps,.tl-fxp{display:flex;flex-wrap:wrap;gap:4px;font-size:11px;color:var(--sub);align-items:center}
+  .tl-pc button,.tl-ps button,.tl-fxp button{border:1px solid var(--border);background:#1f2029;color:var(--sub);font:inherit;font-size:11px;padding:3px 8px;border-radius:999px;cursor:pointer}
+  .tl-pc button.on,.tl-ps button.on{color:#fff;border-color:var(--c,#8b7bff);background:color-mix(in srgb,var(--c,#8b7bff) 25%,transparent)}
+  .tl-fxp button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
+  .tl-pl{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:0;flex:1}
+  .tl-ph{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:8px 2px 2px}
+  .tl-ph small{opacity:.7}
+  .tl-pr{display:grid;grid-template-columns:8px 1fr auto;grid-template-areas:"i n e" "i s e";column-gap:8px;text-align:left;border:none;background:none;color:#eee;
+    font:inherit;padding:5px 7px;border-radius:7px;cursor:pointer}
+  .tl-pr:hover{background:#242633}
+  .tl-pr.cur{background:color-mix(in srgb,var(--c) 18%,transparent)}
+  .tl-pr i{grid-area:i;width:8px;border-radius:3px;background:var(--c)}
+  .tl-prn{grid-area:n;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-pr small{grid-area:s;color:var(--sub);font-size:10.5px}
+  .tl-pr em{grid-area:e;align-self:center;font-style:normal;font-size:11px;color:#7be495}
+  .tl-pe{color:var(--sub);font-size:12px}
+  .tl-fxk{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--sub)}
+  .tl-fxk b{color:#fff;font-weight:600}
+  .tl-fxk input[type=range]{accent-color:var(--c)}
+  .tl-fxk select{background:#0f1015;border:1px solid var(--border);color:#eee;border-radius:6px;padding:3px}
+  .tl-fxa{display:flex;justify-content:space-between;gap:6px;margin-top:4px}
+  .tl-fxa button{border:1px solid var(--border);background:#1f2029;color:#eee;font:inherit;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
+  .tl-fxa .tl-fxok{background:var(--c);border-color:var(--c);color:#08080b;font-weight:700}
   /* Pick Live (static/picklive.js): the playing song onto the Live Show stage */
   .pl-btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:999px;border:none;cursor:pointer;flex:0 0 auto;
     font:inherit;font-size:13.5px;font-weight:800;letter-spacing:.2px;color:#16070a;white-space:nowrap;
@@ -20586,6 +20637,10 @@ const Mixer = (() => {
       // The guitar first — it is the one channel you are playing rather than
       // listening to — then the map of the song and the click.
       renderGuitarLane(rail, lanes, totalPx);
+      // the prints, the delay and the reverb as the song goes (static/tonelane.js), above the sections
+      if(typeof ToneLanes !== "undefined" && currentSongName) ToneLanes.render(rail, lanes, totalPx, {
+        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, snap: (t) => snapSection(t).t,
+        rerender: () => renderTrackLanes(), seek: (t) => seek(Math.max(0, Math.min(duration, t))), time: () => currentTime()});
       renderSectionsLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
       DrumHits.render(rail, lanes, totalPx);
@@ -35340,6 +35395,7 @@ const Voice = (() => {
 <script src="/static/space.js"></script>
 <script src="/static/stamps.js"></script>
 <script src="/static/picklive.js"></script>
+<script src="/static/tonelane.js"></script>
 <script src="/static/viz.js"></script>
 <script src="/static/vguitar.js"></script>
 <script src="/static/kontakt.js"></script>

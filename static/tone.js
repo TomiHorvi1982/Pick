@@ -119,12 +119,13 @@ const Tone = (() => {
     return {print: p, input, out, nodes, core, dispose};
   }
 
-  async function apply(name, which, quiet){
+  // from: the song the print is of, when it is not the song playing (a sound picked from the catalog)
+  async function apply(name, which, quiet, from){
     restored = true;                       // what the player does now counts, not what was on before a reload
-    const {print: p, input, out, nodes, core} = await buildChain(name, which);
+    const {print: p, input, out, nodes, core} = await buildChain(from || name, which);
     const dblBefore = live ? live.dbl : !!G().fx().state.dbl.on;
     remove(true);
-    live = {song: name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore};
+    live = {song: name, from: from || name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore};
     setDrive();
     G().setPrint({input, output: out});
     // The doubler is the player's: a print of a wide record never switches it on by itself (3. 11.).
@@ -141,8 +142,10 @@ const Tone = (() => {
   // same guitar ready beside it, the sound follows the map as the song plays — each switch at the
   // stretch's start. A stretch the map does not know keeps the sound before it (nothing made up).
   const FOLLOW = "pick-tone-follow";
-  let fol = null;          // {song, stem, segs, pidOf: {profile: pid}, chains: {profile: chain}, cur, timer}
+  let fol = null;          // {song, segs: [{start, end, key}], chains: {key: chain}, cur, timer}
+  const lanes = {};        // song → [{start, end, song, pid}]: the Otisky lane (static/tonelane.js), over DITORIG's map
   const followOn = () => { try{ return localStorage.getItem(FOLLOW) !== "0"; }catch(e){ return true; } };
+  const keyOf = (song, pid) => song + "/" + pid;
   function dispose(c){ (c.nodes || []).forEach(n => { try{ n.disconnect(); }catch(e){} }); if(c.core){ try{ c.core.unloadModel(); }catch(e){} } }
   function stopFollow(){
     if(!fol) return;
@@ -151,42 +154,55 @@ const Tone = (() => {
     clearInterval(f.timer);
     Object.values(f.chains).forEach(c => { if(!live || c.input !== live.input) dispose(c); });
   }
-  async function startFollow(name, p){
-    if(fol) stopFollow();
+  // The stretches to follow: the lane drawn by hand, else DITORIG's map of the print's guitar.
+  async function segsFor(name, p){
+    if(lanes[name] && lanes[name].length) return lanes[name].map(x => ({start: x.start, end: x.end, key: keyOf(x.song, x.pid), song: x.song, pid: x.pid}));
     const d = p.ditorig;
-    if(!d || !Array.isArray(d.timeline) || !followOn()) return;
+    if(!d || !Array.isArray(d.timeline)) return [];
     const stem = p.stem || "guitar";
     const all = (await api(`/api/tone/${enc(name)}`)).prints || [];
     const pidOf = {};
     all.filter(x => x.source === "ditorig" && (x.stem || "guitar") === stem && x.profile).forEach(x => { pidOf[x.profile] = pidOf[x.profile] || x.id; });
-    const segs = d.timeline.filter(t => t.profile && pidOf[t.profile]).sort((a, b) => a.start - b.start);
-    if(new Set(segs.map(t => t.profile)).size < 2 || !live || live.pid !== p.id) return;     // one sound all along: nothing to switch
-    const me = fol = {song: name, stem, segs, pidOf, chains: {[d.profile]: {print: p, input: live.input, out: live.out, nodes: live.nodes, core: live.core}},
-      cur: d.profile, timer: 0};
-    for(const prof of Object.keys(pidOf)){
-      if(me.chains[prof] || !segs.some(t => t.profile === prof)) continue;
+    return d.timeline.filter(t => t.profile && pidOf[t.profile]).sort((a, b) => a.start - b.start)
+      .map(t => ({start: t.start, end: t.end, key: keyOf(name, pidOf[t.profile]), song: name, pid: pidOf[t.profile]}));
+  }
+  async function startFollow(name, p){
+    if(fol) stopFollow();
+    if(!followOn() || !live) return;
+    const segs = await segsFor(name, p);
+    if(new Set(segs.map(t => t.key)).size < 2 || !live || live.song !== name) return;     // one sound all along: nothing to switch
+    const curKey = keyOf(live.from || name, live.pid);
+    const me = fol = {song: name, segs, chains: {[curKey]: {print: live.print, input: live.input, out: live.out, nodes: live.nodes, core: live.core}},
+      cur: curKey, timer: 0, pidOf: {}};
+    me.timer = setInterval(tick, 100);                    // switches as soon as each sound is ready
+    for(const t of segs){
+      if(me.chains[t.key]) continue;
+      me.chains[t.key] = null;
       try{
-        const c = await buildChain(name, pidOf[prof]);
+        const c = await buildChain(t.song, t.pid);
         if(fol !== me){ dispose(c); return; }
-        me.chains[prof] = c;
-      }catch(e){}
+        me.chains[t.key] = c;
+      }catch(e){ delete me.chains[t.key]; }
     }
-    if(fol !== me) return;
-    me.timer = setInterval(tick, 100);
   }
   function tick(){
     if(!fol || !live || Mixer.currentSong() !== fol.song) return;
     const t = Mixer.position() + 0.03;                    // a hair early: the switch lands on the stretch's start
     const seg = fol.segs.find(x => t >= x.start && t < x.end);
-    if(!seg || seg.profile === fol.cur) return;
-    const c = fol.chains[seg.profile];
+    if(!seg || seg.key === fol.cur) return;
+    const c = fol.chains[seg.key];
     if(!c) return;
-    fol.cur = seg.profile;
-    Object.assign(live, {pid: fol.pidOf[seg.profile], print: c.print, input: c.input, out: c.out, nodes: c.nodes, core: c.core});
+    fol.cur = seg.key;
+    Object.assign(live, {pid: seg.pid, from: seg.song, print: c.print, input: c.input, out: c.out, nodes: c.nodes, core: c.core});
     setDrive();
     G().setPrint({input: c.input, output: c.out});
     try{ Mixer.guitarFaderRepaint(); }catch(e){}
     try{ paint(); }catch(e){}
+  }
+  // The lane changed (a stretch moved, a sound swapped): followed anew.
+  function setLane(song, segs){
+    if(segs && segs.length) lanes[song] = segs; else delete lanes[song];
+    if(live && live.song === song) startFollow(song, live.print).catch(() => {});
   }
   function setFollow(on){
     try{ localStorage.setItem(FOLLOW, on ? "1" : "0"); }catch(e){}
@@ -1118,6 +1134,7 @@ const Tone = (() => {
 
   return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints"),
     // DITORIG's timeline: switched on or off (kept), and what it is doing now
-    follow: setFollow, followOn, following: () => (fol ? {song: fol.song, stem: fol.stem, profile: fol.cur, ready: Object.keys(fol.chains).length,
-      profiles: new Set(fol.segs.map(t => t.profile)).size} : null)};
+    follow: setFollow, followOn, following: () => (fol ? {song: fol.song, key: fol.cur, ready: Object.values(fol.chains).filter(Boolean).length,
+      sounds: new Set(fol.segs.map(t => t.key)).size} : null),
+    setLane, current: () => (live ? {song: live.song, from: live.from || live.song, pid: live.pid} : null)};
 })();
