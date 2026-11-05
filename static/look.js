@@ -18,9 +18,9 @@ const PickLook = (() => {
   const SECTIONS = [["home", "Domů"], ["playlists", "Playlisty"], ["songs", "Kapely a umělci"], ["steems", "Steems"], ["library", "Knihovna"],
     ["podcasts", "Podcasty"], ["tools", "Tools"], ["tabs", "Taby"], ["chords", "Akordy"], ["analyzer", "Analyzer"],
     ["composer", "Skladatel"], ["vguitar", "Virtuální kytara"], ["stamps", "GuitarStamps"]];
-  const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}, hide: []});
+  const blank = () => ({v: 1, vars: {}, app: {}, rules: [], fonts: {}, hide: [], moves: []});
   let look = blank(), saved = JSON.stringify(look), undo = [], redo = [];
-  let removing = false, peek = false;
+  let removing = false, peek = false, arranging = null, lvl = 0, lastEv = null, drag = null;
   let host = null, root = null, on = false, picking = false, target = null, rule = null, tab = "el";
   let catalogue = null, kept = [], lastColor = null, swatches = [], srcTarget = "el", refState = null;
 
@@ -193,6 +193,202 @@ const PickLook = (() => {
     if(f) look.fonts[name] = {s: f.s, slug: f.slug, w: f.w};
     fontLink(name, f);
   }
+
+  // ------------------------------------------- arranging: elements moved and copied
+  // look.moves: [{id, sel, to, where: "before"|"after"|"in", copy, what, dwhat}]. A move takes the
+  // element itself somewhere else — the same node, so everything it does keeps working. A copy is a
+  // mirror: a clone kept in step with the original, every click, key and slider on it handed over
+  // to the original. The app keeps re-drawing parts of itself, so the arrangement is put back
+  // after every change of the page; undone, a moved element goes back where it came from.
+  const Arr = (() => {
+    const st = new Map();          // id -> {node, dst, home, copy, n, t0, stuck}
+    let list = [], mo = null, raf = 0, tick = 0;
+    const q = (sel) => { try{ return sel ? document.querySelector(sel) : null; }catch(e){ return null; } };
+    const inCopy = (n) => !!(n && n.closest && n.closest(".pk-copy"));
+    const put_ = (n, dst, where) => { if(where === "before") dst.before(n); else if(where === "after") dst.after(n); else dst.append(n); };
+    const there = (n, dst, where) => where === "before" ? n.nextElementSibling === dst : where === "after" ? dst.nextElementSibling === n : n.parentElement === dst;
+    function nodeOf(m, s){
+      if(s.node && s.node.isConnected && !inCopy(s.node)) return s.node;
+      const n = q(m.sel);
+      return n && !inCopy(n) && !(n.closest && n.closest("#look-host")) ? n : (s.node && !s.node.isConnected ? s.node : null);
+    }
+    function dstOf(m, s){
+      if(s.dst && s.dst.isConnected && s.dstFor === m.to) return s.dst;
+      const d = q(m.to);
+      if(d && !inCopy(d)){ s.dst = d; s.dstFor = m.to; return d; }
+      return null;
+    }
+    function revert(id){
+      const s = st.get(id); if(!s) return;
+      if(s.copy){ s.copy.mo && s.copy.mo.disconnect(); s.copy.wrap.remove(); }
+      else if(s.node){
+        if(s.home && s.home.isConnected) s.home.replaceWith(s.node);
+        else if(s.home) s.home = null;
+      }
+      if(s.home && s.home.isConnected) s.home.remove();
+      st.delete(id);
+    }
+    function one(m){
+      let s = st.get(m.id);
+      if(!s){ s = {n: 0, t0: Date.now()}; st.set(m.id, s); }
+      if(s.stuck) return;
+      if(m.copy){
+        const src = nodeOf(m, s), dst = dstOf(m, s);
+        if(!src || !dst) return;
+        if(!s.copy || s.copy.src !== src) mirror(s, src, m);
+        s.node = src;
+        if(!there(s.copy.wrap, dst, m.where)) place(s, s.copy.wrap, dst, m);
+        return;
+      }
+      const n = nodeOf(m, s), dst = dstOf(m, s);
+      if(!n || !dst || n === dst || n.contains(dst)) return;
+      if(s.node !== n){ s.home = null; s.node = n; }
+      if(there(n, dst, m.where)) return;
+      if(!s.home){ s.home = document.createComment("pk-home " + m.id); n.before(s.home); }
+      place(s, n, dst, m);
+    }
+    function place(s, n, dst, m){
+      // two arrangements fighting over one place, or the app moving it straight back: give up on it
+      const now = Date.now();
+      if(now - s.t0 > 10000){ s.t0 = now; s.n = 0; }
+      if(++s.n > 40){ s.stuck = true; console.warn("Pick vzhled: přesun se nedaří udržet", m); return; }
+      put_(n, dst, m.where);
+    }
+    function apply(moves){
+      list = moves || [];
+      const ids = new Set(list.map((m) => m.id));
+      for(const id of [...st.keys()]) if(!ids.has(id)) revert(id);
+      for(const m of list) try{ one(m); }catch(e){ console.warn(e); }
+      watch();
+    }
+    function watch(){
+      if(list.length && !mo && document.body){
+        mo = new MutationObserver((recs) => {
+          if(recs.every((r) => inCopy(r.target))) return;
+          if(!raf) raf = requestAnimationFrame(() => { raf = 0; for(const m of list) try{ one(m); }catch(e){} });
+        });
+        mo.observe(document.body, {childList: true, subtree: true});
+        tick = setInterval(() => { for(const s of st.values()) if(s.copy && s.copy.live) sync(s.copy); }, 500);
+      } else if(!list.length && mo){ mo.disconnect(); mo = null; clearInterval(tick); }
+    }
+
+    // ---- a copy: the clone, kept in step, its input handed to the original
+    const KEEPCSS = ["display", "flex-direction", "flex-wrap", "align-items", "justify-content", "gap", "width", "height", "min-width", "min-height",
+      "max-width", "padding", "margin", "color", "background-color", "background-image", "background-size", "background-position", "background-repeat",
+      "border", "border-radius", "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing", "text-align", "text-transform",
+      "white-space", "overflow", "text-overflow", "opacity", "box-shadow", "grid-template-columns", "grid-template-rows", "fill", "stroke", "cursor"];
+    const POS = ["position", "top", "left", "right", "bottom", "transform"];
+    function freeze(o, e, isRoot){
+      const cs = getComputedStyle(o); let t = "";
+      for(const k of KEEPCSS) t += `${k}:${cs.getPropertyValue(k)};`;
+      if(isRoot){ if(cs.position === "fixed" || cs.position === "absolute") t += "position:relative;"; }
+      else for(const k of POS) t += `${k}:${cs.getPropertyValue(k)};`;
+      e.style.cssText = t + (e.getAttribute("style") || "");
+    }
+    function mirror(s, src, m){
+      if(s.copy){ s.copy.mo && s.copy.mo.disconnect(); }
+      const wrap = s.copy ? s.copy.wrap : document.createElement("div");
+      wrap.className = "pk-copy"; wrap.dataset.pkCopy = m.id; wrap.style.display = "contents";
+      const c = {wrap, src, os: [], cs: [], live: false, at: 0, later: 0};
+      s.copy = c;
+      sync(c, true);
+      c.mo = new MutationObserver(() => { if(!c.later) c.later = setTimeout(() => { c.later = 0; sync(c); }, 150); });
+      c.mo.observe(src, {subtree: true, childList: true, attributes: true, characterData: true});
+      if(!wrap._hooked){ hook(wrap); wrap._hooked = true; }
+      wrap._copy = c;
+    }
+    function sync(c, force){
+      if(!c.src.isConnected) return;
+      const a = document.activeElement;
+      if(!force && a && c.wrap.contains(a)){ for(let i = 0; i < c.cs.length; i++) if(c.cs[i] !== a && "value" in c.os[i] && c.cs[i].value !== c.os[i].value) try{ c.cs[i].value = c.os[i].value; }catch(e){} return; }
+      const clone = c.src.cloneNode(true);
+      const os = [c.src, ...c.src.querySelectorAll("*")], cs = [clone, ...clone.querySelectorAll("*")];
+      const many = os.length > 300;
+      let live = false;
+      cs.forEach((e, i) => {
+        const o = os[i]; if(!o) return;
+        if(e.id){ e.dataset.pkId = e.id; e.removeAttribute("id"); }
+        if(e.name && e.type === "radio") e.name = "pk-" + e.name;
+        if(i === 0 || !many || o.id) freeze(o, e, i === 0);
+        if(o.tagName === "CANVAS"){ live = true; try{ e.width = o.width; e.height = o.height; e.getContext("2d").drawImage(o, 0, 0); }catch(x){} }
+        if(/^(INPUT|SELECT|TEXTAREA)$/.test(o.tagName)){ live = true; try{ e.value = o.value; if("checked" in o) e.checked = o.checked; }catch(x){} }
+        if(o.tagName === "VIDEO" || o.tagName === "AUDIO"){ e.muted = true; e.removeAttribute("autoplay"); }
+      });
+      c.wrap.replaceChildren(clone);
+      c.os = os; c.cs = cs; c.live = live;
+    }
+    const origOf = (c, t) => { for(let n = t; n && n !== c.wrap; n = n.parentElement){ const i = c.cs.indexOf(n); if(i >= 0) return [c.os[i], n]; } return [null, null]; };
+    const FIELD = /^(INPUT|SELECT|TEXTAREA)$/;
+    function hook(wrap){
+      const mouse = (ev) => {
+        const c = wrap._copy; if(!c) return;
+        const [o, mine] = origOf(c, ev.target); if(!o) return;
+        const field = FIELD.test(mine.tagName), toggle = field && /^(checkbox|radio)$/.test(mine.type);
+        if(field && !toggle) return;                                  // typing and sliders: the field's own, handed over on input
+        if(toggle && ev.type !== "click") return;
+        ev.preventDefault(); ev.stopPropagation();
+        send(o, mine, ev);
+        if(ev.type === "pointerdown" || ev.type === "mousedown") press(o, mine, ev.type);
+        setTimeout(() => sync(c), 60);
+      };
+      for(const t of ["click", "dblclick", "contextmenu", "pointerdown", "pointerup", "mousedown", "mouseup", "wheel"]) wrap.addEventListener(t, mouse, true);
+      const field = (ev) => {
+        const c = wrap._copy; if(!c) return;
+        const [o, mine] = origOf(c, ev.target); if(!o || !FIELD.test(o.tagName)) return;
+        try{ o.value = mine.value; if("checked" in o) o.checked = mine.checked; }catch(e){}
+        o.dispatchEvent(new Event(ev.type, {bubbles: true}));
+      };
+      wrap.addEventListener("input", field, true); wrap.addEventListener("change", field, true);
+      wrap.addEventListener("keydown", (ev) => {
+        const c = wrap._copy; if(!c) return;
+        const [o] = origOf(c, ev.target); if(!o) return;
+        if(ev.key === "Enter" || ev.key === "Escape" || !FIELD.test(ev.target.tagName)){
+          ev.stopPropagation();
+          o.dispatchEvent(new KeyboardEvent("keydown", {key: ev.key, code: ev.code, bubbles: true, cancelable: true, shiftKey: ev.shiftKey, metaKey: ev.metaKey, ctrlKey: ev.ctrlKey, altKey: ev.altKey}));
+        }
+      }, true);
+    }
+    // where the pointer is on the copy, the same spot on the original
+    function at(o, mine, ev){
+      const r = o.getBoundingClientRect(), m = mine.getBoundingClientRect();
+      const fx = m.width ? (ev.clientX - m.left) / m.width : 0.5, fy = m.height ? (ev.clientY - m.top) / m.height : 0.5;
+      return {clientX: r.left + fx * r.width, clientY: r.top + fy * r.height};
+    }
+    function send(o, mine, ev, type){
+      const p = at(o, mine, ev);
+      const init = {bubbles: true, cancelable: true, composed: true, ...p, screenX: p.clientX, screenY: p.clientY, button: ev.button || 0, buttons: ev.buttons || 0,
+        detail: ev.detail, shiftKey: ev.shiftKey, metaKey: ev.metaKey, ctrlKey: ev.ctrlKey, altKey: ev.altKey};
+      type = type || ev.type;
+      let e;
+      if(/^pointer/.test(type)) e = new PointerEvent(type, {...init, pointerId: ev.pointerId || 1, pointerType: ev.pointerType || "mouse", isPrimary: true});
+      else if(type === "wheel") e = new WheelEvent(type, {...init, deltaX: ev.deltaX, deltaY: ev.deltaY, deltaMode: ev.deltaMode});
+      else e = new MouseEvent(type, init);
+      o.dispatchEvent(e);
+    }
+    // held down on a copy (a slider, a seek bar): the drag goes on on the original
+    function press(o, mine, kind){
+      const P = kind === "pointerdown", mv = P ? "pointermove" : "mousemove", up = P ? "pointerup" : "mouseup";
+      const r0 = mine.getBoundingClientRect(), box0 = {getBoundingClientRect: () => r0};
+      const fire = (type, ev) => {
+        const p = at(o, box0, ev);
+        const init = {bubbles: true, cancelable: true, composed: true, ...p, screenX: p.clientX, screenY: p.clientY, button: ev.button || 0, buttons: ev.buttons || 0};
+        o.dispatchEvent(P ? new PointerEvent(type, {...init, pointerId: ev.pointerId || 1, pointerType: ev.pointerType || "mouse", isPrimary: true}) : new MouseEvent(type, init));
+      };
+      const move = (ev) => { if(ev.isTrusted) fire(mv, ev); };
+      const done = (ev) => {
+        if(!ev.isTrusted) return;
+        window.removeEventListener(mv, move, true); window.removeEventListener(up, done, true);
+        if(!(ev.target && ev.target.closest && ev.target.closest(".pk-copy"))) fire(up, ev);   // on the copy: handed over there
+      };
+      window.addEventListener(mv, move, true); window.addEventListener(up, done, true);
+    }
+    const idOf = (n) => { for(const [id, s] of st) if(s.node === n && !s.copy) return id; return null; };
+    const copyOf = (n) => { const w = n && n.closest && n.closest(".pk-copy"); return w ? w.dataset.pkCopy : null; };
+    const hold = (id, node, dst, to) => { const s = st.get(id) || {n: 0, t0: Date.now()}; if(node) s.node = node; s.dst = dst; s.dstFor = to; st.set(id, s); };
+    const where = (id) => { const s = st.get(id); return s && (s.copy ? s.copy.wrap.isConnected : s.node && s.dst && s.node.isConnected); };
+    return {apply, idOf, copyOf, hold, where};
+  })();
+
   function paintLook(){
     let st = document.getElementById("look-style");
     if(!st){ st = h("style", {id: "look-style"}); document.head.append(st); }
@@ -202,11 +398,13 @@ const PickLook = (() => {
     st.textContent = compile(look);
     // ?bez-vzhledu: the app as it came, whatever the saved look hides — until the editor is opened
     st.disabled = BARE && !on;
+    Arr.apply(BARE && !on ? [] : look.moves || []);
   }
   const BARE = /[?&]bez-vzhledu\b/.test(location.search);
   const tidy = (l) => { const o = {...blank(), ...(l && typeof l === "object" ? l : {})};
     o.vars = o.vars || {}; o.app = o.app || {}; o.fonts = o.fonts || {}; o.rules = Array.isArray(o.rules) ? o.rules.filter((r) => r && r.sel) : [];
-    o.hide = Array.isArray(o.hide) ? o.hide.filter((x) => x && typeof x.sel === "string" && x.sel) : []; return o; };
+    o.hide = Array.isArray(o.hide) ? o.hide.filter((x) => x && typeof x.sel === "string" && x.sel) : [];
+    o.moves = Array.isArray(o.moves) ? o.moves.filter((m) => m && m.id && typeof m.sel === "string" && typeof m.to === "string") : []; return o; };
   const prune = () => { look.rules = look.rules.filter((r) => r === rule || decls(r).length || (r.css || "").trim() || ((r.x || {}).ic || {}).img); };
   const dirty = () => JSON.stringify(look) !== saved;
 
@@ -298,6 +496,7 @@ const PickLook = (() => {
   function unhide(sel){ edit("unhide", () => { look.hide = (look.hide || []).filter((x) => x.sel !== sel); }); stepKey = ""; }
   function setRemoving(v){
     if(v && picking) setPicking(false);
+    if(arranging) setPicking(false);
     removing = v; picking = v;
     if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("hl").classList.toggle("del", v);
       root.getElementById("rm").classList.toggle("on", v); root.getElementById("pick").classList.remove("on"); }
@@ -317,6 +516,7 @@ const PickLook = (() => {
   }
   function hover(ev){
     if(!picking) return;
+    if(arranging){ lastEv = ev; if(!drag) arrHover(ev); return; }
     const hl = root.getElementById("hl");
     if(inPanel(ev) || ev.altKey){ hl.style.display = "none"; return; }
     const e = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -329,6 +529,7 @@ const PickLook = (() => {
   function block(ev){
     if(!picking || inPanel(ev) || ev.altKey) return;           // ⌥ + click: an ordinary click (to move about the app)
     ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
+    if(arranging){ if(ev.type === "pointerdown" && ev.button === 0 && !drag) startDrag(ev); else if(ev.type === "pointerup" && drag) drag.up(ev); return; }
     if(ev.type !== "click") return;
     const e = document.elementFromPoint(ev.clientX, ev.clientY);
     if(!e || e.id === "look-bg") return;
@@ -343,13 +544,122 @@ const PickLook = (() => {
     tab = "el"; paintTabs(); paintTab(); placeBox();
   }
   function setPicking(v){
-    removing = false;
+    removing = false; arranging = null; drag = null;
+    if(root){ root.getElementById("mv").classList.remove("on"); root.getElementById("cp").classList.remove("on"); root.getElementById("drop").style.display = "none"; root.getElementById("hl").classList.remove("arr"); }
     if(root){ root.getElementById("rm").classList.remove("on"); root.getElementById("hl").classList.remove("del"); }
     picking = v;
     if(root){ root.getElementById("hl").style.display = "none"; root.getElementById("pick").classList.toggle("on", v); }
     document.documentElement.style.cursor = v ? "crosshair" : "";
     paintHead();
   }
+
+  // ------------------------------------------------- moving and copying, by mouse
+  // Point at a thing (↑ / ↓ take its bigger / smaller part), press, drag it where it should be, let go.
+  const NOMOVE = (e) => !e || e === document.body || e === document.documentElement || e.id === "look-bg" || e.id === "look-host";
+  function arrAt(ev){
+    let e = document.elementFromPoint(ev.clientX, ev.clientY);
+    if(NOMOVE(e) || (e.closest && e.closest("#look-host"))) return null;
+    const cw = e.closest(".pk-copy"); if(cw) e = cw.firstElementChild || e;   // a copy is taken whole
+    const svg = e.closest("svg"); if(svg && svg.parentElement) e = svg.parentElement;
+    const ctl = e.closest("button,a,[role=button],input,select,textarea,label"); if(ctl && !NOMOVE(ctl)) e = ctl;   // the button, not the icon in it
+    for(let i = 0; i < lvl && e.parentElement && !NOMOVE(e.parentElement); i++) e = e.parentElement;
+    return e;
+  }
+  function boxAt(el, e, label){
+    if(!e){ el.style.display = "none"; return; }
+    const r = e.getBoundingClientRect();
+    el.style.cssText = `display:block;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+    el.dataset.name = label;
+  }
+  function arrHover(ev){
+    const hl = root.getElementById("hl");
+    if(inPanel(ev)){ hl.style.display = "none"; return; }
+    const e = arrAt(ev);
+    boxAt(hl, e, e ? `${arranging === "copy" ? "Kopírovat" : "Přesunout"}: ${name(e)}  ↑↓ větší/menší část` : "");
+  }
+  function setArranging(mode){
+    setPicking(false);
+    if(!mode) return;
+    arranging = mode; picking = true; lvl = 0;
+    root.getElementById(mode === "copy" ? "cp" : "mv").classList.add("on");
+    root.getElementById("hl").classList.add("arr");
+    document.documentElement.style.cursor = "grab";
+    paintHead();
+    say(mode === "copy" ? "Chyť prvek myší a přetáhni, kam má jít jeho kopie. Esc = konec." : "Chyť prvek myší a přetáhni ho jinam. Esc = konec.");
+  }
+  // where it would go: before / after the thing under the pointer, or inside it (into a box, at its end)
+  function dropAt(ev, src){
+    let d = document.elementFromPoint(ev.clientX, ev.clientY);
+    if(!d || NOMOVE(d) || (d.closest && (d.closest("#look-host") || d.closest(".pk-copy")))) return null;
+    if(src.contains(d)) return null;
+    const r = d.getBoundingClientRect();
+    const pcs = d.parentElement ? getComputedStyle(d.parentElement) : null;
+    const across = pcs && ((/flex/.test(pcs.display) && !/column/.test(pcs.flexDirection)) || /inline/.test(getComputedStyle(d).display));
+    const f = across ? (ev.clientX - r.left) / (r.width || 1) : (ev.clientY - r.top) / (r.height || 1);
+    const box = d.children.length > 0 && r.width > 40 && r.height > 24 && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA|IMG|SVG|CANVAS)$/i.test(d.tagName);
+    let where = box && f > 0.25 && f < 0.75 ? "in" : f < 0.5 ? "before" : "after";
+    if(where !== "in" && (!d.parentElement || NOMOVE(d.parentElement) && d.parentElement !== document.body)) where = "in";
+    if(where !== "in" && d.parentElement === document.documentElement) return null;
+    return {d, where, across, r};
+  }
+  function showDrop(t){
+    const el = root.getElementById("drop");
+    if(!t){ el.style.display = "none"; return; }
+    const {r, where, across, d} = t;
+    const label = `${where === "in" ? "Dovnitř" : where === "before" ? "Před" : "Za"} ${name(d)}`;
+    if(where === "in"){ el.className = "in"; boxAt(el, d, label); return; }
+    el.className = "line";
+    const x = across ? (where === "before" ? r.left : r.right) - 2 : r.left, y = across ? r.top : (where === "before" ? r.top : r.bottom) - 2;
+    el.style.cssText = `display:block;left:${x}px;top:${y}px;width:${across ? 4 : r.width}px;height:${across ? r.height : 4}px`;
+    el.dataset.name = label;
+  }
+  function startDrag(ev){
+    const src = arrAt(ev); if(!src) return;
+    const copy = arranging === "copy";
+    drag = {src, t: null, up: null};
+    document.documentElement.style.cursor = "grabbing";
+    const ghost = root.getElementById("ghost");
+    ghost.textContent = (copy ? "⧉ " : "✥ ") + (what(src) || name(src));
+    const mv = (e) => {
+      ghost.style.cssText = `display:block;left:${e.clientX + 14}px;top:${e.clientY + 12}px`;
+      drag.t = inPanel(e) ? null : dropAt(e, src); showDrop(drag.t);
+    };
+    const up = async (e) => {
+      if(!drag) return;
+      window.removeEventListener("pointermove", mv, true); window.removeEventListener("pointerup", up, true);
+      ghost.style.display = "none"; root.getElementById("drop").style.display = "none";
+      document.documentElement.style.cursor = arranging ? "grab" : "";
+      const t = drag && drag.t; drag = null;
+      if(!t) return;
+      await arrange(src, t.d, t.where, copy);
+      if(lastEv) arrHover(lastEv);
+    };
+    drag.up = up;
+    window.addEventListener("pointermove", mv, true); window.addEventListener("pointerup", up, true);
+    mv(ev);
+  }
+  async function arrange(src, dst, where, copy){
+    const moves = look.moves || [];
+    const copyId = Arr.copyOf(src), movedId = !copyId && Arr.idOf(src);
+    const re = copyId || movedId;                                  // already placed: it only goes somewhere else
+    const r = src.getBoundingClientRect();
+    if(!re && !copy && r.width * r.height > innerWidth * innerHeight * 0.4 &&
+       !await Dialog.confirm("Je to velká část obrazovky. Opravdu ji přesunout? Vrátit to jde šipkou zpět nebo na kartě Změny.", {ok: "Přesunout"})) return;
+    const to = uniqueSel(dst), dwhat = what(dst);
+    if(re){
+      Arr.hold(re, null, dst, to);
+      edit("arr", () => { look.moves = moves.map((m) => m.id === re ? {...m, to, where, dwhat} : m); });
+    } else {
+      const id = "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      Arr.hold(id, src, dst, to);
+      edit("arr", () => { look.moves = [...moves, {id, sel: uniqueSel(src), to, where, copy, what: what(src), dwhat}]; });
+    }
+    stepKey = "";
+    say(copy && !re ? "Kopie je na místě a funguje jako originál. Natrvalo po Uložit." : "Přesunuto — funguje dál jako dřív. Natrvalo po Uložit.");
+    if(tab === "log") paintTab();
+  }
+  function unarrange(id){ edit("unarr", () => { look.moves = (look.moves || []).filter((m) => m.id !== id); }); stepKey = ""; }
+
   // the rule being edited joins the look the moment something is set on it
   function live(){
     if(rule && rule.fresh){ delete rule.fresh; const have = look.rules.find((x) => x.sel === rule.sel); if(have) rule = have; else look.rules.push(rule); }
@@ -492,6 +802,7 @@ const PickLook = (() => {
     if(!target || !rule) return [h("div", {class: "empty"},
       h("p", {html: "Klikni na <b>Vybrat prvek</b> nahoře a pak na cokoli v aplikaci — tlačítko, nadpis, panel, řádek seznamu."}),
       h("p", {html: "Text nebo věc, kterou tam nechceš: <b>Odstranit prvek</b> a klikni na ni. Jen se skryje — nic se nesmaže a vše ostatní funguje dál; vrátíš ji na kartě <b>Změny</b>."}),
+      h("p", {html: "Poskládat si Pick po svém: <b>✥ Přesunout</b> — chyť cokoli myší a přetáhni to jinam (šipkami ↑ ↓ vezmeš větší nebo menší část). <b>⧉ Kopírovat</b> — to samé, ale originál zůstane a jinde přibude kopie, která dělá totéž. Obojí funguje dál jako dřív."}),
       h("p", {class: "muted", text: "Dokud vybíráš, klik prvek vybere. Do jiné části Picku se dostaneš přes „Sekce“ nahoře, nebo podrž ⌥ (Option) a klikni normálně — okno zůstane otevřené. Okno přesuneš tažením za horní lištu a zvětšíš za pravý dolní roh."}),
       h("button", {class: "btn big", text: "Vybrat prvek", onclick: () => setPicking(true)}))];
     const sc = target.isConnected ? scopes(target) : [{sel: rule.sel, name: rule.sel}];
@@ -858,7 +1169,7 @@ const PickLook = (() => {
           else say("Tenhle prvek teď na obrazovce není — přejdi tam, kde je."); },
         () => { edit("x", () => { look.rules = look.rules.filter((x) => x !== r); if(rule === r) rule = null; }); paintTab(); }));
     }
-    if(!out.length && !(look.hide || []).length) out.push(h("p", {class: "muted", text: "Zatím jsi nic nezměnil. Aplikace vypadá tak, jak byla."}));
+    if(!out.length && !(look.hide || []).length && !(look.moves || []).length) out.push(h("p", {class: "muted", text: "Zatím jsi nic nezměnil. Aplikace vypadá tak, jak byla."}));
     const hidden = look.hide || [];
     const gone = hidden.length ? [
       h("div", {class: "chips"},
@@ -869,7 +1180,15 @@ const PickLook = (() => {
           h("button", {class: "mini", text: "Vrátit", title: "Ukázat ho zase", onclick: () => { unhide(x.sel); paintTab(); }})); })]
       : [h("p", {class: "muted", text: "Nic. Tlačítko Odstranit prvek nahoře skryje, co tam nechceš."})];
     const nameIn = h("input", {type: "text", placeholder: "Název vzhledu, např. Noční metal"});
+    const moves = look.moves || [];
+    const WH = {before: "před", after: "za", in: "do"};
+    const placed = moves.length ? moves.map((m) => h("div", {class: "chg"},
+        h("div", {class: "lnk"}, h("b", {text: `${m.copy ? "⧉ Kopie" : "✥"} ${m.what || m.sel}`}),
+          h("span", {text: `${WH[m.where] || "do"} ${m.dwhat || m.to}${Arr.where(m.id) ? "" : " · teď není na obrazovce"}`})),
+        h("button", {class: "mini", text: m.copy ? "Smazat kopii" : "Vrátit na místo", onclick: () => { unarrange(m.id); paintTab(); }})))
+      : [h("p", {class: "muted", text: "Nic. Tlačítko ✥ Přesunout nahoře: chyť prvek myší a přetáhni ho jinam. ⧉ Kopírovat dá jeho funkční kopii i jinam."})];
     return [
+      sect(`Přesunuté a zkopírované (${moves.length})`, true, placed),
       sect(`Odstraněné prvky (${hidden.length})`, true, gone),
       sect("Co je změněno", true, out),
       sect("Uložené vzhledy", true,
@@ -988,11 +1307,18 @@ const PickLook = (() => {
     #hl.del{background:rgba(255,80,80,.22);outline-color:#ff5a5a}#hl.del::after{background:#ff5a5a;content:"Odstranit: " attr(data-name)}
     header .line button.rm.on{background:#ff5a5a;color:#16080a;border-color:#ff5a5a}
     .mini.danger{color:#ff8a8a}
+    #hl.arr{background:rgba(64,200,140,.16);outline-color:#40c88c}#hl.arr::after{background:#40c88c}
+    #drop{position:fixed;display:none;pointer-events:none;z-index:8950;border-radius:3px}
+    #drop.line{background:#40c88c;box-shadow:0 0 12px #40c88c}
+    #drop.in{outline:2px dashed #40c88c;background:rgba(64,200,140,.12)}
+    #drop::after{content:attr(data-name);position:absolute;left:0;top:-19px;background:#40c88c;color:#04170d;font:600 10.5px ui-monospace,Menlo,monospace;padding:2px 6px;border-radius:4px;white-space:nowrap}
+    #ghost{position:fixed;display:none;pointer-events:none;z-index:8960;background:#40c88c;color:#04170d;font:600 12px -apple-system,sans-serif;padding:5px 9px;border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    header .line button#mv.on,header .line button#cp.on{background:#40c88c;border-color:#40c88c;color:#04170d}
   `;
   const TABS = [["el", "Prvek"], ["app", "Aplikace"], ["src", "Zdroje"], ["ref", "Vzor"], ["log", "Změny"]];
   function build(){
     host = h("div", {id: "look-host"}); root = host.attachShadow({mode: "open"});
-    root.append(h("style", {text: CSS}), h("div", {id: "hl"}), h("div", {id: "box"}), h("datalist", {id: "fonts"}),
+    root.append(h("style", {text: CSS}), h("div", {id: "hl"}), h("div", {id: "box"}), h("div", {id: "drop"}), h("div", {id: "ghost"}), h("datalist", {id: "fonts"}),
       h("div", {id: "panel"},
         h("header", {},
           h("b", {text: "Úpravy vzhledu"}),
@@ -1004,6 +1330,8 @@ const PickLook = (() => {
           h("div", {class: "line"},
             h("button", {id: "pick", text: "Vybrat prvek", title: "Zapni a klikni na cokoli v aplikaci (Esc = vypnout)", onclick: () => setPicking(removing || !picking)}),
             h("button", {id: "rm", class: "rm", text: "Odstranit prvek", title: "Zapni a klikni na to, co v aplikaci nechceš — skryje se (Esc = vypnout)", onclick: () => setRemoving(!removing)}),
+            h("button", {id: "mv", text: "✥ Přesunout", title: "Chyť jakýkoli prvek myší a přetáhni ho jinam — dál funguje jako dřív (↑↓ = větší / menší část, Esc = konec)", onclick: () => setArranging(arranging === "move" ? null : "move")}),
+            h("button", {id: "cp", text: "⧉ Kopírovat", title: "Chyť prvek a přetáhni jeho kopii jinam — kopie dělá totéž co originál (Esc = konec)", onclick: () => setArranging(arranging === "copy" ? null : "copy")}),
             h("button", {id: "save", class: "save", text: "Uložit", title: "Uložit vzhled natrvalo", onclick: save}),
             h("button", {id: "drop", text: "Zahodit", title: "Vrátit se k naposledy uloženému vzhledu", onclick: () => { if(!dirty()) return; undo.push(JSON.stringify(look)); restore(saved); say("Zpátky u uloženého vzhledu."); }}),
             h("button", {id: "cmp", text: "Původní ↔ nový", title: "Podrž a uvidíš aplikaci bez úprav",
@@ -1028,6 +1356,8 @@ const PickLook = (() => {
     window.addEventListener("keydown", (e) => {
       if(!on) return;
       if(e.key === "Escape" && picking){ if(removing) setRemoving(false); else setPicking(false); e.stopPropagation(); return; }
+      if(arranging && !drag && (e.key === "ArrowUp" || e.key === "ArrowDown")){ e.preventDefault(); e.stopPropagation();
+        lvl = Math.max(0, lvl + (e.key === "ArrowUp" ? 1 : -1)); if(lastEv) arrHover(lastEv); return; }
       const typing = e.composedPath()[0] && /^(INPUT|TEXTAREA|SELECT)$/.test(e.composedPath()[0].tagName);
       if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !typing){ e.preventDefault(); e.stopPropagation(); step(e.shiftKey ? 1 : -1); }
     }, true);

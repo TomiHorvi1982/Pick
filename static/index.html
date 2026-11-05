@@ -4291,15 +4291,11 @@ body.lib-collapsed .pick-brand{display:none}
   .tl-fxa button{border:1px solid var(--border);background:#1f2029;color:#eee;font:inherit;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
   .tl-fxa .tl-fxok{background:var(--c);border-color:var(--c);color:#08080b;font-weight:700}
   /* Pick Live (static/picklive.js): the playing song onto the Live Show stage */
-  .pl-btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:999px;border:none;cursor:pointer;flex:0 0 auto;
-    font:inherit;font-size:13.5px;font-weight:800;letter-spacing:.2px;color:#16070a;white-space:nowrap;
-    background:linear-gradient(135deg,#ffb347,#ff5f6d);box-shadow:0 4px 16px rgba(255,95,109,.35);transition:transform .12s,box-shadow .15s}
-  .pl-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(255,95,109,.5)}
-  .pl-btn:active{transform:none}
-  .pl-btn.pl-side{margin:4px 12px 8px;justify-content:center;height:38px}
-  body.lib-collapsed .pl-btn.pl-side{margin:4px auto 8px;width:44px;height:44px;padding:0}
-  body.lib-collapsed .pl-btn.pl-side b{display:none}
-  @media (max-width:900px){ #pick-live-top b{display:none} #pick-live-top{width:40px;padding:0;justify-content:center} }
+  .pl-mini{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;color:#16070a;
+    background:linear-gradient(135deg,#ffb347,#ff5f6d);box-shadow:0 3px 12px rgba(255,95,109,.35);transition:transform .12s,box-shadow .15s}
+  .pl-mini:hover{transform:scale(1.1);box-shadow:0 5px 18px rgba(255,95,109,.55)}
+  .pl-mini:active{transform:none}
   .pl-card{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:2147483000;width:min(520px,calc(100vw - 32px));
     background:#17181f;border:1px solid rgba(255,140,100,.45);border-radius:14px;padding:12px 14px;box-shadow:0 14px 40px rgba(0,0,0,.55);color:var(--text,#eee)}
   .pl-card[hidden]{display:none}
@@ -5022,8 +5018,6 @@ body.lib-collapsed .pick-brand{display:none}
       <button class="sp-browse" id="search-btn" title="Hledat" aria-label="Hledat"></button>
     </div>
     <div class="search-suggest" id="search-suggest" hidden></div>
-    <button type="button" class="pl-btn" id="pick-live-top" title="Pick Live — co hraje v přehrávači dole, otevře v Live Show (není-li ve Steems, připraví ji)">
-      <span data-icon="flame" data-size="16"></span><b>Pick Live</b></button>
   </div>
   <div class="sp-topbar-right">
     <button class="sp-round" id="full-top-btn" title="Celá obrazovka"><span data-icon="expand" data-size="17"></span></button>
@@ -5048,8 +5042,6 @@ body.lib-collapsed .pick-brand{display:none}
     <span class="pick-brand" title="Pick"><img src="/static/pick-icon.png" alt="" width="30" height="30"><b>Pick</b></span>
   </div>
 
-  <button type="button" class="pl-btn pl-side" id="pick-live-side" title="Pick Live — co hraje v přehrávači dole, otevře v Live Show (není-li ve Steems, připraví ji)">
-    <span data-icon="flame" data-size="17"></span><b>Pick Live</b></button>
   <div class="lib-list sp-scroll" id="lib-list"></div>
   <div class="riff-dock sp-scroll" id="riff-dock" hidden></div>
   <div class="rail-art" aria-hidden="true">
@@ -6192,6 +6184,7 @@ body.lib-collapsed .pick-brand{display:none}
       <div class="pb-artist" id="pb-artist">Vyber píseň k přehrání</div>
       <div class="pb-playlist" id="pb-playlist" hidden></div>
     </div>
+    <button type="button" class="pl-mini" id="pick-live-bar" title="Pick Live — tuhle píseň otevře v Live Show (není-li ve Steems, připraví ji)" aria-label="Pick Live"><span data-icon="flame" data-size="15"></span></button>
     <button class="pb-ctl" id="pb-add-btn" title="Přidat do oblíbených songů" aria-label="Přidat do oblíbených songů"></button>
   </div>
   <div class="pb-center">

@@ -171,7 +171,7 @@ const PickLive = (() => {
     const host = document.fullscreenElement || document.body;
     if(c && c.parentElement !== host) host.appendChild(c);
   });
-  ["pick-live-top", "pick-live-side"].forEach(id => { const b = document.getElementById(id); if(b) b.onclick = go; });
+  ["pick-live-bar"].forEach(id => { const b = document.getElementById(id); if(b) b.onclick = go; });
   setTimeout(resume, 1500);
   return {go, openLive, follow};
 })();

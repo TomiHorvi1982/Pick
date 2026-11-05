@@ -191,6 +191,15 @@ Nastavení a „Upravit vzhled podrobně…“ odstranit nejde, aby byla vždy c
 prvky: „Ukázat odstraněné“ (červeně orámované), Vrátit jednotlivě i všechny; natrvalo až po Uložit, ↩ funguje.
 Kdyby se něco pokazilo: `localhost:8765/?bez-vzhledu` ukáže Pick bez úprav (uložený vzhled zůstane).
 
+**✥ Přesunout a ⧉ Kopírovat** (tlačítka v hlavičce Úprav vzhledu): Pick si poskládáš po svém. Najeď na prvek
+(šipkami ↑ ↓ vezmeš větší nebo menší část; tlačítko se bere celé, i když chytíš jeho ikonu), chyť ho myší a
+přetáhni. Zelená čára ukáže, kam půjde: před / za prvek pod myší, nebo dovnitř (do panelu, na konec). Přesun
+bere ten samý prvek, takže funguje dál úplně stejně. Kopie je zrcadlo originálu: drží se s ním (texty, stav,
+obrázky z canvasu) a klik, psaní, posuvník i tažení na ní předá originálu. Uloženo v `look.moves`
+(`{id, sel, to, where, copy}`); `PickLook` → `Arr` je po každé změně stránky vrací na místo, takže vydrží i
+překreslení aplikace a znovunačtení. Už přesunutý prvek nebo kopie se jen přesune jinam. Karta Změny →
+Přesunuté a zkopírované: Vrátit na místo / Smazat kopii; ↩ funguje, natrvalo až po Uložit.
+
 **Nový hlas s průvodcem** (u Výslovnosti „+ hlas“ → Průvodce): přečteš nahlas český a anglický text a —
 nepovinně, ale pro zpěv to pomůže nejvíc — kousek zazpíváš. Každou nahrávku si
 přehraješ a můžeš ji říct znovu; okno hlídá, jestli není moc potichu nebo
@@ -1391,8 +1400,8 @@ Steems a v levém panelu nad Playlisty Steems.
 
 ## Pick Live
 
-Tlačítko **Pick Live** je nahoře vpravo od vyhledávání a v levém panelu pod logem
-(`static/picklive.js`, `PickLive.go`). Vezme píseň, která hraje v přehrávači dole,
+Tlačítko **Pick Live** (oranžový plamínek) je ve spodním přehrávači hned vedle názvu písně
+(`#pick-live-bar`, `static/picklive.js`, `PickLive.go`). Vezme píseň, která hraje v přehrávači dole,
 a otevře ji v Live Show. Když hraje mix ve Steems, otevře rovnou ten.
 
 - Píseň už je ve Steems: `POST /api/live/prepare` vrátí `{ready: true, name}` a
