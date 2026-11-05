@@ -4291,6 +4291,25 @@ body.lib-collapsed .pick-brand{display:none}
   .tl-fxa button{border:1px solid var(--border);background:#1f2029;color:#eee;font:inherit;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
   .tl-fxa .tl-fxok{background:var(--c);border-color:var(--c);color:#08080b;font-weight:700}
   /* Pick Live (static/picklive.js): the playing song onto the Live Show stage */
+  /* Cvičení lane (static/timing.js): each note early (above the line) or late (below), sections' verdicts */
+  .nm-lane.tmg-lane{position:relative;overflow:hidden}
+  .tmg-mid{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,.14);pointer-events:none}
+  .tmg-hit{position:absolute;width:2px;margin-left:-1px;border-radius:1px;pointer-events:auto}
+  .tmg-hit.ok{background:#3ecf8e}.tmg-hit.early{background:#4ea8ff}.tmg-hit.late{background:#ff9f43}
+  .tmg-sec{position:absolute;top:1px;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;white-space:nowrap;cursor:pointer;
+    background:rgba(0,0,0,.55);line-height:14px;z-index:1}
+  .tmg-sec.ok{color:#3ecf8e}.tmg-sec.early{color:#4ea8ff}.tmg-sec.late{color:#ff9f43}
+  .tl-hb.tmg-rec{color:#ff5f6d}.tl-hb.tmg-rec.on{background:#ff5f6d;color:#16070a}
+  .tmg-pop{position:fixed;z-index:4000;width:330px;max-height:70vh;overflow:auto;background:linear-gradient(var(--card),var(--card)),#14151d;color:var(--text);border:1px solid var(--border);
+    border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.55);padding:10px 12px}
+  .tmg-ph{display:flex;align-items:center}.tmg-ph b{font-size:14px}.tmg-x{margin-left:auto;background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer}
+  .tmg-big{font-size:15px;font-weight:700;margin:6px 0}.tmg-big small{font-size:11.5px;color:var(--sub);font-weight:400}
+  .tmg-prev,.tmg-note{font-size:11.5px;color:var(--sub);margin:4px 0;line-height:1.4}
+  .tmg-list{display:flex;flex-direction:column;gap:2px;margin:6px 0}
+  .tmg-row{display:grid;grid-template-columns:10px 1fr auto auto 34px;gap:8px;align-items:center;background:none;border:none;color:inherit;font:inherit;
+    font-size:12.5px;padding:5px 6px;border-radius:7px;cursor:pointer;text-align:left}
+  .tmg-row:hover{background:var(--hi)}.tmg-row span,.tmg-row small{color:var(--sub);font-size:11px}.tmg-row em{font-style:normal;font-weight:600}
+  .tmg-dot{width:9px;height:9px;border-radius:50%}.tmg-dot.ok{background:#3ecf8e}.tmg-dot.early{background:#4ea8ff}.tmg-dot.late{background:#ff9f43}
   .pl-mini{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;padding:0;
     display:inline-flex;align-items:center;justify-content:center;color:#16070a;
     background:linear-gradient(135deg,#ffb347,#ff5f6d);box-shadow:0 3px 12px rgba(255,95,109,.35);transition:transform .12s,box-shadow .15s}
@@ -20667,6 +20686,9 @@ const Mixer = (() => {
       if(typeof ToneLanes !== "undefined" && currentSongName) ToneLanes.render(rail, lanes, totalPx, {
         song: currentSongName, pps: pixelsPerSecond, duration, thinLane, snap: (t) => snapSection(t).t,
         rerender: () => renderTrackLanes(), seek: (t) => seek(Math.max(0, Math.min(duration, t))), time: () => currentTime()});
+      // Cvičení: timing against the record's guitar, and "Co tam hraje?" (static/timing.js, static/whatplays.js)
+      if(typeof Timing !== "undefined" && currentSongName) Timing.render(rail, lanes, totalPx, {
+        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, sections: () => sections, rerender: () => renderTrackLanes()});
       renderSectionsLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
       DrumHits.render(rail, lanes, totalPx);
@@ -35421,6 +35443,8 @@ const Voice = (() => {
 <script src="/static/space.js"></script>
 <script src="/static/stamps.js"></script>
 <script src="/static/picklive.js"></script>
+<script src="/static/timing.js"></script>
+<script src="/static/whatplays.js"></script>
 <script src="/static/tonelane.js"></script>
 <script src="/static/stampsongs.js"></script>
 <script src="/static/viz.js"></script>

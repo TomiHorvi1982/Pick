@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -6321,6 +6321,97 @@ def stem_to_notes(name: str, stem: str):
     if notes is None:
         return JSONResponse({"error": "Převod na MIDI se nepodařil."}, status_code=500)
     return {"notes": notes[:20000], "stem": stem}
+
+
+class WhatPlaysRequest(BaseModel):
+    stem: str = "guitar"
+    start: float = 0.0
+    end: float = 0.0
+
+
+# ---- "Co tam hraje?": a few seconds of one stem heard note by note (basic-pitch), for the page to
+# lay out as a tab on the song's tuning. Only the stretch is cut and listened to, so it takes seconds.
+@app.post("/api/whatplays/{name}")
+def what_plays(name: str, req: WhatPlaysRequest):
+    stems_dir = _resolve_under_music_root(f"Stems/{name}")
+    if stems_dir is None or not stems_dir.is_dir():
+        return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
+    if not _re_mod.fullmatch(r"[a-z0-9_-]{1,40}", req.stem or ""):
+        return JSONResponse({"error": "Neznámá stopa."}, status_code=400)
+    src = _stem_file(stems_dir, req.stem)
+    if src is None:
+        return JSONResponse({"error": "Stopa nemá zvukový soubor."}, status_code=404)
+    start, end = max(0.0, float(req.start)), float(req.end)
+    if not (end - start >= 0.3):
+        return JSONResponse({"error": "Úsek je moc krátký."}, status_code=400)
+    if end - start > 30.5:
+        return JSONResponse({"error": "Najednou nejvýš 30 sekund — zkrať smyčku."}, status_code=400)
+    if not MIDI_PYTHON.is_file():
+        return JSONResponse({"error": "Rozpoznávání tónů není nainstalované (chybí ~/.local/venvs/pick-midi)."}, status_code=501)
+    tmp = Path(tempfile.mkdtemp(prefix="pick-whatplays-"))
+    try:
+        cut = tmp / "cut.wav"
+        r = subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-ss", f"{start:.3f}", "-t", f"{end - start:.3f}",
+                            "-i", str(src), "-ac", "1", "-ar", "22050", str(cut)], capture_output=True, timeout=60)
+        if r.returncode != 0 or not cut.is_file():
+            return JSONResponse({"error": "Úsek se nepodařilo vyříznout."}, status_code=500)
+        notes = _notes_of(cut)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    out = [{**n, "t": round(n["t"] + start, 4)} for n in notes if n["t"] < end - start]
+    return {"notes": out[:2000], "stem": req.stem, "start": start, "end": end, "tuning": _stems_tuning(stems_dir)}
+
+
+# ---- Časování: where the player rushes and drags against the record's guitar. The page measures it
+# (static/timing.js); the runs are kept with the song, the newest first.
+TIMING_FILE = "timing.json"
+
+
+def _timing_path(name: str) -> Optional[Path]:
+    d = _resolve_under_music_root(f"Stems/{name}")
+    return d / "practice" / TIMING_FILE if d is not None and d.is_dir() else None
+
+
+@app.get("/api/timing/{name}")
+def timing_get(name: str):
+    f = _timing_path(name)
+    if f is None:
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    try:
+        runs = json.loads(f.read_text(encoding="utf-8")).get("runs") or []
+    except (OSError, ValueError, AttributeError):
+        runs = []
+    return {"runs": runs}
+
+
+@app.post("/api/timing/{name}")
+async def timing_add(name: str, request: Request):
+    f = _timing_path(name)
+    if f is None:
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    try:
+        run = await request.json()
+    except ValueError:
+        return JSONResponse({"error": "Špatná data."}, status_code=400)
+    if not isinstance(run, dict) or not isinstance(run.get("hits"), list) or len(json.dumps(run)) > 400_000:
+        return JSONResponse({"error": "Špatná data."}, status_code=400)
+    run["at"] = time.time()
+    runs = timing_get(name).get("runs", [])
+    runs = [run] + runs[:11]
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"runs": runs}, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(f)
+    return {"runs": runs}
+
+
+@app.delete("/api/timing/{name}")
+def timing_clear(name: str):
+    f = _timing_path(name)
+    if f is None:
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    f.unlink(missing_ok=True)
+    return {"runs": []}
 
 
 @app.get("/api/stems/queue")

@@ -1398,6 +1398,29 @@ Steems a v levém panelu nad Playlisty Steems.
   - Při hraní se DLY a REV živé kytary v úseku zapnou s jeho nastavením a za ním vrátí,
     jak byly.
 
+## Cvičení: Časování a Co tam hraje?
+
+Ve Steems je pod lištami Otisky / Delay / Reverb lišta **Cvičení** (`static/timing.js`, `static/whatplays.js`).
+
+**● Časování — kde spěchám a kde táhnu.** Zapni vstup kytary (kanál Live kytara), klikni ●, hraj s písní;
+■ nebo pauza zastaví. Nahrává se čistá kytara (před zesilovačem) na čase písně — latence zvukovky odečtená,
+funguje i ve smyčce a zpomaleně (výsledek je v opravdových milisekundách). Nástupy tvých tónů (engine
+Analyzeru, `analyzer-engine.js` ve Workeru) se párují s nejbližšími nástupy kytar originálu (všechny stopy
+`guitar*` sečtené), nejbližší páry první, nejvýš 150 ms daleko. Na liště: čárka nad čarou = dřív (spěcháš,
+modrá), pod čarou = později (táhneš, oranžová), zelená = do 25 ms. Každá sekce má verdikt („Refrén: spěcháš
+32 ms“), klik na něj zapne smyčku. ≡ vypíše sekce od nejhorší, porovná s minulým měřením a upozorní, když je
+všechno posunuté stejně (to bývá spíš latence). Měření jsou u písně v `Stems/<píseň>/practice/timing.json`
+(`GET/POST/DELETE /api/timing/{píseň}`, posledních 12, nejnovější první); × je smaže.
+
+**♪? Co tam hraje?** Vezme smyčku (nebo 5 s od kurzoru, nejvýš 30 s) a nejhlasitější kytarovou stopu v ní
+(jde přepnout). Server ten kus vyřízne ffmpegem a basic-pitch v něm najde tóny (`POST /api/whatplays/{píseň}`
+`{stem, start, end}` → noty na čase písně + ladění písně). Stránka odfiltruje alikvóty (oktáva nad tónem,
+tišší a mnohem kratší) a rozloží tóny na hmatník v ladění písně: akordy na sousedních strunách, ruka
+v okně čtyř pražců, prázdné struny zdarma, pozice se mění co nejmíň (dynamické programování přes polohy ruky).
+Okno ukáže tab, hmatník (právě znějící tón svítí), názvy tónů; přehraje úsek 50 / 75 / 100 % bez změny výšky,
+jen kytaru nebo celou píseň, dokola; klik na číslo v tabu hraje od toho tónu; „Kopírovat tab“ dá textový tab.
+U zkreslené kytary a rychlých pasáží se rozpoznávání může splést — je to vodítko, ověřit uchem.
+
 ## Pick Live
 
 Tlačítko **Pick Live** (oranžový plamínek) je ve spodním přehrávači hned vedle názvu písně
