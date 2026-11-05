@@ -1150,6 +1150,10 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-ov-time.right{text-align:right}
   .nm-ov-wrap{position:relative;flex:1;height:44px;cursor:pointer}
   .nm-ov-wrap canvas{width:100%;height:100%;display:block}
+  .nm-ov-wrap{touch-action:pan-y}
+  .nm-ov-zoom{font:inherit;font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--accent) 60%,transparent);background:color-mix(in srgb,var(--accent) 18%,transparent);color:#fff}
+  .nm-ov-zoom[hidden]{display:none}
   .nm-ov-head{position:absolute;top:0;bottom:0;width:1px;background:var(--nm-red);
               pointer-events:none;z-index:2}
   .nm-ov-loop{position:absolute;top:0;bottom:0;background:rgba(61,139,253,.22);
@@ -2705,6 +2709,15 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-grp.folded .nm-grp-fold{transform:none}
   .nm-strip.nm-grp:hover,.nm-lane.nm-grp:hover{filter:brightness(1.25)}
   .nm .grp-off{display:none !important}
+  .nm-grp[data-band="tools"]{--g:#4cc9f0}
+  .nm-grp-head{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;cursor:pointer;
+    border-bottom:1px solid color-mix(in srgb,var(--g) 50%,transparent);border-top:1px solid var(--nm-line);
+    background:linear-gradient(180deg,color-mix(in srgb,var(--g) 16%,#121216),#111115);box-shadow:inset 3px 0 0 var(--g)}
+  .nm-grp-head:hover{filter:brightness(1.25)}
+  #mixer.fold-tools #nm-editbar,#mixer.fold-tools #midi-editor{display:none !important}
+  /* the tab, a card of its own above the mix like the song's text */
+  .nm.nm-tabcard{margin:0 0 22px;border-radius:12px}
+  .nm.nm-tabcard[hidden]{display:none}
   /* Sbalené stopy: one thin strip a track — name, S, M, volume; the lane a band of its waveform */
   .nm-strip .nm-vol{display:none}
   #mixer.nm-compact .nm-strip:not(.thin),#mixer.nm-compact .nm-lane:not(.thin){height:34px;min-height:34px}
@@ -5512,7 +5525,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" id="mixer-neural-mix" title="Otevřít celou píseň v Neural Mix Pro (Algoriddim) — jeho vlastní dělení, tempo a tónina v reálném čase"><span data-icon="external" data-size="15"></span><span class="tm-t">Otevřít v Neural Mix Pro</span></button>
                 </div>
               </div>
-              <button class="nm-btn round" id="steems-hero-close" title="Zpět na seznam písní"><span data-icon="close" data-size="14"></span><span class="bl">Zavřít</span></button>
+              <button class="nm-btn round" id="steems-hero-close" title="Zavřít celou píseň (mix, text i tab) a vrátit se na seznam písní ve Steems"><span data-icon="close" data-size="14"></span><span class="bl">Zavřít</span></button>
         </div>
       </div>
     </div>
@@ -5543,7 +5556,7 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy">Aa</button>
         <button type="button" id="nm-lyr-stage" hidden title="Live Show — je teď v ovládacím panelu Steems nahoře"><span data-icon="expand" data-size="13"></span></button>
         <button type="button" id="nm-lyr-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
-        <button type="button" id="nm-lyr-close" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
+        <button type="button" id="nm-lyr-close" hidden style="display:none" title="Zavřít text (tlačítko Text ho vrátí)"><span data-icon="close" data-size="13"></span></button>
       </div>
       <div class="nm-lyr-lines" id="nm-lyr-lines">
         <canvas id="nm-lyr-run" title="Klik na řádek na něj skočí"></canvas>
@@ -5561,6 +5574,44 @@ body.lib-collapsed .pick-brand{display:none}
     </div>
     <div id="steems-list" class="fs-list"></div>
     <div id="mixer" class="mixer" hidden>
+        <!-- The live Alpha Tab panel: its own card above the mix, like the
+             song's text above it. Hidden until a Songsterr tab is loaded. -->
+        <div class="nm nm-tabtop nm-tabcard" id="nm-tabtop" hidden>
+          <div class="nm-tabtop-bar">
+            <button type="button" class="fold-btn" id="nm-tabtop-fold" title="Sbalit / rozbalit tabulaturu"><span data-icon="chevron" data-size="13"></span></button>
+            <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
+            <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
+            <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
+            <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
+            <select class="nm-tabtop-select" id="nm-tabtop-select" title="Hlavní stopa (podle ní se synchronizuje)" hidden></select>
+            <button type="button" class="tab-more-btn" id="nm-tabtop-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
+            <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
+            <div class="nm-spacer"></div>
+            <button type="button" class="nm-btn round tab-lock tab-sync-one" id="nm-tabtop-lock"></button>
+            <span hidden>
+              <button class="nm-step" id="nm-tabtop-earlier"></button>
+              <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s">
+              <button class="nm-step" id="nm-tabtop-later"></button>
+              <button id="nm-tabtop-sync"></button>
+            </span>
+            <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
+            <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
+            <button class="nm-btn round" id="nm-tabtop-stage" title="Na celou obrazovku — jen tab, jen text, nebo obojí"><span data-icon="expand" data-size="13"></span></button>
+            <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
+            <button class="nm-btn round" id="nm-tabtop-rm" style="display:none" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
+          </div>
+          <div class="nm-tabtop-hostwrap" id="nm-tabtop-hostwrap">
+            <div class="pb-tab-dock-marker pb-tab-dock-marker-top" id="nm-tabtop-marker-top"
+              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
+            <div class="nm-tabtop-viewport" id="nm-tabtop-viewport">
+              <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
+            </div>
+            <div class="pb-tab-dock-marker pb-tab-dock-marker-bottom" id="nm-tabtop-marker-bottom"
+              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
+          </div>
+          <input type="range" class="nm-tabtop-pos" id="nm-tabtop-pos" min="0" max="1000" value="0" title="Pozice v tabulatuře">
+        </div>
+
       <div class="nm">
         <!-- Track header: superseded by the page hero, kept for its ids -->
         <div class="nm-head" hidden>
@@ -5585,45 +5636,6 @@ body.lib-collapsed .pick-brand{display:none}
             <span class="lbl">BPM</span>
             <span class="val" id="mixer-tempo">—</span>
           </div>
-        </div>
-
-        <!-- The live Alpha Tab panel: pinned above the transport controls
-             (not one of the scrolling lanes below) so the tab is always in
-             view. Hidden until a Songsterr tab is loaded. -->
-        <div class="nm-tabtop" id="nm-tabtop" hidden>
-          <div class="nm-tabtop-bar">
-            <button type="button" class="fold-btn" id="nm-tabtop-fold" title="Sbalit / rozbalit tabulaturu"><span data-icon="chevron" data-size="13"></span></button>
-            <span class="nm-tabtop-icon" data-icon="note" data-size="14"></span>
-            <span class="nm-tabtop-name" id="nm-tabtop-name">Tab</span>
-            <span class="nm-tabtop-barlabel" id="nm-tabtop-barlabel">Takt —</span>
-            <span class="tab-tuning" id="nm-tabtop-tuning" hidden></span>
-            <select class="nm-tabtop-select" id="nm-tabtop-select" title="Hlavní stopa (podle ní se synchronizuje)" hidden></select>
-            <button type="button" class="tab-more-btn" id="nm-tabtop-more" title="Zobrazit další kytary / basu pod sebou" hidden>+ Stopy</button>
-            <select class="nm-tabtop-select" id="nm-tabtop-timing" title="Načasování taktů: podle živé nahrávky ze Songsterru (srovná se s taktem písně), nebo podle tempa tabu" hidden></select>
-            <div class="nm-spacer"></div>
-            <button type="button" class="nm-btn round tab-lock tab-sync-one" id="nm-tabtop-lock"></button>
-            <span hidden>
-              <button class="nm-step" id="nm-tabtop-earlier"></button>
-              <input type="text" class="nm-tabtop-off" id="nm-tabtop-off" inputmode="decimal" spellcheck="false" value="+0,0 s">
-              <button class="nm-step" id="nm-tabtop-later"></button>
-              <button id="nm-tabtop-sync"></button>
-            </span>
-            <button class="nm-step" id="nm-tabtop-zoom-dn" title="Zmenšit zápis">−</button>
-            <button class="nm-step" id="nm-tabtop-zoom-up" title="Zvětšit zápis">+</button>
-            <button class="nm-btn round" id="nm-tabtop-stage" title="Na celou obrazovku — jen tab, jen text, nebo obojí"><span data-icon="expand" data-size="13"></span></button>
-            <button class="nm-btn round" id="nm-tabtop-detach" title="Odpojit do plovoucího okna"><span data-icon="external" data-size="13"></span></button>
-            <button class="nm-btn round" id="nm-tabtop-rm" title="Odebrat tabulaturu"><span data-icon="close" data-size="13"></span></button>
-          </div>
-          <div class="nm-tabtop-hostwrap" id="nm-tabtop-hostwrap">
-            <div class="pb-tab-dock-marker pb-tab-dock-marker-top" id="nm-tabtop-marker-top"
-              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
-            <div class="nm-tabtop-viewport" id="nm-tabtop-viewport">
-              <div class="nm-tabtop-host" id="nm-tabtop-host"></div>
-            </div>
-            <div class="pb-tab-dock-marker pb-tab-dock-marker-bottom" id="nm-tabtop-marker-bottom"
-              title="Klikni pro zvětšení značky (10 kroků, pak znovu od začátku)"></div>
-          </div>
-          <input type="range" class="nm-tabtop-pos" id="nm-tabtop-pos" min="0" max="1000" value="0" title="Pozice v tabulatuře">
         </div>
 
         <!-- The only control bar: transport, loop, learning aids, pitch, tempo,
@@ -5709,9 +5721,16 @@ body.lib-collapsed .pick-brand{display:none}
             <div class="nm-ov-loop" id="nm-ov-loop" hidden></div>
             <div class="nm-ov-head" id="nm-ov-head"></div>
           </div>
+          <button type="button" class="nm-ov-zoom" id="nm-ov-zoom" hidden title="Vlna je přiblížená — klik ukáže zase celou píseň">1×</button>
           <span class="nm-ov-time right" id="nm-ov-rem">-0:00</span>
         </div>
 
+        <!-- Pomůcky: the edit tools, the chords, the sections, the click and the drum hits fold away
+             under this band (renderTrackLanes tags their rows); the wave above always stays. -->
+        <div class="nm-grp nm-grp-head" id="nm-tools-band" data-band="tools" title="Sbalit / rozbalit pomůcky">
+          <button type="button" class="nm-grp-fold"><span data-icon="chevron" data-size="12"></span></button>
+          <span class="nm-grp-name">POMŮCKY</span><span class="nm-grp-sub">nástroje pro úpravu · akordy · sekce · metronom · údery</span>
+        </div>
         <!-- Editing a track: built by the mixer (renderEditBar). -->
         <div class="nm-editbar" id="nm-editbar" hidden></div>
         <div class="midi-ed" id="midi-editor" hidden></div>
@@ -14057,7 +14076,13 @@ function loadMixerSong(name, opts = {}){
 
 // The hero is just the title and the numbers; every control lives in the
 // mixer's own bar. Only the way back to the list is wired here.
-el("steems-hero-close").onclick = hideSteemsHero;
+// Zavřít: the whole song goes — the mix stops, its text and tab with it — and Steems' list is read again.
+el("steems-hero-close").onclick = () => {
+  try{ Mixer.pause(); }catch(e){}
+  el("mixer-lyrics-bar").hidden = true;
+  hideSteemsHero();
+  loadSteemsList();
+};
 
 // ======================================================================
 // Mixpult — synced multi-stem Web Audio mixer. Fader/mute/solo, per-channel
@@ -17333,6 +17358,17 @@ const Mixer = (() => {
     el("mixer-time-cur").textContent = fmtDur(t);
     el("mixer-time-dur").textContent = fmtDur(duration);
     el("nm-ov-rem").textContent = "-" + fmtDur(Math.max(0, duration - t));
+    if(ovZoom > 1 && duration){
+      const span = ovSpan();
+      if(isPlaying && (t < ovStart || t > ovStart + span)){
+        ovStart = Math.max(0, Math.min(duration - span, t - span * 0.05)); queueOverview(); updateLoopVisual();
+      }
+      const q = (t - ovStart) / span;
+      el("nm-ov-head").style.left = (q * 100) + "%";
+      el("nm-ov-head").style.visibility = q < 0 || q > 1 ? "hidden" : "";
+      return;
+    }
+    el("nm-ov-head").style.visibility = "";
     el("nm-ov-head").style.left = pct + "%";
   }
 
@@ -19737,7 +19773,7 @@ const Mixer = (() => {
   // The rail's width, dragged at its edge; remembered.
   const RAIL_W_KEY = "spotdl-nm-rail-w";
   function applyRailWidth(w){
-    const nm = document.querySelector("#mixer .nm");
+    const nm = document.querySelector("#mixer .nm:not(.nm-tabcard)");
     if(nm && w) nm.style.setProperty("--nm-rail", Math.round(w) + "px");
   }
   try{ applyRailWidth(parseFloat(localStorage.getItem(RAIL_W_KEY)) || 0); }catch(e){}
@@ -20695,6 +20731,7 @@ const Mixer = (() => {
     const totalPx = totalWidthPx();
     const laneH = compact ? 34 : 86;   // must match .nm-strip / .nm-lane in CSS (#mixer.nm-compact: 34)
 
+    const toolsR = rail.children.length;          // Pomůcky: from the chords down to the stems' band
     if(channels.length){
       // Akordy sits right under the waveform strip, above everything else —
       // including the tab lanes, which is why it renders into its own fixed
@@ -20746,6 +20783,16 @@ const Mixer = (() => {
     }
     requestAnimationFrame(updateLaneOverflowHint);
 
+    {
+      const off = !!groupFold.tools;
+      const tag = (n) => { n.dataset.grp = "tools"; n.classList.toggle("grp-off", off); };
+      [...rail.children].slice(toolsR).forEach(tag);
+      [...topLanes.children, ...lanes.children].forEach(tag);
+      el("mixer").classList.toggle("fold-tools", off);
+      const hb = el("nm-tools-band");
+      hb.classList.toggle("folded", off);
+      hb.title = (off ? "Rozbalit" : "Sbalit") + " pomůcky — nástroje pro úpravu, akordy, sekce, metronom, údery";
+    }
     if(channels.length) grpBand("stems", "STOPY PÍSNĚ", channels.length + (channels.length === 1 ? " stopa" : channels.length < 5 ? " stopy" : " stop"), "originální stopy z písně: hlasitost, S, M, úpravy");
     const stemsGrp = grpFrom("stems");
 
@@ -21027,9 +21074,10 @@ const Mixer = (() => {
     let top = 0;
     for(let x = 0; x < w; x++) if(total[x] > top) top = total[x];
     const k = top > 0 ? (h / 2 * 0.94) / top : 0, mid = h / 2, off = new Float32Array(w);
+    if(ovDur !== duration){ ovDur = duration; ovZoom = 1; ovStart = 0; ovBadge(); }
     channels.forEach(c => {
       if(!(solo ? c.solo : !c.muted) || c.faderValue < 0.01) return;
-      const p = ovPeaks(c, w);
+      const p = ovZoom > 1 ? ovView(c, w) : ovPeaks(c, w);
       g.fillStyle = styleOf(c).c;
       for(let x = 0; x < w; x++){
         const seg = p[x] * k;
@@ -21042,8 +21090,37 @@ const Mixer = (() => {
   }
   // A stem's loudest sample under each pixel of the overview (kept until the
   // strip changes width or the stem's audio does).
-  function ovPeaks(c, w){
-    if(c._ov && c._ov.w === w && c._ov.buf === c.buffer && c._ov.d === duration) return c._ov.p;
+  // The overview zoomed in (pinch on the trackpad): the part of the song from ovStart, duration/ovZoom
+  // long, from peaks worked out at the next power of two of the zoom (kept per width), so a pinch does
+  // not count the song again at every step.
+  var ovZoom = 1, ovStart = 0, ovDur = 0;
+  function ovSpan(){ return (duration || 0) / ovZoom; }
+  function ovView(c, w){
+    const Wp = w * Math.pow(2, Math.ceil(Math.log2(ovZoom)));
+    c._ovc = c._ovc && c._ovc.buf === c.buffer && c._ovc.d === duration ? c._ovc : {buf: c.buffer, d: duration, by: {}};
+    const P = c._ovc.by[Wp] || (c._ovc.by[Wp] = ovPeaks(c, Wp, true));
+    const out = new Float32Array(w), r = Wp / (w * ovZoom), i0 = duration ? ovStart / duration * Wp : 0;
+    for(let x = 0; x < w; x++){
+      const a = Math.floor(i0 + x * r), b = Math.max(a + 1, Math.floor(i0 + (x + 1) * r));
+      let m = 0;
+      for(let i = a; i < b && i < P.length; i++) if(P[i] > m) m = P[i];
+      out[x] = m;
+    }
+    return out;
+  }
+  function ovBadge(){
+    const b = el("nm-ov-zoom");
+    if(!b) return;
+    b.hidden = ovZoom <= 1.001;
+    b.textContent = (ovZoom < 10 ? ovZoom.toFixed(1).replace(".", ",") : Math.round(ovZoom)) + "×";
+  }
+  function ovSet(zoom, start){
+    ovZoom = Math.max(1, Math.min(64, zoom));
+    ovStart = Math.max(0, Math.min((duration || 0) - ovSpan(), start));
+    ovBadge(); queueOverview(); updateSeekUI(currentTime()); updateLoopVisual();
+  }
+  function ovPeaks(c, w, fresh){
+    if(!fresh && c._ov && c._ov.w === w && c._ov.buf === c.buffer && c._ov.d === duration) return c._ov.p;
     const data = c.buffer.getChannelData(0), p = new Float32Array(w);
     const n = Math.max(1, Math.min(w, Math.round(w * c.buffer.duration / Math.max(duration, 0.001)))), per = data.length / n;
     if(per >= WAVE_BLOCK * 2){                  // from the track's kept envelope, not its samples
@@ -21054,7 +21131,7 @@ const Mixer = (() => {
         for(let b = Math.floor(x * perB); b < to; b++){ const v = Math.max(-mins[b], maxs[b]); if(v > m) m = v; }
         p[x] = m;
       }
-      c._ov = {w, buf: c.buffer, d: duration, p};
+      if(!fresh) c._ov = {w, buf: c.buffer, d: duration, p};
       return p;
     }
     const stride = Math.max(1, Math.floor(per / 96));
@@ -21064,7 +21141,7 @@ const Mixer = (() => {
       for(let i = Math.floor(x * per); i < to; i += stride){ const v = data[i] < 0 ? -data[i] : data[i]; if(v > m) m = v; }
       p[x] = m;
     }
-    c._ov = {w, buf: c.buffer, d: duration, p};
+    if(!fresh) c._ov = {w, buf: c.buffer, d: duration, p};
     return p;
   }
   let ovFrame = 0;
@@ -21109,9 +21186,12 @@ const Mixer = (() => {
       region.style.height = (stemsBottomPx - stemsTopPx) + "px";
       region.style.left = (loopStart * pixelsPerSecond) + "px";
       region.style.width = ((loopEnd - loopStart) * pixelsPerSecond) + "px";
-      ovLoop.hidden = false;
-      ovLoop.style.left = (duration ? (loopStart / duration) * 100 : 0) + "%";
-      ovLoop.style.width = (duration ? ((loopEnd - loopStart) / duration) * 100 : 0) + "%";
+      // in the overview's window (all of the song, or the part it is zoomed to)
+      const span = ovZoom > 1 ? ovSpan() : duration, o0 = ovZoom > 1 ? ovStart : 0;
+      const a = duration ? Math.max(0, (loopStart - o0) / span) : 0, b = duration ? Math.min(1, (loopEnd - o0) / span) : 0;
+      ovLoop.hidden = !(b > a);
+      ovLoop.style.left = (a * 100) + "%";
+      ovLoop.style.width = (Math.max(0, b - a) * 100) + "%";
     } else {
       region.hidden = true;
       ovLoop.hidden = true;
@@ -22705,8 +22785,31 @@ const Mixer = (() => {
       if(!duration) return;
       const rect = wrap.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      seek(pct * duration);
+      seek(ovZoom > 1 ? Math.min(duration, ovStart + pct * ovSpan()) : pct * duration);
     };
+    // Two fingers on the trackpad: pinch zooms the wave in around the fingers (macOS sends a pinch
+    // as a wheel with ctrlKey; Safari also as gesture events), a sideways swipe moves along it.
+    wrap.addEventListener("wheel", (e) => {
+      if(!duration) return;
+      const rect = wrap.getBoundingClientRect(), f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if(e.ctrlKey){
+        e.preventDefault();
+        const at = ovStart + f * ovSpan(), z = ovZoom * Math.exp(-e.deltaY * 0.012);
+        ovSet(z, at - f * (duration / Math.max(1, Math.min(64, z))));
+      } else if(ovZoom > 1 && Math.abs(e.deltaX) > Math.abs(e.deltaY)){
+        e.preventDefault();
+        ovSet(ovZoom, ovStart + e.deltaX / rect.width * ovSpan());
+      }
+    }, {passive: false});
+    let gz = 1;
+    wrap.addEventListener("gesturestart", (e) => { e.preventDefault(); gz = ovZoom; });
+    wrap.addEventListener("gesturechange", (e) => {
+      e.preventDefault();
+      const rect = wrap.getBoundingClientRect(), f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const at = ovStart + f * ovSpan(), z = Math.max(1, Math.min(64, gz * e.scale));
+      ovSet(z, at - f * (duration / z));
+    });
+    el("nm-ov-zoom").onclick = (e) => { e.stopPropagation(); ovSet(1, 0); };
     wrap.addEventListener("pointerdown", (e) => {
       scrubbing = true;
       wrap.setPointerCapture(e.pointerId);
@@ -23448,6 +23551,11 @@ const Mixer = (() => {
     });
   }).observe(el("nm-scroll"));
 
+  el("nm-tools-band").onclick = () => {
+    groupFold.tools = !groupFold.tools;
+    try{ localStorage.setItem("pick-steems-fold", JSON.stringify(groupFold)); }catch(e){}
+    renderTrackLanes(); renderEditBar();
+  };
   el("zoom-in").onclick = () => { autoFit = false; setZoom(pixelsPerSecond * 1.5); };
   el("zoom-out").onclick = () => { autoFit = false; setZoom(pixelsPerSecond / 1.5); };
   el("zoom-fit").onclick = () => { autoFit = true; zoomToFit(); };

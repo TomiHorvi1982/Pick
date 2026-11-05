@@ -674,14 +674,22 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
 
 Mix pult Steems má tři pole pod sebou, na jedné časové ose:
 
-1. **Píseň** nahoře: přehrávání, učení, tónina, tempo, metronom a zoom, celá píseň jako jedna vlna, nástroje
-   pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), a pod nimi takty a čas, akordy, sekce, metronom a údery.
+1. **Píseň** nahoře: přehrávání, učení, tónina, tempo, metronom a zoom a **hlavní vlna** celé písně — ta je
+   vidět vždycky. Pod ní **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), akordy,
+   sekce, metronom a údery. Takty a čas zůstávají jako časová osa.
 2. **Stopy písně**: originální stopy ze separace (s textem hned pod zpěvem).
 3. **Moje kytara**: tvoje živá kytara a všechno, co k ní patří — otisky, delay, reverb, cvičení.
 
-Pruh s názvem pole (STOPY PÍSNĚ, MOJE KYTARA) pole klikem sbalí a znovu rozbalí; pamatuje se to
-(`pick-steems-fold`). Smyčka se dál kreslí přes stopy písně. Text písně a tab nad mixem mají mezi sebou
-víc místa.
+Pruh s názvem pole (POMŮCKY, STOPY PÍSNĚ, MOJE KYTARA) pole klikem sbalí a znovu rozbalí; pamatuje se to
+(`pick-steems-fold`). Smyčka se dál kreslí přes stopy písně.
+
+**Hlavní vlna se dá přiblížit**: sevření dvou prstů na trackpadu (nebo Ctrl + kolečko) přiblíží místo pod
+prsty až 64×, posun dvěma prsty do strany se po přiblížené vlně posouvá, a když píseň hraje, vlna jde za
+ní. Tlačítko s přiblížením (např. „11×“) vedle času ukáže zase celou píseň. Klik do vlny skočí na to místo.
+Zoom stop (− Celá +, sevření prstů nad stopami) zůstává zvlášť.
+
+**Text a tab** jsou dvě samostatné karty nad mixem, každá se dá sbalit. Křížky na nich už nejsou: píseň
+celou (mix, text i tab) zavře **Zavřít** nahoře — přehrávání se zastaví a znovu se načte seznam Steems.
 
 ## Ovládací panel (deck) — jen v Live Show
 
