@@ -670,10 +670,25 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
   looperu jako stopa nového projektu (`/api/stems/new/upload`, `/tracks/upload`), tam se dá dál mixovat a nahrávat.
   Bez aranžmá se vyveze hrající část dvakrát.
 
-## Ovládací panel Steems (deck)
+## Mix pult ve třech polích
 
-Nahoře ve Steems i na celé obrazovce (`static/deck.js`): velké ▶/⏸, každá stopa jako ikona na kulatém
+Mix pult Steems má tři pole pod sebou, na jedné časové ose:
+
+1. **Píseň** nahoře: přehrávání, učení, tónina, tempo, metronom a zoom, celá píseň jako jedna vlna, nástroje
+   pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), a pod nimi takty a čas, akordy, sekce, metronom a údery.
+2. **Stopy písně**: originální stopy ze separace (s textem hned pod zpěvem).
+3. **Moje kytara**: tvoje živá kytara a všechno, co k ní patří — otisky, delay, reverb, cvičení.
+
+Pruh s názvem pole (STOPY PÍSNĚ, MOJE KYTARA) pole klikem sbalí a znovu rozbalí; pamatuje se to
+(`pick-steems-fold`). Smyčka se dál kreslí přes stopy písně. Text písně a tab nad mixem mají mezi sebou
+víc místa.
+
+## Ovládací panel (deck) — jen v Live Show
+
+Na celé obrazovce Live Show (`static/deck.js`): velké ▶/⏸, každá stopa jako ikona na kulatém
 knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně v řadě, jak jdou za sebou.
+V mixu Steems už není — tam zůstalo jen tlačítko **LIVE SHOW**, **Looper** a ⌨ (klávesy a pedál) nahoře
+vedle Panely a Soubor.
 
 - **Knoflík stopy**: kolečko myši (se Shiftem jemně) nebo tažení nahoru a dolů = hlasitost (0–150 %,
   ryska je 100 %); **dvojklik ztlumí** stopu — zešedne — a další dvojklik ji vrátí. Master je hlasitost
@@ -688,9 +703,7 @@ knoflíku, Master, tónina, ladění a tempo písně, a pod tím části písně
   šlápnutí na spínač MIDI pedálu ji přiřadí. Stejné akce jsou v Nastavení → MIDI pedál (`deck:next`,
   `deck:prev`, `deck:again`, `deck:loop`, `deck:play`), tam i dvojklik a podržení.
 
-**Live Show** — celá obrazovka — se otevírá velkým tlačítkem LIVE SHOW uprostřed ovládacího panelu Steems
-(mezi kulatými knoflíky a tóninou, laděním a tempem; dřívější tlačítko „na celou obrazovku“ u textu tam
-už není). Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc).
+**Live Show** — celá obrazovka — se otevírá tlačítkem LIVE SHOW nahoře u názvu písně ve Steems. Zpátky do mixu vede tlačítko **MixPult** vpravo nahoře (nebo Esc).
 
 **V Live Show** navíc:
 - **🎛 Zvuky**: tvoje kytara — vstup zapnout/vypnout, zesilovač (NAM profil ‹ › nebo klik na název = seznam;

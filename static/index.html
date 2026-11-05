@@ -2688,6 +2688,23 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-strip-sub{font-size:9px;color:var(--nm-sub);letter-spacing:.03em;
     font-variant-numeric:tabular-nums;margin-top:1px}
   .nm-lane.thin{overflow:hidden}
+  /* The bands between the mix's fields (Stopy písně, Moje kytara): a gap, then the field's name —
+     a click folds the field away. */
+  .nm{--grp-gap:#050507}
+  .nm-strip.nm-grp,.nm-lane.nm-grp{box-sizing:border-box;cursor:pointer;border-top:14px solid var(--grp-gap);
+    border-bottom:1px solid color-mix(in srgb,var(--g) 50%,transparent);
+    background:linear-gradient(180deg,color-mix(in srgb,var(--g) 18%,#121216),#111115)}
+  .nm-grp[data-band="stems"]{--g:var(--accent,#8b5cf6)}
+  .nm-grp[data-band="mine"]{--g:#f0b43c}
+  .nm-strip.nm-grp{flex-direction:row;align-items:center;justify-content:flex-start;gap:7px;box-shadow:inset 3px 0 0 var(--g)}
+  .nm-grp-name{font-size:11.5px;font-weight:900;letter-spacing:.16em;color:var(--g);white-space:nowrap;flex-shrink:0}
+  .nm-lane.nm-grp{display:flex;align-items:center;justify-content:flex-start}
+  .nm-grp-desc{position:sticky;left:12px;font-size:11px;color:var(--nm-sub);white-space:nowrap}
+  .nm-grp-sub{font-size:10.5px;color:var(--nm-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .nm-grp-fold{border:none;background:none;color:var(--g);display:flex;padding:0;cursor:pointer;transition:transform .15s;transform:rotate(90deg)}
+  .nm-grp.folded .nm-grp-fold{transform:none}
+  .nm-strip.nm-grp:hover,.nm-lane.nm-grp:hover{filter:brightness(1.25)}
+  .nm .grp-off{display:none !important}
   /* Sbalené stopy: one thin strip a track — name, S, M, volume; the lane a band of its waveform */
   .nm-strip .nm-vol{display:none}
   #mixer.nm-compact .nm-strip:not(.thin),#mixer.nm-compact .nm-lane:not(.thin){height:34px;min-height:34px}
@@ -2706,7 +2723,7 @@ body.lib-collapsed .pick-brand{display:none}
   #mixer.nm-compact .gt-lane-note{font-size:10px}
 
   /* ---- lyrics: the readout bar and the lane ---- */
-  .lyr-dock{margin:6px 0 4px;padding:12px 24px 18px;border-radius:12px;
+  .lyr-dock{margin:6px 0 22px;padding:12px 24px 18px;border-radius:12px;
     background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
     border:1px solid rgba(255,255,255,.07)}
   .lyr-dock-tools{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);margin-bottom:6px}
@@ -20684,23 +20701,53 @@ const Mixer = (() => {
       // container instead of the tab/stem one, and goes first.
       renderChordsLane(rail, topLanes, totalPx);
     }
+    // The mix in three fields, one under another on the same time line:
+    //   the song — bars, time, chords, sections, the click and the drum hits (with the
+    //              transport, the whole-song wave and the edit tools above them);
+    //   the song's own tracks (Stopy písně), the stems;
+    //   my guitar (Moje kytara) and all that goes with it — the prints, delay, reverb, practice.
+    // Each of the two lower ones starts with a band naming it, which also folds it away.
+    const grpFrom = (key) => ({key, r: rail.children.length, l: lanes.children.length});
+    const grpTag = (g) => {
+      const off = !!groupFold[g.key];
+      [...rail.children].slice(g.r).forEach(n => { n.dataset.grp = g.key; n.classList.toggle("grp-off", off); });
+      [...lanes.children].slice(g.l).forEach(n => { n.dataset.grp = g.key; n.classList.toggle("grp-off", off); });
+    };
+    const grpBand = (key, label, sub, desc) => {
+      const off = !!groupFold[key];
+      const strip = document.createElement("div");
+      strip.className = "nm-strip thin nm-grp" + (off ? " folded" : "");
+      strip.style.setProperty("--h", "48px");
+      strip.dataset.band = key;
+      strip.innerHTML = `<button type="button" class="nm-grp-fold" title="${off ? "Rozbalit" : "Sbalit"} — ${escapeHtml(label)}">${icon("chevron", 12)}</button>
+        <span class="nm-grp-name">${escapeHtml(label)}</span><span class="nm-grp-sub">${escapeHtml(sub || "")}</span>`;
+      strip.onclick = () => {
+        groupFold[key] = !groupFold[key];
+        try{ localStorage.setItem("pick-steems-fold", JSON.stringify(groupFold)); }catch(e){}
+        renderTrackLanes(); renderEditBar();
+      };
+      rail.appendChild(strip);
+      const band = document.createElement("div");
+      band.className = "nm-lane thin nm-grp" + (off ? " folded" : "");
+      band.style.setProperty("--h", "48px");
+      band.dataset.band = key;
+      band.style.width = totalPx + "px";
+      band.innerHTML = `<span class="nm-grp-desc">${escapeHtml(off ? "sbaleno — klikni a rozbalí se" : desc || "")}</span>`;
+      band.onclick = strip.onclick;
+      lanes.appendChild(band);
+    };
+
     if(channels.length){
-      // The guitar first — it is the one channel you are playing rather than
-      // listening to — then the map of the song and the click.
-      renderGuitarLane(rail, lanes, totalPx);
-      // the prints, the delay and the reverb as the song goes (static/tonelane.js), above the sections
-      if(typeof ToneLanes !== "undefined" && currentSongName) ToneLanes.render(rail, lanes, totalPx, {
-        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, snap: (t) => snapSection(t).t,
-        rerender: () => renderTrackLanes(), seek: (t) => seek(Math.max(0, Math.min(duration, t))), time: () => currentTime()});
-      // Cvičení: timing against the record's guitar, and "Co tam hraje?" (static/timing.js, static/whatplays.js)
-      if(typeof Timing !== "undefined" && currentSongName) Timing.render(rail, lanes, totalPx, {
-        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, sections: () => sections, rerender: () => renderTrackLanes()});
+      // the map of the song and the click — the song's field, under its bars and chords
       renderSectionsLane(rail, lanes, totalPx);
       renderMetronomeLane(rail, lanes, totalPx, laneH);
       DrumHits.render(rail, lanes, totalPx);
       bindSectionLabels();
     }
     requestAnimationFrame(updateLaneOverflowHint);
+
+    if(channels.length) grpBand("stems", "STOPY PÍSNĚ", channels.length + (channels.length === 1 ? " stopa" : channels.length < 5 ? " stopy" : " stop"), "originální stopy z písně: hlasitost, S, M, úpravy");
+    const stemsGrp = grpFrom("stems");
 
     // From here down is "the stems" for the loop's own purposes: the two
     // draggable lines and the shaded span between them never reach above it.
@@ -20925,8 +20972,23 @@ const Mixer = (() => {
       // Right after the vocal stem, so the words sit next to the singing.
       if(c.stem === "vocals") renderLyricsLane(rail, lanes, totalPx);
     });
-
+    grpTag(stemsGrp);
     stemsBottomPx = lanes.getBoundingClientRect().bottom - canvasTop;
+
+    if(channels.length){
+      // Moje kytara: the one channel you are playing rather than listening to, and what goes with it
+      grpBand("mine", "MOJE KYTARA", "", "tvoje kytara a co k ní patří: otisky, delay, reverb, cvičení");
+      const mine = grpFrom("mine");
+      renderGuitarLane(rail, lanes, totalPx);
+      // the prints, the delay and the reverb as the song goes (static/tonelane.js)
+      if(typeof ToneLanes !== "undefined" && currentSongName) ToneLanes.render(rail, lanes, totalPx, {
+        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, snap: (t) => snapSection(t).t,
+        rerender: () => renderTrackLanes(), seek: (t) => seek(Math.max(0, Math.min(duration, t))), time: () => currentTime()});
+      // Cvičení: timing against the record's guitar, and "Co tam hraje?" (static/timing.js, static/whatplays.js)
+      if(typeof Timing !== "undefined" && currentSongName) Timing.render(rail, lanes, totalPx, {
+        song: currentSongName, pps: pixelsPerSecond, duration, thinLane, sections: () => sections, rerender: () => renderTrackLanes()});
+      grpTag(mine);
+    }
 
     // Grid overlay (playhead + loop) has to span ruler and every lane. Used
     // to be a guess — 22 + (channels.length+1)*laneH — that assumed a fixed
@@ -20937,7 +20999,7 @@ const Mixer = (() => {
     // channels, the lyrics lane only sometimes exists. stemsBottomPx is
     // already the real, measured bottom of the very last lane — using it
     // directly can't drift out of sync with whatever actually rendered.
-    el("nm-canvas").style.height = stemsBottomPx + "px";
+    el("nm-canvas").style.height = (lanes.getBoundingClientRect().bottom - canvasTop) + "px";
   }
 
   // ---- overview: the whole song, always fully visible ----
@@ -21016,6 +21078,8 @@ const Mixer = (() => {
   // than summed-up guesses. The loop's two lines and shaded span are drawn
   // only across that range, never up into the tab lanes or the rows above.
   let stemsTopPx = 0, stemsBottomPx = 0;
+  // which of the mix's fields (Stopy písně, Moje kytara) are folded away
+  let groupFold = (() => { try{ return JSON.parse(localStorage.getItem("pick-steems-fold") || "{}") || {}; }catch(e){ return {}; } })();
 
   let editBarFrame = 0;
   function updateLoopVisual(){

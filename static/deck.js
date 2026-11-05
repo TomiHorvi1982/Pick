@@ -1,4 +1,4 @@
-// The deck — Steems at its top, and the whole screen above the singers:
+// The deck — on the whole screen (Live Show), above the singers:
 //
 //   ▶  [track icons on knobs]  [master]   key · tuning · tempo   ⌨
 //   [intro][verse][chorus][verse]…        the song's parts, in order
@@ -10,7 +10,7 @@
 // keys are the listener's to change, and the same actions are there for the
 // MIDI pedal (Settings → MIDI pedál, or "Naučit pedál" here).
 //
-// The deck's LIVE SHOW button opens the whole screen; there MixPult goes back to the mix.
+// LIVE SHOW among the song's buttons in Steems opens the whole screen; there MixPult goes back to the mix.
 // On the whole screen also: a finder (bands and songs — a song picked loads
 // while the screen stays), and the chord helper (static/chordcoach.js): the
 // chords running past a still line, the one sounding big among the ones around
@@ -103,6 +103,9 @@ const SongDeck = (() => {
     box-shadow:0 0 0 4px color-mix(in srgb,var(--accent,#8b5cf6) 18%,transparent),0 10px 30px rgba(0,0,0,.45),0 0 26px color-mix(in srgb,var(--accent,#8b5cf6) 45%,transparent);
     transition:transform .15s,box-shadow .2s}
   .dk-live:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent,#8b5cf6) 26%,transparent),0 14px 36px rgba(0,0,0,.5),0 0 40px color-mix(in srgb,var(--accent,#8b5cf6) 60%,transparent)}
+  .dk-live.mini{margin:0 6px 0 0;padding:6px 16px 6px 12px;gap:8px}
+  .dk-live.mini .dk-live-dot{width:8px;height:8px}
+  .dk-live.mini .dk-live-t b{font-size:13px}.dk-live.mini .dk-live-t i{font-size:8px}
   .dk-live-dot{width:11px;height:11px;border-radius:50%;background:#ff3b5c;box-shadow:0 0 0 0 rgba(255,59,92,.7);animation:dk-rec 1.6s infinite}
   @keyframes dk-rec{0%{box-shadow:0 0 0 0 rgba(255,59,92,.7)}70%{box-shadow:0 0 0 10px rgba(255,59,92,0)}100%{box-shadow:0 0 0 0 rgba(255,59,92,0)}}
   .dk-live-t{display:flex;flex-direction:column;line-height:.95;text-align:left}
@@ -528,10 +531,29 @@ const SongDeck = (() => {
     box.querySelectorAll("[data-back]").forEach(b => b.onclick = () => { fq.pick = ""; findList(); });
   }
 
-  // ---- in place: Steems' top, and the whole screen (its bar gets the finder and the chord switch)
+  // ---- in place: the whole screen (its bar gets the finder and the chord switch); Steems gets the way there
   function mount(){
-    const nm = document.querySelector("#mixer .nm");
-    if(nm) mountDeck((box) => nm.insertBefore(box, nm.firstChild), "steems");
+    // The knobs and the parts are for playing — they are on the whole screen (Live Show) only; the mix
+    // keeps its way there, the looper and the keys among the song's buttons at its top.
+    const acts = document.querySelector("#steems-hero .hero-actions");
+    if(acts && !acts.querySelector(".dk-live")){
+      const lv = document.createElement("button");
+      lv.type = "button"; lv.className = "dk-live mini";
+      lv.title = "Live Show — celá obrazovka na hraní: stopy na kulatých knobech, části písně pod nimi, text, tab, akordy, klavír a kytara; zpátky tlačítkem MixPult";
+      lv.innerHTML = `<span class="dk-live-dot"></span><span class="dk-live-t"><b>LIVE</b><i>SHOW</i></span>`;
+      lv.onclick = () => D().live(true);
+      const lp = document.createElement("button");
+      lp.type = "button"; lp.className = "nm-btn round dk-hero-btn";
+      lp.title = "Looper: nahraj si píseň po vrstvách, v jejím tempu a s jejími částmi";
+      lp.innerHTML = `${icon("repeat", 14)}<span class="bl">Looper</span>`;
+      lp.onclick = () => { if(typeof Looper !== "undefined") Looper.open(song()); };
+      const ks = document.createElement("button");
+      ks.type = "button"; ks.className = "nm-btn round dk-hero-btn";
+      ks.title = "Klávesy a MIDI pedál pro přehrávání a skoky po částech";
+      ks.innerHTML = `${icon("keyboard", 14)}`;
+      ks.onclick = (e) => openKeys(e.currentTarget);
+      acts.prepend(lv, lp, ks);
+    }
     const stg = document.getElementById("nm-stage"), bar = stg && stg.querySelector(".nm-stage-bar");
     if(stg && bar){
       mountDeck((box) => bar.after(box), "stage");
