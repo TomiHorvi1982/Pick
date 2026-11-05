@@ -278,6 +278,7 @@ html{scroll-behavior:smooth}
 ├─ lyrics_worker.py   <span class="c">dotaz na Claude pro textaře</span>
 ├─ look.py            <span class="c">Úpravy vzhledu + zdroje</span>
 ├─ setlists.py       <span class="c">playlisty Steems</span>
+├─ journal.py        <span class="c">Cvičební deník: zápisy po dnech, shrnutí týdne</span>
 ├─ stems_import.py    <span class="c">ručně přidané stopy (Moises) do Steems</span>
 ├─ names.py           <span class="c">oficiální názvy písní</span>
 ├─ beatgrid.py        <span class="c">mřížka dob a taktů</span>
@@ -316,6 +317,8 @@ html{scroll-behavior:smooth}
 │  ├─ picklive.js     <span class="c">Pick Live: hrající píseň na jeviště, příprava a průběh</span>
 │  ├─ timing.js       <span class="c">Cvičení: časování proti kytaře originálu</span>
 │  ├─ whatplays.js    <span class="c">Co tam hraje?: tóny kytary jako tab a na hmatníku</span>
+│  ├─ trainer.js      <span class="c">Trenér rychlosti: smyčka od pomalého tempa po plné</span>
+│  ├─ journal.js      <span class="c">Cvičební deník: co, jak dlouho a jak daleko jsi došel</span>
 │  ├─ tonelane.js     <span class="c">lišty Otisky, Delay, Reverb nad sekcemi ve Steems</span>
 │  ├─ stampsongs.js   <span class="c">Songs with Guitar Stamps: Approved a To Review ve Steems</span>
 │  ├─ mini.html       <span class="c">minipřehrávač</span>
@@ -475,6 +478,7 @@ html{scroll-behavior:smooth}
         <div class="stop"><div class="date">4. 11.</div><div class="dot"></div><div><h4>Songs with Guitar Stamps</h4><p>První na stránce Steems a v levém panelu nad playlisty: náhodné písně s otiskem, po rozbalení všechny ve skupinách Approved (zvuk i nastavení sedí, připravené na hraní) a To Review. Schvaluje se ✓ na dlaždici nebo v liště Otisky.</p></div></div>
         <div class="stop"><div class="date">5. 11.</div><div class="dot"></div><div><h4>Poskládej si Pick</h4><p>V Úpravách vzhledu přibyla tlačítka ✥ Přesunout a ⧉ Kopírovat: cokoli v aplikaci chytíš myší a přetáhneš jinam. Přesunutý prvek funguje dál stejně, kopie dělá totéž co originál a drží se s ním. Pick Live se přestěhoval do spodního přehrávače vedle názvu písně.</p></div></div>
         <div class="stop"><div class="date">5. 11.</div><div class="dot"></div><div><h4>Cvičení: Časování a Co tam hraje?</h4><p>Nová lišta ve Steems. ● nahraje tvou hru do písně a ukáže u každého tónu, jestli spěcháš nebo táhneš proti kytaře originálu, s verdiktem po sekcích. ♪? vezme smyčku, najde v kytaře tóny a ukáže je jako tab a na hmatníku v ladění písně, i zpomaleně.</p></div></div>
+        <div class="stop"><div class="date">5. 11.</div><div class="dot"></div><div><h4>Trenér rychlosti, Cvičební deník, pedál jako klávesnice</h4><p>⏩ hraje smyčku od pomalého tempa a po každém čistém průchodu (posoudí tvou kytaru proti originálu) přidá 5 %, až na plné tempo. Deník sám zapisuje, co a jak dlouho cvičíš, na jaké tempo ses v sekci dostal, a jednou týdně ukáže, co se zlepšilo a co jsi dlouho nehrál. Pedál se dá naučit i jako Bluetooth otáčeč stránek a ovládá trenéra, časování, otisky a posun tabu.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Úklid kódu</h4><p>Z Picku zmizel i kód ToneRigu, Loops, Loop Studia, Zpěvu mým hlasem, přezpívání řádku, hlasového ovládání a asistenta. Zůstalo, co potřebují jiné funkce: tónina pro Zpěvník (stemkey.py), přepis řeči pro Výslovnost (speech.py), Claude pro Textaře (llm.py) a povely pro MIDI pedál.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Úklid modelů</h4><p>Smazány nepoužívané modely: Gemma (asistent), Vosk (hlasové ovládání) a Seed-VC (zpěv mým hlasem, přezpívání řádku) — asi 6 GB. Řádek textu jde už jen opravit.</p></div></div>
         <div class="stop"><div class="date">3. 11.</div><div class="dot"></div><div><h4>Fádr kytary uklizený</h4><p>Na fádru živé kytary ST · CMP · DBL · EQ v řadě, pod AUTO MIX tlačítka NAM a IR. Šipky u zesilovače jdou katalogem; složky s NAM presety zmizely z nastavení i z knihovny.</p></div></div>
@@ -562,7 +566,7 @@ html{scroll-behavior:smooth}
     </div>
   </section>
 
-  <footer>Mapa Picku · podle kódu v commitu 47a3241 (5. 11. 2026) · podrobnosti v <code>app/README.md</code></footer>
+  <footer>Mapa Picku · podle kódu v commitu 4471306 (5. 11. 2026) · podrobnosti v <code>app/README.md</code></footer>
 </main>
 
 <script>
