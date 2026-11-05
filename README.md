@@ -1427,6 +1427,12 @@ v okně čtyř pražců, prázdné struny zdarma, pozice se mění co nejmíň (
 Okno ukáže tab, hmatník (právě znějící tón svítí), názvy tónů; přehraje úsek 50 / 75 / 100 % bez změny výšky,
 jen kytaru nebo celou píseň, dokola; klik na číslo v tabu hraje od toho tónu; „Kopírovat tab“ dá textový tab.
 U zkreslené kytary a rychlých pasáží se rozpoznávání může splést — je to vodítko, ověřit uchem.
+**Moje ladění:** výběr vedle kytary přepočítá tab i hmatník na ladění tvé kytary (Drop D, Eb, D, Drop C, C,
+B, Drop A, DADGAD, open ladění, 7 a 8 strun, nebo vlastní — „D A D G B E“ od nejhlubší struny, i s oktávami).
+Hrají se přesně tytéž tóny, jen jinde na hmatníku; tón hlubší než tvoje nejhlubší struna dá o oktávu výš
+(čárkovaně, s upozorněním). Když je tvoje ladění ladění písně posunuté o pár půltónů, jde zaškrtnout **stejné
+hmaty jako originál** (pak zníš o ten posun jinak — píseň si dorovnáš tlačítkem Moje ladění v mixu).
+Volba se pamatuje v prohlížeči (`pick-whatplays-tuning`).
 
 **⏩ Trenér rychlosti** (`static/trainer.js`). Smyčka na těžkém místě (bez smyčky vezme sekci u kurzoru),
 start třeba na 70 %, po každém **čistém průchodu** +5 % až do cíle (100 %). Čistý průchod posuzuje podle

@@ -11,6 +11,41 @@ const WhatPlays = (() => {
   const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   const nn = (m) => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
   const STD = [64, 59, 55, 50, 45, 40];
+  // the player's own tuning (high string first): the notes are laid out where they lie on *that* neck
+  const TUNINGS = [
+    ["std", "Standard E", [64, 59, 55, 50, 45, 40]], ["dropd", "Drop D", [64, 59, 55, 50, 45, 38]],
+    ["eb", "Eb (o půltón níž)", [63, 58, 54, 49, 44, 39]], ["dropcs", "Drop C#", [63, 58, 54, 49, 44, 37]],
+    ["d", "D standard", [62, 57, 53, 48, 43, 38]], ["dropc", "Drop C", [62, 57, 53, 48, 43, 36]],
+    ["cs", "C# standard", [61, 56, 52, 47, 42, 37]], ["c", "C standard", [60, 55, 51, 46, 41, 36]],
+    ["dropb", "Drop B", [61, 56, 52, 47, 42, 35]], ["b", "B standard", [59, 54, 50, 45, 40, 35]],
+    ["dropa", "Drop A", [59, 54, 50, 45, 40, 33]],
+    ["dadgad", "DADGAD", [62, 57, 55, 50, 45, 38]], ["openg", "Open G", [62, 59, 55, 50, 43, 38]],
+    ["opend", "Open D", [62, 57, 54, 50, 45, 38]], ["opene", "Open E", [64, 59, 56, 52, 47, 40]],
+    ["7b", "7 strun: B E A D G B E", [64, 59, 55, 50, 45, 40, 35]], ["7a", "7 strun: Drop A", [64, 59, 55, 50, 45, 40, 33]],
+    ["8fs", "8 strun: F# B E A D G B E", [64, 59, 55, 50, 45, 40, 35, 30]],
+  ];
+  const TKEY = "pick-whatplays-tuning";
+  const myPick = () => { try{ return JSON.parse(localStorage.getItem(TKEY) || "null") || {k: "song"}; }catch(e){ return {k: "song"}; } };
+  const keepPick = (v) => { try{ localStorage.setItem(TKEY, JSON.stringify(v)); }catch(e){} };
+  const tname = (tun) => { const d = typeof describeTuning === "function" ? describeTuning(tun) : null; return (d && d.name) || tun.slice().reverse().map(m => NAMES[((m % 12) + 12) % 12]).join(" "); };
+  // "D A D G B E" (low to high) or with octaves "D2 A2 D3 G3 B3 E4" → MIDI, high string first
+  function parseTuning(text){
+    const toks = String(text || "").trim().split(/[\s,;-]+/).filter(Boolean);
+    if(toks.length < 4 || toks.length > 9) return null;
+    const out = [];
+    for(const t of toks){
+      const m = /^([A-Ga-g])([#b♯♭]?)(-?\d)?$/.exec(t); if(!m) return null;
+      let pc = {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11, H: 11}[m[1].toUpperCase()];
+      if(m[2] === "#" || m[2] === "♯") pc++; if(m[2] === "b" || m[2] === "♭") pc--;
+      if(m[3] != null){ out.push((+m[3] + 1) * 12 + pc); continue; }
+      if(!out.length){                      // the lowest string: the octave nearest the usual low one (E2, B1 on 7 strings, F#1 on 8)
+        const aim = 40 - 5 * Math.max(0, toks.length - 6); let best = null; for(let o = 0; o < 4; o++){ const x = (o + 1) * 12 + pc; if(best == null || Math.abs(x - aim) < Math.abs(best - aim)) best = x; }
+        out.push(best);
+      } else { let x = out[out.length - 1] + 1; while(((x % 12) + 12) % 12 !== ((pc % 12) + 12) % 12) x++; out.push(x); }
+    }
+    for(let i = 1; i < out.length; i++) if(out[i] <= out[i - 1] || out[i] - out[i - 1] > 12) return null;
+    return out.reverse();
+  }
   const MAXF = 22, SPAN = 4;
   let win = null, st = null;
 
@@ -103,6 +138,8 @@ const WhatPlays = (() => {
       .wp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border,#262840)}
       .wp-bar select,.wp-bar button{font:inherit;font-size:12.5px;background:var(--bg2,#12131f);color:inherit;border:1px solid var(--border,#262840);border-radius:8px;padding:5px 9px;cursor:pointer}
       .wp-bar button.on,.wp-bar .wp-play{background:var(--accent,#8b7bff);border-color:var(--accent,#8b7bff);color:#0c0c16;font-weight:700}
+      .wp-shapes{font-size:12px;color:var(--sub,#8f96c0)}.wp-shapes input{vertical-align:-2px;margin-right:4px}
+      .wp-f.up{outline:1px dashed #ff9f43}
       .wp-bar .wp-sp{display:flex;gap:2px}.wp-bar .wp-sp button{padding:5px 8px}
       .wp-body{overflow:auto;padding:12px 14px 16px}
       .wp-msg{color:var(--sub,#8f96c0);padding:24px;text-align:center}
@@ -168,6 +205,8 @@ const WhatPlays = (() => {
     win.innerHTML = `<header><b>Co tam hraje?</b><small class="wp-sub"></small><button type="button" class="wp-x" title="Zavřít">×</button></header>
       <div class="wp-bar">
         <select class="wp-stem" title="Která kytara">${stems.map(s => `<option value="${esc(s)}">${esc(label(s))}</option>`).join("")}</select>
+        <select class="wp-tun" title="Ladění tvé kytary — tab a hmatník se přepočítají, kde to hrát"><option>Ladění…</option></select>
+        <span class="wp-shapes" hidden></span>
         <button type="button" class="wp-play" title="Přehrát úsek (mezerník)">▶ Přehrát</button>
         <span class="wp-sp" title="Rychlost — výška tónů zůstane">${[0.5, 0.75, 1].map(v => `<button type="button" data-v="${v}">${v * 100} %</button>`).join("")}</span>
         <button type="button" class="wp-whole" title="Hrát jen kytaru, nebo celou píseň">Jen kytara</button>
@@ -185,6 +224,7 @@ const WhatPlays = (() => {
     win.querySelector(".wp-whole").onclick = () => { st.whole = !st.whole; const was = st.audio && !st.audio.paused; stopAudio(); bar(); if(was) play(); };
     win.querySelector(".wp-loop").onclick = () => { st.loop = !st.loop; if(st.audio) st.audio.loop = st.loop; bar(); };
     win.querySelector(".wp-copy").onclick = copyTab;
+    win.querySelector(".wp-tun").onchange = (e) => pickTuning(e.target.value);
     win.addEventListener("keydown", (e) => { if(e.key === " "){ e.preventDefault(); e.stopPropagation(); win.querySelector(".wp-play").click(); } });
     win.tabIndex = -1; win.focus();
     bar();
@@ -208,13 +248,75 @@ const WhatPlays = (() => {
       if(st !== my) return;
       let tun = Array.isArray(d.tuning) && d.tuning.length >= 4 ? d.tuning.slice() : STD.slice();
       if(tun[0] < tun[tun.length - 1]) tun.reverse();                     // high string first
-      my.tun = tun;
-      const dt = typeof describeTuning === "function" ? describeTuning(tun) : null;
-      my.tunName = dt && dt.name || "";
-      my.notes = clean(d.notes).filter(n => n.m >= tun[tun.length - 1] && n.m <= tun[0] + MAXF);
-      my.lay = layout(my.notes, tun);
-      bar(); paint();
+      my.songTun = tun;
+      my.raw = clean(d.notes);
+      relayout(my);
+      tunBar(); bar(); paint();
     }catch(e){ if(st === my) body.innerHTML = `<p class="wp-msg">${esc(e.message)}</p>`; }
+  }
+
+  // the notes onto the tuning chosen: the song's own, or the player's (exact notes, or the same shapes
+  // as on the record when the player's tuning is the song's moved by a few semitones)
+  function mineOf(my){
+    const p = myPick();
+    if(p.k === "custom" && Array.isArray(p.tun) && p.tun.length >= 4) return p.tun;
+    const t = TUNINGS.find(x => x[0] === p.k);
+    return t ? t[2].slice() : my.songTun.slice();
+  }
+  function shiftOf(my){
+    const a = my.tun, b = my.songTun;
+    if(!a || !b || a.length !== b.length) return null;
+    const d = a[0] - b[0];
+    return d && a.every((m, i) => m - b[i] === d) ? d : null;
+  }
+  function relayout(my){
+    my.tun = mineOf(my);
+    my.shift = shiftOf(my);
+    const sh = my.shift != null && myPick().shapes ? my.shift : 0;
+    const lo = my.tun[my.tun.length - 1], hi = my.tun[0] + MAXF;
+    my.below = 0;
+    my.notes = my.raw.map(n => {
+      let m = n.m + sh;
+      if(m < lo){ while(m < lo) m += 12; my.below++; return {...n, m, up: true}; }
+      return m === n.m ? n : {...n, m};
+    }).filter(n => n.m <= hi);
+    my.lay = layout(my.notes, my.tun);
+    const own = myPick().k !== "song";
+    my.tunName = own ? `tvoje ladění: ${tname(my.tun)} (píseň: ${tname(my.songTun)})` : tname(my.tun);
+  }
+  // the tuning picker and, when it fits, "the same shapes"
+  function tunBar(){
+    if(!win || !st || !st.songTun) return;
+    const p = myPick(), sel = win.querySelector(".wp-tun"), box = win.querySelector(".wp-shapes");
+    const custom = p.k === "custom" && p.tun ? `<option value="custom" selected>Vlastní: ${esc(tname(p.tun))}</option>` : "";
+    sel.innerHTML = `<option value="song">Ladění písně (${esc(tname(st.songTun))})</option>
+      <optgroup label="Moje kytara je laděná">${TUNINGS.map(([k, l]) => `<option value="${k}" ${p.k === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${custom}
+      <option value="new">Vlastní ladění…</option></optgroup>`;
+    if(p.k === "song") sel.value = "song";
+    const d = st.shift;
+    box.hidden = d == null;
+    if(d != null){
+      const n = Math.abs(d), word = n === 1 ? "půltón" : n < 5 ? "půltóny" : "půltónů";
+      box.innerHTML = `<label title="Tvoje ladění je ladění písně posunuté o ${n} ${word}: buď hraješ přesně tytéž tóny (jinde na hmatníku), nebo stejné hmaty jako originál — pak zníš o ${n} ${word} ${d > 0 ? "výš" : "níž"} (píseň si v Picku dorovnáš tlačítkem Moje ladění)">
+        <input type="checkbox" ${p.shapes ? "checked" : ""}> Stejné hmaty jako originál (zníš o ${n} ${word} ${d > 0 ? "výš" : "níž"})</label>`;
+      box.querySelector("input").onchange = (e) => { keepPick({...myPick(), shapes: e.target.checked}); redo(); };
+    }
+  }
+  async function pickTuning(v){
+    if(v === "new"){
+      const cur = myPick();
+      const t = typeof Dialog !== "undefined" ? await Dialog.prompt("Ladění tvé kytary od nejhlubší struny, např. „D A D G B E“ nebo s oktávami „B1 E2 A2 D3 G3 B3 E4“.",
+        cur.tun ? cur.tun.slice().reverse().map(m => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1)).join(" ") : "D A D G B E", {title: "Vlastní ladění", ok: "Použít"}) : null;
+      if(t == null){ tunBar(); return; }
+      const tun = parseTuning(t);
+      if(!tun){ say("Tomu ladění nerozumím — napiš 4 až 9 tónů od nejhlubší struny, třeba D A D G B E"); tunBar(); return; }
+      keepPick({k: "custom", tun, shapes: cur.shapes});
+    } else keepPick({...myPick(), k: v});
+    redo();
+  }
+  function redo(){
+    if(!st || !st.raw) return;
+    relayout(st); tunBar(); bar(); stopAudio(); paint();
   }
 
   // ---------------------------------------------------------------- tab and neck
@@ -226,10 +328,11 @@ const WhatPlays = (() => {
     let html = `<div class="wp-tab"><div class="wp-tabin" style="width:${w}px;height:${h}px">`;
     tun.forEach((m, s) => { const y = 10 + s * ROW; html += `<div class="wp-str" style="top:${y}px"></div><span class="wp-sn" style="top:${y}px">${NAMES[m % 12]}</span>`; });
     L.forEach((g, i) => g.pos.forEach(p => {
-      html += `<span class="wp-f" data-g="${i}" style="left:${LEFT + (g.t - st.a) * PPS}px;top:${10 + p.s * ROW}px" title="${nn(p.n.m)} · ${p.s + 1}. struna, ${p.f}. pražec · ${mmss(g.t)}">${p.f}</span>`;
+      html += `<span class="wp-f${p.n.up ? " up" : ""}" data-g="${i}" style="left:${LEFT + (g.t - st.a) * PPS}px;top:${10 + p.s * ROW}px" title="${nn(p.n.m)} · ${p.s + 1}. struna, ${p.f}. pražec · ${mmss(g.t)}${p.n.up ? " · v originále o oktávu níž, než tvoje kytara zahraje" : ""}">${p.f}</span>`;
     }));
     html += `<div class="wp-head"></div></div></div><div class="wp-neck">${neck(-1)}</div>`;
     const names = L.map(g => g.pos.length > 1 ? `<b>[${g.pos.map(p => nn(p.n.m)).join(" ")}]</b>` : nn(g.pos[0] ? g.pos[0].n.m : 0)).join(" · ");
+    if(st.below) html += `<p class="wp-hint" style="color:#ff9f43">${st.below} ${st.below === 1 ? "tón je" : st.below < 5 ? "tóny jsou" : "tónů je"} hlouběji, než tvoje nejhlubší struna — v tabu jsou o oktávu výš (čárkovaně).</p>`;
     html += `<div class="wp-names">${names}</div>
       <p class="wp-hint">Tóny rozpoznává basic-pitch z oddělené kytary — u zkreslené kytary a rychlých pasáží se může splést; ber to jako vodítko a ověř uchem (zpomaleně). Klik na číslo = přehraje od toho tónu.</p>`;
     body.innerHTML = html;
