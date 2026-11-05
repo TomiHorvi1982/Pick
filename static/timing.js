@@ -9,7 +9,7 @@
 // ♪ in the same lane is "Co tam hraje?" (static/whatplays.js).
 const Timing = (() => {
   const enc = encodeURIComponent;
-  const say = (m) => { try{ showToast(m); }catch(e){} };
+  const say0 = (m) => { try{ showToast(m); }catch(e){} }, say = say0;
   const esc = (x) => (typeof escapeHtml === "function" ? escapeHtml(String(x == null ? "" : x)) : String(x == null ? "" : x));
   const ic = (n, s = 12) => (typeof icon === "function" ? icon(n, s) : "");
   const OK = 25;                       // ms either way: on time
@@ -51,6 +51,8 @@ const Timing = (() => {
     const lane = c.thinLane(rail, lanes, totalPx, "Cvičení", 34, "tmg-lane");
     headBtn(rail, rec ? "■" : "●", rec ? "Zastavit a vyhodnotit časování" : "Časování: nahraj se do písně (spusť ji a hraj) — ukáže, kde spěcháš a kde táhneš proti kytaře originálu",
       () => (rec ? stop() : start()), rec ? "on tmg-rec" : "tmg-rec");
+    headBtn(rail, "⏩", "Trenér rychlosti — smyčka od pomalého tempa; po každém čistém průchodu o kus rychleji, až na plné tempo",
+      () => { if(typeof Trainer !== "undefined") Trainer.open(); }, typeof Trainer !== "undefined" && Trainer.running() ? "on" : "");
     headBtn(rail, "♪?", "Co tam hraje? — tóny kytary ve smyčce (nebo 5 s od kurzoru) jako tab a na hmatníku, i zpomaleně",
       () => { if(typeof WhatPlays !== "undefined") WhatPlays.open(); });
     const run = runs && runs[0];
@@ -127,25 +129,40 @@ const Timing = (() => {
 
   // ---------------------------------------------------------------- recording
   const guitars = () => (Mixer.channelInfo ? Mixer.channelInfo() : []).map(c => c.stem).filter(s => /^guitar/.test(s));
-  async function start(){
+  // ---- the live guitar, clean, recorded on the AudioContext's clock (blocks: {t, n, data}); the trainer
+  // (static/trainer.js) takes the same, a pass at a time
+  async function capture(){
     const G = Mixer.guitar;
-    if(!G || !G.isLive()){ say("Nejdřív zapni vstup kytary — tlačítko s kytarou na kanálu Live kytara"); return; }
-    if(!guitars().length){ say("Píseň nemá kytarovou stopu — není s čím porovnat"); return; }
+    if(!G || !G.isLive()) throw new Error("Nejdřív zapni vstup kytary — tlačítko s kytarou na kanálu Live kytara");
     const c = Mixer.voiceOut().ac;
     let node;
     const opts = {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit"};
     try{ node = new AudioWorkletNode(c, "take-recorder", opts); }
     catch(e){ try{ await c.audioWorklet.addModule("/static/worklets/guitar.js"); node = new AudioWorkletNode(c, "take-recorder", opts); }
-      catch(x){ say("Nahrávání se nepodařilo spustit"); return; } }
+      catch(x){ throw new Error("Nahrávání se nepodařilo spustit"); } }
     const sink = c.createGain(); sink.gain.value = 0; node.connect(sink); sink.connect(c.destination);
-    const tap = () => { const t = G.cleanTap(); if(t) try{ t.connect(node); }catch(e){} };
+    let tapped = null;
+    const tap = () => { const t = G.cleanTap(); if(t) try{ t.connect(node); tapped = t; }catch(e){} };
     tap();
     const unhook = G.onRewire(tap);
-    const batches = [];
-    let stopped; const done = new Promise(res => { stopped = res; });
-    node.port.onmessage = (e) => { const d = e.data; if(d && d.done) stopped(); else if(d && d.data) batches.push(d); };
+    const r = {node, sink, batches: [], sr: c.sampleRate, lat: Mixer.takeLatency(), speed: Mixer.speed(), ac: c};
+    let stopped; r.done = new Promise(res => { stopped = res; });
+    node.port.onmessage = (e) => { const d = e.data; if(d && d.done) stopped(); else if(d && d.data) r.batches.push(d); };
     node.port.postMessage("start");
-    rec = {node, sink, unhook, batches, done, sr: c.sampleRate, lat: Mixer.takeLatency(), speed: Mixer.speed(), name: song, tap: G.cleanTap()};
+    r.close = async () => {
+      node.port.postMessage("stop");
+      await Promise.race([r.done, new Promise(res => setTimeout(res, 1500))]);
+      unhook();
+      try{ if(tapped) tapped.disconnect(node); }catch(e){}
+      node.disconnect(); sink.disconnect();
+    };
+    return r;
+  }
+  async function start(){
+    if(!guitars().length){ say("Píseň nemá kytarovou stopu — není s čím porovnat"); return; }
+    if(typeof Trainer !== "undefined" && Trainer.running()){ say("Teď běží trenér rychlosti — ten časování měří sám"); return; }
+    try{ rec = await capture(); }catch(e){ say(e.message); return; }
+    rec.name = song;
     if(!Mixer.isPlaying()) Mixer.play();
     rec.watch = setInterval(() => { if(rec && !Mixer.isPlaying()) stop(); }, 250);
     ctx.rerender();
@@ -154,20 +171,18 @@ const Timing = (() => {
   async function stop(){
     const r = rec; if(!r) return;
     rec = null; clearInterval(r.watch);
-    r.node.port.postMessage("stop");
-    await Promise.race([r.done, new Promise(res => setTimeout(res, 1500))]);
-    r.unhook();
-    try{ if(r.tap) r.tap.disconnect(r.node); }catch(e){}
-    r.node.disconnect(); r.sink.disconnect();
+    await r.close();
     busy = "vyhodnocuji časování…"; ctx && ctx.rerender();
     try{
       const run = await measure(r);
       if(!run){ busy = ""; ctx && ctx.rerender(); return; }
       await keep(r.name, run);
       say(`Časování: ${overall(run)} · ${run.within} % tónů do ${OK} ms`);
+      if(typeof Journal !== "undefined") Journal.event(r.name, "timing", {within: run.within, median: run.median, n: run.n, speed: run.speed});
     }catch(e){ say("Vyhodnocení se nepovedlo: " + e.message); }
     busy = ""; ctx && ctx.rerender();
   }
+  const toggle = () => (rec ? stop() : start());
 
   // the blocks on the song's clock: stretches where the song ran on without a jump (a loop starts a new one)
   function stretches(r){
@@ -212,7 +227,10 @@ const Timing = (() => {
     return (a.notes || []).map(n => n.t);
   }
 
+  // r.quiet: no toasts (a trainer's pass); r.after: blocks recorded before it (ctx time) are left out
   async function measure(r){
+    const say = r.quiet ? () => {} : say0;
+    if(r.after) r = {...r, batches: r.batches.filter(b => b.t >= r.after)};
     const segs = stretches(r);
     if(!segs.length){ say("Nahrávka je moc krátká — hraj aspoň pár vteřin"); return null; }
     let peak = 0;
@@ -256,7 +274,7 @@ const Timing = (() => {
     const med = (xs) => { const s = xs.slice().sort((p, q) => p - q); return s.length ? s[s.length >> 1] : null; };
     const within = (xs) => Math.round(xs.filter(d => Math.abs(d) <= OK).length / xs.length * 100);
     const median = med(ds), spread = med(ds.map(d => Math.abs(d - median)));
-    const secs = (ctx.sections ? ctx.sections() : []).map(x => {
+    const secs = (ctx && ctx.sections ? ctx.sections() : (Mixer.sectionsNow ? Mixer.sectionsNow() : [])).map(x => {
       const xs = hits.filter(h => h[0] >= x.start && h[0] < x.end).map(h => h[1]);
       return {name: x.name, start: x.start, end: x.end, n: xs.length, median: xs.length ? med(xs) : null, within: xs.length ? within(xs) : null};
     }).filter(x => x.n);
@@ -264,5 +282,5 @@ const Timing = (() => {
             from: hits[0][0], to: hits[hits.length - 1][0], sections: secs};
   }
 
-  return {render, recording: () => !!rec, runs: () => runs, _measure: measure};
+  return {render, toggle, recording: () => !!rec, runs: () => runs, capture, measure, OK, _measure: measure};
 })();

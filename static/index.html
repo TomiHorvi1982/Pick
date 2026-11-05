@@ -10488,6 +10488,7 @@ function renderLibraryRail(mode){
       list.appendChild(SteemsFind.railNode(collapsed));
       if(typeof StampSongs !== "undefined") list.appendChild(StampSongs.railBox(collapsed));      // above the playlists
       if(typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
+      if(typeof Journal !== "undefined") list.appendChild(Journal.railBox(collapsed));
       return;
     }
     if(RAIL_BRANCH_SECTIONS.has(sec.key)){
@@ -10915,6 +10916,7 @@ const SteemsRail = (() => {
       const collapsed = railModeSection(list, sec, mode);
       if(sec.key === "steems") list.appendChild(SteemsFind.railNode(collapsed));
       if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
+      if(sec.key === "steems" && typeof Journal !== "undefined") list.appendChild(Journal.railBox(collapsed));
     });
     const name = currentSteemsName, d = stemsDisplayByName(name), a = who(name);
     if(a !== artist){ artist = a; data = null; err = ""; sel.clear(); open.clear(); at = 0; }
@@ -16408,10 +16410,14 @@ const Mixer = (() => {
   // Tempo or key was changed. Moving a little at a time (the buttons) must
   // stay smooth, so a running mix is re-scheduled in place rather than
   // stopped.
-  let tempoApplyTimer = null;
+  let tempoApplyTimer = null, tempoQueued = false, tempoApplying = null;
   function requestTempoPitch(){
     clearTimeout(tempoApplyTimer);
-    tempoApplyTimer = setTimeout(applyTempoPitch, 120);
+    tempoQueued = true;
+    tempoApplyTimer = setTimeout(() => {
+      tempoQueued = false;
+      tempoApplying = Promise.resolve(applyTempoPitch()).catch(() => {}).finally(() => { tempoApplying = null; });
+    }, 120);
   }
 
   async function applyTempoPitch(){
@@ -21253,6 +21259,7 @@ const Mixer = (() => {
   // The deck's way through the song (static/deck.js): a part played again, a part left out — asked
   // here, where the loop wraps, so a jump is made the same way.
   let flowHook = null;
+  const wrapHooks = new Set();        // who wants to know a loop pass is over (static/trainer.js)
   function tick(){
     if(!isPlaying) return;
     let t = currentTime();
@@ -21273,6 +21280,7 @@ const Mixer = (() => {
       scheduleAll(t);
       syncTabIndices(t); // the guide restarts at loopStart, not at bar one
       TakeRec.onWrap();
+      wrapHooks.forEach(f => { try{ f(); }catch(e){ console.error("wrap:", e); } });
     }
     updateSeekUI(t);
     updateRulerPlayhead(t);
@@ -26978,6 +26986,8 @@ const Mixer = (() => {
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
     speed: () => speed, setSpeed: (v) => setSpeed(v),
+    // the tempo asked for is in place (the stretching made ready, the sources restarted)
+    tempoSettled: async () => { for(let i = 0; i < 300 && (tempoQueued || tempoApplying); i++) await (tempoApplying || new Promise(r => setTimeout(r, 40))); },
     // The tone print (static/tone.js): the song's clock for a take, the NAM engine, the
     // take latency, the live guitar's doubler.
     songAt: (t) => songAtCtx(t),
@@ -27152,6 +27162,8 @@ const Mixer = (() => {
     position: () => currentTime(), vizTap: () => masterGain ? {ctx: audioCtx, node: masterGain} : null,
     autoGate: AutoGate, autoMix: AutoMix,
     loopNow: () => loopEnabled && loopEnd > loopStart ? {start: loopStart, end: loopEnd} : null,
+    // a loop pass is over (the song jumps back to the loop's start); returns a way to stop listening
+    onWrap: (f) => { wrapHooks.add(f); return () => wrapHooks.delete(f); },
     play: () => { if(!isPlaying) play(); }, pause: () => { if(isPlaying) pause(); },
     sectionsNow: () => sections.map(x => ({name: x.name, kind: x.kind, start: x.start, end: x.end, color: x.color})), length: () => duration,
     // The deck (static/deck.js): the tracks as icons with a knob, the song's parts, its chords and facts.
@@ -35445,6 +35457,8 @@ const Voice = (() => {
 <script src="/static/picklive.js"></script>
 <script src="/static/timing.js"></script>
 <script src="/static/whatplays.js"></script>
+<script src="/static/trainer.js"></script>
+<script src="/static/journal.js"></script>
 <script src="/static/tonelane.js"></script>
 <script src="/static/stampsongs.js"></script>
 <script src="/static/viz.js"></script>

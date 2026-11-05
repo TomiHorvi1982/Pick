@@ -353,6 +353,13 @@ MIDI / Obnovit** ho o to požádá (`POST /api/midi/bluetooth` → `tools/midi_b
 zařízení macOS zná a jestli je připojené (`GET /api/midi/system`). Pedál spojený s jiným
 zařízením (telefon) nevysílá a Mac ho nevidí — tam ho odpoj.
 
+**Pedál jako klávesnice a další funkce.** Pedál, který se k Macu připojí jako klávesnice (Bluetooth otáčeč
+stránek — posílá šipky, PageDown, mezerník…), se učí stejně: Naučit a šlápni; klávesa umí šlápnutí,
+dvojklik i podržení. Přiřazená klávesa pak dělá jen funkci pedálu (zachytí se dřív než zkratky Picku; při
+psaní do polí ne), Esc učení zruší. Nové funkce pro pedál: **Trenér rychlosti zap / vyp**, **Časování
+nahrát / vyhodnotit**, **Co tam hraje?**, **další / předchozí otisk** (otisky otevřené písně, jinak všechny),
+**tab / text o kus dolů / nahoru** (vytažený tab v okně, jinak co se na stránce posouvá).
+
 **Okna Picku místo okének prohlížeče** (`Dialog` v `index.html`): potvrzení, zadání názvu
 i výběr ze seznamu se otevírají uprostřed v barvách aplikace (Enter / Esc), ne jako šedé
 „127.0.0.1 říká…“ nahoře; i z Analyzéru a Loop Studia.
@@ -1420,6 +1427,28 @@ v okně čtyř pražců, prázdné struny zdarma, pozice se mění co nejmíň (
 Okno ukáže tab, hmatník (právě znějící tón svítí), názvy tónů; přehraje úsek 50 / 75 / 100 % bez změny výšky,
 jen kytaru nebo celou píseň, dokola; klik na číslo v tabu hraje od toho tónu; „Kopírovat tab“ dá textový tab.
 U zkreslené kytary a rychlých pasáží se rozpoznávání může splést — je to vodítko, ověřit uchem.
+
+**⏩ Trenér rychlosti** (`static/trainer.js`). Smyčka na těžkém místě (bez smyčky vezme sekci u kurzoru),
+start třeba na 70 %, po každém **čistém průchodu** +5 % až do cíle (100 %). Čistý průchod posuzuje podle
+tvé kytary: každý průchod smyčkou se nahraje a změří stejně jako Časování (`Timing.capture` / `Timing.measure`)
+— aspoň 70 % tónů do 25 ms od originálu a zahraných aspoň 60 % jeho tónů. Tři nečisté průchody za sebou
+= o krok zpět (jde vypnout). Bez kytary jen počítá průchody a přidá každé N-té. Konec průchodu hlásí
+přehrávač (`Mixer.onWrap`), tempo se mění za běhu (`Mixer.tempoSettled` počká, až platí); úsek nahrávky
+před změnou tempa se do posouzení nepočítá. Okno ukáže tempo, postup k cíli a výsledek každého průchodu;
+− / + posune ručně. Nastavení v prohlížeči (`pick-trainer`), výsledek jde do deníku.
+
+## Cvičební deník
+
+`static/journal.js` + `journal.py`. Pick sám zapisuje: když ve Steems hraje píseň, každých 5 s přičte čas
+(a kolik z toho s kytarou zapnutou), sekci, ve které hraje, a u smyčky tempo, na kterém ji hraješ (nejvyšší).
+Trenér a Časování přidají svoje výsledky. Každou minutu (a při zavření stránky přes `sendBeacon`) odejde
+`POST /api/journal {day, song, title, secs, guitar, sections, event}`; server sčítá po dnech a písních do
+`~/.local/share/spotdl-helper/practice-journal.json` (rok zpátky; jedno volání nejvýš hodina).
+`GET /api/journal?week=N` dá týden (Po–Ne): minuty po dnech, písně se sekcemi a tempem, **co se zlepšilo**
+proti době před týdnem (tempo sekce o 5 % a víc, časování o 5 bodů, trenér dotažený do cíle) a **dlouho jsi
+nehrál** (písně cvičené aspoň 10 min, 14 dní nehrané). V levém panelu pod Steems „📓 Cvičební deník“; okno
+listuje týdny ‹ ›, klik na píseň ji otevře. Jednou týdně (`remind`, `POST /api/journal/reminded`) se samo
+ukáže shrnutí minulého týdne. `DELETE /api/journal` smaže vše (s potvrzením).
 
 ## Pick Live
 

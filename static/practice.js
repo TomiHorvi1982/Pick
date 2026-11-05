@@ -186,6 +186,9 @@ const Pedal = (() => {
     ["looper:play", "Looper: spustit / zastavit"], ["looper:scene:+", "Looper: další část"], ["looper:scene:-", "Looper: předchozí část"],
     ["looper:track:1", "Looper: stopa 1"], ["looper:track:2", "Looper: stopa 2"], ["looper:track:3", "Looper: stopa 3"],
     ["looper:track:4", "Looper: stopa 4"], ["looper:track:5", "Looper: stopa 5"],
+    ["trainer", "Trenér rychlosti zap / vyp"], ["timing", "Časování: nahrát / vyhodnotit"], ["whatplays", "Co tam hraje? (smyčka)"],
+    ["stamp:+", "Další otisk (zvuk kytary)"], ["stamp:-", "Předchozí otisk"],
+    ["tab:+", "Tab / text o kus dolů"], ["tab:-", "Tab / text o kus nahoru"],
   ];
   const GESTURES = {single: "šlápnutí", double: "dvojklik", long: "podržení"};
   const LONG_MS = 600, DOUBLE_MS = 320;
@@ -233,6 +236,30 @@ const Pedal = (() => {
       if(has("long") || has("double")) tap();
     }
   }
+  // the next print of the song open (or of all, when it has none), on the live guitar
+  async function stampStep(d){
+    if(typeof Tone === "undefined") return null;
+    let all = [];
+    try{ all = await Tone.prints(); }catch(e){ return "otisky se nepodařilo načíst"; }
+    const song = Mixer.currentSong && Mixer.currentSong();
+    const list = all.filter((p) => p.song === song).length ? all.filter((p) => p.song === song) : all;
+    if(!list.length) return "zatím žádné otisky";
+    const cur = Tone.current();
+    let i = cur ? list.findIndex((p) => p.song === cur.from && p.id === cur.pid) : -1;
+    i = i < 0 ? (d > 0 ? 0 : list.length - 1) : (i + d + list.length) % list.length;
+    const p = list[i];
+    try{ await Tone.apply(song || p.song, p.id, true, p.song); }catch(e){ return e.message; }
+    return `otisk ${i + 1}/${list.length}: ${p.name || "bez názvu"}`;
+  }
+  // the tab lifted out into its window, or else whatever scrolls on the page (the voice's "page")
+  function tabScroll(d){
+    const box = document.getElementById("tab-float-body"), win = document.getElementById("tab-float");
+    if(win && !win.hidden && box && box.scrollHeight > box.clientHeight + 10){
+      box.scrollBy({top: d * 0.8 * box.clientHeight, behavior: "smooth"});
+      return d > 0 ? "tab dolů" : "tab nahoru";
+    }
+    return Voice.run(d > 0 ? "page:+" : "page:-");
+  }
   function run(action, g){
     let said = null;
     try{
@@ -245,6 +272,11 @@ const Pedal = (() => {
         else { const anyOn = gs.some((s) => !(Mixer.channelByStem(s) || {}).muted); Mixer.voice.guitars(!anyOn); said = anyOn ? "kytary ztlumené" : "kytary hrají"; }
       }else if(action.startsWith("looper:")) said = typeof Looper !== "undefined" ? Looper.run(action.slice(7)) : null;
       else if(action.startsWith("deck:")) said = typeof SongDeck !== "undefined" ? SongDeck.run(action.slice(5)) : null;
+      else if(action === "trainer") said = typeof Trainer !== "undefined" ? Trainer.toggle() : null;
+      else if(action === "timing"){ if(typeof Timing !== "undefined"){ const was = Timing.recording(); Timing.toggle(); said = was ? "časování: vyhodnocuji" : null; } }
+      else if(action === "whatplays"){ if(typeof WhatPlays !== "undefined") WhatPlays.open(); }
+      else if(action.startsWith("stamp:")){ stampStep(action.endsWith("+") ? 1 : -1).then((t) => { if(t) showToast(`🦶 ${t}`); }); }
+      else if(action.startsWith("tab:")) said = tabScroll(action.endsWith("+") ? 1 : -1);
       else if(action === "setlist:+") said = Setlist.next() ? "další píseň" : null;
       else if(action === "setlist:-") said = Setlist.prev() ? "předchozí píseň" : null;
       else said = Voice.run(action);
@@ -260,6 +292,34 @@ const Pedal = (() => {
     if(learning){ learnHeard(m); return; }
     if(cfg.on && (!cfg.input || e.target.name === cfg.input)) hit(m);
   }
+  // ---- a pedal that types (a Bluetooth page turner — PageDown, arrows, space…): its keys are switches too
+  const typing = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  const keyMsg = (e, down) => ({key: `key:${e.code}`, label: `klávesa ${e.key === " " ? "mezerník" : e.key}`, down, up: !down});
+  function onKey(e){
+    if(/^(Shift|Control|Alt|Meta)/.test(e.key) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const down = e.type === "keydown";
+    if(learning){
+      if(e.key === "Escape"){ if(down){ clearTimeout(learning.t); learning = null; paint(); } return; }
+      if(typing(e.target) && e.target.closest && !e.target.closest("#pd-box")) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if(down && e.repeat) return;
+      const m = keyMsg(e, down);
+      last = m.label + (down ? " ↓" : " ↑");
+      learnHeard(m);
+      return;
+    }
+    if(!cfg.on || typing(e.target)) return;
+    const key = `key:${e.code}`;
+    if(!cfg.binds.some((x) => x.key === key)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(down && e.repeat) return;
+    const m = keyMsg(e, down);
+    last = m.label + (down ? " ↓" : " ↑");
+    if(root){ const n = root.querySelector("#pd-last"); if(n) n.textContent = last; }
+    hit(m);
+  }
+  addEventListener("keydown", onKey, true);
+  addEventListener("keyup", onKey, true);
   async function connect(quiet){
     if(access) return true;
     if(!navigator.requestMIDIAccess){ if(!quiet) showToast("Tenhle prohlížeč neumí MIDI — otevři Pick v Chrome"); return false; }
@@ -318,6 +378,8 @@ const Pedal = (() => {
       <div class="pd-add"><select id="pd-act">${ACTIONS.map(([k, l]) => `<option value="${k}">${escapeHtml(l)}</option>`).join("")}</select>
         <select id="pd-g">${Object.entries(GESTURES).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
         <button type="button" class="btn ${learning ? "secondary" : ""}" id="pd-learn">${learning ? (learning.m ? "Pusť spínač…" : "Šlápni teď…") : "Naučit"}</button></div>
+      <div class="set-note">Pedál, který se k Macu připojí jako klávesnice (Bluetooth otáčeč stránek — posílá šipky, PageDown, mezerník…), se učí stejně: Naučit a šlápni.
+        Přiřazená klávesa pak na klávesnici dělá jen funkci pedálu (mimo psaní do polí). Esc učení zruší.</div>
       <div class="set-note">Podržení = drž déle než 0,6 s; dvojklik = dvě šlápnutí rychle po sobě. Spínač, který posílá jen jednu zprávu na šlápnutí (toggle), umí šlápnutí a dvojklik.</div>`;
     const q = (id) => root.querySelector("#" + id);
     q("pd-on").onchange = (e) => { cfg.on = e.target.checked; keep(); };
@@ -333,7 +395,7 @@ const Pedal = (() => {
     q("pd-setup").onclick = () => fetch("/api/system/midi-setup", {method: "POST"}).catch(() => {});
     q("pd-learn").onclick = async () => {
       if(learning){ clearTimeout(learning.t); learning = null; paint(); return; }
-      if(!(await connect())) return;
+      await connect(true);                  // a pedal that types needs no MIDI
       const a = q("pd-act").value, g = q("pd-g").value;
       learn(a, g);
     };
