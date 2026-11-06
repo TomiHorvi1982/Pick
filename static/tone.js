@@ -79,8 +79,19 @@ const Tone = (() => {
     return buf;
   }
   // GAIN turned since the take: the drive into the core stays what was fitted.
+  // Drive otisku: how hard the player's guitar goes into the print, on top of the print's own drive.
+  // GAIN is taken out above (the print was fitted on the clean signal) — this is the one that is heard:
+  // a guitar or a sound card hotter than the one the print was made with distorts too much, and this
+  // takes it down. The player's, not a print's: kept, the same for every print.
+  const TRIM = "pick-tone-trim";
+  let trimDb = (() => { try{ const v = parseFloat(localStorage.getItem(TRIM)); return isFinite(v) ? v : 0; }catch(e){ return 0; } })();
+  function setTrim(db){
+    trimDb = Math.max(-30, Math.min(12, Math.round(+db * 2) / 2));
+    try{ localStorage.setItem(TRIM, String(trimDb)); }catch(e){}
+    setDrive();
+  }
   function setDrive(){
-    if(live) live.input.gain.value = Math.pow(10, (live.print.drive_db + (live.print.gain_db || 0) - (G().state.inputGainDb || 0)) / 20);
+    if(live) live.input.gain.value = Math.pow(10, (live.print.drive_db + (live.print.gain_db || 0) - (G().state.inputGainDb || 0) + trimDb) / 20);
   }
   setInterval(() => { if(live) setDrive(); }, 400);
 
@@ -126,6 +137,7 @@ const Tone = (() => {
     const {print: p, input, out, nodes, core} = await buildChain(from || name, which);
     const dblBefore = live ? live.dbl : !!G().fx().state.dbl.on;
     remove(true);
+    if((G().state.inputGainDb || 0) !== 0){ G().setInputGain(0); try{ Mixer.guitarFaderRepaint(); }catch(e){} }
     live = {song: name, from: from || name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore, pinned: !!pin};
     setDrive();
     G().setPrint({input, output: out});
@@ -1133,7 +1145,7 @@ const Tone = (() => {
     return row;
   }
 
-  return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, buildChain, prints: () => api("/api/tone/prints"),
+  return {open, close, mount, unmount, show: (t) => { if(win && !win.hidden) show(t); }, railBox, on: () => !!live, label: () => (live ? `${live.print.name} · ${title(live.song)}` : ""), apply, remove, setTrim, trim: () => trimDb, buildChain, prints: () => api("/api/tone/prints"),
     // DITORIG's timeline: switched on or off (kept), and what it is doing now
     follow: setFollow, followOn, following: () => (fol ? {song: fol.song, key: fol.cur, ready: Object.values(fol.chains).filter(Boolean).length,
       sounds: new Set(fol.segs.map(t => t.key)).size} : null),

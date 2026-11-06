@@ -109,6 +109,12 @@
   body.s-steems .ssort{display:flex}
   .ssort button{background:none;border:1px solid var(--line);color:var(--sub);border-radius:999px;padding:2px 9px;font:inherit;font-size:11px;cursor:pointer}
   .ssort button.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  .stunes{display:none;flex-wrap:wrap;gap:3px 10px;padding:6px 8px 8px;margin:0 2px 6px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.03);font-size:11.5px}
+  body.s-steems .stunes:not([hidden]){display:flex}
+  .stunes label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--text);white-space:nowrap}
+  .stunes label small{color:var(--sub)}
+  .stunes input{accent-color:var(--accent);margin:0}
+  .stunes .clr{background:none;border:0;color:var(--accent2);font:inherit;font-size:11px;cursor:pointer;padding:0;margin-left:auto}
   .qhd{font-size:10.5px;font-weight:700;color:var(--accent2);padding:8px 6px 3px;letter-spacing:.02em}
   .qi .ok{color:#7be29a;font-weight:800;margin-left:4px}
   .qi .tun{color:var(--dim,#888);font-size:10px;margin-left:4px}
@@ -448,7 +454,8 @@
         <h4>Moje kytara <small id="jam-dev"></small></h4>
         <label class="jam-sl"><span>Hlasitost</span><input type="range" data-g="mine" data-k="vol" min="0" max="1.4" step="0.01"><b data-v="mine.vol"></b></label>
         <label class="jam-sl"><span>Pan</span><input type="range" data-g="mine" data-k="pan" min="-1" max="1" step="0.02"><b data-v="mine.pan"></b></label>
-        <label class="jam-sl"><span>Noise gate</span><input type="range" data-g="mine" data-k="gate" min="-100" max="-20" step="1"><b data-v="mine.gate"></b></label>
+        <label class="jam-sl" title="Jak silně jde tvoje kytara do otisku. Když je zvuk přebuzený, stáhni ho dolů — platí pro všechny otisky."><span>Drive otisku</span><input type="range" data-g="mine" data-k="trim" min="-30" max="12" step="0.5"><b data-v="mine.trim"></b></label>
+    <label class="jam-sl"><span>Noise gate</span><input type="range" data-g="mine" data-k="gate" min="-100" max="-20" step="1"><b data-v="mine.gate"></b></label>
         <div class="jam-row"><button class="chip" id="jam-autovol" title="Hlasitost tvé kytary se drží na úrovni kytary z nahrávky (pohneš-li jezdcem, vypne se)">AUTO hlasitost</button><button class="chip" id="jam-auto" title="Brána si práh najde sama podle šumu vstupu">AUTO gate</button><button class="chip" id="jam-live" hidden>Zapnout vstup</button></div>
       </section>
       <section class="jam-box jam-prints">
@@ -467,7 +474,8 @@
         <input id="sq" type="text" placeholder="Rozdělená píseň — hraje bez kytary…" autocomplete="off">
         <div class="seg" id="smode"><button data-m="steems" class="on" title="Písně rozdělené na stopy — hrají bez kytary, „GTR“ ji vrátí (hlasem: „pick stems list“)">Steems</button><button data-m="favs" title="Oblíbené songy (hlasem: „pick show me favorites“)">Oblíbené</button><button data-m="bands" title="Kapely a umělci, které už máš (hlasem: „pick show me bands“)">Kapely</button><button data-m="library" title="Písně, které už máš v knihovně (hlasem: „pick show me library“)">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně (hlasem: „pick folders“)">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
       </div>
-      <div class="ssort" id="ssort"><span>Řadit:</span><button data-sort="artist" title="Podle interpreta a názvu">Interpret</button><button data-sort="checked" title="Písně, které už máš zkontrolované (schválený zvuk a nastavení) nahoře">Zkontrolované</button><button data-sort="tuning" title="Podle ladění kytary: Standard E, Eb, Drop D…">Ladění</button></div>
+      <div class="ssort" id="ssort"><span>Řadit:</span><button data-sort="artist" title="Podle interpreta a názvu">Interpret</button><button data-sort="checked" title="Písně, které už máš zkontrolované (schválený zvuk a nastavení) nahoře">Zkontrolované</button><button data-tunes title="Vybrat ladění zaškrtnutím — ukážou se jen písně s ním">Ladění ▾</button></div>
+      <div class="stunes" id="stunes" hidden></div>
       <div class="vheard" id="vheard" hidden></div>
       <div class="sim" id="ssim" hidden></div>
       <div class="queue" id="sres"><div class="empty" style="padding-top:40px">Načítám písně ze Steems…</div></div>
@@ -973,7 +981,8 @@ const pct = (v) => Math.round(v * 100) + " %";
 const panTxt = (v) => Math.abs(v) < 0.03 ? "střed" : (v < 0 ? "L " : "P ") + Math.round(Math.abs(v) * 100);
 function jamLabel(key, v){
   const b = document.querySelector(`#pane-jam [data-v="${key}"]`); if(!b) return;
-  b.textContent = key.endsWith(".pan") ? panTxt(v) : key === "mine.gate" ? (v <= -99 ? "vyp" : Math.round(v) + " dB") : key === "orig.semi" ? (v > 0 ? "+" : "") + v : pct(v);
+  b.textContent = key.endsWith(".pan") ? panTxt(v) : key === "mine.gate" ? (v <= -99 ? "vyp" : Math.round(v) + " dB") : key === "orig.semi" ? (v > 0 ? "+" : "") + v
+    : key === "mine.trim" ? (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toString().replace(".", ",") + " dB" : pct(v);
 }
 function jamPaint(){
   const j = RS && RS.jam && RS.jam.on ? RS.jam : null;
@@ -983,7 +992,7 @@ function jamPaint(){
   else if(el("jam-msg").textContent.startsWith("Pouštím") || el("jam-msg").textContent.startsWith("Nastavuji")) el("jam-msg").textContent = "";
   el("jam-song").textContent = S.title && S.title !== "Mixpult" ? S.title : j.song;
   const now = Date.now();
-  [["orig", "vol"], ["orig", "pan"], ["mine", "vol"], ["mine", "pan"], ["mine", "gate"]].forEach(([g, k]) => {
+  [["orig", "vol"], ["orig", "pan"], ["mine", "vol"], ["mine", "pan"], ["mine", "gate"], ["mine", "trim"]].forEach(([g, k]) => {
     const key = g + "." + k, v = j[g][k], inp = document.querySelector(`#pane-jam input[data-g="${g}"][data-k="${k}"]`);
     if(now - (JAM.touched[key] || 0) < 1500 || document.activeElement === inp) return;
     inp.value = String(v); inp.style.setProperty("--v", ((v - inp.min) / (inp.max - inp.min) * 100) + "%");
@@ -1032,7 +1041,8 @@ function jamList(){
   jamPaint();
 }
 el("jam-find").oninput = () => jamList();
-document.querySelectorAll("#ssort button").forEach(b => b.onclick = () => { srch.sort = b.dataset.sort; store.set("ssort", srch.sort); renderSearch(); });
+document.querySelectorAll("#ssort button[data-sort]").forEach(b => b.onclick = () => { srch.sort = b.dataset.sort; store.set("ssort", srch.sort); renderSearch(); });
+document.querySelector("#ssort button[data-tunes]").onclick = () => { const b = el("stunes"); b.hidden = !b.hidden; b.dataset.sig = ""; renderSearch(); };
 
 // ---- the song's other versions on YouTube, under the video (the app's /api/yt/versions)
 // A version plays over the song's video, muted; "Zvuk videa" lets it be heard and pauses the song (again: back).
@@ -1495,7 +1505,7 @@ if("mediaSession" in navigator){
 // -------------------------------------------------------------- search
 // Songs (Spotify's catalogue, played from YouTube) or playlists (YouTube
 // Music); ▶ plays from there on, ＋ adds to the app's queue.
-const srch = {mode: "steems", q: "", list: [], pl: null, timer: 0, token: 0, sort: store.get("ssort", "artist")};
+const srch = {mode: "steems", q: "", list: [], pl: null, timer: 0, token: 0, sort: store.get("ssort", "artist") === "tuning" ? "artist" : store.get("ssort", "artist"), tunes: store.get("stunes", [])};
 // The lists of the search, in the order they are stepped through ("pick next list").
 // Steems comes first: songs ready to be played along with.
 const SECTIONS = ["steems", "favs", "bands", "library", "folders", "songs", "playlists"];
@@ -1533,9 +1543,30 @@ function wireTracks(box, list){
   box.querySelectorAll("[data-add]").forEach(b => b.onclick = (e) => { e.stopPropagation(); addToQueue(list[+b.dataset.add]); });
   box.querySelectorAll(".qi[data-i]").forEach(r => r.onclick = () => lpPlayList(list, +r.dataset.i));
 }
+// The tunings of the Steems songs as tick boxes (with how many songs each has), the commonest first.
+function tunesPaint(all){
+  const box = el("stunes");
+  if(box.hidden) return;
+  const n = new Map();
+  all.forEach(t => { const k = t.tuning ? t.tuning.name : "Ladění neznámé"; n.set(k, (n.get(k) || 0) + 1); });
+  const low = new Map(all.map(t => [t.tuning ? t.tuning.name : "Ladění neznámé", t.tuning ? t.tuning.low : -1]));
+  const keys = [...n.keys()].sort((a, b) => (a === "Ladění neznámé") - (b === "Ladění neznámé") || n.get(b) - n.get(a) || low.get(b) - low.get(a));
+  const sig = keys.join("|") + "#" + srch.tunes.join("|");
+  if(box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = keys.map(k => `<label><input type="checkbox" value="${esc(k)}"${srch.tunes.includes(k) ? " checked" : ""}>${esc(k)} <small>${n.get(k)}</small></label>`).join("") +
+    (srch.tunes.length ? '<button type="button" class="clr" id="stunes-clr">zrušit výběr</button>' : "");
+  box.querySelectorAll("input").forEach(c => c.onchange = () => {
+    srch.tunes = [...box.querySelectorAll("input:checked")].map(x => x.value);
+    store.set("stunes", srch.tunes); renderSearch();
+  });
+  const clr = el("stunes-clr"); if(clr) clr.onclick = () => { srch.tunes = []; store.set("stunes", []); renderSearch(); };
+}
 function renderSearch(){
   document.body.classList.toggle("s-steems", srch.mode === "steems" && !srch.pl);
-  document.querySelectorAll("#ssort button").forEach(b => b.classList.toggle("on", b.dataset.sort === srch.sort));
+  document.querySelectorAll("#ssort button[data-sort]").forEach(b => b.classList.toggle("on", b.dataset.sort === srch.sort));
+  { const tb = document.querySelector("#ssort button[data-tunes]"); tb.classList.toggle("on", srch.tunes.length > 0 || !el("stunes").hidden);
+    tb.textContent = srch.tunes.length ? `Ladění (${srch.tunes.length}) ▾` : "Ladění ▾"; }
   const box = el("sres");
   if(srch.pl){
     const pl = srch.pl;
@@ -1555,9 +1586,17 @@ function renderSearch(){
     if(srch.mode === "steems" && srch.sort === "checked"){
       list = list.slice().sort((a, b) => (b.checked - a.checked));
       head = (t) => t.checked ? "Zkontrolované" : "Ještě nezkontrolované";
-    } else if(srch.mode === "steems" && srch.sort === "tuning"){
-      list = list.slice().sort((a, b) => (b.tuning ? b.tuning.low : -1) - (a.tuning ? a.tuning.low : -1) || (a.tuning && b.tuning ? a.tuning.name.localeCompare(b.tuning.name) : 0));
-      head = (t) => t.tuning ? t.tuning.name : "Ladění neznámé";
+    }
+    // the tunings ticked: only the songs in one of them, each under its tuning
+    if(srch.mode === "steems"){
+      tunesPaint(srch.list);
+      if(srch.tunes.length){
+        const want = new Set(srch.tunes);
+        list = list.filter(t => want.has(t.tuning ? t.tuning.name : "Ladění neznámé"))
+          .sort((a, b) => srch.tunes.indexOf(a.tuning.name) - srch.tunes.indexOf(b.tuning.name) || (srch.sort === "checked" ? b.checked - a.checked : 0));
+        head = (t) => t.tuning.name;
+        if(!list.length){ box.innerHTML = '<div class="empty">S tímhle laděním tu nic není.</div>'; return; }
+      }
     }
     srch.shown = list;
     let html = "", last = null;

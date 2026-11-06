@@ -1696,7 +1696,9 @@ záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk děl�
   (jinak její nejnovější, a když žádný nemá, žádný — ne ten z minulé písně);
 - mix písně se tím neukládá: před další písní (a na Konci) se jí vrátí a uloží její vlastní hlasitosti, pany a ladění;
 - **Originální kytara**: hlasitost, pan a ladění po půltónech — s kytarou se posune i **basa**;
-- **Moje kytara**: hlasitost, pan, **noise gate** (ručně, nebo AUTO);
+- **Moje kytara**: hlasitost, pan, **Drive otisku** (jak silně jde kytara do otisku — když je zvuk přebuzený,
+  stáhni ho; platí pro všechny otisky a pamatuje se), **noise gate** (ručně, nebo AUTO). Zapnutí otisku
+  nastaví GAIN živé kytary na 0 dB — na zvuk otisku GAIN nepůsobí (otisk ho odečítá), proto je tu Drive;
 - **Otisk**: otisky z téhle písně nahoře, pod nimi ostatní **po kategoriích** (Clean, Crunch, Hi-Gain, Sólo,
   Akustická, Ambient, Fuzz, Jiné — barvy jako v aplikaci) a tlačítka kategorií nad seznamem; hledání podle názvu,
   kapely, písně; klik ho zapne na živé kytaře;
@@ -1711,9 +1713,10 @@ Aplikace musí být otevřená; když se neozve, panel to řekne a nabídne ji o
 
 ### Hledání Steems písní v minipřehrávači: řazení
 
-Nad výsledky jsou tlačítka **Interpret** (výchozí), **Zkontrolované** (písně se schváleným zvukem a nastavením
-nahoře, ✓ u názvu) a **Ladění** (seskupené pod Standard E, Standard Eb, Drop D…, 7/8 strun; ladění se bere
-z analýzy písně, neznámé na konci). Volba se pamatuje.
+Nad výsledky jsou tlačítka **Interpret** (výchozí) a **Zkontrolované** (písně se schváleným zvukem a nastavením
+nahoře, ✓ u názvu). **Ladění ▾** otevře zaškrtávací políčka s laděními, která tvoje písně mají (Standard E,
+Standard Eb, Drop D, 7/8 strun…, s počtem písní; ladění se bere z analýzy písně): zaškrtnutá ladění ukážou
+jen písně s nimi, seskupené pod svým laděním. Výběr i řazení se pamatují.
 
 ### Rozdělená kytara (sólo / rytmus) se už neztrácí
 

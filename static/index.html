@@ -27367,6 +27367,7 @@ const Mixer = (() => {
         orig: {has: !!g, vol: g ? (g.faderValue == null ? 1 : g.faderValue) : 0, pan: g ? (g.panValue || 0) : 0, semi: g ? rateToSemitones(g.pitchRate || 1) : 0},
         mine: {live: Guitar.isLive(), device: Guitar.state.deviceLabel || "", input: Guitar.state.inputChannel, vol: Guitar.state.volume, pan: Guitar.state.pan,
                gate: Guitar.state.threshold, auto: AutoGate.on(), autoVol: AutoMix.on(),
+               gainDb: Guitar.state.inputGainDb || 0, trim: Tone.trim ? Tone.trim() : 0,
                print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null,
                // prints are bypassed when the guitar goes through a tunnel (an outside sim); the map may switch them as the song plays
                tunnel: !!Guitar.state.tunnel, follows: !!(Tone.following && Tone.following()), sounding: Guitar.hasPrint()}};
@@ -27394,6 +27395,7 @@ const Mixer = (() => {
         requestTempoPitch();
         if(Guitar.state.tunnel) await Tunnel.off();
         Guitar.setInputChannel("1");
+        Guitar.setInputGain(0);
         if(!Guitar.isLive()) await toggleGuitarInput();
         Guitar.state.pan = PAN;
         Guitar.applyGuitarGain();
@@ -27447,6 +27449,7 @@ const Mixer = (() => {
         if(m.autoVol != null && !!m.autoVol !== AutoMix.on()) AutoMix.set(!!m.autoVol);
         if(m.pan != null) Guitar.state.pan = Math.max(-1, Math.min(1, +m.pan));
         if(m.vol != null || m.pan != null) Guitar.applyGuitarGain();
+        if(m.trim != null && Tone.setTrim) Tone.setTrim(+m.trim);
         if(m.auto != null) AutoGate.set(!!m.auto);
         if(m.gate != null){ if(AutoGate.on()) AutoGate.set(false); Guitar.setThreshold(Math.max(-100, Math.min(-10, +m.gate))); }
         if(m.live === true && !Guitar.isLive()) await toggleGuitarInput();
