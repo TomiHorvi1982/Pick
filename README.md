@@ -676,7 +676,9 @@ Mix pult Steems má tři pole pod sebou, na jedné časové ose:
 
 1. **Píseň** nahoře: **jedna řada ikon vedle play** — začátek, smyčka, tempo, metronom, údery, akordy, sekce,
    tab, noty, hmatník, text, tónina, Live Show, Looper, klávesy, Panely, Soubor a zoom stop (co která dělá, řekne
-   popisek po najetí myší) — a **hlavní vlna** celé písně, ta je vidět vždycky. Nad vlnou je **čas**, pod ní
+   popisek po najetí myší) — a **hlavní vlna** celé písně, ta je vidět vždycky. Ikony mají barvu podle skupiny:
+   **fialová** hraní (začátek, smyčka, tempo, Live Show, Looper, klávesy, Panely, Soubor, zoom), **tyrkysová**
+   pomůcky (metronom, údery, akordy, sekce, tab, noty, hmatník, text, tónina), **jantarová** úpravy stop. Nad vlnou je **čas**, pod ní
    **takty**; takty jdou z mřížky dob nalezené v bicí stopě (`/api/stems/{name}/beats`), takže sedí na doby
    písně, a co je za úsekem, který detektor slyšel (nebo když mřížka ještě není), je dopočítané z tempa a slabší.
    Při přiblížení vlny se čas i takty přepočítají na přiblížený úsek. Stopy pod tím už vlastní pravítko nemají.

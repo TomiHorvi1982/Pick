@@ -5122,6 +5122,22 @@ body.lib-collapsed .pick-brand{display:none}
   .nm .nm-transport .nm-editbar .snap{border-color:transparent;background:none}
   .nm .nm-transport #nm-editbar .nm-btn.ib.lab,.nm .nm-transport #nm-editbar .nm-btn.ib.lab.tm-btn{flex-direction:row;width:28px;min-width:0;height:30px;padding:0;gap:0}
 
+  /* three kinds of icon by colour: playing (the app's violet), the helpers (cyan, as the old Pomůcky band) and
+     editing the tracks (amber) — tinted at rest, lit on hover, washed in their colour when on */
+  .nm .nm-transport .nm-k-play{--k:#b6a6ff}
+  .nm .nm-transport .nm-k-help{--k:#5fd0f0}
+  .nm .nm-transport .nm-k-edit{--k:#f2c25c}
+  .nm .nm-transport .nm-tg[class*="nm-k-"]{border-left-color:color-mix(in srgb,var(--k) 38%,transparent)}
+  .nm .nm-transport .nm-play + .nm-tg,.nm .nm-transport .nm-spacer + .nm-tg{border-left-color:transparent}
+  .nm .nm-transport [class*="nm-k-"] .nm-btn.round.ic,.nm .nm-transport [class*="nm-k-"] .nm-step,.nm .nm-transport [class*="nm-k-"] #zoom-fit,
+  .nm .nm-transport .nm-k-edit .nm-btn,.nm .nm-transport [class*="nm-k-"] .tm-btn{color:color-mix(in srgb,var(--k) 72%,#7d7d8c)}
+  .nm .nm-transport [class*="nm-k-"] .nm-btn.round.ic:hover,.nm .nm-transport [class*="nm-k-"] .nm-step:hover,.nm .nm-transport [class*="nm-k-"] #zoom-fit:hover,
+  .nm .nm-transport .nm-k-edit .nm-btn:not(:disabled):hover,.nm .nm-transport [class*="nm-k-"] .tm-btn:hover{color:var(--k);background:color-mix(in srgb,var(--k) 12%,transparent)!important}
+  .nm .nm-transport [class*="nm-k-"] .nm-btn.active,.nm .nm-transport [class*="nm-k-"] .nm-btn.on,.nm .nm-transport .nm-k-edit .tool.on,
+  .nm .nm-transport [class*="nm-k-"] .tmenu.open > .tm-btn{color:var(--k);background:color-mix(in srgb,var(--k) 18%,transparent)!important}
+  .nm .nm-transport .nm-k-edit .nm-btn:disabled{color:color-mix(in srgb,var(--k) 30%,#555)}
+  .nm .nm-transport .nm-k-edit .snap,.nm .nm-transport .nm-k-edit select{color:color-mix(in srgb,var(--k) 80%,#ccc)}
+
   /* the settings a double click opens on one of the helper icons */
   .nm-pkpop{position:fixed;z-index:4000;min-width:230px;max-width:300px;background:#1b1b22;border:1px solid #3a3a48;border-radius:12px;
     box-shadow:0 14px 40px rgba(0,0,0,.55);padding:10px 12px;color:#e8e8ec;font-size:12.5px}
@@ -5746,12 +5762,12 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="nm-transport">
           <button class="nm-play" id="mixer-play" title="Přehrát / pauza (mezerník)"></button>
 
-          <div class="nm-tg">
+          <div class="nm-tg nm-k-play">
             <button class="nm-btn round ic" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span></button>
             <button class="nm-btn round ic" id="mixer-loop" title="Smyčka zap/vyp — dvě čáry u stop, táhni je na začátek a konec"><span data-icon="repeat" data-size="14"></span></button>
           </div>
 
-          <div class="nm-tg nm-tempo-g" title="Tempo v BPM">
+          <div class="nm-tg nm-k-play nm-tempo-g" title="Tempo v BPM">
             <button class="nm-step" id="nm-tempo-dn" title="Pomaleji o 1 BPM">‹</button>
             <input type="text" class="nm-num" id="nm-tempo-num" value="—" inputmode="numeric"
                    title="Tempo v BPM — napiš číslo a stiskni Enter">
@@ -5760,7 +5776,7 @@ body.lib-collapsed .pick-brand{display:none}
             <span class="nm-tsuf" id="nm-tempo-val">100 %</span>
           </div>
 
-          <div class="nm-tg">
+          <div class="nm-tg nm-k-help">
             <button class="nm-btn round ic nm-pk" id="mixer-metro" title="Metronom — klik: zapnout / vypnout · dvojklik: rychlost, zvuk a hlasitost"><span data-icon="bell" data-size="15"></span><span class="metro-indicator" id="metro-indicator"></span></button>
             <button class="nm-btn round ic nm-pk" id="nm-hits-btn" title="Údery bicích — klik: čáry v místech úderů · dvojklik: klikání na čárách, práh, zvuk a hlasitost"><span data-icon="drums" data-size="15"></span></button>
             <button class="nm-btn round ic nm-pk" id="nm-chords-btn" title="Akordy — klik: ukázat nad stopami · dvojklik: kolik akordů ukazovat"><span data-icon="guitar" data-size="15"></span></button>
@@ -5770,14 +5786,14 @@ body.lib-collapsed .pick-brand{display:none}
             </select>
           </div>
 
-          <div class="nm-tg">
+          <div class="nm-tg nm-k-help">
             <button class="nm-btn round ic" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="search" data-size="14"></span></button>
             <button class="nm-btn round ic" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="note" data-size="14"></span></button>
             <button class="nm-btn round ic" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span></button>
             <button class="nm-btn round ic" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span></button>
           </div>
 
-          <div class="nm-tg nm-key-g">
+          <div class="nm-tg nm-k-help nm-key-g">
             <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
             <input type="text" class="nm-num" id="nm-pitch" value="0" readonly title="Tónina — posun v půltónech">
             <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
@@ -5787,7 +5803,7 @@ body.lib-collapsed .pick-brand{display:none}
           </div>
 
           <!-- the song's own: Live Show, Looper and the keys (static/deck.js puts them here), panels, file -->
-          <div class="nm-tg nm-song-acts" id="nm-song-acts">
+          <div class="nm-tg nm-k-play nm-song-acts" id="nm-song-acts">
               <div class="tmenu" data-tmenu="panels">
                 <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler, delay, reverb"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
                 <div class="tm-pop">
@@ -5818,11 +5834,11 @@ body.lib-collapsed .pick-brand{display:none}
 
           <!-- the edit tools (renderEditBar): compact / tracks, pointer, scissors, snap, clip, the track to edit,
                selection, sound, undo / redo -->
-          <div class="nm-editbar nm-tg nm-edit-g" id="nm-editbar" hidden></div>
+          <div class="nm-editbar nm-tg nm-edit-g nm-k-edit" id="nm-editbar" hidden></div>
 
           <div class="nm-spacer"></div>
 
-          <div class="nm-tg" title="Zoom stop">
+          <div class="nm-tg nm-k-play" title="Zoom stop">
             <button class="nm-step" id="zoom-out" title="Oddálit stopy"><span data-icon="minus" data-size="13"></span></button>
             <button class="nm-btn" id="zoom-fit" title="Celá skladba — stopy na šířku okna"><span data-icon="expand" data-size="13"></span></button>
             <button class="nm-step" id="zoom-in" title="Přiblížit stopy"><span data-icon="plus" data-size="13"></span></button>
