@@ -97,6 +97,10 @@
   .ytv-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ytv-bar button{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:3px 9px;font:inherit;font-size:11px;cursor:pointer}
   .ytv-bar .ytv-snd.on{background:var(--accent);border-color:var(--accent);color:#160800}
+  .ytv-bar .ytv-pp{padding:4px 7px}
+  .ytv-bar .ytv-vol{-webkit-appearance:none;appearance:none;flex:0 0 70px;width:70px;height:4px;border-radius:2px;cursor:pointer;
+    background:linear-gradient(90deg,#fff,#fff) 0/var(--v,100%) 100% no-repeat,rgba(255,255,255,.25);margin:0 2px}
+  .ytv-bar .ytv-vol::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#fff;opacity:1}
   #pane-video{flex-direction:column;gap:8px}
   .screen{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 0 1px var(--line)}
@@ -826,8 +830,10 @@ function playYtv(it){
   ov.className = "ytv-play"; ov.id = "ytv-play";
   ov.innerHTML = `<video src="/api/stream-video/${encodeURIComponent(it.videoId)}" autoplay muted playsinline></video>
     <div class="ytv-bar"><span class="ytv-name" title="${esc(it.title)}">${esc(it.title)}</span>
-      <button type="button" class="ytv-snd" title="Pustit zvuk tohohle videa a píseň zastavit (znovu: zpátky)">${icon("volumeMuted", 13)}<span>Zvuk videa</span></button>
-      <button type="button" class="ytv-out" title="Otevřít na YouTube">↗</button>
+      <button type="button" class="ytv-pp" title="Pozastavit / přehrát video">${icon("pause", 13)}</button>
+        <button type="button" class="ytv-snd" title="Pustit zvuk tohohle videa a píseň zastavit (znovu: zpátky)">${icon("volumeMuted", 13)}<span>Zvuk videa</span></button>
+      <input type="range" class="ytv-vol" min="0" max="1" step="0.01" value="1" title="Hlasitost videa (slyšet je se zapnutým Zvukem videa)">
+        <button type="button" class="ytv-out" title="Otevřít na YouTube">↗</button>
       <button type="button" class="ytv-x" title="Zpátky na video písně">✕</button></div>`;
   scr.appendChild(ov);
   const v = ov.querySelector("video"), sb = ov.querySelector(".ytv-snd");
@@ -838,6 +844,13 @@ function playYtv(it){
     else if(ytvHeld){ send("play"); S.playing = true; ytvHeld = false; }
   };
   sb.onclick = () => setSound(v.muted);
+  const pp = ov.querySelector(".ytv-pp"), vol = ov.querySelector(".ytv-vol");
+  const paintPP = () => { pp.innerHTML = icon(v.paused ? "play" : "pause", 13); pp.title = v.paused ? "Přehrát video" : "Pozastavit video"; };
+  pp.onclick = () => { if(v.paused) v.play().catch(() => {}); else v.pause(); };
+  v.addEventListener("play", paintPP); v.addEventListener("pause", paintPP);
+  const paintVol = () => vol.style.setProperty("--v", (v.volume * 100) + "%");
+  vol.oninput = () => { v.volume = +vol.value; paintVol(); };
+  paintVol();
   ov.querySelector(".ytv-out").onclick = () => { v.pause(); window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(it.videoId)}`, "_blank"); };
   ov._close = () => { if(!v.muted) setSound(false); v.pause(); v.removeAttribute("src"); v.load(); ov.remove(); };
   ov.querySelector(".ytv-x").onclick = () => ov._close();

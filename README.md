@@ -1671,6 +1671,7 @@ v minipřehrávači), Pick pod ním rovnou ukáže, co k písni je na YouTube: *
 Čtyři hledání běží najednou (`/api/yt/versions`, výsledky se 6 hodin pamatují). Klik na video ho
 **přehraje přímo tam, kde je video písně** — ztlumeně, píseň hraje dál se svým zvukem. Tlačítko
 **Zvuk videa** pustí zvuk verze a píseň zastaví; další klik (nebo ✕, zpátky na video písně) to vrátí.
+V liště verze je i **pauza / přehrát** a **jezdec hlasitosti** videa (slyšet je se zapnutým Zvukem videa).
 ↗ otevře verzi na YouTube, klik na název skupiny otevře celé hledání.
 
 ## Delay a Reverb v Panelech mixu

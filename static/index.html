@@ -4248,6 +4248,10 @@ body.lib-collapsed .pick-brand{display:none}
     color:#fff;border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;cursor:pointer}
   .ytv-bar button:hover{background:rgba(255,255,255,.22)}
   .ytv-bar .ytv-snd.on{background:var(--accent);border-color:var(--accent);color:#111}
+  .ytv-bar .ytv-pp{padding:4px 7px}
+  .ytv-bar .ytv-vol{-webkit-appearance:none;appearance:none;flex:0 0 70px;width:70px;height:4px;border-radius:2px;cursor:pointer;
+    background:linear-gradient(90deg,#fff,#fff) 0/var(--v,100%) 100% no-repeat,rgba(255,255,255,.25);margin:0 2px}
+  .ytv-bar .ytv-vol::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#fff;opacity:1}
   .ytv-bar .ytv-x{padding:0;background:none;border:0}
   #float-video-body{display:flex;flex-direction:column}
   #float-video-body video{flex:1 1 auto;min-height:150px;height:auto}
@@ -33259,7 +33263,9 @@ const YtVersions = (() => {
     if(orig){ ov.style.top = orig.offsetTop + "px"; ov.style.height = orig.offsetHeight + "px"; }
     ov.innerHTML = `<video class="ytv-v" src="/api/stream-video/${encodeURIComponent(it.videoId)}" autoplay muted playsinline></video>
       <div class="ytv-bar"><span class="ytv-name" title="${escapeHtml(it.title)}">${escapeHtml(it.title)}</span>
+        <button type="button" class="ytv-pp" title="Pozastavit / přehrát video">${icon("pause", 13)}</button>
         <button type="button" class="ytv-snd" title="Pustit zvuk tohohle videa a původní píseň zastavit (znovu: zpátky)">${icon("volumeMuted", 14)}<span>Zvuk videa</span></button>
+        <input type="range" class="ytv-vol" min="0" max="1" step="0.01" value="1" title="Hlasitost videa (slyšet je se zapnutým Zvukem videa)">
         <button type="button" class="ytv-out" title="Otevřít na YouTube">${icon("external", 13)}</button>
         <button type="button" class="ytv-x" title="Zpátky na video písně">${icon("close", 16)}</button></div>`;
     stage.appendChild(ov);
@@ -33273,6 +33279,13 @@ const YtVersions = (() => {
       else if(held){ held._ytvHeld = false; held.play().catch(() => {}); held = null; }
     };
     sb.onclick = () => setSound(v.muted);
+    const pp = ov.querySelector(".ytv-pp"), vol = ov.querySelector(".ytv-vol");
+    const paintPP = () => { pp.innerHTML = icon(v.paused ? "play" : "pause", 13); pp.title = v.paused ? "Přehrát video" : "Pozastavit video"; };
+    pp.onclick = () => { if(v.paused) v.play().catch(() => {}); else v.pause(); };
+    v.addEventListener("play", paintPP); v.addEventListener("pause", paintPP);
+    const paintVol = () => vol.style.setProperty("--v", (v.volume * 100) + "%");
+    vol.oninput = () => { v.volume = +vol.value; paintVol(); };
+    paintVol();
     ov.querySelector(".ytv-out").onclick = () => { v.pause(); window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(it.videoId)}`, "_blank"); };
     ov._close = () => { if(!v.muted) setSound(false); v.pause(); v.removeAttribute("src"); v.load(); ov.remove(); };
     ov.querySelector(".ytv-x").onclick = () => ov._close();
