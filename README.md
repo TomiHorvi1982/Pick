@@ -1769,3 +1769,13 @@ kostru písně otevřené ve Steems: **tempo** a **takt** z mřížky bicích, *
 **akordy po taktech** zjednodušené jako v Live Show (Základní); když se v části opakuje stejné kolo, ukáže se
 jednou s počtem („E · A · D · A ×4“), celý průběh je v popisku. Nad částmi je řádek „Kostra z písně“. Kostra se
 ukládá s projektem. Do looperu s nahranými smyčkami se nepřepisuje.
+
+### Looper: bicí z písně
+
+V řádku kostry je **🥁 Bicí z písně** (zap/vyp), délka smyčky (**1, 2 nebo 4 takty**) a hlasitost. Každá část
+dostane vlastní smyčku vystřiženou ze skutečné bicí stopy písně přesně na dobách — z úseku části, kde bicí opravdu
+hrají (první úsek od druhého taktu, který má aspoň 80 % hlasitosti nejsilnějšího: ne tiché začátky, ne jeden
+hlasitý přechod), s krátkým prolnutím na okrajích. Smyčka hraje pod smyčkami looperu a přepíná se s částí přesně
+na taktu (ručně, pedálem i v aranžmá). Část, kde bicí nehrají, zůstane bez nich (u části „bez bicích“). Jiné
+tempo v looperu smyčku zrychlí nebo zpomalí; víc než o 6 % to řádek řekne. Klik zůstává zvlášť. Hraje jen
+s písní otevřenou ve Steems.

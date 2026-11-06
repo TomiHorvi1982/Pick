@@ -70,6 +70,9 @@ const Looper = (() => {
   .lp-skel b{color:var(--accent,#8b5cf6);letter-spacing:.02em}.lp-skel span{color:#c9c9da;margin-right:4px}
   .lp-skel i{font-style:normal;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.06);color:#e6e6ef;font-variant-numeric:tabular-nums}
   .lp-skel i.warn{background:rgba(255,190,60,.14);color:#ffcf6e}
+  .lp-drums{display:inline-flex;align-items:center;gap:6px}
+  .lp-drums select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 6px}
+  .lp-drums input[type=range]{width:80px}
   .lp-prep{border-color:color-mix(in srgb,var(--accent,#8b5cf6) 60%,transparent)}
   .lp-sc button em{font-style:normal;font-weight:600;font-size:10.5px;color:#9a9ab0}
   .lp-sc button .ch{display:block;margin-top:3px;font-size:11px;color:#d7c9ff;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
@@ -122,7 +125,8 @@ const Looper = (() => {
 
   // ---- state
   const KEY = "pick-looper";
-  const cfg = {bpm: 100, perBar: 4, click: true, clickVol: 0.5, countIn: true, autoNext: true, monMic: false, vol: 0.9};
+  const cfg = {bpm: 100, perBar: 4, click: true, clickVol: 0.5, countIn: true, autoNext: true, monMic: false, vol: 0.9,
+                drums: true, drumBars: 2, drumVol: 0.9};
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   // src: gtr | mic (audio) · midi (notes on an instrument) · drums (notes on the kit, and the step grid)
@@ -241,10 +245,12 @@ const Looper = (() => {
     tracks.forEach(t => { if(t.layers.length){ t.anchor = t0; t.layers.forEach(l => startLayer(t, l, t0)); } });
     if(arrOn && arr.length){ arrPos = {i: 0, start: 0}; cur = arr[0].k; }
     applyMutes(now());
+    drumsAt(cur, t0);
     if(cfg.guide) guideAt(t0, guidePos());
     paint();
   }
   function stopAll(){
+    drumsStop();
     if(!running) return;
     running = false;
     tracks.forEach(t => { t.layers.forEach(stopLayer); if(t.job) cancelJob(t); });
@@ -535,6 +541,7 @@ const Looper = (() => {
     if(g && g.perBar) cfg.perBar = g.perBar;
     const keyEl = document.getElementById("nm-key"), key = keyEl && !/^[…—-]?$/.test(keyEl.textContent.trim()) ? keyEl.textContent.trim() : "";
     makeScenes();
+    drumCache = {};
     const steps = secs.map(x => ({name: x.name, start: x.start, end: x.end, ...chordsIn(x.start, x.end, g, chords)}));
     arr = steps.map(x => ({k: scenes.findIndex(sc => sc.name === x.name), bars: x.bars, chords: x.text, full: x.full})).filter(x => x.k >= 0);
     scenes.forEach(sc => { const first = steps.find(x => x.name === sc.name); sc.chords = first ? first.text : ""; sc.full = first ? first.full : ""; sc.bars = first ? first.bars : 0; });
@@ -542,6 +549,68 @@ const Looper = (() => {
     if(!quiet) showToast(secs.length ? `Kostra z písně: ${skel.parts} částí, ${skel.bars} taktů, ${cfg.bpm} BPM` + (key ? `, tónina ${key}` : "")
       : "Píseň zatím nemá rozdělené části — kostra má jen tempo; části přidej ručně");
   }
+  // ---- the rhythm from the song: each part's own drums, a loop of 1, 2 or 4 bars cut on the downbeats of
+  // the song's drum stem (from the part's second bar — its first often carries the fill into it), the
+  // edges faded a few ms so it does not click, played under the loops and switched with the part on the
+  // bar. A part where the drums are silent plays none. Another tempo in the looper: the loop is sped up or
+  // slowed down to fit (and says so when that is far enough to be heard in its pitch).
+  let drumBus = null, drumNow = null, drumCache = {};
+  function drumsBuf(k){
+    const sc = scenes[k];
+    if(!sc || !skel || !skel.song || !(Mixer.currentSong && Mixer.currentSong() === skel.song)) return null;
+    const key = skel.song + "|" + sc.name + "|" + cfg.drumBars;
+    if(key in drumCache) return drumCache[key];
+    let src = null, secs = [], g = null;
+    try{ src = (Mixer.deck.audio() || []).find(x => x.stem === "drums"); secs = Mixer.sectionsNow() || []; g = Mixer.deck.grid(); }catch(e){}
+    const sec = secs.find(x => x.name === sc.name);
+    if(!src || !src.buffer || !sec){ drumCache[key] = null; return null; }
+    const starts = barsOf(sec.start, sec.end, g), n = cfg.drumBars, B = src.buffer, sr = B.sampleRate;
+    // where in the part the drums really play: of its stretches of n bars (from the second bar on — the
+    // first often carries the fill into it), the first that is at least 80 % as loud as the loudest —
+    // not a quiet start (a clean interlude), not the one fill that is louder than the groove
+    const rmsAt = (a, z) => { const d = B.getChannelData(0), f = Math.round(a * sr), t = Math.min(B.length, Math.round(z * sr)); let q = 0, m = 0; for(let i = f; i < t; i += 64){ q += d[i] * d[i]; m++; } return m ? Math.sqrt(q / m) : 0; };
+    const ends = (i) => i + n < starts.length ? starts[i + n] : Math.min(sec.end, starts[i] + n * barLen());
+    const cands = [];
+    for(let i = starts.length > n + 1 ? 1 : 0; i + n <= starts.length || (i === 0 && starts.length); i += n) cands.push({i, r: rmsAt(starts[i], ends(i))});
+    const top = Math.max(0, ...cands.map(c => c.r)), pick = cands.find(c => c.r >= top * 0.8) || cands[0];
+    const i0 = pick ? pick.i : 0;
+    const a = starts[i0], z = ends(i0);
+    const from = Math.round(a * sr), len = Math.round((z - a) * sr);
+    if(len < sr * 0.2 || from + len > B.length){ drumCache[key] = null; return null; }
+    const loop = ac.createBuffer(B.numberOfChannels, len, sr), fade = Math.round(sr * 0.004);
+    let sum = 0;
+    for(let ch = 0; ch < B.numberOfChannels; ch++){
+      const d = loop.getChannelData(ch);
+      d.set(B.getChannelData(ch).subarray(from, from + len));
+      for(let i = 0; i < fade; i++){ const f = i / fade; d[i] *= f; d[len - 1 - i] *= f; }
+      for(let i = 0; i < len; i += 64) sum += d[i] * d[i];
+    }
+    const rms = Math.sqrt(sum / (len / 64 * B.numberOfChannels));
+    drumCache[key] = rms < 0.004 ? null : {buf: loop, sec: z - a, bars: n};
+    return drumCache[key];
+  }
+  function drumsAt(k, at){
+    if(!ac) return;
+    if(!drumBus){ drumBus = ac.createGain(); drumBus.connect(out); }
+    drumBus.gain.value = cfg.drumVol;
+    if(drumNow){ try{ drumNow.stop(at); }catch(e){} drumNow = null; }
+    if(!cfg.drums) return;
+    const d = drumsBuf(k);
+    if(!d) return;
+    const src = ac.createBufferSource();
+    src.buffer = d.buf; src.loop = true;
+    src.playbackRate.value = d.sec / (d.bars * barLen());          // to the looper's tempo
+    src.connect(drumBus);
+    src.start(Math.max(at, now()));
+    drumNow = src;
+  }
+  function drumsStop(){ if(drumNow){ try{ drumNow.stop(); }catch(e){} drumNow = null; } }
+  // how far the parts' drums are from the looper's tempo (1 = the same)
+  function drumsRate(){
+    const r = scenes.map((sc, k) => drumsBuf(k)).filter(Boolean).map(d => d.sec / (d.bars * barLen()));
+    return r.length ? r.reduce((a, b) => a + b, 0) / r.length : 1;
+  }
+
   function prepFromSong(){
     const s = Mixer.currentSong && Mixer.currentSong();
     if(!s){ showToast("Otevři píseň ve Steems — z ní se kostra připraví"); return; }
@@ -739,6 +808,8 @@ const Looper = (() => {
         else { pending = {k: arr[i].k, at: end, step: {i, start: arrPos.start + stepBars(arr[arrPos.i])}}; paint(); }
       }
     }
+    // the next part's drums laid on the bar line ahead, on the audio clock
+    if(pending && !pending.drums && tm >= pending.at - 0.25){ pending.drums = true; drumsAt(pending.k, pending.at); }
     if(pending && tm >= pending.at - 0.02){
       cur = pending.k;
       if(pending.step) arrPos = pending.step;
@@ -1178,9 +1249,24 @@ const Looper = (() => {
       n.querySelector(".meta").textContent = t.layers.length ? `${bars} ${bars === 1 ? "takt" : bars < 5 ? "takty" : "taktů"} · ${t.layers.length} ${t.layers.length === 1 ? "vrstva" : t.layers.length < 5 ? "vrstvy" : "vrstev"}${t.steps ? " (kroky)" : ""} · ${what}` : what;
     });
     { const k = $("lp-skel"); k.hidden = !skel;
-      if(skel) k.innerHTML = `<b>Kostra z písně</b><span>${esc(skel.song || "")}</span><i>${skel.bpm} BPM</i><i>${skel.perBar}/4</i>${skel.key ? `<i>tónina ${esc(skel.key)}</i>` : ""}<i>${skel.parts} částí</i><i>${skel.bars} taktů</i>${skel.chords ? "" : '<i class="warn">akordy zatím nejsou</i>'}`; }
+      if(skel){
+        const here = Mixer.currentSong && Mixer.currentSong() === skel.song, rate = here && ac ? drumsRate() : 1;
+        k.innerHTML = `<b>Kostra z písně</b><span>${esc(skel.song || "")}</span><i>${skel.bpm} BPM</i><i>${skel.perBar}/4</i>${skel.key ? `<i>tónina ${esc(skel.key)}</i>` : ""}<i>${skel.parts} částí</i><i>${skel.bars} taktů</i>${skel.chords ? "" : '<i class="warn">akordy zatím nejsou</i>'}
+          <span class="lp-sp"></span>
+          <span class="lp-drums" title="${here ? "Bicí každé části ze skutečné bicí stopy písně, smyčka na dobách — hrají pod smyčkami a přepínají se s částí na taktu" : "Bicí z písně hrají, jen když je píseň otevřená ve Steems"}">
+            <button type="button" class="lp-b ${cfg.drums && here ? "on" : ""}" id="lp-drums" ${here ? "" : "disabled"}>🥁 Bicí z písně</button>
+            <select id="lp-drumbars" title="Délka smyčky bicích">${[1, 2, 4].map(n => `<option value="${n}" ${cfg.drumBars === n ? "selected" : ""}>${n} ${n === 1 ? "takt" : "takty"}</option>`).join("")}</select>
+            <input type="range" id="lp-drumvol" min="0" max="1.5" step="0.01" value="${cfg.drumVol}" title="Hlasitost bicích">
+            ${Math.abs(rate - 1) > 0.06 ? `<i class="warn" title="Tempo looperu je jiné než tempo písně — bicí se zrychlí nebo zpomalí a změní se jim i výška">bicí ${rate > 1 ? "zrychlené" : "zpomalené"} o ${Math.round(Math.abs(1 / rate - 1) * 100)} %</i>` : ""}
+          </span>`;
+        const db = k.querySelector("#lp-drums");
+        if(db) db.onclick = () => { cfg.drums = !cfg.drums; keep(); if(running) drumsAt(cur, nextBar(now())); paint(); };
+        k.querySelector("#lp-drumbars").onchange = (e) => { cfg.drumBars = +e.target.value; keep(); if(running) drumsAt(cur, nextBar(now())); };
+        k.querySelector("#lp-drumvol").oninput = (e) => { cfg.drumVol = +e.target.value; keep(); if(drumBus) drumBus.gain.value = cfg.drumVol; };
+      }
+    }
     $("lp-sc").innerHTML = `<span class="h">ČÁSTI PÍSNĚ</span>` + scenes.map((s, k) => `<button type="button" data-k="${k}" class="${k === cur ? "cur" : ""}${pending && pending.k === k ? " next" : ""}"
-        title="Klik: přepnout na začátku dalšího taktu · dvojklik: přejmenovat${s.full || s.chords ? "\nAkordy po taktech: " + esc(s.full || s.chords) : ""}"><b>${esc(s.name)}${s.bars ? ` <em>${s.bars} t.</em>` : ""}</b><span>${s.on.size ? [...s.on].sort().map(x => x + 1).join(" ") : "ticho"}</span>${s.chords ? `<span class="ch">${esc(s.chords)}</span>` : ""}</button>`).join("")
+        title="Klik: přepnout na začátku dalšího taktu · dvojklik: přejmenovat${s.full || s.chords ? "\nAkordy po taktech: " + esc(s.full || s.chords) : ""}"><b>${esc(s.name)}${s.bars ? ` <em>${s.bars} t.</em>` : ""}${skel && cfg.drums && ac && Mixer.currentSong && Mixer.currentSong() === skel.song ? (drumsBuf(k) ? ' <em title="Hraje s bicími z písně">🥁</em>' : ' <em title="V téhle části bicí nehrají">bez bicích</em>') : ""}</b><span>${s.on.size ? [...s.on].sort().map(x => x + 1).join(" ") : "ticho"}</span>${s.chords ? `<span class="ch">${esc(s.chords)}</span>` : ""}</button>`).join("")
       + `<button type="button" data-add title="Nová část — začne se stopami té, co hraje">＋ Část</button>`;
     $("lp-sc").querySelectorAll("[data-k]").forEach(b => {
       b.onclick = () => goScene(+b.dataset.k);
