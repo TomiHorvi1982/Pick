@@ -52,8 +52,11 @@ def test_review_keeps_or_throws_away(client, tmp_music_root):
     d = _song(tmp_music_root, "S", print_id="20261103-120000")
     _song(tmp_music_root, "T", print_id="20261103-130000")
     assert [p["review"] for p in client.get("/api/tone/prints").json()] == ["pending", "pending"]
-    assert client.post("/api/tone/S/prints/20261103-120000/review", json={"keep": True}).json() == {"kept": True}
+    assert client.post("/api/tone/S/prints/20261103-120000/review", json={"keep": True}).json() == {"kept": True, "review": "ok"}
     assert json.loads((d / "tone/prints/20261103-120000/print.json").read_text())["review"] == "ok"
+    # not right, but only marked (the quick check in Hraju s kytarou): the print stays, as "bad"
+    assert client.post("/api/tone/S/prints/20261103-120000/review", json={"keep": False, "drop": False}).json() == {"kept": False, "review": "bad"}
+    assert json.loads((d / "tone/prints/20261103-120000/print.json").read_text())["review"] == "bad"
     assert client.post("/api/tone/T/prints/20261103-130000/review", json={"keep": False}).json() == {"kept": False}
     assert not (tmp_music_root / "Stems/T/tone/prints/20261103-130000").exists()
 
