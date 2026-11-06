@@ -66,6 +66,15 @@ const Looper = (() => {
   .lp-t .row button{font-size:12px;padding:4px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);cursor:pointer}
   .lp-t .row button.on{background:#6a6a7a;border-color:#6a6a7a}
   .lp-t .vol{width:100%;display:flex;align-items:center;gap:6px;font-size:11px;color:#9a9ab0}.lp-t .vol input{flex:1}
+  .lp-skel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);font-size:12px}
+  .lp-skel b{color:var(--accent,#8b5cf6);letter-spacing:.02em}.lp-skel span{color:#c9c9da;margin-right:4px}
+  .lp-skel i{font-style:normal;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.06);color:#e6e6ef;font-variant-numeric:tabular-nums}
+  .lp-skel i.warn{background:rgba(255,190,60,.14);color:#ffcf6e}
+  .lp-prep{border-color:color-mix(in srgb,var(--accent,#8b5cf6) 60%,transparent)}
+  .lp-sc button em{font-style:normal;font-weight:600;font-size:10.5px;color:#9a9ab0}
+  .lp-sc button .ch{display:block;margin-top:3px;font-size:11px;color:#d7c9ff;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .lp-arr .st{flex-wrap:wrap;max-width:260px}
+  .lp-arr .st .ch{display:block;flex-basis:100%;font-size:10px;color:#b9abf0;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lp-sc{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .lp-sc .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
   .lp-sc button{min-width:96px;padding:10px 14px;border-radius:13px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);cursor:pointer;text-align:left}
@@ -456,7 +465,7 @@ const Looper = (() => {
     box.innerHTML = `<span class="h">ARANŽMÁ</span>
       <button type="button" class="lp-b ${arrOn && running ? "on" : ""}" data-a="play" title="Přehrát celé aranžmá: části se přepínají samy, pedál (další / předchozí část) skáče">${arrOn && running ? "■ Zastavit" : "▶ Přehrát aranžmá"}</button>`
       + arr.map((st, i) => `${i ? '<span class="arrow">›</span>' : ""}<span class="st ${arrOn && arrPos && arrPos.i === i && running ? "now" : ""}" data-i="${i}">
-          <b data-a="go" title="Klik: tady pokračovat">${esc(scenes[st.k] ? scenes[st.k].name : "?")}</b>
+          <b data-a="go" title="Klik: tady pokračovat${st.full || st.chords ? "\nAkordy po taktech: " + esc(st.full || st.chords) : ""}">${esc(scenes[st.k] ? scenes[st.k].name : "?")}</b>${st.chords ? `<small class="ch">${esc(st.chords)}</small>` : ""}
           <button type="button" data-a="-" title="O takt kratší">−</button><i>${stepBars(st)} ${stepBars(st) === 1 ? "takt" : stepBars(st) < 5 ? "takty" : "taktů"}</i><button type="button" data-a="+" title="O takt delší">+</button>
           <button type="button" data-a="<" title="Dřív">‹</button><button type="button" data-a=">" title="Později">›</button><button type="button" data-a="x" title="Vyndat">✕</button></span>`).join("")
       + `<button type="button" class="lp-b" data-a="add" title="Přidá část, která právě hraje">+ do aranžmá</button>`
@@ -480,6 +489,67 @@ const Looper = (() => {
   function arrFrom(list){
     // [{name, bars}] in the song's order → steps on the parts of those names
     arr = (list || []).map(x => ({k: scenes.findIndex(s => s.name === x.name), bars: Math.max(1, Math.round(x.bars || 0)) || 0})).filter(x => x.k >= 0);
+  }
+
+  // ---- the song's skeleton (Připravit z písně): its tempo, metre and key, its parts as scenes, the
+  // arrangement in the song's order with each part's length in bars counted on the drums' downbeats, and
+  // the chords of every bar — what to play, part by part, before anything is recorded.
+  let skel = null;                     // {song, bpm, perBar, key, parts, bars}
+  function barsOf(from, to, g){
+    const db = (g && g.downbeats) || [];
+    const inside = db.filter(t => t >= from - 0.05 && t < to - 0.05);
+    if(inside.length >= 2) return inside;
+    const n = Math.max(1, Math.round((to - from) / barLen())), out = [];
+    for(let i = 0; i < n; i++) out.push(from + i * barLen());
+    return out;
+  }
+  // the chord of each bar (the one sounding longest in it), repeats folded: "Em ×2 · C · G · D"
+  function chordsIn(from, to, g, list){
+    const starts = barsOf(from, to, g);
+    const per = starts.map((b, i) => {
+      const e = i + 1 < starts.length ? starts[i + 1] : Math.min(to, b + barLen());
+      let best = "", most = 0;
+      for(const c of list){
+        const o = Math.min(e, c.end) - Math.max(b, c.start);
+        if(o > most){ most = o; best = c.chord; }
+      }
+      return best;
+    });
+    const out = [];
+    per.forEach(c => { const last = out[out.length - 1]; if(last && last.c === c) last.n++; else out.push({c, n: 1}); });
+    const full = out.map(x => (x.c || "–") + (x.n > 1 ? " ×" + x.n : "")).join(" · ");
+    // a part that goes round the same chords: the round once, and how many times ("E · A · D · A ×4")
+    for(let L = 2; L <= 8 && per.length >= L * 2; L++){
+      const hit = per.filter((c, i) => c === per[i % L]).length / per.length;
+      if(hit >= 0.8 && new Set(per.slice(0, L)).size > 1)
+        return {bars: starts.length, text: per.slice(0, L).join(" · ") + ` ×${Math.round(per.length / L)}`, full};
+    }
+    return {bars: starts.length, text: out.length > 8 ? out.slice(0, 8).map(x => (x.c || "–") + (x.n > 1 ? " ×" + x.n : "")).join(" · ") + " …" : full, full};
+  }
+  function skeletonFrom(name, quiet){
+    let secs = [], g = null, chords = [];
+    try{ secs = Mixer.sectionsNow() || []; g = Mixer.deck.grid(); chords = Mixer.deck.chords() || []; }catch(e){}
+    // the chords as the Live Show's Základní shows them: the main one of each bar, not every passing colour
+    try{ if(chords.length && typeof ChordCoach !== "undefined") chords = ChordCoach.timed(ChordCoach.simplify(chords, {level: "basic", beats: g.beats, downbeats: g.downbeats, perBar: g.perBar, sections: secs})); }catch(e){}
+    if(g && g.bpm) cfg.bpm = Math.round(g.bpm * 10) / 10;
+    if(g && g.perBar) cfg.perBar = g.perBar;
+    const keyEl = document.getElementById("nm-key"), key = keyEl && !/^[…—-]?$/.test(keyEl.textContent.trim()) ? keyEl.textContent.trim() : "";
+    makeScenes();
+    const steps = secs.map(x => ({name: x.name, start: x.start, end: x.end, ...chordsIn(x.start, x.end, g, chords)}));
+    arr = steps.map(x => ({k: scenes.findIndex(sc => sc.name === x.name), bars: x.bars, chords: x.text, full: x.full})).filter(x => x.k >= 0);
+    scenes.forEach(sc => { const first = steps.find(x => x.name === sc.name); sc.chords = first ? first.text : ""; sc.full = first ? first.full : ""; sc.bars = first ? first.bars : 0; });
+    skel = {song: name, bpm: cfg.bpm, perBar: cfg.perBar, key, parts: scenes.length, bars: arr.reduce((n, st) => n + st.bars, 0), chords: chords.length > 0};
+    if(!quiet) showToast(secs.length ? `Kostra z písně: ${skel.parts} částí, ${skel.bars} taktů, ${cfg.bpm} BPM` + (key ? `, tónina ${key}` : "")
+      : "Píseň zatím nemá rozdělené části — kostra má jen tempo; části přidej ručně");
+  }
+  function prepFromSong(){
+    const s = Mixer.currentSong && Mixer.currentSong();
+    if(!s){ showToast("Otevři píseň ve Steems — z ní se kostra připraví"); return; }
+    if(hasAudio()){ showToast("V looperu už jsou nahrané smyčky — kostru jde připravit jen do prázdného (ulož projekt a vymaž stopy)"); return; }
+    stopAll(); arrOn = false;
+    song = s; projName = null;
+    skeletonFrom(s);
+    paint();
   }
 
   // ---- the original under the loops: the song open in Steems, from where the part playing begins in it
@@ -518,7 +588,8 @@ const Looper = (() => {
   const enc = encodeURIComponent;
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
-      scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on]})), arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0})),
+      scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel,
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -565,10 +636,11 @@ const Looper = (() => {
     tracks.forEach(t => clear(t.i));
     history.length = 0; redoStack.length = 0;
     cfg.bpm = P.bpm || cfg.bpm; cfg.perBar = P.perBar || cfg.perBar; song = P.song || null;
-    scenes = (P.scenes || []).map(sc => ({name: sc.name, on: new Set(sc.on || [])}));
+    scenes = (P.scenes || []).map(sc => ({name: sc.name, on: new Set(sc.on || []), chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0}));
+    skel = P.skeleton || null;
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);
-    arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0}));
+    arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""}));
     for(const [i, T] of (P.tracks || []).slice(0, N).entries()){
       const t = tracks[i];
       Object.assign(t, {name: T.name || t.name, src: T.src || t.src, instr: T.instr || t.instr, q: T.q ?? t.q, vol: T.vol ?? t.vol, bars: T.bars || 0, len: T.len || 0, anchor: 0});
@@ -963,6 +1035,7 @@ const Looper = (() => {
         <button type="button" class="lp-b" id="lp-mon" title="Slyšet mikrofon ve sluchátkách (jen se sluchátky — z reproduktorů by pískal)">Slyšet mikrofon</button>
         <button type="button" class="lp-b" id="lp-guide" title="Originál písně pod smyčkami (její stopy z Steems), na začátku části, kterou hraješ — jen s písní otevřenou ve Steems">Originál</button>
         <span class="lp-sp"></span>
+        <button type="button" class="lp-b lp-prep" id="lp-prep" title="Z písně otevřené ve Steems: tempo, takt, tónina, části jako scény, aranžmá v pořadí písně s délkou v taktech a akordy každé části — do prázdného looperu">Připravit z písně</button>
         <button type="button" class="lp-b" id="lp-open" title="Otevřít uložený projekt looperu">Otevřít</button>
         <button type="button" class="lp-b" id="lp-save" title="Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě">Uložit</button>
         <button type="button" class="lp-b" id="lp-export" title="Aranžmá jako WAV, nebo jako projekt ve Steems (stopa za stopu)">Export</button>
@@ -975,6 +1048,7 @@ const Looper = (() => {
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
+        <div class="lp-skel" id="lp-skel" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-arr" id="lp-arr"></div>
         <div class="lp-help">
@@ -1103,14 +1177,17 @@ const Looper = (() => {
       const what = t.src === "midi" ? instrName(t.instr) : srcs[t.src].name;
       n.querySelector(".meta").textContent = t.layers.length ? `${bars} ${bars === 1 ? "takt" : bars < 5 ? "takty" : "taktů"} · ${t.layers.length} ${t.layers.length === 1 ? "vrstva" : t.layers.length < 5 ? "vrstvy" : "vrstev"}${t.steps ? " (kroky)" : ""} · ${what}` : what;
     });
+    { const k = $("lp-skel"); k.hidden = !skel;
+      if(skel) k.innerHTML = `<b>Kostra z písně</b><span>${esc(skel.song || "")}</span><i>${skel.bpm} BPM</i><i>${skel.perBar}/4</i>${skel.key ? `<i>tónina ${esc(skel.key)}</i>` : ""}<i>${skel.parts} částí</i><i>${skel.bars} taktů</i>${skel.chords ? "" : '<i class="warn">akordy zatím nejsou</i>'}`; }
     $("lp-sc").innerHTML = `<span class="h">ČÁSTI PÍSNĚ</span>` + scenes.map((s, k) => `<button type="button" data-k="${k}" class="${k === cur ? "cur" : ""}${pending && pending.k === k ? " next" : ""}"
-        title="Klik: přepnout na začátku dalšího taktu · dvojklik: přejmenovat"><b>${esc(s.name)}</b><span>${s.on.size ? [...s.on].sort().map(x => x + 1).join(" ") : "ticho"}</span></button>`).join("")
+        title="Klik: přepnout na začátku dalšího taktu · dvojklik: přejmenovat${s.full || s.chords ? "\nAkordy po taktech: " + esc(s.full || s.chords) : ""}"><b>${esc(s.name)}${s.bars ? ` <em>${s.bars} t.</em>` : ""}</b><span>${s.on.size ? [...s.on].sort().map(x => x + 1).join(" ") : "ticho"}</span>${s.chords ? `<span class="ch">${esc(s.chords)}</span>` : ""}</button>`).join("")
       + `<button type="button" data-add title="Nová část — začne se stopami té, co hraje">＋ Část</button>`;
     $("lp-sc").querySelectorAll("[data-k]").forEach(b => {
       b.onclick = () => goScene(+b.dataset.k);
       b.ondblclick = async () => { const s = scenes[+b.dataset.k], v = await Dialog.prompt("Název části:", s.name); if(v && v.trim()){ s.name = v.trim(); paint(); } };
     });
     $("lp-sc").querySelector("[data-add]").onclick = addScene;
+    $("lp-prep").onclick = prepFromSong; $("lp-prep").disabled = hasAudio();
     paintArr();
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
@@ -1210,9 +1287,9 @@ const Looper = (() => {
         const bpm = o.bpm || (g && g.bpm), per = o.perBar || (g && g.perBar);
         if(bpm) cfg.bpm = Math.round(bpm * 10) / 10;
         if(per) cfg.perBar = per;
-        makeScenes(o.parts);
-        if(o.arrangement) arrFrom(o.arrangement);
-        else { try{ arrFrom((Mixer.sectionsNow() || []).map(x => ({name: x.name, bars: (x.end - x.start) / barLen()}))); }catch(e){ arr = []; } }
+        if(o.parts || o.arrangement){ makeScenes(o.parts); if(o.arrangement) arrFrom(o.arrangement); else arr = []; skel = null; }
+        else if(s && Mixer.currentSong() === s) skeletonFrom(s, true);
+        else { makeScenes(); arr = []; skel = null; }
         projName = null;
       }
     }

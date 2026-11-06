@@ -1760,3 +1760,12 @@ bedny (`"ir": None`), sólové zvuky mají jemný vlastní prostor (`"verb"`) a 
   přeškrtnutý — a přejde na další), **Další ke kontrole ›**; počet zbývajících v písni.
 
 Záloha před přepsáním knihovny: `~/.local/share/spotdl-helper/backups/prints-before-recategorize-*.tar.gz`.
+
+## Looper: kostra z písně
+
+**Připravit z písně** (v liště Looperu; samo i při otevření Looperu s písní ve Steems) postaví do prázdného looperu
+kostru písně otevřené ve Steems: **tempo** a **takt** z mřížky bicích, **tóninu**, **části** jako scény a
+**aranžmá** v pořadí písně s délkou každé části v taktech (spočítané na dobách bicích). U každé části jsou
+**akordy po taktech** zjednodušené jako v Live Show (Základní); když se v části opakuje stejné kolo, ukáže se
+jednou s počtem („E · A · D · A ×4“), celý průběh je v popisku. Nad částmi je řádek „Kostra z písně“. Kostra se
+ukládá s projektem. Do looperu s nahranými smyčkami se nepřepisuje.
