@@ -62,7 +62,7 @@
   .region-toggle button.active{border-color:var(--accent);color:var(--accent);
     background:linear-gradient(180deg,rgba(45,212,191,.14),transparent)}
 
-  .section-title{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;
+  .section-title{font-size:12.5px;letter-spacing:.01em;
     color:var(--sub);margin:20px 0 10px;display:flex;align-items:center;gap:10px}
   .add-link{font-size:11.5px;text-transform:none;letter-spacing:0;color:var(--accent);
     cursor:pointer;font-weight:700}
@@ -135,7 +135,7 @@
   .track-cols-head{display:grid;align-items:center;gap:10px;padding:4px 8px 8px;
     border-bottom:1px solid var(--border);margin-bottom:2px}
   .track-cols-head span, .track-cols-head button{font-size:11px;color:var(--sub);
-    text-transform:uppercase;letter-spacing:.04em}
+    letter-spacing:.01em}
   .track-cols-head button{background:none;border:none;font-weight:700;cursor:pointer;
     padding:0;display:flex;align-items:center;gap:3px;text-align:left}
   .track-cols-head button:hover{color:var(--text)}
@@ -421,7 +421,7 @@
 
   /* Channel Header */
   .fl-ch-header{text-align:center;width:100%}
-  .fl-ch-name{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+  .fl-ch-name{font-size:9.5px;font-weight:700;letter-spacing:.01em;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;color:var(--text)}
   .fl-ch-tag{font-size:7.5px;color:var(--sub);margin-top:1px;font-weight:600}
 
@@ -525,7 +525,7 @@
   .tp-track:hover{background:var(--card-hi)}
   .tp-track.on{background:color-mix(in srgb,var(--accent) 14%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
   .tp-track .tp-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tp-track .cls{font-size:9.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
+  .tp-track .cls{font-size:9.5px;color:var(--sub);letter-spacing:.01em}
   .tp-track .ms{display:flex;gap:2px}
   .tp-track .ms button{width:20px;height:18px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--sub);
     font-size:9px;font-weight:700;cursor:pointer;padding:0}
@@ -561,7 +561,7 @@
   .tp-stem{display:grid;grid-template-columns:120px 50px 90px 1fr;align-items:center;gap:8px;padding:3px 6px;border-radius:7px;
     border:1px solid transparent}
   .tp-stem.focus{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-  .tp-stem .tp-nm{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .tp-stem .tp-nm{font-size:12px;font-weight:700;letter-spacing:.01em;cursor:pointer;display:flex;align-items:center;gap:6px}
   .tp-stem .tp-nm i{width:9px;height:9px;border-radius:2px;display:inline-block}
   .tp-stem .ms{display:flex;gap:3px}
   .tp-stem .ms button{width:22px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--sub);
@@ -1064,7 +1064,7 @@ body.lib-collapsed .pick-brand{display:none}
   .tm-pop{display:none;position:fixed;z-index:5000;min-width:168px;max-width:min(300px,calc(100vw - 16px));padding:4px;
     background:#1c1c22;border:1px solid #33333d;border-radius:9px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
   .tm-pop.show{display:block}
-  .tm-head{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--nm-sub);padding:3px 8px 4px}
+  .tm-head{font-size:9.5px;font-weight:700;letter-spacing:.01em;color:var(--nm-sub);padding:3px 8px 4px}
   .tm-pop hr{border:none;border-top:1px solid #33333d;margin:5px 2px}
   .tm-item[hidden]{display:none}
   .tm-item{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;color:var(--nm-txt);
@@ -1325,8 +1325,8 @@ body.lib-collapsed .pick-brand{display:none}
   .guitar-lane{display:flex;align-items:center}
   .gt-lane-note{position:sticky;left:12px;font-size:10.5px;color:var(--nm-sub);
     padding-left:12px;display:flex;align-items:center;gap:6px}
-  .nm-strip-name{font-size:10.5px;font-weight:700;letter-spacing:.09em;
-                 text-transform:uppercase;color:var(--nm-txt);flex:1;
+  .nm-strip-name{font-size:10.5px;font-weight:700;letter-spacing:.01em;
+                 color:var(--nm-txt);flex:1;
                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .nm-solo{width:19px;height:19px;border:none;background:transparent;padding:0;
            cursor:pointer;font-size:11px;line-height:1;color:var(--nm-sub);
@@ -1403,7 +1403,7 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-tabtop-viewport.dragging{cursor:grabbing}
   .nm-tabtop-host{background:#f4f4f2;width:max-content;min-width:100%;height:200px}
   .tabs-part{display:flex;align-items:center;gap:8px;padding:14px 10px 6px;font-size:12px;font-weight:700;
-    letter-spacing:.06em;text-transform:uppercase;color:var(--sub)}
+    letter-spacing:.01em;color:var(--sub)}
   .tabs-part.pick{color:var(--accent)}
   .tabs-part.local{margin-top:14px;border-top:1px solid var(--border);padding-top:18px}
   .tabs-part .n{font-weight:500;letter-spacing:0}
@@ -1550,16 +1550,16 @@ body.lib-collapsed .pick-brand{display:none}
   .ss-name{font-size:13.5px;font-weight:600;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
   .ss-kind{font-size:11px;color:var(--sub);flex:0 0 auto}
-  .ss-head{font-size:10.5px;font-weight:700;letter-spacing:.09em;
-    text-transform:uppercase;color:var(--sub);padding:8px 10px 4px}
+  .ss-head{font-size:10.5px;font-weight:700;letter-spacing:.01em;
+    color:var(--sub);padding:8px 10px 4px}
   .ss-empty{font-size:12.5px;color:var(--sub);padding:10px}
 
   /* The criteria you have stacked up, each removable. */
   .search-criteria{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
     padding:12px 32px 0}
   .search-criteria[hidden]{display:none}
-  .sc-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;
-    text-transform:uppercase;color:var(--sub)}
+  .sc-label{font-size:11.5px;font-weight:700;letter-spacing:.01em;
+    color:var(--sub)}
   .sc-chip{display:inline-flex;align-items:center;gap:7px;height:30px;
     padding:0 6px 0 13px;border-radius:999px;border:none;cursor:default;
     background:var(--accent);color:#000;font-size:12.5px;font-weight:700}
@@ -1573,7 +1573,7 @@ body.lib-collapsed .pick-brand{display:none}
   /* Recent searches are history, not criteria — they must not read as the
      green chips above them. */
   .sh-label{display:inline-flex;align-items:center;gap:5px;font-size:11px;
-    font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    font-weight:700;letter-spacing:.01em;
     color:var(--sub);margin-right:4px}
   .sp-home{width:48px;height:48px;border-radius:50%;background:var(--card);border:none;
     color:var(--text);font-size:19px;cursor:pointer;display:flex;align-items:center;
@@ -1646,7 +1646,7 @@ body.lib-collapsed .pick-brand{display:none}
   .lib-empty{padding:8px 12px 14px;color:var(--sub);font-size:13px;line-height:1.5}
   .lib-sec{display:flex;align-items:center;gap:8px;padding:14px 8px 6px;width:100%;
     border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;
-    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub)}
+    font-size:12px;font-weight:700;letter-spacing:.01em;color:var(--sub)}
   .lib-sec:hover{color:#fff}
   .lib-sec .chev{flex:0 0 auto;opacity:.65}
   .lib-sec .chev .ic-svg{display:block;transform:rotate(90deg);transition:transform .15s ease}
@@ -1696,7 +1696,7 @@ body.lib-collapsed .pick-brand{display:none}
   .mt-acts{display:flex;gap:10px;margin-top:18px;align-items:center}
   .mt-pair,.mt-prop,.mt-touch{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13.5px}
   .mt-prop,.mt-touch{align-items:flex-start}
-  .mt-pair > span,.mt-prop > span,.mt-touch > span{flex:0 0 96px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);font-weight:800;padding-top:3px}
+  .mt-pair > span,.mt-prop > span,.mt-touch > span{flex:0 0 96px;font-size:10.5px;letter-spacing:.01em;color:var(--sub);font-weight:800;padding-top:3px}
   .mt-pair small{color:var(--sub);font-size:12px}
   .mt-prop > div,.mt-touch > div{flex:1;min-width:0;line-height:1.55}
   .mt-prop b{font-size:15px}
@@ -1734,7 +1734,7 @@ body.lib-collapsed .pick-brand{display:none}
   .lib-sec-mode.collapsed .lib-sec-chev .ic-svg{transform:rotate(0deg)}
   .lib-sec-mode .lib-sec-label{flex:1;min-width:0;text-align:left;padding:14px 8px 6px 0;
     display:flex;align-items:center;gap:8px;
-    font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    font-size:12px;font-weight:700;letter-spacing:.01em;
     color:var(--accent)}
   .lib-sec-mode .lib-sec-icon{flex:0 0 auto;display:flex}
   .lib-sec-mode .lib-sec-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2235,7 +2235,7 @@ body.lib-collapsed .pick-brand{display:none}
   .guard-check{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;cursor:pointer}
   .guard-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
   .guard-row .set-note{margin:0}
-  .guard-sub{margin-top:14px;font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em}
+  .guard-sub{margin-top:14px;font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.01em}
   .guard-now{margin-top:6px;font-size:12px;color:var(--sub)}
   .guard-now b{color:var(--text)}
   .guard-now.bad b{color:var(--gold)}
@@ -2534,7 +2534,7 @@ body.lib-collapsed .pick-brand{display:none}
     color:var(--text);font-size:12px;cursor:pointer;z-index:2}
   .overlay:not(#overlay) .close-btn:hover{background:#3e3e3e}
   .overlay:not(#overlay) .section-title{font-size:13px;font-weight:700;
-    color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px}
+    color:var(--sub);letter-spacing:.01em;margin:18px 0 8px}
   .overlay:not(#overlay) .panel input[type=text],
   .overlay:not(#overlay) .panel select{width:100%;background:#2a2a2a;border:1px solid #3e3e3e;
     border-radius:6px;color:var(--text);padding:10px 12px;font-size:13px;
@@ -2605,7 +2605,7 @@ body.lib-collapsed .pick-brand{display:none}
   .stem-card-title{font-size:15px;color:var(--text);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   .stem-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-  .stem-chip{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  .stem-chip{font-size:10px;font-weight:600;letter-spacing:.01em;
     padding:2px 7px;border-radius:500px;background:#2a2a2a;color:var(--sub)}
   .stem-chip.vocals{background:rgba(216,212,232,.16);color:#d8d4e8}
   .stem-chip.drums{background:rgba(255,122,107,.16);color:#ff7a6b}
@@ -3437,8 +3437,8 @@ body.lib-collapsed .pick-brand{display:none}
   .nam-metro-row button:hover{background:#3e3e3e}
   #nam-metro-toggle{margin-left:auto}
   .nam-presets-head{display:flex;align-items:center;justify-content:space-between;
-    padding:14px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;
-    text-transform:uppercase;color:var(--sub)}
+    padding:14px 10px 6px;font-size:11px;font-weight:700;letter-spacing:.01em;
+    color:var(--sub)}
   .nam-riffs-manage-btn{background:var(--card-hi);border:none;border-radius:999px;
     color:var(--text);padding:5px 12px;cursor:pointer;font-size:11px;font-weight:600;
     text-transform:none;letter-spacing:normal;display:flex;align-items:center;gap:6px}
@@ -3619,13 +3619,13 @@ body.lib-collapsed .pick-brand{display:none}
   .ab-album .n{font-size:13.5px;font-weight:600;margin-top:8px}
   .ab-album .y{font-size:12px;color:var(--sub)}
   .ab-events{display:flex;flex-direction:column;gap:4px;max-width:760px}
-  .ab-ev-group{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:10px 0 2px}
+  .ab-ev-group{font-size:11.5px;letter-spacing:.01em;color:var(--sub);margin:10px 0 2px}
   .ab-event{display:flex;gap:14px;align-items:center;padding:8px 10px;border-radius:8px;
     background:#1f1f1f;color:inherit;text-decoration:none}
   .ab-event:hover{background:#2a2a2a}
   .ab-event .d{flex:0 0 46px;text-align:center;line-height:1.1}
   .ab-event .d b{display:block;font-size:20px}
-  .ab-event .d small{font-size:11px;color:var(--sub);text-transform:uppercase}
+  .ab-event .d small{font-size:11px;color:var(--sub);}
   .ab-event .c{font-weight:600;font-size:13.5px}
   .ab-event .vn{font-size:12px;color:var(--sub)}
   .ab-event .tg{margin-left:auto;font-size:11px;color:var(--accent)}
@@ -3755,15 +3755,15 @@ body.lib-collapsed .pick-brand{display:none}
 
   .np-events{display:flex;flex-direction:column;gap:2px}
   .np-ev-group{font-size:11px;font-weight:700;color:var(--sub);
-    text-transform:uppercase;letter-spacing:.07em;margin:10px 0 2px;padding:0 8px}
+    letter-spacing:.01em;margin:10px 0 2px;padding:0 8px}
   .np-ev-group:first-child{margin-top:2px}
   .np-event{display:flex;align-items:center;gap:12px;padding:8px;border-radius:6px;
     text-decoration:none;color:inherit}
   .np-event:hover{background:var(--card-hi)}
   .np-ev-date{flex:0 0 46px;text-align:center;line-height:1.1}
   .np-ev-day{font-size:16px;font-weight:700;color:var(--text)}
-  .np-ev-mon{font-size:10.5px;color:var(--sub);text-transform:uppercase;
-    letter-spacing:.06em}
+  .np-ev-mon{font-size:10.5px;color:var(--sub);
+    letter-spacing:.01em}
   .np-ev-body{flex:1;min-width:0}
   .np-ev-city{font-size:13.5px;color:var(--text);font-weight:600;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -4131,7 +4131,7 @@ body.lib-collapsed .pick-brand{display:none}
   .srail-now{display:flex;gap:10px;align-items:center;padding:10px 8px;margin:6px 0 4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
   .srail-now .lib-art{width:44px;height:44px;flex:none;border-radius:5px}
   .srail-now .tx{min-width:0;display:flex;flex-direction:column;gap:1px}
-  .srail-now small{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .srail-now small{font-size:9.5px;letter-spacing:.01em;color:var(--accent);font-weight:700}
   .srail-now b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .srail-now span{font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .srail-note,.srail-sum{font-size:12px;color:var(--sub);padding:8px;line-height:1.45}
@@ -4143,7 +4143,7 @@ body.lib-collapsed .pick-brand{display:none}
   .srail-sel button{border:none;border-radius:500px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--accent);color:#000}
   .srail-sel button[data-a="none"]{background:#33333d;color:var(--text);font-weight:400}
   .srail-al{margin-bottom:2px}
-  .srail-kind{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);padding:14px 8px 5px;border-top:1px solid #26262e;margin-top:8px}
+  .srail-kind{font-size:9.5px;font-weight:700;letter-spacing:.01em;color:var(--sub);padding:14px 8px 5px;border-top:1px solid #26262e;margin-top:8px}
   .srail-al-head{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:none;background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;border-radius:6px}
   .srail-al-head:hover{background:var(--sp-hover,#1f1f25)}
   .srail-al-head .chev{flex:none;color:var(--sub);transition:transform .12s}
@@ -4181,6 +4181,10 @@ body.lib-collapsed .pick-brand{display:none}
   .rail-art svg{position:absolute;left:0;top:4px;width:100%;height:232px;opacity:.6;
     -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
   body.lib-collapsed .rail-art{display:none}
+  /* the list comes first: the drawing is a small sign-off under it, and gone on a short window */
+  .rail-art{height:132px}
+  .rail-art svg{height:128px}
+  @media (max-height:820px){.rail-art{display:none}}
   html:not(.ambient) .rail-art svg{opacity:.3}
   /* Skladatel — a song out of an idea. */
   .nm-lyr-more{min-width:0 !important;padding:2px 9px !important;font-size:15px !important;letter-spacing:1px;line-height:1}
@@ -4220,7 +4224,7 @@ body.lib-collapsed .pick-brand{display:none}
   .spc-x{border:0;background:none;color:var(--sub);cursor:pointer;font-size:15px}
   .spc-body{padding:10px 14px 12px}
   .spc-sets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
-  .spc-sets span{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-right:4px}
+  .spc-sets span{font-size:11px;color:var(--sub);letter-spacing:.01em;margin-right:4px}
   .spc-sets button,.spc-presets button{border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;cursor:pointer}
   .spc-sets button:hover,.spc-presets button:hover{border-color:var(--accent)}
   .spc-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -4314,7 +4318,7 @@ body.lib-collapsed .pick-brand{display:none}
   .tl-pc button.on,.tl-ps button.on{color:#fff;border-color:var(--c,#8b7bff);background:color-mix(in srgb,var(--c,#8b7bff) 25%,transparent)}
   .tl-fxp button.on{color:#08080b;background:var(--c);border-color:var(--c);font-weight:700}
   .tl-pl{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:0;flex:1}
-  .tl-ph{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:8px 2px 2px}
+  .tl-ph{font-size:10.5px;letter-spacing:.01em;color:var(--sub);margin:8px 2px 2px}
   .tl-ph small{opacity:.7}
   .tl-pr{display:grid;grid-template-columns:8px 1fr auto;grid-template-areas:"i n e" "i s e";column-gap:8px;text-align:left;border:none;background:none;color:#eee;
     font:inherit;padding:5px 7px;border-radius:7px;cursor:pointer}
@@ -4402,7 +4406,7 @@ body.lib-collapsed .pick-brand{display:none}
   @media (max-width:900px){.gs-stats{grid-template-columns:repeat(2,1fr);width:100%}}
   .gs-stat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,.25);color:var(--text);font:inherit;cursor:pointer;text-align:left;min-width:0}
   .gs-stat:hover{border-color:var(--accent)}
-  .gs-stat span{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em}.gs-stat b{font-size:19px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .gs-stat span{font-size:11px;color:var(--sub);letter-spacing:.01em}.gs-stat b{font-size:19px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .gs-stat small{font-size:11.5px;color:var(--sub)}
   .gs-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--border);margin-bottom:14px}
   .gs-tabs button{border:0;background:none;color:var(--sub);font:inherit;font-weight:600;padding:10px 14px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
@@ -4594,8 +4598,8 @@ body.lib-collapsed .pick-brand{display:none}
   .tw-cats button.on{border-color:var(--cat,var(--accent));background:color-mix(in srgb,var(--cat,var(--accent)) 20%,var(--card))}
   .tw-cats button.none{opacity:.45}
   .tw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:10px}
-  .tw-band{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:6px 0 -2px;font-size:11px;font-weight:700;letter-spacing:.07em;
-    text-transform:uppercase;color:var(--sub)}
+  .tw-band{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin:6px 0 -2px;font-size:11px;font-weight:700;letter-spacing:.01em;
+    color:var(--sub)}
   .tw-band::after{content:"";flex:1;height:1px;background:var(--border)}
   .tw-band small{font-weight:600;letter-spacing:0;color:var(--sub);opacity:.8}
   .tw-card{position:relative;display:flex;flex-direction:column;gap:7px;padding:10px 11px 9px;border-radius:12px;overflow:hidden;
@@ -4688,7 +4692,7 @@ body.lib-collapsed .pick-brand{display:none}
   .under-find input{flex:1 1 220px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px}
   .under-find input:focus{outline:none;border-color:var(--accent)}
   .under-none{padding:14px 10px;color:var(--sub);font-size:13px}
-  .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:4px 0 2px}
+  .sl-head{font-size:10.5px;font-weight:700;letter-spacing:.01em;color:var(--sub);margin:4px 0 2px}
   .sl-pl{display:flex;align-items:center;gap:6px;border-radius:8px;padding:2px 4px}
   .sl-pl.on{background:color-mix(in srgb,var(--accent) 16%,transparent)}
   .sl-name{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--text);font:inherit;cursor:pointer;padding:4px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4793,7 +4797,7 @@ body.lib-collapsed .pick-brand{display:none}
   .sb-d{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .sb-add,.sb-prow button{border:1px solid rgba(255,255,255,.14);background:none;color:inherit;border-radius:7px;width:26px;height:24px;cursor:pointer;font:inherit}
   .sb-prow button:disabled{opacity:.3;cursor:default}
-  .sb-band{font-weight:700;font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-top:6px}
+  .sb-band{font-weight:700;font-size:12px;color:var(--sub);letter-spacing:.01em;margin-top:6px}
   .sb-mine{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:6px}
   .sb-mine-h{display:flex;align-items:baseline;gap:8px}
   .sb-mine-h b{flex:1}
@@ -4804,7 +4808,7 @@ body.lib-collapsed .pick-brand{display:none}
   .cp-sec>summary b{font-size:14.5px}
   .cp-sec>summary small{font-size:12px;color:var(--sub);min-width:0;line-height:1.35}
   .cp-sec-b{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
-  .cp-sub{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sub);margin-top:6px}
+  .cp-sub{font-size:11.5px;font-weight:700;letter-spacing:.01em;color:var(--sub);margin-top:6px}
   .cp-sub small{font-weight:400;letter-spacing:0;text-transform:none}
   .cp-sub.big{font-size:13px;margin:6px 0 8px}
   .cp-left input[type=text],.cp-left input[type=number],.cp-left select,.cp-left textarea{width:100%;background:#0d0e15;border:1px solid #33364a;border-radius:9px;color:var(--text);font:inherit;font-size:13.5px;padding:8px 10px;outline:none}
@@ -4993,7 +4997,7 @@ body.lib-collapsed .pick-brand{display:none}
   .sing-msg{padding:4px 14px 8px;text-align:center;color:var(--nm-sub,#aaa);font-size:12px}
   .sing-sum,.sing-hist{padding:0 14px 10px}
   .sing-sum .big{font-size:15px;padding:6px 0}.sing-sum .big b{color:var(--accent);font-size:19px}.sing-sum .big span{color:var(--nm-sub,#aaa)}
-  .sing-sum .cap,.sing-hist .cap{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#777;padding:6px 0 4px}
+  .sing-sum .cap,.sing-hist .cap{font-size:11px;letter-spacing:.01em;color:#777;padding:6px 0 4px}
   .sing-sum .w{display:flex;align-items:baseline;gap:10px;padding:3px 0}
   .sing-sum .w.cur{background:#1b1b25;border-radius:6px;box-shadow:inset 3px 0 0 #ffd84a}
   .sing-sum .w.good b{color:var(--accent)}.sing-sum .w.weak b{color:#ff9d6b}
@@ -5001,7 +5005,9 @@ body.lib-collapsed .pick-brand{display:none}
   .sing-sum .w button{flex:none;border:1px solid #3a3a46;background:#1e1e25;color:#fff;border-radius:999px;padding:2px 10px;font:inherit;font-size:12px;cursor:pointer}
   .sing-sum .w b{flex:none;width:44px;text-align:right;font-variant-numeric:tabular-nums}
   .sing-hist .h{display:flex;gap:14px;padding:2px 0;color:var(--nm-sub,#aaa);font-variant-numeric:tabular-nums}
-  .sing-hist .h b{color:var(--nm-txt,#eee)}.sing-hist .none{color:#777}
+  .sing-hist .h b{color:var(--nm-txt,#eee)}
+  /* labels in sentence case: only the first letter big */
+  .sing-sum .cap::first-letter,.sing-hist .cap::first-letter,.cp-sub::first-letter,.sb-band::first-letter,.sl-head::first-letter,.tw-band::first-letter,.gs-stat span::first-letter,.tl-ph::first-letter,.spc-sets span::first-letter,.srail-kind::first-letter,.srail-now small::first-letter,.np-ev-mon::first-letter,.np-ev-group::first-letter,.ab-event .d small::first-letter,.ab-ev-group::first-letter,.nam-presets-head::first-letter,.stem-chip::first-letter,.overlay:not(#overlay) .section-title::first-letter,.guard-sub::first-letter,.lib-sec-mode .lib-sec-label::first-letter,.mt-pair > span::first-letter,.mt-prop > span::first-letter,.mt-touch > span::first-letter,.lib-sec::first-letter,.sh-label::first-letter,.sc-label::first-letter,.ss-head::first-letter,.tabs-part::first-letter,.nm-strip-name::first-letter,.tm-head::first-letter,.tp-stem .tp-nm::first-letter,.tp-track .cls::first-letter,.fl-ch-name::first-letter,.track-cols-head span::first-letter,.track-cols-head button::first-letter,.section-title::first-letter{text-transform:uppercase}.sing-hist .none{color:#777}
   /* the song that is on, in any list */
   .np-row.np-now{box-shadow:inset 3px 0 0 var(--accent,var(--accent));background:color-mix(in srgb,var(--accent) 11%,transparent)}
   .np-row.np-now .tx,.np-row.np-now .t-title,.np-row.np-now .lib-name,.np-row.np-now .stem-title,.np-row.np-now .c-title{color:var(--accent,var(--accent))}
@@ -5025,9 +5031,15 @@ body.lib-collapsed .pick-brand{display:none}
      small square buttons on the track strips are 24 px. Kept last so it wins
      over the scattered sizes above. */
   .nm .nm-transport{flex-wrap:wrap;overflow:visible;gap:10px 12px}
+  /* two rows: playing on top, learning under it, lined up after the play button */
+  .nm .nm-transport .nm-row2{flex:1 0 100%;display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;
+    padding:10px 0 0 60px;margin-top:2px;border-top:1px solid rgba(140,150,255,.08)}
   .nm{--nm-rail:214px}
   .nm .nm-time-num,.nm .nm-bar-num{font-size:11px}
   .nm .nm-tgroup .cap{font-size:10.5px;letter-spacing:.1em}
+  /* sentence-case labels read better without the wide tracking caps had */
+  .nm .nm-tgroup .cap,.nm-tgroup .cap,.nm-editbar .cap,.lyr-dock-tools .cap,.nm-grp-name,
+  .nm .nm-rail-pad .rp-bars,.nm .nm-rail-pad .rp-time,.nm-rail-pad .rp-bars,.nm-rail-pad .rp-time{letter-spacing:.01em}
   .nm .nm-transport .nm-btn.round:has(.bl){height:30px;padding:0 9px}
   .nm .nm-transport .nm-btn.round .bl,.hero-actions .nm-btn.round .bl{font-size:11.5px}
   #nm-editbar .nm-btn.ib.lab{height:42px;min-width:44px}
@@ -5546,7 +5558,7 @@ body.lib-collapsed .pick-brand{display:none}
     <div class="lyr-dock" id="mixer-lyrics-bar" hidden>
       <div class="lyr-dock-tools">
         <button type="button" class="fold-btn" id="nm-lyr-fold" title="Sbalit / rozbalit text písně"><span data-icon="chevron" data-size="13"></span></button>
-        <span class="cap">TEXT</span>
+        <span class="cap">Text</span>
         <span class="lyr-detached-note" id="lyr-detached-note" hidden>je v plovoucím okně</span>
         <span class="sp"></span>
         <button type="button" id="nm-lyr-earlier" title="Text dřív o 0,5 s">−</button>
@@ -5629,19 +5641,19 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="nm-head" hidden>
           <div class="nm-art" id="nm-art"><span data-icon="note" data-size="20"></span></div>
           <div class="nm-meta">
-            <span class="lbl">SKLADBA</span>
+            <span class="lbl">Skladba</span>
             <span class="val" id="nm-title">—</span>
           </div>
           <div class="nm-stat">
-            <span class="lbl">STOPY</span>
+            <span class="lbl">Stopy</span>
             <span class="val" id="nm-stemcount">—</span>
           </div>
           <div class="nm-stat">
-            <span class="lbl">DÉLKA</span>
+            <span class="lbl">Délka</span>
             <span class="val" id="mixer-time-dur">0:00</span>
           </div>
           <div class="nm-stat">
-            <span class="lbl">TÓNINA</span>
+            <span class="lbl">Tónina</span>
             <span class="val" id="nm-key">—</span>
           </div>
           <div class="nm-stat">
@@ -5660,28 +5672,7 @@ body.lib-collapsed .pick-brand{display:none}
               <button class="nm-btn round" id="nm-rewind" title="Na začátek (nebo na začátek smyčky)"><span data-icon="prev" data-size="14"></span><span class="bl">Začátek</span></button>
               <button class="nm-btn round" id="mixer-loop" title="Smyčka zap/vyp — dvě čáry u stop, táhni je na začátek a konec"><span data-icon="repeat" data-size="14"></span><span class="bl">Smyčka</span></button>
             </div>
-            <span class="cap">PŘEHRÁVÁNÍ</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="search" data-size="14"></span>Tab</button>
-              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="note" data-size="14"></span>Noty</button>
-              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Hmatník</button>
-              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
-            </div>
-            <span class="cap">UČENÍ</span>
-          </div>
-
-          <div class="nm-tgroup">
-            <div class="row">
-              <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
-              <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
-              <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
-              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — přeladí tuhle píseň na ladění tvé kytary (nastavíš ho v ladičce): kytary, basa a melodické stopy, bicí a zpěv zůstanou. Každá píseň se otevírá v originálním ladění; zapnuté přeladění si pamatuje jen ta píseň. Klik: ladění skladby vybrat ručně nebo posun změnit."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
-              <button class="nm-btn round" id="nm-tune-orig" hidden title="Originální ladění — vrátí všechny přeladěné stopy téhle písně do původní výšky. Další klik je zase přeladí na tvoji kytaru.">Originál</button>
-            </div>
-            <span class="cap" id="nm-tune-cap">TÓNINA (půltóny)</span>
+            <span class="cap">Přehrávání</span>
           </div>
 
           <div class="nm-tgroup">
@@ -5692,7 +5683,7 @@ body.lib-collapsed .pick-brand{display:none}
               <button class="nm-step" id="nm-tempo-up" title="Rychleji o 1 BPM">›</button>
               <button class="nm-step" id="nm-tempo-reset" title="Původní tempo"><span data-icon="repeat" data-size="12"></span></button>
             </div>
-            <span class="cap">TEMPO <span id="nm-tempo-val">100 %</span></span>
+            <span class="cap">Tempo <span id="nm-tempo-val">100 %</span></span>
           </div>
 
           <div class="nm-tgroup">
@@ -5707,7 +5698,7 @@ body.lib-collapsed .pick-brand{display:none}
               </select>
               <span class="metro-indicator" id="metro-indicator"></span>
             </div>
-            <span class="cap">METRONOM</span>
+            <span class="cap">Metronom</span>
           </div>
 
           <div class="nm-spacer"></div>
@@ -5720,11 +5711,33 @@ body.lib-collapsed .pick-brand{display:none}
               <input type="range" class="nm-tempo" id="mixer-zoom" min="1" max="400" step="1"
                      value="30" hidden>
             </div>
-            <span class="cap">ZOOM <span id="mixer-zoom-val">30 px/s</span></span>
+            <span class="cap">Zoom <span id="mixer-zoom-val">30 px/s</span></span>
+          </div>
+
+          <!-- second row: what helps you learn the song (tab, notes, fretboard, text, key) -->
+          <div class="nm-row2">
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="search" data-size="14"></span>Tab</button>
+              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="note" data-size="14"></span>Noty</button>
+              <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Hmatník</button>
+              <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
+            </div>
+            <span class="cap">Učení</span>
+          </div>
+          <div class="nm-tgroup">
+            <div class="row">
+              <button class="nm-step" id="nm-pitch-dn" title="O půltón níž">‹</button>
+              <input type="text" class="nm-num" id="nm-pitch" value="0" readonly>
+              <button class="nm-step" id="nm-pitch-up" title="O půltón výš">›</button>
+              <button class="nm-btn round" id="nm-mytune" title="Moje ladění — přeladí tuhle píseň na ladění tvé kytary (nastavíš ho v ladičce): kytary, basa a melodické stopy, bicí a zpěv zůstanou. Každá píseň se otevírá v originálním ladění; zapnuté přeladění si pamatuje jen ta píseň. Klik: ladění skladby vybrat ručně nebo posun změnit."><span data-icon="tuner" data-size="14"></span><span class="bl">Moje ladění</span></button>
+              <button class="nm-btn round" id="nm-tune-orig" hidden title="Originální ladění — vrátí všechny přeladěné stopy téhle písně do původní výšky. Další klik je zase přeladí na tvoji kytaru.">Originál</button>
+            </div>
+            <span class="cap" id="nm-tune-cap">Tónina (půltóny)</span>
+          </div>
           </div>
 
         </div>
-
         <!-- Whole song at a glance: click or drag anywhere to seek -->
         <div class="nm-overview">
           <span class="nm-ov-time" id="mixer-time-cur">0:00</span>
@@ -5741,7 +5754,7 @@ body.lib-collapsed .pick-brand{display:none}
              under this band (renderTrackLanes tags their rows); the wave above always stays. -->
         <div class="nm-grp nm-grp-head" id="nm-tools-band" data-band="tools" title="Sbalit / rozbalit pomůcky">
           <button type="button" class="nm-grp-fold"><span data-icon="chevron" data-size="12"></span></button>
-          <span class="nm-grp-name">POMŮCKY</span><span class="nm-grp-sub">nástroje pro úpravu · akordy · sekce · metronom · údery</span>
+          <span class="nm-grp-name">Pomůcky</span><span class="nm-grp-sub">nástroje pro úpravu · akordy · sekce · metronom · údery</span>
         </div>
         <!-- Editing a track: built by the mixer (renderEditBar). -->
         <div class="nm-editbar" id="nm-editbar" hidden></div>
@@ -5785,7 +5798,7 @@ body.lib-collapsed .pick-brand{display:none}
         <!-- One equaliser, for whichever channel is selected in the strips above. -->
         <div class="eq-panel" id="eq-panel" hidden>
           <div class="eq-head">
-            <span class="eq-title" id="eq-title">EQUALIZER</span>
+            <span class="eq-title" id="eq-title">Ekvalizér</span>
             <select class="eq-chan-select" id="eq-chan-select" title="Která stopa se upravuje"></select>
             <select class="fx-preset" id="eq-preset" title="Přednastavení pro nástroj"></select>
             <span class="eq-readout" id="eq-readout">Táhni body: vodorovně kmitočet, svisle zesílení. Kolečko myši mění šířku pásma.</span>
@@ -5799,7 +5812,7 @@ body.lib-collapsed .pick-brand{display:none}
              frequency response. -->
         <div class="eq-panel comp-panel fx-mini" id="comp-panel" hidden>
           <div class="eq-head wrap">
-            <span class="eq-title" id="comp-title">KOMPRESOR</span>
+            <span class="eq-title" id="comp-title">Kompresor</span>
             <button type="button" class="nm-btn comp-onoff" id="comp-onoff">Vypnuto</button>
             <button type="button" class="nm-btn" id="comp-reset" title="Výchozí nastavení">Reset</button>
             <span class="eq-readout" id="comp-readout" hidden></span>
@@ -5823,7 +5836,7 @@ body.lib-collapsed .pick-brand{display:none}
              second guitar (or the two shifted copies) sits and how it moves. -->
         <div class="eq-panel dbl-panel fx-mini" id="dbl-panel" hidden>
           <div class="eq-head wrap">
-            <span class="eq-title" id="dbl-title">DOUBLER</span>
+            <span class="eq-title" id="dbl-title">Doubler</span>
             <button type="button" class="nm-btn comp-onoff" id="dbl-onoff">Vypnuto</button>
             <div class="fx-head-row">
               <select class="eq-chan-select" id="dbl-chan-select" title="Která stopa se upravuje"></select>
@@ -16232,7 +16245,7 @@ const Mixer = (() => {
     if(!c) return;
     eqSel = idx;
     if(idx === "guitar") startEqLoop();
-    el("eq-title").textContent = "EQUALIZER — " + (idx === "guitar" ? "KYTARA (LIVE)" : String(c.stem).toUpperCase());
+    el("eq-title").textContent = "Ekvalizér — " + (idx === "guitar" ? "kytara (live)" : String(c.stem));
     fillPresetSelect(el("eq-preset"), EQ_PRESETS, idx === "guitar" ? "guitar" : c.stem);
     document.querySelectorAll(".fl-eq-btn").forEach((b, i) => b.classList.toggle("sel", i === idx));
     const gtBtn = el("gt-eq-btn");
@@ -20640,7 +20653,7 @@ const Mixer = (() => {
         ${mi("clipDuplicate", "duplicate", "Duplikovat", "⌘D", "Duplikovat dílek — kopie hned za něj (⌘D)", clipOn)}
         ${mi("clipDelete", "trash", "Smazat", "Del", "Smazat vybraný dílek (Delete)", clipOn)}`, clipOn || (c && clipBoard))}
       <span class="sep"></span>
-      <span class="cap">STOPA</span>
+      <span class="cap">Stopa</span>
       <select id="nm-edit-track" title="Stopa, kterou upravuješ (nebo klikni na její název vlevo)">
         <option value="-1">— vyber stopu —</option>
         ${channels.map((x, i) => `<option value="${i}" ${i === editIdx ? "selected" : ""}>${escapeHtml(stemLabel(x.stem))}${editedStems.has(x.stem) ? " ✎" : ""}</option>`).join("")}
@@ -20736,7 +20749,7 @@ const Mixer = (() => {
     const rail = el("nm-rail");
     const lanes = el("mixer-tracks");
     const topLanes = el("mixer-top-lanes");
-    rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"><span class="rp-bars">TAKTY</span><span class="rp-time">ČAS</span></div><div class="nm-rail-resize" title="Táhni — šířka názvů stop"></div>';
+    rail.innerHTML = '<div class="nm-rail-pad" style="height:34px"><span class="rp-bars">Takty</span><span class="rp-time">Čas</span></div><div class="nm-rail-resize" title="Táhni — šířka názvů stop"></div>';
     wireRailResize(rail.querySelector(".nm-rail-resize"));
     lanes.innerHTML = "";
     topLanes.innerHTML = "";
@@ -20805,7 +20818,7 @@ const Mixer = (() => {
       hb.classList.toggle("folded", off);
       hb.title = (off ? "Rozbalit" : "Sbalit") + " pomůcky — nástroje pro úpravu, akordy, sekce, metronom, údery";
     }
-    if(channels.length) grpBand("stems", "STOPY PÍSNĚ", channels.length + (channels.length === 1 ? " stopa" : channels.length < 5 ? " stopy" : " stop"), "originální stopy z písně: hlasitost, S, M, úpravy");
+    if(channels.length) grpBand("stems", "Stopy písně", channels.length + (channels.length === 1 ? " stopa" : channels.length < 5 ? " stopy" : " stop"), "originální stopy z písně: hlasitost, S, M, úpravy");
     const stemsGrp = grpFrom("stems");
 
     // From here down is "the stems" for the loop's own purposes: the two
@@ -21036,7 +21049,7 @@ const Mixer = (() => {
 
     if(channels.length){
       // Moje kytara: the one channel you are playing rather than listening to, and what goes with it
-      grpBand("mine", "MOJE KYTARA", "", "tvoje kytara a co k ní patří: otisky, delay, reverb, cvičení");
+      grpBand("mine", "Moje kytara", "", "tvoje kytara a co k ní patří: otisky, delay, reverb, cvičení");
       const mine = grpFrom("mine");
       renderGuitarLane(rail, lanes, totalPx);
       // the prints, the delay and the reverb as the song goes (static/tonelane.js)
@@ -23031,7 +23044,7 @@ const Mixer = (() => {
     const t = compTarget(compSel);
     if(!t) return;
     const s = t.get();
-    el("comp-title").textContent = "KOMPRESOR — " + t.label;
+    el("comp-title").textContent = "Kompresor — " + t.label;
     const onBtn = el("comp-onoff");
     onBtn.textContent = s.on ? "Zapnuto" : "Vypnuto";
     onBtn.classList.toggle("on", !!s.on);
@@ -23305,7 +23318,7 @@ const Mixer = (() => {
     const panel = el("dbl-panel");
     if(!fx){ panel.classList.add("off"); return; }
     const s = fx.state.dbl;
-    el("dbl-title").textContent = "DOUBLER — " + dblLabel(dblSel);
+    el("dbl-title").textContent = "Doubler — " + dblLabel(dblSel);
     const onBtn = el("dbl-onoff");
     onBtn.textContent = s.on ? "Zapnuto" : "Vypnuto";
     onBtn.classList.toggle("on", !!s.on);
@@ -23690,8 +23703,8 @@ const Mixer = (() => {
     b.classList.toggle("active", !!sh);
     o.hidden = !on || !(mine || sh || mode);
     o.classList.toggle("active", mode === "orig");
-    cap.textContent = !on || !mine ? "TÓNINA (půltóny)" : mode === "orig" ? "ORIGINÁLNÍ LADĚNÍ"
-      : !st ? "LADĚNÍ SKLADBY NEZNÁM" : tuneName(st.midi) === tuneName(mine.midi) ? `${tuneName(st.midi)} — JAKO TVOJE KYTARA` : `${tuneName(st.midi)} → ${tuneName(mine.midi)}`;
+    cap.textContent = !on || !mine ? "Tónina (půltóny)" : mode === "orig" ? "Originální ladění"
+      : !st ? "Ladění skladby neznám" : tuneName(st.midi) === tuneName(mine.midi) ? `${tuneName(st.midi)} — jako tvoje kytara` : `${tuneName(st.midi)} → ${tuneName(mine.midi)}`;
     cap.title = !on || !mine ? "" : mode === "orig" ? "Píseň hraje tak, jak byla nahraná. Tlačítko Originál ji zase přeladí na tvoji kytaru."
       : !st ? "K písni není tab, takže aplikace neví, v čem je nahraná. Klikni na Moje ladění a vyber ladění skladby — zapamatuje se."
       : `Skladba je v ladění ${tuneName(st.midi)}, tvoje kytara v ${tuneName(mine.midi)}: kytary, basa a melodické stopy jsou posunuté o ${signed(sh)} půltónů, bicí a zpěv ne.`;

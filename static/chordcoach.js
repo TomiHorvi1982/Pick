@@ -26,7 +26,7 @@ const ChordCoach = (() => {
   .cc-bar{position:absolute;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.16)}
   .cc-bar i{position:absolute;left:4px;top:3px;font-style:normal;font-size:9.5px;color:#6f6f86;font-variant-numeric:tabular-nums}
   .cc-bt{position:absolute;bottom:4px;width:1px;height:7px;background:rgba(255,255,255,.18)}
-  .cc-sec{position:absolute;top:2px;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c);white-space:nowrap;margin-left:22px}
+  .cc-sec{position:absolute;top:2px;font-size:9.5px;font-weight:800;letter-spacing:.01em;color:var(--c);white-space:nowrap;margin-left:22px}
   .cc-pill{position:absolute;top:calc(19px * var(--cc-z,1));height:calc(32px * var(--cc-z,1));border-radius:10px;display:flex;align-items:center;padding:0 10px;box-sizing:border-box;overflow:hidden;
     background:linear-gradient(180deg,hsl(var(--h) 55% 30% / .85),hsl(var(--h) 55% 22% / .85));border:1px solid hsl(var(--h) 70% 60% / .45);
     color:#fff;transition:opacity .25s,filter .25s,box-shadow .25s}
@@ -53,7 +53,7 @@ const ChordCoach = (() => {
   /* Live Show's sounds */
   .cc-pop{position:fixed;z-index:9650;background:#17171f;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;color:#ececf3;font-size:13px;
     box-shadow:0 22px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:10px}
-  .cc-pop-h{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#a6a6bc}
+  .cc-pop-h{font-weight:800;font-size:12px;letter-spacing:.01em;color:#a6a6bc}
   .cc-snd{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)}
   .cc-snd-t{font-weight:800}.cc-snd-t small{font-weight:600;color:#8a8aa0;margin-left:6px}
   .cc-snd-r{display:flex;align-items:center;gap:6px;color:#c9c9da;font-size:12.5px}
@@ -225,7 +225,7 @@ const ChordCoach = (() => {
   .cc-pnh .cc-inst{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cc-oct{font-size:11px;color:#c9c9da;min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
   .cc-dev{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cc-free{padding:3px 9px;border-radius:8px;background:rgba(255,255,255,.07);color:#c9c9da;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em}
+  .cc-free{padding:3px 9px;border-radius:8px;background:rgba(255,255,255,.07);color:#c9c9da;font-weight:700;font-size:11.5px;letter-spacing:.01em}
   .cc-off{font-size:12.5px;color:#a6a6bc;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   /* a chord big */
   .cc-zoom{position:fixed;inset:0;z-index:9700;display:flex;align-items:center;justify-content:center;background:rgba(4,4,10,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -242,8 +242,10 @@ const ChordCoach = (() => {
   .cc-zcol{display:flex;flex-direction:column;align-items:center;gap:10px}
   .cc-zcol .cc-gtr{width:220px;height:280px;cursor:pointer}
   .cc-zcol .cc-pno{width:380px;height:132px;cursor:pointer}
-  .cc-zcol h4{margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9a9ab0}
+  .cc-zcol h4{margin:0;font-size:11px;letter-spacing:.01em;color:#9a9ab0}
   .cc-zv{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#b4b4c8}
+  /* labels in sentence case: only the first letter big */
+  .cc-zcol h4::first-letter,.cc-free::first-letter,.cc-pop-h::first-letter,.cc-sec::first-letter{text-transform:uppercase}
   .cc-zplay{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   .cc-zplay button.big{background:hsl(var(--h) 75% 55%);color:#0b0b12;border-color:transparent;font-weight:800;padding:9px 16px}
   .cc-zf{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}

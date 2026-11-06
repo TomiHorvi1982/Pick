@@ -329,7 +329,9 @@ const Viz = (() => {
         font:inherit;font-size:12px;padding:3px 10px;cursor:pointer}
       #viz-win .viz-themes button.on{background:var(--accent);border-color:var(--accent);color:#000}
       #viz-win .viz-themes small{opacity:.65}
-      #viz-win .viz-g{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);margin:0 2px 0 6px}
+      #viz-win .viz-g{font-size:10.5px;letter-spacing:.01em;color:var(--sub);margin:0 2px 0 6px}
+  /* labels in sentence case: only the first letter big */
+  #viz-win .viz-g::first-letter{text-transform:uppercase}
       #viz-win .viz-note{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:2;background:rgba(0,0,0,.6);color:#fff;font-size:12.5px;padding:5px 12px;border-radius:500px}
       #viz-win:fullscreen{border-radius:0;border:none}
       .viz-mgr .viz-theme{border-top:1px solid rgba(255,255,255,.08);padding:8px 0;display:flex;flex-direction:column;gap:4px}

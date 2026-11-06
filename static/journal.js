@@ -101,7 +101,9 @@ const Journal = (() => {
       .jr-bar i{display:block;width:100%;max-width:34px;border-radius:5px 5px 2px 2px;background:linear-gradient(#8b7bff,#4ea8ff);min-height:2px}
       .jr-bar i.none{background:var(--bg2,#12131f)}
       .jr-bar span{font-size:10.5px;color:var(--sub,#8f96c0)}
-      .jr-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sub,#8f96c0);margin:14px 0 6px}
+      .jr-h{font-size:12px;font-weight:700;letter-spacing:.01em;color:var(--sub,#8f96c0);margin:14px 0 6px}
+  /* labels in sentence case: only the first letter big */
+  .jr-h::first-letter{text-transform:uppercase}
       .jr-li{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
       .jr-li b{font-weight:600}.jr-li small{color:var(--sub,#8f96c0)}
       .jr-up{color:#3ecf8e;font-weight:700;white-space:nowrap}

@@ -71,7 +71,9 @@ const SongDeck = (() => {
   .dk-none{font-size:12px;color:#8a8aa0;padding:8px 2px}
   .dk-pop{position:fixed;z-index:9600;background:#17171f;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px;
     box-shadow:0 18px 50px rgba(0,0,0,.55);color:#ececf3;font-size:13px}
-  .dk-pop-h{font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#a6a6bc;margin-bottom:8px}
+  .dk-pop-h{font-weight:800;font-size:12px;letter-spacing:.01em;color:#a6a6bc;margin-bottom:8px}
+  /* labels in sentence case: only the first letter big */
+  .dk-pop-h::first-letter{text-transform:uppercase}
   .dk-kr{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:4px 0}
   .dk-kr button{font:inherit;font-size:12px;padding:5px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
   .dk-kk{min-width:84px}.dk-kk.cap{background:var(--accent,#8b5cf6);color:#0b0b12}

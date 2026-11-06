@@ -674,19 +674,23 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
 
 Mix pult Steems má tři pole pod sebou, na jedné časové ose:
 
-1. **Píseň** nahoře: přehrávání, učení, tónina, tempo, metronom a zoom a **hlavní vlna** celé písně — ta je
-   vidět vždycky. Pod ní **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), akordy,
+1. **Píseň** nahoře: ovládání ve dvou řadách — nahoře hraní (přehrát, začátek, smyčka, tempo, metronom,
+   zoom), pod tím učení (tab, noty, hmatník, text, tónina) — a **hlavní vlna** celé písně, ta je vidět vždycky. Pod ní **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), akordy,
    sekce, metronom a údery. Takty a čas zůstávají jako časová osa.
 2. **Stopy písně**: originální stopy ze separace (s textem hned pod zpěvem).
 3. **Moje kytara**: tvoje živá kytara a všechno, co k ní patří — otisky, delay, reverb, cvičení.
 
-Pruh s názvem pole (POMŮCKY, STOPY PÍSNĚ, MOJE KYTARA) pole klikem sbalí a znovu rozbalí; pamatuje se to
+Pruh s názvem pole (Pomůcky, Stopy písně, Moje kytara) pole klikem sbalí a znovu rozbalí; pamatuje se to
 (`pick-steems-fold`). Smyčka se dál kreslí přes stopy písně.
 
 **Hlavní vlna se dá přiblížit**: sevření dvou prstů na trackpadu (nebo Ctrl + kolečko) přiblíží místo pod
 prsty až 64×, posun dvěma prsty do strany se po přiblížené vlně posouvá, a když píseň hraje, vlna jde za
 ní. Tlačítko s přiblížením (např. „11×“) vedle času ukáže zase celou píseň. Klik do vlny skočí na to místo.
 Zoom stop (− Celá +, sevření prstů nad stopami) zůstává zvlášť.
+
+Popisky v celé appce jsou normálním písmem (jen první písmeno velké); velkými písmeny zůstaly jen krátké
+zkratky na knoflících jako na hardwaru (GAIN, PAN, CMP…) a logo LIVE SHOW. Obrázek kytar v levém panelu
+je malý a na nízkém okně zmizí, ať má seznam místo.
 
 **Text a tab** jsou dvě samostatné karty nad mixem, každá se dá sbalit. Křížky na nich už nejsou: píseň
 celou (mix, text i tab) zavře **Zavřít** nahoře — přehrávání se zastaví a znovu se načte seznam Steems.

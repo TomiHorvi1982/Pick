@@ -1252,7 +1252,9 @@ const PickLook = (() => {
     .row{display:flex;align-items:center;gap:8px;min-height:30px}
     .cap{flex:0 0 104px;color:#aab0cc;font-size:12px;line-height:1.2}
     .ctl{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
-    .cap2{color:#8d92ad;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px}
+    .cap2{color:#8d92ad;font-size:11px;letter-spacing:.01em;margin:10px 0 5px}
+  /* labels in sentence case: only the first letter big */
+  .cap2::first-letter{text-transform:uppercase}
     input[type=range]{flex:1;min-width:40px;accent-color:#8b7bff;height:18px}
     input[type=text],input[type=number],input[type=search],select,textarea{background:#0e0f16;border:1px solid #33364a;border-radius:7px;color:#e9eaf2;font-size:12px;padding:5px 7px;min-width:0;outline:none}
     input:focus,select:focus,textarea:focus{border-color:#8b7bff}

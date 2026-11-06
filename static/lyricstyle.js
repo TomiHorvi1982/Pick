@@ -65,7 +65,9 @@ const LyricStyle = (() => {
     st.textContent = `
       .lys-pop{position:fixed;z-index:100000;width:268px;padding:12px;border-radius:12px;background:#1b1b22;color:#eef0f4;
         border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 36px rgba(0,0,0,.55);font:13px/1.35 system-ui,-apple-system,sans-serif}
-      .lys-pop h4{margin:0 0 8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9aa3b5}
+      .lys-pop h4{margin:0 0 8px;font-size:11px;letter-spacing:.01em;color:#9aa3b5}
+  /* labels in sentence case: only the first letter big */
+  .lys-pop h4::first-letter{text-transform:uppercase}
       .lys-pre{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
       .lys-pre button{border:1px solid rgba(255,255,255,.12);background:#0e0e12;border-radius:8px;padding:7px 4px;cursor:pointer;font-size:12px}
       .lys-pre button.on{border-color:#ffd166;box-shadow:0 0 0 1px #ffd166 inset}
