@@ -1695,6 +1695,9 @@ záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk děl�
 - **Moje kytara**: hlasitost, pan, **noise gate** (ručně, nebo AUTO);
 - **Otisk**: otisky z téhle písně nahoře, pod nimi všechny ostatní (hledání podle názvu, kapely, písně); klik
   ho zapne na živé kytaře;
+- otisk vybraný v panelu je **zamčený**: píseň s mapou otisků (DITORIG, pruh Otisky) ho při přehrávání
+  nepřepne zpátky na svůj; panel upozorní, když kytara jde přes **tunel** (otisky se pak obcházejí) a nabídne
+  ho vypnout;
 - **✓ Otisk sedí na tuhle píseň** označí píseň jako schválenou a zapamatuje si zvolený otisk
   (`tone/status.json`: `print`);
 - **Konec** vrátí originální kytaru (hlasitost, pan, ladění kytary i basy) a vypne vstup.

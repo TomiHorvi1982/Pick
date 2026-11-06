@@ -27354,7 +27354,9 @@ const Mixer = (() => {
         orig: {has: !!g, vol: g ? (g.faderValue == null ? 1 : g.faderValue) : 0, pan: g ? (g.panValue || 0) : 0, semi: g ? rateToSemitones(g.pitchRate || 1) : 0},
         mine: {live: Guitar.isLive(), device: Guitar.state.deviceLabel || "", vol: Guitar.state.volume, pan: Guitar.state.pan,
                gate: Guitar.state.threshold, auto: AutoGate.on(),
-               print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null}};
+               print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null,
+               // prints are bypassed when the guitar goes through a tunnel (an outside sim); the map may switch them as the song plays
+               tunnel: !!Guitar.state.tunnel, follows: !!(Tone.following && Tone.following()), sounding: Guitar.hasPrint()}};
     }
     async function start(v){
       const name = String(v.song || "");
@@ -27391,9 +27393,11 @@ const Mixer = (() => {
         if(m.auto != null) AutoGate.set(!!m.auto);
         if(m.gate != null){ if(AutoGate.on()) AutoGate.set(false); Guitar.setThreshold(Math.max(-100, Math.min(-10, +m.gate))); }
         if(m.live === true && !Guitar.isLive()) await toggleGuitarInput();
+        // the tunnel off (prints are bypassed through it) and the sound card's guitar back on
+        if(m.tunnel === false && Guitar.state.tunnel){ await Tunnel.off(); if(!Guitar.isLive()) await toggleGuitarInput(); }
       }
       if(v.print && v.print.pid){
-        try{ await Tone.apply(song, v.print.pid, false, v.print.song || song); }catch(e){ showToast("Otisk se nepodařilo zapnout: " + e.message); }
+        try{ await Tone.apply(song, v.print.pid, false, v.print.song || song, true); }catch(e){ showToast("Otisk se nepodařilo zapnout: " + e.message); }
       }
       if(v.approve){
         const cur = Tone.current ? Tone.current() : null;

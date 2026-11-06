@@ -120,7 +120,8 @@ const Tone = (() => {
   }
 
   // from: the song the print is of, when it is not the song playing (a sound picked from the catalog)
-  async function apply(name, which, quiet, from){
+  // pin: a print picked by hand to try (the mini player's Hraju s kytarou) stays on — the song's map does not take it back
+  async function apply(name, which, quiet, from, pin){
     restored = true;                       // what the player does now counts, not what was on before a reload
     const {print: p, input, out, nodes, core} = await buildChain(from || name, which);
     const dblBefore = live ? live.dbl : !!G().fx().state.dbl.on;
@@ -133,7 +134,7 @@ const Tone = (() => {
     Mixer.guitarFaderRepaint();
     if(!quiet) showToast(`Hraješ s otiskem „${p.name}“ (${title(name)})` + (p.match != null ? ` — shoda ${p.match} %` : ""));
     paint();
-    startFollow(name, p).catch(() => {});
+    if(!pin) startFollow(name, p).catch(() => {});
   }
 
   // ---------------------------------------------------------------- DITORIG's timeline

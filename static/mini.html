@@ -105,6 +105,8 @@
   .jam-p i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:0 0 auto}
   .jam-p span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jam-p small{color:var(--sub);font-size:10.5px;white-space:nowrap}
   .jam-none{color:var(--sub);font-size:11.5px;padding:6px 2px}
+  .jam-warn{font-size:11.5px;color:#ffcf6e;background:rgba(255,190,60,.1);border:1px solid rgba(255,190,60,.35);border-radius:8px;padding:6px 8px}
+  .jam-warn button{margin-left:6px}
   .jam-ok{margin-top:4px;background:var(--accent);color:#160800;border:0;border-radius:10px;padding:8px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
   .jam-ok.done{background:rgba(120,220,140,.2);color:#9ff0b0;border:1px solid rgba(120,220,140,.5)}
   /* Video */
@@ -440,7 +442,8 @@
       <section class="jam-box jam-prints">
         <h4>Otisk <small id="jam-cur">žádný</small></h4>
         <input id="jam-find" type="text" placeholder="Hledat otisk — název, kapela, píseň…" autocomplete="off">
-        <div class="jam-list" id="jam-list"><div class="jam-none">Načítám otisky…</div></div>
+        <div class="jam-warn" id="jam-warn" hidden></div>
+    <div class="jam-list" id="jam-list"><div class="jam-none">Načítám otisky…</div></div>
         <button class="jam-ok" id="jam-ok" title="Zapamatuje si, že tenhle otisk na píseň sedí (píseň bude mezi schválenými)">✓ Otisk sedí na tuhle píseň</button>
       </section>
     </div>
@@ -971,6 +974,11 @@ function jamPaint(){
   el("jam-live").hidden = !!j.mine.live;
   el("jam-dev").textContent = j.mine.live ? (j.mine.device || "vstup zapnutý") : "vstup vypnutý";
   el("jam-cur").textContent = j.mine.print ? j.mine.print.name || "zapnutý" : "žádný";
+  // when a print cannot be heard: the guitar goes through a tunnel (an outside sim), or no print is in the chain
+  const w = el("jam-warn");
+  if(j.mine.tunnel){ w.hidden = false; w.innerHTML = 'Kytara jde přes tunel (plugin) — otisky se obcházejí, změnu neuslyšíš.<button class="chip" id="jam-untunnel">Vypnout tunel</button>'; el("jam-untunnel").onclick = () => jamSend({mine: {tunnel: false}}); }
+  else if(j.mine.print && !j.mine.sounding){ w.hidden = false; w.textContent = "Otisk je vybraný, ale v kytaře zatím nehraje — zapni vstup kytary."; }
+  else w.hidden = true;
   el("jam-ok").classList.toggle("done", !!j.approved);
   el("jam-ok").textContent = j.approved ? "✓ Schváleno — otisk na píseň sedí" : "✓ Otisk sedí na tuhle píseň";
   document.querySelectorAll(".jam-p").forEach(b => b.classList.toggle("cur", !!(j.mine.print && b.dataset.pid === j.mine.print.pid && b.dataset.song === j.mine.print.song)));
