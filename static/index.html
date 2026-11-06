@@ -27524,6 +27524,16 @@ const Mixer = (() => {
       if(v.print && v.print.pid){
         try{ await Tone.apply(song, v.print.pid, false, v.print.song || song, true); }catch(e){ showToast("Otisk se nepodařilo zapnout: " + e.message); }
       }
+      // the quick check: the print playing kept ("ok") or marked as not right ("bad", not deleted)
+      if(v.review && Tone.current && Tone.current()){
+        const cur = Tone.current();
+        try{
+          const r = await fetch(`/api/tone/${encodeURIComponent(cur.from)}/prints/${encodeURIComponent(cur.pid)}/review`, {method: "POST",
+            headers: {"Content-Type": "application/json"}, body: JSON.stringify({keep: !!v.review.keep, drop: false})});
+          if(!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "");
+          showToast(v.review.keep ? "Otisk sedí — zkontrolováno" : "Otisk nesedí — označený (nesmazaný)");
+        }catch(e){ showToast("Nepodařilo se uložit: " + e.message); }
+      }
       if(v.approve){
         const cur = Tone.current ? Tone.current() : null;
         try{

@@ -125,6 +125,10 @@
   .jam-h.cat{display:flex;align-items:center;gap:6px;color:var(--c);font-weight:700}.jam-h.cat i{width:8px;height:8px;border-radius:50%;background:var(--c)}
   .jam-warn{font-size:11.5px;color:#ffcf6e;background:rgba(255,190,60,.1);border:1px solid rgba(255,190,60,.35);border-radius:8px;padding:6px 8px}
   .jam-warn button{margin-left:6px}
+  .jam-rev{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .jam-rev small{color:var(--sub);font-size:10.5px;margin-left:auto}
+  .jam-p.bad span{text-decoration:line-through;opacity:.55}
+  .jam-p .rv{font-size:10px;margin-left:2px}
   .jam-ok{margin-top:4px;background:var(--accent);color:#160800;border:0;border-radius:10px;padding:8px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
   .jam-ok.done{background:rgba(120,220,140,.2);color:#9ff0b0;border:1px solid rgba(120,220,140,.5)}
   /* Video */
@@ -464,7 +468,13 @@
     <div class="jam-cats" id="jam-cats"></div>
         <div class="jam-warn" id="jam-warn" hidden></div>
     <div class="jam-list" id="jam-list"><div class="jam-none">Načítám otisky…</div></div>
-        <button class="jam-ok" id="jam-ok" title="Zapamatuje si, že tenhle otisk na píseň sedí (píseň bude mezi schválenými)">✓ Otisk sedí na tuhle píseň</button>
+        <div class="jam-rev" id="jam-rev">
+      <button class="chip" id="jam-good" title="Tenhle otisk na píseň sedí — zkontrolováno">👍 Sedí</button>
+      <button class="chip" id="jam-bad" title="Tenhle otisk nesedí — jen se označí, nesmaže se">👎 Nesedí</button>
+      <button class="chip" id="jam-next" title="Zapne další otisk téhle písně, který ještě nikdo nezkontroloval">Další ke kontrole ›</button>
+      <small id="jam-left"></small>
+    </div>
+    <button class="jam-ok" id="jam-ok" title="Zapamatuje si, že tenhle otisk na píseň sedí (píseň bude mezi schválenými)">✓ Otisk sedí na tuhle píseň</button>
       </section>
     </div>
 
@@ -1028,7 +1038,7 @@ function jamList(){
     have.map(([k, n]) => `<button type="button" data-cat="${k}" class="${JAM.cat === k ? "on" : ""}" style="--c:${CATC[k]}"><i></i>${n} <small>${all.filter(p => catKey(p) === k).length}</small></button>`).join("");
   el("jam-cats").querySelectorAll("button").forEach(b => b.onclick = () => { JAM.cat = b.dataset.cat; jamList(); });
   const hit = (p) => (!f || [p.name, p.artist, p.title, p.core, p.category].join(" ").toLowerCase().includes(f)) && (!JAM.cat || catKey(p) === JAM.cat);
-  const row = (p) => `<button type="button" class="jam-p" data-pid="${esc(p.id)}" data-song="${esc(p.song)}" style="--c:${CATC[catKey(p)]}" title="${esc(p.name)} — ${esc([p.artist, p.title].filter(Boolean).join(" – "))}${p.match != null ? " · shoda " + p.match + " %" : ""}"><i></i><span>${esc(p.name || "otisk")}</span><small>${esc(p.artist || p.title || "")}</small></button>`;
+  const row = (p) => `<button type="button" class="jam-p${p.review === "bad" ? " bad" : ""}" data-pid="${esc(p.id)}" data-song="${esc(p.song)}" style="--c:${CATC[catKey(p)]}" title="${esc(p.name)} — ${esc([p.artist, p.title].filter(Boolean).join(" – "))}${p.match != null ? " · shoda " + p.match + " %" : ""}"><i></i><span>${esc(p.name || "otisk")}</span>${p.review === "ok" ? '<b class="rv" title="Zkontrolováno — sedí">👍</b>' : ""}<small>${esc(p.artist || p.title || "")}</small></button>`;
   const mine = all.filter(p => p.song === JAM.song && hit(p)), rest = all.filter(p => p.song !== JAM.song && hit(p));
   let html = mine.length ? `<div class="jam-h">Z téhle písně</div>` + mine.map(row).join("") : "";
   // the others by kind: Clean, Crunch, Hi-Gain…
@@ -1037,10 +1047,32 @@ function jamList(){
     if(g.length) html += `<div class="jam-h cat" style="--c:${CATC[k]}"><i></i>${n} <small style="color:var(--sub);font-weight:500">${g.length}</small></div>` + g.slice(0, 80).map(row).join("");
   }
   box.innerHTML = html || `<div class="jam-none">Nic takového.</div>`;
+  { const n = jamUnchecked().length; el("jam-left").textContent = n ? `${n} ke kontrole v téhle písni` : "v téhle písni zkontrolováno"; }
   box.querySelectorAll(".jam-p").forEach(b => b.onclick = () => { jamSend({print: {song: b.dataset.song, pid: b.dataset.pid}}); el("jam-cur").textContent = "zapínám…"; });
   jamPaint();
 }
 el("jam-find").oninput = () => jamList();
+// the quick check: kept or not (a "not" only marks it), then the song's next print nobody has checked
+function jamMark(keep){
+  const cur = RS && RS.jam && RS.jam.mine.print;
+  if(!cur){ toast("Nejdřív vyber otisk"); return; }
+  jamSend({review: {keep}});
+  const p = (JAM.prints || []).find(x => x.id === cur.pid && x.song === cur.song);
+  if(p) p.review = keep ? "ok" : "bad";
+  jamList();
+  if(!keep) setTimeout(jamNext, 300);
+}
+function jamUnchecked(){ return (JAM.prints || []).filter(p => p.song === JAM.song && (!p.review || p.review === "pending")); }
+function jamNext(){
+  const left = jamUnchecked(), cur = RS && RS.jam && RS.jam.mine.print;
+  const i = cur ? left.findIndex(p => p.id === cur.pid && p.song === cur.song) : -1;
+  const nx = left[(i + 1) % Math.max(1, left.length)];
+  if(!nx){ toast("V téhle písni už je všechno zkontrolované"); return; }
+  jamSend({print: {song: nx.song, pid: nx.id}}); el("jam-cur").textContent = "zapínám…";
+}
+el("jam-good").onclick = () => jamMark(true);
+el("jam-bad").onclick = () => jamMark(false);
+el("jam-next").onclick = () => jamNext();
 document.querySelectorAll("#ssort button[data-sort]").forEach(b => b.onclick = () => { srch.sort = b.dataset.sort; store.set("ssort", srch.sort); renderSearch(); });
 document.querySelector("#ssort button[data-tunes]").onclick = () => { const b = el("stunes"); b.hidden = !b.hidden; b.dataset.sig = ""; renderSearch(); };
 

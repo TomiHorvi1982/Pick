@@ -1744,3 +1744,19 @@ rozdělené do skupin **Clean**, **Rock**, **Metal** a **Sólo**. Nové: Rock ·
 na hraně, Rock · Orange; Metal · 5150 s boostem, Metal · Diezel s TS808, Thrash · BE100 Tallica; Sólo · ENGL
 Fireball, Sólo · Soldano SLO, Sólo · BE100 hnědý zvuk. Zesilovače nahrané i s bednou a mikrofonem hrají bez další
 bedny (`"ir": None`), sólové zvuky mají jemný vlastní prostor (`"verb"`) a víc sustainu (`"drive"`).
+
+## Otisky: kategorie podle měření, čitelné názvy, rychlá kontrola
+
+- **Kategorie** (Clean / Crunch / Hi-Gain) se neberou z DITORIG (ten skoro všechno označil „clean“), ale z toho,
+  jak jádro otisku skutečně zkresluje: `tools/measure_cores.py` jím prožene tón ve třech silách po 20 dB a změří
+  kompresi slabého a silného úhozu (Fender 0 dB, JCM800 na hraně 3,8, Vox 9,2, Diezel 15, 5150 20). Hi-Gain od
+  10 dB slabého úhozu, Crunch od 2,5 dB (nebo 12 dB silného), jinak Clean. Změřeno se drží v `amps/.core-gain.json`.
+- **Názvy** z názvů souborů („DITORIG · RVB100-WILDHEAVY-V1.nam · VH-…wav“) jsou čitelné („RVB100 Wildheavy“,
+  „Marshall JMP 1 · CH OD2 · Gain 9“); stejný zesilovač víckrát v písni dostane čas („· 1:42“).
+- `tools/recategorize_prints.py [--apply]` to udělá pro celou knihovnu (bez `--apply` jen ukáže co); ruční
+  kategorie a názvy nechá. Import z DITORIG (`print_names.py`) od teď pojmenuje a zařadí stejně a při novém
+  importu zachová, co hráč nastavil ručně (kategorii, název, kontrolu).
+- **Rychlá kontrola** v Hraju s kytarou: **👍 Sedí** (zkontrolováno), **👎 Nesedí** (jen označí — nesmaže, v seznamu
+  přeškrtnutý — a přejde na další), **Další ke kontrole ›**; počet zbývajících v písni.
+
+Záloha před přepsáním knihovny: `~/.local/share/spotdl-helper/backups/prints-before-recategorize-*.tar.gz`.

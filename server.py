@@ -7643,6 +7643,7 @@ def stems_beatgrid(name: str, refresh: bool = False):
 # ---- the singing trainer (sing.py): the tune to hit, the words as sung, and
 # how each take went.
 import sing as _sing
+import print_names as _print_names
 
 
 def _sing_dir(name: str):
@@ -9630,6 +9631,8 @@ def tone_auto_plan(req: ToneAutoPlanRequest):
 
 class ToneReviewRequest(BaseModel):
     keep: bool
+    # not kept, but not thrown away either (the quick check in Hraju s kytarou): marked "bad", there to take back
+    drop: bool = True
 
 
 @app.post("/api/tone/{name}/prints/{pid}/review")
@@ -9640,16 +9643,16 @@ def tone_review(name: str, pid: str, req: ToneReviewRequest):
     if p is None:
         return JSONResponse({"error": "Otisk nenalezen."}, status_code=404)
     _stamp_forget(d.name)
-    if not req.keep:
+    if not req.keep and req.drop:
         shutil.rmtree(_tone_at(d, pid), ignore_errors=True)
         return {"kept": False}
-    p["review"] = "ok"
+    p["review"] = "ok" if req.keep else "bad"
     p.pop("id", None)
     f = _tone_at(d, pid) / "print.json"
     tmp = f.with_suffix(".tmp")
     tmp.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
     tmp.replace(f)
-    return {"kept": True}
+    return {"kept": req.keep, "review": p["review"]}
 
 
 # ---- GuitarStamps (Tools → GuitarStamps, static/stamps.js): the player's guitar, its prints and the
@@ -9907,12 +9910,25 @@ def _ditorig_import_song(song: dict, profiles: dict, assets, idx: dict, out: dic
                     "pre": {"hp": 0, "mid_db": 0, "tilt_db": 0}, "ir": "print-ir.wav", "room": None, "width": {"on": False},
                     "match": _ditorig.match_of(pl["timeline"], prof_id), "stem": stem,
                     "start": segs[0]["start"] if segs else 0, "end": segs[0]["end"] if segs else 0,
-                    "name": f"DITORIG · {prof.get('name') or model.stem}"[:120], "name_auto": False, "auto": True, "review": "pending",
-                    "category": _ditorig_category(segs), "category_auto": True,
+                    # a readable name and the kind its core measures as (print_names; DITORIG's own label when not measured)
+                    "name": _print_names.pretty(prof.get("name") or model.stem)[:120], "name_auto": False, "auto": True, "review": "pending",
+                    "category": _print_names.kind_of(_print_names.measured(_ditorig_core(model, prof))) or _ditorig_category(segs), "category_auto": True,
                     "ditorig": {"song": song["id"], "revision": pl["revision"], "profile": prof_id, "cover": pl["cover"].get(prof_id, 0),
                                 "rank": i + 1, "of": len(pl["profiles"]), "same_version": same, "exact": exact,
                                 "duration": pl["duration"], "timeline": pl["timeline"], "approved": bool(prof.get("approved")),
                                 "descriptor": prof.get("descriptor"), "ir": prof.get("ir_hash") or ""}}
+            if old:                                        # imported again: what the player named or filed by hand stays
+                try:
+                    was = json.loads((t / "print.json").read_text(encoding="utf-8"))
+                    if not was.get("category_auto", True) and was.get("category"):
+                        data["category"], data["category_auto"] = was["category"], False
+                    if was.get("name") and was.get("name_hand"):
+                        data["name"] = was["name"]
+                    for k in ("review",):
+                        if was.get(k) and was[k] != "pending":
+                            data[k] = was[k]
+                except (OSError, ValueError):
+                    pass
             (t / "print.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             for x in ("you.wav", "you.mp3", "record.mp3", "abx-you.wav", "abx-record.wav"):   # previews of what was there before
                 (t / x).unlink(missing_ok=True)
@@ -10433,7 +10449,7 @@ def tone_edit(name: str, pid: str, req: ToneEditRequest):
     if req.name is not None:
         title = " ".join(req.name.split())[:80]
         if title:
-            p["name"], p["name_auto"] = title, False
+            p["name"], p["name_auto"], p["name_hand"] = title, False, True      # named by the player: a re-import keeps it
         else:
             p.pop("name", None)
             p["name_auto"] = True
