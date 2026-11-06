@@ -674,9 +674,20 @@ Tools → **Looper**, ve Steems tlačítko 🔁 v panelu (tempo a části otevř
 
 Mix pult Steems má tři pole pod sebou, na jedné časové ose:
 
-1. **Píseň** nahoře: ovládání ve dvou řadách — nahoře hraní (přehrát, začátek, smyčka, tempo, metronom,
-   zoom), pod tím učení (tab, noty, hmatník, text, tónina) — a **hlavní vlna** celé písně, ta je vidět vždycky. Pod ní **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…), akordy,
-   sekce, metronom a údery. Takty a čas zůstávají jako časová osa.
+1. **Píseň** nahoře: **jedna řada ikon vedle play** — začátek, smyčka, tempo, metronom, údery, akordy, sekce,
+   tab, noty, hmatník, text, tónina, Live Show, Looper, klávesy, Panely, Soubor a zoom stop (co která dělá, řekne
+   popisek po najetí myší) — a **hlavní vlna** celé písně, ta je vidět vždycky. Nad vlnou je **čas**, pod ní
+   **takty**; takty jdou z mřížky dob nalezené v bicí stopě (`/api/stems/{name}/beats`), takže sedí na doby
+   písně, a co je za úsekem, který detektor slyšel (nebo když mřížka ještě není), je dopočítané z tempa a slabší.
+   Při přiblížení vlny se čas i takty přepočítají na přiblížený úsek. Stopy pod tím už vlastní pravítko nemají.
+
+   **Ikony pomůcek** (metronom, údery, akordy, sekce): klik zapne / vypne, **dvojklik** (nebo pravé tlačítko)
+   otevře nastavení. Metronom: rychlost (÷4, ÷2 poloviční, ×1, ×2 dvojnásobný, ×4), zvuk a hlasitost — vlastní
+   řádek ani panorama už nemá a je od základu hlasitější (`METRO_BOOST`). Údery: čáry, klikání na čárách, práh,
+   hlasitost a zvuky; čáry se ukážou v pruhu Údery a dají se tam upravovat. Akordy: kolik jich ukazovat
+   (Základní / Pokročilé / Mistr). Akordy a sekce se ukážou nad stopami teprve po zapnutí ikony
+   (`pick-steems-lanes`). Zavřít zůstalo nahoře vedle názvu písně. Pod ní **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…) a zapnuté akordy,
+   sekce a údery.
 2. **Stopy písně**: originální stopy ze separace (s textem hned pod zpěvem).
 3. **Moje kytara**: tvoje živá kytara a všechno, co k ní patří — otisky, delay, reverb, cvičení.
 

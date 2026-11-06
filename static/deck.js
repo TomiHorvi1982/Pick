@@ -536,8 +536,8 @@ const SongDeck = (() => {
   // ---- in place: the whole screen (its bar gets the finder and the chord switch); Steems gets the way there
   function mount(){
     // The knobs and the parts are for playing — they are on the whole screen (Live Show) only; the mix
-    // keeps its way there, the looper and the keys among the song's buttons at its top.
-    const acts = document.querySelector("#steems-hero .hero-actions");
+    // keeps its way there, the looper and the keys in its one row of buttons, next to play.
+    const acts = document.getElementById("nm-song-acts") || document.querySelector("#steems-hero .hero-actions");
     if(acts && !acts.querySelector(".dk-live")){
       const lv = document.createElement("button");
       lv.type = "button"; lv.className = "dk-live mini";
@@ -545,12 +545,12 @@ const SongDeck = (() => {
       lv.innerHTML = `<span class="dk-live-dot"></span><span class="dk-live-t"><b>LIVE</b><i>SHOW</i></span>`;
       lv.onclick = () => D().live(true);
       const lp = document.createElement("button");
-      lp.type = "button"; lp.className = "nm-btn round dk-hero-btn";
+      lp.type = "button"; lp.className = "nm-btn round ic dk-hero-btn";
       lp.title = "Looper: nahraj si píseň po vrstvách, v jejím tempu a s jejími částmi";
-      lp.innerHTML = `${icon("repeat", 14)}<span class="bl">Looper</span>`;
+      lp.innerHTML = `${icon("rec", 15)}`;
       lp.onclick = () => { if(typeof Looper !== "undefined") Looper.open(song()); };
       const ks = document.createElement("button");
-      ks.type = "button"; ks.className = "nm-btn round dk-hero-btn";
+      ks.type = "button"; ks.className = "nm-btn round ic dk-hero-btn";
       ks.title = "Klávesy a MIDI pedál pro přehrávání a skoky po částech";
       ks.innerHTML = `${icon("keyboard", 14)}`;
       ks.onclick = (e) => openKeys(e.currentTarget);
