@@ -105,6 +105,18 @@
   .jam-p i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:0 0 auto}
   .jam-p span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jam-p small{color:var(--sub);font-size:10.5px;white-space:nowrap}
   .jam-none{color:var(--sub);font-size:11.5px;padding:6px 2px}
+  .ssort{display:none;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px;color:var(--sub);padding:0 2px 6px}
+  body.s-steems .ssort{display:flex}
+  .ssort button{background:none;border:1px solid var(--line);color:var(--sub);border-radius:999px;padding:2px 9px;font:inherit;font-size:11px;cursor:pointer}
+  .ssort button.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  .qhd{font-size:10.5px;font-weight:700;color:var(--accent2);padding:8px 6px 3px;letter-spacing:.02em}
+  .qi .ok{color:#7be29a;font-weight:800;margin-left:4px}
+  .qi .tun{color:var(--dim,#888);font-size:10px;margin-left:4px}
+  .jam-cats{display:flex;gap:4px;flex-wrap:wrap}
+  .jam-cats button{background:none;border:1px solid var(--line);color:var(--sub);border-radius:999px;padding:2px 8px;font:inherit;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  .jam-cats button i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+  .jam-cats button.on{color:var(--text);border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 18%,transparent)}
+  .jam-h.cat{display:flex;align-items:center;gap:6px;color:var(--c);font-weight:700}.jam-h.cat i{width:8px;height:8px;border-radius:50%;background:var(--c)}
   .jam-warn{font-size:11.5px;color:#ffcf6e;background:rgba(255,190,60,.1);border:1px solid rgba(255,190,60,.35);border-radius:8px;padding:6px 8px}
   .jam-warn button{margin-left:6px}
   .jam-ok{margin-top:4px;background:var(--accent);color:#160800;border:0;border-radius:10px;padding:8px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
@@ -442,6 +454,7 @@
       <section class="jam-box jam-prints">
         <h4>Otisk <small id="jam-cur">žádný</small></h4>
         <input id="jam-find" type="text" placeholder="Hledat otisk — název, kapela, píseň…" autocomplete="off">
+    <div class="jam-cats" id="jam-cats"></div>
         <div class="jam-warn" id="jam-warn" hidden></div>
     <div class="jam-list" id="jam-list"><div class="jam-none">Načítám otisky…</div></div>
         <button class="jam-ok" id="jam-ok" title="Zapamatuje si, že tenhle otisk na píseň sedí (píseň bude mezi schválenými)">✓ Otisk sedí na tuhle píseň</button>
@@ -454,6 +467,7 @@
         <input id="sq" type="text" placeholder="Rozdělená píseň — hraje bez kytary…" autocomplete="off">
         <div class="seg" id="smode"><button data-m="steems" class="on" title="Písně rozdělené na stopy — hrají bez kytary, „GTR“ ji vrátí (hlasem: „pick stems list“)">Steems</button><button data-m="favs" title="Oblíbené songy (hlasem: „pick show me favorites“)">Oblíbené</button><button data-m="bands" title="Kapely a umělci, které už máš (hlasem: „pick show me bands“)">Kapely</button><button data-m="library" title="Písně, které už máš v knihovně (hlasem: „pick show me library“)">Knihovna</button><button data-m="folders" title="Složky a playlisty v knihovně (hlasem: „pick folders“)">Složky</button><button data-m="songs" title="Hledat písně na internetu">Internet</button><button data-m="playlists" title="Hledat playlisty na internetu">Playlisty</button></div>
       </div>
+      <div class="ssort" id="ssort"><span>Řadit:</span><button data-sort="artist" title="Podle interpreta a názvu">Interpret</button><button data-sort="checked" title="Písně, které už máš zkontrolované (schválený zvuk a nastavení) nahoře">Zkontrolované</button><button data-sort="tuning" title="Podle ladění kytary: Standard E, Eb, Drop D…">Ladění</button></div>
       <div class="vheard" id="vheard" hidden></div>
       <div class="sim" id="ssim" hidden></div>
       <div class="queue" id="sres"><div class="empty" style="padding-top:40px">Načítám písně ze Steems…</div></div>
@@ -884,8 +898,11 @@ function vmsg(html){ el("vmsg").innerHTML = html || ""; el("vmsg").style.display
 
 // ---- Hraju s kytarou (GTR): the app does the sound (its mixer has the live guitar, the prints, the gate and
 // the pitch); this sends it what to do (remote command "jam", the settings as JSON) and paints what it says back.
-var JAM = {open: false, song: null, prints: null, touched: {}, asked: 0};
+var JAM = {open: false, song: null, prints: null, touched: {}, asked: 0, cat: ""};
 const CATC = {clean: "#4fd1c5", crunch: "#f6ad55", hi_gain: "#f56565", lead: "#b794f4", acoustic: "#68d391", ambient: "#63b3ed", fuzz: "#ed64a6", other: "#a0aec0"};
+// the kinds a print is filed under, in the app's order and colours (static/tone.js CATS)
+const CATS = [["clean", "Clean"], ["crunch", "Crunch"], ["hi_gain", "Hi-Gain"], ["lead", "Sólo"], ["acoustic", "Akustická"], ["ambient", "Ambient"], ["fuzz", "Fuzz"], ["other", "Jiné"]];
+const catKey = (p) => CATC[p.category] ? p.category : "other";
 function jamSong(){
   if(LP.active && LP.track && LP.track.stems) return LP.track.stems;
   if(RS && !RS.stale && RS.source === "mixer" && RS.stems) return RS.stems;
@@ -995,17 +1012,27 @@ async function jamPrints(){
 }
 function jamList(){
   const box = el("jam-list"), f = el("jam-find").value.trim().toLowerCase(), all = Array.isArray(JAM.prints) ? JAM.prints : [];
-  if(!all.length){ box.innerHTML = `<div class="jam-none">Zatím žádné otisky — udělej první v aplikaci (Moje kytara → Otisky).</div>`; return; }
-  const hit = (p) => !f || [p.name, p.artist, p.title, p.core, p.category].join(" ").toLowerCase().includes(f);
-  const row = (p) => `<button type="button" class="jam-p" data-pid="${esc(p.id)}" data-song="${esc(p.song)}" style="--c:${CATC[p.category] || CATC.other}" title="${esc(p.name)} — ${esc([p.artist, p.title].filter(Boolean).join(" – "))}${p.match != null ? " · shoda " + p.match + " %" : ""}"><i></i><span>${esc(p.name || "otisk")}</span><small>${esc(p.artist || p.title || "")}</small></button>`;
+  if(!all.length){ box.innerHTML = `<div class="jam-none">Zatím žádné otisky — udělej první v aplikaci (Moje kytara → Otisky).</div>`; el("jam-cats").innerHTML = ""; return; }
+  // the kinds there are, as chips: all, or one of them
+  const have = CATS.filter(([k]) => all.some(p => catKey(p) === k));
+  el("jam-cats").innerHTML = `<button type="button" data-cat="" class="${JAM.cat ? "" : "on"}">Vše</button>` +
+    have.map(([k, n]) => `<button type="button" data-cat="${k}" class="${JAM.cat === k ? "on" : ""}" style="--c:${CATC[k]}"><i></i>${n} <small>${all.filter(p => catKey(p) === k).length}</small></button>`).join("");
+  el("jam-cats").querySelectorAll("button").forEach(b => b.onclick = () => { JAM.cat = b.dataset.cat; jamList(); });
+  const hit = (p) => (!f || [p.name, p.artist, p.title, p.core, p.category].join(" ").toLowerCase().includes(f)) && (!JAM.cat || catKey(p) === JAM.cat);
+  const row = (p) => `<button type="button" class="jam-p" data-pid="${esc(p.id)}" data-song="${esc(p.song)}" style="--c:${CATC[catKey(p)]}" title="${esc(p.name)} — ${esc([p.artist, p.title].filter(Boolean).join(" – "))}${p.match != null ? " · shoda " + p.match + " %" : ""}"><i></i><span>${esc(p.name || "otisk")}</span><small>${esc(p.artist || p.title || "")}</small></button>`;
   const mine = all.filter(p => p.song === JAM.song && hit(p)), rest = all.filter(p => p.song !== JAM.song && hit(p));
-  box.innerHTML = (mine.length ? `<div class="jam-h">Z téhle písně</div>` + mine.map(row).join("") : "") +
-    (rest.length ? `<div class="jam-h">Ostatní otisky</div>` + rest.slice(0, 120).map(row).join("") : "") ||
-    `<div class="jam-none">Nic takového.</div>`;
+  let html = mine.length ? `<div class="jam-h">Z téhle písně</div>` + mine.map(row).join("") : "";
+  // the others by kind: Clean, Crunch, Hi-Gain…
+  for(const [k, n] of CATS){
+    const g = rest.filter(p => catKey(p) === k);
+    if(g.length) html += `<div class="jam-h cat" style="--c:${CATC[k]}"><i></i>${n} <small style="color:var(--sub);font-weight:500">${g.length}</small></div>` + g.slice(0, 80).map(row).join("");
+  }
+  box.innerHTML = html || `<div class="jam-none">Nic takového.</div>`;
   box.querySelectorAll(".jam-p").forEach(b => b.onclick = () => { jamSend({print: {song: b.dataset.song, pid: b.dataset.pid}}); el("jam-cur").textContent = "zapínám…"; });
   jamPaint();
 }
 el("jam-find").oninput = () => jamList();
+document.querySelectorAll("#ssort button").forEach(b => b.onclick = () => { srch.sort = b.dataset.sort; store.set("ssort", srch.sort); renderSearch(); });
 
 // ---- the song's other versions on YouTube, under the video (the app's /api/yt/versions)
 // A version plays over the song's video, muted; "Zvuk videa" lets it be heard and pauses the song (again: back).
@@ -1468,7 +1495,7 @@ if("mediaSession" in navigator){
 // -------------------------------------------------------------- search
 // Songs (Spotify's catalogue, played from YouTube) or playlists (YouTube
 // Music); ▶ plays from there on, ＋ adds to the app's queue.
-const srch = {mode: "steems", q: "", list: [], pl: null, timer: 0, token: 0};
+const srch = {mode: "steems", q: "", list: [], pl: null, timer: 0, token: 0, sort: store.get("ssort", "artist")};
 // The lists of the search, in the order they are stepped through ("pick next list").
 // Steems comes first: songs ready to be played along with.
 const SECTIONS = ["steems", "favs", "bands", "library", "folders", "songs", "playlists"];
@@ -1497,7 +1524,7 @@ function trackRow(t, i){
   return `<div class="qi" data-i="${i}">
     <div class="n">${i + 1}</div>
     <div class="th" style="${th ? `background-image:url('${esc(thumbUrl(th))}')` : ""}">${th ? "" : icon("note", 16)}</div>
-    <div class="m"><b>${esc(t.title || "—")}</b><span>${esc(t.artists || "")}${t.dur ? " · " + esc(t.dur) : ""}</span></div>
+    <div class="m"><b>${esc(t.title || "—")}${t.checked ? '<span class="ok" title="Zkontrolováno — schválený zvuk a nastavení">✓</span>' : ""}</b><span>${esc(t.artists || "")}${t.dur ? " · " + esc(t.dur) : ""}${t.tuning && t.tuning.low > 0 ? `<span class="tun">${esc(t.tuning.name)}</span>` : ""}</span></div>
     <div class="acts"><button data-add="${i}" title="Přidat do fronty">＋</button><button data-play="${i}" title="Přehrát odsud">▶</button></div>
   </div>`;
 }
@@ -1507,6 +1534,8 @@ function wireTracks(box, list){
   box.querySelectorAll(".qi[data-i]").forEach(r => r.onclick = () => lpPlayList(list, +r.dataset.i));
 }
 function renderSearch(){
+  document.body.classList.toggle("s-steems", srch.mode === "steems" && !srch.pl);
+  document.querySelectorAll("#ssort button").forEach(b => b.classList.toggle("on", b.dataset.sort === srch.sort));
   const box = el("sres");
   if(srch.pl){
     const pl = srch.pl;
@@ -1522,8 +1551,19 @@ function renderSearch(){
   if(srch.busy){ box.innerHTML = '<div class="empty"><div class="spin" style="margin:0 auto 10px"></div>Hledám…</div>'; return; }
   if(!srch.list.length){ box.innerHTML = `<div class="empty">${srch.q ? "Nic se nenašlo." : srch.mode === "favs" ? "Zatím žádné oblíbené — hvězdička u hrající písně nebo „pick save song“." : "Zatím tu nic není."}</div>`; return; }
   if(trackMode()){
-    box.innerHTML = srch.list.map(trackRow).join("") + (srch.more ? `<div class="empty">…a dalších ${srch.more}. Napiš kus názvu nebo kapely.</div>` : "");
-    wireTracks(box, srch.list); return;
+    let list = srch.list, head = null;
+    if(srch.mode === "steems" && srch.sort === "checked"){
+      list = list.slice().sort((a, b) => (b.checked - a.checked));
+      head = (t) => t.checked ? "Zkontrolované" : "Ještě nezkontrolované";
+    } else if(srch.mode === "steems" && srch.sort === "tuning"){
+      list = list.slice().sort((a, b) => (b.tuning ? b.tuning.low : -1) - (a.tuning ? a.tuning.low : -1) || (a.tuning && b.tuning ? a.tuning.name.localeCompare(b.tuning.name) : 0));
+      head = (t) => t.tuning ? t.tuning.name : "Ladění neznámé";
+    }
+    srch.shown = list;
+    let html = "", last = null;
+    list.forEach((t, i) => { if(head){ const h = head(t); if(h !== last){ html += `<div class="qhd">${esc(h)}</div>`; last = h; } } html += trackRow(t, i); });
+    box.innerHTML = html + (srch.more ? `<div class="empty">…a dalších ${srch.more}. Napiš kus názvu nebo kapely.</div>` : "");
+    wireTracks(box, list); return;
   }
   box.innerHTML = srch.list.map((p, i) => `<div class="qi" data-pl="${i}">
     <div class="n">${i + 1}</div>
@@ -1569,8 +1609,25 @@ const plain = (t) => String(t || "").normalize("NFKD").replace(/[\u0300-\u036f]/
 async function steemsAll(){
   let all = [];
   try{ all = (await (await fetch("/api/stems")).json()).filter(x => (x.stems || []).some(st => !/^take-|^midi/.test(st))); }catch(e){}
-  return all.map(x => stemTrack(x.name, (x.meta && x.meta.title) || x.name, (x.meta && x.meta.artist) || "", x.duration))
+  let ok = new Set();
+  try{ const d = await (await fetch("/api/stamps/songs")).json(); ok = new Set((d.songs || []).filter(r => r.approved).map(r => r.name)); }catch(e){}
+  return all.map(x => Object.assign(stemTrack(x.name, (x.meta && x.meta.title) || x.name, (x.meta && x.meta.artist) || "", x.duration),
+      {tuning: tuningOf(x.tuning), checked: ok.has(x.name)}))
     .sort((a, b) => (a.artists || "~").localeCompare(b.artists || "~", "cs") || a.title.localeCompare(b.title, "cs"));
+}
+// A song's guitar tuning (MIDI notes of its strings, from the app's analysis) as a name and an order:
+// Standard E / Eb / D…, Drop D / C#…, 7 and 8 strings, otherwise its notes from the lowest string.
+const NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const STD = [64, 59, 55, 50, 45, 40, 35, 30];
+function tuningOf(t){
+  if(!Array.isArray(t) || !t.length) return {name: "Ladění neznámé", low: -1};
+  const s = t.slice().sort((a, b) => b - a), n = s.length, base = STD.slice(0, n), d = s.map((v, i) => v - base[i]);
+  const low = s[n - 1], strings = n === 6 ? "" : n + " strun ";
+  const same = (arr) => arr.every(x => x === arr[0]);
+  if(n > 6 && same(d)) return {name: n + " strun, " + NOTE[((low % 12) + 12) % 12], low};
+  if(n === 6 && same(d)) return {name: "Standard " + NOTE[((40 + d[0]) % 12 + 12) % 12], low};
+  if(n >= 6 && same(d.slice(0, -1)) && d[n - 1] === d[0] - 2) return {name: strings + "Drop " + NOTE[((low % 12) + 12) % 12], low};
+  return {name: s.slice().reverse().map(v => NOTE[v % 12]).join(" "), low};
 }
 const spTrack = (t) => ({key: "sp:" + t.id, title: t.title, artists: t.artists, thumbnail: t.image,
   spotifyQuery: `${t.artists} ${t.title}`, duration: t.duration_seconds, dur: t.duration_seconds ? fmt(t.duration_seconds) : ""});

@@ -1697,8 +1697,9 @@ záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk děl�
 - mix písně se tím neukládá: před další písní (a na Konci) se jí vrátí a uloží její vlastní hlasitosti, pany a ladění;
 - **Originální kytara**: hlasitost, pan a ladění po půltónech — s kytarou se posune i **basa**;
 - **Moje kytara**: hlasitost, pan, **noise gate** (ručně, nebo AUTO);
-- **Otisk**: otisky z téhle písně nahoře, pod nimi všechny ostatní (hledání podle názvu, kapely, písně); klik
-  ho zapne na živé kytaře;
+- **Otisk**: otisky z téhle písně nahoře, pod nimi ostatní **po kategoriích** (Clean, Crunch, Hi-Gain, Sólo,
+  Akustická, Ambient, Fuzz, Jiné — barvy jako v aplikaci) a tlačítka kategorií nad seznamem; hledání podle názvu,
+  kapely, písně; klik ho zapne na živé kytaře;
 - otisk vybraný v panelu je **zamčený**: píseň s mapou otisků (DITORIG, pruh Otisky) ho při přehrávání
   nepřepne zpátky na svůj; panel upozorní, když kytara jde přes **tunel** (otisky se pak obcházejí) a nabídne
   ho vypnout;
@@ -1707,3 +1708,15 @@ záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk děl�
 - **Konec** vrátí originální kytaru (hlasitost, pan, ladění kytary i basy) a vypne vstup.
 
 Aplikace musí být otevřená; když se neozve, panel to řekne a nabídne ji otevřít.
+
+### Hledání Steems písní v minipřehrávači: řazení
+
+Nad výsledky jsou tlačítka **Interpret** (výchozí), **Zkontrolované** (písně se schváleným zvukem a nastavením
+nahoře, ✓ u názvu) a **Ladění** (seskupené pod Standard E, Standard Eb, Drop D…, 7/8 strun; ladění se bere
+z analýzy písně, neznámé na konci). Volba se pamatuje.
+
+### Rozdělená kytara (sólo / rytmus) se už neztrácí
+
+Píseň otevřená dřív, než se načetl seznam Steems (z minipřehrávače, hlasem, z Hraju s kytarou…), dostávala
+jen šest základních stop a další uložení mixu z něj vyhodilo guitar_solo / guitar_rhythm (a takes). Teď se
+seznam stop vždy přečte ze serveru a uložení mixu navíc ponechá nastavení stop, které se tentokrát nenačetly.

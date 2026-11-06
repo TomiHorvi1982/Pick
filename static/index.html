@@ -14155,21 +14155,25 @@ function loadMixerSong(name, opts = {}){
     return;
   }
   const held = mixerHeld = {name, state: "loading"};
-  // Ensure song has stems array
-  let song = steemsSongs.find(s => s.name === name);
-  if(!song){ 
-    // Fallback: create song from server data
-    song = { name, stems: ["drums","bass","guitar","vocals","piano","other"] };
-  }
+  // The song's tracks as the server has them. Opened before Steems' list was read (from the mini player,
+  // a spoken command, Hraju s kytarou…) it used to get the six standard stems instead — a split guitar
+  // (guitar_solo / guitar_rhythm) or a take was then left out, and the next save dropped it from the mix.
+  const known = steemsSongs.find(s => s.name === name);
+  const fallback = {name, stems: ["drums","bass","guitar","vocals","piano","other"]};
+  const getSong = known ? Promise.resolve(known)
+    : fetch("/api/stems").then(r => r.json()).then(list => (Array.isArray(list) && list.find(s => s.name === name)) || fallback).catch(() => fallback);
+  getSong.then(song => {
+  if(held !== mixerHeld) return;
   // Ensure stems have proper format
   if(song.stems && !Array.isArray(song.stems[0]) && typeof song.stems[0] !== 'object'){
     // Convert string array to object array
     song.stems = song.stems.map(s => ({name: s, url: `/api/stems/${encodeURIComponent(name)}/${s}`}));
   }
-  Promise.resolve(Mixer.load(song)).then(() => {
+  return Promise.resolve(Mixer.load(song)).then(() => {
     if(held === mixerHeld) held.state = "ok";
     refreshSteemsHeroStats();
     if(held === mixerHeld) Mixer.autoExtras(song.meta || null);
+  });
   }).catch(() => {
     if(held === mixerHeld) held.state = "failed";
     el("steems-hero-stats").textContent = "Stopy se nepodařilo načíst.";
@@ -21752,6 +21756,7 @@ const Mixer = (() => {
     // Restore session if exists
     const saved = await loadSession(song.name);
     if(myToken !== loadToken) return;
+    sessionKeep = ((saved && saved.channels) || []).filter(x => x && stemNames.includes(x.stem));
     // The click is part of the mix: its level, pan, sound and rate come back
     // with everything else instead of being picked again on every open.
     if(saved && saved.guitar){
@@ -22434,7 +22439,11 @@ const Mixer = (() => {
   // a mix set up in the normal window simply wasn't there in the app window.
   // It saves itself now, next to the stems.
 
+  // The saved settings of the song's tracks that are not in the mixer this time (left out as silent, say):
+  // written back as they were, so a save never loses them.
+  let sessionKeep = [];
   function sessionSnapshot(){
+    const here = new Set([...channels, ...hiddenChannels].map(c => c.stem));
     return {
       tempo: tempoBPM,
       loop: loopEnabled ? {start: loopStart, end: loopEnd} : null,
@@ -22446,7 +22455,7 @@ const Mixer = (() => {
         clips: c.clips ? c.clips.map(k => ({src: k.src, offset: k.offset, dur: k.dur, start: k.start})) : null,
         eq: eqSnapshot(c),
         fx: fxSnapshot(c.fx),
-      })),
+      })).concat(sessionKeep.filter(x => !here.has(x.stem))),
       pixelsPerSecond,
       look: trackLook,
       midi: [...channels, ...hiddenChannels].filter(c => c.midi).map(c => ({
