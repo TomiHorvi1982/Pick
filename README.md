@@ -1779,3 +1779,13 @@ hlasitý přechod), s krátkým prolnutím na okrajích. Smyčka hraje pod smyč
 na taktu (ručně, pedálem i v aranžmá). Část, kde bicí nehrají, zůstane bez nich (u části „bez bicích“). Jiné
 tempo v looperu smyčku zrychlí nebo zpomalí; víc než o 6 % to řádek řekne. Klik zůstává zvlášť. Hraje jen
 s písní otevřenou ve Steems.
+
+### Looper: scénář vystoupení
+
+**Připravit scénář** (pod aranžmá) rozdělí hlavní části písně na stopy: první tři různé druhy částí (sloky jako
+jedna, refrény jako jedna, třeba most) dostanou každý vlastní kytarovou stopu (3, 4, pak 1) s délkou smyčky podle
+kola jejich akordů (např. 4 takty); stopy se pojmenují („Sloka – kytara“) a každá část hraje svou. Sólo, intro
+a mezihry hrají smyčku hlavní části s nejpodobnějšími akordy a hraje se přes ně živě (před první nahranou smyčkou
+jen s bicími z písně). **Napovídač** ukazuje velkým písmem, co dělat teď, a co přijde („TEĎ: Sloka 1 — nahraj
+kytaru na stopu 3 — 4 takty: E · E · E · E, pak s ní hraj dál“), pod tím celý scénář. **Nahrávat samo**: při
+přehrávání aranžmá se nahrávání samo spustí na začátku části, kde se má nahrávat. Scénář se ukládá s projektem.

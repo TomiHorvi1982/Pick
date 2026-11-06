@@ -70,6 +70,15 @@ const Looper = (() => {
   .lp-skel b{color:var(--accent,#8b5cf6);letter-spacing:.02em}.lp-skel span{color:#c9c9da;margin-right:4px}
   .lp-skel i{font-style:normal;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.06);color:#e6e6ef;font-variant-numeric:tabular-nums}
   .lp-skel i.warn{background:rgba(255,190,60,.14);color:#ffcf6e}
+  .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-prompt{display:flex;flex-direction:column;gap:4px}
+  .lp-prompt .now{font-size:20px;font-weight:700;line-height:1.3}
+  .lp-prompt .next{font-size:13px;color:#a6a6bc}
+  .lp-prompt i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent,#8b5cf6);margin-right:8px;vertical-align:middle}
+  .lp-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#c9c9da;max-height:180px;overflow:auto}
+  .lp-steps li b{margin-right:6px;color:#fff}.lp-steps li.rec span{color:#ffb4b4}.lp-steps li.live span{color:#b9e3ff}
+  .lp-steps li.now{background:color-mix(in srgb,var(--accent,#8b5cf6) 20%,transparent);border-radius:6px}
   .lp-drums{display:inline-flex;align-items:center;gap:6px}
   .lp-drums select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 6px}
   .lp-drums input[type=range]{width:80px}
@@ -126,7 +135,7 @@ const Looper = (() => {
   // ---- state
   const KEY = "pick-looper";
   const cfg = {bpm: 100, perBar: 4, click: true, clickVol: 0.5, countIn: true, autoNext: true, monMic: false, vol: 0.9,
-                drums: true, drumBars: 2, drumVol: 0.9};
+                drums: true, drumBars: 2, drumVol: 0.9, autoRec: false};
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
   // src: gtr | mic (audio) · midi (notes on an instrument) · drums (notes on the kit, and the step grid)
@@ -244,6 +253,7 @@ const Looper = (() => {
     clickFrom = countIn ? t0 - lead : t0;
     tracks.forEach(t => { if(t.layers.length){ t.anchor = t0; t.layers.forEach(l => startLayer(t, l, t0)); } });
     if(arrOn && arr.length){ arrPos = {i: 0, start: 0}; cur = arr[0].k; }
+    if(arrOn && arr.length) setTimeout(() => planStep(0), 0);
     applyMutes(now());
     drumsAt(cur, t0);
     if(cfg.guide) guideAt(t0, guidePos());
@@ -501,6 +511,7 @@ const Looper = (() => {
   // arrangement in the song's order with each part's length in bars counted on the drums' downbeats, and
   // the chords of every bar — what to play, part by part, before anything is recorded.
   let skel = null;                     // {song, bpm, perBar, key, parts, bars}
+  let plan = null;                     // the performance: [{k, act: "rec" | "play" | "live", track, bars, text}] by the arrangement's steps
   function barsOf(from, to, g){
     const db = (g && g.downbeats) || [];
     const inside = db.filter(t => t >= from - 0.05 && t < to - 0.05);
@@ -528,7 +539,7 @@ const Looper = (() => {
     for(let L = 2; L <= 8 && per.length >= L * 2; L++){
       const hit = per.filter((c, i) => c === per[i % L]).length / per.length;
       if(hit >= 0.8 && new Set(per.slice(0, L)).size > 1)
-        return {bars: starts.length, text: per.slice(0, L).join(" · ") + ` ×${Math.round(per.length / L)}`, full};
+        return {bars: starts.length, text: per.slice(0, L).join(" · ") + ` ×${Math.round(per.length / L)}`, full, cycle: L};
     }
     return {bars: starts.length, text: out.length > 8 ? out.slice(0, 8).map(x => (x.c || "–") + (x.n > 1 ? " ×" + x.n : "")).join(" · ") + " …" : full, full};
   }
@@ -544,11 +555,107 @@ const Looper = (() => {
     drumCache = {};
     const steps = secs.map(x => ({name: x.name, start: x.start, end: x.end, ...chordsIn(x.start, x.end, g, chords)}));
     arr = steps.map(x => ({k: scenes.findIndex(sc => sc.name === x.name), bars: x.bars, chords: x.text, full: x.full})).filter(x => x.k >= 0);
-    scenes.forEach(sc => { const first = steps.find(x => x.name === sc.name); sc.chords = first ? first.text : ""; sc.full = first ? first.full : ""; sc.bars = first ? first.bars : 0; });
+    scenes.forEach(sc => { const first = steps.find(x => x.name === sc.name); sc.chords = first ? first.text : ""; sc.full = first ? first.full : ""; sc.bars = first ? first.bars : 0; sc.cycle = first ? first.cycle || 0 : 0; });
+    plan = null;
     skel = {song: name, bpm: cfg.bpm, perBar: cfg.perBar, key, parts: scenes.length, bars: arr.reduce((n, st) => n + st.bars, 0), chords: chords.length > 0};
     if(!quiet) showToast(secs.length ? `Kostra z písně: ${skel.parts} částí, ${skel.bars} taktů, ${cfg.bpm} BPM` + (key ? `, tónina ${key}` : "")
       : "Píseň zatím nemá rozdělené části — kostra má jen tempo; části přidej ručně");
   }
+  // ---- the performance (Scénář): who records what, where — from the skeleton. The song's first three
+  // different parts (verse, chorus, a bridge…) each get a guitar track of their own, a loop as long as the
+  // round of its chords (4 bars, say), recorded the first time the part comes; each part plays its own track.
+  // A solo, an intro, an interlude plays the loop of the main part whose chords are most like its own, and
+  // is played live over it. A part that comes again only plays. "Nahrávat samo": the arrangement arms each
+  // recording on its bar by itself — the player only plays.
+  const SPECIAL = /sol|solo|intro|outro|instrument|mezihr|bridge|most|break|konec|závěr|zaver/i;
+  const CORE_TRACKS = [2, 3, 0];
+  const chordSet = (sc) => new Set(String(sc.full || sc.chords || "").split(/\s*·\s*/).map(x => x.replace(/\s*×\d+.*$/, "").trim()).filter(x => x && x !== "–" && x !== "…"));
+  function loopBarsOf(sc){
+    const c = sc.cycle || 0, opts = [1, 2, 4, 8, 16];
+    if(opts.includes(c)) return c;
+    if(c > 0) return opts.find(o => o >= c) || 8;
+    return Math.min(4, Math.max(1, sc.bars || 4));
+  }
+  // "Sloka 2" is "Sloka" again: parts told apart by their name without the number
+  const base = (name) => String(name || "").replace(/\s*\d+\s*$/, "").trim().toLowerCase();
+  // the chords of a part's first n bars ("E ×15 · A" → E E E E)
+  function firstBars(sc, n){
+    const out = [];
+    for(const x of String(sc.full || sc.chords || "").split(/\s*·\s*/)){
+      const m = x.match(/^(.*?)(?:\s*×(\d+))?$/); if(!m || !m[1] || m[1] === "…") continue;
+      for(let i = 0; i < (+m[2] || 1) && out.length < n; i++) out.push(m[1]);
+      if(out.length >= n) break;
+    }
+    return out.join(" · ");
+  }
+  function makePlan(){
+    if(!arr.length) return null;
+    const order = [];
+    arr.forEach(st => { if(!order.includes(st.k)) order.push(st.k); });
+    // the main parts by their kind (all the verses one, all the choruses one), the first three of them
+    const coreBases = [];
+    order.forEach(k => { const b = base(scenes[k].name); if(!SPECIAL.test(scenes[k].name) && !coreBases.includes(b) && coreBases.length < CORE_TRACKS.length) coreBases.push(b); });
+    if(!coreBases.length && order.length) coreBases.push(base(scenes[order[0]].name));
+    const core = coreBases.map(b => order.find(k => base(scenes[k].name) === b));
+    const trackOf = {};
+    order.forEach(k => { const n = coreBases.indexOf(base(scenes[k].name)); if(n >= 0) trackOf[k] = CORE_TRACKS[n]; });
+    // the others: the core part with the most chords in common
+    const like = (k) => {
+      const mine = chordSet(scenes[k]); let best = core[0], most = -1;
+      core.forEach(c => { const n = [...chordSet(scenes[c])].filter(x => mine.has(x)).length; if(n > most){ most = n; best = c; } });
+      return best;
+    };
+    const seen = new Set();
+    return arr.map((st, i) => {
+      const k = st.k, sc = scenes[k], isCore = k in trackOf;
+      const tr = isCore ? trackOf[k] : trackOf[like(k)], first = isCore && !seen.has(tr);
+      if(isCore) seen.add(tr);
+      const L = loopBarsOf(isCore ? scenes[core[coreBases.indexOf(base(sc.name))]] || sc : scenes[like(k)] || sc);
+      const ch = firstBars(sc, L);
+      if(isCore && first) return {k, act: "rec", track: tr, bars: L, text: `nahraj kytaru na stopu ${tr + 1} — ${L} ${L === 1 ? "takt" : L < 5 ? "takty" : "taktů"}${ch ? ": " + ch : ""}, pak s ní hraj dál`};
+      if(isCore) return {k, act: "play", track: tr, text: `smyčka stopy ${tr + 1} hraje — hraj s ní, nebo zpívej`};
+      // before that loop is recorded, there is only the song's drums under it
+      const over = seen.has(tr) ? ` přes smyčku ${scenes[like(k)] ? scenes[like(k)].name.replace(/\s*\d+\s*$/, "") : ""} (stopa ${tr + 1})` : (cfg.drums ? " — smyčky ještě nejsou, hrají jen bicí z písně" : " — smyčky ještě nejsou");
+      return {k, act: "live", track: seen.has(tr) ? tr : null, text: (/sol|solo/i.test(sc.name) ? "sólo živě" : "hraj živě") + over};
+    });
+  }
+  function prepPlan(){
+    if(!skel || !arr.length){ showToast("Nejdřív připrav kostru z písně"); return; }
+    if(hasAudio()){ showToast("V looperu už jsou nahrané smyčky — scénář jde připravit jen do prázdného"); return; }
+    plan = makePlan();
+    if(!plan) return;
+    // the tracks: a name, the guitar as the source, the loop's length; each part plays its own
+    const used = new Map();
+    plan.forEach(p => { if(p.act === "rec") used.set(p.track, p); });
+    used.forEach((p, ti) => { const t = tracks[ti]; t.src = "gtr"; t.bars = p.bars; t.name = `${scenes[p.k].name.replace(/\s*\d+\s*$/, "")} – kytara`; });
+    scenes.forEach((sc, k) => { const p = plan.find(x => x.k === k); sc.on = new Set(p && p.track != null ? [p.track] : []); });
+    root.querySelectorAll(".lp-t").forEach(n => { const t = tracks[+n.dataset.i]; const inp = n.querySelector(".nm input"); if(inp) inp.value = t.name; });
+    showToast(`Scénář: ${used.size} ${used.size === 1 ? "smyčka" : "smyčky"} k nahrání, ${plan.length} kroků`);
+    paint();
+  }
+  // the arrangement reached a step: what it says, and its recording armed when "Nahrávat samo" is on
+  function planStep(i){
+    if(!plan || !plan[i] || !cfg.autoRec) return;
+    const p = plan[i], t = tracks[p.track];
+    if(p.act === "rec" && t && !t.layers.length && !t.job) arm(t, "first");
+  }
+  function paintPlan(){
+    const box = root && root.querySelector("#lp-plan");
+    if(!box) return;
+    box.hidden = !skel;
+    if(!skel) return;
+    const at = arrOn && arrPos && running ? arrPos.i : -1, nx = at >= 0 ? at + 1 : 0;
+    const say = (i) => plan && plan[i] ? `<b>${esc(scenes[plan[i].k] ? scenes[plan[i].k].name : "")}</b> — ${esc(plan[i].text)}` : "";
+    box.innerHTML = `<div class="lp-plan-top"><span class="h">SCÉNÁŘ</span>
+        <button type="button" class="lp-b" id="lp-plan-make" ${hasAudio() ? "disabled" : ""} title="Rozdělí hlavní části písně na stopy: co, kam a jak dlouhé nahrát, a kde hrát živě">${plan ? "Připravit znovu" : "Připravit scénář"}</button>
+        <button type="button" class="lp-b ${cfg.autoRec ? "on" : ""}" id="lp-plan-auto" title="Při přehrávání aranžmá se nahrávání spustí samo na začátku části, kde se má nahrávat — ty jen hraješ">Nahrávat samo</button></div>`
+      + (plan ? `<div class="lp-prompt">${at >= 0 ? `<div class="now"><i>TEĎ</i>${say(at)}</div>` : `<div class="now"><i>ZAČNI</i>Přehraj aranžmá (▶) — ${say(0)}</div>`}${plan[nx] && at >= 0 ? `<div class="next"><i>DALŠÍ</i>${say(nx)}</div>` : ""}</div>
+        <ol class="lp-steps">${plan.map((p, i) => `<li class="${i === at ? "now" : ""} ${p.act}"><b>${esc(scenes[p.k] ? scenes[p.k].name : "")}</b><span>${esc(p.text)}</span></li>`).join("")}</ol>`
+      : `<div class="lp-prompt"><div class="next">Scénář řekne, co v které části nahrát (a na kterou stopu) a kde hrát živě.</div></div>`);
+    box.querySelector("#lp-plan-make").onclick = prepPlan;
+    box.querySelector("#lp-plan-auto").onclick = () => { cfg.autoRec = !cfg.autoRec; keep(); paintPlan(); };
+  }
+
   // ---- the rhythm from the song: each part's own drums, a loop of 1, 2 or 4 bars cut on the downbeats of
   // the song's drum stem (from the part's second bar — its first often carries the fill into it), the
   // edges faded a few ms so it does not click, played under the loops and switched with the part on the
@@ -658,7 +765,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel,
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan,
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -707,6 +814,7 @@ const Looper = (() => {
     cfg.bpm = P.bpm || cfg.bpm; cfg.perBar = P.perBar || cfg.perBar; song = P.song || null;
     scenes = (P.scenes || []).map(sc => ({name: sc.name, on: new Set(sc.on || []), chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0}));
     skel = P.skeleton || null;
+    plan = Array.isArray(P.plan) ? P.plan : null;
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);
     arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""}));
@@ -812,7 +920,7 @@ const Looper = (() => {
     if(pending && !pending.drums && tm >= pending.at - 0.25){ pending.drums = true; drumsAt(pending.k, pending.at); }
     if(pending && tm >= pending.at - 0.02){
       cur = pending.k;
-      if(pending.step) arrPos = pending.step;
+      if(pending.step){ arrPos = pending.step; planStep(arrPos.i); }
       if(cfg.guide) guideAt(pending.at, guidePos());
       pending = null; applyMutes(Math.max(tm, 0)); paint();
     }
@@ -1122,6 +1230,7 @@ const Looper = (() => {
         <div class="lp-skel" id="lp-skel" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-arr" id="lp-arr"></div>
+        <div class="lp-plan" id="lp-plan" hidden></div>
         <div class="lp-help">
           <b>Jak na to:</b> tlačítko stopy = <b>nahrát → hrát → přidat vrstvu → hrát</b>. Nahrávání začne na začátku taktu a skončí na konci taktu —
           samo po zvolené délce, nebo po druhém stisku (auto). Když nahráváš a stiskneš jinou stopu, předá se na stejném taktu. Části písně dole:
@@ -1275,6 +1384,7 @@ const Looper = (() => {
     $("lp-sc").querySelector("[data-add]").onclick = addScene;
     $("lp-prep").onclick = prepFromSong; $("lp-prep").disabled = hasAudio();
     paintArr();
+    paintPlan();
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
   }
