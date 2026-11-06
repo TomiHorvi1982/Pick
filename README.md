@@ -1689,8 +1689,12 @@ záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk děl�
 živou kytaru, otisky, gate a ladění stop), minipřehrávač jí posílá povel `jam` (nastavení jako JSON) a čte zpátky
 `jam` ve stavu přehrávání:
 
-- píseň se pustí v mixu aplikace (od místa, kde hrála), **originální kytara se ztiší** a zapne se **vstup kytary
-  ze zvukovky**;
+- píseň se pustí v mixu aplikace (od místa, kde hrála) a **každá píseň se nastaví od začátku** — i když se
+  píseň změní (další, fronta, hledání v minipřehrávači): originální kytara **vlevo**, tvoje kytara **vpravo** na
+  **vstupu 1** zvukovky (tunel se vypne), hlasitost tvé kytary se **sama srovná** s kytarou z nahrávky (AutoMix,
+  AUTO hlasitost — pohnutím jezdce se vypne), gate na AUTO, ladění zpátky na 0 a otisk **potvrzený pro tu píseň**
+  (jinak její nejnovější, a když žádný nemá, žádný — ne ten z minulé písně);
+- mix písně se tím neukládá: před další písní (a na Konci) se jí vrátí a uloží její vlastní hlasitosti, pany a ladění;
 - **Originální kytara**: hlasitost, pan a ladění po půltónech — s kytarou se posune i **basa**;
 - **Moje kytara**: hlasitost, pan, **noise gate** (ručně, nebo AUTO);
 - **Otisk**: otisky z téhle písně nahoře, pod nimi všechny ostatní (hledání podle názvu, kapely, písně); klik

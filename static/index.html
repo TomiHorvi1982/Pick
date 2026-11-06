@@ -21709,6 +21709,7 @@ const Mixer = (() => {
   }
 
   async function load(song){
+    if(typeof Jam !== "undefined" && Jam.isOn() && currentSongName && song && song.name !== currentSongName) Jam.release();
     const myToken = ++loadToken;
     sessionReady = false;       // nothing saves while the mix is being set up
     playWanted = false;
@@ -27343,40 +27344,86 @@ const Mixer = (() => {
   // original guitar's level, pan and pitch (the bass moves with it), the live guitar's level, pan and
   // gate, which print it plays — and says when a print is right for the song (its Approved).
   const Jam = (() => {
-    let on = false, song = null, keep = null, approved = false;
+    let on = false, song = null, keep = null, approved = false, busy = false;
+    const PAN = 0.8;                                  // the record's guitar left, the player's right
     const gtrs = () => channels.filter(c => !c.midi && c.stem.split("_")[0] === "guitar");
     const strings = () => channels.filter(c => !c.midi && ["guitar", "bass"].includes(c.stem.split("_")[0]));
-    const redraw = () => { applyGains(); renderChannels(); renderTrackLanes(); renderLiveGuitarFader(); queueSessionSave(); };
+    // what the panel changes is the session of the moment, not the song's saved mix
+    const redraw = () => { applyGains(); renderChannels(); renderTrackLanes(); renderLiveGuitarFader(); };
+    const ready = (name) => readyToken === loadToken && channels.length > 0 && currentSongName === name;
     function state(){
       if(!on) return null;
       const g = gtrs()[0], cur = typeof Tone !== "undefined" && Tone.current ? Tone.current() : null;
-      return {on: true, song, approved,
+      return {on: true, song, approved, busy,
         orig: {has: !!g, vol: g ? (g.faderValue == null ? 1 : g.faderValue) : 0, pan: g ? (g.panValue || 0) : 0, semi: g ? rateToSemitones(g.pitchRate || 1) : 0},
-        mine: {live: Guitar.isLive(), device: Guitar.state.deviceLabel || "", vol: Guitar.state.volume, pan: Guitar.state.pan,
-               gate: Guitar.state.threshold, auto: AutoGate.on(),
+        mine: {live: Guitar.isLive(), device: Guitar.state.deviceLabel || "", input: Guitar.state.inputChannel, vol: Guitar.state.volume, pan: Guitar.state.pan,
+               gate: Guitar.state.threshold, auto: AutoGate.on(), autoVol: AutoMix.on(),
                print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null,
                // prints are bypassed when the guitar goes through a tunnel (an outside sim); the map may switch them as the song plays
                tunnel: !!Guitar.state.tunnel, follows: !!(Tone.following && Tone.following()), sounding: Guitar.hasPrint()}};
     }
+    // The song's own mix back as it was (before another song loads, or at Konec) — and kept so.
+    function release(){
+      if(keep && keep.song === currentSongName && channels.length){
+        keep.ch.forEach(k => { if(channels.includes(k.c)){ k.c.faderValue = k.vol; k.c.panValue = k.pan; k.c.pitchRate = k.rate; } });
+        requestTempoPitch(); applyGains();
+        try{ saveSession(currentSongName); }catch(e){}
+      }
+      keep = null;
+    }
+    // Every song from the start: its guitar left, the player's guitar right on input 1 of the sound card,
+    // the levels matched by AutoMix (the live guitar held at the record's guitar), the gate on AUTO, and the
+    // song's own newest print — or none, rather than the last song's.
+    async function init(name){
+      if(busy) return;
+      busy = true;
+      try{
+        song = name; approved = false;
+        keep = {song: name, ch: strings().map(c => ({c, vol: c.faderValue, pan: c.panValue, rate: c.pitchRate}))};
+        gtrs().forEach(c => { c.faderValue = c.faderValue == null || c.faderValue < 0.05 ? 1 : c.faderValue; c.panValue = -PAN; });
+        strings().forEach(c => { c.pitchRate = 1; });
+        requestTempoPitch();
+        if(Guitar.state.tunnel) await Tunnel.off();
+        Guitar.setInputChannel("1");
+        if(!Guitar.isLive()) await toggleGuitarInput();
+        Guitar.state.pan = PAN;
+        Guitar.applyGuitarGain();
+        if(!AutoGate.on()) AutoGate.set(true);
+        if(!AutoMix.on()) AutoMix.set(true);
+        redraw();
+        // the print confirmed for the song (Otisk sedí) when there is one, else the song's newest — always the same one
+        let row = null;
+        try{
+          const d = await (await fetch("/api/stamps/songs")).json(), rows = Array.isArray(d) ? d : (d.songs || d.rows || []);
+          row = rows.find(x => x.name === name) || null; approved = !!(row && row.approved);
+        }catch(e){}
+        try{
+          if(row && row.print && row.print.pid){ await Tone.apply(name, row.print.pid, true, row.print.song || name, true); }
+          else {
+            const own = ((await (await fetch(`/api/tone/${encodeURIComponent(name)}`)).json()).prints || []).slice()
+              .sort((a, b) => (b.created || 0) - (a.created || 0) || String(a.id).localeCompare(String(b.id)));
+            if(own.length) await Tone.apply(name, own[0].id, true, name, true);
+            else if(Tone.on && Tone.on()) Tone.remove(true);
+          }
+        }catch(e){ if(Tone.on && Tone.on()) Tone.remove(true); }
+      } finally { busy = false; redraw(); }
+    }
     async function start(v){
       const name = String(v.song || "");
       if(!name) return;
+      on = true;
       if(currentSongName !== name){
         if(typeof setMode === "function") setMode("steems");
         loadMixerSong(name);
-        for(let i = 0; i < 300 && !(readyToken === loadToken && channels.length && currentSongName === name); i++) await new Promise(r => setTimeout(r, 200));
+        for(let i = 0; i < 300 && !ready(name); i++) await new Promise(r => setTimeout(r, 200));
       }
-      if(!channels.length) return;
-      song = name; approved = false;
-      keep = keep && keep.song === name ? keep : {song: name, ch: strings().map(c => ({c, vol: c.faderValue, pan: c.panValue, rate: c.pitchRate}))};
-      gtrs().forEach(c => { c.faderValue = 0; });                     // the record's guitar out: the player's is in
-      on = true;
-      redraw();
-      if(!Guitar.isLive()) await toggleGuitarInput();
+      if(!channels.length){ on = false; return; }
+      await init(name);
       if(typeof v.pos === "number" && isFinite(v.pos)) seek(Math.max(0, v.pos));
       if(v.play && !isPlaying) play();
-      fetch(`/api/stamps/songs`).then(r => r.json()).then(d => { const row = (d.rows || d || []).find && (d.rows || d).find(x => x.name === name); approved = !!(row && row.approved); }).catch(() => {});
     }
+    // another song in the mixer while it is on (next, the queue, a search): set up again for it
+    setInterval(() => { if(on && !busy && currentSongName && currentSongName !== song && ready(currentSongName)) init(currentSongName); }, 400);
     async function set(v){
       if(!on) return;
       if(v.orig){
@@ -27387,7 +27434,8 @@ const Mixer = (() => {
       }
       if(v.mine){
         const m = v.mine;
-        if(m.vol != null) Guitar.state.volume = Math.max(0, Math.min(1.4, +m.vol));
+        if(m.vol != null){ if(AutoMix.on()) AutoMix.set(false); Guitar.state.volume = Math.max(0, Math.min(1.4, +m.vol)); }
+        if(m.autoVol != null && !!m.autoVol !== AutoMix.on()) AutoMix.set(!!m.autoVol);
         if(m.pan != null) Guitar.state.pan = Math.max(-1, Math.min(1, +m.pan));
         if(m.vol != null || m.pan != null) Guitar.applyGuitarGain();
         if(m.auto != null) AutoGate.set(!!m.auto);
@@ -27414,9 +27462,7 @@ const Mixer = (() => {
     async function stop(){
       if(!on) return;
       on = false;
-      if(keep && keep.song === currentSongName) keep.ch.forEach(k => { k.c.faderValue = k.vol; k.c.panValue = k.pan; k.c.pitchRate = k.rate; });
-      keep = null;
-      requestTempoPitch();
+      release();
       if(Guitar.isLive()) await Guitar.stop();
       redraw();
     }
@@ -27426,7 +27472,7 @@ const Mixer = (() => {
       if(v.op === "stop") return stop();
       return set(v);
     }
-    return {handle, state, isOn: () => on};
+    return {handle, state, release, isOn: () => on};
   })();
 
   async function reloadCurrentSong(){

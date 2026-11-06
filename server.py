@@ -10109,6 +10109,7 @@ def _stamp_row(d: Path) -> Optional[dict]:
         dit += bool(p.get("ditorig"))
     st = _tone_status(d)
     row = {"name": d.name, "prints": n, "pending": pending, "ditorig": dit, "approved": bool(st.get("approved")), "at": st.get("at"),
+           "print": st.get("print") if st.get("approved") else None,
            "lanes": (d / TONE_DIR / "lanes.json").is_file()} if n else None
     _STAMP_ROW[d.name] = (sig, row)
     return row

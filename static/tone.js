@@ -126,7 +126,7 @@ const Tone = (() => {
     const {print: p, input, out, nodes, core} = await buildChain(from || name, which);
     const dblBefore = live ? live.dbl : !!G().fx().state.dbl.on;
     remove(true);
-    live = {song: name, from: from || name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore};
+    live = {song: name, from: from || name, pid: p.id, print: p, input, out, nodes, core, dbl: dblBefore, pinned: !!pin};
     setDrive();
     G().setPrint({input, output: out});
     // The doubler is the player's: a print of a wide record never switches it on by itself (3. 11.).
@@ -169,7 +169,7 @@ const Tone = (() => {
   }
   async function startFollow(name, p){
     if(fol) stopFollow();
-    if(!followOn() || !live) return;
+    if(!followOn() || !live || live.pinned) return;            // a print picked by hand stays, whatever the map or the lane says
     const segs = await segsFor(name, p);
     if(new Set(segs.map(t => t.key)).size < 2 || !live || live.song !== name) return;     // one sound all along: nothing to switch
     const curKey = keyOf(live.from || name, live.pid);
