@@ -4250,6 +4250,8 @@ body.lib-collapsed .pick-brand{display:none}
   .ytv-t{font-size:11.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#d6d6e0}
   .ytv-i:hover .ytv-t{color:#fff}.ytv-i:hover .ytv-th{outline:2px solid var(--accent)}
   .ytv-none{color:var(--sub);font-size:11.5px}
+  .track-row.spl-own .t-title,.track-row.spl-own .t-artist{opacity:.6}
+  .track-row .have-slot{margin-left:8px}
   .ytv-play{position:absolute;left:0;right:0;top:0;height:100%;z-index:3;background:#000;display:flex;flex-direction:column}
   .ytv-play video{flex:1;min-height:0;width:100%;height:100%;object-fit:contain;background:#000}
   .ytv-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:6px;padding:6px 8px;
@@ -27976,6 +27978,7 @@ const SpotifyLink = (() => {
         <div class="badges">
           <span class="badge">${icon("note", 12)} ${p.count} skladeb</span>
           <span class="badge">${icon("clock", 12)} ${fmtDur(total)} celkem</span>
+          <span class="badge" id="spl-have">${icon("history", 12)} zjišťuju, co už máš…</span>
         </div>
         <div class="actions">
           <button class="btn" id="spl-dl">${icon("download", 14)}${many ? "Stáhnout celý" : "Stáhnout"}</button>
@@ -27988,11 +27991,38 @@ const SpotifyLink = (() => {
         ${p.tracks.map((t, i) => `<label class="track-row sp-cols">
           <input type="checkbox" class="checkbox" data-i="${i}" checked ${many ? "" : "hidden"}>
           <span class="t-title">${escapeHtml(t.title)}</span><span class="t-artist">${escapeHtml(t.artists)}</span>
-          <span class="t-album">${escapeHtml(t.album)}</span><span class="t-dur">${fmtDur(t.duration)}</span></label>`).join("")}
+          <span class="t-album">${escapeHtml(t.album)}<span class="have-slot" hidden></span></span><span class="t-dur">${fmtDur(t.duration)}</span></label>`).join("")}
       </div>`;
     el("close-panel").onclick = closeOverlay;
-    const whole = () => ({urls: [p.url], output_name: many ? p.name : "Songs", kind: many ? "playlist" : "songs", bitrate: bitrate()});
-    el("spl-dl").onclick = () => startDownload(whole(), many ? p.name : `${p.name} — ${p.author}`);
+    // What there already is of each song (in the library as an MP3, or split into stems in Steems): marked,
+    // left unticked, and not downloaded again — "Stáhnout celý" becomes "Stáhnout chybějící".
+    let have = [];
+    const owned = (k) => !!(have[k] && (have[k].library || have[k].stems));
+    const missing = () => p.tracks.filter((t, k) => !owned(k));
+    const whole = () => {
+      const miss = missing();
+      if(!have.length || miss.length === p.tracks.length) return {urls: [p.url], output_name: many ? p.name : "Songs", kind: many ? "playlist" : "songs", bitrate: bitrate()};
+      return {urls: miss.map(t => t.url), output_name: many ? p.name : "Songs", kind: many && miss.length > 1 ? "playlist" : "songs", bitrate: bitrate()};
+    };
+    const nothingNew = () => { if(have.length && !missing().length){ showToast(many ? "Všechny písně z odkazu už máš — nic se nestahuje" : "Tuhle píseň už máš"); return true; } return false; };
+    el("spl-dl").onclick = () => { if(nothingNew() && many) return; startDownload(whole(), many ? p.name : `${p.name} — ${p.author}`); };
+    SongHave.check(p.tracks.map(t => ({title: t.title, artists: t.artists, duration_seconds: t.duration}))).then(h => {
+      if(!el("spl-have")) return;
+      have = h || [];
+      const n = p.tracks.filter((t, k) => owned(k)).length, miss = p.tracks.length - n;
+      panel.querySelectorAll(".track-row").forEach(r => {
+        const cb = r.querySelector("input.checkbox"), k = cb ? +cb.dataset.i : -1, slot = r.querySelector(".have-slot");
+        if(k < 0 || !have[k]) return;
+        if(slot){ slot.innerHTML = SongHave.marks(have[k]); slot.hidden = false; }
+        if(owned(k)){ r.classList.add("spl-own"); if(cb && many) cb.checked = false; }
+      });
+      el("spl-have").innerHTML = `${icon("check", 12)} ` + (many ? (n ? `${n} už máš · ${miss} chybí` : "nic z toho zatím nemáš") : (n ? "tuhle píseň už máš" : "zatím ji nemáš"));
+      if(many){
+        el("spl-n").textContent = panel.querySelectorAll("input.checkbox:checked").length;
+        if(n) el("spl-dl").innerHTML = miss ? `${icon("download", 14)}Stáhnout chybějící (${miss})` : `${icon("check", 14)}Všechno už máš`;
+        if(n && !miss) el("spl-dl").classList.add("secondary");
+      } else if(n){ el("spl-dl").innerHTML = `${icon("download", 14)}Stáhnout znovu`; el("spl-dl").classList.add("secondary"); }
+    }).catch(() => { if(el("spl-have")) el("spl-have").hidden = true; });
     if(!many) return;
     const picked = () => [...panel.querySelectorAll("input.checkbox:checked")].map((c) => p.tracks[+c.dataset.i]);
     panel.querySelectorAll("input.checkbox").forEach((c) => { c.onchange = () => { el("spl-n").textContent = picked().length; }; });
@@ -28007,7 +28037,7 @@ const SpotifyLink = (() => {
       const b = el("spl-sep");
       b.disabled = true;
       showToast("Stahuju — po stažení se písně samy rozdělí na stopy");
-      await startDownload(whole(), `${p.name} → Steems`);
+      if(missing().length || !have.length) await startDownload(whole(), `${p.name} → Steems`);
       try{
         const st = loadSettings();
         const r = await (await fetch("/api/stems/separate-playlist", {method: "POST", headers: {"Content-Type": "application/json"},

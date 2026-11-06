@@ -1728,3 +1728,11 @@ jen písně s nimi, seskupené pod svým laděním. Výběr i řazení se pamatu
 Píseň otevřená dřív, než se načetl seznam Steems (z minipřehrávače, hlasem, z Hraju s kytarou…), dostávala
 jen šest základních stop a další uložení mixu z něj vyhodilo guitar_solo / guitar_rhythm (a takes). Teď se
 seznam stop vždy přečte ze serveru a uložení mixu navíc ponechá nastavení stop, které se tentokrát nenačetly.
+
+## Odkaz ze Spotify: co už máš, se nestahuje znovu
+
+Po vložení odkazu (playlist, album, píseň) Pick u každé písně zjistí, co z ní už má (`/api/practice/have`: MP3
+v knihovně, stopy ve Steems, tab, text) a ukáže to značkami. Písně, které máš, nejsou zaškrtnuté, nahoře je
+„N už máš · M chybí“ a **Stáhnout celý** se změní na **Stáhnout chybějící (M)** — stáhnou se jen ty. Když už
+máš všechno, nic se nestahuje; u jedné písně, kterou máš, je tlačítko **Stáhnout znovu**. „Stáhnout a rozdělit
+na stopy“ také stahuje jen chybějící.
