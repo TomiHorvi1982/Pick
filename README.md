@@ -1680,3 +1680,21 @@ Panely mixu mají položky **Delay** a **Reverb**: otevřou okno Delay & Reverb 
 kteroukoli stopu písně nebo živou kytaru — stopa se vybírá v jeho liště. Ukládá se s písní.
 
 Minipřehrávač má hlasitost malou, hned vedle tlačítek přehrávání.
+
+## Hraju s kytarou (GTR v minipřehrávači)
+
+U písně ze Steems otevře **GTR** v minipřehrávači panel *Hraju s kytarou*. Zvuk dělá aplikace (její mix má
+živou kytaru, otisky, gate a ladění stop), minipřehrávač jí posílá povel `jam` (nastavení jako JSON) a čte zpátky
+`jam` ve stavu přehrávání:
+
+- píseň se pustí v mixu aplikace (od místa, kde hrála), **originální kytara se ztiší** a zapne se **vstup kytary
+  ze zvukovky**;
+- **Originální kytara**: hlasitost, pan a ladění po půltónech — s kytarou se posune i **basa**;
+- **Moje kytara**: hlasitost, pan, **noise gate** (ručně, nebo AUTO);
+- **Otisk**: otisky z téhle písně nahoře, pod nimi všechny ostatní (hledání podle názvu, kapely, písně); klik
+  ho zapne na živé kytaře;
+- **✓ Otisk sedí na tuhle píseň** označí píseň jako schválenou a zapamatuje si zvolený otisk
+  (`tone/status.json`: `print`);
+- **Konec** vrátí originální kytaru (hlasitost, pan, ladění kytary i basy) a vypne vstup.
+
+Aplikace musí být otevřená; když se neozve, panel to řekne a nabídne ji otevřít.

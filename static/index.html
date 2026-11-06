@@ -27338,6 +27338,93 @@ const Mixer = (() => {
     return `Nahrávka ${n}`;
   }
 
+  // ---- "Hraju s kytarou" from the mini player's GTR (static/mini.html): the song plays here, its own
+  // guitar goes quiet, the sound card's guitar comes on, and the mini player sets the rest — the
+  // original guitar's level, pan and pitch (the bass moves with it), the live guitar's level, pan and
+  // gate, which print it plays — and says when a print is right for the song (its Approved).
+  const Jam = (() => {
+    let on = false, song = null, keep = null, approved = false;
+    const gtrs = () => channels.filter(c => !c.midi && c.stem.split("_")[0] === "guitar");
+    const strings = () => channels.filter(c => !c.midi && ["guitar", "bass"].includes(c.stem.split("_")[0]));
+    const redraw = () => { applyGains(); renderChannels(); renderTrackLanes(); renderLiveGuitarFader(); queueSessionSave(); };
+    function state(){
+      if(!on) return null;
+      const g = gtrs()[0], cur = typeof Tone !== "undefined" && Tone.current ? Tone.current() : null;
+      return {on: true, song, approved,
+        orig: {has: !!g, vol: g ? (g.faderValue == null ? 1 : g.faderValue) : 0, pan: g ? (g.panValue || 0) : 0, semi: g ? rateToSemitones(g.pitchRate || 1) : 0},
+        mine: {live: Guitar.isLive(), device: Guitar.state.deviceLabel || "", vol: Guitar.state.volume, pan: Guitar.state.pan,
+               gate: Guitar.state.threshold, auto: AutoGate.on(),
+               print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null}};
+    }
+    async function start(v){
+      const name = String(v.song || "");
+      if(!name) return;
+      if(currentSongName !== name){
+        if(typeof setMode === "function") setMode("steems");
+        loadMixerSong(name);
+        for(let i = 0; i < 300 && !(readyToken === loadToken && channels.length && currentSongName === name); i++) await new Promise(r => setTimeout(r, 200));
+      }
+      if(!channels.length) return;
+      song = name; approved = false;
+      keep = keep && keep.song === name ? keep : {song: name, ch: strings().map(c => ({c, vol: c.faderValue, pan: c.panValue, rate: c.pitchRate}))};
+      gtrs().forEach(c => { c.faderValue = 0; });                     // the record's guitar out: the player's is in
+      on = true;
+      redraw();
+      if(!Guitar.isLive()) await toggleGuitarInput();
+      if(typeof v.pos === "number" && isFinite(v.pos)) seek(Math.max(0, v.pos));
+      if(v.play && !isPlaying) play();
+      fetch(`/api/stamps/songs`).then(r => r.json()).then(d => { const row = (d.rows || d || []).find && (d.rows || d).find(x => x.name === name); approved = !!(row && row.approved); }).catch(() => {});
+    }
+    async function set(v){
+      if(!on) return;
+      if(v.orig){
+        const o = v.orig;
+        if(o.vol != null) gtrs().forEach(c => { c.faderValue = Math.max(0, Math.min(1.5, +o.vol)); });
+        if(o.pan != null) gtrs().forEach(c => { c.panValue = Math.max(-1, Math.min(1, +o.pan)); });
+        if(o.semi != null){ const st = Math.max(-12, Math.min(12, Math.round(+o.semi))); strings().forEach(c => { c.pitchRate = semitonesToRate(st); }); requestTempoPitch(); }
+      }
+      if(v.mine){
+        const m = v.mine;
+        if(m.vol != null) Guitar.state.volume = Math.max(0, Math.min(1.4, +m.vol));
+        if(m.pan != null) Guitar.state.pan = Math.max(-1, Math.min(1, +m.pan));
+        if(m.vol != null || m.pan != null) Guitar.applyGuitarGain();
+        if(m.auto != null) AutoGate.set(!!m.auto);
+        if(m.gate != null){ if(AutoGate.on()) AutoGate.set(false); Guitar.setThreshold(Math.max(-100, Math.min(-10, +m.gate))); }
+        if(m.live === true && !Guitar.isLive()) await toggleGuitarInput();
+      }
+      if(v.print && v.print.pid){
+        try{ await Tone.apply(song, v.print.pid, false, v.print.song || song); }catch(e){ showToast("Otisk se nepodařilo zapnout: " + e.message); }
+      }
+      if(v.approve){
+        const cur = Tone.current ? Tone.current() : null;
+        try{
+          const r = await fetch(`/api/stamps/songs/${encodeURIComponent(song)}/approve`, {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({approved: true, print: cur ? {song: cur.from, pid: cur.pid, name: Tone.label ? Tone.label() : ""} : null})});
+          if(!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "");
+          approved = true;
+          showToast("Otisk sedí — píseň je označená jako schválená");
+        }catch(e){ showToast("Nepodařilo se uložit: " + e.message); }
+      }
+      redraw();
+    }
+    async function stop(){
+      if(!on) return;
+      on = false;
+      if(keep && keep.song === currentSongName) keep.ch.forEach(k => { k.c.faderValue = k.vol; k.c.panValue = k.pan; k.c.pitchRate = k.rate; });
+      keep = null;
+      requestTempoPitch();
+      if(Guitar.isLive()) await Guitar.stop();
+      redraw();
+    }
+    function handle(v){
+      if(!v || typeof v !== "object") return;
+      if(v.op === "start") return start(v);
+      if(v.op === "stop") return stop();
+      return set(v);
+    }
+    return {handle, state, isOn: () => on};
+  })();
+
   async function reloadCurrentSong(){
     if(!currentSongName) return;
     const list = await (await fetch("/api/stems")).json();
@@ -27347,6 +27434,7 @@ const Mixer = (() => {
 
   return {
     load, saveSession, loadSession, play, pause, loadTab, loadTabs, autoExtras, setMasterVolume,
+    jam: Jam,
     // The live input channel, so the page (and the tests) can reach it.
     guitar: Guitar,
     // Shared with the main player's lyrics overlay, which has no
@@ -33779,6 +33867,7 @@ const RemoteAgent = (() => {
       // The lyrics' per-song offset is stored under videoId || relPath || title.
       relPath: !mixerOn && track ? (track.relPath || null) : null,
       voice: false,
+      jam: typeof Mixer !== "undefined" && Mixer.jam ? Mixer.jam.state() : null,
     };
   }
 
@@ -33815,6 +33904,9 @@ const RemoteAgent = (() => {
         break;
       case "play":
         if(audio && audio.src && audio.paused) audio.play().catch(()=>{});
+        break;
+      case "jam":
+        try{ Mixer.jam.handle(JSON.parse(cmd.text || "{}")); }catch(e){}
         break;
       case "pause":
         if(mixerOn) Mixer.pause();

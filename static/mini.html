@@ -80,6 +80,31 @@
     background:rgba(0,0,0,.7);color:var(--accent2);pointer-events:none;opacity:0;transition:opacity .15s}
   .scrub.on{opacity:1}
 
+  /* Hraju s kytarou */
+  .jam{position:fixed;inset:0;z-index:6;background:rgba(10,10,14,.97);overflow-y:auto;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px}
+  .jam[hidden]{display:none}
+  .jam-top{display:flex;align-items:center;gap:8px}.jam-top b{font-size:14px}
+  .jam-song{flex:1;min-width:0;color:var(--sub);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .jam-x{background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .jam-msg{font-size:11.5px;color:var(--accent2)}.jam-msg:empty{display:none}
+  .jam-box{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:6px}
+  .jam-box h4{margin:0 0 2px;font-size:12.5px;display:flex;gap:6px;align-items:baseline}.jam-box h4 small{color:var(--sub);font-weight:500;font-size:11px}
+  .jam-sl{display:grid;grid-template-columns:74px 1fr 46px;align-items:center;gap:8px;font-size:11.5px;color:var(--sub)}
+  .jam-sl b{color:var(--text);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+  .jam-row{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--sub);flex-wrap:wrap}
+  .jam-row small{color:var(--dim,#777)}
+  .jam-semi{min-width:26px;text-align:center;color:var(--text);font-variant-numeric:tabular-nums}
+  .chip.on{background:var(--accent);color:#160800;border-color:var(--accent)}
+  #jam-find{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 9px;font:inherit;font-size:12px}
+  .jam-list{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
+  .jam-h{font-size:10.5px;color:var(--sub);margin:6px 0 2px}
+  .jam-p{display:flex;align-items:center;gap:8px;background:none;border:0;border-radius:7px;padding:5px 6px;color:var(--text);font:inherit;font-size:12px;cursor:pointer;text-align:left}
+  .jam-p:hover{background:rgba(255,255,255,.07)}.jam-p.cur{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+  .jam-p i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:0 0 auto}
+  .jam-p span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jam-p small{color:var(--sub);font-size:10.5px;white-space:nowrap}
+  .jam-none{color:var(--sub);font-size:11.5px;padding:6px 2px}
+  .jam-ok{margin-top:4px;background:var(--accent);color:#160800;border:0;border-radius:10px;padding:8px;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
+  .jam-ok.done{background:rgba(120,220,140,.2);color:#9ff0b0;border:1px solid rgba(120,220,140,.5)}
   /* Video */
   .ytv{flex:0 0 auto;max-height:42%;overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:11.5px;scrollbar-width:thin}
   .ytv-h{display:flex;gap:6px;align-items:center;color:var(--sub)}.ytv-h b{color:var(--text)}
@@ -334,7 +359,7 @@
     </div>
     <button class="iconbtn" id="fullbtn" title="Celá obrazovka (F)"></button>
     <button class="iconbtn" id="sleep" title="Časovač spánku — pozastaví hudbu"></button>
-    <button class="iconbtn tabbtn" id="gtrbtn" hidden title="Originální kytara zap / vyp — hraje se dál (hlasem: „pick guitar on“, „pick guitar off“)">GTR</button>
+    <button class="iconbtn tabbtn" id="gtrbtn" hidden title="Hraju s kytarou: originální kytara se ztiší, zapne se tvoje kytara ze zvukovky a otevře se okno s otisky">GTR</button>
     <button class="iconbtn tabbtn" id="tabbtn" title="Tab k hrající písni — jedna kytara, srovnaná s hudbou">TAB</button>
     <button class="iconbtn" id="size" title="Velikost okna: malé · se záložkami · široké"></button>
   </div>
@@ -452,6 +477,32 @@
     Aplikace neběží — hraju sám · <a href="#" id="openMain">otevřít aplikaci</a>
   </div>
 </div>
+<!-- "Hraju s kytarou" (GTR): the song plays in the app, its guitar quiet, the sound card's guitar on;
+     here the original guitar's level, pan and pitch (the bass moves with it), the player's guitar,
+     its gate, the prints to try, and "this print is right for the song". -->
+<div class="jam" id="jam" hidden>
+  <div class="jam-top"><b>Hraju s kytarou</b><span class="jam-song" id="jam-song"></span><button class="jam-x" id="jam-x" title="Konec — originální kytara zpátky, tvoje kytara vypnutá">Konec</button></div>
+  <div class="jam-msg" id="jam-msg"></div>
+  <section class="jam-box">
+    <h4>Originální kytara</h4>
+    <label class="jam-sl"><span>Hlasitost</span><input type="range" data-g="orig" data-k="vol" min="0" max="1.5" step="0.01"><b data-v="orig.vol"></b></label>
+    <label class="jam-sl"><span>Pan</span><input type="range" data-g="orig" data-k="pan" min="-1" max="1" step="0.02"><b data-v="orig.pan"></b></label>
+    <div class="jam-row"><span>Ladění</span><button class="chip" data-semi="-1">−1</button><b class="jam-semi" data-v="orig.semi">0</b><button class="chip" data-semi="1">+1</button><button class="chip" data-semi="0">0</button><small>kytara i basa</small></div>
+  </section>
+  <section class="jam-box">
+    <h4>Moje kytara <small id="jam-dev"></small></h4>
+    <label class="jam-sl"><span>Hlasitost</span><input type="range" data-g="mine" data-k="vol" min="0" max="1.4" step="0.01"><b data-v="mine.vol"></b></label>
+    <label class="jam-sl"><span>Pan</span><input type="range" data-g="mine" data-k="pan" min="-1" max="1" step="0.02"><b data-v="mine.pan"></b></label>
+    <label class="jam-sl"><span>Noise gate</span><input type="range" data-g="mine" data-k="gate" min="-100" max="-20" step="1"><b data-v="mine.gate"></b></label>
+    <div class="jam-row"><button class="chip" id="jam-auto" title="Brána si práh najde sama podle šumu vstupu">AUTO gate</button><button class="chip" id="jam-live" hidden>Zapnout vstup</button></div>
+  </section>
+  <section class="jam-box jam-prints">
+    <h4>Otisk <small id="jam-cur">žádný</small></h4>
+    <input id="jam-find" type="text" placeholder="Hledat otisk — název, kapela, píseň…" autocomplete="off">
+    <div class="jam-list" id="jam-list"><div class="jam-none">Načítám otisky…</div></div>
+    <button class="jam-ok" id="jam-ok" title="Zapamatuje si, že tenhle otisk na píseň sedí (píseň bude mezi schválenými)">✓ Otisk sedí na tuhle píseň</button>
+  </section>
+</div>
 <div class="toast" id="toast"></div>
 <audio id="lp" preload="auto"></audio>
 <iframe id="lpyt" title="YouTube přehrávač" allow="autoplay; encrypted-media" style="position:fixed;left:-10px;top:-10px;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
@@ -520,7 +571,7 @@ el("fwd10").innerHTML = icon("fwd10", 19);
 el("mute").innerHTML = icon("volume", 16);
 el("sleep").innerHTML = icon("moon", 16);
 el("fullbtn").innerHTML = icon("full", 16);
-el("gtrbtn").onclick = () => gtrSet(!GTR.on);
+el("gtrbtn").onclick = () => JAM.open ? jamShow() : jamOpen();
 const toggleFull = () => document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : document.documentElement.requestFullscreen().catch(() => toast("Celá obrazovka se nepovedla"));
 el("fullbtn").onclick = toggleFull;
 document.addEventListener("fullscreenchange", () => el("fullbtn").classList.toggle("on", !!document.fullscreenElement));
@@ -562,6 +613,7 @@ const nowPos = () => {
 let trackKey = "";
 
 let R = {live: false, playing: false};     // what the app says it is doing
+let RS = null;                             // …and all it said, last time
 async function refresh(){
   let s = null;
   try{ s = await (await fetch("/api/remote/state?who=mini")).json(); }catch(e){}
@@ -573,6 +625,9 @@ async function refresh(){
     LP.active = false; toast("Hraje aplikace");
   }
   R = {live: rlive, playing: rplaying};
+  RS = s;
+  if(JAM && JAM.open) jamPaint();
+  try{ if(JAM) gtrPaint(); }catch(e){}
   // What the app plays moves here when this window opens, or is opened again from the app (mini_take) —
   // not when it was opened for a song handed over or a spoken command, which bring their own.
   if(s){
@@ -819,6 +874,105 @@ const setOffset = (v) => { videoState.offset = v; el("voff").textContent = (v > 
 el("vminus").onclick = () => setOffset(videoState.offset - 1);
 el("vplus").onclick = () => setOffset(videoState.offset + 1);
 function vmsg(html){ el("vmsg").innerHTML = html || ""; el("vmsg").style.display = html ? "flex" : "none"; }
+
+// ---- Hraju s kytarou (GTR): the app does the sound (its mixer has the live guitar, the prints, the gate and
+// the pitch); this sends it what to do (remote command "jam", the settings as JSON) and paints what it says back.
+var JAM = {open: false, song: null, prints: null, touched: {}, asked: 0};
+const CATC = {clean: "#4fd1c5", crunch: "#f6ad55", hi_gain: "#f56565", lead: "#b794f4", acoustic: "#68d391", ambient: "#63b3ed", fuzz: "#ed64a6", other: "#a0aec0"};
+function jamSong(){
+  if(LP.active && LP.track && LP.track.stems) return LP.track.stems;
+  if(RS && !RS.stale && RS.source === "mixer" && RS.stems) return RS.stems;
+  if(RS && RS.jam && RS.jam.on) return RS.jam.song;
+  return LP.track && LP.track.stems || null;
+}
+function jamSend(obj){
+  return fetch("/api/remote/command", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({action: "jam", text: JSON.stringify(obj)})}).catch(() => {});
+}
+function jamShow(){ el("jam").hidden = false; JAM.open = true; jamPaint(); }
+async function jamOpen(){
+  const song = jamSong();
+  if(!song){ toast("GTR jde u písně ze Steems"); return; }
+  const local = LP.active && LP.track && LP.track.stems === song;
+  const pos = local ? lpTime() : nowPos();
+  if(local){ LP.audio.pause(); GTR.audio.pause(); LP.active = false; }
+  JAM.song = song; JAM.asked = Date.now();
+  el("jam-song").textContent = S.title || song;
+  el("jam-msg").textContent = "Pouštím píseň v aplikaci a zapínám tvoji kytaru…";
+  jamShow();
+  jamSend({op: "start", song, pos, play: true});
+  jamPrints();
+  setTimeout(() => { if(JAM.open && !(RS && RS.jam && RS.jam.on)) el("jam-msg").innerHTML = 'Aplikace se neozvala — musí být otevřená. <a href="#" id="jam-openapp">Otevřít aplikaci</a>'; const a = el("jam-openapp"); if(a) a.onclick = (e) => { e.preventDefault(); window.open("/", "_blank"); }; }, 9000);
+}
+el("jam-x").onclick = () => { jamSend({op: "stop"}); JAM.open = false; el("jam").hidden = true; toast("Originální kytara je zpátky"); gtrPaint(); };
+// the sliders: sent as they move (a few a second), and left alone by the app's answers for a moment
+let jamTimer = 0, jamPending = {};
+function jamQueue(g, k, v){
+  JAM.touched[g + "." + k] = Date.now();
+  (jamPending[g] = jamPending[g] || {})[k] = v;
+  if(jamTimer) return;
+  jamTimer = setTimeout(() => { jamTimer = 0; const p = jamPending; jamPending = {}; jamSend(p); }, 90);
+}
+document.querySelectorAll("#jam input[type=range]").forEach(inp => {
+  inp.oninput = () => { jamQueue(inp.dataset.g, inp.dataset.k, +inp.value); jamLabel(inp.dataset.g + "." + inp.dataset.k, +inp.value); inp.style.setProperty("--v", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); };
+});
+document.querySelectorAll("#jam [data-semi]").forEach(b => b.onclick = () => {
+  const cur = RS && RS.jam ? RS.jam.orig.semi : 0, d = +b.dataset.semi;
+  const v = d === 0 ? 0 : Math.max(-12, Math.min(12, cur + d));
+  jamQueue("orig", "semi", v); jamLabel("orig.semi", v);
+});
+el("jam-auto").onclick = () => { const on = !(RS && RS.jam && RS.jam.mine.auto); jamSend({mine: {auto: on}}); el("jam-auto").classList.toggle("on", on); };
+el("jam-live").onclick = () => jamSend({mine: {live: true}});
+el("jam-ok").onclick = () => {
+  if(!(RS && RS.jam && RS.jam.mine.print)){ toast("Nejdřív vyber otisk"); return; }
+  jamSend({approve: true});
+};
+const pct = (v) => Math.round(v * 100) + " %";
+const panTxt = (v) => Math.abs(v) < 0.03 ? "střed" : (v < 0 ? "L " : "P ") + Math.round(Math.abs(v) * 100);
+function jamLabel(key, v){
+  const b = document.querySelector(`#jam [data-v="${key}"]`); if(!b) return;
+  b.textContent = key.endsWith(".pan") ? panTxt(v) : key === "mine.gate" ? (v <= -99 ? "vyp" : Math.round(v) + " dB") : key === "orig.semi" ? (v > 0 ? "+" : "") + v : pct(v);
+}
+function jamPaint(){
+  const j = RS && RS.jam && RS.jam.on ? RS.jam : null;
+  if(!j){ return; }
+  if(Date.now() - JAM.asked < 15000 && el("jam-msg").textContent.startsWith("Pouštím")) el("jam-msg").textContent = "";
+  el("jam-song").textContent = S.title && S.title !== "Mixpult" ? S.title : j.song;
+  const now = Date.now();
+  [["orig", "vol"], ["orig", "pan"], ["mine", "vol"], ["mine", "pan"], ["mine", "gate"]].forEach(([g, k]) => {
+    const key = g + "." + k, v = j[g][k], inp = document.querySelector(`#jam input[data-g="${g}"][data-k="${k}"]`);
+    if(now - (JAM.touched[key] || 0) < 1500 || document.activeElement === inp) return;
+    inp.value = String(v); inp.style.setProperty("--v", ((v - inp.min) / (inp.max - inp.min) * 100) + "%");
+    jamLabel(key, v);
+  });
+  if(now - (JAM.touched["orig.semi"] || 0) > 1500) jamLabel("orig.semi", j.orig.semi);
+  el("jam-auto").classList.toggle("on", !!j.mine.auto);
+  el("jam-live").hidden = !!j.mine.live;
+  el("jam-dev").textContent = j.mine.live ? (j.mine.device || "vstup zapnutý") : "vstup vypnutý";
+  el("jam-cur").textContent = j.mine.print ? j.mine.print.name || "zapnutý" : "žádný";
+  el("jam-ok").classList.toggle("done", !!j.approved);
+  el("jam-ok").textContent = j.approved ? "✓ Schváleno — otisk na píseň sedí" : "✓ Otisk sedí na tuhle píseň";
+  document.querySelectorAll(".jam-p").forEach(b => b.classList.toggle("cur", !!(j.mine.print && b.dataset.pid === j.mine.print.pid && b.dataset.song === j.mine.print.song)));
+}
+async function jamPrints(){
+  if(!JAM.prints){
+    try{ JAM.prints = await (await fetch("/api/tone/prints")).json(); }catch(e){ JAM.prints = []; }
+  }
+  jamList();
+}
+function jamList(){
+  const box = el("jam-list"), f = el("jam-find").value.trim().toLowerCase(), all = Array.isArray(JAM.prints) ? JAM.prints : [];
+  if(!all.length){ box.innerHTML = `<div class="jam-none">Zatím žádné otisky — udělej první v aplikaci (Moje kytara → Otisky).</div>`; return; }
+  const hit = (p) => !f || [p.name, p.artist, p.title, p.core, p.category].join(" ").toLowerCase().includes(f);
+  const row = (p) => `<button type="button" class="jam-p" data-pid="${esc(p.id)}" data-song="${esc(p.song)}" style="--c:${CATC[p.category] || CATC.other}" title="${esc(p.name)} — ${esc([p.artist, p.title].filter(Boolean).join(" – "))}${p.match != null ? " · shoda " + p.match + " %" : ""}"><i></i><span>${esc(p.name || "otisk")}</span><small>${esc(p.artist || p.title || "")}</small></button>`;
+  const mine = all.filter(p => p.song === JAM.song && hit(p)), rest = all.filter(p => p.song !== JAM.song && hit(p));
+  box.innerHTML = (mine.length ? `<div class="jam-h">Z téhle písně</div>` + mine.map(row).join("") : "") +
+    (rest.length ? `<div class="jam-h">Ostatní otisky</div>` + rest.slice(0, 120).map(row).join("") : "") ||
+    `<div class="jam-none">Nic takového.</div>`;
+  box.querySelectorAll(".jam-p").forEach(b => b.onclick = () => { jamSend({print: {song: b.dataset.song, pid: b.dataset.pid}}); el("jam-cur").textContent = "zapínám…"; });
+  jamPaint();
+}
+el("jam-find").oninput = () => jamList();
 
 // ---- the song's other versions on YouTube, under the video (the app's /api/yt/versions)
 // A version plays over the song's video, muted; "Zvuk videa" lets it be heard and pauses the song (again: back).
@@ -1150,8 +1304,8 @@ const GTR = {audio: new Audio(), on: false, has: false};
 GTR.audio.preload = "auto";
 function gtrPaint(){
   const b = el("gtrbtn");
-  b.hidden = !(LP.track && LP.track.stems && GTR.has);
-  b.classList.toggle("on", GTR.on);
+  b.hidden = !(JAM && jamSong());
+  b.classList.toggle("on", !!((JAM && JAM.open) || (RS && RS.jam && RS.jam.on)));
 }
 function gtrSet(on){
   if(!(LP.track && LP.track.stems)){ toast("Kytaru jde zapínat jen u písně ze Steems"); return; }

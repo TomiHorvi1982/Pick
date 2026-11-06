@@ -21,7 +21,7 @@ import time
 import unicodedata
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote, unquote
 
 import httpx
@@ -4617,6 +4617,8 @@ class RemoteState(BaseModel):
     relPath: Optional[str] = None
     # The Steems song the mixer plays (the mini player takes it over by it).
     stems: Optional[str] = None
+    # the mixer's "Hraju s kytarou" (Mixer.jam.state): the levels, the pitch, the gate and the print, for the mini player
+    jam: Optional[Dict[str, Any]] = None
     # Whether the app is listening for spoken commands (the mini player shows it).
     voice: Optional[bool] = None
 
@@ -4768,6 +4770,7 @@ REMOTE_ACTIONS = {
     "playqueue",   # value = index into the saved queue (the mini player's Fronta)
     "voice",       # listening for spoken commands: 1 on, 0 off, nothing = the other one
     "heard",       # text = a recognised command (JSON) from the menu bar's listening
+    "jam",         # text = JSON: the mini player's "Hraju s kytarou" (start / settings / stop), for the mixer
 }
 
 
@@ -10133,6 +10136,8 @@ def _stamp_forget(name: str) -> None:
 
 class StampApproveRequest(BaseModel):
     approved: bool = True
+    # the print the player found right for the song (the mini player's "Otisk sedí"): {song, pid, name}
+    print: Optional[Dict[str, Any]] = None
 
 
 @app.post("/api/stamps/songs/{name}/approve")
@@ -10143,6 +10148,8 @@ def stamp_song_approve(name: str, req: StampApproveRequest):
         return JSONResponse({"error": "Stopy nenalezeny."}, status_code=404)
     (d / TONE_DIR).mkdir(exist_ok=True)
     st = {"approved": bool(req.approved), "at": time.time()}
+    if req.approved and req.print and req.print.get("pid"):
+        st["print"] = {k: str(req.print.get(k) or "")[:200] for k in ("song", "pid", "name")}
     (d / TONE_DIR / TONE_STATUS).write_text(json.dumps(st), encoding="utf-8")
     kept = 0
     if req.approved:
