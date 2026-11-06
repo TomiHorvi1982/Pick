@@ -28,6 +28,11 @@
   input[type=text]{flex:1;background:var(--bg2);border:1px solid var(--border);
     color:var(--text);padding:9px 12px;border-radius:9px;font-size:14px;outline:none}
   input[type=text]:focus{border-color:var(--accent)}
+  /* url and search fields looked like bare white browser boxes: same dark field as text */
+  input[type=url],input[type=search]{background:var(--bg2);border:1px solid var(--border);
+    color:var(--text);padding:9px 12px;border-radius:9px;font-size:14px;outline:none}
+  input[type=url]:focus,input[type=search]:focus{border-color:var(--accent)}
+  input[type=url]::placeholder,input[type=search]::placeholder,input[type=text]::placeholder{color:#7d8597}
   input[type=number]{background:var(--bg2);border:1px solid var(--border);color:var(--text);
     padding:9px 10px;border-radius:9px;font-size:13px;width:100px;outline:none}
   select{background:var(--bg2);border:1px solid var(--border);color:var(--text);
@@ -486,7 +491,8 @@
   .fl-eq-btn.sel{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.08)}
 
   /* ---- Taby (Guitar Pro player) ---- */
-  .tabs-headrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  #tabs-section{padding:0 32px}
+  .tabs-headrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:24px 0 14px}
   .tabs-headrow input{flex:1;min-width:220px;padding:9px 12px;border-radius:999px}
   .tabs-dirs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
   .tabs-dirs .chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--card);
@@ -1009,6 +1015,10 @@ body.lib-collapsed .pick-brand{display:none}
   .hero-actions{--nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-blue:#3d8bfd;display:flex;align-items:center;gap:8px;flex:none;align-self:center}
   .hero-actions .nm-btn.round{height:32px;padding:0 12px;border-radius:999px;font-size:12px}
   .hero-actions .nm-btn.round .bl{margin-left:5px}
+  /* Zavřít sat bare next to the framed pills: same frame, red only on hover */
+  /* (!important: the bare mac-style rule for every close-icon button uses it too) */
+  .hero-actions #steems-hero-close{background:#1e1e25!important;border:1px solid rgba(140,150,255,.2)!important;color:var(--nm-txt);padding:0 14px 0 10px!important}
+  .hero-actions #steems-hero-close:hover{border-color:#ff5f57!important;background:#2a1a1d!important}
   .fold-btn{width:24px;height:24px;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0;
     border:none;border-radius:6px;background:none;color:var(--sub);cursor:pointer}
   .fold-btn:hover{background:rgba(255,255,255,.08);color:#fff}
@@ -3629,6 +3639,8 @@ body.lib-collapsed .pick-brand{display:none}
   .stems-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .stems-head .section-title{margin:24px 0 14px;flex:1}
   #stems-convert{font-size:13px;padding:8px 16px;flex:0 0 auto}
+  /* a disk chore for the song list, not for the open song: hidden above the mix */
+  #steems-section:has(#steems-hero:not([hidden])) #stems-convert{display:none!important}
 
   /* ---- one icon language across the player bar ---- */
   .ic-svg{display:inline-block;vertical-align:-.18em;pointer-events:none;
@@ -5334,7 +5346,7 @@ body.lib-collapsed .pick-brand{display:none}
   <div class="panel" style="width:min(1000px,96vw);max-height:90vh">
     <div class="panel-head">
       <button class="close-btn" id="tabview-close"><span data-icon="close" data-size="13"></span></button>
-      <div class="pl-title" style="margin-top:0"><span data-icon="music" data-size="17"></span> Alpha Tab
+      <div class="pl-title" style="margin-top:0"><span data-icon="note" data-size="17"></span> Alpha Tab
         <select id="tabview-track-select" style="margin-left:12px;font-size:13px" hidden></select>
       </div>
       <div class="set-note" style="margin-top:2px">Klikni na notu a přeprav pražec/strunu, nebo klikni na prázdnou dobu a přidej novou.</div>
@@ -5654,7 +5666,7 @@ body.lib-collapsed .pick-brand{display:none}
           <div class="nm-tgroup">
             <div class="row">
               <button class="nm-btn round" id="mixer-tab-search" title="Hledat tabulaturu"><span data-icon="search" data-size="14"></span>Tab</button>
-              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="music" data-size="14"></span>Noty</button>
+              <button class="nm-btn round" id="mixer-tab-view" title="Notový zápis a tabulatura, čitelně na světlém pozadí"><span data-icon="note" data-size="14"></span>Noty</button>
               <button class="nm-btn round" id="mixer-guide-toggle" title="Virtuální kytara zap/vyp"><span data-icon="headphones" data-size="14"></span>Hmatník</button>
               <button class="nm-btn round" id="mixer-lyrics-toggle" title="Text písně ve stopě a nad časovou osou"><span data-icon="lyrics" data-size="14"></span>Text</button>
             </div>
@@ -14835,7 +14847,7 @@ const TabSearch = (() => {
       row.className = "fs-row";
 
       row.innerHTML = `
-        <span class="fs-icon" data-icon="music" data-size="16"></span>
+        <span class="fs-icon" data-icon="note" data-size="16"></span>
         <div class="fs-name">
           <div style="font-weight:700;color:var(--text)">
             ${escapeHtml(tab.title)}
