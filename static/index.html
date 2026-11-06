@@ -2797,6 +2797,17 @@ body.lib-collapsed .pick-brand{display:none}
   .nm-stage-zoom{display:inline-flex;align-items:center;gap:4px;color:#9a9ab0}
   .nm-stage-zoom button{padding:5px 11px}
   .nm-stage-bar .sp{flex:1}
+  /* a laptop-sized window: the bar keeps to one row — the buttons that have an icon drop their words
+     (the title still says them), the gaps tighten */
+  @media (max-width:1420px){
+    .nm-stage-bar{gap:7px;padding:9px 12px}
+    .nm-stage-bar button,.nm-stage-bar select{padding:6px 10px}
+    #dk-find span,#dk-sounds span,#dk-mixpult span,#dk-chords-btn span,#nm-stage-sing-btn span{display:none}
+    .nm-stage-song{max-width:18vw}
+  }
+  /* the chords' panel never hides its own controls under the text below it */
+  #nm-stage > .cc{flex:0 0 auto;max-height:none;overflow:visible}
+  #nm-stage .nm-stage-body{min-height:120px}
   .nm-stage-song{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;max-width:30vw;overflow:hidden}
   .nm-stage-song b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .nm-stage-song span{font-size:12px;color:#a0a0b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -6550,7 +6561,7 @@ body.lib-collapsed .pick-brand{display:none}
       <option value="kar">Karaoke</option><option value="lines">Po řádcích</option><option value="run">Běžící text</option>
     </select>
     <button type="button" class="ly-style-btn" title="Styl textu: předvolby, velikost, barvy">Aa</button>
-    <button type="button" id="nm-stage-sing-btn" title="Tóny ke zpěvu z trenéra nad textem: obdélníčky melodie a tvůj hlas — zezelená, když se trefíš (hodnocení zůstává v okně trenéra)">🎤 Tóny</button>
+    <button type="button" id="nm-stage-sing-btn" title="Tóny ke zpěvu z trenéra nad textem: obdélníčky melodie a tvůj hlas — zezelená, když se trefíš (hodnocení zůstává v okně trenéra)">🎤 <span>Tóny</span></button>
     <button type="button" id="nm-stage-sing-go" title="Spustit trenéra: pustí se píseň a mikrofon" hidden>Zpívat</button>
     <span class="nm-stage-zoom"><button type="button" id="nm-stage-tab-dn" title="Zmenšit tab">−</button><span>tab</span><button type="button" id="nm-stage-tab-up" title="Zvětšit tab">+</button></span>
     <span class="sp"></span>

@@ -1184,7 +1184,7 @@ const ChordCoach = (() => {
     const list = seq, view = deckCfg().chordView || "both", V = VIEW[view] || VIEW.both, tun = tuning();
     const ci = idxAt(list, t), base = ci >= 0 ? ci : nextAt(list, t);
     // smaller in a duet (the singers need the room) and on a low screen
-    const k = (box.closest("#nm-stage") && document.querySelector("#nm-stage .nm-stage-body.duo") ? 0.62 : window.innerHeight < 860 ? 0.8 : 1) * cfg.zoom;
+    const k = (box.closest("#nm-stage") && document.querySelector("#nm-stage .nm-stage-body.duo") ? 0.62 : window.innerHeight < 760 ? 0.66 : window.innerHeight < 860 ? 0.8 : 1) * cfg.zoom;
     const build = seqSig + ":" + view + ":" + tun.join(",") + ":" + car.clientWidth + ":" + k;
     if(build !== carSig){ carSig = build; car.innerHTML = ""; cards = new Map(); car.style.setProperty("--ch", Math.round(V.ch * k) + "px"); car.style.setProperty("--cw", V.cw + "px"); }
     if(base < 0){ cards.forEach(n => n.remove()); cards.clear(); return; }

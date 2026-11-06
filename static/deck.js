@@ -547,7 +547,7 @@ const SongDeck = (() => {
       const lp = document.createElement("button");
       lp.type = "button"; lp.className = "nm-btn round ic dk-hero-btn";
       lp.title = "Looper: nahraj si píseň po vrstvách, v jejím tempu a s jejími částmi";
-      lp.innerHTML = `${icon("rec", 15)}`;
+      lp.innerHTML = `${icon("sync", 15)}`;
       lp.onclick = () => { if(typeof Looper !== "undefined") Looper.open(song()); };
       const ks = document.createElement("button");
       ks.type = "button"; ks.className = "nm-btn round ic dk-hero-btn";
