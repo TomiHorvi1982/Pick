@@ -1736,3 +1736,11 @@ v knihovně, stopy ve Steems, tab, text) a ukáže to značkami. Písně, které
 „N už máš · M chybí“ a **Stáhnout celý** se změní na **Stáhnout chybějící (M)** — stáhnou se jen ty. Když už
 máš všechno, nic se nestahuje; u jedné písně, kterou máš, je tlačítko **Stáhnout znovu**. „Stáhnout a rozdělit
 na stopy“ také stahuje jen chybějící.
+
+## Virtuální kytara: zvuky na rock, metal a sólo
+
+Hotové nahrané zvuky (Axe Machina přes NAM zesilovač, `tools/build_guitar_samples.py`) jsou ve výběru zvuku
+rozdělené do skupin **Clean**, **Rock**, **Metal** a **Sólo**. Nové: Rock · Marshall JCM800, Classic rock · JCM800
+na hraně, Rock · Orange; Metal · 5150 s boostem, Metal · Diezel s TS808, Thrash · BE100 Tallica; Sólo · ENGL
+Fireball, Sólo · Soldano SLO, Sólo · BE100 hnědý zvuk. Zesilovače nahrané i s bednou a mikrofonem hrají bez další
+bedny (`"ir": None`), sólové zvuky mají jemný vlastní prostor (`"verb"`) a víc sustainu (`"drive"`).

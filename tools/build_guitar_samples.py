@@ -46,6 +46,28 @@ SETS = [
     {"id": "axe-higain", "name": "Hi-Gain · 5150", "side": "a", "kind": "amped", "tone": "hi_gain", "kinds": ALL,
      "nam": "nam/Helga B 5150 BlockLetter - Boosted.nam", "ir": "ir/MDL Tone – Ultimate Heavy Cabs/MIX EQ IRS/MIX EQ - CAB 1 - TOP LEFT 57+421.wav",
      "drive": 0.0},
+    # rock — whole rigs (amp, cabinet and mic in the capture)
+    {"id": "axe-rock-800", "name": "Rock · Marshall JCM800", "side": "a", "kind": "amped", "tone": "crunch", "kinds": ALL,
+     "nam": "nam/[AMP] JCM800-2203-MODIFIED-HI The Sound - SM57.nam", "ir": None, "drive": 0.0},
+    {"id": "axe-rock-edge", "name": "Classic rock · JCM800 na hraně", "side": "a", "kind": "amped", "tone": "crunch", "kinds": ALL,
+     "nam": "nam/[AMP] JCM800-2203-MODIFIED-LO Edge of Breakup - SM57.nam", "ir": None, "drive": 0.0},
+    {"id": "axe-rock-orange", "name": "Rock · Orange", "side": "a", "kind": "amped", "tone": "crunch", "kinds": ALL,
+     "nam": "nam/[AMP] DREC.G-DIO-BLD-ORG-VNT Factory Orange Crunch - SM57.nam", "ir": None, "drive": 0.0},
+    # metal
+    {"id": "axe-metal-5150", "name": "Metal · 5150 s boostem", "side": "a", "kind": "amped", "tone": "hi_gain", "kinds": ALL,
+     "nam": "nam/Full Rig Peavey 5150 Maxon Mesa OS SM57 - jp_is_out_of_tune.nam", "ir": None, "drive": 0.0},
+    {"id": "axe-metal-diezel", "name": "Metal · Diezel s TS808", "side": "a", "kind": "amped", "tone": "hi_gain", "kinds": ALL,
+     "nam": "nam/Diezel CH 4 Rhythm TS808 1.nam", "ir": "ir/MDL Tone – Ultimate Heavy Cabs/MIX EQ IRS/MIX EQ - CAB 1 - TOP RIGHT 57+421.wav", "drive": 0.0},
+    {"id": "axe-metal-tallica", "name": "Thrash · BE100 Tallica", "side": "a", "kind": "amped", "tone": "hi_gain", "kinds": ALL,
+     "nam": "nam/[AMP] BE100DLX-HBE Tallica - SM57.nam", "ir": None, "drive": 0.0},
+    # lead and solo: more sustain, and a little room of their own
+    {"id": "axe-lead-fireball", "name": "Sólo · ENGL Fireball", "side": "a", "kind": "amped", "tone": "lead", "kinds": NOTES,
+     "nam": "nam/ENGL FIREBALL 100 - LEAD GAIN 6.nam", "ir": "ir/Bogren – Jens Bogren Lead & Clean/Leads/BD_LD_ButterMyMuffin.wav",
+     "drive": 2.0, "verb": 0.35},
+    {"id": "axe-lead-slo", "name": "Sólo · Soldano SLO", "side": "a", "kind": "amped", "tone": "lead", "kinds": NOTES,
+     "nam": "nam/CGT SolSlo100 OD Main DRV CAB.nam", "ir": None, "drive": 2.0, "verb": 0.35},
+    {"id": "axe-lead-eddie", "name": "Sólo · BE100 hnědý zvuk", "side": "a", "kind": "amped", "tone": "lead", "kinds": NOTES,
+     "nam": "nam/[AMP] BE100DLX-BE Eddie _01 - SM57.nam", "ir": None, "drive": 0.0, "verb": 0.3},
 ]
 
 
@@ -106,17 +128,30 @@ def through_amp(takes, spec):
     sys.path.insert(0, str(APP))
     import tone_worker
     sr = takes[0][6]
-    model, ir = AMPS / spec["nam"], AMPS / spec["ir"]
-    if not model.is_file() or not ir.is_file():
+    # a capture made with its cabinet (and mic) in it — "ir": None — plays without one of ours
+    model, ir = AMPS / spec["nam"], (AMPS / spec["ir"]) if spec.get("ir") else None
+    if not model.is_file() or (ir is not None and not ir.is_file()):
         raise SystemExit(f"Chybí {model if not model.is_file() else ir}.")
     node = shutil.which("node") or "/opt/homebrew/bin/node"
     job = {"sr": sr, "node": node, "nam_js": str(APP / "tone_nam.mjs"), "worklet": str(APP / "static/nam/nam-worklet.js"),
            "wasm": str(APP / "static/nam/nam-engine.wasm")}
-    h, hsr = sf.read(str(ir), dtype="float32", always_2d=True)
-    h = h.mean(1)
-    if hsr != sr:
-        h = signal.resample_poly(h, sr, hsr).astype(np.float32)
-    h = h[:int(sr * 0.5)] / (np.sqrt(np.sum(h * h)) + 1e-9)
+    h = None
+    if ir is not None:
+        h, hsr = sf.read(str(ir), dtype="float32", always_2d=True)
+        h = h.mean(1)
+        if hsr != sr:
+            h = signal.resample_poly(h, sr, hsr).astype(np.float32)
+        h = h[:int(sr * 0.5)] / (np.sqrt(np.sum(h * h)) + 1e-9)
+    # a lead's room: a short, dark plate after the cabinet ("verb": its level), so a solo note blooms
+    room = None
+    if spec.get("verb"):
+        rng = np.random.default_rng(7)
+        n = int(sr * 1.6)
+        t = np.arange(n) / sr
+        room = (rng.standard_normal(n) * np.exp(-t / 0.42)).astype(np.float32)
+        room = signal.lfilter(*signal.butter(2, 4200 / (sr / 2), "low"), room).astype(np.float32)
+        room[:int(sr * 0.012)] = 0                                  # a pre-delay: the note first, then its room
+        room = room / (np.sqrt(np.sum(room * room)) + 1e-9) * float(spec["verb"])
     drive = 10 ** (spec.get("drive", 0.0) / 20)
     nam = tone_worker.Nam(job, 3)
     try:
@@ -128,7 +163,10 @@ def through_amp(takes, spec):
             done = 0
             for chunk, outs in zip(chunks, pool.map(play, chunks)):
                 for t, y in zip(chunk, outs):
-                    t[5] = signal.fftconvolve(y, h)[:len(y)].astype(np.float32)
+                    y = signal.fftconvolve(y, h)[:len(y)].astype(np.float32) if h is not None else np.asarray(y, dtype=np.float32)
+                    if room is not None:
+                        y = (y + signal.fftconvolve(y, room)[:len(y)]).astype(np.float32)
+                    t[5] = y
                 done += len(chunk)
                 print(f"  {spec['id']}: {done}/{len(takes)}", file=sys.stderr, flush=True)
     finally:
@@ -184,9 +222,11 @@ def build(src: Path, spec: dict):
         if kind == "pluck":
             lo, hi = strings.get(st, (midi, midi))
             strings[st] = (min(lo, midi), max(hi, midi))
-    about = spec.get("about") or f"čistá Axe Machina přes {Path(spec['nam']).stem} (NAM) a bednu {Path(spec['ir']).stem}"
+    about = spec.get("about") or (f"čistá Axe Machina přes {Path(spec['nam']).stem} (NAM)"
+                                  + (f" a bednu {Path(spec['ir']).stem}" if spec.get("ir") else " — s bednou a mikrofonem v něm")
+                                  + (" · s prostorem" if spec.get("verb") else ""))
     m = {"name": spec["name"], "kind": spec["kind"], "tone": spec.get("tone", ""), "about": about, "source": str(src),
-         "made_from": f"Samples/{spec['side']}" + (f" → {spec['nam']} → {spec['ir']}" if spec.get("nam") else "") + ", downstrokes",
+         "made_from": f"Samples/{spec['side']}" + (f" → {spec['nam']}" + (f" → {spec['ir']}" if spec.get("ir") else "") if spec.get("nam") else "") + ", downstrokes",
          "strings": [{"s": s, "open": lo, "top": hi} for s, (lo, hi) in sorted(strings.items())],
          "layers": LAYERS, "samples": samples, "bytes": total}
     tmp = out / "manifest.json.tmp"

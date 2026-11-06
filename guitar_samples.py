@@ -22,7 +22,7 @@ router = APIRouter()
 ROOT = Path.home() / ".local" / "share" / "spotdl-helper" / "guitar-samples"
 SET_ID = re.compile(r"^[a-z0-9-]{1,40}$")
 FILE = re.compile(r"^[a-z]+-\d{2,3}-s\d-v\d-r\d\.flac$")
-TONES = {"clean": 0, "crunch": 1, "hi_gain": 2}
+TONES = {"clean": 0, "crunch": 1, "hi_gain": 2, "lead": 3}
 
 
 def sets() -> list:

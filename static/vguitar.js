@@ -411,7 +411,10 @@ const VGuitar = (() => {
     const bands = {};
     prints.forEach((p) => (bands[p.artist || "Bez kapely"] = bands[p.artist || "Bez kapely"] || []).push(p));
     return `<option value="">Čistá kytara (bez otisku)</option>`
-      + (ready.length ? `<optgroup label="Nahraná kytara — hotový zvuk">${ready.map((x) => `<option value="s:${esc(x.id)}" ${sel === "s:" + x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</optgroup>` : "")
+      // the finished recorded sounds by kind: clean, rock (crunch), metal (hi-gain), solo (lead)
+      + [["clean", "Nahraná kytara — Clean"], ["crunch", "Nahraná kytara — Rock"], ["hi_gain", "Nahraná kytara — Metal"], ["lead", "Nahraná kytara — Sólo"], ["", "Nahraná kytara — další"]]
+        .map(([tone, label]) => { const g = ready.filter((x) => tone ? x.tone === tone : !["clean", "crunch", "hi_gain", "lead"].includes(x.tone));
+          return g.length ? `<optgroup label="${label}">${g.map((x) => `<option value="s:${esc(x.id)}" ${sel === "s:" + x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</optgroup>` : ""; }).join("")
       + Object.entries(bands).map(([b, ps]) => `<optgroup label="${esc(b)}">${ps.map((p) =>
       `<option value="${esc(p.song + "|" + p.id)}" ${sel === p.song + "|" + p.id ? "selected" : ""}>${esc(p.title || p.song)} · ${esc(p.name)}${p.match ? ` (${p.match} %)` : ""}</option>`).join("")}</optgroup>`).join("")
       + (kpresets.length ? `<optgroup label="Kontakt">${kpresets.map((k) => `<option value="k:${esc(k.id)}" ${sel === "k:" + k.id ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>` : "")
