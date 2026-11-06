@@ -1662,3 +1662,18 @@ textu), `spotdl-analyze` (části a akordy), `pick-midi` (noty), `pick-kontakt` 
   perioda skenuje a boduje podle toho, kolik dob na ni skutečně padne; fáze je
   cirkulární průměr. Úsek, kde se tracker chytil na 1,5× puls, se tak stane
   odlehlou hodnotou místo aby mřížku strhl.
+
+## Verze písně na YouTube
+
+Když se otevře video písně (v panelu Právě hraje, v plovoucím okně videa nebo na záložce Video
+v minipřehrávači), Pick pod ním rovnou ukáže, co k písni je na YouTube: **Backing track**, **Taby**
+(video s tabulaturou), **Lekce** a **AI verze** (jen videa, která se jako AI — Suno, Udio… — sama označují).
+Čtyři hledání běží najednou (`/api/yt/versions`, výsledky se 6 hodin pamatují). Klik na video ho otevře
+na YouTube, klik na název skupiny otevře celé hledání. Nic se nestahuje.
+
+## Delay a Reverb v Panelech mixu
+
+Panely mixu mají položky **Delay** a **Reverb**: otevřou okno Delay & Reverb (`static/space.js`) pro
+kteroukoli stopu písně nebo živou kytaru — stopa se vybírá v jeho liště. Ukládá se s písní.
+
+Minipřehrávač má hlasitost malou, hned vedle tlačítek přehrávání.

@@ -423,9 +423,17 @@ const SpaceFx = (() => {
       drag(el, el.querySelector(".spc-bar"));
     }
     win.fx = fx;
-    win.el.querySelector(".spc-who").textContent = opts.title || "živá kytara";
+    win.el.querySelector(".spc-who").textContent = opts.choices ? "" : (opts.title || "živá kytara");
+    // From the mix's Panely: any of the song's tracks (and the live guitar), picked here.
+    let pick = win.el.querySelector(".spc-pick");
+    if(opts.choices){
+      if(!pick){ pick = document.createElement("select"); pick.className = "spc-pick"; pick.title = "Která stopa"; win.el.querySelector(".spc-who").after(pick); }
+      pick.innerHTML = opts.choices.map((c, i) => `<option value="${i}"${c.fx === fx ? " selected" : ""}>${esc(c.label)}</option>`).join("");
+      pick.onchange = () => { const c = opts.choices[+pick.value]; if(c) open(c.fx, opts); };
+    } else if(pick) pick.remove();
     win.el.hidden = false;
     render();
+    if(opts.focus){ const card = win.body.querySelector(`[data-card="${opts.focus}"]`); if(card){ card.classList.add("spc-focus"); setTimeout(() => card.classList.remove("spc-focus"), 1200); card.scrollIntoView({block: "nearest"}); } }
     cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
   }
   function close(){ if(!win) return; cancelAnimationFrame(raf); win.el.remove(); win = null; }

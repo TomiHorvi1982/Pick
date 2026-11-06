@@ -4225,6 +4225,25 @@ body.lib-collapsed .pick-brand{display:none}
     background:linear-gradient(var(--bg2),var(--bg2)),#14151f;color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.6);font-size:13px}
   .spc-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none}
   .spc-bar .sp{flex:1}.spc-who{color:var(--sub);font-size:12px}
+  /* other versions on YouTube, under a video */
+  .ytv{padding:10px 2px 4px;display:flex;flex-direction:column;gap:8px;font-size:12px}
+  .ytv-h{display:flex;align-items:center;gap:6px;color:var(--sub)}
+  .ytv-h b{color:var(--text);font-size:12.5px}.ytv-h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ytv-g{display:flex;flex-direction:column;gap:4px}
+  .ytv-l{color:var(--accent);font-weight:700;font-size:11.5px;text-decoration:none;width:max-content}
+  .ytv-l:hover{text-decoration:underline}
+  .ytv-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:3px;scrollbar-width:thin}
+  .ytv-i{flex:0 0 132px;display:flex;flex-direction:column;gap:4px;background:none;border:0;padding:0;color:var(--text);cursor:pointer;text-align:left;font:inherit}
+  .ytv-th{position:relative;display:block;width:132px;height:74px;border-radius:7px;background:#222 center/cover no-repeat}
+  .ytv-th em{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.8);color:#fff;font-style:normal;font-size:10px;padding:1px 4px;border-radius:3px}
+  .ytv-t{font-size:11.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#d6d6e0}
+  .ytv-i:hover .ytv-t{color:#fff}.ytv-i:hover .ytv-th{outline:2px solid var(--accent)}
+  .ytv-none{color:var(--sub);font-size:11.5px}
+  #float-video-body{display:flex;flex-direction:column}
+  #float-video-body video{flex:1 1 auto;min-height:150px;height:auto}
+  #float-video-body .ytv{flex:0 0 auto;max-height:46%;overflow-y:auto;background:#121216;padding:8px 10px}
+  .spc-pick{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;font-size:12.5px;cursor:pointer}
+  .spc-card.spc-focus{box-shadow:0 0 0 2px var(--accent);transition:box-shadow .3s}
   .spc-x{border:0;background:none;color:var(--sub);cursor:pointer;font-size:15px}
   .spc-body{padding:10px 14px 12px}
   .spc-sets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
@@ -5745,13 +5764,15 @@ body.lib-collapsed .pick-brand{display:none}
           <!-- the song's own: Live Show, Looper and the keys (static/deck.js puts them here), panels, file -->
           <div class="nm-tg nm-song-acts" id="nm-song-acts">
               <div class="tmenu" data-tmenu="panels">
-                <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
+                <button type="button" class="nm-btn round tm-btn" title="Panely mixu — fadery, ekvalizér, kompresor, doubler, delay, reverb"><span data-icon="fader" data-size="14"></span><span class="bl">Panely</span><span class="tm-caret">▾</span></button>
                 <div class="tm-pop">
                   <div class="tm-head">Panely mixu</div>
                   <button type="button" class="tm-item" data-stay id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="15"></span><span class="tm-t">Fadery kanálů</span></button>
                   <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
                   <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
+                  <button type="button" class="tm-item" id="nm-space-delay" title="Delay na kterékoli stopě písně (nebo na živé kytaře) — typ, čas podle tempa, opakování, mix"><span data-icon="sync" data-size="15"></span><span class="tm-t">Delay</span></button>
+                  <button type="button" class="tm-item" id="nm-space-reverb" title="Reverb (dozvuk) na kterékoli stopě písně (nebo na živé kytaře) — místnost, sál, plate, pružina…"><span data-icon="fx" data-size="15"></span><span class="tm-t">Reverb</span></button>
                   <hr>
                   <button type="button" class="tm-item" id="nm-sing-open" title="Trenér zpěvu — tvoje výška proti originálu, slova a skóre"><span data-icon="mic" data-size="15"></span><span class="tm-t">Trenér zpěvu</span></button>
                   <button type="button" class="tm-item" id="nm-lyr-speak" title="Celý text a trénink výslovnosti: počítač přečte řádek, ty ho řekneš po něm, a až to sedí, jde se dál („pick practice words“)"><span data-icon="volume" data-size="15"></span><span class="tm-t">Výslovnost</span></button>
@@ -23449,6 +23470,18 @@ const Mixer = (() => {
     showToast(`Doubler: ${pr.name}`);
   };
   setPanelOpen("dbl-toggle", "dbl-panel", !!panelPrefs.dbl);
+  // Delay & Reverb for any of the song's tracks (static/space.js): its own window, the track picked in its bar.
+  function openSpaceFor(part){
+    if(typeof SpaceFx === "undefined") return;
+    const choices = channels.filter(c => c.fx).map(c => ({label: stemLabel(c.stem), fx: c.fx}));
+    const g = typeof Guitar !== "undefined" && Guitar.fx ? Guitar.fx() : null;
+    if(g) choices.push({label: "živá kytara", fx: g});
+    if(!choices.length){ showToast("Nejdřív otevři píseň"); return; }
+    const cur = editIdx >= 0 && channels[editIdx] && channels[editIdx].fx;
+    SpaceFx.open((choices.find(c => c.fx === cur) || choices[0]).fx, {choices, focus: part});
+  }
+  el("nm-space-delay").onclick = () => openSpaceFor("delay");
+  el("nm-space-reverb").onclick = () => openSpaceFor("reverb");
   el("dbl-toggle").onclick = () => {
     const on = el("dbl-panel").hidden;
     setPanelOpen("dbl-toggle", "dbl-panel", on);
@@ -33191,6 +33224,45 @@ el("float-video-close").onclick = () => {
   FloatVideo.close();
 };
 
+// ---- other versions of the playing song on YouTube (server /api/yt/versions): a backing track, a video
+// with the tab, a lesson and an AI-made version — found as soon as a video opens, under it, each opening on
+// YouTube. Shared with the mini player (static/mini.html has its own copy of the drawing).
+const YtVersions = (() => {
+  const cache = {};
+  const who = (t) => ({artist: String((t && (t.artists || t.artist)) || "").split(",")[0].trim(), title: String((t && t.title) || "").replace(/\s*[\(\[].*?(official|video|lyric|audio|remaster)[^\)\]]*[\)\]]/ig, "").trim()});
+  function html(groups, q){
+    const any = groups.some(g => g.items.length);
+    if(!any) return `<div class="ytv-none">Na YouTube se k písni nic nenašlo.</div>`;
+    return groups.filter(g => g.items.length).map(g => `<div class="ytv-g"><a class="ytv-l" href="#" data-q="${escapeHtml(q + " " + ({backing: "backing track", tabs: "guitar tab", lesson: "guitar lesson", ai: "AI cover"})[g.kind])}" title="Hledat víc na YouTube">${escapeHtml(g.label)}</a>
+      <div class="ytv-row">${g.items.map(i => `<button type="button" class="ytv-i" data-v="${escapeHtml(i.videoId)}" title="${escapeHtml(i.title)}${i.channel ? " — " + escapeHtml(i.channel) : ""} · otevře se na YouTube">
+        <span class="ytv-th" style="background-image:url('${escapeHtml(i.thumbnail || "")}')">${i.duration ? `<em>${escapeHtml(i.duration)}</em>` : ""}</span><span class="ytv-t">${escapeHtml(i.title)}</span></button>`).join("")}</div></div>`).join("");
+  }
+  async function show(box, track){
+    const w = who(track);
+    if(!box || !w.title){ if(box) box.hidden = true; return; }
+    const key = (w.artist + "|" + w.title).toLowerCase();
+    box.hidden = false;
+    box.dataset.key = key;
+    const q = [w.artist, w.title].filter(Boolean).join(" ");
+    const paint = (g) => {
+      if(box.dataset.key !== key) return;
+      box.innerHTML = `<div class="ytv-h">${icon("video", 13)}<b>Na YouTube</b><span>${escapeHtml(q)}</span></div>` + html(g, q);
+      box.querySelectorAll(".ytv-i").forEach(b => b.onclick = () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(b.dataset.v)}`, "_blank"));
+      box.querySelectorAll(".ytv-l").forEach(a => a.onclick = (e) => { e.preventDefault(); window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(a.dataset.q)}`, "_blank"); });
+    };
+    if(cache[key]){ paint(cache[key]); return; }
+    box.innerHTML = `<div class="ytv-h">${icon("video", 13)}<b>Na YouTube</b><span>hledám backing track, taby, lekce a AI verze…</span></div>`;
+    try{
+      const r = await fetch(`/api/yt/versions?artist=${encodeURIComponent(w.artist)}&title=${encodeURIComponent(w.title)}`);
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error || "");
+      cache[key] = d.groups || [];
+      paint(cache[key]);
+    }catch(e){ if(box.dataset.key === key) box.innerHTML = `<div class="ytv-none">Hledání na YouTube se nepovedlo.</div>`; }
+  }
+  return {show};
+})();
+
 function openFloatingVideo(track){
   // No argument means "the song that's playing"; the artist rail passes one
   // of the artist's music videos instead.
@@ -33212,6 +33284,9 @@ function openFloatingVideo(track){
   // for however long the stream takes to start.
   const video = el("float-video-body").querySelector("video");
   if(video) Player.handOffTo(video);
+  const yv = document.createElement("div"); yv.className = "ytv";
+  el("float-video-body").appendChild(yv);
+  YtVersions.show(yv, t);
 }
 
 // ---- video inline at the top of the right panel, with an explicit detach
@@ -33258,11 +33333,15 @@ function playVideoInStage(track){
   el("np-stage-video-close").onclick = () => {
     const v = el("np-stage-video");
     if(v){ try{ v.pause(); }catch(e){} }
+    const yv = el("np-ytv"); if(yv) yv.remove();
     stageShowArt(Player.getCurrent());
   };
 
   const v = el("np-stage-video");
   if(v) Player.handOffTo(v);
+  let yv = el("np-ytv");
+  if(!yv){ yv = document.createElement("div"); yv.id = "np-ytv"; yv.className = "ytv"; stage.after(yv); }
+  YtVersions.show(yv, t);
 }
 
 el("pb-video-btn").onclick = () => {

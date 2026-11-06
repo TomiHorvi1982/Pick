@@ -81,6 +81,16 @@
   .scrub.on{opacity:1}
 
   /* Video */
+  .ytv{flex:0 0 auto;max-height:42%;overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:11.5px;scrollbar-width:thin}
+  .ytv-h{display:flex;gap:6px;align-items:center;color:var(--sub)}.ytv-h b{color:var(--text)}
+  .ytv-h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ytv-l{color:var(--accent2);font-weight:700;text-decoration:none;font-size:11px}
+  .ytv-row{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+  .ytv-i{flex:0 0 112px;display:flex;flex-direction:column;gap:3px;background:none;border:0;padding:0;color:var(--text);cursor:pointer;text-align:left;font:inherit}
+  .ytv-th{position:relative;display:block;width:112px;height:63px;border-radius:6px;background:#222 center/cover no-repeat}
+  .ytv-th em{position:absolute;right:3px;bottom:3px;background:rgba(0,0,0,.8);font-style:normal;font-size:9.5px;padding:0 3px;border-radius:3px}
+  .ytv-t{font-size:10.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--sub)}
+  .ytv-i:hover .ytv-t{color:var(--text)}
   #pane-video{flex-direction:column;gap:8px}
   .screen{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 0 1px var(--line)}
@@ -185,7 +195,9 @@
     background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));
     box-shadow:0 8px 26px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.35)}
   .play:hover{background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent));transform:scale(1.05)}
-  .vol{display:flex;align-items:center;gap:8px}
+  .vol{display:flex;align-items:center;gap:2px;margin-left:4px}
+  .vol #volume{flex:0 0 64px;width:64px;height:4px}
+  .vol #mute{width:28px;height:28px}
   .offline{font-size:11.5px;color:var(--sub);text-align:center}
   .offline a{color:var(--accent2)}
   .toast{position:fixed;left:50%;bottom:16px;transform:translate(-50%, 20px);opacity:0;z-index:5;
@@ -197,7 +209,8 @@
     box-shadow:0 4px 14px rgba(0,0,0,.5);align-items:center;justify-content:center;color:var(--dim)}
   .mini-size{display:none;width:28px;height:28px}
   body.compact .wrap{padding:10px 12px;gap:7px}
-  body.compact .top, body.compact .stage, body.compact .vol{display:none}
+  body.compact .top, body.compact .stage{display:none}
+  body.compact .vol #volume{flex-basis:46px;width:46px}
   body.compact .mart{display:flex}
   body.compact .mini-size{display:flex}
   body.compact .meta{align-items:center}
@@ -347,6 +360,8 @@
         <span id="voff">0 s</span>
         <button class="chip" id="vplus">+1 s</button>
       </div>
+      <!-- other versions of the song on YouTube: backing track, tab, lesson, AI version (each opens there) -->
+      <div class="ytv" id="ytv" hidden></div>
     </div>
 
     <div class="pane" id="pane-lyrics">
@@ -416,11 +431,11 @@
     <button class="ctl play" id="play" title="Přehrát / pauza (mezerník)"></button>
     <button class="ctl" id="next" title="Další"></button>
     <button class="ctl small" id="fwd10" title="Vpřed o 10 s (→)"></button>
-  </div>
-
-  <div class="vol">
-    <button class="ctl small" id="mute" title="Ztlumit (M)"></button>
-    <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
+    <!-- the loudness: small, right next to play and next, not a row of its own -->
+    <div class="vol">
+      <button class="ctl small" id="mute" title="Ztlumit (M)"></button>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="1" title="Hlasitost (↑ ↓)">
+    </div>
   </div>
 
   <div class="offline" id="offline" hidden>
@@ -794,7 +809,38 @@ el("vminus").onclick = () => setOffset(videoState.offset - 1);
 el("vplus").onclick = () => setOffset(videoState.offset + 1);
 function vmsg(html){ el("vmsg").innerHTML = html || ""; el("vmsg").style.display = html ? "flex" : "none"; }
 
+// ---- the song's other versions on YouTube, under the video (the app's /api/yt/versions)
+const ytvCache = {};
+async function showYtv(){
+  const box = el("ytv");
+  const artist = String(S.artists || "").split(",")[0].trim();
+  const title = String(S.title || "").replace(/\s*[\(\[].*?(official|video|lyric|audio|remaster)[^\)\]]*[\)\]]/ig, "").trim();
+  if(!S.live || !title){ box.hidden = true; return; }
+  const key = (artist + "|" + title).toLowerCase(), q = [artist, title].filter(Boolean).join(" ");
+  if(box.dataset.key === key && !box.hidden) return;
+  box.dataset.key = key; box.hidden = false;
+  const W = {backing: "backing track", tabs: "guitar tab", lesson: "guitar lesson", ai: "AI cover"};
+  const paint = (groups) => {
+    if(box.dataset.key !== key) return;
+    const g = groups.filter(x => x.items.length);
+    box.innerHTML = `<div class="ytv-h">${icon("video", 13)}<b>Na YouTube</b><span>${esc(q)}</span></div>` + (g.length ? g.map(x => `<div><a class="ytv-l" href="#" data-q="${esc(q + " " + W[x.kind])}">${esc(x.label)}</a>
+      <div class="ytv-row">${x.items.map(i => `<button type="button" class="ytv-i" data-v="${esc(i.videoId)}" title="${esc(i.title)} · otevře se na YouTube"><span class="ytv-th" style="background-image:url('${esc(i.thumbnail || "")}')">${i.duration ? `<em>${esc(i.duration)}</em>` : ""}</span><span class="ytv-t">${esc(i.title)}</span></button>`).join("")}</div></div>`).join("") : `<div class="ytv-h">Nic se nenašlo.</div>`);
+    box.querySelectorAll(".ytv-i").forEach(b => b.onclick = () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(b.dataset.v)}`, "_blank"));
+    box.querySelectorAll(".ytv-l").forEach(a => a.onclick = (e) => { e.preventDefault(); window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(a.dataset.q)}`, "_blank"); });
+  };
+  if(ytvCache[key]){ paint(ytvCache[key]); return; }
+  box.innerHTML = `<div class="ytv-h">${icon("video", 13)}<b>Na YouTube</b><span>hledám backing track, taby, lekce a AI verze…</span></div>`;
+  try{
+    const r = await fetch(`/api/yt/versions?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+    const d = await r.json();
+    if(!r.ok) throw 0;
+    ytvCache[key] = d.groups || [];
+    paint(ytvCache[key]);
+  }catch(e){ if(box.dataset.key === key) box.hidden = true; }
+}
+
 async function loadVideo(){
+  showYtv();
   const v = el("video");
   if(!S.live){ v.removeAttribute("src"); v.load(); videoState.loaded = ""; useEmbed(null); vmsg("Nic nehraje."); return; }
   let id = null;

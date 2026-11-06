@@ -4127,6 +4127,70 @@ def tabfiles_put_link(req: TabLinkRequest):
     return {"ok": True}
 
 
+# Other versions of the playing song on YouTube, for playing along: a backing track, a video with the
+# tab, a lesson and an AI-made version. Four searches side by side; only links to YouTube come back
+# (the page opens them there). Kept a while per song, so a video opening again costs nothing.
+_YT_VERSIONS = [("backing", "Backing track", "backing track"), ("tabs", "Taby", "guitar tab"),
+                ("lesson", "Lekce", "guitar lesson"), ("ai", "AI verze", "AI version")]
+# what the video's own title must say to be that kind: preferred for the others, required for the AI one
+# (YouTube answers "AI version" with any cover too)
+_YT_KIND_WORDS = {"backing": r"backing|play.?along|karaoke|no guitar|without guitar|jam track",
+                  "tabs": r"\btabs?\b|tablatur|play.?along|guitar pro",
+                  "lesson": r"lesson|tutorial|how to play|výuka|lekce|jak hrát",
+                  "ai": r"\bai\b|a\.i\.|suno|udio|artificial"}
+_yt_versions_cache: dict = {}
+
+
+def _yt_versions_of(artist: str, title: str) -> list:
+    import concurrent.futures as _cf
+    song = " ".join(f"{artist} {title}".split())
+    words = [w for w in _re_mod.findall(r"\w+", title.lower()) if len(w) > 2][:3]
+
+    def one(kind, label, what):
+        items = []
+        try:
+            for r in yt().search(f"{song} {what}", filter="videos", limit=12) or []:
+                vid = r.get("videoId")
+                if not vid or any(i["videoId"] == vid for i in items):
+                    continue
+                name = r.get("title") or ""
+                items.append({"videoId": vid, "title": name, "duration": r.get("duration") or "",
+                              "channel": ", ".join(a.get("name", "") for a in (r.get("artists") or [])),
+                              "thumbnail": ((r.get("thumbnails") or [{}])[-1] or {}).get("url"),
+                              "match": all(w in name.lower() for w in words)})
+        except Exception:
+            pass
+        rx = _re_mod.compile(_YT_KIND_WORDS.get(kind, "."), _re_mod.I)
+        for i in items:
+            i["fits"] = bool(rx.search(i["title"]))
+        if kind == "ai":
+            items = [i for i in items if i["fits"]]
+        # the ones that are that kind and name the song first
+        items.sort(key=lambda i: (not i["fits"], not i["match"]))
+        return {"kind": kind, "label": label, "items": items[:4]}
+
+    with _cf.ThreadPoolExecutor(max_workers=4) as ex:
+        return list(ex.map(lambda k: one(*k), _YT_VERSIONS))
+
+
+@app.get("/api/yt/versions")
+def yt_versions(artist: str = "", title: str = ""):
+    title = (title or "").strip()[:200]
+    artist = (artist or "").strip()[:200]
+    if not title:
+        return JSONResponse({"error": "Chybí název písně."}, status_code=400)
+    key = f"{artist.lower()}|{title.lower()}"
+    hit = _yt_versions_cache.get(key)
+    if hit and time.time() - hit[0] < 6 * 3600:
+        return {"groups": hit[1]}
+    groups = _yt_versions_of(artist, title)
+    if any(g["items"] for g in groups):
+        if len(_yt_versions_cache) > 300:
+            _yt_versions_cache.clear()
+        _yt_versions_cache[key] = (time.time(), groups)
+    return {"groups": groups}
+
+
 @app.get("/api/tabfiles/yt-search")
 def tabfiles_yt_search(q: str):
     out = []
