@@ -36,7 +36,9 @@ def test_a_finished_sound_brings_its_power_chords(tmp_path):
     assert all(f.name.endswith("_b.wav") for *_, f in got)
     assert [k for k, *_ in build.pick_files(tmp_path, "a")] == ["pluck", "pluck"]        # the DI side, notes only
     assert {s["id"]: s["kind"] for s in build.SETS}["axe-machina-di"] == "di"
-    assert all(s.get("nam", "nam/").startswith("nam/") and s.get("ir", "ir/").startswith("ir/") for s in build.SETS)
+    # a cabinet IR, or none for a capture made with its cabinet and mic in it ("ir": None)
+    assert all(s.get("nam", "nam/").startswith("nam/") and (s.get("ir") or "ir/").startswith("ir/") for s in build.SETS)
+    assert any(s.get("nam") and s.get("ir") is None for s in build.SETS)
 
 
 @pytest.fixture
