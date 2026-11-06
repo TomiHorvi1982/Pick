@@ -91,6 +91,12 @@
   .ytv-th em{position:absolute;right:3px;bottom:3px;background:rgba(0,0,0,.8);font-style:normal;font-size:9.5px;padding:0 3px;border-radius:3px}
   .ytv-t{font-size:10.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--sub)}
   .ytv-i:hover .ytv-t{color:var(--text)}
+  .ytv-play{position:absolute;inset:0;z-index:4;background:#000}
+  .ytv-play video{width:100%;height:100%;object-fit:contain;display:block}
+  .ytv-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:5px;padding:6px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:11px}
+  .ytv-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ytv-bar button{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:3px 9px;font:inherit;font-size:11px;cursor:pointer}
+  .ytv-bar .ytv-snd.on{background:var(--accent);border-color:var(--accent);color:#160800}
   #pane-video{flex-direction:column;gap:8px}
   .screen{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#000;
     box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 0 1px var(--line)}
@@ -635,6 +641,7 @@ function onTrackChange(){
   el("mart").innerHTML = art ? "" : icon("note", 20);
   el("label").innerHTML = art ? "" : icon("note", 26);
   pickAccent(art);
+  closeYtv();
   lyrics = null; lyricsFor = "";
   videoState.trackId = S.videoId; videoState.clipId = null; videoState.loaded = "";
   if(shown("lyrics")) loadLyrics();
@@ -810,6 +817,32 @@ el("vplus").onclick = () => setOffset(videoState.offset + 1);
 function vmsg(html){ el("vmsg").innerHTML = html || ""; el("vmsg").style.display = html ? "flex" : "none"; }
 
 // ---- the song's other versions on YouTube, under the video (the app's /api/yt/versions)
+// A version plays over the song's video, muted; "Zvuk videa" lets it be heard and pauses the song (again: back).
+let ytvHeld = false;
+function playYtv(it){
+  const scr = document.querySelector("#pane-video .screen");
+  closeYtv();
+  const ov = document.createElement("div");
+  ov.className = "ytv-play"; ov.id = "ytv-play";
+  ov.innerHTML = `<video src="/api/stream-video/${encodeURIComponent(it.videoId)}" autoplay muted playsinline></video>
+    <div class="ytv-bar"><span class="ytv-name" title="${esc(it.title)}">${esc(it.title)}</span>
+      <button type="button" class="ytv-snd" title="Pustit zvuk tohohle videa a píseň zastavit (znovu: zpátky)">${icon("volumeMuted", 13)}<span>Zvuk videa</span></button>
+      <button type="button" class="ytv-out" title="Otevřít na YouTube">↗</button>
+      <button type="button" class="ytv-x" title="Zpátky na video písně">✕</button></div>`;
+  scr.appendChild(ov);
+  const v = ov.querySelector("video"), sb = ov.querySelector(".ytv-snd");
+  const setSound = (on) => {
+    v.muted = !on; sb.classList.toggle("on", on);
+    sb.innerHTML = `${icon(on ? "volume" : "volumeMuted", 13)}<span>${on ? "Zvuk videa — zapnutý" : "Zvuk videa"}</span>`;
+    if(on){ if(S.playing){ send("pause"); S.playing = false; ytvHeld = true; } }
+    else if(ytvHeld){ send("play"); S.playing = true; ytvHeld = false; }
+  };
+  sb.onclick = () => setSound(v.muted);
+  ov.querySelector(".ytv-out").onclick = () => { v.pause(); window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(it.videoId)}`, "_blank"); };
+  ov._close = () => { if(!v.muted) setSound(false); v.pause(); v.removeAttribute("src"); v.load(); ov.remove(); };
+  ov.querySelector(".ytv-x").onclick = () => ov._close();
+}
+function closeYtv(){ const o = el("ytv-play"); if(o && o._close) o._close(); }
 const ytvCache = {};
 async function showYtv(){
   const box = el("ytv");
@@ -824,8 +857,8 @@ async function showYtv(){
     if(box.dataset.key !== key) return;
     const g = groups.filter(x => x.items.length);
     box.innerHTML = `<div class="ytv-h">${icon("video", 13)}<b>Na YouTube</b><span>${esc(q)}</span></div>` + (g.length ? g.map(x => `<div><a class="ytv-l" href="#" data-q="${esc(q + " " + W[x.kind])}">${esc(x.label)}</a>
-      <div class="ytv-row">${x.items.map(i => `<button type="button" class="ytv-i" data-v="${esc(i.videoId)}" title="${esc(i.title)} · otevře se na YouTube"><span class="ytv-th" style="background-image:url('${esc(i.thumbnail || "")}')">${i.duration ? `<em>${esc(i.duration)}</em>` : ""}</span><span class="ytv-t">${esc(i.title)}</span></button>`).join("")}</div></div>`).join("") : `<div class="ytv-h">Nic se nenašlo.</div>`);
-    box.querySelectorAll(".ytv-i").forEach(b => b.onclick = () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(b.dataset.v)}`, "_blank"));
+      <div class="ytv-row">${x.items.map(i => `<button type="button" class="ytv-i" data-v="${esc(i.videoId)}" title="${esc(i.title)} · přehraje se tady, ztlumeně"><span class="ytv-th" style="background-image:url('${esc(i.thumbnail || "")}')">${i.duration ? `<em>${esc(i.duration)}</em>` : ""}</span><span class="ytv-t">${esc(i.title)}</span></button>`).join("")}</div></div>`).join("") : `<div class="ytv-h">Nic se nenašlo.</div>`);
+    box.querySelectorAll(".ytv-i").forEach(b => b.onclick = () => { const it = groups.flatMap(x => x.items).find(x => x.videoId === b.dataset.v); if(it) playYtv(it); });
     box.querySelectorAll(".ytv-l").forEach(a => a.onclick = (e) => { e.preventDefault(); window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(a.dataset.q)}`, "_blank"); });
   };
   if(ytvCache[key]){ paint(ytvCache[key]); return; }

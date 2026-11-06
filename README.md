@@ -1668,8 +1668,10 @@ textu), `spotdl-analyze` (části a akordy), `pick-midi` (noty), `pick-kontakt` 
 Když se otevře video písně (v panelu Právě hraje, v plovoucím okně videa nebo na záložce Video
 v minipřehrávači), Pick pod ním rovnou ukáže, co k písni je na YouTube: **Backing track**, **Taby**
 (video s tabulaturou), **Lekce** a **AI verze** (jen videa, která se jako AI — Suno, Udio… — sama označují).
-Čtyři hledání běží najednou (`/api/yt/versions`, výsledky se 6 hodin pamatují). Klik na video ho otevře
-na YouTube, klik na název skupiny otevře celé hledání. Nic se nestahuje.
+Čtyři hledání běží najednou (`/api/yt/versions`, výsledky se 6 hodin pamatují). Klik na video ho
+**přehraje přímo tam, kde je video písně** — ztlumeně, píseň hraje dál se svým zvukem. Tlačítko
+**Zvuk videa** pustí zvuk verze a píseň zastaví; další klik (nebo ✕, zpátky na video písně) to vrátí.
+↗ otevře verzi na YouTube, klik na název skupiny otevře celé hledání.
 
 ## Delay a Reverb v Panelech mixu
 
