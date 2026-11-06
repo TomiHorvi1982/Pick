@@ -5138,6 +5138,18 @@ body.lib-collapsed .pick-brand{display:none}
   .nm .nm-transport .nm-k-edit .nm-btn:disabled{color:color-mix(in srgb,var(--k) 30%,#555)}
   .nm .nm-transport .nm-k-edit .snap,.nm .nm-transport .nm-k-edit select{color:color-mix(in srgb,var(--k) 80%,#ccc)}
 
+  /* the icons' tags: a short English word under each, as on a pedal or a desk — a narrow face of the
+     system's own (Avenir Next Condensed), small, in the group's colour; the row keeps one centre line,
+     the tags hang under it */
+  .nm .nm-transport{--tl-font:"Avenir Next Condensed","DIN Condensed","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;row-gap:16px;padding-bottom:20px}
+  .nm .nm-transport .nm-tg{position:relative}
+  .nm .nm-transport [data-lbl]{position:relative}
+  .nm .nm-transport [data-lbl]::after{content:attr(data-lbl);position:absolute;left:50%;top:calc(100% + 1px);transform:translateX(-50%);
+    font:600 9px/1 var(--tl-font);letter-spacing:.07em;color:color-mix(in srgb,var(--k,#9a9aad) 62%,#6d6d7c);white-space:nowrap;pointer-events:none}
+  .nm .nm-transport [data-lbl]:hover::after,.nm .nm-transport .on[data-lbl]::after,.nm .nm-transport .active[data-lbl]::after{color:var(--k,#ddd)}
+  .nm .nm-transport .nm-tg[data-glbl]::after{content:attr(data-glbl);position:absolute;left:51px;bottom:-12px;transform:translateX(-50%);
+    font:600 9px/1 var(--tl-font);letter-spacing:.07em;color:color-mix(in srgb,var(--k,#9a9aad) 62%,#6d6d7c);white-space:nowrap;pointer-events:none}
+
   /* the settings a double click opens on one of the helper icons */
   .nm-pkpop{position:fixed;z-index:4000;min-width:230px;max-width:300px;background:#1b1b22;border:1px solid #3a3a48;border-radius:12px;
     box-shadow:0 14px 40px rgba(0,0,0,.55);padding:10px 12px;color:#e8e8ec;font-size:12.5px}
@@ -20727,6 +20739,29 @@ const Mixer = (() => {
       : editStatus === "error" ? `<span style="color:#ff6b6b">Uložení selhalo</span>` : "";
   }
 
+  // The icons' English tags (CSS ::after from data-lbl; data-glbl for a group with a number in it).
+  const TAGS = {
+    "#nm-rewind": "BACK", "#mixer-loop": "LOOP", "#mixer-metro": "CLICK", "#nm-hits-btn": "HITS", "#nm-chords-btn": "CHORDS",
+    "#nm-sect-btn": "PARTS", "#mixer-tab-search": "TAB", "#mixer-tab-view": "SCORE", "#mixer-guide-toggle": "FRET",
+    "#mixer-lyrics-toggle": "LYRICS", "#nm-mytune": "TUNE", ".dk-hero-btn:nth-of-type(1)": "", "#zoom-fit": "FIT",
+    "#zoom-out": "", "#zoom-in": "",
+    '[data-tmenu="panels"] > .tm-btn': "PANELS", '[data-tmenu="file"] > .tm-btn': "FILE",
+    "#nm-compact": "FOLD", '#nm-editbar [data-tmenu="tracks"] > .tm-btn': "TRACKS", '[data-edit="toolSelect"]': "SELECT",
+    '[data-edit="toolScissors"]': "SPLIT", "#nm-editbar .snap": "SNAP", '#nm-editbar [data-tmenu="clip"] > .tm-btn': "CLIP",
+    "#nm-edit-track": "TRACK", '#nm-editbar [data-tmenu="range"] > .tm-btn': "RANGE", '#nm-editbar [data-tmenu="sound"] > .tm-btn': "AUDIO",
+    '[data-edit="undo"]': "UNDO", '[data-edit="redo"]': "REDO", "#nm-edit-restore": "RESET",
+  };
+  const GTAGS = {".nm-tempo-g": "BPM", ".nm-key-g": "KEY"};
+  function tagTransport(){
+    const row = document.querySelector(".nm .nm-transport");
+    if(!row) return;
+    for(const [sel, t] of Object.entries(TAGS)) row.querySelectorAll(sel).forEach(n => { if(t) n.dataset.lbl = t; });
+    row.querySelectorAll(".dk-hero-btn").forEach(b => { b.dataset.lbl = /Looper/i.test(b.title) ? "LOOPER" : /Klávesy/i.test(b.title) ? "KEYS" : ""; if(!b.dataset.lbl) delete b.dataset.lbl; });
+    for(const [sel, t] of Object.entries(GTAGS)) row.querySelectorAll(sel).forEach(n => { n.dataset.glbl = t; });
+    const zoom = el("zoom-fit"); if(zoom) zoom.closest(".nm-tg").dataset.glbl = "";
+  }
+  setTimeout(tagTransport, 0); setTimeout(tagTransport, 1500);      // the song's own buttons come from static/deck.js a moment later
+
   function renderEditBar(){
     const bar = el("nm-editbar");
     if(!bar) return;
@@ -20818,6 +20853,7 @@ const Mixer = (() => {
     if(hb) hb.onclick = (e) => openHiddenMenu(e.currentTarget);
     TMenu.wire(bar);
     if(wasOpen) TMenu.open(bar.querySelector(`[data-tmenu="${wasOpen}"]`));
+    tagTransport();
     paintEditStatus();
   }
 
