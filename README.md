@@ -1683,7 +1683,9 @@ Minipřehrávač má hlasitost malou, hned vedle tlačítek přehrávání.
 
 ## Hraju s kytarou (GTR v minipřehrávači)
 
-U písně ze Steems otevře **GTR** v minipřehrávači panel *Hraju s kytarou*. Zvuk dělá aplikace (její mix má
+U písně ze Steems otevře **GTR** v minipřehrávači panel *Hraju s kytarou* — přímo v okně minipřehrávače:
+v širokém okně jako čtvrtý sloupec vedle Fronty / Hledání (okno se roztáhne), v okně se záložkami jako
+záložka **Kytara**, malé okno se kvůli němu přepne na široké. Zvuk dělá aplikace (její mix má
 živou kytaru, otisky, gate a ladění stop), minipřehrávač jí posílá povel `jam` (nastavení jako JSON) a čte zpátky
 `jam` ve stavu přehrávání:
 
