@@ -1015,10 +1015,7 @@ body.lib-collapsed .pick-brand{display:none}
   .hero-actions{--nm-txt:#e8e8ec;--nm-sub:#8b8b96;--nm-blue:#3d8bfd;display:flex;align-items:center;gap:8px;flex:none;align-self:center}
   .hero-actions .nm-btn.round{height:32px;padding:0 12px;border-radius:999px;font-size:12px}
   .hero-actions .nm-btn.round .bl{margin-left:5px}
-  /* Zavřít sat bare next to the framed pills: same frame, red only on hover */
-  /* (!important: the bare mac-style rule for every close-icon button uses it too) */
-  .hero-actions #steems-hero-close{background:#1e1e25!important;border:1px solid rgba(140,150,255,.2)!important;color:var(--nm-txt);padding:0 14px 0 10px!important}
-  .hero-actions #steems-hero-close:hover{border-color:#ff5f57!important;background:#2a1a1d!important}
+  .hero-actions #steems-hero-close{width:34px;height:34px}
   .fold-btn{width:24px;height:24px;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0;
     border:none;border-radius:6px;background:none;color:var(--sub);cursor:pointer}
   .fold-btn:hover{background:rgba(255,255,255,.08);color:#fff}
@@ -2732,7 +2729,6 @@ body.lib-collapsed .pick-brand{display:none}
     border-bottom:1px solid color-mix(in srgb,var(--g) 50%,transparent);border-top:1px solid var(--nm-line);
     background:linear-gradient(180deg,color-mix(in srgb,var(--g) 16%,#121216),#111115);box-shadow:inset 3px 0 0 var(--g)}
   .nm-grp-head:hover{filter:brightness(1.25)}
-  #mixer.fold-tools #nm-editbar,#mixer.fold-tools #midi-editor{display:none !important}
   /* the tab, a card of its own above the mix like the song's text */
   .nm.nm-tabcard{margin:0 0 22px;border-radius:12px}
   .nm.nm-tabcard[hidden]{display:none}
@@ -5061,6 +5057,27 @@ body.lib-collapsed .pick-brand{display:none}
   #nm-tempo-val{display:none}
   .nm-tsuf{font-size:10.5px;color:var(--nm-sub);margin-left:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
   .nm-tg .metro-indicator{position:absolute;right:3px;top:3px;margin:0}
+  /* the edit tools live in the row too: no bar of their own, icons only, the hint and the 'Stopa' caption gone */
+  .nm .nm-transport .nm-editbar{display:flex;flex-wrap:nowrap;align-items:center;gap:3px;padding:0 0 0 7px;margin:0;
+    background:none;border:0;border-left:1px solid rgba(140,150,255,.12);border-radius:0;box-shadow:none;position:static}
+  .nm .nm-transport .nm-editbar[hidden]{display:none}
+  .nm .nm-transport .nm-editbar .bl,.nm .nm-transport .nm-editbar .cap,.nm .nm-transport .nm-editbar .sel,.nm .nm-transport .nm-editbar .status:empty{display:none}
+  .nm .nm-transport .nm-editbar .sep{height:18px;margin:0 3px;background:rgba(140,150,255,.12)}
+  .nm .nm-transport .nm-editbar select{max-width:130px;padding:4px 6px}
+  .nm .nm-transport .nm-editbar .tool.on{background:none;border-color:transparent;color:#ffd166}
+
+  /* icons, not buttons in circles: just the glyph, brighter on hover, coloured when on */
+  .nm .nm-transport .nm-btn.round.ic,.nm .nm-transport .nm-step,.nm .nm-transport #zoom-fit,
+  .nm .nm-transport .nm-editbar .nm-btn,.nm .nm-transport .nm-song-acts .tm-btn{
+    background:none!important;border-color:transparent!important;box-shadow:none!important;color:#a9a9bb;width:28px;height:30px;padding:0;border-radius:6px}
+  .nm .nm-transport .nm-step{width:18px;font-size:16px}
+  .nm .nm-transport .nm-btn.round.ic:hover,.nm .nm-transport .nm-step:hover,.nm .nm-transport #zoom-fit:hover,
+  .nm .nm-transport .nm-editbar .nm-btn:not(:disabled):hover,.nm .nm-transport .nm-song-acts .tm-btn:hover{color:#fff;background:rgba(255,255,255,.06)!important}
+  .nm .nm-transport .nm-btn.active,.nm .nm-transport .nm-btn.on{color:#8fbaff;background:none!important}
+  .nm .nm-transport .tmenu.open > .tm-btn{color:#fff}
+  .nm .nm-transport .nm-editbar .snap{border-color:transparent;background:none}
+  .nm .nm-transport #nm-editbar .nm-btn.ib.lab,.nm .nm-transport #nm-editbar .nm-btn.ib.lab.tm-btn{flex-direction:row;width:28px;min-width:0;height:30px;padding:0;gap:0}
+
   /* the settings a double click opens on one of the helper icons */
   .nm-pkpop{position:fixed;z-index:4000;min-width:230px;max-width:300px;background:#1b1b22;border:1px solid #3a3a48;border-radius:12px;
     box-shadow:0 14px 40px rgba(0,0,0,.55);padding:10px 12px;color:#e8e8ec;font-size:12.5px}
@@ -5564,7 +5581,7 @@ body.lib-collapsed .pick-brand{display:none}
         </div>
         <!-- Song-level actions: which mix panels show, save / export, close. -->
         <div class="hero-actions">
-              <button class="nm-btn round" id="steems-hero-close" title="Zavřít celou píseň (mix, text i tab) a vrátit se na seznam písní ve Steems"><span data-icon="close" data-size="14"></span><span class="bl">Zavřít</span></button>
+              <button class="nm-btn round" id="steems-hero-close" title="Zavřít celou píseň (mix, text i tab) a vrátit se na seznam písní ve Steems"><span data-icon="close" data-size="22"></span></button>
         </div>
       </div>
     </div>
@@ -5753,6 +5770,10 @@ body.lib-collapsed .pick-brand{display:none}
               </div>
           </div>
 
+          <!-- the edit tools (renderEditBar): compact / tracks, pointer, scissors, snap, clip, the track to edit,
+               selection, sound, undo / redo -->
+          <div class="nm-editbar nm-tg nm-edit-g" id="nm-editbar" hidden></div>
+
           <div class="nm-spacer"></div>
 
           <div class="nm-tg" title="Zoom stop">
@@ -5778,14 +5799,7 @@ body.lib-collapsed .pick-brand{display:none}
           <span class="nm-ov-time right" id="nm-ov-rem">-0:00</span>
         </div>
 
-        <!-- Pomůcky: the edit tools, the chords, the sections, the click and the drum hits fold away
-             under this band (renderTrackLanes tags their rows); the wave above always stays. -->
-        <div class="nm-grp nm-grp-head" id="nm-tools-band" data-band="tools" title="Sbalit / rozbalit pomůcky">
-          <button type="button" class="nm-grp-fold"><span data-icon="chevron" data-size="12"></span></button>
-          <span class="nm-grp-name">Pomůcky</span><span class="nm-grp-sub">nástroje pro úpravu · akordy · sekce · údery</span>
-        </div>
         <!-- Editing a track: built by the mixer (renderEditBar). -->
-        <div class="nm-editbar" id="nm-editbar" hidden></div>
         <div class="midi-ed" id="midi-editor" hidden></div>
         <input type="file" id="nm-addtrack-file" accept="audio/*,video/*,.wav,.mp3,.flac,.m4a,.aac,.ogg,.opus,.aif,.aiff,.wma" multiple hidden>
 
@@ -20794,7 +20808,6 @@ const Mixer = (() => {
     const totalPx = totalWidthPx();
     const laneH = compact ? 34 : 86;   // must match .nm-strip / .nm-lane in CSS (#mixer.nm-compact: 34)
 
-    const toolsR = rail.children.length;          // Pomůcky: from the chords down to the stems' band
     if(channels.length && laneShow.chords){
       // Akordy sits right under the waveform strip, above everything else —
       // including the tab lanes, which is why it renders into its own fixed
@@ -20848,16 +20861,6 @@ const Mixer = (() => {
     }
     requestAnimationFrame(updateLaneOverflowHint);
 
-    {
-      const off = !!groupFold.tools;
-      const tag = (n) => { n.dataset.grp = "tools"; n.classList.toggle("grp-off", off); };
-      [...rail.children].slice(toolsR).forEach(tag);
-      [...topLanes.children, ...lanes.children].forEach(tag);
-      el("mixer").classList.toggle("fold-tools", off);
-      const hb = el("nm-tools-band");
-      hb.classList.toggle("folded", off);
-      hb.title = (off ? "Rozbalit" : "Sbalit") + " pomůcky — nástroje pro úpravu, akordy, sekce, údery";
-    }
     if(channels.length) grpBand("stems", "Stopy písně", channels.length + (channels.length === 1 ? " stopa" : channels.length < 5 ? " stopy" : " stop"), "originální stopy z písně: hlasitost, S, M, úpravy");
     const stemsGrp = grpFrom("stems");
 
@@ -23725,11 +23728,6 @@ const Mixer = (() => {
     });
   }).observe(el("nm-scroll"));
 
-  el("nm-tools-band").onclick = () => {
-    groupFold.tools = !groupFold.tools;
-    try{ localStorage.setItem("pick-steems-fold", JSON.stringify(groupFold)); }catch(e){}
-    renderTrackLanes(); renderEditBar();
-  };
   el("zoom-in").onclick = () => { autoFit = false; setZoom(pixelsPerSecond * 1.5); };
   el("zoom-out").onclick = () => { autoFit = false; setZoom(pixelsPerSecond / 1.5); };
   el("zoom-fit").onclick = () => { autoFit = true; zoomToFit(); };

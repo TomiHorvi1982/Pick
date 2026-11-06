@@ -686,14 +686,15 @@ Mix pult Steems má tři pole pod sebou, na jedné časové ose:
    řádek ani panorama už nemá a je od základu hlasitější (`METRO_BOOST`). Údery: čáry, klikání na čárách, práh,
    hlasitost a zvuky; čáry se ukážou v pruhu Údery a dají se tam upravovat. Akordy: kolik jich ukazovat
    (Základní / Pokročilé / Mistr). Akordy a sekce se ukážou nad stopami teprve po zapnutí ikony
-   (`pick-steems-lanes`). Zavřít zůstalo nahoře vedle názvu písně.
+   (`pick-steems-lanes`). Zavřít (jen červený křížek v kolečku) zůstalo nahoře vedle názvu písně.
 
-   Pod vlnou jsou **Pomůcky**: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky…) a zapnuté akordy,
-   sekce a údery.
+   Pruh Pomůcky už není: nástroje pro úpravy (Sbalit, Stopy, Ukazatel, Nůžky, přichytávání, Dílek, stopa
+   k úpravě, Výběr, Zvuk, Zpět, Znovu) jsou ve stejné řadě za ikonami; když se nevejdou, zalomí se pod ně.
+   Všechny ikony v řadě jsou bez koleček, jen samotný symbol. Zapnuté akordy, sekce a údery jsou nad stopami.
 2. **Stopy písně**: originální stopy ze separace (s textem hned pod zpěvem).
 3. **Moje kytara**: tvoje živá kytara a všechno, co k ní patří — otisky, delay, reverb, cvičení.
 
-Pruh s názvem pole (Pomůcky, Stopy písně, Moje kytara) pole klikem sbalí a znovu rozbalí; pamatuje se to
+Pruh s názvem pole (Stopy písně, Moje kytara) pole klikem sbalí a znovu rozbalí; pamatuje se to
 (`pick-steems-fold`). Smyčka se dál kreslí přes stopy písně.
 
 **Hlavní vlna se dá přiblížit**: sevření dvou prstů na trackpadu (nebo Ctrl + kolečko) přiblíží místo pod
