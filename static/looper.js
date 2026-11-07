@@ -141,6 +141,20 @@ const Looper = (() => {
   .lp-sm-row i{font-style:normal;font-size:10px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.07);white-space:nowrap}
   .lp-sm-row i.key.ok{background:rgba(110,231,160,.18);color:#9ff0b0}.lp-sm-row i.key.sh{background:rgba(255,200,90,.16);color:#ffd27a}
   .lp-sm-none{grid-column:1/-1;color:#8a8aa0;font-size:12px;padding:8px}
+  .lp-master{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-radius:16px;
+    background:linear-gradient(90deg,color-mix(in srgb,var(--accent,#8b5cf6) 22%,#0d0d14),#0d0d14 70%);border:1px solid color-mix(in srgb,var(--accent,#8b5cf6) 45%,transparent)}
+  .lp-master .h{font-size:11px;font-weight:900;letter-spacing:.14em;color:#d7c9ff}
+  .lp-ms-v{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#e6e6ef;font-variant-numeric:tabular-nums}
+  .lp-ms-v input{width:70px;background:#0e0e14;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:4px 6px;font-weight:800;font-size:15px}
+  .lp-ms-v select{background:#0e0e14;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:4px 6px;font-weight:700}
+  .lp-ms-lock{font-size:11.5px;color:#a6a6bc}
+  .lp-main .h{cursor:pointer;user-select:none}
+  .lp-main .h:hover{color:#fff}
+  .lp-main .h::before{content:"▾ ";font-size:9px;opacity:.7}
+  .lp-master .h::before{content:""}
+  .lp-folded > *:not(:first-child){display:none!important}
+  .lp-folded .h::before{content:"▸ "}
+  .lp-sc.lp-folded > *:not(.h),.lp-arr.lp-folded > *:not(.h),.lp-skel.lp-folded > *:not(.h){display:none!important}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -910,6 +924,34 @@ const Looper = (() => {
     const [song2, pid] = v.split("|"), p = all.find(x => x.song === song2 && x.id === pid);
     await setTrackSound(t, {print: {song: song2, pid, name: p ? p.name : "otisk"}});
     showToast(`Stopa ${t.i + 1} hraje přes otisk „${p ? p.name : ""}“`);
+  }
+
+  // ---- the master (MASTER): the tempo, the metre and the key everything is fitted to — the song's own to begin
+  // with. The key can be set otherwise: the samples in the tracks are put into it again, the piano dots it.
+  const KEYS = () => [...PC, ...PC.map(n => n + "m")];
+  const FOLDABLE = ["lp-slice", "lp-pads", "lp-plan", "lp-sc", "lp-arr", "lp-skel"];
+  function applyFolds(){ FOLDABLE.forEach(id => { const n = root && root.querySelector("#" + id); if(n) n.classList.toggle("lp-folded", !!(cfg.fold || {})[id]); }); }
+  function paintMaster(){
+    const box = root && root.querySelector("#lp-master"); if(!box) return;
+    const songKey = skel && skel.key ? skel.key : "", lock = hasAudio();
+    box.innerHTML = `<span class="h">MASTER</span>
+      <span class="lp-ms-v" title="Tempo, ke kterému se všechno srovná — z písně; měnit jde, když jsou stopy prázdné">♩ <input type="number" id="lp-ms-bpm" min="40" max="240" step="0.1" value="${cfg.bpm}" ${lock ? "disabled" : ""}> BPM</span>
+      <span class="lp-ms-v" title="Kolik dob má takt">Takt <select id="lp-ms-per" ${lock ? "disabled" : ""}>${[2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${cfg.perBar === n ? "selected" : ""}>${n}/4</option>`).join("")}</select></span>
+      <span class="lp-ms-v" title="Tónina, do které se ladí samply a kterou ukazuje klavír">Tónina <select id="lp-ms-key"><option value="">${songKey ? "z písně (" + esc(songKey) + ")" : "z písně (neznámá)"}</option>${KEYS().map(k => `<option value="${k}" ${cfg.masterKey === k ? "selected" : ""}>${k}</option>`).join("")}</select></span>
+      <span class="lp-ms-v">smyčka 1 takt = ${barLen().toFixed(2).replace(".", ",")} s</span>
+      ${lock ? `<span class="lp-ms-lock" title="Smyčky jsou nahrané v tomhle tempu a taktu">🔒 tempo a takt drží nahrané smyčky</span>` : ""}`;
+    const q = (id) => box.querySelector("#" + id);
+    q("lp-ms-bpm").onchange = (e) => { setBpm(parseFloat(e.target.value)); drumCache = {}; paintMaster(); };
+    q("lp-ms-per").onchange = (e) => { if(hasAudio()) return; cfg.perBar = +e.target.value; keep(); drumCache = {}; paint(); };
+    q("lp-ms-key").onchange = async (e) => {
+      cfg.masterKey = e.target.value; keep();
+      // the samples in the tracks into the new key
+      const again = tracks.filter(t => t.layers[0] && t.layers[0].sample && SM.list);
+      for(const t of again){ const sm = t.layers[0].sample, x = SM.list.find(y => y.dir === sm.dir && y.rel === sm.rel); if(x) await sampleToTrack(x, t.i); }
+      pads.forEach(pd => { if(pd.sample) pd.sample.fit = null; });
+      showToast(`Tónina ${masterKey() || "z písně"}` + (again.length ? ` — ${again.length} ${again.length === 1 ? "sample přeladěn" : "samply přeladěny"}` : ""));
+      paint(); paintPiano(); paintSamples();
+    };
   }
 
   // ---- the piano (Klavír): two octaves on the screen, the computer's keys (A W S E D F T G Y H U J K, octave
@@ -1893,13 +1935,14 @@ const Looper = (() => {
         <button type="button" class="lp-x" id="lp-close" title="Zavřít (smyčky zůstanou, dokud nezavřeš Pick)">${icon("close", 14)}</button>
       </div>
       <div class="lp-main">
+        <div class="lp-master" id="lp-master"></div>
         <div class="lp-slice" id="lp-slice" hidden></div>
         <div class="lp-tracks" id="lp-tracks"></div>
+        <div class="lp-steps" id="lp-steps" hidden></div>
+        <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-pads-bank" id="lp-pads"></div>
         <div class="lp-piano" id="lp-piano" hidden></div>
         <div class="lp-samples" id="lp-samples"></div>
-        <div class="lp-steps" id="lp-steps" hidden></div>
-        <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-skel" id="lp-skel" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-arr" id="lp-arr"></div>
@@ -1979,6 +2022,11 @@ const Looper = (() => {
     });
     paintPedal();
     wirePieceDrop();
+    root.querySelector(".lp-main").addEventListener("click", (e) => {
+      const h = e.target.closest(".h"); if(!h) return;
+      const panel = FOLDABLE.map(id => root.querySelector("#" + id)).find(n => n && n.contains(h)); if(!panel) return;
+      cfg.fold = cfg.fold || {}; cfg.fold[panel.id] = !cfg.fold[panel.id]; keep(); applyFolds();
+    });
   }
   // the sounds a MIDI track can have: the looper's synths, and Pick's instruments when the library is there
   let libGroups = null;
@@ -2045,7 +2093,7 @@ const Looper = (() => {
     { const k = $("lp-skel"); k.hidden = !skel;
       if(skel){
         const here = Mixer.currentSong && Mixer.currentSong() === skel.song, rate = here && ac ? drumsRate() : 1;
-        k.innerHTML = `<b>Kostra z písně</b><span>${esc(skel.song || "")}</span><i>${skel.bpm} BPM</i><i>${skel.perBar}/4</i>${skel.key ? `<i>tónina ${esc(skel.key)}</i>` : ""}<i>${skel.parts} částí</i><i>${skel.bars} taktů</i>${skel.chords ? "" : '<i class="warn">akordy zatím nejsou</i>'}
+        k.innerHTML = `<b class="h">Kostra z písně</b><span>${esc(skel.song || "")}</span><i>${skel.bpm} BPM</i><i>${skel.perBar}/4</i>${skel.key ? `<i>tónina ${esc(skel.key)}</i>` : ""}<i>${skel.parts} částí</i><i>${skel.bars} taktů</i>${skel.chords ? "" : '<i class="warn">akordy zatím nejsou</i>'}
           <span class="lp-sp"></span>
           <span class="lp-drums" title="${here ? "Bicí každé části ze skutečné bicí stopy písně, smyčka na dobách — hrají pod smyčkami a přepínají se s částí na taktu" : "Bicí z písně hrají, jen když je píseň otevřená ve Steems"}">
             <button type="button" class="lp-b ${cfg.drums && here ? "on" : ""}" id="lp-drums" ${here ? "" : "disabled"}>🥁 Bicí z písně</button>
@@ -2071,6 +2119,8 @@ const Looper = (() => {
     paintArr();
     paintPlan();
     paintSlice();
+    paintMaster();
+    applyFolds();
     if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
     if(!root.querySelector("#lp-samples .lp-sm-top")) paintSamples();
     if(piano.open){ const r = root.querySelector("#lp-pn-rec"), t = pianoTrack(); if(r && t) { r.classList.toggle("on", !!t.job); r.textContent = t.job ? "● Nahrávám" : "● Nahrát"; } }

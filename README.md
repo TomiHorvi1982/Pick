@@ -1838,3 +1838,11 @@ podle délky), natáhne se na ně **bez změny výšky** a **přeladí do tónin
 přes paralelní tóninu) **bez změny délky** — Signalsmith Stretch offline, jako mix přelaďuje stopy. Úder jde na
 začátek jednotaktové smyčky. **Na pad**: smyčka se spustí na taktu, úder hned. (`/api/looper/samples…`, konfigurace
 `looper_sample_dirs`.)
+
+### Looper: MASTER a přehled
+
+Nahoře je pruh **MASTER**: tempo, takt (2/4–7/4) a **tónina** — z písně, nebo vlastní. Ke všemu se to srovná:
+kousky písně, bicí z písně, samply (tempo i tónina), klavír ukazuje stupnici. Změna tóniny samply ve stopách
+přeladí znovu. Tempo a takt drží nahrané smyčky (🔒), dokud jsou stopy plné. Panely (Píseň po kouscích, Pady,
+Kostra, Části, Aranžmá, Scénář) se **sbalí klikem na nadpis** a pamatuje se to; pořadí shora: Master → Píseň po
+kouscích → Stopy (a jejich kroky / noty) → Pady a klavír → Samply → Kostra, části, aranžmá, scénář.
