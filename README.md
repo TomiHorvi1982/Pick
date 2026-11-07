@@ -1789,3 +1789,12 @@ a mezihry hrají smyčku hlavní části s nejpodobnějšími akordy a hraje se 
 jen s bicími z písně). **Napovídač** ukazuje velkým písmem, co dělat teď, a co přijde („TEĎ: Sloka 1 — nahraj
 kytaru na stopu 3 — 4 takty: E · E · E · E, pak s ní hraj dál“), pod tím celý scénář. **Nahrávat samo**: při
 přehrávání aranžmá se nahrávání samo spustí na začátku části, kde se má nahrávat. Scénář se ukládá s projektem.
+
+### Looper: píseň po kouscích
+
+Nahoře v Looperu je celá píseň otevřená ve Steems jako vlna, rozsekaná **na takty bicích**: podle částí písně,
+nebo na 4 / 8 / 16 / 32 kousků (řez je vždy na začátku taktu). **✂ Nůžky**: klik do vlny rozstřihne kousek na
+nejbližším taktu, dvojklik na řez ho zruší. U vybraného kousku jdou stopy písně (bicí, basa, kytary, zpěv, klavír,
+ostatní) **ztlumit (M)** nebo dát do **sóla (S)** jen pro ten kousek; **▶ Poslech** ho přehraje dokola. Kousek
+**přetažený na stopu looperu** (nebo „Do stopy 1–5“) se stane její smyčkou: vybrané stopy smíchané, srovnané na
+hlavní tempo (tempo písně) a dlouhé přesně svých N taktů — hraje na taktu jako každá nahrávka.

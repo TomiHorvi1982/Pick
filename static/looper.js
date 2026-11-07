@@ -70,6 +70,26 @@ const Looper = (() => {
   .lp-skel b{color:var(--accent,#8b5cf6);letter-spacing:.02em}.lp-skel span{color:#c9c9da;margin-right:4px}
   .lp-skel i{font-style:normal;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.06);color:#e6e6ef;font-variant-numeric:tabular-nums}
   .lp-skel i.warn{background:rgba(255,190,60,.14);color:#ffcf6e}
+  .lp-slice{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-sl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lp-sl-top .h,.lp-slice .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-sl-top select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-sl-info{margin-left:auto;color:#9a9ab0;font-size:12px;font-variant-numeric:tabular-nums}
+  .lp-sl-wave{border-radius:12px;overflow:hidden;background:#07070c;border:1px solid rgba(255,255,255,.06)}
+  .lp-sl-wave canvas{display:block;width:100%;height:92px;cursor:pointer}
+  .lp-sl-sel{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .lp-sl-sel > span{color:#a6a6bc;font-size:12px}
+  .lp-sl-stems{display:flex;gap:6px;flex-wrap:wrap}
+  .lp-sl-stems .stm{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 8px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:12px}
+  .lp-sl-stems .stm i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .lp-sl-stems .stm.mute{opacity:.45}.lp-sl-stems .stm.solo{border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent)}
+  .lp-sl-stems button{width:22px;height:20px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:none;font-size:10px;font-weight:800;cursor:pointer;padding:0}
+  .lp-sl-stems button.on{background:var(--c);color:#0b0b12;border-color:var(--c)}
+  .lp-sl-to{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#a6a6bc}
+  .lp-sl-to button{width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);cursor:pointer;font-weight:800}
+  .lp-sl-to button:hover{background:var(--accent,#8b5cf6);color:#0b0b12}
+  .lp-sl-drag{cursor:grab;padding:4px 10px;border-radius:999px;border:1px dashed rgba(255,255,255,.25);font-size:12px;color:#c9c9da}
+  .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
   .lp-prompt{display:flex;flex-direction:column;gap:4px}
@@ -656,6 +676,145 @@ const Looper = (() => {
     box.querySelector("#lp-plan-auto").onclick = () => { cfg.autoRec = !cfg.autoRec; keep(); paintPlan(); };
   }
 
+  // ---- the song in pieces (Píseň po kouscích): the whole song open in Steems, its mix as a wave, cut on its
+  // drum downbeats into as many pieces as asked (or its parts); scissors cut a piece in two on the nearest
+  // bar, a double click on a cut takes it away. In each piece the song's own tracks (drums, bass, guitar,
+  // vocals…) are muted or soloed for that piece alone; a piece dragged onto a looper track (or → 1–5) becomes
+  // its loop: the chosen tracks mixed, fitted to the master tempo (the song's own, so normally as it is) and
+  // as long as its bars — it plays on the bar like any recording.
+  const SL = {song: null, stems: [], db: [], cuts: [], st: {}, sel: 0, mode: "parts", scissors: false, peaks: null, prev: null};
+  const STEMC = {drums: "#f6ad55", bass: "#63b3ed", guitar: "#f2c25c", guitar_solo: "#f7d774", guitar_rhythm: "#d9a441", vocals: "#f687b3", piano: "#9f7aea", other: "#68d391"};
+  const stemName = (st) => ({drums: "bicí", bass: "basa", guitar: "kytara", guitar_solo: "kytara sólo", guitar_rhythm: "kytara rytmus", vocals: "zpěv", piano: "klavír", other: "ostatní"}[st] || st);
+  function sliceSong(){
+    const s = Mixer.currentSong && Mixer.currentSong();
+    if(!s){ SL.song = null; return false; }
+    if(SL.song === s && SL.stems.length) return true;
+    let au = [], g = null;
+    try{ au = (Mixer.deck.audio() || []).filter(x => x.buffer && !/^take-|^midi/.test(x.stem)); g = Mixer.deck.grid(); }catch(e){}
+    if(!au.length) return false;
+    SL.song = s; SL.stems = au.map(x => ({stem: x.stem, buf: x.buffer}));
+    const dur = Math.max(...au.map(x => x.buffer.duration));
+    SL.db = (g && g.downbeats && g.downbeats.length > 1) ? g.downbeats.filter(t => t < dur) : Array.from({length: Math.floor(dur / barLen())}, (_, i) => i * barLen());
+    SL.dur = dur; SL.peaks = null; SL.st = {}; SL.sel = 0;
+    cutBy(SL.mode);
+    return true;
+  }
+  // the cuts: at the song's parts, or into n even pieces — always on a downbeat
+  function cutBy(mode){
+    SL.mode = mode;
+    const db = SL.db, near = (t) => db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, db[0]);
+    let cuts = [];
+    if(mode === "parts"){ try{ cuts = (Mixer.sectionsNow() || []).map(x => near(x.start)); }catch(e){} }
+    else { const n = +mode, per = Math.max(1, Math.ceil(db.length / n)); for(let i = 0; i < db.length; i += per) cuts.push(db[i]); }
+    if(!cuts.length) cuts = [db[0] || 0];
+    SL.cuts = [...new Set(cuts)].sort((a, b) => a - b);
+    SL.st = {}; SL.sel = Math.min(SL.sel, SL.cuts.length - 1);
+  }
+  const pieceOf = (i) => { const a = SL.cuts[i], z = i + 1 < SL.cuts.length ? SL.cuts[i + 1] : (SL.db[SL.db.length - 1] + barLen()); return {a, z: Math.min(z, SL.dur), bars: Math.max(1, SL.db.filter(t => t >= a - 0.05 && t < z - 0.05).length)}; };
+  const pieceName = (i) => { let n = ""; try{ const p = pieceOf(i), sec = (Mixer.sectionsNow() || []).find(x => p.a >= x.start - 0.3 && p.a < x.end); n = sec ? sec.name : ""; }catch(e){} return n; };
+  // which of the song's tracks sound in a piece: "on", "mute" or "solo" for each
+  const stemsIn = (i) => SL.st[i] || (SL.st[i] = Object.fromEntries(SL.stems.map(x => [x.stem, "on"])));
+  const heard = (i) => { const m = stemsIn(i), solo = Object.values(m).includes("solo"); return SL.stems.filter(x => solo ? m[x.stem] === "solo" : m[x.stem] !== "mute"); };
+  // a piece as a loop: its tracks mixed, the edges faded, at the master tempo (its bars, so many bars long)
+  function pieceBuf(i){
+    const p = pieceOf(i), list = heard(i);
+    if(!list.length) return null;
+    const sr = list[0].buf.sampleRate, from = Math.round(p.a * sr), n = Math.max(1, Math.round((p.z - p.a) * sr));
+    const want = Math.round(p.bars * barLen() * sr), out2 = ac.createBuffer(2, want, sr), rate = n / want, fade = Math.round(sr * 0.004);
+    for(let c = 0; c < 2; c++){
+      const d = out2.getChannelData(c);
+      list.forEach(x => { const src = x.buf.getChannelData(Math.min(c, x.buf.numberOfChannels - 1));
+        for(let k = 0; k < want; k++){ const f = from + k * rate, j = Math.floor(f), w = f - j; if(j + 1 < src.length) d[k] += src[j] * (1 - w) + src[j + 1] * w; } });
+      for(let k = 0; k < fade; k++){ const f = k / fade; d[k] *= f; d[want - 1 - k] *= f; }
+    }
+    return {buf: out2, bars: p.bars, rate};
+  }
+  function pieceToTrack(i, ti){
+    audio();
+    const t = tracks[ti], pb = pieceBuf(i);
+    if(!t || !pb){ showToast("V kousku nehraje žádná stopa"); return; }
+    if(t.job){ showToast("Do stopy se právě nahrává"); return; }
+    t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
+    t.len = pb.bars * barLen(); t.bars = 0;                  // the piece brings its own length
+    t.anchor = running ? nextBar(now()) : t0;
+    const names = heard(i).map(x => stemName(x.stem));
+    t.name = `${pieceName(i) || "Kousek " + (i + 1)} · ${names.length === SL.stems.length ? "celá píseň" : names.join("+")}`.slice(0, 24);
+    t.layers.push({buf: pb.buf, piece: i}); history.push(t.i);
+    if(running) startLayer(t, t.layers[0], t.anchor);
+    if(scenes[cur]) scenes[cur].on.add(t.i);
+    const inp = root.querySelector(`.lp-t[data-i="${ti}"] .nm input`); if(inp) inp.value = t.name;
+    showToast(`Kousek ${i + 1} → stopa ${ti + 1}: ${pb.bars} ${pb.bars === 1 ? "takt" : pb.bars < 5 ? "takty" : "taktů"}` + (Math.abs(pb.rate - 1) > 0.02 ? ` (srovnáno na tempo o ${Math.round(Math.abs(pb.rate - 1) * 100)} %)` : ""));
+    paint();
+  }
+  function previewPiece(i){
+    audio();
+    if(SL.prev){ try{ SL.prev.stop(); }catch(e){} const was = SL.prev.piece; SL.prev = null; paintSlice(); if(was === i) return; }
+    const pb = pieceBuf(i); if(!pb) return;
+    const s = ac.createBufferSource(); s.buffer = pb.buf; s.loop = true; s.connect(bus); s.start(); s.piece = i; SL.prev = s;
+    paintSlice();
+  }
+  function slicePeaks(W){
+    if(SL.peaks && SL.peaks.W === W) return SL.peaks.p;
+    const p = new Float32Array(W), dur = SL.dur;
+    SL.stems.forEach(x => { const d = x.buf.getChannelData(0), per = d.length / (x.buf.duration / dur) / W;
+      for(let i = 0; i < W; i++){ let m = 0; const a = Math.floor(i * per), z = Math.min(d.length, Math.floor((i + 1) * per)); for(let k = a; k < z; k += 32){ const v = Math.abs(d[k]); if(v > m) m = v; } p[i] += m; } });
+    const top = Math.max(...p) || 1; for(let i = 0; i < W; i++) p[i] /= top;
+    SL.peaks = {W, p}; return p;
+  }
+  const HUES = [265, 200, 150, 35, 330, 95, 15, 180];
+  function paintSlice(){
+    const box = root && root.querySelector("#lp-slice");
+    if(!box) return;
+    if(!sliceSong()){ box.hidden = true; return; }
+    box.hidden = false;
+    const i = Math.min(SL.sel, SL.cuts.length - 1), p = pieceOf(i), m = stemsIn(i);
+    box.innerHTML = `<div class="lp-sl-top"><span class="h">PÍSEŇ PO KOUSCÍCH</span>
+        <select id="lp-sl-n" title="Na kolik kousků rozsekat — vždy na začátku taktu (podle bicích)"><option value="parts" ${SL.mode === "parts" ? "selected" : ""}>podle částí písně</option>${[4, 8, 16, 32].map(n => `<option value="${n}" ${SL.mode == n ? "selected" : ""}>${n} kousků</option>`).join("")}</select>
+        <button type="button" class="lp-b ${SL.scissors ? "on" : ""}" id="lp-sl-cut" title="Nůžky: klik do vlny rozstřihne kousek na nejbližším taktu · dvojklik na řez ho zruší">✂ Nůžky</button>
+        <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · ${cfg.bpm} BPM</span></div>
+      <div class="lp-sl-wave"><canvas id="lp-sl-cv"></canvas></div>
+      <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}</span>
+        <div class="lp-sl-stems">${SL.stems.map(x => `<span class="stm ${m[x.stem]}" style="--c:${STEMC[x.stem] || "#aaa"}"><i></i>${esc(stemName(x.stem))}
+          <button type="button" data-m="${x.stem}" class="${m[x.stem] === "mute" ? "on" : ""}" title="Ztlumit v tomhle kousku">M</button><button type="button" data-s="${x.stem}" class="${m[x.stem] === "solo" ? "on" : ""}" title="Sólo v tomhle kousku">S</button></span>`).join("")}</div>
+        <button type="button" class="lp-b ${SL.prev && SL.prev.piece === i ? "on" : ""}" id="lp-sl-play" title="Poslechnout kousek dokola (s vybranými stopami)">${SL.prev && SL.prev.piece === i ? "■" : "▶"} Poslech</button>
+        <span class="lp-sl-to">Do stopy ${tracks.map(t => `<button type="button" data-to="${t.i}" title="Kousek jako smyčka stopy ${t.i + 1}">${t.i + 1}</button>`).join("")}</span>
+        <span class="lp-sl-drag" draggable="true" title="Přetáhni na stopu looperu">⠿ přetáhni na stopu</span></div>`;
+    const cv = box.querySelector("#lp-sl-cv"), W = cv.clientWidth || 1200, H = 92, dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    const X = (t) => t / SL.dur * W, pk = slicePeaks(Math.round(W));
+    SL.cuts.forEach((a, k) => { const q = pieceOf(k), h = HUES[k % HUES.length];
+      g.fillStyle = `hsla(${h},70%,55%,${k === i ? 0.32 : 0.12})`; g.fillRect(X(q.a), 0, X(q.z) - X(q.a), H);
+      g.fillStyle = `hsl(${h},75%,${k === i ? 72 : 62}%)`;
+      for(let x = Math.floor(X(q.a)); x < X(q.z) && x < pk.length; x++){ const v = pk[x] * (H / 2 - 14); g.fillRect(x, H / 2 + 6 - v, 1, v * 2); }
+      g.fillStyle = "rgba(255,255,255,.85)"; g.font = "600 10px system-ui"; if(X(q.z) - X(q.a) > 22) g.fillText(String(k + 1), X(q.a) + 4, 11); });
+    g.fillStyle = "rgba(255,255,255,.07)"; SL.db.forEach((t, k) => { if(k % 4 === 0) g.fillRect(Math.round(X(t)), 14, 1, H - 14); });
+    g.fillStyle = "#fff"; SL.cuts.forEach(a => g.fillRect(Math.round(X(a)), 0, 2, H));
+    if(SL.prev && SL.prev.piece != null){ /* the piece heard: its frame */ const q = pieceOf(SL.prev.piece); g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(X(q.a) + 1, 1, X(q.z) - X(q.a) - 2, H - 2); }
+    const tAt = (e) => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * SL.dur; };
+    const nearDb = (t) => SL.db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, SL.db[0]);
+    cv.onclick = (e) => {
+      const t = tAt(e);
+      if(SL.scissors){ const c = nearDb(t); if(!SL.cuts.includes(c)){ SL.cuts.push(c); SL.cuts.sort((a, b) => a - b); SL.st = {}; } SL.sel = SL.cuts.filter(x => x <= c).length - 1; paintSlice(); return; }
+      SL.sel = Math.max(0, SL.cuts.filter(x => x <= t + 0.01).length - 1); paintSlice();
+    };
+    cv.ondblclick = (e) => { const t = tAt(e), px = SL.dur / W * 6, c = SL.cuts.find((x, k) => k > 0 && Math.abs(x - t) < px); if(c != null){ SL.cuts = SL.cuts.filter(x => x !== c); SL.st = {}; paintSlice(); } };
+    box.querySelector("#lp-sl-n").onchange = (e) => { cutBy(e.target.value); paintSlice(); };
+    box.querySelector("#lp-sl-cut").onclick = () => { SL.scissors = !SL.scissors; paintSlice(); };
+    box.querySelector("#lp-sl-play").onclick = () => previewPiece(i);
+    box.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.m] = st[b.dataset.m] === "mute" ? "on" : "mute"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
+    box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.s] = st[b.dataset.s] === "solo" ? "on" : "solo"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
+    box.querySelectorAll("[data-to]").forEach(b => b.onclick = () => pieceToTrack(i, +b.dataset.to));
+    box.querySelector(".lp-sl-drag").ondragstart = (e) => { e.dataTransfer.setData("text/pick-piece", String(i)); e.dataTransfer.effectAllowed = "copy"; };
+  }
+  // the looper's tracks take a piece dropped on them
+  function wirePieceDrop(){
+    root.querySelectorAll(".lp-t").forEach(n => {
+      n.addEventListener("dragover", (e) => { if([...e.dataTransfer.types].includes("text/pick-piece")){ e.preventDefault(); n.classList.add("drop"); } });
+      n.addEventListener("dragleave", () => n.classList.remove("drop"));
+      n.addEventListener("drop", (e) => { const v = e.dataTransfer.getData("text/pick-piece"); n.classList.remove("drop"); if(v !== ""){ e.preventDefault(); pieceToTrack(+v, +n.dataset.i); } });
+    });
+  }
+
   // ---- the rhythm from the song: each part's own drums, a loop of 1, 2 or 4 bars cut on the downbeats of
   // the song's drum stem (from the part's second bar — its first often carries the fill into it), the
   // edges faded a few ms so it does not click, played under the loops and switched with the part on the
@@ -1224,6 +1383,7 @@ const Looper = (() => {
         <button type="button" class="lp-x" id="lp-close" title="Zavřít (smyčky zůstanou, dokud nezavřeš Pick)">${icon("close", 14)}</button>
       </div>
       <div class="lp-main">
+        <div class="lp-slice" id="lp-slice" hidden></div>
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
@@ -1296,6 +1456,7 @@ const Looper = (() => {
       n.querySelector('[data-k="clear"]').onclick = async () => { if(!t.layers.length || await Dialog.confirm(`Smazat stopu „${t.name}“ (${t.layers.length} vrstev)?`, {ok: "Smazat", danger: true})) clear(t.i); };
     });
     paintPedal();
+    wirePieceDrop();
   }
   // the sounds a MIDI track can have: the looper's synths, and Pick's instruments when the library is there
   let libGroups = null;
@@ -1385,6 +1546,7 @@ const Looper = (() => {
     $("lp-prep").onclick = prepFromSong; $("lp-prep").disabled = hasAudio();
     paintArr();
     paintPlan();
+    paintSlice();
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
   }
