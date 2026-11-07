@@ -120,6 +120,10 @@ const Looper = (() => {
   .lp-pn-kb i{position:absolute;left:50%;transform:translateX(-50%);bottom:22px;width:6px;height:6px;border-radius:50%;background:var(--accent,#8b5cf6)}
   .lp-pn-kb .b i{bottom:8px}
   .lp-pn-kb .w.down{background:linear-gradient(#cbbcff,#a996ff)}.lp-pn-kb .b.down{background:linear-gradient(#6d5bd0,#4b3aa8)}
+  .lp-t .row.fxr{display:flex;gap:6px;width:100%;justify-content:center;flex-wrap:wrap}
+  .lp-t .row.fxr select,.lp-t .row.fxr button{max-width:100%;font-size:11.5px}
+  .lp-t .row.fxr button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .lp-t .row.fxr button.on{border-color:var(--accent,#8b5cf6);color:#d7c9ff}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -213,7 +217,7 @@ const Looper = (() => {
     ac = o.ac; out = o.out;
     bus = ac.createGain(); bus.gain.value = cfg.vol; bus.connect(out);
     clickBus = ac.createGain(); clickBus.gain.value = cfg.clickVol; clickBus.connect(out);
-    tracks.forEach(t => { t.gain = ac.createGain(); t.gain.connect(bus); });
+    tracks.forEach(t => { t.gain = ac.createGain(); t.gain.connect(bus); t.fxIn = ac.createGain(); t.fxIn.connect(t.gain); });
     monitor = ac.createGain(); monitor.gain.value = 0.9; monitor.connect(bus);
   }
   // the next bar line from t (a hair late counts as on it)
@@ -258,6 +262,30 @@ const Looper = (() => {
       this.node = this.stream = this.mon = null; this.batches = [];
     }},
   };
+  // the guitar clean (DI, before Pick's amp): recorded as it is, and heard through the track's print when it plays
+  srcs.gtrdi = {name: "Kytara čistě (DI)", batches: [], on: false, node: null, tap: null, unhook: null, async start(){
+    if(this.on) return true;
+    const G = Mixer.guitar;
+    if(!G.isLive()) await Mixer.voice.myGuitar(true);
+    if(!G.isLive()){ showToast("Kytara není zapnutá — připoj zvukovku a zapni vstup kytary ve Steems"); return false; }
+    let node;
+    try{ node = new AudioWorkletNode(ac, "take-recorder", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1]}); }
+    catch(e){ await ac.audioWorklet.addModule("/static/worklets/guitar.js"); node = new AudioWorkletNode(ac, "take-recorder", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1]}); }
+    const sink = ac.createGain(); sink.gain.value = 0; node.connect(sink); sink.connect(out);
+    const hook = () => { try{ if(this.tap) this.tap.disconnect(node); }catch(e){} this.tap = G.cleanTap(); if(this.tap) this.tap.connect(node); };
+    hook(); this.unhook = G.onRewire(hook);
+    this.batches = [];
+    node.port.onmessage = (e) => { if(e.data && e.data.data) this.batches.push(e.data); };
+    node.port.postMessage("start");
+    this.node = node; this.sink = sink; this.on = true;
+    return true;
+  }, async stop(){
+    if(!this.on) return;
+    this.on = false;
+    try{ this.node.port.postMessage("stop"); if(this.tap) this.tap.disconnect(this.node); this.node.disconnect(); this.sink.disconnect(); }catch(e){}
+    if(this.unhook) this.unhook();
+    this.node = this.tap = this.sink = this.unhook = null; this.batches = [];
+  }};
   srcs.midi = {name: "MIDI", batches: [], on: true, async start(){ return midiConnect(); }, async stop(){}};
   srcs.drums = {name: "Bicí", batches: [], on: true, async start(){ midiConnect(); return true; }, async stop(){}};
   // The samples between two moments of music, the latency taken off: what was played then.
@@ -282,7 +310,7 @@ const Looper = (() => {
     if(!running) return;
     const s = ac.createBufferSource();
     s.buffer = layer.buf; s.loop = true;
-    s.connect(t.gain);
+    s.connect(t.fxIn || t.gain);
     const off = (((when - t.anchor) % t.len) + t.len) % t.len;
     s.start(when, off);
     layer.src = s;
@@ -779,6 +807,94 @@ const Looper = (() => {
     return out2;
   }
 
+  // ---- a track's sound after its loop: a tone print (a clean guitar played through it), and an effect —
+  // for the voice (room, hall, delay, radio, doubling) or a space for anything. Built in the looper's own
+  // audio context, put between the loop and the track's level; heard when the loop plays, nothing recorded
+  // is changed — another print or effect can be tried after.
+  const FX = {
+    none: {name: "Bez efektu"},
+    voice: {name: "Zpěv — čistý (komprese, jas)", voice: true},
+    room: {name: "Místnost", voice: true, verb: [0.7, 0.18]},
+    hall: {name: "Sál", voice: true, verb: [2.4, 0.28]},
+    delay: {name: "Delay 1/4 + sál", voice: true, verb: [1.8, 0.18], delay: [1, 0.32, 0.25]},
+    slap: {name: "Slapback (rock'n'roll)", voice: true, delay: [0, 0.12, 0.3]},
+    double: {name: "Zdvojení (dva hlasy)", voice: true, double: true},
+    radio: {name: "Rádio / megafon", radio: true},
+    gspace: {name: "Kytara — prostor", verb: [1.6, 0.2]},
+    gdelay: {name: "Kytara — delay 1/8.", delay: [0.75, 0.3, 0.28], verb: [1.2, 0.12]},
+  };
+  function roomIR(sec){
+    const sr = ac.sampleRate, n = Math.round(sr * sec), b = ac.createBuffer(2, n, sr);
+    for(let c = 0; c < 2; c++){ const d = b.getChannelData(c); let s2 = 77 + c * 999; for(let i = 0; i < n; i++){ s2 = (s2 * 16807) % 2147483647; d[i] = (s2 / 1073741823.5 - 1) * Math.pow(1 - i / n, 2.6); } }
+    return b;
+  }
+  function buildFx(id){
+    const F = FX[id]; if(!F || id === "none") return null;
+    const g = (v = 1) => { const n = ac.createGain(); n.gain.value = v; return n; };
+    const input = g(), outN = g(), nodes = [input, outN];
+    let n = input;
+    if(F.voice){
+      const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 90;
+      const cmp = ac.createDynamicsCompressor(); cmp.threshold.value = -22; cmp.ratio.value = 3.2; cmp.attack.value = 0.006; cmp.release.value = 0.15;
+      const air = ac.createBiquadFilter(); air.type = "peaking"; air.frequency.value = 3200; air.gain.value = 3; air.Q.value = 0.8;
+      const mk = g(1.4); n.connect(hp); hp.connect(cmp); cmp.connect(air); air.connect(mk); n = mk; nodes.push(hp, cmp, air, mk);
+    }
+    if(F.radio){
+      const lo = ac.createBiquadFilter(); lo.type = "highpass"; lo.frequency.value = 450; const hi = ac.createBiquadFilter(); hi.type = "lowpass"; hi.frequency.value = 2800;
+      const sh = ac.createWaveShaper(), cv = new Float32Array(256); for(let i = 0; i < 256; i++){ const x = i / 127.5 - 1; cv[i] = Math.tanh(3 * x); } sh.curve = cv;
+      n.connect(lo); lo.connect(hi); hi.connect(sh); n = sh; nodes.push(lo, hi, sh);
+    }
+    n.connect(outN);
+    if(F.double){ const d = ac.createDelay(0.1); d.delayTime.value = 0.024; const p = ac.createStereoPanner(); p.pan.value = 0.6; const v = g(0.7); n.connect(d); d.connect(v); v.connect(p); p.connect(outN); nodes.push(d, p, v); }
+    if(F.delay){
+      const [beats, fb, mix] = F.delay, d = ac.createDelay(3); d.delayTime.value = beats ? beats * beatLen() : 0.11;
+      const f = g(fb), w = g(mix), lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3500;
+      n.connect(d); d.connect(lp); lp.connect(f); f.connect(d); lp.connect(w); w.connect(outN); nodes.push(d, f, w, lp);
+    }
+    if(F.verb){
+      const [sec, mix] = F.verb, cv2 = ac.createConvolver(); cv2.buffer = roomIR(sec); const w = g(mix);
+      n.connect(cv2); cv2.connect(w); w.connect(outN); nodes.push(cv2, w);
+    }
+    return {input, out: outN, nodes};
+  }
+  // the track's chain: its print (if any), then its effect; rewired whenever one of them changes
+  async function setTrackSound(t, patch){
+    audio();
+    Object.assign(t, patch);
+    const old = t.chain || [];
+    old.forEach(c => (c.nodes || []).forEach(x => { try{ x.disconnect(); }catch(e){} }));
+    if(t.printChain && t.printChain.core && patch.print !== undefined){ try{ t.printChain.core.unloadModel(); }catch(e){} }
+    try{ t.fxIn.disconnect(); }catch(e){}
+    const chain = [];
+    if(t.print && t.print.pid){
+      if(patch.print !== undefined || !t.printChain){
+        try{ const c = await Tone.buildChain(t.print.song, t.print.pid); t.printChain = c; }
+        catch(e){ t.printChain = null; showToast("Otisk se nepodařilo načíst: " + e.message); }
+      }
+      if(t.printChain) chain.push({input: t.printChain.input, out: t.printChain.out, nodes: []});
+    } else t.printChain = null;
+    const fx = buildFx(t.fx || "none"); if(fx) chain.push(fx);
+    let n = t.fxIn;
+    chain.forEach(c => { n.connect(c.input); n = c.out; });
+    n.connect(t.gain);
+    t.chain = chain;
+    paint();
+  }
+  // the prints there are: the song's own first, its confirmed one marked; any other by a search
+  let printList = null;
+  async function prints(){ if(!printList){ try{ printList = await (await fetch("/api/tone/prints")).json(); }catch(e){ printList = []; } } return printList; }
+  async function pickPrint(t){
+    const all = await prints(), songOf = skel && skel.song;
+    const v = await Dialog.pick({title: `Otisk pro stopu ${t.i + 1}`, placeholder: "Hledat otisk — název, kapela, píseň, kategorie…", empty: "Nic takového.",
+      search: async (q) => all.filter(p => !q || [p.name, p.artist, p.title, p.category, p.core].join(" ").toLowerCase().includes(q.toLowerCase()))
+        .sort((a, b) => (b.song === songOf) - (a.song === songOf))
+        .slice(0, 80).map(p => ({label: p.name || "otisk", sub: [p.artist || p.title, p.category, p.song === songOf ? "z téhle písně" : ""].filter(Boolean).join(" · "), value: p.song + "|" + p.id}))});
+    if(!v) return;
+    const [song2, pid] = v.split("|"), p = all.find(x => x.song === song2 && x.id === pid);
+    await setTrackSound(t, {print: {song: song2, pid, name: p ? p.name : "otisk"}});
+    showToast(`Stopa ${t.i + 1} hraje přes otisk „${p ? p.name : ""}“`);
+  }
+
   // ---- the piano (Klavír): two octaves on the screen, the computer's keys (A W S E D F T G Y H U J K, octave
   // with − and =) and a MIDI keyboard play the chosen MIDI track's instrument; ● Nahrát records what is played
   // into its loop (from the next bar, its notes put in time by the track's quantize). The song's key is dotted
@@ -1170,7 +1286,7 @@ const Looper = (() => {
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
       arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: pads.map(pd => pd.piece ? {piece: pd.piece} : null),
-      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len,
+      tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len, fx: t.fx || "none", print: t.print || null,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
   async function save(asName){
@@ -1227,6 +1343,7 @@ const Looper = (() => {
     for(const [i, T] of (P.tracks || []).slice(0, N).entries()){
       const t = tracks[i];
       Object.assign(t, {name: T.name || t.name, src: T.src || t.src, instr: T.instr || t.instr, q: T.q ?? t.q, vol: T.vol ?? t.vol, bars: T.bars || 0, len: T.len || 0, anchor: 0});
+      if(T.fx || T.print) await setTrackSound(t, {fx: T.fx || "none", print: T.print || null});
       for(const L of T.layers || []){
         try{
           let layer;
@@ -1678,9 +1795,11 @@ const Looper = (() => {
           <svg viewBox="0 0 130 130"><circle class="rg" cx="65" cy="65" r="59"/><circle class="pr" cx="65" cy="65" r="59" stroke-dasharray="0 ${ring}"/></svg>
           <span class="core">${t.i + 1}</span><span class="lbl"></span></button>
         <div class="meta"></div>
-        <div class="row"><select data-k="src" title="Odkud se nahrává"><option value="gtr">Kytara (zesilovač Picku)</option><option value="mic">Mikrofon</option>
+        <div class="row"><select data-k="src" title="Odkud se nahrává"><option value="gtr">Kytara (zesilovač Picku)</option><option value="gtrdi">Kytara čistě (DI) + otisk</option><option value="mic">Mikrofon</option>
             <option value="midi">MIDI nástroj (klávesy)</option><option value="drums">Bicí (pady, kroky)</option></select>
           <select data-k="bars" title="Délka první smyčky: auto = do druhého stisku">${BARS.map(b => `<option value="${b}">${b ? b + (b === 1 ? " takt" : b < 5 ? " takty" : " taktů") : "auto"}</option>`).join("")}</select></div>
+        <div class="row fxr"><button type="button" data-k="print" title="Otisk, přes který čistá kytara této stopy hraje (jde vyměnit i po nahrání)">Otisk…</button>
+          <select data-k="fx" title="Efekt stopy — hraje se přes něj, nahrávka zůstává čistá">${Object.entries(FX).map(([k, f]) => `<option value="${k}">${esc(f.name)}</option>`).join("")}</select></div>
         <div class="row mi"><select data-k="instr" title="Zvuk MIDI stopy"></select>
           <select data-k="q" title="Zarovnání not do rytmu (kvantizace) — jde změnit i po nahrání"><option value="0">volně</option><option value="8">na 1/8</option><option value="16">na 1/16</option></select>
           <button type="button" data-k="steps" title="Krokový sekvencer a pady bicích">Kroky</button>
@@ -1694,9 +1813,16 @@ const Looper = (() => {
       n.querySelector(".nm input").onchange = (e) => { t.name = e.target.value.trim() || `Stopa ${t.i + 1}`; };
       n.querySelector('[data-k="src"]').onchange = (e) => {
         if(t.layers.length && isNotes(t) !== (e.target.value === "midi" || e.target.value === "drums")){ showToast("Stopa už má nahrávku — nejdřív ji smaž"); e.target.value = t.src; return; }
-        t.src = e.target.value; if(isNotes(t)) midiConnect(); if(t.src !== "drums" && stepT === t){ stepT = null; paintSteps(); }
+        t.src = e.target.value; if(isNotes(t)) midiConnect();
+        if(t.src === "gtrdi" && !t.print && skel && skel.song) (async () => { const all = await prints(); let pr = null;
+          try{ const d = await (await fetch("/api/stamps/songs")).json(); const row = (d.songs || []).find(r => r.name === skel.song); if(row && row.print) pr = all.find(x => x.song === row.print.song && x.id === row.print.pid); }catch(e){}
+          pr = pr || all.filter(x => x.song === skel.song).sort((a, b) => (b.created || 0) - (a.created || 0))[0];
+          if(pr){ await setTrackSound(t, {print: {song: pr.song, pid: pr.id, name: pr.name}}); showToast(`Stopa ${t.i + 1}: čistá kytara přes otisk „${pr.name}“`); } })();
+        if(t.src === "mic" && !t.fx) setTrackSound(t, {fx: "room"}); if(t.src !== "drums" && stepT === t){ stepT = null; paintSteps(); }
         if(t.src !== "midi" && noteT === t){ noteT = null; paintNotes(); } paint(); };
       n.querySelector('[data-k="instr"]').onchange = (e) => { t.instr = e.target.value; rerenderAll(t); };
+      n.querySelector('[data-k="fx"]').onchange = (e) => setTrackSound(t, {fx: e.target.value});
+      n.querySelector('[data-k="print"]').onclick = () => pickPrint(t);
       n.querySelector('[data-k="q"]').onchange = (e) => { t.q = +e.target.value; rerenderAll(t); };
       n.querySelector('[data-k="steps"]').onclick = () => openSteps(t);
       n.querySelector('[data-k="notes"]').onclick = () => openNotes(t);
@@ -1754,6 +1880,8 @@ const Looper = (() => {
       n.dataset.s = s; n.classList.toggle("sel", t.i === sel);
       n.querySelector(".lbl").textContent = STATE_TXT[s];
       n.querySelector('[data-k="src"]').value = t.src; n.querySelector('[data-k="bars"]').value = t.bars;
+      { const pb = n.querySelector('[data-k="print"]'); pb.hidden = t.src !== "gtrdi"; pb.textContent = t.print ? "Otisk: " + t.print.name : "Otisk…"; pb.classList.toggle("on", !!t.print);
+        const fs = n.querySelector('[data-k="fx"]'); if(document.activeElement !== fs) fs.value = t.fx || "none"; n.querySelector(".row.fxr").hidden = isNotes(t) && t.src === "drums"; }
       const mi = n.querySelector(".row.mi"), is = n.querySelector('[data-k="instr"]');
       mi.hidden = !isNotes(t);
       is.hidden = t.src !== "midi"; n.querySelector('[data-k="steps"]').hidden = t.src !== "drums";

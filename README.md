@@ -1819,3 +1819,12 @@ a přehraje; další ťuknutí ho zastaví, pravé tlačítko pad vrátí na bic
 **A W S E D F T G Y H U J K** (oktáva **−** / **=**; otevřený má přednost před pady) i MIDI klávesami do zvolené
 MIDI stopy a jejím zvukem (syntezátory i celá knihovna nástrojů). **● Nahrát** nahraje, co zahraješ, do smyčky
 stopy od dalšího taktu; noty se zarovnají podle kvantizace stopy. Tóny tóniny písně mají na klávesách tečku.
+
+### Looper: kytara přes otisk a efekty stop
+
+Zdroj stopy **Kytara čistě (DI) + otisk** nahraje čistý signál kytary (před zesilovačem Picku) a přehrává ho přes
+**otisk** — sám vezme otisk potvrzený pro píseň (jinak její nejnovější), tlačítko **Otisk…** vybere jiný (hledání
+v celé knihovně). Každá stopa má **efekt**: pro zpěv Zpěv — čistý (komprese, jas), Místnost, Sál, Delay 1/4 + sál,
+Slapback, Zdvojení, Rádio; pro kytaru Prostor a Delay 1/8. (mikrofon dostane Místnost sám). Otisk i efekt se jen
+přehrávají — nahrávka zůstává čistá a jde vyzkoušet jiný; ukládají se s projektem. Nahrávky jsou v tempu samy:
+začínají i končí na taktu hlavních hodin, takže smyčka má přesně svých N taktů.
