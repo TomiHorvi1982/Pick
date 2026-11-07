@@ -1863,3 +1863,11 @@ může být otevřeno víc, aniž by prohlížeči došla paměť.
 **Skladba z kousků** — pod vlnou: přetáhni kousky z různých písní (nebo ＋ Do skladby), přesouvej je tažením, klik =
 poslech. Navážou na sebe na taktu; ▶ Přehrát, Do stopy (jedna dlouhá smyčka), Uložit WAV. Skladba i otevřené písně
 se ukládají s projektem.
+
+### Looper: boční panel se samply
+
+Tlačítko **Samply** v liště Looperu otevře panel vpravo: namapované složky jako strom (složky i podsložky se
+sbalují, „sbalit vše“), hledání, filtr smyčky / údery. **Klik** sampl hned přehraje (bez čekání na načtení — streamuje
+se), **↑ ↓** prochází a přehrává další, **dvojklik** ho dá na nový pad, **tažením** jde na stopu nebo pad. Seznam si
+Pick pamatuje — složku se stovkami samplů (i na kartě) projde jen při namapování a na **↻**, takže se panel otevře hned.
+Formáty, které prohlížeč neumí (AIFF, CAF, WMA…), se při prvním poslechu jednou převedou.

@@ -43,6 +43,9 @@ def _own_config(tmp_path, monkeypatch):
     (mapped folders, ToneRig, …) must neither leak in nor be written to."""
     monkeypatch.setattr(server, "CONFIG_PATH", tmp_path / "config.json")
     monkeypatch.setattr(server, "SAVES_QUEUE_FILE", tmp_path / "saves-queue.json")
+    monkeypatch.setattr(server, "SAMPLE_INDEX", tmp_path / "looper-samples-index.json")    # the looper's kept list of samples
+    monkeypatch.setattr(server, "LOOPER_SOUNDS_DIR", tmp_path / "looper-sounds")
+    monkeypatch.setattr(server, "LOOPER_ENV_DIR", tmp_path / "looper-env")
     # …and the jobs planned for the night, and the player's notes.
     import planner, notes
     monkeypatch.setattr(planner, "FILE", tmp_path / "plan.json")

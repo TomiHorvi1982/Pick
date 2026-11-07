@@ -98,3 +98,19 @@ def test_a_song_is_offered_with_its_tempo_and_tuning_and_cut_into_pieces(client,
     n = (len(r.content) - 44) / 8                                   # 32-bit float, stereo
     assert abs(n / 44100 - 2) < 0.05
     assert client.get("/api/looper/piece", params={"name": "../x", "a": 0, "z": 1, "stems": "drums"}).status_code == 404
+
+
+def test_the_sample_folders_are_walked_once_and_again_only_when_asked(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "TRANSCODE_CACHE_DIR", tmp_path / "transcode")
+    d = tmp_path / "Samply" / "Bicí"
+    d.mkdir(parents=True)
+    _tone(d / "Kick 120bpm.wav", 0.2)
+    assert client.post("/api/looper/samples/dirs", json={"path": str(tmp_path / "Samply")}).json()["added"]
+    got = client.get("/api/looper/samples").json()
+    assert [x["name"] for x in got["samples"]] == ["Kick 120bpm"] and got["samples"][0]["bpm"] == 120 and got["dirs"][0]["count"] == 1
+    _tone(d / "Snare.aiff", 0.2)
+    assert len(client.get("/api/looper/samples").json()["samples"]) == 1          # the kept list: opens at once
+    names = sorted(x["name"] for x in client.get("/api/looper/samples?refresh=1").json()["samples"])
+    assert names == ["Kick 120bpm", "Snare"]
+    f = client.get("/api/looper/samples/file", params={"dir": 0, "rel": "Bicí/Snare.aiff"})
+    assert f.status_code == 200 and f.content[:4] == b"fLaC"                      # AIFF converted for the browser

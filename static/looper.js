@@ -35,7 +35,11 @@ const Looper = (() => {
   .lp-pos small{display:block;font-size:10px;font-weight:600;color:#9a9ab0;letter-spacing:.08em}
   .lp-beats{display:flex;gap:4px}.lp-beats i{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.12)}
   .lp-beats i.on{background:var(--accent,#8b5cf6)}.lp-beats i.on.one{background:#ff5c5c}
-  .lp-main{flex:1;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:16px}
+  .lp-body{flex:1;min-height:0;display:flex;position:relative}
+  .lp-main{flex:1;min-width:0;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:16px}
+  .lp-side{display:none;width:340px;flex:none;flex-direction:column;gap:8px;padding:12px;min-height:0;border-left:1px solid rgba(255,255,255,.08);background:rgba(12,12,19,.92)}
+  .lp-side-on .lp-side{display:flex}
+  @media (max-width:980px){.lp-side{position:absolute;right:0;top:0;bottom:0;z-index:5;box-shadow:-20px 0 40px rgba(0,0,0,.5)}}
   .lp-tracks{display:grid;grid-template-columns:repeat(${N},minmax(150px,1fr));gap:12px}
   .lp-t{position:relative;border-radius:18px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;
     background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1px solid rgba(255,255,255,.08)}
@@ -163,7 +167,7 @@ const Looper = (() => {
   .lp-t .row.fxr select,.lp-t .row.fxr button{max-width:100%;font-size:11.5px}
   .lp-t .row.fxr button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
   .lp-t .row.fxr button.on{border-color:var(--accent,#8b5cf6);color:#d7c9ff}
-  .lp-samples{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+
   .lp-sm-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-sm-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
   .lp-sm-fold{background:none;border:0;color:#9a9ab0;cursor:pointer;font-size:12px;padding:0 2px}
   .lp-sm-top input[type=search]{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 9px;min-width:180px}
@@ -171,11 +175,25 @@ const Looper = (() => {
   .lp-sm-dir.gone{opacity:.5;text-decoration:line-through}.lp-sm-dir button{background:none;border:0;color:#9a9ab0;cursor:pointer}
   .lp-seg{display:inline-flex;border:1px solid rgba(255,255,255,.12);border-radius:999px;overflow:hidden}
   .lp-seg button{background:none;border:0;padding:4px 10px;font-size:11.5px;cursor:pointer;color:#c9c9da}.lp-seg button.on{background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:700}
-  .lp-sm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px;max-height:260px;overflow-y:auto}
-  .lp-sm-row{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);cursor:grab;min-width:0}
-  .lp-sm-row:hover{border-color:var(--accent,#8b5cf6)}
+  .lp-sm-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px}
+  .lp-side > input[type=search]{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px 10px;width:100%;box-sizing:border-box}
+  .lp-sm-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-sm-tools input[type=range]{width:70px}
+  .lp-sm-all{background:none;border:0;color:#9a9ab0;font-size:11px;cursor:pointer;margin-left:auto}.lp-sm-all:hover{color:#fff}
+  .lp-sm-dirh{display:flex;align-items:center;gap:6px;padding:7px 6px 5px;margin-top:4px;cursor:pointer;font-size:12px;border-bottom:1px solid rgba(255,255,255,.08);user-select:none}
+  .lp-sm-dirh span{width:10px;color:#9a9ab0;font-size:10px}.lp-sm-dirh b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lp-sm-dirh small,.lp-sm-fold-h small{color:#8a8aa0;font-size:10.5px;margin-left:auto}
+  .lp-sm-dirh button{background:none;border:0;color:#8a8aa0;cursor:pointer;font-size:11px}.lp-sm-dirh button:hover{color:#fff}
+  .lp-sm-dirh.gone b{text-decoration:line-through;opacity:.6}
+  .lp-sm-fold-h{display:flex;align-items:center;gap:6px;padding:4px 6px 4px calc(10px + var(--d) * 12px);cursor:pointer;font-size:11.5px;color:#c8c8d8;user-select:none}
+  .lp-sm-fold-h span{width:10px;color:#9a9ab0;font-size:9px}.lp-sm-fold-h:hover,.lp-sm-dirh:hover{color:#fff}
+  .lp-sm-foot{color:#8a8aa0;font-size:10.5px}
+  .lp-sm-row{position:relative;overflow:hidden;display:flex;align-items:center;gap:7px;padding:4px 6px 4px 18px;border-radius:8px;border:1px solid transparent;cursor:grab;min-width:0;flex:none}
+  .lp-sm-row.sel{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+  .lp-sm-row.on{background:rgba(139,92,246,.18);border-color:var(--accent,#8b5cf6)}
+  .lp-sm-row .bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--accent,#8b5cf6);pointer-events:none}
+  .lp-sm-row:hover{background:rgba(255,255,255,.05)}
   .lp-sm-row b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}.lp-sm-row small{font-size:10.5px;color:#8a8aa0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .lp-sm-row .pv{width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;cursor:pointer;font-size:10px;flex:none}
+  .lp-sm-row .pv{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;cursor:pointer;font-size:10px;flex:none}
   .lp-sm-row .pv.on{background:var(--accent,#8b5cf6);color:#0b0b12}
   .lp-sm-row i{font-style:normal;font-size:10px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.07);white-space:nowrap}
   .lp-sm-row i.key.ok{background:rgba(110,231,160,.18);color:#9ff0b0}.lp-sm-row i.key.sh{background:rgba(255,200,90,.16);color:#ffd27a}
@@ -1205,41 +1223,112 @@ const Looper = (() => {
       + (f.semis ? ` · přeladěno ${f.semis > 0 ? "+" : ""}${f.semis} do ${masterKey()}` : ""));
     paint();
   }
-  async function loadSamples(){
-    try{ const d = await (await fetch("/api/looper/samples")).json(); SM.list = d.samples || []; SM.dirs = d.dirs || []; }catch(e){ SM.list = []; }
+  // ---- the samples' side panel: the mapped folders as a tree (folded as they were left), a search, loops /
+  // hits; a click plays a sound at once (streamed, nothing decoded first), ↑ ↓ go through them playing each,
+  // a double click puts it on a new pad, and any of them is dragged onto a track or a pad. The list is the
+  // server's kept index — ↻ walks the folders again.
+  async function loadSamples(refresh){
+    SM.busy = true; if(refresh) paintSamples();
+    try{ const d = await (await fetch("/api/looper/samples" + (refresh ? "?refresh=1" : ""))).json(); SM.list = d.samples || []; SM.dirs = d.dirs || []; }catch(e){ SM.list = SM.list || []; }
+    SM.busy = false;
+    if(SM.list.length && cfg.side == null){ cfg.side = true; keep(); applySide(); }
     paintSamples();
   }
+  const sampleUrl = (x) => x.sound ? `/api/looper/sounds/${x.sound}` : `/api/looper/samples/file?dir=${x.dir}&rel=${encodeURIComponent(x.rel)}`;
+  let smEl = null, smNode = null;
+  function smPlay(i){
+    audio();
+    const x = SM.list[i]; if(!x) return;
+    if(!smEl){ smEl = new Audio(); smEl.preload = "auto"; smNode = ac.createMediaElementSource(smEl); const g = ac.createGain(); smNode.connect(g); g.connect(bus); SM.gain = g;
+      smEl.onended = () => { SM.prev = null; markPlaying(); }; smEl.onerror = () => { if(SM.prev != null){ showToast("Tenhle zvuk se nepodařilo přehrát"); SM.prev = null; markPlaying(); } }; }
+    SM.gain.gain.value = cfg.smVol ?? 0.8;
+    if(SM.prev === i && !smEl.paused){ smEl.pause(); SM.prev = null; markPlaying(); return; }
+    if(ac.state === "suspended") ac.resume();
+    smEl.src = sampleUrl(x); smEl.currentTime = 0; smEl.play().catch(() => {});
+    SM.prev = i; markPlaying();
+  }
+  function smStop(){ if(smEl && !smEl.paused) smEl.pause(); SM.prev = null; markPlaying(); }
+  function markPlaying(){
+    const box = root && root.querySelector("#lp-samples"); if(!box) return;
+    box.querySelectorAll(".lp-sm-row").forEach(r => { const i = +r.dataset.i; r.classList.toggle("on", SM.prev === i); r.classList.toggle("sel", SM.sel === i);
+      const b = r.querySelector(".pv"); if(b) b.textContent = SM.prev === i ? "■" : "▶"; });
+    cancelAnimationFrame(SM.raf);
+    const tick = () => { const r = box.querySelector(".lp-sm-row.on .bar"); if(!r || !smEl || smEl.paused){ return; }
+      r.style.width = (smEl.duration ? smEl.currentTime / smEl.duration * 100 : 0) + "%"; SM.raf = requestAnimationFrame(tick); };
+    if(SM.prev != null) SM.raf = requestAnimationFrame(tick);
+  }
+  function smMove(d){
+    const vis = SM.vis || []; if(!vis.length) return;
+    let k = vis.indexOf(SM.sel); k = k < 0 ? (d > 0 ? 0 : vis.length - 1) : Math.max(0, Math.min(vis.length - 1, k + d));
+    SM.sel = vis[k];
+    if(cfg.smAuto !== false) smPlay(SM.sel); else markPlaying();
+    const r = root.querySelector(`#lp-samples .lp-sm-row[data-i="${SM.sel}"]`); if(r) r.scrollIntoView({block: "nearest"});
+  }
+  function applySide(){ if(!root) return; root.classList.toggle("lp-side-on", !!cfg.side); const b = root.querySelector("#lp-side-btn"); if(b) b.classList.toggle("on", !!cfg.side); }
   function paintSamples(){
     const box = root && root.querySelector("#lp-samples"); if(!box) return;
-    if(SM.list == null){ box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">načítám…</span></div>`; loadSamples(); return; }
-    const q = SM.q.trim().toLowerCase(), mk = masterKey();
+    if(SM.list == null){ box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">načítám…</span></div>`; if(!SM.busy) loadSamples(); return; }
+    const q = SM.q.trim().toLowerCase(), mk = masterKey(), fold = cfg.smFold || (cfg.smFold = {});
     const list = SM.list.filter(x => (!q || (x.name + " " + x.folder).toLowerCase().includes(q)) && (!SM.kind || (SM.kind === "loop" ? x.bpm : !x.bpm)));
-    box.innerHTML = `<div class="lp-sm-top"><button type="button" class="lp-sm-fold" id="lp-sm-fold">${SM.open ? "▾" : "▸"}</button><span class="h">SAMPLY</span>
-        <button type="button" class="lp-b" id="lp-sm-add" title="Namapovat složku se samply (otevře se výběr složky) — nic se nekopíruje">+ Namapovat složku</button>
-        ${SM.dirs.map(d => `<span class="lp-sm-dir ${d.exists ? "" : "gone"}" title="${esc(d.path)}">${esc(d.name)}<button type="button" data-rm="${esc(d.path)}" title="Odmapovat">✕</button></span>`).join("")}
-        <input type="search" id="lp-sm-q" placeholder="Hledat sample…" value="${esc(SM.q)}">
-        <span class="lp-seg"><button type="button" data-kind="" class="${!SM.kind ? "on" : ""}">vše</button><button type="button" data-kind="loop" class="${SM.kind === "loop" ? "on" : ""}">smyčky</button><button type="button" data-kind="hit" class="${SM.kind === "hit" ? "on" : ""}">údery</button></span>
-        <span class="lp-pb-hint">${mk ? `ladí se do ${esc(mk)} · ` : ""}tempo ${cfg.bpm} BPM · přetáhni na stopu nebo pad</span></div>
-      ${SM.open ? `<div class="lp-sm-list">${!SM.dirs.length ? `<div class="lp-sm-none">Namapuj složku se svými samply — smyčky, údery, zvuky. Tempo a tóninu si Pick přečte z názvu (např. „Groove 120bpm Am.wav“).</div>`
-        : !list.length ? `<div class="lp-sm-none">Nic takového.</div>`
-        : list.slice(0, 400).map((x, i) => { const sh = keyShift(x.key);
-          return `<div class="lp-sm-row" draggable="true" data-i="${SM.list.indexOf(x)}" title="${esc(x.folder ? x.folder + "/" : "")}${esc(x.name)} — přetáhni na stopu nebo pad">
-            <button type="button" class="pv ${SM.prev === SM.list.indexOf(x) ? "on" : ""}" data-pv="${SM.list.indexOf(x)}">${SM.prev === SM.list.indexOf(x) ? "■" : "▶"}</button>
-            <b>${esc(x.name)}</b><small>${esc(x.folder)}</small>
-            ${x.bpm ? `<i class="bpm">${x.bpm} BPM</i>` : `<i class="hit">úder</i>`}${x.key ? `<i class="key ${sh ? "sh" : "ok"}" title="${sh ? `přeladí se o ${sh > 0 ? "+" : ""}${sh} půltónu do ${esc(mk)}` : "sedí s tóninou"}">${esc(x.key)}${sh ? ` → ${sh > 0 ? "+" : ""}${sh}` : ""}</i>` : ""}</div>`; }).join("") + (list.length > 400 ? `<div class="lp-sm-none">…a dalších ${list.length - 400} — hledej.</div>` : "")}</div>` : ""}`;
-    const qq = (id) => box.querySelector("#" + id);
-    qq("lp-sm-fold").onclick = () => { SM.open = !SM.open; paintSamples(); };
+    const row = (x) => { const i = SM.list.indexOf(x), sh = keyShift(x.key);
+      return `<div class="lp-sm-row ${SM.prev === i ? "on" : ""} ${SM.sel === i ? "sel" : ""}" draggable="true" data-i="${i}" title="${esc(x.folder ? x.folder + "/" : "")}${esc(x.name)} — klik: poslech · dvojklik: na nový pad · táhni na stopu nebo pad">
+        <button type="button" class="pv" tabindex="-1">${SM.prev === i ? "■" : "▶"}</button><b>${esc(x.name)}</b>${q && x.folder ? `<small>${esc(x.folder)}</small>` : ""}
+        ${x.bpm ? `<i class="bpm">${x.bpm}</i>` : ""}${x.key ? `<i class="key ${sh ? "sh" : "ok"}" title="${sh ? `přeladí se o ${sh > 0 ? "+" : ""}${sh} půltónu do ${esc(mk)}` : "sedí s tóninou"}">${esc(x.key)}</i>` : ""}<span class="bar"></span></div>`; };
+    let body = "", vis = [];
+    if(!SM.dirs.length) body = `<div class="lp-sm-none">Namapuj složku se svými samply (i na kartě) — Pick si ji projde jednou a pak se otevírá hned. Tempo a tóninu přečte z názvu (např. „Groove 120bpm Am.wav“).</div>`;
+    else if(q || SM.kind){
+      const shown = list.slice().sort((x, y) => x.folder.localeCompare(y.folder, "cs") || x.name.localeCompare(y.name, "cs", {numeric: true})).slice(0, 600); vis = shown.map(x => SM.list.indexOf(x));
+      body = shown.length ? shown.map(row).join("") + (list.length > 600 ? `<div class="lp-sm-none">…a dalších ${list.length - 600} — upřesni hledání.</div>` : "") : `<div class="lp-sm-none">Nic takového.</div>`;
+    } else {
+      SM.dirs.forEach(d => {
+        const mine = list.filter(x => x.dir === d.i), fk = d.path, open = !fold[fk];
+        body += `<div class="lp-sm-dirh ${d.exists ? "" : "gone"}" data-fold="${esc(fk)}" title="${esc(d.path)}${d.exists ? "" : " — složka teď není dostupná (karta vysunutá?)"}"><span>${open ? "▾" : "▸"}</span><b>${esc(d.name)}</b><small>${mine.length}</small>
+          <button type="button" data-rm="${esc(d.path)}" title="Odmapovat (nic se nesmaže)">✕</button></div>`;
+        if(!open) return;
+        const groups = new Map(); mine.forEach(x => { const g = x.folder || ""; if(!groups.has(g)) groups.set(g, []); groups.get(g).push(x); });
+        [...groups.keys()].sort((a, b) => a.localeCompare(b, "cs")).forEach(g => {
+          const gk = d.path + "|" + g;
+          const isOpen = g === "" ? true : (gk in fold ? !fold[gk] : !cfg.smFoldAll);
+          groups.get(g).sort((x, y) => x.name.localeCompare(y.name, "cs", {numeric: true}));
+          if(g) body += `<div class="lp-sm-fold-h" data-fold="${esc(gk)}" style="--d:0"><span>${isOpen ? "▾" : "▸"}</span>${esc(g.split("/").join(" / "))}<small>${groups.get(g).length}</small></div>`;
+          if(isOpen){ body += groups.get(g).map(row).join(""); vis.push(...groups.get(g).map(x => SM.list.indexOf(x))); }
+        });
+      });
+    }
+    SM.vis = vis;
+    const dirsScanned = SM.dirs.filter(d => d.scanned).map(d => d.scanned), when = dirsScanned.length ? new Date(Math.min(...dirsScanned) * 1000).toLocaleDateString("cs-CZ") : "";
+    const scroll = (box.querySelector(".lp-sm-list") || {}).scrollTop || 0;
+    box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">${SM.list.length}</span><span class="lp-sp"></span>
+        <button type="button" class="lp-b" id="lp-sm-add" title="Namapovat složku se samply (otevře se výběr složky) — nic se nekopíruje">＋ Složka</button>
+        <button type="button" class="lp-b ${SM.busy ? "on" : ""}" id="lp-sm-re" title="Projít složky znovu (nové a smazané soubory)${when ? " — naposledy " + when : ""}">${SM.busy ? "…" : "↻"}</button>
+        <button type="button" class="lp-x" id="lp-sm-x" title="Skrýt panel">${icon("close", 12)}</button></div>
+      <input type="search" id="lp-sm-q" placeholder="Hledat sample…" value="${esc(SM.q)}">
+      <div class="lp-sm-tools"><span class="lp-seg"><button type="button" data-kind="" class="${!SM.kind ? "on" : ""}">vše</button><button type="button" data-kind="loop" class="${SM.kind === "loop" ? "on" : ""}">smyčky</button><button type="button" data-kind="hit" class="${SM.kind === "hit" ? "on" : ""}">údery</button></span>
+        <label class="lp-chk" title="Klik nebo šipky ↑ ↓ rovnou přehrají"><input type="checkbox" id="lp-sm-auto" ${cfg.smAuto !== false ? "checked" : ""}> přehrávat</label>
+        <input type="range" id="lp-sm-vol" min="0" max="1.2" step="0.01" value="${cfg.smVol ?? 0.8}" title="Hlasitost poslechu">
+        ${!q && SM.dirs.length ? `<button type="button" class="lp-sm-all" id="lp-sm-all" title="Sbalit nebo rozbalit všechny podsložky">${cfg.smFoldAll ? "rozbalit" : "sbalit"} vše</button>` : ""}</div>
+      <div class="lp-sm-list">${body}</div>
+      <div class="lp-sm-foot">${mk ? `ladí se do ${esc(mk)} · ` : ""}${cfg.bpm} BPM · táhni na stopu nebo pad · ↑ ↓ procházet</div>`;
+    const qq = (id) => box.querySelector("#" + id), L = box.querySelector(".lp-sm-list");
+    L.scrollTop = scroll;
+    qq("lp-sm-x").onclick = () => { cfg.side = false; keep(); smStop(); applySide(); };
     qq("lp-sm-add").onclick = async () => { const r = await fetch("/api/looper/samples/dirs", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}); const d = await r.json().catch(() => ({})); if(d.error) showToast(d.error); if(d.added) showToast("Namapováno: " + d.added); loadSamples(); };
-    box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { await fetch("/api/looper/samples/dirs/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: b.dataset.rm})}); loadSamples(); });
-    const sq = qq("lp-sm-q"); sq.oninput = () => { SM.q = sq.value; const pos = sq.selectionStart; paintSamples(); const n2 = root.querySelector("#lp-sm-q"); n2.focus(); n2.setSelectionRange(pos, pos); };
+    qq("lp-sm-re").onclick = () => loadSamples(true);
+    const sq = qq("lp-sm-q"); sq.oninput = () => { clearTimeout(SM.t); SM.t = setTimeout(() => { SM.q = sq.value; paintSamples(); const n2 = root.querySelector("#lp-sm-q"); n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length); }, 150); };
+    sq.onkeydown = (e) => { if(e.key === "ArrowDown" || e.key === "ArrowUp"){ e.preventDefault(); sq.blur(); smMove(e.key === "ArrowDown" ? 1 : -1); } };
     box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { SM.kind = b.dataset.kind; paintSamples(); });
-    box.querySelectorAll("[data-pv]").forEach(b => b.onclick = async () => {
-      const i = +b.dataset.pv; if(SM.src){ try{ SM.src.stop(); }catch(e){} SM.src = null; }
-      if(SM.prev === i){ SM.prev = null; paintSamples(); return; }
-      try{ const buf = await loadSample(SM.list[i]); const sr = ac.createBufferSource(); sr.buffer = buf; sr.connect(bus); sr.start(); SM.src = sr; SM.prev = i; sr.onended = () => { if(SM.prev === i){ SM.prev = null; paintSamples(); } }; paintSamples(); }
-      catch(e){ showToast("Sample se nepodařilo přehrát"); }
-    });
-    box.querySelectorAll(".lp-sm-row").forEach(r => r.ondragstart = (e) => { e.dataTransfer.setData("text/pick-sample", r.dataset.i); e.dataTransfer.effectAllowed = "copy"; });
+    qq("lp-sm-auto").onchange = (e) => { cfg.smAuto = e.target.checked; keep(); };
+    qq("lp-sm-vol").oninput = (e) => { cfg.smVol = +e.target.value; keep(); if(SM.gain) SM.gain.gain.value = cfg.smVol; };
+    const all = qq("lp-sm-all"); if(all) all.onclick = () => { cfg.smFoldAll = !cfg.smFoldAll; Object.keys(cfg.smFold).forEach(k => { if(k.includes("|")) delete cfg.smFold[k]; }); keep(); paintSamples(); };
+    box.querySelectorAll("[data-fold]").forEach(h => h.onclick = (e) => { if(e.target.closest("[data-rm]")) return; const k = h.dataset.fold, isG = k.includes("|");
+      const openNow = isG ? (k in cfg.smFold ? !cfg.smFold[k] : !cfg.smFoldAll) : !cfg.smFold[k]; cfg.smFold[k] = openNow; keep(); paintSamples(); });
+    box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if(!(await Dialog.confirm(`Odmapovat složku „${b.dataset.rm}“? Soubory zůstanou, jen zmizí z panelu.`, {ok: "Odmapovat"}))) return;
+      await fetch("/api/looper/samples/dirs/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: b.dataset.rm})}); loadSamples(); });
+    box.querySelectorAll(".lp-sm-row").forEach(r => { const i = +r.dataset.i;
+      r.onclick = (e) => { SM.sel = i; if(cfg.smAuto !== false || e.target.closest(".pv")) smPlay(i); else markPlaying(); };
+      r.ondblclick = () => { const k = addPad(); if(k >= 0){ setPadSample(k, SM.list[i]); } };
+      r.ondragstart = (e) => { e.dataTransfer.setData("text/pick-sample", String(i)); e.dataTransfer.effectAllowed = "copy"; }; });
+    markPlaying();
   }
 
   // ---- the pads: as many as wanted (eight to start: the kit's drums in a style). On one goes a sound of the
@@ -2325,6 +2414,7 @@ const Looper = (() => {
         <button type="button" class="lp-b" id="lp-guide" title="Originál písně pod smyčkami (její stopy z Steems), na začátku části, kterou hraješ — jen s písní otevřenou ve Steems">Originál</button>
         <span class="lp-sp"></span>
         <button type="button" class="lp-b lp-prep" id="lp-prep" title="Z písně otevřené ve Steems: tempo, takt, tónina, části jako scény, aranžmá v pořadí písně s délkou v taktech a akordy každé části — do prázdného looperu">Připravit z písně</button>
+        <button type="button" class="lp-b" id="lp-side-btn" title="Boční panel se samply z tvých složek">Samply</button>
         <button type="button" class="lp-b" id="lp-open" title="Otevřít uložený projekt looperu">Otevřít</button>
         <button type="button" class="lp-b" id="lp-save" title="Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě">Uložit</button>
         <button type="button" class="lp-b" id="lp-export" title="Aranžmá jako WAV, nebo jako projekt ve Steems (stopa za stopu)">Export</button>
@@ -2333,7 +2423,7 @@ const Looper = (() => {
         <span class="lp-f" title="Hlasitost všech smyček">Smyčky <input type="range" id="lp-vol" min="0" max="1.4" step="0.01"></span>
         <button type="button" class="lp-x" id="lp-close" title="Zavřít (smyčky zůstanou, dokud nezavřeš Pick)">${icon("close", 14)}</button>
       </div>
-      <div class="lp-main">
+      <div class="lp-body"><div class="lp-main">
         <div class="lp-master" id="lp-master"></div>
         <div class="lp-slice" id="lp-slice" hidden></div>
         <div class="lp-comp" id="lp-comp"></div>
@@ -2342,7 +2432,6 @@ const Looper = (() => {
         <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-pads-bank" id="lp-pads"></div>
         <div class="lp-piano" id="lp-piano" hidden></div>
-        <div class="lp-samples" id="lp-samples"></div>
         <div class="lp-skel" id="lp-skel" hidden></div>
         <div class="lp-sc" id="lp-sc"></div>
         <div class="lp-arr" id="lp-arr"></div>
@@ -2356,7 +2445,7 @@ const Looper = (() => {
           · Zpoždění zvukovky <b id="lp-lat"></b> se z nahrávek odečítá (měří se v nahrávání ve Steems).
           <div class="lp-ped" id="lp-ped"></div>
         </div>
-      </div>`;
+      </div><aside class="lp-side" id="lp-samples"></aside></div>`;
     document.body.appendChild(root);
     const $ = (id) => root.querySelector("#" + id);
     $("lp-go").onclick = () => (running ? stopAll() : start(false));
@@ -2364,6 +2453,8 @@ const Looper = (() => {
     $("lp-undo").onclick = undo; $("lp-redo").onclick = redo;
     $("lp-save").onclick = () => save();
     $("lp-open").onclick = () => openProject();
+    $("lp-side-btn").onclick = () => { cfg.side = !cfg.side; keep(); if(!cfg.side) smStop(); applySide(); paintSamples(); };
+    applySide();
     $("lp-export").onclick = () => exportMenu();
     $("lp-guide").onclick = () => { cfg.guide = !cfg.guide; keep(); if(!cfg.guide) guideStop(); else if(running) guideAt(t0, guidePos()); paint(); };
     $("lp-bpm").onchange = (e) => setBpm(parseFloat(e.target.value));
@@ -2595,6 +2686,7 @@ const Looper = (() => {
     else if(e.code === "Enter") press(sel);
     else if(e.code === "Tab") run("next");
     else if(e.code === "KeyZ") e.shiftKey ? redo() : undo();
+    else if((e.code === "ArrowDown" || e.code === "ArrowUp") && cfg.side && SM.vis && SM.vis.length) smMove(e.code === "ArrowDown" ? 1 : -1);
     else if(e.code === "ArrowRight") run("scene:+");
     else if(e.code === "ArrowLeft") run("scene:-");
     else if((e.code === "Delete" || e.code === "Backspace") && noteT && noteSel){

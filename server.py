@@ -12736,22 +12736,65 @@ def _sample_meta(name: str) -> dict:
     return {"bpm": bpm, "key": key}
 
 
+SAMPLE_INDEX = NAM_PREVIEW_DIR / "looper-samples-index.json"
+_SAMPLE_INDEX_LOCK = threading.Lock()
+
+
+def _scan_sample_dir(root: Path) -> list:
+    out = []
+    for f in sorted(root.rglob("*"), key=lambda x: x.as_posix().lower()):
+        if len(out) >= 20000:
+            break
+        if f.suffix.lower() in SAMPLE_EXTS and not f.name.startswith(".") and not any(p.startswith(".") for p in f.relative_to(root).parts[:-1]):
+            try:
+                if not f.is_file():
+                    continue
+                size = f.stat().st_size
+            except OSError:
+                continue
+            rel = f.relative_to(root).as_posix()
+            out.append({"rel": rel, "name": f.stem, "folder": str(Path(rel).parent) if "/" in rel else "", "size": size, **_sample_meta(f.name)})
+    return out
+
+
+def _sample_index(refresh: bool = False, only: Optional[str] = None) -> dict:
+    """The mapped folders' sounds — scanned once and kept beside the app's settings, so a folder of hundreds
+    (on a card) is not walked again each time the looper opens; ↻ (refresh) or mapping a folder walks it."""
+    with _SAMPLE_INDEX_LOCK:
+        try:
+            idx = json.loads(SAMPLE_INDEX.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            idx = {}
+        changed = False
+        dirs = _sample_dirs()
+        for d in dirs:
+            root = Path(d)
+            if (refresh and (only is None or only == d)) or d not in idx:
+                if root.is_dir():
+                    idx[d] = {"scanned": time.time(), "samples": _scan_sample_dir(root)}
+                    changed = True
+        for d in [k for k in idx if k not in dirs]:
+            del idx[d]
+            changed = True
+        if changed:
+            try:
+                SAMPLE_INDEX.parent.mkdir(parents=True, exist_ok=True)
+                SAMPLE_INDEX.write_text(json.dumps(idx, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            except OSError:
+                pass
+        return idx
+
+
 @app.get("/api/looper/samples")
-def looper_samples():
-    """Every sound in the mapped folders (to 4000), with its folder, and tempo and key from its name."""
+def looper_samples(refresh: bool = False):
+    """Every sound in the mapped folders, with its folder, and tempo and key from its name (from the kept index)."""
+    idx = _sample_index(refresh)
     out, dirs = [], []
     for i, d in enumerate(_sample_dirs()):
         root = Path(d)
-        dirs.append({"i": i, "path": d, "name": root.name or d, "exists": root.is_dir()})
-        if not root.is_dir():
-            continue
-        for f in sorted(root.rglob("*")):
-            if len(out) >= 4000:
-                break
-            if f.suffix.lower() in SAMPLE_EXTS and f.is_file() and not f.name.startswith("."):
-                rel = f.relative_to(root).as_posix()
-                out.append({"dir": i, "rel": rel, "name": f.stem, "folder": str(Path(rel).parent) if "/" in rel else "",
-                            "size": f.stat().st_size, **_sample_meta(f.name)})
+        got = idx.get(d) or {}
+        dirs.append({"i": i, "path": d, "name": root.name or d, "exists": root.is_dir(), "scanned": got.get("scanned"), "count": len(got.get("samples") or [])})
+        out += [{"dir": i, **x} for x in got.get("samples") or []]
     return {"dirs": dirs, "samples": out}
 
 
@@ -12779,6 +12822,7 @@ def looper_sample_dir_add(req: SampleDirRequest):
     if str(p) not in dirs:
         dirs.append(str(p))
         _write_config({"looper_sample_dirs": dirs})
+    _sample_index(True, str(p))
     return {"added": str(p)}
 
 
