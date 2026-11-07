@@ -1812,3 +1812,10 @@ Elektro) mění zvuk bicích (kopák, jeho klik, virbl, délku hi-hatu, zkreslen
 **Rytmus do bicí stopy**: hotový rytmus (★ ten ke stylu; nově Metal s dvojkopákem, Thrash, Punk, Drum & bass)
 na 2 takty. **Kousek písně na pad**: přetáhni ho z vlny na pad — pad ho pak spustí na začátku dalšího taktu
 a přehraje; další ťuknutí ho zastaví, pravé tlačítko pad vrátí na bicí. Pady s kousky se ukládají s projektem.
+
+### Looper: klavír
+
+**🎹 Klavír** (v liště padů) otevře klávesnici na dvě oktávy: hraje myší (výška kliku = síla úhozu), klávesami
+**A W S E D F T G Y H U J K** (oktáva **−** / **=**; otevřený má přednost před pady) i MIDI klávesami do zvolené
+MIDI stopy a jejím zvukem (syntezátory i celá knihovna nástrojů). **● Nahrát** nahraje, co zahraješ, do smyčky
+stopy od dalšího taktu; noty se zarovnají podle kvantizace stopy. Tóny tóniny písně mají na klávesách tečku.

@@ -108,6 +108,18 @@ const Looper = (() => {
   .lp-pad.on{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 30px hsl(var(--h) 85% 55% / .55);animation:lppulse 1s ease-in-out infinite}
   @keyframes lppulse{50%{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 12px hsl(var(--h) 85% 55% / .3)}}
   .lp-pad.drop{outline:2px dashed #fff;outline-offset:2px}
+  .lp-piano{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-piano[hidden]{display:none}
+  .lp-pn-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-pn-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-pn-top select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-pn-rec.on{background:#e5484d;border-color:#e5484d;color:#fff}
+  .lp-pn-key{font-size:11.5px;color:#c9b8ff}
+  .lp-pn-kb{position:relative;height:150px;display:flex;user-select:none;-webkit-user-select:none;touch-action:none}
+  .lp-pn-kb .w{flex:1;position:relative;border:1px solid #2a2a33;border-radius:0 0 8px 8px;background:linear-gradient(#f3f3f6,#dcdce4);cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;color:#666;font-size:10px}
+  .lp-pn-kb .b{position:absolute;top:0;width:calc(100% / 15 * .6);height:60%;z-index:2;border-radius:0 0 6px 6px;border:1px solid #000;background:linear-gradient(#2c2c34,#111);cursor:pointer}
+  .lp-pn-kb i{position:absolute;left:50%;transform:translateX(-50%);bottom:22px;width:6px;height:6px;border-radius:50%;background:var(--accent,#8b5cf6)}
+  .lp-pn-kb .b i{bottom:8px}
+  .lp-pn-kb .w.down{background:linear-gradient(#cbbcff,#a996ff)}.lp-pn-kb .b.down{background:linear-gradient(#6d5bd0,#4b3aa8)}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -767,6 +779,52 @@ const Looper = (() => {
     return out2;
   }
 
+  // ---- the piano (Klavír): two octaves on the screen, the computer's keys (A W S E D F T G Y H U J K, octave
+  // with − and =) and a MIDI keyboard play the chosen MIDI track's instrument; ● Nahrát records what is played
+  // into its loop (from the next bar, its notes put in time by the track's quantize). The song's key is dotted
+  // on the keys. Open, its keys go before the pads'.
+  const PIANO_KEYS = ["KeyA", "KeyW", "KeyS", "KeyE", "KeyD", "KeyF", "KeyT", "KeyG", "KeyY", "KeyH", "KeyU", "KeyJ", "KeyK"];
+  const PC = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  let piano = {open: false, oct: 4, track: null, down: new Set()};
+  const pianoTrack = () => { const t = piano.track != null ? tracks[piano.track] : null; return t && t.src === "midi" ? t : (tracks.find(x => x.src === "midi") || null); };
+  // the song's key as pitch classes ("Em" → E minor's seven notes)
+  function scaleOf(key){
+    const m = String(key || "").match(/^([A-G])([#b]?)\s*(m|min|moll)?/i); if(!m) return null;
+    let r = PC.indexOf(m[1].toUpperCase() + (m[2] === "#" ? "#" : "")); if(m[2] === "b") r = (PC.indexOf(m[1].toUpperCase()) + 11) % 12;
+    const steps = m[3] ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+    return new Set(steps.map(x => (r + x) % 12));
+  }
+  function pianoOn(m, v){ const t = pianoTrack(); if(!t){ showToast("Žádná MIDI stopa — přepni stopu na „MIDI nástroj“"); return; } piano.down.add(m); noteOn(m, v, undefined, t); paintPianoKeys(); }
+  function pianoOff(m){ piano.down.delete(m); noteOff(m); paintPianoKeys(); }
+  function paintPianoKeys(){ root && root.querySelectorAll("#lp-piano [data-pm]").forEach(k => k.classList.toggle("down", piano.down.has(+k.dataset.pm))); }
+  function paintPiano(){
+    const box = root && root.querySelector("#lp-piano"); if(!box) return;
+    box.hidden = !piano.open; if(!piano.open) return;
+    const t = pianoTrack(), sc = scaleOf(skel && skel.key), base = 12 * (piano.oct + 1), rec = t && t.job;
+    const keys = []; for(let i = 0; i < 25; i++) keys.push(base + i);
+    const white = keys.filter(m => ![1, 3, 6, 8, 10].includes(m % 12));
+    box.innerHTML = `<div class="lp-pn-top"><span class="h">KLAVÍR</span>
+        <select id="lp-pn-track" title="Do které MIDI stopy hraje a nahrává">${tracks.map(x => `<option value="${x.i}" ${t === x ? "selected" : ""} ${x.src !== "midi" ? "disabled" : ""}>Stopa ${x.i + 1}${x.src === "midi" ? " · " + esc(instrName(x.instr)) : " (není MIDI)"}</option>`).join("")}</select>
+        ${t ? `<select id="lp-pn-instr" title="Zvuk stopy">${instrOptions()}</select>` : ""}
+        <span class="lp-f">Oktáva <button type="button" class="lp-b" id="lp-pn-dn">−</button><b>C${piano.oct}</b><button type="button" class="lp-b" id="lp-pn-up">=</button></span>
+        <button type="button" class="lp-b lp-pn-rec ${rec ? "on" : ""}" id="lp-pn-rec" ${t ? "" : "disabled"} title="Nahrát do smyčky stopy, co zahraješ — od dalšího taktu (další klik nahrávání ukončí)">● ${rec ? "Nahrávám" : "Nahrát"}</button>
+        ${sc ? `<span class="lp-pn-key">tónina ${esc(skel.key)} · tečka = tón z tóniny</span>` : ""}
+        <span class="lp-pb-hint">klávesy A W S E D F T G Y H U J K · oktáva − =</span></div>
+      <div class="lp-pn-kb">${white.map(m => `<button type="button" class="w" data-pm="${m}">${sc && sc.has(m % 12) ? "<i></i>" : ""}<span>${m % 12 === 0 ? "C" + (Math.floor(m / 12) - 1) : ""}</span></button>`).join("")}
+        ${keys.filter(m => [1, 3, 6, 8, 10].includes(m % 12)).map(m => { const wi = white.filter(w => w < m).length; return `<button type="button" class="b" data-pm="${m}" style="left:calc(${wi} * (100% / ${white.length}) - (100% / ${white.length}) * .3)">${sc && sc.has(m % 12) ? "<i></i>" : ""}</button>`; }).join("")}</div>`;
+    const q = (id) => box.querySelector("#" + id);
+    q("lp-pn-track").onchange = (e) => { piano.track = +e.target.value; paintPiano(); };
+    if(q("lp-pn-instr")){ q("lp-pn-instr").value = t.instr; q("lp-pn-instr").onchange = (e) => { t.instr = e.target.value; rerenderAll(t); paint(); }; }
+    q("lp-pn-dn").onclick = () => { piano.oct = Math.max(1, piano.oct - 1); paintPiano(); };
+    q("lp-pn-up").onclick = () => { piano.oct = Math.min(6, piano.oct + 1); paintPiano(); };
+    q("lp-pn-rec").onclick = () => { if(t){ sel = t.i; press(t.i); setTimeout(paintPiano, 50); } };
+    box.querySelectorAll("[data-pm]").forEach(k => {
+      const m = +k.dataset.pm;
+      k.onpointerdown = (e) => { e.preventDefault(); k.setPointerCapture(e.pointerId); const r = k.getBoundingClientRect(); pianoOn(m, 0.35 + 0.65 * Math.min(1, (e.clientY - r.top) / r.height)); };
+      k.onpointerup = k.onpointercancel = () => pianoOff(m);
+    });
+  }
+
   // ---- the pads: eight squares — the kit's drums in a style, or a piece of the song dropped on one. A drum
   // pad plays at once (and goes into a drum track that is recording); a piece pad starts its piece on the
   // next bar (at once when the looper stands) and plays it through; a tap while it plays stops it. Keys Q W E R /
@@ -802,10 +860,12 @@ const Looper = (() => {
     box.innerHTML = `<div class="lp-pb-top"><span class="h">PADY</span>
         <select id="lp-pb-style" title="Zvuk bicích podle stylu (pady, kroky i bicí stopa)">${Object.entries(LoopSound.STYLES).map(([k, v]) => `<option value="${k}" ${k === st ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>
         <select id="lp-pb-groove" title="Hotový rytmus do bicí stopy (stopa ${drumT ? drumT.i + 1 : 1}, 2 takty)"><option value="">Rytmus do bicí stopy…</option>${Object.entries(LoopSound.GROOVES).map(([k, g]) => `<option value="${k}" ${k === LoopSound.STYLE_GROOVE[st] ? "data-fit" : ""}>${esc(g.name)}${k === LoopSound.STYLE_GROOVE[st] ? " ★" : ""}</option>`).join("")}</select>
+        <button type="button" class="lp-b ${piano.open ? "on" : ""}" id="lp-pb-piano" title="Virtuální klavír — hraje a nahrává do MIDI stopy">🎹 Klavír</button>
         <span class="lp-pb-hint">klávesy Q W E R · A S D F · MIDI pady · kousek z vlny přetáhni na pad · pravé tlačítko vrátí bicí</span></div>
       <div class="lp-pb">${pads.map((pd, i) => `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""}" data-pad="${i}" style="--h:${pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : 230 + i * 12}"
           title="${pd.piece ? esc(pd.piece.name + " · " + pd.piece.bars + " t. · " + pd.piece.stems.map(stemName).join("+")) : esc(pd.name)} — klávesa ${PAD_KEYS[i].slice(3)}, MIDI ${pd.note}">
           <b>${pd.piece ? esc(pd.piece.name) : esc(pd.name)}</b><small>${pd.piece ? pd.piece.bars + " t." + (pd.piece.stems.length < 3 ? " · " + esc(pd.piece.stems.map(stemName).join("+")) : "") : esc(LoopSound.STYLES[st].name)}</small><i>${PAD_KEYS[i].slice(3)}</i></button>`).join("")}</div>`;
+    box.querySelector("#lp-pb-piano").onclick = () => { piano.open = !piano.open; paintPads(); paintPiano(); };
     box.querySelector("#lp-pb-style").onchange = async (e) => {
       LoopSound.setStyle(e.target.value); cfg.kit = e.target.value; keep();
       for(const t of tracks) if(t.src === "drums" && t.steps){ const l = t.layers.find(x => x.steps); if(l) await rerender(t, l, stepNotes(t)); }
@@ -1304,9 +1364,9 @@ const Looper = (() => {
   // which track the keys play: the one recording notes, else the one selected (if it takes notes)
   const playTrack = () => (recTrack && isNotes(recTrack) && recTrack.job ? recTrack : isNotes(tracks[sel]) ? tracks[sel] : tracks.find(isNotes));
   const outLat = () => (ac.outputLatency || 0) + (ac.baseLatency || 0);
-  function noteOn(m, v, at){
+  function noteOn(m, v, at, force){
     audio();
-    const t = playTrack();
+    const t = force || playTrack();
     if(!t) return;
     if(ac.state === "suspended") ac.resume();
     const tm = now();
@@ -1575,6 +1635,7 @@ const Looper = (() => {
         <div class="lp-slice" id="lp-slice" hidden></div>
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-pads-bank" id="lp-pads"></div>
+        <div class="lp-piano" id="lp-piano" hidden></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-skel" id="lp-skel" hidden></div>
@@ -1738,6 +1799,7 @@ const Looper = (() => {
     paintPlan();
     paintSlice();
     if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
+    if(piano.open){ const r = root.querySelector("#lp-pn-rec"), t = pianoTrack(); if(r && t) { r.classList.toggle("on", !!t.job); r.textContent = t.job ? "● Nahrávám" : "● Nahrát"; } }
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
   }
@@ -1784,6 +1846,7 @@ const Looper = (() => {
     if(a === "scene:-"){ goScene(Math.max(0, (pending ? pending.k : cur) - 1)); return "předchozí část"; }
     return null;
   }
+  document.addEventListener("keyup", (e) => { if(open && piano.open && PIANO_KEYS.includes(e.code)) pianoOff(12 * (piano.oct + 1) + PIANO_KEYS.indexOf(e.code)); }, true);
   document.addEventListener("keydown", (e) => {
     if(!open || e.metaKey || e.ctrlKey || e.altKey) return;
     const tg = e.target;
@@ -1801,6 +1864,8 @@ const Looper = (() => {
       const l = noteLayersOf(noteT).find(x => x.raw.includes(noteSel));
       if(l){ l.raw.splice(l.raw.indexOf(noteSel), 1); noteSel = null; noteChanged(noteT, l); noteHead(); drawRoll(); }
     }
+    else if(piano.open && PIANO_KEYS.includes(e.code)){ if(!e.repeat) pianoOn(12 * (piano.oct + 1) + PIANO_KEYS.indexOf(e.code), 0.85); }
+    else if(piano.open && (e.code === "Minus" || e.code === "Equal")){ piano.oct = Math.max(1, Math.min(6, piano.oct + (e.code === "Equal" ? 1 : -1))); paintPiano(); }
     else if(PAD_KEYS.includes(e.code) && !e.repeat) padHit(PAD_KEYS.indexOf(e.code));
     else if(e.code === "Escape") close();
     else done = false;
