@@ -1871,3 +1871,12 @@ sbalují, „sbalit vše“), hledání, filtr smyčky / údery. **Klik** sampl 
 se), **↑ ↓** prochází a přehrává další, **dvojklik** ho dá na nový pad, **tažením** jde na stopu nebo pad. Seznam si
 Pick pamatuje — složku se stovkami samplů (i na kartě) projde jen při namapování a na **↻**, takže se panel otevře hned.
 Formáty, které prohlížeč neumí (AIFF, CAF, WMA…), se při prvním poslechu jednou převedou.
+
+### Looper: nahrát svůj part do kousku písně
+
+U vybraného kousku v „Píseň po kouscích“ je **🎸 Nahrát svůj part**. Looper převezme tempo, takt a délku kousku
+(když jsou stopy prázdné), kytara v kousku ztichne (nebo co ztlumíš sám tlačítky M/S) a kousek hraje jako podklad.
+Po odpočtu jednoho taktu nahraješ riff do volné kytarové stopy. Nahrávka se ořízne přesně na takty kousku a vznikne
+**tvůj dílek** (kousek bez kytary + tvůj part) — najdeš ho v „Moje dílky“ pod skladbou. Je-li kousek ve skladbě
+(tlačítko **＋ Celá píseň** tam dá všechny kousky písně v pořadí), nahradí se rovnou; jinak dílek přetáhni na kousek
+ve skladbě (nahradí ho), mezi kousky (vloží se) nebo na pad. Dílky se pamatují a ukládají s projektem.
