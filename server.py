@@ -27,7 +27,7 @@ from urllib.parse import quote, unquote
 import httpx
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 HOME = Path.home()
@@ -12708,7 +12708,7 @@ def _looper_dir(name: str, create: bool = False) -> Optional[Path]:
 # ---- the looper's samples: folders of the player's own sounds, mapped (nothing copied), listed with what their
 # names tell of their tempo and key ("Groove_120bpm_Am.wav"), and served to the looper, which fits them to its
 # master tempo and key.
-SAMPLE_EXTS = {".wav", ".aif", ".aiff", ".mp3", ".flac", ".ogg", ".m4a"}
+SAMPLE_EXTS = BROWSER_AUDIO_EXTS | TRANSCODE_AUDIO_EXTS      # any sound: what Chrome cannot read is converted once
 _re_bpm = _re_mod.compile(r"(?<!\d)(\d{2,3}(?:[.,]\d)?)\s*-?\s*bpm|(?:^|[ _\-])(\d{2,3})(?=[ _\-])", _re_mod.I)
 _re_key = _re_mod.compile(r"(?:^|[ _\-(])([A-G](?:#|b|♯|♭)?)\s*(m|min|minor|maj|major|moll|dur)?(?=$|[ _\-).])")
 
@@ -12797,7 +12797,169 @@ def looper_sample_file(dir: int, rel: str):
     f = (root / rel).resolve()
     if root not in f.parents or not f.is_file() or f.suffix.lower() not in SAMPLE_EXTS:
         return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    if f.suffix.lower() not in BROWSER_AUDIO_EXTS:
+        c = _playable_copy(f)
+        if c is None:
+            return JSONResponse({"error": "Soubor se nepodařilo převést."}, status_code=422)
+        return FileResponse(c)
     return FileResponse(f)
+
+
+# ---- the pads' own sounds: a file of any kind (audio or video — ffmpeg reads it) dropped on a pad is kept
+# here as FLAC, named by its content, so a pad (and a saved project) points at it by that name.
+LOOPER_SOUNDS_DIR = NAM_PREVIEW_DIR / "looper-sounds"
+_re_sound_id = _re_mod.compile(r"[0-9a-f]{16}")
+
+
+@app.post("/api/looper/sounds")
+async def looper_sound_add(audio: UploadFile = File(...)):
+    import hashlib
+    data = await audio.read(300 * 1024 * 1024 + 1)
+    if not data or len(data) > 300 * 1024 * 1024:
+        return JSONResponse({"error": "Soubor je prázdný nebo větší než 300 MB."}, status_code=400)
+    sid = hashlib.sha1(data).hexdigest()[:16]
+    name = Path(audio.filename or "Zvuk").stem[:80] or "Zvuk"
+    out = LOOPER_SOUNDS_DIR / f"{sid}.flac"
+    if not out.is_file():
+        LOOPER_SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=Path(audio.filename or "").suffix[:10] or ".bin", delete=False) as tmp:
+            tmp.write(data)
+        part = out.with_suffix(".part.flac")
+        try:
+            r = subprocess.run([ffmpeg_bin(), "-y", "-loglevel", "error", "-i", tmp.name, "-vn", "-t", "900",
+                                "-ac", "2", "-c:a", "flac", str(part)], capture_output=True, timeout=300)
+            ok = r.returncode == 0 and part.is_file() and part.stat().st_size > 0
+        except (OSError, subprocess.TimeoutExpired):
+            ok = False
+        finally:
+            Path(tmp.name).unlink(missing_ok=True)
+        if not ok:
+            part.unlink(missing_ok=True)
+            return JSONResponse({"error": "V souboru není zvuk, který by šel přečíst."}, status_code=422)
+        part.replace(out)
+    return {"id": sid, "name": name}
+
+
+@app.get("/api/looper/sounds/{sid}")
+def looper_sound_file(sid: str):
+    f = LOOPER_SOUNDS_DIR / f"{sid}.flac"
+    if not _re_sound_id.fullmatch(sid) or not f.is_file():
+        return JSONResponse({"error": "Zvuk nenalezen."}, status_code=404)
+    return FileResponse(f, media_type="audio/flac")
+
+
+# ---- songs for the looper's song pieces: any separated song, beside the one open in Steems — its tempo
+# and tuning to choose by, then its downbeats, parts and each track's loudness (the wave), and any stretch
+# of it with the tracks asked for, mixed by ffmpeg (so many songs can be open without filling the browser).
+_LOOPER_BPM: Dict[str, tuple] = {}
+_re_bpm_json = _re_mod.compile(r'"bpm":\s*([0-9.]+),\s*"beats_per_bar"')
+LOOPER_ENV_DIR = NAM_PREVIEW_DIR / "looper-env"
+ENV_SR, ENV_HOP = 11025, 128
+
+
+def _song_bpm(d: Path):
+    f = d / "beats.json"
+    try:
+        st = f.stat()
+    except OSError:
+        return None
+    kept = _LOOPER_BPM.get(d.name)
+    if kept and kept[0] == st.st_mtime:
+        return kept[1]
+    bpm = None
+    try:
+        with open(f, "rb") as fh:                 # the tempo is written after the long lists: the end is enough
+            fh.seek(max(0, st.st_size - 8192))
+            m = _re_bpm_json.search(fh.read().decode("utf-8", "ignore"))
+        bpm = round(float(m.group(1)), 1) if m else json.loads(f.read_text(encoding="utf-8")).get("bpm")
+    except (OSError, ValueError):
+        bpm = None
+    _LOOPER_BPM[d.name] = (st.st_mtime, bpm)
+    return bpm
+
+
+@app.get("/api/looper/songs")
+def looper_songs():
+    root = MUSIC_ROOT / "Stems"
+    out = []
+    for row in list_stems():
+        if not any(s in row.get("stems", []) for s in STEM_NAMES):
+            continue
+        m = row.get("meta") or {}
+        out.append({"name": row["name"], "artist": m.get("artist") or "", "title": m.get("title") or row["name"],
+                    "tuning": row.get("tuning"), "bpm": _song_bpm(root / row["name"]), "dur": row.get("duration")})
+    return {"songs": out}
+
+
+def _song_env(f: Path) -> list:
+    """A stem's loudness, ENV_SR / ENV_HOP values a second, 0–255."""
+    import hashlib
+    import numpy as np
+    st = f.stat()
+    key = hashlib.sha1(f"{f.resolve()}|{st.st_mtime}|{st.st_size}".encode()).hexdigest()[:20]
+    c = LOOPER_ENV_DIR / f"{key}.json"
+    try:
+        return json.loads(c.read_text())
+    except (OSError, ValueError):
+        pass
+    r = subprocess.run([ffmpeg_bin(), "-loglevel", "error", "-i", str(f), "-vn", "-ac", "1", "-ar", str(ENV_SR), "-f", "s16le", "-"],
+                       capture_output=True, timeout=300)
+    a = np.abs(np.frombuffer(r.stdout, dtype=np.int16).astype(np.int32))
+    n = len(a) // ENV_HOP
+    env = (a[:n * ENV_HOP].reshape(n, ENV_HOP).max(axis=1) * 255 // 32768).astype(int).tolist() if n else []
+    try:
+        LOOPER_ENV_DIR.mkdir(parents=True, exist_ok=True)
+        c.write_text(json.dumps(env, separators=(",", ":")))
+    except OSError:
+        pass
+    return env
+
+
+@app.get("/api/looper/song")
+def looper_song(name: str):
+    from concurrent.futures import ThreadPoolExecutor
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    stems = [s for s in STEM_NAMES if _stem_file(d, s) is not None]
+    if not stems:
+        return JSONResponse({"error": "Píseň nemá rozdělené stopy."}, status_code=404)
+    grid = _beat_grid_for(d, False)
+    grid = grid if isinstance(grid, dict) else {}
+    sec = get_sections(name)
+    sec = sec.get("sections", []) if isinstance(sec, dict) else []
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        envs = dict(zip(stems, ex.map(lambda s: _song_env(_stem_file(d, s)), stems)))
+    meta = _stems_meta(d) or {}
+    dur = max((len(e) for e in envs.values()), default=0) * ENV_HOP / ENV_SR
+    return {"name": name, "artist": meta.get("artist") or "", "title": meta.get("title") or name, "stems": stems,
+            "downbeats": grid.get("downbeats") or [], "bpm": grid.get("bpm"), "perBar": grid.get("beats_per_bar") or 4,
+            "sections": sec, "tuning": _stems_tuning(d), "dur": round(dur, 3), "env": envs, "envRate": ENV_SR / ENV_HOP}
+
+
+@app.get("/api/looper/piece")
+def looper_piece(name: str, a: float, z: float, stems: str):
+    d = _resolve_under_music_root(f"Stems/{name}")
+    if d is None or not d.is_dir():
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    want = [s for s in stems.split(",") if s in STEM_NAMES]
+    files = [f for f in (_stem_file(d, s) for s in want) if f is not None]
+    dur = z - a
+    if not files or not (0 < dur <= 900) or a < 0:
+        return JSONResponse({"error": "Špatný kousek."}, status_code=400)
+    cmd = [ffmpeg_bin(), "-loglevel", "error"]
+    for f in files:
+        cmd += ["-ss", f"{a:.4f}", "-t", f"{dur:.4f}", "-i", str(f)]
+    if len(files) > 1:
+        cmd += ["-filter_complex", f"amix=inputs={len(files)}:normalize=0:duration=longest"]
+    cmd += ["-ac", "2", "-ar", "44100", "-c:a", "pcm_f32le", "-f", "wav", "-"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "Trvalo to moc dlouho."}, status_code=504)
+    if r.returncode != 0 or len(r.stdout) < 100:
+        return JSONResponse({"error": "Kousek se nepodařilo vyříznout."}, status_code=422)
+    return Response(content=r.stdout, media_type="audio/wav")
 
 
 @app.get("/api/looper")

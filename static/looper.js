@@ -108,6 +108,45 @@ const Looper = (() => {
   .lp-pad.on{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 30px hsl(var(--h) 85% 55% / .55);animation:lppulse 1s ease-in-out infinite}
   @keyframes lppulse{50%{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 12px hsl(var(--h) 85% 55% / .3)}}
   .lp-pad.drop{outline:2px dashed #fff;outline-offset:2px}
+  .lp-pb{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+  .lp-pad.empty{background:rgba(255,255,255,.02);border-style:dashed;border-color:rgba(255,255,255,.2)}
+  .lp-pad.empty b{color:#9a9ab0;font-weight:600}
+  .lp-pad.learn{outline:2px solid #ffd166;outline-offset:2px}.lp-pad.learn i{color:#ffd166}
+  .lp-pad-add{--h:230;align-items:center;justify-content:center;font-size:24px;font-weight:300;border-style:dashed;background:rgba(255,255,255,.02);color:#9a9ab0}
+  .lp-pad-add small{font-size:11px;color:#9a9ab0}
+  .lp-sl-songs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .lp-sl-song{display:inline-flex;align-items:center;gap:8px;padding:5px 8px 5px 12px;border-radius:12px;border:1px solid hsl(var(--h) 60% 55% / .35);background:hsl(var(--h) 40% 20% / .3);cursor:pointer;max-width:320px}
+  .lp-sl-song b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-sl-song small{font-size:10.5px;color:#a0a0b8;white-space:nowrap}
+  .lp-sl-song em{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.06em;color:hsl(var(--h) 60% 75%)}
+  .lp-sl-song.on{background:hsl(var(--h) 55% 30% / .75);border-color:hsl(var(--h) 75% 65%)}
+  .lp-sl-song button{background:none;border:0;color:#a0a0b8;cursor:pointer;font-size:11px;padding:2px 4px}.lp-sl-song button:hover{color:#fff}
+  .lp-sl-pick{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)}
+  .lp-sl-pick-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .lp-sl-pick-top input[type=search]{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px;min-width:220px}
+  .lp-chk{display:inline-flex;gap:5px;align-items:center;font-size:12px;color:#c8c8d8;cursor:pointer}
+  .lp-sl-pick-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px;max-height:230px;overflow:auto}
+  .lp-sl-pick-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 8px;text-align:left;padding:6px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);cursor:pointer}
+  .lp-sl-pick-row b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-sl-pick-row small{font-size:10.5px;color:#9a9ab0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lp-sl-pick-row i{font-style:normal;font-size:10.5px;color:#c8c8d8;text-align:right;white-space:nowrap}.lp-sl-pick-row i:last-of-type{color:#9a9ab0}
+  .lp-sl-pick-row b{grid-column:1;grid-row:1}.lp-sl-pick-row i:first-of-type{grid-column:2;grid-row:1}.lp-sl-pick-row small{grid-column:1;grid-row:2}.lp-sl-pick-row i:last-of-type{grid-column:2;grid-row:2}
+  .lp-sl-pick-row:hover{border-color:var(--accent,#8b5cf6)}.lp-sl-pick-row:disabled{opacity:.5}
+  .lp-sl-sel em{font-style:normal;color:#ffd166}
+  .lp-comp{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-cp-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lp-cp-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-cp-top select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-cp-strip{position:relative;display:flex;gap:4px;overflow-x:auto;min-height:64px;padding:5px;border-radius:12px;background:rgba(0,0,0,.25);border:1px dashed rgba(255,255,255,.12)}
+  .lp-cp-strip.drop{border-color:var(--accent,#8b5cf6);background:rgba(139,92,246,.1)}
+  .lp-cp-b{position:relative;flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:6px 22px 6px 10px;border-radius:9px;cursor:grab;user-select:none;-webkit-user-select:none;
+    background:linear-gradient(160deg,hsl(var(--h) 55% 32% / .8),hsl(var(--h) 45% 16% / .9));border:1px solid hsl(var(--h) 60% 55% / .5)}
+  .lp-cp-b b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-cp-b small{font-size:10.5px;color:hsl(var(--h) 40% 82%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-cp-b em{font-style:normal;font-size:10px;color:hsl(var(--h) 30% 76%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-cp-b button{position:absolute;top:3px;right:3px;background:none;border:0;color:hsl(var(--h) 30% 85%);cursor:pointer;font-size:11px}
+  .lp-cp-b.now{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%)}.lp-cp-b.pv{outline:2px solid #fff;outline-offset:1px}
+  .lp-cp-none{color:#8a8aa0;font-size:12px;align-self:center;padding:0 8px}
+  .lp-cp-head{position:absolute;top:2px;bottom:2px;width:2px;background:#fff;box-shadow:0 0 8px #fff;pointer-events:none;display:none}
   .lp-piano{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-piano[hidden]{display:none}
   .lp-pn-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-pn-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -773,69 +812,160 @@ const Looper = (() => {
   // vocals…) are muted or soloed for that piece alone; a piece dragged onto a looper track (or → 1–5) becomes
   // its loop: the chosen tracks mixed, fitted to the master tempo (the song's own, so normally as it is) and
   // as long as its bars — it plays on the bar like any recording.
-  const SL = {song: null, stems: [], db: [], cuts: [], st: {}, sel: 0, mode: "parts", scissors: false, prev: null,
-              zoom: 1, vs: 0, env: null};          // zoom 1–64 and the view's start (s); env: each stem's envelope
+  const blankSong = () => ({song: null, title: "", artist: "", own: false, stems: [], db: [], cuts: [], st: {}, sel: 0, mode: "parts", scissors: false, prev: null,
+              zoom: 1, vs: 0, env: null, sections: [], key: "", bpm: 0, tuning: null, dur: 0});
+  let SL = blankSong();               // the song shown in the wave: zoom 1–64, vs the view's start (s), env each stem's envelope
+  const SLS = [];                     // the songs open in pieces: the one in Steems first, then those added (their audio stays on the server)
   const STEMC = {drums: "#f6ad55", bass: "#63b3ed", guitar: "#f2c25c", guitar_solo: "#f7d774", guitar_rhythm: "#d9a441", vocals: "#f687b3", piano: "#9f7aea", other: "#68d391"};
   const stemName = (st) => ({drums: "bicí", bass: "basa", guitar: "kytara", guitar_solo: "kytara sólo", guitar_rhythm: "kytara rytmus", vocals: "zpěv", piano: "klavír", other: "ostatní"}[st] || st);
-  function sliceSong(){
-    const s = Mixer.currentSong && Mixer.currentSong();
-    if(!s){ SL.song = null; return false; }
-    if(SL.song === s && SL.stems.length) return true;
+  const songHue = (name) => { let h = 7; for(const c of String(name || "")) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  const shortTitle = (s) => String(s || "").replace(/^.*? - /, "").slice(0, 30);
+  const secsOf = (e) => { if(e.own){ try{ return Mixer.sectionsNow() || []; }catch(x){ return []; } } return e.sections || []; };
+  const songBar = (e) => e.db.length > 1 ? (e.db[e.db.length - 1] - e.db[0]) / (e.db.length - 1) : barLen();
+  const TUNE_PC = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"], STD_TUNE = [64, 59, 55, 50, 45, 40];
+  function tuningName(t){
+    if(!Array.isArray(t) || t.length !== 6) return "";
+    const d = t.map((n, i) => n - STD_TUNE[i]), low = TUNE_PC[((t[5] % 12) + 12) % 12];
+    if(d.every(x => x === d[0])) return `${low} standard`;
+    if(d.slice(0, 5).every(x => x === d[0]) && d[5] === d[0] - 2) return `Drop ${low}`;
+    return t.slice().reverse().map(n => TUNE_PC[((n % 12) + 12) % 12]).join(" ");
+  }
+  const sameTuning = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => x === b[i]);
+  const tempoRatio = (b) => { let r = b / cfg.bpm; while(r > 1.5) r /= 2; while(r < 0.75) r *= 2; return r; };   // half or double time counts as the same
+  // the song open in Steems, with the tracks the mixer has decoded
+  function ownSlice(){
+    const s = Mixer.currentSong && Mixer.currentSong(), at = SLS.findIndex(x => x.own);
+    if(!s){ if(at >= 0) SLS.splice(at, 1); return; }
+    if(at >= 0 && SLS[at].song === s && SLS[at].stems.length) return;
     let au = [], g = null;
     try{ au = (Mixer.deck.audio() || []).filter(x => x.buffer && !/^take-|^midi/.test(x.stem)); g = Mixer.deck.grid(); }catch(e){}
-    if(!au.length) return false;
-    SL.song = s; SL.stems = au.map(x => ({stem: x.stem, buf: x.buffer}));
-    const dur = Math.max(...au.map(x => x.buffer.duration));
-    SL.db = (g && g.downbeats && g.downbeats.length > 1) ? g.downbeats.filter(t => t < dur) : Array.from({length: Math.floor(dur / barLen())}, (_, i) => i * barLen());
-    SL.dur = dur; SL.env = null; SL.st = {}; SL.sel = 0; SL.zoom = 1; SL.vs = 0;
-    cutBy(SL.mode);
-    return true;
+    if(!au.length){ if(at >= 0 && SLS[at].song !== s) SLS.splice(at, 1); return; }
+    const e = blankSong(), dur = Math.max(...au.map(x => x.buffer.duration));
+    const kEl = document.getElementById("nm-key"), k = kEl ? kEl.textContent.trim() : "";
+    Object.assign(e, {own: true, song: s, title: s, stems: au.map(x => ({stem: x.stem, buf: x.buffer})), dur,
+      key: /^[A-G]/.test(k) ? k : (skel && skel.key) || "", bpm: (g && g.bpm) || cfg.bpm});
+    e.db = (g && g.downbeats && g.downbeats.length > 1) ? g.downbeats.filter(t => t < dur) : Array.from({length: Math.floor(dur / barLen())}, (_, i) => i * barLen());
+    const row = (LS.list || []).find(x => x.name === s); if(row) e.tuning = row.tuning;
+    cutBy(e.mode, e);
+    const was = SL;
+    if(at >= 0) SLS[at] = e; else SLS.unshift(e);
+    const dup = SLS.findIndex(x => !x.own && x.song === s);
+    if(dup >= 0){ if(SL === SLS[dup]) SL = e; SLS.splice(dup, 1); }
+    if(was && was.own) SL = e;
   }
+  function sliceSong(){
+    ownSlice();
+    if(!SLS.includes(SL)){ stopSlicePrev(); SL = SLS[0] || blankSong(); }
+    return !!SL.song;
+  }
+  function stopSlicePrev(){ if(SL.prev){ try{ SL.prev.stop(); }catch(e){} SL.prev = null; } }
+  // another song: its downbeats, parts and wave from the server; its key heard from a minute of its harmony
+  const LS = {list: null, open: false, q: "", sameTune: true, nearTempo: true, loading: new Map()};
+  async function loadSongList(){
+    if(LS.busy) return; LS.busy = true;
+    try{ LS.list = (await (await fetch("/api/looper/songs")).json()).songs || []; }catch(e){ LS.list = []; }
+    LS.busy = false;
+    SLS.forEach(e => { if(!e.tuning){ const r = LS.list.find(x => x.name === e.song); if(r) e.tuning = r.tuning; } });
+    paintSlice();
+  }
+  const slKeep = () => { cfg.slSongs = SLS.filter(e => !e.own).map(e => e.song); keep(); };
+  async function addSong(name){
+    ownSlice();
+    const have = SLS.find(x => x.song === name); if(have) return have;
+    if(LS.loading.has(name)) return LS.loading.get(name);
+    const pr = (async () => {
+      const r = await fetch(`/api/looper/song?name=${encodeURIComponent(name)}`), d = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(d.error || "píseň se nepodařilo otevřít");
+      const e = blankSong(), bl = 60 / (d.bpm || 120) * (d.perBar || 4);
+      Object.assign(e, {song: name, title: d.title || name, artist: d.artist || "", stems: d.stems.map(stem => ({stem, buf: null})), dur: d.dur,
+        sections: d.sections || [], bpm: d.bpm || 0, tuning: d.tuning});
+      e.db = (d.downbeats || []).length > 1 ? d.downbeats.filter(t => t < d.dur) : Array.from({length: Math.floor(d.dur / bl)}, (_, i) => i * bl);
+      const by = {}; let n = 0, top = 0;
+      for(const [st, arr] of Object.entries(d.env || {})){ by[st] = {e: Float32Array.from(arr, v => v / 255), sr: d.envRate}; n = Math.max(n, arr.length); }
+      for(let i = 0; i < n; i++){ let t = 0; for(const v of Object.values(by)) t += v.e[i] || 0; if(t > top) top = t; }
+      e.env = {by, top: top || 1};
+      cutBy(e.mode, e);
+      if(!SLS.some(x => x.song === name)) SLS.push(e);
+      slKeep();
+      songKeyOf(e);
+      return SLS.find(x => x.song === name);
+    })();
+    LS.loading.set(name, pr);
+    try{ return await pr; } finally { LS.loading.delete(name); }
+  }
+  async function songKeyOf(e){
+    if(e.key || !window.PickKey) return;
+    const st = ["guitar", "bass", "piano", "other"].filter(s => e.stems.some(x => x.stem === s)); if(!st.length) return;
+    try{ audio(); const a = Math.max(0, e.dur * 0.3), raw = await rawPiece(e, {a, z: Math.min(e.dur, a + 40), stems: st}); e.key = PickKey.detect(raw) || ""; }catch(x){}
+    if(e.key){ paintSlice(); paintComp(); }
+  }
+  async function songFor(name){
+    ownSlice();
+    const e = SLS.find(x => x.song === name); if(e) return e;
+    try{ return await addSong(name); }catch(x){ showToast(`„${shortTitle(name)}“: ${x.message}`); return null; }
+  }
+  function useSong(k){ if(!SLS[k] || SLS[k] === SL) return; stopSlicePrev(); SL = SLS[k]; paintSlice(); }
+  function dropSong(k){ const e = SLS[k]; if(!e || e.own) return; if(e === SL){ stopSlicePrev(); SL = SLS[k - 1] || SLS[k + 1] || blankSong(); } SLS.splice(k, 1); slKeep(); paintSlice(); }
   // the cuts: at the song's parts, or into n even pieces — always on a downbeat
-  function cutBy(mode){
-    SL.mode = mode;
-    const db = SL.db, near = (t) => db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, db[0]);
+  function cutBy(mode, e = SL){
+    e.mode = mode;
+    const db = e.db, near = (t) => db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, db[0]);
     let cuts = [];
-    if(mode === "parts"){ try{ cuts = (Mixer.sectionsNow() || []).map(x => near(x.start)); }catch(e){} }
+    if(mode === "parts") cuts = secsOf(e).map(x => near(x.start));
     else { const n = +mode, per = Math.max(1, Math.ceil(db.length / n)); for(let i = 0; i < db.length; i += per) cuts.push(db[i]); }
-    if(!cuts.length) cuts = [db[0] || 0];
-    SL.cuts = [...new Set(cuts)].sort((a, b) => a - b);
-    SL.st = {}; SL.sel = Math.min(SL.sel, SL.cuts.length - 1);
+    if(!cuts.length || cuts[0] == null) cuts = [db[0] || 0];
+    e.cuts = [...new Set(cuts)].sort((a, b) => a - b);
+    e.st = {}; e.sel = Math.max(0, Math.min(e.sel, e.cuts.length - 1));
   }
-  const pieceOf = (i) => { const a = SL.cuts[i], z = i + 1 < SL.cuts.length ? SL.cuts[i + 1] : (SL.db[SL.db.length - 1] + barLen()); return {a, z: Math.min(z, SL.dur), bars: Math.max(1, SL.db.filter(t => t >= a - 0.05 && t < z - 0.05).length)}; };
-  const pieceName = (i) => { let n = ""; try{ const p = pieceOf(i), sec = (Mixer.sectionsNow() || []).find(x => p.a >= x.start - 0.3 && p.a < x.end); n = sec ? sec.name : ""; }catch(e){} return n; };
+  const pieceOf = (i) => { const a = SL.cuts[i], z = i + 1 < SL.cuts.length ? SL.cuts[i + 1] : (SL.db[SL.db.length - 1] + songBar(SL)); return {a, z: Math.min(z, SL.dur), bars: Math.max(1, SL.db.filter(t => t >= a - 0.05 && t < z - 0.05).length)}; };
+  const pieceName = (i) => { const p = pieceOf(i), sec = secsOf(SL).find(x => p.a >= x.start - 0.3 && p.a < x.end); return sec ? sec.name : ""; };
   // which of the song's tracks sound in a piece: "on", "mute" or "solo" for each
   const stemsIn = (i) => SL.st[i] || (SL.st[i] = Object.fromEntries(SL.stems.map(x => [x.stem, "on"])));
   const heard = (i) => { const m = stemsIn(i), solo = Object.values(m).includes("solo"); return SL.stems.filter(x => solo ? m[x.stem] === "solo" : m[x.stem] !== "mute"); };
-  // a piece as a loop: its tracks mixed, the edges faded, at the master tempo (its bars, so many bars long)
-  function pieceBuf(i){
-    const p = pieceOf(i), list = heard(i);
-    if(!list.length) return null;
-    const sr = list[0].buf.sampleRate, from = Math.round(p.a * sr), n = Math.max(1, Math.round((p.z - p.a) * sr));
-    const want = Math.round(p.bars * barLen() * sr), out2 = ac.createBuffer(2, want, sr), rate = n / want, fade = Math.round(sr * 0.004);
-    for(let c = 0; c < 2; c++){
-      const d = out2.getChannelData(c);
-      list.forEach(x => { const src = x.buf.getChannelData(Math.min(c, x.buf.numberOfChannels - 1));
-        for(let k = 0; k < want; k++){ const f = from + k * rate, j = Math.floor(f), w = f - j; if(j + 1 < src.length) d[k] += src[j] * (1 - w) + src[j + 1] * w; } });
-      for(let k = 0; k < fade; k++){ const f = k / fade; d[k] *= f; d[want - 1 - k] *= f; }
+  // a piece as it is now: which song, where in it, how many bars, which tracks sound in it
+  const pieceSnap = (i) => { const p = pieceOf(i); return {song: SL.song, title: SL.title, a: p.a, z: p.z, bars: p.bars, stems: heard(i).map(x => x.stem), name: pieceName(i) || "Kousek " + (i + 1), n: i + 1}; };
+  // its sound as the song has it: from the mixer's decoded tracks for the song in Steems, mixed by the server for others
+  async function rawPiece(e, sn){
+    if(e.own){
+      const list = e.stems.filter(x => sn.stems.includes(x.stem)); if(!list.length) return null;
+      const sr = list[0].buf.sampleRate, from = Math.round(sn.a * sr), n = Math.max(1, Math.round((sn.z - sn.a) * sr)), b = ac.createBuffer(2, n, sr);
+      for(let c = 0; c < 2; c++){ const d = b.getChannelData(c);
+        list.forEach(x => { const src = x.buf.getChannelData(Math.min(c, x.buf.numberOfChannels - 1)); for(let k = 0; k < n && from + k < src.length; k++) d[k] += src[from + k]; }); }
+      return b;
     }
-    return {buf: out2, bars: p.bars, rate};
+    if(!sn.stems.length) return null;
+    const r = await fetch(`/api/looper/piece?name=${encodeURIComponent(e.song)}&a=${sn.a.toFixed(4)}&z=${sn.z.toFixed(4)}&stems=${sn.stems.join(",")}`);
+    if(!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "kousek se nepodařilo vyříznout");
+    return ac.decodeAudioData(await r.arrayBuffer());
   }
-  // a piece as it is now, kept by a pad: where in the song, how many bars, which tracks sound in it
-  const pieceSnap = (i) => { const p = pieceOf(i); return {song: SL.song, a: p.a, z: p.z, bars: p.bars, stems: heard(i).map(x => x.stem), name: pieceName(i) || "Kousek " + (i + 1), n: i + 1}; };
-  function snapBuf(sn){
-    if(!sliceSong() || SL.song !== sn.song) return null;
-    const list = SL.stems.filter(x => sn.stems.includes(x.stem));
-    if(!list.length) return null;
-    const sr = list[0].buf.sampleRate, from = Math.round(sn.a * sr), n = Math.max(1, Math.round((sn.z - sn.a) * sr));
-    const want = Math.round(sn.bars * barLen() * sr), out2 = ac.createBuffer(2, want, sr), rate = n / want, fade = Math.round(sr * 0.004);
-    for(let c = 0; c < 2; c++){
-      const d = out2.getChannelData(c);
-      list.forEach(x => { const src = x.buf.getChannelData(Math.min(c, x.buf.numberOfChannels - 1));
-        for(let k = 0; k < want; k++){ const f = from + k * rate, j = Math.floor(f), w = f - j; if(j + 1 < src.length) d[k] += src[j] * (1 - w) + src[j + 1] * w; } });
-      for(let k = 0; k < fade; k++){ const f = k / fade; d[k] *= f; d[want - 1 - k] *= f; }
+  function fadeEdges(b){ const f = Math.round(b.sampleRate * 0.004); for(let c = 0; c < b.numberOfChannels; c++){ const d = b.getChannelData(c); for(let k = 0; k < f && k < d.length; k++){ const g = k / f; d[k] *= g; d[d.length - 1 - k] *= g; } } return b; }
+  function stretchLinear(raw, want){            // a tempo this near: read a little faster or slower (under 2 % of pitch is not heard)
+    const sr = raw.sampleRate, n = Math.max(1, Math.round(want * sr)), rate = raw.length / n, b = ac.createBuffer(2, n, sr);
+    for(let c = 0; c < 2; c++){ const s = raw.getChannelData(Math.min(c, raw.numberOfChannels - 1)), d = b.getChannelData(c);
+      for(let k = 0; k < n; k++){ const f = k * rate, j = Math.floor(f), w = f - j; d[k] = j + 1 < s.length ? s[j] * (1 - w) + s[j + 1] * w : (s[j] || 0); } }
+    return b;
+  }
+  // …fitted to the master: its bars at the master tempo (Signalsmith keeps the pitch) and in the master key
+  // (keeping the length) — kept, so a piece heard again starts at once
+  const PA = new Map();
+  // how many master bars a piece takes: its own bars — or twice / half as many when its song is in half or double
+  // the master's time (one of its bars is then nearer two of the master's, or half of one)
+  const mBars = (sn) => { const r = (sn.z - sn.a) / sn.bars / barLen();
+    return sn.bars * (r > 2.83 ? 4 : r > 1.414 ? 2 : r < 0.354 && sn.bars % 4 === 0 ? 0.25 : r < 0.707 && sn.bars % 2 === 0 ? 0.5 : 1); };
+  const pieceFit = (sn) => { const e = SLS.find(x => x.song === sn.song); return {rate: (sn.z - sn.a) / (mBars(sn) * barLen()), semis: e ? keyShift(e.key) : 0}; };
+  const fitText = (sn) => { const f = pieceFit(sn), r = f.rate; return [Math.abs(r - 1) > 0.02 ? `tempo ${r > 1 ? "+" : "−"}${Math.round(Math.abs(r - 1) * 100)} %` : "", f.semis ? `${f.semis > 0 ? "+" : ""}${f.semis} pt` : ""].filter(Boolean).join(" · "); };
+  async function pieceAudio(sn){
+    audio();
+    const e = await songFor(sn.song); if(!e) return null;
+    const semis = keyShift(e.key), k = [sn.song, sn.a.toFixed(3), sn.z.toFixed(3), sn.bars, sn.stems.join("+"), cfg.bpm, cfg.perBar, semis].join("|");
+    if(!PA.has(k)){
+      const pr = (async () => { const raw = await rawPiece(e, sn); if(!raw) return null;
+        const want = mBars(sn) * barLen(), rate = raw.duration / want;
+        return fadeEdges(Math.abs(rate - 1) < 0.02 && !semis ? stretchLinear(raw, want) : await fitAudio(raw, want, semis)); })();
+      PA.set(k, pr); pr.catch(() => PA.delete(k));
+      while(PA.size > 80) PA.delete(PA.keys().next().value);
     }
-    return out2;
+    return PA.get(k);
   }
 
   // ---- a track's sound after its loop: a tone print (a clean guitar played through it), and an effect —
@@ -929,7 +1059,7 @@ const Looper = (() => {
   // ---- the master (MASTER): the tempo, the metre and the key everything is fitted to — the song's own to begin
   // with. The key can be set otherwise: the samples in the tracks are put into it again, the piano dots it.
   const KEYS = () => [...PC, ...PC.map(n => n + "m")];
-  const FOLDABLE = ["lp-slice", "lp-pads", "lp-plan", "lp-sc", "lp-arr", "lp-skel"];
+  const FOLDABLE = ["lp-slice", "lp-comp", "lp-pads", "lp-plan", "lp-sc", "lp-arr", "lp-skel"];
   function applyFolds(){ FOLDABLE.forEach(id => { const n = root && root.querySelector("#" + id); if(n) n.classList.toggle("lp-folded", !!(cfg.fold || {})[id]); }); }
   function paintMaster(){
     const box = root && root.querySelector("#lp-master"); if(!box) return;
@@ -941,7 +1071,7 @@ const Looper = (() => {
       <span class="lp-ms-v">smyčka 1 takt = ${barLen().toFixed(2).replace(".", ",")} s</span>
       ${lock ? `<span class="lp-ms-lock" title="Smyčky jsou nahrané v tomhle tempu a taktu">🔒 tempo a takt drží nahrané smyčky</span>` : ""}`;
     const q = (id) => box.querySelector("#" + id);
-    q("lp-ms-bpm").onchange = (e) => { setBpm(parseFloat(e.target.value)); drumCache = {}; paintMaster(); };
+    q("lp-ms-bpm").onchange = (e) => { setBpm(parseFloat(e.target.value)); drumCache = {}; paintMaster(); paintComp(); paintSlice(); };
     q("lp-ms-per").onchange = (e) => { if(hasAudio()) return; cfg.perBar = +e.target.value; keep(); drumCache = {}; paint(); };
     q("lp-ms-key").onchange = async (e) => {
       cfg.masterKey = e.target.value; keep();
@@ -950,7 +1080,7 @@ const Looper = (() => {
       for(const t of again){ const sm = t.layers[0].sample, x = SM.list.find(y => y.dir === sm.dir && y.rel === sm.rel); if(x) await sampleToTrack(x, t.i); }
       pads.forEach(pd => { if(pd.sample) pd.sample.fit = null; });
       showToast(`Tónina ${masterKey() || "z písně"}` + (again.length ? ` — ${again.length} ${again.length === 1 ? "sample přeladěn" : "samply přeladěny"}` : ""));
-      paint(); paintPiano(); paintSamples();
+      paint(); paintPiano(); paintSamples(); paintComp();
     };
   }
 
@@ -1025,10 +1155,10 @@ const Looper = (() => {
   }
   const masterKey = () => cfg.masterKey || (skel && skel.key) || "";
   async function loadSample(x){
-    const k = x.dir + "|" + x.rel;
+    const k = x.sound ? "s|" + x.sound : x.dir + "|" + x.rel;
     if(SM.cache.has(k)) return SM.cache.get(k);
     audio();
-    const r = await fetch(`/api/looper/samples/file?dir=${x.dir}&rel=${encodeURIComponent(x.rel)}`);
+    const r = await fetch(x.sound ? `/api/looper/sounds/${x.sound}` : `/api/looper/samples/file?dir=${x.dir}&rel=${encodeURIComponent(x.rel)}`);
     if(!r.ok) throw new Error("soubor se nepodařilo načíst");
     const buf = await ac.decodeAudioData(await r.arrayBuffer());
     SM.cache.set(k, buf); return buf;
@@ -1112,43 +1242,122 @@ const Looper = (() => {
     box.querySelectorAll(".lp-sm-row").forEach(r => r.ondragstart = (e) => { e.dataTransfer.setData("text/pick-sample", r.dataset.i); e.dataTransfer.effectAllowed = "copy"; });
   }
 
-  // ---- the pads: eight squares — the kit's drums in a style, or a piece of the song dropped on one. A drum
-  // pad plays at once (and goes into a drum track that is recording); a piece pad starts its piece on the
-  // next bar (at once when the looper stands) and plays it through; a tap while it plays stops it. Keys Q W E R /
-  // A S D F, and a MIDI keyboard's pads (General MIDI drum notes) play them too.
+  // ---- the pads: as many as wanted (eight to start: the kit's drums in a style). On one goes a sound of the
+  // player's own (any file, dropped from the Finder or chosen — the server keeps a copy), a sample from the
+  // mapped folders, or a piece of a song. Each pad has its key (Q W E R / A S D F, new ones the numeric keypad's,
+  // any other can be taught) and a MIDI note. A drum or a short sound plays at once (again on each tap); a
+  // loop or a piece starts on the next bar and a tap while it plays stops it. Right click: the pad's options.
   const PAD_KEYS = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyA", "KeyS", "KeyD", "KeyF"];
-  let pads = LoopSound.KIT.map(k => ({note: k.note, drum: k.id, name: k.name, piece: null, sample: null, src: null}));
-  let padBus = null;
+  const NUM_KEYS = ["Numpad7", "Numpad8", "Numpad9", "Numpad4", "Numpad5", "Numpad6", "Numpad1", "Numpad2", "Numpad3", "Numpad0",
+    "NumpadDecimal", "NumpadEnter", "NumpadAdd", "NumpadSubtract", "NumpadMultiply", "NumpadDivide"];
+  const RESERVED = ["Space", "Enter", "Tab", "Escape", "KeyZ", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5",
+    "Delete", "Backspace", "Minus", "Equal", "ShiftLeft", "ShiftRight", "CapsLock"];
+  const KEY_SIGN = {BracketLeft: "[", BracketRight: "]", Quote: "'", Semicolon: ";", Comma: ",", Period: ".", Slash: "/", Backslash: "\\", Backquote: "`", IntlBackslash: "§"};
+  const keyLabel = (c) => !c ? "" : c.startsWith("Key") ? c.slice(3) : c.startsWith("Digit") ? c.slice(5)
+    : c.startsWith("Numpad") ? "num " + ({Decimal: ",", Enter: "↵", Add: "+", Subtract: "−", Multiply: "×", Divide: "÷"}[c.slice(6)] || c.slice(6)) : KEY_SIGN[c] || c;
+  const padOf = (q, i) => { const k = i < 8 ? LoopSound.KIT[i] : null; q = q || {};
+    return {note: q.note !== undefined ? q.note : (k ? k.note : null), drum: q.drum !== undefined ? q.drum : (k ? k.id : null), name: k ? k.name : "Pad " + (i + 1),
+      label: q.label || "", key: q.key !== undefined ? q.key : (PAD_KEYS[i] || null), piece: q.piece || null,
+      sample: q.sample && q.sample.x ? {x: q.sample.x, name: q.sample.x.name, bars: q.sample.bars} : null, src: null}; };
+  let pads = [], padBus = null, padLearn = null;      // padLearn {i, kind: "key" | "midi"}: the next key or note goes to that pad
+  function stopPad(pd){ if(pd && pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } }
+  function padsFrom(list){ pads.forEach(stopPad); const n = Math.min(64, Math.max(8, Array.isArray(list) ? list.length : 0)); pads = Array.from({length: n}, (_, i) => padOf(list && list[i], i)); }
+  const padsJSON = () => pads.map(pd => ({key: pd.key, note: pd.note, drum: pd.drum, label: pd.label || undefined, piece: pd.piece, sample: pd.sample ? {x: pd.sample.x, bars: pd.sample.bars} : null}));
+  const padsKeep = () => { cfg.pads = padsJSON(); keep(); };
+  padsFrom(cfg.pads);
+  const freeKey = () => NUM_KEYS.find(c => !pads.some(p => p.key === c)) || null;
+  const padTitle = (pd) => pd.label || (pd.sample ? pd.sample.name : pd.piece ? pd.piece.name : pd.drum ? pd.name : "Prázdný pad");
+  const drumNote = (pd) => { const k = LoopSound.KIT.find(x => x.id === pd.drum); return k ? k.note : pd.note; };
   function padHit(i){
     audio();
     const pd = pads[i]; if(!pd) return;
     flashPadBank(i);
     if(pd.sample){
-      if(pd.src){ try{ pd.src.stop(running && pd.sample.bars ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
-      (async () => { let f; try{ f = pd.sample.fit || (pd.sample.fit = await sampleFitted(pd.sample.x)); }catch(e){ showToast("Sample se nepodařilo načíst"); return; }
+      if(pd.src){ try{ pd.src.stop(running ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
+      (async () => { let f; try{ f = pd.sample.fit || (pd.sample.fit = await sampleFitted(pd.sample.x)); }catch(e){ showToast("Zvuk se nepodařilo načíst: " + e.message); return; }
         const sr = ac.createBufferSource(); sr.buffer = f.buf; sr.connect(bus);
-        sr.start(f.bars && running ? nextBar(now()) : now() + 0.003); pd.src = sr;
-        sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } }; paintPads(); })();
+        sr.start(f.bars && running ? nextBar(now()) : now() + 0.003);
+        if(f.bars){ pd.src = sr; sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } }; paintPads(); } })();   // a hit: again on each tap
       return;
     }
-    if(!pd.piece){
-      if(recTrack && recTrack.src === "drums" && recTrack.job){ noteOn(pd.note, 0.95); setTimeout(() => noteOff(pd.note), 120); return; }
+    if(pd.piece){
+      if(pd.src){ try{ pd.src.stop(running ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
+      if(pd.loading) return; pd.loading = true;
+      pieceAudio(pd.piece).then(buf => { pd.loading = false; if(!buf){ showToast("V kousku nehraje žádná stopa"); return; }
+        const sr = ac.createBufferSource(); sr.buffer = buf; sr.connect(bus); sr.start(running ? Math.max(nextBar(now()), now() + 0.01) : now() + 0.01); pd.src = sr;
+        sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } }; paintPads(); })
+        .catch(e => { pd.loading = false; showToast("Kousek se nepodařilo připravit: " + e.message); });
+      return;
+    }
+    if(pd.drum){
+      const n = drumNote(pd);
+      if(recTrack && recTrack.src === "drums" && recTrack.job){ noteOn(n, 0.95); setTimeout(() => noteOff(n), 120); return; }
       if(!padBus){ padBus = ac.createGain(); padBus.gain.value = 0.9; padBus.connect(bus); }
-      LoopSound.drum(ac, padBus, pd.note, 0.95, now() + 0.003);
+      LoopSound.drum(ac, padBus, n, 0.95, now() + 0.003);
       return;
     }
-    if(pd.src){ try{ pd.src.stop(running ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
-    const buf = snapBuf(pd.piece);
-    if(!buf){ showToast("Kousek je z jiné písně — otevři ji ve Steems"); return; }
-    const sr = ac.createBufferSource(); sr.buffer = buf; sr.connect(bus);
-    const at = running ? nextBar(now()) : now() + 0.01;
-    sr.start(at); pd.src = sr;
-    sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } };
-    paintPads();
+    showToast(`Pad ${i + 1} je prázdný — přetáhni na něj zvuk (i soubor z Finderu), sampl nebo kousek písně · pravé tlačítko = možnosti`);
   }
-  function padPiece(i, snap){ const pd = pads[i]; if(!pd) return; if(pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } pd.piece = snap; paintPads();
+  function padPiece(i, snap){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.sample = null; pd.piece = snap; padsKeep(); paintPads();
     showToast(`Pad ${i + 1}: ${snap.name} (${snap.bars} t.) — spustí se na začátku taktu`); }
+  function setPadSample(i, x, quiet){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.piece = null; pd.sample = {x, name: x.name, bars: !!x.bpm};
+    if(!quiet){ padsKeep(); paintPads(); showToast(`Pad ${i + 1}: ${x.name}`); } }
+  function addPad(){ if(pads.length >= 64){ showToast("Víc než 64 padů nejde"); return -1; } pads.push(padOf({key: freeKey(), drum: null, note: null}, pads.length)); padsKeep(); paintPads(); return pads.length - 1; }
+  async function uploadSound(file){
+    if(file.size > 300 * 1024 * 1024) throw new Error("soubor je větší než 300 MB");
+    const fd = new FormData(); fd.append("audio", file, file.name);
+    const r = await fetch("/api/looper/sounds", {method: "POST", body: fd}), d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.error || "zvuk se nenahrál");
+    return {sound: d.id, name: d.name};
+  }
+  // files onto a pad: the first on it, the rest on the next empty pads (new ones when there are none)
+  async function filesToPads(files, i){
+    audio();
+    let last = i == null ? -1 : i - 1, done = 0;
+    for(const f of files.slice(0, 64)){
+      let k = i != null && !done ? i : pads.findIndex((p, j) => j > last && !p.sample && !p.piece && !p.drum);
+      if(k < 0){ if(pads.length >= 64) break; pads.push(padOf({key: freeKey(), drum: null, note: null}, pads.length)); k = pads.length - 1; }
+      last = k;
+      showToast(`Nahrávám „${f.name}“…`);
+      try{ setPadSample(k, await uploadSound(f), true); done++; }
+      catch(e){ showToast(`„${f.name}“: ${e.message}`); if(i != null && !done) i = null; }
+    }
+    padsKeep(); paintPads();
+    if(done) showToast(done === 1 ? `Pad ${last + 1}: ${pads[last].sample.name}` : `${done} zvuků na padech`);
+  }
+  function pickFiles(i){
+    const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true;
+    inp.accept = "audio/*,video/*,.wav,.aif,.aiff,.aifc,.caf,.mp3,.m4a,.aac,.flac,.ogg,.opus,.wma,.mp4,.mov";
+    inp.onchange = () => { if(inp.files.length) filesToPads([...inp.files], i); };
+    inp.click();
+  }
+  async function padMenu(i){
+    const pd = pads[i]; if(!pd) return;
+    const items = [
+      {label: "Zvuk ze souboru…", sub: "jakýkoli zvuk nebo video (WAV, AIFF, MP3, FLAC, M4A…) — víc souborů naplní další pady", value: "file"},
+      {label: `Klávesa: ${keyLabel(pd.key) || "žádná"}`, sub: "vyber a stiskni klávesu — třeba na numerické klávesnici", value: "key"},
+      {label: `MIDI: ${pd.note != null ? "nota " + pd.note : "žádná"}`, sub: "vyber a zahraj notu nebo pad na MIDI klávesách", value: "midi"},
+      {label: "Přejmenovat", value: "name"}];
+    if(pd.sample || pd.piece) items.push({label: pd.drum ? "Vrátit bicí" : "Vyprázdnit", value: "clear"});
+    if(i >= 8) items.push({label: "Odebrat pad", value: "remove"});
+    const v = await Dialog.pick({title: `Pad ${i + 1} · ${padTitle(pd)}`, items});
+    if(v === "file") pickFiles(i);
+    else if(v === "key"){ padLearn = {i, kind: "key"}; paintPads(); showToast(`Stiskni klávesu pro pad ${i + 1} (Esc zruší)`); }
+    else if(v === "midi"){ await midiConnect(); padLearn = {i, kind: "midi"}; paintPads(); showToast(`Zahraj notu na MIDI klávesách pro pad ${i + 1}`); }
+    else if(v === "name"){ const n = await Dialog.prompt("Název padu:", padTitle(pd)); if(n != null){ pd.label = n.trim().slice(0, 30); padsKeep(); paintPads(); } }
+    else if(v === "clear"){ stopPad(pd); pd.sample = null; pd.piece = null; padsKeep(); paintPads(); }
+    else if(v === "remove"){ stopPad(pd); pads.splice(i, 1); padsKeep(); paintPads(); }
+  }
   function flashPadBank(i){ const b = root && root.querySelector(`.lp-pb [data-pad="${i}"]`); if(b){ b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120); } }
+  const takesDrop = (e) => { const ty = [...e.dataTransfer.types]; return ty.includes("text/pick-piece") || ty.includes("text/pick-sample") || ty.includes("Files"); };
+  function dropOnPad(e, i){
+    const v = e.dataTransfer.getData("text/pick-piece"), sm = e.dataTransfer.getData("text/pick-sample"), files = [...(e.dataTransfer.files || [])];
+    if(files.length){ e.preventDefault(); filesToPads(files, i); return; }
+    if(v === "" && !(sm !== "" && SM.list && SM.list[+sm])) return;
+    e.preventDefault();
+    if(i == null){ i = addPad(); if(i < 0) return; }
+    if(v !== "") padPiece(i, pieceSnap(+v)); else setPadSample(i, SM.list[+sm]);
+  }
   function paintPads(){
     const box = root && root.querySelector("#lp-pads"); if(!box) return;
     const st = LoopSound.style(), drumT = tracks.find(t => t.src === "drums");
@@ -1156,10 +1365,16 @@ const Looper = (() => {
         <select id="lp-pb-style" title="Zvuk bicích podle stylu (pady, kroky i bicí stopa)">${Object.entries(LoopSound.STYLES).map(([k, v]) => `<option value="${k}" ${k === st ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>
         <select id="lp-pb-groove" title="Hotový rytmus do bicí stopy (stopa ${drumT ? drumT.i + 1 : 1}, 2 takty)"><option value="">Rytmus do bicí stopy…</option>${Object.entries(LoopSound.GROOVES).map(([k, g]) => `<option value="${k}" ${k === LoopSound.STYLE_GROOVE[st] ? "data-fit" : ""}>${esc(g.name)}${k === LoopSound.STYLE_GROOVE[st] ? " ★" : ""}</option>`).join("")}</select>
         <button type="button" class="lp-b ${piano.open ? "on" : ""}" id="lp-pb-piano" title="Virtuální klavír — hraje a nahrává do MIDI stopy">🎹 Klavír</button>
-        <span class="lp-pb-hint">klávesy Q W E R · A S D F · MIDI pady · kousek z vlny přetáhni na pad · pravé tlačítko vrátí bicí</span></div>
-      <div class="lp-pb">${pads.map((pd, i) => `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""}" data-pad="${i}" style="--h:${pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : 230 + i * 12}"
-          title="${pd.piece ? esc(pd.piece.name + " · " + pd.piece.bars + " t. · " + pd.piece.stems.map(stemName).join("+")) : esc(pd.name)} — klávesa ${PAD_KEYS[i].slice(3)}, MIDI ${pd.note}">
-          <b>${pd.sample ? "♫ " + esc(pd.sample.name) : pd.piece ? esc(pd.piece.name) : esc(pd.name)}</b><small>${pd.piece ? pd.piece.bars + " t." + (pd.piece.stems.length < 3 ? " · " + esc(pd.piece.stems.map(stemName).join("+")) : "") : esc(LoopSound.STYLES[st].name)}</small><i>${PAD_KEYS[i].slice(3)}</i></button>`).join("")}</div>`;
+        <span class="lp-pb-hint">soubory přetáhni z Finderu, samply a kousky z vlny · pravé tlačítko: zvuk ze souboru, klávesa, MIDI nota</span></div>
+      <div class="lp-pb">${pads.map((pd, i) => { const lr = padLearn && padLearn.i === i, empty = !pd.piece && !pd.sample && !pd.drum;
+          const hue = pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : pd.sample ? (pd.sample.x.sound ? 168 : 195) : 230 + (i % 8) * 12;
+          const sub = pd.piece ? pd.piece.bars + " t." + (pd.piece.song !== SL.song ? " · " + shortTitle(pd.piece.title || pd.piece.song) : pd.piece.stems.length < 3 ? " · " + pd.piece.stems.map(stemName).join("+") : "")
+            : pd.sample ? (pd.sample.x.sound ? "vlastní zvuk" : pd.sample.x.bpm ? pd.sample.x.bpm + " BPM" : "sampl") : pd.drum ? LoopSound.STYLES[st].name : "přetáhni zvuk";
+          const midi = pd.note != null && !(pd.drum && !pd.sample && !pd.piece) ? ` · ♪${pd.note}` : "";
+          return `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""} ${empty ? "empty" : ""} ${lr ? "learn" : ""}" data-pad="${i}" style="--h:${hue}"
+            title="${esc(padTitle(pd))}${pd.piece ? esc(" · " + (pd.piece.title || pd.piece.song) + " · " + pd.piece.stems.map(stemName).join("+")) : ""} — klávesa ${esc(keyLabel(pd.key) || "žádná")}, MIDI ${pd.note != null ? pd.note : "žádná"} · pravé tlačítko: možnosti">
+            <b>${pd.sample ? "♫ " : ""}${esc(padTitle(pd))}</b><small>${esc(sub)}</small><i>${lr ? (padLearn.kind === "key" ? "stiskni klávesu" : "zahraj notu") : esc(keyLabel(pd.key)) + midi}</i></button>`; }).join("")}
+        <button type="button" class="lp-pad lp-pad-add" id="lp-pad-add" title="Přidat pad — dostane volnou klávesu na numerické klávesnici · přetáhni sem i víc souborů najednou">＋<small>Pad</small></button></div>`;
     box.querySelector("#lp-pb-piano").onclick = () => { piano.open = !piano.open; paintPads(); paintPiano(); };
     box.querySelector("#lp-pb-style").onchange = async (e) => {
       LoopSound.setStyle(e.target.value); cfg.kit = e.target.value; keep();
@@ -1171,40 +1386,48 @@ const Looper = (() => {
       t.src = "drums"; setSteps(t, groove(id, 2)); showToast(`Rytmus ${LoopSound.GROOVES[id].name} → stopa ${t.i + 1}`); };
     box.querySelectorAll("[data-pad]").forEach(b => {
       const i = +b.dataset.pad;
-      b.onpointerdown = (e) => { if(e.button === 0){ e.preventDefault(); padHit(i); } };
-      b.oncontextmenu = (e) => { e.preventDefault(); const pd = pads[i]; if(pd.sample){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.sample = null; paintPads(); return; } if(pd.piece){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.piece = null; paintPads(); } };
-      b.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-sample")){ e.preventDefault(); b.classList.add("drop"); } });
+      b.onpointerdown = (e) => { if(e.button === 0){ e.preventDefault(); if(padLearn && padLearn.i === i){ padLearn = null; paintPads(); return; } padHit(i); } };
+      b.oncontextmenu = (e) => { e.preventDefault(); padMenu(i); };
+      b.addEventListener("dragover", (e) => { if(takesDrop(e)){ e.preventDefault(); b.classList.add("drop"); } });
       b.addEventListener("dragleave", () => b.classList.remove("drop"));
-      b.addEventListener("drop", (e) => { b.classList.remove("drop");
-        const v = e.dataTransfer.getData("text/pick-piece"), sm = e.dataTransfer.getData("text/pick-sample");
-        if(v !== ""){ e.preventDefault(); padPiece(i, pieceSnap(+v)); }
-        else if(sm !== "" && SM.list && SM.list[+sm]){ e.preventDefault(); const x = SM.list[+sm], pd = pads[i]; if(pd.src){ try{ pd.src.stop(); }catch(er){} pd.src = null; }
-          pd.piece = null; pd.sample = {x, name: x.name, bars: !!x.bpm}; paintPads(); showToast(`Pad ${i + 1}: ${x.name}`); } });
+      b.addEventListener("drop", (e) => { b.classList.remove("drop"); dropOnPad(e, i); });
     });
+    const add = box.querySelector("#lp-pad-add");
+    add.onclick = () => { const i = addPad(); if(i >= 0) showToast(`Pad ${i + 1}${pads[i].key ? " na klávese " + keyLabel(pads[i].key) : ""} — přetáhni na něj zvuk, nebo pravé tlačítko`); };
+    add.addEventListener("dragover", (e) => { if(takesDrop(e)){ e.preventDefault(); add.classList.add("drop"); } });
+    add.addEventListener("dragleave", () => add.classList.remove("drop"));
+    add.addEventListener("drop", (e) => { add.classList.remove("drop"); dropOnPad(e, null); });
   }
 
-  function pieceToTrack(i, ti){
+  async function pieceToTrack(i, ti){ return snapToTrack(pieceSnap(i), ti); }
+  async function snapToTrack(sn, ti){
     audio();
-    const t = tracks[ti], pb = pieceBuf(i);
-    if(!t || !pb){ showToast("V kousku nehraje žádná stopa"); return; }
+    const t = tracks[ti]; if(!t) return;
     if(t.job){ showToast("Do stopy se právě nahrává"); return; }
+    let buf; try{ buf = await pieceAudio(sn); }catch(e){ showToast("Kousek se nepodařilo připravit: " + e.message); return; }
+    if(!buf){ showToast("V kousku nehraje žádná stopa"); return; }
     t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
-    t.len = pb.bars * barLen(); t.bars = 0;                  // the piece brings its own length
+    t.len = mBars(sn) * barLen(); t.bars = 0;                // the piece brings its own length
     t.anchor = running ? nextBar(now()) : t0;
-    const names = heard(i).map(x => stemName(x.stem));
-    t.name = `${pieceName(i) || "Kousek " + (i + 1)} · ${names.length === SL.stems.length ? "celá píseň" : names.join("+")}`.slice(0, 24);
-    t.layers.push({buf: pb.buf, piece: i}); history.push(t.i);
+    const e = SLS.find(x => x.song === sn.song), all = e && sn.stems.length === e.stems.length;
+    t.name = (e && !e.own ? `${shortTitle(sn.title || sn.song)} · ${sn.name}` : `${sn.name} · ${all ? "celá píseň" : sn.stems.map(stemName).join("+")}`).slice(0, 24);
+    t.layers.push({buf, piece: sn.n}); history.push(t.i);
     if(running) startLayer(t, t.layers[0], t.anchor);
     if(scenes[cur]) scenes[cur].on.add(t.i);
     const inp = root.querySelector(`.lp-t[data-i="${ti}"] .nm input`); if(inp) inp.value = t.name;
-    showToast(`Kousek ${i + 1} → stopa ${ti + 1}: ${pb.bars} ${pb.bars === 1 ? "takt" : pb.bars < 5 ? "takty" : "taktů"}` + (Math.abs(pb.rate - 1) > 0.02 ? ` (srovnáno na tempo o ${Math.round(Math.abs(pb.rate - 1) * 100)} %)` : ""));
+    const ft = fitText(sn);
+    const mb = mBars(sn);
+    showToast(`${sn.name} → stopa ${ti + 1}: ${mb} ${mb === 1 ? "takt" : mb < 5 ? "takty" : "taktů"}` + (ft ? ` (srovnáno: ${ft})` : ""));
     paint();
   }
-  function previewPiece(i){
+  async function previewPiece(i){
     audio();
-    if(SL.prev){ try{ SL.prev.stop(); }catch(e){} const was = SL.prev.piece; SL.prev = null; paintSlice(); if(was === i) return; }
-    const pb = pieceBuf(i); if(!pb) return;
-    const s = ac.createBufferSource(); s.buffer = pb.buf; s.loop = true; s.connect(bus); s.start(); s.piece = i; SL.prev = s;
+    if(SL.prev){ const was = SL.prev.piece; stopSlicePrev(); paintSlice(); if(was === i) return; }
+    const me = SL; let buf;
+    try{ buf = await pieceAudio(pieceSnap(i)); }catch(e){ showToast("Kousek se nepodařilo připravit: " + e.message); return; }
+    if(!buf || SL !== me) return;
+    stopSlicePrev();
+    const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.connect(bus); s.start(); s.piece = i; SL.prev = s;
     paintSlice();
   }
   // each stem's loudness, ~86 values a second (the wave is drawn from these at any zoom)
@@ -1255,34 +1478,201 @@ const Looper = (() => {
     const zb = root.querySelector("#lp-sl-zoom"); if(zb){ zb.hidden = SL.zoom <= 1.01; zb.textContent = (SL.zoom < 10 ? SL.zoom.toFixed(1).replace(".", ",") : Math.round(SL.zoom)) + "×"; }
   }
   const HUES = [265, 200, 150, 35, 330, 95, 15, 180];
+  function songPicker(){
+    if(!LS.list){ loadSongList(); return `<div class="lp-sl-pick"><span class="lp-pb-hint">Načítám písně…</span></div>`; }
+    const ref = (SLS.find(x => x.own && x.tuning) || SLS.find(x => x.tuning) || {}).tuning, q = LS.q.trim().toLowerCase();
+    const rows = LS.list.filter(x => !SLS.some(e => e.song === x.name) && (!q || (x.artist + " " + x.title + " " + x.name).toLowerCase().includes(q))
+        && (!LS.sameTune || !ref || sameTuning(x.tuning, ref)) && (!LS.nearTempo || (x.bpm && Math.abs(tempoRatio(x.bpm) - 1) <= 0.1)))
+      .sort((a, b) => (LS.nearTempo ? Math.abs(tempoRatio(a.bpm || 1) - 1) - Math.abs(tempoRatio(b.bpm || 1) - 1) : 0) || a.title.localeCompare(b.title));
+    return `<div class="lp-sl-pick"><div class="lp-sl-pick-top"><input type="search" id="lp-sl-q" placeholder="Hledat píseň nebo kapelu…" value="${esc(LS.q)}">
+        <label class="lp-chk" title="${ref ? "Jen písně se stejným laděním kytary" : "Ladění otevřené písně neznám"}"><input type="checkbox" id="lp-sl-tune" ${LS.sameTune && ref ? "checked" : ""} ${ref ? "" : "disabled"}> stejné ladění${ref ? ` (${esc(tuningName(ref))})` : ""}</label>
+        <label class="lp-chk" title="Tempo do 10 % od MASTERu — i poloviční nebo dvojnásobné"><input type="checkbox" id="lp-sl-tempo" ${LS.nearTempo ? "checked" : ""}> podobné tempo (${Math.round(cfg.bpm * 0.9)}–${Math.round(cfg.bpm * 1.1)} BPM)</label>
+        <span class="lp-pb-hint">${rows.length} ${rows.length === 1 ? "píseň" : rows.length < 5 && rows.length ? "písně" : "písní"} · klik ji přidá</span></div>
+      <div class="lp-sl-pick-list">${rows.slice(0, 150).map(x => { const r = x.bpm ? tempoRatio(x.bpm) : 0;
+          return `<button type="button" class="lp-sl-pick-row" data-add="${LS.list.indexOf(x)}" title="${esc(x.name)}"><b>${esc(x.title)}</b><small>${esc(x.artist)}</small>
+            <i>${x.bpm ? Math.round(x.bpm) + " BPM" + (Math.abs(r - 1) > 0.005 ? ` (${r > 1 ? "+" : "−"}${Math.round(Math.abs(r - 1) * 100)} %)` : "") : "tempo ?"}</i><i>${esc(tuningName(x.tuning) || "ladění ?")}</i></button>`; }).join("")
+        || `<div class="lp-sm-none">Nic takového — zkus vypnout filtr.</div>`}</div></div>`;
+  }
   function paintSlice(){
     const box = root && root.querySelector("#lp-slice");
     if(!box) return;
-    if(!sliceSong()){ box.hidden = true; return; }
+    const has = sliceSong();
     box.hidden = false;
-    const i = Math.min(SL.sel, SL.cuts.length - 1), p = pieceOf(i), m = stemsIn(i);
+    const songs = `<div class="lp-sl-songs">${SLS.map((e, k) => `<span class="lp-sl-song ${e === SL ? "on" : ""}" style="--h:${songHue(e.song)}" data-song="${k}" title="${esc(e.title)}${e.own ? " — otevřená ve Steems" : ""}">
+          <b>${esc(shortTitle(e.title))}</b><small>${esc([e.bpm ? Math.round(e.bpm) + " BPM" : "", e.key, tuningName(e.tuning)].filter(Boolean).join(" · "))}</small>
+          ${e.own ? `<em>Steems</em>` : `<button type="button" data-unsong="${k}" title="Zavřít píseň (kousky ve skladbě a na padech zůstanou)">✕</button>`}</span>`).join("")}
+        <button type="button" class="lp-b ${LS.open ? "on" : ""}" id="lp-sl-addsong" title="Přidat další píseň — její kousky se srovnají do tempa a tóniny MASTERu">＋ Píseň</button></div>`;
+    if(!has){
+      box.innerHTML = `<div class="lp-sl-top"><span class="h">PÍSEŇ PO KOUSCÍCH</span><span class="lp-sl-info">Otevři píseň ve Steems, nebo přidej písně tady a skládej z jejich kousků.</span></div>${songs}${LS.open ? songPicker() : ""}`;
+      wireSongs(box); return;
+    }
+    const i = Math.min(SL.sel, SL.cuts.length - 1), p = pieceOf(i), m = stemsIn(i), sn = pieceSnap(i), ft = fitText(sn);
     box.innerHTML = `<div class="lp-sl-top"><span class="h">PÍSEŇ PO KOUSCÍCH</span>
         <select id="lp-sl-n" title="Na kolik kousků rozsekat — vždy na začátku taktu (podle bicích)"><option value="parts" ${SL.mode === "parts" ? "selected" : ""}>podle částí písně</option>${[4, 8, 16, 32].map(n => `<option value="${n}" ${SL.mode == n ? "selected" : ""}>${n} kousků</option>`).join("")}</select>
         <button type="button" class="lp-b ${SL.scissors ? "on" : ""}" id="lp-sl-cut" title="Nůžky: klik do vlny rozstřihne kousek na nejbližším taktu · dvojklik na řez ho zruší">✂ Nůžky</button>
         <button type="button" class="lp-sl-zoom" id="lp-sl-zoom" hidden title="Vlna je přiblížená — klik ukáže celou píseň"></button>
-        <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · ${cfg.bpm} BPM · sevřením prstů přiblížíš, dvěma prsty posuneš, řez táhni, kousek vytáhni na stopu</span></div>
+        <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · sevřením prstů přiblížíš, dvěma prsty posuneš, řez táhni, kousek vytáhni na stopu, pad nebo do skladby</span></div>
+      ${songs}${LS.open ? songPicker() : ""}
       <div class="lp-sl-wave"><canvas id="lp-sl-cv"></canvas></div>
-      <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}</span>
+      <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}${ft ? ` · <em title="Jak se kousek srovná do MASTERu (${cfg.bpm} BPM${masterKey() ? ", " + esc(masterKey()) : ""})">${esc(ft)}</em>` : ""}</span>
         <div class="lp-sl-stems">${SL.stems.map(x => `<span class="stm ${m[x.stem]}" style="--c:${STEMC[x.stem] || "#aaa"}"><i></i>${esc(stemName(x.stem))}
           <button type="button" data-m="${x.stem}" class="${m[x.stem] === "mute" ? "on" : ""}" title="Ztlumit v tomhle kousku">M</button><button type="button" data-s="${x.stem}" class="${m[x.stem] === "solo" ? "on" : ""}" title="Sólo v tomhle kousku">S</button></span>`).join("")}</div>
-        <button type="button" class="lp-b ${SL.prev && SL.prev.piece === i ? "on" : ""}" id="lp-sl-play" title="Poslechnout kousek dokola (s vybranými stopami)">${SL.prev && SL.prev.piece === i ? "■" : "▶"} Poslech</button>
+        <button type="button" class="lp-b ${SL.prev && SL.prev.piece === i ? "on" : ""}" id="lp-sl-play" title="Poslechnout kousek dokola (s vybranými stopami, srovnaný do MASTERu)">${SL.prev && SL.prev.piece === i ? "■" : "▶"} Poslech</button>
+        <button type="button" class="lp-b" id="lp-sl-comp" title="Přidat kousek na konec skladby z kousků">＋ Do skladby</button>
         <span class="lp-sl-to">Do stopy ${tracks.map(t => `<button type="button" data-to="${t.i}" title="Kousek jako smyčka stopy ${t.i + 1}">${t.i + 1}</button>`).join("")}</span>
-        <span class="lp-sl-drag" draggable="true" title="Přetáhni na stopu looperu">⠿ přetáhni na stopu</span></div>`;
+        <span class="lp-sl-drag" draggable="true" title="Přetáhni na stopu, pad nebo do skladby">⠿ přetáhni</span></div>`;
     drawSlice();
     wireSliceCanvas(box.querySelector("#lp-sl-cv"));
+    wireSongs(box);
     box.querySelector("#lp-sl-n").onchange = (e) => { cutBy(e.target.value); paintSlice(); };
     box.querySelector("#lp-sl-zoom").onclick = () => { setView(1, 0); drawSlice(); };
     box.querySelector("#lp-sl-cut").onclick = () => { SL.scissors = !SL.scissors; paintSlice(); };
     box.querySelector("#lp-sl-play").onclick = () => previewPiece(i);
-    box.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.m] = st[b.dataset.m] === "mute" ? "on" : "mute"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
-    box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.s] = st[b.dataset.s] === "solo" ? "on" : "solo"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
+    box.querySelector("#lp-sl-comp").onclick = () => compAdd(pieceSnap(i));
+    box.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.m] = st[b.dataset.m] === "mute" ? "on" : "mute"; if(SL.prev){ stopSlicePrev(); previewPiece(i); } else paintSlice(); });
+    box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.s] = st[b.dataset.s] === "solo" ? "on" : "solo"; if(SL.prev){ stopSlicePrev(); previewPiece(i); } else paintSlice(); });
     box.querySelectorAll("[data-to]").forEach(b => b.onclick = () => pieceToTrack(i, +b.dataset.to));
     box.querySelector(".lp-sl-drag").ondragstart = (e) => { e.dataTransfer.setData("text/pick-piece", String(i)); e.dataTransfer.effectAllowed = "copy"; };
+  }
+  function wireSongs(box){
+    box.querySelectorAll("[data-song]").forEach(b => b.onclick = (e) => { if(!e.target.closest("[data-unsong]")) useSong(+b.dataset.song); });
+    box.querySelectorAll("[data-unsong]").forEach(b => b.onclick = () => dropSong(+b.dataset.unsong));
+    box.querySelector("#lp-sl-addsong").onclick = () => { LS.open = !LS.open; if(LS.open) LS.list = null; paintSlice(); const q = root.querySelector("#lp-sl-q"); if(q) q.focus(); };
+    const q = box.querySelector("#lp-sl-q");
+    if(q) q.oninput = () => { clearTimeout(LS.t); LS.t = setTimeout(() => { LS.q = q.value; paintSlice(); const n = root.querySelector("#lp-sl-q"); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 200); };
+    const tu = box.querySelector("#lp-sl-tune"); if(tu) tu.onchange = () => { LS.sameTune = tu.checked; paintSlice(); };
+    const te = box.querySelector("#lp-sl-tempo"); if(te) te.onchange = () => { LS.nearTempo = te.checked; paintSlice(); };
+    box.querySelectorAll("[data-add]").forEach(b => b.onclick = async () => {
+      const x = LS.list[+b.dataset.add]; if(!x) return;
+      b.disabled = true; showToast(`Otevírám „${x.title}“…`);
+      try{ const e = await addSong(x.name); stopSlicePrev(); SL = e; paintSlice(); paintComp();
+        showToast(`„${x.title}“: ${e.cuts.length} kousků · ${e.db.length} taktů${e.bpm ? " · " + Math.round(e.bpm) + " BPM" : ""} — kousky se srovnají na ${cfg.bpm} BPM`); }
+      catch(err){ showToast(`„${x.title}“: ${err.message}`); b.disabled = false; }
+    });
+  }
+
+  // ---- the song from pieces (Skladba z kousků): pieces of any of the open songs one after another, each on the
+  // bar, fitted to the master tempo and key — played, put on a track as one long loop, or saved as a WAV
+  let comp = Array.isArray(cfg.comp) ? cfg.comp.filter(b => b && b.song) : [];
+  const CP = {src: null, at: 0, buf: null, sig: "", busy: false, raf: 0, pv: null, pvAt: -1};
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const compSig = () => JSON.stringify([comp.map(b => [b.song, b.a, b.z, b.bars, b.stems]), cfg.bpm, cfg.perBar, masterKey(), SLS.map(e => e.song + e.key)]);
+  function compChanged(){ cfg.comp = comp; keep(); if(CP.src) compStop(); paintComp(); }
+  function compAdd(sn, at){ comp.splice(at == null ? comp.length : at, 0, {...sn}); compChanged();
+    showToast(`Do skladby: ${sn.name} (${shortTitle(sn.title || sn.song)}, ${sn.bars} t.)`); }
+  const compNote = (t) => { const n = root && root.querySelector("#lp-cp-note"); if(n && t) n.textContent = t; };
+  async function compRender(){
+    const sig = compSig(); if(CP.buf && CP.sig === sig) return CP.buf;
+    if(CP.busy) return null; CP.busy = true;
+    try{
+      const sr = ac.sampleRate, bl = barLen(), total = comp.reduce((n, b) => n + mBars(b), 0) * bl, bufs = [];
+      for(const [k, b] of comp.entries()){ compNote(`Skládám ${k + 1}/${comp.length}…`); bufs.push(await pieceAudio(b)); }
+      const oc = new OfflineAudioContext(2, Math.max(1, Math.ceil(total * sr)), sr);
+      let at = 0;
+      comp.forEach((b, k) => { if(bufs[k]){ const s = oc.createBufferSource(); s.buffer = bufs[k]; s.connect(oc.destination); s.start(at); } at += mBars(b) * bl; });
+      CP.buf = await oc.startRendering(); CP.sig = sig;
+      return CP.buf;
+    } finally { CP.busy = false; paintComp(); }
+  }
+  async function compPlay(){
+    audio();
+    if(CP.src){ compStop(); return; }
+    if(!comp.length){ showToast("Skladba je prázdná — přetáhni do ní kousky z vlny"); return; }
+    let buf; try{ buf = await compRender(); }catch(e){ showToast("Skladbu se nepodařilo složit: " + e.message); return; }
+    if(!buf) return;
+    const s = ac.createBufferSource(); s.buffer = buf; s.connect(bus);
+    const at = running ? nextBar(now()) : now() + 0.05; s.start(at);
+    CP.src = s; CP.at = at;
+    s.onended = () => { if(CP.src === s){ CP.src = null; paintComp(); } };
+    paintComp(); compHead();
+  }
+  function compStop(){ if(CP.src){ const s = CP.src; CP.src = null; try{ s.stop(); }catch(e){} } paintComp(); }
+  function compHead(){
+    cancelAnimationFrame(CP.raf);
+    const h = root && root.querySelector("#lp-cp-head"), strip = root && root.querySelector("#lp-cp-strip");
+    if(!CP.src || !h || !strip){ if(h) h.style.display = "none"; return; }
+    const t = (now() - CP.at) / barLen(), blocks = strip.querySelectorAll(".lp-cp-b");
+    let acc = 0, x = -1;
+    comp.forEach((b, k) => { const el = blocks[k], mb = mBars(b); if(!el) return; const on = t >= acc && t < acc + mb; if(on) x = el.offsetLeft + (t - acc) / mb * el.offsetWidth; el.classList.toggle("now", on); acc += mb; });
+    h.style.display = x >= 0 ? "block" : "none"; h.style.left = x + "px";
+    CP.raf = requestAnimationFrame(compHead);
+  }
+  async function compToTrack(ti){
+    audio();
+    const t = tracks[ti]; if(!t) return;
+    if(t.job){ showToast("Do stopy se právě nahrává"); return; }
+    let buf; try{ buf = await compRender(); }catch(e){ showToast("Skladbu se nepodařilo složit: " + e.message); return; }
+    if(!buf) return;
+    const bars = comp.reduce((n, b) => n + mBars(b), 0);
+    t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
+    t.len = bars * barLen(); t.bars = 0; t.anchor = running ? nextBar(now()) : t0; t.name = "Skladba z kousků";
+    t.layers.push({buf}); history.push(t.i);
+    if(running) startLayer(t, t.layers[0], t.anchor);
+    if(scenes[cur]) scenes[cur].on.add(t.i);
+    const inp = root.querySelector(`.lp-t[data-i="${ti}"] .nm input`); if(inp) inp.value = t.name;
+    showToast(`Skladba → stopa ${ti + 1}: ${bars} taktů (${mmss(t.len)})`);
+    paint();
+  }
+  async function compWav(){
+    audio();
+    let buf; try{ buf = await compRender(); }catch(e){ showToast("Skladbu se nepodařilo složit: " + e.message); return; }
+    if(!buf) return;
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([wav(buf)], {type: "audio/wav"}));
+    a.download = `Skladba z kousků ${new Date().toLocaleDateString("cs-CZ")}.wav`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+  async function compPreview(k){
+    audio();
+    if(CP.pv){ try{ CP.pv.stop(); }catch(e){} CP.pv = null; const was = CP.pvAt; CP.pvAt = -1; paintComp(); if(was === k) return; }
+    let buf; try{ buf = await pieceAudio(comp[k]); }catch(e){ showToast(e.message); return; }
+    if(!buf) return;
+    const s = ac.createBufferSource(); s.buffer = buf; s.connect(bus); s.start(); CP.pv = s; CP.pvAt = k;
+    s.onended = () => { if(CP.pv === s){ CP.pv = null; CP.pvAt = -1; paintComp(); } };
+    paintComp();
+  }
+  function compIdxAt(x){
+    const blocks = root.querySelectorAll("#lp-cp-strip .lp-cp-b");
+    for(let k = 0; k < blocks.length; k++){ const r = blocks[k].getBoundingClientRect(); if(x < r.left + r.width / 2) return k; }
+    return comp.length;
+  }
+  function paintComp(){
+    const box = root && root.querySelector("#lp-comp"); if(!box) return;
+    const bars = comp.reduce((n, b) => n + mBars(b), 0), mk = masterKey(), dis = comp.length ? "" : "disabled";
+    const scroll = (box.querySelector("#lp-cp-strip") || {}).scrollLeft || 0;
+    box.innerHTML = `<div class="lp-cp-top"><span class="h">SKLADBA Z KOUSKŮ</span>
+        <button type="button" class="lp-b ${CP.src ? "on" : ""}" id="lp-cp-play" ${dis} title="Přehrát celou skladbu (s běžícím looperem od dalšího taktu)">${CP.busy ? "Skládám…" : CP.src ? "■ Zastavit" : "▶ Přehrát"}</button>
+        <select id="lp-cp-to" ${dis} title="Celou skladbu jako jednu dlouhou smyčku do stopy"><option value="">Do stopy…</option>${tracks.map(t => `<option value="${t.i}">Stopa ${t.i + 1}</option>`).join("")}</select>
+        <button type="button" class="lp-b" id="lp-cp-wav" ${dis} title="Stáhnout skladbu jako WAV">Uložit WAV</button>
+        <button type="button" class="lp-b" id="lp-cp-clear" ${dis}>Vyprázdnit</button>
+        <span class="lp-pb-hint" id="lp-cp-note">${comp.length ? `${comp.length} ${comp.length === 1 ? "kousek" : comp.length < 5 ? "kousky" : "kousků"} · ${bars} taktů · ${mmss(bars * barLen())} · vše v ${cfg.bpm} BPM${mk ? " a " + esc(mk) : ""}` : "kousky z různých písní navážou na taktu a srovnají se do tempa a tóniny MASTERu"}</span></div>
+      <div class="lp-cp-strip" id="lp-cp-strip">${comp.length ? comp.map((b, k) => { const ft = fitText(b);
+          return `<div class="lp-cp-b ${CP.pvAt === k ? "pv" : ""}" draggable="true" data-b="${k}" style="--h:${songHue(b.song)};width:${Math.max(96, Math.min(360, mBars(b) * 14))}px"
+            title="${esc(b.name)} — ${esc(b.title || b.song)}&#10;${b.bars} taktů · ${esc(b.stems.map(stemName).join(", "))}${ft ? "&#10;srovnáno: " + esc(ft) : ""}&#10;klik: poslech · táhni: přesunout">
+            <b>${esc(b.name)}</b><small>${esc(shortTitle(b.title || b.song))}</small><em>${mBars(b)} t.${ft ? " · " + esc(ft) : ""}</em>
+            <button type="button" data-rm="${k}" title="Odebrat ze skladby">✕</button></div>`; }).join("")
+        : `<div class="lp-cp-none">Přetáhni sem kousky z vlny nahoře (nebo ＋ Do skladby) — klidně z různých písní. Navážou na sebe na taktu.</div>`}<i class="lp-cp-head" id="lp-cp-head"></i></div>`;
+    const q = (id) => box.querySelector("#" + id), strip = q("lp-cp-strip");
+    strip.scrollLeft = scroll;
+    q("lp-cp-play").onclick = compPlay;
+    q("lp-cp-to").onchange = (e) => { const v = e.target.value; e.target.value = ""; if(v !== "") compToTrack(+v); };
+    q("lp-cp-wav").onclick = compWav;
+    q("lp-cp-clear").onclick = async () => { if(await Dialog.confirm("Vyprázdnit skladbu z kousků?", {ok: "Vyprázdnit"})){ comp = []; compChanged(); } };
+    strip.querySelectorAll("[data-b]").forEach(el => {
+      const k = +el.dataset.b;
+      el.onclick = (e) => { if(e.target.closest("[data-rm]")) return; compPreview(k); };
+      el.ondragstart = (e) => { e.dataTransfer.setData("text/pick-block", String(k)); e.dataTransfer.effectAllowed = "move"; };
+    });
+    strip.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { comp.splice(+b.dataset.rm, 1); compChanged(); });
+    strip.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-block")){ e.preventDefault(); strip.classList.add("drop"); } });
+    strip.addEventListener("dragleave", (e) => { if(!strip.contains(e.relatedTarget)) strip.classList.remove("drop"); });
+    strip.addEventListener("drop", (e) => {
+      strip.classList.remove("drop");
+      const v = e.dataTransfer.getData("text/pick-piece"), from = e.dataTransfer.getData("text/pick-block");
+      let at = compIdxAt(e.clientX);
+      if(v !== ""){ e.preventDefault(); compAdd(pieceSnap(+v), at); }
+      else if(from !== ""){ e.preventDefault(); const f = +from, [b] = comp.splice(f, 1); if(at > f) at--; comp.splice(at, 0, b); compChanged(); }
+    });
+    if(CP.src) compHead();
   }
   // The wave's hands: a pinch (ctrl + wheel) zooms round the pointer, two fingers sideways move along it; a cut
   // dragged moves (on the bars — the pieces either side follow), a piece dragged out of the wave goes onto
@@ -1324,7 +1714,7 @@ const Looper = (() => {
         }
         if(d.ghost){
           d.ghost.style.left = ev.clientX + 12 + "px"; d.ghost.style.top = ev.clientY + 10 + "px";
-          root.querySelectorAll(".lp-t, .lp-pad").forEach(n => { const r = n.getBoundingClientRect(); n.classList.toggle("drop", ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom); });
+          root.querySelectorAll(".lp-t, .lp-pad, .lp-cp-strip").forEach(n => { const r = n.getBoundingClientRect(); n.classList.toggle("drop", ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom); });
         }
       };
       const up = (ev) => {
@@ -1334,9 +1724,10 @@ const Looper = (() => {
         if(d.cut != null){ if(d.moved){ SL.st = {}; } paintSlice(); return; }
         if(d.ghost){
           d.ghost.remove();
-          const n = [...root.querySelectorAll(".lp-t.drop")][0], pn = [...root.querySelectorAll(".lp-pad.drop")][0];
-          root.querySelectorAll(".lp-t.drop, .lp-pad.drop").forEach(x => x.classList.remove("drop"));
-          if(pn) padPiece(+pn.dataset.pad, pieceSnap(d.piece));
+          const n = [...root.querySelectorAll(".lp-t.drop")][0], pn = [...root.querySelectorAll(".lp-pad.drop")][0], cs = root.querySelector(".lp-cp-strip.drop");
+          root.querySelectorAll(".lp-t.drop, .lp-pad.drop, .lp-cp-strip.drop").forEach(x => x.classList.remove("drop"));
+          if(pn){ const pi = pn.dataset.pad != null ? +pn.dataset.pad : addPad(); if(pi >= 0) padPiece(pi, pieceSnap(d.piece)); }
+          else if(cs) compAdd(pieceSnap(d.piece), compIdxAt(ev.clientX));
           else if(n) pieceToTrack(d.piece, +n.dataset.i);
           return;
         }
@@ -1471,7 +1862,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: pads.map(pd => pd.piece ? {piece: pd.piece} : pd.sample ? {sample: {x: pd.sample.x, bars: pd.sample.bars}} : null),
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: padsJSON(), songs: SLS.filter(e => !e.own).map(e => e.song), comp,
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len, fx: t.fx || "none", print: t.print || null,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -1522,7 +1913,9 @@ const Looper = (() => {
     skel = P.skeleton || null;
     plan = Array.isArray(P.plan) ? P.plan : null;
     if(P.kit){ cfg.kit = P.kit; LoopSound.setStyle(P.kit); }
-    pads.forEach((pd, i) => { const q = P.pads && P.pads[i]; pd.piece = q && q.piece ? q.piece : null; pd.sample = q && q.sample ? {x: q.sample.x, name: q.sample.x.name, bars: q.sample.bars} : null; pd.src = null; });
+    if(Array.isArray(P.pads)){ padsFrom(P.pads); padsKeep(); }
+    if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song); cfg.comp = comp; keep(); }
+    (async () => { for(const n of P.songs || []){ try{ await addSong(n); }catch(e){} } paintSlice(); paintComp(); })();
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);
     arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""}));
@@ -1545,7 +1938,7 @@ const Looper = (() => {
     projName = name;
     root.querySelectorAll(".lp-t").forEach(n => { const t = tracks[+n.dataset.i]; n.querySelector(".nm input").value = t.name; n.querySelector('[data-k="vol"]').value = t.vol; });
     applyMutes(now());
-    paint(); paintSteps();
+    paint(); paintSteps(); paintPads(); paintComp();
     showToast(`Otevřeno: ${name}`);
     return true;
   }
@@ -1659,7 +2052,13 @@ const Looper = (() => {
     const [st, a, b] = e.data, kind = st & 0xf0;
     // a key's time: the browser stamps the message; heard against the music that was playing then
     const at = now() - Math.max(0, (performance.now() - e.timeStamp) / 1000);
-    const pi = pads.findIndex(pd => pd.piece && pd.note === a);
+    if(padLearn && padLearn.kind === "midi" && kind === 0x90 && b > 0){
+      const i = padLearn.i; padLearn = null;
+      pads.forEach((p, j) => { if(j !== i && p.note === a && (p.sample || p.piece || !p.drum)) p.note = null; });
+      if(pads[i]){ pads[i].note = a; padsKeep(); paintPads(); showToast(`Pad ${i + 1} → MIDI nota ${a}`); }
+      return;
+    }
+    const pi = pads.findIndex(pd => pd.note === a && (pd.piece || pd.sample));
     if(kind === 0x90 && b > 0 && pi >= 0){ padHit(pi); return; }
     if(kind === 0x90 && b > 0) noteOn(a, b / 127, at);
     else if(kind === 0x80 || (kind === 0x90 && b === 0)) noteOff(a, at);
@@ -1937,6 +2336,7 @@ const Looper = (() => {
       <div class="lp-main">
         <div class="lp-master" id="lp-master"></div>
         <div class="lp-slice" id="lp-slice" hidden></div>
+        <div class="lp-comp" id="lp-comp"></div>
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
@@ -2122,6 +2522,9 @@ const Looper = (() => {
     paintMaster();
     applyFolds();
     if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
+    if(!root.querySelector("#lp-comp .lp-cp-top")) paintComp();
+    if(!LS.restored){ LS.restored = true; const names = (cfg.slSongs || []).slice(0, 12);
+      if(names.length) (async () => { for(const n of names){ try{ await addSong(n); }catch(e){} } paintSlice(); paintComp(); })(); }
     if(!root.querySelector("#lp-samples .lp-sm-top")) paintSamples();
     if(piano.open){ const r = root.querySelector("#lp-pn-rec"), t = pianoTrack(); if(r && t) { r.classList.toggle("on", !!t.job); r.textContent = t.job ? "● Nahrávám" : "● Nahrát"; } }
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
@@ -2176,6 +2579,16 @@ const Looper = (() => {
     const tg = e.target;
     if(tg && tg.closest && tg.closest("input:not([type=range]), textarea, select, [contenteditable]")) return;
     if(typeof Dialog !== "undefined" && Dialog.isOpen && Dialog.isOpen()) return;
+    if(padLearn && padLearn.kind === "key"){
+      e.preventDefault(); e.stopPropagation();
+      const i = padLearn.i;
+      if(e.code === "Escape"){ padLearn = null; paintPads(); return; }
+      if(RESERVED.includes(e.code)){ showToast(`${keyLabel(e.code)} už v looperu něco dělá — stiskni jinou klávesu (Esc zruší)`); return; }
+      padLearn = null;
+      pads.forEach((p, j) => { if(j !== i && p.key === e.code) p.key = null; });
+      if(pads[i]){ pads[i].key = e.code; padsKeep(); paintPads(); showToast(`Pad ${i + 1} → klávesa ${keyLabel(e.code)}` + (piano.open && PIANO_KEYS.includes(e.code) ? " (s otevřeným klavírem hraje klavír)" : "")); }
+      return;
+    }
     let done = true;
     if(/^Digit[1-5]$/.test(e.code)) press(+e.code.slice(5) - 1);
     else if(e.code === "Space") run("play");
@@ -2190,7 +2603,7 @@ const Looper = (() => {
     }
     else if(piano.open && PIANO_KEYS.includes(e.code)){ if(!e.repeat) pianoOn(12 * (piano.oct + 1) + PIANO_KEYS.indexOf(e.code), 0.85); }
     else if(piano.open && (e.code === "Minus" || e.code === "Equal")){ piano.oct = Math.max(1, Math.min(6, piano.oct + (e.code === "Equal" ? 1 : -1))); paintPiano(); }
-    else if(PAD_KEYS.includes(e.code) && !e.repeat) padHit(PAD_KEYS.indexOf(e.code));
+    else if(pads.some(p => p.key === e.code)){ if(!e.repeat) padHit(pads.findIndex(p => p.key === e.code)); }
     else if(e.code === "Escape") close();
     else done = false;
     if(done){ e.preventDefault(); e.stopPropagation(); }

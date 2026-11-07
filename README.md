@@ -1846,3 +1846,20 @@ kousky písně, bicí z písně, samply (tempo i tónina), klavír ukazuje stupn
 přeladí znovu. Tempo a takt drží nahrané smyčky (🔒), dokud jsou stopy plné. Panely (Píseň po kouscích, Pady,
 Kostra, Části, Aranžmá, Scénář) se **sbalí klikem na nadpis** a pamatuje se to; pořadí shora: Master → Píseň po
 kouscích → Stopy (a jejich kroky / noty) → Pady a klavír → Samply → Kostra, části, aranžmá, scénář.
+
+### Looper: vlastní zvuky na padech a skladba z kousků různých písní
+
+**Pady** — kolik chceš (＋ Pad, až 64). Na pad přetáhni soubor z Finderu v jakémkoli formátu (WAV, AIFF, MP3, FLAC,
+M4A, i video — ffmpeg z něj vezme zvuk; víc souborů naráz naplní další pady), sampl z namapované složky nebo kousek
+písně. Nové pady dostanou klávesy numerické klávesnice; **pravé tlačítko** na padu: zvuk ze souboru, jiná klávesa
+(stiskni ji), MIDI nota (zahraj ji), přejmenovat, vyprázdnit, odebrat. Pady se pamatují i bez uložení projektu.
+
+**Víc písní v „Píseň po kouscích“** — ＋ Píseň otevře výběr s filtry *stejné ladění* a *podobné tempo* (do 10 %,
+i poloviční / dvojnásobné). Každá přidaná píseň má záložku, krájí se stejně (části, 4–32 kousků, nůžky, M/S stop).
+Kousky každé písně se srovnají do tempa a tóniny MASTERu (Signalsmith: tempo bez změny výšky, tónina bez změny
+délky; píseň v polovičním tempu dostane dvojnásob taktů). Stopy dalších písní stříhá a míchá server, takže jich
+může být otevřeno víc, aniž by prohlížeči došla paměť.
+
+**Skladba z kousků** — pod vlnou: přetáhni kousky z různých písní (nebo ＋ Do skladby), přesouvej je tažením, klik =
+poslech. Navážou na sebe na taktu; ▶ Přehrát, Do stopy (jedna dlouhá smyčka), Uložit WAV. Skladba i otevřené písně
+se ukládají s projektem.

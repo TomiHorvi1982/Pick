@@ -15806,6 +15806,7 @@ const Mixer = (() => {
     // better to show nothing than to invent a key.
     return best && best.score > 0.2 ? best.name : null;
   }
+  window.PickKey = {detect: detectKey};       // the looper reads the key of other songs' pieces with it
 
   // ------------------------------------------------------------ equaliser
   //

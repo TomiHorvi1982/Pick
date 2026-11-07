@@ -53,3 +53,48 @@ def test_a_project_is_deleted(client, tmp_music_root):
     client.put("/api/looper/P", json=_project([]))
     assert client.delete("/api/looper/P").status_code == 200
     assert client.get("/api/looper/P").status_code == 404
+
+
+# ---- the pads' own sounds, and pieces of any song
+import json
+import subprocess
+
+import server
+
+
+def _tone(path, secs=1.0, f=440):
+    subprocess.run([server.ffmpeg_bin(), "-v", "error", "-y", "-f", "lavfi", "-i", f"sine=f={f}:d={secs}", "-ac", "2", str(path)], check=True)
+
+
+def test_a_sound_of_any_kind_is_kept_for_a_pad(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "LOOPER_SOUNDS_DIR", tmp_path / "sounds")
+    _tone(tmp_path / "Beep.aiff")                                  # a format the browser cannot read by itself
+    r = client.post("/api/looper/sounds", files={"audio": ("Beep.aiff", (tmp_path / "Beep.aiff").read_bytes())})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["name"] == "Beep" and len(d["id"]) == 16
+    f = client.get(f"/api/looper/sounds/{d['id']}")
+    assert f.status_code == 200 and f.content[:4] == b"fLaC"
+    assert client.post("/api/looper/sounds", files={"audio": ("x.wav", b"not audio at all")}).status_code == 422
+    assert client.get("/api/looper/sounds/..%2Fsecret").status_code == 404
+
+
+def test_a_song_is_offered_with_its_tempo_and_tuning_and_cut_into_pieces(client, tmp_music_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "LOOPER_ENV_DIR", tmp_path / "env")
+    d = tmp_music_root / "Stems" / "Band - Song"
+    d.mkdir(parents=True)
+    _tone(d / "drums.mp3", 8, 200)
+    _tone(d / "bass.mp3", 8, 80)
+    (d / "beats.json").write_text(json.dumps({"beats": [i * 0.5 for i in range(16)], "downbeats": [0, 2, 4, 6], "bpm": 120.0, "beats_per_bar": 4, "grid_version": server.BEATGRID_VERSION}))
+    (d / "tuning.json").write_text(json.dumps({"tuning": [62, 57, 53, 48, 43, 38]}))
+    songs = client.get("/api/looper/songs").json()["songs"]
+    s = next(x for x in songs if x["name"] == "Band - Song")
+    assert s["bpm"] == 120.0 and s["tuning"] == [62, 57, 53, 48, 43, 38]
+    g = client.get("/api/looper/song", params={"name": "Band - Song"}).json()
+    assert g["stems"] == ["drums", "bass"] and g["downbeats"] == [0, 2, 4, 6] and 7.5 < g["dur"] < 8.5
+    assert len(g["env"]["drums"]) > 600 and max(g["env"]["drums"]) > 10
+    r = client.get("/api/looper/piece", params={"name": "Band - Song", "a": 2, "z": 4, "stems": "drums,bass"})
+    assert r.status_code == 200 and r.content[:4] == b"RIFF"
+    n = (len(r.content) - 44) / 8                                   # 32-bit float, stereo
+    assert abs(n / 44100 - 2) < 0.05
+    assert client.get("/api/looper/piece", params={"name": "../x", "a": 0, "z": 1, "stems": "drums"}).status_code == 404
