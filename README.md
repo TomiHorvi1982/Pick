@@ -1803,3 +1803,12 @@ Vlna jde **přiblížit sevřením dvou prstů** na trackpadu (až 64×, kolem k
 tlačítko s přiblížením ukáže zase celou píseň. Každý kousek ukazuje **jen vlnu stop, které v něm hrají** (sólo bicích
 → jen bicí, i ve štítku). **Řez jde táhnout** myší — přichytí se na takt a sousední kousky se přizpůsobí; **kousek
 jde vytáhnout přímo z vlny** a pustit na stopu looperu.
+
+### Looper: pady
+
+Pod stopami je **8 padů** (kopák, virbl, tlesk, hi-hat, otevřený hat, tom, činel, ride) — hrají myší, **klávesami
+Q W E R · A S D F** a **MIDI pady** klávesnice (General MIDI noty bicích). **Styl sady** (Rock, Metal, Funk, Hip-hop,
+Elektro) mění zvuk bicích (kopák, jeho klik, virbl, délku hi-hatu, zkreslení) — pady, kroky i bicí stopu.
+**Rytmus do bicí stopy**: hotový rytmus (★ ten ke stylu; nově Metal s dvojkopákem, Thrash, Punk, Drum & bass)
+na 2 takty. **Kousek písně na pad**: přetáhni ho z vlny na pad — pad ho pak spustí na začátku dalšího taktu
+a přehraje; další ťuknutí ho zastaví, pravé tlačítko pad vrátí na bicí. Pady s kousky se ukládají s projektem.

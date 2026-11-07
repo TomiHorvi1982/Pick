@@ -92,6 +92,22 @@ const Looper = (() => {
   .lp-sl-wave canvas{touch-action:none}
   .lp-sl-zoom{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:3px 10px;font-weight:800;font-size:11px;cursor:pointer}
   .lp-sl-ghost{position:fixed;z-index:10000;pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:800;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .lp-pads-bank{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-pb-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lp-pb-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-pb-top select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
+  .lp-pb-hint{margin-left:auto;color:#8a8aa0;font-size:11px}
+  .lp-pb{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px}
+  .lp-pad{position:relative;aspect-ratio:1.25;border-radius:14px;border:1px solid hsl(var(--h) 60% 50% / .45);cursor:pointer;text-align:left;padding:10px;
+    background:linear-gradient(160deg,hsl(var(--h) 55% 30% / .55),hsl(var(--h) 45% 14% / .7));display:flex;flex-direction:column;justify-content:flex-end;gap:2px;
+    transition:transform .06s,box-shadow .12s;user-select:none;-webkit-user-select:none;touch-action:none}
+  .lp-pad b{font-size:13px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-pad small{font-size:10.5px;color:hsl(var(--h) 40% 78%)}
+  .lp-pad i{position:absolute;top:8px;right:10px;font-style:normal;font:700 10px/1 "Avenir Next Condensed",system-ui;letter-spacing:.08em;color:hsl(var(--h) 40% 78% / .8)}
+  .lp-pad.piece{border-style:solid;border-width:2px}
+  .lp-pad.hit,.lp-pad:active{transform:scale(.96);box-shadow:0 0 0 2px hsl(var(--h) 80% 65%),0 0 24px hsl(var(--h) 80% 55% / .6)}
+  .lp-pad.on{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 30px hsl(var(--h) 85% 55% / .55);animation:lppulse 1s ease-in-out infinite}
+  @keyframes lppulse{50%{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%),0 0 12px hsl(var(--h) 85% 55% / .3)}}
+  .lp-pad.drop{outline:2px dashed #fff;outline-offset:2px}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -158,9 +174,10 @@ const Looper = (() => {
   // ---- state
   const KEY = "pick-looper";
   const cfg = {bpm: 100, perBar: 4, click: true, clickVol: 0.5, countIn: true, autoNext: true, monMic: false, vol: 0.9,
-                drums: true, drumBars: 2, drumVol: 0.9, autoRec: false};
+                drums: true, drumBars: 2, drumVol: 0.9, autoRec: false, kit: "rock"};
   try{ Object.assign(cfg, JSON.parse(localStorage.getItem(KEY) || "{}")); }catch(e){}
   const keep = () => { try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} };
+  setTimeout(() => { try{ LoopSound.setStyle(cfg.kit); }catch(e){} }, 0);
   // src: gtr | mic (audio) · midi (notes on an instrument) · drums (notes on the kit, and the step grid)
   const DEF_SRC = ["drums", "midi", "gtr", "gtr", "mic"];
   const tracks = Array.from({length: N}, (_, i) => ({i, name: `Stopa ${i + 1}`, src: DEF_SRC[i] || "gtr", bars: 0, vol: 0.9,
@@ -733,6 +750,80 @@ const Looper = (() => {
     }
     return {buf: out2, bars: p.bars, rate};
   }
+  // a piece as it is now, kept by a pad: where in the song, how many bars, which tracks sound in it
+  const pieceSnap = (i) => { const p = pieceOf(i); return {song: SL.song, a: p.a, z: p.z, bars: p.bars, stems: heard(i).map(x => x.stem), name: pieceName(i) || "Kousek " + (i + 1), n: i + 1}; };
+  function snapBuf(sn){
+    if(!sliceSong() || SL.song !== sn.song) return null;
+    const list = SL.stems.filter(x => sn.stems.includes(x.stem));
+    if(!list.length) return null;
+    const sr = list[0].buf.sampleRate, from = Math.round(sn.a * sr), n = Math.max(1, Math.round((sn.z - sn.a) * sr));
+    const want = Math.round(sn.bars * barLen() * sr), out2 = ac.createBuffer(2, want, sr), rate = n / want, fade = Math.round(sr * 0.004);
+    for(let c = 0; c < 2; c++){
+      const d = out2.getChannelData(c);
+      list.forEach(x => { const src = x.buf.getChannelData(Math.min(c, x.buf.numberOfChannels - 1));
+        for(let k = 0; k < want; k++){ const f = from + k * rate, j = Math.floor(f), w = f - j; if(j + 1 < src.length) d[k] += src[j] * (1 - w) + src[j + 1] * w; } });
+      for(let k = 0; k < fade; k++){ const f = k / fade; d[k] *= f; d[want - 1 - k] *= f; }
+    }
+    return out2;
+  }
+
+  // ---- the pads: eight squares — the kit's drums in a style, or a piece of the song dropped on one. A drum
+  // pad plays at once (and goes into a drum track that is recording); a piece pad starts its piece on the
+  // next bar (at once when the looper stands) and plays it through; a tap while it plays stops it. Keys Q W E R /
+  // A S D F, and a MIDI keyboard's pads (General MIDI drum notes) play them too.
+  const PAD_KEYS = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyA", "KeyS", "KeyD", "KeyF"];
+  let pads = LoopSound.KIT.map(k => ({note: k.note, drum: k.id, name: k.name, piece: null, src: null}));
+  let padBus = null;
+  function padHit(i){
+    audio();
+    const pd = pads[i]; if(!pd) return;
+    flashPadBank(i);
+    if(!pd.piece){
+      if(recTrack && recTrack.src === "drums" && recTrack.job){ noteOn(pd.note, 0.95); setTimeout(() => noteOff(pd.note), 120); return; }
+      if(!padBus){ padBus = ac.createGain(); padBus.gain.value = 0.9; padBus.connect(bus); }
+      LoopSound.drum(ac, padBus, pd.note, 0.95, now() + 0.003);
+      return;
+    }
+    if(pd.src){ try{ pd.src.stop(running ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
+    const buf = snapBuf(pd.piece);
+    if(!buf){ showToast("Kousek je z jiné písně — otevři ji ve Steems"); return; }
+    const sr = ac.createBufferSource(); sr.buffer = buf; sr.connect(bus);
+    const at = running ? nextBar(now()) : now() + 0.01;
+    sr.start(at); pd.src = sr;
+    sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } };
+    paintPads();
+  }
+  function padPiece(i, snap){ const pd = pads[i]; if(!pd) return; if(pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } pd.piece = snap; paintPads();
+    showToast(`Pad ${i + 1}: ${snap.name} (${snap.bars} t.) — spustí se na začátku taktu`); }
+  function flashPadBank(i){ const b = root && root.querySelector(`.lp-pb [data-pad="${i}"]`); if(b){ b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120); } }
+  function paintPads(){
+    const box = root && root.querySelector("#lp-pads"); if(!box) return;
+    const st = LoopSound.style(), drumT = tracks.find(t => t.src === "drums");
+    box.innerHTML = `<div class="lp-pb-top"><span class="h">PADY</span>
+        <select id="lp-pb-style" title="Zvuk bicích podle stylu (pady, kroky i bicí stopa)">${Object.entries(LoopSound.STYLES).map(([k, v]) => `<option value="${k}" ${k === st ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>
+        <select id="lp-pb-groove" title="Hotový rytmus do bicí stopy (stopa ${drumT ? drumT.i + 1 : 1}, 2 takty)"><option value="">Rytmus do bicí stopy…</option>${Object.entries(LoopSound.GROOVES).map(([k, g]) => `<option value="${k}" ${k === LoopSound.STYLE_GROOVE[st] ? "data-fit" : ""}>${esc(g.name)}${k === LoopSound.STYLE_GROOVE[st] ? " ★" : ""}</option>`).join("")}</select>
+        <span class="lp-pb-hint">klávesy Q W E R · A S D F · MIDI pady · kousek z vlny přetáhni na pad · pravé tlačítko vrátí bicí</span></div>
+      <div class="lp-pb">${pads.map((pd, i) => `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""}" data-pad="${i}" style="--h:${pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : 230 + i * 12}"
+          title="${pd.piece ? esc(pd.piece.name + " · " + pd.piece.bars + " t. · " + pd.piece.stems.map(stemName).join("+")) : esc(pd.name)} — klávesa ${PAD_KEYS[i].slice(3)}, MIDI ${pd.note}">
+          <b>${pd.piece ? esc(pd.piece.name) : esc(pd.name)}</b><small>${pd.piece ? pd.piece.bars + " t." + (pd.piece.stems.length < 3 ? " · " + esc(pd.piece.stems.map(stemName).join("+")) : "") : esc(LoopSound.STYLES[st].name)}</small><i>${PAD_KEYS[i].slice(3)}</i></button>`).join("")}</div>`;
+    box.querySelector("#lp-pb-style").onchange = async (e) => {
+      LoopSound.setStyle(e.target.value); cfg.kit = e.target.value; keep();
+      for(const t of tracks) if(t.src === "drums" && t.steps){ const l = t.layers.find(x => x.steps); if(l) await rerender(t, l, stepNotes(t)); }
+      paintPads();
+    };
+    box.querySelector("#lp-pb-groove").onchange = (e) => { const id = e.target.value; e.target.value = ""; if(!id) return;
+      const t = drumT || tracks[0]; if(t.layers.some(l => !l.steps)){ showToast(`Stopa ${t.i + 1} má nahraný zvuk — rytmus jde jen do bicí stopy s kroky`); return; }
+      t.src = "drums"; setSteps(t, groove(id, 2)); showToast(`Rytmus ${LoopSound.GROOVES[id].name} → stopa ${t.i + 1}`); };
+    box.querySelectorAll("[data-pad]").forEach(b => {
+      const i = +b.dataset.pad;
+      b.onpointerdown = (e) => { if(e.button === 0){ e.preventDefault(); padHit(i); } };
+      b.oncontextmenu = (e) => { e.preventDefault(); const pd = pads[i]; if(pd.piece){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.piece = null; paintPads(); } };
+      b.addEventListener("dragover", (e) => { if([...e.dataTransfer.types].includes("text/pick-piece")){ e.preventDefault(); b.classList.add("drop"); } });
+      b.addEventListener("dragleave", () => b.classList.remove("drop"));
+      b.addEventListener("drop", (e) => { const v = e.dataTransfer.getData("text/pick-piece"); b.classList.remove("drop"); if(v !== ""){ e.preventDefault(); padPiece(i, pieceSnap(+v)); } });
+    });
+  }
+
   function pieceToTrack(i, ti){
     audio();
     const t = tracks[ti], pb = pieceBuf(i);
@@ -874,7 +965,7 @@ const Looper = (() => {
         }
         if(d.ghost){
           d.ghost.style.left = ev.clientX + 12 + "px"; d.ghost.style.top = ev.clientY + 10 + "px";
-          root.querySelectorAll(".lp-t").forEach(n => { const r = n.getBoundingClientRect(); n.classList.toggle("drop", ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom); });
+          root.querySelectorAll(".lp-t, .lp-pad").forEach(n => { const r = n.getBoundingClientRect(); n.classList.toggle("drop", ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom); });
         }
       };
       const up = (ev) => {
@@ -884,9 +975,10 @@ const Looper = (() => {
         if(d.cut != null){ if(d.moved){ SL.st = {}; } paintSlice(); return; }
         if(d.ghost){
           d.ghost.remove();
-          const n = [...root.querySelectorAll(".lp-t.drop")][0];
-          root.querySelectorAll(".lp-t.drop").forEach(x => x.classList.remove("drop"));
-          if(n) pieceToTrack(d.piece, +n.dataset.i);
+          const n = [...root.querySelectorAll(".lp-t.drop")][0], pn = [...root.querySelectorAll(".lp-pad.drop")][0];
+          root.querySelectorAll(".lp-t.drop, .lp-pad.drop").forEach(x => x.classList.remove("drop"));
+          if(pn) padPiece(+pn.dataset.pad, pieceSnap(d.piece));
+          else if(n) pieceToTrack(d.piece, +n.dataset.i);
           return;
         }
         // a click
@@ -1017,7 +1109,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan,
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: pads.map(pd => pd.piece ? {piece: pd.piece} : null),
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -1067,6 +1159,8 @@ const Looper = (() => {
     scenes = (P.scenes || []).map(sc => ({name: sc.name, on: new Set(sc.on || []), chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0}));
     skel = P.skeleton || null;
     plan = Array.isArray(P.plan) ? P.plan : null;
+    if(P.kit){ cfg.kit = P.kit; LoopSound.setStyle(P.kit); }
+    pads.forEach((pd, i) => { pd.piece = P.pads && P.pads[i] && P.pads[i].piece ? P.pads[i].piece : null; pd.src = null; });
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);
     arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""}));
@@ -1202,6 +1296,8 @@ const Looper = (() => {
     const [st, a, b] = e.data, kind = st & 0xf0;
     // a key's time: the browser stamps the message; heard against the music that was playing then
     const at = now() - Math.max(0, (performance.now() - e.timeStamp) / 1000);
+    const pi = pads.findIndex(pd => pd.piece && pd.note === a);
+    if(kind === 0x90 && b > 0 && pi >= 0){ padHit(pi); return; }
     if(kind === 0x90 && b > 0) noteOn(a, b / 127, at);
     else if(kind === 0x80 || (kind === 0x90 && b === 0)) noteOff(a, at);
   }
@@ -1478,6 +1574,7 @@ const Looper = (() => {
       <div class="lp-main">
         <div class="lp-slice" id="lp-slice" hidden></div>
         <div class="lp-tracks" id="lp-tracks"></div>
+        <div class="lp-pads-bank" id="lp-pads"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-skel" id="lp-skel" hidden></div>
@@ -1640,6 +1737,7 @@ const Looper = (() => {
     paintArr();
     paintPlan();
     paintSlice();
+    if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";
   }
@@ -1703,6 +1801,7 @@ const Looper = (() => {
       const l = noteLayersOf(noteT).find(x => x.raw.includes(noteSel));
       if(l){ l.raw.splice(l.raw.indexOf(noteSel), 1); noteSel = null; noteChanged(noteT, l); noteHead(); drawRoll(); }
     }
+    else if(PAD_KEYS.includes(e.code) && !e.repeat) padHit(PAD_KEYS.indexOf(e.code));
     else if(e.code === "Escape") close();
     else done = false;
     if(done){ e.preventDefault(); e.stopPropagation(); }

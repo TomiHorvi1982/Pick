@@ -44,15 +44,35 @@ const LoopSound = (() => {
     o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
     o.connect(env(c, dest, t, v * peak, 0.002, decay)); o.start(t); o.stop(t + decay + 0.05);
   }
-  // one hit of the kit at time t (v 0..1)
+  // The kit's sound by style: the kick's pitch, sweep and length, its click (a metal kick's beater), the
+  // snare's body and wires, how long the hats ring, and a little drive for the hard styles.
+  const STYLES = {
+    rock:    {name: "Rock",    kick: [160, 42, 0.12, 0.42], click: 0.25, snare: [220, 160, 0.12], wires: [1400, 0.2], hat: 1, drive: 0},
+    metal:   {name: "Metal",   kick: [190, 50, 0.05, 0.22], click: 0.9,  snare: [260, 190, 0.09], wires: [2200, 0.14], hat: 0.8, drive: 0.5},
+    funk:    {name: "Funk",    kick: [140, 48, 0.09, 0.3],  click: 0.35, snare: [330, 240, 0.07], wires: [1900, 0.12], hat: 0.7, drive: 0},
+    hiphop:  {name: "Hip-hop", kick: [120, 38, 0.18, 0.62], click: 0.15, snare: [190, 140, 0.1],  wires: [1100, 0.24], hat: 0.9, drive: 0.15},
+    electro: {name: "Elektro", kick: [110, 32, 0.24, 0.9],  click: 0.1,  snare: [240, 200, 0.06], wires: [3000, 0.1],  hat: 0.6, drive: 0.25},
+  };
+  let style = STYLES.rock;
+  const setStyle = (id) => { style = STYLES[id] || STYLES.rock; };
+  const curves = new Map();
+  function drive(c, dest, amt){
+    if(!amt) return dest;
+    const k = c.createWaveShaper(), n = 1024, a = 1 + amt * 12, cv = curves.get(amt) || new Float32Array(n);
+    if(!curves.has(amt)){ for(let i = 0; i < n; i++){ const x = i / (n - 1) * 2 - 1; cv[i] = Math.tanh(a * x) / Math.tanh(a); } curves.set(amt, cv); }
+    k.curve = cv; const g = c.createGain(); g.gain.value = 0.8; k.connect(g); g.connect(dest);
+    return k;
+  }
+  // one hit of the kit at time t (v 0..1), in the kit's style
   function drum(c, dest, m, v, t){
-    const k = drumOf(m);
+    const k = drumOf(m), S = style;
     v = Math.max(0.05, Math.min(1, v));
-    if(k === "kick"){ tone(c, dest, t, v, 160, 42, 0.12, 0.42, "sine", 1.3); noiseHit(c, dest, t, v, "lowpass", 1200, 0, 0.02, 0.25); }
-    else if(k === "snare"){ tone(c, dest, t, v, 220, 160, 0.05, 0.12, "triangle", 0.5); noiseHit(c, dest, t, v, "highpass", 1400, 0, 0.2, 0.7); }
+    if(S.drive && (k === "kick" || k === "snare")) dest = drive(c, dest, S.drive);
+    if(k === "kick"){ tone(c, dest, t, v, S.kick[0], S.kick[1], S.kick[2], S.kick[3], "sine", 1.3); noiseHit(c, dest, t, v, "lowpass", S.click > 0.5 ? 4000 : 1200, 0, 0.02, S.click); }
+    else if(k === "snare"){ tone(c, dest, t, v, S.snare[0], S.snare[1], 0.05, S.snare[2], "triangle", 0.5); noiseHit(c, dest, t, v, "highpass", S.wires[0], 0, S.wires[1], 0.7); }
     else if(k === "clap"){ [0, 0.011, 0.022].forEach(d => noiseHit(c, dest, t + d, v, "bandpass", 1500, 1.2, 0.03, 0.8)); noiseHit(c, dest, t + 0.03, v, "bandpass", 1300, 1, 0.16, 0.6); }
-    else if(k === "hat") noiseHit(c, dest, t, v, "highpass", 8000, 0, 0.05, 0.45);
-    else if(k === "open") noiseHit(c, dest, t, v, "highpass", 7500, 0, 0.32, 0.4);
+    else if(k === "hat") noiseHit(c, dest, t, v, "highpass", 8000, 0, 0.05 * S.hat, 0.45);
+    else if(k === "open") noiseHit(c, dest, t, v, "highpass", 7500, 0, 0.32 * S.hat, 0.4);
     else if(k === "crash") noiseHit(c, dest, t, v, "highpass", 4800, 0, 1.3, 0.5);
     else if(k === "ride"){ noiseHit(c, dest, t, v, "bandpass", 9000, 0.8, 0.55, 0.35); tone(c, dest, t, v, 3200, 3100, 0.3, 0.4, "triangle", 0.06); }
     else if(k === "rim"){ tone(c, dest, t, v, 1700, 1500, 0.01, 0.04, "square", 0.25); noiseHit(c, dest, t, v, "highpass", 3000, 0, 0.02, 0.3); }
@@ -105,6 +125,12 @@ const LoopSound = (() => {
     hiphop: {name: "Hip-hop", kick: [0, 7, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], swing: 0.3},
     ballad: {name: "Balada", kick: [0, 10], snare: [8], ride: [0, 4, 8, 12], tom: [14]},
     reggae: {name: "Reggae (one drop)", kick: [8], snare: [8], hat: [2, 6, 10, 14], ride: [0, 4, 8, 12]},
+    metal: {name: "Metal (dvojkopák)", kick: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], snare: [4, 12], ride: [0, 2, 4, 6, 8, 10, 12, 14], crash: [0]},
+    thrash: {name: "Thrash (skank)", kick: [0, 4, 8, 12], snare: [2, 6, 10, 14], hat: [0, 2, 4, 6, 8, 10, 12, 14], crash: [0]},
+    punk: {name: "Punk", kick: [0, 4, 8, 10, 12], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14]},
+    dnb: {name: "Drum & bass", kick: [0, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], open: [14]},
   };
-  return {KIT, drumOf, drum, SYNTHS, synth, GROOVES};
+  // the groove that goes with a kit's style
+  const STYLE_GROOVE = {rock: "rock", metal: "metal", funk: "funk", hiphop: "hiphop", electro: "disco"};
+  return {KIT, drumOf, drum, SYNTHS, synth, GROOVES, STYLES, STYLE_GROOVE, setStyle, style: () => Object.keys(STYLES).find(k => STYLES[k] === style)};
 })();
