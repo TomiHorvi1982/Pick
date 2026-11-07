@@ -160,6 +160,24 @@ const Looper = (() => {
   .lp-cp-chip.pv{outline:2px solid #fff}
   .lp-riff{border-color:#ffd16699}.lp-riff.on{background:#e5484d;border-color:#e5484d;color:#fff}
   .lp-sl-sel em.rec{color:#ff6b6b;font-weight:700}
+  .lp-rd{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px;font-size:13px}
+  .lp-rd label{display:flex;gap:7px;align-items:center;cursor:pointer}.lp-rd small{color:#9a9ab0}
+  .lp-rd-h{font-size:11px;font-weight:800;letter-spacing:.08em;color:#9a9ab0;margin-top:8px;text-transform:uppercase}
+  .lp-rd-row{display:flex;gap:10px;align-items:center;padding-left:24px;color:#c8c8d8}
+  .lp-rd select{background:#0e0e14;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:4px 8px;color:inherit}
+  .lp-dk{display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:12px;border:1px solid #ffd16666;background:rgba(255,209,102,.04)}
+  .lp-dk-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}.lp-dk-top b{font-size:13px;cursor:text}.lp-dk-top small{color:#9a9ab0;font-size:11px}
+  .lp-dk-ch{display:grid;grid-template-columns:24px minmax(140px,1fr) 200px 190px 120px minmax(0,190px) 22px;align-items:center;gap:12px;padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.03)}
+  .lp-dk-tone{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media (max-width:1100px){.lp-dk-ch{grid-template-columns:24px 1fr 1fr;}}
+  .lp-dk-ch.off{opacity:.5}
+  .lp-dk-ch label{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#9a9ab0}.lp-dk-ch label.dim{opacity:.6}
+  .lp-dk-ch input[type=range]{width:110px}.lp-dk-ch em{font-style:normal;font-size:11px;color:#c8c8d8;min-width:42px;font-variant-numeric:tabular-nums}
+  .lp-dk-ch select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:3px 6px}
+  .lp-dk-nm{display:flex;flex-direction:column;min-width:0}.lp-dk-nm b,.lp-dk-nm small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-dk-nm b{font-size:12px}.lp-dk-nm small{font-size:10.5px;color:#9a9ab0}
+  .lp-dk-on{width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:none;color:#9a9ab0;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+  .lp-dk-on.on{color:#ffd166;border-color:#ffd166}.lp-dk-on.fixed{color:#ffd166;border-color:transparent}
+  .lp-dk-x{background:none;border:0;color:#9a9ab0;cursor:pointer}.lp-dk-x:hover{color:#fff}
   .lp-cp-head{position:absolute;top:2px;bottom:2px;width:2px;background:#fff;box-shadow:0 0 8px #fff;pointer-events:none;display:none}
   .lp-piano{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-piano[hidden]{display:none}
@@ -422,6 +440,7 @@ const Looper = (() => {
   // ---- the transport
   function start(countIn){
     audio();
+    if(DK.src) dkStop();
     try{ Mixer.pause(); }catch(e){}
     if(running) return;
     if(ac.state === "suspended") ac.resume();
@@ -987,13 +1006,13 @@ const Looper = (() => {
   const fitText = (sn) => { const f = pieceFit(sn), r = f.rate; return [Math.abs(r - 1) > 0.02 ? `tempo ${r > 1 ? "+" : "−"}${Math.round(Math.abs(r - 1) * 100)} %` : "", f.semis ? `${f.semis > 0 ? "+" : ""}${f.semis} pt` : ""].filter(Boolean).join(" · "); };
   async function pieceAudio(sn){
     audio();
+    if(sn.parts || sn.over) return dilekAudio(upgradeDilek(sn));
     const e = await songFor(sn.song); if(!e) return null;
-    const semis = keyShift(e.key), k = [sn.song, sn.a.toFixed(3), sn.z.toFixed(3), sn.bars, sn.stems.join("+"), cfg.bpm, cfg.perBar, semis, sn.over ? sn.over.sound : ""].join("|");
+    const semis = keyShift(e.key), k = [sn.song, sn.a.toFixed(3), sn.z.toFixed(3), sn.bars, sn.stems.join("+"), cfg.bpm, cfg.perBar, semis].join("|");
     if(!PA.has(k)){
-      const pr = (async () => { const raw = await rawPiece(e, sn); if(!raw && !sn.over) return null;
-        const want = mBars(sn) * barLen(), rate = raw ? raw.duration / want : 1;
-        const b = raw ? fadeEdges(Math.abs(rate - 1) < 0.02 && !semis ? stretchLinear(raw, want) : await fitAudio(raw, want, semis)) : null;
-        return sn.over ? withOver(b, sn, want) : b; })();
+      const pr = (async () => { const raw = await rawPiece(e, sn); if(!raw) return null;
+        const want = mBars(sn) * barLen(), rate = raw.duration / want;
+        return fadeEdges(Math.abs(rate - 1) < 0.02 && !semis ? stretchLinear(raw, want) : await fitAudio(raw, want, semis)); })();
       PA.set(k, pr); pr.catch(() => PA.delete(k));
       while(PA.size > 80) PA.delete(PA.keys().next().value);
     }
@@ -1456,7 +1475,7 @@ const Looper = (() => {
   function dropOnPad(e, i){
     const v = e.dataTransfer.getData("text/pick-piece"), sm = e.dataTransfer.getData("text/pick-sample"), mi = e.dataTransfer.getData("text/pick-mine"), files = [...(e.dataTransfer.files || [])];
     if(files.length){ e.preventDefault(); filesToPads(files, i); return; }
-    if(mi !== "" && mine[+mi]){ e.preventDefault(); if(i == null){ i = addPad(); if(i < 0) return; } padPiece(i, {...mine[+mi]}); return; }
+    if(mi !== "" && mine[+mi]){ e.preventDefault(); if(i == null){ i = addPad(); if(i < 0) return; } padPiece(i, clone(mine[+mi])); return; }
     if(v === "" && !(sm !== "" && SM.list && SM.list[+sm])) return;
     e.preventDefault();
     if(i == null){ i = addPad(); if(i < 0) return; }
@@ -1618,7 +1637,7 @@ const Looper = (() => {
         <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · sevřením prstů přiblížíš, dvěma prsty posuneš, řez táhni, kousek vytáhni na stopu, pad nebo do skladby</span></div>
       ${songs}${LS.open ? songPicker() : ""}
       <div class="lp-sl-wave"><canvas id="lp-sl-cv"></canvas></div>
-      <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}${ft ? ` · <em title="Jak se kousek srovná do MASTERu (${cfg.bpm} BPM${masterKey() ? ", " + esc(masterKey()) : ""})">${esc(ft)}</em>` : ""}${RF.on && RF.song === SL.song && RF.piece === i ? ` · <em class="rec">● nahrává se do stopy ${RF.track ? RF.track.i + 1 : ""} — ${takt(mBars(RF.sn))}</em>` : ""}${(() => { const n = mine.filter(x => x.song === SL.song && Math.abs(x.a - p.a) < 0.01).length; return n ? ` · <em>🎸 ${n}× tvůj part (Moje dílky)</em>` : ""; })()}</span>
+      <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}${ft ? ` · <em title="Jak se kousek srovná do MASTERu (${cfg.bpm} BPM${masterKey() ? ", " + esc(masterKey()) : ""})">${esc(ft)}</em>` : ""}${RF.on && RF.song === SL.song && RF.piece === i ? ` · <em class="rec">● nahrává se do stopy ${RF.track ? RF.track.i + 1 : ""} — ${takt(mBars(RF.d))}</em>` : ""}${(() => { const n = mine.filter(x => x.song === SL.song && Math.abs(x.a - p.a) < 0.01).length; return n ? ` · <em>🎸 ${n}× tvůj part (Moje dílky)</em>` : ""; })()}</span>
         <div class="lp-sl-stems">${SL.stems.map(x => `<span class="stm ${m[x.stem]}" style="--c:${STEMC[x.stem] || "#aaa"}"><i></i>${esc(stemName(x.stem))}
           <button type="button" data-m="${x.stem}" class="${m[x.stem] === "mute" ? "on" : ""}" title="Ztlumit v tomhle kousku">M</button><button type="button" data-s="${x.stem}" class="${m[x.stem] === "solo" ? "on" : ""}" title="Sólo v tomhle kousku">S</button></span>`).join("")}</div>
         <button type="button" class="lp-b ${SL.prev && SL.prev.piece === i ? "on" : ""}" id="lp-sl-play" title="Poslechnout kousek dokola (s vybranými stopami, srovnaný do MASTERu)">${SL.prev && SL.prev.piece === i ? "■" : "▶"} Poslech</button>
@@ -1634,7 +1653,7 @@ const Looper = (() => {
     box.querySelector("#lp-sl-cut").onclick = () => { SL.scissors = !SL.scissors; paintSlice(); };
     box.querySelector("#lp-sl-play").onclick = () => previewPiece(i);
     box.querySelector("#lp-sl-comp").onclick = () => compAdd(pieceSnap(i));
-    box.querySelector("#lp-sl-riff").onclick = () => (RF.on ? riffStop() : riffStart(i));
+    box.querySelector("#lp-sl-riff").onclick = () => (RF.on ? riffStop() : riffStart({i}));
     box.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.m] = st[b.dataset.m] === "mute" ? "on" : "mute"; if(SL.prev){ stopSlicePrev(); previewPiece(i); } else paintSlice(); });
     box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.s] = st[b.dataset.s] === "solo" ? "on" : "solo"; if(SL.prev){ stopSlicePrev(); previewPiece(i); } else paintSlice(); });
     box.querySelectorAll("[data-to]").forEach(b => b.onclick = () => pieceToTrack(i, +b.dataset.to));
@@ -1753,13 +1772,13 @@ const Looper = (() => {
         <button type="button" class="lp-b" id="lp-cp-clear" ${dis}>Vyprázdnit</button>
         <span class="lp-pb-hint" id="lp-cp-note">${comp.length ? `${comp.length} ${comp.length === 1 ? "kousek" : comp.length < 5 ? "kousky" : "kousků"} · ${bars} taktů · ${mmss(bars * barLen())} · vše v ${cfg.bpm} BPM${mk ? " a " + esc(mk) : ""}` : "kousky z různých písní navážou na taktu a srovnají se do tempa a tóniny MASTERu"}</span></div>
       <div class="lp-cp-strip" id="lp-cp-strip">${comp.length ? comp.map((b, k) => { const ft = fitText(b);
-          return `<div class="lp-cp-b ${CP.pvAt === k ? "pv" : ""} ${b.over ? "mine" : ""}" draggable="true" data-b="${k}" style="--h:${songHue(b.song)};width:${Math.max(96, Math.min(360, mBars(b) * 14))}px"
+          return `<div class="lp-cp-b ${CP.pvAt === k ? "pv" : ""} ${b.parts ? "mine" : ""}" draggable="true" data-b="${k}" style="--h:${songHue(b.song)};width:${Math.max(96, Math.min(360, mBars(b) * 14))}px"
             title="${esc(b.name)} — ${esc(b.title || b.song)}&#10;${b.bars} taktů · ${esc(b.stems.map(stemName).join(", "))}${ft ? "&#10;srovnáno: " + esc(ft) : ""}&#10;klik: poslech · táhni: přesunout">
-            <b>${b.over ? "🎸 " : ""}${esc(b.name)}</b><small>${esc(shortTitle(b.title || b.song))}${b.n ? " · kousek " + b.n : ""}</small><em>${mBars(b)} t.${ft ? " · " + esc(ft) : ""}</em>
+            <b>${b.parts ? "🎸 " : ""}${esc(b.name)}</b><small>${esc(shortTitle(b.title || b.song))}${b.n ? " · kousek " + b.n : ""}</small><em>${mBars(b)} t.${ft ? " · " + esc(ft) : ""}</em>
             <button type="button" data-rm="${k}" title="Odebrat ze skladby">✕</button></div>`; }).join("")
         : `<div class="lp-cp-none">Přetáhni sem kousky z vlny nahoře (nebo ＋ Do skladby, ＋ Celá píseň) — klidně z různých písní. Navážou na sebe na taktu.</div>`}<i class="lp-cp-head" id="lp-cp-head"></i></div>
-      ${mine.length ? `<div class="lp-cp-mine"><span class="h2">MOJE DÍLKY</span>${mine.map((d, k) => `<span class="lp-cp-chip ${CP.pvAt === "m" + k ? "pv" : ""}" draggable="true" data-mine="${k}" style="--h:${songHue(d.song)}"
-          title="${esc(d.name)} — ${esc(d.title || d.song)} · ${d.bars} t.&#10;klik: poslech · táhni do skladby (na kousek = nahradí ho) nebo na pad"><b>🎸 ${esc(d.name)}</b><small>${esc(shortTitle(d.title || d.song))} · ${mBars(d)} t.</small><button type="button" data-unmine="${k}" title="Odebrat dílek">✕</button></span>`).join("")}</div>` : ""}`;
+      ${mine.length ? `<div class="lp-cp-mine"><span class="h2">MOJE DÍLKY</span>${mine.map((d, k) => `<span class="lp-cp-chip ${DK.d === d ? "pv" : ""}" draggable="true" data-mine="${k}" style="--h:${songHue(d.song)}"
+          title="${esc(d.name)} — ${esc(d.title || d.song)} · ${d.bars} t. · ${(d.parts || []).length} part(y)&#10;klik: otevřít mix (hlasitost, pan, ladění, zvuk) · táhni do skladby (na kousek = nahradí ho) nebo na pad"><b>🎸 ${esc(d.name)}</b><small>${esc(shortTitle(d.title || d.song))} · ${mBars(d)} t.</small><button type="button" data-unmine="${k}" title="Odebrat dílek">✕</button></span>`).join("")}</div>` : ""}${dkHtml()}`;
     const q = (id) => box.querySelector("#" + id), strip = q("lp-cp-strip");
     strip.scrollLeft = scroll;
     q("lp-cp-play").onclick = compPlay;
@@ -1772,13 +1791,17 @@ const Looper = (() => {
       showToast(`Skladba: ${comp.length} kousků písně — dílek s tvým partem na kousek přetáhni a nahradí ho`);
     };
     box.querySelectorAll("[data-mine]").forEach(el => { const k = +el.dataset.mine;
-      el.onclick = (e) => { if(!e.target.closest("[data-unmine]")) minePreview(k); };
+      el.onclick = (e) => { if(e.target.closest("[data-unmine]")) return; if(DK.d === mine[k]){ dkStop(); DK.d = null; paintComp(); return; } dkStop(); DK.d = mine[k]; paintComp(); dkPlay(); };
       el.ondragstart = (e) => { e.dataTransfer.setData("text/pick-mine", String(k)); e.dataTransfer.effectAllowed = "copy"; }; });
-    box.querySelectorAll("[data-unmine]").forEach(b => b.onclick = async () => { if(await Dialog.confirm(`Odebrat dílek „${mine[+b.dataset.unmine].name}“?`, {ok: "Odebrat"})){ mine.splice(+b.dataset.unmine, 1); mineKeep(); paintComp(); paintSlice(); } });
+    box.querySelectorAll("[data-unmine]").forEach(b => b.onclick = async () => { if(await Dialog.confirm(`Odebrat dílek „${mine[+b.dataset.unmine].name}“?`, {ok: "Odebrat"})){ if(DK.d === mine[+b.dataset.unmine]){ dkStop(); DK.d = null; } mine.splice(+b.dataset.unmine, 1); mineKeep(); paintComp(); paintSlice(); } });
+    wireDk(box);
     q("lp-cp-clear").onclick = async () => { if(await Dialog.confirm("Vyprázdnit skladbu z kousků?", {ok: "Vyprázdnit"})){ comp = []; compChanged(); } };
     strip.querySelectorAll("[data-b]").forEach(el => {
       const k = +el.dataset.b;
-      el.onclick = (e) => { if(e.target.closest("[data-rm]")) return; compPreview(k); };
+      el.onclick = (e) => { if(e.target.closest("[data-rm]")) return;
+        const m = comp[k].mine && mine.find(x => x.mine === comp[k].mine);
+        if(m){ dkStop(); DK.d = m; paintComp(); dkPlay(); return; }            // a piece of mine: its mix opens
+        compPreview(k); };
       el.ondragstart = (e) => { e.dataTransfer.setData("text/pick-block", String(k)); e.dataTransfer.effectAllowed = "move"; };
     });
     strip.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { comp.splice(+b.dataset.rm, 1); compChanged(); });
@@ -1790,41 +1813,198 @@ const Looper = (() => {
       const v = e.dataTransfer.getData("text/pick-piece"), from = e.dataTransfer.getData("text/pick-block"), mi = e.dataTransfer.getData("text/pick-mine");
       let at = compIdxAt(e.clientX);
       const onB = e.target.closest && e.target.closest(".lp-cp-b");
-      if(mi !== "" && mine[+mi]){ e.preventDefault(); const d = {...mine[+mi]};
+      if(mi !== "" && mine[+mi]){ e.preventDefault(); const d = clone(mine[+mi]);
         if(onB){ const k = +onB.dataset.b; comp[k] = d; compChanged(); showToast(`Kousek ${k + 1} ve skladbě nahrazen: ${d.name}`); } else compAdd(d, at); return; }
       if(v !== ""){ e.preventDefault(); compAdd(pieceSnap(+v), at); }
       else if(from !== ""){ e.preventDefault(); const f = +from, [b] = comp.splice(f, 1); if(at > f) at--; comp.splice(at, 0, b); compChanged(); }
     });
     if(CP.src) compHead();
   }
-  // ---- my part in a piece (Nahrát svůj part): the piece picked plays as the backing, its guitar muted (or the
-  // tracks muted by hand), the looper set to its tempo, metre and length; the take is cut on its bars and with
-  // the piece becomes a piece of my own (Moje dílky) — put where the original was in the song from pieces.
-  const RF = {on: false, track: null, sn: null, src: null, piece: -1, song: null};
-  let mine = Array.isArray(cfg.mine) ? cfg.mine.filter(x => x && x.song && x.over) : [];
-  const mineKeep = () => { cfg.mine = mine; keep(); };
+  // ---- my parts in a piece (Moje dílky). A piece of mine is the song's piece with its own mix: the backing (the
+  // tracks left on), the original part that was taken out (the guitar — off, or on beside mine), and my parts,
+  // each with its level, pan and pitch. A part recorded through a print or a NAM profile is kept clean (DI) and
+  // played through it offline, so the sound can be changed any time after. 🎸 Nahrát svůj part: the piece's tempo,
+  // metre and length to the looper, its mix as the backing, a bar counted in, the take cut on the bars.
+  const RF = {on: false, track: null, d: null, src: null, piece: -1, song: null};
   const GTR_STEMS = ["guitar", "guitar_rhythm", "guitar_solo"];
   const takt = (n) => `${n} ${n === 1 ? "takt" : n < 5 ? "takty" : "taktů"}`;
-  async function riffStart(i){
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  function upgradeDilek(d){
+    if(!d || d.parts) return d;
+    const {over, ...rest} = d;
+    return {...rest, base: {vol: 1, pan: 0}, orig: {stems: [], on: false, vol: 0.8, pan: -0.6, semis: 0},
+      parts: over ? [{sound: over.sound, bpm: over.bpm, key: "", di: false, tone: null, vol: 1, pan: 0, semis: 0, on: true, name: "Part 1"}] : []};
+  }
+  let mine = (Array.isArray(cfg.mine) ? cfg.mine : []).filter(x => x && x.song && (x.parts || x.over)).map(upgradeDilek);
+  comp = comp.map(b => (b.over || b.parts ? upgradeDilek(b) : b));
+  const mineKeep = () => { cfg.mine = mine; keep(); };
+  const DK = {d: null, src: null, at: 0, dur: 0, t: 0, busy: false};
+  // a piece of mine changed: the copies in the song from pieces and on the pads follow
+  function dkSync(d){
+    mineKeep();
+    let ch = false;
+    comp.forEach((b, k) => { if(b.mine && b.mine === d.mine){ comp[k] = clone(d); ch = true; } });
+    if(ch){ cfg.comp = comp; keep(); CP.buf = null; }
+    pads.forEach(p => { if(p.piece && p.piece.mine === d.mine){ p.piece = clone(d); stopPad(p); } }); padsKeep();
+  }
+  // ---- the layers' sound, kept: a song's tracks fitted to the master (and moved), a part fitted (and through its tone)
+  const LA = new Map();
+  function kept(k, fn){ if(!LA.has(k)){ const p = fn(); LA.set(k, p); p.catch(() => LA.delete(k)); while(LA.size > 150) LA.delete(LA.keys().next().value); } return LA.get(k); }
+  function stemsAudio(e, sn, stems, more){
+    const semis = keyShift(e.key) + (more || 0);
+    return kept(["st", sn.song, sn.a.toFixed(3), sn.z.toFixed(3), sn.bars, stems.join("+"), cfg.bpm, cfg.perBar, semis].join("|"), async () => {
+      const raw = await rawPiece(e, {...sn, stems}); if(!raw) return null;
+      const want = mBars(sn) * barLen(), rate = raw.duration / want;
+      return fadeEdges(Math.abs(rate - 1) < 0.02 && !semis ? stretchLinear(raw, want) : await fitAudio(raw, want, semis));
+    });
+  }
+  function partAudio(sn, pt){
+    const want = mBars(sn) * barLen(), semis = (pt.key ? keyShift(pt.key) : 0) + (pt.semis || 0), tk = pt.di && pt.tone ? JSON.stringify(pt.tone) : "";
+    return kept(["pt", pt.sound, tk, want.toFixed(4), semis].join("|"), async () => {
+      let b = await loadSample({sound: pt.sound, name: pt.name || ""});
+      if(tk) b = await toned(b, pt);
+      if(Math.abs(b.duration / want - 1) > 0.002 || semis) b = await fitAudio(b, want, semis);
+      return b;
+    });
+  }
+  // a clean take through a print or a NAM profile (and the cabinet it was played with), offline; what rings on
+  // past the end comes round to the start, as it would in the loop
+  const namTexts = new Map();
+  async function toned(buf, pt){
+    const sr = buf.sampleRate, n = buf.length, tail = Math.round(sr * 1.5), oc = new OfflineAudioContext(2, n + tail, sr);
+    const src = oc.createBufferSource(); src.buffer = buf;
+    const T = pt.tone;
+    if(T.kind === "print"){
+      const c = await Tone.buildChain(T.song, T.pid, oc), p = c.print, g = oc.createGain();
+      g.gain.value = Math.pow(10, ((p.drive_db || 0) + (p.gain_db || 0) - (pt.inDb || 0) + (Tone.trim ? Tone.trim() : 0)) / 20);
+      src.connect(g); g.connect(c.input); c.out.connect(oc.destination);
+    } else {
+      let txt = namTexts.get(T.file);
+      if(!txt){ const r = await fetch(`/api/amps/${encodeURIComponent(T.file)}`); if(!r.ok) throw new Error("NAM profil se nepodařilo načíst"); txt = await r.text(); namTexts.clear(); namTexts.set(T.file, txt); }
+      const eng = await (await import("/static/nam/index.js")).NamEngine.attach(oc, {assetBaseUrl: "/static/nam/"}), node = await eng.createNode();
+      await node.loadModel(txt);
+      src.connect(node); let last = node;
+      if(T.cab){ try{ const r = await fetch(`/api/amps/${encodeURIComponent(T.cab)}`); if(r.ok){ const cv = oc.createConvolver(); cv.normalize = true; cv.buffer = await oc.decodeAudioData(await r.arrayBuffer()); node.connect(cv); last = cv; } }catch(e){} }
+      last.connect(oc.destination);
+    }
+    src.start(0);
+    const r = await oc.startRendering(), out2 = ac.createBuffer(2, n, sr);
+    for(let c = 0; c < 2; c++){ const a = r.getChannelData(c), b = out2.getChannelData(c); b.set(a.subarray(0, n)); for(let k = n; k < a.length; k++) b[(k - n) % n] += a[k]; }
+    return out2;
+  }
+  async function dilekAudio(d, skip){
+    const e = await songFor(d.song); if(!e) return null;
+    const want = mBars(d) * barLen(), sr = ac.sampleRate, b = d.base || {}, o = d.orig || {};
+    const jobs = [];
+    if(d.stems.length) jobs.push(stemsAudio(e, d, d.stems, 0).then(buf => ({buf, vol: b.vol ?? 1, pan: b.pan || 0})));
+    if(o.on && o.stems && o.stems.length) jobs.push(stemsAudio(e, d, o.stems, o.semis || 0).then(buf => ({buf, vol: o.vol ?? 1, pan: o.pan || 0})));
+    (d.parts || []).forEach(pt => { if(pt.on !== false && pt !== skip) jobs.push(partAudio(d, pt).then(buf => ({buf, vol: pt.vol ?? 1, pan: pt.pan || 0}))); });
+    const layers = await Promise.all(jobs);
+    const oc = new OfflineAudioContext(2, Math.max(1, Math.round(want * sr)), sr);
+    layers.forEach(l => { if(!l.buf) return; const s = oc.createBufferSource(), g = oc.createGain(), p = oc.createStereoPanner();
+      s.buffer = l.buf; g.gain.value = l.vol; p.pan.value = Math.max(-1, Math.min(1, l.pan)); s.connect(g); g.connect(p); p.connect(oc.destination); s.start(0); });
+    return oc.startRendering();
+  }
+  // ---- the sound to record with: as Pick plays now, or a print / a NAM profile (heard live, the take kept clean)
+  let ampList = null;
+  async function toneChoices(){
+    const all = await prints();
+    if(!ampList){ try{ ampList = (await (await fetch("/api/amps?category=all")).json()).filter(a => a.kind === "model"); }catch(e){ ampList = []; } }
+    return [...all.map(p => ({v: "p|" + p.song + "|" + p.id, label: p.name || "otisk", sub: ["otisk", p.artist || p.title, p.category].filter(Boolean).join(" · "), tone: {kind: "print", song: p.song, pid: p.id, name: p.name || "otisk"}})),
+      ...ampList.map(a => ({v: "n|" + a.file, label: a.name, sub: "NAM · " + a.file.replace(/^lib:|^ext:/, "").split("/").slice(-3, -1).join(" / "), tone: {kind: "nam", file: a.file, name: a.name}}))];
+  }
+  const toneName = (t) => !t ? "zvuk z Picku" : (t.kind === "print" ? "otisk " : "NAM ") + t.name;
+  async function pickTone(cur){
+    const all = await toneChoices();
+    const v = await Dialog.pick({title: "Zvuk kytary", placeholder: "Hledat otisk nebo NAM profil…", empty: "Nic takového.",
+      search: async (q) => all.filter(x => !q || (x.label + " " + x.sub).toLowerCase().includes(q.toLowerCase())).slice(0, 120).map(x => ({label: x.label + (cur && x.v === cur ? " ✓" : ""), sub: x.sub, value: x.v}))});
+    return v ? all.find(x => x.v === v) : null;
+  }
+  const G2 = () => (Mixer.guitar && Mixer.guitar.state) || {};
+  async function liveTone(t){            // the live guitar plays through the chosen sound while recording
+    if(!t) return;
+    try{
+      if(t.kind === "print") await Tone.apply(Mixer.currentSong() || t.song, t.pid, true, t.song, true);
+      else { try{ Tone.remove(true); }catch(e){} await Mixer.ampLoad(t.file, t.name); t.cab = G2().cabName ? G2().cabName + ".wav" : ""; }
+    }catch(e){ showToast("Zvuk se nepodařilo zapnout: " + e.message); }
+  }
+  // before a take: the sound, the original beside it, where my part sits
+  async function riffDialog(d){
+    const o = d.orig || {}, names = (o.stems || []).map(stemName).join(" + ");
+    let tone = cfg.rfTone || null, toneLbl = tone ? toneName(tone) : "";
+    return Dialog.open((card) => {
+      card.classList.add("wide");
+      card.innerHTML = `<div class="pk-dlg-title">${d.parts && d.parts.length ? "Nahrát další part" : "Nahrát svůj part"}</div>
+        <div class="pk-dlg-text"><b>${esc(d.name)}</b> · ${esc(shortTitle(d.title || d.song))} · ${takt(mBars(d))} · ${cfg.bpm} BPM, ${cfg.perBar}/4 — nahrávka začne po odpočtu jednoho taktu</div>
+        <div class="lp-rd">
+          <div class="lp-rd-h">Zvuk kytary</div>
+          <label><input type="radio" name="lp-snd" value="live" ${tone ? "" : "checked"}> jak hraje teď v Picku <small>— nahraje se i se zvukem</small></label>
+          <label><input type="radio" name="lp-snd" value="tone" ${tone ? "checked" : ""}> přes otisk nebo NAM profil <small>— uslyšíš ho, nahraje se čisté DI a zvuk můžeš pak kdykoli změnit</small></label>
+          <div class="lp-rd-row"><button type="button" class="btn secondary" id="lp-rd-tone">${tone ? esc(toneLbl) : "Vybrat otisk nebo NAM profil…"}</button></div>
+          ${names ? `<div class="lp-rd-h">Originál kousku (${esc(names)})</div>
+          <label><input type="checkbox" id="lp-rd-orig" ${o.on ? "checked" : ""}> hrát i originál</label>
+          <div class="lp-rd-row">originál <select id="lp-rd-opan"><option value="-0.7">vlevo</option><option value="0">uprostřed</option><option value="0.7">vpravo</option></select>
+            hlasitost <input type="range" id="lp-rd-ovol" min="0" max="1.5" step="0.01" value="${o.vol ?? 0.8}"></div>` : ""}
+          <div class="lp-rd-h">Můj part</div>
+          <div class="lp-rd-row">bude <select id="lp-rd-mpan"><option value="0">uprostřed</option><option value="0.7">vpravo</option><option value="-0.7">vlevo</option></select></div>
+        </div>
+        <div class="pk-dlg-btns"><button type="button" class="btn secondary pk-dlg-no">Zrušit</button><button type="button" class="btn pk-dlg-ok">● Nahrát</button></div>`;
+      const q = (s) => card.querySelector(s);
+      if(q("#lp-rd-opan")){ q("#lp-rd-opan").value = String(o.pan != null ? (o.pan < -0.2 ? -0.7 : o.pan > 0.2 ? 0.7 : 0) : -0.7); }
+      if(o.on) q("#lp-rd-mpan").value = "0.7";
+      if(q("#lp-rd-orig")) q("#lp-rd-orig").onchange = (e) => { if(e.target.checked && q("#lp-rd-mpan").value === "0") q("#lp-rd-mpan").value = String(-+q("#lp-rd-opan").value || 0.7); };
+      q("#lp-rd-tone").onclick = async () => {
+        // the picker is a dialog of its own: this one is built again with what was chosen
+        const prev = {orig: q("#lp-rd-orig") ? q("#lp-rd-orig").checked : false, opan: q("#lp-rd-opan") ? +q("#lp-rd-opan").value : -0.7, ovol: q("#lp-rd-ovol") ? +q("#lp-rd-ovol").value : 0.8, mpan: +q("#lp-rd-mpan").value};
+        Dialog.close({again: true, prev});
+      };
+      q(".pk-dlg-no").onclick = () => Dialog.close(null);
+      q(".pk-dlg-ok").onclick = () => {
+        const useTone = q('input[name="lp-snd"]:checked').value === "tone";
+        if(useTone && !tone){ showToast("Vyber otisk nebo NAM profil"); return; }
+        Dialog.close({tone: useTone ? tone : null, orig: q("#lp-rd-orig") ? q("#lp-rd-orig").checked : false, opan: q("#lp-rd-opan") ? +q("#lp-rd-opan").value : -0.7,
+          ovol: q("#lp-rd-ovol") ? +q("#lp-rd-ovol").value : 0.8, mpan: +q("#lp-rd-mpan").value});
+      };
+    }, null);
+  }
+  async function riffAsk(d){
+    for(;;){
+      const r = await riffDialog(d);
+      if(!r || !r.again) return r;
+      d.orig = {...(d.orig || {}), on: r.prev.orig, pan: r.prev.opan, vol: r.prev.ovol};
+      const x = await pickTone(cfg.rfTone ? (cfg.rfTone.kind === "print" ? "p|" + cfg.rfTone.song + "|" + cfg.rfTone.pid : "n|" + cfg.rfTone.file) : "");
+      if(x){ cfg.rfTone = x.tone; keep(); }
+    }
+  }
+  async function riffStart(target){
     audio();
     if(RF.on){ riffStop(); return; }
-    const st = stemsIn(i);
-    if(Object.values(st).every(v => v === "on")) SL.stems.forEach(x => { if(GTR_STEMS.includes(x.stem)) st[x.stem] = "mute"; });
-    const sn = pieceSnap(i);
-    if(!sn.stems.length){ showToast("V kousku teď nic nehraje — zapni aspoň jednu stopu jako podklad"); paintSlice(); return; }
+    let d;
+    if(target.d) d = target.d;
+    else {
+      const i = target.i, st = stemsIn(i);
+      if(Object.values(st).every(v => v === "on")) SL.stems.forEach(x => { if(GTR_STEMS.includes(x.stem)) st[x.stem] = "mute"; });
+      const sn = pieceSnap(i);
+      d = {...sn, base: {vol: 1, pan: 0}, orig: {stems: SL.stems.map(x => x.stem).filter(s => !sn.stems.includes(s)), on: false, vol: 0.8, pan: -0.7, semis: 0}, parts: [], fresh: true};
+    }
+    if(!d.stems.length && !(d.orig && d.orig.on)){ showToast("V kousku teď nic nehraje — zapni aspoň jednu stopu jako podklad"); paintSlice(); return; }
     const t = tracks.find(x => !x.layers.length && !x.job && (x.src === "gtr" || x.src === "gtrdi")) || tracks.find(x => !x.layers.length && !x.job);
     if(!t){ showToast("Všechny stopy looperu jsou plné — smaž jednu, do ní se nahraje tvůj part"); paintSlice(); return; }
+    const opt = await riffAsk(d); if(!opt) { paintSlice(); return; }
+    d.orig = {...d.orig, on: opt.orig, pan: opt.opan, vol: opt.ovol};
     if(running) stopAll();
+    dkStop();
     // the piece's own tempo and metre (while the tracks are empty): the song is then heard as it is, not stretched
-    const per = SL.perBar || cfg.perBar, bpm = Math.round(60 * per * sn.bars / (sn.z - sn.a) * 10) / 10;
+    const e = SLS.find(x => x.song === d.song), per = (e && e.perBar) || cfg.perBar, bpm = Math.round(60 * per * d.bars / (d.z - d.a) * 10) / 10;
     if(!hasAudio() && bpm >= 40 && bpm <= 240){ cfg.perBar = per; cfg.bpm = bpm; keep(); }
-    if(t.src !== "gtr" && t.src !== "gtrdi") t.src = "gtr";
-    RF.on = true; RF.track = t; RF.sn = sn; RF.piece = i; RF.song = SL.song;
-    paint(); paintMaster(); paintSlice();
+    RF.prevSrc = t.src; t.src = opt.tone ? "gtrdi" : "gtr";
+    RF.on = true; RF.track = t; RF.d = d; RF.opt = opt; RF.piece = target.d ? -1 : target.i; RF.song = d.song;
+    paint(); paintMaster(); paintSlice(); paintComp();
     showToast("Připravuji podklad…");
-    let buf; try{ buf = await pieceAudio(sn); }catch(e){ buf = null; showToast("Podklad se nepodařilo připravit: " + e.message); }
+    if(opt.tone) await liveTone(opt.tone);
+    let buf; try{ buf = await dilekAudio(d); }catch(err){ buf = null; showToast("Podklad se nepodařilo připravit: " + err.message); }
     if(!buf || !RF.on){ riffStop(); return; }
-    const bars = mBars(sn);
+    const bars = mBars(d);
     t.bars = bars;
     if(!(await srcs[t.src].start())){ riffStop(); return; }
     if(!RF.on) return;
@@ -1832,44 +2012,110 @@ const Looper = (() => {
     await arm(t, "first");
     if(!t.job){ riffStop(); return; }
     const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.connect(bus); s.start(t.job.from); RF.src = s;
-    showToast(`Hraj: ${takt(bars)} v ${cfg.bpm} BPM, ${cfg.perBar}/4 — po odpočtu, podklad bez ${sn.stems.length < SL.stems.length ? "ztlumených stop" : "ničeho"}`);
-    paintSlice();
+    showToast(`Hraj: ${takt(bars)} v ${cfg.bpm} BPM, ${cfg.perBar}/4 — po odpočtu${opt.tone ? " · " + toneName(opt.tone) + " (nahrává se DI)" : ""}`);
+    paintSlice(); paintComp();
   }
   function riffStop(){
     const t = RF.track;
     if(RF.src){ try{ RF.src.stop(); }catch(e){} RF.src = null; }
     RF.on = false; RF.track = null;
     if(t && t.job){ cancelJob(t); maybeStopSrc(t.src); }
-    paint(); paintSlice();
+    if(t && RF.prevSrc){ t.src = RF.prevSrc; RF.prevSrc = null; }
+    paint(); paintSlice(); paintComp();
   }
   async function riffDone(t, buf){
-    const sn = RF.sn; RF.on = false; RF.track = null;
-    t.name = `Můj part · ${sn.name}`.slice(0, 24); const inp = root.querySelector(`.lp-t[data-i="${t.i}"] .nm input`); if(inp) inp.value = t.name;
+    const d = RF.d, opt = RF.opt || {}; RF.on = false; RF.track = null;
     let id = null;
-    try{ id = await uploadSound(new File([wav(buf)], `Můj part – ${sn.name}.wav`, {type: "audio/wav"})); }catch(e){ showToast("Part se nepodařilo uložit: " + e.message); }
+    try{ id = await uploadSound(new File([wav(buf)], `Můj part – ${d.name}.wav`, {type: "audio/wav"})); }catch(e){ showToast("Part se nepodařilo uložit: " + e.message); }
+    // the take lives in the piece of mine now: the looper's track is free again, the result plays
+    const was = RF.prevSrc; RF.prevSrc = null;
+    setTimeout(() => { if(RF.src){ try{ RF.src.stop(); }catch(e){} RF.src = null; } stopAll(); clear(t.i); if(was) t.src = was; paint(); }, 0);
     if(!id){ paintSlice(); return; }
     SM.cache.set("s|" + id.sound, buf);
-    const n = mine.filter(x => x.song === sn.song && Math.abs(x.a - sn.a) < 0.01).length + 1;
-    const d = {...sn, name: `${sn.name} · můj part${n > 1 ? " " + n : ""}`, over: {sound: id.sound, bpm: cfg.bpm}, mine: Date.now()};
-    mine.unshift(d); mineKeep();
-    const k = comp.findIndex(b => !b.over && b.song === sn.song && Math.abs(b.a - sn.a) < 0.01 && Math.abs(b.z - sn.z) < 0.01);
-    if(k >= 0){ comp[k] = {...d}; compChanged(); }
-    showToast(k >= 0 ? `Hotovo — ve skladbě je kousek ${k + 1} teď s tvým partem` : `Hotovo — nový dílek „${d.name}“ je dole v Mých dílcích, přetáhni ho do skladby`);
+    const pt = {sound: id.sound, bpm: cfg.bpm, key: masterKey(), di: !!opt.tone, tone: opt.tone ? {...opt.tone} : null, inDb: G2().inputGainDb || 0,
+      vol: 1, pan: opt.mpan || 0, semis: 0, on: true, name: "Part " + ((d.parts || []).length + 1)};
+    d.parts = [...(d.parts || []), pt];
+    let msg;
+    if(d.fresh){
+      delete d.fresh;
+      const n = mine.filter(x => x.song === d.song && Math.abs(x.a - d.a) < 0.01).length + 1;
+      d.name = `${d.name} · můj part${n > 1 ? " " + n : ""}`; d.mine = Date.now();
+      mine.unshift(d); mineKeep();
+      const k = comp.findIndex(b => !b.parts && b.song === d.song && Math.abs(b.a - d.a) < 0.01 && Math.abs(b.z - d.z) < 0.01);
+      if(k >= 0){ comp[k] = clone(d); compChanged(); }
+      msg = k >= 0 ? `Hotovo — ve skladbě je kousek ${k + 1} teď s tvým partem` : "Hotovo — nový dílek je v Mých dílcích, přetáhni ho do skladby";
+    } else { dkSync(d); msg = `Hotovo — ${pt.name} přidán do dílku`; }
+    DK.d = d; showToast(msg + " · posloucháš výsledek");
     paintSlice(); paintComp();
+    setTimeout(() => dkPlay(), 50);
   }
-  // a piece of my own: the song's piece and my take over it — the take fitted to the master tempo like the piece
-  async function withOver(base, sn, want){
-    let ov = await loadSample({sound: sn.over.sound, name: sn.name});
-    if(Math.abs(ov.duration / want - 1) > 0.002) ov = await fitAudio(ov, want, 0);
-    const sr = ac.sampleRate, oc = new OfflineAudioContext(2, Math.max(1, Math.round(want * sr)), sr);
-    [base, ov].forEach(bf => { if(!bf) return; const s = oc.createBufferSource(); s.buffer = bf; s.connect(oc.destination); s.start(0); });
-    return oc.startRendering();
-  }
-  function minePreview(k){
+  // ---- the piece of mine open (its mix under Moje dílky): plays round while it is changed
+  async function dkPlay(keepPos){
     audio();
-    if(CP.pv){ try{ CP.pv.stop(); }catch(e){} CP.pv = null; const was = CP.pvAt; CP.pvAt = -1; paintComp(); if(was === "m" + k) return; }
-    pieceAudio(mine[k]).then(buf => { if(!buf) return; const s = ac.createBufferSource(); s.buffer = buf; s.connect(bus); s.start(); CP.pv = s; CP.pvAt = "m" + k;
-      s.onended = () => { if(CP.pv === s){ CP.pv = null; CP.pvAt = -1; paintComp(); } }; paintComp(); }).catch(e => showToast(e.message));
+    const d = DK.d; if(!d) return;
+    const pos = keepPos && DK.src ? ((now() - DK.at) % DK.dur + DK.dur) % DK.dur : 0;
+    const my = ++DK.t; DK.busy = true; paintDkHead();
+    let buf; try{ buf = await dilekAudio(d); }catch(e){ DK.busy = false; paintDkHead(); showToast("Dílek se nepodařilo složit: " + e.message); return; }
+    DK.busy = false;
+    if(my !== DK.t || !buf || DK.d !== d){ paintDkHead(); return; }
+    if(DK.src){ try{ DK.src.stop(); }catch(e){} }
+    const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.connect(bus);
+    const p0 = Math.min(pos, buf.duration - 0.01); s.start(now() + 0.02, p0);
+    DK.src = s; DK.dur = buf.duration; DK.at = now() + 0.02 - p0;
+    paintDkHead();
+  }
+  function dkStop(){ DK.t++; if(DK.src){ try{ DK.src.stop(); }catch(e){} DK.src = null; } paintDkHead(); }
+  let dkT = 0;
+  function dkChanged(){ dkSync(DK.d); clearTimeout(dkT); dkT = setTimeout(() => { if(DK.src) dkPlay(true); }, 220); }
+  function paintDkHead(){ const b = root && root.querySelector("#lp-dk-play"); if(b){ b.textContent = DK.busy ? "Skládám…" : DK.src ? "■ Zastavit" : "▶ Poslech dokola"; b.classList.toggle("on", !!DK.src); } }
+  function dkHtml(){
+    const d = DK.d; if(!d) return "";
+    const panLbl = (p) => Math.abs(p) < 0.05 ? "střed" : (p < 0 ? "L " : "P ") + Math.round(Math.abs(p) * 100);
+    const row = (key, title, sub, x, o) => `<div class="lp-dk-ch ${x.on === false ? "off" : ""}" data-ch="${key}">
+        ${o.toggle ? `<button type="button" class="lp-dk-on ${x.on === false ? "" : "on"}" data-act="on" title="Zapnout / vypnout">${x.on === false ? "○" : "●"}</button>` : `<span class="lp-dk-on fixed">●</span>`}
+        <span class="lp-dk-nm"><b>${esc(title)}</b><small>${esc(sub)}</small></span>
+        <label title="Hlasitost">hlas. <input type="range" data-k="vol" min="0" max="1.5" step="0.01" value="${x.vol ?? 1}"><em>${Math.round((x.vol ?? 1) * 100)} %</em></label>
+        <label title="Panorama — vlevo / vpravo (dvojklik: střed)">pan <input type="range" data-k="pan" min="-1" max="1" step="0.05" value="${x.pan || 0}"><em>${panLbl(x.pan || 0)}</em></label>
+        ${o.pitch ? `<label title="Ladění v půltónech (tempo zůstane)">ladění <select data-k="semis">${Array.from({length: 25}, (_, k) => k - 12).map(v => `<option value="${v}" ${(x.semis || 0) === v ? "selected" : ""}>${v > 0 ? "+" : ""}${v}</option>`).join("")}</select></label>` : `<label class="dim" title="Podklad ladí s tóninou MASTERu">ladění: tónina</label>`}
+        ${o.tone ? `<button type="button" class="lp-b lp-dk-tone" data-act="tone" title="Jiný zvuk pro tenhle part (nahraný čistě) — otisk nebo NAM profil">${esc(toneName(x.tone))} ▾</button>` : "<span></span>"}
+        ${o.del ? `<button type="button" class="lp-dk-x" data-act="del" title="Smazat part">✕</button>` : "<span></span>"}</div>`;
+    const o = d.orig || {};
+    return `<div class="lp-dk" id="lp-dk"><div class="lp-dk-top"><b class="lp-dk-title" title="Dvojklik: přejmenovat">🎸 ${esc(d.name)}</b><small>${esc(shortTitle(d.title || d.song))}${d.n ? " · kousek " + d.n : ""} · ${takt(mBars(d))}</small>
+        <button type="button" class="lp-b" id="lp-dk-play">▶ Poslech dokola</button>
+        <button type="button" class="lp-b lp-riff ${RF.on && RF.d === d ? "on" : ""}" id="lp-dk-rec" title="Nahrát další part do tohohle dílku — podklad je jeho mix, jak je teď nastavený">${RF.on && RF.d === d ? "■ Zrušit nahrávání" : "🎙 Nahrát další part"}</button>
+        <button type="button" class="lp-b" id="lp-dk-dup" title="Kopie dílku — na zkoušení jiné verze">Kopie</button>
+        <span class="lp-sp"></span><button type="button" class="lp-x" id="lp-dk-x" title="Zavřít">${icon("close", 12)}</button></div>
+      ${row("base", "Podklad", d.stems.map(stemName).join(" + ") || "nic", d.base || {}, {})}
+      ${o.stems && o.stems.length ? row("orig", "Originál", o.stems.map(stemName).join(" + "), o, {toggle: true, pitch: true}) : ""}
+      ${(d.parts || []).map((pt, k) => row("p" + k, pt.name || "Part " + (k + 1), pt.di ? "DI · " + toneName(pt.tone) : "nahráno se zvukem", pt, {toggle: true, pitch: true, tone: pt.di, del: true})).join("")}</div>`;
+  }
+  function wireDk(box){
+    const d = DK.d, el = box.querySelector("#lp-dk"); if(!d || !el) return;
+    const objOf = (k) => k === "base" ? (d.base || (d.base = {vol: 1, pan: 0})) : k === "orig" ? d.orig : d.parts[+k.slice(1)];
+    el.querySelector("#lp-dk-play").onclick = () => (DK.src ? dkStop() : dkPlay());
+    el.querySelector("#lp-dk-rec").onclick = () => (RF.on ? riffStop() : riffStart({d}));
+    el.querySelector("#lp-dk-x").onclick = () => { dkStop(); DK.d = null; paintComp(); };
+    el.querySelector("#lp-dk-dup").onclick = () => { const c = clone(d); c.mine = Date.now(); c.name = d.name + " (kopie)"; mine.unshift(c); mineKeep(); DK.d = c; paintComp(); showToast("Kopie dílku — můžeš ji měnit nezávisle"); };
+    el.querySelector(".lp-dk-title").ondblclick = async () => { const n = await Dialog.prompt("Název dílku:", d.name); if(n && n.trim()){ d.name = n.trim().slice(0, 60); dkSync(d); paintComp(); } };
+    paintDkHead();
+    el.querySelectorAll(".lp-dk-ch").forEach(r => {
+      const x = objOf(r.dataset.ch); if(!x) return;
+      r.querySelectorAll("input[type=range]").forEach(inp => {
+        inp.oninput = () => { x[inp.dataset.k] = +inp.value; const em = inp.nextElementSibling;
+          if(em) em.textContent = inp.dataset.k === "vol" ? Math.round(x.vol * 100) + " %" : (Math.abs(x.pan) < 0.05 ? "střed" : (x.pan < 0 ? "L " : "P ") + Math.round(Math.abs(x.pan) * 100)); dkChanged(); };
+        if(inp.dataset.k === "pan") inp.ondblclick = () => { inp.value = 0; inp.oninput(); };
+      });
+      const sm = r.querySelector("select[data-k=semis]"); if(sm) sm.onchange = () => { x.semis = +sm.value; dkChanged(); };
+      const on = r.querySelector('[data-act="on"]'); if(on) on.onclick = () => { x.on = x.on === false; dkChanged(); paintComp(); };
+      const tn = r.querySelector('[data-act="tone"]'); if(tn) tn.onclick = async () => {
+        const cur = x.tone ? (x.tone.kind === "print" ? "p|" + x.tone.song + "|" + x.tone.pid : "n|" + x.tone.file) : "";
+        const v = await pickTone(cur); if(!v) return;
+        const keepCab = x.tone && x.tone.cab; x.tone = {...v.tone}; if(v.tone.kind === "nam") x.tone.cab = keepCab || (G2().cabName ? G2().cabName + ".wav" : "");
+        showToast(`${x.name}: ${toneName(x.tone)} — přezvučuji…`); dkChanged(); paintComp(); if(!DK.src) dkPlay(); };
+      const del = r.querySelector('[data-act="del"]'); if(del) del.onclick = async () => {
+        if(!(await Dialog.confirm(`Smazat ${x.name}?`, {ok: "Smazat"}))) return;
+        d.parts.splice(+r.dataset.ch.slice(1), 1); dkChanged(); paintComp(); };
+    });
   }
 
   // The wave's hands: a pinch (ctrl + wheel) zooms round the pointer, two fingers sideways move along it; a cut
@@ -2112,8 +2358,8 @@ const Looper = (() => {
     plan = Array.isArray(P.plan) ? P.plan : null;
     if(P.kit){ cfg.kit = P.kit; LoopSound.setStyle(P.kit); }
     if(Array.isArray(P.pads)){ padsFrom(P.pads); padsKeep(); }
-    if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song); cfg.comp = comp; keep(); }
-    if(Array.isArray(P.mine)){ P.mine.forEach(d => { if(d && d.over && !mine.some(x => x.over.sound === d.over.sound)) mine.push(d); }); mineKeep(); }
+    if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song).map(b => (b.over || b.parts ? upgradeDilek(b) : b)); cfg.comp = comp; keep(); }
+    if(Array.isArray(P.mine)){ P.mine.filter(d => d && (d.parts || d.over)).map(upgradeDilek).forEach(d => { if(!mine.some(x => x.mine === d.mine)) mine.push(d); }); mineKeep(); }
     (async () => { for(const n of P.songs || []){ try{ await addSong(n); }catch(e){} } paintSlice(); paintComp(); })();
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);

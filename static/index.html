@@ -27612,6 +27612,7 @@ const Mixer = (() => {
     // take latency, the live guitar's doubler.
     songAt: (t) => songAtCtx(t),
     namEngine: () => Amp.engine(),
+    ampLoad: (file, name) => Amp.load(file, name),      // the looper: a NAM profile on the live guitar while a part is recorded
     takeLatency: () => (TakeRec.opts.latencyMs != null ? TakeRec.opts.latencyMs : (Guitar.state.latencyMs || 0)) / 1000,
     guitarDoubler: (on) => { const fx = Guitar.fx(); if(!!fx.state.dbl.on !== !!on) return setDoubler(fx, {on: !!on}).then(() => renderLiveGuitarFader()); },
     guitarFaderRepaint: () => renderLiveGuitarFader(),

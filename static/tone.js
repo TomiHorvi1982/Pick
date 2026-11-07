@@ -53,8 +53,8 @@ const Tone = (() => {
   try{ tab = localStorage.getItem(TAB) || "song"; libSort = localStorage.getItem(LSORT) || "band"; libCat = localStorage.getItem(LSORT + "-cat") || ""; }catch(e){}
 
   // ---------------------------------------------------------------- the live chain
-  function biquad(type, f, qv, gain){
-    const b = ac().createBiquadFilter();
+  function biquad(type, f, qv, gain, c){
+    const b = (c || ac()).createBiquadFilter();
     b.type = type; b.frequency.value = f; b.Q.value = qv;
     if(gain != null) b.gain.value = gain;
     return b;
@@ -63,8 +63,8 @@ const Tone = (() => {
   function mulberry32(a){
     return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   }
-  function roomBuffer(decay){
-    const c = ac(), sr = c.sampleRate, n = Math.floor(sr * Math.min(3.5, 1.5 * decay)), pre = Math.floor(sr * 0.012);
+  function roomBuffer(decay, cx){
+    const c = cx || ac(), sr = c.sampleRate, n = Math.floor(sr * Math.min(3.5, 1.5 * decay)), pre = Math.floor(sr * 0.012);
     const rnd = mulberry32(1), h = new Float32Array(pre + n);
     let y = 0, e = 0;
     for(let i = 0; i < n; i++){
@@ -97,32 +97,39 @@ const Tone = (() => {
 
   // A print's chain, in the mixer's context: input → drive → EQ → the NAM core → the print's IR → room.
   // The live guitar plays through one, the virtual guitar (static/vguitar.js) through one of its own.
-  async function buildChain(name, which){
+  // cx: another audio context (the looper renders a guitar part through a print offline, faster than it plays)
+  const coreText = new Map();
+  async function buildChain(name, which, cx){
     const p = (await api(`/api/tone/${enc(name)}?${q(which)}`)).print;
     if(!p) throw new Error("Tahle píseň otisk nemá.");
-    const c = ac();
+    const c = cx || ac();
     let core = null;
     if(p.core){
-      const res = await fetch(`/api/amps/${enc(p.core.id)}`);
-      if(!res.ok) throw new Error(`Jádro otisku (${p.core.name}) už v knihovně zesilovačů není.`);
-      core = await (await Mixer.namEngine()).createNode();
-      await core.loadModel(await res.text());
+      let txt = coreText.get(p.core.id);
+      if(!txt){
+        const res = await fetch(`/api/amps/${enc(p.core.id)}`);
+        if(!res.ok) throw new Error(`Jádro otisku (${p.core.name}) už v knihovně zesilovačů není.`);
+        txt = await res.text(); coreText.clear(); coreText.set(p.core.id, txt);
+      }
+      const eng = cx ? await (await import("/static/nam/index.js")).NamEngine.attach(cx, {assetBaseUrl: "/static/nam/"}) : await Mixer.namEngine();
+      core = await eng.createNode();
+      await core.loadModel(txt);
     }
     const ir = await c.decodeAudioData(await (await fetch(`/api/tone/${enc(name)}/file/print-ir.wav?${q(p.id)}`)).arrayBuffer());
     const input = c.createGain(), out = c.createGain(), colour = c.createConvolver();
     if(typeof p.out_gain === "number" && p.out_gain > 0) out.gain.value = p.out_gain;   // a DITORIG profile's own output level
     colour.normalize = false; colour.buffer = ir;
     const chain = [input];
-    if(p.pre.hp > 20) chain.push(biquad("highpass", p.pre.hp, PRE.hpQ));
-    if(Math.abs(p.pre.mid_db) > 0.05) chain.push(biquad("peaking", PRE.mid, 0.7, p.pre.mid_db));
-    if(Math.abs(p.pre.tilt_db) > 0.05) chain.push(biquad("lowshelf", PRE.low, 0, -p.pre.tilt_db / 2), biquad("highshelf", PRE.high, 0, p.pre.tilt_db / 2));
+    if(p.pre.hp > 20) chain.push(biquad("highpass", p.pre.hp, PRE.hpQ, null, c));
+    if(Math.abs(p.pre.mid_db) > 0.05) chain.push(biquad("peaking", PRE.mid, 0.7, p.pre.mid_db, c));
+    if(Math.abs(p.pre.tilt_db) > 0.05) chain.push(biquad("lowshelf", PRE.low, 0, -p.pre.tilt_db / 2, c), biquad("highshelf", PRE.high, 0, p.pre.tilt_db / 2, c));
     if(core) chain.push(core);
     chain.push(colour, out);
     for(let i = 0; i + 1 < chain.length; i++) chain[i].connect(chain[i + 1]);
     const nodes = chain.slice();
     if(p.room && p.room.mix > 0){
       const wet = c.createConvolver(), mix = c.createGain();
-      wet.normalize = false; wet.buffer = roomBuffer(p.room.decay); mix.gain.value = p.room.mix;
+      wet.normalize = false; wet.buffer = roomBuffer(p.room.decay, c); mix.gain.value = p.room.mix;
       colour.connect(wet); wet.connect(mix); mix.connect(out);
       nodes.push(wet, mix);
     }

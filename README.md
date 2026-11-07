@@ -1880,3 +1880,15 @@ Po odpočtu jednoho taktu nahraješ riff do volné kytarové stopy. Nahrávka se
 **tvůj dílek** (kousek bez kytary + tvůj part) — najdeš ho v „Moje dílky“ pod skladbou. Je-li kousek ve skladbě
 (tlačítko **＋ Celá píseň** tam dá všechny kousky písně v pořadí), nahradí se rovnou; jinak dílek přetáhni na kousek
 ve skladbě (nahradí ho), mezi kousky (vloží se) nebo na pad. Dílky se pamatují a ukládají s projektem.
+
+### Looper: mix dílku, víc partů, DI přes otisk nebo NAM
+
+Před nahráním partu se otevře okno: **zvuk kytary** — jak hraje teď v Picku (nahraje se i se zvukem), nebo **přes
+otisk či NAM profil z katalogu** (uslyšíš ho živě, nahraje se čisté DI a zvuk jde u partu kdykoli vyměnit — Pick ho
+přezvučí sám, rychleji než v reálném čase); **originál kousku** (třeba kytaru) můžeš nechat hrát — vlevo, uprostřed
+nebo vpravo, s hlasitostí — a svůj part dát na druhou stranu.
+
+Klik na dílek v „Moje dílky“ (nebo na dílek ve skladbě) otevře jeho **mix**: podklad, originál a každý tvůj part —
+zapnout/vypnout, **hlasitost, panorama, ladění** (±12 půltónů), u DI partů **zvuk ▾**. Hraje dokola a změny jsou slyšet
+hned. **🎙 Nahrát další part** nahraje další part navrch (podkladem je mix, jak je nastavený), **Kopie** udělá
+samostatnou verzi dílku. Změny se propíšou do skladby i na pady a ukládají se s projektem.
