@@ -1798,3 +1798,8 @@ nejbližším taktu, dvojklik na řez ho zruší. U vybraného kousku jdou stopy
 ostatní) **ztlumit (M)** nebo dát do **sóla (S)** jen pro ten kousek; **▶ Poslech** ho přehraje dokola. Kousek
 **přetažený na stopu looperu** (nebo „Do stopy 1–5“) se stane její smyčkou: vybrané stopy smíchané, srovnané na
 hlavní tempo (tempo písně) a dlouhé přesně svých N taktů — hraje na taktu jako každá nahrávka.
+
+Vlna jde **přiblížit sevřením dvou prstů** na trackpadu (až 64×, kolem kurzoru) a **posouvat dvěma prsty do strany**;
+tlačítko s přiblížením ukáže zase celou píseň. Každý kousek ukazuje **jen vlnu stop, které v něm hrají** (sólo bicích
+→ jen bicí, i ve štítku). **Řez jde táhnout** myší — přichytí se na takt a sousední kousky se přizpůsobí; **kousek
+jde vytáhnout přímo z vlny** a pustit na stopu looperu.

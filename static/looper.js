@@ -89,6 +89,9 @@ const Looper = (() => {
   .lp-sl-to button{width:26px;height:26px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);cursor:pointer;font-weight:800}
   .lp-sl-to button:hover{background:var(--accent,#8b5cf6);color:#0b0b12}
   .lp-sl-drag{cursor:grab;padding:4px 10px;border-radius:999px;border:1px dashed rgba(255,255,255,.25);font-size:12px;color:#c9c9da}
+  .lp-sl-wave canvas{touch-action:none}
+  .lp-sl-zoom{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:3px 10px;font-weight:800;font-size:11px;cursor:pointer}
+  .lp-sl-ghost{position:fixed;z-index:10000;pointer-events:none;padding:6px 12px;border-radius:999px;background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:800;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -682,7 +685,8 @@ const Looper = (() => {
   // vocals…) are muted or soloed for that piece alone; a piece dragged onto a looper track (or → 1–5) becomes
   // its loop: the chosen tracks mixed, fitted to the master tempo (the song's own, so normally as it is) and
   // as long as its bars — it plays on the bar like any recording.
-  const SL = {song: null, stems: [], db: [], cuts: [], st: {}, sel: 0, mode: "parts", scissors: false, peaks: null, prev: null};
+  const SL = {song: null, stems: [], db: [], cuts: [], st: {}, sel: 0, mode: "parts", scissors: false, prev: null,
+              zoom: 1, vs: 0, env: null};          // zoom 1–64 and the view's start (s); env: each stem's envelope
   const STEMC = {drums: "#f6ad55", bass: "#63b3ed", guitar: "#f2c25c", guitar_solo: "#f7d774", guitar_rhythm: "#d9a441", vocals: "#f687b3", piano: "#9f7aea", other: "#68d391"};
   const stemName = (st) => ({drums: "bicí", bass: "basa", guitar: "kytara", guitar_solo: "kytara sólo", guitar_rhythm: "kytara rytmus", vocals: "zpěv", piano: "klavír", other: "ostatní"}[st] || st);
   function sliceSong(){
@@ -695,7 +699,7 @@ const Looper = (() => {
     SL.song = s; SL.stems = au.map(x => ({stem: x.stem, buf: x.buffer}));
     const dur = Math.max(...au.map(x => x.buffer.duration));
     SL.db = (g && g.downbeats && g.downbeats.length > 1) ? g.downbeats.filter(t => t < dur) : Array.from({length: Math.floor(dur / barLen())}, (_, i) => i * barLen());
-    SL.dur = dur; SL.peaks = null; SL.st = {}; SL.sel = 0;
+    SL.dur = dur; SL.env = null; SL.st = {}; SL.sel = 0; SL.zoom = 1; SL.vs = 0;
     cutBy(SL.mode);
     return true;
   }
@@ -753,13 +757,52 @@ const Looper = (() => {
     const s = ac.createBufferSource(); s.buffer = pb.buf; s.loop = true; s.connect(bus); s.start(); s.piece = i; SL.prev = s;
     paintSlice();
   }
-  function slicePeaks(W){
-    if(SL.peaks && SL.peaks.W === W) return SL.peaks.p;
-    const p = new Float32Array(W), dur = SL.dur;
-    SL.stems.forEach(x => { const d = x.buf.getChannelData(0), per = d.length / (x.buf.duration / dur) / W;
-      for(let i = 0; i < W; i++){ let m = 0; const a = Math.floor(i * per), z = Math.min(d.length, Math.floor((i + 1) * per)); for(let k = a; k < z; k += 32){ const v = Math.abs(d[k]); if(v > m) m = v; } p[i] += m; } });
-    const top = Math.max(...p) || 1; for(let i = 0; i < W; i++) p[i] /= top;
-    SL.peaks = {W, p}; return p;
+  // each stem's loudness, ~86 values a second (the wave is drawn from these at any zoom)
+  const ENV_HOP = 512;
+  function sliceEnv(){
+    if(SL.env) return SL.env;
+    const env = {}; let top = 0;
+    SL.stems.forEach(x => { const d = x.buf.getChannelData(0), n = Math.ceil(d.length / ENV_HOP), e = new Float32Array(n);
+      for(let i = 0; i < n; i++){ let m = 0; const a = i * ENV_HOP, z = Math.min(d.length, a + ENV_HOP); for(let k = a; k < z; k += 8){ const v = d[k] < 0 ? -d[k] : d[k]; if(v > m) m = v; } e[i] = m; }
+      env[x.stem] = {e, sr: x.buf.sampleRate / ENV_HOP}; });
+    const n = Math.max(...Object.values(env).map(v => v.e.length));
+    for(let i = 0; i < n; i++){ let t = 0; for(const v of Object.values(env)) t += v.e[i] || 0; if(t > top) top = t; }
+    SL.env = {by: env, top: top || 1};
+    return SL.env;
+  }
+  const span = () => SL.dur / SL.zoom;
+  function setView(zoom, start){
+    SL.zoom = Math.max(1, Math.min(64, zoom));
+    SL.vs = Math.max(0, Math.min(SL.dur - span(), start));
+  }
+  // the wave: each piece drawn from the tracks heard in it (a soloed drum: only the drums' wave)
+  function drawSlice(){
+    const cv = root && root.querySelector("#lp-sl-cv");
+    if(!cv) return;
+    const W = cv.clientWidth || 1200, H = 92, dpr = Math.min(2, devicePixelRatio || 1);
+    if(cv.width !== Math.round(W * dpr)){ cv.width = Math.round(W * dpr); cv.height = H * dpr; }
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const E = sliceEnv(), vs = SL.vs, sp = span(), X = (t) => (t - vs) / sp * W, T = (x) => vs + x / W * sp, i = SL.sel;
+    SL.cuts.forEach((a, k) => {
+      const q = pieceOf(k); if(X(q.z) < 0 || X(q.a) > W) return;
+      const h = HUES[k % HUES.length], x0 = Math.max(0, X(q.a)), x1 = Math.min(W, X(q.z));
+      g.fillStyle = `hsla(${h},70%,55%,${k === i ? 0.3 : 0.11})`; g.fillRect(x0, 0, x1 - x0, H);
+      const list = heard(k).map(x => E.by[x.stem]).filter(Boolean);
+      g.fillStyle = `hsl(${h},75%,${k === i ? 72 : 62}%)`;
+      for(let x = Math.floor(x0); x < x1; x++){
+        const ta = T(x), tb = T(x + 1); let m = 0;
+        list.forEach(v => { const a = Math.floor(ta * v.sr), z = Math.max(a + 1, Math.ceil(tb * v.sr)); let mm = 0; for(let j = a; j < z && j < v.e.length; j++) if(v.e[j] > mm) mm = v.e[j]; m += mm; });
+        const y = m / E.top * (H / 2 - 14); if(y > 0.3) g.fillRect(x, H / 2 + 6 - y, 1, y * 2);
+      }
+      g.fillStyle = "rgba(255,255,255,.88)"; g.font = "600 10px system-ui";
+      if(x1 - x0 > 24) g.fillText(String(k + 1) + (heard(k).length < SL.stems.length ? " · " + heard(k).map(x => stemName(x.stem)).join("+") : ""), x0 + 4, 11);
+    });
+    // the bars (every bar when there is room, else every 4th), the cuts, the piece heard
+    const barPx = sp && SL.db.length > 1 ? (SL.db[1] - SL.db[0]) / sp * W : 0, every = barPx > 14 ? 1 : 4;
+    g.fillStyle = "rgba(255,255,255,.08)"; SL.db.forEach((t, k) => { if(k % every === 0){ const x = X(t); if(x >= 0 && x <= W) g.fillRect(Math.round(x), 14, 1, H - 14); } });
+    SL.cuts.forEach((a, k) => { const x = X(a); if(x < -2 || x > W + 2) return; g.fillStyle = SL.drag && SL.drag.cut === k ? "#ffd166" : "#fff"; g.fillRect(Math.round(x) - (k ? 1 : 0), 0, k ? 3 : 2, H); });
+    if(SL.prev && SL.prev.piece != null){ const q = pieceOf(SL.prev.piece); g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(X(q.a) + 1, 1, X(q.z) - X(q.a) - 2, H - 2); }
+    const zb = root.querySelector("#lp-sl-zoom"); if(zb){ zb.hidden = SL.zoom <= 1.01; zb.textContent = (SL.zoom < 10 ? SL.zoom.toFixed(1).replace(".", ",") : Math.round(SL.zoom)) + "×"; }
   }
   const HUES = [265, 200, 150, 35, 330, 95, 15, 180];
   function paintSlice(){
@@ -771,7 +814,8 @@ const Looper = (() => {
     box.innerHTML = `<div class="lp-sl-top"><span class="h">PÍSEŇ PO KOUSCÍCH</span>
         <select id="lp-sl-n" title="Na kolik kousků rozsekat — vždy na začátku taktu (podle bicích)"><option value="parts" ${SL.mode === "parts" ? "selected" : ""}>podle částí písně</option>${[4, 8, 16, 32].map(n => `<option value="${n}" ${SL.mode == n ? "selected" : ""}>${n} kousků</option>`).join("")}</select>
         <button type="button" class="lp-b ${SL.scissors ? "on" : ""}" id="lp-sl-cut" title="Nůžky: klik do vlny rozstřihne kousek na nejbližším taktu · dvojklik na řez ho zruší">✂ Nůžky</button>
-        <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · ${cfg.bpm} BPM</span></div>
+        <button type="button" class="lp-sl-zoom" id="lp-sl-zoom" hidden title="Vlna je přiblížená — klik ukáže celou píseň"></button>
+        <span class="lp-sl-info">${SL.cuts.length} kousků · ${SL.db.length} taktů · ${cfg.bpm} BPM · sevřením prstů přiblížíš, dvěma prsty posuneš, řez táhni, kousek vytáhni na stopu</span></div>
       <div class="lp-sl-wave"><canvas id="lp-sl-cv"></canvas></div>
       <div class="lp-sl-sel"><b>Kousek ${i + 1}</b><span>${esc(pieceName(i))} · ${p.bars} ${p.bars === 1 ? "takt" : p.bars < 5 ? "takty" : "taktů"} · ${Math.floor(p.a / 60)}:${String(Math.floor(p.a % 60)).padStart(2, "0")}</span>
         <div class="lp-sl-stems">${SL.stems.map(x => `<span class="stm ${m[x.stem]}" style="--c:${STEMC[x.stem] || "#aaa"}"><i></i>${esc(stemName(x.stem))}
@@ -779,32 +823,81 @@ const Looper = (() => {
         <button type="button" class="lp-b ${SL.prev && SL.prev.piece === i ? "on" : ""}" id="lp-sl-play" title="Poslechnout kousek dokola (s vybranými stopami)">${SL.prev && SL.prev.piece === i ? "■" : "▶"} Poslech</button>
         <span class="lp-sl-to">Do stopy ${tracks.map(t => `<button type="button" data-to="${t.i}" title="Kousek jako smyčka stopy ${t.i + 1}">${t.i + 1}</button>`).join("")}</span>
         <span class="lp-sl-drag" draggable="true" title="Přetáhni na stopu looperu">⠿ přetáhni na stopu</span></div>`;
-    const cv = box.querySelector("#lp-sl-cv"), W = cv.clientWidth || 1200, H = 92, dpr = Math.min(2, devicePixelRatio || 1);
-    cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext("2d"); g.scale(dpr, dpr);
-    const X = (t) => t / SL.dur * W, pk = slicePeaks(Math.round(W));
-    SL.cuts.forEach((a, k) => { const q = pieceOf(k), h = HUES[k % HUES.length];
-      g.fillStyle = `hsla(${h},70%,55%,${k === i ? 0.32 : 0.12})`; g.fillRect(X(q.a), 0, X(q.z) - X(q.a), H);
-      g.fillStyle = `hsl(${h},75%,${k === i ? 72 : 62}%)`;
-      for(let x = Math.floor(X(q.a)); x < X(q.z) && x < pk.length; x++){ const v = pk[x] * (H / 2 - 14); g.fillRect(x, H / 2 + 6 - v, 1, v * 2); }
-      g.fillStyle = "rgba(255,255,255,.85)"; g.font = "600 10px system-ui"; if(X(q.z) - X(q.a) > 22) g.fillText(String(k + 1), X(q.a) + 4, 11); });
-    g.fillStyle = "rgba(255,255,255,.07)"; SL.db.forEach((t, k) => { if(k % 4 === 0) g.fillRect(Math.round(X(t)), 14, 1, H - 14); });
-    g.fillStyle = "#fff"; SL.cuts.forEach(a => g.fillRect(Math.round(X(a)), 0, 2, H));
-    if(SL.prev && SL.prev.piece != null){ /* the piece heard: its frame */ const q = pieceOf(SL.prev.piece); g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(X(q.a) + 1, 1, X(q.z) - X(q.a) - 2, H - 2); }
-    const tAt = (e) => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * SL.dur; };
-    const nearDb = (t) => SL.db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, SL.db[0]);
-    cv.onclick = (e) => {
-      const t = tAt(e);
-      if(SL.scissors){ const c = nearDb(t); if(!SL.cuts.includes(c)){ SL.cuts.push(c); SL.cuts.sort((a, b) => a - b); SL.st = {}; } SL.sel = SL.cuts.filter(x => x <= c).length - 1; paintSlice(); return; }
-      SL.sel = Math.max(0, SL.cuts.filter(x => x <= t + 0.01).length - 1); paintSlice();
-    };
-    cv.ondblclick = (e) => { const t = tAt(e), px = SL.dur / W * 6, c = SL.cuts.find((x, k) => k > 0 && Math.abs(x - t) < px); if(c != null){ SL.cuts = SL.cuts.filter(x => x !== c); SL.st = {}; paintSlice(); } };
+    drawSlice();
+    wireSliceCanvas(box.querySelector("#lp-sl-cv"));
     box.querySelector("#lp-sl-n").onchange = (e) => { cutBy(e.target.value); paintSlice(); };
+    box.querySelector("#lp-sl-zoom").onclick = () => { setView(1, 0); drawSlice(); };
     box.querySelector("#lp-sl-cut").onclick = () => { SL.scissors = !SL.scissors; paintSlice(); };
     box.querySelector("#lp-sl-play").onclick = () => previewPiece(i);
     box.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.m] = st[b.dataset.m] === "mute" ? "on" : "mute"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
     box.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const st = stemsIn(i); st[b.dataset.s] = st[b.dataset.s] === "solo" ? "on" : "solo"; if(SL.prev){ SL.prev.stop(); SL.prev = null; previewPiece(i); } else paintSlice(); });
     box.querySelectorAll("[data-to]").forEach(b => b.onclick = () => pieceToTrack(i, +b.dataset.to));
     box.querySelector(".lp-sl-drag").ondragstart = (e) => { e.dataTransfer.setData("text/pick-piece", String(i)); e.dataTransfer.effectAllowed = "copy"; };
+  }
+  // The wave's hands: a pinch (ctrl + wheel) zooms round the pointer, two fingers sideways move along it; a cut
+  // dragged moves (on the bars — the pieces either side follow), a piece dragged out of the wave goes onto
+  // the looper's track it is let go over; a click picks a piece (with the scissors: cuts on the nearest bar).
+  let sliceWired = null;
+  function wireSliceCanvas(cv){
+    if(!cv || cv.dataset.wired) return;
+    cv.dataset.wired = "1";
+    sliceWired = cv;
+    const T = (e) => { const r = cv.getBoundingClientRect(); return SL.vs + (e.clientX - r.left) / r.width * span(); };
+    const nearDb = (t) => SL.db.reduce((b, x) => Math.abs(x - t) < Math.abs(b - t) ? x : b, SL.db[0]);
+    const cutAt = (e) => { const r = cv.getBoundingClientRect(), px = span() / r.width * 6, t = T(e); return SL.cuts.findIndex((x, k) => k > 0 && Math.abs(x - t) < px); };
+    cv.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const r = cv.getBoundingClientRect(), f = (e.clientX - r.left) / r.width;
+      if(e.ctrlKey){ const t = SL.vs + f * span(), z = SL.zoom * Math.exp(-e.deltaY * 0.008); setView(z, t - f * (SL.dur / Math.max(1, Math.min(64, z)))); }
+      else { const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0); if(!d) return; setView(SL.zoom, SL.vs + d / r.width * span()); }
+      drawSlice();
+    }, {passive: false});
+    let gz = 1;
+    cv.addEventListener("gesturestart", (e) => { e.preventDefault(); gz = SL.zoom; });
+    cv.addEventListener("gesturechange", (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(), f = (e.clientX - r.left) / r.width, t = SL.vs + f * span(); setView(gz * e.scale, t - f * (SL.dur / Math.max(1, Math.min(64, gz * e.scale)))); drawSlice(); });
+    cv.addEventListener("pointerdown", (e) => {
+      if(e.button !== 0) return;
+      const k = cutAt(e), t0x = e.clientX, t0y = e.clientY;
+      SL.drag = k > 0 ? {cut: k} : {piece: Math.max(0, SL.cuts.filter(x => x <= T(e) + 0.01).length - 1), ghost: null};
+      cv.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        const d = SL.drag; if(!d) return;
+        if(d.cut != null){
+          const lo = SL.cuts[d.cut - 1], hi = d.cut + 1 < SL.cuts.length ? SL.cuts[d.cut + 1] : SL.dur;
+          const c = nearDb(T(ev)); if(c > lo + 0.01 && c < hi - 0.01){ SL.cuts[d.cut] = c; d.moved = true; drawSlice(); }
+          return;
+        }
+        if(!d.ghost && Math.hypot(ev.clientX - t0x, ev.clientY - t0y) > 8 && Math.abs(ev.clientY - t0y) > 6){
+          d.ghost = document.createElement("div"); d.ghost.className = "lp-sl-ghost";
+          d.ghost.textContent = `Kousek ${d.piece + 1}${pieceName(d.piece) ? " · " + pieceName(d.piece) : ""} · ${pieceOf(d.piece).bars} t.`;
+          document.body.appendChild(d.ghost);
+        }
+        if(d.ghost){
+          d.ghost.style.left = ev.clientX + 12 + "px"; d.ghost.style.top = ev.clientY + 10 + "px";
+          root.querySelectorAll(".lp-t").forEach(n => { const r = n.getBoundingClientRect(); n.classList.toggle("drop", ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom); });
+        }
+      };
+      const up = (ev) => {
+        cv.removeEventListener("pointermove", move); cv.removeEventListener("pointerup", up); cv.removeEventListener("pointercancel", up);
+        const d = SL.drag; SL.drag = null;
+        if(!d) return;
+        if(d.cut != null){ if(d.moved){ SL.st = {}; } paintSlice(); return; }
+        if(d.ghost){
+          d.ghost.remove();
+          const n = [...root.querySelectorAll(".lp-t.drop")][0];
+          root.querySelectorAll(".lp-t.drop").forEach(x => x.classList.remove("drop"));
+          if(n) pieceToTrack(d.piece, +n.dataset.i);
+          return;
+        }
+        // a click
+        const t = T(ev);
+        if(SL.scissors){ const c = nearDb(t); if(!SL.cuts.includes(c)){ SL.cuts.push(c); SL.cuts.sort((a, b) => a - b); SL.st = {}; } SL.sel = SL.cuts.filter(x => x <= c).length - 1; paintSlice(); return; }
+        SL.sel = Math.max(0, SL.cuts.filter(x => x <= t + 0.01).length - 1); paintSlice();
+      };
+      cv.addEventListener("pointermove", move); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    });
+    cv.addEventListener("pointermove", (e) => { if(!SL.drag) cv.style.cursor = cutAt(e) > 0 ? "ew-resize" : SL.scissors ? "crosshair" : "grab"; });
+    cv.addEventListener("dblclick", (e) => { const k = cutAt(e); if(k > 0){ SL.cuts.splice(k, 1); SL.st = {}; paintSlice(); } });
   }
   // the looper's tracks take a piece dropped on them
   function wirePieceDrop(){
