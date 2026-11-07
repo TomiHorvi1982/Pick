@@ -124,6 +124,23 @@ const Looper = (() => {
   .lp-t .row.fxr select,.lp-t .row.fxr button{max-width:100%;font-size:11.5px}
   .lp-t .row.fxr button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
   .lp-t .row.fxr button.on{border-color:var(--accent,#8b5cf6);color:#d7c9ff}
+  .lp-samples{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+  .lp-sm-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-sm-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
+  .lp-sm-fold{background:none;border:0;color:#9a9ab0;cursor:pointer;font-size:12px;padding:0 2px}
+  .lp-sm-top input[type=search]{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 9px;min-width:180px}
+  .lp-sm-dir{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 9px;border-radius:999px;background:rgba(255,255,255,.06);font-size:12px}
+  .lp-sm-dir.gone{opacity:.5;text-decoration:line-through}.lp-sm-dir button{background:none;border:0;color:#9a9ab0;cursor:pointer}
+  .lp-seg{display:inline-flex;border:1px solid rgba(255,255,255,.12);border-radius:999px;overflow:hidden}
+  .lp-seg button{background:none;border:0;padding:4px 10px;font-size:11.5px;cursor:pointer;color:#c9c9da}.lp-seg button.on{background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:700}
+  .lp-sm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px;max-height:260px;overflow-y:auto}
+  .lp-sm-row{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);cursor:grab;min-width:0}
+  .lp-sm-row:hover{border-color:var(--accent,#8b5cf6)}
+  .lp-sm-row b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}.lp-sm-row small{font-size:10.5px;color:#8a8aa0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lp-sm-row .pv{width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,.15);background:none;cursor:pointer;font-size:10px;flex:none}
+  .lp-sm-row .pv.on{background:var(--accent,#8b5cf6);color:#0b0b12}
+  .lp-sm-row i{font-style:normal;font-size:10px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.07);white-space:nowrap}
+  .lp-sm-row i.key.ok{background:rgba(110,231,160,.18);color:#9ff0b0}.lp-sm-row i.key.sh{background:rgba(255,200,90,.16);color:#ffd27a}
+  .lp-sm-none{grid-column:1/-1;color:#8a8aa0;font-size:12px;padding:8px}
   .lp-t.drop{outline:2px dashed var(--accent,#8b5cf6);outline-offset:3px}
   .lp-plan{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-plan-top{display:flex;align-items:center;gap:8px}.lp-plan .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -941,17 +958,137 @@ const Looper = (() => {
     });
   }
 
+  // ---- the samples (Samply): the player's own sounds from mapped folders. A loop dragged onto a track is fitted
+  // to the master: as many whole bars as it is long (by the tempo in its name, else by its length), stretched to
+  // them without its pitch moving, and moved into the song's key (by its name's key, at most six half-tones) without
+  // its length moving — Signalsmith Stretch, offline, as the mixer re-pitches stems. A short sound (a hit) goes at
+  // the start of a one-bar loop. Onto a pad: a loop starts on the bar, a hit at once.
+  const SM = {list: null, dirs: [], q: "", kind: "", open: true, prev: null, cache: new Map()};
+  let stretchMod = null;
+  async function fitAudio(buf, wantSec, semis){
+    if(!stretchMod) stretchMod = (await import("/static/stretch/SignalsmithStretch.mjs")).default;
+    const sr = buf.sampleRate, n = Math.max(1, Math.round(wantSec * sr)), off = new OfflineAudioContext(2, n, sr);
+    const node = await stretchMod(off, {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2]});
+    await node.addBuffers([buf.getChannelData(0).slice(), buf.getChannelData(Math.min(1, buf.numberOfChannels - 1)).slice()]);
+    node.connect(off.destination);
+    node.schedule({outputTime: 0, active: true, input: 0, rate: buf.duration / wantSec, semitones: semis || 0});
+    return off.startRendering();
+  }
+  const keyRoot = (k) => { const m = String(k || "").match(/^([A-G])([#b]?)(m?)/); if(!m) return null; let r = PC.indexOf(m[1] + (m[2] === "#" ? "#" : "")); if(m[2] === "b") r = (PC.indexOf(m[1]) + 11) % 12; return {r, minor: !!m[3]}; };
+  // half-tones from a sample's key to the song's (its relative when one is minor and the other not), −6…+6
+  function keyShift(sampleKey){
+    const a = keyRoot(sampleKey), b = keyRoot(masterKey()); if(!a || !b) return 0;
+    let target = b.r; if(a.minor !== b.minor) target = (b.r + (a.minor ? 9 : 3)) % 12;
+    let d = ((target - a.r) % 12 + 12) % 12; if(d > 6) d -= 12; return d;
+  }
+  const masterKey = () => cfg.masterKey || (skel && skel.key) || "";
+  async function loadSample(x){
+    const k = x.dir + "|" + x.rel;
+    if(SM.cache.has(k)) return SM.cache.get(k);
+    audio();
+    const r = await fetch(`/api/looper/samples/file?dir=${x.dir}&rel=${encodeURIComponent(x.rel)}`);
+    if(!r.ok) throw new Error("soubor se nepodařilo načíst");
+    const buf = await ac.decodeAudioData(await r.arrayBuffer());
+    SM.cache.set(k, buf); return buf;
+  }
+  // how a sample sits in the master: a loop of so many bars, or a hit
+  function sampleBars(x, buf){
+    const d = buf.duration;
+    if(x.bpm){ const b = Math.max(1, Math.round(d * x.bpm / 60 / cfg.perBar)); return b; }
+    if(d < barLen() * 0.75) return 0;
+    const b = d / barLen(), pick = [1, 2, 4, 8, 16].find(o => Math.abs(b - o) / o < 0.15);
+    return pick || Math.max(1, Math.round(b));
+  }
+  async function sampleFitted(x){
+    const buf = await loadSample(x), bars = sampleBars(x, buf), semis = keyShift(x.key);
+    if(!bars){                                             // a hit: in tune, as long as it is
+      const out2 = semis ? await fitAudio(buf, buf.duration, semis) : buf;
+      return {buf: out2, bars: 0, semis, rate: 1};
+    }
+    const want = bars * barLen(), rate = buf.duration / want;
+    const out2 = Math.abs(rate - 1) < 0.002 && !semis ? buf : await fitAudio(buf, want, semis);
+    return {buf: out2, bars, semis, rate};
+  }
+  async function sampleToTrack(x, ti){
+    audio();
+    const t = tracks[ti]; if(!t) return;
+    if(t.job){ showToast("Do stopy se právě nahrává"); return; }
+    showToast(`Načítám „${x.name}“…`);
+    let f; try{ f = await sampleFitted(x); }catch(e){ showToast("Sample se nepodařilo načíst: " + e.message); return; }
+    let buf = f.buf, bars = f.bars;
+    if(!bars){                                             // a hit at the start of a bar's loop
+      bars = 1; const n = Math.round(barLen() * ac.sampleRate), b2 = ac.createBuffer(2, n, ac.sampleRate);
+      for(let c = 0; c < 2; c++) b2.getChannelData(c).set(f.buf.getChannelData(Math.min(c, f.buf.numberOfChannels - 1)).subarray(0, n));
+      buf = b2;
+    }
+    t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
+    t.len = bars * barLen(); t.bars = 0; t.anchor = running ? nextBar(now()) : t0;
+    t.name = x.name.slice(0, 24);
+    t.layers.push({buf, sample: {dir: x.dir, rel: x.rel}}); history.push(t.i);
+    if(running) startLayer(t, t.layers[0], t.anchor);
+    if(scenes[cur]) scenes[cur].on.add(t.i);
+    const inp = root.querySelector(`.lp-t[data-i="${ti}"] .nm input`); if(inp) inp.value = t.name;
+    showToast(`„${x.name}“ → stopa ${ti + 1}: ${bars} ${bars === 1 ? "takt" : bars < 5 ? "takty" : "taktů"}`
+      + (f.bars && Math.abs(f.rate - 1) > 0.01 ? ` · tempo ${f.rate > 1 ? "−" : "+"}${Math.round(Math.abs(1 / f.rate - 1) * 100)} %` : "")
+      + (f.semis ? ` · přeladěno ${f.semis > 0 ? "+" : ""}${f.semis} do ${masterKey()}` : ""));
+    paint();
+  }
+  async function loadSamples(){
+    try{ const d = await (await fetch("/api/looper/samples")).json(); SM.list = d.samples || []; SM.dirs = d.dirs || []; }catch(e){ SM.list = []; }
+    paintSamples();
+  }
+  function paintSamples(){
+    const box = root && root.querySelector("#lp-samples"); if(!box) return;
+    if(SM.list == null){ box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">načítám…</span></div>`; loadSamples(); return; }
+    const q = SM.q.trim().toLowerCase(), mk = masterKey();
+    const list = SM.list.filter(x => (!q || (x.name + " " + x.folder).toLowerCase().includes(q)) && (!SM.kind || (SM.kind === "loop" ? x.bpm : !x.bpm)));
+    box.innerHTML = `<div class="lp-sm-top"><button type="button" class="lp-sm-fold" id="lp-sm-fold">${SM.open ? "▾" : "▸"}</button><span class="h">SAMPLY</span>
+        <button type="button" class="lp-b" id="lp-sm-add" title="Namapovat složku se samply (otevře se výběr složky) — nic se nekopíruje">+ Namapovat složku</button>
+        ${SM.dirs.map(d => `<span class="lp-sm-dir ${d.exists ? "" : "gone"}" title="${esc(d.path)}">${esc(d.name)}<button type="button" data-rm="${esc(d.path)}" title="Odmapovat">✕</button></span>`).join("")}
+        <input type="search" id="lp-sm-q" placeholder="Hledat sample…" value="${esc(SM.q)}">
+        <span class="lp-seg"><button type="button" data-kind="" class="${!SM.kind ? "on" : ""}">vše</button><button type="button" data-kind="loop" class="${SM.kind === "loop" ? "on" : ""}">smyčky</button><button type="button" data-kind="hit" class="${SM.kind === "hit" ? "on" : ""}">údery</button></span>
+        <span class="lp-pb-hint">${mk ? `ladí se do ${esc(mk)} · ` : ""}tempo ${cfg.bpm} BPM · přetáhni na stopu nebo pad</span></div>
+      ${SM.open ? `<div class="lp-sm-list">${!SM.dirs.length ? `<div class="lp-sm-none">Namapuj složku se svými samply — smyčky, údery, zvuky. Tempo a tóninu si Pick přečte z názvu (např. „Groove 120bpm Am.wav“).</div>`
+        : !list.length ? `<div class="lp-sm-none">Nic takového.</div>`
+        : list.slice(0, 400).map((x, i) => { const sh = keyShift(x.key);
+          return `<div class="lp-sm-row" draggable="true" data-i="${SM.list.indexOf(x)}" title="${esc(x.folder ? x.folder + "/" : "")}${esc(x.name)} — přetáhni na stopu nebo pad">
+            <button type="button" class="pv ${SM.prev === SM.list.indexOf(x) ? "on" : ""}" data-pv="${SM.list.indexOf(x)}">${SM.prev === SM.list.indexOf(x) ? "■" : "▶"}</button>
+            <b>${esc(x.name)}</b><small>${esc(x.folder)}</small>
+            ${x.bpm ? `<i class="bpm">${x.bpm} BPM</i>` : `<i class="hit">úder</i>`}${x.key ? `<i class="key ${sh ? "sh" : "ok"}" title="${sh ? `přeladí se o ${sh > 0 ? "+" : ""}${sh} půltónu do ${esc(mk)}` : "sedí s tóninou"}">${esc(x.key)}${sh ? ` → ${sh > 0 ? "+" : ""}${sh}` : ""}</i>` : ""}</div>`; }).join("") + (list.length > 400 ? `<div class="lp-sm-none">…a dalších ${list.length - 400} — hledej.</div>` : "")}</div>` : ""}`;
+    const qq = (id) => box.querySelector("#" + id);
+    qq("lp-sm-fold").onclick = () => { SM.open = !SM.open; paintSamples(); };
+    qq("lp-sm-add").onclick = async () => { const r = await fetch("/api/looper/samples/dirs", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}); const d = await r.json().catch(() => ({})); if(d.error) showToast(d.error); if(d.added) showToast("Namapováno: " + d.added); loadSamples(); };
+    box.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { await fetch("/api/looper/samples/dirs/remove", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path: b.dataset.rm})}); loadSamples(); });
+    const sq = qq("lp-sm-q"); sq.oninput = () => { SM.q = sq.value; const pos = sq.selectionStart; paintSamples(); const n2 = root.querySelector("#lp-sm-q"); n2.focus(); n2.setSelectionRange(pos, pos); };
+    box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { SM.kind = b.dataset.kind; paintSamples(); });
+    box.querySelectorAll("[data-pv]").forEach(b => b.onclick = async () => {
+      const i = +b.dataset.pv; if(SM.src){ try{ SM.src.stop(); }catch(e){} SM.src = null; }
+      if(SM.prev === i){ SM.prev = null; paintSamples(); return; }
+      try{ const buf = await loadSample(SM.list[i]); const sr = ac.createBufferSource(); sr.buffer = buf; sr.connect(bus); sr.start(); SM.src = sr; SM.prev = i; sr.onended = () => { if(SM.prev === i){ SM.prev = null; paintSamples(); } }; paintSamples(); }
+      catch(e){ showToast("Sample se nepodařilo přehrát"); }
+    });
+    box.querySelectorAll(".lp-sm-row").forEach(r => r.ondragstart = (e) => { e.dataTransfer.setData("text/pick-sample", r.dataset.i); e.dataTransfer.effectAllowed = "copy"; });
+  }
+
   // ---- the pads: eight squares — the kit's drums in a style, or a piece of the song dropped on one. A drum
   // pad plays at once (and goes into a drum track that is recording); a piece pad starts its piece on the
   // next bar (at once when the looper stands) and plays it through; a tap while it plays stops it. Keys Q W E R /
   // A S D F, and a MIDI keyboard's pads (General MIDI drum notes) play them too.
   const PAD_KEYS = ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyA", "KeyS", "KeyD", "KeyF"];
-  let pads = LoopSound.KIT.map(k => ({note: k.note, drum: k.id, name: k.name, piece: null, src: null}));
+  let pads = LoopSound.KIT.map(k => ({note: k.note, drum: k.id, name: k.name, piece: null, sample: null, src: null}));
   let padBus = null;
   function padHit(i){
     audio();
     const pd = pads[i]; if(!pd) return;
     flashPadBank(i);
+    if(pd.sample){
+      if(pd.src){ try{ pd.src.stop(running && pd.sample.bars ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
+      (async () => { let f; try{ f = pd.sample.fit || (pd.sample.fit = await sampleFitted(pd.sample.x)); }catch(e){ showToast("Sample se nepodařilo načíst"); return; }
+        const sr = ac.createBufferSource(); sr.buffer = f.buf; sr.connect(bus);
+        sr.start(f.bars && running ? nextBar(now()) : now() + 0.003); pd.src = sr;
+        sr.onended = () => { if(pd.src === sr){ pd.src = null; paintPads(); } }; paintPads(); })();
+      return;
+    }
     if(!pd.piece){
       if(recTrack && recTrack.src === "drums" && recTrack.job){ noteOn(pd.note, 0.95); setTimeout(() => noteOff(pd.note), 120); return; }
       if(!padBus){ padBus = ac.createGain(); padBus.gain.value = 0.9; padBus.connect(bus); }
@@ -980,7 +1117,7 @@ const Looper = (() => {
         <span class="lp-pb-hint">klávesy Q W E R · A S D F · MIDI pady · kousek z vlny přetáhni na pad · pravé tlačítko vrátí bicí</span></div>
       <div class="lp-pb">${pads.map((pd, i) => `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""}" data-pad="${i}" style="--h:${pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : 230 + i * 12}"
           title="${pd.piece ? esc(pd.piece.name + " · " + pd.piece.bars + " t. · " + pd.piece.stems.map(stemName).join("+")) : esc(pd.name)} — klávesa ${PAD_KEYS[i].slice(3)}, MIDI ${pd.note}">
-          <b>${pd.piece ? esc(pd.piece.name) : esc(pd.name)}</b><small>${pd.piece ? pd.piece.bars + " t." + (pd.piece.stems.length < 3 ? " · " + esc(pd.piece.stems.map(stemName).join("+")) : "") : esc(LoopSound.STYLES[st].name)}</small><i>${PAD_KEYS[i].slice(3)}</i></button>`).join("")}</div>`;
+          <b>${pd.sample ? "♫ " + esc(pd.sample.name) : pd.piece ? esc(pd.piece.name) : esc(pd.name)}</b><small>${pd.piece ? pd.piece.bars + " t." + (pd.piece.stems.length < 3 ? " · " + esc(pd.piece.stems.map(stemName).join("+")) : "") : esc(LoopSound.STYLES[st].name)}</small><i>${PAD_KEYS[i].slice(3)}</i></button>`).join("")}</div>`;
     box.querySelector("#lp-pb-piano").onclick = () => { piano.open = !piano.open; paintPads(); paintPiano(); };
     box.querySelector("#lp-pb-style").onchange = async (e) => {
       LoopSound.setStyle(e.target.value); cfg.kit = e.target.value; keep();
@@ -993,10 +1130,14 @@ const Looper = (() => {
     box.querySelectorAll("[data-pad]").forEach(b => {
       const i = +b.dataset.pad;
       b.onpointerdown = (e) => { if(e.button === 0){ e.preventDefault(); padHit(i); } };
-      b.oncontextmenu = (e) => { e.preventDefault(); const pd = pads[i]; if(pd.piece){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.piece = null; paintPads(); } };
-      b.addEventListener("dragover", (e) => { if([...e.dataTransfer.types].includes("text/pick-piece")){ e.preventDefault(); b.classList.add("drop"); } });
+      b.oncontextmenu = (e) => { e.preventDefault(); const pd = pads[i]; if(pd.sample){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.sample = null; paintPads(); return; } if(pd.piece){ if(pd.src){ try{ pd.src.stop(); }catch(x){} pd.src = null; } pd.piece = null; paintPads(); } };
+      b.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-sample")){ e.preventDefault(); b.classList.add("drop"); } });
       b.addEventListener("dragleave", () => b.classList.remove("drop"));
-      b.addEventListener("drop", (e) => { const v = e.dataTransfer.getData("text/pick-piece"); b.classList.remove("drop"); if(v !== ""){ e.preventDefault(); padPiece(i, pieceSnap(+v)); } });
+      b.addEventListener("drop", (e) => { b.classList.remove("drop");
+        const v = e.dataTransfer.getData("text/pick-piece"), sm = e.dataTransfer.getData("text/pick-sample");
+        if(v !== ""){ e.preventDefault(); padPiece(i, pieceSnap(+v)); }
+        else if(sm !== "" && SM.list && SM.list[+sm]){ e.preventDefault(); const x = SM.list[+sm], pd = pads[i]; if(pd.src){ try{ pd.src.stop(); }catch(er){} pd.src = null; }
+          pd.piece = null; pd.sample = {x, name: x.name, bars: !!x.bpm}; paintPads(); showToast(`Pad ${i + 1}: ${x.name}`); } });
     });
   }
 
@@ -1170,9 +1311,12 @@ const Looper = (() => {
   // the looper's tracks take a piece dropped on them
   function wirePieceDrop(){
     root.querySelectorAll(".lp-t").forEach(n => {
-      n.addEventListener("dragover", (e) => { if([...e.dataTransfer.types].includes("text/pick-piece")){ e.preventDefault(); n.classList.add("drop"); } });
+      n.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-sample")){ e.preventDefault(); n.classList.add("drop"); } });
       n.addEventListener("dragleave", () => n.classList.remove("drop"));
-      n.addEventListener("drop", (e) => { const v = e.dataTransfer.getData("text/pick-piece"); n.classList.remove("drop"); if(v !== ""){ e.preventDefault(); pieceToTrack(+v, +n.dataset.i); } });
+      n.addEventListener("drop", (e) => { n.classList.remove("drop");
+        const v = e.dataTransfer.getData("text/pick-piece"), sm = e.dataTransfer.getData("text/pick-sample");
+        if(v !== ""){ e.preventDefault(); pieceToTrack(+v, +n.dataset.i); }
+        else if(sm !== "" && SM.list && SM.list[+sm]){ e.preventDefault(); sampleToTrack(SM.list[+sm], +n.dataset.i); } });
     });
   }
 
@@ -1285,7 +1429,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: pads.map(pd => pd.piece ? {piece: pd.piece} : null),
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: pads.map(pd => pd.piece ? {piece: pd.piece} : pd.sample ? {sample: {x: pd.sample.x, bars: pd.sample.bars}} : null),
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len, fx: t.fx || "none", print: t.print || null,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -1336,7 +1480,7 @@ const Looper = (() => {
     skel = P.skeleton || null;
     plan = Array.isArray(P.plan) ? P.plan : null;
     if(P.kit){ cfg.kit = P.kit; LoopSound.setStyle(P.kit); }
-    pads.forEach((pd, i) => { pd.piece = P.pads && P.pads[i] && P.pads[i].piece ? P.pads[i].piece : null; pd.src = null; });
+    pads.forEach((pd, i) => { const q = P.pads && P.pads[i]; pd.piece = q && q.piece ? q.piece : null; pd.sample = q && q.sample ? {x: q.sample.x, name: q.sample.x.name, bars: q.sample.bars} : null; pd.src = null; });
     if(!scenes.length) makeScenes();
     cur = Math.min(P.cur || 0, scenes.length - 1);
     arr = (P.arrangement || []).filter(st => scenes[st.k]).map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""}));
@@ -1753,6 +1897,7 @@ const Looper = (() => {
         <div class="lp-tracks" id="lp-tracks"></div>
         <div class="lp-pads-bank" id="lp-pads"></div>
         <div class="lp-piano" id="lp-piano" hidden></div>
+        <div class="lp-samples" id="lp-samples"></div>
         <div class="lp-steps" id="lp-steps" hidden></div>
         <div class="lp-notes" id="lp-notes" hidden></div>
         <div class="lp-skel" id="lp-skel" hidden></div>
@@ -1927,6 +2072,7 @@ const Looper = (() => {
     paintPlan();
     paintSlice();
     if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
+    if(!root.querySelector("#lp-samples .lp-sm-top")) paintSamples();
     if(piano.open){ const r = root.querySelector("#lp-pn-rec"), t = pianoTrack(); if(r && t) { r.classList.toggle("on", !!t.job); r.textContent = t.job ? "● Nahrávám" : "● Nahrát"; } }
     $("lp-guide").classList.toggle("on", !!cfg.guide); $("lp-guide").hidden = !guideSong();
     $("lp-save").title = projName ? `Uložit do projektu „${projName}“` : "Uložit projekt (stopy, vrstvy, části, aranžmá) — do složky Looper v hudbě";

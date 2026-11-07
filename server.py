@@ -12705,6 +12705,101 @@ def _looper_dir(name: str, create: bool = False) -> Optional[Path]:
     return d
 
 
+# ---- the looper's samples: folders of the player's own sounds, mapped (nothing copied), listed with what their
+# names tell of their tempo and key ("Groove_120bpm_Am.wav"), and served to the looper, which fits them to its
+# master tempo and key.
+SAMPLE_EXTS = {".wav", ".aif", ".aiff", ".mp3", ".flac", ".ogg", ".m4a"}
+_re_bpm = _re_mod.compile(r"(?<!\d)(\d{2,3}(?:[.,]\d)?)\s*-?\s*bpm|(?:^|[ _\-])(\d{2,3})(?=[ _\-])", _re_mod.I)
+_re_key = _re_mod.compile(r"(?:^|[ _\-(])([A-G](?:#|b|♯|♭)?)\s*(m|min|minor|maj|major|moll|dur)?(?=$|[ _\-).])")
+
+
+def _sample_dirs() -> list:
+    return [d for d in (_read_config().get("looper_sample_dirs") or []) if isinstance(d, str)]
+
+
+def _sample_meta(name: str) -> dict:
+    stem = Path(name).stem
+    bpm = None
+    for m in _re_bpm.finditer(stem):
+        v = float((m.group(1) or m.group(2)).replace(",", "."))
+        if 50 <= v <= 220 and (m.group(1) or bpm is None):
+            bpm = v
+            if m.group(1):
+                break
+    key = None
+    for m in _re_key.finditer(stem):
+        root, q = m.group(1).replace("♯", "#").replace("♭", "b"), (m.group(2) or "").lower()
+        if q or len(stem) < 40:
+            key = root + ("m" if q in ("m", "min", "minor", "moll") else "")
+            if q:
+                break
+    return {"bpm": bpm, "key": key}
+
+
+@app.get("/api/looper/samples")
+def looper_samples():
+    """Every sound in the mapped folders (to 4000), with its folder, and tempo and key from its name."""
+    out, dirs = [], []
+    for i, d in enumerate(_sample_dirs()):
+        root = Path(d)
+        dirs.append({"i": i, "path": d, "name": root.name or d, "exists": root.is_dir()})
+        if not root.is_dir():
+            continue
+        for f in sorted(root.rglob("*")):
+            if len(out) >= 4000:
+                break
+            if f.suffix.lower() in SAMPLE_EXTS and f.is_file() and not f.name.startswith("."):
+                rel = f.relative_to(root).as_posix()
+                out.append({"dir": i, "rel": rel, "name": f.stem, "folder": str(Path(rel).parent) if "/" in rel else "",
+                            "size": f.stat().st_size, **_sample_meta(f.name)})
+    return {"dirs": dirs, "samples": out}
+
+
+class SampleDirRequest(BaseModel):
+    path: Optional[str] = None
+
+
+@app.post("/api/looper/samples/dirs")
+def looper_sample_dir_add(req: SampleDirRequest):
+    path = req.path
+    if not path:
+        try:
+            r = subprocess.run(["osascript", "-e", 'POSIX path of (choose folder with prompt "Složka se samply pro Looper (nic se nekopíruje)")'],
+                               capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            return {"added": None}
+        if r.returncode != 0:
+            return {"added": None}
+        path = r.stdout.strip()
+    p = Path(path).expanduser()
+    if not p.is_absolute() or not p.is_dir():
+        return JSONResponse({"error": "Složka neexistuje."}, status_code=400)
+    p = p.resolve()
+    dirs = _sample_dirs()
+    if str(p) not in dirs:
+        dirs.append(str(p))
+        _write_config({"looper_sample_dirs": dirs})
+    return {"added": str(p)}
+
+
+@app.post("/api/looper/samples/dirs/remove")
+def looper_sample_dir_remove(req: SampleDirRequest):
+    _write_config({"looper_sample_dirs": [d for d in _sample_dirs() if d != req.path]})
+    return {"ok": True}
+
+
+@app.get("/api/looper/samples/file")
+def looper_sample_file(dir: int, rel: str):
+    dirs = _sample_dirs()
+    if not 0 <= dir < len(dirs):
+        return JSONResponse({"error": "Složka není namapovaná."}, status_code=404)
+    root = Path(dirs[dir]).resolve()
+    f = (root / rel).resolve()
+    if root not in f.parents or not f.is_file() or f.suffix.lower() not in SAMPLE_EXTS:
+        return JSONResponse({"error": "Soubor nenalezen."}, status_code=404)
+    return FileResponse(f)
+
+
 @app.get("/api/looper")
 def looper_list():
     base = _resolve_under_music_root(LOOPER_DIR)

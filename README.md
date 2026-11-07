@@ -1828,3 +1828,13 @@ v celé knihovně). Každá stopa má **efekt**: pro zpěv Zpěv — čistý (ko
 Slapback, Zdvojení, Rádio; pro kytaru Prostor a Delay 1/8. (mikrofon dostane Místnost sám). Otisk i efekt se jen
 přehrávají — nahrávka zůstává čistá a jde vyzkoušet jiný; ukládají se s projektem. Nahrávky jsou v tempu samy:
 začínají i končí na taktu hlavních hodin, takže smyčka má přesně svých N taktů.
+
+### Looper: samply
+
+Panel **Samply**: **+ Namapovat složku** (výběr složky v macOS; víc složek, nic se nekopíruje), hledání, filtr
+smyčky / údery, ▶ poslech. Tempo a tóninu si Pick přečte z názvu souboru („Groove 120bpm Am.wav“, „Bass 110 G“).
+Sample **přetažený na stopu** se přizpůsobí hlavním hodinám: smyčka dostane celé takty (podle tempa z názvu, jinak
+podle délky), natáhne se na ně **bez změny výšky** a **přeladí do tóniny písně** (nejvýš ±6 půltónů; moll a dur
+přes paralelní tóninu) **bez změny délky** — Signalsmith Stretch offline, jako mix přelaďuje stopy. Úder jde na
+začátek jednotaktové smyčky. **Na pad**: smyčka se spustí na taktu, úder hned. (`/api/looper/samples…`, konfigurace
+`looper_sample_dirs`.)
