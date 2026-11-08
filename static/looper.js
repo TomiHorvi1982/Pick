@@ -1472,12 +1472,12 @@ const Looper = (() => {
     : c.startsWith("Numpad") ? "num " + ({Decimal: ",", Enter: "↵", Add: "+", Subtract: "−", Multiply: "×", Divide: "÷"}[c.slice(6)] || c.slice(6)) : KEY_SIGN[c] || c;
   const padOf = (q, i) => { const k = i < 8 ? LoopSound.KIT[i] : null; q = q || {};
     return {note: q.note !== undefined ? q.note : (k ? k.note : null), drum: q.drum !== undefined ? q.drum : (k ? k.id : null), name: k ? k.name : "Pad " + (i + 1),
-      label: q.label || "", key: q.key !== undefined ? q.key : (PAD_KEYS[i] || null), piece: q.piece || null,
+      label: q.label || "", key: q.key !== undefined ? q.key : (PAD_KEYS[i] || null), piece: q.piece || null, mode: q.mode || undefined,
       sample: q.sample && q.sample.x ? {x: q.sample.x, name: q.sample.x.name, bars: q.sample.bars} : null, src: null}; };
   let pads = [], padBus = null, padLearn = null;      // padLearn {i, kind: "key" | "midi"}: the next key or note goes to that pad
-  function stopPad(pd){ if(pd && pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } }
+  function stopPad(pd){ if(pd && pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } if(pd && pd.voice){ try{ pd.voice.s.stop(); }catch(e){} pd.voice = null; } }
   function padsFrom(list){ pads.forEach(stopPad); const n = Math.min(64, Math.max(8, Array.isArray(list) ? list.length : 0)); pads = Array.from({length: n}, (_, i) => padOf(list && list[i], i)); }
-  const padsJSON = () => pads.map(pd => ({key: pd.key, note: pd.note, drum: pd.drum, label: pd.label || undefined, piece: pd.piece, sample: pd.sample ? {x: pd.sample.x, bars: pd.sample.bars} : null}));
+  const padsJSON = () => pads.map(pd => ({key: pd.key, note: pd.note, drum: pd.drum, label: pd.label || undefined, mode: pd.mode || undefined, piece: pd.piece, sample: pd.sample ? {x: pd.sample.x, bars: pd.sample.bars} : null}));
   const padsKeep = () => { cfg.pads = padsJSON(); keep(); };
   padsFrom(cfg.pads);
   const freeKey = () => NUM_KEYS.find(c => !pads.some(p => p.key === c)) || null;
@@ -1488,6 +1488,12 @@ const Looper = (() => {
     const pd = pads[i]; if(!pd) return;
     flashPadBank(i);
     if(pd.sample){
+      if(!padLoops(pd)){                                   // a hit: as it is in the file, at once, from its start on every tap
+        const buf = SM.cache.get(smKeyOf(pd.sample.x));
+        if(buf) padShot(pd, buf);
+        else loadSample(pd.sample.x).then(b => padShot(pd, b)).catch(e => showToast("Zvuk se nepodařilo načíst: " + e.message));
+        return;
+      }
       if(pd.src){ try{ pd.src.stop(running ? nextBar(now()) : 0); }catch(e){} pd.src = null; paintPads(); return; }
       (async () => { let f; try{ f = pd.sample.fit || (pd.sample.fit = await sampleFitted(pd.sample.x)); }catch(e){ showToast("Zvuk se nepodařilo načíst: " + e.message); return; }
         const sr = ac.createBufferSource(); sr.buffer = f.buf; sr.connect(bus);
@@ -1513,9 +1519,21 @@ const Looper = (() => {
     }
     showToast(`Pad ${i + 1} je prázdný — přetáhni na něj zvuk (i soubor z Finderu), sampl nebo kousek písně · pravé tlačítko = možnosti`);
   }
+  // a pad's sound plays as a hit (unless it is a loop: a tempo in its name, or set so in the pad's menu)
+  const padLoops = (pd) => pd.mode === "loop" || (pd.mode == null && !!(pd.sample && pd.sample.x.bpm));
+  const smKeyOf = (x) => x.sound ? "s|" + x.sound : x.dir + "|" + x.rel;
+  // one voice a pad: a new tap starts the sound again at once, the one before fades out in 6 ms (no click)
+  function padShot(pd, buf){
+    audio(); if(ac.state === "suspended") ac.resume();
+    const t = ac.currentTime;
+    if(pd.voice){ const v = pd.voice; try{ v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.linearRampToValueAtTime(0, t + 0.006); v.s.stop(t + 0.01); }catch(e){} }
+    const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = buf; s.connect(g); g.connect(bus); s.start(t);
+    pd.voice = {s, g}; s.onended = () => { if(pd.voice && pd.voice.s === s) pd.voice = null; };
+  }
   function padPiece(i, snap){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.sample = null; pd.piece = snap; padsKeep(); paintPads();
     showToast(`Pad ${i + 1}: ${snap.name} (${snap.bars} t.) — spustí se na začátku taktu`); }
-  function setPadSample(i, x, quiet){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.piece = null; pd.sample = {x, name: x.name, bars: !!x.bpm};
+  function setPadSample(i, x, quiet){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.piece = null; pd.mode = undefined; pd.sample = {x, name: x.name, bars: !!x.bpm};
+    loadSample(x).catch(() => {});                       // ready before the first tap
     if(!quiet){ padsKeep(); paintPads(); showToast(`Pad ${i + 1}: ${x.name}`); } }
   function addPad(){ if(pads.length >= 64){ showToast("Víc než 64 padů nejde"); return -1; } pads.push(padOf({key: freeKey(), drum: null, note: null}, pads.length)); padsKeep(); paintPads(); return pads.length - 1; }
   async function uploadSound(file){
@@ -1553,12 +1571,16 @@ const Looper = (() => {
       {label: `Klávesa: ${keyLabel(pd.key) || "žádná"}`, sub: "vyber a stiskni klávesu — třeba na numerické klávesnici", value: "key"},
       {label: `MIDI: ${pd.note != null ? "nota " + pd.note : "žádná"}`, sub: "vyber a zahraj notu nebo pad na MIDI klávesách", value: "midi"},
       {label: "Přejmenovat", value: "name"}];
+    if(pd.sample) items.splice(1, 0, padLoops(pd)
+      ? {label: "Hraje jako smyčka (na takt, klik zastaví)", sub: "přepnout na úder — hned, od začátku při každém kliku", value: "hit"}
+      : {label: "Hraje jako úder (hned, od začátku při každém kliku)", sub: "přepnout na smyčku — srovná se do tempa a spustí na takt", value: "loop"});
     if(pd.sample || pd.piece) items.push({label: pd.drum ? "Vrátit bicí" : "Vyprázdnit", value: "clear"});
     if(i >= 8) items.push({label: "Odebrat pad", value: "remove"});
     const v = await Dialog.pick({title: `Pad ${i + 1} · ${padTitle(pd)}`, items});
     if(v === "file") pickFiles(i);
     else if(v === "key"){ padLearn = {i, kind: "key"}; paintPads(); showToast(`Stiskni klávesu pro pad ${i + 1} (Esc zruší)`); }
     else if(v === "midi"){ await midiConnect(); padLearn = {i, kind: "midi"}; paintPads(); showToast(`Zahraj notu na MIDI klávesách pro pad ${i + 1}`); }
+    else if(v === "hit" || v === "loop"){ stopPad(pd); pd.mode = v; pd.sample.fit = null; padsKeep(); paintPads(); showToast(`Pad ${i + 1}: ${v === "hit" ? "úder" : "smyčka"}`); }
     else if(v === "name"){ const n = await Dialog.prompt("Název padu:", padTitle(pd)); if(n != null){ pd.label = n.trim().slice(0, 30); padsKeep(); paintPads(); } }
     else if(v === "clear"){ stopPad(pd); pd.sample = null; pd.piece = null; padsKeep(); paintPads(); }
     else if(v === "remove"){ stopPad(pd); pads.splice(i, 1); padsKeep(); paintPads(); }
@@ -1587,7 +1609,7 @@ const Looper = (() => {
       <div class="lp-pb">${pads.map((pd, i) => { const lr = padLearn && padLearn.i === i, empty = !pd.piece && !pd.sample && !pd.drum;
           const hue = pd.piece ? HUES[(pd.piece.n - 1) % HUES.length] : pd.sample ? (pd.sample.x.sound ? 168 : 195) : 230 + (i % 8) * 12;
           const sub = pd.piece ? pd.piece.bars + " t." + (pd.piece.song !== SL.song ? " · " + shortTitle(pd.piece.title || pd.piece.song) : pd.piece.stems.length < 3 ? " · " + pd.piece.stems.map(stemName).join("+") : "")
-            : pd.sample ? (pd.sample.x.sound ? "vlastní zvuk" : pd.sample.x.bpm ? pd.sample.x.bpm + " BPM" : "sampl") : pd.drum ? LoopSound.STYLES[st].name : "přetáhni zvuk";
+            : pd.sample ? (padLoops(pd) ? "smyčka" + (pd.sample.x.bpm ? " · " + pd.sample.x.bpm + " BPM" : "") : "úder") + (pd.sample.x.sound ? " · vlastní" : "") : pd.drum ? LoopSound.STYLES[st].name : "přetáhni zvuk";
           const midi = pd.note != null && !(pd.drum && !pd.sample && !pd.piece) ? ` · ♪${pd.note}` : "";
           return `<button type="button" class="lp-pad ${pd.piece ? "piece" : ""} ${pd.src ? "on" : ""} ${empty ? "empty" : ""} ${lr ? "learn" : ""}" data-pad="${i}" style="--h:${hue}"
             title="${esc(padTitle(pd))}${pd.piece ? esc(" · " + (pd.piece.title || pd.piece.song) + " · " + pd.piece.stems.map(stemName).join("+")) : ""} — klávesa ${esc(keyLabel(pd.key) || "žádná")}, MIDI ${pd.note != null ? pd.note : "žádná"} · pravé tlačítko: možnosti">
@@ -3121,7 +3143,7 @@ const Looper = (() => {
     paintSlice();
     paintMaster();
     applyFolds();
-    if(!root.querySelector("#lp-pads .lp-pb")) paintPads();
+    if(!root.querySelector("#lp-pads .lp-pb")){ paintPads(); pads.forEach(p => { if(p.sample) loadSample(p.sample.x).catch(() => {}); }); }
     if(!root.querySelector("#lp-comp .lp-cp-top")) paintComp();
     if(!LS.restored){ LS.restored = true; const names = (cfg.slSongs || []).slice(0, 12);
       if(names.length) (async () => { for(const n of names){ try{ await addSong(n); }catch(e){} } paintSlice(); paintComp(); })(); }
