@@ -302,7 +302,7 @@ const Looper = (() => {
   .lp-steps .hd b{font-size:14px;margin-right:6px}
   .lp-steps select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
   .lp-grid{display:grid;gap:3px;align-items:center}
-  .lp-steps{overflow-x:auto}
+  .lp-steps{overflow-x:auto;flex-shrink:0}
   .lp-grid .rn{font-size:11px;color:#c8c8d8;padding-right:8px;white-space:nowrap;cursor:pointer}
   .lp-grid .rn:hover{color:#fff}
   .lp-grid .c{height:26px;border-radius:5px;background:rgba(255,255,255,.07);cursor:pointer;border:none;padding:0}
