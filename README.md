@@ -1917,3 +1917,11 @@ Jako smyčka (srovnaná do tempa, spouštěná na takt) hraje jen sampl s tempem
 **Původní tempo písně**: kousky se srovnávají do tempa MASTERu. Když jsou stopy looperu i skladba prázdné, MASTER se
 při výběru písně sám přepne na její tempo a takt. Jinak se u písně (a v pruhu MASTER) ukáže **♩ Původní tempo …
 BPM** — přepne MASTER na tempo písně (nahrané stopy se přitom vyprázdní, proto se nejdřív zeptá; projekt si ulož).
+
+### Looper: vlastní sady bicích
+
+Na pady bicích (Kopák, Virbl, Tlesk, Hi-hat…) přetáhni zvuky ze své knihovny (nebo soubory z Finderu). **Kroky i bicí
+stopa pak hrají tyhle zvuky** — v mřížce kroků je u řádku vidět ♫ název zvuku; bicí bez vlastního zvuku hrají ze stylu.
+V seznamu stylů nad pady je **＋ Vlastní sada ze zvuků na padech…** (pojmenuješ ji) a pod „Vlastní sady“ ji pak vybíráš
+jako styl; **Uložit sadu** uloží změny, ✕ ji smaže. Výběrem stylu (Rock, Metal…) zvuky sady z padů odejdou, výběrem sady
+se vrátí. Sada se pamatuje a ukládá i s projektem.

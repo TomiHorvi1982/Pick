@@ -306,6 +306,7 @@ const Looper = (() => {
   .lp-steps{overflow-x:auto;flex-shrink:0}
   .lp-grid .rn{font-size:11px;color:#c8c8d8;padding-right:8px;white-space:nowrap;cursor:pointer}
   .lp-grid .rn:hover{color:#fff}
+  .lp-grid .rn small{display:block;font-size:9.5px;color:#9ff0b0;max-width:104px;overflow:hidden;text-overflow:ellipsis}
   .lp-grid .c{height:26px;border-radius:5px;background:rgba(255,255,255,.07);cursor:pointer;border:none;padding:0}
   .lp-grid .c.beat{background:rgba(255,255,255,.12)}
   .lp-grid .c.on{background:var(--accent,#8b5cf6);box-shadow:0 0 10px color-mix(in srgb,var(--accent,#8b5cf6) 50%,transparent)}
@@ -583,7 +584,7 @@ const Looper = (() => {
   async function render(t, notes){
     const sr = ac.sampleRate, n = Math.max(1, Math.round(t.len * sr)), tail = Math.round(2.5 * sr);
     const oc = new OfflineAudioContext(2, n + tail, sr), dst = oc.destination;
-    if(t.src === "drums") notes.forEach(x => LoopSound.drum(oc, dst, x.m, x.v, x.p));
+    if(t.src === "drums"){ await drumBufs(); notes.forEach(x => drumAt(oc, dst, x.m, x.v, x.p)); }
     else if(t.instr.startsWith("syn:")) notes.forEach(x => LoopSound.synth(oc, dst, t.instr, x.m, x.v, x.p, x.d));
     else {
       try{
@@ -1502,12 +1503,12 @@ const Looper = (() => {
     : c.startsWith("Numpad") ? "num " + ({Decimal: ",", Enter: "↵", Add: "+", Subtract: "−", Multiply: "×", Divide: "÷"}[c.slice(6)] || c.slice(6)) : KEY_SIGN[c] || c;
   const padOf = (q, i) => { const k = i < 8 ? LoopSound.KIT[i] : null; q = q || {};
     return {note: q.note !== undefined ? q.note : (k ? k.note : null), drum: q.drum !== undefined ? q.drum : (k ? k.id : null), name: k ? k.name : "Pad " + (i + 1),
-      label: q.label || "", key: q.key !== undefined ? q.key : (PAD_KEYS[i] || null), piece: q.piece || null, mode: q.mode || undefined,
+      label: q.label || "", key: q.key !== undefined ? q.key : (PAD_KEYS[i] || null), piece: q.piece || null, mode: q.mode || undefined, fromKit: !!q.fromKit,
       sample: q.sample && q.sample.x ? {x: q.sample.x, name: q.sample.x.name, bars: q.sample.bars} : null, src: null}; };
   let pads = [], padBus = null, padLearn = null;      // padLearn {i, kind: "key" | "midi"}: the next key or note goes to that pad
   function stopPad(pd){ if(pd && pd.src){ try{ pd.src.stop(); }catch(e){} pd.src = null; } if(pd && pd.voice){ try{ pd.voice.s.stop(); }catch(e){} pd.voice = null; } }
   function padsFrom(list){ pads.forEach(stopPad); const n = Math.min(64, Math.max(8, Array.isArray(list) ? list.length : 0)); pads = Array.from({length: n}, (_, i) => padOf(list && list[i], i)); }
-  const padsJSON = () => pads.map(pd => ({key: pd.key, note: pd.note, drum: pd.drum, label: pd.label || undefined, mode: pd.mode || undefined, piece: pd.piece, sample: pd.sample ? {x: pd.sample.x, bars: pd.sample.bars} : null}));
+  const padsJSON = () => pads.map(pd => ({key: pd.key, note: pd.note, drum: pd.drum, label: pd.label || undefined, mode: pd.mode || undefined, fromKit: pd.fromKit || undefined, piece: pd.piece, sample: pd.sample ? {x: pd.sample.x, bars: pd.sample.bars} : null}));
   const padsKeep = () => { cfg.pads = padsJSON(); keep(); };
   padsFrom(cfg.pads);
   const freeKey = () => NUM_KEYS.find(c => !pads.some(p => p.key === c)) || null;
@@ -1517,6 +1518,7 @@ const Looper = (() => {
     audio();
     const pd = pads[i]; if(!pd) return;
     flashPadBank(i);
+    if(pd.drum && pd.sample && !padLoops(pd) && recTrack && recTrack.src === "drums" && recTrack.job){ const n = drumNote(pd); noteOn(n, 0.95); setTimeout(() => noteOff(n), 120); return; }
     if(pd.sample){
       if(!padLoops(pd)){                                   // a hit: as it is in the file, at once, from its start on every tap
         const buf = SM.cache.get(smKeyOf(pd.sample.x));
@@ -1544,10 +1546,55 @@ const Looper = (() => {
       const n = drumNote(pd);
       if(recTrack && recTrack.src === "drums" && recTrack.job){ noteOn(n, 0.95); setTimeout(() => noteOff(n), 120); return; }
       if(!padBus){ padBus = ac.createGain(); padBus.gain.value = 0.9; padBus.connect(bus); }
-      LoopSound.drum(ac, padBus, n, 0.95, now() + 0.003);
+      drumAt(ac, padBus, n, 0.95, now() + 0.003);
       return;
     }
     showToast(`Pad ${i + 1} je prázdný — přetáhni na něj zvuk (i soubor z Finderu), sampl nebo kousek písně · pravé tlačítko = možnosti`);
+  }
+  // ---- a drum's sound: the one on its drum pad (Kopák, Virbl…) when a sound is dropped there, else the style's —
+  // the steps, a drum track's notes and the pads all play it, so a kit of the player's own sounds plays everywhere
+  const drumPad = (m) => pads.find(p => p.drum && drumNote(p) === m && p.sample && !padLoops(p));
+  function drumAt(c, dest, m, v, t){
+    const pd = drumPad(m), buf = pd && SM.cache.get(smKeyOf(pd.sample.x));
+    if(!buf){ LoopSound.drum(c, dest, m, v, t); return; }
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = Math.max(0.05, Math.min(1.2, v)); s.connect(g); g.connect(dest); s.start(t);
+  }
+  const drumBufs = () => Promise.all(pads.filter(p => p.drum && p.sample).map(p => loadSample(p.sample.x).catch(() => null)));
+  // the drum tracks made again with the sounds as they are now (a kit changed, a sound dropped on a drum pad)
+  async function refreshDrums(){
+    await drumBufs();
+    for(const t of tracks) if(t.src === "drums") for(const l of t.layers){ if(l.steps) await rerender(t, l, stepNotes(t)); else if(l.raw) await rerender(t, l, quantized(t, l.raw)); }
+    if(stepT) paintSteps();
+  }
+  // ---- my own kits (Vlastní sady): the sounds on the eight drum pads, kept under a name, chosen like a style
+  let kits = Array.isArray(cfg.kits) ? cfg.kits.filter(k => k && k.name && k.sounds) : [];
+  const kitsKeep = () => { cfg.kits = kits; keep(); };
+  const handMade = () => pads.some(p => p.drum && p.sample && !p.fromKit);
+  async function kitSave(asNew){
+    const sounds = {}; pads.forEach(p => { if(p.drum && p.sample) sounds[p.drum] = p.sample.x; });
+    if(!Object.keys(sounds).length){ showToast("Nejdřív přetáhni na pady bicích (Kopák, Virbl, Hi-hat…) zvuky ze své knihovny"); paintPads(); return; }
+    let name = !asNew && cfg.kitName ? cfg.kitName : await Dialog.prompt("Název sady bicích:", cfg.kitName && asNew ? cfg.kitName + " 2" : "Moje sada");
+    if(!name || !name.trim()){ paintPads(); return; }
+    name = name.trim().slice(0, 40);
+    const k = {name, base: LoopSound.style(), sounds}, at = kits.findIndex(x => x.name === name);
+    if(at >= 0) kits[at] = k; else kits.push(k);
+    pads.forEach(p => { if(p.drum && p.sample) p.fromKit = true; });
+    cfg.kitName = name; kitsKeep(); padsKeep(); paintPads();
+    showToast(`Sada „${name}“ uložena: ${Object.keys(sounds).length} ${Object.keys(sounds).length < 5 ? "zvuky" : "zvuků"}, ostatní bicí ze stylu ${LoopSound.STYLES[k.base].name}`);
+  }
+  async function kitUse(i){
+    const k = kits[i]; if(!k) return;
+    if(handMade() && !(await Dialog.confirm("Na padech bicích jsou zvuky, které nejsou v žádné sadě — nahradit je sadou?", {ok: "Nahradit"}))){ paintPads(); return; }
+    LoopSound.setStyle(k.base); cfg.kit = k.base; cfg.kitName = k.name;
+    pads.forEach((p, j) => { if(!p.drum) return; const x = k.sounds[p.drum];
+      if(x){ setPadSample(j, x, true); p.fromKit = true; } else { stopPad(p); p.sample = null; p.fromKit = false; } });
+    keep(); padsKeep(); paintPads(); await refreshDrums();
+    showToast(`Sada „${k.name}“`);
+  }
+  async function kitDelete(){
+    const at = kits.findIndex(x => x.name === cfg.kitName); if(at < 0) return;
+    if(!(await Dialog.confirm(`Smazat sadu „${cfg.kitName}“? Zvuky v knihovně zůstanou.`, {ok: "Smazat"}))) return;
+    kits.splice(at, 1); cfg.kitName = null; kitsKeep(); paintPads();
   }
   // a pad's sound plays as a hit (unless it is a loop: a tempo in its name, or set so in the pad's menu)
   // …and only when it is as long as a bar at its tempo: a short sound with a number in its name is still a hit
@@ -1564,8 +1611,9 @@ const Looper = (() => {
   }
   function padPiece(i, snap){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.sample = null; pd.piece = snap; padsKeep(); paintPads();
     showToast(`Pad ${i + 1}: ${snap.name} (${snap.bars} t.) — spustí se na začátku taktu`); }
-  function setPadSample(i, x, quiet){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.piece = null; pd.mode = undefined; pd.sample = {x, name: x.name, bars: !!x.bpm};
-    loadSample(x).catch(() => {});                       // ready before the first tap
+  function setPadSample(i, x, quiet){ const pd = pads[i]; if(!pd) return; stopPad(pd); pd.piece = null; pd.mode = undefined; pd.sample = {x, name: x.name, bars: !!x.bpm}; pd.fromKit = false;
+    const ld = loadSample(x).catch(() => {});            // ready before the first tap
+    if(pd.drum && !quiet) ld.then(() => refreshDrums());
     if(!quiet){ padsKeep(); paintPads(); showToast(`Pad ${i + 1}: ${x.name}`); } }
   function addPad(){ if(pads.length >= 64){ showToast("Víc než 64 padů nejde"); return -1; } pads.push(padOf({key: freeKey(), drum: null, note: null}, pads.length)); padsKeep(); paintPads(); return pads.length - 1; }
   async function uploadSound(file){
@@ -1587,7 +1635,7 @@ const Looper = (() => {
       try{ setPadSample(k, await uploadSound(f), true); done++; }
       catch(e){ showToast(`„${f.name}“: ${e.message}`); if(i != null && !done) i = null; }
     }
-    padsKeep(); paintPads();
+    padsKeep(); paintPads(); refreshDrums();
     if(done) showToast(done === 1 ? `Pad ${last + 1}: ${pads[last].sample.name}` : `${done} zvuků na padech`);
   }
   function pickFiles(i){
@@ -1614,7 +1662,7 @@ const Looper = (() => {
     else if(v === "midi"){ await midiConnect(); padLearn = {i, kind: "midi"}; paintPads(); showToast(`Zahraj notu na MIDI klávesách pro pad ${i + 1}`); }
     else if(v === "hit" || v === "loop"){ stopPad(pd); pd.mode = v; pd.sample.fit = null; padsKeep(); paintPads(); showToast(`Pad ${i + 1}: ${v === "hit" ? "úder" : "smyčka"}`); }
     else if(v === "name"){ const n = await Dialog.prompt("Název padu:", padTitle(pd)); if(n != null){ pd.label = n.trim().slice(0, 30); padsKeep(); paintPads(); } }
-    else if(v === "clear"){ stopPad(pd); pd.sample = null; pd.piece = null; padsKeep(); paintPads(); }
+    else if(v === "clear"){ stopPad(pd); pd.sample = null; pd.piece = null; pd.fromKit = false; padsKeep(); paintPads(); if(pd.drum) refreshDrums(); }
     else if(v === "remove"){ stopPad(pd); pads.splice(i, 1); padsKeep(); paintPads(); }
   }
   function flashPadBank(i){ const b = root && root.querySelector(`.lp-pb [data-pad="${i}"]`); if(b){ b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120); } }
@@ -1634,7 +1682,12 @@ const Looper = (() => {
     const box = root && root.querySelector("#lp-pads"); if(!box) return;
     const st = LoopSound.style(), drumT = tracks.find(t => t.src === "drums");
     box.innerHTML = `<div class="lp-pb-top"><span class="h">PADY</span>
-        <select id="lp-pb-style" title="Zvuk bicích podle stylu (pady, kroky i bicí stopa)">${Object.entries(LoopSound.STYLES).map(([k, v]) => `<option value="${k}" ${k === st ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>
+        <select id="lp-pb-style" title="Zvuk bicích — styl, nebo tvoje vlastní sada (zvuky na padech bicích); hrají ho pady, kroky i bicí stopa">
+          <optgroup label="Styly">${Object.entries(LoopSound.STYLES).map(([k, v]) => `<option value="${k}" ${!cfg.kitName && k === st ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</optgroup>
+          ${kits.length ? `<optgroup label="Vlastní sady">${kits.map((k, i) => `<option value="kit:${i}" ${cfg.kitName === k.name ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>` : ""}
+          <option value="new">＋ Vlastní sada ze zvuků na padech…</option></select>
+        ${cfg.kitName ? `<button type="button" class="lp-b" id="lp-pb-kitsave" title="Uložit zvuky na padech bicích do sady „${esc(cfg.kitName)}“">Uložit sadu</button><button type="button" class="lp-b lp-sm-ico" id="lp-pb-kitdel" title="Smazat sadu „${esc(cfg.kitName)}“">✕</button>`
+          : pads.some(p => p.drum && p.sample) ? `<button type="button" class="lp-b" id="lp-pb-kitnew" title="Zvuky na padech bicích uložit jako vlastní sadu">Uložit jako sadu…</button>` : ""}
         <select id="lp-pb-groove" title="Hotový rytmus do bicí stopy (stopa ${drumT ? drumT.i + 1 : 1}, 2 takty)"><option value="">Rytmus do bicí stopy…</option>${Object.entries(LoopSound.GROOVES).map(([k, g]) => `<option value="${k}" ${k === LoopSound.STYLE_GROOVE[st] ? "data-fit" : ""}>${esc(g.name)}${k === LoopSound.STYLE_GROOVE[st] ? " ★" : ""}</option>`).join("")}</select>
         <button type="button" class="lp-b ${piano.open ? "on" : ""}" id="lp-pb-piano" title="Virtuální klavír — hraje a nahrává do MIDI stopy">🎹 Klavír</button>
         <span class="lp-pb-hint">soubory přetáhni z Finderu, samply a kousky z vlny · pravé tlačítko: zvuk ze souboru, klávesa, MIDI nota</span></div>
@@ -1649,10 +1702,17 @@ const Looper = (() => {
         <button type="button" class="lp-pad lp-pad-add" id="lp-pad-add" title="Přidat pad — dostane volnou klávesu na numerické klávesnici · přetáhni sem i víc souborů najednou">＋<small>Pad</small></button></div>`;
     box.querySelector("#lp-pb-piano").onclick = () => { piano.open = !piano.open; paintPads(); paintPiano(); };
     box.querySelector("#lp-pb-style").onchange = async (e) => {
-      LoopSound.setStyle(e.target.value); cfg.kit = e.target.value; keep();
-      for(const t of tracks) if(t.src === "drums" && t.steps){ const l = t.layers.find(x => x.steps); if(l) await rerender(t, l, stepNotes(t)); }
-      paintPads();
+      const v = e.target.value;
+      if(v === "new"){ await kitSave(true); return; }
+      if(v.startsWith("kit:")){ await kitUse(+v.slice(4)); return; }
+      // a style: the sounds a kit put on the drum pads go, the ones dropped there by hand stay
+      LoopSound.setStyle(v); cfg.kit = v; cfg.kitName = null; keep();
+      pads.forEach(p => { if(p.drum && p.fromKit){ stopPad(p); p.sample = null; p.fromKit = false; } }); padsKeep();
+      paintPads(); await refreshDrums();
     };
+    const ks = box.querySelector("#lp-pb-kitsave"); if(ks) ks.onclick = () => kitSave(false);
+    const kn = box.querySelector("#lp-pb-kitnew"); if(kn) kn.onclick = () => kitSave(true);
+    const kd = box.querySelector("#lp-pb-kitdel"); if(kd) kd.onclick = kitDelete;
     box.querySelector("#lp-pb-groove").onchange = (e) => { const id = e.target.value; e.target.value = ""; if(!id) return;
       const t = drumT || tracks[0]; if(t.layers.some(l => !l.steps)){ showToast(`Stopa ${t.i + 1} má nahraný zvuk — rytmus jde jen do bicí stopy s kroky`); return; }
       t.src = "drums"; setSteps(t, groove(id, 2)); showToast(`Rytmus ${LoopSound.GROOVES[id].name} → stopa ${t.i + 1}`); };
@@ -2514,7 +2574,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, pads: padsJSON(), songs: SLS.filter(e => !e.own).map(e => e.song), comp, mine,
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, kitName: cfg.kitName || null, kitDef: kits.find(k => k.name === cfg.kitName) || null, pads: padsJSON(), songs: SLS.filter(e => !e.own).map(e => e.song), comp, mine,
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len, fx: t.fx || "none", print: t.print || null,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -2565,6 +2625,8 @@ const Looper = (() => {
     skel = P.skeleton || null;
     plan = Array.isArray(P.plan) ? P.plan : null;
     if(P.kit){ cfg.kit = P.kit; LoopSound.setStyle(P.kit); }
+    cfg.kitName = P.kitName || null;
+    if(P.kitDef && P.kitDef.name && !kits.some(k => k.name === P.kitDef.name)){ kits.push(P.kitDef); kitsKeep(); }
     if(Array.isArray(P.pads)){ padsFrom(P.pads); padsKeep(); }
     if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song).map(b => (b.over || b.parts ? upgradeDilek(b) : b)); cfg.comp = comp; keep(); }
     if(Array.isArray(P.mine)){ P.mine.filter(d => d && (d.parts || d.over)).map(upgradeDilek).forEach(d => { if(!mine.some(x => x.mine === d.mine)) mine.push(d); }); mineKeep(); }
@@ -2725,7 +2787,7 @@ const Looper = (() => {
     if(!t) return;
     if(ac.state === "suspended") ac.resume();
     const tm = now();
-    if(t.src === "drums") LoopSound.drum(ac, monitor, m, v, tm);
+    if(t.src === "drums") drumAt(ac, monitor, m, v, tm);
     else if(t.instr.startsWith("syn:")){ const prev = held.get(m); if(prev) prev(tm); held.set(m, LoopSound.synth(ac, monitor, t.instr, m, v, tm)); }
     else liveLib(t, m, v);
     const j = t.job;
@@ -2805,14 +2867,14 @@ const Looper = (() => {
         <button type="button" class="lp-b" data-k="sclear">Vymazat kroky</button>
         <span class="lp-sp"></span><span class="muted" style="font-size:11px;color:#8a8aa0">Klik na políčko = úder · klik na název = zahrát · pady dole hrají i nahrávají (jako MIDI pady klávesnice)</span></div>
       <div class="lp-grid" style="grid-template-columns:110px repeat(${cols},minmax(12px,1fr));min-width:${110 + cols * 15}px">
-        ${LoopSound.KIT.map((k, r) => `<span class="rn" data-m="${k.note}">${esc(k.name)}</span>` + S.on[r].map((on, i) =>
-          `<button type="button" class="c${on ? " on" : ""}${i % 4 === 0 ? " beat" : ""}${i % 16 === 0 && i ? " bar" : ""}" data-r="${r}" data-i="${i}"></button>`).join("")).join("")}</div>
+        ${LoopSound.KIT.map((k, r) => { const dp = drumPad(k.note); return `<span class="rn" data-m="${k.note}" title="${dp ? "Zvuk z padu: " + esc(dp.sample.name) : "Zvuk ze stylu — přetáhni na pad " + esc(k.name) + " vlastní zvuk"}">${esc(k.name)}${dp ? `<small>♫ ${esc(dp.sample.name)}</small>` : ""}</span>` + S.on[r].map((on, i) =>
+          `<button type="button" class="c${on ? " on" : ""}${i % 4 === 0 ? " beat" : ""}${i % 16 === 0 && i ? " bar" : ""}" data-r="${r}" data-i="${i}"></button>`).join(""); }).join("")}</div>
       <div class="lp-pads">${LoopSound.KIT.map(k => `<button type="button" data-m="${k.note}">${esc(k.name)}</button>`).join("")}</div>`;
     const q = (k) => box.querySelector(`[data-k="${k}"]`);
     box.querySelectorAll(".lp-grid .c").forEach(c => c.onclick = () => {
       const S2 = t.steps ? {...t.steps, on: t.steps.on.map(x => x.slice())} : S;
       S2.on[+c.dataset.r][+c.dataset.i] = !S2.on[+c.dataset.r][+c.dataset.i];
-      if(S2.on[+c.dataset.r][+c.dataset.i]) LoopSound.drum(ac, monitor, LoopSound.KIT[+c.dataset.r].note, 0.8, now());
+      if(S2.on[+c.dataset.r][+c.dataset.i]) drumAt(ac, monitor, LoopSound.KIT[+c.dataset.r].note, 0.8, now());
       setSteps(t, S2).then(paintSteps);
     });
     box.querySelectorAll(".rn").forEach(n => n.onclick = () => pad(+n.dataset.m));
