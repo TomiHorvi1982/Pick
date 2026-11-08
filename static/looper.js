@@ -1154,8 +1154,8 @@ const Looper = (() => {
     q("lp-ms-key").onchange = async (e) => {
       cfg.masterKey = e.target.value; keep();
       // the samples in the tracks into the new key
-      const again = tracks.filter(t => t.layers[0] && t.layers[0].sample && SM.list);
-      for(const t of again){ const sm = t.layers[0].sample, x = SM.list.find(y => y.dir === sm.dir && y.rel === sm.rel); if(x) await sampleToTrack(x, t.i); }
+      const again = tracks.filter(t => t.layers[0] && t.layers[0].sample);
+      for(const t of again){ const sm = t.layers[0].sample, x = sm.name ? sm : (SM.list || []).find(y => y.dir === sm.dir && y.rel === sm.rel); if(x) await sampleToTrack(x, t.i); }
       pads.forEach(pd => { if(pd.sample) pd.sample.fit = null; });
       showToast(`Tónina ${masterKey() || "z písně"}` + (again.length ? ` — ${again.length} ${again.length === 1 ? "sample přeladěn" : "samply přeladěny"}` : ""));
       paint(); paintPiano(); paintSamples(); paintComp();
@@ -1274,7 +1274,7 @@ const Looper = (() => {
     t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
     t.len = bars * barLen(); t.bars = 0; t.anchor = running ? nextBar(now()) : t0;
     t.name = x.name.slice(0, 24);
-    t.layers.push({buf, sample: {dir: x.dir, rel: x.rel}}); history.push(t.i);
+    t.layers.push({buf, sample: {dir: x.dir, rel: x.rel, sound: x.sound, name: x.name, bpm: x.bpm, key: x.key, folder: x.folder || ""}}); history.push(t.i);
     if(running) startLayer(t, t.layers[0], t.anchor);
     if(scenes[cur]) scenes[cur].on.add(t.i);
     const inp = root.querySelector(`.lp-t[data-i="${ti}"] .nm input`); if(inp) inp.value = t.name;
@@ -1287,12 +1287,35 @@ const Looper = (() => {
   // hits; a click plays a sound at once (streamed, nothing decoded first), ↑ ↓ go through them playing each,
   // a double click puts it on a new pad, and any of them is dragged onto a track or a pad. The list is the
   // server's kept index — ↻ walks the folders again.
+  // The browser holds only what has been shown: the folders opened (asked of the server one at a time) and the
+  // search results (searched on the server) — a library of a hundred thousand sounds opens at once. SM.list keeps
+  // every sound shown so far (its place in it is what a drag carries).
   async function loadSamples(refresh){
     SM.busy = true; if(refresh) paintSamples();
-    try{ const d = await (await fetch("/api/looper/samples" + (refresh ? "?refresh=1" : ""))).json(); SM.list = d.samples || []; SM.dirs = d.dirs || []; }catch(e){ SM.list = SM.list || []; }
+    try{ const d = await (await fetch("/api/looper/samples" + (refresh ? "?refresh=1" : ""))).json(); SM.dirs = d.dirs || []; SM.total = d.total || 0; }catch(e){ SM.dirs = SM.dirs || []; }
+    SM.list = []; SM.key = new Map(); SM.kids = new Map(); SM.res = null; SM.sel = null; SM.prev = null;
     SM.busy = false;
-    if(SM.list.length && cfg.side == null){ cfg.side = true; keep(); applySide(); }
+    if(SM.total && cfg.side == null){ cfg.side = true; keep(); applySide(); }
     paintSamples();
+    if(SM.q.trim()) smSearch();
+  }
+  function smReg(x){ const k = x.sound ? "s|" + x.sound : x.dir + "|" + x.rel; let i = SM.key.get(k); if(i == null){ i = SM.list.length; SM.list.push(x); SM.key.set(k, i); } return i; }
+  async function smFolder(dir, path){
+    const k = dir + "|" + path + "|" + SM.kind; if(SM.kids.has(k)) return;
+    SM.kids.set(k, null);
+    try{ const d = await (await fetch(`/api/looper/samples/tree?dir=${dir}&path=${encodeURIComponent(path)}&kind=${SM.kind}`)).json();
+      SM.kids.set(k, {folders: d.folders || [], files: (d.files || []).map(smReg), more: d.more || 0}); }
+    catch(e){ SM.kids.delete(k); }
+    paintSamples();
+  }
+  async function smSearch(){
+    const q = SM.q.trim(), my = (SM.qn = (SM.qn || 0) + 1);
+    if(!q){ SM.res = null; paintSamples(); return; }
+    SM.res = {q, files: null, total: 0}; paintSamples();
+    try{ const d = await (await fetch(`/api/looper/samples/search?q=${encodeURIComponent(q)}&kind=${SM.kind}&limit=600`)).json();
+      if(my === SM.qn) SM.res = {q, files: (d.files || []).map(smReg), total: d.total || 0}; }
+    catch(e){ if(my === SM.qn) SM.res = {q, files: [], total: 0}; }
+    if(my === SM.qn) paintSamples();
   }
   const sampleUrl = (x) => x.sound ? `/api/looper/sounds/${x.sound}` : `/api/looper/samples/file?dir=${x.dir}&rel=${encodeURIComponent(x.rel)}`;
   let smEl = null, smNode = null;
@@ -1345,44 +1368,45 @@ const Looper = (() => {
   }
   function paintSamples(){
     const box = root && root.querySelector("#lp-samples"); if(!box) return;
-    if(SM.list == null){ box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">načítám…</span></div>`; if(!SM.busy) loadSamples(); return; }
-    const q = SM.q.trim().toLowerCase(), mk = masterKey(), fold = cfg.smFold || (cfg.smFold = {});
-    const list = SM.list.filter(x => (!q || (x.name + " " + x.folder).toLowerCase().includes(q)) && (!SM.kind || (SM.kind === "loop" ? x.bpm : !x.bpm)));
-    const row = (x) => { const i = SM.list.indexOf(x), sh = keyShift(x.key);
+    if(SM.list == null || !SM.kids){ box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">načítám…</span></div>`; if(!SM.busy) loadSamples(); return; }
+    const q = SM.q.trim(), mk = masterKey();
+    const row = (i) => { const x = SM.list[i], sh = keyShift(x.key);
       return `<div class="lp-sm-row ${SM.prev === i ? "on" : ""} ${SM.sel === i ? "sel" : ""}" draggable="true" data-i="${i}" title="${esc(x.folder ? x.folder + "/" : "")}${esc(x.name)} — klik: poslech · dvojklik: na nový pad · táhni na stopu nebo pad">
         <button type="button" class="pv" tabindex="-1">${SM.prev === i ? "■" : "▶"}</button><b>${esc(x.name)}</b>${q && x.folder ? `<small>${esc(x.folder)}</small>` : ""}
         ${x.bpm ? `<i class="bpm">${x.bpm}</i>` : ""}${x.key ? `<i class="key ${sh ? "sh" : "ok"}" title="${sh ? `přeladí se o ${sh > 0 ? "+" : ""}${sh} půltónu do ${esc(mk)}` : "sedí s tóninou"}">${esc(x.key)}</i>` : ""}<span class="bar"></span></div>`; };
     let body = "", vis = [];
     if(!SM.dirs.length) body = `<div class="lp-sm-none">Namapuj složku se svými samply (i na kartě) — Pick si ji projde jednou a pak se otevírá hned. Tempo a tóninu přečte z názvu (např. „Groove 120bpm Am.wav“).</div>`;
-    else if(q || SM.kind){
-      const shown = list.slice().sort((x, y) => x.folder.localeCompare(y.folder, "cs") || x.name.localeCompare(y.name, "cs", {numeric: true})).slice(0, 600); vis = shown.map(x => SM.list.indexOf(x));
-      body = shown.length ? shown.map(row).join("") + (list.length > 600 ? `<div class="lp-sm-none">…a dalších ${list.length - 600} — upřesni hledání.</div>` : "") : `<div class="lp-sm-none">Nic takového.</div>`;
+    else if(q){
+      const R = SM.res;
+      if(!R || R.q !== q || !R.files) body = `<div class="lp-sm-none">Hledám…</div>`;
+      else { vis = R.files.slice();
+        body = R.files.length ? `<div class="lp-sm-none">${R.total} ${R.total === 1 ? "zvuk" : R.total < 5 ? "zvuky" : "zvuků"}</div>` + R.files.map(row).join("") + (R.total > R.files.length ? `<div class="lp-sm-none">…a dalších ${R.total - R.files.length} — přidej další slovo.</div>` : "") : `<div class="lp-sm-none">Nic takového.</div>`; }
     } else {
       // a tree: the mapped folders and their folders, all folded but the path open — opening a folder folds its
       // neighbours (so the list stays short), the open folders' names stay at the top while their sounds scroll
       const open = cfg.smOpen || (cfg.smOpen = {}), nat = (x, y) => x.localeCompare(y, "cs", {numeric: true});
-      const tree = (d) => { const top = {name: d.name, path: "", kids: new Map(), files: []};
-        list.filter(x => x.dir === d.i).forEach(x => { let n = top;
-          (x.folder ? x.folder.split("/") : []).forEach((part, k, arr) => { if(!n.kids.has(part)) n.kids.set(part, {name: part, path: arr.slice(0, k + 1).join("/"), kids: new Map(), files: []}); n = n.kids.get(part); });
-          n.files.push(x); });
-        return top; };
-      const count = (n) => n.files.length + [...n.kids.values()].reduce((a, c) => a + count(c), 0);
-      const nodeHtml = (d, n, depth) => {
-        const key = d.path + "|" + n.path, isOpen = depth === 0 ? open[key] !== false : !!open[key];
-        let h = `<div class="lp-sm-node" style="--d:${depth}"><div class="${depth ? "lp-sm-fold-h" : "lp-sm-dirh"} ${depth || d.exists ? "" : "gone"}" data-node="${esc(key)}" title="${esc(depth ? n.path : d.path)}${depth || d.exists ? "" : " — složka teď není dostupná (karta vysunutá?)"}">
-            <span>${isOpen ? "▾" : "▸"}</span><b>${esc(n.name)}</b><small>${count(n)}</small>${depth ? "" : `<button type="button" data-rm="${esc(d.path)}" title="Odmapovat (nic se nesmaže)">✕</button>`}</div>`;
+      const nodeHtml = (d, path, name, count, depth) => {
+        const key = d.path + "|" + path, isOpen = depth === 0 ? open[key] !== false : !!open[key];
+        let h = `<div class="lp-sm-node" style="--d:${depth}"><div class="${depth ? "lp-sm-fold-h" : "lp-sm-dirh"} ${depth || d.exists ? "" : "gone"}" data-node="${esc(key)}" title="${esc(depth ? path : d.path)}${depth || d.exists ? "" : " — složka teď není dostupná (disk odpojený?)"}">
+            <span>${isOpen ? "▾" : "▸"}</span><b>${esc(name)}</b><small>${count}</small>${depth ? "" : `<button type="button" data-rm="${esc(d.path)}" title="Odmapovat (nic se nesmaže)">✕</button>`}</div>`;
         if(isOpen){
-          [...n.kids.values()].sort((x, y) => nat(x.name, y.name)).forEach(c => { h += nodeHtml(d, c, depth + 1); });
-          n.files.sort((x, y) => nat(x.name, y.name)).forEach(x => { h += row(x); vis.push(SM.list.indexOf(x)); });
+          const kids = SM.kids.get(d.i + "|" + path + "|" + SM.kind);
+          if(kids === undefined) smFolder(d.i, path);
+          if(!kids) h += `<div class="lp-sm-none">načítám…</div>`;
+          else {
+            kids.folders.slice().sort((x, y) => nat(x.name, y.name)).forEach(c => { h += nodeHtml(d, c.path, c.name, c.count, depth + 1); });
+            kids.files.slice().sort((x, y) => nat(SM.list[x].name, SM.list[y].name)).forEach(i => { h += row(i); vis.push(i); });
+            if(kids.more) h += `<div class="lp-sm-none">…a dalších ${kids.more} — hledej.</div>`;
+          }
         }
         return h + "</div>";
       };
-      SM.dirs.forEach(d => { body += nodeHtml(d, tree(d), 0); });
+      SM.dirs.forEach(d => { body += nodeHtml(d, "", d.name, d.count || 0, 0); });
     }
     SM.vis = vis;
     const dirsScanned = SM.dirs.filter(d => d.scanned).map(d => d.scanned), when = dirsScanned.length ? new Date(Math.min(...dirsScanned) * 1000).toLocaleDateString("cs-CZ") : "";
     const scroll = (box.querySelector(".lp-sm-list") || {}).scrollTop || 0;
-    box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint">${SM.list.length}</span><span class="lp-sp"></span>
+    box.innerHTML = `<div class="lp-sm-top"><span class="h">SAMPLY</span><span class="lp-pb-hint" title="Zvuků ve všech namapovaných složkách">${(SM.total || 0).toLocaleString("cs-CZ")}</span><span class="lp-sp"></span>
         <button type="button" class="lp-b" id="lp-sm-add" title="Namapovat složku se samply (otevře se výběr složky) — nic se nekopíruje">＋ Složka</button>
         <button type="button" class="lp-b ${SM.busy ? "on" : ""}" id="lp-sm-re" title="Projít složky znovu (nové a smazané soubory)${when ? " — naposledy " + when : ""}">${SM.busy ? "…" : "↻"}</button>
         <button type="button" class="lp-b lp-sm-ico" id="lp-sm-side" title="Přesunout panel na ${cfg.sideLeft ? "pravou" : "levou"} stranu">${cfg.sideLeft ? "⇥" : "⇤"}</button>
@@ -1402,9 +1426,9 @@ const Looper = (() => {
     qq("lp-sm-min").onclick = () => { cfg.sideMin = true; keep(); applySide(); };
     qq("lp-sm-add").onclick = async () => { const r = await fetch("/api/looper/samples/dirs", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}); const d = await r.json().catch(() => ({})); if(d.error) showToast(d.error); if(d.added) showToast("Namapováno: " + d.added); loadSamples(); };
     qq("lp-sm-re").onclick = () => loadSamples(true);
-    const sq = qq("lp-sm-q"); sq.oninput = () => { clearTimeout(SM.t); SM.t = setTimeout(() => { SM.q = sq.value; paintSamples(); const n2 = root.querySelector("#lp-sm-q"); n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length); }, 150); };
+    const sq = qq("lp-sm-q"); sq.oninput = () => { clearTimeout(SM.t); SM.t = setTimeout(() => { SM.q = sq.value; smSearch(); const n2 = root.querySelector("#lp-sm-q"); if(n2){ n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length); } }, 250); };
     sq.onkeydown = (e) => { if(e.key === "ArrowDown" || e.key === "ArrowUp"){ e.preventDefault(); sq.blur(); smMove(e.key === "ArrowDown" ? 1 : -1); } };
-    box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { SM.kind = b.dataset.kind; paintSamples(); });
+    box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { SM.kind = b.dataset.kind; if(SM.q.trim()) smSearch(); else paintSamples(); });
     qq("lp-sm-auto").onchange = (e) => { cfg.smAuto = e.target.checked; keep(); };
     qq("lp-sm-vol").oninput = (e) => { cfg.smVol = +e.target.value; keep(); if(SM.gain) SM.gain.gain.value = cfg.smVol; };
     const all = qq("lp-sm-all"); if(all) all.onclick = () => { cfg.smOpen = {}; keep(); L.scrollTop = 0; paintSamples(); };

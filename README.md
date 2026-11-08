@@ -1906,3 +1906,6 @@ samostatnou verzi dílku. Změny se propíšou do skladby i na pady a ukládají
 - **Boční panel se samply**: šířka tažením za okraj (dvojklik = výchozí), « sbalí do úzkého pruhu, ⇤/⇥ ho přesune
   doleva nebo doprava. Složky jsou strom: otevřená složka zavře své sousedy a názvy otevřených složek zůstávají
   nahoře, takže se nescrolluje sem a tam; „sbalit složky“ zavře vše.
+
+Velké knihovny samplů (statisíce zvuků): Pick složku projde jednou celou (bez limitu) a seznam drží; panel načítá
+jen složku, kterou otevřeš, a hledání běží na serveru přes všechny zvuky (každé slovo zvlášť, např. „kick dry“).

@@ -106,11 +106,16 @@ def test_the_sample_folders_are_walked_once_and_again_only_when_asked(client, tm
     d.mkdir(parents=True)
     _tone(d / "Kick 120bpm.wav", 0.2)
     assert client.post("/api/looper/samples/dirs", json={"path": str(tmp_path / "Samply")}).json()["added"]
-    got = client.get("/api/looper/samples").json()
+    got = client.get("/api/looper/samples?all=1").json()
     assert [x["name"] for x in got["samples"]] == ["Kick 120bpm"] and got["samples"][0]["bpm"] == 120 and got["dirs"][0]["count"] == 1
     _tone(d / "Snare.aiff", 0.2)
-    assert len(client.get("/api/looper/samples").json()["samples"]) == 1          # the kept list: opens at once
-    names = sorted(x["name"] for x in client.get("/api/looper/samples?refresh=1").json()["samples"])
-    assert names == ["Kick 120bpm", "Snare"]
+    assert client.get("/api/looper/samples").json()["total"] == 1                # the kept list: opens at once
+    assert client.get("/api/looper/samples?refresh=1").json()["total"] == 2
+    top = client.get("/api/looper/samples/tree", params={"dir": 0}).json()      # a folder at a time
+    assert top["folders"] == [{"name": "Bicí", "path": "Bicí", "count": 2}] and top["files"] == []
+    inside = client.get("/api/looper/samples/tree", params={"dir": 0, "path": "Bicí", "kind": "loop"}).json()
+    assert [x["name"] for x in inside["files"]] == ["Kick 120bpm"]
+    found = client.get("/api/looper/samples/search", params={"q": "bicí snare"}).json()
+    assert found["total"] == 1 and found["files"][0]["rel"] == "Bicí/Snare.aiff"
     f = client.get("/api/looper/samples/file", params={"dir": 0, "rel": "Bicí/Snare.aiff"})
     assert f.status_code == 200 and f.content[:4] == b"fLaC"                      # AIFF converted for the browser

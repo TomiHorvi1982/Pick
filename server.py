@@ -12738,40 +12738,56 @@ def _sample_meta(name: str) -> dict:
 
 SAMPLE_INDEX = NAM_PREVIEW_DIR / "looper-samples-index.json"
 _SAMPLE_INDEX_LOCK = threading.Lock()
+SAMPLE_MAX = 500000                         # a sample library of hundreds of thousands of sounds is walked whole
+_SAMPLE_MEM: Dict[str, Any] = {"sig": None, "idx": None, "tree": None}
 
 
 def _scan_sample_dir(root: Path) -> list:
     out = []
-    for f in sorted(root.rglob("*"), key=lambda x: x.as_posix().lower()):
-        if len(out) >= 20000:
-            break
-        if f.suffix.lower() in SAMPLE_EXTS and not f.name.startswith(".") and not any(p.startswith(".") for p in f.relative_to(root).parts[:-1]):
+    def walk(d: Path, rel: str):
+        try:
+            entries = sorted(os.scandir(d), key=lambda e: e.name.lower())
+        except OSError:
+            return
+        for e in entries:
+            if len(out) >= SAMPLE_MAX:
+                return
+            if e.name.startswith("."):
+                continue
             try:
-                if not f.is_file():
-                    continue
-                size = f.stat().st_size
+                if e.is_dir(follow_symlinks=False):
+                    walk(Path(e.path), f"{rel}/{e.name}" if rel else e.name)
+                elif e.is_file() and Path(e.name).suffix.lower() in SAMPLE_EXTS:
+                    r = f"{rel}/{e.name}" if rel else e.name
+                    out.append({"rel": r, "name": Path(e.name).stem, "folder": rel, "size": e.stat().st_size, **_sample_meta(e.name)})
             except OSError:
                 continue
-            rel = f.relative_to(root).as_posix()
-            out.append({"rel": rel, "name": f.stem, "folder": str(Path(rel).parent) if "/" in rel else "", "size": size, **_sample_meta(f.name)})
+    walk(root, "")
     return out
 
 
 def _sample_index(refresh: bool = False, only: Optional[str] = None) -> dict:
-    """The mapped folders' sounds — scanned once and kept beside the app's settings, so a folder of hundreds
-    (on a card) is not walked again each time the looper opens; ↻ (refresh) or mapping a folder walks it."""
+    """The mapped folders' sounds — walked once and kept beside the app's settings (and in memory), so a folder of
+    hundreds of thousands (on a disk) is not walked again each time the looper opens; ↻ (refresh) or mapping a folder walks it."""
     with _SAMPLE_INDEX_LOCK:
-        try:
-            idx = json.loads(SAMPLE_INDEX.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            idx = {}
-        changed = False
         dirs = _sample_dirs()
+        try:
+            sig = SAMPLE_INDEX.stat().st_mtime
+        except OSError:
+            sig = None
+        if _SAMPLE_MEM["idx"] is not None and _SAMPLE_MEM["sig"] == sig and sig is not None:
+            idx = _SAMPLE_MEM["idx"]
+        else:
+            try:
+                idx = json.loads(SAMPLE_INDEX.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                idx = {}
+        changed = False
         for d in dirs:
-            root = Path(d)
-            if (refresh and (only is None or only == d)) or d not in idx:
-                if root.is_dir():
-                    idx[d] = {"scanned": time.time(), "samples": _scan_sample_dir(root)}
+            # a list kept by an older Pick (cut at 20 000 sounds) is walked again once
+            if (refresh and (only is None or only == d)) or d not in idx or (idx[d] or {}).get("v") != 2:
+                if Path(d).is_dir():
+                    idx[d] = {"scanned": time.time(), "v": 2, "samples": _scan_sample_dir(Path(d))}
                     changed = True
         for d in [k for k in idx if k not in dirs]:
             del idx[d]
@@ -12780,22 +12796,87 @@ def _sample_index(refresh: bool = False, only: Optional[str] = None) -> dict:
             try:
                 SAMPLE_INDEX.parent.mkdir(parents=True, exist_ok=True)
                 SAMPLE_INDEX.write_text(json.dumps(idx, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+                sig = SAMPLE_INDEX.stat().st_mtime
             except OSError:
-                pass
+                sig = None
+            _SAMPLE_MEM["tree"] = None
+        if _SAMPLE_MEM["idx"] is not idx:
+            _SAMPLE_MEM["tree"] = None
+        _SAMPLE_MEM["idx"], _SAMPLE_MEM["sig"] = idx, sig
         return idx
 
 
+def _sample_tree() -> dict:
+    """Per mapped folder: each of its folders → its folders, its own sounds, and how many sounds are under it."""
+    idx = _sample_index()
+    if _SAMPLE_MEM["tree"] is not None:
+        return _SAMPLE_MEM["tree"]
+    tree = {}
+    for d, got in idx.items():
+        nodes: Dict[str, dict] = {"": {"folders": {}, "files": [], "count": 0}}
+        for x in got.get("samples") or []:
+            parts = x["folder"].split("/") if x["folder"] else []
+            nodes[""]["count"] += 1
+            path = ""
+            for part in parts:
+                child = f"{path}/{part}" if path else part
+                if child not in nodes:
+                    nodes[child] = {"folders": {}, "files": [], "count": 0}
+                    nodes[path]["folders"][part] = child
+                nodes[child]["count"] += 1
+                path = child
+            nodes[path]["files"].append(x)
+        tree[d] = nodes
+    _SAMPLE_MEM["tree"] = tree
+    return tree
+
+
+def _kind_ok(x: dict, kind: str) -> bool:
+    return not kind or (kind == "loop" and bool(x.get("bpm"))) or (kind == "hit" and not x.get("bpm"))
+
+
 @app.get("/api/looper/samples")
-def looper_samples(refresh: bool = False):
-    """Every sound in the mapped folders, with its folder, and tempo and key from its name (from the kept index)."""
+def looper_samples(refresh: bool = False, all: bool = False):
+    """The mapped folders, how many sounds each has (from the kept index); with all, every sound too (a small library)."""
     idx = _sample_index(refresh)
     out, dirs = [], []
     for i, d in enumerate(_sample_dirs()):
-        root = Path(d)
         got = idx.get(d) or {}
-        dirs.append({"i": i, "path": d, "name": root.name or d, "exists": root.is_dir(), "scanned": got.get("scanned"), "count": len(got.get("samples") or [])})
-        out += [{"dir": i, **x} for x in got.get("samples") or []]
-    return {"dirs": dirs, "samples": out}
+        dirs.append({"i": i, "path": d, "name": Path(d).name or d, "exists": Path(d).is_dir(), "scanned": got.get("scanned"), "count": len(got.get("samples") or [])})
+        if all:
+            out += [{"dir": i, **x} for x in got.get("samples") or []]
+    return {"dirs": dirs, "samples": out, "total": sum(x["count"] for x in dirs)}
+
+
+@app.get("/api/looper/samples/tree")
+def looper_samples_tree(dir: int, path: str = "", kind: str = ""):
+    """One folder of a mapped folder: its folders (with how many sounds are under each) and its own sounds."""
+    dirs = _sample_dirs()
+    if not 0 <= dir < len(dirs):
+        return JSONResponse({"error": "Složka není namapovaná."}, status_code=404)
+    node = (_sample_tree().get(dirs[dir]) or {}).get(path)
+    if node is None:
+        return {"folders": [], "files": []}
+    nodes = _sample_tree()[dirs[dir]]
+    folders = [{"name": n, "path": p, "count": nodes[p]["count"]} for n, p in node["folders"].items()]
+    files = [{"dir": dir, **x} for x in node["files"] if _kind_ok(x, kind)]
+    return {"folders": folders, "files": files[:5000], "more": max(0, len(files) - 5000)}
+
+
+@app.get("/api/looper/samples/search")
+def looper_samples_search(q: str = "", kind: str = "", limit: int = 600):
+    """Sounds whose name or folder holds every word asked (any order), across all mapped folders."""
+    words = [w for w in q.lower().split() if w]
+    idx, out, total = _sample_index(), [], 0
+    limit = max(1, min(3000, limit))
+    for i, d in enumerate(_sample_dirs()):
+        for x in (idx.get(d) or {}).get("samples") or []:
+            hay = (x["name"] + " " + x["folder"]).lower()
+            if all(w in hay for w in words) and _kind_ok(x, kind):
+                total += 1
+                if len(out) < limit:
+                    out.append({"dir": i, **x})
+    return {"files": out, "total": total}
 
 
 class SampleDirRequest(BaseModel):
