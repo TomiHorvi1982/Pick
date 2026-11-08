@@ -1520,7 +1520,9 @@ const Looper = (() => {
     showToast(`Pad ${i + 1} je prázdný — přetáhni na něj zvuk (i soubor z Finderu), sampl nebo kousek písně · pravé tlačítko = možnosti`);
   }
   // a pad's sound plays as a hit (unless it is a loop: a tempo in its name, or set so in the pad's menu)
-  const padLoops = (pd) => pd.mode === "loop" || (pd.mode == null && !!(pd.sample && pd.sample.x.bpm));
+  // …and only when it is as long as a bar at its tempo: a short sound with a number in its name is still a hit
+  const padLoops = (pd) => { if(pd.mode) return pd.mode === "loop"; const x = pd.sample && pd.sample.x; if(!x || !x.bpm) return false;
+    const buf = SM.cache.get(smKeyOf(x)); return !!buf && buf.duration * x.bpm / 60 >= 3.5; };
   const smKeyOf = (x) => x.sound ? "s|" + x.sound : x.dir + "|" + x.rel;
   // one voice a pad: a new tap starts the sound again at once, the one before fades out in 6 ms (no click)
   function padShot(pd, buf){

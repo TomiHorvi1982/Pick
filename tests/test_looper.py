@@ -119,3 +119,11 @@ def test_the_sample_folders_are_walked_once_and_again_only_when_asked(client, tm
     assert found["total"] == 1 and found["files"][0]["rel"] == "Bicí/Snare.aiff"
     f = client.get("/api/looper/samples/file", params={"dir": 0, "rel": "Bicí/Snare.aiff"})
     assert f.status_code == 200 and f.content[:4] == b"fLaC"                      # AIFF converted for the browser
+
+
+def test_a_drum_hit_has_no_tempo_from_the_numbers_in_its_name():
+    assert server._sample_meta("SumoSub 52_Vel1-RR1.wav", "Kicks/1 SumoSub/Individuals")["bpm"] is None
+    assert server._sample_meta("Snare 44.wav", "Drums")["bpm"] is None
+    assert server._sample_meta("Kick 120bpm Dry.wav")["bpm"] == 120              # said so: it counts
+    assert server._sample_meta("Groove 120bpm Am.wav", "Loops") == {"bpm": 120.0, "key": "Am"}
+    assert server._sample_meta("Riff_100_E.wav", "Guitar")["bpm"] == 100

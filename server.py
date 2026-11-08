@@ -12717,10 +12717,18 @@ def _sample_dirs() -> list:
     return [d for d in (_read_config().get("looper_sample_dirs") or []) if isinstance(d, str)]
 
 
-def _sample_meta(name: str) -> dict:
+# a drum hit's name is full of numbers that are no tempo ("SumoSub 52_Vel1-RR1", "Kick 120 Dry"): there only "…bpm" counts
+_re_hit = _re_mod.compile(r"kick|snare|hat|hh|tom|crash|ride|cymbal|china|splash|clap|perc|shaker|tamb|cowbell|one.?shot|oneshot"
+                          r"|\bhit|_?vel\d|\brr\d|\bbd\b|\bsd\b|kopák|virbl|činel", _re_mod.I)
+
+
+def _sample_meta(name: str, folder: str = "") -> dict:
     stem = Path(name).stem
+    hit = bool(_re_hit.search(stem + " " + folder))
     bpm = None
     for m in _re_bpm.finditer(stem):
+        if hit and not m.group(1):
+            continue
         v = float((m.group(1) or m.group(2)).replace(",", "."))
         if 50 <= v <= 220 and (m.group(1) or bpm is None):
             bpm = v
@@ -12759,7 +12767,7 @@ def _scan_sample_dir(root: Path) -> list:
                     walk(Path(e.path), f"{rel}/{e.name}" if rel else e.name)
                 elif e.is_file() and Path(e.name).suffix.lower() in SAMPLE_EXTS:
                     r = f"{rel}/{e.name}" if rel else e.name
-                    out.append({"rel": r, "name": Path(e.name).stem, "folder": rel, "size": e.stat().st_size, **_sample_meta(e.name)})
+                    out.append({"rel": r, "name": Path(e.name).stem, "folder": rel, "size": e.stat().st_size, **_sample_meta(e.name, rel)})
             except OSError:
                 continue
     walk(root, "")
@@ -12785,10 +12793,15 @@ def _sample_index(refresh: bool = False, only: Optional[str] = None) -> dict:
         changed = False
         for d in dirs:
             # a list kept by an older Pick (cut at 20 000 sounds) is walked again once
-            if (refresh and (only is None or only == d)) or d not in idx or (idx[d] or {}).get("v") != 2:
+            if (refresh and (only is None or only == d)) or d not in idx or (idx[d] or {}).get("v") not in (2, 3):
                 if Path(d).is_dir():
-                    idx[d] = {"scanned": time.time(), "v": 2, "samples": _scan_sample_dir(Path(d))}
+                    idx[d] = {"scanned": time.time(), "v": 3, "samples": _scan_sample_dir(Path(d))}
                     changed = True
+            elif idx[d].get("v") == 2:            # kept before drum hits stopped having a tempo: read the names again
+                for x in idx[d].get("samples") or []:
+                    x.update(_sample_meta(x["rel"].rsplit("/", 1)[-1], x["folder"]))
+                idx[d]["v"] = 3
+                changed = True
         for d in [k for k in idx if k not in dirs]:
             del idx[d]
             changed = True
