@@ -267,9 +267,9 @@ const Looper = (() => {
   .lp-prompt .now{font-size:20px;font-weight:700;line-height:1.3}
   .lp-prompt .next{font-size:13px;color:#a6a6bc}
   .lp-prompt i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--accent,#8b5cf6);margin-right:8px;vertical-align:middle}
-  .lp-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#c9c9da;max-height:180px;overflow:auto}
-  .lp-steps li b{margin-right:6px;color:#fff}.lp-steps li.rec span{color:#ffb4b4}.lp-steps li.live span{color:#b9e3ff}
-  .lp-steps li.now{background:color-mix(in srgb,var(--accent,#8b5cf6) 20%,transparent);border-radius:6px}
+  ol.lp-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#c9c9da;max-height:180px;overflow:auto}
+  ol.lp-steps li b{margin-right:6px;color:#fff}ol.lp-steps li.rec span{color:#ffb4b4}ol.lp-steps li.live span{color:#b9e3ff}
+  ol.lp-steps li.now{background:color-mix(in srgb,var(--accent,#8b5cf6) 20%,transparent);border-radius:6px}
   .lp-drums{display:inline-flex;align-items:center;gap:6px}
   .lp-drums select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 6px}
   .lp-drums input[type=range]{width:80px}
@@ -302,6 +302,7 @@ const Looper = (() => {
   .lp-steps .hd b{font-size:14px;margin-right:6px}
   .lp-steps select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
   .lp-grid{display:grid;gap:3px;align-items:center}
+  .lp-steps{overflow-x:auto}
   .lp-grid .rn{font-size:11px;color:#c8c8d8;padding-right:8px;white-space:nowrap;cursor:pointer}
   .lp-grid .rn:hover{color:#fff}
   .lp-grid .c{height:26px;border-radius:5px;background:rgba(255,255,255,.07);cursor:pointer;border:none;padding:0}
@@ -2772,7 +2773,7 @@ const Looper = (() => {
         <span class="lp-f">swing <input type="range" data-k="swing" min="0" max="0.6" step="0.05" value="${S.swing || 0}"></span>
         <button type="button" class="lp-b" data-k="sclear">Vymazat kroky</button>
         <span class="lp-sp"></span><span class="muted" style="font-size:11px;color:#8a8aa0">Klik na políčko = úder · klik na název = zahrát · pady dole hrají i nahrávají (jako MIDI pady klávesnice)</span></div>
-      <div class="lp-grid" style="grid-template-columns:110px repeat(${cols},1fr)">
+      <div class="lp-grid" style="grid-template-columns:110px repeat(${cols},minmax(12px,1fr));min-width:${110 + cols * 15}px">
         ${LoopSound.KIT.map((k, r) => `<span class="rn" data-m="${k.note}">${esc(k.name)}</span>` + S.on[r].map((on, i) =>
           `<button type="button" class="c${on ? " on" : ""}${i % 4 === 0 ? " beat" : ""}${i % 16 === 0 && i ? " bar" : ""}" data-r="${r}" data-i="${i}"></button>`).join("")).join("")}</div>
       <div class="lp-pads">${LoopSound.KIT.map(k => `<button type="button" data-m="${k.note}">${esc(k.name)}</button>`).join("")}</div>`;
