@@ -1892,3 +1892,17 @@ Klik na dílek v „Moje dílky“ (nebo na dílek ve skladbě) otevře jeho **m
 zapnout/vypnout, **hlasitost, panorama, ladění** (±12 půltónů), u DI partů **zvuk ▾**. Hraje dokola a změny jsou slyšet
 hned. **🎙 Nahrát další part** nahraje další part navrch (podkladem je mix, jak je nastavený), **Kopie** udělá
 samostatnou verzi dílku. Změny se propíšou do skladby i na pady a ukládají se s projektem.
+
+### Looper: přehrávač kousku, ukazatel, řezy bez přichytávání, strom samplů
+
+- **Přehrávač kousku**: ▶/⏸ hraje vybraný kousek dokola a pozastaví ho, kde je; ⏮ ho pustí od začátku. **Mezerník**
+  pak dělá to, na co jsi klikl naposledy (pauza/pokračování, nebo vždy od začátku kousku); tlačítko ▶ v liště
+  looperu mu vrátí ovládání looperu. Klik na jiný kousek při přehrávání přepne přehrávání na něj.
+- **Ukazatel** na vlně: kde hraje kousek, otevřený dílek, skladba z kousků nebo píseň ve Steems.
+- **🧲 Na takty**: vypnuto — řezy nůžkami i tažením jdou kamkoli (kousek se srovná na nejbližší celý počet taktů).
+- **Jen vybrané stopy**: sólo / ztlumení platí pro kousek, který přetahuješ (do skladby, na pad, na stopu). Kousky,
+  na které jsi nesahal, přebírají poslední nastavení — sólo bicích jednou a táhneš kousek za kouskem jen bicí.
+- **Pady** berou i kousek ze skladby (přetáhni blok) — kromě kousků z vlny, dílků, samplů a souborů.
+- **Boční panel se samply**: šířka tažením za okraj (dvojklik = výchozí), « sbalí do úzkého pruhu, ⇤/⇥ ho přesune
+  doleva nebo doprava. Složky jsou strom: otevřená složka zavře své sousedy a názvy otevřených složek zůstávají
+  nahoře, takže se nescrolluje sem a tam; „sbalit složky“ zavře vše.
