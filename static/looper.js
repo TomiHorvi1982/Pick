@@ -178,6 +178,7 @@ const Looper = (() => {
   .lp-cp-chip b{font-size:11.5px;white-space:nowrap}.lp-cp-chip small{font-size:10px;color:hsl(var(--h) 30% 80%)}
   .lp-cp-chip button{position:absolute;top:3px;right:3px;background:none;border:0;color:#ccc;cursor:pointer;font-size:10px}
   .lp-cp-chip.pv{outline:2px solid #fff}
+  .lp-otempo{border-color:#6ee7a0aa;color:#b9f5cf}
   .lp-riff{border-color:#ffd16699}.lp-riff.on{background:#e5484d;border-color:#e5484d;color:#fff}
   .lp-sl-sel em.rec{color:#ff6b6b;font-weight:700}
   .lp-rd{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px;font-size:13px}
@@ -926,8 +927,10 @@ const Looper = (() => {
     if(was && was.own) SL = e;
   }
   function sliceSong(){
+    const before = SL;
     ownSlice();
     if(!SLS.includes(SL)){ stopSlicePrev(); SL = SLS[0] || blankSong(); }
+    if(SL !== before && SL.song) setTimeout(autoTempo, 0);
     return !!SL.song;
   }
   function stopSlicePrev(){ sltStop(true); }
@@ -976,7 +979,31 @@ const Looper = (() => {
     const e = SLS.find(x => x.song === name); if(e) return e;
     try{ return await addSong(name); }catch(x){ showToast(`„${shortTitle(name)}“: ${x.message}`); return null; }
   }
-  function useSong(k){ if(!SLS[k] || SLS[k] === SL) return; stopSlicePrev(); SL = SLS[k]; paintSlice(); }
+  function useSong(k){ if(!SLS[k] || SLS[k] === SL) return; stopSlicePrev(); SL = SLS[k]; autoTempo(); paintSlice(); }
+  // ---- the song's own tempo: the master set to it, so the song is heard as it is (not slowed or sped up to fit)
+  const songTempo = (e) => e && e.bpm ? {bpm: Math.round(e.bpm * 10) / 10, per: e.perBar || cfg.perBar} : null;
+  const offTempo = (e) => { const t = songTempo(e); return !!t && (Math.abs(t.bpm - cfg.bpm) / t.bpm > 0.004 || t.per !== cfg.perBar); };
+  function applyTempo(t){
+    cfg.bpm = t.bpm; cfg.perBar = t.per; keep(); drumCache = {};
+    try{ if(SL.own && Mixer.speed && Mixer.speed() !== 1) Mixer.setSpeed(1); }catch(e){}
+    paint(); paintMaster(); paintComp(); paintSlice(); sltRefresh();
+  }
+  async function songTempoNow(){
+    const t = songTempo(SL); if(!t) return;
+    if(hasAudio()){
+      const ok = await Dialog.confirm(`Stopy looperu jsou nahrané v ${cfg.bpm} BPM a tempo drží. Aby píseň hrála svým tempem (${t.bpm} BPM), stopy se vyprázdní — chceš-li nahrávky zachovat, ulož nejdřív projekt.`, {title: "Původní tempo písně", ok: "Vyprázdnit stopy a přepnout"});
+      if(!ok) return;
+      if(running) stopAll();
+      tracks.forEach(x => clear(x.i));
+    }
+    applyTempo(t);
+    showToast(`Tempo ${t.bpm} BPM, ${t.per}/4 — „${shortTitle(SL.title)}“ hraje svým tempem`);
+  }
+  // a song picked while nothing is recorded nor put together yet: the master follows it by itself
+  function autoTempo(){
+    if(hasAudio() || comp.length || RF.on || !offTempo(SL)) return;
+    const t = songTempo(SL); applyTempo(t); showToast(`Tempo MASTERu ${t.bpm} BPM podle písně „${shortTitle(SL.title)}“`);
+  }
   function dropSong(k){ const e = SLS[k]; if(!e || e.own) return; if(e === SL){ stopSlicePrev(); SL = SLS[k - 1] || SLS[k + 1] || blankSong(); } SLS.splice(k, 1); slKeep(); paintSlice(); }
   // the cuts: at the song's parts, or into n even pieces — always on a downbeat
   function cutBy(mode, e = SL){
@@ -1148,8 +1175,10 @@ const Looper = (() => {
       <span class="lp-ms-v" title="Kolik dob má takt">Takt <select id="lp-ms-per" ${lock ? "disabled" : ""}>${[2, 3, 4, 5, 6, 7].map(n => `<option value="${n}" ${cfg.perBar === n ? "selected" : ""}>${n}/4</option>`).join("")}</select></span>
       <span class="lp-ms-v" title="Tónina, do které se ladí samply a kterou ukazuje klavír">Tónina <select id="lp-ms-key"><option value="">${songKey ? "z písně (" + esc(songKey) + ")" : "z písně (neznámá)"}</option>${KEYS().map(k => `<option value="${k}" ${cfg.masterKey === k ? "selected" : ""}>${k}</option>`).join("")}</select></span>
       <span class="lp-ms-v">smyčka 1 takt = ${barLen().toFixed(2).replace(".", ",")} s</span>
+      ${SL.song && offTempo(SL) ? `<button type="button" class="lp-b lp-otempo" id="lp-ms-otempo" title="Přepnout MASTER na původní tempo písně „${esc(shortTitle(SL.title))}“">♩ Tempo písně ${songTempo(SL).bpm} BPM</button>` : ""}
       ${lock ? `<span class="lp-ms-lock" title="Smyčky jsou nahrané v tomhle tempu a taktu">🔒 tempo a takt drží nahrané smyčky</span>` : ""}`;
     const q = (id) => box.querySelector("#" + id);
+    if(q("lp-ms-otempo")) q("lp-ms-otempo").onclick = songTempoNow;
     q("lp-ms-bpm").onchange = (e) => { setBpm(parseFloat(e.target.value)); drumCache = {}; paintMaster(); paintComp(); paintSlice(); };
     q("lp-ms-per").onchange = (e) => { if(hasAudio()) return; cfg.perBar = +e.target.value; keep(); drumCache = {}; paint(); };
     q("lp-ms-key").onchange = async (e) => {
@@ -1795,7 +1824,8 @@ const Looper = (() => {
     const songs = `<div class="lp-sl-songs">${SLS.map((e, k) => `<span class="lp-sl-song ${e === SL ? "on" : ""}" style="--h:${songHue(e.song)}" data-song="${k}" title="${esc(e.title)}${e.own ? " — otevřená ve Steems" : ""}">
           <b>${esc(shortTitle(e.title))}</b><small>${esc([e.bpm ? Math.round(e.bpm) + " BPM" : "", e.key, tuningName(e.tuning)].filter(Boolean).join(" · "))}</small>
           ${e.own ? `<em>Steems</em>` : `<button type="button" data-unsong="${k}" title="Zavřít píseň (kousky ve skladbě a na padech zůstanou)">✕</button>`}</span>`).join("")}
-        <button type="button" class="lp-b ${LS.open ? "on" : ""}" id="lp-sl-addsong" title="Přidat další píseň — její kousky se srovnají do tempa a tóniny MASTERu">＋ Píseň</button></div>`;
+        <button type="button" class="lp-b ${LS.open ? "on" : ""}" id="lp-sl-addsong" title="Přidat další píseň — její kousky se srovnají do tempa a tóniny MASTERu">＋ Píseň</button>
+        ${SL.song && offTempo(SL) ? `<button type="button" class="lp-b lp-otempo" id="lp-sl-otempo" title="Píseň teď hraje v tempu MASTERu (${cfg.bpm} BPM, ${cfg.perBar}/4) — přepnout MASTER na její původní tempo, ať ji slyšíš, jak je">♩ Původní tempo ${songTempo(SL).bpm} BPM</button>` : ""}</div>`;
     if(!has){
       box.innerHTML = `<div class="lp-sl-top"><span class="h">PÍSEŇ PO KOUSCÍCH</span><span class="lp-sl-info">Otevři píseň ve Steems, nebo přidej písně tady a skládej z jejich kousků.</span></div>${songs}${LS.open ? songPicker() : ""}`;
       wireSongs(box); return;
@@ -1837,6 +1867,7 @@ const Looper = (() => {
   function wireSongs(box){
     box.querySelectorAll("[data-song]").forEach(b => b.onclick = (e) => { if(!e.target.closest("[data-unsong]")) useSong(+b.dataset.song); });
     box.querySelectorAll("[data-unsong]").forEach(b => b.onclick = () => dropSong(+b.dataset.unsong));
+    const ot = box.querySelector("#lp-sl-otempo"); if(ot) ot.onclick = songTempoNow;
     box.querySelector("#lp-sl-addsong").onclick = () => { LS.open = !LS.open; if(LS.open) LS.list = null; paintSlice(); const q = root.querySelector("#lp-sl-q"); if(q) q.focus(); };
     const q = box.querySelector("#lp-sl-q");
     if(q) q.oninput = () => { clearTimeout(LS.t); LS.t = setTimeout(() => { LS.q = q.value; paintSlice(); const n = root.querySelector("#lp-sl-q"); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 200); };
@@ -1845,7 +1876,7 @@ const Looper = (() => {
     box.querySelectorAll("[data-add]").forEach(b => b.onclick = async () => {
       const x = LS.list[+b.dataset.add]; if(!x) return;
       b.disabled = true; showToast(`Otevírám „${x.title}“…`);
-      try{ const e = await addSong(x.name); stopSlicePrev(); SL = e; paintSlice(); paintComp();
+      try{ const e = await addSong(x.name); stopSlicePrev(); SL = e; autoTempo(); paintSlice(); paintComp();
         showToast(`„${x.title}“: ${e.cuts.length} kousků · ${e.db.length} taktů${e.bpm ? " · " + Math.round(e.bpm) + " BPM" : ""} — kousky se srovnají na ${cfg.bpm} BPM`); }
       catch(err){ showToast(`„${x.title}“: ${err.message}`); b.disabled = false; }
     });

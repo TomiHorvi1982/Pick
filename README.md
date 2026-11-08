@@ -1913,3 +1913,7 @@ jen složku, kterou otevřeš, a hledání běží na serveru přes všechny zvu
 **Zvuk na padu = úder**: hraje se přesně tak, jak je v souboru (nic se nenatahuje ani nepřelaďuje), hned po kliknutí
 a při každém dalším kliku znovu od začátku (předchozí se během 6 ms ztlumí). Zvuk se načte už při přiřazení na pad.
 Jako smyčka (srovnaná do tempa, spouštěná na takt) hraje jen sampl s tempem v názvu — přepnout jde v menu padu.
+
+**Původní tempo písně**: kousky se srovnávají do tempa MASTERu. Když jsou stopy looperu i skladba prázdné, MASTER se
+při výběru písně sám přepne na její tempo a takt. Jinak se u písně (a v pruhu MASTER) ukáže **♩ Původní tempo …
+BPM** — přepne MASTER na tempo písně (nahrané stopy se přitom vyprázdní, proto se nejdřív zeptá; projekt si ulož).
