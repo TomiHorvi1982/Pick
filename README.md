@@ -1925,3 +1925,20 @@ stopa pak hrají tyhle zvuky** — v mřížce kroků je u řádku vidět ♫ n�
 V seznamu stylů nad pady je **＋ Vlastní sada ze zvuků na padech…** (pojmenuješ ji) a pod „Vlastní sady“ ji pak vybíráš
 jako styl; **Uložit sadu** uloží změny, ✕ ji smaže. Výběrem stylu (Rock, Metal…) zvuky sady z padů odejdou, výběrem sady
 se vrátí. Sada se pamatuje a ukládá i s projektem.
+
+## Jam — hraní s kamarádem přes internet
+
+Steems → tlačítko **JAM** (sluchátka, vedle Looperu) nebo Tools → **Jam online**. Kamarád otevře odkaz v Chromu a nic
+neinstaluje (jen Tailscale). Uvidíte se (kamery), uslyšíte se (kytary i řeč), **Sdílet Pick** mu ukáže tvůj Pick —
+píseň, text, taby, akordy. Píseň, která ti hraje ve Steems, hraje i u něj **ve stejný okamžik** (podklad se neposílá
+zvukem — přehrává se u každého zvlášť podle sesynchronizovaných hodin; on si zvolí, které stopy chce slyšet).
+
+**Zvuk kytar**: *nízké zpoždění (jako SonoBus)* — nekomprimovaně v balíčcích po 2,7 ms napřímo mezi vámi s vlastní malou
+vyrovnávací pamětí (automaticky, nebo pevně 1–12 balíčků); *jako hovor* — Opus nastavený na hudbu, stabilnější na horší
+síti, ale asi o 30 ms pomalejší. Zpoždění se ukazuje v ms (síť · paměť · výstup). Kamarád slyší tvou kytaru tak, jak
+zní v Picku (otisk, NAM, efekty); jeho kytara jde do tvého mixu.
+
+**Jednou nastavit (Tailscale)**: spusť aplikaci Tailscale a přihlas se; v administraci Tailscale zapni *MagicDNS* a
+*HTTPS Certificates*; tenhle Mac kamarádovi nasdílej (*Share…*), on si nainstaluje Tailscale a přihlásí se. Pak v Picku
+**Zahájit jam** → Kopírovat odkaz → poslat. Kamarád vidí jen stránku jamu (jam.py: brána na 127.0.0.1:8766 přes
+`tailscale serve` jako https://<tvůj-mac>.ts.net), nic jiného z Picku, a bez klíče z odkazu nic.

@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js", "jam-engine.js", "jam-worklet.js", "jam-host.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -12014,6 +12014,13 @@ app.include_router(_kontakt.router)
 # ---- Virtuální kytara: riffs written or pasted as a tab (vguitar.py; the page plays them)
 import vguitar as _vguitar
 app.include_router(_vguitar.router)
+
+# ---- Jam: playing with a friend over the internet (jam.py; the pages static/jam-*.js, static/jam.html)
+import jam as _jam
+_jam.stems_dir = lambda name: (lambda d: d if d is not None and d.is_dir() else None)(_resolve_under_music_root(f"Stems/{name}"))
+_jam.stem_file = _stem_file
+_jam.ffmpeg = ffmpeg_bin
+app.include_router(_jam.router)
 
 # ---- Katalog riffů: the Taby library's tabs taken apart into parts and their riffs (riffbook.py)
 import riffbook as _riffbook
