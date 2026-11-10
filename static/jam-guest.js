@@ -34,7 +34,7 @@
     $("joinErr").textContent = "";
     // the microphone (sound card) is needed; the camera is not — a PC without one, or with it busy, still plays
     if(!window.isSecureContext || !navigator.mediaDevices){
-      $("joinErr").innerHTML = "Stránka není otevřená zabezpečeně, takže prohlížeč k mikrofonu nepustí. Otevři odkaz <b>přesně tak, jak přišel</b> (začíná <b>https://</b> a končí <b>.ts.net</b>), ne přes IP adresu."; return;
+      $("joinErr").innerHTML = "Stránka není otevřená zabezpečeně, takže prohlížeč k mikrofonu nepustí. Otevři odkaz <b>přesně tak, jak přišel</b> (začíná <b>https://</b>), ne přes IP adresu."; return;
     }
     try{
       const probe = await navigator.mediaDevices.getUserMedia({audio: true}); probe.getTracks().forEach(t => t.stop());
