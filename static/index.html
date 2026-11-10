@@ -5352,6 +5352,17 @@ body.lib-collapsed .pick-brand{display:none}
         <a class="set-note" style="margin:0" href="https://claude.ai/artifact/5rqyJzeqvuF2nLnYkry23H" target="_blank" rel="noopener">otevřít návod</a>
         <button type="button" class="btn secondary" id="jam-open-set">Otevřít Jam</button></div>
       <div class="set-note">Návod je stránka na odkazu. Aby ji kamarád otevřel, musíš ji jednou zveřejnit: otevři ji → <b>Share</b> → přístup „kdokoli s odkazem“.</div>
+      <div class="jam-dom" id="jam-acc">
+        <div class="jg-h">Přístup kamaráda — jméno a heslo</div>
+        <div class="set-note">Kamarád se na stránce Jamu přihlásí svým jménem a heslem. Bez přihlášení se dovnitř nikdo nedostane, ani s odkazem. Když tu nikoho nemáš, stačí jako dřív odkaz s klíčem.</div>
+        <div class="jd-row"><span class="jd-n">✎</span><div><b>Tvoje jméno v jamu</b> (uvidí ho v chatu)<input id="ja-host" class="jd-in" maxlength="30" placeholder="Tomi"></div>
+          <button type="button" class="btn secondary" id="ja-host-save">Uložit</button></div>
+        <div id="ja-list" class="set-note"></div>
+        <div class="jd-row"><span class="jd-n">+</span><div><b>Nový kamarád</b> (nebo nové heslo pro stávajícího)
+          <input id="ja-name" class="jd-in" maxlength="30" placeholder="jméno, např. Pavel" autocomplete="off">
+          <input id="ja-pass" class="jd-in" type="password" placeholder="heslo (aspoň 6 znaků)" autocomplete="new-password"><div class="jd-st" id="ja-st"></div></div>
+          <button type="button" class="btn secondary" id="ja-add">Přidat</button></div>
+      </div>
       <div class="jam-dom" id="jam-dom">
         <div class="jg-h">Vlastní doména — kamarád nic neinstaluje</div>
         <div class="set-note">Jam pojede na tvé adrese (třeba <b>jam.neverlast.cz</b>) přes Cloudflare Tunnel. Kamarád jen otevře odkaz v Chromu, Tailscale nepotřebuje. Tunel běží, jen když máš jam zapnutý.</div>
@@ -27647,6 +27658,9 @@ const Mixer = (() => {
     // currently making sound, and what it is playing.
     isPlaying: () => isPlaying,
     speed: () => speed, setSpeed: (v) => setSpeed(v),
+    // the key (semitones, the whole song) and each track's own shift — Pick Jam sends both to the friend's page
+    key: () => pitchSemitones, setKey: (n) => setPitch(n),
+    stemPitch: () => Object.fromEntries(channels.map(c => [c.stem, rateToSemitones(c.pitchRate || 1)])),
     // the tempo asked for is in place (the stretching made ready, the sources restarted)
     tempoSettled: async () => { for(let i = 0; i < 300 && (tempoQueued || tempoApplying); i++) await (tempoApplying || new Promise(r => setTimeout(r, 40))); },
     // The tone print (static/tone.js): the song's clock for a take, the NAM engine, the

@@ -9292,7 +9292,7 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current:
                 "out": str(tmp / "out"), "procs": 3, "start_from": old if refine else None, "fp_cache": str(AMPS_DIR / TONE_CORES),
                 "takes": [{"path": str(d / TONE_DIR / t["file"]), "offset": float(t["start"]) - job["start"]} for t in takes],
                 "current": current}
-        gid = _guitar_active()
+        gid = None if job.get("friend") else _guitar_active()     # a friend's guitar is not the calibrated one
         if gid:                                   # the calibrated guitar plays what the record plays
             job["stage"] = "notes"
             prof = _guitar_profile(gid)
@@ -9326,6 +9326,9 @@ def _tone_run(job: dict, d: Path, src: Path, takes: list, refine: bool, current:
                    gain_db=float(takes[-1].get("gain_db") or 0.0) if takes else 0.0)
         if job.get("auto"):                       # made at night: to be listened to and kept or thrown away
             got.update(auto=True, review="pending")
+        if job.get("friend"):                     # made by the friend in a jam, of his own guitar
+            got.update(friend=job["friend"], name=f"{job['friend']} · {_stems_meta(d).get('title') or d.name}"[:80],
+                       name_auto=False, name_hand=True)
         for k in ("name", "name_auto", "category", "category_auto"):     # what the player gave it stays
             if old and k in old:
                 got[k] = old[k]
@@ -10344,6 +10347,54 @@ async def tone_take(name: str, start: float, gain_db: float = 0.0, file: UploadF
     takes = takes[-8:]
     (folder / "takes.json").write_text(json.dumps(takes), encoding="utf-8")
     return {"take": takes[-1], "takes": takes}
+
+
+def jam_friend_print(name: str, start: float, end: float, gain_db: float, wav: Path, who: str) -> dict:
+    """Pick Jam: the friend played a stretch of the song on his guitar, clean (jam.py /g/take). Kept as a take of
+    the song and fitted into a print from that take alone — without this Mac's guitar calibration — named by him."""
+    import wave
+    d = _tone_song(name)
+    if d is None:
+        return {"error": "Stopy nenalezeny.", "status": 404}
+    stem = next((s for s in ("guitar", "guitar_rhythm", "guitar_solo") if s in _tone_stems(d)), None)
+    if stem is None:
+        return {"error": "Tahle píseň nemá stopu kytary.", "status": 400}
+    if not _tone_ready():
+        return {"error": "Na Macu chybí engine otisku.", "status": 503}
+    if not (4 <= end - start <= 40):
+        return {"error": "Úsek musí mít od 4 do 40 vteřin.", "status": 400}
+    folder = d / TONE_DIR
+    folder.mkdir(exist_ok=True)
+    takes = _tone_takes(d)
+    n = max([int(t["file"][5:-4]) for t in takes] + [0]) + 1
+    made = folder / f"take-{n}.wav"
+    try:
+        r = subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-nostdin", "-i", str(wav), "-ac", "1", "-c:a", "pcm_s24le", str(made)],
+                           capture_output=True, timeout=120)
+        with wave.open(str(made), "rb") as w:
+            sr, dur = w.getframerate(), w.getnframes() / w.getframerate()
+    except (OSError, EOFError, wave.Error, subprocess.SubprocessError):
+        made.unlink(missing_ok=True)
+        return {"error": "Nahrávka se nedala přečíst.", "status": 400}
+    if r.returncode != 0 or dur < 2:
+        made.unlink(missing_ok=True)
+        return {"error": "Nahrávka je kratší než 2 s.", "status": 400}
+    take = {"file": made.name, "start": round(max(0.0, start), 4), "dur": round(dur, 3), "sr": sr, "gain_db": gain_db, "at": time.time(), "friend": who}
+    takes.append(take)
+    for old in takes[:-8]:
+        (folder / old["file"]).unlink(missing_ok=True)
+    (folder / "takes.json").write_text(json.dumps(takes[-8:]), encoding="utf-8")
+    ok, why = _sysload.room(1.5, "tónový otisk")
+    if not ok:
+        return {"error": why, "status": 503}
+    with _TONE_LOCK:
+        if (_TONE["job"] or {}).get("status") == "running":
+            return {"error": "Na Macu se zrovna počítá jiný otisk — zkus to za chvíli.", "status": 409}
+        job = {"song": name, "status": "running", "stage": "listen", "done": 0, "of": 0, "started": time.time(),
+               "start": float(start), "end": float(end), "stem": stem, "print": "", "auto": False, "friend": who}
+        _TONE["job"] = job
+    threading.Thread(target=_tone_run, args=(job, d, _stem_file(d, stem), [take], False, None), daemon=True).start()
+    return {"job": _tone_view()}
 
 
 @app.delete("/api/tone/{name}/take/{file}")
@@ -12020,6 +12071,8 @@ import jam as _jam
 _jam.stems_dir = lambda name: (lambda d: d if d is not None and d.is_dir() else None)(_resolve_under_music_root(f"Stems/{name}"))
 _jam.stem_file = _stem_file
 _jam.ffmpeg = ffmpeg_bin
+_jam.main_app = app
+_jam.friend_print = jam_friend_print
 app.include_router(_jam.router)
 
 # ---- Katalog riffů: the Taby library's tabs taken apart into parts and their riffs (riffbook.py)

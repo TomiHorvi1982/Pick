@@ -37,7 +37,7 @@
     const S = {msgs: [], peer: false, away: false, seen: null, typUntil: 0, peerRead: null, myRead: null, sentTyping: 0, lastUnread: -1};
     const root = o.root;
     root.classList.add("jc");
-    root.innerHTML = `<div class="jc-h"><span class="jc-dot"></span><b>${esc(o.name || "Kamarád")}</b><span class="jc-st"></span></div>
+    root.innerHTML = `<div class="jc-h"><span class="jc-dot"></span><b class="jc-who">${esc(o.name || "Kamarád")}</b><span class="jc-st"></span></div>
       <div class="jc-list"></div><div class="jc-typ"></div>
       <form class="jc-f"><textarea rows="1" maxlength="2000" placeholder="Napiš zprávu… (Enter odešle)"></textarea><button type="submit" title="Odeslat">➤</button></form>`;
     const list = root.querySelector(".jc-list"), ta = root.querySelector("textarea"), typ = root.querySelector(".jc-typ");
@@ -108,6 +108,7 @@
     function onMsg(m){
       switch(m.type){
         case "hello": {
+          if(m.names && m.names[other]) setName(m.names[other]);
           const pending = S.msgs.filter((x) => !x.t && x.from === o.me);
           S.msgs = (m.chat || []).map((x) => ({...x}));
           pending.forEach((x) => { if(idx(x.id) < 0){ S.msgs.push(x); o.send({type: "chat", id: x.id, text: x.text}); } });
@@ -117,7 +118,7 @@
           S.peer = !!m.peer; S.seen = m.seen || null; S.away = !!m.away;
           S.stick = true; away(); paint(); return true;
         }
-        case "peer": S.peer = !!m.on; S.away = false; S.typUntil = 0; if(!m.on && m.seen) S.seen = m.seen; head(); return true;
+        case "peer": if(m.names && m.names[other]) setName(m.names[other]); S.peer = !!m.on; S.away = false; S.typUntil = 0; if(!m.on && m.seen) S.seen = m.seen; head(); return true;
         case "chat": if(idx(m.id) < 0){ S.msgs.push({...m}); S.typUntil = 0; paint(); o.onNew && o.onNew(m); } return true;
         case "chat-ok": { const x = S.msgs[idx(m.id)]; if(x){ x.t = m.t; x.dlv = !!m.dlv; paint(); } return true; }
         case "chat-dlv": (m.ids || []).forEach((id) => { const x = S.msgs[idx(id)]; if(x) x.dlv = true; }); paint(); return true;
@@ -127,8 +128,9 @@
       }
       return false;
     }
+    function setName(n){ o.name = n; root.querySelector(".jc-who").textContent = n; head(); }
     paint();
-    return {onMsg, check, unread, focus: () => ta.focus(), destroy: () => clearInterval(tick), state: S};
+    return {setName, onMsg, check, unread, focus: () => ta.focus(), destroy: () => clearInterval(tick), state: S};
   }
   window.JamChat = JamChat;
 })();

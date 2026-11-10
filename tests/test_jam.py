@@ -16,6 +16,10 @@ def _room(monkeypatch, tmp_path):
     monkeypatch.setattr(jam, "MIX_DIR", tmp_path / "mix")
     monkeypatch.setattr(jam, "CONF", tmp_path / "jam.json")
     monkeypatch.setattr(jam, "CF_DIR", tmp_path / "cf")
+    monkeypatch.setattr(jam, "SESS", {})
+    monkeypatch.setattr(jam, "_FAILS", {})
+    monkeypatch.setattr(jam, "_SONGS", {"at": 0.0, "rows": []})
+    monkeypatch.setattr(jam, "main_app", server.app)
 
 
 def test_the_gateway_wants_the_key_and_serves_only_the_jam():
@@ -39,7 +43,7 @@ def test_messages_go_from_the_host_to_the_friend_and_back(client):
         with g.websocket_connect("/ws?k=secret-key") as guest:
             hi = json.loads(guest.receive_text())
             assert hi["type"] == "hello" and hi["role"] == "guest" and hi["peer"] is True and hi["chat"] == []
-            assert json.loads(host.receive_text()) == {"type": "peer", "on": True}
+            assert json.loads(host.receive_text()) == {"type": "peer", "on": True, "names": {"host": "Tomi", "guest": "Kamarád"}}
             host.send_text(json.dumps({"type": "song", "name": "Band - Song", "stems": ["drums", "../x"]}))
             assert json.loads(guest.receive_text())["name"] == "Band - Song"
             assert jam.ROOM["song"] == "Band - Song" and jam.ROOM["stems"] == ["drums", "../x"]
@@ -76,7 +80,7 @@ def test_the_chat_keeps_messages_and_tells_delivered_read_and_typing(client):
         with g.websocket_connect("/ws?k=secret-key") as guest:
             hi = json.loads(guest.receive_text())
             assert [m["text"] for m in hi["chat"]] == ["Ahoj, dáme Master of Puppets?"] and hi["chat"][0]["from"] == "host"
-            assert json.loads(host.receive_text()) == {"type": "peer", "on": True}
+            assert json.loads(host.receive_text()) == {"type": "peer", "on": True, "names": {"host": "Tomi", "guest": "Kamarád"}}
             assert json.loads(host.receive_text()) == {"type": "chat-dlv", "ids": ["m1"]}     # delivered now
             guest.send_text(json.dumps({"type": "typing", "on": True, "junk": "x" * 50}))
             assert json.loads(host.receive_text()) == {"type": "typing", "on": True}
@@ -156,3 +160,64 @@ def test_no_tunnel_yet_and_a_taken_name(monkeypatch, tmp_path):
     r = jam.cf_setup("neverlast.cz")
     assert r["ok"] is False and r["exists"] and "dash.cloudflare.com → neverlast.cz → DNS" in r["msg"]
     assert jam.conf()["tunnel_id"] == "abc"
+
+
+
+def test_with_names_set_the_friend_logs_in_and_nothing_goes_without(client, tmp_music_root):
+    g = TestClient(jam.gate)
+    assert client.post("/api/jam/users", json={"name": "Pavel", "password": "123"}).status_code == 400      # too short
+    assert client.post("/api/jam/users", json={"name": "Pavel", "password": "kytara66"}).json()["users"] == ["Pavel"]
+    assert client.post("/api/jam/users", json={"host_name": "Tomi"}).json()["host_name"] == "Tomi"
+    assert "kytara66" not in (jam.CONF.read_text())                                         # kept as a hash only
+    assert g.get("/").status_code == 200                                                   # the page: the login form
+    assert g.get("/g/me").json() == {"user": None, "login": True, "host": "Tomi", "on": True}
+    assert g.get("/g/songs?k=secret-key").status_code == 403                               # the key alone is not enough now
+    assert g.post("/login", json={"name": "Pavel", "password": "spatne"}).status_code == 401
+    r = g.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert r.status_code == 200 and "pj" in r.cookies
+    assert g.get("/g/me").json()["user"] == "Pavel"
+    d = tmp_music_root / "Stems" / "Band - Song"
+    d.mkdir(parents=True)
+    subprocess.run([server.ffmpeg_bin(), "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=220:d=1", str(d / "drums.mp3")], check=True)
+    songs = g.get("/g/songs").json()["songs"]
+    assert [s["name"] for s in songs] == ["Band - Song"] and "rel" not in songs[0]
+    st = g.get("/g/stem?name=Band%20-%20Song&stem=drums")
+    assert st.status_code == 200 and st.content[:4] == b"\x1aE\xdf\xa3"
+    assert g.get("/g/stem?name=..%2F..&stem=drums").status_code == 404
+    assert g.get("/g/song?name=Band%20-%20Song").json()["name"] == "Band - Song"
+    with g.websocket_connect("/ws") as ws:                                                 # the room: by the login
+        hi = json.loads(ws.receive_text())
+        assert hi["names"] == {"host": "Tomi", "guest": "Pavel"}
+    client.delete("/api/jam/users?name=Pavel")                                            # taken away: out at once
+    assert g.get("/g/songs").status_code == 403
+
+
+def test_too_many_wrong_passwords_wait(client):
+    client.post("/api/jam/users", json={"name": "Pavel", "password": "kytara66"})
+    g = TestClient(jam.gate)
+    for _ in range(8):
+        assert g.post("/login", json={"name": "Pavel", "password": "x"}).status_code == 401
+    assert g.post("/login", json={"name": "Pavel", "password": "kytara66"}).status_code == 429
+
+
+def test_the_engines_and_nothing_beside(client):
+    g = TestClient(jam.gate)
+    assert g.get("/static/nam/index.js").status_code == 200
+    assert g.get("/static/nam/../../server.py").status_code == 404
+    assert g.get("/static/nam/%2E%2E/%2E%2E/server.py").status_code == 404
+    assert g.get("/static/tone/x.js").status_code == 404
+
+
+def test_a_take_of_the_friend_makes_his_print(client, monkeypatch, tmp_music_root):
+    import io, wave
+    seen = {}
+    monkeypatch.setattr(jam, "friend_print", lambda name, start, end, gain, path, who: seen.update(name=name, start=start, end=end, who=who, size=path.stat().st_size) or {"job": {"status": "running"}})
+    (tmp_music_root / "Stems" / "Band - Song").mkdir(parents=True)
+    g = TestClient(jam.gate)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000); w.writeframes(b"\0\0" * 48000 * 5)
+    r = g.post("/g/take?k=secret-key&name=Band%20-%20Song&start=10&end=22", content=buf.getvalue())
+    assert r.status_code == 200 and seen == {"name": "Band - Song", "start": 10.0, "end": 22.0, "who": "Kamarád", "size": len(buf.getvalue())}
+    assert g.post("/g/take?k=secret-key&name=Band%20-%20Song&start=10&end=22", content=b"nope" * 400).status_code == 400
+    assert g.post("/g/take?k=wrong&name=Band%20-%20Song&start=10&end=22", content=buf.getvalue()).status_code == 403

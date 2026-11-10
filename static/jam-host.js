@@ -5,6 +5,7 @@
 // the same moment (static/jam-guest.js).
 const Jam = (() => {
   let box = null, link = null, st = {on: false, url: null}, songT = 0, lastSong = "", uiT = 0, unhook = null, chat = null, chatEl = null, unreadN = 0;
+  let names = {host: "", guest: "Kamarád"}, jf = null, lastSent = null;
   const cfg = (() => { try{ return JSON.parse(localStorage.getItem("pick-jam") || "{}"); }catch(e){ return {}; } })();
   const keep = () => { try{ localStorage.setItem("pick-jam", JSON.stringify(cfg)); }catch(e){} };
   const esc = (s) => escapeHtml(String(s == null ? "" : s));
@@ -44,6 +45,11 @@ const Jam = (() => {
   .jd-in{display:block;width:100%;margin-top:4px;background:#0e0e14;color:#ececf3;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 8px;font:13px ui-monospace,monospace}
   .jd-st{font-size:12px;margin-top:3px;opacity:.85}.jd-st.ok{color:#6ee7a0}.jd-st.bad{color:#ff8a8a}
   .jam-via{display:flex;gap:4px;flex-wrap:wrap}.jam-via button{font-size:12px!important;padding:5px 9px!important}
+  #jam-fader .jf-led{display:flex;flex-direction:column-reverse;gap:2px;width:5px}
+  #jam-fader .jf-led i{display:block;height:6%;flex:1;border-radius:1px;background:rgba(255,255,255,.08)}
+  #jam-fader .jf-led i.on{background:#6ee7a0}#jam-fader .jf-led i.on.hot{background:#ffd166}#jam-fader .jf-led i.on.clip{background:#ff6b6b}
+  #jam-fader .fl-fader-track{cursor:ns-resize;touch-action:none}#jam-fader .fl-pan-knob{cursor:ns-resize;touch-action:none}
+  #jam-fader .jf-off{font-size:10px;opacity:.7;text-align:center}
   .jam-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
   .jam.big .jc{--jc-h:320px}
   .jam-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:700 10.5px/17px system-ui;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #111}
@@ -129,7 +135,7 @@ const Jam = (() => {
     q("jam-screen").onclick = async () => { try{ await link.setScreen(!link.local.screen); }catch(x){} paint(); };
     q("jam-mode").onchange = (e) => { link.setMode(e.target.value); cfg.mode = e.target.value; keep(); };
     q("jam-buf").onchange = (e) => { const v = e.target.value; cfg.buf = v; keep(); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); };
-    q("jam-vol").oninput = (e) => { cfg.vol = +e.target.value; keep(); link.setVolume(cfg.vol); };
+    q("jam-vol").oninput = (e) => { cfg.vol = +e.target.value; keep(); applyFriend(); if(jf) jfPaint(); };
     q("jam-vvol").oninput = (e) => { cfg.vvol = +e.target.value; keep(); q("jam-voice-el").volume = cfg.vvol; };
     q("jam-stop").onclick = stopRoom;
     q("jam-voice-el").volume = cfg.vvol ?? 1;
@@ -171,10 +177,10 @@ const Jam = (() => {
     chat = JamChat({root: chatEl, me: "host", name: "Kamarád", send: (o) => link && link.send(o), visible: chatSeen, onUnread: badge,
       onNew: (m) => { if(!chatSeen()) showToast("💬 Kamarád: " + (m.text.length > 90 ? m.text.slice(0, 90) + "…" : m.text)); }});
     await link.start(`ws://${location.host}/api/jam/ws`);
-    link.setVolume(cfg.vol ?? 1);
+    applyFriend();
     hookGuitar();
     try{ await link.setCamera(true); }catch(e){}
-    clearInterval(songT); songT = setInterval(sendSong, 1000);
+    clearInterval(songT); songT = setInterval(() => sendSong(false), 150);
     clearInterval(uiT); uiT = setInterval(ui, 250);
   }
   // Pick's guitar as it sounds (print / NAM / effects) — again after every rewire of the guitar's chain
@@ -188,6 +194,7 @@ const Jam = (() => {
     await fetch("/api/jam/stop", {method: "POST"}).catch(() => {});
     if(link){ link.close(); link = null; } if(unhook){ unhook(); unhook = null; }
     if(chat){ chat.destroy(); chat = null; chatEl = null; } badge(0);
+    if(jf){ jf.remove(); jf = null; }
     clearInterval(songT); clearInterval(uiT); st.on = false; st.url = null; lastSong = "";
     paint();
   }
@@ -202,7 +209,10 @@ const Jam = (() => {
     s.textContent = n > 9 ? "9+" : String(n);
   }
   function event(kind, v){
+    if(kind === "msg" && v && v.names){ names = v.names; if(jf) jfPaint(); }
+    if(kind === "msg" && v && v.type === "ctl"){ onCtl(v); return; }
     if(kind === "msg" && chat) chat.onMsg(v);
+    if(kind === "peer" && jf) jfPaint();
     if(kind === "peer" || kind === "conn" || kind === "ready"){ if(box && !box.hidden) paint(); if(kind === "ready" && v) sendSong(true);
       if(kind === "peer" && v) showToast("Kamarád se připojil k jamu"); }
     if(kind === "media") showVideos();
@@ -217,6 +227,68 @@ const Jam = (() => {
     if(link.local.camera){ const s = me.srcObject && me.srcObject.getVideoTracks()[0] === link.local.camera ? me.srcObject : new MediaStream([link.local.camera]); if(me.srcObject !== s) me.srcObject = s; me.hidden = false; } else me.hidden = true;
     if(link.media.voice && vo && vo.srcObject !== link.media.voice) vo.srcObject = link.media.voice;
   }
+  // ---- the friend steers the song too (his Pick Jam): picks one from Steems, plays, pauses, moves, tempo, key —
+  // all done here, in Pick's own mixer, so the two of you stay on one song and one clock
+  async function onCtl(m){
+    const who = names.guest || "Kamarád";
+    try{
+      if(m.do === "load" && typeof m.name === "string" && m.name){
+        if(Mixer.currentSong() !== m.name){
+          if(typeof setMode === "function" && typeof state !== "undefined" && state.mode !== "steems") setMode("steems");
+          loadMixerSong(m.name);
+          showToast(`${who} vybral píseň: ${m.name.replace(/^.*? - /, "")}`);
+        }
+      }
+      else if(m.do === "play"){ if(typeof m.pos === "number" && isFinite(m.pos)) Mixer.seek(Math.max(0, m.pos)); Mixer.play(); }
+      else if(m.do === "pause") Mixer.pause();
+      else if(m.do === "seek" && isFinite(m.pos)) Mixer.seek(Math.max(0, +m.pos));
+      else if(m.do === "tempo" && isFinite(m.speed)) Mixer.setSpeed(+m.speed);
+      else if(m.do === "key" && isFinite(m.semis)) Mixer.setKey(Math.round(+m.semis));
+    }catch(e){}
+    setTimeout(() => sendSong(true), 200); setTimeout(() => sendSong(true), 900);
+  }
+
+  // ---- the friend's guitar as a strip in the mix, beside the live guitar: volume, pan, mute — for this Mac only
+  function applyFriend(){ if(!link) return; link.setVolume(cfg.fmute ? 0 : (cfg.vol ?? 1)); link.setPan(cfg.fpan || 0); }
+  function jfHtml(){
+    const v = cfg.vol ?? 1, p = cfg.fpan || 0;
+    const db = v <= 0.01 ? "-∞" : (20 * Math.log10(v)).toFixed(1);
+    const pl = p > 0.05 ? "R" + Math.round(p * 100) : p < -0.05 ? "L" + Math.round(-p * 100) : "C";
+    const led = () => `<div class="jf-led">${"<i></i>".repeat(12)}</div>`;
+    return `<div class="fl-ch-header"><div class="fl-ch-name">${esc(names.guest || "Kamarád")}</div><div class="fl-ch-tag">jam · přes internet</div></div>
+      <div class="fl-led-wrap">${led()}<div class="fl-fader-area"><div class="fl-fader-track" data-jf="vol" title="Hlasitost kamaráda u tebe — táhni, dvojklik = 0 dB">
+        <div class="fl-fader-handle" style="bottom:${Math.round(Math.min(1.4, v) / 1.4 * 90) + 5}%"></div></div></div>${led()}</div>
+      <div class="fl-db-label">${db} dB</div>
+      <div class="fl-pan-wrap"><div class="fl-pan-knob ${p < -0.05 ? "pan-l" : p > 0.05 ? "pan-r" : ""}" data-jf="pan" title="Panorama — táhni svisle, dvojklik = střed"></div><div class="fl-pan-label">${pl}</div></div>
+      <div class="fl-ms-btns"><button class="fl-ms-btn mute ${cfg.fmute ? "active" : ""}" data-jf="mute" title="Ztlumit kamaráda">M</button></div>
+      <div class="jf-off">${link && link.peerOn ? "" : "kamarád není připojený"}</div>`;
+  }
+  function jfPaint(){
+    if(!jf) return;
+    jf.className = "fl-channel color-guitar fl-live" + (cfg.fmute ? " muted" : "");
+    jf.innerHTML = jfHtml();
+    const tr = jf.querySelector('[data-jf="vol"]'), kn = jf.querySelector('[data-jf="pan"]');
+    const setV = (y) => { const r = tr.getBoundingClientRect(), pct = (r.bottom - y) / r.height * 100; cfg.vol = Math.max(0, Math.min(1.4, (pct - 5) / 90 * 1.4)); keep(); applyFriend(); jfPaint(); const s = box && box.querySelector("#jam-vol"); if(s) s.value = cfg.vol; };
+    tr.onpointerdown = (e) => { tr.setPointerCapture(e.pointerId); setV(e.clientY); tr.onpointermove = (ev) => setV(ev.clientY); tr.onpointerup = () => { tr.onpointermove = null; }; };
+    tr.ondblclick = () => { cfg.vol = 1; keep(); applyFriend(); jfPaint(); };
+    kn.onpointerdown = (e) => { kn.setPointerCapture(e.pointerId); const y0 = e.clientY, p0 = cfg.fpan || 0;
+      kn.onpointermove = (ev) => { cfg.fpan = Math.max(-1, Math.min(1, p0 + (y0 - ev.clientY) / 100)); applyFriend(); const lb = jf.querySelector(".fl-pan-label"); if(lb) lb.textContent = cfg.fpan > 0.05 ? "R" + Math.round(cfg.fpan * 100) : cfg.fpan < -0.05 ? "L" + Math.round(-cfg.fpan * 100) : "C"; };
+      kn.onpointerup = () => { kn.onpointermove = null; keep(); jfPaint(); }; };
+    kn.ondblclick = () => { cfg.fpan = 0; keep(); applyFriend(); jfPaint(); };
+    jf.querySelector('[data-jf="mute"]').onclick = () => { cfg.fmute = !cfg.fmute; keep(); applyFriend(); jfPaint(); };
+  }
+  function jfMount(){
+    const rack = document.getElementById("fl-channels");
+    if(!link || !rack || !rack.querySelector(".fl-channel:not(#jam-fader)")){ if(jf && !link){ jf.remove(); jf = null; } return; }
+    if(!jf){ jf = document.createElement("div"); jf.id = "jam-fader"; jfPaint(); }
+    if(jf.parentNode !== rack || jf.nextElementSibling) rack.appendChild(jf);
+  }
+  function jfMeter(){
+    if(!jf || !link || !jf.isConnected) return;
+    const p = link.level(), n = Math.round(Math.min(1, Math.sqrt(p)) * 12);
+    jf.querySelectorAll(".jf-led").forEach(m => [...m.children].forEach((i, k) => { i.className = k < n ? "on" + (k >= 10 ? " clip" : k >= 8 ? " hot" : "") : ""; }));
+  }
+
   // the song in Steems: which, where (as heard now), playing or not — the friend's page plays the same then
   function sendSong(force){
     if(!link) return;
@@ -231,11 +303,19 @@ const Jam = (() => {
         stems = [...new Set((Mixer.deck.audio() || []).map(x => x.stem).filter(s => !/^take-|^midi/.test(s)))];
       }
     }catch(e){}
-    const sig = [name, playing, Math.round(pos * 2)].join("|");
-    link.send({type: "song", name, title: name ? name.replace(/^.*? - /, "") : "", stems, playing, pos, at, speed});
-    lastSong = sig;
+    let key = 0, stemPitch = {}, dur = 0, ready = false, loop = null;
+    try{ key = Mixer.key ? Mixer.key() : 0; stemPitch = Mixer.stemPitch ? Mixer.stemPitch() : {}; dur = Mixer.duration ? Mixer.duration() : 0; ready = Mixer.ready ? Mixer.ready() : true; loop = Mixer.loopNow ? Mixer.loopNow() : null; }catch(e){}
+    // sent at once when something changed — play, pause, a jump (a seek, the loop going round), tempo, key, the song —
+    // otherwise once a second: the friend's page plays from it
+    const sig = JSON.stringify([name, playing, speed, key, stemPitch, ready, loop, stems.length]);
+    const was = lastSent, now = performance.now();
+    const jumped = was && playing && was.playing ? Math.abs(pos - (was.pos + (at - was.at) / 1000 * was.speed)) > 0.04 : was && Math.abs(pos - was.pos) > 0.04;
+    if(!force && was && sig === lastSong && !jumped && now - was.sentAt < 1000) return;
+    link.send({type: "song", name, title: name ? name.replace(/^.*? - /, "") : "", stems, playing, pos, at, speed, key, stemPitch, dur, ready, loop});
+    lastSong = sig; lastSent = {pos, at, speed, playing, sentAt: now};
   }
   function ui(){
+    if(link){ jfMount(); jfMeter(); }
     if(!box || box.hidden || !link) return;
     const lat = box.querySelector("#jam-lat"); if(!lat) return;
     const d = link.delay();
@@ -283,6 +363,30 @@ const Jam = (() => {
     $("jd-via-domain").checked = d.via === "domain"; $("jd-via-ts").checked = d.via !== "domain";
     clearTimeout(domT); if(dm.loggingIn && !document.getElementById("settings-overlay").hidden) domT = setTimeout(domPaint, 2000);
   }
+  // Nastavení → Jam → přístup: names and passwords for the friends, the host's own name
+  async function accPaint(){
+    const $ = (id) => document.getElementById(id); if(!$("jam-acc")) return;
+    let d = {users: [], host_name: ""};
+    try{ d = await (await fetch("/api/jam/users")).json(); }catch(e){ return; }
+    if(document.activeElement !== $("ja-host")) $("ja-host").value = d.host_name || "";
+    $("ja-list").innerHTML = d.users.length ? "Mohou se přihlásit: " + d.users.map(u => `<b>${esc(u)}</b> <a href="#" data-del="${esc(u)}" title="Odebrat">✕</a>`).join(" · ")
+      : "Zatím nikdo — kamarád se připojí odkazem s klíčem (bez hesla).";
+    $("ja-list").querySelectorAll("[data-del]").forEach(a => a.onclick = async (e) => { e.preventDefault();
+      if(!(await Dialog.confirm(`Odebrat ${a.dataset.del}? Už se nepřihlásí.`, {ok: "Odebrat"}))) return;
+      await fetch("/api/jam/users?name=" + encodeURIComponent(a.dataset.del), {method: "DELETE"}); accPaint(); });
+  }
+  function accWire(){
+    const $ = (id) => document.getElementById(id); if(!$("jam-acc")) return;
+    const post = (b) => fetch("/api/jam/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    $("ja-host-save").onclick = async () => { await post({host_name: $("ja-host").value}); showToast("Jméno uložené"); accPaint(); };
+    $("ja-add").onclick = async () => {
+      const r = await post({name: $("ja-name").value, password: $("ja-pass").value}), d = await r.json().catch(() => ({}));
+      const stl = $("ja-st");
+      if(r.ok){ stl.className = "jd-st ok"; stl.textContent = `Hotovo — ${$("ja-name").value.trim()} se může přihlásit.`; $("ja-pass").value = ""; $("ja-name").value = ""; accPaint(); }
+      else { stl.className = "jd-st bad"; stl.textContent = d.msg || "Nepovedlo se."; }
+    };
+    const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(accPaint, 200));
+  }
   function domWire(){
     const $ = (id) => document.getElementById(id); if(!$("jam-dom")) return;
     $("jd-login").onclick = async () => { const r = await (await fetch("/api/jam/domain/login", {method: "POST"})).json(); if(!r.ok) showToast(r.msg || "Nepovedlo se"); domPaint(); };
@@ -298,7 +402,7 @@ const Jam = (() => {
     const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(domPaint, 200));
   }
   // Nastavení → Jam
-  setTimeout(() => { domWire(); const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
+  setTimeout(() => { domWire(); accWire(); const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
     if(c) c.onclick = copyGuide;
     if(o) o.onclick = () => { const x = document.getElementById("settings-close"); if(x) x.click(); open(); }; }, 0);
   // a room left on (Pick reloaded): back in it

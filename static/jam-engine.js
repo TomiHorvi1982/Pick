@@ -40,7 +40,9 @@
       this.tx.port.onmessage = (e) => this.onTx(e.data);
       this.dest = c.createMediaStreamDestination(); this.dest.channelCount = 2;
       this.lowGain = c.createGain(); this.rtcGain = c.createGain(); this.vol = c.createGain();
-      this.lowGain.connect(this.vol); this.rtcGain.connect(this.vol); this.vol.connect(this.output);
+      // the other one's guitar: volume, pan, mute (the host's fader "Kamarád" in the mix, the friend's own) and a meter
+      this.pan = c.createStereoPanner(); this.meter = c.createAnalyser(); this.meter.fftSize = 1024;
+      this.lowGain.connect(this.vol); this.rtcGain.connect(this.vol); this.vol.connect(this.pan); this.pan.connect(this.output); this.vol.connect(this.meter);
       this.makeRx();
       this.applyMode();
       this.connectWs(wsUrl);
@@ -60,6 +62,8 @@
       if(node){ node.connect(this.tx); node.connect(this.dest); }
     }
     setVolume(v){ this.vol.gain.value = v; }
+    setPan(v){ this.pan.pan.value = Math.max(-1, Math.min(1, +v || 0)); }
+    level(){ const a = new Float32Array(this.meter.fftSize); this.meter.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p; }
     setBuffer(quanta, auto){ this.quanta = quanta; this.auto = auto; if(this.rx) this.rx.port.postMessage({quanta, auto}); }
     setMode(m, quiet){
       if(m !== "low" && m !== "rtc") return;
@@ -236,7 +240,7 @@
       this.closed = true; clearInterval(this.timer); this.hangup();
       ["camera", "voice", "screen"].forEach(k => { if(this.local[k]) this.local[k].stop(); });
       try{ this.ws.close(); }catch(e){}
-      try{ this.tx.disconnect(); this.rx.disconnect(); this.vol.disconnect(); }catch(e){}
+      try{ this.tx.disconnect(); this.rx.disconnect(); this.vol.disconnect(); this.pan.disconnect(); }catch(e){}
     }
   }
   window.JamLink = JamLink;

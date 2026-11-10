@@ -5,77 +5,166 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pick Jam</title>
 <style>
-  :root{--bg:#0d0d14;--panel:#16161f;--line:rgba(255,255,255,.09);--fg:#ececf3;--dim:#9a9ab0;--acc:#8b5cf6;--ok:#6ee7a0;--warn:#ffd166;--bad:#ff6b6b}
+  :root{--bg:#0d0d14;--panel:#15151e;--panel2:#1b1b26;--line:rgba(255,255,255,.09);--fg:#ececf3;--dim:#9a9ab0;--acc:#8b5cf6;--ok:#6ee7a0;--warn:#ffd166;--bad:#ff6b6b;color-scheme:dark}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;height:100vh;display:flex;flex-direction:column}
-  header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
-  header h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.02em}
-  header .dot{width:10px;height:10px;border-radius:50%;background:var(--dim)}
-  header .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
-  header .sp{flex:1}
-  .lat{font-variant-numeric:tabular-nums;font-weight:700}
-  .lat small{color:var(--dim);font-weight:500;margin-left:6px}
-  main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 330px}
-  .stage{position:relative;min-height:0;background:#000;display:flex;align-items:center;justify-content:center}
-  .stage video.big{width:100%;height:100%;object-fit:contain;background:#000}
-  .stage .none{color:var(--dim);text-align:center;padding:40px}
-  .tiles{position:absolute;right:12px;bottom:12px;display:flex;gap:8px}
-  .tiles video{width:220px;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#111}
-  .tiles video.me{width:150px;transform:scaleX(-1)}
-  aside{border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
-  .card{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-  .card h3{margin:0;font-size:11px;letter-spacing:.1em;color:var(--dim);font-weight:800}
-  label.row{display:flex;align-items:center;gap:8px;font-size:13px}
-  label.row span{min-width:96px;color:var(--dim)}
-  select,input[type=range]{flex:1;min-width:0}
-  select{background:#0e0e14;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 7px}
-  button{background:#232331;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font:inherit;cursor:pointer}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+  button{background:#232331;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:6px 11px;font:inherit;cursor:pointer}
+  button:hover{border-color:rgba(255,255,255,.22)}
   button.on{background:var(--acc);border-color:var(--acc);color:#0b0b12;font-weight:700}
   button.big{background:var(--acc);color:#0b0b12;font-weight:800;padding:12px 18px;border:0}
-  .meter{height:6px;border-radius:3px;background:#222;overflow:hidden}.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
-  .stems{display:flex;flex-wrap:wrap;gap:6px}.stems button{padding:4px 9px;font-size:12px}
-  .muted{color:var(--dim);font-size:12px}
-  .song b{font-size:15px}
-  .join[hidden]{display:none}
-  .join{position:fixed;inset:0;background:rgba(5,5,10,.92);display:flex;align-items:center;justify-content:center;z-index:5}
-  .join .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(520px,92vw);display:flex;flex-direction:column;gap:12px}
-  .join h2{margin:0}
-  .warn{color:var(--warn)}.bad{color:var(--bad)}
-  @media (max-width:900px){main{grid-template-columns:1fr}aside{border-left:0;border-top:1px solid var(--line)}}
+  input[type=text],input[type=password],input[type=search]{background:#0e0e14;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;width:100%}
+  select{background:#0e0e14;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 7px;min-width:0}
+  .muted{color:var(--dim);font-size:12px}.warn{color:var(--warn)}.bad{color:var(--bad)}
+  header{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.02em}
+  header .dot{width:10px;height:10px;border-radius:50%;background:var(--dim)}header .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  header .sp{flex:1}
+  .lat{font-variant-numeric:tabular-nums;font-weight:700}.lat small{color:var(--dim);font-weight:500;margin-left:6px}
+  main{flex:1;min-height:0;display:grid;grid-template-columns:290px 1fr}
+  .side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+  .side h3,.card h3{margin:0;font-size:11px;letter-spacing:.1em;color:var(--dim);font-weight:800}
+  .songs{display:flex;flex-direction:column;gap:6px;padding:12px;min-height:0;flex:1}
+  .slist{overflow:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:1px}
+  .slist button{border:0;background:none;text-align:left;padding:6px 8px;border-radius:7px;display:flex;flex-direction:column;gap:0}
+  .slist button:hover{background:rgba(255,255,255,.05)}
+  .slist button.cur{background:rgba(139,92,246,.22)}
+  .slist b{font-weight:600;font-size:13px}.slist span{font-size:11.5px;color:var(--dim)}
+  .chatbox{border-top:1px solid var(--line);padding:12px;flex:none}
+  .stage{display:flex;flex-direction:column;min-height:0;min-width:0}
+  .song-h{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .song-h .t{display:flex;flex-direction:column;min-width:0;flex:1}
+  .song-h .t b{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tp button.play{width:44px;height:44px;border-radius:50%;background:var(--acc);border:0;color:#0b0b12;font-size:17px;font-weight:900}
+  .tp .time{font-variant-numeric:tabular-nums;color:var(--dim);min-width:92px;text-align:center}
+  .knob{display:flex;align-items:center;gap:3px;background:#101018;border:1px solid var(--line);border-radius:9px;padding:2px}
+  .knob button{padding:3px 8px;border:0;background:none}.knob span{min-width:58px;text-align:center;font-variant-numeric:tabular-nums;font-size:12.5px}
+  .seek{position:relative;height:26px;margin:8px 16px 0;cursor:pointer;flex:none}
+  .seek .secs{position:absolute;inset:8px 0;display:flex;border-radius:5px;overflow:hidden;background:#20202c}
+  .seek .secs i{display:block;height:100%;opacity:.45}
+  .seek .loopr{position:absolute;top:2px;bottom:2px;border:2px solid var(--warn);border-radius:6px;background:rgba(255,209,102,.12);pointer-events:none}
+  .seek .head{position:absolute;top:3px;bottom:3px;width:2px;background:#fff;box-shadow:0 0 6px #fff;left:0}
+  .views{display:flex;gap:4px;padding:8px 16px 0;flex:none}
+  .views button{border-radius:8px 8px 0 0;border-bottom:0;padding:6px 14px}
+  .view{flex:1;min-height:0;position:relative;border-top:1px solid var(--line);background:#0a0a10}
+  .lyr{position:absolute;inset:0;overflow:auto;padding:24vh 24px;text-align:center;font-size:22px;line-height:1.55;scroll-behavior:smooth}
+  .lyr p{margin:0;color:#6c6c80;transition:color .2s}.lyr p.now{color:#fff;font-weight:700}.lyr p.past{color:#8a8aa0}
+  .chords{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px}
+  .chords .now{font-size:84px;font-weight:900;letter-spacing:-.02em}
+  .chords .next{display:flex;gap:14px;color:var(--dim);font-size:22px;flex-wrap:wrap;justify-content:center}
+  .chords .next span small{display:block;font-size:11px;text-align:center}
+  .pickv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);text-align:center;padding:20px}
+  .pickv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+  [hidden]{display:none!important}
+  .tiles{position:absolute;right:10px;bottom:10px;display:flex;gap:8px;z-index:2}
+  .tiles video{width:190px;aspect-ratio:16/9;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#111}
+  .tiles video.me{width:130px;transform:scaleX(-1)}
+  .rack{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel);flex:none}
+  .strip{flex:none;width:86px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .strip.me{width:156px;border-color:rgba(139,92,246,.5)}.strip.host{border-color:rgba(110,231,160,.35)}
+  .strip .nm{font-size:12px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .strip .sub{font-size:10.5px;color:var(--dim);text-align:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fz{display:flex;gap:6px;align-items:stretch;height:110px}
+  .fz input[type=range]{writing-mode:vertical-lr;direction:rtl;width:22px;height:110px;accent-color:var(--acc)}
+  .led{width:6px;border-radius:3px;background:#22222e;position:relative;overflow:hidden}.led i{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--ok)}
+  .strip .db{font-size:11px;font-variant-numeric:tabular-nums;color:var(--dim)}
+  .strip .pan{width:70px;accent-color:#bbb}
+  .ms{display:flex;gap:4px}.ms button{padding:2px 8px;font-size:11.5px;font-weight:800}
+  .ms button.m.on{background:#ff8a65;border-color:#ff8a65;color:#111}.ms button.s.on{background:#ffd166;border-color:#ffd166;color:#111}
+  .me .row{display:flex;align-items:center;gap:6px;width:100%;font-size:11px;color:var(--dim)}
+  .me .row input[type=range]{flex:1;min-width:0;accent-color:var(--acc)}
+  .me .snd{width:100%;font-size:11.5px;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);background:var(--panel);border-left:1px solid var(--line);z-index:20;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
+  .drawer .dh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}.drawer .dh b{flex:1;font-size:15px}
+  .drawer .dbody{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;min-height:0;flex:1}
+  .card{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+  label.row{display:flex;align-items:center;gap:8px;font-size:13px}label.row>span:first-child{min-width:110px;color:var(--dim)}
+  label.row select,label.row input[type=range]{flex:1;min-width:0}
+  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .plist{display:flex;flex-direction:column;gap:2px;max-height:42vh;overflow:auto;margin-top:6px}
+  .plist button{text-align:left;border:0;background:none;padding:6px 8px;border-radius:7px;display:flex;flex-direction:column}
+  .plist button:hover{background:rgba(255,255,255,.05)}.plist button.cur{background:rgba(139,92,246,.22)}
+  .plist b{font-size:13px;font-weight:600}.plist span{font-size:11.5px;color:var(--dim)}
+  .meter{height:6px;border-radius:3px;background:#222;overflow:hidden}.meter i{display:block;height:100%;width:0;background:var(--ok)}
+  .overlay{position:fixed;inset:0;background:rgba(5,5,10,.94);display:flex;align-items:center;justify-content:center;z-index:30}
+  .overlay .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(460px,92vw);display:flex;flex-direction:column;gap:12px}
+  .overlay h2{margin:0}
+  .toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:40;background:#2a2230;border:1px solid #6b4d7a;color:#f0e6ff;padding:8px 14px;border-radius:10px;font-size:13px;max-width:90vw;cursor:pointer}
+  @media (max-width:900px){main{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
 </style>
 </head>
 <body>
 <header><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span class="sp"></span>
-  <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span></header>
+  <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
+  <button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button>
+  <button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
 <main>
-  <div class="stage" id="stage"><div class="none" id="none">Až kamarád zapne kameru nebo sdílení Picku, uvidíš ho tady.</div>
-    <video class="big" id="vBig" autoplay playsinline hidden></video>
-    <div class="tiles"><video id="vCam" autoplay playsinline hidden></video><video class="me" id="vMe" autoplay playsinline muted hidden></video></div></div>
-  <aside>
-    <div class="card song"><h3>PÍSEŇ</h3><b id="song">—</b><span class="muted" id="songSt">čekám na kamaráda</span>
-      <div class="stems" id="stems"></div>
-      <label class="row"><span>Podklad</span><input type="range" id="bkVol" min="0" max="1.5" step="0.01" value="0.9"></label></div>
-    <div class="card"><h3>CHAT</h3><div id="chat"></div></div>
-    <div class="card"><h3>ZVUK</h3>
-      <label class="row"><span>Kytara z</span><select id="inDev"></select></label>
-      <label class="row"><span>Kanál</span><select id="inCh"><option value="0">vstup 1</option><option value="1">vstup 2</option><option value="sum">oba</option></select></label>
-      <label class="row"><span>Hlasitost vstupu</span><input type="range" id="inVol" min="0" max="4" step="0.01" value="1"></label>
-      <div class="meter"><i id="meter"></i></div>
-      <label class="row"><span>Kamarád</span><input type="range" id="frVol" min="0" max="2" step="0.01" value="1"></label>
-      <label class="row"><span>Slyšet se</span><input type="checkbox" id="mon"> <span class="muted" style="min-width:0">jen se sluchátky, když nemáš odposlech ze zvukovky</span></label>
-      <label class="row"><span>Vyrovnávání</span><select id="buf"><option value="auto">automaticky</option></select></label>
-      <div class="muted" id="mode"></div></div>
-    <div class="card"><h3>OBRAZ A ŘEČ</h3>
-      <label class="row"><span>Kamera</span><select id="camDev"></select></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="camBtn" class="on">Kamera</button><button id="voiceBtn">Mluvit</button></div>
-      <label class="row"><span>Mikrofon na řeč</span><select id="voiceDev"></select></label>
-      <label class="row"><span>Hlas kamaráda</span><input type="range" id="voVol" min="0" max="1" step="0.01" value="1"></label></div>
-    <div class="muted" id="route"></div>
+  <aside class="side">
+    <div class="songs"><h3>PÍSNĚ</h3><input type="search" id="find" placeholder="Hledat píseň nebo kapelu…">
+      <div class="slist" id="slist"><div class="muted">Načítám…</div></div></div>
+    <div class="chatbox"><h3 style="margin-bottom:6px">CHAT</h3><div id="chat"></div></div>
   </aside>
+  <section class="stage">
+    <div class="song-h"><div class="t"><b id="song">Vyber píseň</b><span class="muted" id="songSt">Píseň vybírá kdokoli z vás — hraje oběma.</span></div>
+      <div class="tp">
+        <button id="toStart" title="Na začátek">⏮</button><button class="play" id="play" title="Přehrát / pozastavit (mezerník)">▶</button>
+        <span class="time" id="time">0:00 / 0:00</span>
+        <span class="knob" title="Tempo — mění se oběma"><button id="tDn">−</button><span id="tempo">tempo 100 %</span><button id="tUp">+</button></span>
+        <span class="knob" title="Tónina — mění se oběma"><button id="kDn">−</button><span id="key">tónina 0</span><button id="kUp">+</button></span>
+      </div></div>
+    <div class="seek" id="seek" title="Klikni a píseň skočí — oběma"><div class="secs" id="secs"></div><div class="loopr" id="loopR" hidden></div><div class="head" id="head"></div></div>
+    <div class="views"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="pick">Pick (taby)</button></div>
+    <div class="view">
+      <div class="lyr" id="vLyr"><p class="muted">Text se objeví, až bude vybraná píseň.</p></div>
+      <div class="chords" id="vChords" hidden><div class="now" id="chNow">—</div><div class="next" id="chNext"></div></div>
+      <div class="pickv" id="vPick" hidden><span id="pickNone">Až kamarád v Picku klikne „Sdílet Pick“, uvidíš tu jeho obrazovku s taby a akordy.</span><video id="vBig" autoplay playsinline hidden></video></div>
+      <div class="tiles"><video id="vCam" autoplay playsinline hidden></video><video class="me" id="vMe" autoplay playsinline muted hidden></video></div>
+    </div>
+    <div class="rack" id="rack"></div>
+  </section>
 </main>
-<div class="join" id="join"><div class="box">
+
+<div class="drawer" id="sndD" hidden><div class="dh"><b>Zvuk mé kytary</b><button data-close="sndD">✕</button></div><div class="dbody">
+  <div class="card"><h3>TEĎ HRAJE</h3><b id="sndNow">Čistý zvuk</b>
+    <label class="row"><span>Drive</span><input type="range" id="drive" min="-24" max="12" step="0.5" value="0"><span id="driveV" class="muted">0 dB</span></label>
+    <button id="sndClean">Čistý zvuk (bez zesilovače)</button></div>
+  <div class="card"><div class="tabs"><button data-st="prints" class="on">Otisky</button><button data-st="amps">Zesilovače (NAM)</button><button data-st="own">Můj vlastní otisk</button></div>
+    <div id="stPrints"><input type="search" id="pFind" placeholder="Hledat otisk (kapela, píseň, zvuk)…"><div class="plist" id="plist"></div></div>
+    <div id="stAmps" hidden><input type="search" id="aFind" placeholder="Hledat zesilovač…"><div class="plist" id="alist"></div>
+      <input type="search" id="iFind" placeholder="Hledat kabinet (IR)…" style="margin-top:8px"><div class="plist" id="ilist"></div>
+      <div class="muted" id="ampPick">Vyber zesilovač a k němu kabinet.</div></div>
+    <div id="stOwn" hidden>
+      <div class="muted">Zahraj s písní úsek kytary a Pick na Macu z toho udělá otisk: zvuk nahrávky přenesený na <b>tvou</b> kytaru. Hraj čistě, bez efektů — nahrává se signál přímo ze zvukovky. Výpočet trvá pár minut.</div>
+      <label class="row"><span>Úsek</span><select id="secSel"></select></label>
+      <button class="big" id="recBtn">Nahrát úsek a vytvořit otisk</button>
+      <div id="recSt" class="muted"></div></div>
+  </div>
+</div></div>
+
+<div class="drawer" id="setD" hidden><div class="dh"><b>Nastavení</b><button data-close="setD">✕</button></div><div class="dbody">
+  <div class="card"><h3>KYTARA</h3>
+    <label class="row"><span>Zvukovka</span><select id="inDev"></select></label>
+    <label class="row"><span>Kanál</span><select id="inCh"><option value="0">vstup 1</option><option value="1">vstup 2</option><option value="sum">oba</option></select></label>
+    <div class="meter"><i id="meter"></i></div>
+    <label class="row"><span>Slyšet se</span><input type="checkbox" id="mon" checked> <span class="muted" style="min-width:0">vypni, jen když se slyšíš přímo ze zvukovky — pak ale neuslyšíš otisk</span></label></div>
+  <div class="card"><h3>SPOJENÍ</h3>
+    <label class="row"><span>Vyrovnávání</span><select id="buf"><option value="auto">automaticky</option></select></label>
+    <div class="muted" id="mode"></div><div class="muted" id="route"></div></div>
+  <div class="card"><h3>OBRAZ A ŘEČ</h3>
+    <label class="row"><span>Kamera</span><select id="camDev"></select></label>
+    <label class="row"><span>Mikrofon na řeč</span><select id="voiceDev"></select></label>
+    <label class="row"><span>Hlas kamaráda</span><input type="range" id="voVol" min="0" max="1" step="0.01" value="1"></label></div>
+</div></div>
+
+<div class="overlay" id="login" hidden><form class="box" id="loginF">
+  <h2>Pick Jam</h2><div>Přihlas se jménem a heslem, které ti dal kamarád.</div>
+  <input type="text" id="lName" placeholder="jméno" autocomplete="username" required>
+  <input type="password" id="lPass" placeholder="heslo" autocomplete="current-password" required>
+  <button class="big" type="submit">Přihlásit</button><div class="bad" id="lErr"></div></form></div>
+<div class="overlay" id="join" hidden><div class="box">
   <h2>Pick Jam</h2>
-  <div>Kamarád tě zve na společné hraní. Povol kameru a zvukovku — Chrome se zeptá.</div>
+  <div id="joinHi">Kamarád tě zve na společné hraní. Povol zvukovku (mikrofon) — Chrome se zeptá. Kamera není nutná.</div>
   <div class="muted">Kytaru zapoj do zvukovky, buď se sluchátky. Nejmenší zpoždění: počítač na kabelu, ne na Wi-Fi.</div>
   <button class="big" id="go">Povolit a připojit se</button>
   <div class="bad" id="joinErr"></div>
@@ -83,6 +172,8 @@
 <audio id="voice" autoplay></audio>
 <script src="/static/jam-engine.js"></script>
 <script src="/static/jam-chat.js"></script>
+<script src="/static/jam-mix.js"></script>
+<script src="/static/jam-amp.js"></script>
 <script src="/static/jam-guest.js"></script>
 </body>
 </html>
