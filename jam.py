@@ -206,7 +206,7 @@ def cf_setup(host: str) -> dict:
     if not tid or not (CF_DIR / f"{tid}.json").is_file():
         r = _cf("tunnel", "list", "--output", "json", "--name", CF_TUNNEL)
         try:
-            old = [t for t in json.loads(r.stdout or "[]") if t.get("name") == CF_TUNNEL and (not t.get("deleted_at") or str(t["deleted_at"]).startswith("0001"))]
+            old = [t for t in (json.loads(r.stdout or "[]") or []) if isinstance(t, dict) and t.get("name") == CF_TUNNEL and (not t.get("deleted_at") or str(t["deleted_at"]).startswith("0001"))]
         except ValueError:
             old = []
         if old and not (CF_DIR / f"{old[0]['id']}.json").is_file():
@@ -223,7 +223,11 @@ def cf_setup(host: str) -> dict:
         conf_save(tunnel_id=tid)
     r = _cf("tunnel", "route", "dns", "--overwrite-dns", CF_TUNNEL, host)
     if r.returncode != 0:
-        return {"ok": False, "msg": "Adresu se nepodařilo nasměrovat: " + ((r.stderr or r.stdout or "").strip()[-400:])}
+        out = (r.stderr or r.stdout or "").strip()
+        if "already exists" in out:
+            return {"ok": False, "exists": True, "msg": f"Na adrese {host} už je v DNS jiný záznam (třeba starý web). Smaž ho v Cloudflare: "
+                    f"dash.cloudflare.com → {'.'.join(host.split('.')[-2:])} → DNS → Records → u „{host}“ Delete. Pak dej Propojit znovu."}
+        return {"ok": False, "msg": "Adresu se nepodařilo nasměrovat: " + out[-400:]}
     conf_save(host=host, routed=host)
     return {"ok": True, **cf_state()}
 

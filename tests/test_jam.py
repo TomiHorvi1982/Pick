@@ -134,3 +134,22 @@ def test_with_the_domain_ready_the_link_is_on_it(client, monkeypatch, tmp_path):
     jam.conf_save(via="domain")
     url = client.post("/api/jam/start").json()["url"]
     assert url == "https://jam.neverlast.cz/?k=secret-key"
+
+
+def test_no_tunnel_yet_and_a_taken_name(monkeypatch, tmp_path):
+    """cloudflared lists no tunnels as `null`; a name with an A record already (an old site) is said plainly."""
+    (tmp_path / "cf").mkdir()
+    (tmp_path / "cf" / "cert.pem").write_text("x")
+    calls = []
+    def fake(*args, timeout=30):
+        calls.append(args)
+        if args[:2] == ("tunnel", "list"):
+            return subprocess.CompletedProcess(args, 0, "null", "")
+        if args[:2] == ("tunnel", "create"):
+            (tmp_path / "cf" / "abc.json").write_text("{}")
+            return subprocess.CompletedProcess(args, 0, '{"id": "abc"}', "")
+        return subprocess.CompletedProcess(args, 1, "", "Failed to add route: code: 1003, An A, AAAA, or CNAME record with that host already exists.")
+    monkeypatch.setattr(jam, "_cf", fake)
+    r = jam.cf_setup("neverlast.cz")
+    assert r["ok"] is False and r["exists"] and "dash.cloudflare.com → neverlast.cz → DNS" in r["msg"]
+    assert jam.conf()["tunnel_id"] == "abc"
