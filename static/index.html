@@ -5325,6 +5325,34 @@ body.lib-collapsed .pick-brand{display:none}
         <button type="button" class="pl-x" id="pl-hist-clear">Smazat historii</button></details>
       <div class="set-note">Když spustíš něco náročného — rozdělení na stopy, stažení a přípravu playlistu nebo oblíbených, rozbor Zpěvníku, zpěv jiným hlasem, tónový otisk — Pick se zeptá, jestli hned, nebo v noci. Naplánované se v noci spustí jedna po druhé: další až když předchozí doběhne a nic těžkého neběží; když zrovna hraje hudba, počkají. ↑ ↓ mění pořadí, ▶ spustí jednu hned, ✕ ji zruší. Mac přitom neusne, ale musí být zapnutý a Pick spuštěný.</div>
 
+      <div class="section-title" style="margin-top:20px"><span data-icon="headphones"></span>Jam — hraní s kamarádem přes internet</div>
+      <div class="set-note">Kamarád se připojí odkazem v Chromu (Mac i Windows), uslyšíte a uvidíte se a on vidí tvůj Pick. Spojení jde přes <b>Tailscale</b>.</div>
+      <details class="jam-guide"><summary>Návod krok za krokem</summary>
+        <div class="jg-h">Jednou na začátku</div>
+        <ol>
+          <li>Spusť aplikaci <b>Tailscale</b> (ikona nahoře v liště) → <b>Log in</b> a přihlas se (Google, Microsoft nebo Apple účet).</li>
+          <li>Otevři <a href="https://login.tailscale.com/admin/dns" target="_blank" rel="noopener">login.tailscale.com/admin/dns</a>: zapni <b>MagicDNS</b> a u <b>HTTPS Certificates</b> klikni <b>Enable HTTPS</b>. Tailscale upozorní, že jméno Macu bude vidět ve veřejném seznamu certifikátů — to je v pořádku.</li>
+          <li>Pozvi kamaráda: <a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener">login.tailscale.com/admin/machines</a> → u tohohle Macu <b>…</b> → <b>Share…</b> → <b>Copy invite link</b> (nebo jeho e-mail). Kamarád uvidí jen tenhle Mac a na něm jen stránku Jamu.</li>
+          <li>Pošli mu pozvánku a <b>návod pro kamaráda</b> (tlačítko níž). Až ho projde, má nainstalovaný Tailscale a přijatou pozvánku.</li>
+        </ol>
+        <div class="set-note">Test s vlastním Windows PC: na PC nainstaluj Tailscale a přihlas se <b>stejným účtem</b> jako na Macu. Sdílet nic nemusíš.</div>
+        <div class="jg-h">Při každém jamu</div>
+        <ol>
+          <li>Ve <b>Steems</b> otevři píseň → tlačítko <b>JAM</b> (sluchátka) → <b>Zahájit jam</b>. Poprvé může Tailscale chtít povolit HTTPS nebo funkci Serve — panel ukáže odkaz, klikni, povol a dej Zahájit znovu.</li>
+          <li><b>Kopírovat odkaz</b> a pošli ho kamarádovi. Jakmile se připojí, uvidíš „kamarád je tu“ a jeho kameru.</li>
+          <li>Zapni ve Steems <b>živou kytaru</b> (vstup zvukovky) — kamarád ji slyší i s otiskem, NAM a efekty. Oba se sluchátky.</li>
+          <li><b>Kamera</b>, <b>Mluvit</b> (řeč), <b>Sdílet Pick</b> — Chrome se zeptá, co sdílet: vyber okno s Pickem. Pak kamarád vidí text, taby a akordy.</li>
+          <li>Pusť píseň — podklad hraje u obou ve stejný okamžik. Kamarád si sám vybírá stopy.</li>
+          <li>Číslo v ms ukazuje zpoždění: zelené do 30 ms je skvělé, nad 50 ms zkus kabel místo Wi-Fi. Když zvuk praská, zvyš <b>Vyrovnávání</b> nebo přepni <b>Zvuk kytar</b> na „jako hovor“.</li>
+          <li>Napište si v <b>chatu</b> v panelu. Nepřečtené zprávy ukáže odznak na tlačítku JAM.</li>
+          <li>Na konci <b>Ukončit jam</b> — odkaz přestane platit a chat se smaže.</li>
+        </ol>
+      </details>
+      <div class="pl-tools"><button type="button" class="btn secondary" id="jam-guide-copy">Zkopírovat návod pro kamaráda</button>
+        <a class="set-note" style="margin:0" href="https://claude.ai/artifact/5rqyJzeqvuF2nLnYkry23H" target="_blank" rel="noopener">otevřít návod</a>
+        <button type="button" class="btn secondary" id="jam-open-set">Otevřít Jam</button></div>
+      <div class="set-note">Návod je stránka na odkazu. Aby ji kamarád otevřel, musíš ji jednou zveřejnit: otevři ji → <b>Share</b> → přístup „kdokoli s odkazem“.</div>
+
       <div class="section-title" style="margin-top:20px"><span data-icon="drive"></span>Úložiště</div>
       <div class="st-list" id="st-list"><div class="set-note">Načítám…</div></div>
       <div class="pl-tools"><button type="button" class="btn secondary" id="st-recount">Přepočítat</button><span class="set-note" id="st-when" style="margin:0"></span></div>
@@ -30919,6 +30947,7 @@ const SettingsWin = (() => {
     ["download", "Stahování", /Kvalita stahovaných|Kam se stahují|YouTube/],
     ["steems", "Steems", /Rozdělení písně|Steems/],
     ["storage", "Úložiště", /Úložiště/],
+    ["jam", "Jam", /Jam — hraní/],
     ["notes", "Poznámky", /Poznámky a nápady/],
   ];
   const panel = settingsOverlay.querySelector(".panel"), head = panel.querySelector(".panel-head");

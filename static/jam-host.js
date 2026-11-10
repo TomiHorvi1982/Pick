@@ -8,6 +8,10 @@ const Jam = (() => {
   const cfg = (() => { try{ return JSON.parse(localStorage.getItem("pick-jam") || "{}"); }catch(e){ return {}; } })();
   const keep = () => { try{ localStorage.setItem("pick-jam", JSON.stringify(cfg)); }catch(e){} };
   const esc = (s) => escapeHtml(String(s == null ? "" : s));
+  // the friend's guide (a page on a link): Tailscale, the invite, the sound card, joining in Chrome
+  const GUIDE = "https://claude.ai/artifact/5rqyJzeqvuF2nLnYkry23H";
+  const guideText = () => `Ahoj! Pojď si zahrát přes Pick Jam. Tady je návod, co nainstalovat a jak se připojit:\n${GUIDE}\n\nAž budeš mít Tailscale, pošlu ti pozvánku a pak odkaz na jam.`;
+  function copyGuide(){ navigator.clipboard.writeText(guideText()).then(() => showToast("Návod zkopírovaný — vlož ho kamarádovi do zprávy"), () => showToast(GUIDE)); }
   const CSS = `
   .jam{position:fixed;right:18px;bottom:18px;z-index:9300;width:400px;max-height:calc(100vh - 36px);display:flex;flex-direction:column;border-radius:16px;
     background:rgba(18,18,27,.97);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.6);color:#ececf3;font-size:13px;overflow:hidden}
@@ -30,6 +34,9 @@ const Jam = (() => {
   .jam-lat{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px}.jam-lat small{font-weight:500;color:#9a9ab0;font-size:11px;margin-left:6px}
   .jam-m{height:5px;border-radius:3px;background:#222;overflow:hidden;flex:1}.jam-m i{display:block;height:100%;width:0;background:#6ee7a0}
   .jam-note{color:#9a9ab0;font-size:12px;line-height:1.45}.jam-note b{color:#ececf3}.jam-warn{color:#ffd166}.jam-err{color:#ff8a8a}
+  .jam-guide summary{cursor:pointer;font-weight:700;margin:6px 0}.jam-guide ol{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
+  .jam-guide a,#settings-overlay a[href*="5rqyJzeqvuF2nLnYkry23H"]{color:var(--accent,#a78bfa)}
+  .jam-guide .jg-h{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;margin-top:8px}
   .jam-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
   .jam.big .jc{--jc-h:320px}
   .jam-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:700 10.5px/17px system-ui;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #111}
@@ -69,13 +76,16 @@ const Jam = (() => {
       b.innerHTML = `<div class="jam-note">Kamarád otevře odkaz v Chromu — nic neinstaluje. Uvidí tvůj Pick (píseň, text, taby), uslyšíte se navzájem
           a podklad písně hraje u obou ve stejný okamžik. Spojení jde napřímo přes <b>Tailscale</b>.</div>
         ${tsHelp(ts)}
-        <button type="button" class="go" id="jam-start">Zahájit jam</button><div class="jam-err" id="jam-err"></div>`;
+        <button type="button" class="go" id="jam-start">Zahájit jam</button><div class="jam-err" id="jam-err"></div>
+        <div class="jam-row"><button type="button" class="jb" id="jam-guide">Návod pro kamaráda</button><a class="jam-note" href="${GUIDE}" target="_blank" rel="noopener">otevřít</a><span class="jam-note">· celý postup je v Nastavení → Jam</span></div>`;
+      b.querySelector("#jam-guide").onclick = copyGuide;
       b.querySelector("#jam-start").onclick = startRoom;
       return;
     }
     box.querySelector("#jam-sub").textContent = link && link.peerOn ? "kamarád je tu" : "čekám na kamaráda";
     b.innerHTML = `
       <div class="jam-link"><input readonly id="jam-url" value="${esc(st.url)}"><button type="button" class="jb" id="jam-copy">Kopírovat odkaz</button></div>
+      <div class="jam-row"><button type="button" class="jb" id="jam-guide" title="Zkopíruje zprávu s odkazem na návod: Tailscale, pozvánka, zvukovka, připojení">Návod pro kamaráda</button><a class="jam-note" href="${GUIDE}" target="_blank" rel="noopener">otevřít</a></div>
       <div class="jam-note">Pošli odkaz kamarádovi (zprávou). Otevře ho v Chromu (Mac i Windows) — musí být ve tvém Tailscale (sdílené zařízení). Napsat si můžete v chatu níž.</div>
       <div class="jam-v" id="jam-vbox"><span id="jam-vnone">kamarádova kamera</span><video id="jam-vfr" autoplay playsinline hidden></video><video class="me" id="jam-vme" autoplay playsinline muted hidden></video></div>
       <div class="jam-row">
@@ -97,6 +107,7 @@ const Jam = (() => {
       <audio id="jam-voice-el" autoplay></audio>`;
     if(cfg.buf && b.querySelector("#jam-buf")) b.querySelector("#jam-buf").value = String(cfg.buf);
     const q = (id) => b.querySelector("#" + id);
+    q("jam-guide").onclick = copyGuide;
     q("jam-copy").onclick = () => { navigator.clipboard.writeText(st.url).then(() => showToast("Odkaz zkopírovaný — pošli ho kamarádovi")); };
     q("jam-cam").onclick = async (e) => { try{ await link.setCamera(!link.local.camera); }catch(x){ showToast("Kameru se nepodařilo zapnout"); } paint(); };
     q("jam-voice").onclick = async () => { try{ await link.setVoice(!link.local.voice); }catch(x){ showToast("Mikrofon se nepodařilo zapnout"); } paint(); };
@@ -231,6 +242,10 @@ const Jam = (() => {
     }
   }
   setInterval(mount, 2000); setTimeout(mount, 500);
+  // Nastavení → Jam
+  setTimeout(() => { const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
+    if(c) c.onclick = copyGuide;
+    if(o) o.onclick = () => { const x = document.getElementById("settings-close"); if(x) x.click(); open(); }; }, 0);
   // a room left on (Pick reloaded): back in it
   fetch("/api/jam/status").then(r => r.json()).then(async (d) => { st = d; if(d.on){ build(); await connect(); } }).catch(() => {});
   return {open, isOn: () => !!st.on, link: () => link};
