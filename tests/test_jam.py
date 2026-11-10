@@ -221,3 +221,12 @@ def test_a_take_of_the_friend_makes_his_print(client, monkeypatch, tmp_music_roo
     assert r.status_code == 200 and seen == {"name": "Band - Song", "start": 10.0, "end": 22.0, "who": "Kamarád", "size": len(buf.getvalue())}
     assert g.post("/g/take?k=secret-key&name=Band%20-%20Song&start=10&end=22", content=b"nope" * 400).status_code == 400
     assert g.post("/g/take?k=wrong&name=Band%20-%20Song&start=10&end=22", content=buf.getvalue()).status_code == 403
+
+
+def test_the_browser_playlists_covers_and_preview_need_the_friend(client, tmp_music_root):
+    g = TestClient(jam.gate)
+    for u in ("/g/playlists", "/g/art?name=Band%20-%20Song", "/g/preview?name=Band%20-%20Song"):
+        assert g.get(u).status_code == 403                                   # no key, no login: nothing
+    assert g.get("/g/playlists?k=secret-key").json() == {"playlists": []} or "playlists" in g.get("/g/playlists?k=secret-key").json()
+    assert g.get("/g/preview?k=secret-key&name=..%2F..").status_code == 404
+    assert g.get("/g/art?k=secret-key&name=..%2Fx").status_code == 404

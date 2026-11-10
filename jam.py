@@ -45,6 +45,8 @@ router = APIRouter()
 stems_dir: Callable[[str], Optional[Path]] = lambda name: None
 stem_file: Callable[[Path, str], Optional[Path]] = lambda d, s: None
 ffmpeg: Callable[[], str] = lambda: "ffmpeg"
+music_file: Callable[[str], Optional[Path]] = lambda rel: None      # a file under the music root, by its rel
+range_file: Callable = lambda path, rng: FileResponse(path)          # Pick's own: a file served by ranges (a seek in <audio>)
 main_app = None                     # Pick's own app: the friend's page reads from it, through _pick() and an allow-list
 friend_print: Callable = lambda *a, **k: {"error": "Otisky nejsou k dispozici.", "status": 503}
 
@@ -888,6 +890,78 @@ async def g_job(request: Request):
     r = await _pick("/api/tone/job")
     j = (r.json() if r.status_code == 200 else {}).get("job")
     return {"job": j}
+
+
+@gate.get("/g/playlists")
+async def g_playlists(request: Request):
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    r = await _pick("/api/setlists")
+    d = r.json() if r.status_code == 200 else []
+    rows = d if isinstance(d, list) else (d.get("setlists") or d.get("playlists") or [])
+    return {"playlists": [{"name": x.get("name") or "", "songs": [n for n in (x.get("songs") or []) if isinstance(n, str)]}
+                          for x in rows if isinstance(x, dict) and x.get("songs")]}
+
+
+@gate.get("/g/art")
+async def g_art(request: Request, name: str):
+    """The song's picture: its own cover, or the album's found online (then the browser goes there itself)."""
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    if not _song_ok(name):
+        return Response(status_code=404)
+    r = await _pick(f"/api/stems/{_q(name, safe='')}/art")
+    url = (r.json() if r.status_code == 200 else {}).get("url")
+    if not url:
+        return Response(status_code=404)
+    if url.startswith("/api/stems/"):
+        img = await _pick(f"/api/stems/{_q(name, safe='')}/art/image")
+        return Response(img.content, status_code=img.status_code, media_type=img.headers.get("content-type") or "image/jpeg",
+                        headers={"Cache-Control": "private, max-age=86400"})
+    if url.startswith("https://"):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url, status_code=302, headers={"Cache-Control": "private, max-age=86400"})
+    return Response(status_code=404)
+
+
+@gate.get("/g/preview")
+async def g_preview(request: Request, name: str):
+    """The whole song in one small file, to listen to before it is picked (seekable)."""
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    if not _song_ok(name):
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    r = await _pick(f"/api/stems/{_q(name, safe='')}/preview")
+    if r.status_code == 200 and (r.headers.get("content-type") or "").startswith("audio/"):
+        # Pick hands the file itself (a small m4a): kept as it is, served by ranges
+        ext = ".m4a" if "mp4" in r.headers.get("content-type", "") or r.content[4:8] == b"ftyp" else ".audio"
+        out = STEM_CACHE / f"pv-{hashlib.sha1(name.encode() + str(len(r.content)).encode()).hexdigest()[:16]}{ext}"
+        if not out.is_file():
+            STEM_CACHE.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(r.content)
+        return range_file(out, request.headers.get("range"))
+    try:
+        rel = (r.json() if r.status_code == 200 else {}).get("rel")
+    except ValueError:
+        rel = None
+    f = music_file(rel) if rel else None
+    if f is None or not f.is_file():
+        return JSONResponse({"error": "Náhled není k dispozici."}, status_code=404)
+    sig = hashlib.sha1(f"{f}:{f.stat().st_mtime}".encode()).hexdigest()[:16]
+    out = STEM_CACHE / f"pv-{sig}.webm"
+    if not out.is_file():
+        STEM_CACHE.mkdir(parents=True, exist_ok=True)
+        part = out.with_suffix(".part.webm")
+        got = await asyncio.to_thread(subprocess.run, [ffmpeg(), "-v", "error", "-y", "-i", str(f), "-vn", "-ac", "2", "-ar", "48000", "-c:a", "libopus",
+                                                         "-b:a", "96k", "-f", "webm", str(part)], capture_output=True, timeout=600)
+        if got.returncode != 0 or not part.is_file():
+            part.unlink(missing_ok=True)
+            return JSONResponse({"error": "Náhled se nepodařilo připravit."}, status_code=500)
+        part.replace(out)
+    return range_file(out, request.headers.get("range"))
 
 
 # ---- the host's settings (Nastavení → Jam): names and passwords, the host's own name

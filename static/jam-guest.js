@@ -127,26 +127,123 @@
   }
   function showMedia(m){
     const big = $("vBig"), cam = $("vCam");
-    const scr = m.screen && m.screen.getVideoTracks()[0] && !m.screen.getVideoTracks()[0].muted ? m.screen : null;
-    if(scr){ if(big.srcObject !== scr) big.srcObject = scr; big.hidden = false; $("pickNone").hidden = true; } else { big.hidden = true; $("pickNone").hidden = false; }
+    const scr = m.screen && link && link.remoteShare ? m.screen : null;    // what the host says, not whether frames come (a still screen sends none)
+    if(scr){ if(big.srcObject !== scr){ big.srcObject = scr; big.play().catch(() => {}); } $("pz").hidden = false; $("ztools").hidden = false; $("pickNone").hidden = true; }
+    else { $("pz").hidden = true; $("ztools").hidden = true; $("pickNone").hidden = false; }
     if(m.camera){ if(cam.srcObject !== m.camera) cam.srcObject = m.camera; cam.hidden = false; } else cam.hidden = true;
     if(m.voice && $("voice").srcObject !== m.voice) $("voice").srcObject = m.voice;
   }
+  let zoom = 1;
+  function setZoom(z, ax, ay){
+    const pz = $("pz"), v = $("vBig"), r = pz.getBoundingClientRect();
+    const fx = ax == null ? 0.5 : (ax - r.left) / r.width, fy = ay == null ? 0.5 : (ay - r.top) / r.height;
+    const cx = (pz.scrollLeft + fx * r.width) / (pz.scrollWidth || 1), cy = (pz.scrollTop + fy * r.height) / (pz.scrollHeight || 1);
+    zoom = Math.max(1, Math.min(4, Math.round(z * 10) / 10));
+    pz.classList.toggle("zoomed", zoom > 1); v.style.width = zoom * 100 + "%";
+    $("zVal").textContent = Math.round(zoom * 100) + " %";
+    requestAnimationFrame(() => { pz.scrollLeft = cx * pz.scrollWidth - fx * r.width; pz.scrollTop = cy * pz.scrollHeight - fy * r.height; });
+  }
+  $("zIn").onclick = () => setZoom(zoom + 0.25); $("zOut").onclick = () => setZoom(zoom - 0.25); $("zFit").onclick = () => setZoom(1);
+  $("zFull").onclick = () => { document.fullscreenElement ? document.exitFullscreen() : $("vPick").requestFullscreen().catch(() => {}); };
+  $("pz").addEventListener("wheel", (e) => { if(!e.ctrlKey && !e.metaKey) return; e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY); }, {passive: false});
+  $("pz").onpointerdown = (e) => { const pz = $("pz"); if(zoom <= 1) return; pz.setPointerCapture(e.pointerId); pz.classList.add("drag");
+    const x0 = e.clientX, y0 = e.clientY, l0 = pz.scrollLeft, t0 = pz.scrollTop;
+    pz.onpointermove = (ev) => { pz.scrollLeft = l0 - (ev.clientX - x0); pz.scrollTop = t0 - (ev.clientY - y0); };
+    pz.onpointerup = () => { pz.onpointermove = null; pz.classList.remove("drag"); }; };
+  $("pz").ondblclick = (e) => setZoom(zoom > 1 ? 1 : 2, e.clientX, e.clientY);
+  document.addEventListener("keydown", (e) => { if(view === "pick" && (e.key === "f" || e.key === "F") && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("zFull").click(); });
+
+  // the mix folded away, for more of the text or the shared screen
+  const foldMix = (on) => { $("rack").classList.toggle("folded", on); $("mixFold").textContent = on ? "Mix ▸" : "Mix ▾"; store("mixFold", on); };
+  foldMix(!!store("mixFold")); $("mixFold").onclick = () => foldMix(!$("rack").classList.contains("folded"));
+
+  // the side panel's width, the chat's height: by hand, remembered
+  function dragSize(handle, onMove){
+    handle.onpointerdown = (e) => { handle.setPointerCapture(e.pointerId); const x0 = e.clientX, y0 = e.clientY, st = onMove.start();
+      handle.onpointermove = (ev) => onMove.move(st, ev.clientX - x0, ev.clientY - y0);
+      handle.onpointerup = () => { handle.onpointermove = null; onMove.end && onMove.end(); }; };
+  }
+  const side = () => parseInt(getComputedStyle(document.querySelector("main")).gridTemplateColumns) || 320;
+  if(store("sideW")) document.documentElement.style.setProperty("--side-w", store("sideW") + "px");
+  dragSize($("rsSide"), {start: side, move: (w0, dx) => { const w = Math.max(240, Math.min(620, w0 + dx)); document.documentElement.style.setProperty("--side-w", w + "px"); store("sideW", w); }});
+  if(store("chatH")) $("chat").style.setProperty("--jc-h", store("chatH") + "px");
+  dragSize($("rsChat"), {start: () => (parseInt(getComputedStyle($("chat")).getPropertyValue("--jc-h")) || 220), move: (h0, dx, dy) => {
+    const h = Math.max(90, Math.min(window.innerHeight * 0.75, h0 - dy)); $("chat").style.setProperty("--jc-h", h + "px"); store("chatH", Math.round(h)); }});
 
   // ---------------------------------------------------------------- the host's Steems
+  // ---------------------------------------------------------------- the host's Steems: all, by band, by tuning, by playlist
+  const NF = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+  const nn = (m) => NF[((m % 12) + 12) % 12];
+  function tuneName(t){
+    if(!Array.isArray(t) || t.length < 4) return "neznámé ladění";
+    const a = [...t].sort((x, y) => x - y), iv = a.slice(1).map((v, i) => v - a[i]).join(",");
+    if(iv === "5,5,5,4,5") return a[0] === 40 ? "E standard" : `${nn(a[0])} standard`;
+    if(iv === "7,5,5,4,5") return `Drop ${nn(a[0])}`;
+    if(iv === "5,5,5,5,4,5") return `${nn(a[0])} standard · 7 strun`;
+    if(iv === "7,5,5,5,4,5") return `Drop ${nn(a[0])} · 7 strun`;
+    return a.map(nn).join(" ");
+  }
+  const SB = {cat: store("cat") || "all", open: new Set(), shown: 60, playlists: []};
   async function loadSongs(){
     try{ songs = (await getJ("/g/songs")).songs || []; }catch(e){ $("slist").innerHTML = `<div class="bad">${esc(e.message)}</div>`; return; }
+    songs.forEach(s => { s.tune = tuneName(s.tuning); s.key = fold(s.artist + " " + s.title + " " + s.name); });
     songs.sort((a, b) => fold(a.artist + a.title).localeCompare(fold(b.artist + b.title)));
+    try{ SB.playlists = (await getJ("/g/playlists")).playlists || []; }catch(e){}
+    document.querySelectorAll("#cats [data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === SB.cat));
     paintSongs();
+  }
+  const art = (name) => withK(`/g/art?name=${encodeURIComponent(name)}`);
+  const rowHtml = (s) => `<button class="row ${S && S.name === s.name ? "cur" : ""} ${PV.name === s.name ? "pv" : ""}" data-n="${esc(s.name)}" title="Klik = náhled jen pro tebe · dvojklik = hrát spolu">
+      <img class="cv" loading="lazy" src="${art(s.name)}" onerror="this.removeAttribute('src')" alt=""><span class="tx"><b>${esc(s.title)}</b><span>${esc(s.artist || "")}${s.duration ? " · " + mmss(s.duration) : ""}</span></span>
+      <span class="tn" title="Ladění">${esc(s.tune.replace(" standard", " std"))}</span></button>`;
+  function groupsOf(list){
+    if(SB.cat === "band"){ const m = new Map(); list.forEach(s => { const k = s.artist || "Neznámý interpret"; if(!m.has(k)) m.set(k, []); m.get(k).push(s); });
+      return [...m].sort((a, b) => fold(a[0]).localeCompare(fold(b[0]))); }
+    if(SB.cat === "tune"){ const m = new Map(); list.forEach(s => { if(!m.has(s.tune)) m.set(s.tune, []); m.get(s.tune).push(s); });
+      return [...m].sort((a, b) => b[1].length - a[1].length); }
+    if(SB.cat === "pl"){ const by = new Map(list.map(s => [s.name, s]));
+      return SB.playlists.map(p => [p.name, p.songs.map(n => by.get(n)).filter(Boolean)]).filter(g => g[1].length); }
+    return null;
   }
   function paintSongs(){
     const words = fold($("find").value).split(/\s+/).filter(Boolean);
-    const got = songs.filter(s => { const t = fold(s.artist + " " + s.title + " " + s.name); return words.every(w => t.includes(w)); });
-    $("slist").innerHTML = got.slice(0, 400).map(s => `<button data-n="${esc(s.name)}" class="${S && S.name === s.name ? "cur" : ""}"><b>${esc(s.title)}</b><span>${esc(s.artist || "")}${s.duration ? " · " + mmss(s.duration) : ""}</span></button>`).join("")
-      + (got.length > 400 ? `<div class="muted">… a dalších ${got.length - 400} — upřesni hledání</div>` : got.length ? "" : `<div class="muted">Nic nenalezeno.</div>`);
-    $("slist").querySelectorAll("[data-n]").forEach(b => b.onclick = () => { ctl({do: "load", name: b.dataset.n}); $("songSt").textContent = `${me.host} načítá píseň…`; });
+    const got = words.length ? songs.filter(s => words.every(w => s.key.includes(w))) : songs;
+    $("sCount").textContent = `· ${got.length}`;
+    const groups = groupsOf(got), box = $("slist");
+    if(!groups){
+      box.innerHTML = got.slice(0, SB.shown).map(rowHtml).join("") + (got.length > SB.shown ? `<button class="more" id="more">Další písně (${got.length - SB.shown})</button>` : got.length ? "" : `<div class="muted">Nic nenalezeno.</div>`);
+    } else {
+      const auto = words.length && got.length <= 40;
+      box.innerHTML = groups.map(([g, list]) => { const open = auto || SB.open.has(SB.cat + ":" + g);
+        return `<button class="grp" data-g="${esc(g)}"><span class="ar">${open ? "▾" : "▸"}</span>${SB.cat === "band" ? `<img class="cv" loading="lazy" src="${art(list[0].name)}" onerror="this.removeAttribute('src')" alt="">` : ""}<span>${esc(g)}</span><span class="n">${list.length}</span></button>`
+          + (open ? list.slice(0, 200).map(rowHtml).join("") : ""); }).join("") || `<div class="muted">Nic nenalezeno.</div>`;
+    }
+    box.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { const k = SB.cat + ":" + b.dataset.g; SB.open.has(k) ? SB.open.delete(k) : SB.open.add(k); paintSongs(); });
+    box.querySelectorAll(".row[data-n]").forEach(b => { b.onclick = () => preview(b.dataset.n); b.ondblclick = () => playTogether(b.dataset.n); });
+    const more = $("more"); if(more) more.onclick = () => { SB.shown += 100; paintSongs(); };
   }
-  $("find").oninput = paintSongs;
+  let findT = 0;
+  $("find").oninput = () => { clearTimeout(findT); findT = setTimeout(() => { SB.shown = 60; paintSongs(); }, 150); };
+  document.querySelectorAll("#cats [data-c]").forEach(b => b.onclick = () => { SB.cat = b.dataset.c; store("cat", SB.cat); SB.shown = 60;
+    document.querySelectorAll("#cats [data-c]").forEach(x => x.classList.toggle("on", x === b)); paintSongs(); });
+
+  // a song heard before it is picked: only here, the whole song in one small file, to move around in
+  const PV = {name: null}, pa = $("pvAudio");
+  function preview(name){
+    const s = songs.find(x => x.name === name); if(!s) return;
+    PV.name = name; $("pvBox").hidden = false;
+    $("pvCv").src = art(name); $("pvT").textContent = s.title; $("pvA2").textContent = `${s.artist || ""} · ${s.tune}`;
+    $("pvGo").textContent = `Hrát spolu s ${me.host}`;
+    pa.src = withK(`/g/preview?name=${encodeURIComponent(name)}`); pa.volume = 0.9;
+    pa.play().catch(() => {}); $("pvPlay").textContent = "…";
+    paintSongs();
+  }
+  pa.onplaying = () => { $("pvPlay").textContent = "❚❚"; }; pa.onpause = () => { $("pvPlay").textContent = "▶"; };
+  pa.ontimeupdate = () => { if(pa.duration){ $("pvSeek").value = Math.round(pa.currentTime / pa.duration * 1000); $("pvTime").textContent = `${mmss(pa.currentTime)} / ${mmss(pa.duration)}`; } };
+  $("pvPlay").onclick = () => { pa.paused ? pa.play().catch(() => {}) : pa.pause(); };
+  $("pvSeek").oninput = () => { if(pa.duration) pa.currentTime = $("pvSeek").value / 1000 * pa.duration; };
+  function playTogether(name){ pa.pause(); ctl({do: "load", name}); $("songSt").textContent = `${me.host} načítá píseň…`; }
+  $("pvGo").onclick = () => PV.name && playTogether(PV.name);
   const ctl = (o) => link && link.send({type: "ctl", ...o});
 
   // ---------------------------------------------------------------- the song as the host's Pick has it
@@ -206,7 +303,7 @@
     const mine = mixOf(loaded), host = Object.fromEntries((info.channels || []).map(c => [c.stem, c]));
     mix.ch.forEach(c => {
       const h = host[c.stem] || {}, o = mine[c.stem] || {};
-      mix.set(c.stem, {v: o.v ?? (h.faderValue ?? 1), p: o.p ?? (h.panValue || 0), m: o.m ?? !!h.muted, s: o.s ?? !!h.solo});
+      mix.set(c.stem, {v: o.v ?? (h.faderValue ?? 1), t: o.t ?? 0, p: o.p ?? (h.panValue || 0), m: o.m ?? !!h.muted, s: o.s ?? !!h.solo});
     });
   }
   const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0}, store("mine") || {});
@@ -218,50 +315,99 @@
     $("drive").value = MY.drive; $("driveV").textContent = MY.drive + " dB";
     store("mine", MY);
   }
-  const dbOf = (v) => v <= 0.01 ? "−∞" : ((v >= 1 ? "+" : "") + (20 * Math.log10(v)).toFixed(1)).replace("+0.0", "0.0").replace("-", "−");
-  const panOf = (p) => p > 0.05 ? "R" + Math.round(p * 100) : p < -0.05 ? "L" + Math.round(-p * 100) : "C";
+  // ---- a console's channels: gain and pan knobs, a fader on a dB scale, a meter for each side, clip
+  const TAPER = [[6, 1], [0, 0.8], [-5, 0.69], [-10, 0.58], [-15, 0.49], [-20, 0.41], [-30, 0.29], [-40, 0.19], [-60, 0.07]];
+  function posOfDb(db){ if(!isFinite(db) || db <= -60) return db <= -90 || !isFinite(db) ? 0 : 0.07 * (db + 90) / 30;
+    for(let i = 0; i + 1 < TAPER.length; i++){ const [a, pa_] = TAPER[i], [b, pb] = TAPER[i + 1]; if(db <= a && db >= b) return pb + (db - b) / (a - b) * (pa_ - pb); } return 1; }
+  function dbOfPos(p){ if(p <= 0.005) return -Infinity; if(p < 0.07) return -90 + p / 0.07 * 30;
+    for(let i = 0; i + 1 < TAPER.length; i++){ const [a, pa_] = TAPER[i], [b, pb] = TAPER[i + 1]; if(p <= pa_ && p >= pb) return b + (p - pb) / (pa_ - pb) * (a - b); } return 6; }
+  const lin2db = (v) => v <= 0.00001 ? -Infinity : 20 * Math.log10(v), db2lin = (d) => isFinite(d) ? Math.pow(10, d / 20) : 0;
+  const fmtDb = (d) => !isFinite(d) || d < -89 ? "−∞" : (d > 0.05 ? "+" : d < -0.05 ? "−" : "") + Math.abs(d).toFixed(1);
+  const panTxt = (p) => p > 0.02 ? "R" + Math.round(p * 100) : p < -0.02 ? "L" + Math.round(-p * 100) : "C";
+  const COL = {drums: "#ff6b6b", bass: "#4f8bff", guitar: "#f6c344", guitar_solo: "#ffb347", guitar_rhythm: "#e8d16a", vocals: "#e9e9ff", piano: "#4ad3a5", other: "#b28bff"};
+  const SCALE = [6, 0, -5, -10, -15, -20, -30, -40, -60];
+  function knobSvg(f, center){
+    const a0 = -135, a = a0 + f * 270, r = 13, cx = 17, cy = 17, pt = (deg) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)];
+    const arc = (from, to) => { const [x1, y1] = pt(from), [x2, y2] = pt(to); return `M${x1} ${y1} A${r} ${r} 0 ${Math.abs(to - from) > 180 ? 1 : 0} ${to > from ? 1 : 0} ${x2} ${y2}`; };
+    const s0 = center ? 0 : a0, [hx, hy] = pt(a);
+    return `<svg viewBox="0 0 34 34"><path d="${arc(-135, 135)}" stroke="#2a2a36" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      ${Math.abs(a - s0) > 1 ? `<path d="${arc(Math.min(s0, a), Math.max(s0, a))}" stroke="var(--sc,#8b5cf6)" stroke-width="3.2" fill="none" stroke-linecap="round"/>` : ""}
+      <circle cx="17" cy="17" r="9.5" fill="#23232e" stroke="#3a3a48"/><line x1="17" y1="17" x2="${17 + (hx - 17) * 0.62}" y2="${17 + (hy - 17) * 0.62}" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`;
+  }
+  // a knob: key, label, min, max, value, text, reset value, centred (pan)
+  const knob = (k, label, min, max, val, txt, def, center) => `<div class="kn" data-kn="${k}" data-min="${min}" data-max="${max}" data-def="${def}" data-c="${center ? 1 : 0}" title="${label} — táhni nahoru/dolů, dvojklik = výchozí">
+      ${knobSvg((val - min) / (max - min), center)}<span class="kl">${label}</span><span class="kv">${txt}</span></div>`;
+  const fader = (k, v, maxDb) => { const p = posOfDb(lin2db(v)) * 100;
+    return `<div class="fb"><div class="sc">${SCALE.filter(d => d <= maxDb).map(d => `<i style="bottom:calc(${posOfDb(d) * 100}% * (164 - 8) / 164 + 4px)">${d > 0 ? "+" + d : d}</i>`).join("")}</div>
+      <div class="mt"><b><i></i><em></em></b><b><i></i><em></em></b></div>
+      <div class="ft" data-ft="${k}" data-max="${maxDb}" title="Hlasitost — táhni, kolečko = jemně, dvojklik = 0 dB"><div class="u" style="height:calc(${p}% * (164 - 8) / 164)"></div><div class="cap" style="bottom:calc(${p}% * (164 - 8) / 164 + 4px)"></div></div></div>`; };
   function renderRack(){
     const rack = $("rack"); if(!mix) return;
-    const strips = mix.ch.map(c => `<div class="strip" data-st="${esc(c.stem)}"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div>
-        <div class="fz"><div class="led"><i></i></div><input type="range" min="0" max="1.4" step="0.01" value="${c.v}" data-k="v" title="Hlasitost — jen u tebe (dvojklik = 0 dB)"><div class="led"><i></i></div></div>
-        <div class="db">${dbOf(c.v)} dB</div><input type="range" class="pan" min="-1" max="1" step="0.02" value="${c.p}" data-k="p" title="Panorama ${panOf(c.p)} (dvojklik = střed)">
-        <div class="ms"><button class="m ${c.m ? "on" : ""}" data-k="m" title="Ztlumit">M</button><button class="s ${c.s ? "on" : ""}" data-k="s" title="Sólo">S</button></div></div>`).join("");
-    rack.innerHTML = strips + `<div class="strip host" data-st="@host"><div class="nm">${esc(me.host)}</div><div class="sub">jeho kytara</div>
-        <div class="fz"><div class="led"><i></i></div><input type="range" min="0" max="2" step="0.01" value="${MY.hv}" data-k="hv" title="Hlasitost kytary ${esc(me.host)} (dvojklik = 0 dB)"><div class="led"><i></i></div></div>
-        <div class="db">${dbOf(MY.hv)} dB</div><input type="range" class="pan" min="-1" max="1" step="0.02" value="${MY.hp}" data-k="hp" title="Panorama">
+    const stemStrip = (c) => `<div class="strip" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#8b5cf6"}"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><div class="sub">stopa</div>
+        <div class="knobs">${knob("t", "GAIN", -12, 12, c.t || 0, fmtDb(c.t || 0) + " dB", 0)}${knob("p", "PAN", -1, 1, c.p, panTxt(c.p), 0, true)}</div>
+        <div class="clip"></div>${fader("v", c.v, 6)}<div class="dbv">${fmtDb(lin2db(c.v))} dB</div>
+        <div class="ms"><button class="m ${c.m ? "on" : ""}" data-k="m" title="Ztlumit (jen u tebe)">M</button><button class="s ${c.s ? "on" : ""}" data-k="s" title="Sólo (jen u tebe)">S</button></div></div>`;
+    rack.innerHTML = mix.ch.map(stemStrip).join("") + `<div class="strip host" data-st="@host" style="--sc:#6ee7a0"><div class="nm">${esc(me.host)}</div><div class="sub">jeho kytara</div>
+        <div class="knobs">${knob("hp", "PAN", -1, 1, MY.hp, panTxt(MY.hp), 0, true)}</div>
+        <div class="clip"></div>${fader("hv", MY.hv, 6)}<div class="dbv">${fmtDb(lin2db(MY.hv))} dB</div>
         <div class="ms"><button class="m ${MY.hm ? "on" : ""}" data-k="hm" title="Ztlumit">M</button></div></div>
-      <div class="strip me" data-st="@me"><div class="nm">${esc(me.user || "Já")}</div><div class="sub">moje kytara</div>
+      <div class="strip me" data-st="@me" style="--sc:#a78bfa"><div class="nm">${esc(me.user || "Já")}</div><div class="sub">moje kytara</div>
         <button class="snd" id="sndBtn" title="Otisk, zesilovač, vlastní otisk">🎸 ${esc(amp ? amp.label : "Čistý zvuk")}</button>
-        <div class="row"><span>Gain</span><input type="range" min="-12" max="24" step="0.5" value="${MY.ing}" data-k="ing" title="Vstupní zesílení zvukovky"><span>${MY.ing > 0 ? "+" : ""}${MY.ing}</span></div>
-        <div class="row"><span>Drive</span><input type="range" min="-24" max="12" step="0.5" value="${MY.drive}" data-k="drive" title="Jak silně jde kytara do zesilovače / otisku"><span>${MY.drive > 0 ? "+" : ""}${MY.drive}</span></div>
-        <div class="fz" style="height:70px"><div class="led"><i></i></div><input type="range" min="0" max="2" step="0.01" value="${MY.mv}" data-k="mv" style="height:70px" title="Jak hlasitě se slyšíš (jen u tebe)"><div class="led"><i></i></div></div>
-        <input type="range" class="pan" min="-1" max="1" step="0.02" value="${MY.mp}" data-k="mp" title="Panorama tvé kytary u tebe">
+        <div class="knobs">${knob("ing", "GAIN", -12, 24, MY.ing, fmtDb(MY.ing) + " dB", 0)}${knob("drive", "DRIVE", -24, 12, MY.drive, fmtDb(MY.drive), 0)}${knob("mp", "PAN", -1, 1, MY.mp, panTxt(MY.mp), 0, true)}</div>
+        <div class="clip"></div>${fader("mv", MY.mv, 6)}<div class="dbv">${fmtDb(lin2db(MY.mv))} dB</div>
         <div class="ms"><button class="m ${MY.mm ? "on" : ""}" data-k="mm" title="Neslyšet se">M</button></div></div>`;
-    rack.querySelectorAll(".strip").forEach(st => {
-      const id = st.dataset.st;
-      st.querySelectorAll("[data-k]").forEach(el => {
-        const k = el.dataset.k;
-        const put = (val) => {
-          if(id[0] === "@"){ MY[k] = val; applyMine(); }
-          else { const all = mixOf(loaded), o = all[id] = all[id] || {}; o[k] = val; store("mix-" + loaded, all); mix.set(id, {[k]: val}); }
-        };
-        if(el.tagName === "BUTTON"){ el.onclick = () => { const c = id[0] === "@" ? MY[k] : (mix.ch.find(x => x.stem === id) || {})[k]; put(!c); renderRack(); }; return; }
-        el.oninput = () => { put(+el.value); const db = st.querySelector(".db"); if(db && (k === "v" || k === "hv")) db.textContent = dbOf(+el.value) + " dB";
-          const sp = el.nextElementSibling; if(sp && sp.tagName === "SPAN" && (k === "ing" || k === "drive")) sp.textContent = (+el.value > 0 ? "+" : "") + el.value; };
-        el.ondblclick = () => { const d = k === "p" || k === "hp" || k === "mp" || k === "ing" || k === "drive" ? 0 : 1; el.value = d; put(d); renderRack(); };
-      });
-    });
+    rack.querySelectorAll(".strip").forEach(wireStrip);
     const sb = $("sndBtn"); if(sb) sb.onclick = openSound;
   }
-  function meters(){
-    $("rack").querySelectorAll(".strip").forEach(st => {
-      const id = st.dataset.st;
-      const p = id === "@host" ? link.level() : id === "@me" ? peakOf(meterA) : mix.level(id);
-      const h = Math.min(100, Math.sqrt(p) * 100);
-      st.querySelectorAll(".led i").forEach(i => { i.style.height = h + "%"; i.style.background = p > 0.95 ? "var(--bad)" : p > 0.5 ? "var(--warn)" : "var(--ok)"; });
-    });
+  function putVal(id, k, val){
+    if(id[0] === "@"){ MY[k] = val; applyMine(); return; }
+    const all = mixOf(loaded), o = all[id] = all[id] || {}; o[k] = val; store("mix-" + loaded, all); mix.set(id, {[k]: val});
   }
+  const getVal = (id, k) => id[0] === "@" ? MY[k] : (mix.ch.find(x => x.stem === id) || {})[k];
+  function wireStrip(st){
+    const id = st.dataset.st;
+    st.querySelectorAll("button[data-k]").forEach(b => b.onclick = () => { putVal(id, b.dataset.k, !getVal(id, b.dataset.k)); renderRack(); });
+    st.querySelectorAll(".kn").forEach(kn => {
+      const k = kn.dataset.kn, min = +kn.dataset.min, max = +kn.dataset.max, def = +kn.dataset.def, center = kn.dataset.c === "1";
+      const paint = (v) => { kn.querySelector("svg").outerHTML = knobSvg((v - min) / (max - min), center);
+        kn.querySelector(".kv").textContent = center ? panTxt(v) : fmtDb(v) + (k === "drive" ? "" : " dB"); };
+      const set = (v) => { v = Math.max(min, Math.min(max, v)); v = center ? Math.round(v * 50) / 50 : Math.round(v * 2) / 2; putVal(id, k, v); paint(v); };
+      kn.onpointerdown = (e) => { kn.setPointerCapture(e.pointerId); const y0 = e.clientY, v0 = +getVal(id, k) || 0;
+        kn.onpointermove = (ev) => set(v0 + (y0 - ev.clientY) / (ev.shiftKey ? 600 : 150) * (max - min)); kn.onpointerup = () => { kn.onpointermove = null; }; };
+      kn.ondblclick = () => set(def);
+      kn.onwheel = (e) => { e.preventDefault(); set((+getVal(id, k) || 0) + (e.deltaY < 0 ? 1 : -1) * (max - min) / (center ? 50 : 48)); };
+    });
+    st.querySelectorAll(".ft").forEach(ft => {
+      const k = ft.dataset.ft, maxDb = +ft.dataset.max;
+      const show = (v) => { const p = posOfDb(lin2db(v)) * 100; ft.querySelector(".u").style.height = `calc(${p}% * (164 - 8) / 164)`; ft.querySelector(".cap").style.bottom = `calc(${p}% * (164 - 8) / 164 + 4px)`;
+        st.querySelector(".dbv").textContent = fmtDb(lin2db(v)) + " dB"; };
+      const setDb = (d) => { d = Math.min(maxDb, d); const v = d < -89 ? 0 : db2lin(d); putVal(id, k, v); show(v); };
+      const fromY = (y) => { const r = ft.getBoundingClientRect(); return dbOfPos(Math.max(0, Math.min(1, (r.bottom - 4 - y) / (r.height - 8)))); };
+      ft.onpointerdown = (e) => { ft.setPointerCapture(e.pointerId);
+        if(!e.target.classList.contains("cap")) setDb(fromY(e.clientY));
+        const y0 = e.clientY, p0 = posOfDb(lin2db(+getVal(id, k)));
+        ft.onpointermove = (ev) => { const r = ft.getBoundingClientRect(); setDb(dbOfPos(Math.max(0, Math.min(1, p0 + (y0 - ev.clientY) / (r.height - 8) * (ev.shiftKey ? 0.25 : 1))))); };
+        ft.onpointerup = () => { ft.onpointermove = null; }; };
+      ft.ondblclick = () => setDb(0);
+      ft.onwheel = (e) => { e.preventDefault(); const d = lin2db(+getVal(id, k)); setDb((isFinite(d) ? d : -60) + (e.deltaY < 0 ? 0.5 : -0.5)); };
+    });
+    const clip = st.querySelector(".clip"); if(clip) clip.onclick = () => { clip.classList.remove("on"); st._clip = false; };
+  }
+  // the meters, as smooth as the screen: falling slowly, a peak held a moment, clip until clicked
   function peakOf(an){ if(!an) return 0; const a = new Float32Array(an.fftSize); an.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p; }
+  function meters(){
+    if(mix && link) $("rack").querySelectorAll(".strip").forEach(st => {
+      const id = st.dataset.st;
+      const lr = id === "@host" ? [link.level(), link.level()] : id === "@me" ? [peakOf(meterA), peakOf(meterA)] : mix.levels(id);
+      const bars = st.querySelectorAll(".mt b"); st._m = st._m || [{v: 0, pk: 0, t: 0}, {v: 0, pk: 0, t: 0}];
+      lr.forEach((p, i) => { const m = st._m[i], pos = posOfDb(lin2db(p)), now = performance.now();
+        m.v = Math.max(pos, m.v - 0.025); if(pos >= m.pk || now - m.t > 1200){ m.pk = pos; m.t = now; }
+        if(bars[i]){ bars[i].firstElementChild.style.height = m.v * 100 + "%"; bars[i].lastElementChild.style.bottom = m.pk * 100 + "%"; }
+        if(p >= 0.99 && !st._clip){ st._clip = true; const c = st.querySelector(".clip"); if(c) c.classList.add("on"); } });
+    });
+    requestAnimationFrame(meters);
+  }
+  requestAnimationFrame(meters);
 
   // ---------------------------------------------------------------- text, chords, sections
   let lyrIdx = -2;
@@ -443,7 +589,6 @@
       if(L && dur){ lp.hidden = false; lp.style.left = L.start / dur * 100 + "%"; lp.style.width = (L.end - L.start) / dur * 100 + "%"; lp.title = `Smyčka ${mmss(L.start)}–${mmss(L.end)} (zapnutá v Picku)`; } else lp.hidden = true;
       if(view === "lyr") lyricsAt(pos); else if(view === "chords") chordsAt(pos);
     }
-    meters();
   }
   window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat};
   boot();

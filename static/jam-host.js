@@ -32,7 +32,9 @@ const Jam = (() => {
   .jam-link{display:flex;gap:6px}.jam-link input{flex:1;min-width:0;background:#0e0e14;color:#cfe;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 8px;font:12px ui-monospace,monospace}
   .jam-l{display:flex;align-items:center;gap:8px}.jam-l span{min-width:88px;color:#9a9ab0}.jam-l input[type=range],.jam-l select{flex:1;min-width:0}
   .jam-l select{background:#0e0e14;color:#ececf3;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:4px 6px}
-  .jam-lat{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px}.jam-lat small{font-weight:500;color:#9a9ab0;font-size:11px;margin-left:6px}
+  .jam-lat{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;white-space:nowrap;min-width:200px;text-align:right;overflow:hidden}.jam-lat small{font-weight:500;color:#9a9ab0;font-size:11px;margin-left:6px}
+  #jam-route,#jam-gtr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:18px}
+  .jam .jam-row{flex-wrap:nowrap}
   .jam-m{height:5px;border-radius:3px;background:#222;overflow:hidden;flex:1}.jam-m i{display:block;height:100%;width:0;background:#6ee7a0}
   .jam-note{color:#9a9ab0;font-size:12px;line-height:1.45}.jam-note b{color:#ececf3}.jam-warn{color:#ffd166}.jam-err{color:#ff8a8a}
   .jam-guide summary{cursor:pointer;font-weight:700;margin:6px 0}.jam-guide ol{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
@@ -213,7 +215,10 @@ const Jam = (() => {
     if(kind === "msg" && v && v.type === "ctl"){ onCtl(v); return; }
     if(kind === "msg" && chat) chat.onMsg(v);
     if(kind === "peer" && jf) jfPaint();
-    if(kind === "peer" || kind === "conn" || kind === "ready"){ if(box && !box.hidden) paint(); if(kind === "ready" && v) sendSong(true);
+    if(kind === "peer" || kind === "conn" || kind === "ready"){
+      // the panel is not built again (its videos would blink): only what says where the link is
+      if(box && !box.hidden){ if(st.on && box.querySelector("#jam-url")){ box.querySelector("#jam-sub").textContent = link && link.peerOn ? `${names.guest || "kamarád"} je tu` : "čekám na kamaráda"; showVideos(); } else paint(); }
+      if(kind === "ready" && v) sendSong(true);
       if(kind === "peer" && v) showToast("Kamarád se připojil k jamu"); }
     if(kind === "media") showVideos();
     if(kind === "screen") paint();

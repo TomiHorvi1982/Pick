@@ -182,14 +182,15 @@
       if(this.local.screen){ this.local.screen.stop(); this.local.screen = null; }
       if(on){ const s = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: {ideal: 15}, width: {ideal: 1920}}, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
         const t = this.local.screen = s.getVideoTracks()[0]; t.contentHint = "detail";
-        t.onended = () => { if(this.local.screen === t){ this.local.screen = null; this.putLane(3, null); this.on("screen", false); } }; }
-      this.putLane(3, this.local.screen); return this.local.screen;
+        t.onended = () => { if(this.local.screen === t){ this.local.screen = null; this.putLane(3, null); this.ctl({type: "share", on: false}); this.on("screen", false); } }; }
+      this.putLane(3, this.local.screen); this.ctl({type: "share", on: !!this.local.screen}); return this.local.screen;
     }
 
     // ---- the control channel: clocks, mode, the sound cards
     ctl(o){ if(this.cc && this.cc.readyState === "open") this.cc.send(JSON.stringify(o)); }
     hello(){
       const c = this.ctx;
+      if(this.local && this.local.screen) setTimeout(() => this.ctl({type: "share", on: true}), 300);
       this.ctl({type: "hello", rate: c.sampleRate, lat: (c.outputLatency || 0) + (c.baseLatency || 0), inLat: c.baseLatency || 0, mode: this.role === "host" ? this.mode : undefined});
     }
     onCtl(m){
@@ -208,6 +209,7 @@
         return;
       }
       if(m.type === "mode"){ this.setMode(m.mode, true); return; }
+      if(m.type === "share"){ this.remoteShare = !!m.on; this.on("media", this.media); return; }
       this.on("ctl", m);
     }
     // the friend's performance.now() for one of ours

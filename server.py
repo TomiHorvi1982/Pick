@@ -12072,6 +12072,8 @@ _jam.stems_dir = lambda name: (lambda d: d if d is not None and d.is_dir() else 
 _jam.stem_file = _stem_file
 _jam.ffmpeg = ffmpeg_bin
 _jam.main_app = app
+_jam.music_file = lambda rel: _resolve_under_music_root(rel)
+_jam.range_file = lambda path, rng: _range_file_response(path, rng)
 _jam.friend_print = jam_friend_print
 app.include_router(_jam.router)
 

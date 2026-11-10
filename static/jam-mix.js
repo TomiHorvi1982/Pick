@@ -28,9 +28,11 @@
         if(my !== this.token) return false;
       }
       this.ch = got.map(({stem, buf}) => {
-        const gain = this.ctx.createGain(), pan = this.ctx.createStereoPanner(), an = this.ctx.createAnalyser();
-        an.fftSize = 512; gain.connect(pan); pan.connect(an); an.connect(this.bus);
-        return {stem, buf, gain, pan, an, out: an, v: 1, p: 0, m: false, s: false, src: null, stretch: null, semis: 0};
+        // gain (trim) → fader → pan → out, and a meter for each side
+        const gain = this.ctx.createGain(), pan = this.ctx.createStereoPanner(), split = this.ctx.createChannelSplitter(2);
+        const anL = this.ctx.createAnalyser(), anR = this.ctx.createAnalyser();
+        anL.fftSize = anR.fftSize = 512; gain.connect(pan); pan.connect(this.bus); pan.connect(split); split.connect(anL, 0); split.connect(anR, 1);
+        return {stem, buf, gain, pan, anL, anR, out: pan, v: 1, t: 0, p: 0, m: false, s: false, src: null, stretch: null, semis: 0};
       });
       this.applyGains();
       return my === this.token;
@@ -39,12 +41,13 @@
     set(stem, o){ const c = this.ch.find(x => x.stem === stem); if(!c) return; Object.assign(c, o); if("p" in o) c.pan.pan.value = c.p; this.applyGains(); }
     applyGains(){
       const solo = this.ch.some(c => c.s);
-      this.ch.forEach(c => { const on = !c.m && (!solo || c.s); c.gain.gain.setTargetAtTime(on ? c.v : 0, this.ctx.currentTime, 0.015); });
+      this.ch.forEach(c => { const on = !c.m && (!solo || c.s); c.gain.gain.setTargetAtTime(on ? c.v * Math.pow(10, (c.t || 0) / 20) : 0, this.ctx.currentTime, 0.015); });
     }
-    level(stem){
-      const c = this.ch.find(x => x.stem === stem); if(!c) return 0;
-      const a = new Float32Array(c.an.fftSize); c.an.getFloatTimeDomainData(a);
-      let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p;
+    // the peak of each side, now
+    levels(stem){
+      const c = this.ch.find(x => x.stem === stem); if(!c) return [0, 0];
+      const pk = (an) => { const a = new Float32Array(an.fftSize); an.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p; };
+      return [pk(c.anL), pk(c.anR)];
     }
     // where the song is at a moment of this audio clock (the last start that came before it)
     songAt(t){
