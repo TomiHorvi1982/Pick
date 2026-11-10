@@ -32,9 +32,16 @@
   }
   async function start(){
     $("joinErr").textContent = "";
+    // the microphone (sound card) is needed; the camera is not — a PC without one, or with it busy, still plays
+    if(!window.isSecureContext || !navigator.mediaDevices){
+      $("joinErr").innerHTML = "Stránka není otevřená zabezpečeně, takže prohlížeč k mikrofonu nepustí. Otevři odkaz <b>přesně tak, jak přišel</b> (začíná <b>https://</b> a končí <b>.ts.net</b>), ne přes IP adresu."; return;
+    }
     try{
-      const probe = await navigator.mediaDevices.getUserMedia({audio: true, video: true}); probe.getTracks().forEach(t => t.stop());
-    }catch(e){ $("joinErr").textContent = "Bez povolení kamery a mikrofonu to nepůjde — povol je v Chromu (ikona vlevo v adrese)."; return; }
+      const probe = await navigator.mediaDevices.getUserMedia({audio: true}); probe.getTracks().forEach(t => t.stop());
+    }catch(e){ $("joinErr").innerHTML = micHelp(e); return; }
+    let camOk = true, camNote = "";
+    try{ const v = await navigator.mediaDevices.getUserMedia({video: true}); v.getTracks().forEach(t => t.stop()); }
+    catch(e){ camOk = false; camNote = camHelp(e); }
     ctx = new AudioContext({latencyHint: 0});
     await devices();
     inGain = ctx.createGain(); inGain.gain.value = +$("inVol").value;
@@ -46,11 +53,32 @@
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
       onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});
     await link.start(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?k=${encodeURIComponent(K)}`);
-    await useGuitar(); link.setInput(inGain);
+    try{ await useGuitar(); }
+    catch(e){ $("inDev").value = ""; store("in", ""); await useGuitar(); }        // the input remembered is gone: the default one
+    link.setInput(inGain);
     const b = store("buf"); if(b){ $("buf").value = b; applyBuf(); }
-    try{ const t = await link.setCamera(true, $("camDev").value); showMe(t); }catch(e){ $("camBtn").classList.remove("on"); }
+    if(camOk){ try{ const t = await link.setCamera(true, $("camDev").value); showMe(t); }catch(e){ $("camBtn").classList.remove("on"); } }
+    else $("camBtn").classList.remove("on");
     $("join").hidden = true; chat.check();
+    if(camNote){ const n = document.createElement("div"); n.className = "camnote"; n.textContent = camNote + " ✕";
+      n.style.cssText = "position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:6;background:#2a2230;border:1px solid #6b4d7a;color:#f0e6ff;padding:8px 14px;border-radius:10px;font-size:13px;cursor:pointer;max-width:90vw";
+      n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), 15000); }
     setInterval(ui, 250); setInterval(syncBacking, 500);
+  }
+  // why the browser said no — and what to do, on a Mac and on Windows
+  function micHelp(e){
+    const n = e && e.name;
+    if(n === "NotAllowedError" || n === "SecurityError") return "Mikrofon je zablokovaný. 1) V Chromu klikni na ikonu vlevo v adrese → Mikrofon: <b>Povolit</b> → obnov stránku. "
+      + "2) Na <b>Windows</b> ho může blokovat i systém: Nastavení → Ochrana osobních údajů a zabezpečení → <b>Mikrofon</b> → zapni „Přístup k mikrofonu“ i „Povolit desktopovým aplikacím přístup k mikrofonu“. "
+      + "Na Macu: Nastavení systému → Soukromí a zabezpečení → Mikrofon → Google Chrome.";
+    if(n === "NotFoundError" || n === "OverconstrainedError") return "Chrome nevidí žádný mikrofon ani zvukovku. Připoj zvukovku (nebo mikrofon) a obnov stránku; na Windows zkontroluj, že ji vidí Nastavení → Systém → Zvuk → Vstup.";
+    if(n === "NotReadableError" || n === "AbortError") return "Mikrofon nebo zvukovka je obsazená jiným programem nebo ji Windows nepustí. Zavři Teams, Zoom, Discord, DAW či ovládací panel zvukovky (u ASIO ovladačů) a obnov stránku.";
+    return "Mikrofon se nepodařilo otevřít (" + (n || "chyba") + "). Obnov stránku a zkus to znovu.";
+  }
+  function camHelp(e){
+    const n = e && e.name;
+    const why = n === "NotFoundError" ? "kamera nenalezena" : n === "NotReadableError" ? "kamera je obsazená jiným programem" : n === "NotAllowedError" ? "kamera je zablokovaná (Chrome nebo Windows: Ochrana osobních údajů → Kamera)" : (n || "chyba");
+    return "Jedeme bez kamery — " + why + ". Hrát a mluvit jde i tak; kameru zapneš tlačítkem, až bude volná.";
   }
   function showMe(track){ const v = $("vMe"); if(track){ v.srcObject = new MediaStream([track]); v.hidden = false; } else { v.srcObject = null; v.hidden = true; } }
   function applyBuf(){ const v = $("buf").value; store("buf", v); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); }
