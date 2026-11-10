@@ -97,3 +97,13 @@ def test_the_chat_keeps_messages_and_tells_delivered_read_and_typing(client):
         assert [m["id"] for m in hi["chat"]] == ["m1", "g1"] and hi["read"]["guest"]["id"] == "m1" and hi["seen"] > 0
     client.post("/api/jam/stop")
     assert jam.ROOM["chat"] == []
+
+
+def test_tailscale_is_asked_as_from_a_terminal(monkeypatch):
+    """The app's binary answers as the command line only with TERM set — Pick runs without one."""
+    seen = {}
+    monkeypatch.delenv("TERM", raising=False)
+    monkeypatch.setattr(jam, "_ts_bin", lambda: "/x/Tailscale")
+    monkeypatch.setattr(jam.subprocess, "run", lambda cmd, **kw: seen.update(cmd=cmd, env=kw.get("env")) or subprocess.CompletedProcess(cmd, 0, "{}", ""))
+    jam._ts("status", "--json")
+    assert seen["cmd"] == ["/x/Tailscale", "status", "--json"] and seen["env"]["TERM"]

@@ -81,7 +81,10 @@ def _ts(*args, timeout: float = 15) -> subprocess.CompletedProcess:
     b = _ts_bin()
     if not b:
         raise FileNotFoundError("tailscale")
-    return subprocess.run([b, *args], capture_output=True, text=True, timeout=timeout)
+    # The app's binary acts as the command line only when run from a terminal (it looks at TERM); Pick runs in the
+    # background without one, and the binary would try to open its window instead — and fail.
+    env = {**os.environ, "TERM": os.environ.get("TERM") or "xterm-256color"}
+    return subprocess.run([b, *args], capture_output=True, text=True, timeout=timeout, env=env)
 
 
 def tailscale_state() -> dict:
