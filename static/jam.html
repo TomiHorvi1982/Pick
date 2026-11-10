@@ -117,6 +117,32 @@
   .dbv{font-size:11px;font-variant-numeric:tabular-nums;color:#e5e5ee;background:#0b0b11;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:1px 7px;min-width:62px;text-align:center}
   .ms{display:flex;gap:4px}.ms button{padding:2px 8px;font-size:11px;font-weight:800;border-radius:6px}
   .ms button.m.on{background:#ff8a65;border-color:#ff8a65;color:#111}.ms button.s.on{background:#ffd166;border-color:#ffd166;color:#111}
+  .strip .hd{display:flex;align-items:center;gap:3px;width:100%;justify-content:center}
+  .strip .fold{border:0;background:none;padding:0 3px;color:var(--dim);font-size:11px;line-height:1}
+  .strip.mini{width:34px;padding:8px 3px}.strip.mini>*:not(.hd):not(.fb){display:none}.strip.mini .hd .nm{writing-mode:vertical-rl;transform:rotate(180deg);max-height:70px}
+  .strip.mini .hd{flex-direction:column}.strip.mini .fb{grid-template-columns:10px;height:120px}.strip.mini .fb .sc,.strip.mini .fb .ft{display:none}
+  .tools{display:flex;gap:4px;width:100%}.tools button{flex:1;font-size:11px;padding:4px 2px;border-radius:7px}
+  .tools button.on{background:rgba(139,92,246,.3);border-color:var(--acc);color:#fff;font-weight:700}
+  .step{display:grid;grid-template-columns:22px 1fr 22px;gap:3px;width:100%}.step button{padding:4px 0;font-size:11px}
+  .pop{position:fixed;z-index:25;background:var(--panel);border:1px solid rgba(139,92,246,.5);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:12px;display:flex;flex-direction:column;gap:10px}
+  .pop .ph{display:flex;align-items:center;gap:8px}.pop .ph b{flex:1}
+  .eqc{width:420px;height:150px;background:#0b0b11;border-radius:10px;border:1px solid var(--line)}
+  .eqb{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .eqb .b{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--dim)}
+  .eqb input[type=range]{writing-mode:vertical-lr;direction:rtl;height:110px;width:22px}
+  .eqb input[type=number]{width:62px;background:#0e0e14;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:2px 4px;font-size:11px;text-align:center}
+  .tun{width:360px;align-items:center;text-align:center}
+  .tun .note{font-size:76px;font-weight:900;line-height:1}.tun .note small{font-size:22px;color:var(--dim);margin-left:4px}
+  .tun .hz{color:var(--dim);font-variant-numeric:tabular-nums}
+  .gauge{position:relative;width:320px;height:36px;border-radius:8px;background:linear-gradient(90deg,#ff6b6b22,#ffd16622 35%,#6ee7a055 47%,#6ee7a055 53%,#ffd16622 65%,#ff6b6b22)}
+  .gauge i{position:absolute;top:2px;bottom:2px;width:4px;margin-left:-2px;border-radius:2px;background:#fff;left:50%;transition:left .08s}
+  .gauge::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:#6ee7a0}
+  .tstr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.tstr span{border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-weight:700}.tstr span.on{border-color:var(--ok);color:var(--ok)}
+  .tabsv{position:absolute;inset:0;display:flex;flex-direction:column}
+  .tbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .tbody{flex:1;overflow:auto;background:#f6f4ee;color:#111}
+  .tcard{max-width:560px;margin:30px auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .tcard a.big{display:inline-block;text-align:center;text-decoration:none;border-radius:10px}
   .me .snd{width:100%;font-size:11.5px;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-color:rgba(139,92,246,.45)}
   .drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);background:var(--panel);border-left:1px solid var(--line);z-index:20;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
   .drawer .dh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}.drawer .dh b{flex:1;font-size:15px}
@@ -163,10 +189,11 @@
         <span class="knob" title="Tónina — mění se oběma"><button id="kDn">−</button><span id="key">tónina 0</span><button id="kUp">+</button></span>
       </div></div>
     <div class="seek" id="seek" title="Klikni a píseň skočí — oběma"><div class="secs" id="secs"></div><div class="loopr" id="loopR" hidden></div><div class="head" id="head"></div></div>
-    <div class="views"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="pick">Pick (taby)</button><span class="sp"></span><button id="mixFold" title="Sbalit / rozbalit mix">Mix ▾</button></div>
+    <div class="views"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick">Pick (taby)</button><span class="sp"></span><button id="mixFold" title="Sbalit / rozbalit mix">Mix ▾</button></div>
     <div class="view">
       <div class="lyr" id="vLyr"><p class="muted">Text se objeví, až bude vybraná píseň.</p></div>
       <div class="chords" id="vChords" hidden><div class="now" id="chNow">—</div><div class="next" id="chNext"></div></div>
+      <div class="tabsv" id="vTabs" hidden><div class="tbar" id="tabBar"></div><div class="tbody" id="tabBody"><div class="muted" style="padding:20px">Vyber píseň.</div></div></div>
       <div class="pickv" id="vPick" hidden><span id="pickNone">Až kamarád v Picku klikne „Sdílet Pick“, uvidíš tu jeho obrazovku s taby a akordy.</span>
         <div class="pz" id="pz" hidden><video id="vBig" autoplay playsinline muted></video></div>
         <div class="ztools" id="ztools" hidden><button id="zOut" title="Oddálit (Ctrl + kolečko)">−</button><span id="zVal">100 %</span><button id="zIn" title="Přiblížit (Ctrl + kolečko)">+</button>

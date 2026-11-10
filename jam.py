@@ -390,8 +390,9 @@ def guest_static(name: str):
 
 
 # the engines the friend's page runs too: the time-stretch (tempo, key) and NAM (his amp, his print)
-LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam"}
-LIB_TYPES = {".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json"}
+LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab"}
+LIB_TYPES = {".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json",
+             ".woff": "font/woff", ".woff2": "font/woff2", ".otf": "font/otf", ".eot": "application/vnd.ms-fontobject", ".svg": "image/svg+xml"}
 
 
 @gate.get("/static/{lib}/{name:path}")
@@ -962,6 +963,63 @@ async def g_preview(request: Request, name: str):
             return JSONResponse({"error": "Náhled se nepodařilo připravit."}, status_code=500)
         part.replace(out)
     return range_file(out, request.headers.get("range"))
+
+
+# ---- the song's tabs: the host's own Guitar Pro files linked to it (sent, drawn on the friend's page), and the
+# Songsterr ones only as a link — the friend opens them at Songsterr himself; their data is not passed on
+TAB_EXTS = {".gp", ".gp3", ".gp4", ".gp5", ".gpx", ".gp7", ".xml", ".musicxml", ".mxl"}
+_TABS: Dict = {"at": 0.0, "rows": []}
+
+
+def _fold(t: str) -> str:
+    import unicodedata
+    return " ".join("".join(c for c in unicodedata.normalize("NFD", (t or "").lower()) if c.isalnum() or c == " ").split())
+
+
+async def _tabs_of(name: str) -> list:
+    if time.time() - _TABS["at"] > 300:
+        r = await _pick("/api/tabfiles/list")
+        _TABS.update(at=time.time(), rows=(r.json() if r.status_code == 200 else {}).get("files") or [])
+    row = next((x for x in _SONGS["rows"] if x["name"] == name), None) or {}
+    art, tit = _fold(row.get("artist", "").split(",")[0]), _fold(row.get("title", ""))
+    out = []
+    for f in _TABS["rows"]:
+        if not isinstance(f, dict):
+            continue
+        hit = name in (f.get("usedWith") or []) or (tit and _fold(f.get("title")) == tit and (not art or _fold(f.get("artist")) == art))
+        if not hit:
+            continue
+        if f.get("ext") == "songsterr" and isinstance(f.get("songsterr"), dict):
+            sid = f["songsterr"].get("songId")
+            if isinstance(sid, int) and not any(o.get("songsterr") == sid for o in out):
+                out.append({"kind": "songsterr", "songsterr": sid, "name": f.get("name") or "", "url": f"https://www.songsterr.com/a/wa/song?id={sid}"})
+        elif Path(f.get("path") or "").suffix.lower() in TAB_EXTS:
+            out.append({"kind": "file", "path": f["path"], "name": f.get("name") or Path(f["path"]).stem})
+    return out
+
+
+@gate.get("/g/tabs")
+async def g_tabs(request: Request, name: str):
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    if not _song_ok(name):
+        return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
+    if not _SONGS["rows"]:
+        await g_songs(request)
+    return {"tabs": await _tabs_of(name)}
+
+
+@gate.get("/g/tabfile")
+async def g_tabfile(request: Request, name: str, path: str):
+    """A Guitar Pro / MusicXML file of the host's — only one the song is linked to."""
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    if not _song_ok(name) or not any(t["kind"] == "file" and t["path"] == path for t in await _tabs_of(name)):
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    r = await _pick("/api/tabfiles/file", {"path": path})
+    return Response(r.content, status_code=r.status_code, media_type="application/octet-stream")
 
 
 # ---- the host's settings (Nastavení → Jam): names and passwords, the host's own name

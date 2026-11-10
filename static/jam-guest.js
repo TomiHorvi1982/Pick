@@ -17,6 +17,7 @@
   function toast(t, ms){ const n = document.createElement("div"); n.className = "toast"; n.textContent = t; n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), ms || 5000); }
 
   let me = {user: null, login: false, host: "Kamarád"}, ctx = null, link = null, chat = null, mix = null, amp = null;
+  let eqNodes = [], tunA = null;
   let inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, monPan = null, myOut = null, meterA = null;
   let songs = [], S = null, loaded = null, loading = null, info = null, lyrics = [], view = "lyr", syncing = false;
   const MIX = {};                               // per song: {stem: {v, p, m, s}}
@@ -92,7 +93,11 @@
     await devices();
     // his guitar: in → gain → the sound (clean / print / amp) → out: heard here (monitor, pan) and sent to the host
     inGain = ctx.createGain(); amp = new JamAmp(ctx, api); inGain.connect(amp.input);
-    myOut = ctx.createGain(); amp.output.connect(myOut);
+    myOut = ctx.createGain();
+    eqNodes = EQ_DEF.map(b => { const f = ctx.createBiquadFilter(); f.type = b.type; return f; });
+    amp.output.connect(eqNodes[0]); for(let i = 0; i + 1 < eqNodes.length; i++) eqNodes[i].connect(eqNodes[i + 1]); eqNodes[eqNodes.length - 1].connect(myOut);
+    applyEq();
+    tunA = ctx.createAnalyser(); tunA.fftSize = 4096; inGain.connect(tunA);
     monGain = ctx.createGain(); monPan = ctx.createStereoPanner(); myOut.connect(monGain); monGain.connect(monPan); monPan.connect(ctx.destination);
     meterA = ctx.createAnalyser(); meterA.fftSize = 512; inGain.connect(meterA);
     mix = new JamMix(ctx, api, ctx.destination);
@@ -306,7 +311,7 @@
       mix.set(c.stem, {v: o.v ?? (h.faderValue ?? 1), t: o.t ?? 0, p: o.p ?? (h.panValue || 0), m: o.m ?? !!h.muted, s: o.s ?? !!h.solo});
     });
   }
-  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0}, store("mine") || {});
+  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null}, store("mine") || {});
   function applyMine(){
     if(!link || !amp) return;
     link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp);
@@ -343,21 +348,27 @@
       <div class="ft" data-ft="${k}" data-max="${maxDb}" title="Hlasitost — táhni, kolečko = jemně, dvojklik = 0 dB"><div class="u" style="height:calc(${p}% * (164 - 8) / 164)"></div><div class="cap" style="bottom:calc(${p}% * (164 - 8) / 164 + 4px)"></div></div></div>`; };
   function renderRack(){
     const rack = $("rack"); if(!mix) return;
-    const stemStrip = (c) => `<div class="strip" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#8b5cf6"}"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><div class="sub">stopa</div>
+    const stemStrip = (c) => `<div class="strip ${MINI.has(c.stem) ? "mini" : ""}" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#8b5cf6"}"><div class="hd"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has(c.stem) ? "+" : "–"}</button></div><div class="sub">stopa</div>
         <div class="knobs">${knob("t", "GAIN", -12, 12, c.t || 0, fmtDb(c.t || 0) + " dB", 0)}${knob("p", "PAN", -1, 1, c.p, panTxt(c.p), 0, true)}</div>
         <div class="clip"></div>${fader("v", c.v, 6)}<div class="dbv">${fmtDb(lin2db(c.v))} dB</div>
         <div class="ms"><button class="m ${c.m ? "on" : ""}" data-k="m" title="Ztlumit (jen u tebe)">M</button><button class="s ${c.s ? "on" : ""}" data-k="s" title="Sólo (jen u tebe)">S</button></div></div>`;
-    rack.innerHTML = mix.ch.map(stemStrip).join("") + `<div class="strip host" data-st="@host" style="--sc:#6ee7a0"><div class="nm">${esc(me.host)}</div><div class="sub">jeho kytara</div>
+    rack.innerHTML = mix.ch.map(stemStrip).join("") + `<div class="strip host ${MINI.has("@host") ? "mini" : ""}" data-st="@host" style="--sc:#6ee7a0"><div class="hd"><div class="nm">${esc(me.host)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has("@host") ? "+" : "–"}</button></div><div class="sub">jeho kytara</div>
         <div class="knobs">${knob("hp", "PAN", -1, 1, MY.hp, panTxt(MY.hp), 0, true)}</div>
         <div class="clip"></div>${fader("hv", MY.hv, 6)}<div class="dbv">${fmtDb(lin2db(MY.hv))} dB</div>
         <div class="ms"><button class="m ${MY.hm ? "on" : ""}" data-k="hm" title="Ztlumit">M</button></div></div>
-      <div class="strip me" data-st="@me" style="--sc:#a78bfa"><div class="nm">${esc(me.user || "Já")}</div><div class="sub">moje kytara</div>
-        <button class="snd" id="sndBtn" title="Otisk, zesilovač, vlastní otisk">🎸 ${esc(amp ? amp.label : "Čistý zvuk")}</button>
+      <div class="strip me ${MINI.has("@me") ? "mini" : ""}" data-st="@me" style="--sc:#a78bfa"><div class="hd"><div class="nm">${esc(me.user || "Já")}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has("@me") ? "+" : "–"}</button></div><div class="sub">moje kytara</div>
+        <div class="step"><button id="sPrev" title="Předchozí zvuk z naposledy použitých">◀</button><button class="snd" id="sndBtn" title="Otisk, zesilovač, vlastní otisk">🎸 ${esc(amp ? amp.label : "Čistý zvuk")}</button><button id="sNext" title="Další zvuk z naposledy použitých">▶</button></div>
+        <div class="tools"><button id="tPrints" title="Katalog otisků">Otisky</button><button id="tNam" title="NAM zesilovače a kabinety">NAM</button></div>
+        <div class="tools"><button id="tEq" class="${MY.eqOn ? "on" : ""}" title="Ekvalizér tvé kytary">EQ</button><button id="tTun" title="Ladička">Ladička</button></div>
         <div class="knobs">${knob("ing", "GAIN", -12, 24, MY.ing, fmtDb(MY.ing) + " dB", 0)}${knob("drive", "DRIVE", -24, 12, MY.drive, fmtDb(MY.drive), 0)}${knob("mp", "PAN", -1, 1, MY.mp, panTxt(MY.mp), 0, true)}</div>
         <div class="clip"></div>${fader("mv", MY.mv, 6)}<div class="dbv">${fmtDb(lin2db(MY.mv))} dB</div>
         <div class="ms"><button class="m ${MY.mm ? "on" : ""}" data-k="mm" title="Neslyšet se">M</button></div></div>`;
     rack.querySelectorAll(".strip").forEach(wireStrip);
-    const sb = $("sndBtn"); if(sb) sb.onclick = openSound;
+    rack.querySelectorAll(".strip .fold").forEach(b => b.onclick = () => { const id = b.closest(".strip").dataset.st; MINI.has(id) ? MINI.delete(id) : MINI.add(id); store("mini", [...MINI]); renderRack(); });
+    const sb = $("sndBtn"); if(sb) sb.onclick = () => openSound();
+    if($("tPrints")){ $("tPrints").onclick = () => openSound("prints"); $("tNam").onclick = () => openSound("amps");
+      $("tEq").onclick = (e) => openEq(e.currentTarget); $("tTun").onclick = (e) => openTuner(e.currentTarget);
+      $("sPrev").onclick = () => stepSound(-1); $("sNext").onclick = () => stepSound(1); }
   }
   function putVal(id, k, val){
     if(id[0] === "@"){ MY[k] = val; applyMine(); return; }
@@ -457,13 +468,14 @@
   });
   document.querySelectorAll(".views [data-v]").forEach(b => b.onclick = () => {
     view = b.dataset.v; document.querySelectorAll(".views [data-v]").forEach(x => x.classList.toggle("on", x === b));
-    $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; lyrIdx = -2;
+    $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; $("vTabs").hidden = view !== "tabs"; lyrIdx = -2;
+    if(view === "tabs") showTabs();
   });
 
   // ---------------------------------------------------------------- the sound of his guitar
   let prints = null;
   const ampSel = {model: "", ir: "", mname: "", iname: ""};
-  function openSound(){ $("sndD").hidden = false; $("setD").hidden = true; paintPrints(); }
+  function openSound(tab){ $("sndD").hidden = false; $("setD").hidden = true; paintPrints(); if(tab){ const b = document.querySelector(`.tabs [data-st="${tab}"]`); if(b) b.click(); } }
   document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => { $(b.dataset.close).hidden = true; });
   $("setBtn").onclick = () => { $("setD").hidden = !$("setD").hidden; $("sndD").hidden = true; };
   document.querySelectorAll(".tabs [data-st]").forEach(b => b.onclick = () => {
@@ -505,6 +517,7 @@
       else if(s.kind === "amp") await amp.setAmp(s.model, s.ir, s.name);
       else amp.clear();
       store("sound", s);
+      const k = JSON.stringify(s), h = (store("hist") || []).filter(x => JSON.stringify(x) !== k); h.unshift(s); store("hist", h.slice(0, 12)); HI = 0;
       if(!quiet) toast(amp.label);
     }catch(e){ toast(e.message); }
     $("sndNow").textContent = amp.label; renderRack();
@@ -564,6 +577,157 @@
     }, 2000);
   }
 
+  // ---------------------------------------------------------------- the strips folded, the sounds stepped through
+  const MINI = new Set(store("mini") || []);
+  let HI = 0;
+  function stepSound(d){
+    const h = store("hist") || []; if(h.length < 2){ toast("Zatím žádné další použité zvuky — vyber v Otiscích nebo NAM."); return; }
+    HI = (HI + d + h.length) % h.length; const s = h[HI];
+    const keep = store("hist"); useSound(s).then(() => { store("hist", keep); });          // stepping keeps the order
+  }
+
+  // ---------------------------------------------------------------- the EQ of his guitar: Pick's five bands
+  const EQ_DEF = [{type: "lowshelf", freq: 80, q: 0.7, color: "#ff5c8a"}, {type: "peaking", freq: 250, q: 1, color: "#ffb020"}, {type: "peaking", freq: 1000, q: 1, color: "#3ddc97"},
+    {type: "peaking", freq: 4000, q: 1, color: "#38bdf8"}, {type: "highshelf", freq: 10000, q: 0.7, color: "#a78bfa"}];
+  const EQ_PRESETS = [
+    ["Plochý (vše na nule)", [[80, 0, .7], [250, 0, 1], [1000, 0, 1], [4000, 0, 1], [10000, 0, .7]]],
+    ["Kytara — metal rytmika", [[90, -4, .7], [250, -3, 1.3], [700, -2, 1], [3000, 3, 1], [9000, -3, .7]]],
+    ["Kytara — sólo / lead", [[100, -3, .7], [400, -2, 1], [1500, 3, .9], [4000, 2, 1], [9000, -1, .7]]],
+    ["Kytara — čistá", [[90, -2, .7], [250, -1.5, 1], [1000, 0, 1], [3500, 2, 1], [10000, 3, .7]]],
+    ["Akustická kytara", [[100, -4, .7], [200, -3, 1.4], [1000, -1, 1], [5000, 2, 1], [12000, 3, .7]]],
+    ["Baskytara", [[60, 3, .7], [250, -3, 1.2], [800, 2, 1.2], [2500, 2, 1], [8000, -4, .7]]],
+    ["Telefon / lo-fi", [[300, -12, .7], [800, 2, 1], [1600, 5, 1.2], [3000, 2, 1], [4500, -12, .7]]]];
+  if(!Array.isArray(MY.eq) || MY.eq.length !== 5) MY.eq = EQ_DEF.map(b => [b.freq, 0, b.q]);
+  function applyEq(){ eqNodes.forEach((f, i) => { const [fr, g, q] = MY.eq[i]; f.frequency.value = fr; f.Q.value = q; f.gain.value = MY.eqOn ? g : 0; }); }
+  let pop = null;
+  function closePop(){ if(pop){ pop.remove(); pop = null; } }
+  function place(el, anchor){ document.body.appendChild(el); const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px"; el.style.top = Math.max(8, r.top - h - 10) + "px"; }
+  document.addEventListener("pointerdown", (e) => { if(pop && !pop.contains(e.target) && !e.target.closest("#tEq,#tTun")) closePop(); });
+  function openEq(anchor){
+    closePop(); pop = document.createElement("div"); pop.className = "pop";
+    const paint = () => {
+      pop.innerHTML = `<div class="ph"><b>Ekvalizér — moje kytara</b><label class="muted"><input type="checkbox" id="eqOn" ${MY.eqOn ? "checked" : ""}> zapnutý</label>
+          <select id="eqPre"><option value="">Presety…</option>${EQ_PRESETS.map(([n], i) => `<option value="${i}">${esc(n)}</option>`).join("")}</select><button id="eqX">✕</button></div>
+        <canvas class="eqc" id="eqC" width="840" height="300"></canvas>
+        <div class="eqb">${MY.eq.map(([f, g, q], i) => `<div class="b" style="--c:${EQ_DEF[i].color}"><b style="color:${EQ_DEF[i].color}">${g > 0 ? "+" : ""}${g.toFixed(1)} dB</b>
+          <input type="range" min="-15" max="15" step="0.5" value="${g}" data-i="${i}" data-k="1" style="accent-color:${EQ_DEF[i].color}">
+          <input type="number" min="20" max="20000" step="10" value="${Math.round(f)}" data-i="${i}" data-k="0" title="Frekvence (Hz)">
+          <input type="number" min="0.2" max="8" step="0.1" value="${q}" data-i="${i}" data-k="2" title="Šířka (Q)"></div>`).join("")}</div>
+        <div class="muted">Táhni posuvníky, dvojklik = 0 dB. Hz a Q se dají přepsat. Ekvalizér je za otiskem nebo zesilovačem a slyší ho i ${esc(me.host)}.</div>`;
+      pop.querySelector("#eqX").onclick = closePop;
+      pop.querySelector("#eqOn").onchange = (e) => { MY.eqOn = e.target.checked; applyEq(); applyMine(); curve(); const t = $("tEq"); if(t) t.classList.toggle("on", MY.eqOn); };
+      pop.querySelector("#eqPre").onchange = (e) => { if(e.target.value === "") return; MY.eq = EQ_PRESETS[+e.target.value][1].map(b => b.slice()); MY.eqOn = true; applyEq(); applyMine(); paint(); const t = $("tEq"); if(t) t.classList.add("on"); };
+      pop.querySelectorAll("[data-i]").forEach(el => {
+        const i = +el.dataset.i, k = +el.dataset.k;
+        el.oninput = () => { MY.eq[i][k] = +el.value; if(k === 1 && !MY.eqOn){ MY.eqOn = true; pop.querySelector("#eqOn").checked = true; const t = $("tEq"); if(t) t.classList.add("on"); }
+          applyEq(); applyMine(); curve(); if(k === 1) el.parentNode.querySelector("b").textContent = (MY.eq[i][1] > 0 ? "+" : "") + MY.eq[i][1].toFixed(1) + " dB"; };
+        if(k === 1) el.ondblclick = () => { el.value = 0; el.oninput(); };
+      });
+      curve();
+    };
+    const curve = () => {
+      const c = pop.querySelector("#eqC"); if(!c) return; const g = c.getContext("2d"), W = c.width, H = c.height, N = 200;
+      g.clearRect(0, 0, W, H); g.strokeStyle = "rgba(255,255,255,.07)"; g.lineWidth = 1;
+      const xOf = (f) => Math.log(f / 20) / Math.log(1000) * W, yOf = (db) => H / 2 - db / 18 * (H / 2);
+      [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach(f => { g.beginPath(); g.moveTo(xOf(f), 0); g.lineTo(xOf(f), H); g.stroke(); });
+      [-12, -6, 0, 6, 12].forEach(d => { g.beginPath(); g.moveTo(0, yOf(d)); g.lineTo(W, yOf(d)); g.stroke(); });
+      g.fillStyle = "#7d7d92"; g.font = "18px system-ui"; [[100, "100"], [1000, "1k"], [10000, "10k"]].forEach(([f, t]) => g.fillText(t, xOf(f) + 4, H - 8));
+      const fr = new Float32Array(N); for(let i = 0; i < N; i++) fr[i] = 20 * Math.pow(1000, i / (N - 1));
+      const tot = new Float32Array(N).fill(0), mag = new Float32Array(N), ph = new Float32Array(N);
+      eqNodes.forEach(f => { f.getFrequencyResponse(fr, mag, ph); for(let i = 0; i < N; i++) tot[i] += 20 * Math.log10(mag[i] || 1e-6); });
+      g.beginPath(); for(let i = 0; i < N; i++){ const x = i / (N - 1) * W, y = yOf(tot[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.strokeStyle = MY.eqOn ? "#a78bfa" : "#555"; g.lineWidth = 4; g.stroke();
+      MY.eq.forEach(([f, gg], i) => { g.fillStyle = EQ_DEF[i].color; g.beginPath(); g.arc(xOf(f), yOf(MY.eqOn ? gg : 0), 9, 0, 7); g.fill(); });
+    };
+    paint(); place(pop, anchor);
+  }
+
+  // ---------------------------------------------------------------- the tuner (Pick's YIN), on his guitar before the sound
+  const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  function yin(buf, sr, fmin, fmax){
+    const W = 2048, tauMax = Math.min(Math.floor(sr / fmin), buf.length - W - 1), tauMin = Math.floor(sr / fmax);
+    const d = new Float32Array(tauMax + 1); let run = 0, best = -1;
+    for(let tau = 1; tau <= tauMax; tau++){ let v = 0; for(let j = 0; j < W; j += 2){ const x = buf[j] - buf[j + tau]; v += x * x; } d[tau] = v; }
+    for(let tau = 1; tau <= tauMax; tau++){ run += d[tau]; d[tau] = run ? d[tau] * tau / run : 1; }
+    for(let tau = tauMin; tau <= tauMax; tau++) if(d[tau] < 0.12){ while(tau + 1 <= tauMax && d[tau + 1] < d[tau]) tau++; best = tau; break; }
+    if(best < 1) return null;
+    let t = best; if(best > 1 && best < tauMax){ const a = d[best - 1], b = d[best], c = d[best + 1], den = a - 2 * b + c; if(den) t = best + 0.5 * (a - c) / den; }
+    return {f: sr / t, conf: 1 - d[best]};
+  }
+  function openTuner(anchor){
+    closePop(); pop = document.createElement("div"); pop.className = "pop tun";
+    const row = songs.find(x => S && x.name === S.name), tune = (row && Array.isArray(row.tuning) ? [...row.tuning].sort((a, b) => a - b) : [40, 45, 50, 55, 59, 64]).map(m => m + ((S && S.key) || 0));
+    pop.innerHTML = `<div class="ph" style="width:100%"><b>Ladička</b><label class="muted"><input type="checkbox" id="tuMute" checked> neslyšet se při ladění</label><button id="tuX">✕</button></div>
+      <div class="note" id="tuN">—</div><div class="hz" id="tuHz">zahraj prázdnou strunu</div><div class="gauge"><i id="tuG"></i></div>
+      <div class="muted">Ladění písně${S && S.key ? ` (posunuté o ${S.key > 0 ? "+" : ""}${S.key})` : ""}:</div><div class="tstr" id="tuS">${tune.map(m => `<span data-m="${m}">${NOTES[((m % 12) + 12) % 12]}</span>`).join("")}</div>`;
+    place(pop, anchor);
+    const was = MY.mm; const mute = (on) => { MY.mm = on ? true : was; applyMine(); }; mute(true);
+    pop.querySelector("#tuMute").onchange = (e) => mute(e.target.checked);
+    const buf = new Float32Array(tunA.fftSize); let tm = 0, alive = true;
+    const end = () => { alive = false; mute(false); MY.mm = was; applyMine(); renderRack(); };
+    pop.querySelector("#tuX").onclick = () => { end(); closePop(); };
+    const obs = new MutationObserver(() => { if(!pop || !document.body.contains(pop)){ if(alive) end(); obs.disconnect(); } }); obs.observe(document.body, {childList: true});
+    const tick = () => {
+      if(!alive) return; tunA.getFloatTimeDomainData(buf);
+      let e = 0; for(let i = 0; i < buf.length; i += 4) e += buf[i] * buf[i];
+      const r = e / (buf.length / 4) > 1e-5 ? yin(buf, ctx.sampleRate, 30, 1200) : null;
+      if(r && r.conf > 0.85){
+        const midi = 69 + 12 * Math.log2(r.f / 440), m = Math.round(midi), cents = Math.round((midi - m) * 100);
+        pop.querySelector("#tuN").innerHTML = `${NOTES[((m % 12) + 12) % 12]}<small>${Math.floor(m / 12) - 1}</small>`;
+        pop.querySelector("#tuN").style.color = Math.abs(cents) <= 4 ? "var(--ok)" : Math.abs(cents) <= 15 ? "var(--warn)" : "var(--bad)";
+        pop.querySelector("#tuHz").textContent = `${r.f.toFixed(1).replace(".", ",")} Hz · ${cents > 0 ? "+" : ""}${cents} centů`;
+        pop.querySelector("#tuG").style.left = (50 + Math.max(-50, Math.min(50, cents))) + "%";
+        const near = tune.reduce((a, b) => Math.abs(b - midi) < Math.abs(a - midi) ? b : a, tune[0]);
+        pop.querySelectorAll("#tuS span").forEach(sp => sp.classList.toggle("on", +sp.dataset.m === near && Math.abs(near - midi) < 0.6));
+        tm = performance.now();
+      } else if(performance.now() - tm > 1500){ pop.querySelector("#tuN").textContent = "—"; pop.querySelector("#tuN").style.color = ""; }
+      setTimeout(tick, 60);
+    };
+    tick();
+  }
+
+  // ---------------------------------------------------------------- the song's tabs
+  const TABS = {name: null, list: [], api: null};
+  async function showTabs(){
+    if(!S || !S.name){ $("tabBody").innerHTML = `<div class="muted" style="padding:20px">Vyber píseň.</div>`; return; }
+    if(TABS.name !== S.name){
+      TABS.name = S.name; $("tabBar").innerHTML = ""; $("tabBody").innerHTML = `<div class="muted" style="padding:20px">Hledám taby…</div>`;
+      try{ TABS.list = (await getJ(`/g/tabs?name=${encodeURIComponent(S.name)}`)).tabs || []; }catch(e){ TABS.list = []; }
+      if(TABS.name !== S.name) return;
+      paintTabBar(TABS.list.find(t => t.kind === "file") || TABS.list[0]);
+    }
+  }
+  function paintTabBar(cur){
+    $("tabBar").innerHTML = TABS.list.map((t, i) => `<button data-t="${i}" class="${t === cur ? "on" : ""}">${t.kind === "file" ? "📄 " : "🌐 "}${esc(t.name || "Taby")}</button>`).join("")
+      + `<span class="muted" style="margin-left:auto">Tabulatura v Picku u ${esc(me.host)} živě: záložka „Pick (taby)“</span>`;
+    $("tabBar").querySelectorAll("[data-t]").forEach(b => b.onclick = () => paintTabBar(TABS.list[+b.dataset.t]));
+    if(!cur){ $("tabBody").innerHTML = `<div class="tcard"><b>K téhle písni žádné taby nemám.</b><span class="muted">Až ${esc(me.host)} v Picku otevře tab a klikne „Sdílet Pick“, uvidíš ho v záložce „Pick (taby)“.</span></div>`; return; }
+    if(cur.kind === "songsterr"){
+      $("tabBody").innerHTML = `<div class="tcard"><b>${esc(cur.name)}</b><span>Taby k téhle písni jsou na Songsterru — kytary, basa, bicí i ostatní nástroje, celá stránka. Otevřou se ti v nové kartě.</span>
+        <a class="big" href="${esc(cur.url)}" target="_blank" rel="noopener">Otevřít taby na Songsterru ↗</a>
+        <span class="muted">Taby přímo v Picku u ${esc(me.host)} (jak jdou s písní) uvidíš v záložce „Pick (taby)“, když je sdílí.</span></div>`;
+      return;
+    }
+    drawTabFile(cur);
+  }
+  async function drawTabFile(t){
+    $("tabBody").innerHTML = `<div class="muted" style="padding:20px">Kreslím tab…</div>`;
+    try{
+      if(!window.alphaTab) await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "/static/alphatab/alphaTab.min.js"; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+      const buf = await (await api.raw(`/g/tabfile?name=${encodeURIComponent(S.name)}&path=${encodeURIComponent(t.path)}`)).arrayBuffer();
+      $("tabBody").innerHTML = `<div style="display:flex;gap:6px;padding:8px 12px;align-items:center;background:#ece9e1;flex-wrap:wrap"><span style="font-size:12px">Nástroj:</span><select id="tabTrack"></select>
+        <button id="tabZo">−</button><button id="tabZi">+</button></div><div id="tabAt" style="padding:10px"></div>`;
+      const at = new alphaTab.AlphaTabApi($("tabAt"), {core: {fontDirectory: "/static/alphatab/font/", useWorkers: false}, display: {layoutMode: alphaTab.LayoutMode.Page, scale: store("tabScale") || 1}, player: {enablePlayer: false}});
+      TABS.api = at;
+      at.scoreLoaded.on((score) => { $("tabTrack").innerHTML = score.tracks.map((tr, i) => `<option value="${i}">${esc(tr.name || "Stopa " + (i + 1))}</option>`).join("") + `<option value="all">Všechny nástroje</option>`;
+        $("tabTrack").onchange = (e) => at.renderTracks(e.target.value === "all" ? score.tracks : [score.tracks[+e.target.value]]); });
+      const zoomBy = (d) => { const sc = Math.max(0.5, Math.min(2, (at.settings.display.scale || 1) + d)); at.settings.display.scale = sc; store("tabScale", sc); at.updateSettings(); at.render(); };
+      $("tabZo").onclick = () => zoomBy(-0.1); $("tabZi").onclick = () => zoomBy(0.1);
+      at.load(new Uint8Array(buf));
+    }catch(e){ $("tabBody").innerHTML = `<div class="tcard"><b>Tab se nepodařilo vykreslit.</b><span class="muted">${esc(e.message || "")}</span></div>`; }
+  }
+
   // ---------------------------------------------------------------- the rest of the controls, the loop
   $("inDev").onchange = $("inCh").onchange = () => useGuitar().catch(() => {});
   $("mon").onchange = () => applyMine();
@@ -590,6 +754,6 @@
       if(view === "lyr") lyricsAt(pos); else if(view === "chords") chordsAt(pos);
     }
   }
-  window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat};
+  window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat, input: () => inGain};
   boot();
 })();

@@ -2,6 +2,7 @@
 backing of the song being played — and nothing of it without the room's key."""
 import json
 import subprocess
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -230,3 +231,18 @@ def test_the_browser_playlists_covers_and_preview_need_the_friend(client, tmp_mu
     assert g.get("/g/playlists?k=secret-key").json() == {"playlists": []} or "playlists" in g.get("/g/playlists?k=secret-key").json()
     assert g.get("/g/preview?k=secret-key&name=..%2F..").status_code == 404
     assert g.get("/g/art?k=secret-key&name=..%2Fx").status_code == 404
+
+
+def test_tabs_songsterr_only_as_a_link_files_only_when_linked(client, monkeypatch, tmp_music_root):
+    (tmp_music_root / "Stems" / "Band - Song").mkdir(parents=True)
+    monkeypatch.setattr(jam, "_SONGS", {"at": time.time(), "rows": [{"name": "Band - Song", "artist": "Band", "title": "Song", "stems": ["drums"]}]})
+    monkeypatch.setattr(jam, "_TABS", {"at": time.time(), "rows": [
+        {"path": "songsterr:42", "ext": "songsterr", "name": "Band - Song", "artist": "Band", "title": "Song", "songsterr": {"songId": 42}},
+        {"path": "/tabs/band-song.gp5", "ext": "gp5", "name": "Band - Song", "artist": "Band", "title": "Song"},
+        {"path": "/tabs/other.gp5", "ext": "gp5", "name": "Other", "artist": "X", "title": "Other"}]})
+    g = TestClient(jam.gate)
+    assert g.get("/g/tabs?name=Band%20-%20Song").status_code == 403
+    tabs = g.get("/g/tabs?k=secret-key&name=Band%20-%20Song").json()["tabs"]
+    assert tabs == [{"kind": "songsterr", "songsterr": 42, "name": "Band - Song", "url": "https://www.songsterr.com/a/wa/song?id=42"},
+                    {"kind": "file", "path": "/tabs/band-song.gp5", "name": "Band - Song"}]
+    assert g.get("/g/tabfile?k=secret-key&name=Band%20-%20Song&path=%2Ftabs%2Fother.gp5").status_code == 404      # not this song's
