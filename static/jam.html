@@ -55,6 +55,7 @@
     <div class="card song"><h3>PÍSEŇ</h3><b id="song">—</b><span class="muted" id="songSt">čekám na kamaráda</span>
       <div class="stems" id="stems"></div>
       <label class="row"><span>Podklad</span><input type="range" id="bkVol" min="0" max="1.5" step="0.01" value="0.9"></label></div>
+    <div class="card"><h3>CHAT</h3><div id="chat"></div></div>
     <div class="card"><h3>ZVUK</h3>
       <label class="row"><span>Kytara z</span><select id="inDev"></select></label>
       <label class="row"><span>Kanál</span><select id="inCh"><option value="0">vstup 1</option><option value="1">vstup 2</option><option value="sum">oba</option></select></label>
@@ -81,6 +82,7 @@
 </div></div>
 <audio id="voice" autoplay></audio>
 <script src="/static/jam-engine.js"></script>
+<script src="/static/jam-chat.js"></script>
 <script src="/static/jam-guest.js"></script>
 </body>
 </html>

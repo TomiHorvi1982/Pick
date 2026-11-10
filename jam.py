@@ -32,7 +32,9 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 APP_DIR = Path(__file__).resolve().parent
 STATIC = APP_DIR / "static"
 GATE_PORT = 8766
-GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript"}
+GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript", "jam-chat.js": "text/javascript"}
+CHAT_KEEP = 300
+CHAT_MAX = 2000
 MIX_DIR = Path(tempfile.gettempdir()) / "pick-jam-mix"
 
 router = APIRouter()
@@ -59,6 +61,11 @@ class Peer:
 
 
 ROOM: Dict = {"key": None, "host": None, "guest": None, "song": None, "stems": [], "url": None, "started": 0}
+
+
+def _chat_reset() -> None:
+    """The chat of this room: the messages, what each of the two has read, when each was last here, away or not."""
+    ROOM.update(chat=[], read={}, seen={}, away={})
 _GATE: Dict = {"thread": None, "server": None}
 
 
@@ -192,9 +199,20 @@ async def _room(ws: WebSocket, role: str):
             pass
     me = Peer(ws)
     ROOM[role] = me
-    await me.send(json.dumps({"type": "hello", "role": role, "peer": bool(ROOM.get(other))}))
+    if "chat" not in ROOM:
+        _chat_reset()
+    # the other one's messages that waited for me: delivered now
+    waited = [m["id"] for m in ROOM["chat"] if m["from"] == other and not m["dlv"]]
+    for m in ROOM["chat"]:
+        if m["from"] == other:
+            m["dlv"] = True
+    ROOM["away"][role] = False
+    await me.send(json.dumps({"type": "hello", "role": role, "peer": bool(ROOM.get(other)), "chat": ROOM["chat"][-200:],
+                              "read": ROOM["read"], "seen": ROOM["seen"].get(other), "away": bool(ROOM["away"].get(other))}))
     if ROOM.get(other):
         await ROOM[other].send(json.dumps({"type": "peer", "on": True}))
+        if waited:
+            await ROOM[other].send(json.dumps({"type": "chat-dlv", "ids": waited}))
     try:
         while True:
             text = await ws.receive_text()
@@ -202,9 +220,25 @@ async def _room(ws: WebSocket, role: str):
                 msg = json.loads(text)
             except ValueError:
                 continue
-            if role == "host" and msg.get("type") == "song":
+            kind = msg.get("type") if isinstance(msg, dict) else None
+            if role == "host" and kind == "song":
                 ROOM["song"] = msg.get("name") or None
                 ROOM["stems"] = [s for s in (msg.get("stems") or []) if isinstance(s, str)][:12]
+            if kind == "chat":
+                await _chat_in(me, role, other, msg)
+                continue
+            if kind == "read":
+                mid = str(msg.get("id") or "")[:40]
+                if any(m["id"] == mid for m in ROOM["chat"]):
+                    ROOM["read"][role] = {"id": mid, "t": time.time()}
+                    text = json.dumps({"type": "read", "id": mid, "t": ROOM["read"][role]["t"]})
+                else:
+                    continue
+            if kind == "away":
+                ROOM["away"][role] = bool(msg.get("on"))
+                text = json.dumps({"type": "away", "on": ROOM["away"][role]})
+            if kind == "typing":
+                text = json.dumps({"type": "typing", "on": bool(msg.get("on"))})
             if ROOM.get(other):
                 await ROOM[other].send(text)
     except (WebSocketDisconnect, RuntimeError):
@@ -212,8 +246,28 @@ async def _room(ws: WebSocket, role: str):
     finally:
         if ROOM.get(role) is me:
             ROOM[role] = None
+            if "seen" in ROOM:
+                ROOM["seen"][role] = time.time()
+                ROOM["away"][role] = False
             if ROOM.get(other):
-                await ROOM[other].send(json.dumps({"type": "peer", "on": False}))
+                await ROOM[other].send(json.dumps({"type": "peer", "on": False, "seen": ROOM.get("seen", {}).get(role)}))
+
+
+async def _chat_in(me: Peer, role: str, other: str, msg: dict) -> None:
+    """A message: kept in the room (it is there after a reload), passed on, and its sender told it arrived."""
+    mid, txt = str(msg.get("id") or "")[:40], msg.get("text")
+    if not mid or not isinstance(txt, str) or not txt.strip():
+        return
+    if any(m["id"] == mid for m in ROOM["chat"]):           # sent again after a reconnect: already here
+        old = next(m for m in ROOM["chat"] if m["id"] == mid)
+        await me.send(json.dumps({"type": "chat-ok", "id": mid, "t": old["t"], "dlv": old["dlv"]}))
+        return
+    m = {"type": "chat", "id": mid, "from": role, "text": txt.strip()[:CHAT_MAX], "t": time.time(), "dlv": bool(ROOM.get(other))}
+    ROOM["chat"].append(m)
+    del ROOM["chat"][:-CHAT_KEEP]
+    await me.send(json.dumps({"type": "chat-ok", "id": mid, "t": m["t"], "dlv": m["dlv"]}))
+    if ROOM.get(other):
+        await ROOM[other].send(json.dumps(m))
 
 
 @gate.websocket("/ws")
@@ -265,6 +319,7 @@ def jam_start():
 @router.post("/api/jam/stop")
 def jam_stop():
     ROOM.update(key=None, url=None, song=None, stems=[])
+    _chat_reset()
     _serve_off()
     for role in ("guest", "host"):
         p = ROOM.get(role)

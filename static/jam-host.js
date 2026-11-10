@@ -4,7 +4,7 @@
 // Pick's mix. The song playing in Steems goes over as a message: the friend's page plays the same backing at
 // the same moment (static/jam-guest.js).
 const Jam = (() => {
-  let box = null, link = null, st = {on: false, url: null}, songT = 0, lastSong = "", uiT = 0, unhook = null;
+  let box = null, link = null, st = {on: false, url: null}, songT = 0, lastSong = "", uiT = 0, unhook = null, chat = null, chatEl = null, unreadN = 0;
   const cfg = (() => { try{ return JSON.parse(localStorage.getItem("pick-jam") || "{}"); }catch(e){ return {}; } })();
   const keep = () => { try{ localStorage.setItem("pick-jam", JSON.stringify(cfg)); }catch(e){} };
   const esc = (s) => escapeHtml(String(s == null ? "" : s));
@@ -31,6 +31,8 @@ const Jam = (() => {
   .jam-m{height:5px;border-radius:3px;background:#222;overflow:hidden;flex:1}.jam-m i{display:block;height:100%;width:0;background:#6ee7a0}
   .jam-note{color:#9a9ab0;font-size:12px;line-height:1.45}.jam-note b{color:#ececf3}.jam-warn{color:#ffd166}.jam-err{color:#ff8a8a}
   .jam-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+  .jam.big .jc{--jc-h:320px}
+  .jam-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:700 10.5px/17px system-ui;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #111}
   `;
   { const s = document.createElement("style"); s.textContent = CSS; document.head.appendChild(s); }
 
@@ -40,6 +42,7 @@ const Jam = (() => {
       <button type="button" id="jam-big" title="Větší / menší">⤢</button><button type="button" id="jam-x" title="Skrýt (jam běží dál)">✕</button></div><div class="jam-b" id="jam-b"></div>`;
     document.body.appendChild(box);
     box.querySelector("#jam-x").onclick = () => { box.hidden = true; };
+    box.addEventListener("pointerdown", () => chat && setTimeout(chat.check, 0));
     box.querySelector("#jam-big").onclick = () => { box.classList.toggle("big"); };
     // the header drags the panel
     const h = box.querySelector(".jam-h");
@@ -53,6 +56,7 @@ const Jam = (() => {
     box.hidden = false;
     try{ st = await (await fetch("/api/jam/status")).json(); }catch(e){}
     paint();
+    if(chat) chat.check();
   }
   const B = () => box.querySelector("#jam-b");
 
@@ -72,13 +76,14 @@ const Jam = (() => {
     box.querySelector("#jam-sub").textContent = link && link.peerOn ? "kamarád je tu" : "čekám na kamaráda";
     b.innerHTML = `
       <div class="jam-link"><input readonly id="jam-url" value="${esc(st.url)}"><button type="button" class="jb" id="jam-copy">Kopírovat odkaz</button></div>
-      <div class="jam-note">Pošli odkaz kamarádovi (zprávou). Otevře ho v Chromu na Macu — musí být ve tvém Tailscale (sdílené zařízení).</div>
+      <div class="jam-note">Pošli odkaz kamarádovi (zprávou). Otevře ho v Chromu (Mac i Windows) — musí být ve tvém Tailscale (sdílené zařízení). Napsat si můžete v chatu níž.</div>
       <div class="jam-v" id="jam-vbox"><span id="jam-vnone">kamarádova kamera</span><video id="jam-vfr" autoplay playsinline hidden></video><video class="me" id="jam-vme" autoplay playsinline muted hidden></video></div>
       <div class="jam-row">
         <button type="button" class="jb ${link && link.local.camera ? "on" : ""}" id="jam-cam">Kamera</button>
         <button type="button" class="jb ${link && link.local.voice ? "on" : ""}" id="jam-voice">Mluvit</button>
         <button type="button" class="jb ${link && link.local.screen ? "on" : ""}" id="jam-screen" title="Kamarád uvidí Pick — píseň, text, taby, akordy">Sdílet Pick</button>
         <span class="sp" style="flex:1"></span><span class="jam-lat" id="jam-lat"></span></div>
+      <div id="jam-chat-slot"></div>
       <div class="jam-l"><span>Zvuk kytar</span><select id="jam-mode">
           <option value="low" ${(!link || link.mode === "low") ? "selected" : ""}>nízké zpoždění (jako SonoBus)</option>
           <option value="rtc" ${link && link.mode === "rtc" ? "selected" : ""}>jako hovor (stabilnější)</option></select></div>
@@ -102,6 +107,7 @@ const Jam = (() => {
     q("jam-vvol").oninput = (e) => { cfg.vvol = +e.target.value; keep(); q("jam-voice-el").volume = cfg.vvol; };
     q("jam-stop").onclick = stopRoom;
     q("jam-voice-el").volume = cfg.vvol ?? 1;
+    if(chatEl) q("jam-chat-slot").replaceWith(chatEl);
     showVideos();
   }
   function tsHelp(ts){
@@ -132,6 +138,9 @@ const Jam = (() => {
     if(link) return;
     const vo = Mixer.voiceOut();
     link = new JamLink({role: "host", ctx: vo.ac, output: vo.out, mode: cfg.mode || "low", quanta: cfg.buf && cfg.buf !== "auto" ? +cfg.buf : 3, auto: !cfg.buf || cfg.buf === "auto", onEvent: event});
+    chatEl = document.createElement("div");
+    chat = JamChat({root: chatEl, me: "host", name: "Kamarád", send: (o) => link && link.send(o), visible: chatSeen, onUnread: badge,
+      onNew: (m) => { if(!chatSeen()) showToast("💬 Kamarád: " + (m.text.length > 90 ? m.text.slice(0, 90) + "…" : m.text)); }});
     await link.start(`ws://${location.host}/api/jam/ws`);
     link.setVolume(cfg.vol ?? 1);
     hookGuitar();
@@ -149,10 +158,22 @@ const Jam = (() => {
     if(!(await Dialog.confirm("Ukončit jam? Odkaz přestane platit.", {ok: "Ukončit"}))) return;
     await fetch("/api/jam/stop", {method: "POST"}).catch(() => {});
     if(link){ link.close(); link = null; } if(unhook){ unhook(); unhook = null; }
+    if(chat){ chat.destroy(); chat = null; chatEl = null; } badge(0);
     clearInterval(songT); clearInterval(uiT); st.on = false; st.url = null; lastSong = "";
     paint();
   }
+  // the chat counts as read only with the panel open and Pick in front
+  function chatSeen(){ return !!(box && !box.hidden && chatEl && chatEl.isConnected && document.visibilityState === "visible" && document.hasFocus()); }
+  function badge(n){
+    unreadN = n;
+    const b = document.querySelector(".jam-btn"); if(!b) return;
+    let s = b.querySelector(".jam-badge");
+    if(!n){ if(s) s.remove(); return; }
+    if(!s){ s = document.createElement("span"); s.className = "jam-badge"; b.appendChild(s); }
+    s.textContent = n > 9 ? "9+" : String(n);
+  }
   function event(kind, v){
+    if(kind === "msg" && chat) chat.onMsg(v);
     if(kind === "peer" || kind === "conn" || kind === "ready"){ if(box && !box.hidden) paint(); if(kind === "ready" && v) sendSong(true);
       if(kind === "peer" && v) showToast("Kamarád se připojil k jamu"); }
     if(kind === "media") showVideos();
@@ -206,6 +227,7 @@ const Jam = (() => {
       b.title = "Jam — hraj s kamarádem přes internet (Tailscale): uslyšíte se, uvidíte se, uvidí tvůj Pick";
       b.innerHTML = icon("headphones", 15); b.dataset.lbl = "JAM"; b.onclick = open;
       const lp = acts.querySelector(".dk-hero-btn"); if(lp) lp.after(b); else acts.prepend(b);
+      badge(unreadN);
     }
   }
   setInterval(mount, 2000); setTimeout(mount, 500);

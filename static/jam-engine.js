@@ -93,9 +93,9 @@
     }
     send(o){ if(this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
     async onWs(m){
-      if(m.type === "hello"){ this.peerOn = !!m.peer; this.on("peer", this.peerOn); if(this.peerOn && this.role === "host") this.call(); return; }
+      if(m.type === "hello"){ this.peerOn = !!m.peer; this.on("peer", this.peerOn); if(this.peerOn && this.role === "host") this.call(); this.on("msg", m); return; }
       if(m.type === "peer"){ this.peerOn = !!m.on; this.on("peer", this.peerOn);
-        if(m.on && this.role === "host") this.call(); if(!m.on) this.hangup(); return; }
+        if(m.on && this.role === "host") this.call(); if(!m.on) this.hangup(); this.on("msg", m); return; }
       if(m.type === "sdp"){
         if(m.sdp.type === "offer"){ this.newPc(); await this.pc.setRemoteDescription(m.sdp);
           this.pc.getTransceivers().forEach(t => { t.direction = "sendrecv"; });

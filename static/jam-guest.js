@@ -4,7 +4,7 @@
 (function(){
   const K = new URLSearchParams(location.search).get("k") || "";
   const $ = (id) => document.getElementById(id);
-  let ctx = null, link = null, inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, meterA = null;
+  let chat = null, ctx = null, link = null, inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, meterA = null;
   const BK = {name: null, stems: [], on: {}, st: null, buf: null, src: null, gain: null, startCtx: 0, startPos: 0, rate: 1, loading: 0};
   const store = (k, v) => { try{ if(v === undefined) return JSON.parse(localStorage.getItem("pick-jam-" + k)); localStorage.setItem("pick-jam-" + k, JSON.stringify(v)); }catch(e){ return null; } };
 
@@ -42,11 +42,14 @@
     meterA = ctx.createAnalyser(); meterA.fftSize = 512; inGain.connect(meterA);
     BK.gain = ctx.createGain(); BK.gain.gain.value = +$("bkVol").value; BK.gain.connect(ctx.destination);
     link = new JamLink({role: "guest", ctx, output: ctx.destination, onEvent: event});
+    chat = JamChat({root: $("chat"), me: "guest", name: "Kamarád", send: (o) => link && link.send(o),
+      visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
+      onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});
     await link.start(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?k=${encodeURIComponent(K)}`);
     await useGuitar(); link.setInput(inGain);
     const b = store("buf"); if(b){ $("buf").value = b; applyBuf(); }
     try{ const t = await link.setCamera(true, $("camDev").value); showMe(t); }catch(e){ $("camBtn").classList.remove("on"); }
-    $("join").hidden = true;
+    $("join").hidden = true; chat.check();
     setInterval(ui, 250); setInterval(syncBacking, 500);
   }
   function showMe(track){ const v = $("vMe"); if(track){ v.srcObject = new MediaStream([track]); v.hidden = false; } else { v.srcObject = null; v.hidden = true; } }
@@ -58,6 +61,7 @@
     if(kind === "media") showMedia(v);
     if(kind === "mode") $("mode").textContent = v === "low" ? "Režim: nízké zpoždění (jako SonoBus) — kytary jdou nekomprimovaně" : "Režim: jako hovor (Opus) — stabilnější na horší síti";
     if(kind === "msg" && v.type === "song") onSong(v);
+    else if(kind === "msg" && chat) chat.onMsg(v);
   }
   function showMedia(m){
     const big = $("vBig"), cam = $("vCam");
