@@ -37,6 +37,13 @@ const Jam = (() => {
   .jam-guide summary{cursor:pointer;font-weight:700;margin:6px 0}.jam-guide ol{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45}
   .jam-guide a,#settings-overlay a[href*="5rqyJzeqvuF2nLnYkry23H"]{color:var(--accent,#a78bfa)}
   .jam-guide .jg-h{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;margin-top:8px}
+  .jam-dom{display:flex;flex-direction:column;gap:10px;margin-top:14px;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:12px}
+  .jam-dom .jg-h{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+  .jd-row{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:start;font-size:13px}
+  .jd-n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;background:rgba(139,92,246,.25)}
+  .jd-in{display:block;width:100%;margin-top:4px;background:#0e0e14;color:#ececf3;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:6px 8px;font:13px ui-monospace,monospace}
+  .jd-st{font-size:12px;margin-top:3px;opacity:.85}.jd-st.ok{color:#6ee7a0}.jd-st.bad{color:#ff8a8a}
+  .jam-via{display:flex;gap:4px;flex-wrap:wrap}.jam-via button{font-size:12px!important;padding:5px 9px!important}
   .jam-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
   .jam.big .jc{--jc-h:320px}
   .jam-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:700 10.5px/17px system-ui;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #111}
@@ -73,12 +80,20 @@ const Jam = (() => {
     box.querySelector("#jam-dot").classList.toggle("on", !!(link && link.pc && link.pc.connectionState === "connected"));
     if(!st.on){
       box.querySelector("#jam-sub").textContent = "hraj s kamarádem přes internet";
-      b.innerHTML = `<div class="jam-note">Kamarád otevře odkaz v Chromu — nic neinstaluje. Uvidí tvůj Pick (píseň, text, taby), uslyšíte se navzájem
-          a podklad písně hraje u obou ve stejný okamžik. Spojení jde napřímo přes <b>Tailscale</b>.</div>
-        ${tsHelp(ts)}
+      const dom = st.domain || {}, via = st.via || "tailscale";
+      b.innerHTML = `<div class="jam-note">Kamarád otevře odkaz v Chromu. Uvidí tvůj Pick (píseň, text, taby), uslyšíte se navzájem
+          a podklad písně hraje u obou ve stejný okamžik.</div>
+        <div class="jam-l"><span>Kamarád přijde</span><div class="jam-via">
+          <button type="button" class="jb ${via === "domain" ? "on" : ""}" data-via="domain">${dom.host ? esc(dom.host) : "přes mou doménu"}</button>
+          <button type="button" class="jb ${via === "tailscale" ? "on" : ""}" data-via="tailscale">přes Tailscale</button></div></div>
+        ${via === "domain" ? (dom.ready ? `<div class="jam-note">Odkaz bude na <b>${esc(dom.host)}</b> — kamarád nic neinstaluje.</div>`
+          : `<div class="jam-note jam-warn">Doména ještě není nastavená — <a href="#" id="jam-dom-set">Nastavení → Jam</a> (3 kroky, jednou).</div>`) : tsHelp(ts)}
         <button type="button" class="go" id="jam-start">Zahájit jam</button><div class="jam-err" id="jam-err"></div>
         <div class="jam-row"><button type="button" class="jb" id="jam-guide">Návod pro kamaráda</button><a class="jam-note" href="${GUIDE}" target="_blank" rel="noopener">otevřít</a><span class="jam-note">· celý postup je v Nastavení → Jam</span></div>`;
       b.querySelector("#jam-guide").onclick = copyGuide;
+      b.querySelectorAll("[data-via]").forEach(x => x.onclick = async () => { await fetch("/api/jam/via", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({via: x.dataset.via})});
+        st = await (await fetch("/api/jam/status")).json(); paint(); });
+      const ds = b.querySelector("#jam-dom-set"); if(ds) ds.onclick = (e) => { e.preventDefault(); openSettingsJam(); };
       b.querySelector("#jam-start").onclick = startRoom;
       return;
     }
@@ -86,7 +101,7 @@ const Jam = (() => {
     b.innerHTML = `
       <div class="jam-link"><input readonly id="jam-url" value="${esc(st.url)}"><button type="button" class="jb" id="jam-copy">Kopírovat odkaz</button></div>
       <div class="jam-row"><button type="button" class="jb" id="jam-guide" title="Zkopíruje zprávu s odkazem na návod: Tailscale, pozvánka, zvukovka, připojení">Návod pro kamaráda</button><a class="jam-note" href="${GUIDE}" target="_blank" rel="noopener">otevřít</a></div>
-      <div class="jam-note">Pošli odkaz kamarádovi (zprávou). Otevře ho v Chromu (Mac i Windows) — musí být ve tvém Tailscale (sdílené zařízení). Napsat si můžete v chatu níž.</div>
+      <div class="jam-note">Pošli odkaz kamarádovi (zprávou). Otevře ho v Chromu (Mac i Windows)${st.via === "domain" ? " — nic neinstaluje" : " — musí být ve tvém Tailscale (sdílené zařízení)"}. Napsat si můžete v chatu níž.</div>
       <div class="jam-v" id="jam-vbox"><span id="jam-vnone">kamarádova kamera</span><video id="jam-vfr" autoplay playsinline hidden></video><video class="me" id="jam-vme" autoplay playsinline muted hidden></video></div>
       <div class="jam-row">
         <button type="button" class="jb ${link && link.local.camera ? "on" : ""}" id="jam-cam">Kamera</button>
@@ -137,7 +152,10 @@ const Jam = (() => {
     if(!r.ok){
       st.tailscale = d.why === "https" || d.why === "serve" ? (st.tailscale || {}) : d;
       err.innerHTML = d.why === "https" ? `V Tailscale ještě není zapnuté <b>HTTPS</b>. ${d.authUrl ? `<a href="${esc(d.authUrl)}" target="_blank">Zapnout zde</a>` : "V administraci: DNS → HTTPS Certificates → Enable."} Pak zkus znovu.`
-        : d.why === "serve" ? "Tailscale odmítl zpřístupnit jam: " + esc(d.msg || "") : "Tailscale neběží — spusť ho a přihlas se, pak zkus znovu.";
+        : d.why === "serve" ? "Tailscale odmítl zpřístupnit jam: " + esc(d.msg || "")
+        : d.why === "domain" || d.why === "tunnel" ? esc(d.msg || "Doménu se nepodařilo zapnout.")
+        : "Tailscale neběží — spusť ho a přihlas se, pak zkus znovu.";
+      if(d.why === "domain" || d.why === "tunnel") return;
       if(d.why !== "https" && d.why !== "serve"){ paint(); B().querySelector("#jam-err").innerHTML = err.innerHTML; }
       return;
     }
@@ -242,8 +260,45 @@ const Jam = (() => {
     }
   }
   setInterval(mount, 2000); setTimeout(mount, 500);
+  function openSettingsJam(){
+    const s = document.getElementById("settings-btn"); if(s) s.click();
+    setTimeout(() => { const t = [...document.querySelectorAll("#settings-overlay button")].find(b => b.textContent.trim() === "Jam"); if(t) t.click(); domPaint(); }, 300);
+  }
+  // Nastavení → Jam → vlastní doména: log in to Cloudflare, point jam.<domain> at the tunnel, choose how the friend comes
+  let domT = 0;
+  async function domPaint(){
+    const box = document.getElementById("jam-dom"); if(!box) return;
+    let d = {};
+    try{ d = await (await fetch("/api/jam/status")).json(); }catch(e){ return; }
+    const dm = d.domain || {}, $ = (id) => document.getElementById(id);
+    const li = $("jd-login-st");
+    li.className = "jd-st " + (dm.logged ? "ok" : "");
+    li.textContent = !dm.installed ? "Chybí program cloudflared." : dm.logged ? "Přihlášeno ✓" : dm.loggingIn ? "Čekám, až v prohlížeči vybereš doménu a dáš Authorize…" : "";
+    if(dm.loggingIn && dm.loginUrl) li.innerHTML = `Čekám, až v prohlížeči vybereš doménu a dáš Authorize… <a href="${esc(dm.loginUrl)}" target="_blank" rel="noopener">neotevřelo se? klikni sem</a>`;
+    $("jd-login").disabled = !!dm.logged; $("jd-login").textContent = dm.logged ? "Hotovo" : "Přihlásit";
+    const h = $("jd-host"); if(!h.value) h.value = dm.host || "jam.neverlast.cz";
+    const se = $("jd-setup-st");
+    if(!se.dataset.busy){ se.className = "jd-st " + (dm.ready ? "ok" : ""); se.textContent = dm.ready ? `Propojeno ✓ — https://${dm.host}` : ""; }
+    $("jd-setup").disabled = !dm.logged;
+    $("jd-via-domain").checked = d.via === "domain"; $("jd-via-ts").checked = d.via !== "domain";
+    clearTimeout(domT); if(dm.loggingIn && !document.getElementById("settings-overlay").hidden) domT = setTimeout(domPaint, 2000);
+  }
+  function domWire(){
+    const $ = (id) => document.getElementById(id); if(!$("jam-dom")) return;
+    $("jd-login").onclick = async () => { const r = await (await fetch("/api/jam/domain/login", {method: "POST"})).json(); if(!r.ok) showToast(r.msg || "Nepovedlo se"); domPaint(); };
+    $("jd-setup").onclick = async () => {
+      const se = $("jd-setup-st"); se.dataset.busy = "1"; se.className = "jd-st"; se.textContent = "Vytvářím tunel a nastavuji DNS…";
+      const r = await fetch("/api/jam/domain/setup", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({host: $("jd-host").value})});
+      const d = await r.json().catch(() => ({})); delete se.dataset.busy;
+      if(r.ok){ await fetch("/api/jam/via", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({via: "domain"})}); showToast("Doména propojená — kamarád se připojí bez instalace"); }
+      else { se.className = "jd-st bad"; se.textContent = d.msg || "Nepovedlo se"; }
+      domPaint(); if(st && !st.on) try{ st = await (await fetch("/api/jam/status")).json(); paint(); }catch(e){}
+    };
+    document.querySelectorAll("input[name=jd-via]").forEach(x => x.onchange = async () => { await fetch("/api/jam/via", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({via: x.value})}); domPaint(); });
+    const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(domPaint, 200));
+  }
   // Nastavení → Jam
-  setTimeout(() => { const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
+  setTimeout(() => { domWire(); const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
     if(c) c.onclick = copyGuide;
     if(o) o.onclick = () => { const x = document.getElementById("settings-close"); if(x) x.click(); open(); }; }, 0);
   // a room left on (Pick reloaded): back in it

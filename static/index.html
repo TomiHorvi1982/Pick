@@ -5352,6 +5352,17 @@ body.lib-collapsed .pick-brand{display:none}
         <a class="set-note" style="margin:0" href="https://claude.ai/artifact/5rqyJzeqvuF2nLnYkry23H" target="_blank" rel="noopener">otevřít návod</a>
         <button type="button" class="btn secondary" id="jam-open-set">Otevřít Jam</button></div>
       <div class="set-note">Návod je stránka na odkazu. Aby ji kamarád otevřel, musíš ji jednou zveřejnit: otevři ji → <b>Share</b> → přístup „kdokoli s odkazem“.</div>
+      <div class="jam-dom" id="jam-dom">
+        <div class="jg-h">Vlastní doména — kamarád nic neinstaluje</div>
+        <div class="set-note">Jam pojede na tvé adrese (třeba <b>jam.neverlast.cz</b>) přes Cloudflare Tunnel. Kamarád jen otevře odkaz v Chromu, Tailscale nepotřebuje. Tunel běží, jen když máš jam zapnutý.</div>
+        <div class="jd-row"><span class="jd-n">1</span><div><b>Přihlas se do Cloudflare</b> a vyber doménu (neverlast.cz) → <b>Authorize</b>. Otevře se prohlížeč.<div class="jd-st" id="jd-login-st"></div></div>
+          <button type="button" class="btn secondary" id="jd-login">Přihlásit</button></div>
+        <div class="jd-row"><span class="jd-n">2</span><div><b>Adresa Jamu</b><input id="jd-host" class="jd-in" placeholder="jam.neverlast.cz" spellcheck="false" autocomplete="off"><div class="jd-st" id="jd-setup-st"></div></div>
+          <button type="button" class="btn secondary" id="jd-setup">Propojit</button></div>
+        <div class="jd-row"><span class="jd-n">3</span><div><b>Kamarád se připojí</b>
+          <label class="pl-check"><input type="radio" name="jd-via" value="domain" id="jd-via-domain"> přes mou doménu (bez instalace)</label>
+          <label class="pl-check"><input type="radio" name="jd-via" value="tailscale" id="jd-via-ts"> přes Tailscale</label></div></div>
+      </div>
 
       <div class="section-title" style="margin-top:20px"><span data-icon="drive"></span>Úložiště</div>
       <div class="st-list" id="st-list"><div class="set-note">Načítám…</div></div>

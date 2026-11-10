@@ -14,6 +14,8 @@ import server
 def _room(monkeypatch, tmp_path):
     monkeypatch.setattr(jam, "ROOM", {"key": "secret-key", "host": None, "guest": None, "song": None, "stems": [], "url": None, "started": 0})
     monkeypatch.setattr(jam, "MIX_DIR", tmp_path / "mix")
+    monkeypatch.setattr(jam, "CONF", tmp_path / "jam.json")
+    monkeypatch.setattr(jam, "CF_DIR", tmp_path / "cf")
 
 
 def test_the_gateway_wants_the_key_and_serves_only_the_jam():
@@ -107,3 +109,28 @@ def test_tailscale_is_asked_as_from_a_terminal(monkeypatch):
     monkeypatch.setattr(jam.subprocess, "run", lambda cmd, **kw: seen.update(cmd=cmd, env=kw.get("env")) or subprocess.CompletedProcess(cmd, 0, "{}", ""))
     jam._ts("status", "--json")
     assert seen["cmd"] == ["/x/Tailscale", "status", "--json"] and seen["env"]["TERM"]
+
+
+def test_my_own_domain_wants_setting_up_first(client, monkeypatch):
+    monkeypatch.delenv("PICK_JAM_LOCAL", raising=False)
+    monkeypatch.setattr(jam, "_gate_start", lambda: None)
+    assert client.post("/api/jam/via", json={"via": "nowhere"}).status_code == 400
+    assert client.post("/api/jam/via", json={"via": "domain"}).json()["via"] == "domain"
+    d = client.get("/api/jam/status").json()
+    assert d["via"] == "domain" and d["domain"]["ready"] is False
+    r = client.post("/api/jam/start")
+    assert r.status_code == 409 and r.json()["why"] == "domain"
+    assert jam.ROOM["key"] == "secret-key" and jam.ROOM["url"] is None          # nothing started
+    assert client.post("/api/jam/domain/setup", json={"host": "not a host"}).status_code == 400
+    r = client.post("/api/jam/domain/setup", json={"host": "jam.neverlast.cz"})
+    assert r.status_code == 400 and "přihlas" in r.json()["msg"]                  # not logged in to Cloudflare yet
+
+
+def test_with_the_domain_ready_the_link_is_on_it(client, monkeypatch, tmp_path):
+    monkeypatch.delenv("PICK_JAM_LOCAL", raising=False)
+    monkeypatch.setattr(jam, "_gate_start", lambda: None)
+    monkeypatch.setattr(jam, "_serve_off", lambda: None)
+    monkeypatch.setattr(jam, "_cf_up", lambda: {"ok": True, "host": "jam.neverlast.cz"})
+    jam.conf_save(via="domain")
+    url = client.post("/api/jam/start").json()["url"]
+    assert url == "https://jam.neverlast.cz/?k=secret-key"

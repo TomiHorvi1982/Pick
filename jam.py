@@ -36,6 +36,9 @@ GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javas
 CHAT_KEEP = 300
 CHAT_MAX = 2000
 MIX_DIR = Path(tempfile.gettempdir()) / "pick-jam-mix"
+CONF = Path.home() / ".local/share/spotdl-helper/jam.json"     # how the friend gets in: Tailscale, or my own domain
+CF_DIR = Path.home() / ".cloudflared"
+CF_TUNNEL = "pick-jam"
 
 router = APIRouter()
 # set by server.py: the stems folder of a song (or None), a stem's file, ffmpeg
@@ -126,6 +129,137 @@ def _serve_off() -> None:
         _ts("serve", "--https=443", "off", timeout=10)
     except Exception:
         pass
+
+
+# ---- or my own domain (jam.neverlast.cz): a Cloudflare Tunnel to the same gateway — the friend installs nothing,
+# opens the link anywhere. The tunnel runs only while a jam is on.
+_CF: Dict = {"proc": None, "login": None, "log": None}
+
+
+def conf() -> dict:
+    try:
+        d = json.loads(CONF.read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def conf_save(**kw) -> dict:
+    d = {**conf(), **kw}
+    CONF.parent.mkdir(parents=True, exist_ok=True)
+    CONF.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    return d
+
+
+def _cf_bin() -> Optional[str]:
+    for c in (shutil.which("cloudflared"), "/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared"):
+        if c and Path(c).is_file():
+            return c
+    return None
+
+
+def _cf(*args, timeout: float = 30) -> subprocess.CompletedProcess:
+    return subprocess.run([_cf_bin() or "cloudflared", *args], capture_output=True, text=True, timeout=timeout)
+
+
+def _host_ok(h: str) -> bool:
+    import re
+    return bool(re.fullmatch(r"(?=.{4,200}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}", h or ""))
+
+
+def cf_state() -> dict:
+    c = conf()
+    st = {"installed": bool(_cf_bin()), "logged": (CF_DIR / "cert.pem").is_file(), "host": c.get("host") or "",
+          "tunnel": c.get("tunnel_id") or "", "routed": c.get("routed") == c.get("host") and bool(c.get("host")),
+          "loggingIn": bool(_CF["login"] and _CF["login"].poll() is None), "running": bool(_CF["proc"] and _CF["proc"].poll() is None)}
+    if st["loggingIn"] and _CF.get("loginLog"):
+        try:
+            st["loginUrl"] = next((w for w in _CF["loginLog"].read_text(errors="ignore").split() if w.startswith("https://dash.cloudflare.com/argotunnel")), "")
+        except OSError:
+            pass
+    st["ready"] = st["installed"] and st["logged"] and bool(st["tunnel"]) and st["routed"] and (CF_DIR / f"{st['tunnel']}.json").is_file()
+    return st
+
+
+def cf_login() -> dict:
+    """Opens the browser at Cloudflare: log in and pick the domain; the certificate lands in ~/.cloudflared."""
+    if not _cf_bin():
+        return {"ok": False, "msg": "Chybí program cloudflared (brew install cloudflared)."}
+    if (CF_DIR / "cert.pem").is_file():
+        return {"ok": True}
+    if not (_CF["login"] and _CF["login"].poll() is None):
+        log = Path(tempfile.gettempdir()) / "pick-jam-cflogin.log"
+        _CF["loginLog"] = log
+        _CF["login"] = subprocess.Popen([_cf_bin(), "tunnel", "login"], stdout=open(log, "w"), stderr=subprocess.STDOUT)
+    return {"ok": True, "waiting": True}
+
+
+def cf_setup(host: str) -> dict:
+    """The tunnel (once) and jam.<domain> pointed at it in the domain's DNS."""
+    host = (host or "").strip().lower().rstrip(".")
+    if not _host_ok(host):
+        return {"ok": False, "msg": "Zadej adresu jako jam.tvojedomena.cz."}
+    if not (CF_DIR / "cert.pem").is_file():
+        return {"ok": False, "msg": "Nejdřív se přihlas do Cloudflare (krok 1)."}
+    c = conf()
+    tid = c.get("tunnel_id")
+    if not tid or not (CF_DIR / f"{tid}.json").is_file():
+        r = _cf("tunnel", "list", "--output", "json", "--name", CF_TUNNEL)
+        try:
+            old = [t for t in json.loads(r.stdout or "[]") if t.get("name") == CF_TUNNEL and (not t.get("deleted_at") or str(t["deleted_at"]).startswith("0001"))]
+        except ValueError:
+            old = []
+        if old and not (CF_DIR / f"{old[0]['id']}.json").is_file():
+            _cf("tunnel", "delete", "-f", CF_TUNNEL)                    # made elsewhere, its key is not here: anew
+            old = []
+        if old:
+            tid = old[0]["id"]
+        else:
+            r = _cf("tunnel", "create", "--output", "json", CF_TUNNEL)
+            try:
+                tid = json.loads(r.stdout)["id"]
+            except (ValueError, KeyError, TypeError):
+                return {"ok": False, "msg": "Tunel se nepodařilo vytvořit: " + ((r.stderr or r.stdout or "").strip()[-400:])}
+        conf_save(tunnel_id=tid)
+    r = _cf("tunnel", "route", "dns", "--overwrite-dns", CF_TUNNEL, host)
+    if r.returncode != 0:
+        return {"ok": False, "msg": "Adresu se nepodařilo nasměrovat: " + ((r.stderr or r.stdout or "").strip()[-400:])}
+    conf_save(host=host, routed=host)
+    return {"ok": True, **cf_state()}
+
+
+def _cf_up() -> dict:
+    st = cf_state()
+    if not st["ready"]:
+        return {"ok": False, "why": "domain", "msg": "Vlastní doména ještě není nastavená (Nastavení → Jam)."}
+    if st["running"]:
+        return {"ok": True, "host": st["host"]}
+    log = Path(tempfile.gettempdir()) / "pick-jam-tunnel.log"
+    f = open(log, "w")
+    _CF["proc"] = subprocess.Popen([_cf_bin(), "tunnel", "--no-autoupdate", "run", "--url", f"http://127.0.0.1:{GATE_PORT}", CF_TUNNEL],
+                                   stdout=f, stderr=subprocess.STDOUT)
+    _CF["log"] = log
+    for _ in range(100):                          # up when Cloudflare has the first connection
+        time.sleep(0.15)
+        text = log.read_text(errors="ignore")
+        if "Registered tunnel connection" in text:
+            return {"ok": True, "host": st["host"]}
+        if _CF["proc"].poll() is not None:
+            break
+    if _CF["proc"].poll() is None:
+        return {"ok": True, "host": st["host"]}  # slow, but running
+    return {"ok": False, "why": "tunnel", "msg": "Tunel se nespustil: " + log.read_text(errors="ignore").strip()[-400:]}
+
+
+def _cf_down() -> None:
+    p = _CF["proc"]
+    if p and p.poll() is None:
+        p.terminate()
+        try:
+            p.wait(5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+    _CF["proc"] = None
 
 
 # ---- the gateway: what the friend can reach
@@ -299,23 +433,37 @@ def _gate_start() -> None:
 # ---- the host's end (Pick's own server)
 @router.get("/api/jam/status")
 def jam_status():
-    return {"on": bool(ROOM["key"]), "url": ROOM["url"], "guest": bool(ROOM["guest"]), "tailscale": tailscale_state()}
+    via = conf().get("via") or "tailscale"
+    return {"on": bool(ROOM["key"]), "url": ROOM["url"], "guest": bool(ROOM["guest"]), "via": via,
+            "tailscale": tailscale_state() if via == "tailscale" else {"ok": True}, "domain": cf_state()}
 
 
 @router.post("/api/jam/start")
-def jam_start():
+def jam_start(via: str = ""):
+    if via in ("tailscale", "domain"):
+        conf_save(via=via)
+    via = conf().get("via") or "tailscale"
     _gate_start()
     if os.environ.get("PICK_JAM_LOCAL"):          # tests: the gateway on this Mac only, no Tailscale
         ROOM["key"] = ROOM["key"] or secrets.token_urlsafe(9)
         ROOM["url"] = f"http://127.0.0.1:{GATE_PORT}/?k={ROOM['key']}"
         return {"ok": True, "url": ROOM["url"]}
-    st = _serve_on()
-    if not st.get("ok"):
-        return JSONResponse(st, status_code=409)
+    if via == "domain":
+        st = _cf_up()
+        if not st.get("ok"):
+            return JSONResponse(st, status_code=409)
+        _serve_off()
+        base = st["host"]
+    else:
+        st = _serve_on()
+        if not st.get("ok"):
+            return JSONResponse(st, status_code=409)
+        _cf_down()
+        base = st["dns"]
     if not ROOM["key"]:
         ROOM["key"] = secrets.token_urlsafe(9)
         ROOM["started"] = time.time()
-    ROOM["url"] = f"https://{st['dns']}/?k={ROOM['key']}"
+    ROOM["url"] = f"https://{base}/?k={ROOM['key']}"
     return {"ok": True, "url": ROOM["url"]}
 
 
@@ -324,6 +472,7 @@ def jam_stop():
     ROOM.update(key=None, url=None, song=None, stems=[])
     _chat_reset()
     _serve_off()
+    _cf_down()
     for role in ("guest", "host"):
         p = ROOM.get(role)
         if p:
@@ -346,3 +495,28 @@ async def host_ws(ws: WebSocket):
 def host_mix(song: str, stems: str = ""):
     """The same backing the friend gets — for the host to try the mix (and for tests)."""
     return mix_file(song, [s for s in stems.split(",") if s])
+
+
+@router.post("/api/jam/domain/login")
+def jam_domain_login():
+    return cf_login()
+
+
+@router.post("/api/jam/domain/setup")
+async def jam_domain_setup(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    r = await asyncio.to_thread(cf_setup, str((body or {}).get("host") or ""))
+    return r if r.get("ok") else JSONResponse(r, status_code=400)
+
+
+@router.post("/api/jam/via")
+async def jam_via(request: Request):
+    body = await request.json()
+    via = body.get("via") if isinstance(body, dict) else None
+    if via not in ("tailscale", "domain"):
+        return JSONResponse({"error": "via"}, status_code=400)
+    conf_save(via=via)
+    return {"ok": True, "via": via}
