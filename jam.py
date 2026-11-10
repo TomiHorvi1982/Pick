@@ -238,6 +238,8 @@ def _cf_up() -> dict:
         return {"ok": False, "why": "domain", "msg": "Vlastní doména ještě není nastavená (Nastavení → Jam)."}
     if st["running"]:
         return {"ok": True, "host": st["host"]}
+    # a tunnel left from before Pick restarted: ours, so it goes
+    subprocess.run(["pkill", "-f", f"tunnel --no-autoupdate run --url http://127.0.0.1:{GATE_PORT} {CF_TUNNEL}"], capture_output=True)
     log = Path(tempfile.gettempdir()) / "pick-jam-tunnel.log"
     f = open(log, "w")
     _CF["proc"] = subprocess.Popen([_cf_bin(), "tunnel", "--no-autoupdate", "run", "--url", f"http://127.0.0.1:{GATE_PORT}", CF_TUNNEL],
@@ -279,7 +281,13 @@ def guest_page(k: str = ""):
     if not _key_ok(k):
         return HTMLResponse("<!doctype html><meta charset=utf-8><title>Pick Jam</title><body style='font:16px system-ui;background:#111;color:#ddd;padding:40px'>"
                             "<h2>Pick Jam</h2><p>Tenhle odkaz už neplatí — popros kamaráda o nový.</p>", status_code=403)
-    return (STATIC / "jam.html").read_text(encoding="utf-8")
+    # every script by its version: Cloudflare tells browsers to keep files for hours, so a new version gets a new address
+    html = (STATIC / "jam.html").read_text(encoding="utf-8")
+    for name in GUEST_FILES:
+        f = STATIC / name
+        if f.is_file():
+            html = html.replace(f"/static/{name}\"", f"/static/{name}?v={int(f.stat().st_mtime)}\"")
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @gate.get("/favicon.ico")

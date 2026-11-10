@@ -10,6 +10,8 @@
 (function(){
   const LANES = ["guitar", "voice", "camera", "screen"];
   const ICE = [{urls: "stun:stun.l.google.com:19302"}];
+  // the worklet by the same version as this script (?v=… from the guest page), so no browser keeps an old one
+  const VER = (() => { try{ return new URL(document.currentScript.src).search; }catch(e){ return ""; } })();
 
   // Opus for music: stereo, a high rate, no silence suppression, the shortest packets it takes
   function musicSdp(sdp){
@@ -32,7 +34,7 @@
     }
     async start(wsUrl){
       const c = this.ctx;
-      await c.audioWorklet.addModule(this.base + "/static/jam-worklet.js");
+      await c.audioWorklet.addModule(this.base + "/static/jam-worklet.js" + VER);
       this.tx = new AudioWorkletNode(c, "jam-tx", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1]});
       const sink = c.createGain(); sink.gain.value = 0; this.tx.connect(sink); sink.connect(c.destination);
       this.tx.port.onmessage = (e) => this.onTx(e.data);

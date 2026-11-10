@@ -21,7 +21,10 @@ def _room(monkeypatch, tmp_path):
 def test_the_gateway_wants_the_key_and_serves_only_the_jam():
     g = TestClient(jam.gate)
     assert g.get("/?k=wrong").status_code == 403
-    assert "Pick Jam" in g.get("/?k=secret-key").text
+    page = g.get("/?k=secret-key")
+    assert "Pick Jam" in page.text and page.headers["cache-control"] == "no-store"
+    assert "/static/jam-guest.js?v=" in page.text and "/static/jam-chat.js?v=" in page.text       # a new version, a new address
+    assert g.get("/static/jam-guest.js?v=123").status_code == 200
     assert g.get("/static/jam-engine.js").status_code == 200
     assert g.get("/static/jam-host.js").status_code == 404          # the host's page is not the friend's
     assert g.get("/static/index.html").status_code == 404
