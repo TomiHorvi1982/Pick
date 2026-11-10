@@ -4024,6 +4024,51 @@ body.lib-collapsed .pick-brand{display:none}
   .fl-scale span::after{content:"";position:absolute;right:-4px;top:50%;width:3px;height:1px;background:var(--sub);opacity:.6}
   .fl-db-label{font-size:9px !important;color:var(--text) !important;font-weight:700}
   .fl-pitch{display:flex;align-items:center;justify-content:center;gap:3px;font-size:9px;color:var(--sub)}
+  /* ---- the faders as a console (the look of Pick Jam's): only how they look — every control works as before */
+  #fl-channels{gap:8px;padding:14px 12px;background:linear-gradient(#14141c,#0f0f16)}
+  #fl-channels .fl-channel{width:100px;padding:11px 7px 8px;gap:6px;border-radius:12px;background:linear-gradient(#1e1e2a,#14141d);border:1px solid rgba(255,255,255,.08);overflow:visible}
+  #fl-channels .fl-channel:hover{border-color:rgba(255,255,255,.22)}
+  #fl-channels .fl-channel::before{left:9px;right:9px;height:2px;border-radius:2px;box-shadow:0 0 10px var(--ch-color,var(--accent))}
+  #fl-channels .fl-channel.solo{border-color:#ffd166;box-shadow:0 0 0 1px #ffd166}
+  #fl-channels .fl-channel.fl-live{width:146px;border-color:rgba(255,209,102,.35)}
+  #fl-channels .fl-ch-name{font-size:12px;font-weight:800;letter-spacing:.01em}
+  #fl-channels .fl-ch-tag{font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+  #fl-channels .fl-led-wrap{height:172px;gap:4px;align-items:stretch}
+  #fl-channels .fl-fader-area{height:172px;padding-left:24px;padding-right:4px}
+  #fl-channels .fl-led-meter{width:7px;gap:0;padding:1px;border-radius:3px;background:#07070b;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+  #fl-channels .fl-led-seg{border-radius:0;background:#15151d;min-height:3px;margin-top:1px}
+  #fl-channels .fl-led-seg.on-l1,#fl-channels .fl-led-seg.on-l2,#fl-channels .fl-led-seg.on-l3{background:#3ddc84}
+  #fl-channels .fl-led-seg.on-l4,#fl-channels .fl-led-seg.on-l5{background:#9be15d}
+  #fl-channels .fl-led-seg.on-l6,#fl-channels .fl-led-seg.on-l7{background:#ffd166}
+  #fl-channels .fl-led-seg.on-l8,#fl-channels .fl-led-seg.on-l9{background:#ff8a4c}
+  #fl-channels .fl-led-seg.on-peak{background:#ff4d4d;box-shadow:0 0 6px #ff4d4d}
+  #fl-channels .fl-fader-track{width:5px;border:0;border-radius:3px;background:#06060a;box-shadow:inset 0 1px 3px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.04)}
+  #fl-channels .fl-fader-handle{width:30px;height:32px;margin-bottom:-16px;border-radius:5px;
+    background:linear-gradient(#62626f,#30303a 44%,#18181f 50%,#30303a 56%,#4e4e5c);border:1px solid #74748a;
+    box-shadow:0 4px 8px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.18)}
+  #fl-channels .fl-fader-handle::after{width:20px;height:2px;background:var(--ch-color,var(--accent));box-shadow:0 0 6px var(--ch-color,var(--accent))}
+  #fl-channels .fl-scale{width:22px}
+  #fl-channels .fl-scale span{font-size:8.5px;color:#7d7d92}
+  #fl-channels .fl-scale span::after{background:#5a5a6a;opacity:1;width:4px}
+  #fl-channels .fl-db-label{font-size:11px !important;height:auto;color:#e8e8f0 !important;background:#0b0b11;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:1px 8px;min-width:60px}
+  #fl-channels .fl-pan-knob{width:34px;height:34px;border:0;box-shadow:none;
+    background:radial-gradient(circle,#262632 0 54%,#3a3a48 55% 58%,transparent 59%),conic-gradient(from 225deg,#2b2b38 0 270deg,transparent 0)}
+  #fl-channels .fl-pan-knob::before{top:6px;width:2.5px;height:11px;background:#fff;border-radius:2px;transform-origin:50% 11px}
+  #fl-channels .fl-pan-knob.pan-l,#fl-channels .fl-pan-knob.pan-r{background:radial-gradient(circle,#262632 0 54%,#3a3a48 55% 58%,transparent 59%),conic-gradient(from 225deg,#2b2b38 0 270deg,transparent 0)}
+  #fl-channels .fl-pan-knob.pan-l{background:radial-gradient(circle,#262632 0 54%,#3a3a48 55% 58%,transparent 59%),conic-gradient(from 300deg,var(--ch-color,var(--accent)) 0 60deg,transparent 0),conic-gradient(from 225deg,#2b2b38 0 270deg,transparent 0)}
+  #fl-channels .fl-pan-knob.pan-r{background:radial-gradient(circle,#262632 0 54%,#3a3a48 55% 58%,transparent 59%),conic-gradient(from 0deg,var(--ch-color,var(--accent)) 0 60deg,transparent 0),conic-gradient(from 225deg,#2b2b38 0 270deg,transparent 0)}
+  #fl-channels .fl-pan-label{font-size:10px;color:#ddd;font-variant-numeric:tabular-nums}
+  #fl-channels .fl-ms-btns{gap:4px}
+  #fl-channels .fl-ms-btn{height:22px;border-radius:6px;font-size:11px;background:#232331;border-color:rgba(255,255,255,.12)}
+  #fl-channels .fl-ms-btn.mute.active{background:#ff8a65;border-color:#ff8a65;color:#111}
+  #fl-channels .fl-ms-btn.solo.active{background:#ffd166;border-color:#ffd166;color:#111}
+  #fl-channels .fl-fx-row{gap:3px}
+  #fl-channels .fl-fx-btn{height:20px;border-radius:6px;font-size:8.5px;background:#1b1b26;border-color:rgba(255,255,255,.1)}
+  #fl-channels .fl-fx-btn.on{background:rgba(139,92,246,.25);border-color:#a78bfa;color:#ddd6fe}
+  #fl-channels .fl-eq-btn{height:24px;border-radius:7px;font-weight:800;background:#1b1b26;border-color:rgba(255,255,255,.12)}
+  #fl-channels .fl-eq-btn.on .dot{background:#a78bfa;box-shadow:0 0 6px #a78bfa}
+  #fl-channels .fl-pitch{font-size:11px}#fl-channels .fl-pitch button{border-radius:5px}
+  #fl-channels .fl-channel > .fl-fx-btn{flex:none;width:100%;height:22px}
   .fl-pitch button{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text);
     font-size:11px;line-height:1;padding:0;cursor:pointer}
   .fl-pitch span{min-width:20px;text-align:center;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
@@ -5875,6 +5920,7 @@ body.lib-collapsed .pick-brand{display:none}
                   <button type="button" class="tm-item" data-stay id="fl-strips-toggle" title="Zobrazit/skrýt fadery kanálů"><span data-icon="fader" data-size="15"></span><span class="tm-t">Fadery kanálů</span></button>
                   <button type="button" class="tm-item" data-stay id="eq-toggle" title="Zobrazit/skrýt ekvalizér"><span data-icon="eq" data-size="15"></span><span class="tm-t">Ekvalizér</span></button>
                   <button type="button" class="tm-item" data-stay id="comp-toggle" title="Zobrazit/skrýt kompresor"><span data-icon="sliders" data-size="15"></span><span class="tm-t">Kompresor</span></button>
+                  <button type="button" class="tm-item" id="mix-spectrum-open" title="Spektrum mixu — všechny nástroje v jednom grafu, kde se frekvence přetlačují, a ekvalizéry na jednom místě (presety)"><span data-icon="eq" data-size="15"></span><span class="tm-t">Spektrum mixu</span></button>
                   <button type="button" class="tm-item" data-stay id="dbl-toggle" title="Zobrazit/skrýt doubler"><span data-icon="duplicate" data-size="15"></span><span class="tm-t">Doubler</span></button>
                   <button type="button" class="tm-item" id="nm-space-delay" title="Delay na kterékoli stopě písně (nebo na živé kytaře) — typ, čas podle tempa, opakování, mix"><span data-icon="sync" data-size="15"></span><span class="tm-t">Delay</span></button>
                   <button type="button" class="tm-item" id="nm-space-reverb" title="Reverb (dozvuk) na kterékoli stopě písně (nebo na živé kytaře) — místnost, sál, plate, pružina…"><span data-icon="fx" data-size="15"></span><span class="tm-t">Reverb</span></button>
@@ -16019,6 +16065,41 @@ const Mixer = (() => {
   // that are off are simply left out of the wiring, so an untouched channel
   // sounds exactly as it did before these existed.
   const COMP_DEFAULT = {on: false, threshold: -24, ratio: 4, attack: 0.01, release: 0.25, knee: 6, makeup: 0};
+  // The multiband compressor (static/mixtools.js draws it): three bands split at two crossovers (Linkwitz-Riley,
+  // 24 dB/oct), each its own compressor — palm mutes tightened in the lows without squashing the rest.
+  const MB_BAND = {on: true, threshold: -24, ratio: 3, attack: 0.008, release: 0.15, makeup: 0};
+  const MB_DEFAULT = () => ({on: false, x1: 250, x2: 2500, bands: [{...MB_BAND}, {...MB_BAND, on: false}, {...MB_BAND, on: false}]});
+  function mbState(saved){
+    const d = MB_DEFAULT();
+    if(!saved) return d;
+    return {on: !!saved.on, x1: +saved.x1 || d.x1, x2: +saved.x2 || d.x2,
+            bands: d.bands.map((b, i) => ({...b, ...((saved.bands || [])[i] || {})}))};
+  }
+  function ensureMb(fx){
+    if(fx.mbNode) return fx.mbNode;
+    const ac = ctx(), lr = (type, f) => { const a = ac.createBiquadFilter(), b = ac.createBiquadFilter(); [a, b].forEach(x => { x.type = type; x.frequency.value = f; x.Q.value = Math.SQRT1_2; }); a.connect(b); return [a, b]; };
+    const m = {input: ac.createGain(), output: ac.createGain(), bands: []};
+    const lo = lr("lowpass", 250), midHp = lr("highpass", 250), midLp = lr("lowpass", 2500), hi = lr("highpass", 2500);
+    m.input.connect(lo[0]); m.input.connect(midHp[0]); midHp[1].connect(midLp[0]); m.input.connect(hi[0]);
+    [lo[1], midLp[1], hi[1]].forEach((src, i) => {
+      const comp = ac.createDynamicsCompressor(), mk = ac.createGain();
+      comp.knee.value = 6; src.connect(comp); comp.connect(mk); mk.connect(m.output);
+      m.bands.push({comp, mk});
+    });
+    m.x1 = [lo, midHp]; m.x2 = [midLp, hi];
+    fx.mbNode = m; applyMb(fx);
+    return m;
+  }
+  function applyMb(fx){
+    const m = fx.mbNode, s = fx.state.mb; if(!m || !s) return;
+    const now = ctx().currentTime;
+    m.x1.forEach(pair => pair.forEach(f => f.frequency.setTargetAtTime(s.x1, now, 0.01)));
+    m.x2.forEach(pair => pair.forEach(f => f.frequency.setTargetAtTime(s.x2, now, 0.01)));
+    s.bands.forEach((b, i) => { const n = m.bands[i];
+      n.comp.threshold.setTargetAtTime(b.on ? b.threshold : 0, now, 0.01); n.comp.ratio.setTargetAtTime(b.on ? b.ratio : 1, now, 0.01);
+      n.comp.attack.setTargetAtTime(b.attack, now, 0.01); n.comp.release.setTargetAtTime(b.release, now, 0.01);
+      n.mk.gain.setTargetAtTime(Math.pow(10, (b.on ? b.makeup : 0) / 20), now, 0.01); });
+  }
   const COMP_PRESETS = [
     {name: "Zpěv", for: /voc|zpev|zpěv|voice/i, p: {threshold: -20, ratio: 3.5, attack: 0.008, release: 0.18, knee: 6, makeup: 4}},
     {name: "Baskytara", for: /bass|bas/i, p: {threshold: -22, ratio: 5, attack: 0.015, release: 0.2, knee: 4, makeup: 5}},
@@ -16059,6 +16140,7 @@ const Mixer = (() => {
       state: {
         mono: !!(saved && saved.mono),
         comp: {...COMP_DEFAULT, ...(saved && saved.comp || {})},
+        mb: mbState(saved && saved.mb),
         dbl: {...DBL_DEFAULT, ...(saved && saved.dbl || {})},
         // a NAM profile on this track alone: {file, name}
         amp: saved && saved.amp && saved.amp.file ? {file: String(saved.amp.file), name: String(saved.amp.name || "")} : null,
@@ -16119,11 +16201,12 @@ const Mixer = (() => {
   }
 
   function wireFx(fx){
-    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output, fx.space && fx.space.output, fx.ampNode, fx.ampCab].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
+    [fx.input, fx.makeup, fx.mono, fx.dbl && fx.dbl.output, fx.space && fx.space.output, fx.ampNode, fx.ampCab, fx.mbNode && fx.mbNode.output].forEach(n => { if(n) try{ n.disconnect(); }catch(e){} });
     fx.input.connect(fx.pre);
     let n = fx.input;
     if(fx.state.amp && fx.ampNode){ n.connect(fx.ampNode); n = fx.ampNode; if(fx.ampCab){ n.connect(fx.ampCab); n = fx.ampCab; } }
     if(fx.state.comp.on){ n.connect(fx.comp); n = fx.makeup; }
+    if(fx.state.mb && fx.state.mb.on){ const m = ensureMb(fx); n.connect(m.input); n = m.output; }
     if(fx.state.mono){ n.connect(fx.mono); n = fx.mono; }
     if(fx.state.dbl.on && fx.dbl){ n.connect(fx.dbl.input); n = fx.dbl.output; }
     if(fx.space){ n.connect(fx.space.input); n = fx.space.output; }
@@ -16147,7 +16230,7 @@ const Mixer = (() => {
   }
 
   function fxSnapshot(fx){
-    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null, cab: fx.state.cab ? {...fx.state.cab} : null,
+    return fx ? {mono: fx.state.mono, comp: {...fx.state.comp}, mb: fx.state.mb ? JSON.parse(JSON.stringify(fx.state.mb)) : null, dbl: {...fx.state.dbl}, amp: fx.state.amp ? {...fx.state.amp} : null, cab: fx.state.cab ? {...fx.state.cab} : null,
                 space: fx.state.space ? JSON.parse(JSON.stringify(fx.state.space)) : null} : null;
   }
 
@@ -21530,6 +21613,7 @@ const Mixer = (() => {
           <button class="fl-fx-btn ${c.fx && c.fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${c.fx && c.fx.state.mono ? "MONO" : "ST"}</button>
           <button class="fl-fx-btn ${c.fx && c.fx.state.comp.on ? "on" : ""}" data-act="comp" title="Kompresor">CMP</button>
           <button class="fl-fx-btn ${c.fx && c.fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
+          <button class="fl-fx-btn ${c.fx && c.fx.state.mb && c.fx.state.mb.on ? "on" : ""}" data-act="mb" title="Vícepásmový kompresor">MB</button>
         </div>
         <button type="button" class="fl-eq-btn" id="fl-eq-${idx}" title="Ekvalizér tohoto kanálu"><span class="dot"></span>EQ</button>
         <button type="button" class="fl-fx-btn fl-plug-btn" data-act="plug" title="Pluginy (Neural DSP a další AU / VST3) — stopa se jimi prožene do nové stopy">PLUG</button>
@@ -21639,7 +21723,13 @@ const Mixer = (() => {
         applyGains();
       };
       // EQ: selects this channel in the equaliser under the strips.
-      strip.querySelector(".fl-eq-btn").onclick = () => selectEqChannel(idx);
+      // EQ: shown with this track in it — clicked again, hidden (as the live guitar's does)
+      strip.querySelector(".fl-eq-btn").onclick = () => {
+        const open = !el("eq-panel").hidden;
+        if(open && eqSel === idx){ setPanelOpen("eq-toggle", "eq-panel", false); savePanelPref("eq", false); return; }
+        setPanelOpen("eq-toggle", "eq-panel", true); savePanelPref("eq", true); selectEqChannel(idx);
+        el("eq-panel").scrollIntoView({block: "nearest", behavior: "smooth"});
+      };
       strip.querySelector(".fl-ch-name").onclick = () => selectEqChannel(idx);
       strip.dataset.idx = String(idx);
       strip.querySelector('[data-act="mono"]').onclick = (e) => {
@@ -21648,6 +21738,7 @@ const Mixer = (() => {
         e.currentTarget.textContent = c.fx.state.mono ? "MONO" : "ST";
       };
       strip.querySelector('[data-act="comp"]').onclick = () => openCompPanel(idx);
+      strip.querySelector('[data-act="mb"]').onclick = (e) => { if(typeof MixTools !== "undefined") MixTools.mb(idx, e.currentTarget); };
       strip.querySelector('[data-act="dbl"]').onclick = () => openDblPanel(idx);
       strip.querySelector('[data-act="plug"]').onclick = () => { if(typeof PluginRack !== "undefined") PluginRack.forStem(currentSongName, c.stem, stemLabel(c.stem)); };
 
@@ -23276,7 +23367,11 @@ const Mixer = (() => {
       if(c && c.fx && b) b.classList.toggle("on", c.fx.state.comp.on);
       const d = strip.querySelector('[data-act="dbl"]');
       if(c && c.fx && d) d.classList.toggle("on", c.fx.state.dbl.on);
+      const m = strip.querySelector('[data-act="mb"]');
+      if(c && c.fx && m) m.classList.toggle("on", !!(c.fx.state.mb && c.fx.state.mb.on));
     });
+    const gm = document.querySelector('#gt-fader [data-act="mb"]');
+    if(gm) gm.classList.toggle("on", !!(Guitar.fx().state.mb && Guitar.fx().state.mb.on));
     const gb = el("gt-comp-btn");
     if(gb) gb.classList.toggle("on", Guitar.state.compOn);
     const gd = document.querySelector('#gt-fader [data-act="dbl"]');
@@ -24515,6 +24610,7 @@ const Mixer = (() => {
     function restoreFx(saved){
       const fx = ensureFx();
       fx.state.mono = !!(saved && saved.mono);
+      fx.state.mb = mbState(saved && saved.mb); if(fx.mbNode) applyMb(fx);
       fx.state.dbl = {...DBL_DEFAULT, ...(saved && saved.dbl || {})};
       if(fx.state.dbl.on) ensureDoubler(fx).catch(() => {});
       applyDoublerParams(fx);
@@ -26733,6 +26829,7 @@ const Mixer = (() => {
         <button class="fl-fx-btn ${fx.state.mono ? "on" : ""}" data-act="mono" title="Mono / stereo">${fx.state.mono ? "MONO" : "ST"}</button>
         <button class="fl-fx-btn ${g.compOn ? "on" : ""}" id="gt-comp-btn" data-act="comp" title="Kompresor (před zesilovačem)">CMP</button>
         <button class="fl-fx-btn ${fx.state.dbl.on ? "on" : ""}" data-act="dbl" title="Doubler — druhá kytara">DBL</button>
+        <button class="fl-fx-btn ${fx.state.mb && fx.state.mb.on ? "on" : ""}" data-act="mb" title="Vícepásmový kompresor — třeba na palm muting">MB</button>
         <button type="button" class="fl-fx-btn fl-eq-btn ${guitarEq && !eqIsFlat(guitarEq) ? "on" : ""} ${eqSel === "guitar" ? "sel" : ""}"
           id="gt-eq-btn" title="Ekvalizér tvé živé kytary">EQ</button>
       </div>
@@ -26790,6 +26887,7 @@ const Mixer = (() => {
     };
     act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
     act("comp").onclick = () => openCompPanel("guitar");
+    act("mb").onclick = (e) => { if(typeof MixTools !== "undefined") MixTools.mb("guitar", e.currentTarget); };
     act("dbl").onclick = () => openDblPanel("guitar");
     act("automix").onclick = () => AutoMix.set(!AutoMix.on());
     strip.querySelectorAll('[data-act="space"]').forEach(b => b.onclick = () => { if(typeof SpaceFx !== "undefined") SpaceFx.open(Guitar.fx(), {title: "živá kytara"}); });
@@ -27673,6 +27771,24 @@ const Mixer = (() => {
     guitarFaderRepaint: () => renderLiveGuitarFader(),
     // The floating catalogue of NAM profiles and cabinets for the live guitar (GuitarStamps opens it too).
     ampPicker: (tab) => openAmpPicker(tab),
+    // The multiband compressor and the mix's spectrum (static/mixtools.js): a track's chain ("guitar" = the live one)
+    tools: {
+      fx: (sel) => sel === "guitar" ? Guitar.fx() : (channels[sel] && channels[sel].fx),
+      mbSet(sel, patch){ const fx = sel === "guitar" ? Guitar.fx() : channels[sel] && channels[sel].fx; if(!fx) return null;
+        const was = fx.state.mb.on, old = fx.state.mb.bands;
+        const {bands, ...rest} = patch; Object.assign(fx.state.mb, rest);
+        if(bands) fx.state.mb.bands = old.map((b, i) => ({...b, ...(bands[i] || {})}));
+        if(fx.state.mb.on) ensureMb(fx); applyMb(fx); if(was !== fx.state.mb.on) wireFx(fx);
+        refreshCompButtons(); queueSessionSave(); return fx.state.mb; },
+      mbReduction: (sel) => { const fx = sel === "guitar" ? Guitar.fx() : channels[sel] && channels[sel].fx; return fx && fx.mbNode && fx.state.mb.on ? fx.mbNode.bands.map(b => b.comp.reduction) : [0, 0, 0]; },
+      mbDefault: () => MB_DEFAULT(),
+      // every track for the spectrum: its EQ'd sound, its colour, its EQ
+      tracks: () => channels.map((c, idx) => ({idx, stem: c.stem, label: stemLabel(c.stem), color: (trackLook[c.stem] && trackLook[c.stem].color) || styleOf(c).c,
+        spectrum: c.eqSpectrum, filters: c.eqFilters || [], bands: (c.eqBands || []).map(b => ({type: b.type, freq: b.freq, gain: b.gain, q: b.q})), muted: !!c.muted})),
+      setBand(idx, i, patch){ const c = channels[idx]; if(!c || !c.eqBands) return; setEqBand(c, i, patch); try{ renderChannels(); }catch(e){} },
+      openEq(idx){ setPanelOpen("eq-toggle", "eq-panel", true); savePanelPref("eq", true); selectEqChannel(idx); },
+      ctx: () => ctx(), save: () => queueSessionSave(),
+    },
     // Delay & reverb (static/space.js): what it needs from here.
     space: {ctx: () => ctx(), rewire: (fx) => wireFx(fx), save: () => queueSessionSave(), repaint: () => renderLiveGuitarFader(),
             bpm: () => tempoBPM ? tempoBPM * speed : 0},
@@ -36245,6 +36361,7 @@ const Voice = (() => {
 <script src="/static/deck.js"></script>
 <script src="/static/looper-sound.js"></script>
 <script src="/static/looper.js"></script>
+<script src="/static/mixtools.js"></script>
 <script src="/static/jam-engine.js"></script>
 <script src="/static/jam-chat.js"></script>
 <script src="/static/jam-host.js"></script>

@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js", "jam-engine.js", "jam-worklet.js", "jam-host.js", "jam-chat.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js", "jam-engine.js", "jam-worklet.js", "jam-host.js", "jam-chat.js", "mixtools.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
