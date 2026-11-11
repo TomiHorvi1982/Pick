@@ -498,6 +498,8 @@ const Jam = (() => {
     // the friend's desktop app: the library gives the launcher out, with its own address in it
     $("jl-cmd").onclick = (e) => { e.preventDefault(); const u = ($("jl-url").value || "").trim().replace(/\/+$/, "");
       if(!/^https:\/\//.test(u)){ showToast("Nejdřív vyplň adresu knihovny (https://…)"); return; } window.open(u + "/pick-jam.cmd", "_blank"); };
+    $("jl-mac").onclick = (e) => { e.preventDefault(); const u = ($("jl-url").value || "").trim().replace(/\/+$/, "");
+      if(!/^https:\/\//.test(u)){ showToast("Nejdřív vyplň adresu knihovny (https://…)"); return; } window.open(u + "/pick-jam-mac.zip", "_blank"); };
   }
   function domWire(){
     const $ = (id) => document.getElementById(id); if(!$("jam-dom")) return;
@@ -519,5 +521,23 @@ const Jam = (() => {
     if(o) o.onclick = () => { const x = document.getElementById("settings-close"); if(x) x.click(); open(); }; }, 0);
   // a room left on (Pick reloaded): back in it
   fetch("/api/jam/status").then(r => r.json()).then(async (d) => { st = d; if(d.on){ build(); await connect(); } }).catch(() => {});
-  return {open, isOn: () => !!st.on, link: () => link};
+  // the button beside Pick's brand: opens this panel; its dot says off / on / the friend is in
+  function quick(){
+    const b = document.getElementById("jam-quick"); if(!b) return;
+    b.onclick = () => open();
+    const tick = async () => {
+      if(!(quick.n++ % 5)){ try{ const d = await (await fetch("/api/jam/status")).json(); if(d && typeof d === "object") st = {...st, ...d}; }catch(e){} }
+      const peer = !!(link && link.peerOn);
+      b.classList.toggle("on", !!st.on); b.classList.toggle("peer", peer);
+      b.title = peer ? `Jam běží — ${names.guest || "kamarád"} je připojený` : st.on ? "Jam běží — čekám na kamaráda" : "Jam s kamarádem — nastavit a spustit";
+    };
+    tick(); setInterval(tick, 2000);
+  }
+  quick.n = 0; quick();
+  return {open, isOn: () => !!st.on, link: () => link,
+    // the friend's volume at the host (his strip in the mix, and a knob on the Live Show's deck)
+    friend: () => link && link.peerOn ? {name: names.guest || "Kamarád",
+      get: () => ({v: cfg.vol ?? 1, muted: !!cfg.fmute}),
+      set: (v) => { cfg.vol = Math.max(0, Math.min(1.4, v)); keep(); applyFriend(); if(jf) jfPaint(); },
+      mute: () => { cfg.fmute = !cfg.fmute; keep(); applyFriend(); if(jf) jfPaint(); }} : null};
 })();

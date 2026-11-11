@@ -71,3 +71,6 @@ V Picku: **Nastavení → Jam → Knihovna na PC → Pick Jam.cmd** (nebo přím
 - **Když zapneš jam,** do 15 sekund mu přijde upozornění Windows „Tomi je online a hraje“ a nahoře se rozsvítí **Připojit se k jamu**.
 - Windows se může zeptat „Systém Windows ochránil váš počítač“. Stačí kliknout na **Další informace → Přesto spustit**.
 - Místo souboru může v Chromu použít i ikonu instalace v adresním řádku nebo tlačítko **⤓ Na plochu** v aplikaci.
+
+## Aplikace na plochu pro kamaráda (Mac)
+V Picku: **Nastavení → Jam → Knihovna na PC → Pick Jam pro Mac.zip** (nebo `https://jam.neverlast.cz/pick-jam-mac.zip`). Kamarád ZIP rozbalí a na **Pick Jam.command** klikne pravým tlačítkem → **Otevřít**. Mac se poprvé zeptá, protože skript nepochází z App Storu. Na ploše pak vznikne aplikace **Pick Jam** s ikonou, která otevře knihovnu v Chromu (nebo v Edge či Brave) jako samostatné okno. Jméno a heslo se zadá v okně, se zaškrtnutým „Zapamatovat si mě“.

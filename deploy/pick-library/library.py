@@ -192,7 +192,7 @@ def icon():
     return Response(f.read_bytes(), media_type="image/png") if f.is_file() else Response(status_code=204)
 
 
-ICONS = {"jam-icon-192.png": "image/png", "jam-icon-512.png": "image/png", "jam-icon.ico": "image/x-icon"}
+ICONS = {"jam-icon-192.png": "image/png", "jam-icon-512.png": "image/png", "jam-icon.ico": "image/x-icon", "jam-icon.icns": "image/icns"}
 
 
 @app.get("/manifest.webmanifest")
@@ -214,6 +214,25 @@ def launcher(request: Request):
     t = (STATIC / "jam-launcher.cmd").read_text(encoding="utf-8").replace("{{URL}}", url).replace("{{HOST}}", HOST)
     return Response(t.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8"), media_type="application/octet-stream",
                     headers={"Content-Disposition": 'attachment; filename="Pick Jam.cmd"', "Cache-Control": "no-store"})
+
+
+@app.get("/pick-jam-mac.zip")
+def launcher_mac(request: Request):
+    """For a Mac: "Pick Jam.command" in a zip (a zip keeps it runnable; a plain download loses that) — it makes a
+    "Pick Jam" app with the icon on the Desktop that opens this page in Chrome as an app. Only this address in it."""
+    import io
+    import zipfile
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "jam.neverlast.cz"
+    url = f"https://{host}/" if not host.startswith(("127.", "localhost")) else f"http://{host}/"
+    t = (STATIC / "jam-launcher.command").read_text(encoding="utf-8").replace("{{URL}}", url).replace("{{HOST}}", HOST)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        info = zipfile.ZipInfo("Pick Jam.command", date_time=time.localtime()[:6])
+        info.external_attr = (0o100755 & 0xFFFF) << 16
+        info.create_system = 3                                   # unix: the mode above counts
+        z.writestr(info, t.replace("\r\n", "\n").encode("utf-8"))
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="Pick Jam pro Mac.zip"', "Cache-Control": "no-store"})
 
 
 @app.get("/static/{name}")

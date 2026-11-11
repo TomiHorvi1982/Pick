@@ -301,8 +301,10 @@ const SongDeck = (() => {
     node._show = show;
     dial.addEventListener("wheel", (e) => {
       e.preventDefault();
-      const step = (e.shiftKey ? 0.01 : 0.04) * (Math.abs(e.deltaY) > 40 ? 1.5 : 1);
-      k.set(Math.max(0, Math.min(k.max, k.get().v + (e.deltaY < 0 ? step : -step))));
+      // a trackpad sends dozens of small events for one move of two fingers, a mouse wheel few big ones:
+      // the turn follows the distance (a mouse notch ≈ 8 %, a light swipe a few %), Shift finer still
+      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+      k.set(Math.max(0, Math.min(k.max, k.get().v - px / (e.shiftKey ? 5000 : 1300) * k.max)));
       show();
     }, {passive: false});
     dial.addEventListener("pointerdown", (e) => {
@@ -343,6 +345,26 @@ const SongDeck = (() => {
       mute: () => { const x = find(); D().toggleMute(x.i); }};
   }
 
+  // our guitars on the deck too (Live Show without going back to the mix): mine when it is live, the friend's in a jam
+  function liveKnobs(){
+    const out = [];
+    try{
+      const Guitar = typeof Mixer !== "undefined" ? Mixer.guitar : null;       // the live guitar lives inside the mixer
+      if(Guitar && Guitar.isLive && Guitar.isLive()){
+        const s = Guitar.state;
+        out.push({id: "@gtr", label: "Moje kytara", icon: "guitar", color: "#a78bfa", max: 1.4,
+          title: "Tvoje živá kytara — kolečko myši nebo tažení nahoru a dolů; dvojklik ztlumí a zase pustí",
+          get: () => ({v: s.volume, muted: !!s.muted}),
+          set: (v) => { s.volume = v; Guitar.applyGuitarGain(); if(typeof queueSessionSave === "function") queueSessionSave(); },
+          mute: () => { s.muted = !s.muted; Guitar.applyGuitarGain(); }});
+      }
+      const f = typeof Jam !== "undefined" && Jam.friend ? Jam.friend() : null;
+      if(f) out.push({id: "@jam", label: f.name, icon: "globe", color: "#6ee7a0", max: 1.4,
+        title: `${f.name} v jamu — kolečko myši nebo tažení; dvojklik ztlumí a zase pustí`, get: f.get, set: f.set, mute: f.mute});
+    }catch(e){}
+    return out;
+  }
+
   // ---- the deck, in each place it is shown
   const hosts = [];
   function mountDeck(where, kind){
@@ -375,11 +397,11 @@ const SongDeck = (() => {
   }
   const keysOf = (a) => cfg.keys[a].map(keyName).join(", ") || "bez klávesy";
   function paintTracks(h){
-    const tr = D().tracks(), sig = song() + "|" + tr.map(t => [t.stem, t.label, t.color, t.icon].join(",")).join("|");
+    const tr = D().tracks(), live = liveKnobs(), sig = song() + "|" + tr.map(t => [t.stem, t.label, t.color, t.icon].join(",")).join("|") + "|" + live.map(k => k.id + k.label).join(",");
     const box = h.box.querySelector(".dk-tracks");
     if(sig !== h.sigT){
       h.sigT = sig;
-      const ks = tr.map(trackKnob);
+      const ks = tr.map(trackKnob).concat(live);
       box.innerHTML = ks.map(knobHtml).join("") || `<span class="dk-none">Žádné stopy</span>`;
       box.querySelectorAll(".dk-knob").forEach((n, i) => wireKnob(n, ks[i]));
     } else box.querySelectorAll(".dk-knob").forEach(n => n._show && n._show());

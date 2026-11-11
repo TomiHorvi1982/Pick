@@ -192,3 +192,16 @@ def test_the_friends_from_pick_log_in_too(lib):
     m.put("/sync/users", headers=h, json={"users": {}})                       # taken away in Pick
     assert c.post("/login", json={"name": "Max", "password": "struna77"}).status_code == 401
     assert "struna77" not in (Path(mod.STATE) / "pick-users.json").read_text()
+
+
+def test_the_mac_launcher_in_a_zip_that_keeps_it_runnable(lib):
+    import io, zipfile
+    mod, c = lib
+    r = c.get("/pick-jam-mac.zip", headers={"host": "jam.neverlast.cz"})
+    assert r.status_code == 200 and 'Pick Jam pro Mac.zip' in r.headers["content-disposition"]
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    info = z.getinfo("Pick Jam.command")
+    assert (info.external_attr >> 16) & 0o111                                  # runnable after unzipping
+    t = z.read(info).decode()
+    assert t.startswith("#!/bin/bash") and 'URL="https://jam.neverlast.cz/"' in t and "--app=" in t and "{{" not in t
+    assert c.get("/static/jam-icon.icns").status_code == 200

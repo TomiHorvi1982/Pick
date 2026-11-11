@@ -942,6 +942,14 @@
 .pick-brand{display:inline-flex;align-items:center;gap:8px;margin-left:6px;font-size:17px;letter-spacing:.02em;color:var(--text)}
 .pick-brand img{display:block;filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
 body.lib-collapsed .pick-brand{display:none}
+/* Jam beside the brand: grey = off, green = on and waiting, pulsing = the friend is in */
+.jam-quick{position:relative;margin-left:auto;margin-right:6px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.05);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.jam-quick:hover{background:var(--accent);color:#0b0b12}
+.jam-quick .jq-dot{position:absolute;right:1px;top:1px;width:9px;height:9px;border-radius:50%;background:#555;border:2px solid var(--bg,#111)}
+.jam-quick.on .jq-dot{background:#3ddc84}.jam-quick.peer .jq-dot{background:#ff5b5b;animation:jqp 1.4s ease-in-out infinite}
+@keyframes jqp{50%{box-shadow:0 0 8px #ff5b5b}}
+body.lib-collapsed .jam-quick{display:none}
 .sb-logo{padding:0 16px 12px;font-size:14px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:6px;cursor:pointer;border-bottom:1px solid #222;margin-bottom:8px;padding-bottom:8px}
 .sb-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;background:none;border:none;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;transition:color .15s;border-left:2px solid transparent}
 .sb-btn:hover{color:#fff}
@@ -5293,6 +5301,7 @@ body.lib-collapsed .pick-brand{display:none}
       <span class="ic" data-icon="menu" data-size="18"></span>
     </button>
     <span class="pick-brand" title="Pick"><img src="/static/pick-icon.png" alt="" width="30" height="30"><b>Pick</b></span>
+    <button type="button" class="jam-quick" id="jam-quick" title="Jam s kamarádem — nastavit a spustit"><span data-icon="headphones" data-size="16"></span><i class="jq-dot"></i></button>
   </div>
 
   <div class="lib-list sp-scroll" id="lib-list"></div>
@@ -5420,7 +5429,7 @@ body.lib-collapsed .pick-brand{display:none}
         <div class="jd-row"><span class="jd-n">2</span><div><b>Klíč pro spojení</b> (stejný dáš v Coolify do PICK_SYNC_TOKEN)<input id="jl-tok" class="jd-in" type="password" placeholder="zůstává uložený — vyplň jen nový" autocomplete="off"><div class="jd-st" id="jl-st"></div></div>
           <button type="button" class="btn secondary" id="jl-gen" title="Vytvoří nový náhodný klíč — zkopíruj ho do Coolify">Nový klíč</button></div>
         <div class="pl-tools"><button type="button" class="btn secondary" id="jl-save">Uložit</button><button type="button" class="btn secondary" id="jl-test">Vyzkoušet spojení</button></div>
-        <div class="set-note"><b>Aplikace pro kamaráda (Windows):</b> stáhni <a href="#" id="jl-cmd">Pick Jam.cmd</a> a pošli mu ho. Po spuštění se mu na ploše objeví ikona <b>Pick Jam</b>, která otevře knihovnu v Chromu jako aplikaci: jméno a heslo (Zapamatovat si mě), pak hraje s písněmi přes svůj mix, zkouší otisky a NAM — a když zapneš jam, přijde mu upozornění. Windows se může zeptat „Chránili jsme počítač“ → <i>Další informace → Přesto spustit</i>. V souboru není žádné heslo ani klíč, jen adresa.</div>
+        <div class="set-note"><b>Aplikace pro kamaráda:</b> pro Windows stáhni <a href="#" id="jl-cmd">Pick Jam.cmd</a>, pro Mac <a href="#" id="jl-mac">Pick Jam pro Mac.zip</a> a pošli mu ho. Na Macu ZIP rozbalí a na „Pick Jam.command“ klikne pravým tlačítkem → Otevřít (poprvé se Mac zeptá). Po spuštění se mu na ploše objeví ikona <b>Pick Jam</b>, která otevře knihovnu v Chromu jako aplikaci: jméno a heslo (Zapamatovat si mě), pak hraje s písněmi přes svůj mix, zkouší otisky a NAM — a když zapneš jam, přijde mu upozornění. Windows se může zeptat „Chránili jsme počítač“ → <i>Další informace → Přesto spustit</i>. V souboru není žádné heslo ani klíč, jen adresa.</div>
       </div>
       <div class="jam-dom" id="jam-dom">
         <div class="jg-h">Vlastní doména — kamarád nic neinstaluje</div>
@@ -33481,7 +33490,10 @@ const PlayerGuitar = (() => {
     k.addEventListener("dblclick", () => { set(def); paintK(); persist(); });
     k.addEventListener("wheel", (e) => {
       e.preventDefault();
-      set(Math.max(min, Math.min(max, get() - Math.sign(e.deltaY) * (max - min) / 60)));
+      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);   // by the distance, not per event (trackpads)
+      if(k._wv == null) k._wv = get();                                                // unrounded while turning: small steps add up
+      k._wv = Math.max(min, Math.min(max, k._wv - px / (e.shiftKey ? 5000 : 1300) * (max - min))); set(k._wv);
+      clearTimeout(k._wt); k._wt = setTimeout(() => { k._wv = null; }, 400);
       paintK(); persist();
     }, {passive: false});
     return paintK;

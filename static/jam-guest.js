@@ -565,6 +565,8 @@
     const all = mixOf(loaded), o = all[id] = all[id] || {}; o[k] = val; store("mix-" + loaded, all); mix.set(id, {[k]: val});
   }
   const getVal = (id, k) => id[0] === "@" ? MY[k] : (mix.ch.find(x => x.stem === id) || {})[k];
+  // a trackpad sends many small wheel events, a mouse few big ones: everything turns by the distance moved
+  const wheelPx = (e) => e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
   function wireStrip(st){
     const id = st.dataset.st;
     st.querySelectorAll("button[data-k]").forEach(b => b.onclick = () => { putVal(id, b.dataset.k, !getVal(id, b.dataset.k)); renderRack(); });
@@ -576,7 +578,10 @@
       kn.onpointerdown = (e) => { kn.setPointerCapture(e.pointerId); const y0 = e.clientY, v0 = +getVal(id, k) || 0;
         kn.onpointermove = (ev) => set(v0 + (y0 - ev.clientY) / (ev.shiftKey ? 600 : 150) * (max - min)); kn.onpointerup = () => { kn.onpointermove = null; }; };
       kn.ondblclick = () => set(def);
-      kn.onwheel = (e) => { e.preventDefault(); set((+getVal(id, k) || 0) + (e.deltaY < 0 ? 1 : -1) * (max - min) / (center ? 50 : 48)); };
+      // the turn is kept unrounded while the fingers move, so small trackpad steps add up instead of rounding away
+      kn.onwheel = (e) => { e.preventDefault(); if(kn._wv == null) kn._wv = +getVal(id, k) || 0;
+        kn._wv = Math.max(min, Math.min(max, kn._wv - wheelPx(e) / (e.shiftKey ? 5000 : 1300) * (max - min))); set(kn._wv);
+        clearTimeout(kn._wt); kn._wt = setTimeout(() => { kn._wv = null; }, 400); };
     });
     st.querySelectorAll(".ft").forEach(ft => {
       const k = ft.dataset.ft, maxDb = +ft.dataset.max;
@@ -590,7 +595,7 @@
         ft.onpointermove = (ev) => { const r = ft.getBoundingClientRect(); setDb(dbOfPos(Math.max(0, Math.min(1, p0 + (y0 - ev.clientY) / (r.height - 8) * (ev.shiftKey ? 0.25 : 1))))); };
         ft.onpointerup = () => { ft.onpointermove = null; }; };
       ft.ondblclick = () => setDb(0);
-      ft.onwheel = (e) => { e.preventDefault(); const d = lin2db(+getVal(id, k)); setDb((isFinite(d) ? d : -60) + (e.deltaY < 0 ? 0.5 : -0.5)); };
+      ft.onwheel = (e) => { e.preventDefault(); const d = lin2db(+getVal(id, k)); setDb((isFinite(d) ? d : -60) - wheelPx(e) / (e.shiftKey ? 400 : 100)); };
     });
     const gt = st.querySelector(".gt");
     if(gt){
@@ -600,7 +605,9 @@
       const fromY = (y) => { const r = gt.getBoundingClientRect(); return dbOfPos(Math.max(0, Math.min(1, (r.bottom - 4 - y) / (r.height - 8)))); };
       gt.onpointerdown = (e) => { gt.setPointerCapture(e.pointerId); setG(fromY(e.clientY)); gt.onpointermove = (ev) => setG(fromY(ev.clientY)); gt.onpointerup = () => { gt.onpointermove = null; }; };
       gt.ondblclick = () => setG(-100);
-      gt.onwheel = (e) => { e.preventDefault(); setG((MY.gate <= -99 ? -80 : MY.gate) + (e.deltaY < 0 ? 1 : -1)); };
+      gt.onwheel = (e) => { e.preventDefault(); if(gt._wv == null) gt._wv = MY.gate <= -99 ? -80 : MY.gate;
+        gt._wv = Math.max(-100, Math.min(-6, gt._wv - wheelPx(e) / 60)); setG(gt._wv);
+        clearTimeout(gt._wt); gt._wt = setTimeout(() => { gt._wv = null; }, 400); };
     }
     const clip = st.querySelector(".clip"); if(clip) clip.onclick = () => { clip.classList.remove("on"); st._clip = false; };
   }
