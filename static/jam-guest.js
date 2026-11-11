@@ -693,11 +693,16 @@
       return `<button data-fk="${k}" data-fv="${esc(v)}" class="${on ? "on" : ""}" style="${on ? `background:${col || "var(--acc)"};border-color:${col || "var(--acc)"}` : col ? `border-color:${col}66` : ""}">${esc(label(k, v))}<i>${c}</i></button>`; }).join(""))).join("");
     $("aChips").querySelectorAll("[data-fk]").forEach(x => x.onclick = () => { const k = x.dataset.fk; f[k] = f[k] === x.dataset.fv ? "" : x.dataset.fv; if(!f[k]) delete f[k]; store("ampCat", AC); findAmps(); });
     const cur = kind === "ir" ? ampSel.ir : ampSel.model;
-    const sub = (a) => kind === "ir" ? [a.speaker, a.mic, a.size].filter(Boolean).join(" · ") : [d.gains[a.gain] && a.gain ? d.gains[a.gain] : "", a.type].filter(Boolean).join(" · ");
+    // his own files first (loaded from his computer, kept in this browser)
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const own = (await OwnSounds.list()).filter(k => (kind === "ir" ? /\.wav$/i : /\.nam$/i).test(k) && words.every(w => k.toLowerCase().includes(w)));
+    d.items = own.map(k => ({file: k, name: k.slice(4).replace(/\.(nam|wav)$/i, ""), group: "Moje z počítače", own: true})).concat(d.items);
+    const sub = (a) => a.own ? "z tvého počítače" : kind === "ir" ? [a.speaker, a.mic, a.size].filter(Boolean).join(" · ") : [d.gains[a.gain] && a.gain ? d.gains[a.gain] : "", a.type].filter(Boolean).join(" · ");
     let last = null;
     box.innerHTML = d.items.map(a => { const hd = a.group && a.group !== last ? `<div class="ghd">${a.gain && AC.sort[kind] === "gain" ? `<i style="background:${GAINC[a.gain] || "#a0aec0"}"></i>` : ""}${esc(a.group)}</div>` : ""; last = a.group;
-      return hd + `<button data-f="${esc(a.file)}" data-n="${esc(a.name)}" class="${cur === a.file ? "cur" : ""}"><b>${esc(a.name)}</b>${sub(a) ? `<span>${esc(sub(a))}</span>` : ""}</button>`; }).join("")
+      return hd + `<button data-f="${esc(a.file)}" data-n="${esc(a.name)}" class="${cur === a.file ? "cur" : ""}"><b>${esc(a.name)}${a.own ? `<i class="own-x" data-del="${esc(a.file)}" title="Smazat z prohlížeče">✕</i>` : ""}</b>${sub(a) ? `<span>${esc(sub(a))}</span>` : ""}</button>`; }).join("")
       + (d.total > d.items.length ? `<div class="muted">… a dalších ${d.total - d.items.length} — zúži hledání nebo kategorii</div>` : "") || `<div class="muted">Nic nenalezeno.</div>`;
+    box.querySelectorAll("[data-del]").forEach(x => x.onclick = async (e) => { e.stopPropagation(); await OwnSounds.del(x.dataset.del); toast("Smazáno z prohlížeče."); findAmps(); });
     box.querySelectorAll("[data-f]").forEach(x => x.onclick = () => {
       if(kind === "ir"){ ampSel.ir = x.dataset.f; ampSel.iname = x.dataset.n; } else { ampSel.model = x.dataset.f; ampSel.mname = x.dataset.n; }
       box.querySelectorAll(".cur").forEach(c => c.classList.remove("cur")); x.classList.add("cur");
@@ -705,6 +710,25 @@
       useSound({kind: "amp", model: ampSel.model, ir: ampSel.ir, name: [ampSel.mname, ampSel.iname].filter(Boolean).join(" + ")});
     });
   }
+  // a .nam or .wav from his computer (tone3000.com and the like): kept in the browser, chosen at once
+  $("ownUp").onchange = async (e) => {
+    const files = [...e.target.files]; e.target.value = "";
+    let lastNam = null, lastIr = null;
+    for(const f of files){
+      if(f.size > 25e6){ toast(`${f.name} je moc velký.`); continue; }
+      const nam = /\.nam$/i.test(f.name), wav = /\.wav$/i.test(f.name); if(!nam && !wav) continue;
+      if(nam){ try{ JSON.parse(await f.slice(0, 2e6).text().then(x => x.length < 2e6 ? x : "{}")); }catch(err){ toast(`${f.name} není NAM profil.`); continue; } }
+      const id = "own:" + f.name; await OwnSounds.put(id, f);
+      if(nam) lastNam = {id, name: f.name.replace(/\.nam$/i, "")}; else lastIr = {id, name: f.name.replace(/\.wav$/i, "")};
+    }
+    if(lastNam){ ampSel.model = lastNam.id; ampSel.mname = lastNam.name; }
+    if(lastIr){ ampSel.ir = lastIr.id; ampSel.iname = lastIr.name; }
+    if(lastNam || lastIr){
+      AC.kind = lastNam ? "model" : "ir"; paintAmpHead(); findAmps();
+      $("ampPick").textContent = [ampSel.mname || "bez zesilovače", ampSel.iname || "bez kabinetu"].join(" + ");
+      useSound({kind: "amp", model: ampSel.model, ir: ampSel.ir, name: [ampSel.mname, ampSel.iname].filter(Boolean).join(" + ")});
+    }
+  };
   let ampT = 0;
   $("aFind").oninput = () => { clearTimeout(ampT); ampT = setTimeout(findAmps, 250); };
   async function useSound(s, quiet){

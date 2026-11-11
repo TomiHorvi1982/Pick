@@ -175,6 +175,9 @@
   .jam-go{background:#ff5b5b;color:#fff;font-weight:800;padding:6px 12px;border-radius:9px;text-decoration:none;white-space:nowrap;animation:jg 1.6s ease-in-out infinite}
   @keyframes jg{50%{box-shadow:0 0 14px #ff5b5b}}
   body.solo .chatbox{display:none}body.solo main.noside{grid-template-columns:1fr}body.solo main.noside .side{display:none}
+  .own-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px}.own-row a{color:var(--dim)}
+  .own-up{cursor:pointer;border:1px dashed var(--acc);border-radius:8px;padding:5px 10px;font-weight:700}.own-up:hover{background:rgba(139,92,246,.15)}
+  .plist .own-x{float:right;opacity:.5;font-weight:400}.plist .own-x:hover{opacity:1;color:var(--bad)}
   .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.chips:empty{display:none}
   .chips button{font-size:11px;padding:3px 9px;border-radius:999px;color:var(--dim)}.chips button i{font-style:normal;opacity:.6;margin-left:3px}
   .chips button.on{color:#0b0b12}.chips .sep{width:1px;background:var(--line);margin:0 2px}
@@ -243,6 +246,8 @@
     <div id="stAmps" hidden>
       <div class="cats" id="aKind"><button data-k="model" class="on">Zesilovače (NAM)</button><button data-k="ir">Kabinety (IR)</button></div>
       <div class="arow"><input type="search" id="aFind" placeholder="Hledat — značka, model, reproduktor…"><select id="aSort" title="Jak řadit a seskupit"></select></div>
+      <div class="own-row"><label class="own-up" title="NAM profil (.nam) nebo kabinet (.wav) z tvého počítače — zůstane jen v tomhle prohlížeči">📂 Nahrát vlastní .nam / .wav<input type="file" id="ownUp" accept=".nam,.wav" multiple hidden></label>
+        <a href="https://www.tone3000.com/" target="_blank" rel="noopener" title="Tisíce NAM profilů a kabinetů zdarma — stáhni a nahraj tady">profily zdarma: tone3000.com ↗</a></div>
       <div class="chips" id="aChips"></div><div class="plist" id="alist"></div>
       <div class="muted" id="ampPick">Vyber zesilovač a k němu kabinet.</div></div>
     <div id="stOwn" hidden>

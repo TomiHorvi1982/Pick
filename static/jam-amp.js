@@ -39,12 +39,17 @@
     }
     async modelText(file){
       if(this.models.has(file)) return this.models.get(file);
+      if(file.startsWith("own:")){                          // his own, loaded from his computer (tone3000.com …)
+        const b = await OwnSounds.get(file); if(!b) throw new Error("Vlastní profil už v prohlížeči není — nahraj ho znovu.");
+        const t = await b.text(); this.models.clear(); this.models.set(file, t); return t; }
       const r = await this.api.raw(`/g/amp?file=${enc(file)}`);
       if(!r.ok) throw new Error("Zesilovač se nepodařilo načíst.");
       const t = await r.text(); this.models.clear(); this.models.set(file, t);
       return t;
     }
     async irBuffer(url){
+      if(url.startsWith("own:")){ const b = await OwnSounds.get(url); if(!b) throw new Error("Vlastní kabinet už v prohlížeči není — nahraj ho znovu.");
+        return this.ctx.decodeAudioData(await b.arrayBuffer()); }
       const r = await this.api.raw(url);
       if(!r.ok) throw new Error("Kabinet (IR) se nepodařilo načíst.");
       return this.ctx.decodeAudioData(await r.arrayBuffer());
@@ -94,7 +99,7 @@
       const c = this.ctx, chain = [c.createGain()];
       let core = null;
       if(model){ core = await (await this.eng()).createNode(); await core.loadModel(await this.modelText(model)); chain.push(core); }
-      if(ir){ const cv = c.createConvolver(); cv.normalize = true; cv.buffer = await this.irBuffer(`/g/amp?file=${enc(ir)}`); chain.push(cv); }
+      if(ir){ const cv = c.createConvolver(); cv.normalize = true; cv.buffer = await this.irBuffer(ir.startsWith("own:") ? ir : `/g/amp?file=${enc(ir)}`); chain.push(cv); }
       chain.push(c.createGain());
       this.kind = "amp"; this.label = label || "Zesilovač";
       this._put(chain, [], {core, drive: chain[0]});
@@ -126,6 +131,21 @@
     for(let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x[i])) * 32767, true);
     return new Blob([b], {type: "audio/wav"});
   }
+  // NAM profiles and cabinets of his own (downloaded from tone3000.com and the like): kept in this browser (IndexedDB),
+  // never sent anywhere — "own:<name>" in his sounds and their history.
+  const OwnSounds = (() => {
+    const db = () => new Promise((ok, no) => { const r = indexedDB.open("pick-jam-own", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("files"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+    const tx = async (mode, fn) => { const d = await db(); return new Promise((ok, no) => { const t = d.transaction("files", mode), st = t.objectStore("files"); const q = fn(st);
+      t.oncomplete = () => ok(q && q.result); t.onerror = () => no(t.error); }); };
+    return {
+      put: (id, blob) => tx("readwrite", st => st.put(blob, id)),
+      get: (id) => tx("readonly", st => st.get(id)).catch(() => null),
+      del: (id) => tx("readwrite", st => st.delete(id)),
+      list: () => tx("readonly", st => st.getAllKeys()).then(k => k || []).catch(() => []),
+    };
+  })();
+  window.OwnSounds = OwnSounds;
   window.JamAmp = JamAmp;
   window.JamRec = {recorder, wav};
 })();
