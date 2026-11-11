@@ -1,0 +1,9 @@
+# Only what the library on the PC needs goes into its image (deploy/pick-library) — nothing else of Pick
+*
+!deploy/pick-library/
+!static/jam.html
+!static/pick-favicon.png
+!static/jam-*.js
+!static/stretch/
+!static/nam/
+!static/alphatab/

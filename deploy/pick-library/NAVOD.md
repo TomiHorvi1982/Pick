@@ -1,0 +1,65 @@
+# Pick knihovna na PC — návod
+
+Stránka pro kamaráda **mezi jamy** běží na tvém PC v Dockeru, ne na Macu. Kamarád v ní prochází tvoje písně, poslouchá je, čte text a akordy, zkouší otisky a NAM a dává písním ★ **Na příště**. Samotný jam (kytary, kamery, společné hraní) zůstává na Macu a běží jen tehdy, když ho zapneš.
+
+## Jak je to zabezpečené
+- Kontejner čte kopii karty a dat Picku **jen pro čtení**: nic nesmaže ani nezmění. Zapisuje jen do vlastního úložiště (`library-state`), kde jsou kamarádova jména se zašifrovanými hesly, Na příště a náhledy písní.
+- Kontejner **nemá žádný port** do sítě ani do internetu a je v síti bez přístupu ven. Ven vede jen **Cloudflare Tunnel** ve druhém kontejneru.
+- Běží jako omezený uživatel, bez práv, s pevným (jen pro čtení) systémem souborů a omezenou pamětí.
+- Bez přihlášení se nic nezobrazí. Po 8 špatných heslech musí člověk 10 minut počkat.
+- **Mac se knihovny jen ptá:** jednou za minutu si vymění Na příště a řekne jí, jestli hraješ. Knihovna se k Macu nedostane, na Macu se nic neotevírá.
+
+## Data na PC
+| Co | Cesta na PC |
+|---|---|
+| Kopie karty (složka se `Stems`) | `F:\DITORIG-KNIHOVNA\PICKSD\spotdl` |
+| NAM profily a kabinety | `F:\DITORIG-KNIHOVNA\PICK-SUPPORT\amps` |
+| Data Picku (texty, playlisty) | `F:\DITORIG-KNIHOVNA\PICK-SUPPORT` |
+
+V Dockeru (Docker Desktop) jsou tyhle složky vidět jako `/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/...`. Tak je to nastavené ve výchozím stavu. Pokud Docker běží přímo v Ubuntu (WSL), použij místo toho `/mnt/f/DITORIG-KNIHOVNA/...`.
+
+## 1. Cloudflare Tunnel (jednou, asi 3 minuty)
+1. Otevři **dash.cloudflare.com** → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel** → **Cloudflared**.
+2. Pojmenuj ho `pick-knihovna` → **Save**. Zobrazí se příkaz s dlouhým **tokenem** (text za `--token`). Zkopíruj **jen ten token**, příkaz nespouštěj.
+3. Pokračuj na **Public Hostname**:
+   - Subdomain: `hraj`
+   - Domain: `neverlast.cz`
+   - Service: **HTTP**, `library:8080`
+
+   Dej **Save**. Kamarád pak bude chodit na **https://hraj.neverlast.cz**.
+
+## 2. Klíč pro Mac
+V Picku na Macu: **Nastavení → Jam → Knihovna na PC** → **Nový klíč**. Klíč se zkopíruje. Adresu `https://hraj.neverlast.cz` vyplň do pole nad ním a zatím **neukládej**. Klíč použiješ v dalším kroku.
+
+## 3. Coolify
+1. Spusť **Docker Desktop** (a Coolify).
+2. V Coolify: **+ New Resource** → **Docker Compose** z GitHub repozitáře **TomiHorvi1982/Pick**:
+   - Base Directory: `/`
+   - Docker Compose Location: `/deploy/pick-library/docker-compose.yml`
+3. **Environment Variables:**
+   - `PICK_SYNC_TOKEN` = klíč z kroku 2
+   - `CF_TUNNEL_TOKEN` = token z kroku 1
+   - `PICK_HOST_NAME` = `Tomi` (nebo jak chceš, aby ti kamarád v knihovně říkal)
+   - Jen když je Docker v Ubuntu (WSL): `PICK_DATA_DIR`, `PICK_AMPS_DIR` a `PICK_HELPER_DIR` s cestami `/mnt/f/...` z tabulky výše.
+4. **Deploy.**
+
+## 4. Účet pro kamaráda
+V Coolify u služby **library** → **Terminal** (nebo `docker exec -it <kontejner> sh`):
+```
+python library.py adduser Pavel
+```
+Zeptá se na heslo (aspoň 6 znaků). Seznam účtů zobrazí `python library.py users`, odebrání `python library.py deluser Pavel`.
+
+## 5. Propojit s Macem
+V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a klíč) → **Vyzkoušet spojení**. Má se ukázat „Spojeno ✓“.
+
+## Jak to funguje pro kamaráda
+- **https://hraj.neverlast.cz:** přihlásí se a uvidí písně (★ Na příště, Vše, Kapely, Ladění, Playlisty), náhledy, text, akordy, otisky a NAM.
+- **Když zapneš jam**, knihovna mu do minuty ukáže „**Tomi právě hraje — Připojit se k jamu**“ a odkaz na neverlast.cz.
+- **Na příště** je i u tebe v Picku jako playlist ve Steems „**Jam — na příště**“. Co přidá kamarád nebo ty, objeví se na obou místech.
+
+## Co je dobré vědět
+- Knihovna ukazuje to, co je na **kopii** karty. Nové písně z Macu se v ní objeví, až kopii aktualizuješ.
+- **Obaly písní** se ukážou jen u těch, které Pick už někdy dohledal (`chip-thumbs.json` v datech Picku). Jinak se místo nich zobrazí ikona.
+- **Vlastní otisk** si kamarád nahraje jen během jamu, protože se počítá na Macu.
+- Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.

@@ -1,0 +1,50 @@
+# Pick knihovna on the PC: the app (read-only, no port to the network) and a Cloudflare Tunnel to it.
+# The library sits in a network with no way out ("inside"); only the tunnel reaches the internet.
+# In Coolify: a Docker Compose resource from this repository, base directory /, file deploy/pick-library/docker-compose.yml.
+services:
+  library:
+    build:
+      context: ../..
+      dockerfile: deploy/pick-library/Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 200
+    environment:
+      PICK_SYNC_TOKEN: ${PICK_SYNC_TOKEN:?PICK_SYNC_TOKEN (aspoň 24 znaků, stejný jako v Picku na Macu)}
+      PICK_HOST_NAME: ${PICK_HOST_NAME:-Tomi}
+      PICK_JAM_URL: ${PICK_JAM_URL:-https://neverlast.cz}
+    volumes:
+      # the copy of the Pick card and Pick's own data — read-only (Docker Desktop on Windows sees F: as below)
+      - ${PICK_DATA_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICKSD/spotdl}:/data/spotdl:ro
+      - ${PICK_AMPS_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICK-SUPPORT/amps}:/data/amps:ro
+      - ${PICK_HELPER_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICK-SUPPORT}:/data/helper:ro
+      # the only place it writes: friends (hashed passwords), Na příště, previews
+      - library-state:/state
+    networks: [inside]
+
+  tunnel:
+    image: cloudflare/cloudflared:2024.10.1
+    command: tunnel --no-autoupdate run
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:?CF_TUNNEL_TOKEN (Cloudflare → Zero Trust → Networks → Tunnels)}
+    depends_on: [library]
+    networks: [inside, outside]
+
+networks:
+  inside:
+    internal: true
+  outside: {}
+
+volumes:
+  library-state: {}

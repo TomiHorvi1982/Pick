@@ -392,6 +392,22 @@ const Jam = (() => {
     };
     const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(accPaint, 200));
   }
+  // Nastavení → Jam → knihovna na PC
+  async function libPaint(){ const $ = (id) => document.getElementById(id); if(!$("jam-lib")) return;
+    try{ const d = await (await fetch("/api/jam/library")).json(); if(document.activeElement !== $("jl-url")) $("jl-url").value = d.url || "";
+      if(!$("jl-st").dataset.busy){ $("jl-st").className = "jd-st"; $("jl-st").textContent = d.token ? "Klíč je uložený." : "Klíč zatím není."; } }catch(e){} }
+  function libWire(){
+    const $ = (id) => document.getElementById(id); if(!$("jam-lib")) return;
+    $("jl-gen").onclick = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); const t = [...a].map(b => b.toString(16).padStart(2, "0")).join("");
+      $("jl-tok").type = "text"; $("jl-tok").value = t; navigator.clipboard.writeText(t).catch(() => {});
+      $("jl-st").className = "jd-st ok"; $("jl-st").textContent = "Nový klíč je zkopírovaný — vlož ho v Coolify do PICK_SYNC_TOKEN a tady dej Uložit."; };
+    $("jl-save").onclick = async () => { const r = await fetch("/api/jam/library", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({url: $("jl-url").value, token: $("jl-tok").value})});
+      const d = await r.json().catch(() => ({})); $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? "Uloženo." : (d.error || "Nepodařilo se."); if(r.ok){ $("jl-tok").value = ""; $("jl-tok").type = "password"; } };
+    $("jl-test").onclick = async () => { $("jl-st").dataset.busy = "1"; $("jl-st").className = "jd-st"; $("jl-st").textContent = "Zkouším…";
+      const r = await fetch("/api/jam/library/test", {method: "POST"}), d = await r.json().catch(() => ({})); delete $("jl-st").dataset.busy;
+      $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? `Spojeno ✓ — Na příště má ${d.fav} písní.` : (d.error || "Nepodařilo se."); };
+    const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(libPaint, 200));
+  }
   function domWire(){
     const $ = (id) => document.getElementById(id); if(!$("jam-dom")) return;
     $("jd-login").onclick = async () => { const r = await (await fetch("/api/jam/domain/login", {method: "POST"})).json(); if(!r.ok) showToast(r.msg || "Nepovedlo se"); domPaint(); };
@@ -407,7 +423,7 @@ const Jam = (() => {
     const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(domPaint, 200));
   }
   // Nastavení → Jam
-  setTimeout(() => { domWire(); accWire(); const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
+  setTimeout(() => { domWire(); accWire(); libWire(); const c = document.getElementById("jam-guide-copy"), o = document.getElementById("jam-open-set");
     if(c) c.onclick = copyGuide;
     if(o) o.onclick = () => { const x = document.getElementById("settings-close"); if(x) x.click(); open(); }; }, 0);
   // a room left on (Pick reloaded): back in it

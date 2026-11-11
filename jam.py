@@ -615,6 +615,7 @@ def jam_start(via: str = ""):
         ROOM["key"] = secrets.token_urlsafe(9)
         ROOM["started"] = time.time()
     ROOM["url"] = f"https://{base}/?k={ROOM['key']}"
+    _lib_kick()
     return {"ok": True, "url": ROOM["url"]}
 
 
@@ -624,6 +625,7 @@ def jam_stop():
     _chat_reset()
     _serve_off()
     _cf_down()
+    _lib_kick()
     for role in ("guest", "host"):
         p = ROOM.get(role)
         if p:
@@ -1106,26 +1108,98 @@ async def g_fav_change(request: Request):
 
 # the page kept in the friend's browser: when the jam is off (or this Mac is), it still opens with the songs as
 # they were last seen, YouTube for listening, and Na příště kept until the next time
-SW = """const C = "pick-jam-v3";
-const FILES = ["/", "/static/jam-engine.js", "/static/jam-chat.js", "/static/jam-mix.js", "/static/jam-amp.js", "/static/jam-guest.js"];
-// kept at once, so the very next visit already opens without the host
-self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => Promise.all(FILES.map(f => c.add(f).catch(() => {}))))); });
-self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
-const keep = (key, res) => { if(res && res.ok){ const copy = res.clone(); caches.open(C).then(c => c.put(key, copy)); } return res; };
-self.addEventListener("fetch", (e) => {
-  const u = new URL(e.request.url);
-  if(e.request.method !== "GET" || u.origin !== location.origin || u.pathname === "/ws") return;
-  const page = e.request.mode === "navigate", stat = u.pathname.startsWith("/static/");
-  if(!(page || stat || ["/g/songs", "/g/playlists", "/g/art"].includes(u.pathname))) return;
-  const key = page ? new Request("/") : stat ? new Request(u.pathname) : e.request;
-  const kept = () => caches.match(key, {ignoreSearch: page || stat});
-  // the network first (a 5xx is Cloudflare saying the Mac is away), what was kept when that fails
-  e.respondWith(fetch(e.request).then(r => r.status >= 500 ? kept().then(m => m || r) : keep(key, r))
-    .catch(() => kept().then(m => m || new Response("offline", {status: 503}))));
-});
-"""
+SW = (STATIC / "jam-sw.js")
 
 
 @gate.get("/sw.js")
 def guest_sw():
-    return Response(SW, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+    return Response(SW.read_text(encoding="utf-8"), media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+
+
+# ---- the library on the host's PC (deploy/pick-library): the friend's page between jams. This Mac only calls it
+# (nothing there can call here): "Na příště" merged both ways, and whether a jam is on, once a minute.
+def _lib():
+    c = conf()
+    url, tok = (c.get("library_url") or "").rstrip("/"), c.get("library_token") or ""
+    return (url, tok) if url.startswith("https://") and len(tok) >= 24 else (None, None)
+
+
+def _lib_call(method: str, path: str, body=None, timeout: float = 15):
+    import urllib.request
+    url, tok = _lib()
+    if not url:
+        raise RuntimeError("Knihovna na PC není nastavená.")
+    req = urllib.request.Request(url + path, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "User-Agent": "Pick"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8") or "{}")
+
+
+def lib_sync() -> dict:
+    """Na příště: what either side took away since the last time stays away; what either added is there."""
+    import setlists
+    pc = _lib_call("GET", "/sync/fav").get("songs") or []
+    p = _fav()
+    mac = list(p.get("songs") or [])
+    base = set(conf().get("lib_base") or [])
+    gone = (base - set(pc)) | (base - set(mac))
+    out = [n for n in mac + [x for x in pc if x not in mac] if n not in gone]
+    if out != mac:
+        setlists.setlist_set(p["id"], setlists.SetlistIn(name=p["name"], songs=out))
+    if out != pc:
+        _lib_call("PUT", "/sync/fav", {"songs": out})
+    conf_save(lib_base=out)
+    return {"songs": out}
+
+
+def lib_status() -> None:
+    _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else ""})
+
+
+def _lib_loop() -> None:
+    while True:
+        try:
+            if _lib()[0]:
+                lib_status()
+                lib_sync()
+        except Exception:
+            pass
+        time.sleep(60)
+
+
+def start_library_sync() -> None:
+    threading.Thread(target=_lib_loop, daemon=True, name="jam-library").start()
+
+
+def _lib_kick() -> None:
+    threading.Thread(target=lambda: (lib_status() if _lib()[0] else None), daemon=True).start()
+
+
+@router.get("/api/jam/library")
+def jam_library():
+    c = conf()
+    return {"url": c.get("library_url") or "", "token": bool(c.get("library_token"))}
+
+
+@router.post("/api/jam/library")
+async def jam_library_set(request: Request):
+    body = await request.json()
+    body = body if isinstance(body, dict) else {}
+    url = str(body.get("url") or "").strip().rstrip("/")
+    if url and not url.startswith("https://"):
+        return JSONResponse({"error": "Adresa musí začínat https://"}, status_code=400)
+    tok = str(body.get("token") or "").strip()
+    if tok and len(tok) < 24:
+        return JSONResponse({"error": "Klíč musí mít aspoň 24 znaků."}, status_code=400)
+    conf_save(library_url=url, **({"library_token": tok} if tok else {}))
+    return {"ok": True, **jam_library()}
+
+
+@router.post("/api/jam/library/test")
+async def jam_library_test():
+    try:
+        await asyncio.to_thread(lib_status)
+        got = await asyncio.to_thread(lib_sync)
+        return {"ok": True, "fav": len(got["songs"])}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Knihovna na PC neodpovídá: {str(e)[:200]}"}, status_code=502)

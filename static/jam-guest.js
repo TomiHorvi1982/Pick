@@ -32,6 +32,7 @@
     store("host", me.host); if(me.user) store("user", me.user);
     if(me.user && (store("favq") || []).length) favSync();
     $("outBtn").hidden = !me.login;
+    if(me.library && me.user) return browse(true);
     if(me.user && !me.on) return browse();
     if(me.login && !me.user){ $("login").hidden = false; $("lName").focus(); return; }
     if(!me.login && !K){ document.body.innerHTML = "<div style='padding:40px'>Tenhle odkaz je neúplný — popros kamaráda o nový.</div>"; return; }
@@ -47,7 +48,10 @@
     const r = await fetch("/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name: $("lName").value, password: $("lPass").value})});
     const d = await r.json().catch(() => ({}));
     if(!r.ok){ $("lErr").textContent = d.error || "Nepodařilo se."; return; }
-    me = await getJ("/g/me"); $("outBtn").hidden = false; showJoin();
+    me = await getJ("/g/me"); $("outBtn").hidden = false; store("host", me.host); store("user", me.user);
+    if(me.library) return browse(true);
+    if(!me.on) return browse();
+    showJoin();
   };
   $("outBtn").onclick = async () => { await fetch("/logout", {method: "POST"}); location.reload(); };
 
@@ -91,7 +95,8 @@
     }
     try{ me = await getJ("/g/me"); }catch(e){}
     if(!me.on){ $("joinErr").textContent = `${me.host} teď jam nemá zapnutý — jakmile ho zapne, zkus to znovu.`; return; }
-    try{ const probe = await navigator.mediaDevices.getUserMedia({audio: true}); probe.getTracks().forEach(t => t.stop()); }
+    $("joinErr").innerHTML = `<span class="muted">Čekám, až v Chromu povolíš mikrofon (okénko vlevo nahoře u adresy)…</span>`;
+    try{ const probe = await navigator.mediaDevices.getUserMedia({audio: true}); probe.getTracks().forEach(t => t.stop()); $("joinErr").textContent = ""; }
     catch(e){ $("joinErr").innerHTML = micHelp(e); return; }
     let camOk = true, camNote = "";
     try{ const v = await navigator.mediaDevices.getUserMedia({video: true}); v.getTracks().forEach(t => t.stop()); }
@@ -126,17 +131,22 @@
   }
   $("go").onclick = start;
   // No jam (it is off, or the host's Mac is): the songs as last seen, YouTube to listen, Na příště kept for later
-  function browse(){
-    offline = true;
+  // lib: the library on the host's PC (online — previews, Na příště live; the jam itself is on the host's Mac)
+  function browse(lib){
+    offline = !lib;
     $("login").hidden = true; $("join").hidden = true;
     $("dot").classList.remove("on");
-    $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;
-    $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
+    const jamLine = () => me.jam ? `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}" target="_blank" rel="noopener">Připojit se k jamu ↗</a>`
+      : `${esc(me.host)} teď nehraje. Procházej písně, poslechni si je a dej jim ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
+    if(lib){ $("state").textContent = "knihovna písní"; $("songSt").innerHTML = jamLine();
+      setInterval(async () => { try{ const d = await (await fetch("/g/me", {cache: "no-store"})).json(); if(d.jam !== me.jam){ me.jam = d.jam; me.jam_url = d.jam_url; $("songSt").innerHTML = jamLine(); if(d.jam) toast(`${me.host} zapnul jam — klikni „Připojit se k jamu“`, 15000); } }catch(e){} }, 20000); }
+    else { $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;
+      $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`; }
     const rt = $("retry"); if(rt) rt.onclick = (e) => { e.preventDefault(); location.reload(); };
     ["camBtn", "voiceBtn", "play", "toStart", "tDn", "tUp", "kDn", "kUp"].forEach(id => { $(id).disabled = true; });
     $("rack").hidden = true; $("mixFold").hidden = true;
     loadSongs();
-    setInterval(async () => { try{ const r = await fetch("/g/me", {cache: "no-store"}); if(r.ok && (await r.json()).on) $("songSt").innerHTML = `<b>${esc(me.host)} zapnul jam!</b> <a href="#" onclick="location.reload();return false">Připojit se</a>`; }catch(e){} }, 20000);
+    if(!lib) setInterval(async () => { try{ const r = await fetch("/g/me", {cache: "no-store"}); if(r.ok && (await r.json()).on) $("songSt").innerHTML = `<b>${esc(me.host)} zapnul jam!</b> <a href="#" onclick="location.reload();return false">Připojit se</a>`; }catch(e){} }, 20000);
   }
   function showMe(track){ const v = $("vMe"); if(track){ v.srcObject = new MediaStream([track]); v.hidden = false; } else { v.srcObject = null; v.hidden = true; } }
   function applyBuf(){ const v = $("buf").value; store("buf", v); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); }

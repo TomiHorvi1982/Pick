@@ -266,3 +266,25 @@ def test_na_priste_is_a_steems_playlist_both_change(client, monkeypatch, tmp_pat
     assert g.post("/g/fav", json={"ops": [{"name": "Band - Song", "add": False}]}).json()["songs"] == ["Band - Other"]
     assert g.get("/sw.js").headers["content-type"].startswith("text/javascript")
     assert TestClient(jam.gate).get("/g/fav").status_code == 403                    # not logged in: nothing
+
+
+def test_na_priste_merges_with_the_library_on_the_pc(monkeypatch, tmp_path, tmp_music_root):
+    import setlists
+    monkeypatch.setattr(setlists, "PATH", tmp_path / "pl.json")
+    for n in ("A", "B", "C"):
+        (tmp_music_root / "Stems" / n).mkdir(parents=True)
+    jam.conf_save(library_url="https://hraj.example", library_token="x" * 30, lib_base=["A", "B"])
+    p = jam._fav()
+    setlists.setlist_set(p["id"], setlists.SetlistIn(name=p["name"], songs=["A", "B"]))
+    pc = {"songs": ["A", "B", "C"]}                       # the friend added C at the library…
+    sent = []
+    def call(method, path, body=None, timeout=15):
+        if method == "GET":
+            return dict(pc)
+        sent.append((method, path, body))
+        return {}
+    monkeypatch.setattr(jam, "_lib_call", call)
+    setlists.setlist_set(p["id"], setlists.SetlistIn(name=p["name"], songs=["A"]))   # …and the host took B away in Pick
+    assert jam.lib_sync()["songs"] == ["A", "C"]
+    assert jam._fav()["songs"] == ["A", "C"] and sent == [("PUT", "/sync/fav", {"songs": ["A", "C"]})]
+    assert jam.conf()["lib_base"] == ["A", "C"]

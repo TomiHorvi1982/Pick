@@ -12074,6 +12074,8 @@ _jam.ffmpeg = ffmpeg_bin
 _jam.main_app = app
 _jam.music_file = lambda rel: _resolve_under_music_root(rel)
 _jam.range_file = lambda path, rng: _range_file_response(path, rng)
+if not os.environ.get("SPOTDL_NO_WATCHERS") and "pytest" not in __import__("sys").modules:
+    _jam.start_library_sync()      # Na příště and "a jam is on" with the library on the PC (only calls out; Nastavení → Jam)
 _jam.friend_print = jam_friend_print
 app.include_router(_jam.router)
 
