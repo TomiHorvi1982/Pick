@@ -573,19 +573,64 @@ def g_print_ir(request: Request, name: str, print: str = ""):
     return FileResponse(f, media_type="audio/wav") if f and f.is_file() else Response(status_code=404)
 
 
-_AMPS = {"at": 0.0, "rows": []}
+# The amps and cabinets: Pick's own collection (PICK_AMPS) and the NAM folder on the card's copy (spotdl/NAM, "lib:…" as
+# Pick names them). Walked without a stat per file (slow through Docker Desktop's mount), kept in /state between starts,
+# looked at again behind the answer every 10 minutes.
+_AMPS: Dict = {"at": 0.0, "rows": None, "busy": False}
+_AMPS_LOCK = threading.Lock()
+AMP_EXTS = (".nam", ".wav")
+
+
+def _walk(root: Path, prefix: str, only_nam: bool) -> list:
+    rows = []
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if not x.startswith(".")]
+        for n in files:
+            ext = os.path.splitext(n)[1].lower()
+            if ext in AMP_EXTS and not n.startswith(".") and (ext == ".nam" or not only_nam):
+                rel = Path(d, n).relative_to(root).as_posix()
+                rows.append({"name": n[:-len(ext)], "file": prefix + rel, "kind": "model" if ext == ".nam" else "ir"})
+    return rows
+
+
+def _amps_scan() -> None:
+    rows = (_walk(AMPS, "", False) if AMPS.is_dir() else []) + (_walk(DATA / "NAM", "lib:NAM/", True) if (DATA / "NAM").is_dir() else [])
+    rows.sort(key=lambda x: x["name"].lower())
+    _write("amps.json", rows)
+    _AMPS.update(at=time.time(), rows=rows)
+    _CAT["at"] = 0.0                                                               # the catalogue follows
+
+
+def _amps_bg() -> None:
+    try:
+        with _AMPS_LOCK:
+            _amps_scan()
+    finally:
+        _AMPS["busy"] = False
 
 
 def amps() -> list:
-    if time.time() - _AMPS["at"] < 600 and _AMPS["rows"]:
-        return _AMPS["rows"]
-    rows = []
-    if AMPS.is_dir():
-        for f in AMPS.rglob("*"):
-            if f.suffix.lower() in (".nam", ".wav") and f.is_file():
-                rows.append({"name": f.stem, "file": f.relative_to(AMPS).as_posix(), "kind": "model" if f.suffix.lower() == ".nam" else "ir"})
-    _AMPS.update(at=time.time(), rows=sorted(rows, key=lambda x: x["name"].lower()))
+    if _AMPS["rows"] is None:
+        kept = _read("amps.json", None)
+        if isinstance(kept, list) and kept:
+            _AMPS.update(rows=kept, at=0.0)
+        else:
+            with _AMPS_LOCK:
+                if _AMPS["rows"] is None:
+                    _amps_scan()
+    if time.time() - _AMPS["at"] > 600 and not _AMPS["busy"]:
+        _AMPS["busy"] = True
+        threading.Thread(target=_amps_bg, daemon=True).start()
     return _AMPS["rows"]
+
+
+def _amp_path(file: str) -> Optional[Path]:
+    """An amp's file id → the file, only inside the two amp folders."""
+    if not file or ".." in file.replace("\\", "/").split("/"):
+        return None
+    root, rel = (DATA / "NAM", file[len("lib:NAM/"):]) if file.startswith("lib:NAM/") else (AMPS, file)
+    f = (root / rel).resolve()
+    return f if f.is_relative_to(root.resolve()) and f.suffix.lower() in AMP_EXTS and f.is_file() else None
 
 
 @app.get("/g/amps")
@@ -620,17 +665,18 @@ def _catalogue():
         metas, models, irs = {}, [], []
         for it in amps():
             f, name = it["file"], it["name"]
-            parts = f.split("/")
+            lib = f.startswith("lib:NAM/")
+            parts = (f[len("lib:NAM/"):] if lib else f).split("/")
             folder = "/".join(parts[1:-1]) if len(parts) > 2 else ""
-            pack = parts[0] if len(parts) > 1 and parts[0].lower() not in ("nam", "ir") else "Kolekce"
+            pack = parts[0] if len(parts) > 1 and parts[0].lower() not in ("nam", "ir") else ("Knihovna" if lib else "Kolekce")
             if it["kind"] == "model":
-                try:
-                    st = (AMPS / f).stat()
-                    sig = f"{st.st_size}:{int(st.st_mtime)}"
-                except OSError:
-                    sig = ""
-                got = old.get(f)
-                meta = got["meta"] if got and got.get("sig") == sig else ac._meta(AMPS / f)
+                got = old.get(f)                              # a .nam does not change under its name: no stat for each
+                if got:
+                    meta = got["meta"]
+                else:
+                    fp = _amp_path(f)
+                    meta = ac._meta(fp) if fp else {}
+                sig = ""
                 metas[f] = {"sig": sig, "meta": {k: meta.get(k) for k in ("gear_make", "gear_model", "gear_type", "tone_type", "modeled_by", "name")}}
                 models.append({"file": f, "name": name, "pack": pack, **ac.classify_model(name, folder, metas[f]["meta"])})
             else:
@@ -674,13 +720,13 @@ def g_amp(request: Request, file: str):
     who, bad = _need(request)
     if bad:
         return bad
-    f = (AMPS / file).resolve() if file else None
-    if f is None or not f.is_relative_to(AMPS.resolve()) or not f.is_file():
+    f = _amp_path(file)
+    if f is None and file:
         # a print names its core as Pick has it ("nam/DITORIG/…"); the copy may keep it elsewhere — by its name then
         base = file.replace("\\", "/").rsplit("/", 1)[-1]
         hit = next((x for x in amps() if x["file"].rsplit("/", 1)[-1] == base), None)
-        f = (AMPS / hit["file"]).resolve() if hit else None
-    if f is None or not f.is_relative_to(AMPS.resolve()) or not f.is_file() or f.suffix.lower() not in (".nam", ".wav"):
+        f = _amp_path(hit["file"]) if hit else None
+    if f is None:
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     return FileResponse(f, media_type="application/octet-stream" if f.suffix.lower() == ".nam" else "audio/wav")
 

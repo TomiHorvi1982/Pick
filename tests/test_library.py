@@ -156,3 +156,16 @@ def test_the_desktop_app_launcher_and_manifest(lib):
     m = c.get("/manifest.webmanifest").json()
     assert m["display"] == "standalone" and any(i["sizes"] == "512x512" for i in m["icons"])
     assert c.get("/static/jam-icon-512.png").status_code == 200 and c.get("/static/jam-icon.ico").status_code == 200
+
+
+def test_the_nam_folder_on_the_card_copy_too(lib):
+    mod, c = lib
+    (mod.DATA / "NAM" / "tone3000-catalog").mkdir(parents=True)
+    (mod.DATA / "NAM" / "tone3000-catalog" / "Mesa Dual Rec Modern.nam").write_text("{}")
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    items = c.get("/g/amp-catalog", params={"kind": "model", "q": "dual rec"}).json()["items"]
+    assert [(x["file"], x["pack"], x["brand"]) for x in items] == [("lib:NAM/tone3000-catalog/Mesa Dual Rec Modern.nam", "tone3000-catalog", "Mesa Boogie")]
+    assert c.get("/g/amp", params={"file": items[0]["file"]}).status_code == 200
+    for bad in ("lib:NAM/../../spotdl/x.nam", "lib:NAM/../meta.json"):
+        assert c.get("/g/amp", params={"file": bad}).status_code == 404
+    assert (Path(mod.STATE) / "amps.json").is_file()
