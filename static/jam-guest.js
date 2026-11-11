@@ -221,7 +221,9 @@
   const SB = {cat: store("cat") || "all", open: new Set(), shown: 60, playlists: []};
   async function loadSongs(){
     try{ songs = (await getJ("/g/songs")).songs || []; store("songs", songs); }
-    catch(e){ songs = store("songs") || []; if(!songs.length){ $("slist").innerHTML = `<div class="bad">Seznam písní zatím nemám — otevři stránku, až bude ${esc(me.host)} online.</div>`; return; } }
+    catch(e){ songs = store("songs") || []; if(!songs.length){
+      if(me.library){ $("slist").innerHTML = `<div class="bad">Knihovna ještě načítá písně — za chvilku to zkusím znovu…</div>`; setTimeout(loadSongs, 8000); return; }
+      $("slist").innerHTML = `<div class="bad">Seznam písní zatím nemám — otevři stránku, až bude ${esc(me.host)} online.</div>`; return; } }
     songs.forEach(s => { s.tune = tuneName(s.tuning); s.key = fold(s.artist + " " + s.title + " " + s.name); });
     await favSync();
     songs.sort((a, b) => fold(a.artist + a.title).localeCompare(fold(b.artist + b.title)));

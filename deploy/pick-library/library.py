@@ -220,8 +220,23 @@ def _duration(f: Path) -> Optional[float]:
         return None
 
 
-_SONGS = {"at": 0.0, "rows": [], "dur": {}}
+_SONGS = {"at": 0.0, "rows": [], "filling": False}
 _SONGS_LOCK = threading.Lock()
+
+
+def _fill_durations(todo: list) -> None:
+    """Lengths of songs not measured yet, in the background: the list goes out at once, without waiting for 2000 ffprobes."""
+    try:
+        dur = _read("durations.json", {})
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(4) as ex:
+            for n, (key, got) in enumerate(zip([k for k, _ in todo], ex.map(lambda kf: _duration(kf[1]), todo)), 1):
+                dur[key] = got
+                if n % 100 == 0:
+                    _write("durations.json", dur)
+        _write("durations.json", dur)
+    finally:
+        _SONGS.update(filling=False, at=0.0)                                   # the next list carries the lengths
 
 
 def songs() -> list:
@@ -229,7 +244,7 @@ def songs() -> list:
         if time.time() - _SONGS["at"] < 300 and _SONGS["rows"]:
             return _SONGS["rows"]
         dur = _read("durations.json", {})
-        rows = []
+        rows, todo = [], []
         root = _stems_root()
         for d in sorted(root.iterdir()) if root.is_dir() else []:
             if not d.is_dir() or d.name.startswith("."):
@@ -243,12 +258,14 @@ def songs() -> list:
             first = _stem_file(d, stems[0])
             key = f"{d.name}:{first.stat().st_mtime}"
             if key not in dur:
-                dur[key] = _duration(first)
+                todo.append((key, first))
             yt = re.search(r"\[([A-Za-z0-9_-]{11})\]\s*$", d.name)
             rows.append({"name": d.name, "stems": stems, "duration": dur.get(key), "artist": m.get("artist") or "", "title": m.get("title") or d.name,
                          "album": m.get("album") or "", "tuning": tuning if isinstance(tuning, list) else None, "yt": f"https://youtu.be/{yt.group(1)}" if yt else ""})
-        _write("durations.json", dur)
         _SONGS.update(at=time.time(), rows=rows)
+        if todo and not _SONGS["filling"]:
+            _SONGS["filling"] = True
+            threading.Thread(target=_fill_durations, args=(todo,), daemon=True).start()
         return rows
 
 

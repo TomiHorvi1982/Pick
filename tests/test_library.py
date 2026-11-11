@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -49,9 +50,14 @@ def test_nothing_without_logging_in_then_the_songs(lib):
     assert c.get("/g/me").json()["library"] is True
     assert c.post("/login", json={"name": "Pavel", "password": "spatne"}).status_code == 401
     assert c.post("/login", json={"name": "Pavel", "password": "kytara66"}).status_code == 200
-    rows = c.get("/g/songs").json()["songs"]
+    rows = c.get("/g/songs").json()["songs"]                                 # at once: lengths follow in the background
     assert [r["name"] for r in rows] == ["Band - Song [abcdefghijk]"] and rows[0]["stems"] == ["drums", "bass"]
-    assert rows[0]["yt"] == "https://youtu.be/abcdefghijk" and rows[0]["duration"] == pytest.approx(2, abs=0.2)
+    assert rows[0]["yt"] == "https://youtu.be/abcdefghijk"
+    for _ in range(100):
+        if not mod._SONGS["filling"]:
+            break
+        time.sleep(0.05)
+    assert c.get("/g/songs").json()["songs"][0]["duration"] == pytest.approx(2, abs=0.2)
     assert c.get("/g/song?name=Band%20-%20Song%20%5Babcdefghijk%5D").json()["chords"][0]["chord"] == "E5"
     pv = c.get("/g/preview?name=Band%20-%20Song%20%5Babcdefghijk%5D", headers={"Range": "bytes=0-99"})
     assert pv.status_code == 206 and pv.content[:4] == b"\x1aE\xdf\xa3"
