@@ -308,6 +308,7 @@ def user_set(name: str, password: str) -> dict:
     u = users()
     u[name] = {"salt": salt.hex(), "hash": _hash(password, salt), "at": time.time()}
     conf_save(users=u)
+    _lib_kick(accounts=True)
     for t in [t for t, v in SESS.items() if v["user"] == name]:      # a new password: out, in again
         SESS.pop(t, None)
     return {"ok": True, "users": sorted(u)}
@@ -317,6 +318,7 @@ def user_delete(name: str) -> dict:
     u = users()
     u.pop(name, None)
     conf_save(users=u)
+    _lib_kick(accounts=True)
     for t in [t for t, v in SESS.items() if v["user"] == name]:
         SESS.pop(t, None)
     return {"ok": True, "users": sorted(u)}
@@ -1176,11 +1178,17 @@ def lib_status() -> None:
     _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else ""})
 
 
+def lib_users() -> None:
+    """The friends' accounts made here go to the library too (salt and hash only): one name and password for both."""
+    _lib_call("PUT", "/sync/users", {"users": {n: {"salt": r.get("salt"), "hash": r.get("hash")} for n, r in users().items() if isinstance(r, dict)}})
+
+
 def _lib_loop() -> None:
     while True:
         try:
             if _lib()[0]:
                 lib_status()
+                lib_users()
                 lib_sync()
         except Exception:
             pass
@@ -1191,8 +1199,11 @@ def start_library_sync() -> None:
     threading.Thread(target=_lib_loop, daemon=True, name="jam-library").start()
 
 
-def _lib_kick() -> None:
-    threading.Thread(target=lambda: (lib_status() if _lib()[0] else None), daemon=True).start()
+def _lib_kick(accounts: bool = False) -> None:
+    def go():
+        if _lib()[0]:
+            lib_users() if accounts else lib_status()
+    threading.Thread(target=go, daemon=True).start()
 
 
 @router.get("/api/jam/library")

@@ -176,3 +176,19 @@ def test_the_name_in_any_letters(lib):
     r = c.post("/login", json={"name": "  pAVEL ", "password": "kytara66"})
     assert r.status_code == 200 and r.json()["user"] == "Pavel"
     assert c.post("/login", json={"name": "pavel", "password": "Kytara66"}).status_code == 401     # the password stays exact
+
+
+def test_the_friends_from_pick_log_in_too(lib):
+    mod, c = lib
+    import jam
+    salt = bytes(16)
+    pick = {"Max": {"salt": salt.hex(), "hash": jam._hash("struna77", salt)}}
+    m = TestClient(mod.app)
+    assert m.put("/sync/users", json={"users": pick}).status_code == 403
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    assert m.put("/sync/users", headers=h, json={"users": {**pick, "bad": {"salt": "x", "hash": "y"}}}).json()["users"] == ["Max"]
+    assert c.post("/login", json={"name": "max", "password": "struna77"}).status_code == 200
+    assert c.post("/login", json={"name": "Pavel", "password": "kytara66"}).status_code == 200      # its own account still
+    m.put("/sync/users", headers=h, json={"users": {}})                       # taken away in Pick
+    assert c.post("/login", json={"name": "Max", "password": "struna77"}).status_code == 401
+    assert "struna77" not in (Path(mod.STATE) / "pick-users.json").read_text()

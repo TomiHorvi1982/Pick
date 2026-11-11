@@ -75,9 +75,19 @@ def _hash(pw: str, salt: bytes) -> str:
     return hashlib.scrypt(pw.encode("utf-8"), salt=salt, n=2 ** 14, r=8, p=1, dklen=32).hex()
 
 
-def users() -> dict:
+def own_users() -> dict:
     u = _read("users.json", {})
     return u if isinstance(u, dict) else {}
+
+
+def pick_users() -> dict:
+    """The friends' accounts made in Pick on the Mac (Nastavení → Jam), sent here by the Mac: the same name and password both places."""
+    u = _read("pick-users.json", {})
+    return u if isinstance(u, dict) else {}
+
+
+def users() -> dict:
+    return {**pick_users(), **own_users()}
 
 
 def user_set(name: str, pw: str) -> None:
@@ -85,7 +95,7 @@ def user_set(name: str, pw: str) -> None:
     if not name or len(pw) < 6:
         raise ValueError("Jméno a heslo aspoň o 6 znacích.")
     salt = secrets.token_bytes(16)
-    u = users()
+    u = own_users()
     u[name] = {"salt": salt.hex(), "hash": _hash(pw, salt), "at": time.time()}
     _write("users.json", u)
 
@@ -131,14 +141,15 @@ async def login(request: Request):
     u = users()
     if name not in u:                                       # "maxdrako" is MaxDrako: the letters' size does not matter
         name = next((k for k in u if k.casefold() == name.casefold()), name)
-    rec = u.get(name)
+    # the account made here or the one from Pick under the same name: either password lets him in
+    recs = [r for r in (own_users().get(name), pick_users().get(name)) if isinstance(r, dict)]
     ok = False
-    if rec:
+    for rec in recs:
         try:
-            ok = secrets.compare_digest(_hash(str(body.get("password") or ""), bytes.fromhex(rec["salt"])), rec["hash"])
-        except (ValueError, KeyError):
-            ok = False
-    else:
+            ok = ok or secrets.compare_digest(_hash(str(body.get("password") or ""), bytes.fromhex(rec["salt"])), rec["hash"])
+        except (ValueError, KeyError, TypeError):
+            pass
+    if not recs:
         _hash(str(body.get("password") or ""), b"0" * 16)
     if not ok:
         tries.append(now)
@@ -816,6 +827,20 @@ async def sync_fav_put(request: Request):
     lst = [n for n in ((body or {}).get("songs") or []) if isinstance(n, str) and _song_dir(n) is not None][:300]
     _write("fav.json", {"songs": lst, "at": time.time()})
     return {"ok": True, "songs": lst}
+
+
+@app.put("/sync/users")
+async def sync_users(request: Request):
+    """Pick's accounts (names, salts, hashes — never a password), all of them each time: one taken away in Pick goes here too."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    got = {}
+    for n, r in ((body or {}).get("users") or {}).items():
+        if isinstance(n, str) and isinstance(r, dict) and re.fullmatch(r"[0-9a-f]{32}", str(r.get("salt"))) and re.fullmatch(r"[0-9a-f]{64}", str(r.get("hash"))):
+            got[" ".join(n.split())[:30]] = {"salt": r["salt"], "hash": r["hash"]}
+    _write("pick-users.json", dict(list(got.items())[:50]))
+    return {"ok": True, "users": sorted(got)}
 
 
 @app.post("/sync/status")
