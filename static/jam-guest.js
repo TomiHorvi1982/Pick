@@ -300,7 +300,8 @@
       return [...m].sort((a, b) => b[1].length - a[1].length); }
     if(SB.cat === "fav"){ const by = new Map(list.map(s => [s.name, s])); return [["Na příště", [...FAV.set].map(n => by.get(n)).filter(Boolean)]]; }
     if(SB.cat === "pl"){ const by = new Map(list.map(s => [s.name, s]));
-      return SB.playlists.map(p => [p.name, p.songs.map(n => by.get(n)).filter(Boolean)]).filter(g => g[1].length); }
+      const pls = [...SB.playlists].sort((a, b) => (a.kind === "dl") - (b.kind === "dl"));      // own first, then the downloaded ones
+      return pls.map(p => [(p.kind === "dl" ? "⤓ " : "♫ ") + p.name, p.songs.map(n => by.get(n)).filter(Boolean)]).filter(g => g[1].length); }
     return null;
   }
   function paintSongs(){

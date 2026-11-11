@@ -49,6 +49,7 @@ music_file: Callable[[str], Optional[Path]] = lambda rel: None      # a file und
 range_file: Callable = lambda path, rng: FileResponse(path)          # Pick's own: a file served by ranges (a seek in <audio>)
 main_app = None                     # Pick's own app: the friend's page reads from it, through _pick() and an allow-list
 friend_print: Callable = lambda *a, **k: {"error": "Otisky nejsou k dispozici.", "status": 503}
+downloaded_playlists: Callable[[], list] = lambda: []                 # the downloaded playlists (Playlists/ folders) with songs that have stems
 
 
 class Peer:
@@ -926,8 +927,24 @@ async def g_playlists(request: Request):
     r = await _pick("/api/setlists")
     d = r.json() if r.status_code == 200 else []
     rows = d if isinstance(d, list) else (d.get("setlists") or d.get("playlists") or [])
-    return {"playlists": [{"name": x.get("name") or "", "songs": [n for n in (x.get("songs") or []) if isinstance(n, str)]}
-                          for x in rows if isinstance(x, dict) and x.get("songs")]}
+    return {"playlists": all_playlists(rows)}
+
+
+def all_playlists(rows=None) -> list:
+    """The host's own Steems playlists first, then the downloaded ones — each with the songs that have stems."""
+    if rows is None:
+        try:
+            import setlists
+            rows = setlists.load()
+        except Exception:
+            rows = []
+    own = [{"name": x.get("name") or "", "songs": [n for n in (x.get("songs") or []) if isinstance(n, str)], "kind": "own"}
+           for x in rows if isinstance(x, dict) and x.get("songs")]
+    try:
+        dl = downloaded_playlists()
+    except Exception:
+        dl = []
+    return own + dl
 
 
 @gate.get("/g/art")
@@ -1183,15 +1200,25 @@ def lib_users() -> None:
     _lib_call("PUT", "/sync/users", {"users": {n: {"salt": r.get("salt"), "hash": r.get("hash")} for n, r in users().items() if isinstance(r, dict)}})
 
 
+def lib_playlists() -> None:
+    """Every playlist (own and downloaded) to the library, so the friend sees them between jams too."""
+    pls = [p for p in all_playlists() if p["name"] != FAV_NAME]
+    _lib_call("PUT", "/sync/playlists", {"playlists": pls}, timeout=30)
+
+
 def _lib_loop() -> None:
+    n = 0
     while True:
         try:
             if _lib()[0]:
                 lib_status()
                 lib_users()
                 lib_sync()
+                if n % 10 == 0:                     # every ten minutes is enough for these
+                    lib_playlists()
         except Exception:
             pass
+        n += 1
         time.sleep(60)
 
 
@@ -1231,6 +1258,10 @@ async def jam_library_test():
     try:
         await asyncio.to_thread(lib_status)
         got = await asyncio.to_thread(lib_sync)
+        try:
+            await asyncio.to_thread(lib_playlists)
+        except Exception:
+            pass                                    # an older library (not redeployed yet) has no playlists to take
         return {"ok": True, "fav": len(got["songs"])}
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Knihovna na PC neodpovídá: {str(e)[:200]}"}, status_code=502)

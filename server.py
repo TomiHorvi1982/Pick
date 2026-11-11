@@ -6744,6 +6744,27 @@ def _stems_playlists() -> dict:
     return found
 
 
+def downloaded_playlists() -> list:
+    """The downloaded playlists (folders in Playlists/), each with its songs that have stems, by their stem set names."""
+    stems = MUSIC_ROOT / "Stems"
+    out = []
+    try:
+        folders = sorted((MUSIC_ROOT / "Playlists").iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return out
+    for folder in folders:
+        if not folder.is_dir() or folder.name.startswith("."):
+            continue
+        try:
+            names = sorted({_safe_name(f.stem) for f in folder.iterdir() if f.suffix.lower() in AUDIO_EXTS and not f.name.startswith(".")}, key=str.lower)
+        except OSError:
+            continue
+        have = [n for n in names if (stems / n).is_dir()]
+        if have:
+            out.append({"name": folder.name, "songs": have, "all": len(names), "kind": "dl"})
+    return out
+
+
 def _looks_czech(*texts) -> bool:
     for t in texts:
         low = (t or "").lower()
@@ -12077,6 +12098,7 @@ _jam.range_file = lambda path, rng: _range_file_response(path, rng)
 if not os.environ.get("SPOTDL_NO_WATCHERS") and "pytest" not in __import__("sys").modules:
     _jam.start_library_sync()      # Na příště and "a jam is on" with the library on the PC (only calls out; Nastavení → Jam)
 _jam.friend_print = jam_friend_print
+_jam.downloaded_playlists = downloaded_playlists
 app.include_router(_jam.router)
 
 # ---- Katalog riffů: the Taby library's tabs taken apart into parts and their riffs (riffbook.py)

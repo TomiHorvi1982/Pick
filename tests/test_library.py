@@ -205,3 +205,20 @@ def test_the_mac_launcher_in_a_zip_that_keeps_it_runnable(lib):
     t = z.read(info).decode()
     assert t.startswith("#!/bin/bash") and 'URL="https://jam.neverlast.cz/"' in t and "--app=" in t and "{{" not in t
     assert c.get("/static/jam-icon.icns").status_code == 200
+
+
+def test_downloaded_playlists_from_the_copy_then_from_the_mac(lib):
+    mod, c = lib
+    dl = mod.DATA / "Playlists" / "Best Riffs"
+    dl.mkdir(parents=True)
+    (dl / "Band - Song [abcdefghijk].mp3").write_bytes(b"x")
+    (dl / "Other - Missing.mp3").write_bytes(b"x")                      # no stems in the library: left out
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    got = {p["name"]: p for p in c.get("/g/playlists").json()["playlists"]}
+    assert got["Metal"]["kind"] == "own" and got["Best Riffs"] == {"name": "Best Riffs", "songs": ["Band - Song [abcdefghijk]"], "kind": "dl", "all": 2}
+    assert c.put("/sync/playlists", json={"playlists": []}).status_code == 403
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    r = c.put("/sync/playlists", headers=h, json={"playlists": [{"name": "From Mac", "kind": "dl", "all": 9, "songs": ["Band - Song [abcdefghijk]", "../x", "Gone"]},
+                                                              {"name": "Jam — na příště", "songs": ["Band - Song [abcdefghijk]"]}]})
+    assert r.json()["ok"]
+    assert c.get("/g/playlists").json()["playlists"] == [{"name": "From Mac", "songs": ["Band - Song [abcdefghijk]"], "kind": "dl", "all": 9}]

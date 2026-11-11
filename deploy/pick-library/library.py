@@ -791,9 +791,42 @@ def g_playlists(request: Request):
     who, bad = _need(request)
     if bad:
         return bad
-    rows = _jload(HELPER / "steems-playlists.json", []) or []
-    return {"playlists": [{"name": x.get("name") or "", "songs": [n for n in (x.get("songs") or []) if isinstance(n, str)]}
-                          for x in rows if isinstance(x, dict) and x.get("songs") and x.get("name") != "Jam — na příště"]}
+    have = {s["name"] for s in songs()}
+    got = _read("playlists.json", {}) or {}
+    rows = got.get("playlists") if isinstance(got, dict) and isinstance(got.get("playlists"), list) else None
+    if rows is None:                                                            # the Mac has not sent them yet: read the copies
+        rows = [dict(x, kind="own") for x in (_jload(HELPER / "steems-playlists.json", []) or []) if isinstance(x, dict)] + _dl_playlists()
+    out = []
+    for x in rows:
+        if not isinstance(x, dict) or x.get("name") == "Jam — na příště":
+            continue
+        lst = [n for n in (x.get("songs") or []) if isinstance(n, str) and n in have]
+        if lst:
+            out.append({"name": str(x.get("name") or "")[:120], "songs": lst, "kind": "dl" if x.get("kind") == "dl" else "own",
+                        "all": x.get("all") if isinstance(x.get("all"), int) else len(lst)})
+    return {"playlists": out}
+
+
+def _safe_name(name: str) -> str:
+    name = "".join(c for c in (name or "") if c.isalnum() or c in " -_()[]").strip()
+    return name[:80] or "playlist"
+
+
+def _dl_playlists() -> list:
+    """The downloaded playlists on the card's copy (folders in Playlists/), when it has them."""
+    out = []
+    try:
+        folders = sorted((DATA / "Playlists").iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return out
+    for folder in folders:
+        if folder.is_dir() and not folder.name.startswith("."):
+            try:
+                names = sorted({_safe_name(f.stem) for f in folder.iterdir() if f.suffix.lower() in AUDIO_EXTS and not f.name.startswith(".")}, key=str.lower)
+            except OSError:
+                continue
+            out.append({"name": folder.name, "songs": names, "all": len(names), "kind": "dl"})
+    return out
 
 
 @app.get("/g/fav")
@@ -846,6 +879,22 @@ async def sync_fav_put(request: Request):
     lst = [n for n in ((body or {}).get("songs") or []) if isinstance(n, str) and _song_dir(n) is not None][:300]
     _write("fav.json", {"songs": lst, "at": time.time()})
     return {"ok": True, "songs": lst}
+
+
+@app.put("/sync/playlists")
+async def sync_playlists(request: Request):
+    """The host's playlists — his own in Steems and the downloaded ones — each with its songs' names."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    rows = []
+    for x in [x for x in ((body or {}).get("playlists") or []) if isinstance(x, dict)][:500]:
+        lst = [n for n in (x.get("songs") or []) if isinstance(n, str) and n and "/" not in n and ".." not in n][:2000]
+        if lst:
+            rows.append({"name": " ".join(str(x.get("name") or "").split())[:120], "songs": lst,
+                         "kind": "dl" if x.get("kind") == "dl" else "own", "all": int(x.get("all") or len(lst)) if str(x.get("all") or "").isdigit() else len(lst)})
+    _write("playlists.json", {"playlists": rows, "at": time.time()})
+    return {"ok": True, "playlists": len(rows)}
 
 
 @app.put("/sync/users")
