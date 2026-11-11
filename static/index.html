@@ -3157,6 +3157,10 @@ body.lib-collapsed .pick-brand{display:none}
   .inst-pop .ip-top .ip-done{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;background:var(--accent);color:#0b0b0d;font-size:12.5px;font-weight:700}
   @media (max-width:620px){ .inst-pop{grid-template-columns:150px minmax(0,1fr);width:calc(100vw - 16px)} }
   .gt-preset-name.pickable,.gt-rail-preset.pickable{cursor:pointer}
+  .gt-plug-names{display:flex;flex-direction:column;gap:3px;width:100%;margin:2px 0}.gt-plug-names:empty{display:none}
+  .gt-plug-name{font-size:9.5px;font-weight:700;padding:3px 5px;border-radius:6px;border:1px solid var(--accent);background:rgba(139,92,246,.16);color:var(--fg,#eee);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;cursor:pointer;line-height:1.2}
+  .gt-plug-name:hover{background:var(--accent);color:#0b0b12}.gt-plug-name.off{opacity:.45;text-decoration:line-through}.gt-plug-name.idle{border-style:dashed;opacity:.75}
   .gt-preset-name.pickable:hover,.gt-rail-preset.pickable:hover{color:var(--accent);text-decoration:underline}
   .pk-info{display:flex;flex-wrap:wrap;align-items:center;gap:10px;min-height:26px;font-size:12.5px;color:var(--sub)}
   .pk-chord{font-size:20px;font-weight:800;color:var(--text);min-width:70px}
@@ -26896,7 +26900,8 @@ const Mixer = (() => {
       ${g.tunnel ? `<div class="gt-preset-stepper">
         <button class="gt-preset-cat" id="gt-tunnel-open" style="flex:1" title="Tunel z jiné aplikace přes BlackHole — nastavení">TUNEL</button>
       </div>
-      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>` : `
+      <span class="gt-knob-label gt-preset-name" id="gt-preset-name" title="${escapeHtml(g.deviceLabel || "BlackHole")}">${escapeHtml(g.live ? (g.deviceLabel || "BlackHole") : "vstup vypnutý")}</span>
+      <div class="gt-plug-names" id="gt-plug-names"></div>` : `
       <div class="gt-preset-stepper">
         <button class="gt-amp-step" id="gt-preset-prev" title="Předchozí NAM profil z katalogu (v pořadí Můj klíč)">‹</button>
         <button class="gt-preset-cat" id="gt-preset-cat" style="flex:1" title="Katalog zesilovačů a beden">KATALOG</button>
@@ -26930,6 +26935,36 @@ const Mixer = (() => {
         title="${typeof Tone !== "undefined" && Tone.on() ? escapeHtml("Hraješ s otiskem: " + Tone.label()) : "Tónový otisk — tvoje kytara zní jako kytara z písně"}">OTISK</button>
 `;
   }
+
+  // The plugins sounding on the live guitar (through the tunnel), by name on the strip: a click opens that plugin's own
+  // window — the guitar goes on through it while it is turned, and what is set stays.
+  let plugNamesAt = 0, plugNamesGot = null;
+  async function livePlugNames(box){
+    if(!box) return;
+    try{
+      if(!plugNamesGot || Date.now() - plugNamesAt > 4000){
+        const [st, ch] = await Promise.all([fetch("/api/plugins").then(r => r.json()), fetch("/api/plugins/chain?key=live").then(r => r.json())]);
+        plugNamesGot = {running: !!(st.live && st.live.running), items: ch.items || []}; plugNamesAt = Date.now();
+      }
+    }catch(e){ return; }
+    const {running, items} = plugNamesGot;
+    if(!items.length){ box.innerHTML = ""; return; }
+    box.innerHTML = items.map((c, i) => `<button type="button" class="gt-plug-name ${c.bypass ? "off" : ""} ${running ? "" : "idle"}" data-i="${i}"
+        title="${escapeHtml(c.name)}${c.bypass ? " — vypnutý (obejitý)" : running ? " — klik: otevřít okno pluginu" : " — pluginy teď nehrají; klik: spustit (PLUG)"}">${escapeHtml(c.name)}</button>`).join("");
+    box.querySelectorAll("[data-i]").forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      const i = +b.dataset.i;
+      if(!plugNamesGot.running){ if(typeof PluginRack !== "undefined") PluginRack.live(); return; }
+      if(items[i].bypass){ showToast("Plugin je obejitý — zapni ho v okně PLUG"); return; }
+      b.disabled = true; showToast(`Otevírám ${items[i].name}… (kytara hraje dál)`);
+      try{ const r = await fetch("/api/plugins/editor", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: "live", index: i})});
+        if(!r.ok){ const d = await r.json().catch(() => ({})); showToast(d.error || "Okno pluginu se nepodařilo otevřít"); } }
+      catch(err){ showToast("Okno pluginu se nepodařilo otevřít"); }
+      setTimeout(() => { b.disabled = false; }, 3000);
+    });
+  }
+
+  window.addEventListener("pick-plugins-changed", () => { plugNamesGot = null; livePlugNames(document.getElementById("gt-plug-names")); });
 
   function renderLiveGuitarFader(){
     const box = el("fl-channels");
@@ -26984,6 +27019,7 @@ const Mixer = (() => {
     };
     if(g.tunnel){
       strip.querySelector("#gt-tunnel-open").onclick = () => Tunnel.open();
+      livePlugNames(strip.querySelector("#gt-plug-names"));
     } else {
       strip.querySelector("#gt-preset-prev").onclick = () => ampBrowseStep(-1);
       strip.querySelector("#gt-preset-next").onclick = () => ampBrowseStep(1);

@@ -84,6 +84,7 @@ const PluginRack = (() => {
     try{ chain = (await api("/api/plugins/chain", json("PUT", {key: o.key, items: next}))).items || []; }
     catch(e){ showToast(e.message); }
     paint();
+    if(o && o.key === "live") window.dispatchEvent(new Event("pick-plugins-changed"));
   }
   function wire(body, live){
     body.querySelectorAll(".plg-row").forEach(r => {
@@ -131,6 +132,7 @@ const PluginRack = (() => {
       showToast(on ? "Pluginy hrají živě" : "Pluginy vypnuté");
     }catch(e){ showToast(e.message); }
     paint();
+    window.dispatchEvent(new Event("pick-plugins-changed"));            // the names on the guitar's strip
   }
   async function scan(){
     try{ await api("/api/plugins/scan", {method: "POST"}); }catch(e){ showToast(e.message); return; }
