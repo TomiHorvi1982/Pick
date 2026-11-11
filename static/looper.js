@@ -163,16 +163,53 @@ const Looper = (() => {
   .lp-cp-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .lp-cp-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
   .lp-cp-top select{background:#0e0e14;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 8px}
-  .lp-cp-strip{position:relative;display:flex;gap:4px;overflow-x:auto;min-height:64px;padding:5px;border-radius:12px;background:rgba(0,0,0,.25);border:1px dashed rgba(255,255,255,.12)}
+  .lp-cp-strip{position:relative;overflow-x:auto;overflow-y:hidden;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)}
   .lp-cp-strip.drop{border-color:var(--accent,#8b5cf6);background:rgba(139,92,246,.1)}
-  .lp-cp-b{position:relative;flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:6px 22px 6px 10px;border-radius:9px;cursor:grab;user-select:none;-webkit-user-select:none;
-    background:linear-gradient(160deg,hsl(var(--h) 55% 32% / .8),hsl(var(--h) 45% 16% / .9));border:1px solid hsl(var(--h) 60% 55% / .5)}
-  .lp-cp-b b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .lp-cp-b small{font-size:10.5px;color:hsl(var(--h) 40% 82%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .lp-cp-b em{font-style:normal;font-size:10px;color:hsl(var(--h) 30% 76%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .lp-cp-b button{position:absolute;top:3px;right:3px;background:none;border:0;color:hsl(var(--h) 30% 85%);cursor:pointer;font-size:11px}
-  .lp-cp-b.now{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%)}.lp-cp-b.pv{outline:2px solid #fff;outline-offset:1px}
-  .lp-cp-none{color:#8a8aa0;font-size:12px;align-self:center;padding:0 8px}
+  .lp-cp-in{position:relative;min-width:100%;padding-bottom:2px}
+  .lp-cp-rul,.lp-cp-lane{display:flex}
+  .lp-cp-lh{position:sticky;left:0;z-index:4;flex:none;width:132px;box-sizing:border-box;padding:5px 8px;background:#14141d;border-right:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:center;gap:3px;font-size:11px;color:#b8b8cc;cursor:pointer}
+  .lp-cp-lh.rh{font-size:10px;letter-spacing:.08em;color:#77778a;text-transform:uppercase;cursor:default}
+  .lp-cp-lh .ln{font-weight:700;color:#d8d8e6}
+  .lp-cp-lane.sel .lp-cp-lh{background:#1d1a2e;box-shadow:inset 3px 0 0 var(--accent,#8b5cf6)}
+  .lp-cp-lh .lb{position:absolute;top:5px;right:6px;display:flex;gap:3px}
+  .lp-cp-lh .lb button{width:20px;height:17px;padding:0;border-radius:5px;border:1px solid rgba(255,255,255,.16);background:none;color:#aaa;font-size:9.5px;font-weight:800;cursor:pointer}
+  .lp-cp-lh .lb button.m{background:#ef4444;color:#fff;border-color:#ef4444}.lp-cp-lh .lb button.s{background:#ffd166;color:#111;border-color:#ffd166}
+  .lp-cp-lh input[type=range]{width:100%;height:12px;margin:0;accent-color:var(--accent,#8b5cf6)}
+  .lp-cp-rg{position:relative;flex:1;height:22px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.14);
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.4) 0 1px,transparent 1px var(--px)) 0 0/auto 100% repeat-x,repeating-linear-gradient(90deg,rgba(255,255,255,.18) 0 1px,transparent 1px var(--bt)) 0 100%/auto 40% repeat-x}
+  .lp-cp-rg span{position:absolute;top:3px;padding-left:4px;font:700 10px/1 system-ui;color:#b0b0c4;font-variant-numeric:tabular-nums;pointer-events:none}
+  .lp-cp-from{position:absolute;top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid #4ade80;transform:translateX(-6px);pointer-events:none}
+  .lp-cp-g{position:relative;flex:1;height:58px;border-bottom:1px solid rgba(255,255,255,.07);
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,transparent 1px var(--px)),repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,transparent 1px var(--bt))}
+  .lp-cp-lane.sel .lp-cp-g{background-color:rgba(139,92,246,.05)}
+  .lp-cp-b{position:absolute;top:4px;bottom:4px;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:3px 9px;border-radius:7px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;
+    background:linear-gradient(160deg,hsl(var(--h) 55% 32% / .82),hsl(var(--h) 45% 18% / .88));border:1px solid hsl(var(--h) 60% 55% / .55)}
+  .lp-cp-b.drag{cursor:grabbing;opacity:.85;z-index:3}
+  .lp-cp-b.sel{box-shadow:0 0 0 2px #fff;z-index:2}
+  .lp-cp-b.st{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px),linear-gradient(160deg,hsl(var(--h) 55% 32% / .82),hsl(var(--h) 45% 18% / .88))}
+  .lp-cp-b b{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .lp-cp-b small{font-size:10px;color:hsl(var(--h) 40% 82%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .lp-cp-b em{font-style:normal;font-size:10px;color:#ffd166;white-space:nowrap;pointer-events:none}
+  .lp-cp-b s{position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;text-decoration:none}
+  .lp-cp-b s.hl{left:0}.lp-cp-b s.hr{right:0}
+  .lp-cp-b s:hover{background:rgba(255,255,255,.25)}
+  .lp-cp-b svg{position:absolute;top:0;height:100%;pointer-events:none;fill:rgba(0,0,0,.45)}
+  .lp-cp-b svg.fi{left:0}.lp-cp-b svg.fo{right:0}
+  .lp-cp-b .rp{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.55);pointer-events:none}
+  .lp-cp-b.now{box-shadow:0 0 0 2px hsl(var(--h) 85% 65%)}.lp-cp-b.pv{outline:2px solid #4ade80;outline-offset:1px}
+  .lp-cp-none{position:absolute;left:150px;top:48px;color:#8a8aa0;font-size:12px;pointer-events:none}
+  .lp-cp-addl{margin:4px 0 2px 8px;position:sticky;left:8px;background:none;border:1px dashed rgba(255,255,255,.2);border-radius:8px;color:#9a9ab0;font-size:11px;padding:3px 10px;cursor:pointer}
+  .lp-cp-xf{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#b8b8cc}
+  .lp-cp-ed{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;border-radius:12px;border:1px solid hsl(var(--h,230) 60% 55% / .45);background:hsl(var(--h,230) 40% 20% / .25);font-size:12px;color:#d8d8e6}
+  .lp-cp-ed.none{border-style:dashed;border-color:rgba(255,255,255,.12);background:none;color:#8a8aa0}
+  .lp-cp-ed .nm{font-size:13px}.lp-cp-ed .sub{color:#a8a8bc}
+  .lp-cp-ed label{display:inline-flex;align-items:center;gap:5px}
+  .lp-cp-ed input[type=number]{width:58px;background:#0e0e14;border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:3px 5px}
+  .lp-cp-ed select{background:#0e0e14;border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:3px 5px}
+  .lp-cp-ed input[type=range]{width:110px;accent-color:var(--accent,#8b5cf6)}.lp-cp-ed i{font-style:normal;font-variant-numeric:tabular-nums;min-width:52px;color:#ffd166}
+  .lp-cp-ed .stems{display:inline-flex;gap:4px;flex-wrap:wrap}.lp-cp-ed .stems button{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:none;color:#9a9ab0;cursor:pointer}
+  .lp-cp-ed .stems button.on{background:hsl(var(--h) 55% 40%);color:#fff;border-color:transparent}
+  .lp-cp-ed .acts{display:inline-flex;gap:6px;margin-left:auto;flex-wrap:wrap}
   .lp-cp-b.mine{border-width:2px;border-color:#ffd166}.lp-cp-b.swap{outline:2px dashed #ffd166;outline-offset:2px}
   .lp-cp-mine{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .lp-cp-mine .h2{font-size:10px;font-weight:800;letter-spacing:.1em;color:#ffd166;margin-right:4px}
@@ -202,7 +239,7 @@ const Looper = (() => {
   .lp-dk-on{width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:none;color:#9a9ab0;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
   .lp-dk-on.on{color:#ffd166;border-color:#ffd166}.lp-dk-on.fixed{color:#ffd166;border-color:transparent}
   .lp-dk-x{background:none;border:0;color:#9a9ab0;cursor:pointer}.lp-dk-x:hover{color:#fff}
-  .lp-cp-head{position:absolute;top:2px;bottom:2px;width:2px;background:#fff;box-shadow:0 0 8px #fff;pointer-events:none;display:none}
+  .lp-cp-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#4ade80;opacity:.55;pointer-events:none;z-index:5}.lp-cp-head.on{background:#fff;opacity:1;box-shadow:0 0 8px #fff}
   .lp-piano{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
   .lp-piano[hidden]{display:none}
   .lp-pn-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-pn-top .h{font-size:11px;font-weight:800;letter-spacing:.1em;color:#9a9ab0;margin-right:4px}
@@ -1826,8 +1863,9 @@ const Looper = (() => {
   function headTime(){
     if(SLT.src && SLT.song === SL.song){ const p = pieceOf(SLT.piece); if(p) return p.a + sltPos() / SLT.dur * (p.z - p.a); }
     if(DK.src && DK.d && DK.d.song === SL.song){ const d = DK.d, pos = (((now() - DK.at) % DK.dur) + DK.dur) % DK.dur; return d.a + pos / DK.dur * (d.z - d.a); }
-    if(CP.src){ const t = (now() - CP.at) / barLen(); let acc = 0;
-      for(const b of comp){ const mb = mBars(b); if(t >= acc && t < acc + mb) return b.song === SL.song ? b.a + (t - acc) / mb * (b.z - b.a) : null; acc += mb; } }
+    if(CP.src){ const t = compT(), on = comp.filter(b => b.song === SL.song && t >= b.at && t < bEnd(b) && laneOn(b.lane));
+      const b = on.find(x => x.lane === CP.lane) || on[0];
+      if(b){ const n = natB(b), c = (((t - b.at + (b.off || 0)) % n) + n) % n; return b.a + c / n * (b.z - b.a); } }
     try{ if(SL.own && Mixer.isPlaying && Mixer.isPlaying() && Mixer.songAt) return Mixer.songAt(ac ? ac.currentTime : 0); }catch(e){}
     return null;
   }
@@ -1971,28 +2009,90 @@ const Looper = (() => {
     });
   }
 
-  // ---- the song from pieces (Skladba z kousků): pieces of any of the open songs one after another, each on the
-  // bar, fitted to the master tempo and key — played, put on a track as one long loop, or saved as a WAV
+  // ---- the song from pieces (Skladba z kousků): a timeline of rows (lanes) under a ruler of bars and beats. A piece
+  // of any open song (or a piece of mine) sits in a row at a bar; the rows play together — the drums of one song
+  // in one, the guitar of another in the next. Each piece: moved (snapped to the bar or beat and to the other
+  // pieces' edges), cut at either edge (made longer it plays again from its start), stretched, its level, its fade
+  // in and out; pieces over each other in a row cross-fade (equal power) over the overlap. Played, put on a track
+  // as one long loop, or saved as a WAV — all fitted to the master tempo and key.
   let comp = Array.isArray(cfg.comp) ? cfg.comp.filter(b => b && b.song) : [];
-  const CP = {src: null, at: 0, buf: null, sig: "", busy: false, raf: 0, pv: null, pvAt: -1};
+  const CP = {src: null, at: 0, from: 0, buf: null, sig: "", busy: false, raf: 0, pv: null, pvAt: -1, sel: -1, lane: 0,
+    px: cfg.compPx || 34, snap: cfg.compSnap || "beat", edge: "trim", drag: null};
   const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  const compSig = () => JSON.stringify([comp.map(b => [b.song, b.a, b.z, b.bars, b.stems]), cfg.bpm, cfg.perBar, masterKey(), SLS.map(e => e.song + e.key)]);
+  const HEAD_W = 132;                                         // the rows' heads (name, mute, level) left of the bars
+  const beatB = () => 1 / (cfg.perBar || 4);                  // a beat, in bars
+  const natB = (b) => mBars(b) * (b.scale || 1);              // a piece's own length on the timeline (bars)
+  const bLen = (b) => b.len != null ? b.len : natB(b);
+  const bEnd = (b) => b.at + bLen(b);
+  const compBars = () => Math.ceil(comp.reduce((n, b) => Math.max(n, bEnd(b)), 0) - 1e-6);
+  const lanesOf = () => { const L = Array.isArray(cfg.compLanes) ? cfg.compLanes : (cfg.compLanes = []);
+    const n = Math.max(2, L.length, ...comp.map(b => (b.lane | 0) + 1));
+    while(L.length < n) L.push({vol: 1, mute: false, solo: false});
+    return L; };
+  // pieces from before the rows: one after another in the first row
+  function compNorm(){
+    const ends = {};
+    comp.forEach(b => { if(b.lane == null || b.at == null){ b.lane = b.lane | 0; b.at = ends[b.lane] || 0; }
+      ends[b.lane] = Math.max(ends[b.lane] || 0, bEnd(b)); });
+    lanesOf();
+  }
+  compNorm();
+  const laneEnd = (l) => comp.filter(b => b.lane === l).reduce((n, b) => Math.max(n, bEnd(b)), 0);
+  const compSig = () => JSON.stringify([comp, cfg.compLanes, cfg.compXf, cfg.bpm, cfg.perBar, masterKey(), SLS.map(e => e.song + e.key)]);
   function compChanged(){ cfg.comp = comp; keep(); if(CP.src) compStop(); paintComp(); }
-  function compAdd(sn, at){ comp.splice(at == null ? comp.length : at, 0, {...sn}); compChanged();
-    showToast(`Do skladby: ${sn.name} (${shortTitle(sn.title || sn.song)}, ${sn.bars} t.)`); }
+  function compAdd(sn, pos){
+    const lane = pos && pos.lane != null ? pos.lane : CP.lane, at = pos && pos.at != null ? pos.at : laneEnd(lane);
+    const {lane: _l, at: _a, len: _n, off: _o, scale: _s, vol: _v, fi: _fi, fo: _fo, ...piece} = sn;
+    comp.push({...piece, lane, at}); CP.sel = comp.length - 1; compChanged();
+    showToast(`Do skladby, řada ${lane + 1}, takt ${fmtBar(at)}: ${sn.name} (${shortTitle(sn.title || sn.song)}, ${sn.bars} t.)`); }
+  const fmtBar = (t) => { const pb = cfg.perBar || 4, bar = Math.floor(t + 1e-6), beat = Math.round((t - bar) * pb * 100) / 100;
+    return beat ? `${bar + 1}.${Math.floor(beat) + 1}` : String(bar + 1); };
   const compNote = (t) => { const n = root && root.querySelector("#lp-cp-note"); if(n && t) n.textContent = t; };
+  // a piece's sound, stretched when it is
+  const SCALED = new WeakMap();
+  async function blockAudio(b){
+    const buf = await pieceAudio(b); if(!buf) return null;
+    const s = b.scale || 1; if(Math.abs(s - 1) < 0.005) return buf;
+    let m = SCALED.get(buf); if(!m) SCALED.set(buf, m = new Map());
+    const k = s.toFixed(3);
+    if(!m.has(k)){ const pr = fitAudio(buf, buf.duration * s, 0).then(fadeEdges); m.set(k, pr); pr.catch(() => m.delete(k)); }
+    return m.get(k);
+  }
+  // the fades (bars): the piece's own, the overlap with its neighbours in the row, the short ones on the joins
+  function compFades(){
+    const out = comp.map(b => ({fi: (b.fi || 0) * beatB(), fo: (b.fo || 0) * beatB()})), xf = (cfg.compXf || 0) * beatB();
+    lanesOf().forEach((_, l) => {
+      const ks = comp.map((b, k) => k).filter(k => comp[k].lane === l).sort((x, y) => comp[x].at - comp[y].at);
+      for(let j = 1; j < ks.length; j++){ const a = comp[ks[j - 1]], b = comp[ks[j]], ov = bEnd(a) - b.at;
+        const f = ov > 1e-6 ? ov : Math.abs(ov) < 1e-6 && xf ? xf : 0;
+        if(f){ out[ks[j - 1]].fo = Math.max(out[ks[j - 1]].fo, f); out[ks[j]].fi = Math.max(out[ks[j]].fi, f); } }
+    });
+    comp.forEach((b, k) => { const L = bLen(b), o = out[k]; if(o.fi + o.fo > L){ const r = L / (o.fi + o.fo); o.fi *= r; o.fo *= r; } });
+    return out;
+  }
+  const laneOn = (l) => { const L = lanesOf(), any = L.some(x => x.solo); return L[l] && !L[l].mute && (!any || L[l].solo); };
+  function placeBlock(c, dest, buf, b, fd, bl){
+    const t0 = b.at * bl, dur = bLen(b) * bl, v = (b.vol == null ? 1 : b.vol) * (lanesOf()[b.lane].vol == null ? 1 : lanesOf()[b.lane].vol);
+    const g = c.createGain(); g.connect(dest);
+    const fi = fd.fi * bl, fo = fd.fo * bl, N = 64;
+    const curve = (up) => Float32Array.from({length: N}, (_, i) => v * (up ? Math.sin(i / (N - 1) * Math.PI / 2) : Math.cos(i / (N - 1) * Math.PI / 2)));
+    g.gain.value = fi > 0.001 ? 0 : v;
+    if(fi > 0.001) g.gain.setValueCurveAtTime(curve(true), t0, fi);
+    if(fo > 0.001) g.gain.setValueCurveAtTime(curve(false), t0 + dur - fo, fo);
+    const C = buf.duration; let pos = 0, from = (((b.off || 0) * bl) % C + C) % C;
+    while(pos < dur - 1e-4){ const s = c.createBufferSource(), take = Math.min(C - from, dur - pos); s.buffer = buf; s.connect(g); s.start(t0 + pos, from, take); pos += take; from = 0; }
+  }
   async function compRender(){
     const sig = compSig(); if(CP.buf && CP.sig === sig) return CP.buf;
-    if(CP.busy) return null; CP.busy = true;
+    if(CP.busy) return null; CP.busy = true; paintCompTop();
     try{
-      const sr = ac.sampleRate, bl = barLen(), total = comp.reduce((n, b) => n + mBars(b), 0) * bl, bufs = [];
-      for(const [k, b] of comp.entries()){ compNote(`Skládám ${k + 1}/${comp.length}…`); bufs.push(await pieceAudio(b)); }
-      const oc = new OfflineAudioContext(2, Math.max(1, Math.ceil(total * sr)), sr);
-      let at = 0;
-      comp.forEach((b, k) => { if(bufs[k]){ const s = oc.createBufferSource(); s.buffer = bufs[k]; s.connect(oc.destination); s.start(at); } at += mBars(b) * bl; });
+      const sr = ac.sampleRate, bl = barLen(), total = Math.max(beatB(), comp.reduce((n, b) => Math.max(n, bEnd(b)), 0)) * bl, bufs = [];
+      for(const [k, b] of comp.entries()){ compNote(`Skládám ${k + 1}/${comp.length}…`); bufs.push(laneOn(b.lane) ? await blockAudio(b) : null); }
+      const oc = new OfflineAudioContext(2, Math.max(1, Math.ceil(total * sr)), sr), fd = compFades();
+      comp.forEach((b, k) => { if(bufs[k]) placeBlock(oc, oc.destination, bufs[k], b, fd[k], bl); });
       CP.buf = await oc.startRendering(); CP.sig = sig;
       return CP.buf;
-    } finally { CP.busy = false; paintComp(); }
+    } finally { CP.busy = false; paintCompTop(); }
   }
   async function compPlay(){
     audio();
@@ -2000,22 +2100,24 @@ const Looper = (() => {
     if(!comp.length){ showToast("Skladba je prázdná — přetáhni do ní kousky z vlny"); return; }
     let buf; try{ buf = await compRender(); }catch(e){ showToast("Skladbu se nepodařilo složit: " + e.message); return; }
     if(!buf) return;
+    const from = Math.min(CP.from, Math.max(0, buf.duration / barLen() - beatB()));
     const s = ac.createBufferSource(); s.buffer = buf; s.connect(bus);
-    const at = running ? nextBar(now()) : now() + 0.05; s.start(at);
-    CP.src = s; CP.at = at;
-    s.onended = () => { if(CP.src === s){ CP.src = null; paintComp(); } };
-    paintComp(); compHead(); headLoop();
+    const at = running ? nextBar(now()) : now() + 0.05; s.start(at, from * barLen());
+    CP.src = s; CP.at = at - from * barLen();
+    s.onended = () => { if(CP.src === s){ CP.src = null; paintCompTop(); compHead(); } };
+    paintCompTop(); compHead(); headLoop();
   }
-  function compStop(){ if(CP.src){ const s = CP.src; CP.src = null; try{ s.stop(); }catch(e){} } paintComp(); }
+  function compStop(){ if(CP.src){ const s = CP.src; CP.src = null; try{ s.stop(); }catch(e){} } paintCompTop(); compHead(); }
+  const compT = () => (now() - CP.at) / barLen();             // where the song from pieces is heard (bars)
   function compHead(){
     cancelAnimationFrame(CP.raf);
     const h = root && root.querySelector("#lp-cp-head"), strip = root && root.querySelector("#lp-cp-strip");
-    if(!CP.src || !h || !strip){ if(h) h.style.display = "none"; return; }
-    const t = (now() - CP.at) / barLen(), blocks = strip.querySelectorAll(".lp-cp-b");
-    let acc = 0, x = -1;
-    comp.forEach((b, k) => { const el = blocks[k], mb = mBars(b); if(!el) return; const on = t >= acc && t < acc + mb; if(on) x = el.offsetLeft + (t - acc) / mb * el.offsetWidth; el.classList.toggle("now", on); acc += mb; });
-    h.style.display = x >= 0 ? "block" : "none"; h.style.left = x + "px";
-    CP.raf = requestAnimationFrame(compHead);
+    if(!h || !strip) return;
+    const t = CP.src ? compT() : CP.from;
+    h.style.left = HEAD_W + t * CP.px + "px"; h.classList.toggle("on", !!CP.src);
+    strip.querySelectorAll(".lp-cp-b").forEach(el => { const b = comp[+el.dataset.b]; el.classList.toggle("now", !!CP.src && b && t >= b.at && t < bEnd(b)); });
+    if(CP.src){ const x = HEAD_W + t * CP.px; if(x > strip.scrollLeft + strip.clientWidth - 40 || x < strip.scrollLeft + HEAD_W) strip.scrollLeft = x - HEAD_W - 40;
+      CP.raf = requestAnimationFrame(compHead); }
   }
   async function compToTrack(ti){
     audio();
@@ -2023,7 +2125,7 @@ const Looper = (() => {
     if(t.job){ showToast("Do stopy se právě nahrává"); return; }
     let buf; try{ buf = await compRender(); }catch(e){ showToast("Skladbu se nepodařilo složit: " + e.message); return; }
     if(!buf) return;
-    const bars = comp.reduce((n, b) => n + mBars(b), 0);
+    const bars = Math.max(1, compBars());
     t.layers.forEach(stopLayer); t.layers = []; t.undone = [];
     t.len = bars * barLen(); t.bars = 0; t.anchor = running ? nextBar(now()) : t0; t.name = "Skladba z kousků";
     t.layers.push({buf}); history.push(t.i);
@@ -2041,79 +2143,216 @@ const Looper = (() => {
     a.download = `Skladba z kousků ${new Date().toLocaleDateString("cs-CZ")}.wav`; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   }
+  // one piece alone, as it is placed (its cut, stretch, level and fades)
   async function compPreview(k){
     audio();
     if(CP.pv){ try{ CP.pv.stop(); }catch(e){} CP.pv = null; const was = CP.pvAt; CP.pvAt = -1; paintComp(); if(was === k) return; }
-    let buf; try{ buf = await pieceAudio(comp[k]); }catch(e){ showToast(e.message); return; }
+    const b = comp[k]; let buf; try{ buf = await blockAudio(b); }catch(e){ showToast(e.message); return; }
     if(!buf) return;
-    const s = ac.createBufferSource(); s.buffer = buf; s.connect(bus); s.start(); CP.pv = s; CP.pvAt = k;
-    s.onended = () => { if(CP.pv === s){ CP.pv = null; CP.pvAt = -1; paintComp(); } };
+    const g = ac.createGain(); g.connect(bus);
+    const bl = barLen(), fd = compFades()[k];
+    placeBlock(ac, g, buf, {...b, at: (now() + 0.03) / bl}, fd, bl);
+    const s = {stop(){ clearTimeout(s.t); try{ g.disconnect(); }catch(e){} }};
+    CP.pv = s; CP.pvAt = k;
+    s.t = setTimeout(() => { if(CP.pv === s){ CP.pv = null; CP.pvAt = -1; try{ g.disconnect(); }catch(e){} paintComp(); } }, bLen(b) * bl * 1000 + 300);
     paintComp();
   }
-  function compIdxAt(x){
-    const blocks = root.querySelectorAll("#lp-cp-strip .lp-cp-b");
-    for(let k = 0; k < blocks.length; k++){ const r = blocks[k].getBoundingClientRect(); if(x < r.left + r.width / 2) return k; }
-    return comp.length;
+  // a place on the timeline from a point on the screen: the row under it, the bar (snapped)
+  function snapAt(t, skip){
+    const sn = CP.snap === "bar" ? 1 : CP.snap === "beat" ? beatB() : 0;
+    let best = sn ? Math.round(t / sn) * sn : t, bd = sn ? Math.abs(best - t) : Infinity;
+    const mag = 8 / CP.px;                                    // the other pieces' edges pull within 8 px
+    comp.forEach((b, k) => { if(k === skip) return; [b.at, bEnd(b)].forEach(e => { const d = Math.abs(e - t); if(d < mag && d <= bd){ bd = d; best = e; } }); });
+    if(CP.from && Math.abs(CP.from - t) < mag && Math.abs(CP.from - t) <= bd) best = CP.from;
+    return Math.max(0, best);
   }
+  function compPosAt(x, y, skip){
+    const strip = root.querySelector("#lp-cp-strip"); if(!strip) return {lane: CP.lane, at: laneEnd(CP.lane)};
+    const lanes = [...strip.querySelectorAll(".lp-cp-lane")];
+    let lane = lanes.findIndex(el => { const r = el.getBoundingClientRect(); return y >= r.top && y < r.bottom; });
+    if(lane < 0) lane = y == null ? CP.lane : y < (lanes[0] ? lanes[0].getBoundingClientRect().top : 0) ? 0 : lanes.length - 1;
+    const g = strip.querySelector(".lp-cp-in").getBoundingClientRect();
+    return {lane: Math.max(0, lane), at: snapAt((x - g.left - HEAD_W) / CP.px, skip)};
+  }
+  // the bar above the rows: the playing, the bars, the place to play from
+  function paintCompTop(){
+    const box = root && root.querySelector("#lp-comp .lp-cp-top"); if(!box) return;
+    const p = box.querySelector("#lp-cp-play"); if(p){ p.textContent = CP.busy ? "Skládám…" : CP.src ? "■ Zastavit" : "▶ Přehrát"; p.classList.toggle("on", !!CP.src); }
+    const bars = compBars(), mk = masterKey(), L = lanesOf().length;
+    compNote(comp.length ? `${comp.length} ${comp.length === 1 ? "dílek" : comp.length < 5 ? "dílky" : "dílků"} v ${L} řadách · ${bars} taktů · ${mmss(bars * barLen())} · vše v ${cfg.bpm} BPM${mk ? " a " + mk : ""}`
+      : "kousky z různých písní pod sebou i za sebou — srovnají se do tempa a tóniny MASTERu");
+  }
+  const dbOf = (v) => v <= 0.0001 ? "−∞" : (20 * Math.log10(v) >= 0 ? "+" : "") + (20 * Math.log10(v)).toFixed(1);
+  const FADE_OPTS = [[0, "žádný"], [0.25, "¼ doby"], [0.5, "½ doby"], [1, "1 doba"], [2, "2 doby"], [4, "1 takt (4/4)"], [8, "2 takty (4/4)"]];
+  function compEditor(){
+    const b = comp[CP.sel]; if(!b) return `<div class="lp-cp-ed none">Klikni na dílek: hlasitost, nájezd a doznění, ořez, natažení, stopy · táhni: přesun (i do jiné řady) · okraje: ořez, s Alt natažení · přes sebe = crossfade</div>`;
+    const e = SLS.find(x => x.song === b.song), all = !b.parts && e ? e.stems.map(x => x.stem) : [];
+    const opt = (v) => FADE_OPTS.map(([n, t]) => `<option value="${n}" ${Math.abs((v || 0) - n) < 1e-6 ? "selected" : ""}>${t}</option>`).join("") + (FADE_OPTS.some(([n]) => Math.abs((v || 0) - n) < 1e-6) ? "" : `<option selected value="${v}">${v} dob</option>`);
+    return `<div class="lp-cp-ed" style="--h:${songHue(b.song)}">
+      <b class="nm">${b.parts ? "🎸 " : ""}${esc(b.name)}</b><span class="sub">${esc(shortTitle(b.title || b.song))} · řada ${b.lane + 1} · takt ${fmtBar(b.at)}–${fmtBar(bEnd(b))}</span>
+      <button type="button" class="lp-b ${CP.pvAt === CP.sel ? "on" : ""}" data-ed="pv">${CP.pvAt === CP.sel ? "■" : "▶"} Poslech</button>
+      <label title="Hlasitost dílku — aby seděl k ostatním">Hlasitost <input type="range" data-ed="vol" min="0" max="1.6" step="0.01" value="${b.vol == null ? 1 : b.vol}"><i data-ed="volv">${dbOf(b.vol == null ? 1 : b.vol)} dB</i></label>
+      <label title="Nájezd — dílek se na začátku zesílí">Nájezd <select data-ed="fi">${opt(b.fi)}</select></label>
+      <label title="Doznění — dílek se na konci ztiší">Doznění <select data-ed="fo">${opt(b.fo)}</select></label>
+      <label title="Délka na ose v taktech — kratší ořízne konec, delší hraje dílek znovu od začátku">Délka <input type="number" data-ed="len" min="${beatB()}" step="${beatB()}" value="${+bLen(b).toFixed(3)}"> t.</label>
+      <label title="Natažení — dílek hraje pomaleji nebo rychleji, výška tónu zůstane">Natažení <input type="number" data-ed="scale" min="25" max="400" step="1" value="${Math.round((b.scale || 1) * 100)}"> %</label>
+      <label title="Odkud v dílku hrát — ořez začátku v taktech">Ořez začátku <input type="number" data-ed="off" min="0" step="${beatB()}" value="${+(b.off || 0).toFixed(3)}"> t.</label>
+      ${all.length > 1 ? `<span class="stems" title="Které stopy písně v dílku hrají">${all.map(s => `<button type="button" data-stem="${s}" class="${b.stems.includes(s) ? "on" : ""}">${esc(stemName(s))}</button>`).join("")}</span>` : ""}
+      <span class="acts">${b.mine ? `<button type="button" class="lp-b" data-ed="mix">🎸 Mix dílku</button>` : ""}
+      <button type="button" class="lp-b" data-ed="reset" title="Původní délka, bez ořezu a natažení">Původní</button>
+      <button type="button" class="lp-b" data-ed="dup" title="Kopie hned za dílek">Kopírovat</button>
+      <button type="button" class="lp-b" data-ed="pad" title="Dílek na nový pad">Na pad</button>
+      <button type="button" class="lp-b" data-ed="rm" title="Odebrat ze skladby (Delete)">✕ Odebrat</button></span></div>`;
+  }
+  function wireEditor(box){
+    const ed = box.querySelector(".lp-cp-ed"), b = comp[CP.sel]; if(!ed || !b) return;
+    const q = (k) => ed.querySelector(`[data-ed="${k}"]`), set = () => { cfg.comp = comp; keep(); if(CP.src) compStop(); };
+    q("pv").onclick = () => compPreview(CP.sel);
+    q("vol").oninput = (e) => { b.vol = +e.target.value; q("volv").textContent = dbOf(b.vol) + " dB"; const el = box.querySelector(`.lp-cp-b[data-b="${CP.sel}"] .vb`); if(el) el.textContent = dbOf(b.vol) + " dB"; };
+    q("vol").onchange = () => { set(); paintComp(); };
+    q("fi").onchange = (e) => { b.fi = +e.target.value; set(); paintComp(); };
+    q("fo").onchange = (e) => { b.fo = +e.target.value; set(); paintComp(); };
+    q("len").onchange = (e) => { const v = Math.max(beatB(), +e.target.value || natB(b)); b.len = Math.abs(v - natB(b)) < 1e-6 ? undefined : v; compChanged(); };
+    q("scale").onchange = (e) => { const s = Math.max(0.25, Math.min(4, (+e.target.value || 100) / 100)), r = s / (b.scale || 1);
+      b.len = bLen(b) * r; b.off = (b.off || 0) * r; b.scale = Math.abs(s - 1) < 0.005 ? undefined : s; if(b.len != null && Math.abs(b.len - natB(b)) < 1e-6) b.len = undefined; compChanged(); };
+    q("off").onchange = (e) => { b.off = Math.max(0, Math.min(natB(b) - beatB(), +e.target.value || 0)) || undefined; compChanged(); };
+    ed.querySelectorAll("[data-stem]").forEach(x => x.onclick = () => { const s = x.dataset.stem, on = b.stems.includes(s);
+      if(on && b.stems.length === 1){ showToast("Aspoň jedna stopa musí hrát"); return; }
+      b.stems = on ? b.stems.filter(y => y !== s) : [...b.stems, s]; compChanged(); });
+    const mx = q("mix"); if(mx) mx.onclick = () => { const m = mine.find(x => x.mine === b.mine); if(m){ dkStop(); DK.d = m; paintComp(); dkPlay(); } };
+    q("reset").onclick = () => { b.len = b.off = b.scale = undefined; compChanged(); };
+    q("dup").onclick = () => { const c = clone(b); c.at = bEnd(b); comp.push(c); CP.sel = comp.length - 1; compChanged(); };
+    q("pad").onclick = () => { const i = addPad(); if(i < 0) return; const {lane, at, len, off, scale, vol, fi, fo, ...p} = clone(b); padPiece(i, p); showToast(`Dílek na pad ${i + 1}`); };
+    q("rm").onclick = () => compRemove(CP.sel);
+  }
+  function compRemove(k){ if(!comp[k]) return; comp.splice(k, 1); CP.sel = -1; if(CP.pvAt === k && CP.pv){ CP.pv.stop(); CP.pv = null; CP.pvAt = -1; } compChanged(); }
   function paintComp(){
     const box = root && root.querySelector("#lp-comp"); if(!box) return;
-    const bars = comp.reduce((n, b) => n + mBars(b), 0), mk = masterKey(), dis = comp.length ? "" : "disabled";
-    const scroll = (box.querySelector("#lp-cp-strip") || {}).scrollLeft || 0;
+    const L = lanesOf(), dis = comp.length ? "" : "disabled", pb = cfg.perBar || 4;
+    const old = box.querySelector("#lp-cp-strip"), scroll = old ? old.scrollLeft : 0;
+    const bars = Math.max(compBars() + 8, Math.ceil(((old ? old.clientWidth : 900) - HEAD_W) / CP.px) + 1, 16), W = bars * CP.px;
+    const fd = compFades();
+    const ruler = Array.from({length: bars}, (_, i) => `<span style="left:${i * CP.px}px">${(i + 1) % (CP.px < 18 ? 4 : CP.px < 28 ? 2 : 1) === 0 || i === 0 ? i + 1 : ""}</span>`).join("");
     box.innerHTML = `<div class="lp-cp-top"><span class="h">SKLADBA Z KOUSKŮ</span>
-        <button type="button" class="lp-b ${CP.src ? "on" : ""}" id="lp-cp-play" ${dis} title="Přehrát celou skladbu (s běžícím looperem od dalšího taktu)">${CP.busy ? "Skládám…" : CP.src ? "■ Zastavit" : "▶ Přehrát"}</button>
+        <button type="button" class="lp-b ${CP.src ? "on" : ""}" id="lp-cp-play" ${dis} title="Přehrát od značky na pravítku (s běžícím looperem od dalšího taktu)">${CP.busy ? "Skládám…" : CP.src ? "■ Zastavit" : "▶ Přehrát"}</button>
         <select id="lp-cp-to" ${dis} title="Celou skladbu jako jednu dlouhou smyčku do stopy"><option value="">Do stopy…</option>${tracks.map(t => `<option value="${t.i}">Stopa ${t.i + 1}</option>`).join("")}</select>
         <button type="button" class="lp-b" id="lp-cp-wav" ${dis} title="Stáhnout skladbu jako WAV">Uložit WAV</button>
-        <button type="button" class="lp-b" id="lp-cp-whole" ${SL.song ? "" : "disabled"} title="Do skladby všechny kousky písně, která je vidět ve vlně, v jejím pořadí — pak v ní můžeš kousky vyměnit za své dílky">＋ Celá píseň</button>
+        <button type="button" class="lp-b" id="lp-cp-whole" ${SL.song ? "" : "disabled"} title="Do vybrané řady všechny kousky písně z vlny, v jejím pořadí (jen stopy, které ve vlně hrají)">＋ Celá píseň do řady ${CP.lane + 1}</button>
         <button type="button" class="lp-b" id="lp-cp-clear" ${dis}>Vyprázdnit</button>
-        <span class="lp-pb-hint" id="lp-cp-note">${comp.length ? `${comp.length} ${comp.length === 1 ? "kousek" : comp.length < 5 ? "kousky" : "kousků"} · ${bars} taktů · ${mmss(bars * barLen())} · vše v ${cfg.bpm} BPM${mk ? " a " + esc(mk) : ""}` : "kousky z různých písní navážou na taktu a srovnají se do tempa a tóniny MASTERu"}</span></div>
-      <div class="lp-cp-strip" id="lp-cp-strip">${comp.length ? comp.map((b, k) => { const ft = fitText(b);
-          return `<div class="lp-cp-b ${CP.pvAt === k ? "pv" : ""} ${b.parts ? "mine" : ""}" draggable="true" data-b="${k}" style="--h:${songHue(b.song)};width:${Math.max(96, Math.min(360, mBars(b) * 14))}px"
-            title="${esc(b.name)} — ${esc(b.title || b.song)}&#10;${b.bars} taktů · ${esc(b.stems.map(stemName).join(", "))}${ft ? "&#10;srovnáno: " + esc(ft) : ""}&#10;klik: poslech · táhni: přesunout">
-            <b>${b.parts ? "🎸 " : ""}${esc(b.name)}</b><small>${esc(shortTitle(b.title || b.song))}${b.n ? " · kousek " + b.n : ""}${(() => { const e = SLS.find(x => x.song === b.song); return !b.parts && e && b.stems.length < e.stems.length ? " · " + esc(b.stems.map(stemName).join("+")) : ""; })()}</small><em>${mBars(b)} t.${ft ? " · " + esc(ft) : ""}</em>
-            <button type="button" data-rm="${k}" title="Odebrat ze skladby">✕</button></div>`; }).join("")
-        : `<div class="lp-cp-none">Přetáhni sem kousky z vlny nahoře (nebo ＋ Do skladby, ＋ Celá píseň) — klidně z různých písní. Navážou na sebe na taktu.</div>`}<i class="lp-cp-head" id="lp-cp-head"></i></div>
+        <span class="lp-seg" title="Přichytávání při přesunu a ořezu">${[["bar", "Takt"], ["beat", "Doba"], ["off", "Volně"]].map(([k, t]) => `<button type="button" data-snap="${k}" class="${CP.snap === k ? "on" : ""}">${t}</button>`).join("")}</span>
+        <span class="lp-seg" title="Co dělá tažení za okraj dílku (Alt přepne)">${[["trim", "Okraj: ořez"], ["stretch", "natažení"]].map(([k, t]) => `<button type="button" data-edge="${k}" class="${CP.edge === k ? "on" : ""}">${t}</button>`).join("")}</span>
+        <label class="lp-cp-xf" title="Krátké prolnutí tam, kde dílek navazuje přesně na předchozí (bez cvaknutí). Delší crossfade: přetáhni dílek kousek přes předchozí.">Přechody <select id="lp-cp-xf">${[[0, "ostré"], [0.0625, "krátké"], [0.25, "¼ doby"], [0.5, "½ doby"], [1, "1 doba"]].map(([v, t]) => `<option value="${v}" ${(cfg.compXf || 0) === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        <span class="lp-seg"><button type="button" id="lp-cp-zo" title="Oddálit">−</button><button type="button" id="lp-cp-zi" title="Přiblížit">＋</button></span>
+        <span class="lp-pb-hint" id="lp-cp-note"></span></div>
+      <div class="lp-cp-strip" id="lp-cp-strip"><div class="lp-cp-in" style="width:${HEAD_W + W}px;--px:${CP.px}px;--bt:${CP.px / pb >= 6 ? CP.px / pb : CP.px}px">
+        <div class="lp-cp-rul"><div class="lp-cp-lh rh">takt</div><div class="lp-cp-rg" id="lp-cp-rg" title="Klik: odsud hrát">${ruler}<b class="lp-cp-from" style="left:${CP.from * CP.px}px"></b></div></div>
+        ${L.map((ln, l) => `<div class="lp-cp-lane ${CP.lane === l ? "sel" : ""}" data-lane="${l}"><div class="lp-cp-lh">
+            <span class="ln">Řada ${l + 1}</span><span class="lb"><button type="button" data-mute="${l}" class="${ln.mute ? "on m" : ""}" title="Ztlumit řadu">M</button><button type="button" data-solo="${l}" class="${ln.solo ? "on s" : ""}" title="Jen tahle řada">S</button>${L.length > 2 && !comp.some(b => b.lane === l) ? `<button type="button" data-unlane="${l}" title="Odebrat prázdnou řadu">✕</button>` : ""}</span>
+            <input type="range" data-lvol="${l}" min="0" max="1.6" step="0.01" value="${ln.vol == null ? 1 : ln.vol}" title="Hlasitost řady: ${dbOf(ln.vol == null ? 1 : ln.vol)} dB"></div>
+          <div class="lp-cp-g">${comp.map((b, k) => b.lane !== l ? "" : (() => { const ft = fitText(b), f = fd[k], w = bLen(b) * CP.px, n = natB(b), rep = bLen(b) - (b.off || 0) > n + 1e-6;
+            return `<div class="lp-cp-b ${CP.sel === k ? "sel" : ""} ${CP.pvAt === k ? "pv" : ""} ${b.parts ? "mine" : ""} ${b.scale ? "st" : ""}" data-b="${k}" style="--h:${songHue(b.song)};left:${b.at * CP.px}px;width:${w}px"
+              title="${esc(b.name)} — ${esc(b.title || b.song)}&#10;takt ${fmtBar(b.at)}–${fmtBar(bEnd(b))} · ${+bLen(b).toFixed(2)} t. · ${esc(b.stems.map(stemName).join(", "))}${ft ? "&#10;srovnáno: " + esc(ft) : ""}${b.scale ? "&#10;nataženo na " + Math.round(b.scale * 100) + " %" : ""}&#10;táhni: přesun · okraje: ořez (Alt: natažení) · dvojklik: poslech">
+              ${f.fi > 1e-6 ? `<svg class="fi" style="width:${f.fi * CP.px}px" viewBox="0 0 10 10" preserveAspectRatio="none"><path d="M0 10 Q0 0 10 0 L0 0Z"/></svg>` : ""}
+              ${f.fo > 1e-6 ? `<svg class="fo" style="width:${f.fo * CP.px}px" viewBox="0 0 10 10" preserveAspectRatio="none"><path d="M0 0 Q10 0 10 10 L10 0Z"/></svg>` : ""}
+              ${rep ? Array.from({length: Math.floor((bLen(b) + (b.off || 0) - 1e-6) / n)}, (_, r) => `<i class="rp" style="left:${((r + 1) * n - (b.off || 0)) * CP.px}px"></i>`).join("") : ""}
+              <b>${b.parts ? "🎸 " : ""}${esc(b.name)}</b><small>${esc(shortTitle(b.title || b.song))}${(() => { const e = SLS.find(x => x.song === b.song); return !b.parts && e && b.stems.length < e.stems.length ? " · " + esc(b.stems.map(stemName).join("+")) : ""; })()}</small>
+              <em><span class="vb">${b.vol != null && Math.abs(b.vol - 1) > 0.005 ? dbOf(b.vol) + " dB" : ""}</span>${b.scale ? " ↔" + Math.round(b.scale * 100) + "%" : ""}</em>
+              <s class="hl"></s><s class="hr"></s></div>`; })()).join("")}</div></div>`).join("")}
+        <button type="button" class="lp-cp-addl" id="lp-cp-addl" title="Přidat řadu">＋ Řada</button>
+        ${comp.length ? "" : `<div class="lp-cp-none">Přetáhni sem kousky z vlny nahoře (nebo ＋ Do skladby, ＋ Celá píseň) — do řad pod sebou: třeba bicí z jedné písně a kytara z jiné. Srovnají se na takt.</div>`}
+        <i class="lp-cp-head" id="lp-cp-head"></i></div></div>
+      ${compEditor()}
       ${mine.length ? `<div class="lp-cp-mine"><span class="h2">MOJE DÍLKY</span>${mine.map((d, k) => `<span class="lp-cp-chip ${DK.d === d ? "pv" : ""}" draggable="true" data-mine="${k}" style="--h:${songHue(d.song)}"
-          title="${esc(d.name)} — ${esc(d.title || d.song)} · ${d.bars} t. · ${(d.parts || []).length} part(y)&#10;klik: otevřít mix (hlasitost, pan, ladění, zvuk) · táhni do skladby (na kousek = nahradí ho) nebo na pad"><b>🎸 ${esc(d.name)}</b><small>${esc(shortTitle(d.title || d.song))} · ${mBars(d)} t.</small><button type="button" data-unmine="${k}" title="Odebrat dílek">✕</button></span>`).join("")}</div>` : ""}${dkHtml()}`;
+          title="${esc(d.name)} — ${esc(d.title || d.song)} · ${d.bars} t. · ${(d.parts || []).length} part(y)&#10;klik: otevřít mix (hlasitost, pan, ladění, zvuk) · táhni do skladby (na dílek = nahradí ho) nebo na pad"><b>🎸 ${esc(d.name)}</b><small>${esc(shortTitle(d.title || d.song))} · ${mBars(d)} t.</small><button type="button" data-unmine="${k}" title="Odebrat dílek">✕</button></span>`).join("")}</div>` : ""}${dkHtml()}`;
     const q = (id) => box.querySelector("#" + id), strip = q("lp-cp-strip");
     strip.scrollLeft = scroll;
+    paintCompTop();
     q("lp-cp-play").onclick = compPlay;
     q("lp-cp-to").onchange = (e) => { const v = e.target.value; e.target.value = ""; if(v !== "") compToTrack(+v); };
     q("lp-cp-wav").onclick = compWav;
     q("lp-cp-whole").onclick = async () => {
       if(!sliceSong()) return;
-      if(comp.length && !(await Dialog.confirm(`Nahradit skladbu všemi kousky písně „${shortTitle(SL.title)}“?`, {ok: "Nahradit"}))) return;
-      comp = SL.cuts.map((_, i) => pieceSnap(i)); compChanged();
-      showToast(`Skladba: ${comp.length} kousků písně — dílek s tvým partem na kousek přetáhni a nahradí ho`);
+      const l = CP.lane, had = comp.some(b => b.lane === l);
+      if(had && !(await Dialog.confirm(`Nahradit řadu ${l + 1} všemi kousky písně „${shortTitle(SL.title)}“?`, {ok: "Nahradit"}))) return;
+      comp = comp.filter(b => b.lane !== l); let at = 0;
+      SL.cuts.forEach((_, i) => { const p = pieceSnap(i); comp.push({...p, lane: l, at}); at += mBars(p); });
+      CP.sel = -1; compChanged();
+      showToast(`Řada ${l + 1}: ${SL.cuts.length} kousků písně — dílek s tvým partem na kousek přetáhni a nahradí ho`);
     };
+    box.querySelectorAll("[data-snap]").forEach(b => b.onclick = () => { CP.snap = cfg.compSnap = b.dataset.snap; keep(); paintComp(); });
+    box.querySelectorAll("[data-edge]").forEach(b => b.onclick = () => { CP.edge = b.dataset.edge; paintComp(); });
+    q("lp-cp-xf").onchange = (e) => { cfg.compXf = +e.target.value; keep(); paintComp(); };
+    const zoom = (f) => { const c = (strip.scrollLeft + strip.clientWidth / 2 - HEAD_W) / CP.px; CP.px = cfg.compPx = Math.max(10, Math.min(140, Math.round(CP.px * f))); keep(); paintComp();
+      const s2 = root.querySelector("#lp-cp-strip"); s2.scrollLeft = Math.max(0, c * CP.px + HEAD_W - s2.clientWidth / 2); compHead(); };
+    q("lp-cp-zi").onclick = () => zoom(1.3); q("lp-cp-zo").onclick = () => zoom(1 / 1.3);
+    q("lp-cp-rg").onpointerdown = (e) => { const r = e.currentTarget.getBoundingClientRect(); CP.from = snapAt((e.clientX - r.left) / CP.px);
+      const m = box.querySelector(".lp-cp-from"); if(m) m.style.left = CP.from * CP.px + "px";
+      if(CP.src){ compStop(); compPlay(); } else compHead(); };
+    q("lp-cp-addl").onclick = () => { L.push({vol: 1, mute: false, solo: false}); CP.lane = L.length - 1; keep(); paintComp(); };
+    box.querySelectorAll("[data-mute]").forEach(b => b.onclick = () => { const ln = L[+b.dataset.mute]; ln.mute = !ln.mute; keep(); if(CP.src) compStop(); paintComp(); });
+    box.querySelectorAll("[data-solo]").forEach(b => b.onclick = () => { const ln = L[+b.dataset.solo]; ln.solo = !ln.solo; keep(); if(CP.src) compStop(); paintComp(); });
+    box.querySelectorAll("[data-unlane]").forEach(b => b.onclick = () => { const l = +b.dataset.unlane; L.splice(l, 1); comp.forEach(x => { if(x.lane > l) x.lane--; }); CP.lane = 0; compChanged(); });
+    box.querySelectorAll("[data-lvol]").forEach(r => { r.oninput = () => { L[+r.dataset.lvol].vol = +r.value; r.title = `Hlasitost řady: ${dbOf(+r.value)} dB`; };
+      r.onchange = () => { keep(); if(CP.src) compStop(); }; });
+    box.querySelectorAll(".lp-cp-lane").forEach(el => el.querySelector(".lp-cp-lh").onclick = (e) => { if(e.target.closest("button, input")) return; CP.lane = +el.dataset.lane; paintComp(); });
     box.querySelectorAll("[data-mine]").forEach(el => { const k = +el.dataset.mine;
       el.onclick = (e) => { if(e.target.closest("[data-unmine]")) return; if(DK.d === mine[k]){ dkStop(); DK.d = null; paintComp(); return; } dkStop(); DK.d = mine[k]; paintComp(); dkPlay(); };
       el.ondragstart = (e) => { e.dataTransfer.setData("text/pick-mine", String(k)); e.dataTransfer.effectAllowed = "copy"; }; });
     box.querySelectorAll("[data-unmine]").forEach(b => b.onclick = async () => { if(await Dialog.confirm(`Odebrat dílek „${mine[+b.dataset.unmine].name}“?`, {ok: "Odebrat"})){ if(DK.d === mine[+b.dataset.unmine]){ dkStop(); DK.d = null; } mine.splice(+b.dataset.unmine, 1); mineKeep(); paintComp(); paintSlice(); } });
     wireDk(box);
-    q("lp-cp-clear").onclick = async () => { if(await Dialog.confirm("Vyprázdnit skladbu z kousků?", {ok: "Vyprázdnit"})){ comp = []; compChanged(); } };
-    strip.querySelectorAll("[data-b]").forEach(el => {
+    wireEditor(box);
+    q("lp-cp-clear").onclick = async () => { if(await Dialog.confirm("Vyprázdnit skladbu z kousků?", {ok: "Vyprázdnit"})){ comp = []; CP.sel = -1; compChanged(); } };
+    // a piece: moved (to another row too), cut or stretched at its edges, selected, heard on a double click
+    strip.querySelectorAll(".lp-cp-b").forEach(el => {
       const k = +el.dataset.b;
-      el.onclick = (e) => { if(e.target.closest("[data-rm]")) return;
-        const m = comp[k].mine && mine.find(x => x.mine === comp[k].mine);
-        if(m){ dkStop(); DK.d = m; paintComp(); dkPlay(); return; }            // a piece of mine: its mix opens
-        compPreview(k); };
-      el.ondragstart = (e) => { e.dataTransfer.setData("text/pick-block", String(k)); e.dataTransfer.effectAllowed = "copyMove"; };
+      el.ondblclick = () => compPreview(k);
+      el.onpointerdown = (e) => {
+        if(e.button !== 0) return; e.preventDefault();
+        const b = comp[k], edge = e.target.classList.contains("hl") ? "l" : e.target.classList.contains("hr") ? "r" : "";
+        const o = {x: e.clientX, y: e.clientY, at: b.at, lane: b.lane, len: bLen(b), off: b.off || 0, scale: b.scale || 1, moved: false};
+        const stretch = () => (CP.edge === "stretch") !== !!e.altKey;
+        el.setPointerCapture(e.pointerId);
+        const move = (ev) => {
+          const dx = (ev.clientX - o.x) / CP.px;
+          if(!o.moved && Math.abs(ev.clientX - o.x) + Math.abs(ev.clientY - o.y) < 4) return;
+          o.moved = true; el.classList.add("drag");
+          if(edge === "r"){
+            const end = Math.max(o.at + beatB(), snapAt(o.at + o.len + dx, k)), nl = end - o.at;
+            if((CP.edge === "stretch") !== ev.altKey){ const r = nl / o.len; b.scale = o.scale * r; b.off = o.off * r || undefined; } else { b.scale = o.scale === 1 ? undefined : o.scale; b.off = o.off || undefined; }
+            b.len = nl;
+          } else if(edge === "l"){
+            const at = Math.min(o.at + o.len - beatB(), Math.max(Math.max(0, o.at - o.off), snapAt(o.at + dx, k)));
+            b.at = at; b.off = o.off + (at - o.at) || undefined; b.len = o.len - (at - o.at);
+          } else {
+            const p = compPosAt(ev.clientX, ev.clientY, k), left = snapAt(o.at + dx, k), right = snapAt(o.at + o.len + dx, k) - o.len;
+            b.at = Math.max(0, Math.abs(right - (o.at + dx)) < Math.abs(left - (o.at + dx)) ? right : left); b.lane = p.lane;
+            const g = strip.querySelector(`.lp-cp-lane[data-lane="${b.lane}"] .lp-cp-g`); if(g && el.parentNode !== g) g.appendChild(el);
+          }
+          el.style.left = b.at * CP.px + "px"; el.style.width = bLen(b) * CP.px + "px";
+          compNote(`${b.name}: řada ${b.lane + 1} · takt ${fmtBar(b.at)}–${fmtBar(bEnd(b))} · ${+bLen(b).toFixed(2)} t.${b.scale ? " · " + Math.round(b.scale * 100) + " %" : ""}`);
+        };
+        const up = () => {
+          el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+          if(b.len != null && Math.abs(b.len - natB(b)) < 1e-6) b.len = undefined;
+          if(b.scale != null && Math.abs(b.scale - 1) < 0.005) b.scale = undefined;
+          CP.sel = k; CP.lane = b.lane;
+          if(o.moved) compChanged(); else paintComp();
+        };
+        el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+      };
     });
-    strip.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { comp.splice(+b.dataset.rm, 1); compChanged(); });
-    strip.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-block") || ty.includes("text/pick-mine")){ e.preventDefault(); strip.classList.add("drop");
+    strip.addEventListener("dragover", (e) => { const ty = [...e.dataTransfer.types]; if(ty.includes("text/pick-piece") || ty.includes("text/pick-mine")){ e.preventDefault(); strip.classList.add("drop");
       strip.querySelectorAll(".lp-cp-b").forEach(el => el.classList.toggle("swap", ty.includes("text/pick-mine") && el.contains(e.target))); } });
     strip.addEventListener("dragleave", (e) => { if(!strip.contains(e.relatedTarget)){ strip.classList.remove("drop"); strip.querySelectorAll(".swap").forEach(el => el.classList.remove("swap")); } });
     strip.addEventListener("drop", (e) => {
       strip.classList.remove("drop");
-      const v = e.dataTransfer.getData("text/pick-piece"), from = e.dataTransfer.getData("text/pick-block"), mi = e.dataTransfer.getData("text/pick-mine");
-      let at = compIdxAt(e.clientX);
-      const onB = e.target.closest && e.target.closest(".lp-cp-b");
+      const v = e.dataTransfer.getData("text/pick-piece"), mi = e.dataTransfer.getData("text/pick-mine");
+      const pos = compPosAt(e.clientX, e.clientY), onB = e.target.closest && e.target.closest(".lp-cp-b");
       if(mi !== "" && mine[+mi]){ e.preventDefault(); const d = clone(mine[+mi]);
-        if(onB){ const k = +onB.dataset.b; comp[k] = d; compChanged(); showToast(`Kousek ${k + 1} ve skladbě nahrazen: ${d.name}`); } else compAdd(d, at); return; }
-      if(v !== ""){ e.preventDefault(); compAdd(pieceSnap(+v), at); }
-      else if(from !== ""){ e.preventDefault(); const f = +from, [b] = comp.splice(f, 1); if(at > f) at--; comp.splice(at, 0, b); compChanged(); }
+        if(onB){ const k = +onB.dataset.b, o = comp[k]; comp[k] = {...d, lane: o.lane, at: o.at}; CP.sel = k; compChanged(); showToast(`Dílek v řadě ${o.lane + 1} nahrazen: ${d.name}`); } else compAdd(d, pos); return; }
+      if(v !== ""){ e.preventDefault(); compAdd(pieceSnap(+v), pos); }
     });
-    if(CP.src) compHead();
+    compHead();
   }
   // ---- my parts in a piece (Moje dílky). A piece of mine is the song's piece with its own mix: the backing (the
   // tracks left on), the original part that was taken out (the guitar — off, or on beside mine), and my parts,
@@ -2138,7 +2377,7 @@ const Looper = (() => {
   function dkSync(d){
     mineKeep();
     let ch = false;
-    comp.forEach((b, k) => { if(b.mine && b.mine === d.mine){ comp[k] = clone(d); ch = true; } });
+    comp.forEach((b, k) => { if(b.mine && b.mine === d.mine){ comp[k] = {...clone(d), lane: b.lane, at: b.at, len: b.len, off: b.off, scale: b.scale, vol: b.vol, fi: b.fi, fo: b.fo}; ch = true; } });
     if(ch){ cfg.comp = comp; keep(); CP.buf = null; }
     pads.forEach(p => { if(p.piece && p.piece.mine === d.mine){ p.piece = clone(d); stopPad(p); } }); padsKeep();
   }
@@ -2337,7 +2576,7 @@ const Looper = (() => {
       d.name = `${d.name} · můj part${n > 1 ? " " + n : ""}`; d.mine = Date.now();
       mine.unshift(d); mineKeep();
       const k = comp.findIndex(b => !b.parts && b.song === d.song && Math.abs(b.a - d.a) < 0.01 && Math.abs(b.z - d.z) < 0.01);
-      if(k >= 0){ comp[k] = clone(d); compChanged(); }
+      if(k >= 0){ const o = comp[k]; comp[k] = {...clone(d), lane: o.lane, at: o.at, vol: o.vol, fi: o.fi, fo: o.fo}; compChanged(); }
       msg = k >= 0 ? `Hotovo — ve skladbě je kousek ${k + 1} teď s tvým partem` : "Hotovo — nový dílek je v Mých dílcích, přetáhni ho do skladby";
     } else { dkSync(d); msg = `Hotovo — ${pt.name} přidán do dílku`; }
     DK.d = d; showToast(msg + " · posloucháš výsledek");
@@ -2467,7 +2706,7 @@ const Looper = (() => {
           const n = [...root.querySelectorAll(".lp-t.drop")][0], pn = [...root.querySelectorAll(".lp-pad.drop")][0], cs = root.querySelector(".lp-cp-strip.drop");
           root.querySelectorAll(".lp-t.drop, .lp-pad.drop, .lp-cp-strip.drop").forEach(x => x.classList.remove("drop"));
           if(pn){ const pi = pn.dataset.pad != null ? +pn.dataset.pad : addPad(); if(pi >= 0) padPiece(pi, pieceSnap(d.piece)); }
-          else if(cs) compAdd(pieceSnap(d.piece), compIdxAt(ev.clientX));
+          else if(cs) compAdd(pieceSnap(d.piece), compPosAt(ev.clientX, ev.clientY));
           else if(n) pieceToTrack(d.piece, +n.dataset.i);
           return;
         }
@@ -2603,7 +2842,7 @@ const Looper = (() => {
   function toJSON(){
     return {version: 1, bpm: cfg.bpm, perBar: cfg.perBar, song, cur,
       scenes: scenes.map(sc => ({name: sc.name, on: [...sc.on], chords: sc.chords || "", full: sc.full || "", bars: sc.bars || 0})),
-      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, kitName: cfg.kitName || null, kitDef: kits.find(k => k.name === cfg.kitName) || null, pads: padsJSON(), songs: SLS.filter(e => !e.own).map(e => e.song), comp, mine,
+      arrangement: arr.map(st => ({k: st.k, bars: st.bars || 0, chords: st.chords || "", full: st.full || ""})), skeleton: skel, plan, kit: cfg.kit, kitName: cfg.kitName || null, kitDef: kits.find(k => k.name === cfg.kitName) || null, pads: padsJSON(), songs: SLS.filter(e => !e.own).map(e => e.song), comp, compLanes: lanesOf(), mine,
       tracks: tracks.map(t => ({name: t.name, src: t.src, instr: t.instr, q: t.q, vol: t.vol, bars: t.bars, len: t.len, fx: t.fx || "none", print: t.print || null,
         layers: t.layers.map(l => l.steps ? {kind: "steps", steps: l.steps} : l.raw ? {kind: "notes", raw: l.raw} : {kind: "audio", file: l.file || null})}))};
   }
@@ -2657,7 +2896,7 @@ const Looper = (() => {
     cfg.kitName = P.kitName || null;
     if(P.kitDef && P.kitDef.name && !kits.some(k => k.name === P.kitDef.name)){ kits.push(P.kitDef); kitsKeep(); }
     if(Array.isArray(P.pads)){ padsFrom(P.pads); padsKeep(); }
-    if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song).map(b => (b.over || b.parts ? upgradeDilek(b) : b)); cfg.comp = comp; keep(); }
+    if(Array.isArray(P.comp)){ comp = P.comp.filter(b => b && b.song).map(b => (b.over || b.parts ? upgradeDilek(b) : b)); cfg.compLanes = Array.isArray(P.compLanes) ? P.compLanes : []; compNorm(); CP.sel = -1; cfg.comp = comp; keep(); }
     if(Array.isArray(P.mine)){ P.mine.filter(d => d && (d.parts || d.over)).map(upgradeDilek).forEach(d => { if(!mine.some(x => x.mine === d.mine)) mine.push(d); }); mineKeep(); }
     (async () => { for(const n of P.songs || []){ try{ await addSong(n); }catch(e){} } paintSlice(); paintComp(); })();
     if(!scenes.length) makeScenes();
@@ -3370,6 +3609,7 @@ const Looper = (() => {
     else if((e.code === "ArrowDown" || e.code === "ArrowUp") && cfg.side && SM.vis && SM.vis.length) smMove(e.code === "ArrowDown" ? 1 : -1);
     else if(e.code === "ArrowRight") run("scene:+");
     else if(e.code === "ArrowLeft") run("scene:-");
+    else if((e.code === "Delete" || e.code === "Backspace") && !(noteT && noteSel) && comp[CP.sel]) compRemove(CP.sel);
     else if((e.code === "Delete" || e.code === "Backspace") && noteT && noteSel){
       const l = noteLayersOf(noteT).find(x => x.raw.includes(noteSel));
       if(l){ l.raw.splice(l.raw.indexOf(noteSel), 1); noteSel = null; noteChanged(noteT, l); noteHead(); drawRoll(); }
@@ -3437,5 +3677,7 @@ const Looper = (() => {
     _steps: (i, id, bars) => setSteps(tracks[i], groove(id, bars || 1)),
     _layers: (i) => tracks[i].layers.map(l => ({raw: l.raw ? l.raw.map(x => ({...x})) : null, steps: !!l.steps})),
     _rollAt: (p, m) => { const cv = root.querySelector("#lp-notes canvas"), g = rollGeo(noteT, cv), r3 = cv.getBoundingClientRect(); return {x: r3.left + g.x(p) + 3, y: r3.top + g.y(m) + g.rowH / 2, right: r3.left + g.x(p) - 3}; },
-    _set: (i, k, v) => { tracks[i][k] = v; paint(); }};
+    _set: (i, k, v) => { tracks[i][k] = v; paint(); },
+    _comp: () => ({comp: comp.map(b => ({name: b.name, lane: b.lane, at: b.at, len: bLen(b), off: b.off || 0, scale: b.scale || 1, vol: b.vol == null ? 1 : b.vol})), fades: compFades(), bars: compBars(), lanes: lanesOf().length}),
+    _compRender: async () => { const b = await compRender(); return b ? b.duration : 0; }};
 })();
