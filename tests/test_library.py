@@ -128,3 +128,31 @@ def test_amps_and_cabinets_sorted_as_in_pick(lib):
     v30 = next(x for x in ir if x["name"] == "Mesa 4x12 V30 SM57")
     assert v30["speaker"] == "Vintage 30" and v30["mic"] == "SM57" and v30["group"] == "Vintage 30"
     assert c.get("/g/amp", params={"file": v30["file"]}).status_code == 200
+
+
+def test_playing_alone_the_tracks_and_a_login_kept_over_a_restart(lib):
+    mod, c = lib
+    n = "Band - Song [abcdefghijk]"
+    assert c.get("/g/stem", params={"name": n, "stem": "drums"}).status_code == 403
+    r = c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert "max-age=31536000" in r.headers["set-cookie"].lower()
+    st = c.get("/g/stem", params={"name": n, "stem": "drums"})
+    assert st.status_code == 200 and st.content[:4] == b"\x1aE\xdf\xa3"
+    assert c.get("/g/stem", params={"name": n, "stem": "../../x"}).status_code == 404
+    mod.SESS.clear()                                                           # the container started again
+    assert c.get("/g/songs").status_code == 200
+    assert "kytara66" not in (Path(mod.STATE) / "sessions.json").read_text()
+    once = TestClient(mod.app)
+    r = once.post("/login", json={"name": "Pavel", "password": "kytara66", "remember": False})
+    assert "max-age" not in r.headers["set-cookie"].lower()
+
+
+def test_the_desktop_app_launcher_and_manifest(lib):
+    mod, c = lib
+    cmd = c.get("/pick-jam.cmd", headers={"host": "jam.neverlast.cz"})
+    assert cmd.status_code == 200 and 'filename="Pick Jam.cmd"' in cmd.headers["content-disposition"]
+    t = cmd.content.decode()
+    assert 'set "PJ_URL=https://jam.neverlast.cz/"' in t and "\r\n" in t and "{{" not in t and "--app=$url" in t
+    m = c.get("/manifest.webmanifest").json()
+    assert m["display"] == "standalone" and any(i["sizes"] == "512x512" for i in m["icons"])
+    assert c.get("/static/jam-icon-512.png").status_code == 200 and c.get("/static/jam-icon.ico").status_code == 200

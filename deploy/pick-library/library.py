@@ -94,8 +94,19 @@ def _ip(request: Request) -> str:
     return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "?")
 
 
+def _tk(tok: str) -> str:
+    return hashlib.sha256(tok.encode()).hexdigest()
+
+
+def _sess_save() -> None:
+    now = time.time()
+    _write("sessions.json", {k: v for k, v in SESS.items() if v["exp"] > now})
+
+
 def _who(request: Request) -> Optional[str]:
-    v = SESS.get(request.cookies.get("pl") or "")
+    if not SESS:
+        SESS.update(_read("sessions.json", {}) or {})
+    v = SESS.get(_tk(request.cookies.get("pl") or ""))
     return v["user"] if v and v["exp"] > time.time() and v["user"] in users() else None
 
 
@@ -130,16 +141,21 @@ async def login(request: Request):
         tries.append(now)
         return JSONResponse({"error": "Špatné jméno nebo heslo."}, status_code=401)
     tok = secrets.token_urlsafe(24)
-    SESS[tok] = {"user": name, "exp": now + 30 * 24 * 3600}
+    keep = body.get("remember") is not False                # "Zapamatovat si mě": a year; otherwise until the browser closes
+    if not SESS:
+        SESS.update(_read("sessions.json", {}) or {})
+    SESS[_tk(tok)] = {"user": name, "exp": now + (365 if keep else 1) * 24 * 3600}
+    _sess_save()
     r = JSONResponse({"ok": True, "user": name})
-    r.set_cookie("pl", tok, max_age=30 * 24 * 3600, httponly=True, samesite="strict",
+    r.set_cookie("pl", tok, max_age=365 * 24 * 3600 if keep else None, httponly=True, samesite="strict",
                  secure=request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https")
     return r
 
 
 @app.post("/logout")
 def logout(request: Request):
-    SESS.pop(request.cookies.get("pl") or "", None)
+    SESS.pop(_tk(request.cookies.get("pl") or ""), None)
+    _sess_save()
     r = JSONResponse({"ok": True})
     r.delete_cookie("pl")
     return r
@@ -162,8 +178,34 @@ def icon():
     return Response(f.read_bytes(), media_type="image/png") if f.is_file() else Response(status_code=204)
 
 
+ICONS = {"jam-icon-192.png": "image/png", "jam-icon-512.png": "image/png", "jam-icon.ico": "image/x-icon"}
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    """Installable: Chrome's "Nainstalovat" puts Pick Jam on the desktop, in its own window."""
+    return JSONResponse({"name": "Pick Jam", "short_name": "Pick Jam", "start_url": "/", "scope": "/", "display": "standalone",
+                         "background_color": "#0d0d14", "theme_color": "#0d0d14", "description": f"Písně, zvuky a jam s {HOST}",
+                         "icons": [{"src": "/static/jam-icon-192.png", "sizes": "192x192", "type": "image/png"},
+                                   {"src": "/static/jam-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]},
+                        media_type="application/manifest+json")
+
+
+@app.get("/pick-jam.cmd")
+def launcher(request: Request):
+    """For Windows: put a "Pick Jam" icon on the desktop that opens this page in Chrome as an app, and open it now.
+    Nothing secret in it — only this address; the name and password are asked in the window."""
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "jam.neverlast.cz"
+    url = f"https://{host}/" if not host.startswith(("127.", "localhost")) else f"http://{host}/"
+    t = (STATIC / "jam-launcher.cmd").read_text(encoding="utf-8").replace("{{URL}}", url).replace("{{HOST}}", HOST)
+    return Response(t.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8"), media_type="application/octet-stream",
+                    headers={"Content-Disposition": 'attachment; filename="Pick Jam.cmd"', "Cache-Control": "no-store"})
+
+
 @app.get("/static/{name}")
 def guest_static(name: str):
+    if name in ICONS and (STATIC / name).is_file():
+        return FileResponse(STATIC / name, media_type=ICONS[name], headers={"Cache-Control": "public, max-age=86400"})
     if name not in GUEST_FILES or not (STATIC / name).is_file():
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     return Response((STATIC / name).read_text(encoding="utf-8"), media_type="text/javascript", headers={"Cache-Control": "no-cache"})
@@ -440,6 +482,33 @@ async def g_preview(request: Request, name: str):
         for old in sorted(CACHE.glob("*.webm"), key=lambda p: p.stat().st_mtime)[:-60]:      # the newest 60
             old.unlink(missing_ok=True)
     return _range(out, request.headers.get("range"))
+
+
+@app.get("/g/stem")
+async def g_stem(request: Request, name: str, stem: str):
+    """One track, for playing along alone: Opus in WebM, made once and kept (the newest 150)."""
+    who, bad = _need(request)
+    if bad:
+        return bad
+    d = _song_dir(name)
+    f = _stem_file(d, stem) if d is not None and stem in STEM_NAMES else None
+    if f is None:
+        return JSONResponse({"error": "Stopa nenalezena."}, status_code=404)
+    sig = hashlib.sha1(f"{f}:{f.stat().st_mtime}".encode()).hexdigest()[:16]
+    cache = STATE / "stems"
+    cache.mkdir(parents=True, exist_ok=True)
+    out = cache / f"{sig}.webm"
+    if not out.is_file():
+        part = out.with_suffix(f".{secrets.token_hex(3)}.part")
+        r = await asyncio.to_thread(subprocess.run, ["ffmpeg", "-v", "error", "-y", "-i", str(f), "-vn", "-ac", "2", "-ar", "48000", "-c:a", "libopus",
+                                                     "-b:a", "160k", "-f", "webm", str(part)], capture_output=True, timeout=600)
+        if r.returncode != 0 or not part.is_file():
+            part.unlink(missing_ok=True)
+            return JSONResponse({"error": "Stopu se nepodařilo připravit."}, status_code=500)
+        part.replace(out)
+        for old in sorted(cache.glob("*.webm"), key=lambda q: q.stat().st_mtime)[:-150]:
+            old.unlink(missing_ok=True)
+    return FileResponse(out, media_type="audio/webm", headers={"Cache-Control": "private, max-age=86400"})
 
 
 # ---------------------------------------------------------------- the sounds: prints, NAM, cabinets

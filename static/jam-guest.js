@@ -16,7 +16,7 @@
   const SNAME = {drums: "Bicí", bass: "Basa", guitar: "Kytara", guitar_solo: "Kytara sólo", guitar_rhythm: "Kytara rytmus", vocals: "Zpěv", piano: "Klávesy", other: "Ostatní"};
   function toast(t, ms){ const n = document.createElement("div"); n.className = "toast"; n.textContent = t; n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), ms || 5000); }
 
-  let gateN = null, gateOpen = 1;
+  let gateN = null, gateOpen = 1, solo = false;     // solo: the library on the PC, no host — he plays along on his own
   let me = {user: null, login: false, host: "Kamarád"}, ctx = null, link = null, chat = null, mix = null, amp = null;
   let eqNodes = [], tunA = null;
   let inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, monPan = null, myOut = null, meterA = null;
@@ -33,12 +33,43 @@
     store("host", me.host); if(me.user) store("user", me.user);
     if(me.user && (store("favq") || []).length) favSync();
     $("outBtn").hidden = !me.login;
-    if(me.library && me.user) return browse(true);
+    if(me.library && me.user) return showSolo();
     if(me.user && !me.on) return browse();
     if(me.login && !me.user){ $("login").hidden = false; $("lName").focus(); return; }
     if(!me.login && !K){ document.body.innerHTML = "<div style='padding:40px'>Tenhle odkaz je neúplný — popros kamaráda o nový.</div>"; return; }
     showJoin();
   }
+  // The library (the host's PC): his own Pick to play along with the songs alone — the mix, prints, NAM — and word when the host's jam is on
+  function showSolo(){
+    solo = true; $("login").hidden = true; $("join").hidden = false;
+    $("joinHi").innerHTML = `Ahoj <b>${esc(me.user || "")}</b>! Hraj s písněmi, zkoušej otisky a NAM zesilovače. Až ${esc(me.host)} zapne jam, dám ti vědět.`;
+    $("go").textContent = "Zapnout zvuk a hrát";
+    $("joinErr").innerHTML = `<a href="#" id="justBrowse">jen procházet písně</a>`;
+    $("justBrowse").onclick = (e) => { e.preventDefault(); browse(true); };
+    if(me.jam) $("joinErr").innerHTML = `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}">Připojit se k jamu</a> · ` + $("joinErr").innerHTML;
+    if($("justBrowse")) $("justBrowse").onclick = (e) => { e.preventDefault(); browse(true); };
+  }
+  // the host's jam came on: a note in the page, the system notification (also with the window in the background), a button
+  let jamWatch = 0;
+  function watchJam(){
+    if(jamWatch) return;
+    const show = () => { $("jamGo").hidden = !me.jam; if(me.jam) $("jamGo").href = me.jam_url; };
+    show();
+    jamWatch = setInterval(async () => {
+      try{ const d = await (await fetch("/g/me", {cache: "no-store"})).json();
+        if(d.jam && !me.jam){
+          toast(`${me.host} zapnul jam — klikni „Připojit se k jamu“ nahoře`, 20000);
+          if("Notification" in window && Notification.permission === "granted"){
+            const n = new Notification(`${me.host} je online a hraje`, {body: "Zapnul jam — klikni a připoj se.", icon: "/static/jam-icon-192.png", tag: "pick-jam", requireInteraction: true});
+            n.onclick = () => { window.focus(); location.href = d.jam_url; n.close(); }; }
+        }
+        me.jam = d.jam; me.jam_url = d.jam_url; show();
+        if(!solo && $("songSt") && document.body.classList.contains("browse")) $("songSt").innerHTML = jamLineOf();
+      }catch(e){}
+    }, 15000);
+  }
+  const jamLineOf = () => me.jam ? `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}">Připojit se k jamu</a>`
+    : `${esc(me.host)} teď nehraje. Procházej písně, poslechni si je a dej jim ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
   function showJoin(){
     $("login").hidden = true; $("join").hidden = false;
     $("joinHi").innerHTML = `${me.user && me.login ? `Ahoj <b>${esc(me.user)}</b>! ` : ""}${esc(me.host)} tě zve na společné hraní. Povol zvukovku (mikrofon) — Chrome se zeptá. Kamera není nutná.`;
@@ -46,11 +77,11 @@
   }
   $("loginF").onsubmit = async (e) => {
     e.preventDefault(); $("lErr").textContent = "";
-    const r = await fetch("/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name: $("lName").value, password: $("lPass").value})});
+    const r = await fetch("/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({name: $("lName").value, password: $("lPass").value, remember: $("lKeep").checked})});
     const d = await r.json().catch(() => ({}));
     if(!r.ok){ $("lErr").textContent = d.error || "Nepodařilo se."; return; }
     me = await getJ("/g/me"); $("outBtn").hidden = false; store("host", me.host); store("user", me.user);
-    if(me.library) return browse(true);
+    if(me.library) return showSolo();
     if(!me.on) return browse();
     showJoin();
   };
@@ -94,14 +125,17 @@
     if(!window.isSecureContext || !navigator.mediaDevices){
       $("joinErr").innerHTML = "Stránka není otevřená zabezpečeně, takže prohlížeč k mikrofonu nepustí. Otevři odkaz <b>přesně tak, jak přišel</b> (začíná <b>https://</b>), ne přes IP adresu."; return;
     }
-    try{ me = await getJ("/g/me"); }catch(e){}
-    if(!me.on){ $("joinErr").textContent = `${me.host} teď jam nemá zapnutý — jakmile ho zapne, zkus to znovu.`; return; }
+    if(!solo){
+      try{ me = await getJ("/g/me"); }catch(e){}
+      if(!me.on){ $("joinErr").textContent = `${me.host} teď jam nemá zapnutý — jakmile ho zapne, zkus to znovu.`; return; }
+    }
+    if(solo && "Notification" in window && Notification.permission === "default") Notification.requestPermission().catch(() => {});
     $("joinErr").innerHTML = `<span class="muted">Čekám, až v Chromu povolíš mikrofon (okénko vlevo nahoře u adresy)…</span>`;
     try{ const probe = await navigator.mediaDevices.getUserMedia({audio: true}); probe.getTracks().forEach(t => t.stop()); $("joinErr").textContent = ""; }
     catch(e){ $("joinErr").innerHTML = micHelp(e); return; }
-    let camOk = true, camNote = "";
-    try{ const v = await navigator.mediaDevices.getUserMedia({video: true}); v.getTracks().forEach(t => t.stop()); }
-    catch(e){ camOk = false; camNote = camHelp(e); }
+    let camOk = !solo, camNote = "";
+    if(!solo){ try{ const v = await navigator.mediaDevices.getUserMedia({video: true}); v.getTracks().forEach(t => t.stop()); }
+      catch(e){ camOk = false; camNote = camHelp(e); } }
     ctx = new AudioContext({latencyHint: 0});
     await devices();
     // his guitar: in → gain → the sound (clean / print / amp) → out: heard here (monitor, pan) and sent to the host
@@ -115,17 +149,22 @@
     monGain = ctx.createGain(); monPan = ctx.createStereoPanner(); myOut.connect(monGain); monGain.connect(monPan); monPan.connect(ctx.destination);
     meterA = ctx.createAnalyser(); meterA.fftSize = 512; inGain.connect(meterA);
     mix = new JamMix(ctx, api, ctx.destination);
+    if(!solo){
     link = new JamLink({role: "guest", ctx, output: ctx.destination, onEvent: event});
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
       onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});
     await link.start(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${withK("/ws")}`);
+    }
     try{ await useGuitar(); }
     catch(e){ $("inDev").value = ""; store("in", ""); await useGuitar(); }
-    link.setInput(myOut);
-    const b = store("buf"); if(b){ $("buf").value = b; applyBuf(); }
-    if(camOk){ try{ showMe(await link.setCamera(true, $("camDev").value)); $("camBtn").classList.add("on"); }catch(e){} }
-    $("join").hidden = true; chat.check();
+    if(link) link.setInput(myOut);
+    const b = store("buf"); if(b && link){ $("buf").value = b; applyBuf(); }
+    if(camOk && link){ try{ showMe(await link.setCamera(true, $("camDev").value)); $("camBtn").classList.add("on"); }catch(e){} }
+    $("join").hidden = true; if(chat) chat.check();
+    if(solo){ document.body.classList.add("solo"); $("state").textContent = "hraješ sám s písněmi"; $("dot").classList.add("on");
+      ["camBtn", "voiceBtn"].forEach(id => { $(id).disabled = true; $(id).title = "Kamera a mluvení jsou jen v jamu"; });
+      $("songSt").innerHTML = "Klikni na píseň = náhled · <b>Hrát</b> nebo dvojklik = stopy do mixu, pak ▶."; watchJam(); }
     if(camNote) toast(camNote, 15000);
     applyMine(); renderRack(); restoreSound();
     loadSongs();
@@ -152,8 +191,7 @@
     $("dot").classList.remove("on");
     const jamLine = () => me.jam ? `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}" target="_blank" rel="noopener">Připojit se k jamu ↗</a>`
       : `${esc(me.host)} teď nehraje. Procházej písně, poslechni si je a dej jim ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
-    if(lib){ $("state").textContent = "knihovna písní"; $("songSt").innerHTML = jamLine();
-      setInterval(async () => { try{ const d = await (await fetch("/g/me", {cache: "no-store"})).json(); if(d.jam !== me.jam){ me.jam = d.jam; me.jam_url = d.jam_url; $("songSt").innerHTML = jamLine(); if(d.jam) toast(`${me.host} zapnul jam — klikni „Připojit se k jamu“`, 15000); } }catch(e){} }, 20000); }
+    if(lib){ $("state").textContent = "knihovna písní"; $("songSt").innerHTML = jamLine(); document.body.classList.add("browse"); watchJam(); }
     else { $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;
       $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`; }
     const rt = $("retry"); if(rt) rt.onclick = (e) => { e.preventDefault(); location.reload(); };
@@ -312,7 +350,7 @@
     const s = songs.find(x => x.name === name); if(!s) return;
     PV.name = name; $("pvBox").hidden = false;
     $("pvCv").src = art(name); $("pvT").textContent = s.title; $("pvA2").textContent = `${s.artist || ""} · ${s.tune}`;
-    $("pvGo").textContent = `Hrát spolu s ${me.host}`;
+    $("pvGo").textContent = solo ? "Hrát s písní" : `Hrát spolu s ${me.host}`;
     pa.src = withK(`/g/preview?name=${encodeURIComponent(name)}`); pa.volume = 0.9;
     pa.play().catch(() => {}); $("pvPlay").textContent = "…";
     paintSongs();
@@ -321,13 +359,28 @@
   pa.ontimeupdate = () => { if(pa.duration){ $("pvSeek").value = Math.round(pa.currentTime / pa.duration * 1000); $("pvTime").textContent = `${mmss(pa.currentTime)} / ${mmss(pa.duration)}`; } };
   $("pvPlay").onclick = () => { pa.paused ? pa.play().catch(() => {}) : pa.pause(); };
   $("pvSeek").oninput = () => { if(pa.duration) pa.currentTime = $("pvSeek").value / 1000 * pa.duration; };
-  function playTogether(name){ pa.pause(); ctl({do: "load", name}); $("songSt").textContent = `${me.host} načítá píseň…`; }
+  function playTogether(name){ pa.pause(); ctl({do: "load", name}); if(!solo) $("songSt").textContent = `${me.host} načítá píseň…`; }
   $("pvGo").onclick = () => PV.name && playTogether(PV.name);
-  const ctl = (o) => link && link.send({type: "ctl", ...o});
+  const ctl = (o) => solo ? soloCtl(o) : link && link.send({type: "ctl", ...o});
+  // alone: this page is the host — the song's place, tempo and key kept here, the mix follows them the same way
+  function soloCtl(o){
+    const now = performance.now();
+    if(o.do === "load"){ const row = songs.find(x => x.name === o.name) || {};
+      onSong({name: o.name, title: row.title, stems: [], playing: false, pos: 0, at: now, speed: S ? S.speed || 1 : 1, key: 0, dur: row.duration || 0}); return; }
+    if(!S || !S.name) return;
+    const n = {...S, pos: Math.min(posNow(), S.dur || 1e9), at: now};
+    if(o.do === "play"){ if(loaded !== S.name) return; if(n.dur && n.pos >= n.dur - 0.2) n.pos = 0; n.playing = true; }
+    if(o.do === "pause") n.playing = false;
+    if(o.do === "end"){ n.playing = false; n.pos = 0; }
+    if(o.do === "seek") n.pos = Math.max(0, Math.min(o.pos, (n.dur || o.pos + 1) - 0.1));
+    if(o.do === "tempo") n.speed = o.speed;
+    if(o.do === "key") n.key = o.semis;
+    onSong(n);
+  }
 
   // ---------------------------------------------------------------- the song as the host's Pick has it
-  function hostPos(perf){ return S.pos + (link.remoteNow(perf) - S.at) / 1000 * (S.speed || 1); }
-  function posNow(){ if(!S || !link) return 0; if(!S.playing || !link.clock.samples.length) return S.pos; return hostPos(performance.now()); }
+  function hostPos(perf){ return S.pos + ((solo ? perf : link.remoteNow(perf)) - S.at) / 1000 * (S.speed || 1); }
+  function posNow(){ if(!S || (!link && !solo)) return 0; if(!S.playing || (!solo && !link.clock.samples.length)) return S.pos; return hostPos(performance.now()); }
   function onSong(m){
     const was = S; S = m;
     $("tempo").textContent = `tempo ${Math.round((m.speed || 1) * 100)} %`;
@@ -354,13 +407,14 @@
     }catch(e){ if(loading === name){ $("songSt").textContent = e.message; loading = null; } return; }
     loaded = name; loading = null;
     applyMix(); renderRack();
-    $("songSt").textContent = "Stopy připravené — hraje u obou zároveň.";
+    $("songSt").textContent = solo ? "Stopy připravené — dej ▶ a hraj." : "Stopy připravené — hraje u obou zároveň.";
+    if(solo && S && S.name === name && mix.duration) S = {...S, dur: mix.duration};
     sync();
   }
   // play here when and where the host plays
   async function sync(){
-    if(!S || !link || !mix || loaded !== S.name || syncing) return;
-    if(!link.ready || !link.clock.samples.length) return;
+    if(!S || (!link && !solo) || !mix || loaded !== S.name || syncing) return;
+    if(!solo && (!link.ready || !link.clock.samples.length)) return;
     if(!S.playing){ if(mix.running) mix.stop(); return; }
     const ts = ctx.getOutputTimestamp(); if(!ts.performanceTime) return;
     const want = hostPos(ts.performanceTime), speed = S.speed || 1, key = S.key || 0, sp = S.stemPitch || {};
@@ -368,7 +422,7 @@
       const mine = mix.songAt(ts.contextTime); const d = mine == null ? 1e9 : (mine - want) * 1000;
       if(Math.abs(d) < (mix.stretchy ? 30 : 15)) return;
     }
-    if(want >= mix.duration) return;
+    if(want >= mix.duration){ if(solo && S.playing) soloCtl({do: "end"}); return; }
     syncing = true;
     // `want` is what is heard now; the mix starts from the audio clock's now, which runs ahead of what is heard
     const ahead = Math.max(0, ctx.currentTime - ts.contextTime) * speed;
@@ -405,8 +459,8 @@
   const gateTxt = (d) => d <= -99 ? "vyp." : Math.round(d) + " dB";
   const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null, gate: -100}, store("mine") || {});
   function applyMine(){
-    if(!link || !amp) return;
-    link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp);
+    if(!amp) return;
+    if(link){ link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp); }
     inGain.gain.value = Math.pow(10, MY.ing / 20); amp.setInputDb(MY.ing); amp.setDrive(MY.drive);
     if(gateN) gateN.parameters.get("threshold").setTargetAtTime(MY.gate, ctx.currentTime, 0.02);
     monGain.gain.value = MY.mm || !$("mon").checked ? 0 : MY.mv; monPan.pan.value = MY.mp;
@@ -445,10 +499,10 @@
         <div class="knobs">${knob("t", "GAIN", -12, 12, c.t || 0, fmtDb(c.t || 0) + " dB", 0)}${knob("p", "PAN", -1, 1, c.p, panTxt(c.p), 0, true)}</div>
         <div class="clip"></div>${fader("v", c.v, 6)}<div class="dbv">${fmtDb(lin2db(c.v))} dB</div>
         <div class="ms"><button class="m ${c.m ? "on" : ""}" data-k="m" title="Ztlumit (jen u tebe)">M</button><button class="s ${c.s ? "on" : ""}" data-k="s" title="Sólo (jen u tebe)">S</button></div></div>`;
-    rack.innerHTML = mix.ch.map(stemStrip).join("") + `<div class="strip host ${MINI.has("@host") ? "mini" : ""}" data-st="@host" style="--sc:#6ee7a0"><div class="hd"><div class="nm">${esc(me.host)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has("@host") ? "+" : "–"}</button></div><div class="sub">jeho kytara</div>
+    rack.innerHTML = mix.ch.map(stemStrip).join("") + (solo ? "" : `<div class="strip host ${MINI.has("@host") ? "mini" : ""}" data-st="@host" style="--sc:#6ee7a0"><div class="hd"><div class="nm">${esc(me.host)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has("@host") ? "+" : "–"}</button></div><div class="sub">jeho kytara</div>
         <div class="knobs">${knob("hp", "PAN", -1, 1, MY.hp, panTxt(MY.hp), 0, true)}</div>
         <div class="clip"></div>${fader("hv", MY.hv, 6)}<div class="dbv">${fmtDb(lin2db(MY.hv))} dB</div>
-        <div class="ms"><button class="m ${MY.hm ? "on" : ""}" data-k="hm" title="Ztlumit">M</button></div></div>
+        <div class="ms"><button class="m ${MY.hm ? "on" : ""}" data-k="hm" title="Ztlumit">M</button></div></div>`) + `
       <div class="strip me ${MINI.has("@me") ? "mini" : ""}" data-st="@me" style="--sc:#a78bfa"><div class="hd"><div class="nm">${esc(me.user || "Já")}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has("@me") ? "+" : "–"}</button></div><div class="sub">moje kytara</div>
         <div class="step"><button id="sPrev" title="Předchozí zvuk z naposledy použitých">◀</button><button class="snd" id="sndBtn" title="Otisk, zesilovač, vlastní otisk">🎸 ${esc(amp ? amp.label : "Čistý zvuk")}</button><button id="sNext" title="Další zvuk z naposledy použitých">▶</button></div>
         <div class="tools"><button id="tPrints" title="Katalog otisků">Otisky</button><button id="tNam" title="NAM zesilovače a kabinety">NAM</button></div>
@@ -511,9 +565,9 @@
   // the meters, as smooth as the screen: falling slowly, a peak held a moment, clip until clicked
   function peakOf(an){ if(!an) return 0; const a = new Float32Array(an.fftSize); an.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p; }
   function meters(){
-    if(mix && link) $("rack").querySelectorAll(".strip").forEach(st => {
+    if(mix && (link || solo)) $("rack").querySelectorAll(".strip").forEach(st => {
       const id = st.dataset.st;
-      const lr = id === "@host" ? [link.level(), link.level()] : id === "@me" ? [peakOf(meterA), peakOf(meterA)] : mix.levels(id);
+      const lr = id === "@host" ? (link ? [link.level(), link.level()] : [0, 0]) : id === "@me" ? [peakOf(meterA), peakOf(meterA)] : mix.levels(id);
       const bars = st.querySelectorAll(".mt b"); st._m = st._m || [{v: 0, pk: 0, t: 0}, {v: 0, pk: 0, t: 0}];
       lr.forEach((p, i) => { const m = st._m[i], pos = posOfDb(lin2db(p)), now = performance.now();
         m.v = Math.max(pos, m.v - 0.025); if(pos >= m.pk || now - m.t > 1200){ m.pk = pos; m.t = now; }
@@ -672,6 +726,7 @@
   // his own print: the stretch played along with the song, clean — sent to the host's Mac, a print made of it
   let rec = null;
   $("recBtn").onclick = async () => {
+    if(solo){ toast(`Vlastní otisk jde jen během jamu — počítá ho Pick na Macu u ${me.host}.`, 8000); return; }
     if(rec){ rec.abort = true; return; }
     const v = $("secSel").value; if(!v || !S || loaded !== S.name){ toast("Nejdřív vyber píseň a úsek."); return; }
     const [a, b] = v.split("|").map(Number);
@@ -882,11 +937,13 @@
   $("voiceDev").onchange = async () => { store("voice", $("voiceDev").value); if($("voiceBtn").classList.contains("on")) await link.setVoice(true, $("voiceDev").value); };
 
   function ui(){
-    if(!link) return;
+    if(!link && !solo) return;
+    if(link){
     const d = link.delay(), r = link.route();
     $("lat").innerHTML = link.ready ? `${d.total} ms<small>síť ${d.net} · paměť ${d.buf} · výstup ${d.out}</small>` : "";
     $("lat").style.color = d.total <= 30 ? "var(--ok)" : d.total <= 50 ? "var(--warn)" : "var(--bad)";
     $("route").textContent = r ? `Spojení: ${r}${link.rxStats.under ? ` · výpadky ${link.rxStats.under}` : ""}${link.rxStats.lost ? ` · ztracené balíčky ${link.rxStats.lost}` : ""}` : "";
+    }
     const p = peakOf(meterA); $("meter").style.width = Math.min(100, p * 100) + "%"; $("meter").style.background = p > 0.95 ? "var(--bad)" : "var(--ok)";
     if(S && S.name){
       const pos = posNow(), dur = S.dur || mix.duration || 0;
@@ -897,6 +954,10 @@
       if(view === "lyr") lyricsAt(pos); else if(view === "chords") chordsAt(pos);
     }
   }
-  window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat, input: () => inGain};
+  let instEv = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); instEv = e; $("instBtn").hidden = false; });
+  window.addEventListener("appinstalled", () => { $("instBtn").hidden = true; toast("Pick Jam je na ploše a v nabídce Start.", 6000); });
+  $("instBtn").onclick = async () => { if(!instEv) return; instEv.prompt(); try{ await instEv.userChoice; }catch(e){} instEv = null; $("instBtn").hidden = true; };
+  window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat, input: () => inGain, solo: () => solo, ctl: (o) => ctl(o)};
   boot();
 })();

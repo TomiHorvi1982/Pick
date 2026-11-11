@@ -63,3 +63,11 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - **Obaly písní** se ukážou jen u těch, které Pick už někdy dohledal (`chip-thumbs.json` v datech Picku). Jinak se místo nich zobrazí ikona.
 - **Vlastní otisk** si kamarád nahraje jen během jamu, protože se počítá na Macu.
 - Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.
+
+## Aplikace na plochu pro kamaráda (Windows)
+V Picku: **Nastavení → Jam → Knihovna na PC → Pick Jam.cmd** (nebo přímo `https://jam.neverlast.cz/pick-jam.cmd`). Soubor mu pošli. Když ho spustí, objeví se mu na ploše ikona **Pick Jam** a knihovna se otevře v Chromu (nebo v Edge) jako aplikace ve vlastním okně. V souboru je jen adresa, žádné heslo ani klíč.
+- Přihlásí se jménem a heslem. Se zaškrtnutým **Zapamatovat si mě** zůstane přihlášený rok, i když se knihovna restartuje.
+- **Zapnout zvuk a hrát:** vybere píseň, stopy se načtou do jeho mixu a hraje s nimi. Má ▶, posun, tempo, tóninu, otisky, NAM, gate, EQ a ladičku, všechno bez tebe.
+- **Když zapneš jam,** do 15 sekund mu přijde upozornění Windows „Tomi je online a hraje“ a nahoře se rozsvítí **Připojit se k jamu**.
+- Windows se může zeptat „Systém Windows ochránil váš počítač“. Stačí kliknout na **Další informace → Přesto spustit**.
+- Místo souboru může v Chromu použít i ikonu instalace v adresním řádku nebo tlačítko **⤓ Na plochu** v aplikaci.

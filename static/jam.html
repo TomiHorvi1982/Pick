@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pick Jam</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0d0d14"><link rel="apple-touch-icon" href="/static/jam-icon-192.png">
 <style>
   :root{--bg:#0d0d14;--panel:#15151e;--panel2:#1b1b26;--line:rgba(255,255,255,.09);--fg:#ececf3;--dim:#9a9ab0;--acc:#8b5cf6;--ok:#6ee7a0;--warn:#ffd166;--bad:#ff6b6b;color-scheme:dark}
   *{box-sizing:border-box}
@@ -170,6 +171,10 @@
   label.row{display:flex;align-items:center;gap:8px;font-size:13px}label.row>span:first-child{min-width:110px;color:var(--dim)}
   label.row select,label.row input[type=range]{flex:1;min-width:0}
   .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .keep{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}.keep input{width:auto}
+  .jam-go{background:#ff5b5b;color:#fff;font-weight:800;padding:6px 12px;border-radius:9px;text-decoration:none;white-space:nowrap;animation:jg 1.6s ease-in-out infinite}
+  @keyframes jg{50%{box-shadow:0 0 14px #ff5b5b}}
+  body.solo .chatbox{display:none}body.solo main.noside{grid-template-columns:1fr}body.solo main.noside .side{display:none}
   .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.chips:empty{display:none}
   .chips button{font-size:11px;padding:3px 9px;border-radius:999px;color:var(--dim)}.chips button i{font-style:normal;opacity:.6;margin-left:3px}
   .chips button.on{color:#0b0b12}.chips .sep{width:1px;background:var(--line);margin:0 2px}
@@ -192,7 +197,7 @@
 <header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span class="sp"></span>
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
   <button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button>
-  <button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
+  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
 <main>
   <aside class="side">
     <div class="rs-x" id="rsSide" title="Táhni — šířka panelu"></div>
@@ -267,6 +272,7 @@
   <h2>Pick Jam</h2><div>Přihlas se jménem a heslem, které ti dal kamarád.</div>
   <input type="text" id="lName" placeholder="jméno" autocomplete="username" required>
   <input type="password" id="lPass" placeholder="heslo" autocomplete="current-password" required>
+  <label class="keep"><input type="checkbox" id="lKeep" checked> Zapamatovat si mě</label>
   <button class="big" type="submit">Přihlásit</button><div class="bad" id="lErr"></div></form></div>
 <div class="overlay" id="join" hidden><div class="box">
   <h2>Pick Jam</h2>
