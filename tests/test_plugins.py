@@ -94,3 +94,19 @@ def test_host_prefers_the_audio_unit_of_a_vst3(tmp_path, monkeypatch):
     assert plugin_host.as_au("/x/VST3/Amp X.vst3") == str(comp / "Amp X.component")
     assert plugin_host.as_au("/x/VST3/Only VST.vst3") == "/x/VST3/Only VST.vst3"
     assert plugin_host.as_au("/x/Components/Y.component") == "/x/Components/Y.component"
+
+
+def test_a_live_start_that_runs_is_not_an_error(monkeypatch):
+    import plugins
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    app = FastAPI(); app.include_router(plugins.router)
+    seen = {}
+    def fake(inp, ch, outp, edit=None, stereo=None):
+        seen.update(ch=ch, stereo=stereo)
+        return {"running": True, "input": inp, "channel": ch, "output": outp, "error": "", "editing": None, "stereo": stereo}
+    monkeypatch.setattr(plugins, "live_start", fake)
+    r = TestClient(app).post("/api/plugins/live", json={"on": True, "input": "iRig", "channel": "1", "stereo": False})
+    assert r.status_code == 200 and r.json()["running"] is True and seen == {"ch": "1", "stereo": False}
+    monkeypatch.setattr(plugins, "live_start", lambda *a, **k: {"error": "Ze zvukovky nepřichází žádný zvuk."})
+    assert TestClient(app).post("/api/plugins/live", json={"on": True, "input": "iRig"}).status_code == 500

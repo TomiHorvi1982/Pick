@@ -125,7 +125,8 @@ const PluginRack = (() => {
     const inp = body.querySelector(".plg-in").value, ch = body.querySelector(".plg-ch").value, outp = body.querySelector(".plg-out").value;
     keepDev({input: inp, channel: ch, output: outp});
     try{
-      await api("/api/plugins/live", json("POST", {on, input: inp, channel: ch, output: outp}));
+      const gfx = typeof Guitar !== "undefined" && Guitar.fx ? Guitar.fx() : null;
+      await api("/api/plugins/live", json("POST", {on, input: inp, channel: ch, output: outp, stereo: !(gfx && gfx.state && gfx.state.mono)}));
       if(on && /blackhole/i.test(outp) && typeof Mixer !== "undefined" && Mixer.tunnel){
         try{ await Mixer.tunnel().on(); }catch(e){}         // Pick plays what comes out of the plugins
       }

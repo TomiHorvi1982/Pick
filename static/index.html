@@ -24576,13 +24576,18 @@ const Mixer = (() => {
       if(source){
         let node = source;
         // One mono signal from here on: the guitar's own input, at full level.
+        // Through the tunnel with the strip on ST: both sides as they come — a plugin's doubler or stereo
+        // cabinet is already left and right, and folding it to one would undo it.
+        const keepStereo = state.tunnel && fxChain && fxChain.state && !fxChain.state.mono;
         if(splitter && inSel){
           node.connect(splitter);
           chMeters.forEach((m, k) => splitter.connect(m, k));
           const ch = effectiveChannel();
-          if(ch === "sum") node.connect(inSel);
-          else splitter.connect(inSel, ch);
-          node = inSel;
+          if(!keepStereo){
+            if(ch === "sum") node.connect(inSel);
+            else splitter.connect(inSel, ch);
+            node = inSel;
+          }
         }
         // GAIN drives everything after it — gate, comp and above all the
         // amp model, which reacts to input level like a real one.
@@ -24976,6 +24981,7 @@ const Mixer = (() => {
       ensureEq,
       setInputGain, setInputChannel,
       setTunnel(on){ state.tunnel = !!on; if(gainNode) rewire(); renderGuitarStrip(); },
+      rewire: () => { if(gainNode) rewire(); },
       instrumentLib, setInstrument, syncInstrument, setInstrumentVisible, destroyInstrument,
       instrStatus: () => instrStatus,
       instrumentRunning: () => !!(instrNode && instrNode.bezi),
@@ -26999,7 +27005,15 @@ const Mixer = (() => {
       g.solo = !g.solo;
       applyGains(); Guitar.applyGuitarGain(); queueSessionSave(); renderGuitarStrip();
     };
-    act("mono").onclick = () => { const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); renderLiveGuitarFader(); };
+    act("mono").onclick = async () => {
+      const fx = Guitar.fx(); setFxMono(fx, !fx.state.mono); Guitar.rewire(); renderLiveGuitarFader();
+      // the plugins playing live follow: stereo in (the guitar on both sides) for a doubler, or mono
+      try{ const st = (await (await fetch("/api/plugins")).json()).live || {};
+        if(st.running){ showToast(fx.state.mono ? "Pluginy přepínám do mona…" : "Pluginy přepínám do sterea (doubler)…");
+          const r = await fetch("/api/plugins/live", {method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({on: true, input: st.input, channel: st.channel, output: st.output, stereo: !fx.state.mono})});
+          showToast(r.ok ? (fx.state.mono ? "Pluginy hrají mono" : "Pluginy hrají stereo") : "Pluginy se nepřepnuly"); } }catch(e){}
+    };
     act("comp").onclick = () => openCompPanel("guitar");
     act("mb").onclick = (e) => { if(typeof MixTools !== "undefined") MixTools.mb("guitar", e.currentTarget); };
     act("dbl").onclick = () => openDblPanel("guitar");

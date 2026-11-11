@@ -122,7 +122,8 @@ def live(chain_file, input_name, channel, output_name, edit=None):
     plugins = [load(c["path"], c.get("state")) for c in active]
     from pedalboard import Pedalboard
     fx = Pedalboard(plugins)
-    ch = 1 if str(channel) == "2" else 0
+    ch = 1 if str(channel).startswith("2") else 0
+    stereo = str(channel).endswith("s")                      # "1s": the guitar on both sides, the plugin in stereo
     block = 128
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *a: stop.set())
@@ -146,7 +147,7 @@ def live(chain_file, input_name, channel, output_name, edit=None):
                     time.sleep(0.001)
                     continue
                 mono = x[min(ch, x.shape[0] - 1):min(ch, x.shape[0] - 1) + 1]
-                y = fx(mono, sr, reset=False)
+                y = fx(np.repeat(mono, 2, axis=0) if stereo else mono, sr, reset=False)
                 if y.shape[0] == 1:
                     y = np.repeat(y, 2, axis=0)
                 sink.write(np.clip(y, -1.0, 1.0).astype(np.float32), sr)

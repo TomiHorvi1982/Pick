@@ -45,7 +45,7 @@ tunnel_ok = lambda: True                    # noqa: E731
 
 SCAN = {"running": False, "done": 0, "total": 0, "current": ""}
 JOB = {"status": None, "what": "", "error": "", "result": None, "at": 0.0}
-LIVE = {"proc": None, "input": "", "channel": "1", "output": "", "error": "", "edit": None}
+LIVE = {"proc": None, "input": "", "channel": "1", "output": "", "error": "", "edit": None, "stereo": True}
 _lock = threading.Lock()
 
 
@@ -187,7 +187,7 @@ def live_view() -> dict:
     p = LIVE["proc"]
     running = bool(p and p.poll() is None)
     return {"running": running, "input": LIVE["input"], "channel": LIVE["channel"], "output": LIVE["output"],
-            "error": LIVE["error"] if not running else "", "editing": LIVE["edit"] if running else None}
+            "error": LIVE["error"] if not running else "", "editing": LIVE["edit"] if running else None, "stereo": LIVE["stereo"]}
 
 
 def live_stop() -> None:
@@ -201,13 +201,14 @@ def live_stop() -> None:
             p.kill()
 
 
-def live_start(inp: str, channel: str, outp: str, edit: Optional[int] = None) -> dict:
+def live_start(inp: str, channel: str, outp: str, edit: Optional[int] = None, stereo: Optional[bool] = None) -> dict:
     items = chain_of("live")
     if not items:
         return {"error": "Živá kytara zatím nemá žádný plugin."}
     live_stop()
-    LIVE.update(input=inp, channel=channel, output=outp, error="", edit=edit)
-    args = [str(HOST_PY), "-u", str(HOST), "live", _chain_file(items), inp, channel, outp] + ([str(edit)] if edit is not None else [])
+    stereo = LIVE.get("stereo", True) if stereo is None else bool(stereo)
+    LIVE.update(input=inp, channel=channel, output=outp, error="", edit=edit, stereo=stereo)
+    args = [str(HOST_PY), "-u", str(HOST), "live", _chain_file(items), inp, channel + ("s" if stereo else ""), outp] + ([str(edit)] if edit is not None else [])
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     LIVE["proc"] = proc
     end = time.time() + 60                                  # loading a Neural DSP plugin takes a few seconds
@@ -251,6 +252,7 @@ class LiveBody(BaseModel):
     input: str = ""
     channel: str = "1"
     output: str = "BlackHole 2ch"
+    stereo: bool = True          # the guitar on both sides into the plugins: their doubler, stereo cabinets
 
 
 class RenderBody(BaseModel):
@@ -314,7 +316,7 @@ def plugins_editor(body: EditorBody):
         if items[body.index] not in active:
             return JSONResponse({"error": "Plugin je vypnutý (obejitý) — zapni ho, ať ho slyšíš."}, status_code=400)
         got = live_start(LIVE["input"], LIVE["channel"], LIVE["output"], edit=active.index(items[body.index]))
-        return got if "error" not in got else JSONResponse(got, status_code=500)
+        return got if got.get("running") or not got.get("error") else JSONResponse(got, status_code=500)
     e = items[body.index]
     subprocess.Popen([str(HOST_PY), str(HOST), "editor", e["path"], e["state"]],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -328,8 +330,8 @@ def plugins_live(body: LiveBody):
         return live_view()
     if not body.input:
         return JSONResponse({"error": "Vyber vstup zvukovky, na kterém je kytara."}, status_code=400)
-    got = live_start(body.input, "2" if body.channel == "2" else "1", body.output or "BlackHole 2ch")
-    return got if "error" not in got else JSONResponse(got, status_code=500)
+    got = live_start(body.input, "2" if body.channel == "2" else "1", body.output or "BlackHole 2ch", stereo=body.stereo)
+    return got if got.get("running") or not got.get("error") else JSONResponse(got, status_code=500)
 
 
 def _render(body: RenderBody, d: Path, src: Path, items: list):
