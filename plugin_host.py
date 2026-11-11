@@ -126,8 +126,13 @@ def live(chain_file, input_name, channel, output_name, edit=None):
     block = 128
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *a: stop.set())
-    with AudioStream(input_name, output_name, num_input_channels=2, num_output_channels=2,
-                     buffer_size=block, sample_rate=48000) as stream:
+    # Two streams, one for the interface's input and one for the output (BlackHole): a single stream that has both
+    # passes its input straight to its output inside pedalboard (0.9.x) and gives read() nothing — the host heard
+    # no sound at all, as if it had no microphone access.
+    with AudioStream(input_name, None, num_input_channels=2, num_output_channels=0,
+                     buffer_size=block, sample_rate=48000) as stream, \
+         AudioStream(None, output_name, num_input_channels=0, num_output_channels=2,
+                     buffer_size=block, sample_rate=48000) as sink:
         stream.ignore_dropped_input = True
         sr = stream.sample_rate
 
@@ -144,7 +149,7 @@ def live(chain_file, input_name, channel, output_name, edit=None):
                 y = fx(mono, sr, reset=False)
                 if y.shape[0] == 1:
                     y = np.repeat(y, 2, axis=0)
-                stream.write(np.clip(y, -1.0, 1.0).astype(np.float32), sr)
+                sink.write(np.clip(y, -1.0, 1.0).astype(np.float32), sr)
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
