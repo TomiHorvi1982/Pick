@@ -288,3 +288,14 @@ def test_na_priste_merges_with_the_library_on_the_pc(monkeypatch, tmp_path, tmp_
     assert jam.lib_sync()["songs"] == ["A", "C"]
     assert jam._fav()["songs"] == ["A", "C"] and sent == [("PUT", "/sync/fav", {"songs": ["A", "C"]})]
     assert jam.conf()["lib_base"] == ["A", "C"]
+
+
+def test_a_second_window_takes_over_and_the_first_is_told_not_to_come_back(client):
+    from starlette.websockets import WebSocketDisconnect
+    with client.websocket_connect("/api/jam/ws") as first:
+        assert json.loads(first.receive_text())["type"] == "hello"
+        with client.websocket_connect("/api/jam/ws") as second:
+            assert json.loads(second.receive_text())["type"] == "hello"
+            with pytest.raises(WebSocketDisconnect) as gone:
+                first.receive_text()
+            assert gone.value.code == 4409                                     # the page reads it: no reconnect, no ping-pong

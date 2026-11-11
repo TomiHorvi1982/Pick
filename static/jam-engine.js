@@ -94,7 +94,11 @@
       this.wsUrl = url;
       const ws = this.ws = new WebSocket(url);
       ws.onmessage = (e) => this.onWs(JSON.parse(e.data));
-      ws.onclose = () => { this.on("ws", false); if(!this.closed) setTimeout(() => { if(!this.closed) this.connectWs(url); }, 2000); };
+      ws.onclose = (e) => {
+        this.on("ws", false);
+        // another window of the same side took the jam over: coming back would throw it out again, and so on every 2 s
+        if(e && e.code === 4409){ this.taken = true; this.on("taken", true); return; }
+        if(!this.closed) setTimeout(() => { if(!this.closed && !this.taken) this.connectWs(url); }, 2000); };
       ws.onopen = () => this.on("ws", true);
     }
     send(o){ if(this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }

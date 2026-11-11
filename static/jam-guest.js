@@ -152,6 +152,7 @@
   function applyBuf(){ const v = $("buf").value; store("buf", v); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); }
 
   function event(kind, v){
+    if(kind === "taken"){ $("state").textContent = "Jam je otevřený v jiném okně nebo na jiném počítači — tady je odpojený. Obnov stránku, jestli chceš hrát tady."; $("dot").classList.remove("on"); if(mix) mix.stop(); toast("Jam se otevřel jinde — tady je odpojený.", 10000); return; }
     if(kind === "peer"){ $("state").textContent = v ? `${me.host} je tu — spojuji…` : `čekám na ${me.host} (má jam zapnutý?)`; if(!v && mix) mix.stop(); }
     if(kind === "conn"){ $("dot").classList.toggle("on", v === "connected"); if(v === "connected") $("state").textContent = `spojeno s ${me.host}`; if(v === "failed") $("state").textContent = "spojení se nepovedlo — zkouším znovu"; }
     if(kind === "media") showMedia(v);

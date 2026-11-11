@@ -477,9 +477,9 @@ def mix_file(song: str, want: List[str]):
 async def _room(ws: WebSocket, role: str):
     await ws.accept()
     other = "guest" if role == "host" else "host"
-    if ROOM.get(role):                       # one of each: a second tab takes over
+    if ROOM.get(role):                       # one of each: a second tab takes over; the first one is told so and stays off
         try:
-            await ROOM[role].ws.close()
+            await ROOM[role].ws.close(code=4409)
         except Exception:
             pass
     me = Peer(ws)

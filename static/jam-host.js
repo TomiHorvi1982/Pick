@@ -211,6 +211,7 @@ const Jam = (() => {
     s.textContent = n > 9 ? "9+" : String(n);
   }
   function event(kind, v){
+    if(kind === "taken"){ showToast("Jam je otevřený v jiném okně Picku — tady je odpojený. Zavři to druhé okno a jam tady spusť znovu.", 15000); return; }
     if(kind === "msg" && v && v.names){ names = v.names; if(jf) jfPaint(); }
     if(kind === "msg" && v && v.type === "ctl"){ onCtl(v); return; }
     if(kind === "msg" && chat) chat.onMsg(v);
