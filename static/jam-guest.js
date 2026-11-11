@@ -180,7 +180,7 @@
     const scr = m.screen && link && link.remoteShare ? m.screen : null;    // what the host says, not whether frames come (a still screen sends none)
     if(scr){ if(big.srcObject !== scr){ big.srcObject = scr; big.play().catch(() => {}); } $("pz").hidden = false; $("ztools").hidden = false; $("pickNone").hidden = true; }
     else { $("pz").hidden = true; $("ztools").hidden = true; $("pickNone").hidden = false; }
-    if(m.camera){ if(cam.srcObject !== m.camera) cam.srcObject = m.camera; cam.hidden = false; } else cam.hidden = true;
+    if(m.camera && link && link.remoteCam !== false){ if(cam.srcObject !== m.camera) cam.srcObject = m.camera; cam.hidden = false; } else { cam.hidden = true; cam.srcObject = null; }
     if(m.voice && $("voice").srcObject !== m.voice) $("voice").srcObject = m.voice;
   }
   let zoom = 1;
@@ -586,35 +586,73 @@
   document.querySelectorAll(".tabs [data-st]").forEach(b => b.onclick = () => {
     document.querySelectorAll(".tabs [data-st]").forEach(x => x.classList.toggle("on", x === b));
     $("stPrints").hidden = b.dataset.st !== "prints"; $("stAmps").hidden = b.dataset.st !== "amps"; $("stOwn").hidden = b.dataset.st !== "own";
-    if(b.dataset.st === "amps"){ findAmps("model"); findAmps("ir"); }
+    if(b.dataset.st === "amps"){ paintAmpHead(); findAmps(); }
   });
+  // the sounds sorted as in Pick: prints by what they sound like, amps by make/gain/type, cabinets by pack/speaker/mic
+  const PCAT = {clean: ["Clean", "#4fd1c5"], crunch: ["Crunch", "#f6ad55"], hi_gain: ["Hi-Gain", "#f56565"], lead: ["Sólo", "#b794f4"],
+    acoustic: ["Akustická", "#68d391"], ambient: ["Ambient", "#63b3ed"], fuzz: ["Fuzz", "#ed64a6"], other: ["Jiné", "#a0aec0"]};
+  let pCat = store("pCat") || "all";
   async function paintPrints(){
     if(!prints){ $("plist").innerHTML = `<div class="muted">Načítám otisky…</div>`; try{ prints = (await getJ("/g/prints")).prints || []; }catch(e){ $("plist").innerHTML = `<div class="bad">${esc(e.message)}</div>`; return; } }
     const words = fold($("pFind").value).split(/\s+/).filter(Boolean);
     const mineP = prints.filter(p => p.friend && p.friend === me.user), rest = prints.filter(p => !(p.friend && p.friend === me.user));
     const ok = (p) => { const t = fold([p.name, p.artist, p.title, p.category, p.core].join(" ")); return words.every(w => t.includes(w)); };
     const row = (p) => `<button data-song="${esc(p.song)}" data-id="${esc(p.id)}" data-name="${esc(p.name)}"><b>${esc(p.name)}</b><span>${esc(p.artist || "")} · ${esc(p.title || p.song)}${p.match != null ? " · shoda " + p.match + " %" : ""}</span></button>`;
-    const a = mineP.filter(ok), b = rest.filter(ok).slice(0, 200);
-    $("plist").innerHTML = (a.length ? `<div class="muted">MOJE</div>` + a.map(row).join("") + `<div class="muted">KNIHOVNA</div>` : "") + (b.map(row).join("") || `<div class="muted">Nic nenalezeno.</div>`);
+    const catOf = (p) => PCAT[p.category] ? p.category : "other";
+    const cnt = {}; rest.filter(ok).forEach(p => { const c = catOf(p); cnt[c] = (cnt[c] || 0) + 1; });
+    if(pCat !== "all" && !cnt[pCat]) pCat = "all";
+    $("pChips").innerHTML = `<button data-c="all" class="${pCat === "all" ? "on" : ""}">Vše<i>${rest.filter(ok).length}</i></button>` +
+      Object.keys(PCAT).filter(c => cnt[c]).map(c => `<button data-c="${c}" class="${pCat === c ? "on" : ""}" style="${pCat === c ? `background:${PCAT[c][1]};border-color:${PCAT[c][1]}` : `border-color:${PCAT[c][1]}55`}">${PCAT[c][0]}<i>${cnt[c]}</i></button>`).join("");
+    $("pChips").querySelectorAll("[data-c]").forEach(x => x.onclick = () => { pCat = x.dataset.c; store("pCat", pCat); paintPrints(); });
+    const a = mineP.filter(ok), b = rest.filter(ok).filter(p => pCat === "all" || catOf(p) === pCat);
+    const order = Object.keys(PCAT), grouped = [...b].sort((x, y) => order.indexOf(catOf(x)) - order.indexOf(catOf(y))).slice(0, 300);
+    let last = null;
+    const body = grouped.map(p => { const c = catOf(p), hd = c !== last ? `<div class="ghd"><i style="background:${PCAT[c][1]}"></i>${PCAT[c][0]}</div>` : ""; last = c; return hd + row(p); }).join("");
+    $("plist").innerHTML = (a.length ? `<div class="ghd">Moje otisky</div>` + a.map(row).join("") : "") + (body || `<div class="muted">Nic nenalezeno.</div>`);
     $("plist").querySelectorAll("[data-id]").forEach(x => x.onclick = () => useSound({kind: "print", song: x.dataset.song, id: x.dataset.id, name: x.dataset.name}));
   }
   $("pFind").oninput = () => paintPrints();
-  async function findAmps(kind){
-    const q = kind === "ir" ? $("iFind").value : $("aFind").value, box = kind === "ir" ? $("ilist") : $("alist");
-    try{
-      const d = await getJ(`/g/amps?kind=${kind}&q=${encodeURIComponent(q)}`);
-      box.innerHTML = d.amps.map(a => `<button data-f="${esc(a.file)}" data-n="${esc(a.name)}" class="${(kind === "ir" ? ampSel.ir : ampSel.model) === a.file ? "cur" : ""}"><b>${esc(a.name)}</b></button>`).join("") || `<div class="muted">Nic nenalezeno.</div>`;
-      box.querySelectorAll("[data-f]").forEach(x => x.onclick = () => {
-        if(kind === "ir"){ ampSel.ir = x.dataset.f; ampSel.iname = x.dataset.n; } else { ampSel.model = x.dataset.f; ampSel.mname = x.dataset.n; }
-        findAmps(kind);
-        $("ampPick").textContent = [ampSel.mname || "bez zesilovače", ampSel.iname || "bez kabinetu"].join(" + ");
-        useSound({kind: "amp", model: ampSel.model, ir: ampSel.ir, name: [ampSel.mname, ampSel.iname].filter(Boolean).join(" + ")});
-      });
-    }catch(e){ box.innerHTML = `<div class="bad">${esc(e.message)}</div>`; }
+  const ASORT = {model: [["key", "Značka a model"], ["gain", "Zisk"], ["type", "Typ"], ["name", "Název A–Z"]],
+    ir: [["key", "Balíček a bedna"], ["speaker", "Reproduktor"], ["mic", "Mikrofon"], ["brand", "Značka a velikost"], ["name", "Název A–Z"]]};
+  const GAINC = {clean: "#4fd1c5", crunch: "#f6ad55", hi_gain: "#f56565"};
+  const AC = Object.assign({kind: "model", sort: {model: "key", ir: "key"}, f: {model: {}, ir: {}}}, store("ampCat") || {});
+  function paintAmpHead(){
+    $("aKind").querySelectorAll("[data-k]").forEach(b => b.classList.toggle("on", b.dataset.k === AC.kind));
+    $("aSort").innerHTML = ASORT[AC.kind].map(([k, l]) => `<option value="${k}" ${AC.sort[AC.kind] === k ? "selected" : ""}>${l}</option>`).join("");
+  }
+  $("aKind").querySelectorAll("[data-k]").forEach(b => b.onclick = () => { AC.kind = b.dataset.k; store("ampCat", AC); paintAmpHead(); findAmps(); });
+  $("aSort").onchange = () => { AC.sort[AC.kind] = $("aSort").value; store("ampCat", AC); findAmps(); };
+  async function findAmps(){
+    const kind = AC.kind, box = $("alist"), f = AC.f[kind], q = $("aFind").value;
+    if(!$("aSort").options.length) paintAmpHead();
+    const qs = new URLSearchParams({kind, q, sort: AC.sort[kind], limit: "300", ...f});
+    let d;
+    try{ d = await getJ("/g/amp-catalog?" + qs); }
+    catch(e){                                                        // an older library: the plain list
+      try{ const o = await getJ(`/g/amps?kind=${kind}&q=${encodeURIComponent(q)}`); d = {items: o.amps.map(a => ({...a, group: ""})), facets: {}, gains: {}}; }
+      catch(e2){ box.innerHTML = `<div class="bad">${esc(e2.message)}</div>`; return; } }
+    // chips: gain and type for amps, speaker and mic for cabinets — tap one to keep only those, again to let go
+    const chipKeys = kind === "ir" ? [["speaker", 8], ["mic", 8]] : [["gain", 4], ["type", 6]];
+    const label = (k, v) => k === "gain" ? (d.gains[v] || v) : v;
+    $("aChips").innerHTML = chipKeys.map(([k, n], ix) => (ix ? `<span class="sep"></span>` : "") + ((d.facets[k] || []).slice(0, n).map(([v, c]) => {
+      const on = f[k] === v, col = k === "gain" ? GAINC[v] : "";
+      return `<button data-fk="${k}" data-fv="${esc(v)}" class="${on ? "on" : ""}" style="${on ? `background:${col || "var(--acc)"};border-color:${col || "var(--acc)"}` : col ? `border-color:${col}66` : ""}">${esc(label(k, v))}<i>${c}</i></button>`; }).join(""))).join("");
+    $("aChips").querySelectorAll("[data-fk]").forEach(x => x.onclick = () => { const k = x.dataset.fk; f[k] = f[k] === x.dataset.fv ? "" : x.dataset.fv; if(!f[k]) delete f[k]; store("ampCat", AC); findAmps(); });
+    const cur = kind === "ir" ? ampSel.ir : ampSel.model;
+    const sub = (a) => kind === "ir" ? [a.speaker, a.mic, a.size].filter(Boolean).join(" · ") : [d.gains[a.gain] && a.gain ? d.gains[a.gain] : "", a.type].filter(Boolean).join(" · ");
+    let last = null;
+    box.innerHTML = d.items.map(a => { const hd = a.group && a.group !== last ? `<div class="ghd">${a.gain && AC.sort[kind] === "gain" ? `<i style="background:${GAINC[a.gain] || "#a0aec0"}"></i>` : ""}${esc(a.group)}</div>` : ""; last = a.group;
+      return hd + `<button data-f="${esc(a.file)}" data-n="${esc(a.name)}" class="${cur === a.file ? "cur" : ""}"><b>${esc(a.name)}</b>${sub(a) ? `<span>${esc(sub(a))}</span>` : ""}</button>`; }).join("")
+      + (d.total > d.items.length ? `<div class="muted">… a dalších ${d.total - d.items.length} — zúži hledání nebo kategorii</div>` : "") || `<div class="muted">Nic nenalezeno.</div>`;
+    box.querySelectorAll("[data-f]").forEach(x => x.onclick = () => {
+      if(kind === "ir"){ ampSel.ir = x.dataset.f; ampSel.iname = x.dataset.n; } else { ampSel.model = x.dataset.f; ampSel.mname = x.dataset.n; }
+      box.querySelectorAll(".cur").forEach(c => c.classList.remove("cur")); x.classList.add("cur");
+      $("ampPick").textContent = [ampSel.mname || "bez zesilovače", ampSel.iname || "bez kabinetu"].join(" + ");
+      useSound({kind: "amp", model: ampSel.model, ir: ampSel.ir, name: [ampSel.mname, ampSel.iname].filter(Boolean).join(" + ")});
+    });
   }
   let ampT = 0;
-  $("aFind").oninput = () => { clearTimeout(ampT); ampT = setTimeout(() => findAmps("model"), 250); };
-  $("iFind").oninput = () => { clearTimeout(ampT); ampT = setTimeout(() => findAmps("ir"), 250); };
+  $("aFind").oninput = () => { clearTimeout(ampT); ampT = setTimeout(findAmps, 250); };
   async function useSound(s, quiet){
     $("sndNow").textContent = "Načítám…";
     try{

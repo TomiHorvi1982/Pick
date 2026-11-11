@@ -181,7 +181,8 @@
       if(this.local.camera){ this.local.camera.stop(); this.local.camera = null; }
       if(on){ const s = await navigator.mediaDevices.getUserMedia({video: {deviceId: deviceId ? {exact: deviceId} : undefined, width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30}}});
         this.local.camera = s.getVideoTracks()[0]; }
-      this.putLane(2, this.local.camera); return this.local.camera;
+      // said aloud, like the screen: a camera turned off sends no more frames, and the other side would keep its last one
+      this.putLane(2, this.local.camera); this.ctl({type: "cam", on: !!this.local.camera}); return this.local.camera;
     }
     async setVoice(on, deviceId){
       if(this.local.voice){ this.local.voice.stop(); this.local.voice = null; }
@@ -202,6 +203,7 @@
     hello(){
       const c = this.ctx;
       if(this.local && this.local.screen) setTimeout(() => this.ctl({type: "share", on: true}), 300);
+      if(this.local) setTimeout(() => this.ctl({type: "cam", on: !!this.local.camera}), 300);
       this.ctl({type: "hello", rate: c.sampleRate, lat: (c.outputLatency || 0) + (c.baseLatency || 0), inLat: c.baseLatency || 0, mode: this.role === "host" ? this.mode : undefined});
     }
     onCtl(m){
@@ -221,6 +223,7 @@
       }
       if(m.type === "mode"){ this.setMode(m.mode, true); return; }
       if(m.type === "share"){ this.remoteShare = !!m.on; this.on("media", this.media); return; }
+      if(m.type === "cam"){ this.remoteCam = !!m.on; this.on("media", this.media); return; }
       this.on("ctl", m);
     }
     // the friend's performance.now() for one of ours

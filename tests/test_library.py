@@ -110,3 +110,21 @@ def test_the_list_is_kept_and_follows_the_copy(lib):
             break
         time.sleep(0.05)
     assert [r["name"] for r in c.get("/g/songs").json()["songs"]] == ["Band - Song [abcdefghijk]", "Other - Two [bcdefghijkl]"]
+
+
+def test_amps_and_cabinets_sorted_as_in_pick(lib):
+    mod, c = lib
+    (mod.AMPS / "nam" / "Peavey 5150 Lead.nam").write_text("{}")
+    (mod.AMPS / "nam" / "Fender Twin Clean.nam").write_text("{}")
+    (mod.AMPS / "ir" / "Mesa 4x12 V30 SM57.wav").write_bytes(b"RIFF")
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    d = c.get("/g/amp-catalog", params={"kind": "model", "sort": "gain"}).json()
+    gains = {x["name"]: x["gain"] for x in d["items"]}
+    assert gains["Peavey 5150 Lead"] == "hi_gain" and gains["Fender Twin Clean"] == "clean"
+    assert dict(d["facets"]["gain"])["hi_gain"] == 1 and d["items"][0]["group"] == "Čistý"
+    hot = c.get("/g/amp-catalog", params={"kind": "model", "gain": "hi_gain"}).json()["items"]
+    assert [x["name"] for x in hot] == ["Peavey 5150 Lead"] and hot[0]["brand"] == "Peavey"
+    ir = c.get("/g/amp-catalog", params={"kind": "ir", "sort": "speaker"}).json()["items"]
+    v30 = next(x for x in ir if x["name"] == "Mesa 4x12 V30 SM57")
+    assert v30["speaker"] == "Vintage 30" and v30["mic"] == "SM57" and v30["group"] == "Vintage 30"
+    assert c.get("/g/amp", params={"file": v30["file"]}).status_code == 200

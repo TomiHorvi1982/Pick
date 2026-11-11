@@ -529,6 +529,77 @@ def g_amps(request: Request, q: str = "", kind: str = "model"):
     return {"amps": got[:150], "total": len(got)}
 
 
+# ---- the same sorting as Pick's own picker (amp_catalog.py, copied in beside this file): make, model, gain, type
+def _catalog_mod():
+    for d in (Path(__file__).resolve().parent, Path(__file__).resolve().parents[2] if len(Path(__file__).resolve().parents) > 2 else None):
+        if d is not None and (d / "amp_catalog.py").is_file() and str(d) not in sys.path:
+            sys.path.append(str(d))
+    import amp_catalog                       # only its pure functions: Pick's own server may share this module in tests
+    return amp_catalog
+
+
+_CAT: Dict = {"at": 0.0, "models": [], "irs": []}
+_CAT_LOCK = threading.Lock()
+
+
+def _catalogue():
+    ac = _catalog_mod()
+    with _CAT_LOCK:
+        if time.time() - _CAT["at"] < 600 and (_CAT["models"] or _CAT["irs"]):
+            return ac, _CAT["models"], _CAT["irs"]
+        old = _read("amp-meta.json", {}) or {}
+        metas, models, irs = {}, [], []
+        for it in amps():
+            f, name = it["file"], it["name"]
+            parts = f.split("/")
+            folder = "/".join(parts[1:-1]) if len(parts) > 2 else ""
+            pack = parts[0] if len(parts) > 1 and parts[0].lower() not in ("nam", "ir") else "Kolekce"
+            if it["kind"] == "model":
+                try:
+                    st = (AMPS / f).stat()
+                    sig = f"{st.st_size}:{int(st.st_mtime)}"
+                except OSError:
+                    sig = ""
+                got = old.get(f)
+                meta = got["meta"] if got and got.get("sig") == sig else ac._meta(AMPS / f)
+                metas[f] = {"sig": sig, "meta": {k: meta.get(k) for k in ("gear_make", "gear_model", "gear_type", "tone_type", "modeled_by", "name")}}
+                models.append({"file": f, "name": name, "pack": pack, **ac.classify_model(name, folder, metas[f]["meta"])})
+            else:
+                irs.append({"file": f, "name": name, "pack": pack, "folder": folder, **ac.classify_ir(name, pack if pack != "Kolekce" else "", folder)})
+        _write("amp-meta.json", metas)
+        _CAT.update(at=time.time(), models=models, irs=irs)
+        return ac, models, irs
+
+
+@app.get("/g/amp-catalog")
+def g_amp_catalog(request: Request, kind: str = "model", q: str = "", sort: str = "key", offset: int = 0, limit: int = 150,
+                  brand: str = "", family: str = "", gain: str = "", type: str = "", pack: str = "", cab: str = "", speaker: str = "", mic: str = "", size: str = ""):
+    who, bad = _need(request)
+    if bad:
+        return bad
+    ac, models, irs = _catalogue()
+    kind = "ir" if kind == "ir" else "model"
+    items = irs if kind == "ir" else models
+    words = ac._norm(q).split()
+    if words:
+        items = [x for x in items if all(w in ac._norm(" ".join(str(x.get(k) or "") for k in ("name", "brand", "family", "pack", "cab", "speaker", "mic", "size", "type"))) for w in words)]
+    want = {"brand": brand, "family": family, "gain": gain, "type": type, "pack": pack, "cab": cab, "speaker": speaker, "mic": mic, "size": size}
+    keys = ac.FILTERS[kind]
+    facets = {}
+    for k in keys:
+        cnt: Dict[str, int] = {}
+        for x in items:
+            if all(not want[o] or x.get(o) == want[o] for o in keys if o != k) and x.get(k):
+                cnt[x[k]] = cnt.get(x[k], 0) + 1
+        facets[k] = sorted(cnt.items(), key=lambda kv: (-kv[1], ac._norm(kv[0])))[:80]
+    items = sorted([x for x in items if all(not want[k] or x.get(k) == want[k] for k in keys)], key=ac.SORTS[kind].get(sort, ac.SORTS[kind]["key"]))
+    g = ac.GROUP[kind].get(sort, ac.GROUP[kind]["key"])
+    offset, limit = max(0, offset), max(1, min(300, limit))
+    row = ("file", "name", "gain", "type", "brand", "family", "pack", "cab", "speaker", "mic", "size")
+    return {"kind": kind, "total": len(items), "all": len(irs if kind == "ir" else models), "gains": ac.GAIN_LABEL, "facets": facets,
+            "items": [{**{k: x.get(k) for k in row}, "group": g(x)} for x in items[offset:offset + limit]]}
+
+
 @app.get("/g/amp")
 def g_amp(request: Request, file: str):
     who, bad = _need(request)

@@ -838,6 +838,26 @@ async def g_amps(request: Request, q: str = "", kind: str = "model"):
     return {"amps": got[:150], "total": len(got)}
 
 
+CATALOG_ARGS = ("kind", "q", "sort", "gain", "type", "brand", "family", "pack", "cab", "speaker", "mic", "size", "offset", "limit")
+CATALOG_ROW = ("file", "name", "group", "gain", "type", "brand", "family", "pack", "cab", "speaker", "mic", "size")
+
+
+@gate.get("/g/amp-catalog")
+async def g_amp_catalog(request: Request):
+    """NAM profiles and cabinets sorted as in Pick's own picker: make and model, gain, type; pack, speaker, mic."""
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    params = {k: v[:80] for k, v in request.query_params.items() if k in CATALOG_ARGS}
+    params["limit"] = str(min(300, int(params["limit"]) if params.get("limit", "").isdigit() else 150))
+    r = await _pick("/api/amp-catalog", params)
+    if r.status_code != 200:
+        return JSONResponse({"error": "Katalog zesilovačů teď nejde načíst."}, status_code=502)
+    d = r.json()
+    return {"kind": d.get("kind"), "total": d.get("total"), "all": d.get("all"), "gains": d.get("gains"),
+            "facets": d.get("facets") or {}, "items": [{k: x.get(k) for k in CATALOG_ROW} for x in d.get("items") or []]}
+
+
 @gate.get("/g/amp")
 async def g_amp(request: Request, file: str):
     who, bad = _guest_or_403(request)

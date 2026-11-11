@@ -228,8 +228,8 @@ const Jam = (() => {
     if(!box || !link) return;
     const fr = box.querySelector("#jam-vfr"), me = box.querySelector("#jam-vme"), none = box.querySelector("#jam-vnone"), vo = box.querySelector("#jam-voice-el");
     if(!fr) return;
-    const cam = link.media.camera;
-    if(cam){ if(fr.srcObject !== cam) fr.srcObject = cam; fr.hidden = false; none.hidden = true; } else { fr.hidden = true; none.hidden = false; }
+    const cam = link.remoteCam === false ? null : link.media.camera;       // his camera off: no frozen last frame
+    if(cam){ if(fr.srcObject !== cam) fr.srcObject = cam; fr.hidden = false; none.hidden = true; } else { fr.hidden = true; fr.srcObject = null; none.hidden = false; }
     if(link.local.camera){ const s = me.srcObject && me.srcObject.getVideoTracks()[0] === link.local.camera ? me.srcObject : new MediaStream([link.local.camera]); if(me.srcObject !== s) me.srcObject = s; me.hidden = false; } else me.hidden = true;
     if(link.media.voice && vo && vo.srcObject !== link.media.voice) vo.srcObject = link.media.voice;
   }
