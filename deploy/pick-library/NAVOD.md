@@ -22,14 +22,14 @@ V Dockeru (Docker Desktop) jsou tyhle složky vidět jako `/run/desktop/mnt/host
 1. Otevři **dash.cloudflare.com** → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel** → **Cloudflared**.
 2. Pojmenuj ho `pick-knihovna` → **Save**. Zobrazí se příkaz s dlouhým **tokenem** (text za `--token`). Zkopíruj **jen ten token**, příkaz nespouštěj.
 3. Pokračuj na **Public Hostname**:
-   - Subdomain: `hraj`
+   - Subdomain: `jam`
    - Domain: `neverlast.cz`
    - Service: **HTTP**, `library:8080`
 
-   Dej **Save**. Kamarád pak bude chodit na **https://hraj.neverlast.cz**.
+   Dej **Save**. Kamarád pak bude chodit na **https://jam.neverlast.cz**.
 
 ## 2. Klíč pro Mac
-V Picku na Macu: **Nastavení → Jam → Knihovna na PC** → **Nový klíč**. Klíč se zkopíruje. Adresu `https://hraj.neverlast.cz` vyplň do pole nad ním a zatím **neukládej**. Klíč použiješ v dalším kroku.
+V Picku na Macu: **Nastavení → Jam → Knihovna na PC** → **Nový klíč**. Klíč se zkopíruje. Adresu `https://jam.neverlast.cz` vyplň do pole nad ním a zatím **neukládej**. Klíč použiješ v dalším kroku.
 
 ## 3. Coolify
 1. Spusť **Docker Desktop** (a Coolify).
@@ -54,7 +54,7 @@ Zeptá se na heslo (aspoň 6 znaků). Seznam účtů zobrazí `python library.py
 V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a klíč) → **Vyzkoušet spojení**. Má se ukázat „Spojeno ✓“.
 
 ## Jak to funguje pro kamaráda
-- **https://hraj.neverlast.cz:** přihlásí se a uvidí písně (★ Na příště, Vše, Kapely, Ladění, Playlisty), náhledy, text, akordy, otisky a NAM.
+- **https://jam.neverlast.cz:** přihlásí se a uvidí písně (★ Na příště, Vše, Kapely, Ladění, Playlisty), náhledy, text, akordy, otisky a NAM.
 - **Když zapneš jam**, knihovna mu do minuty ukáže „**Tomi právě hraje — Připojit se k jamu**“ a odkaz na neverlast.cz.
 - **Na příště** je i u tebe v Picku jako playlist ve Steems „**Jam — na příště**“. Co přidá kamarád nebo ty, objeví se na obou místech.
 
