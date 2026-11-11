@@ -130,6 +130,18 @@
     setInterval(ui, 120); setInterval(sync, 400);
   }
   $("go").onclick = start;
+  // ⟳: the link again from scratch and the data anew (a screen that does not come, a song that stuck loading)
+  $("reBtn").onclick = async () => {
+    const b = $("reBtn"); if(b.disabled) return; b.disabled = true; setTimeout(() => { b.disabled = false; }, 4000);
+    if(link){ $("state").textContent = `obnovuji spojení s ${me.host}…`; if(loading && loading !== loaded) loading = null; link.reconnect(); }
+    try{ const m = await getJ("/g/me"); if(m && m.host) me = {...me, ...m}; }catch(e){}
+    SB.shown = 60; await loadSongs();
+    toast(link ? "Spojení se obnovuje — písně načteny znovu." : "Písně načteny znovu.", 3000);
+  };
+  // the song list folds away: more room for the screen and the rack
+  function sideFold(off){ document.querySelector("main").classList.toggle("noside", off); $("sideBtn").classList.toggle("on", !off); store("sideOff", off ? 1 : 0); }
+  $("sideBtn").onclick = () => sideFold(!document.querySelector("main").classList.contains("noside"));
+  sideFold(!!store("sideOff"));
   // No jam (it is off, or the host's Mac is): the songs as last seen, YouTube to listen, Na příště kept for later
   // lib: the library on the host's PC (online — previews, Na příště live; the jam itself is on the host's Mac)
   function browse(lib){

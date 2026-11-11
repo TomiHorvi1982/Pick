@@ -24,6 +24,8 @@
   .lat{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;width:250px;text-align:right;overflow:hidden;flex:none}.lat small{color:var(--dim);font-weight:500;margin-left:6px}
   main{flex:1;min-height:0;display:grid;grid-template-columns:var(--side-w,320px) 1fr}
   .side{position:relative}
+  main.noside{grid-template-columns:0 1fr}main.noside .side{display:none}
+  .side-btn{font-size:16px;padding:4px 10px;line-height:1}.side-btn.on{background:var(--line)}
   .rs-x{position:absolute;top:0;right:-4px;width:8px;bottom:0;cursor:col-resize;z-index:3}
   .rs-x:hover,.rs-y:hover{background:rgba(139,92,246,.35)}
   #chat .jc-list{height:var(--jc-h,200px);max-height:none}
@@ -168,10 +170,10 @@
 </style>
 </head>
 <body>
-<header><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span class="sp"></span>
+<header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span class="sp"></span>
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
   <button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button>
-  <button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
+  <button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
 <main>
   <aside class="side">
     <div class="rs-x" id="rsSide" title="Táhni — šířka panelu"></div>

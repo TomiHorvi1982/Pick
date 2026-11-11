@@ -101,6 +101,13 @@
         if(!this.closed) setTimeout(() => { if(!this.closed && !this.taken) this.connectWs(url); }, 2000); };
       ws.onopen = () => this.on("ws", true);
     }
+    // the friend's ⟳: a fresh link from scratch (the room, then the call the host makes on seeing him come back)
+    reconnect(){
+      if(this.closed || !this.wsUrl) return;
+      this.taken = false; this.hangup();
+      const old = this.ws; if(old){ old.onclose = null; try{ old.close(); }catch(e){} }
+      this.on("ws", false); this.connectWs(this.wsUrl);
+    }
     send(o){ if(this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
     async onWs(m){
       if(m.type === "hello"){ this.peerOn = !!m.peer; this.on("peer", this.peerOn); if(this.peerOn && this.role === "host") this.call(); this.on("msg", m); return; }
