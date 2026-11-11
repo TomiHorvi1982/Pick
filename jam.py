@@ -1262,6 +1262,6 @@ async def jam_library_test():
             await asyncio.to_thread(lib_playlists)
         except Exception:
             pass                                    # an older library (not redeployed yet) has no playlists to take
-        return {"ok": True, "fav": len(got["songs"]), "prepared": st.get("prepared"), "free_gb": st.get("free_gb")}
+        return {"ok": True, "fav": len(got["songs"]), "prepared": st.get("prepared"), "free_gb": st.get("free_gb"), "used_gb": st.get("used_gb")}
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Knihovna na PC neodpovídá: {str(e)[:200]}"}, status_code=502)

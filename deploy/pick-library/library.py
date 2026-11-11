@@ -491,6 +491,7 @@ CACHE = STATE / "cache"          # the songs to listen to (all tracks mixed)
 STEMS_CACHE = STATE / "stems"    # each track on its own, for playing along
 KEEP_FREE = 15 * 1024 ** 3       # making ahead stops while the disk has less free than this
 LOW_FREE = 5 * 1024 ** 3         # below this even a file made on asking makes room by dropping the oldest
+MAX_CACHE = int(float(os.environ.get("PICK_CACHE_MAX_GB") or 65) * 1024 ** 3)   # the most the made files may take (Docker's disk may not show the real free room)
 PREP = {"on": False, "done": 0, "todo": 0, "made": 0, "failed": 0, "at": 0.0, "note": ""}
 
 
@@ -499,6 +500,16 @@ def _free(p: Path) -> int:
         return shutil.disk_usage(p).free
     except OSError:
         return 1 << 62
+
+
+def _cache_size() -> int:
+    n = 0
+    for folder in (STEMS_CACHE, CACHE):
+        try:
+            n += sum(e.stat().st_size for e in os.scandir(folder) if e.is_file())
+        except OSError:
+            pass
+    return n
 
 
 def _room(folder: Path) -> None:
@@ -594,9 +605,12 @@ def _prepare_once() -> None:
     first = set(fav()["songs"])
     rows = sorted(rows, key=lambda r: (r["name"] not in first, r["name"].lower()))
     PREP.update(todo=len(rows), done=0, note="")
-    keep = set()
+    keep, size, n = set(), _cache_size(), 0
     for r in rows:
-        if _free(STATE) < KEEP_FREE:
+        n += 1
+        if n % 20 == 0:
+            size = _cache_size()
+        if _free(STATE) < KEEP_FREE or size > MAX_CACHE:
             PREP["note"] = "Na disku je málo místa — zbytek se připraví, až si o něj kamarád řekne."
             return
         d = _song_dir(r["name"])
@@ -1018,7 +1032,7 @@ async def sync_status(request: Request):
     body = await request.json()
     url = str((body or {}).get("url") or "")
     _write("status.json", {"on": bool((body or {}).get("on")), "url": url if url.startswith("https://") else "", "at": time.time()})
-    return {"ok": True, "prepared": {k: PREP[k] for k in ("on", "done", "todo", "made", "failed", "note")}, "free_gb": round(_free(STATE) / 1024 ** 3, 1)}
+    return {"ok": True, "prepared": {k: PREP[k] for k in ("on", "done", "todo", "made", "failed", "note")}, "free_gb": round(_free(STATE) / 1024 ** 3, 1), "used_gb": round(_cache_size() / 1024 ** 3, 1)}
 
 
 @app.get("/health")
