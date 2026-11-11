@@ -246,3 +246,23 @@ def test_tabs_songsterr_only_as_a_link_files_only_when_linked(client, monkeypatc
     assert tabs == [{"kind": "songsterr", "songsterr": 42, "name": "Band - Song", "url": "https://www.songsterr.com/a/wa/song?id=42"},
                     {"kind": "file", "path": "/tabs/band-song.gp5", "name": "Band - Song"}]
     assert g.get("/g/tabfile?k=secret-key&name=Band%20-%20Song&path=%2Ftabs%2Fother.gp5").status_code == 404      # not this song's
+
+
+def test_na_priste_is_a_steems_playlist_both_change(client, monkeypatch, tmp_path, tmp_music_root):
+    import setlists
+    monkeypatch.setattr(setlists, "PATH", tmp_path / "pl.json")
+    for n in ("Band - Song", "Band - Other"):
+        (tmp_music_root / "Stems" / n).mkdir(parents=True)
+    client.post("/api/jam/users", json={"name": "Pavel", "password": "kytara66"})
+    g = TestClient(jam.gate)
+    g.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    jam.ROOM["key"] = None                                         # no jam on: still his, logged in
+    assert g.get("/g/fav").json() == {"name": "Jam — na příště", "songs": []}
+    r = g.post("/g/fav", json={"ops": [{"name": "Band - Song", "add": True}, {"name": "Band - Other", "add": True}, {"name": "../x", "add": True}]})
+    assert r.json()["songs"] == ["Band - Song", "Band - Other"]
+    pl = next(p for p in setlists.load() if p["name"] == "Jam — na příště")          # the host's Steems playlist
+    assert pl["songs"] == ["Band - Song", "Band - Other"]
+    setlists.setlist_set(pl["id"], setlists.SetlistIn(name=pl["name"], songs=["Band - Other"]))   # the host takes one away
+    assert g.post("/g/fav", json={"ops": [{"name": "Band - Song", "add": False}]}).json()["songs"] == ["Band - Other"]
+    assert g.get("/sw.js").headers["content-type"].startswith("text/javascript")
+    assert TestClient(jam.gate).get("/g/fav").status_code == 403                    # not logged in: nothing

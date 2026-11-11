@@ -683,8 +683,9 @@ async def _pick(path: str, params: Optional[dict] = None):
 
 
 def _guest_or_403(request: Request):
+    """Logged in (names set): the songs, the playlists, Na příště. With the key only: in a jam."""
     who = _who(request.cookies, request.query_params.get("k") or "")
-    if not who or not ROOM["key"]:
+    if not who or (not users() and not ROOM["key"]):
         return None, JSONResponse({"error": "Nejsi přihlášený nebo jam neběží."}, status_code=403)
     return who, None
 
@@ -704,7 +705,7 @@ async def g_songs(request: Request):
         rows = r.json() if r.status_code == 200 else []
         _SONGS.update(at=time.time(), rows=[{"name": x.get("name"), "stems": x.get("stems") or [], "duration": x.get("duration"),
                                              "artist": (x.get("meta") or {}).get("artist") or "", "title": (x.get("meta") or {}).get("title") or x.get("name"),
-                                             "tuning": x.get("tuning")} for x in rows if isinstance(x, dict) and x.get("stems")])
+                                             "tuning": x.get("tuning"), "yt": _yt_of(x.get("name") or "")} for x in rows if isinstance(x, dict) and x.get("stems")])
     return {"songs": _SONGS["rows"]}
 
 
@@ -1043,3 +1044,88 @@ async def jam_user_set(request: Request):
 @router.delete("/api/jam/users")
 def jam_user_delete(name: str):
     return user_delete(name)
+
+
+
+def _yt_of(name: str) -> str:
+    import re
+    m = re.search(r"\[([A-Za-z0-9_-]{11})\]\s*$", name)
+    return f"https://youtu.be/{m.group(1)}" if m else ""
+
+
+# "Na příště": one playlist of the host's Steems (he sees and edits it in Pick), the friend adds and takes away —
+# by changes, so what he did offline goes in when he is back without undoing what the host did meanwhile
+FAV_NAME = "Jam — na příště"
+
+
+def _fav() -> dict:
+    import setlists
+    c = conf()
+    rows = setlists.load()
+    p = next((x for x in rows if x["id"] == c.get("fav_id")), None) or next((x for x in rows if x["name"] == FAV_NAME), None)
+    if p is None:
+        got = setlists.setlist_new(setlists.SetlistIn(name=FAV_NAME, songs=[]))
+        p = got if isinstance(got, dict) else next((x for x in setlists.load() if x["name"] == FAV_NAME), {"id": "", "name": FAV_NAME, "songs": []})
+    if c.get("fav_id") != p.get("id"):
+        conf_save(fav_id=p.get("id"))
+    return p
+
+
+@gate.get("/g/fav")
+async def g_fav(request: Request):
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    p = await asyncio.to_thread(_fav)
+    return {"name": p["name"], "songs": p.get("songs") or []}
+
+
+@gate.post("/g/fav")
+async def g_fav_change(request: Request):
+    who, bad = _guest_or_403(request)
+    if bad:
+        return bad
+    import setlists
+    body = await request.json()
+    ops = [o for o in ((body or {}).get("ops") or []) if isinstance(o, dict) and o.get("name") and _song_ok(str(o["name"]))][:200]
+
+    def apply():
+        p = _fav()
+        songs = list(p.get("songs") or [])
+        for o in ops:
+            n = str(o["name"])
+            if o.get("add") and n not in songs:
+                songs.append(n)
+            elif not o.get("add") and n in songs:
+                songs.remove(n)
+        setlists.setlist_set(p["id"], setlists.SetlistIn(name=p["name"], songs=songs))
+        return songs
+    songs = await asyncio.to_thread(apply)
+    return {"name": FAV_NAME, "songs": songs}
+
+
+# the page kept in the friend's browser: when the jam is off (or this Mac is), it still opens with the songs as
+# they were last seen, YouTube for listening, and Na příště kept until the next time
+SW = """const C = "pick-jam-v3";
+const FILES = ["/", "/static/jam-engine.js", "/static/jam-chat.js", "/static/jam-mix.js", "/static/jam-amp.js", "/static/jam-guest.js"];
+// kept at once, so the very next visit already opens without the host
+self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => Promise.all(FILES.map(f => c.add(f).catch(() => {}))))); });
+self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+const keep = (key, res) => { if(res && res.ok){ const copy = res.clone(); caches.open(C).then(c => c.put(key, copy)); } return res; };
+self.addEventListener("fetch", (e) => {
+  const u = new URL(e.request.url);
+  if(e.request.method !== "GET" || u.origin !== location.origin || u.pathname === "/ws") return;
+  const page = e.request.mode === "navigate", stat = u.pathname.startsWith("/static/");
+  if(!(page || stat || ["/g/songs", "/g/playlists", "/g/art"].includes(u.pathname))) return;
+  const key = page ? new Request("/") : stat ? new Request(u.pathname) : e.request;
+  const kept = () => caches.match(key, {ignoreSearch: page || stat});
+  // the network first (a 5xx is Cloudflare saying the Mac is away), what was kept when that fails
+  e.respondWith(fetch(e.request).then(r => r.status >= 500 ? kept().then(m => m || r) : keep(key, r))
+    .catch(() => kept().then(m => m || new Response("offline", {status: 503}))));
+});
+"""
+
+
+@gate.get("/sw.js")
+def guest_sw():
+    return Response(SW, media_type="text/javascript", headers={"Cache-Control": "no-cache"})

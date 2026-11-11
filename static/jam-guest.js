@@ -23,9 +23,16 @@
   const MIX = {};                               // per song: {stem: {v, p, m, s}}
 
   // ---------------------------------------------------------------- in: who, then the sound card
+  let offline = false;
   async function boot(){
-    try{ me = await getJ("/g/me"); }catch(e){}
+    if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    let ok = false;
+    try{ const r = await api.raw("/g/me"); if(r.ok){ me = await r.json(); ok = true; } }catch(e){}
+    if(!ok){ me = {user: store("user"), login: true, host: store("host") || "Kamarád", on: false}; return browse(); }
+    store("host", me.host); if(me.user) store("user", me.user);
+    if(me.user && (store("favq") || []).length) favSync();
     $("outBtn").hidden = !me.login;
+    if(me.user && !me.on) return browse();
     if(me.login && !me.user){ $("login").hidden = false; $("lName").focus(); return; }
     if(!me.login && !K){ document.body.innerHTML = "<div style='padding:40px'>Tenhle odkaz je neúplný — popros kamaráda o nový.</div>"; return; }
     showJoin();
@@ -118,6 +125,19 @@
     setInterval(ui, 120); setInterval(sync, 400);
   }
   $("go").onclick = start;
+  // No jam (it is off, or the host's Mac is): the songs as last seen, YouTube to listen, Na příště kept for later
+  function browse(){
+    offline = true;
+    $("login").hidden = true; $("join").hidden = true;
+    $("dot").classList.remove("on");
+    $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;
+    $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
+    const rt = $("retry"); if(rt) rt.onclick = (e) => { e.preventDefault(); location.reload(); };
+    ["camBtn", "voiceBtn", "play", "toStart", "tDn", "tUp", "kDn", "kUp"].forEach(id => { $(id).disabled = true; });
+    $("rack").hidden = true; $("mixFold").hidden = true;
+    loadSongs();
+    setInterval(async () => { try{ const r = await fetch("/g/me", {cache: "no-store"}); if(r.ok && (await r.json()).on) $("songSt").innerHTML = `<b>${esc(me.host)} zapnul jam!</b> <a href="#" onclick="location.reload();return false">Připojit se</a>`; }catch(e){} }, 20000);
+  }
   function showMe(track){ const v = $("vMe"); if(track){ v.srcObject = new MediaStream([track]); v.hidden = false; } else { v.srcObject = null; v.hidden = true; } }
   function applyBuf(){ const v = $("buf").value; store("buf", v); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); }
 
@@ -190,22 +210,27 @@
   }
   const SB = {cat: store("cat") || "all", open: new Set(), shown: 60, playlists: []};
   async function loadSongs(){
-    try{ songs = (await getJ("/g/songs")).songs || []; }catch(e){ $("slist").innerHTML = `<div class="bad">${esc(e.message)}</div>`; return; }
+    try{ songs = (await getJ("/g/songs")).songs || []; store("songs", songs); }
+    catch(e){ songs = store("songs") || []; if(!songs.length){ $("slist").innerHTML = `<div class="bad">Seznam písní zatím nemám — otevři stránku, až bude ${esc(me.host)} online.</div>`; return; } }
     songs.forEach(s => { s.tune = tuneName(s.tuning); s.key = fold(s.artist + " " + s.title + " " + s.name); });
+    await favSync();
     songs.sort((a, b) => fold(a.artist + a.title).localeCompare(fold(b.artist + b.title)));
-    try{ SB.playlists = (await getJ("/g/playlists")).playlists || []; }catch(e){}
+    try{ SB.playlists = (await getJ("/g/playlists")).playlists || []; store("pls", SB.playlists); }catch(e){ SB.playlists = store("pls") || []; }
     document.querySelectorAll("#cats [data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === SB.cat));
     paintSongs();
   }
   const art = (name) => withK(`/g/art?name=${encodeURIComponent(name)}`);
+  const ytOf = (s) => s.yt || `https://www.youtube.com/results?search_query=${encodeURIComponent(((s.artist || "").split(",")[0] + " " + s.title).trim())}`;
   const rowHtml = (s) => `<button class="row ${S && S.name === s.name ? "cur" : ""} ${PV.name === s.name ? "pv" : ""}" data-n="${esc(s.name)}" title="Klik = náhled jen pro tebe · dvojklik = hrát spolu">
       <img class="cv" loading="lazy" src="${art(s.name)}" onerror="this.removeAttribute('src')" alt=""><span class="tx"><b>${esc(s.title)}</b><span>${esc(s.artist || "")}${s.duration ? " · " + mmss(s.duration) : ""}</span></span>
-      <span class="tn" title="Ladění">${esc(s.tune.replace(" standard", " std"))}</span></button>`;
+      <span class="rx"><span class="tn" title="Ladění">${esc((s.tune || "").replace(" standard", " std"))}</span>
+      <span class="ic"><a class="yt" href="${esc(ytOf(s))}" target="_blank" rel="noopener" title="Pustit na YouTube">▶</a><b class="fav ${FAV.set.has(s.name) ? "on" : ""}" data-fav="${esc(s.name)}" title="Na příště — uvidí to i ${esc(me.host)}">★</b></span></span></button>`;
   function groupsOf(list){
     if(SB.cat === "band"){ const m = new Map(); list.forEach(s => { const k = s.artist || "Neznámý interpret"; if(!m.has(k)) m.set(k, []); m.get(k).push(s); });
       return [...m].sort((a, b) => fold(a[0]).localeCompare(fold(b[0]))); }
     if(SB.cat === "tune"){ const m = new Map(); list.forEach(s => { if(!m.has(s.tune)) m.set(s.tune, []); m.get(s.tune).push(s); });
       return [...m].sort((a, b) => b[1].length - a[1].length); }
+    if(SB.cat === "fav"){ const by = new Map(list.map(s => [s.name, s])); return [["Na příště", [...FAV.set].map(n => by.get(n)).filter(Boolean)]]; }
     if(SB.cat === "pl"){ const by = new Map(list.map(s => [s.name, s]));
       return SB.playlists.map(p => [p.name, p.songs.map(n => by.get(n)).filter(Boolean)]).filter(g => g[1].length); }
     return null;
@@ -218,19 +243,41 @@
     if(!groups){
       box.innerHTML = got.slice(0, SB.shown).map(rowHtml).join("") + (got.length > SB.shown ? `<button class="more" id="more">Další písně (${got.length - SB.shown})</button>` : got.length ? "" : `<div class="muted">Nic nenalezeno.</div>`);
     } else {
-      const auto = words.length && got.length <= 40;
+      const auto = (words.length && got.length <= 40) || SB.cat === "fav";
       box.innerHTML = groups.map(([g, list]) => { const open = auto || SB.open.has(SB.cat + ":" + g);
         return `<button class="grp" data-g="${esc(g)}"><span class="ar">${open ? "▾" : "▸"}</span>${SB.cat === "band" ? `<img class="cv" loading="lazy" src="${art(list[0].name)}" onerror="this.removeAttribute('src')" alt="">` : ""}<span>${esc(g)}</span><span class="n">${list.length}</span></button>`
           + (open ? list.slice(0, 200).map(rowHtml).join("") : ""); }).join("") || `<div class="muted">Nic nenalezeno.</div>`;
     }
     box.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { const k = SB.cat + ":" + b.dataset.g; SB.open.has(k) ? SB.open.delete(k) : SB.open.add(k); paintSongs(); });
-    box.querySelectorAll(".row[data-n]").forEach(b => { b.onclick = () => preview(b.dataset.n); b.ondblclick = () => playTogether(b.dataset.n); });
+    box.querySelectorAll(".row[data-n]").forEach(b => { b.onclick = (e) => { if(e.target.closest(".yt")) return; if(e.target.closest("[data-fav]")){ e.preventDefault(); favToggle(b.dataset.n); return; }
+      offline ? window.open(ytOf(songs.find(x => x.name === b.dataset.n) || {}), "_blank", "noopener") : preview(b.dataset.n); }; b.ondblclick = () => { if(!offline) playTogether(b.dataset.n); }; });
+    if(SB.cat === "fav" && !FAV.set.size) box.innerHTML = `<div class="muted" style="padding:10px">Zatím prázdné. Dej písním ★ — co si chcete příště zahrát. Uvidí to i ${esc(me.host)} v Picku (playlist „Jam — na příště“).</div>`;
     const more = $("more"); if(more) more.onclick = () => { SB.shown += 100; paintSongs(); };
   }
   let findT = 0;
   $("find").oninput = () => { clearTimeout(findT); findT = setTimeout(() => { SB.shown = 60; paintSongs(); }, 150); };
   document.querySelectorAll("#cats [data-c]").forEach(b => b.onclick = () => { SB.cat = b.dataset.c; store("cat", SB.cat); SB.shown = 60;
     document.querySelectorAll("#cats [data-c]").forEach(x => x.classList.toggle("on", x === b)); paintSongs(); });
+
+  // ---- Na příště, shared with the host (his Steems playlist "Jam — na příště"); changes queued while offline
+  const FAV = {set: new Set(store("fav") || [])};
+  async function favSync(){
+    if(offline) return;
+    const q = store("favq") || [];
+    try{
+      const r = q.length ? await api.raw("/g/fav", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ops: q})}) : await api.raw("/g/fav");
+      if(!r.ok) throw 0;
+      const d = await r.json(); FAV.set = new Set(d.songs || []); store("fav", [...FAV.set]); store("favq", []);
+    }catch(e){}
+  }
+  function favToggle(name){
+    const add = !FAV.set.has(name); add ? FAV.set.add(name) : FAV.set.delete(name); store("fav", [...FAV.set]);
+    const q = store("favq") || []; q.push({name, add}); store("favq", q);
+    if(!offline) favSync().then(paintSongs);
+    toast(add ? "★ Přidáno na příště" + (offline ? " — pošle se, až bude " + me.host + " online" : "") : "Odebráno z Na příště");
+    paintSongs();
+  }
+  setInterval(() => { if(!offline) favSync().then(() => { if(SB.cat === "fav") paintSongs(); }); }, 30000);
 
   // a song heard before it is picked: only here, the whole song in one small file, to move around in
   const PV = {name: null}, pa = $("pvAudio");

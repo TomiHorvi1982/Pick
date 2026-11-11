@@ -4023,6 +4023,7 @@ body.lib-collapsed .pick-brand{display:none}
   .fl-scale span{position:absolute;right:1px;transform:translateY(50%);font-size:7px;line-height:1;color:var(--sub);font-variant-numeric:tabular-nums}
   .fl-scale span::after{content:"";position:absolute;right:-4px;top:50%;width:3px;height:1px;background:var(--sub);opacity:.6}
   .fl-db-label{font-size:9px !important;color:var(--text) !important;font-weight:700}
+  .np-steems{margin:0 0 14px}.np-steems[hidden]{display:none}.np-steems .srail{margin:0}
   .fl-pitch{display:flex;align-items:center;justify-content:center;gap:3px;font-size:9px;color:var(--sub)}
   /* ---- the faders as a console (the look of Pick Jam's): only how they look — every control works as before */
   #fl-channels{gap:8px;padding:14px 12px;background:linear-gradient(#14141c,#0f0f16)}
@@ -9750,7 +9751,7 @@ async function renderNowPlayingArtist(track){
     const data = await res.json();
     NP_ARTIST_CACHE.set(name, data);
     // The track may have changed while this was in flight.
-    const now = Player.getCurrent();
+    const now = MixBar.track() || Player.getCurrent();
     const stillCurrent = now && ((now.artists || "").split(/[,&]/)[0].trim() === name);
     if(stillCurrent){
       paintArtist(data);
@@ -10450,6 +10451,66 @@ function paintPlayerIcons(){
   setPlayIcon(false);
 }
 
+// ======================================================================
+// The Steems song in the player at the bottom. Two things play in Pick — the mix and the player — and only one
+// at a time: a song opened in Steems shows in the bar (title, cover, time) and the bar's play, pause and progress
+// work the mix, until the player itself plays something again.
+// ======================================================================
+const MixBar = (() => {
+  let last = "pb", song = null, saved = null, art = {}, was = false;
+  const pb = () => el("pb-audio");
+  const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  function active(){ const n = typeof Mixer !== "undefined" && Mixer.currentSong && Mixer.currentSong(); return !!n && last === "mix" && (pb().paused || !pb().src); }
+  async function artOf(n){
+    if(art[n] !== undefined) return art[n];
+    art[n] = "";
+    try{ const d = await (await fetch(`/api/stems/${encodeURIComponent(n)}/art`)).json(); art[n] = d.url ? thumbUrl(d.url) : ""; }catch(e){}
+    return art[n];
+  }
+  function track(){
+    if(!active()) return null;
+    const n = Mixer.currentSong(), d = stemsDisplayByName(n);
+    return {title: d.title || n, artists: d.artist || "", image: art[n] || "", sourcePlaylist: "", steems: n};
+  }
+  function paint(){
+    const on = active();
+    if(on && !was){ saved = {t: el("pb-title").textContent, a: el("pb-artist").textContent, bg: el("pb-art").style.backgroundImage, html: el("pb-art").innerHTML}; }
+    if(!on && was && saved){ el("pb-title").textContent = saved.t; el("pb-title").title = saved.t; el("pb-artist").textContent = saved.a;
+      el("pb-art").style.backgroundImage = saved.bg; el("pb-art").innerHTML = saved.html; setPlayIcon(!pb().paused); saved = null; }
+    was = on;
+    if(!on) return;
+    const n = Mixer.currentSong(), d = stemsDisplayByName(n);
+    if(song !== n){ song = n; artOf(n).then(() => { if(song === n){ const a = art[n]; el("pb-art").style.backgroundImage = a ? `url('${a}')` : ""; el("pb-art").innerHTML = a ? "" : icon("note", 18); }
+        if(document.body.classList.contains("np-open")) renderNowPlaying(); }); }
+    if(el("pb-title").textContent !== (d.title || n)){ el("pb-title").textContent = d.title || n; el("pb-title").title = "Otevřeno ve Steems — tlačítka přehrávače ovládají mix"; }
+    const sub = `${d.artist || ""}${d.artist ? " · " : ""}Steems`; if(el("pb-artist").textContent !== sub) el("pb-artist").textContent = sub;
+    const pos = Mixer.position ? Mixer.position() : 0, dur = Mixer.duration ? Mixer.duration() : 0;
+    el("pb-time-cur").textContent = fmt(pos); el("pb-time-dur").textContent = fmt(dur);
+    const f = dur ? Math.min(1, pos / dur) * 100 : 0;
+    el("pb-progress-fill").style.width = f + "%"; el("pb-progress-handle").style.left = f + "%";
+    const b = el("pb-play"), want = Mixer.isPlaying() ? "pause" : "play";
+    if(b.dataset.mix !== want){ b.dataset.mix = want; setPlayIcon(Mixer.isPlaying()); }
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    // the player plays something again: it is the player's
+    pb().addEventListener("play", () => { last = "pb"; if(typeof Mixer !== "undefined" && Mixer.isPlaying()) Mixer.pause(); paint(); });
+    el("pb-play").addEventListener("click", (e) => { if(!active()) return; e.stopImmediatePropagation(); e.preventDefault();
+      Mixer.isPlaying() ? Mixer.pause() : Mixer.play(); paint(); }, true);
+    el("pb-progress").addEventListener("pointerdown", (e) => { if(!active()) return; e.stopImmediatePropagation(); e.preventDefault();
+      const r = el("pb-progress").getBoundingClientRect(), dur = Mixer.duration(); if(dur) Mixer.seek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur); paint(); }, true);
+    ["pb-prev"].forEach(id => el(id).addEventListener("click", (e) => { if(!active()) return; e.stopImmediatePropagation(); Mixer.seek(0); }, true));
+  });
+  // a song opened in Steems: the bar is the mix's
+  let seen = null;
+  setInterval(() => {
+    const n = typeof Mixer !== "undefined" && Mixer.currentSong && Mixer.currentSong();
+    if(n && n !== seen){ seen = n; if(pb().paused || !pb().src) last = "mix"; }
+    if(n && Mixer.isPlaying() && last !== "mix"){ last = "mix"; if(!pb().paused) pb().pause(); }
+    paint();
+  }, 250);
+  return {track, active};
+})();
+
 function setPlayIcon(playing){
   const b = el("pb-play");
   if(b) b.innerHTML = icon(playing ? "pause" : "play", 15);
@@ -10763,7 +10824,6 @@ function renderLibraryRail(mode){
       list.appendChild(SteemsFind.railNode(collapsed));
       if(typeof StampSongs !== "undefined") list.appendChild(StampSongs.railBox(collapsed));      // above the playlists
       if(typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
-      if(typeof Journal !== "undefined") list.appendChild(Journal.railBox(collapsed));
       return;
     }
     if(RAIL_BRANCH_SECTIONS.has(sec.key)){
@@ -11033,6 +11093,7 @@ const TOOLS = [
   {key: "chords", title: "Scales and Chords", icon: "tuner", sub: "Stupnice a akordy (all-guitar-chords.com)"},
   {key: "analyzer", title: "Performance Analyzer", icon: "sliders", sub: "Nahraj se a porovnej s referencí — výška, timing, rytmus"},
   {key: "looper", looper: true, title: "Looper", icon: "repeat", sub: "Živé loopování jako Boss RC-505: 5 stop, vrstvy, části písně, ovládání pedálem"},
+  {key: "journal", journal: true, title: "Cvičební deník", icon: "clock", sub: "Co a jak dlouho jsi cvičil, na jaké tempo ses dostal, co se zlepšilo"},
   {key: "jam", jam: true, title: "Jam online", icon: "headphones", sub: "Hraj s kamarádem přes internet — uslyšíte se, uvidíte se a on uvidí tvůj Pick (píseň, text, taby)"},
   {key: "composer", title: "Skladatel", icon: "note", sub: "Kousek kytary nebo popis → celý song v několika verzích, s textem i zpěvem"},
   {key: "stamps", title: "GuitarStamps", icon: "guitar", sub: "Tvoje kytara a otisky: nahrání DI, analýza, knihovna, zkouška se songy, mapa NAM a IR"},
@@ -11044,6 +11105,7 @@ const TOOLS = [
 function openTool(t){
   if(t.looper){ if(typeof Looper !== "undefined") Looper.open(); return; }
   if(t.jam){ if(typeof Jam !== "undefined") Jam.open(); return; }
+  if(t.journal){ if(typeof Journal !== "undefined") Journal.open(); return; }
   if(!t.web){ setMode(t.key); return; }
   fetch("/api/tools/web/open", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id: t.key})})
     .then(r => { if(!r.ok) throw new Error(); showToast(`${t.title} — otevírá se ve vlastním okně`); })
@@ -11193,7 +11255,6 @@ const SteemsRail = (() => {
       const collapsed = railModeSection(list, sec, mode);
       if(sec.key === "steems") list.appendChild(SteemsFind.railNode(collapsed));
       if(sec.key === "steems" && typeof Setlist !== "undefined") list.appendChild(Setlist.railBox(collapsed));
-      if(sec.key === "steems" && typeof Journal !== "undefined") list.appendChild(Journal.railBox(collapsed));
     });
     const name = currentSteemsName, d = stemsDisplayByName(name), a = who(name);
     if(a !== artist){ artist = a; data = null; err = ""; sel.clear(); open.clear(); at = 0; }
@@ -11227,7 +11288,8 @@ const SteemsRail = (() => {
                     ${on ? `<span class="ok">${icon("check", 11)}</span>` : `<input type="checkbox" ${sel.has(t.videoId) ? "checked" : ""} ${h.queued ? "disabled" : ""}>`}
                     <span class="t">${escapeHtml(t.title)}</span>${on ? SongHave.marks(h, true) : h.queued ? `<span class="have-marks"><i class="wait">ČEKÁ</i></span>` : ""}</div>`; }).join("") : "") + `</div>`;
           }).join(""));
-    list.appendChild(box);
+    // in the right panel (the player's "Právě hraje"), above what it tells about the band — folded until opened
+    const host = npSteemsBox(); host.innerHTML = ""; host.appendChild(box); host.hidden = false;
     StemsArt.paint(box.querySelector(".srail-now .lib-art"), name);
     if(!data) return;
     box.querySelectorAll(".srail-al").forEach(node => {
@@ -11656,9 +11718,17 @@ async function renderFolderTree(list){
 // ======================================================================
 // Now playing rail — mirrors the player's state, plus the queue.
 // ======================================================================
+// The box in the right panel for the song open in Steems: its band's albums and songs (SteemsRail paints it)
+function npSteemsBox(){
+  let b = el("np-steems");
+  if(!b){ b = document.createElement("div"); b.id = "np-steems"; b.className = "np-steems"; const body = document.querySelector("#right-sidebar .np-body"); body.insertBefore(b, body.firstChild); }
+  return b;
+}
 function renderNowPlaying(){
   if(!document.body.classList.contains("np-open")) return;
-  const t = Player.getCurrent();
+  const sb = el("np-steems"); if(sb) sb.hidden = !(state.mode === "steems" && currentSteemsName);
+  if(state.mode === "steems" && currentSteemsName && sb && !sb.childElementCount) renderLibraryRail("steems");
+  const t = MixBar.track() || Player.getCurrent();
   const stage = el("np-stage");
   const vbtn = el("np-video-btn");
   // A video playing inline in the stage (see playVideoInStage) has its own
@@ -20894,7 +20964,7 @@ const Mixer = (() => {
     const row = document.querySelector(".nm .nm-transport");
     if(!row) return;
     for(const [sel, t] of Object.entries(TAGS)) row.querySelectorAll(sel).forEach(n => { if(t) n.dataset.lbl = t; });
-    row.querySelectorAll(".dk-hero-btn").forEach(b => { b.dataset.lbl = /Looper/i.test(b.title) ? "LOOPER" : /Klávesy/i.test(b.title) ? "KEYS" : /^Jam/.test(b.title) ? "JAM" : ""; if(!b.dataset.lbl) delete b.dataset.lbl; });
+    row.querySelectorAll(".dk-hero-btn").forEach(b => { b.dataset.lbl = /Looper/i.test(b.title) ? "LOOPER" : /Klávesy/i.test(b.title) ? "KEYS" : /^Jam/.test(b.title) ? "JAM" : /^Kapela/.test(b.title) ? "KAPELA" : ""; if(!b.dataset.lbl) delete b.dataset.lbl; });
     for(const [sel, t] of Object.entries(GTAGS)) row.querySelectorAll(sel).forEach(n => { n.dataset.glbl = t; });
     const zoom = el("zoom-fit"); if(zoom) zoom.closest(".nm-tg").dataset.glbl = "";
   }
@@ -33973,6 +34043,15 @@ el("pb-art").onclick = () => {
 // ---- shell chrome: collapse the rail, toggle the now-playing panel ----
 el("sb-logo").onclick = () => document.body.classList.toggle("lib-collapsed");
 el("pb-np-btn").onclick = () => { toggleNowPlaying(); syncPlayerToggles(); };
+// Steems: the band's albums, songs and story in the right panel — a button beside the mix's own (folded until then)
+setInterval(() => {
+  const acts = document.getElementById("nm-song-acts");
+  if(!acts || acts.querySelector(".np-steems-btn")) return;
+  const b = document.createElement("button"); b.type = "button"; b.className = "nm-btn round ic dk-hero-btn np-steems-btn";
+  b.title = "Kapela — alba a písně (co máš a co stáhnout) a informace o kapele v pravém panelu"; b.innerHTML = icon("menu", 15); b.dataset.lbl = "KAPELA";
+  b.onclick = () => { toggleNowPlaying(); syncPlayerToggles(); };
+  acts.prepend(b);
+}, 1500);
 
 el("pb-add-btn").onclick = () => {
   const t = Player.getCurrent();
