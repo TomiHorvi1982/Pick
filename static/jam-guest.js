@@ -16,6 +16,7 @@
   const SNAME = {drums: "Bicí", bass: "Basa", guitar: "Kytara", guitar_solo: "Kytara sólo", guitar_rhythm: "Kytara rytmus", vocals: "Zpěv", piano: "Klávesy", other: "Ostatní"};
   function toast(t, ms){ const n = document.createElement("div"); n.className = "toast"; n.textContent = t; n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), ms || 5000); }
 
+  let gateN = null, gateOpen = 1;
   let me = {user: null, login: false, host: "Kamarád"}, ctx = null, link = null, chat = null, mix = null, amp = null;
   let eqNodes = [], tunA = null;
   let inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, monPan = null, myOut = null, meterA = null;
@@ -104,7 +105,8 @@
     ctx = new AudioContext({latencyHint: 0});
     await devices();
     // his guitar: in → gain → the sound (clean / print / amp) → out: heard here (monitor, pan) and sent to the host
-    inGain = ctx.createGain(); amp = new JamAmp(ctx, api); inGain.connect(amp.input);
+    inGain = ctx.createGain(); amp = new JamAmp(ctx, api);
+    gateN = await gateNode(ctx); gateN.port.onmessage = (e) => { gateOpen = e.data; }; inGain.connect(gateN); gateN.connect(amp.input);
     myOut = ctx.createGain();
     eqNodes = EQ_DEF.map(b => { const f = ctx.createBiquadFilter(); f.type = b.type; return f; });
     amp.output.connect(eqNodes[0]); for(let i = 0; i + 1 < eqNodes.length; i++) eqNodes[i].connect(eqNodes[i + 1]); eqNodes[eqNodes.length - 1].connect(myOut);
@@ -383,11 +385,30 @@
       mix.set(c.stem, {v: o.v ?? (h.faderValue ?? 1), t: o.t ?? 0, p: o.p ?? (h.panValue || 0), m: o.m ?? !!h.muted, s: o.s ?? !!h.solo});
     });
   }
-  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null}, store("mine") || {});
+  // Noise gate on his guitar, before the amp (the hiss would be amplified with the rest): opens on the pick attack, closes
+  // a bit lower than it opens (no chatter on a dying note), holds a moment, no lookahead (latency matters more here)
+  const GATE = `class G extends AudioWorkletProcessor{
+    static get parameterDescriptors(){return [{name:"threshold",defaultValue:-100,minValue:-100,maxValue:0,automationRate:"k-rate"}];}
+    constructor(){super();this.env=0;this.g=1;this.hold=0;this.n=0;}
+    process(ins,outs,p){const i=ins[0],o=outs[0];if(!i||!i.length){o.forEach(c=>c.fill(0));return true;}
+      const th=p.threshold[0],off=th<=-99.5,open=Math.pow(10,th/20),close=open*0.6,att=Math.exp(-1/(0.002*sampleRate)),rel=Math.exp(-1/(0.12*sampleRate)),hf=0.05*sampleRate;
+      for(let k=0;k<i[0].length;k++){let s=0;for(let c=0;c<i.length;c++)s+=i[c][k];const l=Math.abs(s/i.length);
+        this.env=l>this.env?l:l+(this.env-l)*rel;let t;
+        if(off)t=1;else if(this.env>open){t=1;this.hold=hf;}else if(this.env>close||this.hold>0){t=1;if(this.hold>0)this.hold--;}else t=0;
+        this.g=t+(this.g-t)*(t>this.g?att:rel);for(let c=0;c<o.length;c++)o[c][k]=i[Math.min(c,i.length-1)][k]*this.g;}
+      if((this.n+=i[0].length)>=sampleRate/20){this.n=0;this.port.postMessage(this.g);}return true;}}
+    registerProcessor("jam-gate",G);`;
+  async function gateNode(c){
+    if(!gateNode.ok){ await c.audioWorklet.addModule(URL.createObjectURL(new Blob([GATE], {type: "text/javascript"}))); gateNode.ok = true; }
+    return new AudioWorkletNode(c, "jam-gate");
+  }
+  const gateTxt = (d) => d <= -99 ? "vyp." : Math.round(d) + " dB";
+  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null, gate: -100}, store("mine") || {});
   function applyMine(){
     if(!link || !amp) return;
     link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp);
     inGain.gain.value = Math.pow(10, MY.ing / 20); amp.setInputDb(MY.ing); amp.setDrive(MY.drive);
+    if(gateN) gateN.parameters.get("threshold").setTargetAtTime(MY.gate, ctx.currentTime, 0.02);
     monGain.gain.value = MY.mm || !$("mon").checked ? 0 : MY.mv; monPan.pan.value = MY.mp;
     $("drive").value = MY.drive; $("driveV").textContent = MY.drive + " dB";
     store("mine", MY);
@@ -414,10 +435,10 @@
   // a knob: key, label, min, max, value, text, reset value, centred (pan)
   const knob = (k, label, min, max, val, txt, def, center) => `<div class="kn" data-kn="${k}" data-min="${min}" data-max="${max}" data-def="${def}" data-c="${center ? 1 : 0}" title="${label} — táhni nahoru/dolů, dvojklik = výchozí">
       ${knobSvg((val - min) / (max - min), center)}<span class="kl">${label}</span><span class="kv">${txt}</span></div>`;
-  const fader = (k, v, maxDb) => { const p = posOfDb(lin2db(v)) * 100;
-    return `<div class="fb"><div class="sc">${SCALE.filter(d => d <= maxDb).map(d => `<i style="bottom:calc(${posOfDb(d) * 100}% * (164 - 8) / 164 + 4px)">${d > 0 ? "+" + d : d}</i>`).join("")}</div>
-      <div class="mt"><b><i></i><em></em></b><b><i></i><em></em></b></div>
-      <div class="ft" data-ft="${k}" data-max="${maxDb}" title="Hlasitost — táhni, kolečko = jemně, dvojklik = 0 dB"><div class="u" style="height:calc(${p}% * (164 - 8) / 164)"></div><div class="cap" style="bottom:calc(${p}% * (164 - 8) / 164 + 4px)"></div></div></div>`; };
+  const fader = (k, v, maxDb, gate) => { const p = posOfDb(lin2db(v)) * 100, gp = gate == null ? 0 : posOfDb(gate) * 100;
+    return `<div class="fb ${gate != null ? "g" : ""}"><div class="sc">${SCALE.filter(d => d <= maxDb).map(d => `<i style="bottom:calc(${posOfDb(d) * 100}% * (164 - 8) / 164 + 4px)">${d > 0 ? "+" + d : d}</i>`).join("")}</div>
+      <div class="mt"><b><i></i><em></em></b><b><i></i><em></em></b>${gate != null ? `<s class="gl" style="bottom:${gp}%" ${gate <= -99 ? "hidden" : ""}></s>` : ""}</div>
+      <div class="ft" data-ft="${k}" data-max="${maxDb}" title="Hlasitost — táhni, kolečko = jemně, dvojklik = 0 dB"><div class="u" style="height:calc(${p}% * (164 - 8) / 164)"></div><div class="cap" style="bottom:calc(${p}% * (164 - 8) / 164 + 4px)"></div></div>${gate != null ? `<div class="gt" title="Noise gate — práh: táhni nad úroveň šumu na měřáku (červená čára). Úplně dole = vypnuto, dvojklik = vypnout"><div class="gc" style="bottom:calc(${gp}% * (164 - 8) / 164 + 4px)"></div></div>` : ""}</div>`; };
   function renderRack(){
     const rack = $("rack"); if(!mix) return;
     const stemStrip = (c) => `<div class="strip ${MINI.has(c.stem) ? "mini" : ""}" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#8b5cf6"}"><div class="hd"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has(c.stem) ? "+" : "–"}</button></div><div class="sub">stopa</div>
@@ -433,7 +454,8 @@
         <div class="tools"><button id="tPrints" title="Katalog otisků">Otisky</button><button id="tNam" title="NAM zesilovače a kabinety">NAM</button></div>
         <div class="tools"><button id="tEq" class="${MY.eqOn ? "on" : ""}" title="Ekvalizér tvé kytary">EQ</button><button id="tTun" title="Ladička">Ladička</button></div>
         <div class="knobs">${knob("ing", "GAIN", -12, 24, MY.ing, fmtDb(MY.ing) + " dB", 0)}${knob("drive", "DRIVE", -24, 12, MY.drive, fmtDb(MY.drive), 0)}${knob("mp", "PAN", -1, 1, MY.mp, panTxt(MY.mp), 0, true)}</div>
-        <div class="clip"></div>${fader("mv", MY.mv, 6)}<div class="dbv">${fmtDb(lin2db(MY.mv))} dB</div>
+        <div class="clip"></div>${fader("mv", MY.mv, 6, MY.gate)}<div class="dbv">${fmtDb(lin2db(MY.mv))} dB</div>
+        <div class="gv" title="Noise gate tvé kytary: zelená = propouští, červená = zavřeno (ticho mezi tóny)"><span class="gled"></span>GATE <b>${gateTxt(MY.gate)}</b></div>
         <div class="ms"><button class="m ${MY.mm ? "on" : ""}" data-k="mm" title="Neslyšet se">M</button></div></div>`;
     rack.querySelectorAll(".strip").forEach(wireStrip);
     rack.querySelectorAll(".strip .fold").forEach(b => b.onclick = () => { const id = b.closest(".strip").dataset.st; MINI.has(id) ? MINI.delete(id) : MINI.add(id); store("mini", [...MINI]); renderRack(); });
@@ -474,6 +496,16 @@
       ft.ondblclick = () => setDb(0);
       ft.onwheel = (e) => { e.preventDefault(); const d = lin2db(+getVal(id, k)); setDb((isFinite(d) ? d : -60) + (e.deltaY < 0 ? 0.5 : -0.5)); };
     });
+    const gt = st.querySelector(".gt");
+    if(gt){
+      const showG = (d) => { const p = posOfDb(d) * 100; gt.querySelector(".gc").style.bottom = `calc(${p}% * (164 - 8) / 164 + 4px)`;
+        const gl = st.querySelector(".gl"); gl.style.bottom = p + "%"; gl.hidden = d <= -99; st.querySelector(".gv b").textContent = gateTxt(d); };
+      const setG = (d) => { d = !isFinite(d) || d < -84 ? -100 : Math.round(Math.min(-6, d)); putVal(id, "gate", d); showG(d); };
+      const fromY = (y) => { const r = gt.getBoundingClientRect(); return dbOfPos(Math.max(0, Math.min(1, (r.bottom - 4 - y) / (r.height - 8)))); };
+      gt.onpointerdown = (e) => { gt.setPointerCapture(e.pointerId); setG(fromY(e.clientY)); gt.onpointermove = (ev) => setG(fromY(ev.clientY)); gt.onpointerup = () => { gt.onpointermove = null; }; };
+      gt.ondblclick = () => setG(-100);
+      gt.onwheel = (e) => { e.preventDefault(); setG((MY.gate <= -99 ? -80 : MY.gate) + (e.deltaY < 0 ? 1 : -1)); };
+    }
     const clip = st.querySelector(".clip"); if(clip) clip.onclick = () => { clip.classList.remove("on"); st._clip = false; };
   }
   // the meters, as smooth as the screen: falling slowly, a peak held a moment, clip until clicked
@@ -486,6 +518,7 @@
       lr.forEach((p, i) => { const m = st._m[i], pos = posOfDb(lin2db(p)), now = performance.now();
         m.v = Math.max(pos, m.v - 0.025); if(pos >= m.pk || now - m.t > 1200){ m.pk = pos; m.t = now; }
         if(bars[i]){ bars[i].firstElementChild.style.height = m.v * 100 + "%"; bars[i].lastElementChild.style.bottom = m.pk * 100 + "%"; }
+        if(id === "@me" && i === 0){ const led = st.querySelector(".gled"); if(led) led.className = "gled " + (MY.gate <= -99 ? "" : gateOpen > 0.5 ? "open" : "shut"); }
         if(p >= 0.99 && !st._clip){ st._clip = true; const c = st.querySelector(".clip"); if(c) c.classList.add("on"); } });
     });
     requestAnimationFrame(meters);
