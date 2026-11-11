@@ -169,3 +169,10 @@ def test_the_nam_folder_on_the_card_copy_too(lib):
     for bad in ("lib:NAM/../../spotdl/x.nam", "lib:NAM/../meta.json"):
         assert c.get("/g/amp", params={"file": bad}).status_code == 404
     assert (Path(mod.STATE) / "amps.json").is_file()
+
+
+def test_the_name_in_any_letters(lib):
+    mod, c = lib
+    r = c.post("/login", json={"name": "  pAVEL ", "password": "kytara66"})
+    assert r.status_code == 200 and r.json()["user"] == "Pavel"
+    assert c.post("/login", json={"name": "pavel", "password": "Kytara66"}).status_code == 401     # the password stays exact

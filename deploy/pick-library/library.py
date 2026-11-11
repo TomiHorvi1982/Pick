@@ -128,7 +128,10 @@ async def login(request: Request):
     if len(tries) >= 8:
         return JSONResponse({"error": "Moc pokusů — zkus to za 10 minut."}, status_code=429)
     name = " ".join(str(body.get("name") or "").split())
-    rec = users().get(name)
+    u = users()
+    if name not in u:                                       # "maxdrako" is MaxDrako: the letters' size does not matter
+        name = next((k for k in u if k.casefold() == name.casefold()), name)
+    rec = u.get(name)
     ok = False
     if rec:
         try:
