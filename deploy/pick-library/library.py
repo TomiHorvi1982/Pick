@@ -22,6 +22,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import threading
@@ -486,40 +487,93 @@ def _range(path: Path, rng: Optional[str]) -> Response:
                     headers={"Content-Range": f"bytes {a}-{b}/{size}", "Accept-Ranges": "bytes", "Content-Length": str(len(data))})
 
 
-CACHE = STATE / "cache"
+CACHE = STATE / "cache"          # the songs to listen to (all tracks mixed)
+STEMS_CACHE = STATE / "stems"    # each track on its own, for playing along
+KEEP_FREE = 15 * 1024 ** 3       # making ahead stops while the disk has less free than this
+LOW_FREE = 5 * 1024 ** 3         # below this even a file made on asking makes room by dropping the oldest
+PREP = {"on": False, "done": 0, "todo": 0, "made": 0, "failed": 0, "at": 0.0, "note": ""}
+
+
+def _free(p: Path) -> int:
+    try:
+        return shutil.disk_usage(p).free
+    except OSError:
+        return 1 << 62
+
+
+def _room(folder: Path) -> None:
+    if _free(folder) < LOW_FREE:
+        for old in sorted(folder.glob("*.webm"), key=lambda q: q.stat().st_mtime)[:20]:
+            old.unlink(missing_ok=True)
+
+
+def _preview_files(d: Optional[Path]) -> list:
+    return [f for f in (_stem_file(d, s) for s in STEM_NAMES) if f] if d else []
+
+
+def _preview_out(files: list) -> Path:
+    return CACHE / (hashlib.sha1("|".join(f"{f}:{f.stat().st_mtime}" for f in files).encode()).hexdigest()[:16] + ".webm")
+
+
+def _stem_out(f: Path) -> Path:
+    return STEMS_CACHE / (hashlib.sha1(f"{f}:{f.stat().st_mtime}".encode()).hexdigest()[:16] + ".webm")
+
+
+def _ffmpeg(args: list, out: Path, low: bool = False) -> bool:
+    """One file made, whole or not at all (a part file renamed when done)."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    part = out.with_suffix(f".{secrets.token_hex(3)}.part")
+    cmd = (["nice", "-n", "15"] if low and shutil.which("nice") else []) + ["ffmpeg", "-v", "error", "-y"] + args \
+        + ["-ac", "2", "-ar", "48000", "-c:a", "libopus"] + (["-threads", "1"] if low else []) + ["-f", "webm", str(part)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired):
+        part.unlink(missing_ok=True)
+        return False
+    if r.returncode != 0 or not part.is_file():
+        part.unlink(missing_ok=True)
+        return False
+    part.replace(out)
+    return True
+
+
+def _make_preview(files: list, low: bool = False) -> Optional[Path]:
+    out = _preview_out(files)
+    if out.is_file():
+        return out
+    _room(CACHE) if CACHE.is_dir() else None
+    args = sum([["-i", str(f)] for f in files], [])
+    if len(files) > 1:
+        args += ["-filter_complex", f"amix=inputs={len(files)}:normalize=0:duration=longest"]
+    return out if _ffmpeg(args + ["-b:a", "96k"], out, low) else None
+
+
+def _make_stem(f: Path, low: bool = False) -> Optional[Path]:
+    out = _stem_out(f)
+    if out.is_file():
+        return out
+    _room(STEMS_CACHE) if STEMS_CACHE.is_dir() else None
+    return out if _ffmpeg(["-i", str(f), "-vn", "-b:a", "128k"], out, low) else None
 
 
 @app.get("/g/preview")
 async def g_preview(request: Request, name: str):
-    """The song to listen to: its tracks mixed into one small file, made once."""
+    """The song to listen to: its tracks mixed into one small file, made once (most made ahead, see _prepare)."""
     who, bad = _need(request)
     if bad:
         return bad
-    d = _song_dir(name)
-    files = [f for f in (_stem_file(d, s) for s in STEM_NAMES) if f] if d else []
+    files = _preview_files(_song_dir(name))
     if not files:
         return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
-    sig = hashlib.sha1("|".join(f"{f}:{f.stat().st_mtime}" for f in files).encode()).hexdigest()[:16]
-    CACHE.mkdir(parents=True, exist_ok=True)
-    out = CACHE / f"{sig}.webm"
-    if not out.is_file():
-        cmd = ["ffmpeg", "-v", "error", "-y"] + sum([["-i", str(f)] for f in files], [])
-        if len(files) > 1:
-            cmd += ["-filter_complex", f"amix=inputs={len(files)}:normalize=0:duration=longest"]
-        part = out.with_suffix(".part.webm")
-        r = await asyncio.to_thread(subprocess.run, cmd + ["-ac", "2", "-ar", "48000", "-c:a", "libopus", "-b:a", "96k", "-f", "webm", str(part)], capture_output=True, timeout=600)
-        if r.returncode != 0 or not part.is_file():
-            part.unlink(missing_ok=True)
-            return JSONResponse({"error": "Náhled se nepodařilo připravit."}, status_code=500)
-        part.replace(out)
-        for old in sorted(CACHE.glob("*.webm"), key=lambda p: p.stat().st_mtime)[:-60]:      # the newest 60
-            old.unlink(missing_ok=True)
+    out = await asyncio.to_thread(_make_preview, files)
+    if out is None:
+        return JSONResponse({"error": "Náhled se nepodařilo připravit."}, status_code=500)
     return _range(out, request.headers.get("range"))
 
 
 @app.get("/g/stem")
 async def g_stem(request: Request, name: str, stem: str):
-    """One track, for playing along alone: Opus in WebM, made once and kept (the newest 150)."""
+    """One track, for playing along alone: Opus in WebM, made once and kept."""
     who, bad = _need(request)
     if bad:
         return bad
@@ -527,21 +581,67 @@ async def g_stem(request: Request, name: str, stem: str):
     f = _stem_file(d, stem) if d is not None and stem in STEM_NAMES else None
     if f is None:
         return JSONResponse({"error": "Stopa nenalezena."}, status_code=404)
-    sig = hashlib.sha1(f"{f}:{f.stat().st_mtime}".encode()).hexdigest()[:16]
-    cache = STATE / "stems"
-    cache.mkdir(parents=True, exist_ok=True)
-    out = cache / f"{sig}.webm"
-    if not out.is_file():
-        part = out.with_suffix(f".{secrets.token_hex(3)}.part")
-        r = await asyncio.to_thread(subprocess.run, ["ffmpeg", "-v", "error", "-y", "-i", str(f), "-vn", "-ac", "2", "-ar", "48000", "-c:a", "libopus",
-                                                     "-b:a", "160k", "-f", "webm", str(part)], capture_output=True, timeout=600)
-        if r.returncode != 0 or not part.is_file():
-            part.unlink(missing_ok=True)
-            return JSONResponse({"error": "Stopu se nepodařilo připravit."}, status_code=500)
-        part.replace(out)
-        for old in sorted(cache.glob("*.webm"), key=lambda q: q.stat().st_mtime)[:-150]:
-            old.unlink(missing_ok=True)
+    out = await asyncio.to_thread(_make_stem, f)
+    if out is None:
+        return JSONResponse({"error": "Stopu se nepodařilo připravit."}, status_code=500)
     return FileResponse(out, media_type="audio/webm", headers={"Cache-Control": "private, max-age=86400"})
+
+
+def _prepare_once() -> None:
+    """Every song's tracks and its preview made ahead, so the friend never waits for them: Na příště first,
+    one file at a time at low priority. Files of songs gone or changed on the copy are dropped after a full pass."""
+    rows = songs()
+    first = set(fav()["songs"])
+    rows = sorted(rows, key=lambda r: (r["name"] not in first, r["name"].lower()))
+    PREP.update(todo=len(rows), done=0, note="")
+    keep = set()
+    for r in rows:
+        if _free(STATE) < KEEP_FREE:
+            PREP["note"] = "Na disku je málo místa — zbytek se připraví, až si o něj kamarád řekne."
+            return
+        d = _song_dir(r["name"])
+        if d is None:
+            continue
+        for st in STEM_NAMES:
+            f = _stem_file(d, st)
+            if f is None:
+                continue
+            out = _stem_out(f)
+            keep.add(out.name)
+            if not out.is_file():
+                PREP["made" if _make_stem(f, low=True) else "failed"] += 1
+        files = _preview_files(d)
+        if files:
+            out = _preview_out(files)
+            keep.add(out.name)
+            if not out.is_file():
+                PREP["made" if _make_preview(files, low=True) else "failed"] += 1
+        PREP["done"] += 1
+    for folder in (STEMS_CACHE, CACHE):                                          # whole pass: what no song needs any more
+        for old in folder.glob("*.webm") if folder.is_dir() else []:
+            if old.name not in keep:
+                old.unlink(missing_ok=True)
+        for old in folder.glob("*.part") if folder.is_dir() else []:
+            if time.time() - old.stat().st_mtime > 3600:
+                old.unlink(missing_ok=True)
+
+
+def _prepare_loop() -> None:
+    time.sleep(20)                                                               # the list first
+    while True:
+        PREP["on"] = True
+        try:
+            _prepare_once()
+        except Exception as e:                                                   # the next round tries again
+            PREP["note"] = f"Chyba: {str(e)[:120]}"
+        PREP.update(on=False, at=time.time())
+        time.sleep(30 * 60)                                                      # new songs on the copy: half an hour later
+
+
+@app.on_event("startup")
+def _start_prepare() -> None:
+    if os.environ.get("PICK_PREPARE", "1") != "0":
+        threading.Thread(target=_prepare_loop, daemon=True, name="prepare").start()
 
 
 # ---------------------------------------------------------------- the sounds: prints, NAM, cabinets
@@ -918,7 +1018,7 @@ async def sync_status(request: Request):
     body = await request.json()
     url = str((body or {}).get("url") or "")
     _write("status.json", {"on": bool((body or {}).get("on")), "url": url if url.startswith("https://") else "", "at": time.time()})
-    return {"ok": True}
+    return {"ok": True, "prepared": {k: PREP[k] for k in ("on", "done", "todo", "made", "failed", "note")}, "free_gb": round(_free(STATE) / 1024 ** 3, 1)}
 
 
 @app.get("/health")

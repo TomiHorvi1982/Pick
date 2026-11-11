@@ -493,7 +493,7 @@ const Jam = (() => {
       const d = await r.json().catch(() => ({})); $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? "Uloženo." : (d.error || "Nepodařilo se."); if(r.ok){ $("jl-tok").value = ""; $("jl-tok").type = "password"; } };
     $("jl-test").onclick = async () => { $("jl-st").dataset.busy = "1"; $("jl-st").className = "jd-st"; $("jl-st").textContent = "Zkouším…";
       const r = await fetch("/api/jam/library/test", {method: "POST"}), d = await r.json().catch(() => ({})); delete $("jl-st").dataset.busy;
-      $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? `Spojeno ✓ — Na příště má ${d.fav} písní.` : (d.error || "Nepodařilo se."); };
+      $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? `Spojeno ✓ — Na příště má ${d.fav} písní.` + (d.prepared ? ` Předem připraveno ${d.prepared.done} z ${d.prepared.todo} písní${d.prepared.on ? " (pracuje se)" : ""}, volno ${d.free_gb} GB.${d.prepared.note ? " " + d.prepared.note : ""}` : "") : (d.error || "Nepodařilo se."); };
     const sb = $("settings-btn"); if(sb) sb.addEventListener("click", () => setTimeout(libPaint, 200));
     // the friend's desktop app: the library gives the launcher out, with its own address in it
     $("jl-cmd").onclick = (e) => { e.preventDefault(); const u = ($("jl-url").value || "").trim().replace(/\/+$/, "");

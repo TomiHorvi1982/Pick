@@ -63,6 +63,7 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - **Obaly písní** se ukážou jen u těch, které Pick už někdy dohledal (`chip-thumbs.json` v datech Picku). Jinak se místo nich zobrazí ikona.
 - **Vlastní otisk** si kamarád nahraje jen během jamu, protože se počítá na Macu.
 - Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.
+- **Písně se připravují předem.** Po startu knihovna na pozadí postupně převede všechny stopy a náhledy (nejdřív ★ Na příště), aby kamarád na nic nečekal. Napoprvé to trvá asi 8–10 hodin a zabere kolem 55 GB na disku C:. Když na C: zbývá méně než 15 GB, přestane a zbytek převede, až si o píseň kamarád řekne. Nové písně z kopie karty převede do půl hodiny. Kolik je hotovo, uvidíš v Picku v **Nastavení → Jam → Knihovna na PC → Vyzkoušet spojení**.
 
 ## Aplikace na plochu pro kamaráda (Windows)
 V Picku: **Nastavení → Jam → Knihovna na PC → Pick Jam.cmd** (nebo přímo `https://jam.neverlast.cz/pick-jam.cmd`). Soubor mu pošli. Když ho spustí, objeví se mu na ploše ikona **Pick Jam** a knihovna se otevře v Chromu (nebo v Edge) jako aplikace ve vlastním okně. V souboru je jen adresa, žádné heslo ani klíč.

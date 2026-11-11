@@ -222,3 +222,20 @@ def test_downloaded_playlists_from_the_copy_then_from_the_mac(lib):
                                                               {"name": "Jam — na příště", "songs": ["Band - Song [abcdefghijk]"]}]})
     assert r.json()["ok"]
     assert c.get("/g/playlists").json()["playlists"] == [{"name": "From Mac", "songs": ["Band - Song [abcdefghijk]"], "kind": "dl", "all": 9}]
+
+
+def test_tracks_and_preview_made_ahead(lib):
+    mod, c = lib
+    stale = mod.STEMS_CACHE / "0000000000000000.webm"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"old")
+    mod._prepare_once()
+    assert len(list(mod.STEMS_CACHE.glob("*.webm"))) == 2 and len(list(mod.CACHE.glob("*.webm"))) == 1 and not stale.exists()
+    assert mod.PREP["done"] == mod.PREP["todo"] == 1 and mod.PREP["failed"] == 0
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    made = {p.stat().st_mtime for p in mod.STEMS_CACHE.glob("*.webm")}
+    assert c.get("/g/stem?name=Band%20-%20Song%20%5Babcdefghijk%5D&stem=drums").content[:4] == b"\x1aE\xdf\xa3"
+    assert {p.stat().st_mtime for p in mod.STEMS_CACHE.glob("*.webm")} == made            # served, not made again
+    st = c.post("/sync/status", headers={"Authorization": f"Bearer {TOKEN}"}, json={"on": False}).json()
+    assert st["prepared"]["done"] == 1 and st["free_gb"] > 0
+    assert "prepared" not in c.get("/health").json()

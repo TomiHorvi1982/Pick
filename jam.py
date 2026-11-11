@@ -1191,8 +1191,8 @@ def lib_sync() -> dict:
     return {"songs": out}
 
 
-def lib_status() -> None:
-    _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else ""})
+def lib_status() -> dict:
+    return _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else ""})
 
 
 def lib_users() -> None:
@@ -1256,12 +1256,12 @@ async def jam_library_set(request: Request):
 @router.post("/api/jam/library/test")
 async def jam_library_test():
     try:
-        await asyncio.to_thread(lib_status)
+        st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
         try:
             await asyncio.to_thread(lib_playlists)
         except Exception:
             pass                                    # an older library (not redeployed yet) has no playlists to take
-        return {"ok": True, "fav": len(got["songs"])}
+        return {"ok": True, "fav": len(got["songs"]), "prepared": st.get("prepared"), "free_gb": st.get("free_gb")}
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Knihovna na PC neodpovídá: {str(e)[:200]}"}, status_code=502)
