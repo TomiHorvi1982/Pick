@@ -93,3 +93,20 @@ def test_na_priste_and_the_mac_with_its_token(lib):
     assert me["jam"] is True and me["jam_url"] == "https://neverlast.cz"
     users = json.loads((Path(mod.STATE) / "users.json").read_text())
     assert "kytara66" not in json.dumps(users)
+
+
+def test_the_list_is_kept_and_follows_the_copy(lib):
+    mod, c = lib
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert len(c.get("/g/songs").json()["songs"]) == 1
+    assert (Path(mod.STATE) / "songs-cache.json").is_file()
+    new = mod.DATA / "Stems" / "Other - Two [bcdefghijkl]"
+    new.mkdir()
+    (new / "drums.mp3").write_bytes((mod.DATA / "Stems" / "Band - Song [abcdefghijk]" / "drums.mp3").read_bytes())
+    mod._SONGS.update(rows=None, dirs=None)                                   # a new start: last start's list at once
+    assert len(c.get("/g/songs").json()["songs"]) == 1
+    for _ in range(100):                                                       # and the walk behind it finds the new one
+        if not mod._SONGS["busy"]:
+            break
+        time.sleep(0.05)
+    assert [r["name"] for r in c.get("/g/songs").json()["songs"]] == ["Band - Song [abcdefghijk]", "Other - Two [bcdefghijkl]"]

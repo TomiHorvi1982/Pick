@@ -220,53 +220,106 @@ def _duration(f: Path) -> Optional[float]:
         return None
 
 
-_SONGS = {"at": 0.0, "rows": [], "filling": False}
+# The copy sits on a Windows disk seen through Docker Desktop, where every file call costs ~1 ms: a song is read
+# with one listing of its folder, and only again when that folder changed. The list is kept in /state between starts.
+_SONGS = {"at": 0.0, "rows": None, "dirs": None, "busy": False, "filling": False}
 _SONGS_LOCK = threading.Lock()
+_DUR: dict = {}
+
+
+def _song_row(d: Path) -> Optional[dict]:
+    try:
+        names = sorted(e.name for e in os.scandir(d))
+    except OSError:
+        return None
+    stems, first = [], None
+    for st in STEM_NAMES:
+        f = next((n for n in names if n.startswith(st + ".") and Path(n).suffix.lower() in AUDIO_EXTS), None)
+        if f:
+            stems.append(st)
+            first = first or f
+    if not stems:
+        return None
+    m = _jload(d / "meta.json", {}) if "meta.json" in names else {}
+    m = m if isinstance(m, dict) else {}
+    t = _jload(d / "tuning.json", None) if "tuning.json" in names else None
+    tuning = t.get("midi") if isinstance(t, dict) else t if isinstance(t, list) else None
+    try:
+        key = f"{d.name}:{(d / first).stat().st_mtime}"
+    except OSError:
+        return None
+    yt = re.search(r"\[([A-Za-z0-9_-]{11})\]\s*$", d.name)
+    return {"name": d.name, "stems": stems, "artist": m.get("artist") or "", "title": m.get("title") or d.name, "album": m.get("album") or "",
+            "tuning": tuning if isinstance(tuning, list) else None, "yt": f"https://youtu.be/{yt.group(1)}" if yt else "", "_k": key, "_f": first}
+
+
+def _scan() -> None:
+    """Walk the copy: a folder not changed since the last walk keeps its row."""
+    old = _SONGS["dirs"] if _SONGS["dirs"] is not None else (_read("songs-cache.json", {}) or {})
+    dirs, root = {}, _stems_root()
+    try:
+        entries = sorted(os.scandir(root), key=lambda e: e.name) if root.is_dir() else []
+    except OSError:
+        entries = []
+    for e in entries:
+        if e.name.startswith(".") or not e.is_dir():
+            continue
+        try:
+            mt = e.stat().st_mtime
+        except OSError:
+            continue
+        prev = old.get(e.name)
+        if prev and prev.get("m") == mt:
+            dirs[e.name] = prev
+            continue
+        row = _song_row(Path(e.path))
+        dirs[e.name] = {"m": mt, "row": row}
+    _write("songs-cache.json", dirs)
+    rows = [v["row"] for v in dirs.values() if v.get("row")]
+    _SONGS.update(dirs=dirs, rows=rows, at=time.time())
+    todo = [(r["_k"], root / r["name"] / r["_f"]) for r in rows if r["_k"] not in _DUR]
+    if todo and not _SONGS["filling"]:
+        _SONGS["filling"] = True
+        threading.Thread(target=_fill_durations, args=(todo,), daemon=True).start()
 
 
 def _fill_durations(todo: list) -> None:
-    """Lengths of songs not measured yet, in the background: the list goes out at once, without waiting for 2000 ffprobes."""
+    """Lengths of songs not measured yet, in the background: the list goes out at once."""
     try:
-        dur = _read("durations.json", {})
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(4) as ex:
             for n, (key, got) in enumerate(zip([k for k, _ in todo], ex.map(lambda kf: _duration(kf[1]), todo)), 1):
-                dur[key] = got
+                _DUR[key] = got
                 if n % 100 == 0:
-                    _write("durations.json", dur)
-        _write("durations.json", dur)
+                    _write("durations.json", _DUR)
+        _write("durations.json", _DUR)
     finally:
-        _SONGS.update(filling=False, at=0.0)                                   # the next list carries the lengths
+        _SONGS["filling"] = False
+
+
+def _rescan_bg() -> None:
+    try:
+        with _SONGS_LOCK:
+            _scan()
+    finally:
+        _SONGS["busy"] = False
 
 
 def songs() -> list:
-    with _SONGS_LOCK:
-        if time.time() - _SONGS["at"] < 300 and _SONGS["rows"]:
-            return _SONGS["rows"]
-        dur = _read("durations.json", {})
-        rows, todo = [], []
-        root = _stems_root()
-        for d in sorted(root.iterdir()) if root.is_dir() else []:
-            if not d.is_dir() or d.name.startswith("."):
-                continue
-            stems = [s for s in STEM_NAMES if _stem_file(d, s)]
-            if not stems:
-                continue
-            m = _jload(d / "meta.json", {}) or {}
-            t = _jload(d / "tuning.json", None)
-            tuning = t.get("midi") if isinstance(t, dict) else t if isinstance(t, list) else None
-            first = _stem_file(d, stems[0])
-            key = f"{d.name}:{first.stat().st_mtime}"
-            if key not in dur:
-                todo.append((key, first))
-            yt = re.search(r"\[([A-Za-z0-9_-]{11})\]\s*$", d.name)
-            rows.append({"name": d.name, "stems": stems, "duration": dur.get(key), "artist": m.get("artist") or "", "title": m.get("title") or d.name,
-                         "album": m.get("album") or "", "tuning": tuning if isinstance(tuning, list) else None, "yt": f"https://youtu.be/{yt.group(1)}" if yt else ""})
-        _SONGS.update(at=time.time(), rows=rows)
-        if todo and not _SONGS["filling"]:
-            _SONGS["filling"] = True
-            threading.Thread(target=_fill_durations, args=(todo,), daemon=True).start()
-        return rows
+    if not _DUR:
+        _DUR.update(_read("durations.json", {}) or {})
+    if _SONGS["rows"] is None:
+        cached = _read("songs-cache.json", {}) or {}
+        if cached:                                                              # last start's list at once, checked behind
+            _SONGS.update(dirs=cached, rows=[v["row"] for v in cached.values() if v.get("row")], at=0.0)
+        else:
+            with _SONGS_LOCK:
+                if _SONGS["rows"] is None:
+                    _scan()
+    if time.time() - _SONGS["at"] > 300 and not _SONGS["busy"]:
+        _SONGS["busy"] = True
+        threading.Thread(target=_rescan_bg, daemon=True).start()
+    return [{**{k: v for k, v in r.items() if not k.startswith("_")}, "duration": _DUR.get(r["_k"])} for r in _SONGS["rows"]]
 
 
 @app.get("/g/me")
