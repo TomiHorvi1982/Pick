@@ -77,9 +77,24 @@
   .tp .time{font-variant-numeric:tabular-nums;color:var(--dim);min-width:92px;text-align:center}
   .knob{display:flex;align-items:center;gap:3px;background:#101018;border:1px solid var(--line);border-radius:9px;padding:2px}
   .knob button{padding:3px 8px;border:0;background:none}.knob span{min-width:58px;text-align:center;font-variant-numeric:tabular-nums;font-size:12.5px}
-  .seek{position:relative;height:26px;margin:8px 16px 0;cursor:pointer;flex:none}
-  .seek .secs{position:absolute;inset:8px 0;display:flex;border-radius:5px;overflow:hidden;background:#20202c}
-  .seek .secs i{display:block;height:100%;opacity:.45}
+  .seek{position:relative;height:46px;margin:8px 16px 0;cursor:pointer;flex:none;border-radius:6px;background:#15151d;overflow:hidden}
+  .seek #wave{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+  .seek .secs{position:absolute;inset:0;border-radius:6px;overflow:hidden}
+  .seek .secs i{position:absolute;top:0;bottom:0;display:block;background:var(--c);opacity:.32;border-left:1px solid rgba(0,0,0,.5)}
+  .seek .secs i b{position:absolute;left:4px;top:2px;font-size:9.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;max-width:calc(100% - 6px);text-shadow:0 1px 2px #000;z-index:3;letter-spacing:.02em}
+  .seek .secs i.now{opacity:.6;box-shadow:inset 0 -3px 0 var(--c)}
+  .seek .head{z-index:4}.seek .loopr{z-index:2}
+  .secname{font-size:12px;font-weight:700;color:var(--acc);margin-right:8px}
+  /* the host's Steems on the whole screen: text and the tab (his shared screen) — only that */
+  .stagev{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column}
+  .stagev .stbar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);flex:none}
+  .stagev .stbar b{font-size:15px}.stagev .stbar .sp{flex:1}
+  .stagev .stbody{flex:1;min-height:0;display:flex;gap:10px;padding:10px}
+  .stagev.col .stbody{flex-direction:column}
+  .stagev .stpane{position:relative;flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;background:var(--panel)}
+  .stagev[data-show=lyr] #stTab,.stagev[data-show=tab] #stLyr{display:none}
+  .stagev #stLyr .lyr{flex:1;overflow:auto;font-size:26px}
+  .stagev #stTab .pickv{flex:1;min-height:0}
   .seek .loopr{position:absolute;top:2px;bottom:2px;border:2px solid var(--warn);border-radius:6px;background:rgba(255,209,102,.12);pointer-events:none}
   .seek .head{position:absolute;top:3px;bottom:3px;width:2px;background:#fff;box-shadow:0 0 6px #fff;left:0}
   .views{display:flex;gap:4px;padding:8px 16px 0;flex:none}
@@ -200,7 +215,7 @@
 <header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span class="sp"></span>
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
   <button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button>
-  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
+  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
 <main>
   <aside class="side">
     <div class="rs-x" id="rsSide" title="Táhni — šířka panelu"></div>
@@ -217,11 +232,11 @@
     <div class="song-h"><div class="t"><b id="song">Vyber píseň</b><span class="muted" id="songSt">Píseň vybírá kdokoli z vás — hraje oběma.</span></div>
       <div class="tp">
         <button id="toStart" title="Na začátek">⏮</button><button class="play" id="play" title="Přehrát / pozastavit (mezerník)">▶</button>
-        <span class="time" id="time">0:00 / 0:00</span>
+        <span class="secname" id="secName"></span><span class="time" id="time">0:00 / 0:00</span>
         <span class="knob" title="Tempo — mění se oběma"><button id="tDn">−</button><span id="tempo">tempo 100 %</span><button id="tUp">+</button></span>
         <span class="knob" title="Tónina — mění se oběma"><button id="kDn">−</button><span id="key">tónina 0</span><button id="kUp">+</button></span>
       </div></div>
-    <div class="seek" id="seek" title="Klikni a píseň skočí — oběma"><div class="secs" id="secs"></div><div class="loopr" id="loopR" hidden></div><div class="head" id="head"></div></div>
+    <div class="seek" id="seek" title="Klikni a píseň skočí — oběma"><canvas id="wave"></canvas><div class="secs" id="secs"></div><div class="loopr" id="loopR" hidden></div><div class="head" id="head"></div></div>
     <div class="views"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick">Pick (taby)</button><span class="sp"></span><button id="mixFold" title="Sbalit / rozbalit mix">Mix ▾</button></div>
     <div class="view">
       <div class="lyr" id="vLyr"><p class="muted">Text se objeví, až bude vybraná píseň.</p></div>
@@ -286,6 +301,9 @@
   <button class="big" id="go">Povolit a připojit se</button>
   <div class="bad" id="joinErr"></div>
 </div></div>
+<div class="stagev" id="stageV" hidden><div class="stbar"><b id="stSong"></b><span class="secname" id="stSec"></span><span class="sp"></span><span id="stTime"></span>
+  <button id="stageOut" title="Zpátky na celý Pick Jam (mix, písně, chat)">Celý Pick Jam</button></div>
+  <div class="stbody"><div class="stpane" id="stLyr"></div><div class="stpane" id="stTab"></div></div></div>
 <audio id="voice" autoplay></audio>
 <script src="/static/jam-engine.js"></script>
 <script src="/static/jam-chat.js"></script>

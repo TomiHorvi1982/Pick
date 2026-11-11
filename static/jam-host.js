@@ -5,7 +5,7 @@
 // the same moment (static/jam-guest.js).
 const Jam = (() => {
   let box = null, link = null, st = {on: false, url: null}, songT = 0, lastSong = "", uiT = 0, unhook = null, chat = null, chatEl = null, unreadN = 0;
-  let names = {host: "", guest: "Kamarád"}, jf = null, lastSent = null;
+  let names = {host: "", guest: "Kamarád"}, jf = null, lastSent = null, friendNow = null, stageWas = false;
   const cfg = (() => { try{ return JSON.parse(localStorage.getItem("pick-jam") || "{}"); }catch(e){ return {}; } })();
   const keep = () => { try{ localStorage.setItem("pick-jam", JSON.stringify(cfg)); }catch(e){} };
   const esc = (s) => escapeHtml(String(s == null ? "" : s));
@@ -52,6 +52,20 @@ const Jam = (() => {
   #jam-fader .jf-led i.on{background:#6ee7a0}#jam-fader .jf-led i.on.hot{background:#ffd166}#jam-fader .jf-led i.on.clip{background:#ff6b6b}
   #jam-fader .fl-fader-track{cursor:ns-resize;touch-action:none}#jam-fader .fl-pan-knob{cursor:ns-resize;touch-action:none}
   #jam-fader .jf-off{font-size:10px;opacity:.7;text-align:center}
+  #jam-fader .jf-snd{width:100%;margin-top:4px}#jam-fader .jf-now{font-size:9px;opacity:.75;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .jam-fs{position:fixed;z-index:9000;width:330px;max-height:78vh;display:flex;flex-direction:column;gap:7px;padding:12px;border-radius:12px;background:#17171f;border:1px solid rgba(255,255,255,.12);box-shadow:0 16px 40px rgba(0,0,0,.6);color:#eee;font-size:12px}
+  .jam-fs .fs-hd{display:flex;align-items:center;justify-content:space-between}.jam-fs .fs-x{background:none;border:0;color:#aaa;cursor:pointer;font-size:14px}
+  .jam-fs .fs-now{color:#6ee7a0;font-size:11.5px}
+  .jam-fs .fs-tabs{display:flex;gap:3px}.jam-fs .fs-tabs button{flex:1;padding:5px 4px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:none;color:#ccc;cursor:pointer;font-size:11px}
+  .jam-fs .fs-tabs button.on{background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:700}
+  .jam-fs .fs-q{padding:6px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:#0e0e14;color:#eee}
+  .jam-fs .fs-list{overflow:auto;max-height:30vh;display:flex;flex-direction:column;gap:1px}
+  .jam-fs .fs-list button{text-align:left;background:none;border:0;color:#eee;padding:5px 7px;border-radius:6px;cursor:pointer;display:flex;flex-direction:column}
+  .jam-fs .fs-list button:hover{background:rgba(255,255,255,.06)}.jam-fs .fs-list button.on{background:rgba(139,92,246,.25)}
+  .jam-fs .fs-list span{font-size:10.5px;opacity:.65}.jam-fs .fs-g{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.55;padding:6px 7px 1px}
+  .jam-fs .fs-sls{display:flex;flex-direction:column;gap:4px;border-top:1px solid rgba(255,255,255,.08);padding-top:6px}
+  .jam-fs .fs-sl{display:grid;grid-template-columns:72px 1fr 54px;align-items:center;gap:6px}.jam-fs .fs-sl em{font-style:normal;font-variant-numeric:tabular-nums;text-align:right;opacity:.85}
+  .jam-fs .fs-sl input{accent-color:var(--accent,#8b5cf6)}.jam-fs .hint{opacity:.6;font-size:10.5px}
   .jam-steps{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
   .jam.big .jc{--jc-h:320px}
   .jam-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:700 10.5px/17px system-ui;text-align:center;pointer-events:none;box-shadow:0 0 0 2px #111}
@@ -214,6 +228,7 @@ const Jam = (() => {
     if(kind === "taken"){ showToast("Jam je otevřený v jiném okně Picku — tady je odpojený. Zavři to druhé okno a jam tady spusť znovu.", 15000); return; }
     if(kind === "msg" && v && v.names){ names = v.names; if(jf) jfPaint(); }
     if(kind === "msg" && v && v.type === "ctl"){ onCtl(v); return; }
+    if(kind === "msg" && v && v.type === "mine"){ friendNow = v; fsPaintNow(); if(jf) jfPaint(); return; }
     if(kind === "msg" && chat) chat.onMsg(v);
     if(kind === "peer" && jf) jfPaint();
     if(kind === "peer" || kind === "conn" || kind === "ready"){
@@ -267,6 +282,8 @@ const Jam = (() => {
       <div class="fl-db-label">${db} dB</div>
       <div class="fl-pan-wrap"><div class="fl-pan-knob ${p < -0.05 ? "pan-l" : p > 0.05 ? "pan-r" : ""}" data-jf="pan" title="Panorama — táhni svisle, dvojklik = střed"></div><div class="fl-pan-label">${pl}</div></div>
       <div class="fl-ms-btns"><button class="fl-ms-btn mute ${cfg.fmute ? "active" : ""}" data-jf="mute" title="Ztlumit kamaráda">M</button></div>
+      <button class="fl-fx-btn jf-snd" data-jf="snd" title="Nastavit kamarádovi zvuk: otisk nebo NAM, gain, drive, gate a hlasitosti — on si to pak může změnit">ZVUK</button>
+      <div class="jf-now" title="Co teď kamarád hraje">${esc(friendNow && friendNow.sound || "")}</div>
       <div class="jf-off">${link && link.peerOn ? "" : "kamarád není připojený"}</div>`;
   }
   function jfPaint(){
@@ -282,6 +299,70 @@ const Jam = (() => {
       kn.onpointerup = () => { kn.onpointermove = null; keep(); jfPaint(); }; };
     kn.ondblclick = () => { cfg.fpan = 0; keep(); applyFriend(); jfPaint(); };
     jf.querySelector('[data-jf="mute"]').onclick = () => { cfg.fmute = !cfg.fmute; keep(); applyFriend(); jfPaint(); };
+    jf.querySelector('[data-jf="snd"]').onclick = (e) => friendSound(e.currentTarget);
+  }
+  // ---- his sound set from here: a print or a NAM (+ cabinet), his gain, drive, gate, his guitar and the backing —
+  // sent to his page and played there at once; he can change any of it afterwards
+  let fs = null, fsTab = "prints", fsQ = "", fsAmp = {model: "", ir: "", mname: "", iname: ""}, fsT = 0, fsPrints = null;
+  const fsSend = (o) => { if(link) link.send({type: "setup", ...o}); };
+  function fsPaintNow(){
+    if(!fs) return;
+    const n = friendNow || {}, my = n.my || {};
+    fs.querySelector(".fs-now").textContent = n.sound ? `Teď hraje: ${n.sound}` : (link && link.peerOn ? "Kamarád zatím nic neposlal" : "Kamarád není připojený");
+    [["ing", -12, 24], ["drive", -24, 12], ["gate", -100, -20], ["mvdb", -30, 6], ["bv", -24, 6]].forEach(([k]) => {
+      const inp = fs.querySelector(`[data-fk="${k}"]`); if(!inp || document.activeElement === inp) return;
+      const v = k === "mvdb" ? (my.mv > 0 ? 20 * Math.log10(my.mv) : -30) : my[k];
+      if(v != null && isFinite(v)){ inp.value = v; fsLabel(inp); }
+    });
+  }
+  function fsLabel(inp){ const k = inp.dataset.fk, v = +inp.value;
+    inp.nextElementSibling.textContent = k === "gate" ? (v <= -99 ? "vyp." : Math.round(v) + " dB") : (v > 0 ? "+" : "") + v.toFixed(k === "gate" ? 0 : 1) + " dB"; }
+  async function fsList(){
+    if(!fs) return;
+    const box = fs.querySelector(".fs-list"), q = fsQ.toLowerCase();
+    fs.querySelectorAll(".fs-tabs [data-t]").forEach(b => b.classList.toggle("on", b.dataset.t === fsTab));
+    try{
+      if(fsTab === "prints"){
+        if(!fsPrints) fsPrints = ((await (await fetch("/api/tone/prints")).json()) || []).filter(x => x && x.review !== "rejected");
+        const got = fsPrints.filter(p => !q || [p.name, p.artist, p.title, p.category].join(" ").toLowerCase().includes(q)).slice(0, 120);
+        box.innerHTML = got.map(p => `<button data-song="${esc(p.song)}" data-id="${esc(p.id)}" data-name="${esc(p.name || p.title || "")}"><b>${esc(p.name || p.title || p.id)}</b><span>${esc([p.artist, p.title, p.category].filter(Boolean).join(" · "))}</span></button>`).join("") || `<div class="hint">Nic nenalezeno.</div>`;
+        box.querySelectorAll("[data-id]").forEach(b => b.onclick = () => { fsSend({sound: {kind: "print", song: b.dataset.song, id: b.dataset.id, name: b.dataset.name}}); showToast(`Kamarádovi posílám otisk ${b.dataset.name}`); });
+      } else {
+        const kind = fsTab === "ir" ? "ir" : "model";
+        const d = await (await fetch(`/api/amp-catalog?kind=${kind}&limit=150&q=${encodeURIComponent(fsQ)}`)).json();
+        let last = null;
+        box.innerHTML = (d.items || []).map(a => { const hd = a.group !== last ? `<div class="fs-g">${esc(a.group)}</div>` : ""; last = a.group;
+          return hd + `<button data-f="${esc(a.file)}" data-n="${esc(a.name)}" class="${(kind === "ir" ? fsAmp.ir : fsAmp.model) === a.file ? "on" : ""}"><b>${esc(a.name)}</b></button>`; }).join("") || `<div class="hint">Nic nenalezeno.</div>`;
+        box.querySelectorAll("[data-f]").forEach(b => b.onclick = () => {
+          if(kind === "ir"){ fsAmp.ir = b.dataset.f; fsAmp.iname = b.dataset.n; } else { fsAmp.model = b.dataset.f; fsAmp.mname = b.dataset.n; }
+          const name = [fsAmp.mname, fsAmp.iname].filter(Boolean).join(" + ");
+          fsSend({sound: {kind: "amp", model: fsAmp.model, ir: fsAmp.ir, name}}); showToast(`Kamarádovi posílám ${name}`); fsList(); });
+      }
+    }catch(e){ box.innerHTML = `<div class="hint">Seznam se nepodařilo načíst.</div>`; }
+  }
+  function friendSound(anchor){
+    if(fs){ fs.remove(); fs = null; return; }
+    fs = document.createElement("div"); fs.className = "jam-fs";
+    const sl = (k, label, min, max, step) => `<label class="fs-sl"><span>${label}</span><input type="range" data-fk="${k}" min="${min}" max="${max}" step="${step}" value="0"><em></em></label>`;
+    fs.innerHTML = `<div class="fs-hd"><b>Zvuk pro ${esc(names.guest || "kamaráda")}</b><button class="fs-x" title="Zavřít">✕</button></div>
+      <div class="fs-now"></div>
+      <div class="fs-tabs"><button data-t="prints">Otisky</button><button data-t="model">NAM</button><button data-t="ir">Bedny (IR)</button><button data-t="clean">Čistý</button></div>
+      <input class="fs-q" placeholder="Hledat…"><div class="fs-list"></div>
+      <div class="fs-sls">${sl("ing", "Gain", -12, 24, 0.5)}${sl("drive", "Drive", -24, 12, 0.5)}${sl("gate", "Gate", -100, -20, 1)}${sl("mvdb", "Jeho kytara", -30, 6, 0.5)}${sl("bv", "Podklad", -24, 6, 0.5)}</div>
+      <div class="hint">Pošle se mu hned a hraje to u něj. Pak si to může sám změnit.</div>`;
+    document.body.appendChild(fs);
+    const r = anchor.getBoundingClientRect();
+    if(r.height){ fs.style.left = Math.max(8, Math.min(window.innerWidth - 340, r.left - 140)) + "px"; fs.style.bottom = Math.min(window.innerHeight - 200, Math.max(8, window.innerHeight - r.top + 8)) + "px"; }
+    else { fs.style.left = Math.max(8, (window.innerWidth - 330) / 2) + "px"; fs.style.top = "80px"; }
+    fs.querySelector(".fs-x").onclick = () => { fs.remove(); fs = null; };
+    fs.querySelectorAll(".fs-tabs [data-t]").forEach(b => b.onclick = () => {
+      if(b.dataset.t === "clean"){ fsSend({sound: {kind: "clean"}}); showToast("Kamarádovi posílám čistý zvuk"); return; }
+      fsTab = b.dataset.t; fsList(); });
+    fs.querySelector(".fs-q").oninput = (e) => { fsQ = e.target.value; clearTimeout(fsT); fsT = setTimeout(fsList, 250); };
+    fs.querySelectorAll("[data-fk]").forEach(inp => { fsLabel(inp); inp.oninput = () => { fsLabel(inp);
+      const k = inp.dataset.fk, v = +inp.value, mine = k === "mvdb" ? {mv: v <= -29.9 ? 0 : Math.pow(10, v / 20)} : {[k]: v};
+      clearTimeout(inp._t); inp._t = setTimeout(() => fsSend({mine}), 80); }; });
+    fsPaintNow(); fsList();
   }
   function jfMount(){
     const rack = document.getElementById("fl-channels");
@@ -310,14 +391,20 @@ const Jam = (() => {
       }
     }catch(e){}
     let key = 0, stemPitch = {}, dur = 0, ready = false, loop = null;
+    // Steems on the whole screen (text, tab or both): his page shows the same — his own text, and the tab as the shared screen
+    const sg = document.getElementById("nm-stage"), sb = document.getElementById("nm-stage-body");
+    const stage = sg && !sg.hidden ? {on: true, show: (sb && sb.dataset.show) || "both", dir: sb && sb.classList.contains("col") ? "col" : "row"} : {on: false};
+    if(stage.on && !stageWas && link.peerOn && !(link.local && link.local.screen) && stage.show !== "lyr")
+      showToast(`${names.guest || "Kamarád"} teď vidí text. Taby uvidí, když v jamu zapneš Sdílet Pick.`);
+    stageWas = stage.on;
     try{ key = Mixer.key ? Mixer.key() : 0; stemPitch = Mixer.stemPitch ? Mixer.stemPitch() : {}; dur = Mixer.duration ? Mixer.duration() : 0; ready = Mixer.ready ? Mixer.ready() : true; loop = Mixer.loopNow ? Mixer.loopNow() : null; }catch(e){}
     // sent at once when something changed — play, pause, a jump (a seek, the loop going round), tempo, key, the song —
     // otherwise once a second: the friend's page plays from it
-    const sig = JSON.stringify([name, playing, speed, key, stemPitch, ready, loop, stems.length]);
+    const sig = JSON.stringify([name, playing, speed, key, stemPitch, ready, loop, stems.length, stage]);
     const was = lastSent, now = performance.now();
     const jumped = was && playing && was.playing ? Math.abs(pos - (was.pos + (at - was.at) / 1000 * was.speed)) > 0.04 : was && Math.abs(pos - was.pos) > 0.04;
     if(!force && was && sig === lastSong && !jumped && now - was.sentAt < 1000) return;
-    link.send({type: "song", name, title: name ? name.replace(/^.*? - /, "") : "", stems, playing, pos, at, speed, key, stemPitch, dur, ready, loop});
+    link.send({type: "song", name, title: name ? name.replace(/^.*? - /, "") : "", stems, playing, pos, at, speed, key, stemPitch, dur, ready, loop, stage});
     lastSong = sig; lastSent = {pos, at, speed, playing, sentAt: now};
   }
   function ui(){

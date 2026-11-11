@@ -16,7 +16,7 @@
   const SNAME = {drums: "Bicí", bass: "Basa", guitar: "Kytara", guitar_solo: "Kytara sólo", guitar_rhythm: "Kytara rytmus", vocals: "Zpěv", piano: "Klávesy", other: "Ostatní"};
   function toast(t, ms){ const n = document.createElement("div"); n.className = "toast"; n.textContent = t; n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), ms || 5000); }
 
-  let gateN = null, gateOpen = 1, solo = false;     // solo: the library on the PC, no host — he plays along on his own
+  let gateN = null, gateOpen = 1, solo = false, mixBus = null;     // solo: the library on the PC, no host — he plays along on his own
   let me = {user: null, login: false, host: "Kamarád"}, ctx = null, link = null, chat = null, mix = null, amp = null;
   let eqNodes = [], tunA = null;
   let inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, monPan = null, myOut = null, meterA = null;
@@ -148,7 +148,8 @@
     tunA = ctx.createAnalyser(); tunA.fftSize = 4096; inGain.connect(tunA);
     monGain = ctx.createGain(); monPan = ctx.createStereoPanner(); myOut.connect(monGain); monGain.connect(monPan); monPan.connect(ctx.destination);
     meterA = ctx.createAnalyser(); meterA.fftSize = 512; inGain.connect(meterA);
-    mix = new JamMix(ctx, api, ctx.destination);
+    mixBus = ctx.createGain(); mixBus.connect(ctx.destination);            // the backing as a whole (PODKLAD)
+    mix = new JamMix(ctx, api, mixBus);
     if(!solo){
     link = new JamLink({role: "guest", ctx, output: ctx.destination, onEvent: event});
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
@@ -210,6 +211,8 @@
     if(kind === "media") showMedia(v);
     if(kind === "mode") $("mode").textContent = v === "low" ? "Režim: nízké zpoždění (jako SonoBus) — kytary jdou nekomprimovaně" : "Režim: jako hovor (Opus) — stabilnější na horší síti";
     if(kind === "msg" && v && v.names && v.names.host && v.names.host !== me.host){ me.host = v.names.host; renderRack(); }
+    if(kind === "msg" && v && v.type === "setup"){ onSetup(v); return; }
+    if(kind === "ready" && v) sendMine();
     if(kind === "msg" && v.type === "song") onSong(v);
     else if(kind === "msg" && chat) chat.onMsg(v);
   }
@@ -381,8 +384,28 @@
   // ---------------------------------------------------------------- the song as the host's Pick has it
   function hostPos(perf){ return S.pos + ((solo ? perf : link.remoteNow(perf)) - S.at) / 1000 * (S.speed || 1); }
   function posNow(){ if(!S || (!link && !solo)) return 0; if(!S.playing || (!solo && !link.clock.samples.length)) return S.pos; return hostPos(performance.now()); }
+  let stageOff = false, stageNow = null;
+  function stageFollow(st){
+    const on = !!(st && st.on);
+    if(!on) stageOff = false;
+    const show = on && !stageOff;
+    $("stageIn").hidden = !(on && stageOff);
+    if(show === !!stageNow && (!show || (stageNow.show === st.show && stageNow.dir === st.dir))) return;
+    stageNow = show ? {show: st.show, dir: st.dir} : null;
+    const box = $("stageV");
+    if(show){
+      box.dataset.show = st.show || "both"; box.classList.toggle("col", st.dir === "col");
+      $("stLyr").appendChild($("vLyr")); $("stTab").appendChild($("vPick"));
+      $("vLyr").hidden = false; $("vPick").hidden = false; box.hidden = false; document.body.classList.add("staged"); lyrIdx = -2;
+    } else {
+      const v = document.querySelector(".view"); v.insertBefore($("vPick"), v.firstChild); v.insertBefore($("vLyr"), v.firstChild);
+      box.hidden = true; document.body.classList.remove("staged"); setView(view);
+    }
+  }
+  $("stageOut").onclick = () => { stageOff = true; stageFollow(S && S.stage); };
+  $("stageIn").onclick = () => { stageOff = false; stageFollow(S && S.stage); };
   function onSong(m){
-    const was = S; S = m;
+    const was = S; S = m; stageFollow(m.stage);
     $("tempo").textContent = `tempo ${Math.round((m.speed || 1) * 100)} %`;
     $("key").textContent = `tónina ${m.key > 0 ? "+" : ""}${m.key || 0}`;
     $("play").textContent = m.playing ? "❚❚" : "▶";
@@ -406,7 +429,7 @@
       if(!ok || loading !== name) return;
     }catch(e){ if(loading === name){ $("songSt").textContent = e.message; loading = null; } return; }
     loaded = name; loading = null;
-    applyMix(); renderRack();
+    applyMix(); renderRack(); paintSecs();
     $("songSt").textContent = solo ? "Stopy připravené — dej ▶ a hraj." : "Stopy připravené — hraje u obou zároveň.";
     if(solo && S && S.name === name && mix.duration) S = {...S, dur: mix.duration};
     sync();
@@ -457,12 +480,30 @@
     return new AudioWorkletNode(c, "jam-gate");
   }
   const gateTxt = (d) => d <= -99 ? "vyp." : Math.round(d) + " dB";
-  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null, gate: -100}, store("mine") || {});
+  const MY = Object.assign({hv: 1, hp: 0, hm: false, ing: 0, mv: 1, mp: 0, mm: false, drive: 0, eqOn: false, eq: null, gate: -100, bv: 0}, store("mine") || {});
+  let mineT = 0;
+  function sendMine(){
+    if(!link) return;
+    clearTimeout(mineT);
+    mineT = setTimeout(() => link && link.send({type: "mine", sound: amp ? amp.label : "Čistý zvuk",
+      my: {ing: MY.ing, drive: MY.drive, gate: MY.gate, mv: MY.mm ? 0 : MY.mv, bv: MY.bv || 0}}), 250);
+  }
+  // the host set his sound or levels: played at once; he can change all of it afterwards
+  async function onSetup(m){
+    if(m.sound && typeof m.sound === "object" && ["print", "amp", "clean"].includes(m.sound.kind)){
+      await useSound(m.sound, true); toast(`${me.host} ti nastavil zvuk: ${amp ? amp.label : "Čistý zvuk"}`, 5000); }
+    if(m.mine && typeof m.mine === "object"){
+      const lim = {ing: [-12, 24], drive: [-24, 12], gate: [-100, 0], mv: [0, 2], bv: [-24, 6]};
+      Object.entries(m.mine).forEach(([k, v]) => { if(lim[k] && isFinite(+v)) MY[k] = Math.max(lim[k][0], Math.min(lim[k][1], +v)); });
+      applyMine(); renderRack(); }
+  }
   function applyMine(){
     if(!amp) return;
     if(link){ link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp); }
     inGain.gain.value = Math.pow(10, MY.ing / 20); amp.setInputDb(MY.ing); amp.setDrive(MY.drive);
     if(gateN) gateN.parameters.get("threshold").setTargetAtTime(MY.gate, ctx.currentTime, 0.02);
+    if(mixBus) mixBus.gain.setTargetAtTime(Math.pow(10, (MY.bv || 0) / 20), ctx.currentTime, 0.02);
+    sendMine();
     monGain.gain.value = MY.mm || !$("mon").checked ? 0 : MY.mv; monPan.pan.value = MY.mp;
     $("drive").value = MY.drive; $("driveV").textContent = MY.drive + " dB";
     store("mine", MY);
@@ -508,6 +549,7 @@
         <div class="tools"><button id="tPrints" title="Katalog otisků">Otisky</button><button id="tNam" title="NAM zesilovače a kabinety">NAM</button></div>
         <div class="tools"><button id="tEq" class="${MY.eqOn ? "on" : ""}" title="Ekvalizér tvé kytary">EQ</button><button id="tTun" title="Ladička">Ladička</button></div>
         <div class="knobs">${knob("ing", "GAIN", -12, 24, MY.ing, fmtDb(MY.ing) + " dB", 0)}${knob("drive", "DRIVE", -24, 12, MY.drive, fmtDb(MY.drive), 0)}${knob("mp", "PAN", -1, 1, MY.mp, panTxt(MY.mp), 0, true)}</div>
+        <div class="knobs">${knob("bv", "PODKLAD", -24, 6, MY.bv || 0, fmtDb(MY.bv || 0) + " dB", 0)}</div>
         <div class="clip"></div>${fader("mv", MY.mv, 6, MY.gate)}<div class="dbv">${fmtDb(lin2db(MY.mv))} dB</div>
         <div class="gv" title="Noise gate tvé kytary: zelená = propouští, červená = zavřeno (ticho mezi tóny)"><span class="gled"></span>GATE <b>${gateTxt(MY.gate)}</b></div>
         <div class="ms"><button class="m ${MY.mm ? "on" : ""}" data-k="mm" title="Neslyšet se">M</button></div></div>`;
@@ -601,14 +643,41 @@
     $("chNext").innerHTML = (i < 0 ? [] : cs.slice(from, from + 6)).map(c => `<span>${esc(c.chord)}<small>za ${Math.max(0, c.start - pos).toFixed(1).replace(".", ",")} s</small></span>`).join("");
   }
   function paintSecs(){
-    const secs = (info && info.sections) || [], dur = (S && S.dur) || (secs.length ? secs[secs.length - 1].end : 0);
-    $("secs").innerHTML = dur ? secs.map((s, k) => `<i title="${esc(s.name)}" style="width:${(s.end - s.start) / dur * 100}%;background:${esc(s.color || "#666")};margin-left:${k === 0 ? s.start / dur * 100 : 0}%"></i>`).join("") : "";
+    const secs = (info && info.sections) || [], dur = (S && S.dur) || (mix && mix.duration) || (secs.length ? secs[secs.length - 1].end : 0);
+    $("secs").innerHTML = dur ? secs.map((s, k) => `<i data-k="${k}" title="${esc(s.name)} · ${mmss(s.start)}–${mmss(s.end)}" style="left:${s.start / dur * 100}%;width:${(s.end - s.start) / dur * 100}%;--c:${esc(s.color || "#666")}"><b>${esc(s.name || "")}</b></i>`).join("") : "";
+    secNow = -1; paintWave();
     const sel = $("secSel");
     getJ(`/g/sections?name=${encodeURIComponent(S.name)}`).then(d => {
       const list = (d.sections || []).slice(0, 12);
       sel.innerHTML = list.length ? list.map(s => `<option value="${s.start}|${s.end}">${mmss(s.start)}–${mmss(s.end)}${s.score != null ? " · zřetelnost " + Math.round(s.score * 100) + " %" : ""}</option>`).join("")
         : `<option value="">V téhle písni jsem nenašel úsek se zřetelnou kytarou</option>`;
     }).catch(() => { sel.innerHTML = `<option value="">—</option>`; });
+  }
+  // the song's own outline (all its tracks together), drawn once a song is loaded
+  let wavePeaks = null, wavePeaksOf = null, secNow = -1;
+  function paintWave(){
+    const cv = $("wave"); if(!cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight; if(!w || !h) return;
+    const dpr = window.devicePixelRatio || 1; cv.width = w * dpr; cv.height = h * dpr;
+    const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height);
+    if(!mix || !mix.ch.length || !loaded) return;
+    if(wavePeaksOf !== loaded){
+      const N = 1400, bufs = mix.ch.map(c => c.buf), len = Math.max(...bufs.map(b => b.length)), step = Math.max(1, Math.floor(len / N / 24));
+      const pk = new Float32Array(N);
+      bufs.forEach(b => { const d = b.getChannelData(0); for(let i = 0; i < d.length; i += step){ const k = Math.floor(i / len * N), v = Math.abs(d[i]); if(v > pk[k]) pk[k] = v; } });
+      const mx = Math.max(0.05, ...pk); wavePeaks = pk.map(v => v / mx); wavePeaksOf = loaded;
+    }
+    const n = wavePeaks.length, mid = cv.height / 2;
+    g.fillStyle = "rgba(255,255,255,.55)";
+    for(let x = 0; x < cv.width; x++){ const v = wavePeaks[Math.min(n - 1, Math.floor(x / cv.width * n))], a = Math.max(1, v * mid * 0.95); g.fillRect(x, mid - a, 1, a * 2); }
+  }
+  window.addEventListener("resize", () => paintWave());
+  function paintSecNow(pos){
+    const secs = (info && info.sections) || [];
+    const k = secs.findIndex(s => pos >= s.start && pos < s.end);
+    if(k === secNow) return; secNow = k;
+    $("secs").querySelectorAll("i").forEach(x => x.classList.toggle("now", +x.dataset.k === k));
+    $("secName").textContent = k >= 0 ? secs[k].name || "" : "";
   }
   $("seek").onclick = (e) => {
     if(!S || !S.dur) return;
@@ -625,11 +694,12 @@
     if(e.code !== "Space" || /INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName) || !$("join").hidden) return;
     e.preventDefault(); $("play").click();
   });
-  document.querySelectorAll(".views [data-v]").forEach(b => b.onclick = () => {
-    view = b.dataset.v; document.querySelectorAll(".views [data-v]").forEach(x => x.classList.toggle("on", x === b));
+  function setView(v){
+    view = v; document.querySelectorAll(".views [data-v]").forEach(x => x.classList.toggle("on", x.dataset.v === v));
     $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; $("vTabs").hidden = view !== "tabs"; lyrIdx = -2;
     if(view === "tabs") showTabs();
-  });
+  }
+  document.querySelectorAll(".views [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
 
   // ---------------------------------------------------------------- the sound of his guitar
   let prints = null;
@@ -741,7 +811,7 @@
       const k = JSON.stringify(s), h = (store("hist") || []).filter(x => JSON.stringify(x) !== k); h.unshift(s); store("hist", h.slice(0, 12)); HI = 0;
       if(!quiet) toast(amp.label);
     }catch(e){ toast(e.message); }
-    $("sndNow").textContent = amp.label; renderRack();
+    $("sndNow").textContent = amp.label; renderRack(); sendMine();
   }
   function restoreSound(){ const s = store("sound"); if(s && s.kind !== "clean") useSound(s, true); }
   $("sndClean").onclick = () => useSound({kind: "clean"});
@@ -972,10 +1042,12 @@
     if(S && S.name){
       const pos = posNow(), dur = S.dur || mix.duration || 0;
       $("time").textContent = `${mmss(pos)} / ${mmss(dur)}`;
+      if(stageNow){ $("stTime").textContent = `${mmss(pos)} / ${mmss(dur)}`; $("stSong").textContent = $("song").textContent; $("stSec").textContent = $("secName").textContent; }
       $("head").style.left = dur ? Math.min(100, pos / dur * 100) + "%" : "0";
       const lp = $("loopR"), L = S.loop;
       if(L && dur){ lp.hidden = false; lp.style.left = L.start / dur * 100 + "%"; lp.style.width = (L.end - L.start) / dur * 100 + "%"; lp.title = `Smyčka ${mmss(L.start)}–${mmss(L.end)} (zapnutá v Picku)`; } else lp.hidden = true;
-      if(view === "lyr") lyricsAt(pos); else if(view === "chords") chordsAt(pos);
+      if(view === "lyr" || stageNow) lyricsAt(pos); else if(view === "chords") chordsAt(pos);
+      paintSecNow(pos);
     }
   }
   let instEv = null;
