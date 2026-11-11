@@ -112,7 +112,9 @@ def _scan():
         st = f.stat()
         sig = f"{int(st.st_mtime)}"
         prev = old.get(str(f))
-        if prev and prev.get("sig") == sig and prev.get("ok"):
+        # the same file as last time: what was found then holds — loaded or not (one that failed would take up to
+        # 90 s again at every scan); a plugin updated or reinstalled has a new date and is tried again
+        if prev and prev.get("sig") == sig:
             out.append(prev)
         else:
             try:
