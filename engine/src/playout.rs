@@ -28,15 +28,18 @@ const MAX_SKEW_PPM: f64 = 1000.0;
 const LEVEL_TAU: f64 = 1.0;
 /// ppm of correction per ms the buffer is off its target (the quick part, pulls the level back)…
 const KP: f64 = 200.0;
-/// …and ppm per ms per second (the slow part: it learns the clock difference and keeps it).
-const KI: f64 = 12.0;
+/// …and ppm per ms per second (the slow part: it learns the clock difference and keeps it), from a
+/// slower average (LEARN_TAU) so the level's own wander is not taken for a clock difference.
+const KI: f64 = 6.0;
+const LEARN_TAU: f64 = 8.0;
 /// The level must be this close to its target (ms) for the clock difference to be learnt from it.
 const LEARN_MS: f64 = 1.0;
-/// Further above its target than this many frames (averaged), the surplus — left by a burst after a gap —
-/// goes at once: a frame is skipped, cross-faded into the next so it does not click (the resampler alone
-/// would take ~1.5 ms a second).
+/// When the lowest level over the last SKIP_EVERY_MS stays more than this many frames above the target,
+/// the surplus — left by a burst after a gap — goes at once: a frame is skipped, cross-faded into the
+/// next so it does not click (the resampler alone would take ~1.5 ms a second). The lowest level, not an
+/// average: it shows the surplus at once and does not count the sawing of whole frames as surplus.
 const SKIP_FRAMES: f64 = 1.5;
-/// …but not more often than every this many ms, so a burst does not turn into a string of skips.
+/// …looked at every this many ms, at most one skip each time.
 const SKIP_EVERY_MS: f64 = 30.0;
 
 pub struct Playout {
@@ -52,6 +55,10 @@ pub struct Playout {
     err: f64,
     /// the learnt clock difference, ppm (the integral part)
     skew: f64,
+    /// the level off its target averaged slowly (LEARN_TAU), what the clock difference is learnt from
+    err_slow: f64,
+    /// the lowest level since the last look (SKIP_EVERY_MS)
+    min_fill: f64,
     /// output samples per second (the card's rate)
     out_rate: f64,
     tmp: Vec<f32>,
@@ -79,6 +86,8 @@ impl Playout {
             base: 1.0,
             err: 0.0,
             skew: 0.0,
+            err_slow: 0.0,
+            min_fill: f64::INFINITY,
             out_rate: crate::codec::RATE as f64,
             tmp: vec![0.0; frame],
             tmp2: vec![0.0; frame],
@@ -131,7 +140,6 @@ impl Playout {
                 let w = (i as f32 + 0.5) / n * std::f32::consts::FRAC_PI_2;
                 self.tmp[i] = self.tmp[i] * w.cos() + self.tmp2[i] * w.sin();
             }
-            self.err -= self.frame as f64;      // the average has not seen it yet: no second skip for the same surplus
         }
         self.fifo.extend_from_slice(&self.tmp);
     }
@@ -163,20 +171,29 @@ impl Playout {
             let target = self.jb.target() as f64 * frame + frame * 0.5;
             self.err += (fill - target - self.err) * (dt / LEVEL_TAU).min(1.0);
             let err_ms = self.err / 48.0;
+            self.err_slow += (fill - target - self.err_slow) * (dt / LEARN_TAU).min(1.0);
             // learn only once settled near the target: the surplus a start leaves, or a jump of the target
             // (the network got worse), is the quick part's job — learnt, it would read as a clock difference
-            if err_ms.abs() < LEARN_MS {
-                self.skew = (self.skew + KI * err_ms * dt).clamp(-MAX_SKEW_PPM, MAX_SKEW_PPM);
+            if err_ms.abs() < LEARN_MS && (self.err_slow / 48.0).abs() < LEARN_MS {
+                self.skew = (self.skew + KI * self.err_slow / 48.0 * dt).clamp(-MAX_SKEW_PPM, MAX_SKEW_PPM);
             }
             let ppm = (self.skew + KP * err_ms).clamp(-MAX_PPM, MAX_PPM);
             self.ratio = self.base * (1.0 + ppm * 1e-6);
             self.since_skip += out.len() as f64;
-            if self.skip_on && self.err > SKIP_FRAMES * frame && self.since_skip / self.out_rate * 1000.0 >= SKIP_EVERY_MS {
-                self.skip = true;
+            self.min_fill = self.min_fill.min(fill);
+            if self.since_skip / self.out_rate * 1000.0 >= SKIP_EVERY_MS {
+                if self.skip_on && self.min_fill - target > SKIP_FRAMES * frame {
+                    self.skip = true;           // pull() resets since_skip when it has skipped
+                } else {
+                    self.since_skip = 0.0;
+                }
+                self.min_fill = f64::INFINITY;
             }
         } else {
             self.skip = false;
             self.err = 0.0;
+            self.err_slow = 0.0;
+            self.min_fill = f64::INFINITY;
             self.ratio = self.base * (1.0 + self.skew * 1e-6);
         }
 
@@ -260,7 +277,7 @@ mod tests {
         let out_rate = 48_000.0 * (1.0 + ppm * 1e-6);
         let mut out = vec![0.0; 64];
         let (mut seq, mut t_out) = (0u32, 0.0f64);
-        for _ in 0..(90.0 * out_rate / 64.0) as usize {         // 90 s
+        for _ in 0..(180.0 * out_rate / 64.0) as usize {        // 3 min
             while (seq as f64) * frame as f64 / 48_000.0 <= t_out + 0.005 {
                 p.push(&item(seq, frame, (seq as u64) * 2500, 0.25));
                 seq += 1;
@@ -303,9 +320,36 @@ mod tests {
             p.render(&mut out);
             t += 64.0 / 48_000.0;
         }
-        assert!(fill(&stats) < 15.0, "still {:.1} ms buffered", fill(&stats));
+        assert!(fill(&stats) < 11.0, "still {:.1} ms buffered", fill(&stats));
         assert!(p.skipped >= 8, "skipped {}", p.skipped);
         assert!(out.iter().all(|v| (*v - 0.25).abs() < 0.02), "the cross-fades keep the signal");
+    }
+
+    /// Same clocks at both ends, packets arriving with ±1 ms of jitter for 3 minutes: the learnt
+    /// difference must stay small, not wander off (it is the jitter, not a clock difference).
+    #[test]
+    fn same_clocks_stay_near_zero() {
+        let frame = 120;
+        let stats = Arc::new(Stats::default());
+        let mut p = Playout::new(Decoder::new(Codec::Pcm16, frame).unwrap(), frame, 3, 3, stats.clone());
+        let mut out = vec![0.0; 64];
+        let (mut seq, mut t, mut rng, mut worst) = (0u32, 0.0f64, 0x2545F4914F6CDD1Du64, 0i32);
+        let mut due = 0.0f64;
+        for k in 0..(180.0 * 48_000.0 / 64.0) as usize {
+            while due <= t {
+                p.push(&item(seq, frame, (seq as u64) * 2500, 0.25));
+                seq += 1;
+                rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17;
+                let j = (rng % 2000) as f64 / 1e6;                 // 0–2 ms late
+                due = seq as f64 * frame as f64 / 48_000.0 + j;
+            }
+            p.render(&mut out);
+            t += 64.0 / 48_000.0;
+            if k as f64 * 64.0 / 48_000.0 > 20.0 {
+                worst = worst.max(stats.ratio_ppm.load(Relaxed).abs());
+            }
+        }
+        assert!(worst < 60, "learnt up to {worst} ppm with the same clocks");
     }
 
     #[test]
