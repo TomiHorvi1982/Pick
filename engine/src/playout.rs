@@ -43,6 +43,10 @@ const SKIP_FRAMES: f64 = 2.0;
 const SKIP_AVG_FRAMES: f64 = 1.0;
 /// No skipping this long after the buffer ran dry: the level is thin then, a skip would empty it again.
 const SKIP_HOLD_MS: f64 = 500.0;
+/// A surplus this big (frames over the target, lowest level) is the burst after the machine stalled
+/// (Windows can stop a process for ~100 ms): it goes fast — a skip every few ms, also right after a gap.
+const FLOOD_FRAMES: f64 = 8.0;
+const FLOOD_EVERY_MS: f64 = 4.0;
 /// …looked at every this many ms, at most one skip each time.
 const SKIP_EVERY_MS: f64 = 30.0;
 
@@ -195,9 +199,11 @@ impl Playout {
                 self.since_dry = 0.0;
             }
             self.min_fill = self.min_fill.min(fill);
-            if self.since_skip / self.out_rate * 1000.0 >= SKIP_EVERY_MS {
+            let flood = self.min_fill - target > FLOOD_FRAMES * frame;
+            let every = if flood { FLOOD_EVERY_MS } else { SKIP_EVERY_MS };
+            if self.since_skip / self.out_rate * 1000.0 >= every {
                 let held = self.since_dry / self.out_rate * 1000.0 < SKIP_HOLD_MS;
-                if self.skip_on && !held && self.min_fill - target > SKIP_FRAMES * frame && self.err > SKIP_AVG_FRAMES * frame {
+                if self.skip_on && (flood || (!held && self.min_fill - target > SKIP_FRAMES * frame && self.err > SKIP_AVG_FRAMES * frame)) {
                     self.skip = true;           // pull() resets since_skip when it has skipped
                 } else {
                     self.since_skip = 0.0;
@@ -365,6 +371,33 @@ mod tests {
             }
         }
         assert!(worst < 60, "learnt up to {worst} ppm with the same clocks");
+    }
+
+    /// The machine stalls for 100 ms (Windows does): no packets, then all of them at once. The buffer
+    /// must be back near its target within half a second, not seconds.
+    #[test]
+    fn a_stall_does_not_leave_a_long_delay() {
+        let frame = 120;
+        let stats = Arc::new(Stats::default());
+        let mut p = Playout::new(Decoder::new(Codec::Pcm16, frame).unwrap(), frame, 3, 24, stats.clone());
+        let mut out = vec![0.0; 256];
+        let (mut seq, mut t) = (0u32, 0.0f64);
+        let step = 256.0 / 48_000.0;
+        for k in 0..(4.0 / step) as usize {
+            let stalled = k as f64 * step > 2.0 && (k as f64 * step) < 2.1;
+            if !stalled {
+                while (seq as f64) * frame as f64 / 48_000.0 <= t {
+                    p.push(&item(seq, frame, (t * 1e6) as u64, 0.25));
+                    seq += 1;
+                }
+            }
+            p.render(&mut out);
+            t += step;
+            if (k as f64 * step) > 2.6 {
+                let ms = stats.fill_samples.load(Relaxed) as f64 / 48.0;
+                assert!(ms < 45.0, "{ms:.1} ms buffered {:.2} s after the stall", k as f64 * step - 2.1);
+            }
+        }
     }
 
     #[test]

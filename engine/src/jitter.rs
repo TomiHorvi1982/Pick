@@ -119,7 +119,11 @@ impl JitterBuffer {
 
         if let Some((a0, t0)) = self.last {
             let d = (arrival - a0) - (ts.wrapping_sub(t0) as i32) as f64;
-            self.jitter += (d.abs() - self.jitter) / 16.0;
+            // one packet far later than the jitter so far is the machine stalling (Windows can stop a
+            // process for ~100 ms), not the network: it counts only up to 4× the jitter. A network that
+            // really got worse sends many such packets and the limit grows with them.
+            let lim = (4.0 * self.jitter).max(2.0 * self.frame as f64);
+            self.jitter += (d.abs().min(lim) - self.jitter) / 16.0;
             self.adapt();
         }
         self.last = Some((arrival, ts));
