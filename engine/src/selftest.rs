@@ -122,7 +122,9 @@ pub fn run(o: SelftestOpts, verbose: bool) -> Result<Report> {
     let _rx = spawn_receiver(rx_sock, prod, start, None, stats.clone(), stop.clone());
 
     // the "sound card" at the other end, with its own (skewed) clock
-    let mut play = Playout::new(Decoder::new(o.codec, frame)?, frame, o.min_target, o.max_target, stats.clone());
+    // as the engine does: the buffer always holds a whole card block more than a frame
+    let min_target = o.min_target.max(o.block.div_ceil(frame) as u32 + 1);
+    let mut play = Playout::new(Decoder::new(o.codec, frame)?, frame, min_target, o.max_target.max(min_target + 8), stats.clone());
     let block = o.block;
     let rate_out = RATE as f64 * (1.0 + o.skew_ppm * 1e-6);
     let mut out = vec![0.0f32; block];

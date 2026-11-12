@@ -152,7 +152,11 @@ impl Engine {
         // receiving: network thread → ring → output callback
         let (prod, mut cons) = HeapRb::<Item>::new(256).split();
         let rx = spawn_receiver(sock.try_clone()?, prod, epoch, Some(peer.clone()), stats.clone(), stop.clone());
-        let mut play = Playout::new(Decoder::new(o.codec, o.frame)?, o.frame, o.min_target, o.max_target, stats.clone());
+        // the sound card takes `buffer` samples at a time (and the far one sends in such bursts too): the buffer
+        // must always hold a whole card block more than a frame, or a big block (256, 512) runs it dry
+        let min_target = o.min_target.max((o.buffer as usize).div_ceil(o.frame) as u32 + 1);
+        let max_target = o.max_target.max(min_target + 8);
+        let mut play = Playout::new(Decoder::new(o.codec, o.frame)?, o.frame, min_target, max_target, stats.clone());
         play.set_out_rate(out_rate);
         let och = ocfg.cfg.channels as usize;
         let mut mono = vec![0.0f32; 8192];

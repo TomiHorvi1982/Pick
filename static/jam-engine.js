@@ -106,7 +106,7 @@
         row("Kytara do jamu", `<select data-k="source"><option value="device" ${c.source === "device" ? "selected" : ""}>přímo ze zvukovky (nejrychlejší)</option><option value="pick" ${c.source === "pick" ? "selected" : ""}>${escH(opts.pickLabel || "zvuk z Picku (otisk, efekty)")}</option></select>`),
         c.source === "device" ? row("Vstup", `<select data-k="input">${opt(ins, c.input, d && d.default_input)}</select> <select data-k="in_ch" title="Kanál kytary na zvukovce">${Array.from({length: chs}, (_, i) => `<option value="${i + 1}" ${+c.in_ch === i + 1 ? "selected" : ""}>kanál ${i + 1}</option>`).join("")}</select>`) : "",
         row("Výstup", `<select data-k="output">${opt(d && d.outputs, c.output, d && d.default_output)}</select>`),
-        row("Buffer zvukovky", `<select data-k="buffer">${[32, 64, 128, 256].map(b => `<option value="${b}" ${+c.buffer === b ? "selected" : ""}>${b} vzorků = ${(b / 48).toFixed(1).replace(".", ",")} ms</option>`).join("")}</select>`
+        row("Buffer zvukovky", `<select data-k="buffer">${[32, 64, 128, 256, 512].map(b => `<option value="${b}" ${+c.buffer === b ? "selected" : ""}>${b} vzorků = ${(b / 48).toFixed(1).replace(".", ",")} ms${b === 256 ? " (výchozí)" : b <= 64 ? " (jen rychlé PC a ASIO)" : ""}</option>`).join("")}</select>`
           + (d && d.host === "WASAPI" ? ` <small title="Ve sdíleném režimu Windows určuje buffer systém (kolem 10 ms). Nejnižší zpoždění dává ASIO.">WASAPI: řídí Windows (~10 ms)</small>` : "")),
       ].join("");
       el.querySelectorAll("select").forEach(sel => sel.onchange = () => {
@@ -140,7 +140,7 @@
       this.media = {};                                  // remote: lane → MediaStream
       // the native engine: its settings (from the page), my side's state, the other side's address
       this.native = new NativeEngine((k, m) => this.on(k, m), o.nativeUrl);
-      this.natCfg = Object.assign({source: "device", host: "", input: "", output: "", in_ch: 1, buffer: 64}, o.native || {});
+      this.natCfg = Object.assign({source: "device", host: "", input: "", output: "", in_ch: 1, buffer: 256}, o.native || {});
       this.native.host = this.natCfg.host || "";
       this.natPeer = null; this.natSince = 0; this.natWhy = "";
       this.lastVol = 1; this.lastPan = 0;
@@ -219,7 +219,7 @@
       const c = this.natCfg;
       try{
         const s = await this.native.cmd({type: "start", source: c.source === "pick" ? "browser" : "device", rate: this.ctx.sampleRate,
-          host: c.host || "", input: c.input, output: c.output, in_ch: +c.in_ch || 1, buffer: +c.buffer || 64}, "started", 20000);
+          host: c.host || "", input: c.input, output: c.output, in_ch: +c.in_ch || 1, buffer: +c.buffer || 256}, "started", 20000);
         if(!s.ip){ say({ok: false, why: "tailscale"}); this.native.cmd({type: "stop"}).catch(() => {}); this.natFallback("tailscale"); return; }
         this.natMix();
         say({ok: true, ip: s.ip, port: s.port});
