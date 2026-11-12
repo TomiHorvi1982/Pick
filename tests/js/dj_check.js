@@ -48,6 +48,15 @@ out.playable = C.playable([
 ]).map(r => r.name);
 out.order = C.orderStems(["other", "drums", "vocals", "take-1", "bass"]);
 
+out.library = C.libraryItems(
+  [{name: "Sep", complete: true, stems: ["drums", "vocals"], meta: {title: "Separated", artist: "X"}, duration: 200}],
+  [{type: "file", rel: "Songs/Sep.mp3", name: "Sep.mp3", stems: {state: "ready", name: "Sep"}, duration: 200},
+   {type: "file", rel: "Songs/New.mp3", name: "New.mp3", title: "New", artist: "Y", stems: null, duration: 180},
+   {type: "file", rel: "Songs/Long.mp3", name: "Long.mp3", stems: null, duration: 3600},
+   {type: "dir", rel: "Songs/Folder"}]);
+const rd = Uint8Array.from([1, 1, 0, 1, 0, 0]);
+out.next = [C.nextWindow(rd, new Set(), 13, 6.4), C.nextWindow(rd, new Set([4]), 26, 6.4), C.nextWindow(Uint8Array.from([1, 1]), new Set(), 0, 6.4)];
+
 // ---- the worklet, with the AudioWorklet globals stood in.
 let Processor = null;
 const sandbox = {
@@ -87,5 +96,22 @@ send({type: "seek", frame: N - 4}); p.fade = 1;
 out.w_end = run(6);
 out.w_endPlaying = p.playing;
 out.w_reportsHavePos = sandbox.reports.every(r => typeof r.pos === "number");
+
+// Live: the mix plays (at the stems' average gain) until a window's stems arrive.
+const W = 100, M = 300;
+const mixL = new Int16Array(M).fill(2000), mixR = new Int16Array(M).fill(2000);
+const stemsLive = [0, 1].map(() => [new Int16Array(M), new Int16Array(M)]);
+send({type: "load", stems: stemsLive, length: M, mix: [mixL, mixR], windowFrames: W, windows: 3});
+send({type: "gains", values: [1, 0]});
+send({type: "play", on: true});
+run(128);                                    // gains glide while playing; settled at (1, 0): average 0.5
+send({type: "seek", frame: 0}); p.fade = 1;
+out.live_before = run(2);                    // window 0 missing: mix × 0.5
+const win = new Int16Array(2 * 2 * W);       // stems × channels × frames: stem 0 = 700, stem 1 = 900
+win.fill(700, 0, 2 * W); win.fill(900, 2 * W);
+send({type: "fill", k: 0, start: 0, frames: W, data: win});
+out.live_after = run(2);                     // stems: 1 × 700 + 0 × 900
+send({type: "seek", frame: 150}); p.fade = 1;
+out.live_next = run(2);                      // window 1 still missing: mix again
 
 console.log(JSON.stringify(out));

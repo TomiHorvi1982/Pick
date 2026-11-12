@@ -30,6 +30,45 @@
       && r.stems.some(s => STEMS.includes(s)));
   }
 
+  const MAX_SECONDS = 20 * 60;   // a deck holds all six stems in memory
+
+  /**
+   * The DJ's library: every separated song (Steems) plus every song in Songs
+   * that is not separated yet (those are separated while they play). One row
+   * per song; a song in both lists is the separated one.
+   */
+  function libraryItems(stemRows, songEntries) {
+    const items = [], seen = new Set();
+    for (const r of playable(stemRows)) {
+      const m = r.meta || {};
+      items.push({key: "s:" + r.name, title: m.title || r.name, artist: m.artist || "", duration: r.duration || 0,
+        stems: r.name, live: false, tooLong: (r.duration || 0) > MAX_SECONDS});
+      seen.add(r.name);
+    }
+    for (const e of songEntries || []) {
+      if (!e || e.type !== "file") continue;
+      const st = e.stems || {};
+      if (st.state === "ready" && seen.has(st.name)) continue;
+      const ready = st.state === "ready" && st.name;
+      items.push({key: ready ? "s:" + st.name : "f:" + e.rel, title: e.title || String(e.name || "").replace(/\.[^.]+$/, ""),
+        artist: e.artist || "", duration: e.duration || 0, stems: ready ? st.name : null, rel: e.rel, live: !ready,
+        tooLong: (e.duration || 0) > MAX_SECONDS});
+      if (ready) seen.add(st.name);
+    }
+    return items;
+  }
+
+  /** Which window of a song separated live to fetch next: the first missing one from the playhead on, then from the start. */
+  function nextWindow(ready, pending, pos, windowSeconds) {
+    const n = ready.length;
+    const here = Math.max(0, Math.min(n - 1, Math.floor(pos / windowSeconds)));
+    for (let i = 0; i < n; i++) {
+      const k = (here + i) % n;
+      if (!ready[k] && !pending.has(k)) return k;
+    }
+    return -1;
+  }
+
   /** The stems of a song in deck order (only the Demucs ones). */
   function orderStems(stems) {
     return STEMS.filter(s => (stems || []).includes(s));
@@ -182,6 +221,6 @@
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
-  return {STEMS, STEM_TITLES, PRESETS, playable, orderStems, beatAt, timeOfBeat, beatLength, localBpm,
+  return {STEMS, STEM_TITLES, PRESETS, MAX_SECONDS, playable, libraryItems, nextWindow, orderStems, beatAt, timeOfBeat, beatLength, localBpm,
     nearestBeat, loopAt, syncTo, crossfade, eqDb, filterFor, rateFor, keyLockSemitones, formatTime, peaks, clamp};
 });

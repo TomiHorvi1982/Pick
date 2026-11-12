@@ -89,3 +89,21 @@ def test_worklet_mixes_stems_and_moves_the_playhead(out):
     assert out["w_end"][:2] == [3996, 3997] and out["w_end"][-1] == 0
     assert out["w_endPlaying"] is False           # stops at the end of the song
     assert out["w_reportsHavePos"]
+
+
+def test_library_offers_separated_songs_and_the_rest_live(out):
+    items = {i["key"]: i for i in out["library"]}
+    assert set(items) == {"s:Sep", "f:Songs/New.mp3", "f:Songs/Long.mp3"}   # the separated song once, folders not
+    assert items["s:Sep"]["stems"] == "Sep" and items["s:Sep"]["live"] is False
+    assert items["f:Songs/New.mp3"]["live"] is True and items["f:Songs/New.mp3"]["rel"] == "Songs/New.mp3"
+    assert items["f:Songs/Long.mp3"]["tooLong"] is True
+
+
+def test_the_next_window_is_the_nearest_missing_one_ahead(out):
+    assert out["next"] == [2, 5, -1]          # from the playhead on, skipping one already asked for; all in: none
+
+
+def test_worklet_plays_the_mix_until_the_stems_arrive(out):
+    assert out["live_before"] == [1000, 1000]
+    assert out["live_after"] == [700, 700]
+    assert out["live_next"] == [1000, 1000]

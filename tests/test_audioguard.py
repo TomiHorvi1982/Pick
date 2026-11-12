@@ -83,3 +83,13 @@ def test_the_settings_are_kept_and_the_page_is_heard(client, guard):
     assert server._read_config()["audio_guard"] == {"on": True, "mode": "pause"}
     client.post("/api/audio/active", json={"client": "okno", "on": False})
     assert not _ps(p.pid, "stat").startswith("T")
+
+
+def test_the_dj_live_separation_is_never_held_back(guard, monkeypatch):
+    """Pick DJ's separator feeds the deck that is playing: slowing or pausing it would cut the stems."""
+    monkeypatch.setattr(audioguard, "KEEP", ("/bin/sleep 61",))
+    p = guard()
+    audioguard.configure(mode="pause")
+    audioguard.ping("okno", True)
+    audioguard.step()
+    assert audioguard.STATE["held"] == {} and not _ps(p.pid, "stat").startswith("T") and not _back(p.pid)

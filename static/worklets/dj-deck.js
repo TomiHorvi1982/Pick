@@ -3,7 +3,9 @@
 // Holds a song's stems (Int16, one array per stem and channel, at the
 // context's sample rate) and mixes them with per-stem gains while reading at
 // a variable rate (varispeed; key lock is a pitch shifter further down the
-// chain, see static/dj.js). Everything that moves the playhead — seek, loop,
+// chain, see static/dj.js). A song played before it was separated also has its
+// plain mix: wherever its window of stems has not arrived yet (see "fill"), the
+// deck plays the mix at the stems' average gain instead. Everything that moves the playhead — seek, loop,
 // nudge — happens here, sample-accurately. Reports its position about every
 // 20 ms with the context time it refers to.
 class PickDJDeck extends AudioWorkletProcessor {
@@ -18,6 +20,9 @@ class PickDJDeck extends AudioWorkletProcessor {
     this.gains = [];          // current per-stem gains
     this.targets = [];        // per-stem gains to glide to
     this.loop = null;         // {start, end} in frames
+    this.mix = null;          // [left, right] Int16Array — songs separated while they play
+    this.windowFrames = 0;    // …in windows of this many frames
+    this.ready = null;        // …Uint8Array: 1 where the window's stems are in
     this.fade = 1;            // declick after jumps: 0 → 1
     this.blocks = 0;
     this.port.onmessage = (e) => this.message(e.data);
@@ -28,6 +33,9 @@ class PickDJDeck extends AudioWorkletProcessor {
       case "load":
         this.stems = m.stems;
         this.length = m.length;
+        this.mix = m.mix || null;
+        this.windowFrames = m.windowFrames || 0;
+        this.ready = m.mix ? new Uint8Array(m.windows) : null;
         this.pos = 0;
         this.playing = false;
         this.loop = null;
@@ -35,8 +43,22 @@ class PickDJDeck extends AudioWorkletProcessor {
         this.targets = m.stems.map(() => 1);
         this.report(true);
         break;
+      case "fill": {             // one window of stems: planar Int16, stems × (left, right) × frames
+        if (!this.ready || m.k < 0 || m.k >= this.ready.length) break;
+        const n = m.frames;
+        for (let s = 0; s < this.stems.length; s++) {
+          for (let ch = 0; ch < 2; ch++) {
+            const plane = (s * 2 + ch) * n;
+            this.stems[s][ch].set(m.data.subarray(plane, plane + n), m.start);
+          }
+        }
+        this.ready[m.k] = 1;
+        break;
+      }
       case "unload":
         this.stems = [];
+        this.mix = null;
+        this.ready = null;
         this.length = 0;
         this.playing = false;
         this.report(true);
@@ -107,12 +129,21 @@ class PickDJDeck extends AudioWorkletProcessor {
       const k = Math.floor(p), f = p - k;
       const t = i / n;
       let l = 0, r = 0;
-      for (let s = 0; s < count; s++) {
-        const g = from[s] + (to[s] - from[s]) * t;
-        if (g === 0) continue;
-        const sl = stems[s][0], sr = stems[s][1];
-        l += g * (sl[k] + (sl[k + 1] - sl[k]) * f);
-        r += g * (sr[k] + (sr[k + 1] - sr[k]) * f);
+      if (this.ready && !this.ready[(k / this.windowFrames) | 0]) {
+        let g = 0;
+        for (let s = 0; s < count; s++) g += from[s] + (to[s] - from[s]) * t;
+        g /= count;
+        const ml = this.mix[0], mr = this.mix[1];
+        l = g * (ml[k] + (ml[k + 1] - ml[k]) * f);
+        r = g * (mr[k] + (mr[k + 1] - mr[k]) * f);
+      } else {
+        for (let s = 0; s < count; s++) {
+          const g = from[s] + (to[s] - from[s]) * t;
+          if (g === 0) continue;
+          const sl = stems[s][0], sr = stems[s][1];
+          l += g * (sl[k] + (sl[k + 1] - sl[k]) * f);
+          r += g * (sr[k] + (sr[k + 1] - sr[k]) * f);
+        }
       }
       let fade = 1;
       if (this.fade < 1) { this.fade = Math.min(1, this.fade + 1 / 256); fade = this.fade; }

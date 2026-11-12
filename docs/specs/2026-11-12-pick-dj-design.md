@@ -57,11 +57,52 @@ mix ─▶ Master ─▶ AudioOut (výstupy 1–2) · MediaRecorder (REC)
 - **Výstup:** stejný jako zbytek Picku (`AudioOut`). Odposlech do sluchátek
   (🎧) jen u zařízení se 4+ výstupy (cue na 3–4); jinak je tlačítko neaktivní.
 
+## Fáze 2 — separace během hraní
+
+Knihovna DJ ukazuje všechny písně: ze Steems (štítek **stopy**) i ze `Songs`
+bez stop (štítek **živě**; delší než 20 minut **dlouhá**, nelze načíst).
+
+```
+page ──POST /api/dj/live/open {rel}──▶ djlive.py ──ffmpeg──▶ dj-live/<id>/mix.wav (44,1 kHz s16 stereo)
+     ◀── {id, frames, core, windows, stems} (nebo {separated} když už je ve Steems)
+page ──GET …/mix──▶ hraje hned celý mix
+page ──GET …/window/k (nejbližší chybějící od playheadu)──▶ worker ──▶ w<k>.pcm
+page ──GET …/beats──▶ beatgrid.py nad mix.wav (sdílené _run_beatgrid)
+filler (na pozadí, ve volném čase workeru) ──▶ všechna okna ──▶ 6× MP3 320k do Stems/.raw/htdemucs_6s/<píseň>/
+                                            ──▶ _finalize_stems_job (stejné uložení jako po Demucs úloze)
+```
+
+- **Jedno dekódování:** `mix.wav` hraje stránka, odděluje worker a z něj se
+  hledají beaty, takže si všechny tři odpovídají přesně na vzorek
+  (dva MP3 dekodéry se jinak liší o stovky vzorků).
+- **Okna** na pevné mřížce: jádro 282 242 vzorků (6,4 s), model vidí navíc
+  0,7 s na každé straně. Hranice oken jsou natvrdo (Demucs CLI je prolíná),
+  ale každý vzorek má kontext ≥ 0,7 s z obou stran.
+- **Worker** (`dj_separator.py`, interpret Demucs): `htdemucs_6s` načtený jednou,
+  JSON řádek + binární PCM přes stdin/stdout. Požadavky stránky mají přednost
+  před dopočítáváním. Když server spadne, worker skončí sám (zavřený vstup).
+- **Deck** (`dj-deck.js`): kde okno ještě není, hraje mix se ziskem rovným
+  průměru stop; po příchodu okna hraje stopy.
+- **Ochrana zvuku** (`audioguard`) worker nezpomaluje ani nepozastavuje
+  (`KEEP`): krmí deck, který právě hraje.
+- **Disk:** `~/.local/share/spotdl-helper/dj-live/`, drží se 3 poslední písně
+  (~250 MB oken + 40 MB mixu na čtyřminutovou píseň); beat gridy v `dj-live/beats/`.
+
+Změřeno (M1 Pro, MPS):
+
+| Krok | Čas |
+|---|---|
+| start workeru + model | 1,8 s (jednou) |
+| otevření nové písně (ffmpeg) | 0,5 s |
+| mix do stránky | 0,1 s |
+| jedno okno (6,4 s audia) | 0,6 s; s předností před dopočítáváním 1,5 s |
+| celá čtyřminutová píseň do Steems | ~1 min |
+| beat grid (beat_this nad mixem, souběžně s workerem) | 16,5 s |
+
 ## Omezení fáze 1
 
-- **Paměť:** stopy drží deck celé v paměti jako Int16: ~6 MB na minutu a stopu,
+- **Paměť:** stopy (a u fáze 2 i mix) drží deck celé v paměti jako Int16: ~6 MB na minutu a stopu,
   tj. šestiminutová píseň se 6 stopami ≈ 380 MB na deck. Neměřeno na slabším PC.
-- Písně bez stop DJ nenabízí (fáze 2).
 - Nahrávka mixu se stáhne jako `.webm` (Opus 256 kb/s), neukládá se do knihovny.
 - Bez beat gridu fungují smyčky podle odhadnutého BPM a SYNC se nezapne.
 - MIDI kontroler zatím ne (navázat na učení MIDI pedálu).

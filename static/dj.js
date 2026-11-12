@@ -33,7 +33,7 @@ const PickDJ = (() => {
     sync: false, cue: 0, cuePreview: false, hot: [null, null, null, null], loop: null, loopBeats: null,
     gains: {}, mutes: {}, eq: {high: 0.5, mid: 0.5, low: 0.5}, filter: 0, volume: 0.85, cueOn: false,
     echo: 0, echoBeats: 0.75, verb: 0,
-    peaks: null, overview: null, stretch: null, stretchOn: false, stretchLatency: 0,
+    peaks: null, overview: null, live: null, stretch: null, stretchOn: false, stretchLatency: 0,
     nodes: null, ui: null,
   }));
 
@@ -61,6 +61,7 @@ const PickDJ = (() => {
       routeOutput();
 
       decks.forEach(buildDeck);
+      setInterval(feedLive, 150);                  // live separation keeps coming with the screen closed too
       if (typeof AudioBus !== "undefined") {
         AudioBus.register("dj", () => decks.forEach(d => setPlaying(d, false)), () => decks.some(d => d.playing));
       }
@@ -236,41 +237,92 @@ const PickDJ = (() => {
 
   // ---------------------------------------------------------------- loading
 
-  async function load(d, row) {
+  /**
+   * Loads a library item (C.libraryItems): its Steems stems, or — for a song
+   * not separated yet — its mix at once, with the stems arriving window by
+   * window while it plays (djlive.py on the server).
+   */
+  async function load(d, item) {
     await init();
+    if (item.tooLong) { toast(`Píseň je delší než ${C.MAX_SECONDS / 60} minut, DJ ji neudrží v paměti.`); return; }
     const token = ++d.token;
-    const stems = C.orderStems(row.stems);
-    d.loading = row.meta && row.meta.title ? row.meta.title : row.name;
+    d.loading = item.title;
     setPlaying(d, false);
     render();
-    const beatsP = fetch(`/api/stems/${enc(row.name)}/beats`).then(r => r.ok ? r.json() : null).catch(() => null);
-    const channels = [];
-    let length = Infinity;
+    let stemsName = item.stems, live = null;
     try {
-      for (const st of stems) {
-        const r = await fetch(`/api/stems/${enc(row.name)}/${enc(st)}`);
-        if (!r.ok) throw new Error(`stopa ${st} chybí`);
-        const audio = await ctx.decodeAudioData(await r.arrayBuffer());
-        if (token !== d.token) return;
-        const l = toInt16(audio.getChannelData(0));
-        const rr = audio.numberOfChannels > 1 ? toInt16(audio.getChannelData(1)) : l.slice();
-        channels.push([l, rr]);
-        length = Math.min(length, audio.length);
+      if (!stemsName) {
+        const r = await fetch("/api/dj/live/open", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({rel: item.rel})});
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || r.status);
+        if (j.separated) stemsName = j.separated;   // separated in the meantime
+        else live = j;
       }
+      if (token !== d.token) return;
+      if (live) await loadLive(d, item, live, token);
+      else await loadStems(d, item, stemsName, token);
     } catch (e) {
       if (token === d.token) { d.loading = null; render(); toast(`Píseň se nenačetla: ${e.message || e}`); }
-      return;
     }
+  }
+
+  async function loadStems(d, item, name, token) {
+    const listed = library.find(x => x.stems === name);
+    const stems = C.orderStems(listed && listed.stemList ? listed.stemList : C.STEMS);
+    const beatsP = fetch(`/api/stems/${enc(name)}/beats`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const channels = [], present = [];
+    let length = Infinity;
+    for (const st of stems) {
+      const r = await fetch(`/api/stems/${enc(name)}/${enc(st)}`);
+      if (r.status === 404) continue;              // a song separated into fewer stems
+      if (!r.ok) throw new Error(`stopa ${st} se nenačetla`);
+      const audio = await ctx.decodeAudioData(await r.arrayBuffer());
+      if (token !== d.token) return;
+      const l = toInt16(audio.getChannelData(0));
+      const rr = audio.numberOfChannels > 1 ? toInt16(audio.getChannelData(1)) : l.slice();
+      channels.push([l, rr]);
+      present.push(st);
+      length = Math.min(length, audio.length);
+    }
+    if (!channels.length) throw new Error("píseň nemá stopy");
     const grid = await beatsP;
     if (token !== d.token) return;
-
     const flat = channels.flat();
     d.peaks = C.peaks(flat, length, Math.max(200, Math.ceil(length / SR * BINS_PER_SECOND)));
+    d.live = null;
+    start(d, item, name, present, length, grid);
+    post(d, {type: "load", stems: channels, length}, flat.map(a => a.buffer));
+    await afterLoad(d);
+  }
+
+  async function loadLive(d, item, info, token) {
+    if (info.rate !== SR) throw new Error("nečekaná vzorkovací frekvence");
+    const beatsP = fetch(`/api/dj/live/${info.id}/beats`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const r = await fetch(`/api/dj/live/${info.id}/mix`);
+    if (!r.ok) throw new Error("mix se nenačetl");
+    const mix = wavInt16(await r.arrayBuffer());
+    if (token !== d.token) return;
+    const length = mix[0].length;
+    const stems = info.stems.map(() => [new Int16Array(length), new Int16Array(length)]);
+    d.peaks = C.peaks(mix, length, Math.max(200, Math.ceil(length / SR * BINS_PER_SECOND)));
+    d.live = {id: info.id, core: info.core, ready: new Uint8Array(info.windows), pending: new Set(), errors: 0};
+    start(d, item, info.name, info.stems, length, null);
+    post(d, {type: "load", stems, length, mix, windowFrames: info.core, windows: info.windows},
+      [...stems.flat(), ...mix].map(a => a.buffer));
+    await afterLoad(d);
+    // The grid takes beat_this a few seconds on a new song: SYNC and loops snap to it once it is in.
+    const grid = await beatsP;
+    if (token !== d.token || !grid || !Array.isArray(grid.beats) || grid.beats.length < 2) return;
+    d.song.beats = grid.beats;
+    d.song.downbeats = Array.isArray(grid.downbeats) ? grid.downbeats : [];
+    d.song.bpm = grid.bpm || null;
+    render();
+  }
+
+  function start(d, item, name, stems, length, grid) {
     d.overview = null;
     d.song = {
-      name: row.name,
-      title: (row.meta && row.meta.title) || row.name,
-      artist: (row.meta && row.meta.artist) || "",
+      name, title: item.title, artist: item.artist || "",
       stems, duration: length / SR,
       beats: grid && Array.isArray(grid.beats) && grid.beats.length > 1 ? grid.beats : null,
       downbeats: grid && Array.isArray(grid.downbeats) ? grid.downbeats : [],
@@ -281,16 +333,61 @@ const PickDJ = (() => {
     d.loop = null; d.loopBeats = null; d.sync = false; d.bend = 0;
     d.gains = Object.fromEntries(stems.map(s => [s, 1]));
     d.mutes = {};
-    const saved = readCues(row.name);
+    const saved = readCues(name);
     d.cue = saved.cue || (d.song.beats ? d.song.beats[0] : 0);
     d.hot = saved.hot || [null, null, null, null];
-    post(d, {type: "load", stems: channels, length}, flat.map(a => a.buffer));
+  }
+
+  async function afterLoad(d) {
     post(d, {type: "seek", frame: d.cue * SR});
     d.pos = d.cue;
     applyGains(d);
     await applyRate(d);
     applyMixer(d);
     render();
+  }
+
+  /** Keeps the windows of live-separated songs coming: the nearest missing one from the playhead, one at a time per deck. */
+  function feedLive() {
+    for (const d of decks) {
+      const L = d.live;
+      if (!L || L.pending.size || L.errors > 5) continue;
+      const k = C.nextWindow(L.ready, L.pending, heardPos(d), L.core / SR);
+      if (k < 0) continue;
+      const token = d.token;
+      L.pending.add(k);
+      fetch(`/api/dj/live/${L.id}/window/${k}`).then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+        const start = +r.headers.get("X-DJ-Start"), frames = +r.headers.get("X-DJ-Frames");
+        const data = new Int16Array(await r.arrayBuffer());
+        if (token !== d.token || d.live !== L) return;
+        post(d, {type: "fill", k, start, frames, data}, [data.buffer]);
+        L.ready[k] = 1;
+        L.errors = 0;
+      }).catch(e => {
+        if (token !== d.token) return;
+        if (++L.errors > 5) toast(`Stopy se nedělí: ${e.message || e}`);
+      }).finally(() => { L.pending.delete(k); });
+    }
+  }
+
+  /** A 16-bit stereo WAV (djlive's mix.wav) as two Int16 channels. */
+  function wavInt16(buf) {
+    const v = new DataView(buf);
+    let pos = 12;
+    while (pos + 8 <= v.byteLength) {
+      const id = String.fromCharCode(v.getUint8(pos), v.getUint8(pos + 1), v.getUint8(pos + 2), v.getUint8(pos + 3));
+      const size = v.getUint32(pos + 4, true);
+      if (id === "data") {
+        const n = Math.floor(Math.min(size, v.byteLength - pos - 8) / 4);
+        const l = new Int16Array(n), r = new Int16Array(n);
+        let o = pos + 8;
+        for (let i = 0; i < n; i++, o += 4) { l[i] = v.getInt16(o, true); r[i] = v.getInt16(o + 2, true); }
+        return [l, r];
+      }
+      pos += 8 + size + (size & 1);
+    }
+    throw new Error("mix není WAV");
   }
 
   function toInt16(f) {
@@ -314,11 +411,16 @@ const PickDJ = (() => {
   async function loadLibrary() {
     if (libraryLoaded) return;
     try {
-      const r = await fetch("/api/stems");
-      library = C.playable(await r.json());
+      const [stemRows, songs] = await Promise.all([
+        fetch("/api/stems").then(r => r.json()),
+        fetch("/api/library/browse?rel=Songs&flat=true").then(r => r.ok ? r.json() : {entries: []}).catch(() => ({entries: []})),
+      ]);
+      library = C.libraryItems(stemRows, songs.entries);
+      const stemsOf = new Map(C.playable(stemRows).map(r => [r.name, r.stems]));
+      library.forEach(x => { if (x.stems) x.stemList = stemsOf.get(x.stems) || null; });
       libraryLoaded = true;
     } catch (e) {
-      toast("Knihovnu stop se nepodařilo načíst");
+      toast("Knihovnu se nepodařilo načíst");
     }
     renderLibrary();
   }
@@ -524,12 +626,16 @@ const PickDJ = (() => {
   .pdj-lib{display:flex;flex-direction:column;gap:8px;min-height:240px;flex:1 0 240px}
   .pdj-lib input[type=search]{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 12px;color:#eef0f4;width:280px}
   .pdj-list{overflow:auto;min-height:0;flex:1}
-  .pdj-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,220px) 70px 90px;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;font-size:13px;cursor:grab}
+  .pdj-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,220px) 54px 60px 90px;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;font-size:13px;cursor:grab}
   .pdj-item:hover{background:rgba(255,255,255,.06)}
   .pdj-item .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
   .pdj-item .a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#9aa3b5}
   .pdj-item .d{color:#9aa3b5;text-align:right;font-variant-numeric:tabular-nums}
   .pdj-item .ld{display:flex;gap:4px;justify-content:flex-end}
+  .pdj-item .k{font-size:10px;font-weight:800;text-align:center;border-radius:999px;padding:2px 0;background:rgba(255,255,255,.07);color:#9aa3b5}
+  .pdj-item .k.live{background:rgba(232,185,63,.16);color:#e8b93f}
+  .pdj-item .k.long{color:#f16565}
+  .pdj-item .ld button:disabled{opacity:.3;cursor:default}
   .pdj-item .ld button{padding:3px 9px;border-radius:999px;border:none;font-weight:900;font-size:11px;cursor:pointer;color:#0b0b12}
   .pdj-drop{outline:2px dashed var(--c);outline-offset:-4px}
   .pdj-loading{font-size:12px;color:var(--c)}
@@ -753,8 +859,8 @@ const PickDJ = (() => {
     view.addEventListener("dragleave", () => view.classList.remove("pdj-drop"));
     view.addEventListener("drop", (e) => {
       view.classList.remove("pdj-drop");
-      const name = e.dataTransfer.getData("text/x-pick-stems");
-      const row = library.find(r => r.name === name);
+      const key = e.dataTransfer.getData("text/x-pick-stems");
+      const row = library.find(r => r.key === key);
       if (row) { e.preventDefault(); load(d, row); }
     });
   }
@@ -773,22 +879,21 @@ const PickDJ = (() => {
   function renderLibrary() {
     if (!libList) return;
     const q = (libSearch.value || "").trim().toLowerCase();
-    const rows = library.filter(r => {
-      if (!q) return true;
-      const m = r.meta || {};
-      return [r.name, m.title, m.artist].some(x => x && String(x).toLowerCase().includes(q));
-    });
+    const rows = library.filter(r => !q || [r.title, r.artist].some(x => x && String(x).toLowerCase().includes(q)));
     const count = root.querySelector("#pdj-libcount");
     if (count) count.textContent = libraryLoaded ? `${rows.length} z ${library.length}` : "načítám…";
     libList.replaceChildren(...rows.slice(0, 300).map(r => {
-      const m = r.meta || {};
-      const item = h("div", {class: "pdj-item", draggable: "true"},
-        h("span", {class: "t"}, m.title || r.name),
-        h("span", {class: "a"}, m.artist || ""),
+      const kind = r.tooLong ? h("span", {class: "k long", title: `Delší než ${C.MAX_SECONDS / 60} minut`}, "dlouhá")
+        : r.live ? h("span", {class: "k live", title: "Stopy se rozdělí během hraní (a pak uloží do Steems)"}, "živě")
+        : h("span", {class: "k", title: "Stopy ze Steems"}, "stopy");
+      const item = h("div", {class: "pdj-item", draggable: r.tooLong ? "false" : "true"},
+        h("span", {class: "t"}, r.title),
+        h("span", {class: "a"}, r.artist),
+        kind,
         h("span", {class: "d"}, r.duration ? C.formatTime(r.duration).replace(/\.\d$/, "") : ""),
         h("span", {class: "ld"}, decks.map(d => h("button", {style: `background:var(--dj${d.id.toLowerCase()})`, title: `Načíst do decku ${d.id}`,
-          onclick: () => load(d, r)}, "→ " + d.id))));
-      item.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/x-pick-stems", r.name));
+          disabled: r.tooLong, onclick: () => load(d, r)}, "→ " + d.id))));
+      item.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/x-pick-stems", r.key));
       return item;
     }));
   }
@@ -800,7 +905,7 @@ const PickDJ = (() => {
       const ui = d.ui, s = d.song;
       ui.title.textContent = s ? s.title : "Přetáhni sem píseň";
       ui.artist.textContent = s ? s.artist : "nebo ji načti z knihovny tlačítkem → " + d.id;
-      ui.loading.textContent = d.loading ? `Načítám ${d.loading}…` : (s && !s.beats ? "bez beat gridu: SYNC a smyčky podle odhadu" : "");
+      ui.loading.textContent = d.loading ? `Načítám ${d.loading}…` : liveText(d) || (s && !s.beats ? "bez beat gridu: SYNC a smyčky podle odhadu" : "");
       ui.play.textContent = d.playing ? "❚❚" : "▶";
       ui.play.classList.toggle("on", d.playing);
       ui.sync.classList.toggle("on", d.sync);
@@ -832,6 +937,17 @@ const PickDJ = (() => {
     if (btn) btn.classList.toggle("playing", decks.some(d => d.playing));
   }
 
+  /** "Stopy 12/40 · beat grid…" while a song is separated live; empty when there is nothing to say. */
+  function liveText(d) {
+    const L = d.live;
+    if (!L || !d.song) return "";
+    const done = L.ready.reduce((a, b) => a + b, 0), all = L.ready.length;
+    const parts = [];
+    if (done < all) parts.push(`stopy se dělí: ${done}/${all} ${L.errors > 5 ? "(chyba)" : ""}`.trim());
+    if (!d.song.beats) parts.push("hledám beaty…");
+    return parts.join(" · ");
+  }
+
   function frame() {
     rafId = 0;
     if (root.hidden) return;
@@ -848,6 +964,7 @@ const PickDJ = (() => {
       }
       drawWave(d, p);
       drawOverview(d, p);
+      if (d.live) d.ui.loading.textContent = liveText(d) || (d.song && !d.song.beats ? "bez beat gridu" : "");
       if (d.nodes) d.ui.meter.style.height = (level(d.nodes.meter) * 100).toFixed(1) + "%";
     }
     if (masterMeter) root.querySelector("#pdj-mmeter i").style.width = (level(masterMeter) * 100).toFixed(1) + "%";
@@ -943,6 +1060,13 @@ const PickDJ = (() => {
     if (d.loop) { g.fillStyle = color(d, 0.25); g.fillRect(d.loop.start / d.song.duration * W, 0, (d.loop.end - d.loop.start) / d.song.duration * W, H); }
     g.fillStyle = "#e8b93f";
     g.fillRect(d.cue / d.song.duration * W - dpr, 0, 2 * dpr, H);
+    if (d.live) {                                  // which parts already have stems
+      const n = d.live.ready.length, wpx = W / n;
+      for (let k = 0; k < n; k++) {
+        g.fillStyle = d.live.ready[k] ? color(d, 0.95) : "rgba(255,255,255,.12)";
+        g.fillRect(k * wpx, H - 3 * dpr, Math.max(1, wpx - dpr), 3 * dpr);
+      }
+    }
     g.fillStyle = "#fff";
     g.fillRect(played - dpr, 0, 2 * dpr, H);
   }
@@ -991,5 +1115,6 @@ const PickDJ = (() => {
   else mountButton();
 
   return {open, close, load: (deck, row) => load(decks[deck === "B" || deck === 1 ? 1 : 0], row),
-    state: () => decks.map(d => ({song: d.song && d.song.name, playing: d.playing, pos: heardPos(d), rate: d.rate, sync: d.sync, loop: d.loop}))};
+    state: () => decks.map(d => ({song: d.song && d.song.name, playing: d.playing, pos: heardPos(d), rate: d.rate, sync: d.sync, loop: d.loop,
+      beats: !!(d.song && d.song.beats), live: d.live ? {windows: d.live.ready.length, ready: d.live.ready.reduce((x, y) => x + y, 0)} : null}))};
 })();
