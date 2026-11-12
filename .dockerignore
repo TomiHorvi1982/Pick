@@ -14,3 +14,7 @@
 !static/jam-launcher.cmd
 !static/jam-icon.icns
 !static/jam-launcher.command
+!static/dj-core.js
+!static/dj.js
+!static/dj-library.js
+!static/worklets/dj-deck.js
