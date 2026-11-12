@@ -38,7 +38,11 @@ const LEARN_MS: f64 = 1.0;
 /// the surplus — left by a burst after a gap — goes at once: a frame is skipped, cross-faded into the
 /// next so it does not click (the resampler alone would take ~1.5 ms a second). The lowest level, not an
 /// average: it shows the surplus at once and does not count the sawing of whole frames as surplus.
-const SKIP_FRAMES: f64 = 1.5;
+const SKIP_FRAMES: f64 = 2.0;
+/// …and the level averaged over a second (`err`) is at least a frame over too: a short peak is no surplus.
+const SKIP_AVG_FRAMES: f64 = 1.0;
+/// No skipping this long after the buffer ran dry: the level is thin then, a skip would empty it again.
+const SKIP_HOLD_MS: f64 = 500.0;
 /// …looked at every this many ms, at most one skip each time.
 const SKIP_EVERY_MS: f64 = 30.0;
 
@@ -59,6 +63,9 @@ pub struct Playout {
     err_slow: f64,
     /// the lowest level since the last look (SKIP_EVERY_MS)
     min_fill: f64,
+    /// output samples since the buffer last ran dry, and the underruns seen then
+    since_dry: f64,
+    dry_seen: u64,
     /// output samples per second (the card's rate)
     out_rate: f64,
     tmp: Vec<f32>,
@@ -88,6 +95,8 @@ impl Playout {
             skew: 0.0,
             err_slow: 0.0,
             min_fill: f64::INFINITY,
+            since_dry: 0.0,
+            dry_seen: 0,
             out_rate: crate::codec::RATE as f64,
             tmp: vec![0.0; frame],
             tmp2: vec![0.0; frame],
@@ -180,9 +189,15 @@ impl Playout {
             let ppm = (self.skew + KP * err_ms).clamp(-MAX_PPM, MAX_PPM);
             self.ratio = self.base * (1.0 + ppm * 1e-6);
             self.since_skip += out.len() as f64;
+            self.since_dry += out.len() as f64;
+            if self.jb.counters.underruns != self.dry_seen {
+                self.dry_seen = self.jb.counters.underruns;
+                self.since_dry = 0.0;
+            }
             self.min_fill = self.min_fill.min(fill);
             if self.since_skip / self.out_rate * 1000.0 >= SKIP_EVERY_MS {
-                if self.skip_on && self.min_fill - target > SKIP_FRAMES * frame {
+                let held = self.since_dry / self.out_rate * 1000.0 < SKIP_HOLD_MS;
+                if self.skip_on && !held && self.min_fill - target > SKIP_FRAMES * frame && self.err > SKIP_AVG_FRAMES * frame {
                     self.skip = true;           // pull() resets since_skip when it has skipped
                 } else {
                     self.since_skip = 0.0;
@@ -320,7 +335,7 @@ mod tests {
             p.render(&mut out);
             t += 64.0 / 48_000.0;
         }
-        assert!(fill(&stats) < 11.0, "still {:.1} ms buffered", fill(&stats));
+        assert!(fill(&stats) < 13.0, "still {:.1} ms buffered", fill(&stats));
         assert!(p.skipped >= 8, "skipped {}", p.skipped);
         assert!(out.iter().all(|v| (*v - 0.25).abs() < 0.02), "the cross-fades keep the signal");
     }

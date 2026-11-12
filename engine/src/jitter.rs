@@ -1,7 +1,7 @@
 //! The jitter buffer: packets in by sequence number, frames out at the sound card's pace.
 //!
 //! * jitter estimate as in RFC 3550 (interarrival jitter, in samples);
-//! * the target depth follows it: up at once, down slowly (one frame per ~2 s of steady play);
+//! * the target depth follows it: up at once, down slowly (one frame per ~1 s of steady play);
 //! * a missing frame comes out as `Lost` (the decoder conceals it), a late one is dropped;
 //! * an empty buffer goes back to buffering until the target is reached again.
 
@@ -164,10 +164,11 @@ impl JitterBuffer {
             self.counters.underruns += 1;
             return Out::Lost;
         }
-        // slow way down: after ~2 s without the jitter asking for more
+        // slow way down: after ~1 s without the jitter asking for more
         self.calm += 1;
-        let two_secs = (96_000 / self.frame.max(1)).max(1);
-        if self.calm >= two_secs {
+        // one frame down per second of calm (it was two: after a burst the target held the delay up ~10 s)
+        let calm_pops = (48_000 / self.frame.max(1)).max(1);
+        if self.calm >= calm_pops {
             self.calm = 0;
             let want = (1 + (3.0 * self.jitter / self.frame as f64).ceil() as u32)
                 .clamp(self.min_target, self.max_target);
