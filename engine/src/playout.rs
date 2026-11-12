@@ -32,6 +32,12 @@ const KP: f64 = 200.0;
 const KI: f64 = 12.0;
 /// The level must be this close to its target (ms) for the clock difference to be learnt from it.
 const LEARN_MS: f64 = 1.0;
+/// Further above its target than this many frames (averaged), the surplus — left by a burst after a gap —
+/// goes at once: a frame is skipped, cross-faded into the next so it does not click (the resampler alone
+/// would take ~1.5 ms a second).
+const SKIP_FRAMES: f64 = 1.5;
+/// …but not more often than every this many ms, so a burst does not turn into a string of skips.
+const SKIP_EVERY_MS: f64 = 30.0;
 
 pub struct Playout {
     jb: JitterBuffer,
@@ -49,6 +55,14 @@ pub struct Playout {
     /// output samples per second (the card's rate)
     out_rate: f64,
     tmp: Vec<f32>,
+    tmp2: Vec<f32>,
+    /// skip a frame at the next pull (the level is far above its target)
+    skip: bool,
+    /// output samples since the last skip
+    since_skip: f64,
+    pub skipped: u64,
+    /// whether a surplus may be dropped by skipping frames (a test of the resampler alone turns it off)
+    pub skip_on: bool,
     stats: Arc<Stats>,
     pub wrong_codec: u64,
 }
@@ -67,6 +81,11 @@ impl Playout {
             skew: 0.0,
             out_rate: crate::codec::RATE as f64,
             tmp: vec![0.0; frame],
+            tmp2: vec![0.0; frame],
+            skip: false,
+            since_skip: 0.0,
+            skipped: 0,
+            skip_on: true,
             stats,
             wrong_codec: 0,
         }
@@ -89,11 +108,30 @@ impl Playout {
         }
     }
 
-    fn pull(&mut self) {
+    fn decode_next(&mut self, second: bool) {
+        let buf = if second { &mut self.tmp2 } else { &mut self.tmp };
         match self.jb.pop() {
-            Out::Packet(p) => self.dec.decode(Some(p), &mut self.tmp),
-            Out::Lost => self.dec.decode(None, &mut self.tmp),
-            Out::Silence => self.tmp.fill(0.0),
+            Out::Packet(p) => self.dec.decode(Some(p), buf),
+            Out::Lost => self.dec.decode(None, buf),
+            Out::Silence => buf.fill(0.0),
+        }
+    }
+
+    fn pull(&mut self) {
+        self.decode_next(false);
+        if self.skip && self.jb.started() && self.jb.fill() >= 2 {
+            // two frames into one: the first fades out as the second fades in (equal power), so the
+            // frame that follows carries on from the second — one frame of surplus gone without a click
+            self.skip = false;
+            self.since_skip = 0.0;
+            self.skipped += 1;
+            self.decode_next(true);
+            let n = self.tmp.len() as f32;
+            for i in 0..self.tmp.len() {
+                let w = (i as f32 + 0.5) / n * std::f32::consts::FRAC_PI_2;
+                self.tmp[i] = self.tmp[i] * w.cos() + self.tmp2[i] * w.sin();
+            }
+            self.err -= self.frame as f64;      // the average has not seen it yet: no second skip for the same surplus
         }
         self.fifo.extend_from_slice(&self.tmp);
     }
@@ -132,7 +170,12 @@ impl Playout {
             }
             let ppm = (self.skew + KP * err_ms).clamp(-MAX_PPM, MAX_PPM);
             self.ratio = self.base * (1.0 + ppm * 1e-6);
+            self.since_skip += out.len() as f64;
+            if self.skip_on && self.err > SKIP_FRAMES * frame && self.since_skip / self.out_rate * 1000.0 >= SKIP_EVERY_MS {
+                self.skip = true;
+            }
         } else {
+            self.skip = false;
             self.err = 0.0;
             self.ratio = self.base * (1.0 + self.skew * 1e-6);
         }
@@ -194,6 +237,7 @@ mod tests {
         let frame = 120;
         let mut p = Playout::new(Decoder::new(Codec::Pcm16, frame).unwrap(), frame, 2, 8, Arc::new(Stats::default()));
         p.set_out_rate(44_100);
+        p.skip_on = false; // all 40 frames come at once: here that is the point, not a surplus to drop
         for s in 0..40 {
             p.push(&item(s, frame, s as u64 * 2500, 0.25));
         }
@@ -234,6 +278,34 @@ mod tests {
             assert!((got + ppm).abs() < 40.0, "far card {ppm:+} ppm: learnt {got:+} ppm");
             assert!(under <= 1, "far card {ppm:+} ppm: {under} underruns");
         }
+    }
+
+    /// A burst after a gap leaves the buffer 40 ms over its target (6 ms): within 2 s it must be back to a
+    /// few ms over (skipped frames; the resampler takes the rest), not the ~25 s the resampler alone would take.
+    #[test]
+    fn surplus_goes_quickly() {
+        let frame = 120;
+        let stats = Arc::new(Stats::default());
+        let mut p = Playout::new(Decoder::new(Codec::Pcm16, frame).unwrap(), frame, 2, 2, stats.clone());
+        let mut out = vec![0.0; 64];
+        let (mut seq, mut t) = (0u32, 0.0f64);
+        let mut push_until = |p: &mut Playout, seq: &mut u32, t: f64| {
+            while (*seq as f64) * frame as f64 / 48_000.0 <= t {
+                p.push(&item(*seq, frame, (*seq as u64) * 2500, 0.25));
+                *seq += 1;
+            }
+        };
+        for _ in 0..1500 { push_until(&mut p, &mut seq, t); p.render(&mut out); t += 64.0 / 48_000.0; }   // 2 s settled
+        for _ in 0..16 { p.push(&item(seq, frame, (seq as u64) * 2500, 0.25)); seq += 1; }       // 40 ms burst ahead
+        let fill = |s: &Stats| s.fill_samples.load(Relaxed) as f64 / 48.0;
+        for _ in 0..(2.0 * 48_000.0 / 64.0) as usize {                                            // 2 s later
+            push_until(&mut p, &mut seq, t + 16.0 * frame as f64 / 48_000.0);   // the sender now runs 40 ms ahead
+            p.render(&mut out);
+            t += 64.0 / 48_000.0;
+        }
+        assert!(fill(&stats) < 15.0, "still {:.1} ms buffered", fill(&stats));
+        assert!(p.skipped >= 8, "skipped {}", p.skipped);
+        assert!(out.iter().all(|v| (*v - 0.25).abs() < 0.02), "the cross-fades keep the signal");
     }
 
     #[test]
