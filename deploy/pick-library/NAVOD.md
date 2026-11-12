@@ -31,20 +31,22 @@ V Dockeru (Docker Desktop) jsou tyhle složky vidět jako `/run/desktop/mnt/host
 ## 2. Klíč pro Mac
 V Picku na Macu: **Nastavení → Jam → Knihovna na PC** → **Nový klíč**. Klíč se zkopíruje. Adresu `https://jam.neverlast.cz` vyplň do pole nad ním a zatím **neukládej**. Klíč použiješ v dalším kroku.
 
-## 3. Coolify
-1. Spusť **Docker Desktop** (a Coolify).
-2. V Coolify: **+ New Resource** → **Docker Compose** z GitHub repozitáře **TomiHorvi1982/Pick**:
-   - Base Directory: `/`
-   - Docker Compose Location: `/deploy/pick-library/docker-compose.yml`
-3. **Environment Variables:**
+## 3. Spuštění v Dockeru
+Knihovna běží v **Docker Desktopu** jako projekt `pick-knihovna`, ne v Coolify. Na tvém PC je ve složce `C:\Users\Tomas\pick-knihovna`.
+1. Spusť **Docker Desktop**.
+2. Stáhni repozitář **TomiHorvi1982/Pick** do `C:\Users\Tomas\pick-knihovna` (`git clone`).
+3. Do `deploy\pick-library` dej soubor `.env` s proměnnými:
    - `PICK_SYNC_TOKEN` = klíč z kroku 2
    - `CF_TUNNEL_TOKEN` = token z kroku 1
    - `PICK_HOST_NAME` = `Tomi` (nebo jak chceš, aby ti kamarád v knihovně říkal)
    - Jen když je Docker v Ubuntu (WSL): `PICK_DATA_DIR`, `PICK_AMPS_DIR` a `PICK_HELPER_DIR` s cestami `/mnt/f/...` z tabulky výše.
-4. **Deploy.**
+   - Volitelně `PICK_CACHE_MAX_GB` (kolik smí zabrat převedené písně, výchozí 65).
+4. Ve složce `deploy\pick-library` spusť `docker compose -p pick-knihovna up -d --build`.
+
+**Aktualizace na novou verzi:** ve složce `C:\Users\Tomas\pick-knihovna` spusť `git pull --ff-only`, pak v `deploy\pick-library` znovu `docker compose -p pick-knihovna up -d --build`. Soubor `.env` i úložiště `library-state` (účty, Na příště, převedené písně) zůstanou. Klidně o to požádej Clauda na PC.
 
 ## 4. Účet pro kamaráda
-V Coolify u služby **library** → **Terminal** (nebo `docker exec -it <kontejner> sh`):
+V Docker Desktopu u kontejneru **library** → **Exec** (nebo `docker exec -it <kontejner> sh`):
 ```
 python library.py adduser Pavel
 ```
@@ -63,7 +65,7 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - **Obaly písní** se ukážou jen u těch, které Pick už někdy dohledal (`chip-thumbs.json` v datech Picku). Jinak se místo nich zobrazí ikona.
 - **Vlastní otisk** si kamarád nahraje jen během jamu, protože se počítá na Macu.
 - Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.
-- **Písně se připravují předem.** Po startu knihovna na pozadí postupně převede všechny stopy a náhledy (nejdřív ★ Na příště), aby kamarád na nic nečekal. Napoprvé to trvá asi 8–10 hodin a zabere kolem 55 GB na disku C:. Zabere nejvýš 65 GB (jde změnit proměnnou `PICK_CACHE_MAX_GB` v Coolify) a přestane i tehdy, když na disku Dockeru zbývá méně než 15 GB. Zbytek pak převede, až si o píseň kamarád řekne. Nové písně z kopie karty převede do půl hodiny. Kolik je hotovo, uvidíš v Picku v **Nastavení → Jam → Knihovna na PC → Vyzkoušet spojení**.
+- **Písně se připravují předem.** Po startu knihovna na pozadí postupně převede všechny stopy a náhledy (nejdřív ★ Na příště), aby kamarád na nic nečekal. Napoprvé to trvá asi 8–10 hodin a zabere kolem 55 GB na disku C:. Zabere nejvýš 65 GB (jde změnit proměnnou `PICK_CACHE_MAX_GB` v `.env`) a přestane i tehdy, když na disku Dockeru zbývá méně než 15 GB. Zbytek pak převede, až si o píseň kamarád řekne. Nové písně z kopie karty převede do půl hodiny. Kolik je hotovo, uvidíš v Picku v **Nastavení → Jam → Knihovna na PC → Vyzkoušet spojení**.
 
 ## DJ na PC
 

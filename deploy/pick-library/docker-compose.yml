@@ -1,6 +1,6 @@
 # Pick knihovna on the PC: the app (read-only, no port to the network) and a Cloudflare Tunnel to it.
 # The library sits in a network with no way out ("inside"); only the tunnel reaches the internet.
-# In Coolify: a Docker Compose resource from this repository, base directory /, file deploy/pick-library/docker-compose.yml.
+# Runs on the PC as the compose project pick-knihovna: docker compose -p pick-knihovna up -d --build (with .env beside this file).
 services:
   library:
     build:

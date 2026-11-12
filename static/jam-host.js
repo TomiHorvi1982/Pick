@@ -503,7 +503,7 @@ const Jam = (() => {
     const $ = (id) => document.getElementById(id); if(!$("jam-lib")) return;
     $("jl-gen").onclick = () => { const a = new Uint8Array(24); crypto.getRandomValues(a); const t = [...a].map(b => b.toString(16).padStart(2, "0")).join("");
       $("jl-tok").type = "text"; $("jl-tok").value = t; navigator.clipboard.writeText(t).catch(() => {});
-      $("jl-st").className = "jd-st ok"; $("jl-st").textContent = "Nový klíč je zkopírovaný — vlož ho v Coolify do PICK_SYNC_TOKEN a tady dej Uložit."; };
+      $("jl-st").className = "jd-st ok"; $("jl-st").textContent = "Nový klíč je zkopírovaný — vlož ho na PC do .env knihovny (PICK_SYNC_TOKEN) a tady dej Uložit."; };
     $("jl-save").onclick = async () => { const r = await fetch("/api/jam/library", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({url: $("jl-url").value, token: $("jl-tok").value})});
       const d = await r.json().catch(() => ({})); $("jl-st").className = "jd-st " + (r.ok ? "ok" : "bad"); $("jl-st").textContent = r.ok ? "Uloženo." : (d.error || "Nepodařilo se."); if(r.ok){ $("jl-tok").value = ""; $("jl-tok").type = "password"; } };
     $("jl-test").onclick = async () => { $("jl-st").dataset.busy = "1"; $("jl-st").className = "jd-st"; $("jl-st").textContent = "Zkouším…";
