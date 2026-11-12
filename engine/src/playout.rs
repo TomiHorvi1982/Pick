@@ -22,6 +22,16 @@ impl Item {
 }
 
 const MAX_PPM: f64 = 1500.0;
+/// The two cards' clock difference this controller will believe in (real ones are within ~±200 ppm).
+const MAX_SKEW_PPM: f64 = 1000.0;
+/// Seconds over which the buffer level is averaged: packets come in whole frames, so the level saws up and down.
+const LEVEL_TAU: f64 = 1.0;
+/// ppm of correction per ms the buffer is off its target (the quick part, pulls the level back)…
+const KP: f64 = 200.0;
+/// …and ppm per ms per second (the slow part: it learns the clock difference and keeps it).
+const KI: f64 = 12.0;
+/// The level must be this close to its target (ms) for the clock difference to be learnt from it.
+const LEARN_MS: f64 = 1.0;
 
 pub struct Playout {
     jb: JitterBuffer,
@@ -32,7 +42,12 @@ pub struct Playout {
     ratio: f64,
     /// 48 kHz samples consumed per output sample (1.0 when the card runs at 48 kHz)
     base: f64,
+    /// the buffer's level off its target, in 48 kHz samples, averaged (LEVEL_TAU)
     err: f64,
+    /// the learnt clock difference, ppm (the integral part)
+    skew: f64,
+    /// output samples per second (the card's rate)
+    out_rate: f64,
     tmp: Vec<f32>,
     stats: Arc<Stats>,
     pub wrong_codec: u64,
@@ -49,6 +64,8 @@ impl Playout {
             ratio: 1.0,
             base: 1.0,
             err: 0.0,
+            skew: 0.0,
+            out_rate: crate::codec::RATE as f64,
             tmp: vec![0.0; frame],
             stats,
             wrong_codec: 0,
@@ -59,6 +76,7 @@ impl Playout {
     pub fn set_out_rate(&mut self, rate: u32) {
         self.base = crate::codec::RATE as f64 / rate as f64;
         self.ratio = self.base;
+        self.out_rate = rate as f64;
     }
 
     pub fn push(&mut self, it: &Item) {
@@ -97,17 +115,26 @@ impl Playout {
             self.pos -= used as f64;
         }
 
-        // drift: read a hair faster when the buffer is above target, slower when below
+        // drift, a PI controller: read a hair faster when the buffer stays above target, slower when below.
+        // The level is averaged over a second (it saws by a whole frame with every packet); the integral
+        // part learns the two cards' clock difference and keeps it through a reset or a gap.
         let frame = self.frame as f64;
         let fill = self.jb.fill() as f64 * frame + (self.fifo.len() as f64 - self.pos);
         if self.jb.started() {
+            let dt = out.len() as f64 / self.out_rate;
             let target = self.jb.target() as f64 * frame + frame * 0.5;
-            self.err += (fill - target - self.err) * 0.02;
-            let ppm = (self.err / frame * 1000.0).clamp(-MAX_PPM, MAX_PPM);
+            self.err += (fill - target - self.err) * (dt / LEVEL_TAU).min(1.0);
+            let err_ms = self.err / 48.0;
+            // learn only once settled near the target: the surplus a start leaves, or a jump of the target
+            // (the network got worse), is the quick part's job — learnt, it would read as a clock difference
+            if err_ms.abs() < LEARN_MS {
+                self.skew = (self.skew + KI * err_ms * dt).clamp(-MAX_SKEW_PPM, MAX_SKEW_PPM);
+            }
+            let ppm = (self.skew + KP * err_ms).clamp(-MAX_PPM, MAX_PPM);
             self.ratio = self.base * (1.0 + ppm * 1e-6);
         } else {
             self.err = 0.0;
-            self.ratio = self.base;
+            self.ratio = self.base * (1.0 + self.skew * 1e-6);
         }
 
         let c = &self.jb.counters;
@@ -120,7 +147,7 @@ impl Playout {
         s.jitter_us.store((self.jb.jitter_samples() / 0.048) as u32, Relaxed);
         s.target_frames.store(self.jb.target(), Relaxed);
         s.fill_samples.store(fill.max(0.0) as u32, Relaxed);
-        s.ratio_ppm.store(((self.ratio / self.base - 1.0) * 1e6).round() as i32, Relaxed);
+        s.ratio_ppm.store(self.skew.round() as i32, Relaxed);     // the clock difference learnt, not the momentary pull
     }
 }
 
@@ -177,7 +204,36 @@ mod tests {
             p.render(&mut out);
             heard += out.iter().filter(|v| (**v - 0.25).abs() < 0.01).count();
         }
-        assert!((4300..=4420).contains(&heard), "{heard}");
+        assert!((4300..=4430).contains(&heard), "{heard}"); // 4410 give or take the edges
+    }
+
+    /// The far card plays `ppm` fast: packets come exactly every frame of real time, the output
+    /// asks for (1 + ppm) as many samples. The controller must learn about −ppm and keep the buffer level.
+    fn learns(ppm: f64) -> (f64, u32) {
+        let frame = 120;
+        let stats = Arc::new(Stats::default());
+        let mut p = Playout::new(Decoder::new(Codec::Pcm16, frame).unwrap(), frame, 3, 3, stats.clone());
+        let out_rate = 48_000.0 * (1.0 + ppm * 1e-6);
+        let mut out = vec![0.0; 64];
+        let (mut seq, mut t_out) = (0u32, 0.0f64);
+        for _ in 0..(90.0 * out_rate / 64.0) as usize {         // 90 s
+            while (seq as f64) * frame as f64 / 48_000.0 <= t_out + 0.005 {
+                p.push(&item(seq, frame, (seq as u64) * 2500, 0.25));
+                seq += 1;
+            }
+            p.render(&mut out);
+            t_out += 64.0 / out_rate;
+        }
+        (stats.ratio_ppm.load(Relaxed) as f64, stats.underruns.load(Relaxed) as u32)
+    }
+
+    #[test]
+    fn learns_the_clock_difference() {
+        for ppm in [200.0, -150.0, 0.0] {
+            let (got, under) = learns(ppm);
+            assert!((got + ppm).abs() < 40.0, "far card {ppm:+} ppm: learnt {got:+} ppm");
+            assert!(under <= 1, "far card {ppm:+} ppm: {under} underruns");
+        }
     }
 
     #[test]
