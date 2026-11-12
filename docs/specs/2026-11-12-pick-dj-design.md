@@ -99,6 +99,24 @@ Změřeno (M1 Pro, MPS):
 | celá čtyřminutová píseň do Steems | ~1 min |
 | beat grid (beat_this nad mixem, souběžně s workerem) | 16,5 s |
 
+## Fáze 3 — DJ v Pick knihovně na PC
+
+Knihovna (`deploy/pick-library/library.py`, Docker na PC, za přihlášením) dává
+do své stránky (`jam.html`, kterou sdílí s Jam bránou na Macu, se nemění) tři
+skripty: `dj-core.js`, `dj.js` a `dj-library.js`. Ten po přihlášení přidá do
+hlavičky tlačítko DJ a přepne DJ na zdroj knihovny (`PickDJ.setSource`):
+
+| | Pick na Macu | Knihovna na PC |
+|---|---|---|
+| seznam | `/api/stems` + `/api/library/browse` (i písně bez stop) | `/g/songs` (jen se stopami) |
+| stopa | `/api/stems/{name}/{stem}` (MP3) | `/g/stem` (Opus 128k, připravený dopředu) |
+| beat grid | `/api/stems/{name}/beats` (spočítá) | `/g/beats` (jen čte `beats.json` z karty) |
+| separace během hraní | ano (`djlive.py`) | ne: v kontejneru není Demucs ani GPU |
+
+Ověřeno: knihovna spuštěná lokálně nad kartou (bez Dockeru, `PICK_PREPARE=0`),
+přihlášení testovacím uživatelem, dvě písně ze Steems, SYNC 1979 → Bryan Adams
+s fázovou chybou pod 1 ms. Na Windows a v Dockeru neověřeno.
+
 ## Omezení fáze 1
 
 - **Paměť:** stopy (a u fáze 2 i mix) drží deck celé v paměti jako Int16: ~6 MB na minutu a stopu,

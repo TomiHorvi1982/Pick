@@ -26,6 +26,25 @@ const PickDJ = (() => {
   let library = [], libraryLoaded = false;
   let crossfader = 0, masterVolume = 0.9;
 
+  // Where songs, stems and beat grids come from. Pick itself (the default) also
+  // separates songs live; the library on the PC (static/dj-library.js) serves
+  // only separated songs, as Opus, behind its login.
+  let source = {
+    async items() {
+      const [stemRows, songs] = await Promise.all([
+        fetch("/api/stems").then(r => r.json()),
+        fetch("/api/library/browse?rel=Songs&flat=true").then(r => r.ok ? r.json() : {entries: []}).catch(() => ({entries: []})),
+      ]);
+      const items = C.libraryItems(stemRows, songs.entries);
+      const stemsOf = new Map(C.playable(stemRows).map(r => [r.name, r.stems]));
+      items.forEach(x => { if (x.stems) x.stemList = stemsOf.get(x.stems) || null; });
+      return items;
+    },
+    stemUrl: (name, stem) => `/api/stems/${enc(name)}/${enc(stem)}`,
+    beatsUrl: (name) => `/api/stems/${enc(name)}/beats`,
+    live: true,
+  };
+
   const decks = ["A", "B"].map((id, i) => ({
     id, index: i, song: null, token: 0, loading: null,
     pos: 0, posTime: 0, playing: false,
@@ -252,6 +271,7 @@ const PickDJ = (() => {
     let stemsName = item.stems, live = null;
     try {
       if (!stemsName) {
+        if (!source.live) throw new Error("píseň nemá stopy");
         const r = await fetch("/api/dj/live/open", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({rel: item.rel})});
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || r.status);
@@ -269,11 +289,11 @@ const PickDJ = (() => {
   async function loadStems(d, item, name, token) {
     const listed = library.find(x => x.stems === name);
     const stems = C.orderStems(listed && listed.stemList ? listed.stemList : C.STEMS);
-    const beatsP = fetch(`/api/stems/${enc(name)}/beats`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const beatsP = fetch(source.beatsUrl(name)).then(r => r.ok ? r.json() : null).catch(() => null);
     const channels = [], present = [];
     let length = Infinity;
     for (const st of stems) {
-      const r = await fetch(`/api/stems/${enc(name)}/${enc(st)}`);
+      const r = await fetch(source.stemUrl(name, st));
       if (r.status === 404) continue;              // a song separated into fewer stems
       if (!r.ok) throw new Error(`stopa ${st} se nenačetla`);
       const audio = await ctx.decodeAudioData(await r.arrayBuffer());
@@ -411,13 +431,7 @@ const PickDJ = (() => {
   async function loadLibrary() {
     if (libraryLoaded) return;
     try {
-      const [stemRows, songs] = await Promise.all([
-        fetch("/api/stems").then(r => r.json()),
-        fetch("/api/library/browse?rel=Songs&flat=true").then(r => r.ok ? r.json() : {entries: []}).catch(() => ({entries: []})),
-      ]);
-      library = C.libraryItems(stemRows, songs.entries);
-      const stemsOf = new Map(C.playable(stemRows).map(r => [r.name, r.stems]));
-      library.forEach(x => { if (x.stems) x.stemList = stemsOf.get(x.stems) || null; });
+      library = await source.items();
       libraryLoaded = true;
     } catch (e) {
       toast("Knihovnu se nepodařilo načíst");
@@ -1071,9 +1085,21 @@ const PickDJ = (() => {
     g.fillRect(played - dpr, 0, 2 * dpr, H);
   }
 
+  let toastEl = null, toastTimer = 0;
   function toast(msg) {
-    if (typeof showToast === "function") showToast(msg);
-    else console.warn(msg);
+    if (typeof showToast === "function") { showToast(msg); return; }
+    // A page without Pick's toasts (the library on the PC): a small one of our own, over the DJ screen.
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9100;background:#1e222d;color:#eef0f4;" +
+        "border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 16px;font:600 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+        "box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:90vw";
+      document.body.append(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 4000);
   }
 
   // ------------------------------------------------------------- open/close
@@ -1099,9 +1125,9 @@ const PickDJ = (() => {
     render();
   }
 
-  function mountButton() {
-    const jam = document.getElementById("jam-quick");
-    if (!jam || document.getElementById("dj-quick")) return;
+  /** The DJ button, put before `anchor` (Pick: before the Jam button in the library's head). */
+  function mountButton(anchor) {
+    if (!anchor || document.getElementById("dj-quick")) return null;
     const b = document.createElement("button");
     b.type = "button";
     b.className = "dj-quick";
@@ -1109,12 +1135,21 @@ const PickDJ = (() => {
     b.title = "Pick DJ: dva decky se stopami";
     b.textContent = "DJ";
     b.addEventListener("click", open);
-    jam.before(b);
+    anchor.before(b);
+    return b;
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountButton);
-  else mountButton();
+  const autoMount = () => mountButton(document.getElementById("jam-quick"));
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
+  else autoMount();
 
-  return {open, close, load: (deck, row) => load(decks[deck === "B" || deck === 1 ? 1 : 0], row),
+  /** Another page using the DJ (the library on the PC) says where its songs come from. */
+  function setSource(s) {
+    source = Object.assign({}, source, s);
+    library = []; libraryLoaded = false;
+    if (root) renderLibrary();
+  }
+
+  return {open, close, setSource, mountButton, load: (deck, row) => load(decks[deck === "B" || deck === 1 ? 1 : 0], row),
     state: () => decks.map(d => ({song: d.song && d.song.name, playing: d.playing, pos: heardPos(d), rate: d.rate, sync: d.sync, loop: d.loop,
       beats: !!(d.song && d.song.beats), live: d.live ? {windows: d.live.ready.length, ready: d.live.ready.reduce((x, y) => x + y, 0)} : null}))};
 })();

@@ -45,7 +45,9 @@ TOKEN = os.environ.get("PICK_SYNC_TOKEN") or ""
 STEM_NAMES = ["drums", "bass", "guitar", "guitar_rhythm", "guitar_solo", "vocals", "piano", "other"]
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".aiff", ".aif"}
 GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js"}
-LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab"}
+# Pick DJ: two decks over the separated songs (static/dj*.js), put into the page by page()
+DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
+LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab", "worklets": STATIC / "worklets"}
 LIB_TYPES = {".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json",
              ".woff": "font/woff", ".woff2": "font/woff2", ".otf": "font/otf", ".svg": "image/svg+xml"}
 
@@ -184,6 +186,10 @@ def page():
         f = STATIC / name
         if f.is_file():
             html = html.replace(f"/static/{name}\"", f"/static/{name}?v={int(f.stat().st_mtime)}\"")
+    dj = [STATIC / n for n in DJ_FILES if (STATIC / n).is_file()]
+    if len(dj) == len(DJ_FILES):                               # all three, or none: half a DJ would only throw
+        tags = "".join(f'<script src="/static/{f.name}?v={int(f.stat().st_mtime)}"></script>' for f in dj)
+        html = html.replace("</body>", tags + "</body>", 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
@@ -240,7 +246,7 @@ def launcher_mac(request: Request):
 def guest_static(name: str):
     if name in ICONS and (STATIC / name).is_file():
         return FileResponse(STATIC / name, media_type=ICONS[name], headers={"Cache-Control": "public, max-age=86400"})
-    if name not in GUEST_FILES or not (STATIC / name).is_file():
+    if (name not in GUEST_FILES and name not in DJ_FILES) or not (STATIC / name).is_file():
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     return Response((STATIC / name).read_text(encoding="utf-8"), media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
@@ -876,6 +882,19 @@ def g_amp(request: Request, file: str):
     if f is None:
         return JSONResponse({"error": "Nenalezeno."}, status_code=404)
     return FileResponse(f, media_type="application/octet-stream" if f.suffix.lower() == ".nam" else "audio/wav")
+
+
+@app.get("/g/beats")
+def g_beats(request: Request, name: str):
+    """The song's beat grid as Pick found it on the Mac (beats.json beside the stems) — read, never computed here."""
+    who, bad = _need(request)
+    if bad:
+        return bad
+    d = _song_dir(name)
+    grid = _jload(d / "beats.json", None) if d is not None else None
+    if not isinstance(grid, dict) or not isinstance(grid.get("beats"), list):
+        return JSONResponse({"error": "Beat grid není."}, status_code=404)
+    return {k: grid.get(k) for k in ("beats", "downbeats", "bpm", "beats_per_bar", "duration")}
 
 
 @app.get("/g/sections")

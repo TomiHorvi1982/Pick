@@ -13,6 +13,8 @@ COPY amp_catalog.py /app/amp_catalog.py
 COPY static/jam.html static/pick-favicon.png static/jam-icon-192.png static/jam-icon-512.png static/jam-icon.ico static/jam-icon.icns static/jam-launcher.cmd static/jam-launcher.command /app/static/
 COPY static/jam-engine.js static/jam-worklet.js static/jam-guest.js static/jam-chat.js static/jam-mix.js static/jam-amp.js static/jam-sw.js /app/static/
 COPY static/stretch /app/static/stretch
+COPY static/dj-core.js static/dj.js static/dj-library.js /app/static/
+COPY static/worklets/dj-deck.js /app/static/worklets/dj-deck.js
 COPY static/nam /app/static/nam
 COPY static/alphatab /app/static/alphatab
 

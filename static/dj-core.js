@@ -58,6 +58,15 @@
     return items;
   }
 
+  /** The library on the PC (/g/songs rows: name, stems, title, artist, duration) as DJ items. */
+  function fromLibrarySongs(rows) {
+    const items = libraryItems((rows || []).map(r => ({name: r.name, complete: true, stems: r.stems || [], duration: r.duration || 0,
+      meta: {title: r.title, artist: r.artist}})), []);
+    const stemsOf = new Map((rows || []).map(r => [r.name, r.stems || []]));
+    items.forEach(x => { x.stemList = stemsOf.get(x.stems) || null; });
+    return items;
+  }
+
   /** Which window of a song separated live to fetch next: the first missing one from the playhead on, then from the start. */
   function nextWindow(ready, pending, pos, windowSeconds) {
     const n = ready.length;
@@ -221,6 +230,6 @@
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
-  return {STEMS, STEM_TITLES, PRESETS, MAX_SECONDS, playable, libraryItems, nextWindow, orderStems, beatAt, timeOfBeat, beatLength, localBpm,
+  return {STEMS, STEM_TITLES, PRESETS, MAX_SECONDS, playable, libraryItems, fromLibrarySongs, nextWindow, orderStems, beatAt, timeOfBeat, beatLength, localBpm,
     nearestBeat, loopAt, syncTo, crossfade, eqDb, filterFor, rateFor, keyLockSemitones, formatTime, peaks, clamp};
 });

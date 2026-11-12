@@ -54,6 +54,8 @@ out.library = C.libraryItems(
    {type: "file", rel: "Songs/New.mp3", name: "New.mp3", title: "New", artist: "Y", stems: null, duration: 180},
    {type: "file", rel: "Songs/Long.mp3", name: "Long.mp3", stems: null, duration: 3600},
    {type: "dir", rel: "Songs/Folder"}]);
+out.fromLibrary = C.fromLibrarySongs([{name: "Band - Song", stems: ["drums", "guitar_solo", "vocals"], title: "Song", artist: "Band", duration: 200},
+  {name: "Takes", stems: ["guitar_rhythm"], title: "Takes"}]);
 const rd = Uint8Array.from([1, 1, 0, 1, 0, 0]);
 out.next = [C.nextWindow(rd, new Set(), 13, 6.4), C.nextWindow(rd, new Set([4]), 26, 6.4), C.nextWindow(Uint8Array.from([1, 1]), new Set(), 0, 6.4)];
 

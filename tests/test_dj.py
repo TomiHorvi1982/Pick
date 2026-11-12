@@ -107,3 +107,9 @@ def test_worklet_plays_the_mix_until_the_stems_arrive(out):
     assert out["live_before"] == [1000, 1000]
     assert out["live_after"] == [700, 700]
     assert out["live_next"] == [1000, 1000]
+
+
+def test_the_pc_library_songs_become_dj_items(out):
+    (item,) = out["fromLibrary"]                  # a song with no Demucs stem (only a guitar split) is left out
+    assert item["key"] == "s:Band - Song" and item["title"] == "Song" and item["artist"] == "Band"
+    assert item["stems"] == "Band - Song" and item["live"] is False and item["stemList"] == ["drums", "guitar_solo", "vocals"]
