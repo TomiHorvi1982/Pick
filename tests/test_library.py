@@ -258,3 +258,17 @@ def test_the_dj_is_on_the_page_and_reads_the_beat_grid_behind_the_login(lib):
     assert c.get("/g/beats?name=../Stems").status_code == 404
     (song / "beats.json").unlink()
     assert c.get("/g/beats?name=Band - Song [abcdefghijk]").status_code == 404
+
+
+def test_engine_sent_by_the_mac_downloaded_by_a_friend(lib):
+    mod, c = lib
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    blob = b"MZ" + b"x" * 200_000
+    assert c.put("/sync/engine/pick-jam-engine.exe", content=blob).status_code == 403
+    assert c.put("/sync/engine/evil.sh", headers=h, content=blob).status_code == 400
+    assert c.put("/sync/engine/pick-jam-engine.exe", headers=h, content=blob).json()["ok"]
+    assert list(c.get("/sync/engine", headers=h).json()) == ["pick-jam-engine.exe"]
+    assert c.get("/engine/pick-jam-engine.exe").status_code == 403 and c.get("/g/me").json()["engine"] == []
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert c.get("/g/me").json()["engine"] == ["pick-jam-engine.exe"]
+    assert c.get("/engine/pick-jam-engine.exe").content == blob

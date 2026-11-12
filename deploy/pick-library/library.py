@@ -408,7 +408,28 @@ def songs() -> list:
 def me(request: Request):
     st = _read("status.json", {})
     on = bool(st.get("on")) and time.time() - (st.get("at") or 0) < 180          # the Mac says so, at least every minute
-    return {"user": _who(request), "login": True, "host": HOST, "on": False, "library": True, "jam": on, "jam_url": st.get("url") or JAM_URL}
+    who = _who(request)
+    return {"user": who, "login": True, "host": HOST, "on": False, "library": True, "jam": on, "jam_url": st.get("url") or JAM_URL,
+            "engine": _engines() if who else []}
+
+
+# ---------------------------------------------------------------- Pick Jam Engine: the Mac sends its builds, a friend downloads one
+ENGINE_DIR = STATE / "engine"
+ENGINE_FILES = {"pick-jam-engine.exe": "application/vnd.microsoft.portable-executable", "pick-jam-engine-mac": "application/octet-stream"}
+
+
+def _engines() -> list:
+    return [n for n in ENGINE_FILES if (ENGINE_DIR / n).is_file()]
+
+
+@app.get("/engine/{name}")
+def g_engine(request: Request, name: str):
+    who, bad = _need(request)
+    if bad:
+        return bad
+    if name not in ENGINE_FILES or not (ENGINE_DIR / name).is_file():
+        return JSONResponse({"error": "Engine tu není."}, status_code=404)
+    return FileResponse(ENGINE_DIR / name, media_type=ENGINE_FILES[name], filename=name, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/g/songs")
@@ -1028,6 +1049,30 @@ async def sync_playlists(request: Request):
                          "kind": "dl" if x.get("kind") == "dl" else "own", "all": int(x.get("all") or len(lst)) if str(x.get("all") or "").isdigit() else len(lst)})
     _write("playlists.json", {"playlists": rows, "at": time.time()})
     return {"ok": True, "playlists": len(rows)}
+
+
+@app.get("/sync/engine")
+def sync_engine(request: Request):
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    return {n: hashlib.sha256((ENGINE_DIR / n).read_bytes()).hexdigest() for n in _engines()}
+
+
+@app.put("/sync/engine/{name}")
+async def sync_engine_put(request: Request, name: str):
+    """A build of Pick Jam Engine from the Mac (they are not in the repository), kept for friends to download."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    if name not in ENGINE_FILES:
+        return JSONResponse({"error": "Neznámý soubor."}, status_code=400)
+    data = await request.body()
+    if not 100_000 < len(data) < 30_000_000:
+        return JSONResponse({"error": "Divná velikost."}, status_code=400)
+    ENGINE_DIR.mkdir(parents=True, exist_ok=True)
+    part = ENGINE_DIR / (name + ".part")
+    part.write_bytes(data)
+    part.replace(ENGINE_DIR / name)
+    return {"ok": True, "sha256": hashlib.sha256(data).hexdigest()}
 
 
 @app.put("/sync/users")

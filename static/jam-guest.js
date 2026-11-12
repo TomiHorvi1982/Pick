@@ -48,6 +48,8 @@
     $("justBrowse").onclick = (e) => { e.preventDefault(); browse(true); };
     if(me.jam) $("joinErr").innerHTML = `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}">Připojit se k jamu</a> · ` + $("joinErr").innerHTML;
     if($("justBrowse")) $("justBrowse").onclick = (e) => { e.preventDefault(); browse(true); };
+    const eng = engineDownloads()[0];                 // ready before the jam: the native sound needs it running on this computer
+    if(eng) $("joinErr").insertAdjacentHTML("beforeend", `<div class="muted" style="margin-top:8px">Pro nejmenší zpoždění v jamu: <a href="${esc(eng.url)}" download>⤓ ${esc(eng.label.replace("Stáhnout ", ""))}</a> — stáhni, dvakrát klikni a nech okno otevřené, když hrajete.</div>`);
   }
   // the host's jam came on: a note in the page, the system notification (also with the window in the background), a button
   let jamWatch = 0;

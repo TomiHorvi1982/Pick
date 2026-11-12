@@ -1244,6 +1244,20 @@ def lib_playlists() -> None:
     _lib_call("PUT", "/sync/playlists", {"playlists": pls}, timeout=30)
 
 
+def lib_engine() -> None:
+    """The engine's builds (engine/dist, not in the repository) to the library, when they differ, for friends to download."""
+    import urllib.request
+    have = _lib_call("GET", "/sync/engine")
+    url, tok = _lib()
+    for n in engine_files():
+        data = (ENGINE_DIST / n).read_bytes()
+        if have.get(n) != hashlib.sha256(data).hexdigest():
+            req = urllib.request.Request(f"{url}/sync/engine/{n}", method="PUT", data=data,
+                                         headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/octet-stream", "User-Agent": "Pick"})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                r.read()
+
+
 def _lib_loop() -> None:
     n = 0
     while True:
@@ -1254,6 +1268,10 @@ def _lib_loop() -> None:
                 lib_sync()
                 if n % 10 == 0:                     # every ten minutes is enough for these
                     lib_playlists()
+                    try:
+                        lib_engine()
+                    except Exception:
+                        pass
         except Exception:
             pass
         n += 1
@@ -1296,10 +1314,11 @@ async def jam_library_test():
     try:
         st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
-        try:
-            await asyncio.to_thread(lib_playlists)
-        except Exception:
-            pass                                    # an older library (not redeployed yet) has no playlists to take
+        for step in (lib_playlists, lib_engine):
+            try:
+                await asyncio.to_thread(step)
+            except Exception:
+                pass                                # an older library (not redeployed yet) has no place for these
         return {"ok": True, "fav": len(got["songs"]), "prepared": st.get("prepared"), "free_gb": st.get("free_gb"), "used_gb": st.get("used_gb")}
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Knihovna na PC neodpovídá: {str(e)[:200]}"}, status_code=502)
