@@ -23,23 +23,23 @@ const PickDJ = (() => {
   let cueOutputs = false;
   let ready = null;
   let root = null, rafId = 0, lastSync = 0;
-  let library = [], libraryLoaded = false;
+  let library = [], libraryLoaded = false, libMounts = [], genresPending = 0;
+  const libPref = (k, v) => { try { if (v === undefined) return localStorage.getItem("pick-dj-lib-" + k); localStorage.setItem("pick-dj-lib-" + k, v); } catch (e) {} return null; };
+  let libSrc = libPref("src") || "all", libGroup = libPref("group") || "", libOpen = new Set();
   let crossfader = 0, masterVolume = 0.9;
 
   // Where songs, stems and beat grids come from. Pick itself (the default) also
   // separates songs live; the library on the PC (static/dj-library.js) serves
   // only separated songs, as Opus, behind its login.
   let source = {
+    // every song with what sorts it (band, tuning, year, genre, playlists) and where it comes from (/api/dj/library)
     async items() {
-      const [stemRows, songs] = await Promise.all([
-        fetch("/api/stems").then(r => r.json()),
-        fetch("/api/library/browse?rel=Songs&flat=true").then(r => r.ok ? r.json() : {entries: []}).catch(() => ({entries: []})),
-      ]);
-      const items = C.libraryItems(stemRows, songs.entries);
-      const stemsOf = new Map(C.playable(stemRows).map(r => [r.name, r.stems]));
-      items.forEach(x => { if (x.stems) x.stemList = stemsOf.get(x.stems) || null; });
-      return items;
+      const d = await (await fetch("/api/dj/library", {cache: "no-store"})).json();
+      libMounts = d.mounts || [];
+      genresPending = d.genres_pending || 0;
+      return d.items || [];
     },
+    mountable: true,
     stemUrl: (name, stem) => `/api/stems/${enc(name)}/${enc(stem)}`,
     beatsUrl: (name) => `/api/stems/${enc(name)}/beats`,
     live: true,
@@ -651,6 +651,12 @@ const PickDJ = (() => {
   .pdj-item .k.long{color:#f16565}
   .pdj-item .ld button:disabled{opacity:.3;cursor:default}
   .pdj-item .ld button{padding:3px 9px;border-radius:999px;border:none;font-weight:900;font-size:11px;cursor:pointer;color:#0b0b12}
+  .pdj-sel{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 10px;color:#eef0f4;font-size:12px;max-width:220px}
+  .pdj-grp{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 8px;margin-top:2px;border:none;border-radius:8px;background:rgba(255,255,255,.04);color:#eef0f4;font-weight:700;font-size:13px;cursor:pointer}
+  .pdj-grp:hover{background:rgba(255,255,255,.09)}
+  .pdj-grp .ar{width:12px;color:#9aa3b5}
+  .pdj-grp .gn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdj-grp .n{color:#9aa3b5;font-weight:600;font-variant-numeric:tabular-nums}
   .pdj-drop{outline:2px dashed var(--c);outline-offset:-4px}
   .pdj-loading{font-size:12px;color:var(--c)}
   .dj-quick{margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);
@@ -879,24 +885,104 @@ const PickDJ = (() => {
     });
   }
 
-  let libSearch = null, libList = null;
+  let libSearch = null, libList = null, libSrcSel = null, libGroupSel = null;
+  const NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+  /** A tuning (MIDI notes of the strings) as a guitarist says it: "E standard", "Drop D", "C# standard · 7 strun". */
+  function tuneName(t) {
+    if (!Array.isArray(t) || t.length < 4) return "";
+    const a = [...t].sort((x, y) => x - y), iv = a.slice(1).map((v, i) => v - a[i]).join(","), nn = (m) => NOTE[((m % 12) + 12) % 12];
+    if (iv === "5,5,5,4,5") return `${nn(a[0])} standard`;
+    if (iv === "7,5,5,4,5") return `Drop ${nn(a[0])}`;
+    if (iv === "5,5,5,5,4,5") return `${nn(a[0])} standard · 7 strun`;
+    if (iv === "7,5,5,5,4,5") return `Drop ${nn(a[0])} · 7 strun`;
+    return a.map(nn).join(" ");
+  }
+  const GROUPS = {
+    "": ["Bez třídění", null],
+    band: ["Kapela", (r) => [r.band || r.artist || "Neznámý interpret"]],
+    tuning: ["Ladění", (r) => [tuneName(r.tuning) || "Ladění nezjištěné"]],
+    year: ["Rok vydání", (r) => [r.year ? String(r.year) : "Rok neznámý"]],
+    decade: ["Desetiletí", (r) => [r.year ? `${Math.floor(r.year / 10) * 10}s` : "Rok neznámý"]],
+    genre: ["Žánr", (r) => [(r.genres && r.genres[0]) || "Žánr neznámý"]],
+    playlist: ["Playlist", (r) => (r.playlists && r.playlists.length ? r.playlists : ["Mimo playlisty"])],
+  };
+  const UNKNOWN = /^(Neznámý|Ladění nezjištěné|Rok neznámý|Žánr neznámý|Mimo playlisty)/;
+  function groupOrder(g, list) {                          // [name, rows] in the order a DJ looks for them
+    if (libGroup === "year" || libGroup === "decade") return list.sort((a, b) => (UNKNOWN.test(a[0]) - UNKNOWN.test(b[0])) || b[0].localeCompare(a[0]));
+    if (libGroup === "tuning" || libGroup === "genre" || libGroup === "playlist") return list.sort((a, b) => (UNKNOWN.test(a[0]) - UNKNOWN.test(b[0])) || b[1].length - a[1].length);
+    return list.sort((a, b) => (UNKNOWN.test(a[0]) - UNKNOWN.test(b[0])) || a[0].localeCompare(b[0], "cs"));
+  }
+  function sourcesOf() {
+    const n = (f) => library.filter(f).length;
+    const out = [["all", `Vše (${library.length})`], ["stems", `Se stopami (${n(r => !r.live)})`]];
+    if (library.some(r => r.source === "songs")) out.push(["songs", `Songs a playlisty (${n(r => r.source === "songs")})`]);
+    for (const m of libMounts) out.push(["@" + m.name, `📁 ${m.name} (${m.exists ? m.count : "nedostupná"})`]);
+    if (source.mountable) out.push(["+", "＋ Namapovat složku…"]);
+    return out;
+  }
+  function fillSources() {
+    if (!libSrcSel) return;
+    const opts = sourcesOf();
+    if (!opts.some(o => o[0] === libSrc)) libSrc = "all";
+    libSrcSel.replaceChildren(...opts.map(([v, t]) => h("option", {value: v, selected: v === libSrc}, t)));
+    libSrcSel.hidden = opts.length < 3 && !source.mountable;
+  }
+  async function mapFolder() {
+    toast("Vyber složku s hudbou — nic se nekopíruje");
+    try {
+      const r = await fetch("/api/library/mounts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || "Složku se nepodařilo namapovat"); return; }
+      if (!d.added) return;
+      libSrc = "@" + d.added.name; libPref("src", libSrc);
+      libraryLoaded = false; library = []; renderLibrary(); await loadLibrary();
+      toast(`Složka ${d.added.name} je v DJ i v knihovně. Písně bez stop se rozdělí během hraní.`);
+    } catch (e) { toast("Složku se nepodařilo namapovat"); }
+  }
   function libraryView() {
-    libSearch = h("input", {type: "search", placeholder: "Hledat interpreta nebo píseň"});
+    libSearch = h("input", {type: "search", placeholder: "Hledat interpreta, píseň, album, žánr"});
     libSearch.addEventListener("input", renderLibrary);
+    libSrcSel = h("select", {class: "pdj-sel", title: "Odkud písně jsou"});
+    libSrcSel.addEventListener("change", () => {
+      if (libSrcSel.value === "+") { fillSources(); mapFolder(); return; }
+      libSrc = libSrcSel.value; libPref("src", libSrc); renderLibrary();
+    });
+    libGroupSel = h("select", {class: "pdj-sel", title: "Třídit do skupin"},
+      ...Object.entries(GROUPS).map(([k, [t]]) => h("option", {value: k, selected: k === libGroup}, k ? "Třídit: " + t : t)));
+    libGroupSel.addEventListener("change", () => { libGroup = libGroupSel.value; libPref("group", libGroup); libOpen = new Set(); renderLibrary(); });
     libList = h("div", {class: "pdj-list"});
     return h("section", {class: "pdj-lib"},
-      h("div", {class: "pdj-row"}, h("span", {class: "pdj-lbl"}, "Písně se stopami"), libSearch,
+      h("div", {class: "pdj-row"}, h("span", {class: "pdj-lbl"}, "Písně"), libSrcSel, libGroupSel, libSearch,
         h("span", {class: "pdj-sub", id: "pdj-libcount"})),
       libList);
   }
 
   function renderLibrary() {
     if (!libList) return;
+    fillSources();
     const q = (libSearch.value || "").trim().toLowerCase();
-    const rows = library.filter(r => !q || [r.title, r.artist].some(x => x && String(x).toLowerCase().includes(q)));
+    const inSrc = (r) => libSrc === "all" || (libSrc === "stems" ? !r.live : r.source === libSrc);
+    const rows = library.filter(r => inSrc(r) && (!q || [r.title, r.artist, r.album, (r.genres || []).join(" "), (r.playlists || []).join(" "), r.year]
+      .some(x => x && String(x).toLowerCase().includes(q))));
     const count = root.querySelector("#pdj-libcount");
-    if (count) count.textContent = libraryLoaded ? `${rows.length} z ${library.length}` : "načítám…";
-    libList.replaceChildren(...rows.slice(0, 300).map(r => {
+    if (count) count.textContent = libraryLoaded ? `${rows.length} z ${library.length}` + (libGroup === "genre" && genresPending ? ` · žánry ${genresPending} kapel se dohledávají` : "") : "načítám…";
+    const by = GROUPS[libGroup] && GROUPS[libGroup][1];
+    if (!by) { libList.replaceChildren(...rows.slice(0, 300).map(itemOf)); return; }
+    const m = new Map();
+    for (const r of rows) for (const g of by(r)) { if (!m.has(g)) m.set(g, []); m.get(g).push(r); }
+    const auto = q && rows.length <= 60;
+    const kids = [];
+    for (const [g, list] of groupOrder(libGroup, [...m])) {
+      const open = auto || libOpen.has(g);
+      kids.push(h("button", {class: "pdj-grp", onclick: () => { libOpen.has(g) ? libOpen.delete(g) : libOpen.add(g); renderLibrary(); }},
+        h("span", {class: "ar"}, open ? "▾" : "▸"), h("span", {class: "gn"}, g), h("span", {class: "n"}, String(list.length))));
+      if (open) kids.push(...list.slice(0, 300).map(itemOf));
+    }
+    libList.replaceChildren(...kids);
+  }
+
+  function itemOf(r) {
+    {
       const kind = r.tooLong ? h("span", {class: "k long", title: `Delší než ${C.MAX_SECONDS / 60} minut`}, "dlouhá")
         : r.live ? h("span", {class: "k live", title: "Stopy se rozdělí během hraní (a pak uloží do Steems)"}, "živě")
         : h("span", {class: "k", title: "Stopy ze Steems"}, "stopy");
@@ -908,8 +994,10 @@ const PickDJ = (() => {
         h("span", {class: "ld"}, decks.map(d => h("button", {style: `background:var(--dj${d.id.toLowerCase()})`, title: `Načíst do decku ${d.id}`,
           disabled: r.tooLong, onclick: () => load(d, r)}, "→ " + d.id))));
       item.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/x-pick-stems", r.key));
+      const tip = [r.album, r.year, tuneName(r.tuning), (r.genres || []).slice(0, 3).join(", "), (r.playlists || []).length ? "playlist: " + r.playlists.join(", ") : ""].filter(Boolean).join(" · ");
+      if (tip) item.title = tip;
       return item;
-    }));
+    }
   }
 
   /** Updates the controls' state (not the per-frame parts, see frame()). */

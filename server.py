@@ -2773,6 +2773,12 @@ def _track_no(value) -> Optional[int]:
         return None
 
 
+def _year_of(text) -> Optional[int]:
+    m = _re_mod.match(r"\s*(\d{4})", str(text or ""))
+    y = int(m.group(1)) if m else None
+    return y if y and 1900 <= y <= 2100 else None
+
+
 def _audio_tags(path: Path) -> dict:
     """title / artist / album / duration from the file's own tags.
 
@@ -2805,6 +2811,8 @@ def _audio_tags(path: Path) -> dict:
                 # "3" or "3/12" — only the position is wanted, for sorting
                 # a list by album the way the album plays.
                 "track": _track_no(first("tracknumber")),
+                # the year it came out ("2011-06-24" or "1980"), for sorting by it (Pick DJ)
+                "year": _year_of(first("originaldate") or first("date")),
                 "duration": round(audio.info.length, 1) if getattr(audio, "info", None) else None,
             }
     except Exception:
@@ -3184,6 +3192,7 @@ def library_add_mount(req: LibraryMountRequest):
         n += 1
     mounts.append({"name": name, "path": str(p)})
     _write_config({"library_mounts": mounts})
+    _DJ_LIB["data"] = None
     return {**library_mounts(), "added": {"name": name, "rel": MOUNT_PREFIX + name, "path": str(p)}}
 
 
@@ -3191,6 +3200,7 @@ def library_add_mount(req: LibraryMountRequest):
 def library_remove_mount(req: LibraryMountRequest):
     """Unmaps a folder. Its files stay where they are."""
     _write_config({"library_mounts": [m for m in _library_mounts() if m["name"] != req.name]})
+    _DJ_LIB["data"] = None
     return library_mounts()
 
 
@@ -12123,6 +12133,143 @@ _djlive.raw_track_dir = _stems_raw_track_dir
 _djlive.finalize = _finalize_stems_job
 _djlive.run_beatgrid = _run_beatgrid
 app.include_router(_djlive.router)
+
+
+# ---- Pick DJ's library: every song with what sorts it — band, tuning, year, genre, playlists — and where it comes from:
+# the songs with stems (Steems), Songs/ with Playlists/ (separated live), and the folders mapped into the library.
+_DJ_GENRES_FILL = {"busy": False}
+
+
+def _dj_band(artist: str) -> str:
+    return (artist or "").split(",")[0].split(" feat")[0].strip()
+
+
+def _dj_genres_fill(bands: list) -> None:
+    """Bands with no genre known yet, asked of MusicBrainz in the background (one a second) — kept with the songbook's."""
+    try:
+        for b in bands[:400]:
+            _songbook.band_genres(b)
+    finally:
+        _DJ_GENRES_FILL["busy"] = False
+
+
+def _dj_mount_files(m: dict, limit: int = 4000) -> list:
+    base = Path(m["path"])
+    out = []
+    if not base.is_dir():
+        return out
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        for fn in sorted(filenames):
+            p = Path(dirpath) / fn
+            if fn.startswith(".") or p.suffix.lower() not in AUDIO_EXTS:
+                continue
+            out.append((p, MOUNT_PREFIX + m["name"] + "/" + p.relative_to(base).as_posix()))
+            if len(out) >= limit:
+                return out
+    return out
+
+
+_DJ_LIB = {"at": 0.0, "data": None, "busy": False}
+_DJ_LIB_LOCK = threading.Lock()
+
+
+def _dj_library_refresh() -> dict:
+    with _DJ_LIB_LOCK:
+        got = _dj_library_build()
+        _DJ_LIB.update(at=time.time(), data=got)
+    _DJ_LIB["busy"] = False
+    return got
+
+
+@app.get("/api/dj/library")
+def dj_library(fresh: bool = False):
+    """The list kept a while (working it out takes seconds over thousands of files): out at once, refreshed behind."""
+    data = _DJ_LIB["data"]
+    if data is None or fresh:
+        data = _dj_library_refresh()
+    elif time.time() - _DJ_LIB["at"] > 120 and not _DJ_LIB["busy"]:
+        _DJ_LIB["busy"] = True
+        threading.Thread(target=_dj_library_refresh, daemon=True, name="dj-library").start()
+    try:
+        bands = json.loads(_songbook.BANDS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        bands = {}
+    missing, items = set(), []
+    for x in data["items"]:                             # the genres fresh each time: they come in while the list is kept
+        k = _songbook._fold(x["band"]).strip()
+        g = (bands.get(k) or {}).get("genres") or []
+        if x["band"] and k not in bands:
+            missing.add(x["band"])
+        items.append({**x, "genres": g})
+    if missing and not _DJ_GENRES_FILL["busy"]:
+        _DJ_GENRES_FILL["busy"] = True
+        threading.Thread(target=_dj_genres_fill, args=(sorted(missing),), daemon=True, name="dj-genres").start()
+    return {"items": items, "mounts": data["mounts"], "genres_pending": len(missing)}
+
+
+def _dj_library_build() -> dict:
+    import setlists as _setlists
+    stems = [r for r in (list_stems() or []) if isinstance(r, dict)]
+    by_stems = {r["name"]: r for r in stems}
+    flat = _all_songs_flat()["entries"]
+    # playlists each song is in: the downloaded folders and the own ones in Steems
+    in_pl: dict = {}
+    for p in _jam.all_playlists(_setlists.load()):
+        if p["name"] == _jam.FAV_NAME:
+            continue
+        for n in p["songs"]:
+            in_pl.setdefault(n, []).append(p["name"])
+    year_of_stems = {}
+    for e in flat:
+        st = e.get("stems") or {}
+        if st.get("state") == "ready" and st.get("name") and e.get("year"):
+            year_of_stems.setdefault(st["name"], e["year"])
+    def row(**kw):
+        kw.update(band=_dj_band(kw.get("artist") or ""), tooLong=(kw.get("duration") or 0) > 20 * 60)
+        return kw
+
+    items, seen = [], set()
+    for r in stems:
+        if not r.get("complete"):
+            continue
+        m = r.get("meta") or {}
+        items.append(row(key="s:" + r["name"], title=m.get("title") or r["name"], artist=m.get("artist") or "", album=m.get("album") or "",
+                         duration=r.get("duration") or 0, stems=r["name"], stemList=r.get("stems") or [], live=False, source="stems",
+                         tuning=r.get("tuning"), year=year_of_stems.get(r["name"]), playlists=in_pl.get(r["name"], [])))
+        seen.add(r["name"])
+    for e in flat:
+        st = e.get("stems") or {}
+        ready = st.get("state") == "ready" and st.get("name")
+        if ready and st["name"] in seen:
+            continue
+        items.append(row(key=("s:" + st["name"]) if ready else "f:" + e["rel"], title=e.get("title") or Path(e["name"]).stem,
+                         artist=e.get("artist") or "", album=e.get("album") or "", duration=e.get("duration") or 0,
+                         stems=st["name"] if ready else None, stemList=(by_stems.get(st["name"]) or {}).get("stems") if ready else None,
+                         rel=e["rel"], live=not ready, source="songs", tuning=(by_stems.get(st.get("name")) or {}).get("tuning") if ready else None,
+                         year=e.get("year"), playlists=[e["folder"]] if e.get("folder") not in (None, "", "Songs") else []))
+        if ready:
+            seen.add(st["name"])
+    mounts = []
+    for m in _library_mounts():
+        files = _dj_mount_files(m)
+        mounts.append({"name": m["name"], "path": m["path"], "exists": Path(m["path"]).is_dir(), "count": len(files)})
+        for p, rel in files:
+            t = _audio_tags(p)
+            st = _stems_state_for(p) or {}
+            ready = st.get("state") == "ready" and st.get("name")
+            sub = rel.split("/")[1:-1]
+            items.append(row(key=("s:" + st["name"]) if ready else "f:" + rel, title=t.get("title") or p.stem, artist=t.get("artist") or (_guess_from_name(p.stem).get("artist") or ""),
+                             album=t.get("album") or "", duration=t.get("duration") or 0, stems=st["name"] if ready else None,
+                             stemList=(by_stems.get(st.get("name")) or {}).get("stems") if ready else None, rel=rel, live=not ready,
+                             source=MOUNT_PREFIX + m["name"], tuning=(by_stems.get(st.get("name")) or {}).get("tuning") if ready else None,
+                             year=t.get("year"), playlists=[sub[0]] if sub else []))
+    return {"items": items, "mounts": mounts}
+
+
+if not os.environ.get("SPOTDL_NO_WATCHERS") and "pytest" not in __import__("sys").modules:
+    # worked out once a minute after start, so opening the DJ is quick the first time too
+    threading.Thread(target=lambda: (time.sleep(60), _dj_library_refresh()), daemon=True, name="dj-library-warm").start()
 
 
 @app.on_event("shutdown")

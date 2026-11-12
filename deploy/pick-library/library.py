@@ -325,7 +325,7 @@ def _song_row(d: Path) -> Optional[dict]:
     m = _jload(d / "meta.json", {}) if "meta.json" in names else {}
     m = m if isinstance(m, dict) else {}
     t = _jload(d / "tuning.json", None) if "tuning.json" in names else None
-    tuning = t.get("midi") if isinstance(t, dict) else t if isinstance(t, list) else None
+    tuning = (t.get("tuning") or t.get("midi")) if isinstance(t, dict) else t if isinstance(t, list) else None
     try:
         key = f"{d.name}:{(d / first).stat().st_mtime}"
     except OSError:

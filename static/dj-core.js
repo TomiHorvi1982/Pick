@@ -62,8 +62,8 @@
   function fromLibrarySongs(rows) {
     const items = libraryItems((rows || []).map(r => ({name: r.name, complete: true, stems: r.stems || [], duration: r.duration || 0,
       meta: {title: r.title, artist: r.artist}})), []);
-    const stemsOf = new Map((rows || []).map(r => [r.name, r.stems || []]));
-    items.forEach(x => { x.stemList = stemsOf.get(x.stems) || null; });
+    const byName = new Map((rows || []).map(r => [r.name, r]));
+    items.forEach(x => { const r = byName.get(x.stems) || {}; x.stemList = r.stems || null; x.tuning = r.tuning || null; x.album = r.album || ""; x.source = "stems"; });
     return items;
   }
 
