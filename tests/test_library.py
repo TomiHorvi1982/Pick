@@ -239,3 +239,22 @@ def test_tracks_and_preview_made_ahead(lib):
     st = c.post("/sync/status", headers={"Authorization": f"Bearer {TOKEN}"}, json={"on": False}).json()
     assert st["prepared"]["done"] == 1 and st["free_gb"] > 0
     assert "prepared" not in c.get("/health").json()
+
+
+def test_the_dj_is_on_the_page_and_reads_the_beat_grid_behind_the_login(lib):
+    mod, c = lib
+    song = mod.DATA / "Stems" / "Band - Song [abcdefghijk]"
+    (song / "beats.json").write_text(json.dumps({"beats": [0.5, 1.0, 1.5], "downbeats": [0.5], "bpm": 120.0, "grid_version": 2, "source_stem": "drums"}))
+    page = c.get("/").text
+    for name in ("dj-core.js", "dj.js", "dj-library.js"):
+        assert f'<script src="/static/{name}?v=' in page
+        assert c.get(f"/static/{name}").status_code == 200
+    assert c.get("/static/worklets/dj-deck.js").status_code == 200
+    assert c.get("/static/worklets/nothere.js").status_code == 404
+    assert c.get("/g/beats?name=Band - Song [abcdefghijk]").status_code == 403
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert c.get("/g/beats?name=Band - Song [abcdefghijk]").json() == {
+        "beats": [0.5, 1.0, 1.5], "downbeats": [0.5], "bpm": 120.0, "beats_per_bar": None, "duration": None}
+    assert c.get("/g/beats?name=../Stems").status_code == 404
+    (song / "beats.json").unlink()
+    assert c.get("/g/beats?name=Band - Song [abcdefghijk]").status_code == 404

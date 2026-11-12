@@ -65,6 +65,20 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.
 - **Písně se připravují předem.** Po startu knihovna na pozadí postupně převede všechny stopy a náhledy (nejdřív ★ Na příště), aby kamarád na nic nečekal. Napoprvé to trvá asi 8–10 hodin a zabere kolem 55 GB na disku C:. Zabere nejvýš 65 GB (jde změnit proměnnou `PICK_CACHE_MAX_GB` v Coolify) a přestane i tehdy, když na disku Dockeru zbývá méně než 15 GB. Zbytek pak převede, až si o píseň kamarád řekne. Nové písně z kopie karty převede do půl hodiny. Kolik je hotovo, uvidíš v Picku v **Nastavení → Jam → Knihovna na PC → Vyzkoušet spojení**.
 
+## DJ na PC
+
+Po přihlášení je v hlavičce stránky tlačítko **DJ**: dva decky nad písněmi, které už mají stopy
+(stejný DJ jako v Picku na Macu: 6 stop, SYNC, key lock, smyčky, cue, mixer, FX, nahrávání).
+
+- Stopy jdou z kopie karty jako Opus (`/g/stem`), beat grid z `beats.json`, který na kartu zapsal Pick.
+  Píseň bez `beats.json` hraje taky, jen bez SYNC.
+- Písně **bez stop** tu DJ nenabízí: v kontejneru není Demucs a Docker na Windows obvykle nemá přístup ke GPU.
+  Rozděl je v Picku na Macu (nebo je tam pusť v DJ) a po další synchronizaci karty jsou tu.
+- Stopy připravené dopředu (Opus v `library-state`) se načtou hned; ostatní se převádějí při prvním načtení
+  (6 stop ≈ desítky sekund).
+- Zvuk běží v prohlížeči: paměť zabírá počítač, na kterém je stránka otevřená (~6 MB na minutu a stopu,
+  šestiminutová píseň ≈ 380 MB na deck), ne kontejner.
+
 ## Aplikace na plochu pro kamaráda (Windows)
 V Picku: **Nastavení → Jam → Knihovna na PC → Pick Jam.cmd** (nebo přímo `https://jam.neverlast.cz/pick-jam.cmd`). Soubor mu pošli. Když ho spustí, objeví se mu na ploše ikona **Pick Jam** a knihovna se otevře v Chromu (nebo v Edge) jako aplikace ve vlastním okně. V souboru je jen adresa, žádné heslo ani klíč.
 - Přihlásí se jménem a heslem. Se zaškrtnutým **Zapamatovat si mě** zůstane přihlášený rok, i když se knihovna restartuje.

@@ -192,7 +192,7 @@ def app_icon(name: str):
         # The Guitar Performance Analyzer's engine: loaded as a Worker.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
-    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js", "jam-engine.js", "jam-worklet.js", "jam-host.js", "jam-chat.js", "mixtools.js"):
+    if name in ("look.js", "studio.js", "practice.js", "chordcoach.js", "deck.js", "looper.js", "looper-sound.js", "tone.js", "viz.js", "vguitar.js", "kontakt.js", "lyricstyle.js", "ampbrowser.js", "plugins.js", "space.js", "stamps.js", "picklive.js", "tonelane.js", "stampsongs.js", "timing.js", "whatplays.js", "trainer.js", "journal.js", "jam-engine.js", "jam-worklet.js", "jam-host.js", "jam-chat.js", "mixtools.js", "dj-core.js", "dj.js"):
         # Úpravy vzhledu — the design mode, a script of its own.
         return Response((APP_DIR / "static" / name).read_text(encoding="utf-8"), media_type="text/javascript",
                         headers={"Cache-Control": "no-cache"})
@@ -5206,6 +5206,12 @@ def _stems_ready(safe_name: str) -> bool:
     return d.is_dir() and all(_stem_file(d, s) is not None for s in STEM_NAMES)
 
 
+def _stems_raw_track_dir(source: Path) -> Path:
+    """Where Demucs leaves one track's stems before _finalize_stems_job moves them
+    into the library (Pick DJ writes its live separation there too)."""
+    return MUSIC_ROOT / "Stems" / ".raw" / "htdemucs_6s" / Path(source).stem
+
+
 def _finalize_stems_job(job: dict) -> None:
     """Moves Demucs' own output layout (<raw>/htdemucs_6s/<track>/<stem>.wav)
     into our MUSIC_ROOT/Stems/<safe-name>/<stem>.wav — called once a "stems"
@@ -5216,7 +5222,7 @@ def _finalize_stems_job(job: dict) -> None:
     """
     source = Path(job["stems_source"])
     safe_name = job["stems_name"]
-    raw_track_dir = MUSIC_ROOT / "Stems" / ".raw" / "htdemucs_6s" / source.stem
+    raw_track_dir = _stems_raw_track_dir(source)
     dest_dir = _stems_dir_for(safe_name)
     if not raw_track_dir.is_dir():
         raise FileNotFoundError(f"Demucs nevytvořil očekávaný výstup ({raw_track_dir})")
@@ -7462,8 +7468,7 @@ def _beat_grid_for(stems_dir: Path, refresh: bool = False):
         except (json.JSONDecodeError, OSError):
             pass  # unreadable cache is just a cache miss
 
-    interpreter = _demucs_interpreter()
-    if interpreter is None:
+    if _demucs_interpreter() is None:
         return "Detektor beatů není dostupný."
 
     # A project opened from a single file has no separated stems — its own
@@ -7472,26 +7477,13 @@ def _beat_grid_for(stems_dir: Path, refresh: bool = False):
         source = _stem_file(stems_dir, stem)
         if source is None:
             continue
-        try:
-            proc = subprocess.run(
-                [interpreter, str(APP_DIR / "beatgrid.py"), str(source)],
-                capture_output=True, text=True, timeout=300,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            return f"Detekce selhala: {exc}"
-
-        line = (proc.stdout or "").strip().splitlines()
-        if not line:
-            continue
-        try:
-            data = json.loads(line[-1])
-        except json.JSONDecodeError:
-            continue
-        if "error" in data:
+        data = _run_beatgrid(source)
+        if isinstance(data, str):
+            return data
+        if data is None:
             continue  # this stem had nothing trackable; try the next one
 
         data["source_stem"] = stem
-        data["grid_version"] = BEATGRID_VERSION
         try:
             cache.write_text(json.dumps(data), encoding="utf-8")
         except OSError:
@@ -7499,6 +7491,36 @@ def _beat_grid_for(stems_dir: Path, refresh: bool = False):
         return data
 
     return "Beaty se nepodařilo detekovat."
+
+
+def _run_beatgrid(source: Path):
+    """beatgrid.py over one audio file, under Demucs' interpreter.
+
+    The grid (stamped with BEATGRID_VERSION), None when the file had nothing
+    trackable, or a string saying why detection could not run at all. Shared
+    by the stems' grid and Pick DJ's grid of a song played without stems.
+    """
+    interpreter = _demucs_interpreter()
+    if interpreter is None:
+        return "Detektor beatů není dostupný."
+    try:
+        proc = subprocess.run(
+            [interpreter, str(APP_DIR / "beatgrid.py"), str(source)],
+            capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"Detekce selhala: {exc}"
+    line = (proc.stdout or "").strip().splitlines()
+    if not line:
+        return None
+    try:
+        data = json.loads(line[-1])
+    except json.JSONDecodeError:
+        return None
+    if "error" in data:
+        return None
+    data["grid_version"] = BEATGRID_VERSION
+    return data
 
 
 # ------------------------------------------- a clip cut in the mixer, kept
@@ -12088,6 +12110,26 @@ import vguitar as _vguitar
 app.include_router(_vguitar.router)
 
 # ---- Jam: playing with a friend over the internet (jam.py; the pages static/jam-*.js, static/jam.html)
+# ---- Pick DJ: songs without stems separated while they play (djlive.py, dj_separator.py)
+import djlive as _djlive
+_djlive.LIVE_ROOT = HOME / ".local" / "share" / "spotdl-helper" / "dj-live"
+_djlive.resolve = _resolve_under_music_root
+_djlive.interpreter = _demucs_interpreter
+_djlive.ffmpeg = ffmpeg_bin
+_djlive.safe_name = _safe_name
+_djlive.stems_ready = _stems_ready
+_djlive.stems_busy = lambda name: any(j.get("stems_name") == name for _, j in _stems_active_jobs())
+_djlive.raw_track_dir = _stems_raw_track_dir
+_djlive.finalize = _finalize_stems_job
+_djlive.run_beatgrid = _run_beatgrid
+app.include_router(_djlive.router)
+
+
+@app.on_event("shutdown")
+def _djlive_end():
+    _djlive.shutdown()
+
+
 import jam as _jam
 _jam.stems_dir = lambda name: (lambda d: d if d is not None and d.is_dir() else None)(_resolve_under_music_root(f"Stems/{name}"))
 _jam.stem_file = _stem_file

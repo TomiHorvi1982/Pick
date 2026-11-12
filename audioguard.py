@@ -26,6 +26,8 @@ SLOW = ("demucs", "whisper-cli", "tone_worker.py", "tone_nam.mjs", "tts_worker.p
         "analyze.py", "audio2midi.py", "lyrics_worker.py", "/bin/spotdl", "yt-dlp", "yt_dlp")
 # …and of those, what may be stopped outright — nothing waits on them with a clock running
 PAUSABLE = ("demucs", "whisper-cli", "tone_worker.py", "tone_nam.mjs", "analyze.py", "audio2midi.py", "/bin/spotdl", "yt-dlp", "yt_dlp")
+# …except what the sound itself waits on: Pick DJ's live separation feeds the deck that plays
+KEEP = ("dj_separator.py",)
 TASKPOLICY = "/usr/sbin/taskpolicy"
 EVERY = 2.0
 QUIET_AFTER = 12.0
@@ -85,6 +87,7 @@ def _heavy(rows: dict) -> dict:
         if p in rows:
             slow |= _tasks.tree(rows, p)
     slow.discard(me)
+    slow -= _tasks.matching(rows, mine, *KEEP)
     if STATE["mode"] != "pause":
         return {p: "slow" for p in slow}
     pause = _tasks.matching(rows, mine, *PAUSABLE)
