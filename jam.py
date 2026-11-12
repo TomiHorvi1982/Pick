@@ -453,6 +453,24 @@ def engine_files() -> List[str]:
     return [n for n in ENGINE_FILES if (ENGINE_DIST / n).is_file()]
 
 
+def start_engine() -> None:
+    """Pick Jam Engine on this Mac, waiting for the page on 127.0.0.1:9877 — started with Pick so the native mode is just a choice.
+    Left alone when something already listens there (one started by hand, or from Pick's last run)."""
+    import platform
+    import socket
+    exe = ENGINE_DIST / ("pick-jam-engine.exe" if os.name == "nt" else "pick-jam-engine-mac")
+    if platform.system() != "Darwin" and os.name != "nt" or not exe.is_file():
+        return
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        if s.connect_ex(("127.0.0.1", 9877)) == 0:
+            return
+    try:
+        subprocess.Popen([str(exe), "serve"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        pass
+
+
 @gate.get("/engine/{name}")
 def guest_engine(request: Request, name: str, k: str = ""):
     if not _who(request.cookies, k):
