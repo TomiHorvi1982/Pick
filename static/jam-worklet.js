@@ -2,7 +2,8 @@
 // a small jitter buffer of our own (no call's buffering, no codec's delay).
 //
 // jam-tx: the guitar, mono, one packet a render quantum (128 samples, 2.7 ms at 48 kHz) as 16-bit PCM; the
-//   page puts a sequence number in front and sends it on an unreliable, unordered data channel.
+//   page puts a sequence number in front and sends it on an unreliable, unordered data channel. With f32 on
+//   (the native engine fed from Pick's sound) the quantum goes out as float samples for the engine instead.
 // jam-rx: the friend's packets into a ring; played back once `target` samples are waiting. A packet lost is
 //   filled from the one before (fading); one late is dropped. The two sound cards' clocks are never quite the
 //   same: the reading speed follows the buffer (±0.4 %), so it neither runs dry nor grows. Ran dry: it waits a
@@ -11,20 +12,20 @@
 class JamTx extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.on = true; this.peak = 0; this.n = 0;
-    this.port.onmessage = (e) => { if(e.data && "on" in e.data) this.on = !!e.data.on; };
+    this.on = true; this.f32 = false; this.peak = 0; this.n = 0;
+    this.port.onmessage = (e) => { const d = e.data || {}; if("on" in d) this.on = !!d.on; if("f32" in d) this.f32 = !!d.f32; };
   }
   process(inputs){
     const inp = inputs[0];
     if(this.on){
-      const n = 128, out = new Int16Array(n);
+      const n = 128, out = this.f32 ? new Float32Array(n) : new Int16Array(n), k = this.f32 ? 1 : 32767;
       if(inp && inp.length && inp[0].length){
         const a = inp[0], b = inp.length > 1 ? inp[1] : null;
         let pk = 0;
         for(let i = 0; i < n; i++){
           let v = b ? (a[i] + b[i]) * 0.5 : a[i];
           if(v > 1) v = 1; else if(v < -1) v = -1;
-          out[i] = v * 32767;
+          out[i] = v * k;
           const av = v < 0 ? -v : v; if(av > pk) pk = av;
         }
         if(pk > this.peak) this.peak = pk;

@@ -1,0 +1,3 @@
+# libopus (audiopus_sys) still declares an old CMake minimum; CMake 4 refuses it without this.
+[env]
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

@@ -573,7 +573,7 @@ html{scroll-behavior:smooth}
             <li><b>Přesný otisk</b>: vlastní NAM model natrénovaný z tvých nahrávek proti originálu, export do ToneRigu a NAM pluginu</li>
             <li><b>Kytara → taby</b>: ze stopy kytary nebo z tvého hraní tab do Pick Tabs (struny, pražce, takty)</li>
             <li><b>Virtuální kytara</b>: napsaný nebo vložený riff zahraný zvukem otisku</li>
-            <li>Nativní engine kytary (~5–8 ms), kdyby zpoždění v prohlížeči nestačilo</li>
+            <li><b>Pick Jam Engine</b> (rozpracováno od 11. 11.): nativní zvuk pro Pick Jam v Rustu, Mac i Windows, Opus po 2,5 ms přímo přes UDP po Tailscale, vlastní jitter buffer a dorovnání hodin. Fáze 1 (jádro, <code>engine/</code>) a 2 hotové: v Jamu volba Zvuk kytar → nativní engine, kytara přímo ze zvukovky nebo zvuk z Picku, sám se vrátí do prohlížeče, když to nejde. Fáze 3 (12. 11.): Windows build (WASAPI) sestavený z Macu přes mingw, ověřený pod Wine proti Mac enginu; zvukovky v jakémkoli formátu a rychlosti (engine převzorkuje), volba ovladače WASAPI/ASIO, kamarád si engine stáhne z jam stránky (<code>/engine/pick-jam-engine.exe</code>, jen přihlášený). ASIO verze se staví v GitHub Actions (<code>.github/workflows/engine.yml</code>). Sestavení obou: <code>engine/build-dist.sh</code>. Dál instalátor, priorita vláken. Návrh v <code>docs/specs/2026-11-11-pick-jam-engine-design.md</code></li>
             <li>Doladit výchozí kvalitu a výšku hlasu podle toho, jak ti to zní</li>
             <li>Opravy jednotlivých úseků přezpívaného zpěvu přímo na stopě</li>
             <li>Delší songy ze Skladatele po částech (sloka, refrén, sólo)</li>

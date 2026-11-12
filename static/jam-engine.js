@@ -6,7 +6,9 @@
 //   · data channel "au": the guitar the SonoBus way — 16-bit PCM in 2.7 ms packets, unreliable and unordered,
 //     played through our own small jitter buffer (jam-worklet.js) — the least delay a browser can give
 //   · data channel "ctl": the clocks (ping), the mode, the sound card's rate and latency, anything else.
-// Mode "low" sends the guitar on "au", "rtc" on lane 0; both ends follow the one who changed it.
+// Mode "low" sends the guitar on "au", "rtc" on lane 0, "native" through Pick Jam Engine on each machine (UDP
+// straight between the two engines, the addresses swapped on "ctl"; back to "low" when it cannot work);
+// both ends follow the one who changed it.
 (function(){
   const LANES = ["guitar", "voice", "camera", "screen"];
   const ICE = [{urls: "stun:stun.l.google.com:19302"}];
@@ -20,6 +22,111 @@
     return sdp.replace(new RegExp(`a=fmtp:${pt} [^\\r\\n]*`), `a=fmtp:${pt} ${want}`);
   }
 
+  // ---- Pick Jam Engine: the native sound path (engine/ in the repo), reached on this machine's control socket.
+  // It takes the guitar straight from the sound card (or Pick's own sound from the page), sends it over UDP on the
+  // tailnet and plays the other one's guitar straight into the sound card — no browser audio on that path.
+  const NATIVE_URL = "ws://127.0.0.1:9877";
+  class NativeEngine {
+    constructor(on, url){ this.on = on; this.url = url || NATIVE_URL; this.ws = null; this.ok = false; this.hello = null; this.started = null; this.stats = null; this.waiters = []; this.host = ""; }
+    // true when an engine answers on this machine (quick: a refused port fails at once)
+    probe(ms = 1500){
+      if(this.ok && this.ws && this.ws.readyState === 1) return Promise.resolve(true);
+      return new Promise((res) => {
+        let done = false; const fin = (v) => { if(!done){ done = true; clearTimeout(t); res(v); } };
+        const t = setTimeout(() => { try{ ws.close(); }catch(e){} fin(false); }, ms);
+        let ws; try{ ws = new WebSocket(this.url); }catch(e){ fin(false); return; }
+        ws.binaryType = "arraybuffer";
+        ws.onopen = () => ws.send(JSON.stringify({type: "hello", host: this.host}));
+        ws.onerror = () => fin(false);
+        ws.onclose = () => { if(this.ws === ws){ this.ws = null; this.ok = false; this.started = null; this.on("native-state"); } fin(false); };
+        ws.onmessage = (e) => {
+          const m = JSON.parse(e.data);
+          if(m.type === "hello" && !done){ this.ws = ws; this.ok = true; this.hello = m; this.started = m.running || null; this.on("native-state"); fin(true); }
+          this.onMsg(m);
+        };
+      });
+    }
+    onMsg(m){
+      if(m.type === "stats"){ this.stats = m; return; }
+      if(m.type === "started"){ this.started = m; this.stats = null; }
+      if(m.type === "stopped"){ this.started = null; this.stats = null; }
+      if(m.type === "devices" && this.hello){ this.hello.devices = m.devices; this.on("native-state"); }
+      if(m.type === "error" && m.code === "taken"){ this.ok = false; }
+      const w = this.waiters.filter(x => x.type === m.type || (m.type === "error" && x.err)); this.waiters = this.waiters.filter(x => !w.includes(x));
+      w.forEach(x => (m.type === "error" ? x.rej(new Error(m.msg)) : x.res(m)));
+      this.on("native-msg", m);
+    }
+    cmd(o, want, ms = 8000){
+      if(!this.ws || this.ws.readyState !== 1) return Promise.reject(new Error("engine neběží"));
+      this.ws.send(JSON.stringify(o));
+      if(!want) return Promise.resolve();
+      return new Promise((res, rej) => { const w = {type: want, err: true, res, rej}; this.waiters.push(w);
+        setTimeout(() => { if(this.waiters.includes(w)){ this.waiters = this.waiters.filter(x => x !== w); rej(new Error("engine neodpověděl")); } }, ms); });
+    }
+    audio(buf){ if(this.ws && this.ws.readyState === 1 && this.ws.bufferedAmount < 65536) this.ws.send(buf); }
+    close(){ const ws = this.ws; this.ws = null; this.ok = false; this.started = null; if(ws){ try{ ws.close(); }catch(e){} } }
+  }
+  window.JamNative = NativeEngine;
+
+  // ---- the engine's settings in a page (the host's jam panel, the friend's settings): one block, the page's own row look
+  const WHY = {
+    "engine": "Pick Jam Engine na tomhle počítači neběží — spusť ho a zkus to znovu.",
+    "tailscale": "Tailscale na tomhle počítači není připojený — nativní zvuk jde jen přes Tailscale.",
+    "peer-engine": "Kamarád nemá spuštěný Pick Jam Engine.",
+    "peer-tailscale": "Kamarád nemá připojený Tailscale.",
+    "peer-start": "Kamarádovi se engine nepodařilo spustit (zvukovka?).",
+    "peer-silent": "Kamarádova stránka nativní zvuk nezná — ať ji obnoví.",
+    "udp": "Enginy se přímo nespojily (UDP neprošlo) — zvuk jde zase přes prohlížeč.",
+    "engine-lost": "Pick Jam Engine se odpojil.",
+  };
+  const why = (code) => WHY[code] || (code && code.startsWith("start: ") ? "Engine nespustil zvuk: " + code.slice(7) : "Nativní zvuk nejde: " + code);
+  const escH = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  // row(label, html) gives the page's own row markup; onChange(cfg) gets the settings to keep
+  function nativeBlock(link, row, onChange, opts = {}){
+    const el = document.createElement("div"); el.className = "jam-nat";
+    const paint = () => {
+      const n = link.native, c = link.natCfg, d = n.hello && n.hello.devices, s = n.stats;
+      const khz = (r) => r && r !== 48000 ? ` · ${String(r / 1000).replace(".", ",")} kHz` : "";
+      const opt = (list, cur, def) => `<option value="">výchozí${def ? ` (${escH(def)})` : ""}</option>` + (list || []).map(x => `<option value="${escH(x.name)}" ${x.name === cur ? "selected" : ""} ${x.ok ? "" : "disabled"}>${escH(x.name)}${x.ok ? khz(x.rate) : " — nepodporovaný formát"}</option>`).join("");
+      const hosts = (d && d.hosts) || [];
+      const ins = d ? d.inputs : [], dev = ins.find(x => x.name === (c.input || d.default_input)), chs = dev ? dev.channels : 2;
+      let state;
+      const dl = (opts.download || []).map(x => `<a class="jb" href="${escH(x.url)}" download>${escH(x.label)}</a>`).join(" ");
+      if(!n.ok) state = `<span class="jam-warn">Engine nenalezen</span> <button type="button" class="jb" data-k="retry">Zkusit znovu</button>`
+        + (dl ? `<div class="jam-nat-dl">${dl}<br><small>Stáhni, spusť a nech jeho okno otevřené. Windows se poprvé zeptá: „Další informace“ → „Přesto spustit“, a firewall: „Povolit“. Pak „Zkusit znovu“.</small></div>` : "");
+      else if(link.mode !== "native") state = `připojen (v${escH(n.hello.version)}${n.hello.ip ? ", adresa " + escH(n.hello.ip) : ", <span class='jam-warn'>bez Tailscale</span>"})`;
+      else if(!n.started) state = "spouštím…";
+      else if(!link.natPeer) state = "čekám na kamarádův engine…";
+      else if(s && s.rx_age_ms != null && s.rx_age_ms < 1000) state = `hraje · buffer ${s.buffer_ms.toFixed(1)} ms · ztráty ${s.lost} · výpadky ${s.underruns}`;
+      else state = "spojuji…";
+      el.innerHTML = [
+        row("Engine", `<span class="jam-nat-st">${state}</span>`),
+        hosts.length > 1 || c.host ? row("Ovladač zvuku", `<select data-k="host"><option value="">výchozí (${escH(hosts[0])})</option>${[...new Set(hosts.slice(1).concat(c.host ? [c.host] : []))].map(h => `<option value="${escH(h)}" ${c.host === h ? "selected" : ""}>${escH(h)}${h === "ASIO" ? " (nejnižší zpoždění)" : ""}</option>`).join("")}</select>`) : "",
+        d && d.error ? row("", `<span class="jam-warn">${escH(d.error)}</span>`) : "",
+        row("Kytara do jamu", `<select data-k="source"><option value="device" ${c.source === "device" ? "selected" : ""}>přímo ze zvukovky (nejrychlejší)</option><option value="pick" ${c.source === "pick" ? "selected" : ""}>${escH(opts.pickLabel || "zvuk z Picku (otisk, efekty)")}</option></select>`),
+        c.source === "device" ? row("Vstup", `<select data-k="input">${opt(ins, c.input, d && d.default_input)}</select> <select data-k="in_ch" title="Kanál kytary na zvukovce">${Array.from({length: chs}, (_, i) => `<option value="${i + 1}" ${+c.in_ch === i + 1 ? "selected" : ""}>kanál ${i + 1}</option>`).join("")}</select>`) : "",
+        row("Výstup", `<select data-k="output">${opt(d && d.outputs, c.output, d && d.default_output)}</select>`),
+        row("Buffer zvukovky", `<select data-k="buffer">${[32, 64, 128, 256].map(b => `<option value="${b}" ${+c.buffer === b ? "selected" : ""}>${b} vzorků = ${(b / 48).toFixed(1).replace(".", ",")} ms</option>`).join("")}</select>`
+          + (d && d.host === "WASAPI" ? ` <small title="Ve sdíleném režimu Windows určuje buffer systém (kolem 10 ms). Nejnižší zpoždění dává ASIO.">WASAPI: řídí Windows (~10 ms)</small>` : "")),
+      ].join("");
+      el.querySelectorAll("select").forEach(sel => sel.onchange = () => {
+        const k = sel.dataset.k, v = k === "in_ch" || k === "buffer" ? +sel.value : sel.value;
+        const ch = {[k]: v}; if(k === "input") ch.in_ch = 1;
+        if(k === "host") Object.assign(ch, {input: "", output: "", in_ch: 1});
+        link.setNativeConfig(ch); onChange(Object.assign({}, link.natCfg)); paint();
+        if(k === "host") link.native.cmd({type: "devices", host: v}, "devices").then(paint, () => {});
+      });
+      const r = el.querySelector("[data-k=retry]"); if(r) r.onclick = async () => { await link.native.probe(); paint(); };
+    };
+    // only the status line moves while playing; selects are rebuilt on engine events, not under the mouse
+    const tick = () => { if(!el.isConnected) return clearInterval(t); if(!el.contains(document.activeElement) || document.activeElement.tagName !== "SELECT") paint(); };
+    const t = setInterval(tick, 1000);
+    link.native.probe().then(paint); paint();
+    el.repaint = paint;
+    return el;
+  }
+  window.JamNativeUI = {why, block: nativeBlock};
+
   class JamLink {
     constructor(o){
       this.role = o.role; this.ctx = o.ctx; this.output = o.output; this.on = o.onEvent || (() => {});
@@ -31,6 +138,12 @@
       this.remote = {rate: null, lat: 0, inLat: 0, name: ""};
       this.rxStats = {}; this.txPeak = 0; this.rtcStats = {};
       this.media = {};                                  // remote: lane → MediaStream
+      // the native engine: its settings (from the page), my side's state, the other side's address
+      this.native = new NativeEngine((k, m) => this.on(k, m), o.nativeUrl);
+      this.natCfg = Object.assign({source: "device", host: "", input: "", output: "", in_ch: 1, buffer: 64}, o.native || {});
+      this.native.host = this.natCfg.host || "";
+      this.natPeer = null; this.natSince = 0; this.natWhy = "";
+      this.lastVol = 1; this.lastPan = 0;
     }
     async start(wsUrl){
       const c = this.ctx;
@@ -45,6 +158,7 @@
       this.lowGain.connect(this.vol); this.rtcGain.connect(this.vol); this.vol.connect(this.pan); this.pan.connect(this.output); this.vol.connect(this.meter);
       this.makeRx();
       this.applyMode();
+      if(this.mode === "native") this.natStart();
       this.connectWs(wsUrl);
       this.timer = setInterval(() => this.tick(), 1000);
     }
@@ -61,25 +175,67 @@
       this.input = node || null;
       if(node){ node.connect(this.tx); node.connect(this.dest); }
     }
-    setVolume(v){ this.vol.gain.value = v; }
-    setPan(v){ this.pan.pan.value = Math.max(-1, Math.min(1, +v || 0)); }
-    level(){ const a = new Float32Array(this.meter.fftSize); this.meter.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p; }
+    setVolume(v){ this.vol.gain.value = v; this.lastVol = v; this.natMix(); }
+    setPan(v){ this.pan.pan.value = Math.max(-1, Math.min(1, +v || 0)); this.lastPan = this.pan.pan.value; this.natMix(); }
+    level(){
+      if(this.mode === "native") return this.native.stats ? this.native.stats.peer_peak || 0 : 0;
+      const a = new Float32Array(this.meter.fftSize); this.meter.getFloatTimeDomainData(a); let p = 0; for(const v of a) p = Math.max(p, Math.abs(v)); return p;
+    }
     setBuffer(quanta, auto){ this.quanta = quanta; this.auto = auto; if(this.rx) this.rx.port.postMessage({quanta, auto}); }
     setMode(m, quiet){
-      if(m !== "low" && m !== "rtc") return;
+      if(m !== "low" && m !== "rtc" && m !== "native") return;
+      const was = this.mode;
       this.mode = m; this.applyMode();
       if(!quiet) this.ctl({type: "mode", mode: m});
+      if(m === "native") this.natStart();
+      else if(was === "native") this.natStop();
       this.on("mode", m);
     }
     applyMode(){
-      const low = this.mode === "low";
-      this.tx.port.postMessage({on: low});
-      this.lowGain.gain.value = low ? 1 : 0; this.rtcGain.gain.value = low ? 0 : 1;
-      this.putLane(0, low ? null : this.dest.stream.getAudioTracks()[0]);
+      const low = this.mode === "low", nat = this.mode === "native", fromPick = nat && this.natCfg.source === "pick";
+      // native: the browser sends the guitar only to the engine (Pick's sound), and plays nothing of the friend's guitar
+      this.tx.port.postMessage({on: low || fromPick, f32: fromPick});
+      this.lowGain.gain.value = low ? 1 : 0; this.rtcGain.gain.value = this.mode === "rtc" ? 1 : 0;
+      this.putLane(0, this.mode === "rtc" ? this.dest.stream.getAudioTracks()[0] : null);
       if(low && this.rx) this.rx.port.postMessage({reset: true});
+    }
+
+    // ---- the native engine
+    setNativeConfig(c){
+      const before = JSON.stringify(this.natCfg);
+      Object.assign(this.natCfg, c || {}); this.native.host = this.natCfg.host || "";
+      if(this.mode === "native" && JSON.stringify(this.natCfg) !== before){ this.applyMode(); this.natStart(); }
+    }
+    natMix(){ if(this.mode === "native" && this.native.started) this.native.cmd({type: "mix", gain: this.lastVol, pan: this.lastPan}).catch(() => {}); }
+    // back to the browser's own path, saying why (both sides follow)
+    natFallback(why, quiet){
+      this.natWhy = why; this.on("native-fallback", why);
+      if(this.mode === "native") this.setMode("low", quiet);
+    }
+    async natStart(){
+      this.natPeer = null; this.natSince = Date.now(); this.natWhy = "";
+      const say = (o) => this.ctl(Object.assign({type: "native"}, o));
+      if(!(await this.native.probe())){ say({ok: false, why: "engine"}); this.natFallback("engine"); return; }
+      const c = this.natCfg;
+      try{
+        const s = await this.native.cmd({type: "start", source: c.source === "pick" ? "browser" : "device", rate: this.ctx.sampleRate,
+          host: c.host || "", input: c.input, output: c.output, in_ch: +c.in_ch || 1, buffer: +c.buffer || 64}, "started", 20000);
+        if(!s.ip){ say({ok: false, why: "tailscale"}); this.native.cmd({type: "stop"}).catch(() => {}); this.natFallback("tailscale"); return; }
+        this.natMix();
+        say({ok: true, ip: s.ip, port: s.port});
+        this.natConnect();
+      }catch(e){ say({ok: false, why: "start", msg: String(e.message || e)}); this.natFallback("start: " + (e.message || e)); }
+    }
+    natStop(){ this.natPeer = null; if(this.native.started) this.native.cmd({type: "stop"}).catch(() => {}); }
+    // both sides ready: point my engine at the other one's
+    natConnect(){
+      const p = this.natPeer, me = this.native.started; if(!p || !me) return;
+      this.native.cmd({type: "peer", addr: `${p.ip}:${p.port}`}).catch(() => {});
+      this.natSince = Date.now(); this.on("native-state");
     }
     onTx(d){
       if(d instanceof ArrayBuffer){
+        if(this.mode === "native"){ if(this.natCfg.source === "pick") this.native.audio(d); return; }
         const au = this.au;
         if(this.mode !== "low" || !au || au.readyState !== "open" || au.bufferedAmount > 32768) return;
         const pk = new Uint8Array(8 + d.byteLength); new DataView(pk.buffer).setUint32(0, this.seq++, true); pk.set(new Uint8Array(d), 8);
@@ -135,7 +291,7 @@
       this.au.binaryType = "arraybuffer";
       this.au.onmessage = (e) => { if(this.mode === "low" && this.rx) this.rx.port.postMessage(e.data, [e.data]); };
       this.cc = pc.createDataChannel("ctl", {negotiated: true, id: 1});
-      this.cc.onopen = () => { this.ready = true; this.hello(); this.on("ready", true); };
+      this.cc.onopen = () => { this.ready = true; this.readyAt = Date.now(); this.hello(); this.on("ready", true); };
       this.cc.onclose = () => { this.ready = false; this.on("ready", false); };
       this.cc.onmessage = (e) => this.onCtl(JSON.parse(e.data));
     }
@@ -204,6 +360,8 @@
       const c = this.ctx;
       if(this.local && this.local.screen) setTimeout(() => this.ctl({type: "share", on: true}), 300);
       if(this.local) setTimeout(() => this.ctl({type: "cam", on: !!this.local.camera}), 300);
+      const ns = this.native.started;
+      if(this.mode === "native" && ns && ns.ip) setTimeout(() => this.ctl({type: "native", ok: true, ip: ns.ip, port: ns.port}), 300);
       this.ctl({type: "hello", rate: c.sampleRate, lat: (c.outputLatency || 0) + (c.baseLatency || 0), inLat: c.baseLatency || 0, mode: this.role === "host" ? this.mode : undefined});
     }
     onCtl(m){
@@ -222,6 +380,10 @@
         return;
       }
       if(m.type === "mode"){ this.setMode(m.mode, true); return; }
+      if(m.type === "native"){
+        if(!m.ok){ this.natFallback("peer-" + (m.why || "?"), true); return; }
+        this.natPeer = {ip: m.ip, port: m.port, inMs: m.inMs || 0}; this.natConnect(); return;
+      }
       if(m.type === "share"){ this.remoteShare = !!m.on; this.on("media", this.media); return; }
       if(m.type === "cam"){ this.remoteCam = !!m.on; this.on("media", this.media); return; }
       this.on("ctl", m);
@@ -230,6 +392,12 @@
     remoteNow(t = performance.now()){ return t + this.clock.off; }
     async tick(){
       this.ctl({type: "ping", t: performance.now()});
+      // native: nothing coming from the other engine for a while (UDP blocked, engine quit) → back to the browser
+      if(this.mode === "native" && Date.now() - this.natSince > 6000){
+        if(!this.native.ok) this.natFallback("engine-lost");
+        else if(this.natPeer && this.native.started){ const a = this.native.stats && this.native.stats.rx_age_ms; if(a == null || a > 3000) this.natFallback("udp"); }
+        else if(!this.natPeer && this.ready && Date.now() - this.readyAt > 6000) this.natFallback("peer-silent");
+      }
       if(!this.pc) return;
       try{
         const st = await this.pc.getStats(); const s = {};
@@ -244,16 +412,22 @@
     // the friend's guitar into my ears, in ms: their input, the packet, the network, my buffer, my output
     delay(){
       const c = this.ctx, net = (this.clock.minRtt || this.clock.rtt || 0) / 2, outL = ((c.outputLatency || 0) + (c.baseLatency || 0)) * 1000;
+      if(this.mode === "native"){
+        const s = this.native.stats || {}, nIn = this.natCfg.source === "pick" ? (this.remote.inLat || 0.005) * 1000 : 3;
+        const nb = (s.buffer_ms || 0) + (s.frame_ms || 2.5) * 2, no = s.out_lat_ms || 1.5;
+        return {total: Math.round(nIn + net + nb + no), net: Math.round(net * 10) / 10, buf: Math.round(nb), out: Math.round(no * 10) / 10, native: true};
+      }
       const buf = this.mode === "low" ? (this.rxStats.buffered || 0) + 2.7 : (this.rtcStats.jb || 0) + 20;
       return {total: Math.round((this.remote.inLat || 0.005) * 1000 + net + buf + outL), net: Math.round(net * 10) / 10, buf: Math.round(buf), out: Math.round(outL)};
     }
     // the way the link goes: straight over the tailnet / the home network, or round the internet
     route(){
+      if(this.mode === "native" && this.natPeer){ const ip = this.natPeer.ip || ""; return `nativní engine · ${/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip) ? "Tailscale" : ip}`; }
       const a = this.rtcStats.addr || "";
       return /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a) ? "Tailscale (přímo)" : /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(a) ? "domácí síť" : a ? (this.rtcStats.ctype === "relay" ? "přes server" : "internet") : "";
     }
     close(){
-      this.closed = true; clearInterval(this.timer); this.hangup();
+      this.closed = true; clearInterval(this.timer); this.hangup(); this.natStop(); this.native.close();
       ["camera", "voice", "screen"].forEach(k => { if(this.local[k]) this.local[k].stop(); });
       try{ this.ws.close(); }catch(e){}
       try{ this.tx.disconnect(); this.rx.disconnect(); this.vol.disconnect(); this.pan.disconnect(); }catch(e){}

@@ -31,6 +31,7 @@ const Jam = (() => {
   .jam-b button.go{background:var(--accent,#8b5cf6);color:#0b0b12;font-weight:800;border:0;padding:10px 14px;border-radius:10px;cursor:pointer}
   .jam-link{display:flex;gap:6px}.jam-link input{flex:1;min-width:0;background:#0e0e14;color:#cfe;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 8px;font:12px ui-monospace,monospace}
   .jam-l{display:flex;align-items:center;gap:8px}.jam-l span{min-width:88px;color:#9a9ab0}.jam-l input[type=range],.jam-l select{flex:1;min-width:0}
+  .jam-nat .jam-l{margin-top:6px}.jam-nat .jam-l>div{flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}.jam-nat select{flex:1;min-width:0}
   .jam-l select{background:#0e0e14;color:#ececf3;border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:4px 6px}
   .jam-lat{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;white-space:nowrap;min-width:200px;text-align:right;overflow:hidden}.jam-lat small{font-weight:500;color:#9a9ab0;font-size:11px;margin-left:6px}
   #jam-route,#jam-gtr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:18px}
@@ -133,7 +134,9 @@ const Jam = (() => {
       <div id="jam-chat-slot"></div>
       <div class="jam-l"><span>Zvuk kytar</span><select id="jam-mode">
           <option value="low" ${(!link || link.mode === "low") ? "selected" : ""}>nízké zpoždění (jako SonoBus)</option>
-          <option value="rtc" ${link && link.mode === "rtc" ? "selected" : ""}>jako hovor (stabilnější)</option></select></div>
+          <option value="rtc" ${link && link.mode === "rtc" ? "selected" : ""}>jako hovor (stabilnější)</option>
+          <option value="native" ${link && link.mode === "native" ? "selected" : ""}>nativní engine (nejnižší zpoždění)</option></select></div>
+      <div id="jam-nat-slot"></div>
       <div class="jam-l"><span>Vyrovnávání</span><select id="jam-buf"><option value="auto">automaticky</option>${[1, 2, 3, 4, 6, 8, 12].map(q => `<option value="${q}" ${String(cfg.buf) === String(q) ? "selected" : ""}>${q} × 2,7 ms = ${(q * 2.67).toFixed(1).replace(".", ",")} ms</option>`).join("")}</select></div>
       <div class="jam-l"><span>Kamarád</span><input type="range" id="jam-vol" min="0" max="2" step="0.01" value="${cfg.vol ?? 1}"></div>
       <div class="jam-l"><span>Hlas kamaráda</span><input type="range" id="jam-vvol" min="0" max="1" step="0.01" value="${cfg.vvol ?? 1}"></div>
@@ -149,7 +152,8 @@ const Jam = (() => {
     q("jam-cam").onclick = async (e) => { try{ await link.setCamera(!link.local.camera); }catch(x){ showToast("Kameru se nepodařilo zapnout"); } paint(); };
     q("jam-voice").onclick = async () => { try{ await link.setVoice(!link.local.voice); }catch(x){ showToast("Mikrofon se nepodařilo zapnout"); } paint(); };
     q("jam-screen").onclick = async () => { try{ await link.setScreen(!link.local.screen); }catch(x){} paint(); };
-    q("jam-mode").onchange = (e) => { link.setMode(e.target.value); cfg.mode = e.target.value; keep(); };
+    q("jam-mode").onchange = (e) => { link.setMode(e.target.value); cfg.mode = e.target.value; keep(); natSlot(); };
+    natSlot();
     q("jam-buf").onchange = (e) => { const v = e.target.value; cfg.buf = v; keep(); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); };
     q("jam-vol").oninput = (e) => { cfg.vol = +e.target.value; keep(); applyFriend(); if(jf) jfPaint(); };
     q("jam-vvol").oninput = (e) => { cfg.vvol = +e.target.value; keep(); q("jam-voice-el").volume = cfg.vvol; };
@@ -188,7 +192,7 @@ const Jam = (() => {
   async function connect(){
     if(link) return;
     const vo = Mixer.voiceOut();
-    link = new JamLink({role: "host", ctx: vo.ac, output: vo.out, mode: cfg.mode || "low", quanta: cfg.buf && cfg.buf !== "auto" ? +cfg.buf : 3, auto: !cfg.buf || cfg.buf === "auto", onEvent: event});
+    link = new JamLink({role: "host", ctx: vo.ac, output: vo.out, mode: cfg.mode || "low", native: cfg.nat, quanta: cfg.buf && cfg.buf !== "auto" ? +cfg.buf : 3, auto: !cfg.buf || cfg.buf === "auto", onEvent: event});
     chatEl = document.createElement("div");
     chat = JamChat({root: chatEl, me: "host", name: "Kamarád", send: (o) => link && link.send(o), visible: chatSeen, onUnread: badge,
       onNew: (m) => { if(!chatSeen()) showToast("💬 Kamarád: " + (m.text.length > 90 ? m.text.slice(0, 90) + "…" : m.text)); }});
@@ -224,7 +228,17 @@ const Jam = (() => {
     if(!s){ s = document.createElement("span"); s.className = "jam-badge"; b.appendChild(s); }
     s.textContent = n > 9 ? "9+" : String(n);
   }
+  // the native engine's settings under "Zvuk kytar", only while that mode is chosen
+  function natSlot(){
+    const slot = box && box.querySelector("#jam-nat-slot"); if(!slot || !link) return;
+    if(link.mode !== "native"){ slot.innerHTML = ""; return; }
+    if(slot.firstChild) return;
+    slot.append(JamNativeUI.block(link, (l, h) => `<div class="jam-l"><span>${l}</span><div>${h}</div></div>`, (c) => { cfg.nat = c; keep(); }));
+  }
   function event(kind, v){
+    if(kind === "mode"){ const m = box && box.querySelector("#jam-mode"); if(m) m.value = v; natSlot(); return; }
+    if(kind === "native-fallback"){ showToast(JamNativeUI.why(v), 9000); return; }
+    if(kind === "native-state"){ const n = box && box.querySelector(".jam-nat"); if(n && n.repaint) n.repaint(); return; }
     if(kind === "taken"){ showToast("Jam je otevřený v jiném okně Picku — tady je odpojený. Zavři to druhé okno a jam tady spusť znovu.", 15000); return; }
     if(kind === "msg" && v && v.names){ names = v.names; if(jf) jfPaint(); }
     if(kind === "msg" && v && v.type === "ctl"){ onCtl(v); return; }
@@ -414,9 +428,10 @@ const Jam = (() => {
     const d = link.delay();
     lat.innerHTML = link.ready ? `${d.total} ms<small>síť ${d.net} · paměť ${d.buf} · výstup ${d.out}</small>` : "";
     lat.style.color = d.total <= 30 ? "#6ee7a0" : d.total <= 50 ? "#ffd166" : "#ff8a8a";
-    const me = box.querySelector("#jam-me"); if(me) me.style.width = Math.min(100, (link.txPeak || 0) * 100) + "%";
+    const natDev = link.mode === "native" && link.natCfg.source === "device";
+    const me = box.querySelector("#jam-me"); if(me) me.style.width = Math.min(100, (natDev ? (link.native.stats && link.native.stats.in_peak) || 0 : link.txPeak || 0) * 100) + "%";
     const g = box.querySelector("#jam-gtr");
-    if(g) g.innerHTML = link.input ? "Kamarád slyší tvou kytaru tak, jak zní v Picku (otisk, NAM, efekty)." : `<span class="jam-warn">Kytara v Picku není zapnutá — zapni živou kytaru ve Steems (vstup zvukovky), pak ji kamarád uslyší.</span>`;
+    if(g) g.innerHTML = natDev ? "Kamarád slyší kytaru přímo ze zvukovky (vstup enginu) — bez otisku a efektů Picku." : link.input ? "Kamarád slyší tvou kytaru tak, jak zní v Picku (otisk, NAM, efekty)." : `<span class="jam-warn">Kytara v Picku není zapnutá — zapni živou kytaru ve Steems (vstup zvukovky), pak ji kamarád uslyší.</span>`;
     const r = box.querySelector("#jam-route"), rt = link.route(), rs = link.rxStats;
     if(r) r.textContent = rt ? `Spojení: ${rt}${rs.under ? ` · výpadky ${rs.under}` : ""}${rs.lost ? ` · ztracené balíčky ${rs.lost}` : ""}` : "";
     box.querySelector("#jam-dot").classList.toggle("on", !!(link.pc && link.pc.connectionState === "connected"));

@@ -439,7 +439,27 @@ def guest_logout(request: Request):
 @gate.get("/g/me")
 def guest_me(request: Request, k: str = ""):
     who = _who(request.cookies, k)
-    return {"user": who, "login": bool(users()), "host": host_name(), "on": bool(ROOM["key"])}
+    return {"user": who, "login": bool(users()), "host": host_name(), "on": bool(ROOM["key"]),
+            "engine": engine_files() if who else []}
+
+
+# Pick Jam Engine (engine/, built by engine/build-dist.sh): the friend downloads it from here once let in
+ENGINE_DIST = APP_DIR / "engine" / "dist"
+ENGINE_FILES = {"pick-jam-engine.exe": "application/vnd.microsoft.portable-executable",
+                "pick-jam-engine-mac": "application/octet-stream"}
+
+
+def engine_files() -> List[str]:
+    return [n for n in ENGINE_FILES if (ENGINE_DIST / n).is_file()]
+
+
+@gate.get("/engine/{name}")
+def guest_engine(request: Request, name: str, k: str = ""):
+    if not _who(request.cookies, k):
+        return JSONResponse({"error": "Nejdřív se přihlas."}, status_code=403)
+    if name not in ENGINE_FILES or not (ENGINE_DIST / name).is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return FileResponse(ENGINE_DIST / name, media_type=ENGINE_FILES[name], filename=name, headers={"Cache-Control": "no-cache"})
 
 
 @gate.get("/mix")

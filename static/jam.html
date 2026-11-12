@@ -185,6 +185,10 @@
   .card{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
   label.row{display:flex;align-items:center;gap:8px;font-size:13px}label.row>span:first-child{min-width:110px;color:var(--dim)}
   label.row select,label.row input[type=range]{flex:1;min-width:0}
+  .nrow{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:8px}.nrow>span:first-child{min-width:110px;color:var(--dim)}
+  .nrow>div{flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}.nrow select{flex:1;min-width:0}
+  .jam-nat .jam-warn{color:var(--bad)}.jam-nat .jb{font-size:12px;padding:3px 8px}
+  .jam-nat-dl{width:100%;margin-top:6px;line-height:1.5}.jam-nat a.jb{display:inline-block;background:var(--acc);color:#111;border-radius:6px;text-decoration:none;font-weight:600}
   .tabs{display:flex;gap:4px;flex-wrap:wrap}
   .keep{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim)}.keep input{width:auto}
   .jam-go{background:#ff5b5b;color:#fff;font-weight:800;padding:6px 12px;border-radius:9px;text-decoration:none;white-space:nowrap;animation:jg 1.6s ease-in-out infinite}
@@ -281,7 +285,7 @@
     <label class="row"><span>Slyšet se</span><input type="checkbox" id="mon" checked> <span class="muted" style="min-width:0">vypni, jen když se slyšíš přímo ze zvukovky — pak ale neuslyšíš otisk</span></label></div>
   <div class="card"><h3>SPOJENÍ</h3>
     <label class="row"><span>Vyrovnávání</span><select id="buf"><option value="auto">automaticky</option></select></label>
-    <div class="muted" id="mode"></div><div class="muted" id="route"></div></div>
+    <div class="muted" id="mode"></div><div id="natSlot"></div><div class="muted" id="route"></div></div>
   <div class="card"><h3>OBRAZ A ŘEČ</h3>
     <label class="row"><span>Kamera</span><select id="camDev"></select></label>
     <label class="row"><span>Mikrofon na řeč</span><select id="voiceDev"></select></label>

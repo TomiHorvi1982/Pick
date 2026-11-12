@@ -1,0 +1,41 @@
+# Pick Jam Engine on real Windows: the tests, and the build with ASIO drivers (WASAPI stays the default).
+# The ASIO SDK is fetched from Steinberg at build time and never stored in the repo (its licence).
+# The .exe comes out as the run's artifact; engine/build-dist.sh picks it up into engine/dist/.
+name: engine
+on:
+  push:
+    paths: ["engine/**", ".github/workflows/engine.yml"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: engine
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: ASIO SDK and libclang
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://www.steinberg.net/asiosdk -OutFile "$env:RUNNER_TEMP\asio.zip"
+          Expand-Archive "$env:RUNNER_TEMP\asio.zip" -DestinationPath "$env:RUNNER_TEMP\asio"
+          $d = (Get-ChildItem "$env:RUNNER_TEMP\asio" -Directory | Select-Object -First 1).FullName
+          "CPAL_ASIO_DIR=$d" >> $env:GITHUB_ENV
+          "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+      - name: Tests
+        run: cargo test --release
+      - name: Build (WASAPI + ASIO)
+        run: cargo build --release --features asio
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          .\target\release\pick-jam-engine.exe --help
+          .\target\release\pick-jam-engine.exe selftest --secs 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pick-jam-engine-windows-asio
+          path: engine/target/release/pick-jam-engine.exe

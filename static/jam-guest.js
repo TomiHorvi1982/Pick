@@ -151,7 +151,7 @@
     mixBus = ctx.createGain(); mixBus.connect(ctx.destination);            // the backing as a whole (PODKLAD)
     mix = new JamMix(ctx, api, mixBus);
     if(!solo){
-    link = new JamLink({role: "guest", ctx, output: ctx.destination, onEvent: event});
+    link = new JamLink({role: "guest", ctx, output: ctx.destination, native: store("nat") || undefined, onEvent: event});
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
       onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});
@@ -209,12 +209,27 @@
     if(kind === "peer"){ $("state").textContent = v ? `${me.host} je tu — spojuji…` : `čekám na ${me.host} (má jam zapnutý?)`; if(!v && mix) mix.stop(); }
     if(kind === "conn"){ $("dot").classList.toggle("on", v === "connected"); if(v === "connected") $("state").textContent = `spojeno s ${me.host}`; if(v === "failed") $("state").textContent = "spojení se nepovedlo — zkouším znovu"; }
     if(kind === "media") showMedia(v);
-    if(kind === "mode") $("mode").textContent = v === "low" ? "Režim: nízké zpoždění (jako SonoBus) — kytary jdou nekomprimovaně" : "Režim: jako hovor (Opus) — stabilnější na horší síti";
+    if(kind === "mode"){ $("mode").textContent = v === "low" ? "Režim: nízké zpoždění (jako SonoBus) — kytary jdou nekomprimovaně" : v === "native" ? "Režim: nativní engine — kytary jdou přímo mezi zvukovkami (Pick Jam Engine)" : "Režim: jako hovor (Opus) — stabilnější na horší síti"; natSlot(); }
+    if(kind === "native-fallback") toast(JamNativeUI.why(v), 9000);
+    if(kind === "native-state"){ const n = $("natSlot").querySelector(".jam-nat"); if(n && n.repaint) n.repaint(); }
     if(kind === "msg" && v && v.names && v.names.host && v.names.host !== me.host){ me.host = v.names.host; renderRack(); }
     if(kind === "msg" && v && v.type === "setup"){ onSetup(v); return; }
     if(kind === "ready" && v) sendMine();
     if(kind === "msg" && v.type === "song") onSong(v);
     else if(kind === "msg" && chat) chat.onMsg(v);
+  }
+  // the engine to download when it isn't running here (the gateway serves what the host has built)
+  function engineDownloads(){
+    const have = (me && me.engine) || [], win = /Windows/i.test(navigator.userAgent);
+    return have.filter(n => win ? n.endsWith(".exe") : !n.endsWith(".exe"))
+      .map(n => ({label: n.endsWith(".exe") ? "Stáhnout Pick Jam Engine pro Windows" : "Stáhnout Pick Jam Engine pro Mac", url: withK("/engine/" + n)}));
+  }
+  // the native engine's settings in SPOJENÍ, only while the host has that mode on
+  function natSlot(){
+    const slot = $("natSlot"); if(!slot || !link) return;
+    if(link.mode !== "native"){ slot.innerHTML = ""; return; }
+    if(slot.firstChild) return;
+    slot.append(JamNativeUI.block(link, (l, h) => `<div class="nrow"><span>${l}</span><div>${h}</div></div>`, (c) => store("nat", c), {pickLabel: "zvuk ze stránky (zesilovač, EQ)", download: engineDownloads()}));
   }
   function showMedia(m){
     const big = $("vBig"), cam = $("vCam");

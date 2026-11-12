@@ -1,0 +1,22 @@
+[package]
+name = "pick-jam-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Pick Jam Engine: native low-latency audio link for Pick Jam"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+cpal = "0.15"
+opus = "0.3"
+ringbuf = "0.4"
+serde_json = "1"
+tungstenite = "0.24"
+
+[features]
+# Windows: ASIO drivers (needs the Steinberg ASIO SDK and LLVM at build time; see .github/workflows/engine.yml)
+asio = ["cpal/asio"]
+
+[profile.release]
+opt-level = 3
+lto = true

@@ -37,6 +37,20 @@ def test_the_gateway_wants_the_key_and_serves_only_the_jam():
     assert g.get("/mix?k=wrong&stems=drums").status_code == 403
 
 
+def test_the_friend_downloads_the_engine_only_when_let_in(monkeypatch, tmp_path):
+    monkeypatch.setattr(jam, "ENGINE_DIST", tmp_path)
+    g = TestClient(jam.gate)
+    assert g.get("/g/me?k=secret-key").json()["engine"] == []                  # nothing built yet
+    (tmp_path / "pick-jam-engine.exe").write_bytes(b"MZ-test")
+    (tmp_path / "notes.txt").write_text("x")
+    assert g.get("/g/me?k=secret-key").json()["engine"] == ["pick-jam-engine.exe"]
+    assert g.get("/engine/pick-jam-engine.exe?k=wrong").status_code == 403
+    r = g.get("/engine/pick-jam-engine.exe?k=secret-key")
+    assert r.status_code == 200 and r.content == b"MZ-test" and "attachment" in r.headers["content-disposition"]
+    assert g.get("/engine/notes.txt?k=secret-key").status_code == 404            # only the engine's own files
+    assert g.get("/engine/..%2Fjam.py?k=secret-key").status_code == 404
+
+
 def test_messages_go_from_the_host_to_the_friend_and_back(client):
     g = TestClient(jam.gate)
     with client.websocket_connect("/api/jam/ws") as host:
@@ -171,7 +185,7 @@ def test_with_names_set_the_friend_logs_in_and_nothing_goes_without(client, tmp_
     assert client.post("/api/jam/users", json={"host_name": "Tomi"}).json()["host_name"] == "Tomi"
     assert "kytara66" not in (jam.CONF.read_text())                                         # kept as a hash only
     assert g.get("/").status_code == 200                                                   # the page: the login form
-    assert g.get("/g/me").json() == {"user": None, "login": True, "host": "Tomi", "on": True}
+    assert g.get("/g/me").json() == {"user": None, "login": True, "host": "Tomi", "on": True, "engine": []}
     assert g.get("/g/songs?k=secret-key").status_code == 403                               # the key alone is not enough now
     assert g.post("/login", json={"name": "Pavel", "password": "spatne"}).status_code == 401
     r = g.post("/login", json={"name": "Pavel", "password": "kytara66"})
