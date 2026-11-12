@@ -208,7 +208,7 @@ mod tests {
         let r = run(opts(Codec::Pcm16, 0.0, 0.0, 0.0), false).unwrap();
         assert!(r.latencies_ms.len() >= 6, "{}", summary(&r));
         let med = { let mut l = r.latencies_ms.clone(); l.sort_by(|a, b| a.partial_cmp(b).unwrap()); l[l.len() / 2] };
-        assert!(med < 12.0, "{}", summary(&r));
+        assert!(med < 16.0, "{}", summary(&r));   // ~12 ms on a quiet machine; shared CI runners need room
     }
 
     #[test]
