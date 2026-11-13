@@ -61,6 +61,34 @@ def load(path, state=None):
     return p
 
 
+def pump(seconds):
+    """Let the main run loop run for a while. Audio Units (Neural DSP's among them) finish loading
+    their models through it: in a process that only sleeps they stay silent — some for good, and
+    some fall silent again after every reset."""
+    import ctypes
+    cf = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+    cf.CFRunLoopRunInMode.argtypes = [ctypes.c_void_p, ctypes.c_double, ctypes.c_bool]
+    cf.CFRunLoopRunInMode(ctypes.c_void_p.in_dll(cf, "kCFRunLoopDefaultMode"), seconds, False)
+
+
+def warm(p, sr, channels, limit=8.0):
+    """Feed an effect a quiet tone until it sounds (or the limit passes: a gate set high, say), then
+    silence so the tone's tail is gone; it is not reset afterwards — a reset makes some load again."""
+    import numpy as np
+    if p.is_instrument:
+        return
+    # Longer than pedalboard's block (8192): it prepares the plugin again whenever a bigger block comes,
+    # and that makes these load again — a short warm-up and then the recording was silence once more.
+    n = sr // 4
+    tone = np.tile((0.1 * np.sin(2 * np.pi * 110 * np.arange(n) / sr)).astype(np.float32), (channels, 1))
+    end = time.time() + limit
+    while time.time() < end:
+        if float(np.abs(p(tone, sr, reset=False)).max()) > 1e-3:
+            break
+        pump(0.05)
+    p(np.zeros((channels, sr * 3), dtype=np.float32), sr, reset=False)
+
+
 def keep(p, state):
     if not state:
         return
@@ -103,7 +131,10 @@ def render(chain_file, src, dst):
     tail = int(sr * 2)                                      # reverbs and delays ring on after the end
     import numpy as np
     audio = np.concatenate([audio, np.zeros((audio.shape[0], tail), dtype=audio.dtype)], axis=1)
-    y = fx(audio, sr)
+    for p in fx:
+        warm(p, sr, audio.shape[0])
+        audio = p(audio, sr, reset=False)
+    y = audio
     if y.shape[0] == 1:
         y = np.repeat(y, 2, axis=0)
     peak = float(np.abs(y).max()) if y.size else 0.0
@@ -156,7 +187,7 @@ def live(chain_file, input_name, channel, output_name, edit=None):
         t.start()
         end = time.time() + 4                               # macOS gives a process without microphone access
         while not heard[0] and time.time() < end:           # no input at all, not even silence
-            time.sleep(0.05)
+            pump(0.05)
         if not heard[0]:
             out({"ok": False, "error": NO_INPUT})
             return
@@ -166,7 +197,7 @@ def live(chain_file, input_name, channel, output_name, edit=None):
             keep(plugins[edit], active[edit].get("state"))
             out({"ok": True, "kept": edit})
         while not stop.is_set():
-            time.sleep(0.2)
+            pump(0.2)                                       # the Audio Units load and run through it
     out({"ok": True, "live": False})
 
 
