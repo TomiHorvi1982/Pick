@@ -24,6 +24,8 @@ services:
       - ${PICK_DATA_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICKSD/spotdl}:/data/spotdl:ro
       - ${PICK_AMPS_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICK-SUPPORT/amps}:/data/amps:ro
       - ${PICK_HELPER_DIR:-/run/desktop/mnt/host/f/DITORIG-KNIHOVNA/PICK-SUPPORT}:/data/helper:ro
+      # the PC's own Music folder (shared as "Music"): the songs imported from it play from here — read-only
+      - ${PICK_MUSIC_DIR:-/run/desktop/mnt/host/c/Users/Tomas/Music}:/data/pcmusic:ro
       # the only place it writes: friends (hashed passwords), Na příště, previews
       - library-state:/state
     networks: [inside]

@@ -1313,6 +1313,24 @@ def lib_covers() -> None:
     _lib_call("PUT", "/sync/art", {"art": sent}, timeout=60)
 
 
+def lib_pcsongs() -> None:
+    """The songs imported from the PC's Music folder (tools/import_folder.py, its newest plan): their names and lengths
+    to the library, which plays them from that folder on the PC — only when the list changed."""
+    import glob
+    plans = sorted(glob.glob(str(Path.home() / ".local/share/spotdl-helper/import/plan-*.json")), key=os.path.getmtime)
+    if not plans:
+        return
+    plan = json.loads(Path(plans[-1]).read_text(encoding="utf-8"))
+    src = str(plan.get("source") or "").rstrip("/") + "/"
+    songs = [{"rel": x["path"][len(src):], "artist": x.get("artist") or "", "title": x.get("title") or "", "album": x.get("album") or "",
+              "duration": x.get("duration")} for x in plan.get("new") or [] if isinstance(x, dict) and str(x.get("path", "")).startswith(src)]
+    sig = hashlib.sha1(json.dumps(songs, sort_keys=True).encode()).hexdigest()
+    if conf().get("lib_pc_sig") == sig:
+        return
+    _lib_call("PUT", "/sync/pcsongs", {"songs": songs}, timeout=120)
+    conf_save(lib_pc_sig=sig)
+
+
 def _lib_loop() -> None:
     n = 0
     while True:
@@ -1323,7 +1341,7 @@ def _lib_loop() -> None:
                 lib_sync()
                 if n % 10 == 0:                     # every ten minutes is enough for these
                     lib_playlists()
-                    for step in (lib_engine, lib_covers):
+                    for step in (lib_engine, lib_covers, lib_pcsongs):
                         try:
                             step()
                         except Exception:
@@ -1370,7 +1388,7 @@ async def jam_library_test():
     try:
         st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
-        for step in (lib_playlists, lib_engine, lib_covers):
+        for step in (lib_playlists, lib_pcsongs, lib_engine, lib_covers):
             try:
                 await asyncio.to_thread(step)
             except Exception:

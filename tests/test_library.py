@@ -291,3 +291,21 @@ def test_covers_sent_by_the_mac(lib):
     r = c.get("/g/art", params={"name": name}, follow_redirects=False)
     assert r.status_code == 302 and r.headers["location"] == "https://img.example/cover.jpg"
     assert c.put("/sync/art", json={"art": {}}).status_code == 403
+
+
+def test_whole_songs_from_the_pcs_music_folder(lib, tmp_path, monkeypatch):
+    mod, c = lib
+    music = tmp_path / "pcmusic"
+    (music / "Band").mkdir(parents=True)
+    subprocess.run([server.ffmpeg_bin(), "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=330:d=2", str(music / "Band" / "New.mp3")], check=True)
+    monkeypatch.setattr(mod, "PCMUSIC", music)
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    r = c.put("/sync/pcsongs", headers=h, json={"songs": [{"rel": "Band/New.mp3", "artist": "Band", "title": "New", "duration": 2.0},
+                                                          {"rel": "../etc/passwd.mp3"}]}).json()
+    assert r["songs"] == 1 and r["folder"]
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    row = [s for s in c.get("/g/songs").json()["songs"] if s["title"] == "New"][0]
+    assert row["stems"] == ["other"] and row["whole"] and row["name"].startswith("pc~")
+    assert c.get("/g/song", params={"name": row["name"]}).json()["whole"]
+    assert c.get("/g/stem", params={"name": row["name"], "stem": "other"}).content[:4] == b"\x1aE\xdf\xa3"
+    assert c.get("/g/stem", params={"name": row["name"], "stem": "drums"}).status_code == 404

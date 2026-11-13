@@ -38,7 +38,8 @@ STATIC = Path(os.environ.get("PICK_STATIC") or HERE / "static")
 DATA = Path(os.environ.get("PICK_DATA") or "/data/spotdl")              # the card's copy: it has Stems/
 AMPS = Path(os.environ.get("PICK_AMPS") or "/data/amps")                # NAM profiles and cabinets
 HELPER = Path(os.environ.get("PICK_HELPER") or "/data/helper")          # Pick's own data: lyrics/, chip-thumbs.json, steems-playlists.json
-STATE = Path(os.environ.get("PICK_STATE") or "/state")                  # the only place written to
+STATE = Path(os.environ.get("PICK_STATE") or "/state")
+PCMUSIC = Path(os.environ.get("PICK_PCMUSIC") or "/data/pcmusic")       # the PC's own Music folder (read-only): whole songs                  # the only place written to
 HOST = (os.environ.get("PICK_HOST_NAME") or "Tomi").strip()[:30]
 JAM_URL = os.environ.get("PICK_JAM_URL") or "https://neverlast.cz"
 TOKEN = os.environ.get("PICK_SYNC_TOKEN") or ""
@@ -397,6 +398,37 @@ def _rescan_bg() -> None:
         _SONGS["busy"] = False
 
 
+# ---------------------------------------------------------------- whole songs from the PC's Music folder
+# The songs Pick imported from the PC (the Mac sends their list with names and lengths, /sync/pcsongs): they play
+# from the PC's own Music folder as one track ("other") — in the list, the player and the DJ — until they have stems.
+PC = {"rows": None, "files": {}, "sig": None}
+
+
+def _pc_rows() -> list:
+    got = _read("pc-songs.json", {}) or {}
+    if PC["rows"] is not None and PC["sig"] == got.get("at"):
+        return PC["rows"]
+    rows, files = [], {}
+    for x in got.get("songs") or []:
+        rel = str(x.get("rel") or "")
+        if not rel or rel.startswith("/") or ".." in rel.split("/"):
+            continue
+        name = "pc~" + hashlib.sha1(rel.encode("utf-8")).hexdigest()[:16]
+        files[name] = PCMUSIC / rel
+        rows.append({"name": name, "stems": ["other"], "artist": str(x.get("artist") or ""), "title": str(x.get("title") or Path(rel).stem),
+                     "album": str(x.get("album") or ""), "tuning": None, "yt": "", "whole": True, "duration": x.get("duration")})
+    PC.update(rows=rows, files=files, sig=got.get("at"))
+    return rows
+
+
+def _pc_file(name: str) -> Optional[Path]:
+    if not name.startswith("pc~"):
+        return None
+    _pc_rows()
+    f = PC["files"].get(name)
+    return f if f is not None and f.is_file() else None
+
+
 def songs() -> list:
     if not _DUR:
         _DUR.update(_read("durations.json", {}) or {})
@@ -411,7 +443,8 @@ def songs() -> list:
     if time.time() - _SONGS["at"] > 300 and not _SONGS["busy"]:
         _SONGS["busy"] = True
         threading.Thread(target=_rescan_bg, daemon=True).start()
-    return [{**{k: v for k, v in r.items() if not k.startswith("_")}, "duration": _DUR.get(r["_k"])} for r in _SONGS["rows"]]
+    return [{**{k: v for k, v in r.items() if not k.startswith("_")}, "duration": _DUR.get(r["_k"])} for r in _SONGS["rows"]] \
+        + (_pc_rows() if PCMUSIC.is_dir() else [])
 
 
 @app.get("/g/me")
@@ -464,6 +497,8 @@ def g_song(request: Request, name: str):
     if bad:
         return bad
     d = _song_dir(name)
+    if d is None and _pc_file(name):
+        return {"name": name, "channels": [], "sections": [], "chords": [], "whole": True}
     if d is None:
         return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
     ses = _jload(d / "session.json", {}) or {}
@@ -504,6 +539,19 @@ def g_art(request: Request, name: str):
     who, bad = _need(request)
     if bad:
         return bad
+    pf = _pc_file(name)
+    if pf is not None:                                  # a whole song: the picture inside its file, taken out once
+        out = STATE / "pcart" / f"{name[3:]}.jpg"
+        if not out.is_file():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(pf), "-an", "-frames:v", "1", "-vf", "scale=300:-1", str(out)],
+                               capture_output=True, timeout=30)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        if out.is_file() and out.stat().st_size > 200:
+            return FileResponse(out, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+        return Response(status_code=404)
     row = next((x for x in songs() if x["name"] == name), None)
     if row is None:
         return Response(status_code=404)
@@ -626,7 +674,7 @@ async def g_preview(request: Request, name: str):
     who, bad = _need(request)
     if bad:
         return bad
-    files = _preview_files(_song_dir(name))
+    files = _preview_files(_song_dir(name)) or ([_pc_file(name)] if _pc_file(name) else [])
     if not files:
         return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
     out = await asyncio.to_thread(_make_preview, files)
@@ -642,7 +690,7 @@ async def g_stem(request: Request, name: str, stem: str):
     if bad:
         return bad
     d = _song_dir(name)
-    f = _stem_file(d, stem) if d is not None and stem in STEM_NAMES else None
+    f = _stem_file(d, stem) if d is not None and stem in STEM_NAMES else _pc_file(name) if stem == "other" else None
     if f is None:
         return JSONResponse({"error": "Stopa nenalezena."}, status_code=404)
     out = await asyncio.to_thread(_make_stem, f)
@@ -1146,6 +1194,23 @@ async def sync_art(request: Request):
             art[n] = {"f": v["f"]}
     _write("art.json", art)
     return {"ok": True, "songs": len(art)}
+
+
+@app.put("/sync/pcsongs")
+async def sync_pcsongs(request: Request):
+    """The songs imported from the PC's Music folder: [{rel, artist, title, album, duration}] (rel inside that folder)."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    rows = []
+    for x in [x for x in ((body or {}).get("songs") or []) if isinstance(x, dict)][:60000]:
+        rel = str(x.get("rel") or "").replace("\\", "/")
+        if rel and not rel.startswith("/") and ".." not in rel.split("/") and Path(rel).suffix.lower() in AUDIO_EXTS:
+            d = x.get("duration")
+            rows.append({"rel": rel[:500], "artist": str(x.get("artist") or "")[:200], "title": str(x.get("title") or "")[:200],
+                         "album": str(x.get("album") or "")[:200], "duration": round(float(d), 1) if isinstance(d, (int, float)) else None})
+    _write("pc-songs.json", {"songs": rows, "at": time.time()})
+    return {"ok": True, "songs": len(rows), "folder": PCMUSIC.is_dir()}
 
 
 @app.put("/sync/users")
