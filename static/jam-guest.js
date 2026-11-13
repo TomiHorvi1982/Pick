@@ -194,7 +194,7 @@
     offline = !lib;
     $("login").hidden = true; $("join").hidden = true;
     $("dot").classList.remove("on");
-    const jamLine = () => me.jam ? `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}" target="_blank" rel="noopener">Připojit se k jamu ↗</a>`
+    const jamLine = () => me.jam ? `<b>${esc(me.host)} právě hraje!</b> <a href="${esc(me.jam_url)}">Připojit se k jamu</a>`
       : `${esc(me.host)} teď nehraje. Procházej písně, poslechni si je a dej jim ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
     if(lib){ $("state").textContent = "knihovna písní"; $("songSt").innerHTML = jamLine(); document.body.classList.add("browse"); watchJam(); }
     else { $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;

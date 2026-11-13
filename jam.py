@@ -441,6 +441,48 @@ async def guest_login(request: Request):
     return r
 
 
+# ---- one login for both: the friend logged in to the library on the PC (jam.neverlast.cz) comes into the jam with a
+# one-time ticket it signed with the key both sides share (Nastavení → Jam → Knihovna na PC) — no second login
+_SSO_SEEN: Dict[str, float] = {}
+
+
+def _sso_user(t: str) -> Optional[str]:
+    import base64
+    import hmac
+    key = conf().get("library_token") or ""
+    if len(key) < 24 or "." not in (t or ""):
+        return None
+    body, sig = t.rsplit(".", 1)
+    if not hmac.compare_digest(hmac.new(key.encode(), body.encode(), "sha256").hexdigest(), sig):
+        return None
+    try:
+        p = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    except (ValueError, TypeError):
+        return None
+    now = time.time()
+    for n in [n for n, at in _SSO_SEEN.items() if now - at > 300]:
+        _SSO_SEEN.pop(n, None)
+    name, exp, nonce = str(p.get("u") or ""), float(p.get("exp") or 0), str(p.get("n") or "")
+    if not (now < exp < now + 180) or not nonce or nonce in _SSO_SEEN or name not in users():
+        return None
+    _SSO_SEEN[nonce] = now
+    return name
+
+
+@gate.get("/sso", response_class=HTMLResponse)
+def guest_sso(request: Request, t: str = ""):
+    name = _sso_user(t)
+    if not name:
+        return HTMLResponse("<!doctype html><meta charset=utf-8><title>Pick Jam</title><script>location.replace('/')</script>", status_code=403)
+    tok = secrets.token_urlsafe(24)
+    SESS[tok] = {"user": name, "exp": time.time() + SESS_HOURS * 3600}
+    # the page goes on to the jam by itself: a navigation from this site, so the (strict) cookie goes with it
+    r = HTMLResponse("<!doctype html><meta charset=utf-8><title>Pick Jam</title><script>location.replace('/')</script>")
+    r.set_cookie("pj", tok, max_age=SESS_HOURS * 3600, httponly=True, samesite="strict", secure=request.url.scheme == "https"
+                 or request.headers.get("x-forwarded-proto") == "https")
+    return r
+
+
 @gate.post("/logout")
 def guest_logout(request: Request):
     SESS.pop(request.cookies.get("pj") or "", None)

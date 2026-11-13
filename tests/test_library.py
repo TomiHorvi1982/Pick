@@ -91,7 +91,7 @@ def test_na_priste_and_the_mac_with_its_token(lib):
     assert m.put("/sync/fav", headers=h, json={"songs": []}).json()["songs"] == []
     assert m.post("/sync/status", headers=h, json={"on": True, "url": "https://neverlast.cz"}).status_code == 200
     me = c.get("/g/me").json()
-    assert me["jam"] is True and me["jam_url"] == "https://neverlast.cz"
+    assert me["jam"] is True and me["jam_url"] == "/g/jam-go"
     users = json.loads((Path(mod.STATE) / "users.json").read_text())
     assert "kytara66" not in json.dumps(users)
 
@@ -309,3 +309,21 @@ def test_whole_songs_from_the_pcs_music_folder(lib, tmp_path, monkeypatch):
     assert c.get("/g/song", params={"name": row["name"]}).json()["whole"]
     assert c.get("/g/stem", params={"name": row["name"], "stem": "other"}).content[:4] == b"\x1aE\xdf\xa3"
     assert c.get("/g/stem", params={"name": row["name"], "stem": "drums"}).status_code == 404
+
+
+def test_into_the_jam_without_a_second_login(lib, monkeypatch):
+    import jam
+    mod, c = lib
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    c.post("/sync/status", headers=h, json={"on": True, "url": "https://neverlast.cz/?k=secret"})
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    assert c.get("/g/me").json()["jam_url"] == "/g/jam-go"
+    r = c.get("/g/jam-go", follow_redirects=False)
+    loc = r.headers["location"]
+    assert r.status_code == 302 and loc.startswith("https://neverlast.cz/sso?t=") and "secret" not in loc
+    t = loc.split("t=", 1)[1]
+    monkeypatch.setattr(jam, "conf", lambda: {"library_token": TOKEN})
+    monkeypatch.setattr(jam, "users", lambda: {"Pavel": {}})
+    assert jam._sso_user(t) == "Pavel"
+    assert jam._sso_user(t) is None                                       # a ticket goes in once
+    assert jam._sso_user(t[:-1] + ("0" if t[-1] != "0" else "1")) is None  # signed by someone else: no

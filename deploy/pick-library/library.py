@@ -452,7 +452,7 @@ def me(request: Request):
     st = _read("status.json", {})
     on = bool(st.get("on")) and time.time() - (st.get("at") or 0) < 180          # the Mac says so, at least every minute
     who = _who(request)
-    return {"user": who, "login": True, "host": HOST, "on": False, "library": True, "jam": on, "jam_url": st.get("url") or JAM_URL,
+    return {"user": who, "login": True, "host": HOST, "on": False, "library": True, "jam": on, "jam_url": "/g/jam-go" if on else (st.get("url") or JAM_URL),
             "engine": _engines() if who else []}
 
 
@@ -481,6 +481,25 @@ def g_engine(request: Request, name: str):
     if name not in ENGINE_FILES or not (ENGINE_DIR / name).is_file():
         return JSONResponse({"error": "Engine tu není."}, status_code=404)
     return FileResponse(ENGINE_DIR / name, media_type=ENGINE_FILES[name], filename=name, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/g/jam-go")
+def g_jam_go(request: Request):
+    """Into the host's jam without a second login: a one-time ticket (2 minutes) signed with the key the Mac shares."""
+    import base64
+    import hmac
+    who, bad = _need(request)
+    if bad:
+        return RedirectResponse("/app", status_code=302)
+    st = _read("status.json", {})
+    url = (st.get("url") or JAM_URL).split("?")[0].rstrip("/")
+    if not url.startswith("https://"):
+        return RedirectResponse("/app", status_code=302)
+    if len(TOKEN) < 24:
+        return RedirectResponse(url + "/", status_code=302)
+    body = base64.urlsafe_b64encode(json.dumps({"u": who, "exp": time.time() + 120, "n": secrets.token_hex(8)}).encode()).decode().rstrip("=")
+    sig = hmac.new(TOKEN.encode(), body.encode(), "sha256").hexdigest()
+    return RedirectResponse(f"{url}/sso?t={body}.{sig}", status_code=302, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/g/songs")
