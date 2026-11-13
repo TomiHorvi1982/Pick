@@ -424,9 +424,7 @@ def _engines() -> list:
 
 @app.get("/engine/{name}")
 def g_engine(request: Request, name: str):
-    who, bad = _need(request)
-    if bad:
-        return bad
+    # open to all: it is only the program (no names, keys or songs), and the desktop launcher fetches it before anyone logs in
     if name not in ENGINE_FILES or not (ENGINE_DIR / name).is_file():
         return JSONResponse({"error": "Engine tu není."}, status_code=404)
     return FileResponse(ENGINE_DIR / name, media_type=ENGINE_FILES[name], filename=name, headers={"Cache-Control": "no-cache"})

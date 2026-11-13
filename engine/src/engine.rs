@@ -3,7 +3,7 @@
 
 use crate::audio::{build_input, build_output, config, pick};
 use crate::codec::{Decoder, Encoder, RATE};
-use crate::net::{spawn_receiver, PeerCell, Sender};
+use crate::net::{spawn_receiver, Cands, PeerCell, Sender, PUNCH};
 use crate::packet::Codec;
 use crate::playout::{Item, Playout};
 use crate::stats::{peak_store, Stats};
@@ -99,6 +99,11 @@ pub struct Engine {
     stop: Arc<AtomicBool>,
     rx: Option<JoinHandle<()>>,
     peer: Arc<PeerCell>,
+    cands: Arc<Cands>,
+    sock: UdpSocket,
+    /// how the internet sees this engine's socket (STUN), and its address in the home network
+    pub public: Option<SocketAddr>,
+    pub local: Option<SocketAddr>,
     pub mix: Arc<Mix>,
     pub stats: Arc<Stats>,
     pub epoch: Instant,
@@ -142,6 +147,10 @@ impl Engine {
         let out_rate = ocfg.cfg.sample_rate.0;
         let sock = bind(o.listen)?;
         let port = sock.local_addr()?.port();
+        // before anything reads the socket: how the internet sees it (for a direct link without Tailscale)
+        let public = crate::net::stun_public(&sock);
+        let local = crate::net::local_ip().map(|ip| SocketAddr::new(ip, port));
+        let cands: Arc<Cands> = Arc::new(Mutex::new(Vec::new()));
         let stats = Arc::new(Stats::default());
         let stop = Arc::new(AtomicBool::new(false));
         let peer: Arc<PeerCell> = Arc::new(Mutex::new(None));
@@ -151,7 +160,7 @@ impl Engine {
 
         // receiving: network thread → ring → output callback
         let (prod, mut cons) = HeapRb::<Item>::new(256).split();
-        let rx = spawn_receiver(sock.try_clone()?, prod, epoch, Some(peer.clone()), stats.clone(), stop.clone());
+        let rx = spawn_receiver(sock.try_clone()?, prod, epoch, Some((peer.clone(), cands.clone())), stats.clone(), stop.clone());
         // the sound card takes `buffer` samples at a time (and the far one sends in such bursts too): the buffer
         // must always hold a whole card block more than a frame, or a big block (256, 512) runs it dry
         let min_target = o.min_target.max((o.buffer as usize).div_ceil(o.frame) as u32 + 1);
@@ -192,6 +201,7 @@ impl Engine {
 
         // sending
         let enc = Encoder::new(o.codec, o.bitrate)?;
+        let punch_sock = sock.try_clone()?;
         let mut sender = Sender::new(enc, o.frame, sock, peer.clone(), stats.clone());
         let mut input_name = String::new();
         let mut in_rate = 0;
@@ -234,6 +244,10 @@ impl Engine {
             stop,
             rx: Some(rx),
             peer,
+            cands,
+            sock: punch_sock,
+            public,
+            local,
             mix,
             stats,
             epoch,
@@ -256,6 +270,34 @@ impl Engine {
         if let Ok(mut g) = self.peer.lock() {
             *g = p;
         }
+    }
+
+    /// The other engine's possible addresses: the link goes to the first one a packet comes from.
+    /// Until then (up to 20 s) small packets go to all of them every 100 ms, so both routers let the
+    /// other side's packets in — how two machines behind home routers reach each other without a server.
+    pub fn connect(&self, addrs: Vec<SocketAddr>) {
+        self.set_peer(None);
+        if let Ok(mut c) = self.cands.lock() {
+            *c = addrs.clone();
+        }
+        if addrs.is_empty() {
+            return;
+        }
+        let (Ok(sock), peer, stop, stats) = (self.sock.try_clone(), self.peer.clone(), self.stop.clone(), self.stats.clone()) else { return };
+        let _ = std::thread::Builder::new().name("pje-punch".into()).spawn(move || {
+            let t0 = Instant::now();
+            while !stop.load(Relaxed) && t0.elapsed().as_secs() < 20 {
+                let found = peer.lock().ok().and_then(|g| *g);
+                // the peer found and its packets coming: the way is open (audio keeps it open)
+                if found.is_some() && stats.rx.load(Relaxed) > 0 {
+                    break;
+                }
+                for a in &addrs {
+                    let _ = sock.send_to(&PUNCH, a);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        });
     }
 
     pub fn peer(&self) -> Option<SocketAddr> {

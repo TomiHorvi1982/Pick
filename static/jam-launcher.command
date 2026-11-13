@@ -27,7 +27,18 @@ PLIST
 
 cat > "$APP/Contents/MacOS/PickJam" <<EOF
 #!/bin/bash
-# otevře Pick Jam jako aplikaci v prvním prohlížeči, který tu je (Chrome umí mikrofon i zvukovku nejlíp)
+# nejdřív Pick Jam Engine (nativní zvuk, nejmenší zpoždění): čerstvá kopie z knihovny, spuštěná na pozadí
+E="\$HOME/Library/Application Support/PickJam"
+mkdir -p "\$E"
+if ! pgrep -f "pick-jam-engine-mac serve" >/dev/null; then
+  if curl -fsSL --max-time 30 "${URL}engine/pick-jam-engine-mac" -o "\$E/engine.new" && [ \$(stat -f%z "\$E/engine.new") -gt 100000 ]; then
+    mv -f "\$E/engine.new" "\$E/pick-jam-engine-mac"
+  fi
+  chmod +x "\$E/pick-jam-engine-mac" 2>/dev/null
+  xattr -d com.apple.quarantine "\$E/pick-jam-engine-mac" 2>/dev/null
+  [ -x "\$E/pick-jam-engine-mac" ] && ("\$E/pick-jam-engine-mac" serve >/dev/null 2>&1 &)
+fi
+# pak Pick Jam jako aplikace v prvním prohlížeči, který tu je (Chrome umí mikrofon i zvukovku nejlíp)
 for b in "Google Chrome" "Microsoft Edge" "Brave Browser" "Chromium"; do
   if [ -d "/Applications/\$b.app" ] || [ -d "\$HOME/Applications/\$b.app" ]; then
     exec open -na "\$b" --args --app="$URL"

@@ -154,6 +154,11 @@
     mix = new JamMix(ctx, api, mixBus);
     if(!solo){
     link = new JamLink({role: "guest", ctx, output: ctx.destination, native: store("nat") || undefined, onEvent: event});
+    if(window.JamNativeUI && JamNativeUI.pill && $("engPill") && !$("engPill").firstChild){
+      const dl = engineDownloads()[0];
+      $("engPill").append(JamNativeUI.pill(() => link, {settings: () => { const b = $("setBtn"); if(b) b.click(); },
+        offHelp: (dl ? `<a href="${esc(dl.url)}" download style="color:#2dd4bf">⤓ ${esc(dl.label)}</a> — ` : "") + "nejjednodušší je spouštět Pick Jam z ikony na ploše, engine se pak zapne sám."}));
+    }
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
       onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});

@@ -32,7 +32,11 @@ pub struct Origins(Vec<String>);
 
 impl Origins {
     pub fn new(extra: &[String]) -> Self {
-        let mut v: Vec<String> = ["http://127.0.0.1:8765", "http://localhost:8765", "https://*.ts.net"].iter().map(|s| s.to_string()).collect();
+        // Pick itself, and the jam's pages: on the tailnet, or on Pick's own domain (neverlast.cz, through its tunnel)
+        let mut v: Vec<String> = ["http://127.0.0.1:8765", "http://localhost:8765", "https://*.ts.net", "https://neverlast.cz", "https://*.neverlast.cz"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         v.extend(extra.iter().map(|s| s.trim_end_matches('/').to_lowercase()));
         Origins(v)
     }
@@ -222,6 +226,7 @@ fn fresh_devices(host: &Option<String>) -> Value {
 fn started_json(e: &Engine) -> Value {
     json!({
         "type": "started", "port": e.port, "ip": my_ip().map(|i| i.to_string()),
+        "public": e.public.map(|a| a.to_string()), "local": e.local.map(|a| a.to_string()),
         "source": match e.source { Source::Device => "device", Source::Browser { .. } => "browser" },
         "host": e.host, "input": e.input, "output": e.output, "in_ch": e.in_ch, "buffer": e.buffer,
         "in_rate": e.in_rate, "out_rate": e.out_rate,
@@ -280,13 +285,16 @@ fn command(ws: &mut WebSocket<TcpStream>, eng: &mut Option<Engine>, m: &Value) -
         }
         "peer" => {
             let e = eng.as_ref().ok_or_else(|| anyhow::anyhow!("not started"))?;
-            let addr: Option<SocketAddr> = match s("addr") {
-                Some(a) => Some(a.parse()?),
-                None => None,
-            };
-            e.set_peer(addr);
-            println!("peer: {addr:?}");
-            send(ws, json!({"type": "peer", "addr": addr.map(|a| a.to_string())}))
+            // the other engine's addresses ("addrs"), or one ("addr", older pages); none: stop sending
+            let mut addrs: Vec<SocketAddr> = m["addrs"].as_array().map(|a| a.iter().filter_map(|x| x.as_str()?.parse().ok()).collect()).unwrap_or_default();
+            if let Some(a) = s("addr").and_then(|a| a.parse().ok()) {
+                addrs.push(a);
+            }
+            addrs.dedup();
+            addrs.truncate(8);
+            println!("peer: {addrs:?}");
+            e.connect(addrs.clone());
+            send(ws, json!({"type": "peer", "addrs": addrs.iter().map(|a| a.to_string()).collect::<Vec<_>>()}))
         }
         "mix" => {
             if let Some(e) = eng.as_ref() {
@@ -313,6 +321,9 @@ mod tests {
         assert!(o.allows("https://maxbook.tail1234.ts.net"));
         assert!(o.allows("https://maxbook.tail1234.ts.net:443"));
         assert!(o.allows("https://jam.example.cz"));
+        assert!(o.allows("https://neverlast.cz"));
+        assert!(o.allows("https://jam.neverlast.cz"));
+        assert!(!o.allows("https://neverlast.cz.evil.com"));
         assert!(!o.allows("https://ts.net"));
         assert!(!o.allows("http://maxbook.tail1234.ts.net")); // not https
         assert!(!o.allows("https://evil.com/.ts.net"));

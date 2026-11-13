@@ -152,7 +152,7 @@ def test_the_desktop_app_launcher_and_manifest(lib):
     cmd = c.get("/pick-jam.cmd", headers={"host": "jam.neverlast.cz"})
     assert cmd.status_code == 200 and 'filename="Pick Jam.cmd"' in cmd.headers["content-disposition"]
     t = cmd.content.decode()
-    assert 'set "PJ_URL=https://jam.neverlast.cz/"' in t and "\r\n" in t and "{{" not in t and "--app=$url" in t
+    assert 'set "PJ_URL=https://jam.neverlast.cz/"' in t and "\r\n" in t and "{{" not in t and "--app=`$url" in t and "engine/pick-jam-engine.exe" in t and "'serve'" in t
     m = c.get("/manifest.webmanifest").json()
     assert m["display"] == "standalone" and any(i["sizes"] == "512x512" for i in m["icons"])
     assert c.get("/static/jam-icon-512.png").status_code == 200 and c.get("/static/jam-icon.ico").status_code == 200
@@ -268,7 +268,8 @@ def test_engine_sent_by_the_mac_downloaded_by_a_friend(lib):
     assert c.put("/sync/engine/evil.sh", headers=h, content=blob).status_code == 400
     assert c.put("/sync/engine/pick-jam-engine.exe", headers=h, content=blob).json()["ok"]
     assert list(c.get("/sync/engine", headers=h).json()) == ["pick-jam-engine.exe"]
-    assert c.get("/engine/pick-jam-engine.exe").status_code == 403 and c.get("/g/me").json()["engine"] == []
+    # the program itself is open (the desktop launcher fetches it before anyone logs in); the page lists it once logged in
+    assert c.get("/engine/pick-jam-engine.exe").content == blob and c.get("/g/me").json()["engine"] == []
+    assert c.get("/engine/evil.sh").status_code == 404
     c.post("/login", json={"name": "Pavel", "password": "kytara66"})
     assert c.get("/g/me").json()["engine"] == ["pick-jam-engine.exe"]
-    assert c.get("/engine/pick-jam-engine.exe").content == blob

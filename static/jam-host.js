@@ -130,7 +130,7 @@ const Jam = (() => {
         <button type="button" class="jb ${link && link.local.camera ? "on" : ""}" id="jam-cam">Kamera</button>
         <button type="button" class="jb ${link && link.local.voice ? "on" : ""}" id="jam-voice">Mluvit</button>
         <button type="button" class="jb ${link && link.local.screen ? "on" : ""}" id="jam-screen" title="Kamarád uvidí Pick — píseň, text, taby, akordy">Sdílet Pick</button>
-        <span class="sp" style="flex:1"></span><span class="jam-lat" id="jam-lat"></span></div>
+        <span class="sp" style="flex:1"></span><span id="jam-pill-slot"></span><span class="jam-lat" id="jam-lat"></span></div>
       <div id="jam-chat-slot"></div>
       <div class="jam-l"><span>Zvuk kytar</span><select id="jam-mode">
           <option value="low" ${(!link || link.mode === "low") ? "selected" : ""}>nízké zpoždění (jako SonoBus)</option>
@@ -152,8 +152,10 @@ const Jam = (() => {
     q("jam-cam").onclick = async (e) => { try{ await link.setCamera(!link.local.camera); }catch(x){ showToast("Kameru se nepodařilo zapnout"); } paint(); };
     q("jam-voice").onclick = async () => { try{ await link.setVoice(!link.local.voice); }catch(x){ showToast("Mikrofon se nepodařilo zapnout"); } paint(); };
     q("jam-screen").onclick = async () => { try{ await link.setScreen(!link.local.screen); }catch(x){} paint(); };
-    q("jam-mode").onchange = (e) => { link.setMode(e.target.value); cfg.mode = e.target.value; keep(); natSlot(); };
+    q("jam-mode").onchange = (e) => { link.setMode(e.target.value); link.wantNative = e.target.value === "native"; cfg.mode2 = e.target.value; keep(); natSlot(); };
     natSlot();
+    // the engine's light: green with the delay when the native sound plays; a click shows tips
+    if(window.JamNativeUI && JamNativeUI.pill){ if(!window.__jamPill) window.__jamPill = JamNativeUI.pill(() => link, {settings: () => { const m = q("jam-mode"); if(m) m.scrollIntoView({block: "center"}); }, offHelp: "Pick ho spouští sám — když neběží, restartuj Pick."}); q("jam-pill-slot").append(window.__jamPill); }
     q("jam-buf").onchange = (e) => { const v = e.target.value; cfg.buf = v; keep(); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); };
     q("jam-vol").oninput = (e) => { cfg.vol = +e.target.value; keep(); applyFriend(); if(jf) jfPaint(); };
     q("jam-vvol").oninput = (e) => { cfg.vvol = +e.target.value; keep(); q("jam-voice-el").volume = cfg.vvol; };
@@ -192,7 +194,7 @@ const Jam = (() => {
   async function connect(){
     if(link) return;
     const vo = Mixer.voiceOut();
-    link = new JamLink({role: "host", ctx: vo.ac, output: vo.out, mode: cfg.mode || "low", native: cfg.nat, quanta: cfg.buf && cfg.buf !== "auto" ? +cfg.buf : 3, auto: !cfg.buf || cfg.buf === "auto", onEvent: event});
+    link = new JamLink({role: "host", ctx: vo.ac, output: vo.out, mode: cfg.mode2 || "native", native: cfg.nat, quanta: cfg.buf && cfg.buf !== "auto" ? +cfg.buf : 3, auto: !cfg.buf || cfg.buf === "auto", onEvent: event});
     chatEl = document.createElement("div");
     chat = JamChat({root: chatEl, me: "host", name: "Kamarád", send: (o) => link && link.send(o), visible: chatSeen, onUnread: badge,
       onNew: (m) => { if(!chatSeen()) showToast("💬 Kamarád: " + (m.text.length > 90 ? m.text.slice(0, 90) + "…" : m.text)); }});

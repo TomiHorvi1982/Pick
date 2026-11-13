@@ -1,6 +1,6 @@
 // Pick Jam — the link between the two browsers (the host in Pick, the friend on the guest page).
 //
-// The room's socket only sets the link up; then all goes peer to peer (WebRTC), over Tailscale:
+// The room's socket only sets the link up; then all goes peer to peer (WebRTC; the native engines directly over UDP):
 //   · four fixed lanes, made once by the host, filled and emptied without setting anything up again:
 //       0 guitar as a call (Opus tuned for music) · 1 voice (talking) · 2 camera · 3 screen (Pick itself)
 //   · data channel "au": the guitar the SonoBus way — 16-bit PCM in 2.7 ms packets, unreliable and unordered,
@@ -71,12 +71,12 @@
   // ---- the engine's settings in a page (the host's jam panel, the friend's settings): one block, the page's own row look
   const WHY = {
     "engine": "Pick Jam Engine na tomhle počítači neběží — spusť ho a zkus to znovu.",
-    "tailscale": "Tailscale na tomhle počítači není připojený — nativní zvuk jde jen přes Tailscale.",
+    "net": "Engine nezjistil svoji adresu v internetu (bez připojení?) — hraje se přes prohlížeč.",
     "peer-engine": "Kamarád nemá spuštěný Pick Jam Engine.",
-    "peer-tailscale": "Kamarád nemá připojený Tailscale.",
+    "peer-net": "Kamarádův engine nezjistil svoji adresu v internetu — hraje se přes prohlížeč.",
     "peer-start": "Kamarádovi se engine nepodařilo spustit (zvukovka?).",
     "peer-silent": "Kamarádova stránka nativní zvuk nezná — ať ji obnoví.",
-    "udp": "Enginy se přímo nespojily (UDP neprošlo) — zvuk jde zase přes prohlížeč.",
+    "udp": "Enginy se napřímo nespojily (router nebo síť to nepustila) — zvuk jde zase přes prohlížeč.",
     "engine-lost": "Pick Jam Engine se odpojil.",
   };
   const why = (code) => WHY[code] || (code && code.startsWith("start: ") ? "Engine nespustil zvuk: " + code.slice(7) : "Nativní zvuk nejde: " + code);
@@ -94,7 +94,7 @@
       const dl = (opts.download || []).map(x => `<a class="jb" href="${escH(x.url)}" download>${escH(x.label)}</a>`).join(" ");
       if(!n.ok) state = `<span class="jam-warn">Engine nenalezen</span> <button type="button" class="jb" data-k="retry">Zkusit znovu</button>`
         + (dl ? `<div class="jam-nat-dl">${dl}<br><small>Stáhni, spusť a nech jeho okno otevřené. Windows se poprvé zeptá: „Další informace“ → „Přesto spustit“, a firewall: „Povolit“. Pak „Zkusit znovu“.</small></div>` : "");
-      else if(link.mode !== "native") state = `připojen (v${escH(n.hello.version)}${n.hello.ip ? ", adresa " + escH(n.hello.ip) : ", <span class='jam-warn'>bez Tailscale</span>"})`;
+      else if(link.mode !== "native") state = `připojen (v${escH(n.hello.version)})`;
       else if(!n.started) state = "spouštím…";
       else if(!link.natPeer) state = "čekám na kamarádův engine…";
       else if(s && s.rx_age_ms != null && s.rx_age_ms < 1000) state = `hraje · buffer ${s.buffer_ms.toFixed(1)} ms · ztráty ${s.lost} · výpadky ${s.underruns}`;
@@ -125,13 +125,60 @@
     el.repaint = paint;
     return el;
   }
-  window.JamNativeUI = {why, block: nativeBlock};
+  // ---- the engine's light: a small pill (green = native sound on, with the delay), a click shows how it
+  // stands, where the delay goes and what lowers it. getLink() may return null (no jam yet).
+  const TIPS = [
+    "Kabel místo Wi-Fi — u obou. Bývá to největší rozdíl.",
+    "Sluchátka do zvukovky, ne do počítače.",
+    "Windows: ve výběru „Ovladač zvuku“ zvol ASIO (když ho zvukovka má).",
+    "Buffer zvukovky: 256 je jistota; 128 nebo 64 = méně ms, když to nelupe.",
+    "Zavři programy, které hrají nebo nahrávají zvuk (Teams, YouTube…).",
+  ];
+  function pill(getLink, opts = {}){
+    const el = document.createElement("span");
+    el.className = "jam-pill"; el.style.cssText = "display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;position:relative;white-space:nowrap;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:inherit";
+    const pop = document.createElement("div");
+    pop.style.cssText = "position:absolute;top:calc(100% + 6px);right:0;z-index:99;width:300px;max-width:86vw;padding:12px 14px;border-radius:12px;background:#151821;color:#eef0f4;border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 30px rgba(0,0,0,.5);font-weight:400;font-size:13px;line-height:1.45;white-space:normal;cursor:default";
+    pop.hidden = true;
+    el.onclick = (e) => { if(pop.contains(e.target) && !e.target.closest("[data-x]")) return; pop.hidden = !pop.hidden; paint(); };
+    let probed = 0;
+    function state(){
+      const link = getLink && getLink(), n = link ? link.native : null;
+      if(!n || !n.ok) return {c: "#8a93a6", t: "Engine neběží", k: "off", link};
+      if(link.mode === "native" && n.started && n.stats && n.stats.rx_age_ms != null && n.stats.rx_age_ms < 1500) return {c: "#2dd4bf", t: `Engine · ${link.delay().total} ms`, k: "on", link};
+      if(link.mode === "native") return {c: "#e8b93f", t: "Engine · spojuji…", k: "wait", link};
+      return {c: "#8a93a6", t: "Engine připraven", k: "ready", link};
+    }
+    function paint(){
+      const s = state();
+      el.firstChild ? (el.firstChild.style.background = s.c, el.childNodes[1].textContent = s.t) : (el.innerHTML = `<i style="width:8px;height:8px;border-radius:50%;background:${s.c}"></i><span>${escH(s.t)}</span>`, el.append(pop));
+      if(pop.hidden) return;
+      const d = s.k === "on" ? s.link.delay() : null, st = (s.link && s.link.native && s.link.native.started) || {};
+      pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b>Pick Jam Engine</b><span data-x style="cursor:pointer;opacity:.6">✕</span></div>`
+        + (s.k === "on" ? `<div style="margin:6px 0">Hraje napřímo. Kamarádovu kytaru slyšíš se zpožděním <b>${d.total} ms</b> (síť ${d.net} · buffer ${d.buf} · výstup ${d.out}).<br><span style="opacity:.7">${escH(st.host || "")} · ${escH(st.output || "")} · buffer ${st.buffer || "?"}</span></div>`
+          : s.k === "off" ? `<div style="margin:6px 0">Engine na tomhle počítači neběží, hraje se přes prohlížeč (o něco větší zpoždění).${opts.offHelp ? "<br>" + opts.offHelp : ""}</div>`
+          : s.k === "wait" ? `<div style="margin:6px 0">Enginy se hledají přes internet (pár sekund). Když se nenajdou, jam sám přejde na zvuk přes prohlížeč.</div>`
+          : `<div style="margin:6px 0">Engine běží a čeká. Zapne se sám, jakmile ho má i kamarád.</div>`)
+        + (opts.settings ? `<div style="margin:4px 0 8px"><a href="#" data-set style="color:#2dd4bf">Zvukovka a buffer →</a></div>` : "")
+        + `<b style="font-size:12px;opacity:.8">Jak zpoždění snížit</b><ul style="margin:4px 0 0;padding-left:18px">${TIPS.map(t => `<li>${escH(t)}</li>`).join("")}</ul>`;
+      const x = pop.querySelector("[data-x]"); if(x) x.onclick = (e) => { e.stopPropagation(); pop.hidden = true; };
+      const set = pop.querySelector("[data-set]"); if(set) set.onclick = (e) => { e.preventDefault(); e.stopPropagation(); pop.hidden = true; opts.settings(); };
+    }
+    setInterval(() => {
+      const link = getLink && getLink();
+      if(link && link.native && !link.native.ok && Date.now() - probed > 5000){ probed = Date.now(); link.native.probe().catch(() => {}); }
+      paint();
+    }, 1000);
+    paint();
+    return el;
+  }
+  window.JamNativeUI = {why, block: nativeBlock, pill};
 
   class JamLink {
     constructor(o){
       this.role = o.role; this.ctx = o.ctx; this.output = o.output; this.on = o.onEvent || (() => {});
       this.base = o.base || "";                         // where /static/jam-worklet.js is
-      this.mode = o.mode || "low"; this.quanta = o.quanta || 3; this.auto = o.auto !== false;
+      this.mode = o.mode || "low"; this.wantNative = this.mode === "native"; this.natRetryAt = Date.now(); this.natLastWhy = ""; this.quanta = o.quanta || 3; this.auto = o.auto !== false;
       this.input = null; this.seq = 0; this.ready = false; this.peerOn = false;
       this.local = {camera: null, voice: null, screen: null};
       this.clock = {off: 0, rtt: null, samples: []};
@@ -209,7 +256,9 @@
     natMix(){ if(this.mode === "native" && this.native.started) this.native.cmd({type: "mix", gain: this.lastVol, pan: this.lastPan}).catch(() => {}); }
     // back to the browser's own path, saying why (both sides follow)
     natFallback(why, quiet){
-      this.natWhy = why; this.on("native-fallback", why);
+      // the same reason again (a retry that failed the same way) is not said again
+      if(why !== this.natLastWhy) this.on("native-fallback", why);
+      this.natWhy = why; this.natLastWhy = why;
       if(this.mode === "native") this.setMode("low", quiet);
     }
     async natStart(){
@@ -220,9 +269,12 @@
       try{
         const s = await this.native.cmd({type: "start", source: c.source === "pick" ? "browser" : "device", rate: this.ctx.sampleRate,
           host: c.host || "", input: c.input, output: c.output, in_ch: +c.in_ch || 1, buffer: +c.buffer || 256}, "started", 20000);
-        if(!s.ip){ say({ok: false, why: "tailscale"}); this.native.cmd({type: "stop"}).catch(() => {}); this.natFallback("tailscale"); return; }
+        // where the other engine can reach mine: through the internet (public, found by STUN), in the same home
+        // network (local), or on the tailnet (ip) — it tries them all and keeps the first that answers
+        const cands = [...new Set([s.public, s.local, s.ip && `${s.ip}:${s.port}`].filter(Boolean))];
+        if(!cands.length){ say({ok: false, why: "net"}); this.native.cmd({type: "stop"}).catch(() => {}); this.natFallback("net"); return; }
         this.natMix();
-        say({ok: true, ip: s.ip, port: s.port});
+        say({ok: true, ip: s.ip, port: s.port, cands});
         this.natConnect();
       }catch(e){ say({ok: false, why: "start", msg: String(e.message || e)}); this.natFallback("start: " + (e.message || e)); }
     }
@@ -230,7 +282,7 @@
     // both sides ready: point my engine at the other one's
     natConnect(){
       const p = this.natPeer, me = this.native.started; if(!p || !me) return;
-      this.native.cmd({type: "peer", addr: `${p.ip}:${p.port}`}).catch(() => {});
+      this.native.cmd({type: "peer", addrs: p.cands && p.cands.length ? p.cands : [`${p.ip}:${p.port}`]}).catch(() => {});
       this.natSince = Date.now(); this.on("native-state");
     }
     onTx(d){
@@ -382,7 +434,7 @@
       if(m.type === "mode"){ this.setMode(m.mode, true); return; }
       if(m.type === "native"){
         if(!m.ok){ this.natFallback("peer-" + (m.why || "?"), true); return; }
-        this.natPeer = {ip: m.ip, port: m.port, inMs: m.inMs || 0}; this.natConnect(); return;
+        this.natPeer = {ip: m.ip, port: m.port, cands: Array.isArray(m.cands) ? m.cands.filter(x => typeof x === "string").slice(0, 8) : null, inMs: m.inMs || 0}; this.natConnect(); return;
       }
       if(m.type === "share"){ this.remoteShare = !!m.on; this.on("media", this.media); return; }
       if(m.type === "cam"){ this.remoteCam = !!m.on; this.on("media", this.media); return; }
@@ -393,7 +445,12 @@
     async tick(){
       this.ctl({type: "ping", t: performance.now()});
       // native: nothing coming from the other engine for a while (UDP blocked, engine quit) → back to the browser
-      if(this.mode === "native" && Date.now() - this.natSince > 6000){
+      // the host wants the native sound: after it fell back (the friend had no engine yet…), try again every 30 s
+      if(this.role === "host" && this.wantNative && this.mode !== "native" && this.ready && this.native.ok && Date.now() - (this.natRetryAt || 0) > 30000){
+        this.natRetryAt = Date.now(); this.setMode("native");
+      }
+      if(this.mode === "native" && this.native.stats && this.native.stats.rx_age_ms != null && this.native.stats.rx_age_ms < 1000) this.natLastWhy = "";
+      if(this.mode === "native" && Date.now() - this.natSince > 10000){     // the routers get a few seconds to open the way
         if(!this.native.ok) this.natFallback("engine-lost");
         else if(this.natPeer && this.native.started){ const a = this.native.stats && this.native.stats.rx_age_ms; if(a == null || a > 3000) this.natFallback("udp"); }
         else if(!this.natPeer && this.ready && Date.now() - this.readyAt > 6000) this.natFallback("peer-silent");
@@ -422,7 +479,8 @@
     }
     // the way the link goes: straight over the tailnet / the home network, or round the internet
     route(){
-      if(this.mode === "native" && this.natPeer){ const ip = this.natPeer.ip || ""; return `nativní engine · ${/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip) ? "Tailscale" : ip}`; }
+      if(this.mode === "native" && this.natPeer){ const ip = String((this.native.stats && this.native.stats.peer) || this.natPeer.ip || "").replace(/:\d+$/, "");
+        return `nativní engine · ${/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip) ? "Tailscale" : /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(ip) ? "domácí síť" : ip ? "napřímo přes internet" : "spojuji…"}`; }
       const a = this.rtcStats.addr || "";
       return /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a) ? "Tailscale (přímo)" : /^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))/.test(a) ? "domácí síť" : a ? (this.rtcStats.ctype === "relay" ? "přes server" : "internet") : "";
     }
