@@ -395,7 +395,7 @@
   function soloCtl(o){
     const now = performance.now();
     if(o.do === "load"){ const row = songs.find(x => x.name === o.name) || {};
-      onSong({name: o.name, title: row.title, stems: [], playing: false, pos: 0, at: now, speed: S ? S.speed || 1 : 1, key: 0, dur: row.duration || 0}); return; }
+      onSong({name: o.name, title: row.title, stems: row.stems || [], playing: false, pos: 0, at: now, speed: S ? S.speed || 1 : 1, key: 0, dur: row.duration || 0}); return; }
     if(!S || !S.name) return;
     const n = {...S, pos: Math.min(posNow(), S.dur || 1e9), at: now};
     if(o.do === "play"){ if(loaded !== S.name) return; if(n.dur && n.pos >= n.dur - 0.2) n.pos = 0; n.playing = true; }
@@ -450,7 +450,10 @@
     if(loading !== name) return;
     info = i || {channels: [], sections: [], chords: []}; lyrics = (l && l.lines) || [];
     paintLyrics(); paintSecs();
-    const want = stems.length ? stems : (info.channels || []).map(c => c.stem);
+    // the tracks: what the host sends, else his mix's channels, else what the list says the song has
+    // (a whole song from the PC has one track and no mix saved — without this it loaded nothing)
+    const row = songs.find(x => x.name === name), chans = (info.channels || []).map(c => c.stem).filter(Boolean);
+    const want = stems.length ? stems : chans.length ? chans : (row && row.stems) || [];
     try{
       const ok = await mix.load(name, want, (d, of) => { if(loading === name) $("songSt").textContent = `Stahuji stopy ${d}/${of}…`; });
       if(!ok || loading !== name) return;
