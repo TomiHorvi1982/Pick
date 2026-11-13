@@ -56,8 +56,13 @@ mod win {
         std::fs::create_dir_all(&dir)?;
         let me = std::env::current_exe()?;
         let exe = installed_exe();
-        if me != exe && !running() {
+        if me != exe {
+            // an engine from an older install still running would keep its file locked: stop it, then replace it
+            let _ = Command::new("taskkill").args(["/F", "/IM", "pick-jam-engine.exe"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+                .creation_flags(NO_WINDOW).status();
+            std::thread::sleep(std::time::Duration::from_millis(600));
             std::fs::copy(&me, &exe)?;
+            log("installed");
         }
         let d = dir.display().to_string().replace('\'', "''");
         let e = exe.display().to_string().replace('\'', "''");
@@ -120,12 +125,68 @@ Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value ('"' + '
         }
     }
 
-    /// The desktop icon: the start script (fresh engine, engine, app window), hidden.
+    /// A line in %LOCALAPPDATA%\PickJam\pickjam.log (what the icon did, for when "nothing happens").
+    fn log(msg: &str) {
+        use std::io::Write;
+        let _ = std::fs::create_dir_all(home());
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(home().join("pickjam.log")) {
+            let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let _ = writeln!(f, "{t} {msg}");
+        }
+    }
+
+    /// Chrome (or Edge) on this machine.
+    fn browser() -> Option<PathBuf> {
+        let env = |k: &str| std::env::var(k).ok().map(PathBuf::from);
+        let mut c = Vec::new();
+        for (base, rest) in [("ProgramFiles", r"Google\Chrome\Application\chrome.exe"), ("ProgramFiles(x86)", r"Google\Chrome\Application\chrome.exe"),
+                             ("LOCALAPPDATA", r"Google\Chrome\Application\chrome.exe"), ("ProgramFiles(x86)", r"Microsoft\Edge\Application\msedge.exe"),
+                             ("ProgramFiles", r"Microsoft\Edge\Application\msedge.exe")] {
+            if let Some(b) = env(base) {
+                c.push(b.join(rest));
+            }
+        }
+        c.into_iter().find(|p| p.is_file())
+    }
+
+    /// A fresh engine from the library, only while none runs (the running one cannot be replaced).
+    fn update() {
+        let exe = installed_exe().display().to_string().replace('\'', "''");
+        let url = APP_URL;
+        let _ = powershell(&format!(r#"try {{ $exe = '{exe}'; $tmp = "$exe.new"
+  Invoke-WebRequest -UseBasicParsing -Uri '{url}engine/pick-jam-engine.exe' -OutFile $tmp -TimeoutSec 20
+  if ((Get-Item $tmp).Length -gt 100000 -and ((Get-FileHash $tmp).Hash -ne (Get-FileHash $exe).Hash)) {{
+    Remove-Item "$exe.old" -ErrorAction SilentlyContinue; Rename-Item $exe "$exe.old"; Move-Item $tmp $exe
+  }} else {{ Remove-Item $tmp -ErrorAction SilentlyContinue }} }} catch {{ }}"#));
+    }
+
+    /// The desktop icon: the engine (fresh from the library when none runs), then the app window.
     pub fn open() -> Result<()> {
-        let s = home().join("start.ps1").display().to_string();
-        let ps = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()))
-            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
-        spawn(&ps, &["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", &s])
+        log("open");
+        if !running() {
+            if std::env::current_exe().ok() == Some(installed_exe()) {
+                update();
+            }
+            let exe = if installed_exe().is_file() { installed_exe() } else { std::env::current_exe()? };
+            match spawn(&exe, &["serve"]) {
+                Ok(()) => log("engine started"),
+                Err(e) => log(&format!("engine failed: {e}")),
+            }
+        }
+        let app = format!("{APP_URL}app");
+        match browser() {
+            Some(b) => {
+                let r = Command::new(&b).arg(format!("--app={app}")).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+                    .creation_flags(DETACHED).spawn();
+                log(&format!("browser {} -> {}", b.display(), if r.is_ok() { "ok".to_string() } else { format!("{:?}", r.err()) }));
+            }
+            None => {
+                // no Chrome nor Edge: the default browser
+                let r = Command::new("cmd").args(["/C", "start", "", &app]).creation_flags(NO_WINDOW).spawn();
+                log(&format!("no Chrome/Edge, default browser -> {}", r.is_ok()));
+            }
+        }
+        Ok(())
     }
 
     /// pickjam://start from the page: the engine, nothing else.
