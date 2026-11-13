@@ -22,6 +22,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>PickJam</string>
   <key>CFBundleIconFile</key><string>PickJam</string>
   <key>LSMinimumSystemVersion</key><string>10.13</string>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>Pick Jam Engine</string>
+    <key>CFBundleURLSchemes</key><array><string>pickjam</string></array>
+  </dict></array>
 </dict></plist>
 PLIST
 
@@ -38,6 +42,8 @@ if ! pgrep -f "pick-jam-engine-mac serve" >/dev/null; then
   xattr -d com.apple.quarantine "\$E/pick-jam-engine-mac" 2>/dev/null
   [ -x "\$E/pick-jam-engine-mac" ] && ("\$E/pick-jam-engine-mac" serve >/dev/null 2>&1 &)
 fi
+# okno Pick Jam už je otevřené (aplikaci spustil odkaz pickjam:// ze stránky): jen engine, žádné druhé okno
+pgrep -f -- "--app=$URL" >/dev/null && exit 0
 # pak Pick Jam jako aplikace v prvním prohlížeči, který tu je (Chrome umí mikrofon i zvukovku nejlíp)
 for b in "Google Chrome" "Microsoft Edge" "Brave Browser" "Chromium"; do
   if [ -d "/Applications/\$b.app" ] || [ -d "\$HOME/Applications/\$b.app" ]; then
@@ -49,6 +55,8 @@ EOF
 chmod +x "$APP/Contents/MacOS/PickJam"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
 touch "$APP"
+# odkaz pickjam:// (tlačítko „Spustit engine“ na stránce) otevře tuhle aplikaci
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null
 
 if [ ! -d "/Applications/Google Chrome.app" ] && [ ! -d "$HOME/Applications/Google Chrome.app" ]; then
   echo "Tip: s Google Chrome (google.com/chrome) funguje mikrofon a zvukovka nejlíp."

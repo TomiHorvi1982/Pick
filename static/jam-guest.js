@@ -154,11 +154,7 @@
     mix = new JamMix(ctx, api, mixBus);
     if(!solo){
     link = new JamLink({role: "guest", ctx, output: ctx.destination, native: store("nat") || undefined, onEvent: event});
-    if(window.JamNativeUI && JamNativeUI.pill && $("engPill") && !$("engPill").firstChild){
-      const dl = engineDownloads()[0];
-      $("engPill").append(JamNativeUI.pill(() => link, {settings: () => { const b = $("setBtn"); if(b) b.click(); },
-        offHelp: (dl ? `<a href="${esc(dl.url)}" download style="color:#2dd4bf">⤓ ${esc(dl.label)}</a> — ` : "") + "nejjednodušší je spouštět Pick Jam z ikony na ploše, engine se pak zapne sám."}));
-    }
+
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
       onUnread: (n) => { document.title = n ? `(${n}) Pick Jam — nová zpráva` : "Pick Jam"; }});
@@ -204,7 +200,7 @@
       $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`; }
     const rt = $("retry"); if(rt) rt.onclick = (e) => { e.preventDefault(); location.reload(); };
     ["camBtn", "voiceBtn", "play", "toStart", "tDn", "tUp", "kDn", "kUp"].forEach(id => { $(id).disabled = true; });
-    $("rack").hidden = true; $("mixFold").hidden = true;
+    $("rackW").hidden = true;
     loadSongs();
     if(!lib) setInterval(async () => { try{ const r = await fetch("/g/me", {cache: "no-store"}); if(r.ok && (await r.json()).on) $("songSt").innerHTML = `<b>${esc(me.host)} zapnul jam!</b> <a href="#" onclick="location.reload();return false">Připojit se</a>`; }catch(e){} }, 20000);
   }
@@ -257,18 +253,20 @@
     requestAnimationFrame(() => { pz.scrollLeft = cx * pz.scrollWidth - fx * r.width; pz.scrollTop = cy * pz.scrollHeight - fy * r.height; });
   }
   $("zIn").onclick = () => setZoom(zoom + 0.25); $("zOut").onclick = () => setZoom(zoom - 0.25); $("zFit").onclick = () => setZoom(1);
-  $("zFull").onclick = () => { document.fullscreenElement ? document.exitFullscreen() : $("vPick").requestFullscreen().catch(() => {}); };
+  // full screen: only the shared window, as big as the screen (the tools and the rest of the page stay out)
+  $("zFull").onclick = () => { document.fullscreenElement ? document.exitFullscreen() : (setZoom(1), $("pz").requestFullscreen().catch(() => {})); };
   $("pz").addEventListener("wheel", (e) => { if(!e.ctrlKey && !e.metaKey) return; e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY); }, {passive: false});
   $("pz").onpointerdown = (e) => { const pz = $("pz"); if(zoom <= 1) return; pz.setPointerCapture(e.pointerId); pz.classList.add("drag");
     const x0 = e.clientX, y0 = e.clientY, l0 = pz.scrollLeft, t0 = pz.scrollTop;
     pz.onpointermove = (ev) => { pz.scrollLeft = l0 - (ev.clientX - x0); pz.scrollTop = t0 - (ev.clientY - y0); };
     pz.onpointerup = () => { pz.onpointermove = null; pz.classList.remove("drag"); }; };
-  $("pz").ondblclick = (e) => setZoom(zoom > 1 ? 1 : 2, e.clientX, e.clientY);
+  $("pz").ondblclick = (e) => { if(document.fullscreenElement) return document.exitFullscreen(); setZoom(zoom > 1 ? 1 : 2, e.clientX, e.clientY); };
   document.addEventListener("keydown", (e) => { if(view === "pick" && (e.key === "f" || e.key === "F") && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("zFull").click(); });
 
   // the mix folded away, for more of the text or the shared screen
-  const foldMix = (on) => { $("rack").classList.toggle("folded", on); $("mixFold").textContent = on ? "Mix ▸" : "Mix ▾"; store("mixFold", on); };
-  foldMix(!!store("mixFold")); $("mixFold").onclick = () => foldMix(!$("rack").classList.contains("folded"));
+  const foldMix = (on) => { $("rackW").classList.toggle("folded", on); $("mixFold").querySelector(".mf-ar").textContent = on ? "▴" : "▾";
+    $("mixFold").title = on ? "Ukázat mix" : "Skrýt mix"; store("mixFold", on); };
+  foldMix(!!store("mixFold")); $("mixFold").onclick = () => foldMix(!$("rackW").classList.contains("folded"));
 
   // the side panel's width, the chat's height: by hand, remembered
   function dragSize(handle, onMove){
@@ -281,7 +279,10 @@
   dragSize($("rsSide"), {start: side, move: (w0, dx) => { const w = Math.max(240, Math.min(620, w0 + dx)); document.documentElement.style.setProperty("--side-w", w + "px"); store("sideW", w); }});
   if(store("chatH")) $("chat").style.setProperty("--jc-h", store("chatH") + "px");
   dragSize($("rsChat"), {start: () => (parseInt(getComputedStyle($("chat")).getPropertyValue("--jc-h")) || 220), move: (h0, dx, dy) => {
-    const h = Math.max(90, Math.min(window.innerHeight * 0.75, h0 - dy)); $("chat").style.setProperty("--jc-h", h + "px"); store("chatH", Math.round(h)); }});
+    const h = Math.max(90, Math.min(window.innerHeight * 0.75, h0 - dy)); $("chat").style.setProperty("--jc-h", h + "px"); store("chatH", Math.round(h)); camSize(); }});
+  // the camera sits in the chat and grows with it: wider with the panel, taller with the chat
+  function camSize(){ const h = parseInt(getComputedStyle($("chat")).getPropertyValue("--jc-h")) || 200; $("chatCam").style.setProperty("--cam-h", Math.round(Math.max(90, h * 0.75)) + "px"); }
+  camSize();
 
   // ---------------------------------------------------------------- the host's Steems
   // ---------------------------------------------------------------- the host's Steems: all, by band, by tuning, by playlist
@@ -401,6 +402,7 @@
     if(o.do === "seek") n.pos = Math.max(0, Math.min(o.pos, (n.dur || o.pos + 1) - 0.1));
     if(o.do === "tempo") n.speed = o.speed;
     if(o.do === "key") n.key = o.semis;
+    if(o.do === "loop"){ n.loop = o.end > o.start ? {start: o.start, end: o.end} : null; if(n.loop){ n.pos = o.start; n.playing = loaded === S.name; } }
     onSong(n);
   }
 
@@ -654,7 +656,7 @@
   // ---------------------------------------------------------------- text, chords, sections
   let lyrIdx = -2;
   function paintLyrics(){
-    $("vLyr").innerHTML = lyrics.length ? lyrics.map((l, i) => `<p data-i="${i}">${esc(l.text) || "&nbsp;"}</p>`).join("") : `<p class="muted">K téhle písni text nemám.</p>`;
+    $("vLyr").innerHTML = lyrics.length ? `<div class="lyr-row">${lyrics.map((l, i) => `<p data-i="${i}">${esc(l.text) || "&nbsp;"}</p>`).join("")}</div>` : `<p class="muted" style="margin:auto">K téhle písni text nemám.</p>`;
     lyrIdx = -2;
   }
   function lyricsAt(pos){
@@ -662,7 +664,10 @@
     let i = -1; for(let k = 0; k < lyrics.length; k++){ if(lyrics[k].t <= pos + 0.15) i = k; else break; }
     if(i === lyrIdx) return; lyrIdx = i;
     $("vLyr").querySelectorAll("p").forEach((p, k) => { p.className = k === i ? "now" : k < i ? "past" : ""; });
-    const cur = $("vLyr").querySelector("p.now"); if(cur) cur.scrollIntoView({block: "center", behavior: "smooth"});
+    const cur = $("vLyr").querySelector("p.now"), row = $("vLyr").querySelector(".lyr-row");
+    if(document.body.classList.contains("staged")){ if(cur) cur.scrollIntoView({block: "center", behavior: "smooth"}); return; }
+    // one line, running with the song: the line sung now in the middle, the next ones coming from the right
+    if(row){ const p = cur || row.querySelector("p"); if(p) row.style.transform = `translateX(${Math.round($("vLyr").clientWidth / 2 - (p.offsetLeft + p.offsetWidth / 2))}px)`; }
   }
   function chordsAt(pos){
     const cs = (info && info.chords || []).filter(c => c.chord && c.chord !== "N");
@@ -676,6 +681,13 @@
     const secs = (info && info.sections) || [], dur = (S && S.dur) || (mix && mix.duration) || (secs.length ? secs[secs.length - 1].end : 0);
     $("secs").innerHTML = dur ? secs.map((s, k) => `<i data-k="${k}" title="${esc(s.name)} · ${mmss(s.start)}–${mmss(s.end)}" style="left:${s.start / dur * 100}%;width:${(s.end - s.start) / dur * 100}%;--c:${esc(s.color || "#666")}"><b>${esc(s.name || "")}</b></i>`).join("") : "";
     secNow = -1; paintWave();
+    $("secRow").innerHTML = dur ? secs.map((s, k) => `<span data-k="${k}" title="${esc(s.name)} · ${mmss(s.start)}–${mmss(s.end)} — klik: hrát od začátku sekce" style="left:${s.start / dur * 100}%;width:${(s.end - s.start) / dur * 100}%;--c:${esc(s.color || "#666")}"><em>${esc(s.name || "")}</em><u data-loop title="Smyčka: tahle sekce dokola">⟲</u></span>`).join("") : "";
+    $("secRow").querySelectorAll("span").forEach(el => el.onclick = (e) => {
+      const sc = secs[+el.dataset.k]; if(!sc || !S) return;
+      if(e.target.closest("[data-loop]")){ const on = S.loop && Math.abs(S.loop.start - sc.start) < 0.05 && Math.abs(S.loop.end - sc.end) < 0.05;
+        ctl(on ? {do: "loop", start: 0, end: 0} : {do: "loop", start: sc.start, end: sc.end}); return; }
+      ctl({do: "seek", pos: sc.start}); if(!S.playing) setTimeout(() => ctl({do: "play"}), 80);
+    });
     const sel = $("secSel");
     getJ(`/g/sections?name=${encodeURIComponent(S.name)}`).then(d => {
       const list = (d.sections || []).slice(0, 12);
@@ -707,6 +719,7 @@
     const k = secs.findIndex(s => pos >= s.start && pos < s.end);
     if(k === secNow) return; secNow = k;
     $("secs").querySelectorAll("i").forEach(x => x.classList.toggle("now", +x.dataset.k === k));
+    $("secRow").querySelectorAll("span").forEach(x => x.classList.toggle("now", +x.dataset.k === k));
     $("secName").textContent = k >= 0 ? secs[k].name || "" : "";
   }
   $("seek").onclick = (e) => {
@@ -725,11 +738,11 @@
     e.preventDefault(); $("play").click();
   });
   function setView(v){
-    view = v; document.querySelectorAll(".views [data-v]").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+    view = v; document.querySelectorAll("#hviews [data-v]").forEach(x => x.classList.toggle("on", x.dataset.v === v));
     $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; $("vTabs").hidden = view !== "tabs"; lyrIdx = -2;
     if(view === "tabs") showTabs();
   }
-  document.querySelectorAll(".views [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
+  document.querySelectorAll("#hviews [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
 
   // ---------------------------------------------------------------- the sound of his guitar
   let prints = null;
@@ -1075,7 +1088,11 @@
       if(stageNow){ $("stTime").textContent = `${mmss(pos)} / ${mmss(dur)}`; $("stSong").textContent = $("song").textContent; $("stSec").textContent = $("secName").textContent; }
       $("head").style.left = dur ? Math.min(100, pos / dur * 100) + "%" : "0";
       const lp = $("loopR"), L = S.loop;
-      if(L && dur){ lp.hidden = false; lp.style.left = L.start / dur * 100 + "%"; lp.style.width = (L.end - L.start) / dur * 100 + "%"; lp.title = `Smyčka ${mmss(L.start)}–${mmss(L.end)} (zapnutá v Picku)`; } else lp.hidden = true;
+      // alone the loop is kept here: at its end, back to its start
+      if(solo && L && S.playing && pos >= L.end - 0.03) ctl({do: "seek", pos: L.start});
+      $("secRow").querySelectorAll("span").forEach(x => { const sc = ((info && info.sections) || [])[+x.dataset.k];
+        x.classList.toggle("loop", !!(L && sc && Math.abs(L.start - sc.start) < 0.05 && Math.abs(L.end - sc.end) < 0.05)); });
+      if(L && dur){ lp.hidden = false; lp.style.left = L.start / dur * 100 + "%"; lp.style.width = (L.end - L.start) / dur * 100 + "%"; lp.title = `Smyčka ${mmss(L.start)}–${mmss(L.end)}`; } else lp.hidden = true;
       if(view === "lyr" || stageNow) lyricsAt(pos); else if(view === "chords") chordsAt(pos);
       paintSecNow(pos);
     }
@@ -1084,6 +1101,43 @@
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); instEv = e; $("instBtn").hidden = false; });
   window.addEventListener("appinstalled", () => { $("instBtn").hidden = true; toast("Pick Jam je na ploše a v nabídce Start.", 6000); });
   $("instBtn").onclick = async () => { if(!instEv) return; instEv.prompt(); try{ await instEv.userChoice; }catch(e){} instEv = null; $("instBtn").hidden = true; };
+  // ---------------------------------------------------------------- the player in the top bar
+  const hpSong = () => !!(S && S.name && !document.body.classList.contains("browse"));
+  const hpName = () => hpSong() ? S.name : PV.name;
+  function hpNeighbour(d){
+    const rows = [...document.querySelectorAll("#slist .row[data-n]")].map(b => b.dataset.n), list = rows.length ? rows : songs.map(x => x.name);
+    const i = list.indexOf(hpName()); return list.length ? list[(i < 0 ? 0 : i + d + list.length) % list.length] : null;
+  }
+  const hpGo = (name) => { if(!name) return; hpSong() ? playTogether(name) : preview(name); };
+  $("hpPlay").onclick = () => { if(hpSong()) return $("play").click(); if(PV.name) pa.paused ? pa.play().catch(() => {}) : pa.pause(); else hpGo(hpNeighbour(0)); };
+  $("hpStop").onclick = () => { if(hpSong()){ ctl({do: "pause"}); setTimeout(() => ctl({do: "seek", pos: 0}), 80); } else { pa.pause(); try{ pa.currentTime = 0; }catch(e){} } };
+  $("hpNext").onclick = () => hpGo(hpNeighbour(1));
+  $("hpPrev").onclick = () => { const pos = hpSong() ? posNow() : pa.currentTime || 0; if(pos > 3){ hpSong() ? ctl({do: "seek", pos: 0}) : (pa.currentTime = 0); } else hpGo(hpNeighbour(-1)); };
+  $("hpFav").onclick = () => { const n = hpName(); if(n) favToggle(n); };
+  $("hpSeek").oninput = () => { const f = $("hpSeek").value / 1000;
+    if(hpSong()){ const d = S.dur || (mix && mix.duration) || 0; if(d) ctl({do: "seek", pos: f * d}); } else if(pa.duration) pa.currentTime = f * pa.duration; };
+  setInterval(() => {
+    const song = hpSong(), name = hpName(), row = name ? songs.find(x => x.name === name) : null;
+    const pos = song ? posNow() : pa.currentTime || 0, dur = song ? (S.dur || (mix && mix.duration) || 0) : (pa.duration || (row && row.duration) || 0);
+    const playing = song ? !!S.playing : !!(PV.name && !pa.paused);
+    $("hpTitle").textContent = name ? `${row ? row.title : name}${row && row.artist ? " · " + row.artist : ""}${song ? "" : " (náhled)"}` : "Vyber píseň";
+    $("hpTime").textContent = `${mmss(pos)} / ${mmss(dur)}`; $("hpPlay").textContent = playing ? "❚❚" : "▶";
+    if(document.activeElement !== $("hpSeek")) $("hpSeek").value = dur ? Math.round(Math.min(1, pos / dur) * 1000) : 0;
+    $("hpFav").classList.toggle("on", !!(name && FAV.set.has(name)));
+  }, 250);
+  // ---------------------------------------------------------------- the engine: its light up top, from the start
+  // (before the jam too), and the one download that puts Pick Jam into the computer while it is not there
+  (function enginePill(){
+    if(!window.JamNativeUI || !JamNativeUI.pill || !$("engPill")) return;
+    const p = JamNativeUI.pkg && JamNativeUI.pkg();
+    [$("pkgBtn"), $("pkgLogin")].forEach(a => { if(p && a){ a.href = p.url; a.querySelector("span").textContent = p.label; } });
+    if(p && $("pkgLogin")) $("pkgLogin").hidden = false;
+    let offSince = 0;
+    $("engPill").append(JamNativeUI.pill(() => link, {settings: () => { const b = $("setBtn"); if(b) b.click(); },
+      offHelp: "Pick Jam z ikony na ploše zapne engine sám.",
+      onState: (k) => { if(k === "off"){ offSince = offSince || Date.now(); } else offSince = 0;
+        if($("pkgBtn")) $("pkgBtn").hidden = !(p && offSince && Date.now() - offSince > 4000); }}));
+  })();
   window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat, input: () => inGain, solo: () => solo, ctl: (o) => ctl(o)};
   boot();
 })();

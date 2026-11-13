@@ -32,7 +32,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 APP_DIR = Path(__file__).resolve().parent
 STATIC = APP_DIR / "static"
 GATE_PORT = int(os.environ.get("PICK_JAM_PORT") or 8766)        # tests run their own on another port
-GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript", "jam-chat.js": "text/javascript", "jam-mix.js": "text/javascript", "jam-amp.js": "text/javascript"}
+GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript", "jam-chat.js": "text/javascript", "jam-mix.js": "text/javascript", "jam-amp.js": "text/javascript",
+               "dj-core.js": "text/javascript", "dj.js": "text/javascript", "dj-library.js": "text/javascript"}
+# Pick DJ in the friend's page too (the same as in the library on the PC): put in by guest_page
+DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
 CHAT_KEEP = 300
 CHAT_MAX = 2000
 MIX_DIR = Path(tempfile.gettempdir()) / "pick-jam-mix"
@@ -376,7 +379,15 @@ def guest_page(k: str = ""):
         f = STATIC / name
         if f.is_file():
             html = html.replace(f"/static/{name}\"", f"/static/{name}?v={int(f.stat().st_mtime)}\"")
+    dj = [STATIC / n for n in DJ_FILES if (STATIC / n).is_file()]
+    if len(dj) == len(DJ_FILES):
+        html = html.replace("</body>", "".join(f'<script src="/static/{f.name}?v={int(f.stat().st_mtime)}"></script>' for f in dj) + "</body>", 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+@gate.get("/static/worklets/dj-deck.js")
+def guest_dj_worklet():
+    return Response((STATIC / "worklets" / "dj-deck.js").read_text(encoding="utf-8"), media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @gate.get("/favicon.ico")
@@ -823,6 +834,21 @@ def g_stem(request: Request, name: str, stem: str):
         for old in sorted(STEM_CACHE.glob("*.webm"), key=lambda p: p.stat().st_mtime)[:-120]:
             old.unlink(missing_ok=True)
     return FileResponse(out, media_type="audio/webm", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@gate.get("/g/beats")
+def g_beats(request: Request, name: str):
+    """The song's beat grid (beats.json beside the stems) for the friend's DJ — read, never computed here."""
+    if not _who(request.cookies, request.query_params.get("k") or ""):
+        return JSONResponse({"error": "Nejsi přihlášený."}, status_code=403)
+    d = stems_dir(name) if _song_ok(name) else None
+    try:
+        grid = json.loads((d / "beats.json").read_text(encoding="utf-8")) if d is not None else None
+    except (OSError, ValueError):
+        grid = None
+    if not isinstance(grid, dict) or not isinstance(grid.get("beats"), list):
+        return JSONResponse({"error": "Beat grid není."}, status_code=404)
+    return {k: grid.get(k) for k in ("beats", "downbeats", "bpm", "beats_per_bar", "duration")}
 
 
 @gate.get("/g/prints")

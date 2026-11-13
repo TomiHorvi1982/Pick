@@ -134,20 +134,39 @@
     "Buffer zvukovky: 256 je jistota; 128 nebo 64 = méně ms, když to nelupe.",
     "Zavři programy, které hrají nebo nahrávají zvuk (Teams, YouTube…).",
   ];
+  // the friend's one download (it installs Pick Jam: desktop icon, the engine, the pickjam:// link)
+  function pkg(){
+    const base = /(^|\.)jam\.neverlast\.cz$/.test(location.hostname) ? "/" : "https://jam.neverlast.cz/", ua = navigator.userAgent;
+    if(/Windows/i.test(ua)) return {url: base + "pick-jam.exe", label: "Pick Jam do počítače", os: "win"};
+    if(/Macintosh|Mac OS X/i.test(ua)) return {url: base + "pick-jam-mac.zip", label: "Pick Jam do Macu", os: "mac"};
+    return null;
+  }
   function pill(getLink, opts = {}){
     const el = document.createElement("span");
     el.className = "jam-pill"; el.style.cssText = "display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;position:relative;white-space:nowrap;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:inherit";
     const pop = document.createElement("div");
     pop.style.cssText = "position:absolute;top:calc(100% + 6px);right:0;z-index:99;width:300px;max-width:86vw;padding:12px 14px;border-radius:12px;background:#151821;color:#eef0f4;border:1px solid rgba(255,255,255,.14);box-shadow:0 10px 30px rgba(0,0,0,.5);font-weight:400;font-size:13px;line-height:1.45;white-space:normal;cursor:default";
     pop.hidden = true;
-    el.onclick = (e) => { if(pop.contains(e.target) && !e.target.closest("[data-x]")) return; pop.hidden = !pop.hidden; paint(); };
-    let probed = 0;
+    let probed = 0, startAt = 0;
+    const own = new NativeEngine(() => {});          // before (or without) a jam: the page still shows how the engine is
+    const eng = () => { const l = getLink && getLink(); return l ? l.native : own; };
+    // the engine started from the page: the pickjam:// link (installed with Pick Jam) — Chrome asks once, then it just starts
+    const start = () => { startAt = Date.now(); const a = document.createElement("a"); a.href = "pickjam://start"; a.click(); paint(); };
+    el.onclick = (e) => {
+      if(pop.contains(e.target)){ if(e.target.closest("[data-start]")){ e.preventDefault(); start(); } return; }
+      if(state().k === "off" && !startAt) start();
+      pop.hidden = !pop.hidden; paint(); };
     function state(){
-      const link = getLink && getLink(), n = link ? link.native : null;
-      if(!n || !n.ok) return {c: "#8a93a6", t: "Engine neběží", k: "off", link};
-      if(link.mode === "native" && n.started && n.stats && n.stats.rx_age_ms != null && n.stats.rx_age_ms < 1500) return {c: "#2dd4bf", t: `Engine · ${link.delay().total} ms`, k: "on", link};
-      if(link.mode === "native") return {c: "#e8b93f", t: "Engine · spojuji…", k: "wait", link};
-      return {c: "#8a93a6", t: "Engine připraven", k: "ready", link};
+      const link = getLink && getLink(), n = eng();
+      if(!n || !n.ok){
+        if(startAt && Date.now() - startAt < 15000) return {c: "#e8b93f", t: "Engine · připojuji…", k: "starting", link};
+        return {c: "#8a93a6", t: "Spustit engine", k: "off", link};
+      }
+      startAt = 0;
+      if(!link) return {c: "#2dd4bf", t: "Engine online", k: "ready", link};
+      if(link.mode === "native" && n.started && n.stats && n.stats.rx_age_ms != null && n.stats.rx_age_ms < 1500) return {c: "#2dd4bf", t: `Engine online · ${link.delay().total} ms`, k: "on", link};
+      if(link.mode === "native") return {c: "#e8b93f", t: "Engine · připojuji…", k: "wait", link};
+      return {c: "#2dd4bf", t: "Engine online", k: "ready", link};
     }
     function paint(){
       const s = state();
@@ -156,7 +175,9 @@
       const d = s.k === "on" ? s.link.delay() : null, st = (s.link && s.link.native && s.link.native.started) || {};
       pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b>Pick Jam Engine</b><span data-x style="cursor:pointer;opacity:.6">✕</span></div>`
         + (s.k === "on" ? `<div style="margin:6px 0">Hraje napřímo. Kamarádovu kytaru slyšíš se zpožděním <b>${d.total} ms</b> (síť ${d.net} · buffer ${d.buf} · výstup ${d.out}).<br><span style="opacity:.7">${escH(st.host || "")} · ${escH(st.output || "")} · buffer ${st.buffer || "?"}</span></div>`
-          : s.k === "off" ? `<div style="margin:6px 0">Engine na tomhle počítači neběží, hraje se přes prohlížeč (o něco větší zpoždění).${opts.offHelp ? "<br>" + opts.offHelp : ""}</div>`
+          : s.k === "off" || s.k === "starting" ? `<div style="margin:6px 0">${s.k === "starting" ? "Spouštím engine… Když se Chrome zeptá „Otevřít Pick Jam?“, potvrď to (a zaškrtni, ať se už neptá)." : "Engine neběží, hraje se přes prohlížeč (o něco větší zpoždění)."}</div>
+              <a href="#" data-start style="display:inline-block;margin:2px 0 8px;padding:6px 14px;border-radius:999px;background:#2dd4bf;color:#0b0b12;font-weight:800;text-decoration:none">▶ Spustit engine</a>
+              ${pkg() ? `<div style="opacity:.85">Nespustí se? Ještě nemáš Pick Jam v počítači: <a href="${pkg().url}" style="color:#2dd4bf;font-weight:700">⤓ ${pkg().label}</a> — stáhni, jednou spusť, hotovo.${pkg().os === "win" ? " (Windows se může zeptat „Windows ochránil váš počítač“ → Další informace → Přesto spustit.)" : " (Rozbal a na Pick Jam.command klikni pravým tlačítkem → Otevřít.)"}</div>` : ""}${opts.offHelp ? "<div style='opacity:.7;margin-top:4px'>" + opts.offHelp + "</div>" : ""}`
           : s.k === "wait" ? `<div style="margin:6px 0">Enginy se hledají přes internet (pár sekund). Když se nenajdou, jam sám přejde na zvuk přes prohlížeč.</div>`
           : `<div style="margin:6px 0">Engine běží a čeká. Zapne se sám, jakmile ho má i kamarád.</div>`)
         + (opts.settings ? `<div style="margin:4px 0 8px"><a href="#" data-set style="color:#2dd4bf">Zvukovka a buffer →</a></div>` : "")
@@ -165,14 +186,17 @@
       const set = pop.querySelector("[data-set]"); if(set) set.onclick = (e) => { e.preventDefault(); e.stopPropagation(); pop.hidden = true; opts.settings(); };
     }
     setInterval(() => {
-      const link = getLink && getLink();
-      if(link && link.native && !link.native.ok && Date.now() - probed > 5000){ probed = Date.now(); link.native.probe().catch(() => {}); }
+      // look for the engine: often while it is being started, now and then otherwise
+      const n = eng();
+      if(!n.ok && Date.now() - probed > (startAt ? 1000 : 5000)){ probed = Date.now(); n.probe(800).catch(() => {}); }
+      if(opts.onState) opts.onState(state().k);
       paint();
     }, 1000);
+    eng().probe(800).catch(() => {}).then(paint);
     paint();
     return el;
   }
-  window.JamNativeUI = {why, block: nativeBlock, pill};
+  window.JamNativeUI = {why, block: nativeBlock, pill, pkg};
 
   class JamLink {
     constructor(o){

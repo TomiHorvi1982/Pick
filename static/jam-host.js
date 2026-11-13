@@ -281,6 +281,11 @@ const Jam = (() => {
       else if(m.do === "seek" && isFinite(m.pos)) Mixer.seek(Math.max(0, +m.pos));
       else if(m.do === "tempo" && isFinite(m.speed)) Mixer.setSpeed(+m.speed);
       else if(m.do === "key" && isFinite(m.semis)) Mixer.setKey(Math.round(+m.semis));
+      // a section looped from the friend's page (⟲), or the loop off
+      else if(m.do === "loop" && isFinite(m.start) && isFinite(m.end)){
+        if(+m.end > +m.start){ Mixer.setLoop(+m.start, +m.end); Mixer.seek(+m.start); Mixer.play(); showToast(`${who}: smyčka ${Math.floor(m.start / 60)}:${String(Math.floor(m.start % 60)).padStart(2, "0")}`); }
+        else Mixer.setLoop(0, 0);
+      }
     }catch(e){}
     setTimeout(() => sendSong(true), 200); setTimeout(() => sendSong(true), 900);
   }

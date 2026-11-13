@@ -1,4 +1,4 @@
-// Pick DJ in the library on the host's PC (deploy/pick-library/library.py puts
+// Pick DJ in the friend's page — the library on the host's PC and the jam (library.py / jam.py put
 // this, dj-core.js and dj.js into its page). The decks there play the songs
 // that are already separated — the copy of the card has their stems — taken
 // through the library's own login: /g/songs, /g/stem (Opus), /g/beats. There
@@ -21,7 +21,7 @@
     if (document.getElementById("dj-quick")) return;
     try {
       const me = await (await fetch("/g/me", {cache: "no-store"})).json();
-      if (me && me.library && me.user) {
+      if (me && me.user) {                               // the library between jams, and the jam itself
         const b = PickDJ.mountButton(document.getElementById("reBtn"));
         if (b) { b.style.marginLeft = "0"; b.style.marginRight = "6px"; }
         return;

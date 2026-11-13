@@ -1,8 +1,11 @@
 //! Pick Jam Engine — the native sound path for Pick Jam (see docs/specs/2026-11-11-pick-jam-engine-design.md).
+// Windows: no console window of its own (the friend double-clicks it; from a terminal it prints there).
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod audio;
 mod codec;
 mod control;
+mod desktop;
 mod engine;
 mod jitter;
 mod net;
@@ -59,6 +62,12 @@ struct Link {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Windows: install for this user (desktop icon "Pick Jam", the pickjam:// link the page uses) and open
+    Install,
+    /// open Pick Jam: the engine in the background, then the app window
+    Open,
+    /// a pickjam:// link from the page: start the engine (no window)
+    Url { link: Option<String> },
     /// Wait for Pick's pages on the control socket (the default)
     Serve {
         #[arg(long, default_value = control::DEFAULT_ADDR)]
@@ -124,8 +133,21 @@ enum Cmd {
 }
 
 fn main() -> Result<()> {
+    #[cfg(windows)]
+    {
+        let terminal = desktop::attach_console();
+        // double-clicked (no arguments, no terminal): the downloaded copy installs itself, the installed one opens
+        if std::env::args().len() == 1 && !terminal {
+            if let Some(r) = desktop::double_clicked() {
+                return r;
+            }
+        }
+    }
     let cmd = Cli::parse().cmd.unwrap_or(Cmd::Serve { addr: control::DEFAULT_ADDR.into(), allow_origin: vec![], ip: None });
     match cmd {
+        Cmd::Install => desktop::install(),
+        Cmd::Open => desktop::open(),
+        Cmd::Url { .. } => desktop::from_link(),
         Cmd::Serve { addr, allow_origin, ip } => control::serve(&addr, control::Origins::new(&allow_origin), ip),
         Cmd::Devices { host } => audio::list_devices(&host),
         Cmd::Run { listen, peer, host, input, output, in_ch, buffer, link } => audio::run(audio::RunOpts {

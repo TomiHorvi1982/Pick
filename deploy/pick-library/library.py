@@ -422,6 +422,16 @@ def _engines() -> list:
     return [n for n in ENGINE_FILES if (ENGINE_DIR / n).is_file()]
 
 
+@app.get("/pick-jam.exe")
+def g_pick_jam_exe():
+    """The friend's one download on Windows: the engine, which double-clicked installs itself (desktop icon, the page's
+    pickjam:// link) and opens Pick Jam — no window, no terminal."""
+    f = ENGINE_DIR / "pick-jam-engine.exe"
+    if not f.is_file():
+        return JSONResponse({"error": "Pick Jam pro Windows tu zatím není."}, status_code=404)
+    return FileResponse(f, media_type=ENGINE_FILES["pick-jam-engine.exe"], filename="Pick Jam.exe", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/engine/{name}")
 def g_engine(request: Request, name: str):
     # open to all: it is only the program (no names, keys or songs), and the desktop launcher fetches it before anyone logs in
