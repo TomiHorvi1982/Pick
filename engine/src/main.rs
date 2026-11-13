@@ -139,6 +139,10 @@ fn main() -> Result<()> {
         // double-clicked (no arguments, no terminal): the downloaded copy installs itself, the installed one opens
         if std::env::args().len() == 1 && !terminal {
             if let Some(r) = desktop::double_clicked() {
+                // no terminal to print to: what went wrong goes into a small window
+                if let Err(e) = &r {
+                    desktop::message("Pick Jam", &format!("Něco se nepovedlo:\n{e:#}"));
+                }
                 return r;
             }
         }

@@ -61,8 +61,15 @@ mod win {
             let _ = Command::new("taskkill").args(["/F", "/IM", "pick-jam-engine.exe"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
                 .creation_flags(NO_WINDOW).status();
             std::thread::sleep(std::time::Duration::from_millis(600));
-            std::fs::copy(&me, &exe)?;
-            log("installed");
+            // still locked (an engine started as administrator cannot be stopped from here): keep the one there is
+            match std::fs::copy(&me, &exe) {
+                Ok(_) => log("installed"),
+                Err(e) if exe.is_file() => log(&format!("kept the old engine (in use): {e}")),
+                Err(e) => {
+                    message("Pick Jam se nenainstaloval", &format!("Nepodařilo se uložit Pick Jam do počítače:\n{e}\n\nZkus restartovat počítač a spustit Pick Jam.exe znovu."));
+                    return Err(e.into());
+                }
+            }
         }
         let d = dir.display().to_string().replace('\'', "''");
         let e = exe.display().to_string().replace('\'', "''");
@@ -113,7 +120,7 @@ Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value ('"' + '
     }
 
     /// A small Windows message (the only window it ever shows: after installing).
-    fn message(title: &str, text: &str) {
+    pub fn message(title: &str, text: &str) {
         #[link(name = "user32")]
         extern "system" {
             fn MessageBoxW(hwnd: isize, text: *const u16, caption: *const u16, kind: u32) -> i32;
@@ -215,7 +222,7 @@ Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value ('"' + '
 }
 
 #[cfg(windows)]
-pub use win::{attach_console, double_clicked, from_link, install, open};
+pub use win::{attach_console, double_clicked, from_link, install, message, open};
 
 #[cfg(not(windows))]
 pub fn install() -> Result<()> {
