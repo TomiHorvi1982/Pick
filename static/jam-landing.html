@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pick Jam</title>
+<link rel="icon" href="/favicon.ico"><meta name="theme-color" content="#0d0d14">
+<style>
+  :root{--bg:#0d0d14;--panel:#15151f;--line:rgba(255,255,255,.09);--txt:#eef0f4;--dim:#9aa3b5;--acc:#8b5cf6;--ok:#2dd4bf}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,rgba(139,92,246,.25),transparent 60%),var(--bg);color:var(--txt);
+    font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:960px;margin:0 auto;padding:48px 20px 80px}
+  .hero{text-align:center;padding:10px 0 40px}
+  .hero h1{font-size:44px;margin:6px 0 4px;letter-spacing:-.02em}
+  .hero p{color:var(--dim);margin:0 0 28px;font-size:18px}
+  .dl{display:inline-flex;flex-direction:column;align-items:center;gap:14px;text-decoration:none;color:var(--txt);cursor:pointer}
+  .dl img{width:168px;height:168px;border-radius:38px;box-shadow:0 18px 50px rgba(139,92,246,.45),0 0 0 1px rgba(255,255,255,.1);transition:transform .15s}
+  .dl:hover img{transform:translateY(-3px) scale(1.03)}
+  .dl b{font-size:18px}.dl small{color:var(--dim)}
+  .done{display:none;margin-top:16px;color:var(--ok);font-weight:700}
+  h2{font-size:24px;margin:44px 0 16px}
+  .steps{display:grid;gap:18px}
+  .step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:20px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+  .num{width:44px;height:44px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:900;font-size:20px;color:#0b0b12}
+  .step h3{margin:6px 0 6px;font-size:19px}.step p{margin:0 0 10px;color:#cfd3dc}
+  .step img{display:block;max-width:100%;border-radius:12px;border:1px solid var(--line);margin-top:8px}
+  .step img.small{max-width:420px}
+  .os{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  .os div{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14px}
+  .os b{display:block;margin-bottom:4px}
+  .desk{position:relative;height:150px;border-radius:12px;margin-top:8px;overflow:hidden;
+    background:linear-gradient(135deg,#1e3a5f,#3b2a6b);border:1px solid var(--line)}
+  .desk .ic{position:absolute;left:28px;top:22px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;text-shadow:0 1px 3px #000}
+  .desk .ic img{width:64px;height:64px;border-radius:15px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .desk .hand{position:absolute;left:78px;top:70px;font-size:30px;transform:rotate(-15deg)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid var(--line);background:rgba(255,255,255,.05)}
+  .pill i{width:8px;height:8px;border-radius:50%}
+  .tips{columns:2;column-gap:28px;color:#cfd3dc;padding-left:20px}.tips li{margin-bottom:6px;break-inside:avoid}
+  .note{margin-top:40px;padding:16px 18px;border-radius:14px;border:1px dashed var(--line);color:var(--dim);font-size:14px;text-align:center}
+  @media (max-width:700px){.hero h1{font-size:34px}.os{grid-template-columns:1fr}.tips{columns:1}.step{grid-template-columns:1fr}.num{width:36px;height:36px;font-size:17px}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>Pick Jam</h1>
+    <p>Písně, zvuky a společné hraní s {{HOST}}</p>
+    <a class="dl" id="dl"><img src="/static/jam-icon-512.png" alt="Pick Jam"><b id="dlT">Stáhnout Pick Jam</b><small id="dlS">Klikni na ikonu</small></a>
+    <div class="done" id="done">Stahuje se… Pak ho otevři (krok 2 níž).</div>
+  </section>
+
+  <h2>Jak na to</h2>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div>
+      <h3>Klikni na velkou ikonu nahoře</h3>
+      <p>Stáhne se Pick Jam do tvého počítače. Je to jeden soubor, nic dalšího nepotřebuješ.</p></div></div>
+
+    <div class="step"><div class="num">2</div><div>
+      <h3>Otevři stažený soubor — nainstaluje se sám</h3>
+      <div class="os">
+        <div><b>Windows — „Pick Jam.exe“</b>Dvakrát klikni. Když Windows napíše „Systém Windows ochránil váš počítač“, klikni <b style="display:inline">Další informace → Přesto spustit</b>. Když se zeptá firewall, dej <b style="display:inline">Povolit</b>.</div>
+        <div><b>Mac — „Pick Jam pro Mac.zip“</b>Rozbal ho a na <b style="display:inline">Pick Jam.command</b> klikni pravým tlačítkem → <b style="display:inline">Otevřít</b> (jen poprvé).</div>
+      </div>
+      <p style="margin-top:10px">Instalace sama zapne <b>engine</b> (nejmenší zpoždění zvuku) a na ploše se objeví ikona <b>Pick Jam</b>.</p>
+      <div class="desk"><div class="ic"><img src="/static/jam-icon-192.png" alt=""><span>Pick Jam</span></div><div class="hand">👆</div></div></div></div>
+
+    <div class="step"><div class="num">3</div><div>
+      <h3>Spusť Pick Jam z ikony na ploše a přihlas se</h3>
+      <p>Jméno a heslo ti dá {{HOST}}. Nech zaškrtnuté <b>Zapamatovat si mě</b> — příště už se nepřihlašuješ.</p>
+      <img class="small" src="/static/landing/login.png" alt="Přihlášení"></div></div>
+
+    <div class="step"><div class="num">4</div><div>
+      <h3>Jednou všechno odsouhlas</h3>
+      <p>Zapoj kytaru do zvukovky, nasaď sluchátka a klikni na <b>Zapnout zvuk</b>. Chrome se zeptá na mikrofon (zvukovku) — <b>Povolit</b>. Kdyby se zeptal „Otevřít Pick Jam?“, potvrď to (a zaškrtni, ať se už neptá). Nahoře pak svítí <span class="pill"><i style="background:#2dd4bf"></i>Engine online</span>.</p>
+      <img class="small" src="/static/landing/start.png" alt="Zapnout zvuk"></div></div>
+
+    <div class="step"><div class="num">5</div><div>
+      <h3>Hraj si a trénuj</h3>
+      <p>Vyber píseň vlevo a hraj s ní: nahoře přehrávač a hlasitost, pod tím sekce písně (klik = od začátku sekce, ⟲ = dokola), text běží s písní. Svůj zvuk si nastavíš na svém faderu — otisky, NAM zesilovače, EQ, ladička. <b>DJ</b> je hned vedle Pickscreen; tlačítko <b>→ DJ</b> tam pošle, co ti právě hraje, a najde písně ve stejném ladění.</p>
+      <img src="/static/landing/app.png" alt="Pick Jam"></div></div>
+
+    <div class="step"><div class="num">6</div><div>
+      <h3>Jam s {{HOST}}</h3>
+      <p>Když {{HOST}} zapne jam, Pick Jam ti to oznámí a nahoře se rozsvítí <b>Připojit se k jamu</b>. Během jamu vybírá písně a ovládá přehrávání {{HOST}} — ty hraješ. Kameru, mluvení, engine a odhlášení najdeš v <b>Nastavení</b>.</p>
+      <img class="small" src="/static/landing/settings.png" alt="Nastavení"></div></div>
+  </div>
+
+  <h2>Jak mít co nejmenší zpoždění</h2>
+  <ul class="tips">
+    <li>Počítač na <b>kabelu</b>, ne na Wi-Fi — u obou. Bývá to největší rozdíl.</li>
+    <li>Sluchátka zapoj do <b>zvukovky</b>, ne do počítače.</li>
+    <li>Windows: v Nastavení → Engine zvol ovladač <b>ASIO</b>, když ho zvukovka má.</li>
+    <li>Buffer zvukovky <b>256</b> je jistota; 128 nebo 64 = méně ms, když nic nelupe.</li>
+    <li>Zavři programy, které hrají nebo nahrávají zvuk (Teams, YouTube…).</li>
+    <li>Engine musí svítit zeleně — jinak jde zvuk přes prohlížeč s větším zpožděním.</li>
+  </ul>
+
+  <div class="note">Tahle stránka je jen návod. Pick Jam se spouští z ikony na ploše.</div>
+</main>
+<script>
+  // opened as the app (the desktop icon of an older install pointed here): straight into Pick Jam
+  if(matchMedia("(display-mode: standalone)").matches || (window.toolbar && window.toolbar.visible === false && window.locationbar && window.locationbar.visible === false)) location.replace("/app");
+  // the download for this computer: Windows → Pick Jam.exe, Mac → the zip; anything else: a note
+  (function(){
+    const ua = navigator.userAgent, a = document.getElementById("dl"), t = document.getElementById("dlT"), s = document.getElementById("dlS");
+    if(/Windows/i.test(ua)){ a.href = "/pick-jam.exe"; t.textContent = "Stáhnout Pick Jam pro Windows"; s.textContent = "Klikni na ikonu — stáhne se Pick Jam.exe"; }
+    else if(/Macintosh|Mac OS X/i.test(ua)){ a.href = "/pick-jam-mac.zip"; t.textContent = "Stáhnout Pick Jam pro Mac"; s.textContent = "Klikni na ikonu — stáhne se Pick Jam pro Mac.zip"; }
+    else { t.textContent = "Pick Jam je pro Windows a Mac"; s.textContent = "Otevři tuhle stránku na počítači"; }
+    a.addEventListener("click", () => { if(a.href) document.getElementById("done").style.display = "block"; });
+  })();
+</script>
+</body>
+</html>

@@ -37,7 +37,7 @@ if (-not `$running) {
   } catch { }
   if (Test-Path `$exe) { Start-Process -FilePath `$exe -ArgumentList 'serve' -WindowStyle Hidden }
 }
-Start-Process -FilePath "$browser" -ArgumentList "--app=`$url"
+Start-Process -FilePath "$browser" -ArgumentList ("--app=" + `$url + "app")
 "@ | Set-Content -LiteralPath $start -Encoding UTF8
 $desk = [Environment]::GetFolderPath('Desktop')
 $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$desk\Pick Jam.lnk")

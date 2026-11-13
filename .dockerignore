@@ -2,6 +2,8 @@
 *
 !deploy/pick-library/
 !static/jam.html
+!static/jam-landing.html
+!static/landing/
 !static/pick-favicon.png
 !static/jam-*.js
 !static/stretch/

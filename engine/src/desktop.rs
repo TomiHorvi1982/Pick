@@ -80,7 +80,7 @@ $cands = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${{env:Pro
   "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe", "${{env:ProgramFiles(x86)}}\Microsoft\Edge\Application\msedge.exe",
   "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")
 $browser = $cands | Where-Object {{ Test-Path -LiteralPath $_ }} | Select-Object -First 1
-if ($browser) {{ Start-Process -FilePath $browser -ArgumentList "--app=$url" }} else {{ Start-Process $url }}
+if ($browser) {{ Start-Process -FilePath $browser -ArgumentList ("--app=" + $url + "app") }} else {{ Start-Process ($url + "app") }}
 "#);
         std::fs::write(dir.join("start.ps1"), start)?;
         let ico = dir.join("pick-jam.ico").display().to_string().replace('\'', "''");
@@ -101,7 +101,23 @@ Set-ItemProperty -Path $k -Name 'URL Protocol' -Value ''
 Set-ItemProperty -Path "$k\shell\open\command" -Name '(default)' -Value ('"' + '{e}' + '" url "%1"')
 "#))?;
         let _ = start_ps1;
-        open()
+        // the engine at once (it waits for the page and for the jam); the app the friend opens from the new icon
+        from_link()?;
+        message("Pick Jam je nainstalovaný", "Na ploše je ikona Pick Jam — spusť ji.\n\nEngine už běží a čeká na tebe.");
+        Ok(())
+    }
+
+    /// A small Windows message (the only window it ever shows: after installing).
+    fn message(title: &str, text: &str) {
+        #[link(name = "user32")]
+        extern "system" {
+            fn MessageBoxW(hwnd: isize, text: *const u16, caption: *const u16, kind: u32) -> i32;
+        }
+        let w = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let (t, c) = (w(text), w(title));
+        unsafe {
+            MessageBoxW(0, t.as_ptr(), c.as_ptr(), 0x40); // MB_ICONINFORMATION
+        }
     }
 
     /// The desktop icon: the start script (fresh engine, engine, app window), hidden.

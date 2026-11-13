@@ -16,7 +16,7 @@
   const SNAME = {drums: "Bicí", bass: "Basa", guitar: "Kytara", guitar_solo: "Kytara sólo", guitar_rhythm: "Kytara rytmus", vocals: "Zpěv", piano: "Klávesy", other: "Ostatní"};
   function toast(t, ms){ const n = document.createElement("div"); n.className = "toast"; n.textContent = t; n.onclick = () => n.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), ms || 5000); }
 
-  let gateN = null, gateOpen = 1, solo = false, mixBus = null;     // solo: the library on the PC, no host — he plays along on his own
+  let gateN = null, gateOpen = 1, solo = false, mixBus = null, master = null;     // solo: the library on the PC, no host — he plays along on his own
   let me = {user: null, login: false, host: "Kamarád"}, ctx = null, link = null, chat = null, mix = null, amp = null;
   let eqNodes = [], tunA = null;
   let inStream = null, inSrc = null, inSplit = null, inSel = null, inGain = null, monGain = null, monPan = null, myOut = null, meterA = null;
@@ -150,10 +150,11 @@
     tunA = ctx.createAnalyser(); tunA.fftSize = 4096; inGain.connect(tunA);
     monGain = ctx.createGain(); monPan = ctx.createStereoPanner(); myOut.connect(monGain); monGain.connect(monPan); monPan.connect(ctx.destination);
     meterA = ctx.createAnalyser(); meterA.fftSize = 512; inGain.connect(meterA);
-    mixBus = ctx.createGain(); mixBus.connect(ctx.destination);            // the backing as a whole (PODKLAD)
+    master = ctx.createGain(); master.gain.value = +(store("vol") ?? 1); master.connect(ctx.destination);   // 🔊 up top: the music and the friend
+    mixBus = ctx.createGain(); mixBus.connect(master);                     // the backing as a whole (PODKLAD)
     mix = new JamMix(ctx, api, mixBus);
     if(!solo){
-    link = new JamLink({role: "guest", ctx, output: ctx.destination, native: store("nat") || undefined, onEvent: event});
+    link = new JamLink({role: "guest", ctx, output: master, native: store("nat") || undefined, onEvent: event});
 
     chat = JamChat({root: $("chat"), me: "guest", name: me.host || "Kamarád", send: (o) => link && link.send(o),
       visible: () => $("join").hidden && document.visibilityState === "visible" && document.hasFocus(),
@@ -388,7 +389,8 @@
   $("pvSeek").oninput = () => { if(pa.duration) pa.currentTime = $("pvSeek").value / 1000 * pa.duration; };
   function playTogether(name){ pa.pause(); ctl({do: "load", name}); if(!solo) $("songSt").textContent = `${me.host} načítá píseň…`; }
   $("pvGo").onclick = () => PV.name && playTogether(PV.name);
-  const ctl = (o) => solo ? soloCtl(o) : link && link.send({type: "ctl", ...o});
+  // in a jam the host (the admin) picks the songs and runs the playback; alone the friend plays for himself
+  const ctl = (o) => { if(solo) return soloCtl(o); if(link && link.ready){ toast(`Během jamu vybírá písně a ovládá přehrávání ${me.host}.`, 3500); } };
   // alone: this page is the host — the song's place, tempo and key kept here, the mix follows them the same way
   function soloCtl(o){
     const now = performance.now();
@@ -1114,6 +1116,13 @@
   $("hpNext").onclick = () => hpGo(hpNeighbour(1));
   $("hpPrev").onclick = () => { const pos = hpSong() ? posNow() : pa.currentTime || 0; if(pos > 3){ hpSong() ? ctl({do: "seek", pos: 0}) : (pa.currentTime = 0); } else hpGo(hpNeighbour(-1)); };
   $("hpFav").onclick = () => { const n = hpName(); if(n) favToggle(n); };
+  // the song playing here into the DJ (deck A), and the DJ's list opened on the songs in the same tuning
+  $("hpDj").onclick = () => { const n = hpName(); if(!n) return toast("Nejdřív si pusť píseň.");
+    if(!solo && link && link.ready) return toast("DJ je jen mimo jam.");
+    if(window.PickDJ && PickDJ.sendSong){ if(hpSong()) ctl({do: "pause"}); else pa.pause(); PickDJ.sendSong(n); } };
+  $("hpVol").value = String(+(store("vol") ?? 1));
+  $("hpVol").oninput = () => { const v = +$("hpVol").value; store("vol", v); if(master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.02); pa.volume = Math.min(1, v); };
+  pa.volume = Math.min(1, +$("hpVol").value);
   $("hpSeek").oninput = () => { const f = $("hpSeek").value / 1000;
     if(hpSong()){ const d = S.dur || (mix && mix.duration) || 0; if(d) ctl({do: "seek", pos: f * d}); } else if(pa.duration) pa.currentTime = f * pa.duration; };
   setInterval(() => {
@@ -1124,19 +1133,19 @@
     $("hpTime").textContent = `${mmss(pos)} / ${mmss(dur)}`; $("hpPlay").textContent = playing ? "❚❚" : "▶";
     if(document.activeElement !== $("hpSeek")) $("hpSeek").value = dur ? Math.round(Math.min(1, pos / dur) * 1000) : 0;
     $("hpFav").classList.toggle("on", !!(name && FAV.set.has(name)));
+    const jam = !solo && !!(link && link.ready);
+    document.body.classList.toggle("locked", jam && song);
+    const dj = $("dj-quick"); if(dj) dj.hidden = jam; $("hpDj").hidden = jam;
   }, 250);
   // ---------------------------------------------------------------- the engine: its light up top, from the start
   // (before the jam too), and the one download that puts Pick Jam into the computer while it is not there
   (function enginePill(){
     if(!window.JamNativeUI || !JamNativeUI.pill || !$("engPill")) return;
-    const p = JamNativeUI.pkg && JamNativeUI.pkg();
-    [$("pkgBtn"), $("pkgLogin")].forEach(a => { if(p && a){ a.href = p.url; a.querySelector("span").textContent = p.label; } });
-    if(p && $("pkgLogin")) $("pkgLogin").hidden = false;
-    let offSince = 0;
-    $("engPill").append(JamNativeUI.pill(() => link, {settings: () => { const b = $("setBtn"); if(b) b.click(); },
-      offHelp: "Pick Jam z ikony na ploše zapne engine sám.",
-      onState: (k) => { if(k === "off"){ offSince = offSince || Date.now(); } else offSince = 0;
-        if($("pkgBtn")) $("pkgBtn").hidden = !(p && offSince && Date.now() - offSince > 4000); }}));
+    // the full light (start, tips) in Nastavení; up top only a small one: online, connecting, off
+    $("engPill").append(JamNativeUI.pill(() => link, {offHelp: "Pick Jam z ikony na ploše zapne engine sám.",
+      onState: (k) => { const l = $("engLed"); if(!l) return; l.className = "eled " + (k === "on" || k === "ready" ? "on" : k === "off" ? "" : "wait");
+        l.querySelector("span").textContent = k === "on" ? "Engine online" : k === "ready" ? "Engine online" : k === "off" ? "Engine vypnutý" : "Engine připojuji…"; }}));
+    $("engLed").onclick = () => { const b = $("setBtn"); if(b) b.click(); };
   })();
   window.JamGuest = {link: () => link, mix: () => mix, amp: () => amp, ctx: () => ctx, song: () => S, chat: () => chat, input: () => inGain, solo: () => solo, ctl: (o) => ctl(o)};
   boot();

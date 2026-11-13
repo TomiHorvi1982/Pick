@@ -43,14 +43,14 @@ if ! pgrep -f "pick-jam-engine-mac serve" >/dev/null; then
   [ -x "\$E/pick-jam-engine-mac" ] && ("\$E/pick-jam-engine-mac" serve >/dev/null 2>&1 &)
 fi
 # okno Pick Jam už je otevřené (aplikaci spustil odkaz pickjam:// ze stránky): jen engine, žádné druhé okno
-pgrep -f -- "--app=$URL" >/dev/null && exit 0
+pgrep -f -- "--app=${URL}app" >/dev/null && exit 0
 # pak Pick Jam jako aplikace v prvním prohlížeči, který tu je (Chrome umí mikrofon i zvukovku nejlíp)
 for b in "Google Chrome" "Microsoft Edge" "Brave Browser" "Chromium"; do
   if [ -d "/Applications/\$b.app" ] || [ -d "\$HOME/Applications/\$b.app" ]; then
-    exec open -na "\$b" --args --app="$URL"
+    exec open -na "\$b" --args --app="${URL}app"
   fi
 done
-exec open "$URL"
+exec open "${URL}app"
 EOF
 chmod +x "$APP/Contents/MacOS/PickJam"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
@@ -61,6 +61,12 @@ touch "$APP"
 if [ ! -d "/Applications/Google Chrome.app" ] && [ ! -d "$HOME/Applications/Google Chrome.app" ]; then
   echo "Tip: s Google Chrome (google.com/chrome) funguje mikrofon a zvukovka nejlíp."
 fi
-open "$APP"
-echo "Hotovo: na ploše je Pick Jam. Příště ho spouštěj jen přes tu ikonu (klidně si ji dej do Docku)."
+# engine hned (čeká na tebe i na jam); aplikaci pak spustíš ikonou Pick Jam na ploše
+E="$HOME/Library/Application Support/PickJam"; mkdir -p "$E"
+if ! pgrep -f "pick-jam-engine-mac serve" >/dev/null && curl -fsSL --max-time 30 "${URL}engine/pick-jam-engine-mac" -o "$E/pick-jam-engine-mac"; then
+  chmod +x "$E/pick-jam-engine-mac"; xattr -d com.apple.quarantine "$E/pick-jam-engine-mac" 2>/dev/null
+  ("$E/pick-jam-engine-mac" serve >/dev/null 2>&1 &)
+fi
+osascript -e 'display notification "Na ploše je ikona Pick Jam — spusť ji." with title "Pick Jam je nainstalovaný"' 2>/dev/null
+echo "Hotovo: na ploše je Pick Jam. Spouštěj ho jen přes tu ikonu (klidně si ji dej do Docku)."
 sleep 3

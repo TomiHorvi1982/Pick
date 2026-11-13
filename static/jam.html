@@ -117,9 +117,15 @@
   .pkg{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 5px;border-radius:999px;background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.5);color:#2dd4bf;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap}
   .pkg img{width:22px;height:22px;border-radius:6px}.pkg:hover{background:rgba(45,212,191,.22)}
   .big-pkg{justify-content:center;margin-top:10px;padding:8px 14px;font-size:14px}.big-pkg img{width:28px;height:28px}
-  .bar2{display:flex;align-items:center;gap:14px;padding:6px 14px;border-bottom:1px solid var(--line);flex:none;min-width:0;background:#101017}
+  .bar2{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;padding:6px 14px;border-bottom:1px solid var(--line);flex:none;min-width:0;background:#101017}
   .hviews{display:flex;gap:4px;flex:none}.hviews button{padding:6px 14px;border-radius:999px}.hviews button.on{background:var(--acc);color:#0b0b12;border-color:transparent;font-weight:800}
-  .hp{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+  .hp{justify-self:center;width:min(720px,100%);display:flex;align-items:center;gap:6px;min-width:0}
+  .hviews .dj-quick{margin-left:10px!important;width:auto!important;height:auto!important;border-radius:999px!important;padding:6px 14px!important;font-size:13px!important}
+  .hvol{display:flex;align-items:center;gap:6px}.hvol input{width:110px}
+  .appico{width:26px;height:26px;border-radius:7px}
+  .eled{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);white-space:nowrap}.eled i{width:8px;height:8px;border-radius:50%;background:#8a93a6}
+  .eled.on i{background:#2dd4bf;box-shadow:0 0 8px #2dd4bf}.eled.on{color:#2dd4bf}.eled.wait i{background:#e8b93f}
+  .locked .hp button:not(#hpDj):not(.hpfav),.locked .hp input,.locked .knob button{opacity:.4;cursor:not-allowed}
   .hp button{padding:5px 9px;line-height:1}.hp .hpp{width:34px;height:34px;border-radius:50%;background:var(--acc);border:0;color:#0b0b12;font-weight:900;padding:0}
   .hpt{flex:1;display:flex;flex-direction:column;min-width:80px;gap:2px}.hpt span{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hpt input{width:100%}
   .hptime{font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px;white-space:nowrap}
@@ -132,6 +138,7 @@
   .seek .secs i b{display:none}
   .seek{margin-top:0!important;border-top-left-radius:0!important;border-top-right-radius:0!important}
   .view .lyr{overflow:hidden;padding:0;display:flex;align-items:center}
+  .stage{overflow-y:auto}.view{min-height:96px;flex-shrink:0}
   .view .lyr .lyr-row{display:flex;align-items:center;gap:56px;white-space:nowrap;transition:transform .45s ease;will-change:transform;padding:0 50%}
   .view .lyr .lyr-row p{font-size:30px;flex:none}
   #stLyr .lyr .lyr-row{display:block;transform:none!important;padding:24vh 0}
@@ -244,17 +251,18 @@
 </style>
 </head>
 <body>
-<header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><span class="dot" id="dot"></span><h1>Pick Jam</h1><span class="muted" id="state">připojuji…</span><span id="engPill"></span><a id="pkgBtn" class="pkg" hidden title="Stáhni a jednou spusť: ikona Pick Jam na ploše, engine se pak zapíná sám"><img src="/favicon.ico" alt=""><span></span></a><span class="sp"></span>
+<header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><img class="appico" src="/static/jam-icon-192.png" alt=""><h1>Pick Jam</h1><span class="dot" id="dot"></span><span class="muted" id="state">připojuji…</span><span class="eled" id="engLed" title="Pick Jam Engine"><i></i><span>Engine</span></span><span class="sp"></span>
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
-  <button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button>
-  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></header>
+  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button></header>
 <div class="bar2" id="bar2">
-  <nav class="hviews" id="hviews"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick" title="Tomiho sdílená obrazovka Picku">Pickscreen</button></nav>
+  <nav class="hviews" id="hviews"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick" title="Tomiho sdílená obrazovka Picku">Pickscreen</button><span id="djSlot"></span></nav>
   <div class="hp" id="hp">
     <button id="hpPrev" title="Na začátek / předchozí píseň">⏮</button><button class="hpp" id="hpPlay" title="Přehrát / pozastavit (mezerník)">▶</button><button id="hpStop" title="Zastavit">■</button><button id="hpNext" title="Další píseň">⏭</button>
     <div class="hpt"><span id="hpTitle">Vyber píseň</span><input type="range" id="hpSeek" min="0" max="1000" value="0" title="Posunout — oběma"></div>
     <span class="hptime" id="hpTime">0:00 / 0:00</span><button class="hpfav" id="hpFav" title="Na příště (oblíbené)">★</button>
+    <button id="hpDj" title="Poslat píseň do DJ a najít písně ve stejném ladění">→ DJ</button>
   </div>
+  <label class="hvol" title="Hlasitost hudby"><span>🔊</span><input type="range" id="hpVol" min="0" max="1.5" step="0.01" value="1"></label>
 </div>
 <main>
   <aside class="side">
@@ -313,6 +321,10 @@
 </div></div>
 
 <div class="drawer" id="setD" hidden><div class="dh"><b>Nastavení</b><button data-close="setD">✕</button></div><div class="dbody">
+  <div class="card"><h3>PICK JAM</h3>
+    <div class="row"><span>Engine</span><span id="engPill"></span></div>
+    <div class="row"><span>Video</span><span style="display:flex;gap:6px"><button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button></span></div>
+    <div class="row"><span>Účet</span><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></div></div>
   <div class="card"><h3>KYTARA</h3>
     <label class="row"><span>Zvukovka</span><select id="inDev"></select></label>
     <label class="row"><span>Kanál</span><select id="inCh"><option value="0">vstup 1</option><option value="1">vstup 2</option><option value="sum">oba</option></select></label>
@@ -332,8 +344,7 @@
   <input type="text" id="lName" placeholder="jméno" autocomplete="username" required>
   <input type="password" id="lPass" placeholder="heslo" autocomplete="current-password" required>
   <label class="keep"><input type="checkbox" id="lKeep" checked> Zapamatovat si mě</label>
-  <button class="big" type="submit">Přihlásit</button><div class="bad" id="lErr"></div>
-  <a id="pkgLogin" class="pkg big-pkg" hidden><img src="/favicon.ico" alt=""><span></span></a></form></div>
+  <button class="big" type="submit">Přihlásit</button><div class="bad" id="lErr"></div></form></div>
 <div class="overlay" id="join" hidden><div class="box">
   <h2>Pick Jam</h2>
   <div id="joinHi">Kamarád tě zve na společné hraní. Povol zvukovku (mikrofon) — Chrome se zeptá. Kamera není nutná.</div>

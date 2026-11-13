@@ -47,9 +47,9 @@ AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".aiff",
 GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js"}
 # Pick DJ: two decks over the separated songs (static/dj*.js), put into the page by page()
 DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
-LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab", "worklets": STATIC / "worklets"}
+LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab", "worklets": STATIC / "worklets", "landing": STATIC / "landing"}
 LIB_TYPES = {".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".json": "application/json",
-             ".woff": "font/woff", ".woff2": "font/woff2", ".otf": "font/otf", ".svg": "image/svg+xml"}
+             ".png": "image/png", ".webp": "image/webp", ".woff": "font/woff", ".woff2": "font/woff2", ".otf": "font/otf", ".svg": "image/svg+xml"}
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -180,6 +180,16 @@ def logout(request: Request):
 
 # ---------------------------------------------------------------- the page and its scripts
 @app.get("/", response_class=HTMLResponse)
+def landing():
+    """jam.neverlast.cz itself: how to get Pick Jam (pictures, steps) and the one big icon to download it.
+    Nothing else happens here — the app opens only from the installed icon (/app)."""
+    f = STATIC / "jam-landing.html"
+    if not f.is_file():
+        return RedirectResponse("/app", status_code=302)
+    return HTMLResponse(f.read_text(encoding="utf-8").replace("{{HOST}}", HOST), headers={"Cache-Control": "no-store"})
+
+
+@app.get("/app", response_class=HTMLResponse)
 def page():
     html = (STATIC / "jam.html").read_text(encoding="utf-8")
     for name in GUEST_FILES:
@@ -205,7 +215,7 @@ ICONS = {"jam-icon-192.png": "image/png", "jam-icon-512.png": "image/png", "jam-
 @app.get("/manifest.webmanifest")
 def manifest():
     """Installable: Chrome's "Nainstalovat" puts Pick Jam on the desktop, in its own window."""
-    return JSONResponse({"name": "Pick Jam", "short_name": "Pick Jam", "start_url": "/", "scope": "/", "display": "standalone",
+    return JSONResponse({"name": "Pick Jam", "short_name": "Pick Jam", "start_url": "/app", "scope": "/", "display": "standalone",
                          "background_color": "#0d0d14", "theme_color": "#0d0d14", "description": f"Písně, zvuky a jam s {HOST}",
                          "icons": [{"src": "/static/jam-icon-192.png", "sizes": "192x192", "type": "image/png"},
                                    {"src": "/static/jam-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]},

@@ -46,7 +46,8 @@ def lib(tmp_path, monkeypatch):
 def test_nothing_without_logging_in_then_the_songs(lib):
     mod, c = lib
     assert c.get("/g/songs").status_code == 403 and c.get("/g/preview?name=x").status_code == 403
-    assert "Pick Jam" in c.get("/").text
+    land = c.get("/").text                                                  # the guide with the one download; the app is /app
+    assert "Pick Jam" in land and "/pick-jam.exe" in land and "Pick Jam" in c.get("/app").text
     assert c.get("/g/me").json()["library"] is True
     assert c.post("/login", json={"name": "Pavel", "password": "spatne"}).status_code == 401
     assert c.post("/login", json={"name": "Pavel", "password": "kytara66"}).status_code == 200
@@ -152,7 +153,7 @@ def test_the_desktop_app_launcher_and_manifest(lib):
     cmd = c.get("/pick-jam.cmd", headers={"host": "jam.neverlast.cz"})
     assert cmd.status_code == 200 and 'filename="Pick Jam.cmd"' in cmd.headers["content-disposition"]
     t = cmd.content.decode()
-    assert 'set "PJ_URL=https://jam.neverlast.cz/"' in t and "\r\n" in t and "{{" not in t and "--app=`$url" in t and "engine/pick-jam-engine.exe" in t and "'serve'" in t
+    assert 'set "PJ_URL=https://jam.neverlast.cz/"' in t and "\r\n" in t and "{{" not in t and "--app=\" + `$url + \"app" in t and "engine/pick-jam-engine.exe" in t and "'serve'" in t
     m = c.get("/manifest.webmanifest").json()
     assert m["display"] == "standalone" and any(i["sizes"] == "512x512" for i in m["icons"])
     assert c.get("/static/jam-icon-512.png").status_code == 200 and c.get("/static/jam-icon.ico").status_code == 200
@@ -245,7 +246,7 @@ def test_the_dj_is_on_the_page_and_reads_the_beat_grid_behind_the_login(lib):
     mod, c = lib
     song = mod.DATA / "Stems" / "Band - Song [abcdefghijk]"
     (song / "beats.json").write_text(json.dumps({"beats": [0.5, 1.0, 1.5], "downbeats": [0.5], "bpm": 120.0, "grid_version": 2, "source_stem": "drums"}))
-    page = c.get("/").text
+    page = c.get("/app").text
     for name in ("dj-core.js", "dj.js", "dj-library.js"):
         assert f'<script src="/static/{name}?v=' in page
         assert c.get(f"/static/{name}").status_code == 200

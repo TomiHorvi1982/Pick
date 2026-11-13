@@ -1230,6 +1230,21 @@ const PickDJ = (() => {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", autoMount);
   else autoMount();
 
+  /** A song from the friend's player into deck A, and the list opened on the songs in the same tuning. */
+  async function sendSong(name) {
+    await open();
+    if (!libraryLoaded) await loadLibrary();
+    const row = library.find(r => r.stems === name || r.key === "s:" + name);
+    if (!row) { toast("Tahle píseň v DJ není (nemá stopy)"); return; }
+    load(decks[0], row);
+    const t = tuneName(row.tuning) || "Ladění nezjištěné";
+    libSrc = "all"; libGroup = "tuning"; libOpen = new Set([t]);
+    if (libGroupSel) libGroupSel.value = "tuning";
+    if (libSearch) libSearch.value = "";
+    renderLibrary();
+    toast(`Deck A: ${row.title} · písně v ladění ${t}`);
+  }
+
   /** Another page using the DJ (the library on the PC) says where its songs come from. */
   function setSource(s) {
     source = Object.assign({}, source, s);
@@ -1237,7 +1252,7 @@ const PickDJ = (() => {
     if (root) renderLibrary();
   }
 
-  return {open, close, setSource, mountButton, load: (deck, row) => load(decks[deck === "B" || deck === 1 ? 1 : 0], row),
+  return {open, close, setSource, mountButton, sendSong, load: (deck, row) => load(decks[deck === "B" || deck === 1 ? 1 : 0], row),
     state: () => decks.map(d => ({song: d.song && d.song.name, playing: d.playing, pos: heardPos(d), rate: d.rate, sync: d.sync, loop: d.loop,
       beats: !!(d.song && d.song.beats), live: d.live ? {windows: d.live.ready.length, ready: d.live.ready.reduce((x, y) => x + y, 0)} : null}))};
 })();

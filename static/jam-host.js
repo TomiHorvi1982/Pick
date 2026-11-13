@@ -267,6 +267,9 @@ const Jam = (() => {
   // ---- the friend steers the song too (his Pick Jam): picks one from Steems, plays, pauses, moves, tempo, key —
   // all done here, in Pick's own mixer, so the two of you stay on one song and one clock
   async function onCtl(m){
+    // the host (the admin) picks the songs and runs the playback in a jam; the friend's page asks nothing of it any more
+    // (an older page might): nothing here moves because of it
+    if(!cfg.guestCtl) return;
     const who = names.guest || "Kamarád";
     try{
       if(m.do === "load" && typeof m.name === "string" && m.name){

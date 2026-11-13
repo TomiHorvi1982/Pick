@@ -22,8 +22,10 @@
     try {
       const me = await (await fetch("/g/me", {cache: "no-store"})).json();
       if (me && me.user) {                               // the library between jams, and the jam itself
-        const b = PickDJ.mountButton(document.getElementById("reBtn"));
-        if (b) { b.style.marginLeft = "0"; b.style.marginRight = "6px"; }
+        // beside Pickscreen in the top bar (an older page: before ⟳ in the header)
+        const slot = document.getElementById("djSlot");
+        const b = PickDJ.mountButton(slot || document.getElementById("reBtn"));
+        if (b) { b.style.marginLeft = slot ? "10px" : "0"; b.style.marginRight = "6px"; }
         return;
       }
     } catch (e) {}
