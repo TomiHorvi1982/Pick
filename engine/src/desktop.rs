@@ -97,15 +97,30 @@ if ($browser) {{ Start-Process -FilePath $browser -ArgumentList ("--app=" + $url
         std::fs::write(dir.join("start.ps1"), start)?;
         let ico = dir.join("pick-jam.ico").display().to_string().replace('\'', "''");
         let start_ps1 = dir.join("start.ps1").display().to_string().replace('\'', "''");
+        // the desktop icon opens Chrome (or Edge) as the app window straight away — the way that always works;
+        // the engine starts on its own when Windows starts (the Startup folder) and right now below
+        let (target, args) = match browser() {
+            Some(b) => (b.display().to_string().replace('\'', "''"), format!("--app={url}app")),
+            None => (e.clone(), "open".to_string()),
+        };
+        // a file copied from a download keeps the "from the internet" mark: Windows would stop it at every start
+        let _ = std::fs::remove_file(format!("{}:Zone.Identifier", exe.display()));
         powershell(&format!(r#"
 try {{ Invoke-WebRequest -UseBasicParsing -Uri '{url}static/jam-icon.ico' -OutFile '{ico}' -TimeoutSec 20 }} catch {{ }}
 $desk = [Environment]::GetFolderPath('Desktop')
 $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut("$desk\Pick Jam.lnk")
-$lnk.TargetPath = '{e}'
-$lnk.Arguments = 'open'
+$lnk.TargetPath = '{target}'
+$lnk.Arguments = '{args}'
 $lnk.Description = 'Pick Jam'
 if (Test-Path -LiteralPath '{ico}') {{ $lnk.IconLocation = '{ico},0' }}
 $lnk.Save()
+$su = [Environment]::GetFolderPath('Startup')
+$eng = (New-Object -ComObject WScript.Shell).CreateShortcut("$su\Pick Jam Engine.lnk")
+$eng.TargetPath = '{e}'
+$eng.Arguments = 'serve'
+$eng.Description = 'Pick Jam Engine (nativni zvuk pro jam)'
+$eng.WindowStyle = 7
+$eng.Save()
 $k = 'HKCU:\Software\Classes\pickjam'
 New-Item -Path "$k\shell\open\command" -Force | Out-Null
 Set-ItemProperty -Path $k -Name '(default)' -Value 'URL:Pick Jam Engine'
