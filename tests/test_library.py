@@ -274,3 +274,20 @@ def test_engine_sent_by_the_mac_downloaded_by_a_friend(lib):
     assert c.get("/engine/evil.sh").status_code == 404
     c.post("/login", json={"name": "Pavel", "password": "kytara66"})
     assert c.get("/g/me").json()["engine"] == ["pick-jam-engine.exe"]
+
+
+def test_covers_sent_by_the_mac(lib):
+    mod, c = lib
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    name = "Band - Song [abcdefghijk]"
+    img = b"\xff\xd8\xff" + b"j" * 500
+    assert c.put("/sync/artimg/" + "a" * 20, content=img, headers={**h, "Content-Type": "image/jpeg"}).json()["ok"]
+    assert c.get("/sync/art", headers=h).json()["files"] == ["a" * 20]
+    assert c.put("/sync/art", headers=h, json={"art": {name: {"f": "a" * 20}, "x": {"u": "http://plain"}}}).json()["songs"] == 1
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    r = c.get("/g/art", params={"name": name})
+    assert r.status_code == 200 and r.content == img and r.headers["content-type"].startswith("image/jpeg")
+    c.put("/sync/art", headers=h, json={"art": {name: {"u": "https://img.example/cover.jpg"}}})
+    r = c.get("/g/art", params={"name": name}, follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "https://img.example/cover.jpg"
+    assert c.put("/sync/art", json={"art": {}}).status_code == 403

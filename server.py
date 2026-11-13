@@ -12289,6 +12289,40 @@ if not os.environ.get("SPOTDL_NO_WATCHERS") and "pytest" not in __import__("sys"
     _jam.start_engine()            # Pick Jam Engine (native sound for the jam) waiting on 127.0.0.1:9877
 _jam.friend_print = jam_friend_print
 _jam.downloaded_playlists = downloaded_playlists
+
+
+def song_covers(search: bool = True, budget: float = 240.0) -> dict:
+    """Every separated song's cover for the library on the PC: {name: {"u": url}} or {"d": its folder} when the
+    cover is in its source file. Covers not looked up yet are searched (as the Steems list does), a few minutes'
+    worth at a time — the rest the next round."""
+    out, t0 = {}, time.time()
+    root = MUSIC_ROOT / "Stems"
+    try:
+        dirs = sorted((d for d in root.iterdir() if d.is_dir() and not d.name.startswith(".")), key=lambda d: d.name.lower())
+    except OSError:
+        return out
+    cache = _load_thumb_cache()
+    for d in dirs:
+        if _stems_source_index().get(d.name) is not None and _stems_cover_file(d):
+            out[d.name] = {"d": str(d)}                     # the picture is read when it is sent, one at a time
+            continue
+        m = _stems_meta(d)
+        artist, title, album = (m.get("artist") or "").strip(), (m.get("title") or "").strip(), (m.get("album") or "").strip()
+        key = "stemart:" + "|".join([artist.lower(), album.lower() or ("song:" + title.lower())])
+        hit, url = _thumb_get(cache, key)
+        if not hit and search and time.time() - t0 < budget:
+            try:
+                url = (stems_art(d.name) or {}).get("url")
+            except Exception:                                   # noqa: BLE001 — offline: next round
+                url = None
+            time.sleep(0.3)
+        if url and str(url).startswith("https://"):
+            out[d.name] = {"u": url}
+    return out
+
+
+_jam.song_covers = song_covers
+_jam.cover_bytes = lambda d: _stems_cover_file(Path(d))
 app.include_router(_jam.router)
 
 # ---- Katalog riffů: the Taby library's tabs taken apart into parts and their riffs (riffbook.py)

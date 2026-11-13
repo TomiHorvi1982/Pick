@@ -52,6 +52,8 @@ music_file: Callable[[str], Optional[Path]] = lambda rel: None      # a file und
 range_file: Callable = lambda path, rng: FileResponse(path)          # Pick's own: a file served by ranges (a seek in <audio>)
 main_app = None                     # Pick's own app: the friend's page reads from it, through _pick() and an allow-list
 friend_print: Callable = lambda *a, **k: {"error": "Otisky nejsou k dispozici.", "status": 503}
+song_covers: Callable[..., dict] = lambda **k: {}                       # the songs' covers for the library (server.song_covers)
+cover_bytes: Callable = lambda d: None                                     # (bytes, mime) of a song's own cover
 downloaded_playlists: Callable[[], list] = lambda: []                 # the downloaded playlists (Playlists/ folders) with songs that have stems
 
 
@@ -1284,6 +1286,33 @@ def lib_engine() -> None:
                 r.read()
 
 
+def lib_covers() -> None:
+    """The songs' covers to the library on the PC (it cannot look them up itself: no way out of its network):
+    the address of each, and the picture itself for those whose cover is in the song's own file."""
+    import urllib.request
+    covers = song_covers()
+    url, tok = _lib()
+    have = set(_lib_call("GET", "/sync/art").get("files") or [])
+    sent = {}
+    for name, c in covers.items():
+        if "u" in c:
+            sent[name] = {"u": c["u"]}
+            continue
+        got = cover_bytes(c["d"])
+        if not got:
+            continue
+        data, mime = got
+        h = hashlib.sha1(data).hexdigest()[:20]
+        if h not in have and len(data) < 3_000_000:
+            req = urllib.request.Request(f"{url}/sync/artimg/{h}", method="PUT", data=data,
+                                         headers={"Authorization": f"Bearer {tok}", "Content-Type": mime or "image/jpeg", "User-Agent": "Pick"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                r.read()
+            have.add(h)
+        sent[name] = {"f": h}
+    _lib_call("PUT", "/sync/art", {"art": sent}, timeout=60)
+
+
 def _lib_loop() -> None:
     n = 0
     while True:
@@ -1294,10 +1323,11 @@ def _lib_loop() -> None:
                 lib_sync()
                 if n % 10 == 0:                     # every ten minutes is enough for these
                     lib_playlists()
-                    try:
-                        lib_engine()
-                    except Exception:
-                        pass
+                    for step in (lib_engine, lib_covers):
+                        try:
+                            step()
+                        except Exception:
+                            pass
         except Exception:
             pass
         n += 1
@@ -1340,7 +1370,7 @@ async def jam_library_test():
     try:
         st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
-        for step in (lib_playlists, lib_engine):
+        for step in (lib_playlists, lib_engine, lib_covers):
             try:
                 await asyncio.to_thread(step)
             except Exception:

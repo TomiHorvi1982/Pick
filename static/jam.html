@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pick Jam</title>
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0d0d14"><link rel="apple-touch-icon" href="/static/jam-icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0d0d14;--panel:#15151e;--panel2:#1b1b26;--line:rgba(255,255,255,.09);--fg:#ececf3;--dim:#9a9ab0;--acc:#8b5cf6;--ok:#6ee7a0;--warn:#ffd166;--bad:#ff6b6b;color-scheme:dark}
+  :root{--bg:#070707;--panel:#0d0e12;--panel2:#141418;--line:rgba(217,218,229,.14);--line2:rgba(217,218,229,.28);--fg:#ffffff;--dim:#aeaeb7;--acc:#70dcd3;--ok:#70dcd3;--warn:#ffd166;--bad:#ff6b6b;color-scheme:dark}
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
@@ -33,7 +35,7 @@
   main.noside #chat .jc-list{height:auto;flex:1}
   .side-btn{font-size:16px;padding:4px 10px;line-height:1}.side-btn.on{background:var(--line)}
   .rs-x{position:absolute;top:0;right:-4px;width:8px;bottom:0;cursor:col-resize;z-index:3}
-  .rs-x:hover,.rs-y:hover{background:rgba(139,92,246,.35)}
+  .rs-x:hover,.rs-y:hover{background:rgba(112,220,211,.35)}
   #chat .jc-list{height:var(--jc-h,200px);max-height:none}
   .rs-y{height:7px;cursor:row-resize;border-radius:4px;margin:-4px 0 2px}
   .side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
@@ -45,7 +47,7 @@
   .cats button.on{background:var(--acc);color:#0b0b12;font-weight:800}
   .sort{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim)}
   .row{display:grid;grid-template-columns:40px 1fr auto;gap:9px;align-items:center;border:0;background:none;text-align:left;padding:5px 6px;border-radius:9px;width:100%}
-  .row:hover{background:rgba(255,255,255,.05)}.row.cur{background:rgba(139,92,246,.22)}.row.pv{outline:1px solid rgba(139,92,246,.6)}
+  .row:hover{background:rgba(255,255,255,.05)}.row.cur{background:rgba(112,220,211,.22)}.row.pv{outline:1px solid rgba(112,220,211,.6)}
   .row .cv{width:40px;height:40px;border-radius:7px;object-fit:cover;background:linear-gradient(135deg,#2b2440,#16161f);display:block}
   .row .tx{min-width:0;display:flex;flex-direction:column}
   .row b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row span{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -53,7 +55,7 @@
   .row .yt{color:#ff6b6b;text-decoration:none;font-size:11px;opacity:.55}.row .yt:hover{opacity:1}
   .row .fav{color:#55556a;font-size:14px;cursor:pointer;line-height:1}.row .fav.on{color:#ffd166}.row .fav:hover{color:#ffe08a}
   button:disabled{opacity:.35;cursor:default}
-  .row .tn{font-size:10px;color:#c4b5fd;border:1px solid rgba(139,92,246,.4);border-radius:5px;padding:1px 5px;white-space:nowrap}
+  .row .tn{font-size:10px;color:#c4b5fd;border:1px solid rgba(112,220,211,.4);border-radius:5px;padding:1px 5px;white-space:nowrap}
   .grp{border:0;background:none;width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:9px;font-weight:700}
   .grp:hover{background:rgba(255,255,255,.05)}.grp .n{margin-left:auto;font-size:11px;color:var(--dim);font-weight:500}
   .grp .cv{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#22202f}
@@ -155,8 +157,8 @@
   .tiles video.me{width:130px;transform:scaleX(-1)}
   .rack{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;border-top:1px solid var(--line);background:linear-gradient(#14141c,#101017);flex:none}
   .strip{flex:none;width:92px;background:linear-gradient(#1d1d29,#15151f);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 6px 7px;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative}
-  .strip::before{content:"";position:absolute;left:8px;right:8px;top:0;height:2px;border-radius:2px;background:var(--sc,#8b5cf6);opacity:.9}
-  .strip.me{width:170px;border-color:rgba(139,92,246,.55);box-shadow:inset 0 0 0 1px rgba(139,92,246,.15)}.strip.host{border-color:rgba(110,231,160,.4)}
+  .strip::before{content:"";position:absolute;left:8px;right:8px;top:0;height:2px;border-radius:2px;background:var(--sc,#70dcd3);opacity:.9}
+  .strip.me{width:170px;border-color:rgba(112,220,211,.55);box-shadow:inset 0 0 0 1px rgba(112,220,211,.15)}.strip.host{border-color:rgba(110,231,160,.4)}
   .strip .nm{font-size:12px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em}
   .strip .sub{font-size:9.5px;color:var(--dim);text-align:center;letter-spacing:.12em;text-transform:uppercase;margin-top:-4px}
   .knobs{display:flex;gap:4px;justify-content:center}
@@ -181,9 +183,9 @@
   .clip{width:26px;height:6px;border-radius:2px;background:#2a1418;margin-bottom:-2px}.clip.on{background:#ff4d4d;box-shadow:0 0 6px #ff4d4d}
   .ft{position:relative;cursor:ns-resize;touch-action:none}
   .ft::before{content:"";position:absolute;left:50%;top:4px;bottom:4px;width:4px;margin-left:-2px;border-radius:2px;background:#07070b;box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
-  .ft .u{position:absolute;left:50%;width:2px;margin-left:-1px;bottom:4px;background:var(--sc,#8b5cf6);border-radius:1px}
+  .ft .u{position:absolute;left:50%;width:2px;margin-left:-1px;bottom:4px;background:var(--sc,#70dcd3);border-radius:1px}
   .ft .cap{position:absolute;left:1px;right:1px;height:30px;margin-bottom:-15px;border-radius:4px;background:linear-gradient(#5b5b6c,#2c2c36 45%,#1a1a22 50%,#2c2c36 55%,#4a4a58);border:1px solid #6a6a7a;box-shadow:0 3px 6px rgba(0,0,0,.6)}
-  .ft .cap::after{content:"";position:absolute;left:3px;right:3px;top:50%;height:2px;margin-top:-1px;background:var(--sc,#8b5cf6)}
+  .ft .cap::after{content:"";position:absolute;left:3px;right:3px;top:50%;height:2px;margin-top:-1px;background:var(--sc,#70dcd3)}
   .dbv{font-size:11px;font-variant-numeric:tabular-nums;color:#e5e5ee;background:#0b0b11;border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:1px 7px;min-width:62px;text-align:center}
   .ms{display:flex;gap:4px}.ms button{padding:2px 8px;font-size:11px;font-weight:800;border-radius:6px}
   .ms button.m.on{background:#ff8a65;border-color:#ff8a65;color:#111}.ms button.s.on{background:#ffd166;border-color:#ffd166;color:#111}
@@ -192,9 +194,9 @@
   .strip.mini{width:34px;padding:8px 3px}.strip.mini>*:not(.hd):not(.fb){display:none}.strip.mini .hd .nm{writing-mode:vertical-rl;transform:rotate(180deg);max-height:70px}
   .strip.mini .hd{flex-direction:column}.strip.mini .fb{grid-template-columns:10px;height:120px}.strip.mini .fb .sc,.strip.mini .fb .ft{display:none}
   .tools{display:flex;gap:4px;width:100%}.tools button{flex:1;font-size:11px;padding:4px 2px;border-radius:7px}
-  .tools button.on{background:rgba(139,92,246,.3);border-color:var(--acc);color:#fff;font-weight:700}
+  .tools button.on{background:rgba(112,220,211,.3);border-color:var(--acc);color:#fff;font-weight:700}
   .step{display:grid;grid-template-columns:22px 1fr 22px;gap:3px;width:100%}.step button{padding:4px 0;font-size:11px}
-  .pop{position:fixed;z-index:25;background:var(--panel);border:1px solid rgba(139,92,246,.5);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:12px;display:flex;flex-direction:column;gap:10px}
+  .pop{position:fixed;z-index:25;background:var(--panel);border:1px solid rgba(112,220,211,.5);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:12px;display:flex;flex-direction:column;gap:10px}
   .pop .ph{display:flex;align-items:center;gap:8px}.pop .ph b{flex:1}
   .eqc{width:420px;height:150px;background:#0b0b11;border-radius:10px;border:1px solid var(--line)}
   .eqb{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -213,7 +215,7 @@
   .tbody{flex:1;overflow:auto;background:#f6f4ee;color:#111}
   .tcard{max-width:560px;margin:30px auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
   .tcard a.big{display:inline-block;text-align:center;text-decoration:none;border-radius:10px}
-  .me .snd{width:100%;font-size:11.5px;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-color:rgba(139,92,246,.45)}
+  .me .snd{width:100%;font-size:11.5px;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-color:rgba(112,220,211,.45)}
   .drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);background:var(--panel);border-left:1px solid var(--line);z-index:20;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
   .drawer .dh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}.drawer .dh b{flex:1;font-size:15px}
   .drawer .dbody{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;min-height:0;flex:1}
@@ -230,7 +232,7 @@
   @keyframes jg{50%{box-shadow:0 0 14px #ff5b5b}}
   body.solo .chatbox{display:none}body.solo main.noside{grid-template-columns:1fr}body.solo main.noside .side{display:none}
   .own-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px}.own-row a{color:var(--dim)}
-  .own-up{cursor:pointer;border:1px dashed var(--acc);border-radius:8px;padding:5px 10px;font-weight:700}.own-up:hover{background:rgba(139,92,246,.15)}
+  .own-up{cursor:pointer;border:1px dashed var(--acc);border-radius:8px;padding:5px 10px;font-weight:700}.own-up:hover{background:rgba(112,220,211,.15)}
   .plist .own-x{float:right;opacity:.5;font-weight:400}.plist .own-x:hover{opacity:1;color:var(--bad)}
   .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.chips:empty{display:none}
   .chips button{font-size:11px;padding:3px 9px;border-radius:999px;color:var(--dim)}.chips button i{font-style:normal;opacity:.6;margin-left:3px}
@@ -240,7 +242,7 @@
   .plist .ghd i{width:8px;height:8px;border-radius:50%;display:inline-block}
   .plist{display:flex;flex-direction:column;gap:2px;max-height:42vh;overflow:auto;margin-top:6px}
   .plist button{text-align:left;border:0;background:none;padding:6px 8px;border-radius:7px;display:flex;flex-direction:column}
-  .plist button:hover{background:rgba(255,255,255,.05)}.plist button.cur{background:rgba(139,92,246,.22)}
+  .plist button:hover{background:rgba(255,255,255,.05)}.plist button.cur{background:rgba(112,220,211,.22)}
   .plist b{font-size:13px;font-weight:600}.plist span{font-size:11.5px;color:var(--dim)}
   .meter{height:6px;border-radius:3px;background:#222;overflow:hidden}.meter i{display:block;height:100%;width:0;background:var(--ok)}
   .overlay{position:fixed;inset:0;background:rgba(5,5,10,.94);display:flex;align-items:center;justify-content:center;z-index:30}
@@ -248,12 +250,35 @@
   .overlay h2{margin:0}
   .toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:40;background:#2a2230;border:1px solid #6b4d7a;color:#f0e6ff;padding:8px 14px;border-radius:10px;font-size:13px;max-width:90vw;cursor:pointer}
   @media (max-width:900px){main,main.noside{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}}
+  /* the Harness look: Geist text, Space Grotesk headings, pills, light hairlines, white for the one main action */
+  body{font-family:Geist,Inter,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.01em}
+  header h1,.song-h .t b,.box h2,.dh b{font-family:"Space Grotesk",Geist,sans-serif;font-weight:500;letter-spacing:.056em}
+  header,.bar2{background:var(--bg);border-bottom-color:var(--line)}
+  button{background:transparent;border:1px solid var(--line2);border-radius:800px;padding:6px 14px}
+  button:hover{border-color:#fff;background:rgba(255,255,255,.04)}
+  button.on,.hviews button.on{background:#fff;border-color:#fff;color:#070707;font-weight:600}
+  button.big,.hp .hpp,.tp button.play{background:#fff;color:#070707;border:0;box-shadow:inset 0 -1px 0 rgba(0,0,0,.15)}
+  input[type=text],input[type=password],input[type=search],select{background:var(--panel);border:1px solid #2e3038;border-radius:5px}
+  input:focus,select:focus{outline:none;border-color:#0677d4}
+  .side,.drawer,.overlay .box{background:var(--panel)}
+  .card,.overlay .box{border:1px solid var(--line2);border-radius:20px;background:var(--panel)}
+  .strip{background:var(--panel2);border:1px solid var(--line);border-radius:16px}
+  .rack{background:var(--bg)}
+  .view{background:var(--bg)}
+  .seek{background:var(--panel2)}
+  h3{font-size:11px;letter-spacing:.094em;color:#a6e5f2;font-weight:600}
+  .songs-h{display:flex;align-items:center;gap:8px}.songs-h .side-btn{margin-left:auto;padding:2px 10px;font-size:13px}
+  main.noside .songs{display:block!important}main.noside .songs > :not(.songs-h){display:none}main.noside .songs{flex:none}
+  .pv-box[data-off]{display:none!important}
+  .mixfold{background:var(--panel2)}
+  .eled.on i{background:var(--acc);box-shadow:0 0 8px var(--acc)}.eled.on{color:var(--acc)}
+  .hp .hpfav.on{color:var(--acc);border-color:var(--acc)}
 </style>
 </head>
 <body>
-<header><button id="sideBtn" class="side-btn" title="Sbalit nebo rozbalit seznam písní">☰</button><img class="appico" src="/static/jam-icon-192.png" alt=""><h1>Pick Jam</h1><span class="dot" id="dot"></span><span class="muted" id="state">připojuji…</span><span class="eled" id="engLed" title="Pick Jam Engine"><i></i><span>Engine</span></span><span class="sp"></span>
+<header><img class="appico" src="/static/jam-icon-192.png" alt=""><h1>Pick Jam</h1><span class="dot" id="dot"></span><span class="muted" id="state">připojuji…</span><span class="eled" id="engLed" title="Pick Jam Engine"><i></i><span>Engine</span></span><span class="sp"></span>
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
-  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button></header>
+  <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button></header>
 <div class="bar2" id="bar2">
   <nav class="hviews" id="hviews"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick" title="Tomiho sdílená obrazovka Picku">Pickscreen</button><span id="djSlot"></span></nav>
   <div class="hp" id="hp">
@@ -267,11 +292,11 @@
 <main>
   <aside class="side">
     <div class="rs-x" id="rsSide" title="Táhni — šířka panelu"></div>
-    <div class="songs"><h3>PÍSNĚ <span class="muted" id="sCount"></span></h3>
+    <div class="songs"><h3 class="songs-h">PÍSNĚ <span class="muted" id="sCount"></span><button id="sideBtn" class="side-btn" title="Sbalit seznam písní" title="Sbalit nebo rozbalit seznam písní">☰</button></h3>
       <div class="cats" id="cats"><button data-c="fav" title="Co si příště zahrajete — sdílené s kamarádem">★</button><button data-c="all" class="on">Vše</button><button data-c="band">Kapely</button><button data-c="tune">Ladění</button><button data-c="pl" title="♫ moje playlisty ze Steems · ⤓ stažené playlisty — jen písně, které mají stopy">Playlisty</button></div>
       <input type="search" id="find" placeholder="Hledat píseň nebo kapelu…">
       <div class="slist" id="slist"><div class="muted">Načítám…</div></div></div>
-    <div class="pv-box" id="pvBox" hidden><img id="pvCv" alt=""><div class="pt"><b id="pvT"></b><span id="pvA2"></span></div>
+    <div class="pv-box" id="pvBox" hidden data-off="1"><img id="pvCv" alt=""><div class="pt"><b id="pvT"></b><span id="pvA2"></span></div>
       <div class="pv-ctl"><button class="pp" id="pvPlay" title="Náhled — slyšíš jen ty">▶</button><input type="range" id="pvSeek" min="0" max="1000" value="0"><span class="tm" id="pvTime">0:00 / 0:00</span></div>
       <button class="big pv-go" id="pvGo">Hrát spolu</button><audio id="pvAudio" preload="none"></audio></div>
     <div class="chatbox"><div class="rs-y" id="rsChat" title="Táhni — výška chatu"></div><h3 style="margin-bottom:6px">CHAT</h3><div class="chatcam" id="chatCam"><video id="vCam" autoplay playsinline hidden></video><video class="me" id="vMe" autoplay playsinline muted hidden></video></div><div id="chat"></div></div>
@@ -324,6 +349,7 @@
   <div class="card"><h3>PICK JAM</h3>
     <div class="row"><span>Engine</span><span id="engPill"></span></div>
     <div class="row"><span>Video</span><span style="display:flex;gap:6px"><button id="camBtn" title="Kamera">Kamera</button><button id="voiceBtn" title="Mikrofon na řeč">Mluvit</button></span></div>
+    <div class="row"><span>Síť</span><button id="reBtn" title="Spojí se s hostitelem znovu a načte písně, píseň a sdílenou obrazovku">⟳ Obnovit</button></div>
     <div class="row"><span>Účet</span><button id="outBtn" title="Odhlásit" hidden>Odhlásit</button></div></div>
   <div class="card"><h3>KYTARA</h3>
     <label class="row"><span>Zvukovka</span><select id="inDev"></select></label>

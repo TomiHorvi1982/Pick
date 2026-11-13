@@ -4,45 +4,51 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pick Jam</title>
 <link rel="icon" href="/favicon.ico"><meta name="theme-color" content="#0d0d14">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Space+Grotesk:wght@300;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0d0d14;--panel:#15151f;--line:rgba(255,255,255,.09);--txt:#eef0f4;--dim:#9aa3b5;--acc:#8b5cf6;--ok:#2dd4bf}
+  :root{--bg:#070707;--panel:#0d0e12;--panel2:#141418;--line:rgba(217,218,229,.28);--txt:#ffffff;--dim:#aeaeb7;--ash:#c8cad0;--acc:#70dcd3;--ok:#70dcd3;--eyebrow:#a6e5f2}
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,rgba(139,92,246,.25),transparent 60%),var(--bg);color:var(--txt);
-    font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  main{max-width:960px;margin:0 auto;padding:48px 20px 80px}
+  body{margin:0;background:radial-gradient(1100px 560px at 50% -12%,rgba(22,48,82,.9),transparent 65%),var(--bg);color:var(--txt);
+    font:16px/1.5 Geist,Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.017em}
+  main{max-width:1040px;margin:0 auto;padding:48px 20px 80px}
   .hero{text-align:center;padding:10px 0 40px}
-  .hero h1{font-size:44px;margin:6px 0 4px;letter-spacing:-.02em}
+  .eyebrow{font-size:12px;letter-spacing:.094em;text-transform:uppercase;color:var(--eyebrow);font-weight:600}
+  .hero h1{font:300 72px/1 "Space Grotesk",Geist,sans-serif;letter-spacing:.056em;margin:14px 0 10px}
   .hero p{color:var(--dim);margin:0 0 28px;font-size:18px}
   .dl{display:inline-flex;flex-direction:column;align-items:center;gap:14px;text-decoration:none;color:var(--txt);cursor:pointer}
-  .dl img{width:168px;height:168px;border-radius:38px;box-shadow:0 18px 50px rgba(139,92,246,.45),0 0 0 1px rgba(255,255,255,.1);transition:transform .15s}
+  .dl img{width:176px;height:176px;border-radius:40px;box-shadow:0 0 60px rgba(112,220,211,.35),0 0 0 1px rgba(217,218,229,.4);transition:transform .15s}
   .dl:hover img{transform:translateY(-3px) scale(1.03)}
-  .dl b{font-size:18px}.dl small{color:var(--dim)}
+  .dl b{display:inline-block;background:#fff;color:#070707;border-radius:800px;padding:12px 26px;font-weight:500;font-size:16px}.dl small{color:var(--dim)}
   .done{display:none;margin-top:16px;color:var(--ok);font-weight:700}
-  h2{font-size:24px;margin:44px 0 16px}
+  h2{font:300 40px/1.1 "Space Grotesk",Geist,sans-serif;letter-spacing:.056em;margin:72px 0 24px}
   .steps{display:grid;gap:18px}
-  .step{display:grid;grid-template-columns:52px 1fr;gap:16px;padding:20px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
-  .num{width:44px;height:44px;border-radius:50%;background:var(--acc);display:grid;place-items:center;font-weight:900;font-size:20px;color:#0b0b12}
-  .step h3{margin:6px 0 6px;font-size:19px}.step p{margin:0 0 10px;color:#cfd3dc}
-  .step img{display:block;max-width:100%;border-radius:12px;border:1px solid var(--line);margin-top:8px}
+  .step{display:grid;grid-template-columns:56px 1fr;gap:18px;padding:24px;border-radius:20px;background:var(--panel);border:1px solid var(--line)}
+  .num{width:44px;height:44px;border-radius:50%;border:1px solid #fff;display:grid;place-items:center;font:300 20px "Space Grotesk",sans-serif;color:#fff}
+  .step h3{margin:6px 0 8px;font:500 22px/1.2 "Space Grotesk",Geist,sans-serif;letter-spacing:.04em}.step p{margin:0 0 10px;color:var(--ash)}
+  .step img{display:block;max-width:100%;border-radius:16px;border:1px solid var(--line);margin-top:10px}
   .step img.small{max-width:420px}
   .os{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
-  .os div{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14px}
+  .os div{padding:14px 16px;border-radius:16px;background:var(--panel2);border:1px solid rgba(217,218,229,.14);font-size:14px;color:var(--ash)}
+  .os div b:first-child{color:#fff}
   .os b{display:block;margin-bottom:4px}
   .desk{position:relative;height:150px;border-radius:12px;margin-top:8px;overflow:hidden;
-    background:linear-gradient(135deg,#1e3a5f,#3b2a6b);border:1px solid var(--line)}
+    background:linear-gradient(160deg,rgb(22,48,82),rgb(13,14,18));border:1px solid var(--line)}
   .desk .ic{position:absolute;left:28px;top:22px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;text-shadow:0 1px 3px #000}
   .desk .ic img{width:64px;height:64px;border-radius:15px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
   .desk .hand{position:absolute;left:78px;top:70px;font-size:30px;transform:rotate(-15deg)}
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid var(--line);background:rgba(255,255,255,.05)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:800px;font-size:12px;font-weight:500;letter-spacing:.042em;border:1px solid var(--acc);color:var(--acc)}
   .pill i{width:8px;height:8px;border-radius:50%}
-  .tips{columns:2;column-gap:28px;color:#cfd3dc;padding-left:20px}.tips li{margin-bottom:6px;break-inside:avoid}
-  .note{margin-top:40px;padding:16px 18px;border-radius:14px;border:1px dashed var(--line);color:var(--dim);font-size:14px;text-align:center}
-  @media (max-width:700px){.hero h1{font-size:34px}.os{grid-template-columns:1fr}.tips{columns:1}.step{grid-template-columns:1fr}.num{width:36px;height:36px;font-size:17px}}
+  .tips{columns:2;column-gap:40px;color:var(--ash);padding:24px 24px 24px 44px;border-radius:20px;background:var(--acc);color:#070707}
+  .tips b{color:#070707}.tips li{margin-bottom:6px;break-inside:avoid}
+  .note{margin-top:56px;padding:18px;border-top:1px solid rgba(217,218,229,.14);color:#60606c;font-size:13px;text-align:center}
+  @media (max-width:700px){.hero h1{font-size:44px}h2{font-size:30px}.os{grid-template-columns:1fr}.tips{columns:1}.step{grid-template-columns:1fr}.num{width:36px;height:36px;font-size:17px}}
 </style>
 </head>
 <body>
 <main>
   <section class="hero">
+    <div class="eyebrow">Hraj s {{HOST}} přes internet</div>
     <h1>Pick Jam</h1>
     <p>Písně, zvuky a společné hraní s {{HOST}}</p>
     <a class="dl" id="dl"><img src="/static/jam-icon-512.png" alt="Pick Jam"><b id="dlT">Stáhnout Pick Jam</b><small id="dlS">Klikni na ikonu</small></a>

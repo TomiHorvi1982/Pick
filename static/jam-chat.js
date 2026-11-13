@@ -17,7 +17,7 @@
   .jc-m{display:flex;flex-direction:column;align-items:flex-start;max-width:85%}
   .jc-m.mine{align-self:flex-end;align-items:flex-end}
   .jc-b{padding:6px 10px;border-radius:12px;background:#2a2a3a;color:#ececf3;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.35}
-  .jc-m.mine .jc-b{background:var(--accent,var(--acc,#8b5cf6));color:#0b0b12}
+  .jc-m.mine .jc-b{background:var(--accent,var(--acc,#70dcd3));color:#0b0b12}
   .jc-b a{color:inherit;text-decoration:underline}
   .jc-meta{font-size:10.5px;color:#8a8aa0;margin:1px 4px 0;display:flex;gap:4px;align-items:center}
   .jc-tick{letter-spacing:-2px;font-weight:700}.jc-tick.read{color:#5ab4ff}.jc-tick.wait{letter-spacing:0}
@@ -26,7 +26,7 @@
   @keyframes jcdot{0%,60%,100%{opacity:.25}30%{opacity:1}}
   .jc-f{display:flex;gap:6px;align-items:flex-end}
   .jc-f textarea{flex:1;min-width:0;resize:none;background:#0e0e14;color:#ececf3;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 9px;font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;max-height:110px}
-  .jc-f button{background:var(--accent,var(--acc,#8b5cf6));color:#0b0b12;border:0;border-radius:10px;padding:7px 12px;font-weight:800;cursor:pointer}
+  .jc-f button{background:var(--accent,var(--acc,#70dcd3));color:#0b0b12;border:0;border-radius:10px;padding:7px 12px;font-weight:800;cursor:pointer}
   .jc-f button:disabled{opacity:.4;cursor:default}
   `;
   { const s = document.createElement("style"); s.textContent = CSS; document.head.appendChild(s); }

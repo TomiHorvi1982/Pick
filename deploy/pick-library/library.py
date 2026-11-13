@@ -507,6 +507,14 @@ def g_art(request: Request, name: str):
     row = next((x for x in songs() if x["name"] == name), None)
     if row is None:
         return Response(status_code=404)
+    # what the Mac sent (every song: an address, or the picture from the song's own file), else the copy of Pick's cache
+    got = (_read("art.json", {}) or {}).get(name)
+    if isinstance(got, dict):
+        if isinstance(got.get("u"), str) and got["u"].startswith("https://"):
+            return RedirectResponse(got["u"], status_code=302, headers={"Cache-Control": "private, max-age=86400"})
+        f = ART_DIR / f"{got.get('f')}.img"
+        if got.get("f") and re.fullmatch(r"[0-9a-f]{20}", str(got["f"])) and f.is_file():
+            return FileResponse(f, media_type=(_read("art-types.json", {}) or {}).get(got["f"], "image/jpeg"), headers={"Cache-Control": "private, max-age=86400"})
     cache = _jload(HELPER / "chip-thumbs.json", {}) or {}
     a, al, t = row["artist"].lower(), row["album"].lower(), row["title"].lower()
     for k in (f"stemart:{a}|{al}" if al else "", f"stemart:{a}|song:{t}"):
@@ -1091,6 +1099,53 @@ async def sync_engine_put(request: Request, name: str):
     part.write_bytes(data)
     part.replace(ENGINE_DIR / name)
     return {"ok": True, "sha256": hashlib.sha256(data).hexdigest()}
+
+
+ART_DIR = STATE / "art"
+
+
+@app.get("/sync/art")
+def sync_art_have(request: Request):
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    return {"files": [f.stem for f in ART_DIR.glob("*.img")] if ART_DIR.is_dir() else []}
+
+
+@app.put("/sync/artimg/{h}")
+async def sync_art_img(request: Request, h: str):
+    """A cover from a song's own file (the Mac sends each picture once)."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    mime = (request.headers.get("content-type") or "image/jpeg").split(";")[0].strip()
+    if not re.fullmatch(r"[0-9a-f]{20}", h) or mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+        return JSONResponse({"error": "Špatný obrázek."}, status_code=400)
+    data = await request.body()
+    if not 100 < len(data) < 3_000_000:
+        return JSONResponse({"error": "Divná velikost."}, status_code=400)
+    ART_DIR.mkdir(parents=True, exist_ok=True)
+    (ART_DIR / f"{h}.img").write_bytes(data)
+    types = _read("art-types.json", {}) or {}
+    types[h] = mime
+    _write("art-types.json", types)
+    return {"ok": True}
+
+
+@app.put("/sync/art")
+async def sync_art(request: Request):
+    """Which cover each song has: {name: {"u": https address} | {"f": picture id}}."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    art = {}
+    for n, v in list(((body or {}).get("art") or {}).items())[:20000]:
+        if not isinstance(n, str) or not isinstance(v, dict):
+            continue
+        if isinstance(v.get("u"), str) and v["u"].startswith("https://") and len(v["u"]) < 600:
+            art[n] = {"u": v["u"]}
+        elif isinstance(v.get("f"), str) and re.fullmatch(r"[0-9a-f]{20}", v["f"]):
+            art[n] = {"f": v["f"]}
+    _write("art.json", art)
+    return {"ok": True, "songs": len(art)}
 
 
 @app.put("/sync/users")

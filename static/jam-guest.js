@@ -551,7 +551,7 @@
     const arc = (from, to) => { const [x1, y1] = pt(from), [x2, y2] = pt(to); return `M${x1} ${y1} A${r} ${r} 0 ${Math.abs(to - from) > 180 ? 1 : 0} ${to > from ? 1 : 0} ${x2} ${y2}`; };
     const s0 = center ? 0 : a0, [hx, hy] = pt(a);
     return `<svg viewBox="0 0 34 34"><path d="${arc(-135, 135)}" stroke="#2a2a36" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-      ${Math.abs(a - s0) > 1 ? `<path d="${arc(Math.min(s0, a), Math.max(s0, a))}" stroke="var(--sc,#8b5cf6)" stroke-width="3.2" fill="none" stroke-linecap="round"/>` : ""}
+      ${Math.abs(a - s0) > 1 ? `<path d="${arc(Math.min(s0, a), Math.max(s0, a))}" stroke="var(--sc,#70dcd3)" stroke-width="3.2" fill="none" stroke-linecap="round"/>` : ""}
       <circle cx="17" cy="17" r="9.5" fill="#23232e" stroke="#3a3a48"/><line x1="17" y1="17" x2="${17 + (hx - 17) * 0.62}" y2="${17 + (hy - 17) * 0.62}" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`;
   }
   // a knob: key, label, min, max, value, text, reset value, centred (pan)
@@ -563,7 +563,7 @@
       <div class="ft" data-ft="${k}" data-max="${maxDb}" title="Hlasitost — táhni, kolečko = jemně, dvojklik = 0 dB"><div class="u" style="height:calc(${p}% * (164 - 8) / 164)"></div><div class="cap" style="bottom:calc(${p}% * (164 - 8) / 164 + 4px)"></div></div>${gate != null ? `<div class="gt" title="Noise gate — práh: táhni nad úroveň šumu na měřáku (červená čára). Úplně dole = vypnuto, dvojklik = vypnout"><div class="gc" style="bottom:calc(${gp}% * (164 - 8) / 164 + 4px)"></div></div>` : ""}</div>`; };
   function renderRack(){
     const rack = $("rack"); if(!mix) return;
-    const stemStrip = (c) => `<div class="strip ${MINI.has(c.stem) ? "mini" : ""}" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#8b5cf6"}"><div class="hd"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has(c.stem) ? "+" : "–"}</button></div><div class="sub">stopa</div>
+    const stemStrip = (c) => `<div class="strip ${MINI.has(c.stem) ? "mini" : ""}" data-st="${esc(c.stem)}" style="--sc:${COL[c.stem] || "#70dcd3"}"><div class="hd"><div class="nm" title="${esc(c.stem)}">${esc(SNAME[c.stem] || c.stem)}</div><button class="fold" title="Sbalit / rozbalit">${MINI.has(c.stem) ? "+" : "–"}</button></div><div class="sub">stopa</div>
         <div class="knobs">${knob("t", "GAIN", -12, 12, c.t || 0, fmtDb(c.t || 0) + " dB", 0)}${knob("p", "PAN", -1, 1, c.p, panTxt(c.p), 0, true)}</div>
         <div class="clip"></div>${fader("v", c.v, 6)}<div class="dbv">${fmtDb(lin2db(c.v))} dB</div>
         <div class="ms"><button class="m ${c.m ? "on" : ""}" data-k="m" title="Ztlumit (jen u tebe)">M</button><button class="s ${c.s ? "on" : ""}" data-k="s" title="Sólo (jen u tebe)">S</button></div></div>`;
