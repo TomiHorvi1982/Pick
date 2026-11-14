@@ -185,7 +185,7 @@ def test_with_names_set_the_friend_logs_in_and_nothing_goes_without(client, tmp_
     assert client.post("/api/jam/users", json={"host_name": "Tomi"}).json()["host_name"] == "Tomi"
     assert "kytara66" not in (jam.CONF.read_text())                                         # kept as a hash only
     assert g.get("/").status_code == 200                                                   # the page: the login form
-    assert g.get("/g/me").json() == {"user": None, "login": True, "host": "Tomi", "on": True, "engine": []}
+    assert g.get("/g/me").json() == {"user": None, "login": True, "host": "Tomi", "on": True, "engine": [], "sonobus": None}
     assert g.get("/g/songs?k=secret-key").status_code == 403                               # the key alone is not enough now
     assert g.post("/login", json={"name": "Pavel", "password": "spatne"}).status_code == 401
     r = g.post("/login", json={"name": "Pavel", "password": "kytara66"})
@@ -313,3 +313,56 @@ def test_a_second_window_takes_over_and_the_first_is_told_not_to_come_back(clien
             with pytest.raises(WebSocketDisconnect) as gone:
                 first.receive_text()
             assert gone.value.code == 4409                                     # the page reads it: no reconnect, no ping-pong
+
+
+def test_sonobus_group_stays_and_goes_only_to_the_friend_let_in(client):
+    g = TestClient(jam.gate)
+    sb = jam.sonobus()
+    assert sb == jam.sonobus()                                          # the same group from jam to jam (SonoBus remembers it)
+    assert sb["group"].startswith("pick-") and len(sb["password"]) == 12
+    assert sb["app"] == f"sonobus://aoo.sonobus.net:10998/?g={sb['group']}&p={sb['password']}"
+    assert g.get("/g/me").json()["sonobus"] is None                     # not without the key
+    assert g.get("/g/me?k=secret-key").json()["sonobus"]["group"] == sb["group"]
+    assert client.get("/api/jam/status").json()["sonobus"]["password"] == sb["password"]
+    assert g.get("/static/jam-sonobus.js").status_code == 200 and client.get("/static/jam-sonobus.js").status_code == 200
+
+
+def test_tabs_and_sonobus_go_to_the_library_on_the_pc(monkeypatch, tmp_music_root):
+    (tmp_music_root / "Stems" / "Band - Song").mkdir(parents=True)
+    jam.conf_save(library_url="https://hraj.example", library_token="x" * 30)
+    monkeypatch.setattr(jam, "_SONGS", {"at": time.time(), "rows": [{"name": "Band - Song", "artist": "Band", "title": "Song", "stems": ["drums"]}]})
+    rows = [{"path": "songsterr:42", "ext": "songsterr", "name": "Band - Song", "artist": "Band", "title": "Song", "songsterr": {"songId": 42}},
+            {"path": "/tabs/band-song.gp5", "ext": "gp5", "name": "Band - Song", "artist": "Band", "title": "Song"}]
+
+    class R:
+        def __init__(self, code, body=None, content=b""):
+            self.status_code, self._b, self.content = code, body, content
+        def json(self):
+            return self._b
+
+    async def pick(path, params=None):
+        return R(200, {"files": rows}) if path == "/api/tabfiles/list" else R(200, content=b"GP5-FILE-BYTES" * 10)
+    monkeypatch.setattr(jam, "_pick", pick)
+    calls, put = [], []
+    monkeypatch.setattr(jam, "_lib_call", lambda m, p, body=None, timeout=15: calls.append((m, p, body)) or ({"files": []} if m == "GET" else {}))
+    import urllib.request
+
+    class Up:
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def read(self):
+            return b""
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=0: put.append(req.full_url) or Up())
+    jam.lib_tabs()
+    tabs = [c for c in calls if c[1] == "/sync/tabs" and c[0] == "PUT"][0][2]["tabs"]
+    h = __import__("hashlib").sha1(b"GP5-FILE-BYTES" * 10).hexdigest()[:20]
+    assert tabs == {"Band - Song": [{"kind": "songsterr", "songsterr": 42, "name": "Band - Song"}, {"kind": "file", "id": h, "name": "Band - Song"}]}
+    assert put == [f"https://hraj.example/sync/tabfile/{h}"]
+    calls.clear(); put.clear()
+    jam.lib_tabs()                                                      # nothing changed: nothing sent
+    assert not put and not any(c[0] == "PUT" for c in calls)
+    jam.lib_status()
+    st = [c for c in calls if c[1] == "/sync/status"][0][2]
+    assert st["sonobus"]["group"] == jam.sonobus()["group"] and "app" not in st["sonobus"]

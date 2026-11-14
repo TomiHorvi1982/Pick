@@ -163,7 +163,8 @@
     }
     try{ await useGuitar(); }
     catch(e){ $("inDev").value = ""; store("in", ""); await useGuitar(); }
-    if(link) link.setInput(myOut);
+    if(link) link.setInput(sbOn() ? null : myOut);
+    if(link) sbSlot();
     const b = store("buf"); if(b && link){ $("buf").value = b; applyBuf(); }
     if(camOk && link){ try{ showMe(await link.setCamera(true, $("camDev").value)); $("camBtn").classList.add("on"); }catch(e){} }
     $("join").hidden = true; if(chat) chat.check();
@@ -174,6 +175,7 @@
     applyMine(); renderRack(); restoreSound();
     loadSongs();
     setInterval(ui, 120); setInterval(sync, 400);
+    if(store("view") === "pasek") setView("pasek");
   }
   $("go").onclick = start;
   // ⟳: the link again from scratch and the data anew (a screen that does not come, a song that stuck loading)
@@ -190,6 +192,21 @@
   sideFold(!!store("sideOff"));
   // No jam (it is off, or the host's Mac is): the songs as last seen, YouTube to listen, Na příště kept for later
   // lib: the library on the host's PC (online — previews, Na příště live; the jam itself is on the host's Mac)
+  // the songs kept in this browser (opened here before: their tracks, text, chords, tab — jam-sw.js)
+  let SAVED = new Set();
+  async function savedSongs(){
+    try{ if(!window.caches) return; const ks = await (await caches.open("pick-jam-songs")).keys(), got = new Set();
+      ks.forEach(r => { const u = new URL(r.url); if(u.pathname === "/g/stem") got.add(u.searchParams.get("name")); });
+      SAVED = got; }catch(e){}
+  }
+  // the host's computer is off: the saved songs played alone, as in the library (no jam, no camera)
+  function playOffline(){
+    solo = true; document.body.classList.remove("browse");
+    ["play", "toStart", "tDn", "tUp", "kDn", "kUp"].forEach(id => { $(id).disabled = false; });
+    $("rackW").hidden = false; $("join").hidden = false;
+    $("joinHi").innerHTML = `${esc(me.host)} teď není online — hraješ sám s písněmi, které máš uložené (${SAVED.size}). Text, akordy i taby jsou tu taky.`;
+    $("go").textContent = "Zapnout zvuk a hrát"; $("joinErr").textContent = "";
+  }
   function browse(lib){
     offline = !lib;
     $("login").hidden = true; $("join").hidden = true;
@@ -198,7 +215,10 @@
       : `${esc(me.host)} teď nehraje. Procházej písně, poslechni si je a dej jim ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
     if(lib){ $("state").textContent = "knihovna písní"; $("songSt").innerHTML = jamLine(); document.body.classList.add("browse"); watchJam(); }
     else { $("state").textContent = `${me.host} teď není online — procházíš písně z minula`;
-      $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`; }
+      $("songSt").innerHTML = `Až ${esc(me.host)} zapne jam, <a href="#" id="retry">zkus to znovu</a>. Písně si zatím pusť na YouTube a dej si je ★ <strong>Na příště</strong> — uvidí je i ${esc(me.host)}.`;
+      savedSongs().then(() => { if(!SAVED.size) return; paintSongs();
+        $("songSt").insertAdjacentHTML("beforeend", ` <button id="offGo" class="big" style="padding:5px 12px;margin-left:6px">▶ Hrát offline (uložené: ${SAVED.size})</button>`);
+        $("offGo").onclick = playOffline; }); }
     const rt = $("retry"); if(rt) rt.onclick = (e) => { e.preventDefault(); location.reload(); };
     ["camBtn", "voiceBtn", "play", "toStart", "tDn", "tUp", "kDn", "kUp"].forEach(id => { $(id).disabled = true; });
     $("rackW").hidden = true;
@@ -227,6 +247,12 @@
     const have = (me && me.engine) || [], win = /Windows/i.test(navigator.userAgent);
     return have.filter(n => win ? n.endsWith(".exe") : !n.endsWith(".exe"))
       .map(n => ({label: n.endsWith(".exe") ? "Stáhnout Pick Jam Engine pro Windows" : "Stáhnout Pick Jam Engine pro Mac", url: withK("/engine/" + n)}));
+  }
+  // SonoBus carries the guitars (outside the browser): here they are neither sent, played nor monitored
+  const sbOn = () => !!(window.JamSonoBus && JamSonoBus.on() && me && me.sonobus);
+  function sbSlot(){
+    const slot = $("sbSlot"); if(!slot || slot.firstChild || !window.JamSonoBus || !me.sonobus) return;
+    slot.append(JamSonoBus.box(me.sonobus, {toast: (t) => toast(t, 4000), onToggle: (v) => { applyMine(); toast(v ? "Kytary teď jdou přes SonoBus — tady ztichly" : "Kytary zase jdou přes Pick Jam", 4000); }}));
   }
   // the native engine's settings in SPOJENÍ, only while the host has that mode on
   function natSlot(){
@@ -314,7 +340,7 @@
   const art = (name) => withK(`/g/art?name=${encodeURIComponent(name)}`);
   const ytOf = (s) => s.yt || `https://www.youtube.com/results?search_query=${encodeURIComponent(((s.artist || "").split(",")[0] + " " + s.title).trim())}`;
   const rowHtml = (s) => `<button class="row ${S && S.name === s.name ? "cur" : ""} ${PV.name === s.name ? "pv" : ""}" data-n="${esc(s.name)}" title="Klik = náhled jen pro tebe · dvojklik = hrát spolu">
-      <img class="cv" loading="lazy" src="${art(s.name)}" onerror="this.removeAttribute('src')" alt=""><span class="tx"><b>${esc(s.title)}</b><span>${esc(s.artist || "")}${s.duration ? " · " + mmss(s.duration) : ""}</span></span>
+      <img class="cv" loading="lazy" src="${art(s.name)}" onerror="this.removeAttribute('src')" alt=""><span class="tx"><b>${SAVED.has(s.name) ? `<i class="saved" title="Uložená — hraje i offline">⤓</i> ` : ""}${esc(s.title)}</b><span>${esc(s.artist || "")}${s.duration ? " · " + mmss(s.duration) : ""}</span></span>
       <span class="rx"><span class="tn" title="Ladění">${esc((s.tune || "").replace(" standard", " std"))}</span>
       <span class="ic"><a class="yt" href="${esc(ytOf(s))}" target="_blank" rel="noopener" title="Pustit na YouTube">▶</a><b class="fav ${FAV.set.has(s.name) ? "on" : ""}" data-fav="${esc(s.name)}" title="Na příště — uvidí to i ${esc(me.host)}">★</b></span></span></button>`;
   function groupsOf(list){
@@ -343,7 +369,8 @@
     }
     box.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { const k = SB.cat + ":" + b.dataset.g; SB.open.has(k) ? SB.open.delete(k) : SB.open.add(k); paintSongs(); });
     box.querySelectorAll(".row[data-n]").forEach(b => { b.onclick = (e) => { if(e.target.closest(".yt")) return; if(e.target.closest("[data-fav]")){ e.preventDefault(); favToggle(b.dataset.n); return; }
-      offline ? window.open(ytOf(songs.find(x => x.name === b.dataset.n) || {}), "_blank", "noopener") : preview(b.dataset.n); }; b.ondblclick = () => { if(!offline) playTogether(b.dataset.n); }; });
+      offline ? (solo && SAVED.has(b.dataset.n) ? playTogether(b.dataset.n) : window.open(ytOf(songs.find(x => x.name === b.dataset.n) || {}), "_blank", "noopener")) : preview(b.dataset.n); };
+      b.ondblclick = () => { if(!offline || (solo && SAVED.has(b.dataset.n))) playTogether(b.dataset.n); }; });
     if(SB.cat === "fav" && !FAV.set.size) box.innerHTML = `<div class="muted" style="padding:10px">Zatím prázdné. Dej písním ★ — co si chcete příště zahrát. Uvidí to i ${esc(me.host)} v Picku (playlist „Jam — na příště“).</div>`;
     const more = $("more"); if(more) more.onclick = () => { SB.shown += 100; paintSongs(); };
   }
@@ -449,7 +476,7 @@
     const [i, l] = await Promise.all([getJ(`/g/song?name=${encodeURIComponent(name)}`).catch(() => null), getJ(`/g/lyrics?name=${encodeURIComponent(name)}`).catch(() => null)]);
     if(loading !== name) return;
     info = i || {channels: [], sections: [], chords: []}; lyrics = (l && l.lines) || [];
-    paintLyrics(); paintSecs();
+    paintLyrics(); paintSecs(); if(view === "pasek") pkPaint();
     // the tracks: what the host sends, else his mix's channels, else what the list says the song has
     // (a whole song from the PC has one track and no mix saved — without this it loaded nothing)
     const row = songs.find(x => x.name === name), chans = (info.channels || []).map(c => c.stem).filter(Boolean);
@@ -458,7 +485,7 @@
       const ok = await mix.load(name, want, (d, of) => { if(loading === name) $("songSt").textContent = `Stahuji stopy ${d}/${of}…`; });
       if(!ok || loading !== name) return;
     }catch(e){ if(loading === name){ $("songSt").textContent = e.message; loading = null; } return; }
-    loaded = name; loading = null;
+    loaded = name; loading = null; SAVED.add(name);
     applyMix(); renderRack(); paintSecs();
     $("songSt").textContent = solo ? "Stopy připravené — dej ▶ a hraj." : "Stopy připravené — hraje u obou zároveň.";
     if(solo && S && S.name === name && mix.duration) S = {...S, dur: mix.duration};
@@ -529,12 +556,12 @@
   }
   function applyMine(){
     if(!amp) return;
-    if(link){ link.setVolume(MY.hm ? 0 : MY.hv); link.setPan(MY.hp); }
+    if(link){ link.setVolume(MY.hm || sbOn() ? 0 : MY.hv); link.setPan(MY.hp); const wantIn = sbOn() ? null : myOut; if(link.input !== wantIn) link.setInput(wantIn); }
     inGain.gain.value = Math.pow(10, MY.ing / 20); amp.setInputDb(MY.ing); amp.setDrive(MY.drive);
     if(gateN) gateN.parameters.get("threshold").setTargetAtTime(MY.gate, ctx.currentTime, 0.02);
     if(mixBus) mixBus.gain.setTargetAtTime(Math.pow(10, (MY.bv || 0) / 20), ctx.currentTime, 0.02);
     sendMine();
-    monGain.gain.value = MY.mm || !$("mon").checked ? 0 : MY.mv; monPan.pan.value = MY.mp;
+    monGain.gain.value = MY.mm || !$("mon").checked || sbOn() ? 0 : MY.mv; monPan.pan.value = MY.mp;
     $("drive").value = MY.drive; $("driveV").textContent = MY.drive + " dB";
     store("mine", MY);
   }
@@ -744,8 +771,10 @@
   });
   function setView(v){
     view = v; document.querySelectorAll("#hviews [data-v]").forEach(x => x.classList.toggle("on", x.dataset.v === v));
-    $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; $("vTabs").hidden = view !== "tabs"; lyrIdx = -2;
+    $("vLyr").hidden = view !== "lyr"; $("vChords").hidden = view !== "chords"; $("vPick").hidden = view !== "pick"; $("vTabs").hidden = view !== "tabs"; $("vPasek").hidden = view !== "pasek"; lyrIdx = -2;
     if(view === "tabs") showTabs();
+    if(view === "pasek") pkShow();
+    store("view", view);
   }
   document.querySelectorAll("#hviews [data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
 
@@ -1067,6 +1096,140 @@
       at.load(new Uint8Array(buf));
     }catch(e){ $("tabBody").innerHTML = `<div class="tcard"><b>Tab se nepodařilo vykreslit.</b><span class="muted">${esc(e.message || "")}</span></div>`; }
   }
+
+
+  // ---------------------------------------------------------------- Pásek: text, chords and tab one under another,
+  // running with the song as in Pick — the red line is now. Text and chords by their own times; the tab bar by bar:
+  // on the song's own beat grid (beats.json's downbeats) when there is one, else by the tab's tempo, moved by a
+  // shift in bars and seconds kept per song (◀ takt / −0,1 / Takt 1 teď). Everything it reads is kept offline too.
+  const PK = {name: null, pxs: +(store("pkPxs") || 110), api: null, score: null, starts: [], downs: null, tabFor: null, raf: 0, track: 0};
+  const pkOffOf = (n) => (store("pkOff") || {})[n] || {bars: 0, sec: 0, set: false};
+  function pkOffSave(n, o){ const all = store("pkOff") || {}; all[n] = {...o, set: true}; store("pkOff", all); }
+  function pkPaint(){
+    if(!S || !S.name) return;
+    const X = (t) => Math.round(t * PK.pxs);
+    // the text: each line from its time to the next one's
+    const L = lyrics.filter(l => isFinite(l.t));
+    $("pkLyr").innerHTML = L.map((l, i) => { const end = i + 1 < L.length ? L[i + 1].t : l.t + 6;
+      return `<b data-i="${i}" style="left:${X(l.t)}px;width:${Math.max(30, X(end) - X(l.t) - 4)}px" title="${esc(l.text)}">${esc(l.text) || "♪"}</b>`; }).join("");
+    // the chords, the bar lines of the beat grid under them
+    const cs = ((info && info.chords) || []).filter(c => c.chord && c.chord !== "N");
+    $("pkCh").innerHTML = (PK.downs || []).map(t => `<s style="left:${X(t)}px"></s>`).join("")
+      + cs.map((c, i) => `<b data-i="${i}" style="left:${X(c.start)}px;width:${Math.max(18, X(c.end) - X(c.start) - 2)}px">${esc(c.chord)}</b>`).join("");
+    PK.lyrN = -2; PK.chN = -2;
+  }
+  async function pkSong(){
+    if(!S || !S.name){ $("pkTabMsg").textContent = "Vyber píseň."; return; }
+    if(PK.name === S.name) return;
+    const name = PK.name = S.name;
+    PK.downs = null; PK.score = null; PK.starts = []; $("pkTab").innerHTML = ""; $("pkTabTools").hidden = true;
+    $("pkTabMsg").hidden = false; $("pkTabMsg").textContent = "Hledám tab…";
+    try{ const g = await getJ(`/g/beats?name=${encodeURIComponent(name)}`); if(PK.name === name && Array.isArray(g.downbeats) && g.downbeats.length > 4) PK.downs = g.downbeats; }catch(e){}
+    pkPaint();
+    let list = [];
+    try{ list = (await getJ(`/g/tabs?name=${encodeURIComponent(name)}`)).tabs || []; }catch(e){}
+    if(PK.name !== name) return;
+    const file = list.find(t => t.kind === "file"), web = list.find(t => t.kind === "songsterr");
+    if(!file){
+      $("pkTabMsg").innerHTML = web ? `Tab k téhle písni je jen na Songsterru — <a href="${esc(web.url)}" target="_blank" rel="noopener">otevřít ↗</a>` : `K téhle písni tab nemám (Guitar Pro / MusicXML v Picku u ${esc(me.host)}).`;
+      return;
+    }
+    try{
+      if(!window.alphaTab) await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "/static/alphatab/alphaTab.min.js"; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+      const r = await api.raw(`/g/tabfile?name=${encodeURIComponent(name)}&path=${encodeURIComponent(file.path)}`);
+      if(!r.ok) throw new Error("Tab se nepodařilo stáhnout.");
+      const buf = await r.arrayBuffer();
+      if(PK.name !== name) return;
+      if(PK.api){ try{ PK.api.destroy(); }catch(e){} }
+      $("pkTab").innerHTML = "";
+      const at = PK.api = new alphaTab.AlphaTabApi($("pkTab"), {core: {fontDirectory: "/static/alphatab/font/", useWorkers: false, enableLazyLoading: false},
+        display: {layoutMode: alphaTab.LayoutMode.Horizontal, scale: +(store("pkTabScale") || 0.9)}, player: {enablePlayer: false}});
+      at.scoreLoaded.on((score) => {
+        PK.score = score; PK.starts = pkBarStarts(score);
+        const gtr = score.tracks.findIndex(tr => /guit|kytar|gtr/i.test(tr.name || "") && !/bass|basa/i.test(tr.name || ""));
+        PK.track = Math.max(0, store("pkTrack:" + name) ?? gtr);
+        $("pkTrack").innerHTML = score.tracks.map((tr, i) => `<option value="${i}">${esc(tr.name || "Stopa " + (i + 1))}</option>`).join("");
+        $("pkTrack").value = String(Math.min(PK.track, score.tracks.length - 1));
+        $("pkTabTools").hidden = false; pkOffPaint();
+        if(PK.track > 0 && score.tracks[PK.track]) setTimeout(() => at.renderTracks([score.tracks[PK.track]]), 0);
+      });
+      at.renderFinished.on(() => { $("pkTabMsg").hidden = true; });
+      at.load(new Uint8Array(buf), [0]);
+    }catch(e){ $("pkTabMsg").textContent = "Tab se nepodařilo vykreslit — " + (e.message || ""); }
+  }
+  // the tab's own bar starts (seconds from its first bar): time signature and tempo, tempo changes inside bars too
+  function pkBarStarts(score){
+    const out = []; let t = 0, bpm = score.tempo || 120;
+    for(const mb of score.masterBars){
+      out.push(t);
+      const q = (mb.timeSignatureNumerator || 4) * 4 / (mb.timeSignatureDenominator || 4);
+      const autos = (mb.tempoAutomations || (mb.tempoAutomation ? [mb.tempoAutomation] : [])).slice().sort((a, b) => (a.ratioPosition || 0) - (b.ratioPosition || 0));
+      let at = 0, d = 0;
+      for(const a of autos){ const r = Math.max(at, Math.min(1, a.ratioPosition || 0)); d += (r - at) * q * 60 / bpm; at = r; if(a.value > 0) bpm = a.value; }
+      t += d + (1 - at) * q * 60 / bpm;
+    }
+    out.push(t);
+    return out;
+  }
+  // when bar i of the tab starts in the song
+  function pkBarTime(i){
+    const o = pkOffOf(PK.name), D = PK.downs;
+    if(D && D.length){
+      const k = i + o.bars;
+      if(k >= 0 && k < D.length) return D[k] + o.sec;
+      const len = D.length > 1 ? D[D.length - 1] - D[D.length - 2] : 2;
+      return (k < 0 ? D[0] + k * len : D[D.length - 1] + (k - D.length + 1) * len) + o.sec;
+    }
+    // no grid: the tab's tempo, from the first bar heard (the song's first downbeat when known, else 0) + the shift
+    const n = PK.starts.length - 1, len = n > 0 ? PK.starts[n] / n : 2;
+    const base = i < PK.starts.length ? PK.starts[i] : PK.starts[n] + (i - n) * len;
+    return base + o.bars * len + o.sec;
+  }
+  function pkOffPaint(){ const o = pkOffOf(PK.name);
+    $("pkOff").textContent = `${o.bars > 0 ? "+" : ""}${o.bars} t · ${o.sec >= 0 ? "+" : "−"}${Math.abs(o.sec).toFixed(1).replace(".", ",")} s`; }
+  function pkShift(bars, sec){ if(!PK.name) return; const o = pkOffOf(PK.name); pkOffSave(PK.name, {bars: o.bars + bars, sec: Math.round((o.sec + sec) * 1000) / 1000}); pkOffPaint(); }
+  $("pkBarE").onclick = () => pkShift(-1, 0); $("pkBarL").onclick = () => pkShift(1, 0);
+  $("pkSecE").onclick = (e) => pkShift(0, e.shiftKey ? -1 : -0.1); $("pkSecL").onclick = (e) => pkShift(0, e.shiftKey ? 1 : 0.1);
+  // bar 1 of the tab begins now: on the grid the nearest downbeat becomes it, without one this moment
+  $("pkSync").onclick = () => {
+    if(!PK.name) return; const pos = posNow(), D = PK.downs;
+    if(D && D.length){ let k = 0; D.forEach((t, j) => { if(Math.abs(t - pos) < Math.abs(D[k] - pos)) k = j; }); pkOffSave(PK.name, {bars: k, sec: 0}); }
+    else pkOffSave(PK.name, {bars: 0, sec: Math.round(pos * 1000) / 1000});
+    pkOffPaint(); toast("Takt 1 tabu je teď tady — dolaď ±0,1, kdyby ujížděl.", 3500);
+  };
+  $("pkTrack").onchange = (e) => { if(!PK.score || !PK.api) return; PK.track = +e.target.value; store("pkTrack:" + PK.name, PK.track); PK.api.renderTracks([PK.score.tracks[PK.track]]); };
+  const pkZoom = (f) => { PK.pxs = Math.max(40, Math.min(320, Math.round(PK.pxs * f))); store("pkPxs", PK.pxs); pkPaint(); };
+  $("pkZo").onclick = () => pkZoom(1 / 1.25); $("pkZi").onclick = () => pkZoom(1.25);
+  // every frame while it is shown: the lanes move under the red line
+  function pkFrame(){
+    PK.raf = 0;
+    if(view !== "pasek" || $("vPasek").hidden) return;
+    PK.raf = requestAnimationFrame(pkFrame);
+    if(!S || !S.name) return;
+    if(PK.name !== S.name){ pkSong(); return; }
+    const pos = posNow(), roll = $("pkLyr").parentElement, hx = Math.round(roll.clientWidth * 0.3);
+    $("pkHead").style.top = $("vPasek").querySelector(".pk-lane").offsetTop + "px";
+    $("pkHead").style.left = (roll.offsetLeft + hx) + "px";
+    const tx = `translateX(${hx - pos * PK.pxs}px)`;
+    $("pkLyr").style.transform = tx; $("pkCh").style.transform = tx;
+    const L = lyrics; let li = -1; for(let k = 0; k < L.length; k++){ if(L[k].t <= pos + 0.1) li = k; else break; }
+    if(li !== PK.lyrN){ PK.lyrN = li; $("pkLyr").querySelectorAll("b").forEach(b => b.classList.toggle("now", +b.dataset.i === li)); }
+    const cs = ((info && info.chords) || []).filter(c => c.chord && c.chord !== "N"), ci = cs.findIndex(c => c.start <= pos && c.end > pos);
+    if(ci !== PK.chN){ PK.chN = ci; $("pkCh").querySelectorAll("b").forEach(b => b.classList.toggle("now", +b.dataset.i === ci)); }
+    // the tab: the bar being played and how far into it
+    const lk = PK.api && PK.score && (PK.api.boundsLookup || (PK.api.renderer && PK.api.renderer.boundsLookup));
+    if(lk){
+      const n = PK.score.masterBars.length; let i = -1;
+      for(let k = 0; k < n; k++){ if(pkBarTime(k) <= pos) i = k; else break; }
+      const a = lk.findMasterBarByIndex(Math.max(0, i)); if(!a) return;
+      let x = a.realBounds.x;
+      if(i < 0){ x -= Math.max(0, pkBarTime(0) - pos) * PK.pxs; }
+      else { const t0 = pkBarTime(i), t1 = pkBarTime(i + 1), b = lk.findMasterBarByIndex(i + 1), f = t1 > t0 ? Math.min(1, (pos - t0) / (t1 - t0)) : 0;
+        x += f * (b ? b.realBounds.x - a.realBounds.x : a.realBounds.w); }
+      $("pkTab").style.transform = `translateX(${Math.round(hx - x)}px)`;
+    }
+  }
+  function pkShow(){ pkSong(); pkPaint(); if(!PK.raf) PK.raf = requestAnimationFrame(pkFrame); }
 
   // ---------------------------------------------------------------- the rest of the controls, the loop
   $("inDev").onchange = $("inCh").onchange = () => useGuitar().catch(() => {});

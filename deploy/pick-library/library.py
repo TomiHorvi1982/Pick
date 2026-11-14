@@ -45,7 +45,7 @@ JAM_URL = os.environ.get("PICK_JAM_URL") or "https://neverlast.cz"
 TOKEN = os.environ.get("PICK_SYNC_TOKEN") or ""
 STEM_NAMES = ["drums", "bass", "guitar", "guitar_rhythm", "guitar_solo", "vocals", "piano", "other"]
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".aiff", ".aif"}
-GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js"}
+GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js", "jam-sonobus.js"}
 # Pick DJ: two decks over the separated songs (static/dj*.js), put into the page by page()
 DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
 LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab", "worklets": STATIC / "worklets", "landing": STATIC / "landing"}
@@ -453,7 +453,20 @@ def me(request: Request):
     on = bool(st.get("on")) and time.time() - (st.get("at") or 0) < 180          # the Mac says so, at least every minute
     who = _who(request)
     return {"user": who, "login": True, "host": HOST, "on": False, "library": True, "jam": on, "jam_url": "/g/jam-go" if on else (st.get("url") or JAM_URL),
-            "engine": _engines() if who else []}
+            "engine": _engines() if who else [], "sonobus": _sonobus(st) if who else None}
+
+
+def _sonobus(st: dict) -> Optional[dict]:
+    """The SonoBus group the Mac uses for the jam (its name and password come from the Mac, with the status)."""
+    sb = st.get("sonobus")
+    if not isinstance(sb, dict):
+        return None
+    g, p, srv = str(sb.get("group") or ""), str(sb.get("password") or ""), str(sb.get("server") or "")
+    if not (re.fullmatch(r"pick-[0-9a-f]{10}", g) and re.fullmatch(r"[0-9a-f]{12}", p) and re.fullmatch(r"[a-z0-9.-]{3,80}:\d{2,5}", srv)):
+        return None
+    from urllib.parse import quote
+    return {"server": srv, "group": g, "password": p, "app": f"sonobus://{srv}/?g={g}&p={p}",
+            "web": f"http://go.sonobus.net/sblaunch?s={quote(srv)}&g={g}&p={p}"}
 
 
 # ---------------------------------------------------------------- Pick Jam Engine: the Mac sends its builds, a friend downloads one
@@ -1019,12 +1032,82 @@ def g_sections(request: Request, name: str):
     return {"stem": None, "sections": []}            # a print of his own is made on the Mac, in a jam
 
 
+# ---------------------------------------------------------------- the songs' tabs (sent by the Mac: which go with which
+# song, and the Guitar Pro / MusicXML files themselves, each once by its content's id)
+TAB_DIR = STATE / "tabs"
+
+
+def _tab_map() -> dict:
+    m = _read("tabs.json", {})
+    return m if isinstance(m, dict) else {}
+
+
 @app.get("/g/tabs")
 def g_tabs(request: Request, name: str):
     who, bad = _need(request)
     if bad:
         return bad
-    return {"tabs": []}
+    out = []
+    for t in _tab_map().get(name) or []:
+        if t.get("kind") == "songsterr":
+            out.append({"kind": "songsterr", "songsterr": t["songsterr"], "name": t.get("name") or "", "url": f"https://www.songsterr.com/a/wa/song?id={t['songsterr']}"})
+        elif t.get("kind") == "file" and (TAB_DIR / t["id"]).is_file():
+            out.append({"kind": "file", "path": t["id"], "name": t.get("name") or "Taby"})
+    return {"tabs": out}
+
+
+@app.get("/g/tabfile")
+def g_tabfile(request: Request, name: str, path: str):
+    who, bad = _need(request)
+    if bad:
+        return bad
+    if not any(t.get("kind") == "file" and t.get("id") == path for t in _tab_map().get(name) or []) or not (TAB_DIR / path).is_file():
+        return JSONResponse({"error": "Nenalezeno."}, status_code=404)
+    return Response((TAB_DIR / path).read_bytes(), media_type="application/octet-stream")
+
+
+@app.get("/sync/tabs")
+def sync_tabs_have(request: Request):
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    return {"files": [f.name for f in TAB_DIR.iterdir() if re.fullmatch(r"[0-9a-f]{20}", f.name)] if TAB_DIR.is_dir() else []}
+
+
+@app.put("/sync/tabfile/{h}")
+async def sync_tabfile(request: Request, h: str):
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    data = await request.body()
+    if not re.fullmatch(r"[0-9a-f]{20}", h) or not 20 < len(data) < 5_000_000 or hashlib.sha1(data).hexdigest()[:20] != h:
+        return JSONResponse({"error": "Špatný soubor."}, status_code=400)
+    TAB_DIR.mkdir(parents=True, exist_ok=True)
+    (TAB_DIR / h).write_bytes(data)
+    return {"ok": True}
+
+
+@app.put("/sync/tabs")
+async def sync_tabs(request: Request):
+    """{song: [{"kind": "file", "id", "name"} | {"kind": "songsterr", "songsterr": id, "name"}]}"""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    out = {}
+    for n, lst in list(((body or {}).get("tabs") or {}).items())[:20000]:
+        if not isinstance(n, str) or not isinstance(lst, list):
+            continue
+        keep = []
+        for t in lst[:20]:
+            if not isinstance(t, dict):
+                continue
+            nm = str(t.get("name") or "")[:200]
+            if t.get("kind") == "file" and isinstance(t.get("id"), str) and re.fullmatch(r"[0-9a-f]{20}", t["id"]):
+                keep.append({"kind": "file", "id": t["id"], "name": nm})
+            elif t.get("kind") == "songsterr" and isinstance(t.get("songsterr"), int):
+                keep.append({"kind": "songsterr", "songsterr": t["songsterr"], "name": nm})
+        if keep:
+            out[n[:300]] = keep
+    _write("tabs.json", out)
+    return {"ok": True, "songs": len(out)}
 
 
 # ---------------------------------------------------------------- playlists and "Na příště"
@@ -1252,7 +1335,9 @@ async def sync_status(request: Request):
         return JSONResponse({"error": "Nepovoleno."}, status_code=403)
     body = await request.json()
     url = str((body or {}).get("url") or "")
-    _write("status.json", {"on": bool((body or {}).get("on")), "url": url if url.startswith("https://") else "", "at": time.time()})
+    sb = (body or {}).get("sonobus")
+    sb = {k: str(sb.get(k) or "")[:100] for k in ("server", "group", "password")} if isinstance(sb, dict) else None
+    _write("status.json", {"on": bool((body or {}).get("on")), "url": url if url.startswith("https://") else "", "at": time.time(), "sonobus": sb})
     return {"ok": True, "prepared": {k: PREP[k] for k in ("on", "done", "todo", "made", "failed", "note")}, "free_gb": round(_free(STATE) / 1024 ** 3, 1), "used_gb": round(_cache_size() / 1024 ** 3, 1)}
 
 

@@ -327,3 +327,27 @@ def test_into_the_jam_without_a_second_login(lib, monkeypatch):
     assert jam._sso_user(t) == "Pavel"
     assert jam._sso_user(t) is None                                       # a ticket goes in once
     assert jam._sso_user(t[:-1] + ("0" if t[-1] != "0" else "1")) is None  # signed by someone else: no
+
+
+def test_tabs_and_sonobus_from_the_mac(lib):
+    mod, c = lib
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    name = "Band - Song [abcdefghijk]"
+    data = b"GP5" * 50
+    hid = __import__("hashlib").sha1(data).hexdigest()[:20]
+    assert c.put("/sync/tabfile/" + "0" * 20, content=data, headers=h).status_code == 400          # its id is its content
+    assert c.put(f"/sync/tabfile/{hid}", content=data, headers=h).json()["ok"]
+    assert c.get("/sync/tabs", headers=h).json()["files"] == [hid]
+    assert c.put("/sync/tabs", headers=h, json={"tabs": {name: [{"kind": "file", "id": hid, "name": "Tab"}, {"kind": "songsterr", "songsterr": 42, "name": "Web"},
+                                                               {"kind": "file", "id": "../etc", "name": "x"}]}}).json()["songs"] == 1
+    c.post("/sync/status", headers=h, json={"on": False, "url": "", "sonobus": {"server": "aoo.sonobus.net:10998", "group": "pick-0123456789", "password": "0123456789ab"}})
+    assert c.get("/g/tabs", params={"name": name}).status_code == 403
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    tabs = c.get("/g/tabs", params={"name": name}).json()["tabs"]
+    assert tabs == [{"kind": "file", "path": hid, "name": "Tab"}, {"kind": "songsterr", "songsterr": 42, "name": "Web", "url": "https://www.songsterr.com/a/wa/song?id=42"}]
+    assert c.get("/g/tabfile", params={"name": name, "path": hid}).content == data
+    assert c.get("/g/tabfile", params={"name": "Other", "path": hid}).status_code == 404
+    sb = c.get("/g/me").json()["sonobus"]
+    assert sb["app"] == "sonobus://aoo.sonobus.net:10998/?g=pick-0123456789&p=0123456789ab"
+    assert c.get("/static/jam-sonobus.js").status_code == 200
+    assert c.put("/sync/tabs", json={"tabs": {}}).status_code == 403

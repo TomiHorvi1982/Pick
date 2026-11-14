@@ -33,7 +33,7 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC = APP_DIR / "static"
 GATE_PORT = int(os.environ.get("PICK_JAM_PORT") or 8766)        # tests run their own on another port
 GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript", "jam-chat.js": "text/javascript", "jam-mix.js": "text/javascript", "jam-amp.js": "text/javascript",
-               "dj-core.js": "text/javascript", "dj.js": "text/javascript", "dj-library.js": "text/javascript"}
+               "dj-core.js": "text/javascript", "dj.js": "text/javascript", "dj-library.js": "text/javascript", "jam-sonobus.js": "text/javascript"}
 # Pick DJ in the friend's page too (the same as in the library on the PC): put in by guest_page
 DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
 CHAT_KEEP = 300
@@ -282,6 +282,25 @@ def _cf_down() -> None:
 gate = FastAPI()
 
 
+# SonoBus (sonobus.net) for the guitars outside the browser — ASIO on Windows, the least delay. Both join the same
+# private group on SonoBus's public server: its name and password come from a secret kept here, so they stay the
+# same from jam to jam (SonoBus remembers them) and only the friend who is let in learns them.
+SONOBUS_SERVER = "aoo.sonobus.net:10998"
+
+
+def sonobus() -> dict:
+    sec = conf().get("sonobus_secret")
+    if not sec:
+        sec = secrets.token_hex(16)
+        conf_save(sonobus_secret=sec)
+    h = hashlib.sha256(sec.encode()).hexdigest()
+    g, p = "pick-" + h[:10], h[10:22]
+    from urllib.parse import quote
+    return {"server": SONOBUS_SERVER, "group": g, "password": p,
+            "app": f"sonobus://{SONOBUS_SERVER}/?g={quote(g)}&p={quote(p)}",
+            "web": f"http://go.sonobus.net/sblaunch?s={quote(SONOBUS_SERVER)}&g={quote(g)}&p={quote(p)}"}
+
+
 def _key_ok(k: Optional[str]) -> bool:
     return bool(ROOM["key"]) and bool(k) and secrets.compare_digest(str(k), str(ROOM["key"]))
 
@@ -495,7 +514,7 @@ def guest_logout(request: Request):
 def guest_me(request: Request, k: str = ""):
     who = _who(request.cookies, k)
     return {"user": who, "login": bool(users()), "host": host_name(), "on": bool(ROOM["key"]),
-            "engine": engine_files() if who else []}
+            "engine": engine_files() if who else [], "sonobus": sonobus() if who else None}
 
 
 # Pick Jam Engine (engine/, built by engine/build-dist.sh): the friend downloads it from here once let in
@@ -682,7 +701,7 @@ def _gate_start() -> None:
 def jam_status():
     via = conf().get("via") or "tailscale"
     return {"on": bool(ROOM["key"]), "url": ROOM["url"], "guest": bool(ROOM["guest"]), "via": via,
-            "tailscale": tailscale_state() if via == "tailscale" else {"ok": True}, "domain": cf_state()}
+            "tailscale": tailscale_state() if via == "tailscale" else {"ok": True}, "domain": cf_state(), "sonobus": sonobus()}
 
 
 @router.post("/api/jam/start")
@@ -798,13 +817,17 @@ async def g_songs(request: Request):
     who, bad = _guest_or_403(request)
     if bad:
         return bad
+    return {"songs": await _songs_rows()}
+
+
+async def _songs_rows() -> list:
     if time.time() - _SONGS["at"] > 120:
         r = await _pick("/api/stems")
         rows = r.json() if r.status_code == 200 else []
         _SONGS.update(at=time.time(), rows=[{"name": x.get("name"), "stems": x.get("stems") or [], "duration": x.get("duration"),
                                              "artist": (x.get("meta") or {}).get("artist") or "", "title": (x.get("meta") or {}).get("title") or x.get("name"),
                                              "tuning": x.get("tuning"), "yt": _yt_of(x.get("name") or "")} for x in rows if isinstance(x, dict) and x.get("stems")])
-    return {"songs": _SONGS["rows"]}
+    return _SONGS["rows"]
 
 
 def _song_ok(name: str) -> bool:
@@ -868,14 +891,21 @@ def g_stem(request: Request, name: str, stem: str):
     STEM_CACHE.mkdir(parents=True, exist_ok=True)
     out = STEM_CACHE / f"{sig}.webm"
     if not out.is_file():
-        part = out.with_suffix(".part.webm")
+        # each request its own part file: two asking for the same track at once (the page and its offline copy) do not collide
+        part = STEM_CACHE / f"{sig}.{secrets.token_hex(4)}.part"
         r = subprocess.run([ffmpeg(), "-v", "error", "-y", "-i", str(f), "-vn", "-ac", "2", "-ar", "48000", "-c:a", "libopus", "-b:a", "160k",
                             "-f", "webm", str(part)], capture_output=True, timeout=600)
         if r.returncode != 0 or not part.is_file():
             part.unlink(missing_ok=True)
             return JSONResponse({"error": "Stopu se nepodařilo připravit."}, status_code=500)
         part.replace(out)
-        for old in sorted(STEM_CACHE.glob("*.webm"), key=lambda p: p.stat().st_mtime)[:-120]:
+
+        def mtime(p: Path) -> float:
+            try:
+                return p.stat().st_mtime
+            except OSError:
+                return 0.0
+        for old in sorted(STEM_CACHE.glob("*.webm"), key=mtime)[:-120]:
             old.unlink(missing_ok=True)
     return FileResponse(out, media_type="audio/webm", headers={"Cache-Control": "private, max-age=86400"})
 
@@ -1121,6 +1151,7 @@ TAB_EXTS = {".gp", ".gp3", ".gp4", ".gp5", ".gpx", ".gp7", ".xml", ".musicxml", 
 _TABS: Dict = {"at": 0.0, "rows": []}
 
 
+@__import__("functools").lru_cache(maxsize=50000)
 def _fold(t: str) -> str:
     import unicodedata
     return " ".join("".join(c for c in unicodedata.normalize("NFD", (t or "").lower()) if c.isalnum() or c == " ").split())
@@ -1156,7 +1187,7 @@ async def g_tabs(request: Request, name: str):
     if not _song_ok(name):
         return JSONResponse({"error": "Píseň nenalezena."}, status_code=404)
     if not _SONGS["rows"]:
-        await g_songs(request)
+        await _songs_rows()
     return {"tabs": await _tabs_of(name)}
 
 
@@ -1300,7 +1331,51 @@ def lib_sync() -> dict:
 
 
 def lib_status() -> dict:
-    return _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else ""})
+    sb = sonobus()
+    return _lib_call("POST", "/sync/status", {"on": bool(ROOM["key"]), "url": (ROOM["url"] or "").split("?")[0] if ROOM["key"] else "",
+                                              "sonobus": {k: sb[k] for k in ("server", "group", "password")}})
+
+
+def lib_tabs() -> None:
+    """The songs' tabs to the library on the PC, so the friend has them between jams (and in the Pásek): which tab goes
+    with which song, and each Guitar Pro / MusicXML file once (by its content) — only when something changed."""
+    import urllib.request
+
+    async def gather():
+        await _songs_rows()
+        _TABS["at"] = 0
+        out, files = {}, {}
+        for row in _SONGS["rows"]:
+            got = []
+            for t in await _tabs_of(row["name"]):
+                if t["kind"] == "songsterr":
+                    got.append({"kind": "songsterr", "songsterr": t["songsterr"], "name": t["name"]})
+                    continue
+                r = await _pick("/api/tabfiles/file", {"path": t["path"]})
+                if r.status_code != 200 or not 20 < len(r.content) < 5_000_000:
+                    continue
+                h = hashlib.sha1(r.content).hexdigest()[:20]
+                files[h] = r.content
+                got.append({"kind": "file", "id": h, "name": t["name"]})
+            if got:
+                out[row["name"]] = got
+        return out, files
+
+    tabs, files = asyncio.run(gather())
+    sig = hashlib.sha1(json.dumps(tabs, sort_keys=True).encode()).hexdigest()
+    if conf().get("lib_tabs_sig") == sig:
+        return
+    url, tok = _lib()
+    have = set(_lib_call("GET", "/sync/tabs").get("files") or [])
+    for h, data in files.items():
+        if h in have:
+            continue
+        req = urllib.request.Request(f"{url}/sync/tabfile/{h}", method="PUT", data=data,
+                                     headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/octet-stream", "User-Agent": "Pick"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            r.read()
+    _lib_call("PUT", "/sync/tabs", {"tabs": tabs}, timeout=60)
+    conf_save(lib_tabs_sig=sig)
 
 
 def lib_users() -> None:
@@ -1383,7 +1458,7 @@ def _lib_loop() -> None:
                 lib_sync()
                 if n % 10 == 0:                     # every ten minutes is enough for these
                     lib_playlists()
-                    for step in (lib_engine, lib_covers, lib_pcsongs):
+                    for step in (lib_engine, lib_covers, lib_pcsongs, lib_tabs):
                         try:
                             step()
                         except Exception:
@@ -1430,7 +1505,7 @@ async def jam_library_test():
     try:
         st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
-        for step in (lib_playlists, lib_pcsongs, lib_engine, lib_covers):
+        for step in (lib_playlists, lib_pcsongs, lib_engine, lib_covers, lib_tabs):
             try:
                 await asyncio.to_thread(step)
             except Exception:

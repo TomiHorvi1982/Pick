@@ -1938,6 +1938,23 @@ vyrovnávací pamětí (automaticky, nebo pevně 1–12 balíčků); *jako hovor
 síti, ale asi o 30 ms pomalejší. Zpoždění se ukazuje v ms (síť · paměť · výstup). Kamarád slyší tvou kytaru tak, jak
 zní v Picku (otisk, NAM, efekty); jeho kytara jde do tvého mixu.
 
+**Kytary přes SonoBus** (nejmenší zpoždění, mimo prohlížeč — na Windows přes ASIO): v panelu Jamu u tebe i v Nastavení →
+Spojení u kamaráda zaškrtni *Kytary přes SonoBus* → **Otevřít SonoBus** (odkaz `sonobus://…` vyplní skupinu a heslo;
+nejde-li otevřít, *Kopírovat odkaz* a pak SonoBus spustit — vyplní se ze schránky) → Connect. Skupina `pick-…` a heslo
+se počítají z tajemství v `jam.json` (`jam.sonobus()`), jsou stejné z jamu na jam a dostane je jen pustěný kamarád (i v knihovně
+na PC — Mac je posílá se stavem). Se zaškrtnutím Pick Jam kytary neposílá ani nepřehrává (nebyly by slyšet dvakrát);
+píseň, text, taby, kamera a chat jedou dál v Jamu.
+
+**Pásek** (záložka u kamaráda): text, akordy a tab pod sebou, běží s písní pod červenou čarou jako v Picku. Text a akordy podle
+svých časů, tab takt po taktu — na beat gridu písně (`beats.json`, dobové údery), bez něj podle tempa tabu. Posun tabu
+◀ takt / −0,1 / +0,1 / takt ▶ nebo **Takt 1 teď** (klik ve chvíli, kdy začíná 1. takt tabu) si stránka pamatuje u každé písně.
+Tab je Guitar Pro / MusicXML z Picku (Taby); Songsterr jen jako odkaz. Knihovně na PC posílá Mac taby každých 10 minut
+(`lib_tabs`: který tab ke které písni a soubory jednou podle obsahu), takže Pásek je i mezi jamy.
+
+**Offline**: co kamarád jednou otevřel (stopy, text, akordy, beat grid, taby — `jam-sw.js`, mezipaměť `pick-jam-songs`,
+nejvýš 25 písní, nejstarší jdou pryč), má v prohlížeči. Když je tvůj počítač vypnutý, stránka ukáže písně z minula
+(uložené mají ⤓) a tlačítko **Hrát offline** — uložené písně si zahraje sám, s mixem, Páskem a otisky na svou kytaru.
+
 **Jednou nastavit (Tailscale)**: spusť aplikaci Tailscale a přihlas se; v administraci Tailscale zapni *MagicDNS* a
 *HTTPS Certificates*; tenhle Mac kamarádovi nasdílej (*Share…*), on si nainstaluje Tailscale a přihlásí se. Pak v Picku
 **Zahájit jam** → Kopírovat odkaz → poslat. Kamarád vidí jen stránku jamu (jam.py: brána na 127.0.0.1:8766 přes
