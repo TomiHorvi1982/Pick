@@ -211,6 +211,27 @@
   .gauge::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:#6ee7a0}
   .tstr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.tstr span{border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-weight:700}.tstr span.on{border-color:var(--ok);color:var(--ok)}
   .tabsv{position:absolute;inset:0;display:flex;flex-direction:column}
+  i.saved{font-style:normal;color:var(--acc);font-weight:900}
+  .view:has(#vPasek:not([hidden])){min-height:380px}
+  .pasek{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;--hx:30%}
+  .pk-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--line);font-size:12px}
+  .pk-tools button{padding:2px 8px;font-size:12px}.pk-t{font-weight:800;letter-spacing:.04em}.pk-sp{flex:1}.pk-tl{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+  .pk-off{min-width:92px;text-align:center;color:var(--dim);font-variant-numeric:tabular-nums}
+  .pk-lane{position:relative;display:flex;border-bottom:1px solid var(--line);flex:none;height:54px}
+  .pk-chl{height:46px}.pk-tabl{flex:1;height:auto;min-height:150px;border-bottom:0}
+  .pk-lab{position:absolute;left:6px;top:4px;z-index:3;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;background:rgba(10,10,16,.8);padding:1px 5px;border-radius:4px}
+  .pk-roll{position:relative;flex:1;overflow:hidden}
+  .pk-track{position:absolute;top:0;bottom:0;left:0;will-change:transform}
+  .pk-track>b{position:absolute;top:10px;bottom:8px;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:17px;color:#8a8aa0;border-left:2px solid rgba(255,255,255,.18)}
+  .pk-track>b.now{color:#fff;border-left-color:var(--acc);background:rgba(112,220,211,.1)}
+  #pkCh>b{top:6px;bottom:6px;font-size:16px;font-weight:800;color:#fff;border-radius:6px;border-left:0;background:#24243a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);margin-right:2px}
+  #pkCh>b.now{background:var(--acc);color:#0b0b12}
+  .pk-track>s{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.14);text-decoration:none}
+  .pk-tabroll{background:#f6f4ee;color:#111}
+  .pk-tabhost{position:absolute;top:0;left:0;width:100%;will-change:transform}
+  .pk-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:#555;font-size:14px;padding:0 16px;text-align:center}
+  .pk-msg a{color:#0a6;font-weight:700}
+  .pk-head{position:absolute;top:33px;bottom:0;left:var(--hx);width:2px;margin-left:-1px;background:#ff5d5d;box-shadow:0 0 8px #ff5d5d;z-index:4;pointer-events:none}
   .tbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
   .tbody{flex:1;overflow:auto;background:#f6f4ee;color:#111}
   .tcard{max-width:560px;margin:30px auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
@@ -280,7 +301,7 @@
   <span class="lat" id="lat" title="Za jak dlouho slyšíš kytaru kamaráda: jeho vstup + síť + vyrovnávací paměť + tvůj výstup"></span>
   <a id="jamGo" class="jam-go" hidden href="#" title="Jam na Macu běží — přepne do něj">● Připojit se k jamu</a><button id="instBtn" hidden title="Dát Pick Jam na plochu jako aplikaci (vlastní okno, ikona)">⤓ Na plochu</button><button id="stageIn" hidden title="Tomi má zapnutý text a taby přes celou obrazovku — přepnout na ně">▣ Text a taby</button><button id="setBtn" title="Zvukovka, kamera, mikrofon, spojení">⚙ Nastavení</button></header>
 <div class="bar2" id="bar2">
-  <nav class="hviews" id="hviews"><button data-v="lyr" class="on">Text</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick" title="Tomiho sdílená obrazovka Picku">Pickscreen</button><span id="djSlot"></span></nav>
+  <nav class="hviews" id="hviews"><button data-v="lyr" class="on">Text</button><button data-v="pasek" title="Text, akordy a tab pod sebou — běží s písní jako v Picku">Pásek</button><button data-v="chords">Akordy</button><button data-v="tabs">Taby</button><button data-v="pick" title="Tomiho sdílená obrazovka Picku">Pickscreen</button><span id="djSlot"></span></nav>
   <div class="hp" id="hp">
     <button id="hpPrev" title="Na začátek / předchozí píseň">⏮</button><button class="hpp" id="hpPlay" title="Přehrát / pozastavit (mezerník)">▶</button><button id="hpStop" title="Zastavit">■</button><button id="hpNext" title="Další píseň">⏭</button>
     <div class="hpt"><span id="hpTitle">Vyber píseň</span><input type="range" id="hpSeek" min="0" max="1000" value="0" title="Posunout — oběma"></div>
@@ -313,6 +334,16 @@
     <div class="seek" id="seek" title="Klikni a píseň skočí — oběma"><canvas id="wave"></canvas><div class="secs" id="secs"></div><div class="loopr" id="loopR" hidden></div><div class="head" id="head"></div></div>
     <div class="view">
       <div class="lyr" id="vLyr"><p class="muted">Text se objeví, až bude vybraná píseň.</p></div>
+      <div class="pasek" id="vPasek" hidden>
+        <div class="pk-tools"><span class="pk-t">Pásek</span><button id="pkZo" title="Méně času na šířku">−</button><button id="pkZi" title="Víc času na šířku">+</button>
+          <span class="pk-sp"></span><span class="pk-tl" id="pkTabTools" hidden>Tab: <select id="pkTrack"></select>
+          <button id="pkBarE" title="Tab o takt dřív">◀ takt</button><button id="pkSecE" title="Tab o 0,1 s dřív (Shift: 1 s)">−0,1</button><span id="pkOff" class="pk-off"></span><button id="pkSecL" title="Tab o 0,1 s později (Shift: 1 s)">+0,1</button><button id="pkBarL" title="Tab o takt později">takt ▶</button>
+          <button id="pkSync" title="Klikni ve chvíli, kdy v písni začíná 1. takt tabu">Takt 1 teď</button></span></div>
+        <div class="pk-lane"><span class="pk-lab">Text</span><div class="pk-roll"><div class="pk-track" id="pkLyr"></div></div></div>
+        <div class="pk-lane pk-chl"><span class="pk-lab">Akordy</span><div class="pk-roll"><div class="pk-track" id="pkCh"></div></div></div>
+        <div class="pk-lane pk-tabl"><span class="pk-lab">Tab</span><div class="pk-roll pk-tabroll" id="pkTabRoll"><div class="pk-tabhost" id="pkTab"></div><div class="pk-msg" id="pkTabMsg">Vyber píseň.</div></div></div>
+        <i class="pk-head" id="pkHead"></i>
+      </div>
       <div class="chords" id="vChords" hidden><div class="now" id="chNow">—</div><div class="next" id="chNext"></div></div>
       <div class="tabsv" id="vTabs" hidden><div class="tbar" id="tabBar"></div><div class="tbody" id="tabBody"><div class="muted" style="padding:20px">Vyber píseň.</div></div></div>
       <div class="pickv" id="vPick" hidden><span id="pickNone">Až kamarád v Picku klikne „Sdílet Pick“, uvidíš tu jeho obrazovku s taby a akordy.</span>
@@ -358,7 +389,7 @@
     <label class="row"><span>Slyšet se</span><input type="checkbox" id="mon" checked> <span class="muted" style="min-width:0">vypni, jen když se slyšíš přímo ze zvukovky — pak ale neuslyšíš otisk</span></label></div>
   <div class="card"><h3>SPOJENÍ</h3>
     <label class="row"><span>Vyrovnávání</span><select id="buf"><option value="auto">automaticky</option></select></label>
-    <div class="muted" id="mode"></div><div id="natSlot"></div><div class="muted" id="route"></div></div>
+    <div class="muted" id="mode"></div><div id="natSlot"></div><div id="sbSlot"></div><div class="muted" id="route"></div></div>
   <div class="card"><h3>OBRAZ A ŘEČ</h3>
     <label class="row"><span>Kamera</span><select id="camDev"></select></label>
     <label class="row"><span>Mikrofon na řeč</span><select id="voiceDev"></select></label>
@@ -383,6 +414,7 @@
   <div class="stbody"><div class="stpane" id="stLyr"></div><div class="stpane" id="stTab"></div></div></div>
 <audio id="voice" autoplay></audio>
 <script src="/static/jam-engine.js"></script>
+<script src="/static/jam-sonobus.js"></script>
 <script src="/static/jam-chat.js"></script>
 <script src="/static/jam-mix.js"></script>
 <script src="/static/jam-amp.js"></script>

@@ -137,6 +137,7 @@ const Jam = (() => {
           <option value="rtc" ${link && link.mode === "rtc" ? "selected" : ""}>jako hovor (stabilnější)</option>
           <option value="native" ${link && link.mode === "native" ? "selected" : ""}>nativní engine (nejnižší zpoždění)</option></select></div>
       <div id="jam-nat-slot"></div>
+      <div id="jam-sb-slot"></div>
       <div class="jam-l"><span>Vyrovnávání</span><select id="jam-buf"><option value="auto">automaticky</option>${[1, 2, 3, 4, 6, 8, 12].map(q => `<option value="${q}" ${String(cfg.buf) === String(q) ? "selected" : ""}>${q} × 2,7 ms = ${(q * 2.67).toFixed(1).replace(".", ",")} ms</option>`).join("")}</select></div>
       <div class="jam-l"><span>Kamarád</span><input type="range" id="jam-vol" min="0" max="2" step="0.01" value="${cfg.vol ?? 1}"></div>
       <div class="jam-l"><span>Hlas kamaráda</span><input type="range" id="jam-vvol" min="0" max="1" step="0.01" value="${cfg.vvol ?? 1}"></div>
@@ -154,6 +155,8 @@ const Jam = (() => {
     q("jam-screen").onclick = async () => { try{ await link.setScreen(!link.local.screen); }catch(x){} paint(); };
     q("jam-mode").onchange = (e) => { link.setMode(e.target.value); link.wantNative = e.target.value === "native"; cfg.mode2 = e.target.value; keep(); natSlot(); };
     natSlot();
+    if(window.JamSonoBus) q("jam-sb-slot").replaceWith(JamSonoBus.box(st.sonobus, {toast: showToast,
+      onToggle: (v) => { applyFriend(); if(hookGuitar.put) hookGuitar.put(); showToast(v ? "Kytary teď jdou přes SonoBus — tady ztichly" : "Kytary zase jdou přes Pick Jam"); }}));
     // the engine's light: green with the delay when the native sound plays; a click shows tips
     if(window.JamNativeUI && JamNativeUI.pill){ if(!window.__jamPill) window.__jamPill = JamNativeUI.pill(() => link, {settings: () => { const m = q("jam-mode"); if(m) m.scrollIntoView({block: "center"}); }, offHelp: "Pick ho spouští sám — když neběží, restartuj Pick."}); q("jam-pill-slot").append(window.__jamPill); }
     q("jam-buf").onchange = (e) => { const v = e.target.value; cfg.buf = v; keep(); link.setBuffer(v === "auto" ? 3 : +v, v === "auto"); };
@@ -208,7 +211,8 @@ const Jam = (() => {
   // Pick's guitar as it sounds (print / NAM / effects) — again after every rewire of the guitar's chain
   function hookGuitar(){
     const g = Mixer.guitar;
-    const put = () => { const n = g.analyserNode && g.analyserNode(); link.setInput(n || null); };
+    const put = () => { const n = g.analyserNode && g.analyserNode(); link.setInput(sbOn() ? null : (n || null)); };
+    hookGuitar.put = put;
     put(); if(unhook) unhook(); unhook = g.onRewire ? g.onRewire(() => setTimeout(put, 0)) : null;
   }
   async function stopRoom(){
@@ -294,7 +298,9 @@ const Jam = (() => {
   }
 
   // ---- the friend's guitar as a strip in the mix, beside the live guitar: volume, pan, mute — for this Mac only
-  function applyFriend(){ if(!link) return; link.setVolume(cfg.fmute ? 0 : (cfg.vol ?? 1)); link.setPan(cfg.fpan || 0); }
+  // SonoBus carries the guitars: Pick Jam neither sends mine nor plays the friend's (not heard twice)
+  const sbOn = () => !!(window.JamSonoBus && JamSonoBus.on());
+  function applyFriend(){ if(!link) return; link.setVolume(cfg.fmute || sbOn() ? 0 : (cfg.vol ?? 1)); link.setPan(cfg.fpan || 0); }
   function jfHtml(){
     const v = cfg.vol ?? 1, p = cfg.fpan || 0;
     const db = v <= 0.01 ? "-∞" : (20 * Math.log10(v)).toFixed(1);

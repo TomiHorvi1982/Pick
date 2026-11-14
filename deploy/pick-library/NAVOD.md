@@ -60,6 +60,11 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - **Když zapneš jam**, knihovna mu do minuty ukáže „**Tomi právě hraje — Připojit se k jamu**“ a odkaz na neverlast.cz.
 - **Na příště** je i u tebe v Picku jako playlist ve Steems „**Jam — na příště**“. Co přidá kamarád nebo ty, objeví se na obou místech.
 
+## Taby, Pásek a SonoBus
+- **Taby** posílá Mac knihovně každých 10 minut (Guitar Pro / MusicXML z Picku, ke každé písni). Kamarád je vidí v záložce **Taby** i v **Pásku** (text, akordy a tab pod sebou, běží s písní), i když je Mac vypnutý. Hned je pošle **Vyzkoušet spojení**.
+- **SonoBus:** knihovna ukáže kamarádovi v Nastavení → Spojení tlačítko **Otevřít SonoBus** s vaší skupinou a heslem (Mac je posílá se stavem jamu).
+- Po aktualizaci (`git pull` a `docker compose … up -d --build`) má kamarád i **Hrát offline**: písně, které jednou otevřel, si zahraje i bez knihovny a Macu.
+
 ## Co je dobré vědět
 - Knihovna ukazuje to, co je na **kopii** karty. Nové písně z Macu se v ní objeví, až kopii aktualizuješ.
 - **Obaly písní** se ukážou jen u těch, které Pick už někdy dohledal (`chip-thumbs.json` v datech Picku). Jinak se místo nich zobrazí ikona.
