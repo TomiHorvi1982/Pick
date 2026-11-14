@@ -1043,49 +1043,29 @@
       + `<span class="muted" style="margin-left:auto">Tabulatura v Picku u ${esc(me.host)} živě: záložka „Pick (taby)“</span>`;
     $("tabBar").querySelectorAll("[data-t]").forEach(b => b.onclick = () => paintTabBar(TABS.list[+b.dataset.t]));
     if(!cur){ $("tabBody").innerHTML = `<div class="tcard"><b>K téhle písni žádné taby nemám.</b><span class="muted">Až ${esc(me.host)} v Picku otevře tab a klikne „Sdílet Pick“, uvidíš ho v záložce „Pick (taby)“.</span></div>`; return; }
-    if(cur.kind === "songsterr" && !cur.meta){
+    if(cur.kind === "songsterr"){
       $("tabBody").innerHTML = `<div class="tcard"><b>${esc(cur.name)}</b><span>Taby k téhle písni jsou na Songsterru — kytary, basa, bicí i ostatní nástroje, celá stránka. Otevřou se ti v nové kartě.</span>
         <a class="big" href="${esc(cur.url)}" target="_blank" rel="noopener">Otevřít taby na Songsterru ↗</a>
         <span class="muted">Taby přímo v Picku u ${esc(me.host)} (jak jdou s písní) uvidíš v záložce „Pick (taby)“, když je sdílí.</span></div>`;
       return;
     }
-    cur.kind === "songsterr" ? drawSongsterr(cur) : drawTabFile(cur);
+    drawTabFile(cur);
   }
-  const addScript = (src) => new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = src; sc.onload = res; sc.onerror = () => rej(new Error("Nepodařilo se načíst " + src)); document.head.appendChild(sc); });
-  // one tab drawn by alphaTab: a Guitar Pro file of the host's (bytes), or a Songsterr tab (a score made in this browser)
-  async function tabView(t, getScore){
-    $("tabBody").innerHTML = `<div class="muted" style="padding:20px">${t.kind === "songsterr" ? "Stahuju tab ze Songsterru…" : "Kreslím tab…"}</div>`;
+  async function drawTabFile(t){
+    $("tabBody").innerHTML = `<div class="muted" style="padding:20px">Kreslím tab…</div>`;
     try{
-      if(!window.alphaTab) await addScript("/static/alphatab/alphaTab.min.js");
-      const got = await getScore();
-      if(TABS.name !== (S && S.name)) return;
+      if(!window.alphaTab) await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "/static/alphatab/alphaTab.min.js"; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+      const buf = await (await api.raw(`/g/tabfile?name=${encodeURIComponent(S.name)}&path=${encodeURIComponent(t.path)}`)).arrayBuffer();
       $("tabBody").innerHTML = `<div style="display:flex;gap:6px;padding:8px 12px;align-items:center;background:#ece9e1;flex-wrap:wrap"><span style="font-size:12px">Nástroj:</span><select id="tabTrack"></select>
-        <button id="tabZo">−</button><button id="tabZi">+</button>${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px">Songsterr ↗</a>` : ""}</div>
-        ${got.note ? `<div class="muted" style="padding:6px 12px">${esc(got.note)}</div>` : ""}<div id="tabAt" style="padding:10px"></div>`;
+        <button id="tabZo">−</button><button id="tabZi">+</button></div><div id="tabAt" style="padding:10px"></div>`;
       const at = new alphaTab.AlphaTabApi($("tabAt"), {core: {fontDirectory: "/static/alphatab/font/", useWorkers: false}, display: {layoutMode: alphaTab.LayoutMode.Page, scale: store("tabScale") || 1}, player: {enablePlayer: false}});
       TABS.api = at;
       at.scoreLoaded.on((score) => { $("tabTrack").innerHTML = score.tracks.map((tr, i) => `<option value="${i}">${esc(tr.name || "Stopa " + (i + 1))}</option>`).join("") + `<option value="all">Všechny nástroje</option>`;
         $("tabTrack").onchange = (e) => at.renderTracks(e.target.value === "all" ? score.tracks : [score.tracks[+e.target.value]]); });
       const zoomBy = (d) => { const sc = Math.max(0.5, Math.min(2, (at.settings.display.scale || 1) + d)); at.settings.display.scale = sc; store("tabScale", sc); at.updateSettings(); at.render(); };
       $("tabZo").onclick = () => zoomBy(-0.1); $("tabZi").onclick = () => zoomBy(0.1);
-      if(got.bytes) at.load(got.bytes);
-      else { at.renderScore(got.score, [got.track || 0]); $("tabTrack").value = String(got.track || 0); }
-    }catch(e){
-      $("tabBody").innerHTML = `<div class="tcard"><b>Tab se nepodařilo vykreslit.</b><span class="muted">${esc(e.message || "")}</span>
-        ${t.url ? `<a class="big" href="${esc(t.url)}" target="_blank" rel="noopener">Otevřít taby na Songsterru ↗</a>` : ""}</div>`;
-    }
-  }
-  function drawTabFile(t){
-    return tabView(t, async () => ({bytes: new Uint8Array(await (await api.raw(`/g/tabfile?name=${encodeURIComponent(S.name)}&path=${encodeURIComponent(t.path)}`)).arrayBuffer())}));
-  }
-  // Songsterr: the host's Pick passes only where the tab is; this browser fetches its parts from Songsterr's CDN
-  function drawSongsterr(t){
-    return tabView(t, async () => {
-      if(!window.SongsterrTabs) await addScript("/static/songsterr-alphatab.js");
-      const got = await window.SongsterrTabs.load(t.meta);
-      const gtr = got.score.tracks.findIndex(tr => tr.playbackInfo.program >= 24 && tr.playbackInfo.program <= 31);   // a guitar first, not the vocals
-      return {score: got.score, track: Math.max(0, gtr), note: got.missing.length ? `Některé nástroje (${got.missing.length}) se ze Songsterru nepodařilo stáhnout.` : ""};
-    });
+      at.load(new Uint8Array(buf));
+    }catch(e){ $("tabBody").innerHTML = `<div class="tcard"><b>Tab se nepodařilo vykreslit.</b><span class="muted">${esc(e.message || "")}</span></div>`; }
   }
 
   // ---------------------------------------------------------------- the rest of the controls, the loop

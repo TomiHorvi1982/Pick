@@ -67,14 +67,6 @@ V Picku: **Nastavení → Jam → Knihovna na PC** → **Uložit** (adresa a kl�
 - Disk F: má málo volného místa (13 GB). Náhledy se proto ukládají do úložiště Dockeru na disku C:.
 - **Písně se připravují předem.** Po startu knihovna na pozadí postupně převede všechny stopy a náhledy (nejdřív ★ Na příště), aby kamarád na nic nečekal. Napoprvé to trvá asi 8–10 hodin a zabere kolem 55 GB na disku C:. Zabere nejvýš 65 GB (jde změnit proměnnou `PICK_CACHE_MAX_GB` v `.env`) a přestane i tehdy, když na disku Dockeru zbývá méně než 15 GB. Zbytek pak převede, až si o píseň kamarád řekne. Nové písně z kopie karty převede do půl hodiny. Kolik je hotovo, uvidíš v Picku v **Nastavení → Jam → Knihovna na PC → Vyzkoušet spojení**.
 
-## Taby ze Songsterru
-
-V záložce **Taby** vidí kamarád taby ze Songsterru přímo na stránce (všechny nástroje, výběr stopy, zoom), ne jen odkaz.
-- Mac jednou za deset minut pošle knihovně ke každé písni jen **odkaz** na její tab ze Songsterru (číslo písně, revize, složka na CDN, názvy stop). Nové písně dohledává po deseti, s pauzou.
-- Notaci si **stáhne kamarádův prohlížeč sám** přímo z CDN Songsterru a vykreslí ji (`static/songsterr-alphatab.js`, převodník ze [Songsterr Downloader](https://github.com/Metaphysics0/songsterr-downloader), MIT). Přes Pick ani knihovnu notace nejde a kontejner dál nemá cestu ven.
-- Taby se objeví u písní, ke kterým Pick na Macu tab ze Songsterru zná (katalog Pick Tabs). Když se tab nestáhne, zůstane tlačítko „Otevřít taby na Songsterru ↗“.
-- Převodník se znovu sestaví příkazem `tools/songsterr/build.sh <checkout songsterr-downloader>` (potřebuje `bun`).
-
 ## DJ na PC
 
 Po přihlášení je v hlavičce stránky tlačítko **DJ**: dva decky nad písněmi, které už mají stopy

@@ -247,22 +247,17 @@ def test_the_browser_playlists_covers_and_preview_need_the_friend(client, tmp_mu
     assert g.get("/g/art?k=secret-key&name=..%2Fx").status_code == 404
 
 
-def test_tabs_songsterr_as_a_reference_files_only_when_linked(client, monkeypatch, tmp_music_root):
+def test_tabs_songsterr_only_as_a_link_files_only_when_linked(client, monkeypatch, tmp_music_root):
     (tmp_music_root / "Stems" / "Band - Song").mkdir(parents=True)
     monkeypatch.setattr(jam, "_SONGS", {"at": time.time(), "rows": [{"name": "Band - Song", "artist": "Band", "title": "Song", "stems": ["drums"]}]})
     monkeypatch.setattr(jam, "_TABS", {"at": time.time(), "rows": [
         {"path": "songsterr:42", "ext": "songsterr", "name": "Band - Song", "artist": "Band", "title": "Song", "songsterr": {"songId": 42}},
         {"path": "/tabs/band-song.gp5", "ext": "gp5", "name": "Band - Song", "artist": "Band", "title": "Song"},
         {"path": "/tabs/other.gp5", "ext": "gp5", "name": "Other", "artist": "X", "title": "Other"}]})
-    ref = {"songId": 42, "revisionId": 1, "image": "v1", "title": "Song", "artist": "Band", "tracks": []}
-
-    async def meta(sid, fetch=True):                                # where the friend's browser fetches it from Songsterr
-        return ref if sid == 42 else None
-    monkeypatch.setattr(jam, "_ss_meta", meta)
     g = TestClient(jam.gate)
     assert g.get("/g/tabs?name=Band%20-%20Song").status_code == 403
     tabs = g.get("/g/tabs?k=secret-key&name=Band%20-%20Song").json()["tabs"]
-    assert tabs == [{"kind": "songsterr", "songsterr": 42, "name": "Band - Song", "url": "https://www.songsterr.com/a/wa/song?id=42", "meta": ref},
+    assert tabs == [{"kind": "songsterr", "songsterr": 42, "name": "Band - Song", "url": "https://www.songsterr.com/a/wa/song?id=42"},
                     {"kind": "file", "path": "/tabs/band-song.gp5", "name": "Band - Song"}]
     assert g.get("/g/tabfile?k=secret-key&name=Band%20-%20Song&path=%2Ftabs%2Fother.gp5").status_code == 404      # not this song's
 
@@ -318,36 +313,3 @@ def test_a_second_window_takes_over_and_the_first_is_told_not_to_come_back(clien
             with pytest.raises(WebSocketDisconnect) as gone:
                 first.receive_text()
             assert gone.value.code == 4409                                     # the page reads it: no reconnect, no ping-pong
-
-
-def test_songsterr_tabs_go_to_the_library_as_references(monkeypatch):
-    import asyncio as _a
-    rows = [{"name": "Band - Song", "stems": ["drums"], "meta": {"artist": "Band", "title": "Song"}}, {"name": "Other", "stems": ["bass"], "meta": {}}]
-    files = [{"ext": "songsterr", "name": "Band - Song", "title": "Song", "artist": "Band", "songsterr": {"songId": 7}}]
-    meta = {"songId": 7, "revisionId": 70, "image": "v0-3-2-abc", "title": "Song", "artist": "Band",
-            "tracks": [{"instrumentId": 30, "instrument": "Distortion Guitar", "name": "Lead", "tuning": [64, 59]}, {"instrumentId": 1024, "name": "Drums"}]}
-    asked = []
-
-    class R:
-        def __init__(self, body):
-            self.status_code, self._b = 200, body
-        def json(self):
-            return self._b
-
-    async def pick(path, params=None):
-        asked.append(path)
-        return R({"/api/stems": rows, "/api/tabfiles/list": {"files": files}}.get(path, meta))
-    monkeypatch.setattr(jam, "_pick", pick)
-    nap = _a.sleep
-    monkeypatch.setattr(jam.asyncio, "sleep", lambda s: nap(0))
-    jam._TABS.update(at=0.0, rows=[])
-    sent = []
-    monkeypatch.setattr(jam, "_lib_call", lambda method, path, body=None, timeout=15: sent.append((method, path, body)) or {})
-    jam.lib_tabs()
-    assert sent[0][:2] == ("PUT", "/sync/tabs")
-    body = sent[0][2]
-    assert body["songs"] == {"Band - Song": [{"sid": 7, "name": "Band - Song"}]}
-    tr = body["metas"]["7"]["tracks"]                                            # the CDN numbers parts by their place
-    assert [t["partId"] for t in tr] == [0, 1] and tr[1]["isDrums"] is True and body["metas"]["7"]["image"] == "v0-3-2-abc"
-    jam.lib_tabs()                                                                 # nothing changed: nothing sent, meta from the cache
-    assert len(sent) == 1 and asked.count("/api/tabs/meta/7") == 1

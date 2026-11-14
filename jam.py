@@ -17,7 +17,6 @@ import asyncio
 import hashlib
 import json
 import os
-import re
 import secrets
 import shutil
 import subprocess
@@ -34,8 +33,7 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC = APP_DIR / "static"
 GATE_PORT = int(os.environ.get("PICK_JAM_PORT") or 8766)        # tests run their own on another port
 GUEST_FILES = {"jam-engine.js": "text/javascript", "jam-worklet.js": "text/javascript", "jam-guest.js": "text/javascript", "jam-chat.js": "text/javascript", "jam-mix.js": "text/javascript", "jam-amp.js": "text/javascript",
-               "dj-core.js": "text/javascript", "dj.js": "text/javascript", "dj-library.js": "text/javascript",
-               "songsterr-alphatab.js": "text/javascript"}
+               "dj-core.js": "text/javascript", "dj.js": "text/javascript", "dj-library.js": "text/javascript"}
 # Pick DJ in the friend's page too (the same as in the library on the PC): put in by guest_page
 DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
 CHAT_KEEP = 300
@@ -1118,12 +1116,9 @@ async def g_preview(request: Request, name: str):
 
 
 # ---- the song's tabs: the host's own Guitar Pro files linked to it (sent, drawn on the friend's page), and the
-# Songsterr ones as a reference only (song, revision, its folder on Songsterr's CDN, the parts' names): the friend's
-# own browser fetches the notation from Songsterr's CDN and draws it (static/songsterr-alphatab.js) — the notation
-# itself never goes through Pick.
+# Songsterr ones only as a link — the friend opens them at Songsterr himself; their data is not passed on
 TAB_EXTS = {".gp", ".gp3", ".gp4", ".gp5", ".gpx", ".gp7", ".xml", ".musicxml", ".mxl"}
 _TABS: Dict = {"at": 0.0, "rows": []}
-_SS: Dict = {"meta": None, "path": None}           # songId → what the browser needs (beside jam.json); a revision never changes
 
 
 def _fold(t: str) -> str:
@@ -1131,70 +1126,14 @@ def _fold(t: str) -> str:
     return " ".join("".join(c for c in unicodedata.normalize("NFD", (t or "").lower()) if c.isalnum() or c == " ").split())
 
 
-def _ss_path() -> Path:
-    return CONF.parent / "songsterr-meta.json"
-
-
-def _ss_cache() -> dict:
-    if _SS["meta"] is None or _SS["path"] != _ss_path():
-        _SS["path"] = _ss_path()
-        try:
-            d = json.loads(_ss_path().read_text(encoding="utf-8"))
-            _SS["meta"] = d if isinstance(d, dict) else {}
-        except (OSError, ValueError):
-            _SS["meta"] = {}
-    return _SS["meta"]
-
-
-def ss_ref(m: dict) -> Optional[dict]:
-    """Songsterr's metadata of a song → the reference the friend's browser fetches the tab with. The CDN numbers the
-    parts by their place in the list."""
-    if not isinstance(m, dict) or not isinstance(m.get("songId"), int) or not isinstance(m.get("revisionId"), int):
-        return None
-    if not re.fullmatch(r"[\w.-]{1,80}", str(m.get("image") or "")):
-        return None
-    tracks = [{"partId": i, "instrumentId": t.get("instrumentId") if isinstance(t.get("instrumentId"), int) else 30,
-               "name": str(t.get("name") or t.get("instrument") or "")[:120], "title": str(t.get("instrument") or "")[:80],
-               "tuning": [n for n in (t.get("tuning") or []) if isinstance(n, int)][:12], "isDrums": t.get("instrumentId") == 1024}
-              for i, t in enumerate(m.get("tracks") or []) if isinstance(t, dict)][:40]
-    if not tracks:
-        return None
-    return {"songId": m["songId"], "revisionId": m["revisionId"], "image": m["image"],
-            "title": str(m.get("title") or "")[:200], "artist": str(m.get("artist") or "")[:200], "tracks": tracks}
-
-
-async def _ss_meta(sid: int, fetch: bool = True) -> Optional[dict]:
-    cache = _ss_cache()
-    if str(sid) in cache or not fetch:
-        return cache.get(str(sid))
-    r = await _pick(f"/api/tabs/meta/{sid}")
-    ref = ss_ref(r.json()) if r.status_code == 200 else None
-    if ref:
-        cache[str(sid)] = ref
-        _ss_path().parent.mkdir(parents=True, exist_ok=True)
-        _ss_path().write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-    return ref
-
-
-async def _tab_files() -> list:
+async def _tabs_of(name: str) -> list:
     if time.time() - _TABS["at"] > 300:
         r = await _pick("/api/tabfiles/list")
         _TABS.update(at=time.time(), rows=(r.json() if r.status_code == 200 else {}).get("files") or [])
-    return _TABS["rows"]
-
-
-async def _tabs_of(name: str) -> list:
-    out = _tab_hits(name, next((x for x in _SONGS["rows"] if x["name"] == name), None) or {}, await _tab_files())
-    for t in out:
-        if t["kind"] == "songsterr":
-            t["meta"] = await _ss_meta(t["songsterr"])
-    return out
-
-
-def _tab_hits(name: str, row: dict, files: list) -> list:
+    row = next((x for x in _SONGS["rows"] if x["name"] == name), None) or {}
     art, tit = _fold(row.get("artist", "").split(",")[0]), _fold(row.get("title", ""))
     out = []
-    for f in files:
+    for f in _TABS["rows"]:
         if not isinstance(f, dict):
             continue
         hit = name in (f.get("usedWith") or []) or (tit and _fold(f.get("title")) == tit and (not art or _fold(f.get("artist")) == art))
@@ -1434,42 +1373,6 @@ def lib_pcsongs() -> None:
     conf_save(lib_pc_sig=sig)
 
 
-SS_NEW_PER_RUN = 10                                   # Songsterr is a guest here: a few new songs each round, with a pause
-
-
-def lib_tabs() -> None:
-    """The songs' Songsterr tabs to the library (it cannot ask Songsterr itself): the reference of each, as the
-    friend's page during a jam gets it — only when it changed. A song's metadata not known yet is asked for, a few each time."""
-    async def collect():
-        r = await _pick("/api/stems")
-        rows = [{"name": x.get("name"), "artist": (x.get("meta") or {}).get("artist") or "", "title": (x.get("meta") or {}).get("title") or x.get("name")}
-                for x in (r.json() if r.status_code == 200 else []) if isinstance(x, dict) and x.get("stems")]
-        files = await _tab_files()
-        songs, want = {}, []
-        for row in rows:
-            hits = [{"sid": t["songsterr"], "name": t["name"]} for t in _tab_hits(row["name"], row, files) if t["kind"] == "songsterr"]
-            if hits:
-                songs[row["name"]] = hits
-                want += [h["sid"] for h in hits]
-        fetched = 0
-        for sid in dict.fromkeys(want):
-            if str(sid) not in _ss_cache() and fetched < SS_NEW_PER_RUN:
-                fetched += 1
-                try:
-                    await _ss_meta(sid)
-                except Exception:
-                    pass
-                await asyncio.sleep(2)
-        metas = {str(s): _ss_cache()[str(s)] for s in dict.fromkeys(want) if str(s) in _ss_cache()}
-        return {"songs": songs, "metas": metas}
-    body = asyncio.run(collect())
-    sig = hashlib.sha1(json.dumps(body, sort_keys=True).encode()).hexdigest()
-    if conf().get("lib_tabs_sig") == sig:
-        return
-    _lib_call("PUT", "/sync/tabs", body, timeout=120)
-    conf_save(lib_tabs_sig=sig)
-
-
 def _lib_loop() -> None:
     n = 0
     while True:
@@ -1480,7 +1383,7 @@ def _lib_loop() -> None:
                 lib_sync()
                 if n % 10 == 0:                     # every ten minutes is enough for these
                     lib_playlists()
-                    for step in (lib_engine, lib_covers, lib_pcsongs, lib_tabs):
+                    for step in (lib_engine, lib_covers, lib_pcsongs):
                         try:
                             step()
                         except Exception:
@@ -1527,7 +1430,7 @@ async def jam_library_test():
     try:
         st = await asyncio.to_thread(lib_status) or {}
         got = await asyncio.to_thread(lib_sync)
-        for step in (lib_playlists, lib_pcsongs, lib_engine, lib_covers, lib_tabs):
+        for step in (lib_playlists, lib_pcsongs, lib_engine, lib_covers):
             try:
                 await asyncio.to_thread(step)
             except Exception:

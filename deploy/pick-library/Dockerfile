@@ -14,7 +14,7 @@ COPY static/jam.html static/jam-landing.html static/pick-favicon.png static/jam-
 COPY static/jam-engine.js static/jam-worklet.js static/jam-guest.js static/jam-chat.js static/jam-mix.js static/jam-amp.js static/jam-sw.js /app/static/
 COPY static/stretch /app/static/stretch
 COPY static/landing /app/static/landing
-COPY static/dj-core.js static/dj.js static/dj-library.js static/songsterr-alphatab.js /app/static/
+COPY static/dj-core.js static/dj.js static/dj-library.js /app/static/
 COPY static/worklets/dj-deck.js /app/static/worklets/dj-deck.js
 COPY static/nam /app/static/nam
 COPY static/alphatab /app/static/alphatab
