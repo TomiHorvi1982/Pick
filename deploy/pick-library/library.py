@@ -45,7 +45,7 @@ JAM_URL = os.environ.get("PICK_JAM_URL") or "https://neverlast.cz"
 TOKEN = os.environ.get("PICK_SYNC_TOKEN") or ""
 STEM_NAMES = ["drums", "bass", "guitar", "guitar_rhythm", "guitar_solo", "vocals", "piano", "other"]
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".aiff", ".aif"}
-GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js"}
+GUEST_FILES = {"jam-engine.js", "jam-worklet.js", "jam-guest.js", "jam-chat.js", "jam-mix.js", "jam-amp.js", "songsterr-alphatab.js"}
 # Pick DJ: two decks over the separated songs (static/dj*.js), put into the page by page()
 DJ_FILES = ("dj-core.js", "dj.js", "dj-library.js")
 LIB_DIRS = {"stretch": STATIC / "stretch", "nam": STATIC / "nam", "alphatab": STATIC / "alphatab", "worklets": STATIC / "worklets", "landing": STATIC / "landing"}
@@ -1021,10 +1021,33 @@ def g_sections(request: Request, name: str):
 
 @app.get("/g/tabs")
 def g_tabs(request: Request, name: str):
+    """The song's Songsterr tabs, as the Mac sent them: a reference the friend's browser fetches the notation with
+    from Songsterr's CDN itself (this container has no way out, and the notation never goes through it)."""
     who, bad = _need(request)
     if bad:
         return bad
-    return {"tabs": []}
+    t = _read("tabs.json", {}) or {}
+    metas = t.get("metas") or {}
+    return {"tabs": [{"kind": "songsterr", "songsterr": h["sid"], "name": h["name"], "url": f"https://www.songsterr.com/a/wa/song?id={h['sid']}",
+                      "meta": metas.get(str(h["sid"]))} for h in (t.get("songs") or {}).get(name) or []]}
+
+
+def _tab_meta(m) -> Optional[dict]:
+    """One song's Songsterr reference from the Mac, checked: numbers are numbers, the CDN folder a plain name."""
+    if not isinstance(m, dict) or not all(isinstance(m.get(k), int) and not isinstance(m.get(k), bool) for k in ("songId", "revisionId")):
+        return None
+    if not re.fullmatch(r"[\w.-]{1,80}", str(m.get("image") or "")):
+        return None
+    tracks = []
+    for t in (m.get("tracks") or [])[:40]:
+        if isinstance(t, dict) and isinstance(t.get("partId"), int) and isinstance(t.get("instrumentId"), int):
+            tracks.append({"partId": t["partId"], "instrumentId": t["instrumentId"], "name": str(t.get("name") or "")[:120],
+                           "title": str(t.get("title") or "")[:80], "isDrums": bool(t.get("isDrums")),
+                           "tuning": [n for n in (t.get("tuning") or []) if isinstance(n, int)][:12]})
+    if not tracks:
+        return None
+    return {"songId": m["songId"], "revisionId": m["revisionId"], "image": m["image"], "title": str(m.get("title") or "")[:200],
+            "artist": str(m.get("artist") or "")[:200], "tracks": tracks}
 
 
 # ---------------------------------------------------------------- playlists and "Na příště"
@@ -1142,6 +1165,30 @@ async def sync_playlists(request: Request):
                          "kind": "dl" if x.get("kind") == "dl" else "own", "all": int(x.get("all") or len(lst)) if str(x.get("all") or "").isdigit() else len(lst)})
     _write("playlists.json", {"playlists": rows, "at": time.time()})
     return {"ok": True, "playlists": len(rows)}
+
+
+@app.put("/sync/tabs")
+async def sync_tabs(request: Request):
+    """The songs' Songsterr tabs from the Mac: for each song the tabs' song numbers, and each one's reference once."""
+    if not _token_ok(request):
+        return JSONResponse({"error": "Nepovoleno."}, status_code=403)
+    body = await request.json()
+    body = body if isinstance(body, dict) else {}
+    metas = {}
+    for k, m in list((body.get("metas") or {}).items())[:20000] if isinstance(body.get("metas"), dict) else []:
+        ok = _tab_meta(m)
+        if ok and str(ok["songId"]) == str(k):
+            metas[str(k)] = ok
+    songs = {}
+    for name, hits in list((body.get("songs") or {}).items())[:20000] if isinstance(body.get("songs"), dict) else []:
+        if not isinstance(name, str) or not name or "/" in name or ".." in name or not isinstance(hits, list):
+            continue
+        got = [{"sid": h["sid"], "name": " ".join(str(h.get("name") or "").split())[:160]} for h in hits[:10]
+               if isinstance(h, dict) and isinstance(h.get("sid"), int) and not isinstance(h.get("sid"), bool)]
+        if got:
+            songs[name] = got
+    _write("tabs.json", {"songs": songs, "metas": metas, "at": time.time()})
+    return {"ok": True, "songs": len(songs), "metas": len(metas)}
 
 
 @app.get("/sync/engine")

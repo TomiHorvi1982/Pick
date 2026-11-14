@@ -327,3 +327,23 @@ def test_into_the_jam_without_a_second_login(lib, monkeypatch):
     assert jam._sso_user(t) == "Pavel"
     assert jam._sso_user(t) is None                                       # a ticket goes in once
     assert jam._sso_user(t[:-1] + ("0" if t[-1] != "0" else "1")) is None  # signed by someone else: no
+
+
+def test_songsterr_tabs_from_the_mac_reach_the_friend_as_a_reference(lib):
+    mod, c = lib
+    n = "Band - Song [abcdefghijk]"
+    meta = {"songId": 7, "revisionId": 70, "image": "v0-3-2-abc_DEF", "title": "Song", "artist": "Band",
+            "tracks": [{"partId": 0, "instrumentId": 30, "name": "Lead", "tuning": [64, 59], "isDrums": False}]}
+    h = {"Authorization": f"Bearer {TOKEN}"}
+    m = TestClient(mod.app)
+    assert m.put("/sync/tabs", json={"songs": {n: [{"sid": 7, "name": "Band - Song"}]}, "metas": {"7": meta}}).status_code == 403
+    bad = {**meta, "songId": 8, "image": "../../x"}                                   # a CDN folder that is not a plain name
+    r = m.put("/sync/tabs", headers=h, json={"songs": {n: [{"sid": 7, "name": "Band - Song"}, {"sid": "x"}], "../x": [{"sid": 7}]},
+                                             "metas": {"7": meta, "8": bad}}).json()
+    assert r == {"ok": True, "songs": 1, "metas": 1}
+    assert c.get("/g/tabs", params={"name": n}).status_code == 403
+    c.post("/login", json={"name": "Pavel", "password": "kytara66"})
+    tabs = c.get("/g/tabs", params={"name": n}).json()["tabs"]
+    assert tabs == [{"kind": "songsterr", "songsterr": 7, "name": "Band - Song", "url": "https://www.songsterr.com/a/wa/song?id=7",
+                     "meta": {**meta, "tracks": [{**meta["tracks"][0], "title": ""}]}}]
+    assert c.get("/static/songsterr-alphatab.js").status_code == 200
